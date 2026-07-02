@@ -12,16 +12,18 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
-// RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
-type RaikoRequestProofBodyResponseV2 struct {
-	Data         *RaikoProofDataV2 `json:"data"`
-	ErrorMessage string            `json:"message"`
-	Error        string            `json:"error"`
-	ProofType    ProofType         `json:"proof_type"`
+// RaikoRequestProofBodyResponse represents the JSON body of the response of the proof requests.
+type RaikoRequestProofBodyResponse struct {
+	Data            *RaikoProofData `json:"data"`
+	ErrorMessage    string          `json:"message"`
+	Error           string          `json:"error"`
+	ProofType       ProofType       `json:"proof_type"`
+	ProposalIDStart uint64          `json:"proposal_id_start"`
+	ProposalIDEnd   uint64          `json:"proposal_id_end"`
 }
 
 // Validate validates the response of the proof requests.
-func (res *RaikoRequestProofBodyResponseV2) Validate() error {
+func (res *RaikoRequestProofBodyResponse) Validate() error {
 	if len(res.ErrorMessage) > 0 || len(res.Error) > 0 {
 		return fmt.Errorf(
 			"failed to get proof, err: %s, msg: %s, type: %s",
@@ -42,24 +44,17 @@ func (res *RaikoRequestProofBodyResponseV2) Validate() error {
 	}
 	// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 	if ProofTypeZKSP1 != res.ProofType &&
-		(res.Data.Proof == nil || len(res.Data.Proof.Proof) == 0) {
+		len(res.Data.Proof) == 0 {
 		return ErrEmptyProof
 	}
 
 	return nil
 }
 
-// RaikoProofDataV2 represents the JSON body of the response of the proof requests.
-type RaikoProofDataV2 struct {
-	Proof  *ProofDataV2 `json:"proof"`
-	Status string       `json:"status"`
-}
-
-// ProofDataV2 represents the JSON body of the response of the proof requests.
-type ProofDataV2 struct {
-	KzgProof string `json:"kzg_proof"`
-	Proof    string `json:"proof"`
-	Quote    string `json:"quote"`
+// RaikoProofData represents the JSON body of the response of the proof requests.
+type RaikoProofData struct {
+	Proof  string `json:"proof"`
+	Status string `json:"status"`
 }
 
 // raikoHTTPClient is the shared resty client used for all raiko HTTP requests.
