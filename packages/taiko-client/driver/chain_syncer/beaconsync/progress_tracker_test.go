@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -83,6 +84,18 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestLastSyncedVerifiedBlockHash() {
 	randomHash := testutils.RandomHash()
 	s.t.lastSyncedBlockHash = randomHash
 	s.Equal(randomHash, s.t.LastSyncedBlockHash())
+}
+
+func TestLastSyncProgress(t *testing.T) {
+	tracker := NewSyncProgressTracker(nil, time.Hour)
+	require.Nil(t, tracker.LastSyncProgress())
+
+	progress := &ethereum.SyncProgress{CurrentBlock: 1, HighestBlock: 2}
+	tracker.mutex.Lock()
+	tracker.lastSyncProgress = progress
+	tracker.mutex.Unlock()
+
+	require.Equal(t, progress, tracker.LastSyncProgress())
 }
 
 func TestBeaconSyncProgressTrackerTestSuite(t *testing.T) {
