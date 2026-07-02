@@ -181,6 +181,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_INVALID_CHAIN_ID();
     error SGX_NOT_REGISTRAR();
     error SGX_STALE_QUOTE();
+    error SGX_QUOTE_BLOCK_HASH_MISMATCH();
 
     constructor(
         uint64 _taikoChainId,
@@ -395,15 +396,16 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         // window. Both fields are bound to the verified enclave report by the body-hash check above.
         // Off by default (backward compatible); requires prover support to embed the block commitment.
         if (requireQuoteFreshness) {
-            uint256 quoteBlock =
-                uint256(uint64(bytes8(_rawQuote[REPORT_DATA_OFFSET + 20:REPORT_DATA_OFFSET + 28])));
+            uint64 quoteBlock =
+                uint64(bytes8(_rawQuote[REPORT_DATA_OFFSET + 20:REPORT_DATA_OFFSET + 28]));
             bytes32 quoteBlockHash =
                 bytes32(_rawQuote[REPORT_DATA_OFFSET + 28:REPORT_DATA_OFFSET + 60]);
             bytes32 actualBlockHash = blockhash(quoteBlock);
-            require(
-                actualBlockHash != bytes32(0) && actualBlockHash == quoteBlockHash,
-                SGX_STALE_QUOTE()
-            );
+            // A zero `blockhash` means the committed block is outside the most recent 256 (too old,
+            // or the current/a future block) — the quote is stale. A non-zero hash that does not
+            // match means the commitment is wrong. Split for on-chain diagnosability.
+            require(actualBlockHash != bytes32(0), SGX_STALE_QUOTE());
+            require(actualBlockHash == quoteBlockHash, SGX_QUOTE_BLOCK_HASH_MISMATCH());
         }
 
         // An owner-submitted registration is as trusted as `addInstances`, so it skips the validity

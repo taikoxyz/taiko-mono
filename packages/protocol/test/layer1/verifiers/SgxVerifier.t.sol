@@ -585,7 +585,8 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.registerInstance(quote);
     }
 
-    /// @dev With the gate on, a recent block number paired with a wrong hash is rejected.
+    /// @dev With the gate on, a recent block number paired with a wrong hash is rejected with the
+    /// dedicated mismatch error (distinct from the stale/out-of-window case).
     function test_registerInstance_RevertWhen_FreshQuoteHashMismatch() external {
         _trustStandardEnclave();
         verifier.toggleQuoteFreshnessCheck();
@@ -593,6 +594,37 @@ abstract contract SgxVerifierTestBase is Test {
         vm.roll(1000);
         uint64 bn = uint64(block.number - 1);
         bytes memory quote = _mockFreshQuote(address(0xC0FFEE), bn, bytes32(uint256(0xBAD)));
+        vm.expectRevert(SgxVerifier.SGX_QUOTE_BLOCK_HASH_MISMATCH.selector);
+        verifier.registerInstance(quote);
+    }
+
+    /// @dev The oldest in-window block (`block.number - 256`) still has a non-zero `blockhash`, so a
+    /// correct commitment to it is accepted — the exact freshness boundary.
+    function test_registerInstance_SucceedsAtOldestFreshBlock() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        vm.roll(1000);
+        uint64 bn = uint64(block.number - 256);
+        bytes32 bh = blockhash(bn);
+        assertTrue(bh != bytes32(0));
+
+        address instance = address(0xC0FFEE);
+        verifier.registerInstance(_mockFreshQuote(instance, bn, bh));
+        assertTrue(verifier.addressRegistered(instance));
+    }
+
+    /// @dev One block older than the window (`block.number - 257`) reads back a zero `blockhash` and
+    /// is rejected as stale.
+    function test_registerInstance_RevertWhen_JustOutsideFreshWindow() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        vm.roll(1000);
+        uint64 bn = uint64(block.number - 257);
+        assertEq(blockhash(bn), bytes32(0));
+
+        bytes memory quote = _mockFreshQuote(address(0xC0FFEE), bn, bytes32(uint256(0x1234)));
         vm.expectRevert(SgxVerifier.SGX_STALE_QUOTE.selector);
         verifier.registerInstance(quote);
     }
