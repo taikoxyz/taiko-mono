@@ -167,6 +167,16 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @param trusted Whether the value is trusted.
     event MrSignerUpdated(bytes32 indexed mrSigner, bool trusted);
 
+    /// @notice Emitted when a previously-trusted MRENCLAVE is permanently revoked (it can never be
+    /// re-trusted). Fires only on the trusted -> untrusted transition, alongside `MrEnclaveUpdated`.
+    /// @param mrEnclave The MRENCLAVE value.
+    event MrEnclaveRevoked(bytes32 indexed mrEnclave);
+
+    /// @notice Emitted when a previously-trusted MRSIGNER is permanently revoked (it can never be
+    /// re-trusted). Fires only on the trusted -> untrusted transition, alongside `MrSignerUpdated`.
+    /// @param mrSigner The MRSIGNER value.
+    event MrSignerRevoked(bytes32 indexed mrSigner);
+
     /// @notice Emitted when enforcement of the local enclave identity allowlist is toggled.
     /// @param checkLocalEnclaveReport Whether the allowlist is enforced.
     event LocalReportCheckToggled(bool checkLocalEnclaveReport);
@@ -243,6 +253,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             require(!revokedMrEnclave[_mrEnclave], SGX_MR_ENCLAVE_REVOKED());
         } else if (mrEnclaveState[_mrEnclave].trusted) {
             revokedMrEnclave[_mrEnclave] = true;
+            // Distinct from `MrEnclaveUpdated(_, false)` so off-chain monitoring can detect the
+            // permanent trusted -> revoked transition without diffing `revokedMrEnclave`.
+            emit MrEnclaveRevoked(_mrEnclave);
         }
         mrEnclaveState[_mrEnclave].trusted = _trusted;
         emit MrEnclaveUpdated(_mrEnclave, _trusted);
@@ -265,6 +278,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             require(!revokedMrSigner[_mrSigner], SGX_MR_SIGNER_REVOKED());
         } else if (trustedUserMrSigner[_mrSigner]) {
             revokedMrSigner[_mrSigner] = true;
+            // Distinct from `MrSignerUpdated(_, false)` so off-chain monitoring can detect the
+            // permanent trusted -> revoked transition without diffing `revokedMrSigner`.
+            emit MrSignerRevoked(_mrSigner);
         }
         trustedUserMrSigner[_mrSigner] = _trusted;
         emit MrSignerUpdated(_mrSigner, _trusted);

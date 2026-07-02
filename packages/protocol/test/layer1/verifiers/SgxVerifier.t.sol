@@ -475,6 +475,9 @@ abstract contract SgxVerifierTestBase is Test {
     /// re-trusted, so instances revoked by the removal can never be silently revived.
     function test_setMrEnclave_RevertWhen_ReTrustAfterUntrust() external {
         verifier.setMrEnclave(MR_ENCLAVE, true);
+        // Untrusting a trusted value emits the dedicated revocation event on the transition.
+        vm.expectEmit();
+        emit SgxVerifier.MrEnclaveRevoked(MR_ENCLAVE);
         verifier.setMrEnclave(MR_ENCLAVE, false);
         assertTrue(verifier.revokedMrEnclave(MR_ENCLAVE));
 
@@ -484,6 +487,8 @@ abstract contract SgxVerifierTestBase is Test {
 
     function test_setMrSigner_RevertWhen_ReTrustAfterUntrust() external {
         verifier.setMrSigner(MR_SIGNER, true);
+        vm.expectEmit();
+        emit SgxVerifier.MrSignerRevoked(MR_SIGNER);
         verifier.setMrSigner(MR_SIGNER, false);
         assertTrue(verifier.revokedMrSigner(MR_SIGNER));
 
@@ -499,6 +504,15 @@ abstract contract SgxVerifierTestBase is Test {
 
         verifier.setMrEnclave(MR_ENCLAVE, true); // still allowed
         assertTrue(verifier.trustedUserMrEnclave(MR_ENCLAVE));
+    }
+
+    /// @dev Symmetric to the MRENCLAVE case: untrusting a never-trusted MRSIGNER does not poison it.
+    function test_setMrSigner_UntrustWhenNeverTrustedDoesNotRevoke() external {
+        verifier.setMrSigner(MR_SIGNER, false);
+        assertFalse(verifier.revokedMrSigner(MR_SIGNER));
+
+        verifier.setMrSigner(MR_SIGNER, true); // still allowed
+        assertTrue(verifier.trustedUserMrSigner(MR_SIGNER));
     }
 
     /// @dev End-to-end: an instance revoked by untrusting its MRENCLAVE cannot be revived, because
