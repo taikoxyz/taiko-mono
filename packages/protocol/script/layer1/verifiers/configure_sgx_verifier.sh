@@ -30,10 +30,11 @@ Options:
   --toggle-check                Toggle local enclave report check
 
 Available Environments:
-  dev-ontake, dev-pacaya, dev-sgxgeth         - Development networks
-  hekla-ontake, hekla-pacaya, hekla-sgxgeth   - Hekla testnet
-  tolba-pacaya, tolba-sgxgeth                 - Tolba testnet
-  mainnet, mainnet-pacaya, mainnet-sgxgeth    - Mainnet
+  dev-ontake, dev-pacaya, dev-shasta, dev-sgxgeth         - Development networks
+  hekla-ontake, hekla-pacaya, hekla-sgxgeth               - Hekla testnet
+  tolba-pacaya, tolba-sgxgeth, tolba-shasta-sgxreth, tolba-shasta-sgxgeth - Tolba testnet
+  transition-pacaya-sgxreth, transition-pacaya-sgxgeth, transition-shasta-sgxreth, transition-shasta-sgxgeth - Transition network
+  mainnet, mainnet-pacaya, mainnet-sgxgeth, mainnet-shasta-sgxreth, mainnet-shasta-sgxgeth - Mainnet
 
 Examples:
   # Example from the original usage:
@@ -77,7 +78,7 @@ load_env() {
             export ATTESTATION_ADDRESS=0x00A9F4767a69cA3C219854ca1bfD5440930b2beD
             export PEM_CERTCHAIN_ADDRESS=0x795330bA9B6184E13eBb3A4253E00Adb665830F5
             ;;
-        dev-shasta-sgxgeth|dev-shasta-sgxgeth)
+        dev-shasta-sgxgeth)
             export SGX_VERIFIER_ADDRESS=0x6B455442C8C4cAC2e09c40409E8bf7FfcdB1Fc50
             export ATTESTATION_ADDRESS=0xef8AE6522678e44c0eE299d0835238CE5cb8c036
             export PEM_CERTCHAIN_ADDRESS=0x795330bA9B6184E13eBb3A4253E00Adb665830F5
@@ -107,18 +108,26 @@ load_env() {
             export ATTESTATION_ADDRESS=0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5
             export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
             ;;
-
+        transition-pacaya-sgxreth)
+            export SGX_VERIFIER_ADDRESS=0xf92b97Ac8C1D8bfCFCB26CFb153a36aDb99471EF
+            export ATTESTATION_ADDRESS=0xE653c998D42661c2F36aF74fd422333A3924066E
+            export PEM_CERTCHAIN_ADDRESS=0xd5d5Fb936141a7a08cf94b6e9E14882E5aA7E111
+            ;;
+        transition-pacaya-sgxgeth)
+            export SGX_VERIFIER_ADDRESS=0x17d9Ae481d901DDC08728E0B25307dAea1f8DE9D
+            export ATTESTATION_ADDRESS=0xF27440B4Bd3c9cabe858261F0BD500831ce7E1bD
+            export PEM_CERTCHAIN_ADDRESS=0xd5d5Fb936141a7a08cf94b6e9E14882E5aA7E111
+            ;;
         transition-shasta-sgxreth)
-            export SGX_VERIFIER_ADDRESS=0xF6c749514c65D16b244A46A6eA4F691f15241ad3
-            export ATTESTATION_ADDRESS=0xc5550fe3ae558a17176606F175E25e914d1508A6
-            export PEM_CERTCHAIN_ADDRESS=0xD54715229eeE62c39069a05c4c5902374727655E
+            export SGX_VERIFIER_ADDRESS=0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136
+            export ATTESTATION_ADDRESS=0xE653c998D42661c2F36aF74fd422333A3924066E
+            export PEM_CERTCHAIN_ADDRESS=0xd5d5Fb936141a7a08cf94b6e9E14882E5aA7E111
             ;;
         transition-shasta-sgxgeth)
-            export SGX_VERIFIER_ADDRESS=0xA7b19cd71553f9Cc1519963b6F98EEf3dB73d885
-            export ATTESTATION_ADDRESS=0x866931c1A49F5494cA3401e4622ebD1aCfE1dA0C
-            export PEM_CERTCHAIN_ADDRESS=0xD54715229eeE62c39069a05c4c5902374727655E
+            export SGX_VERIFIER_ADDRESS=0x7e6409e9b6c5e2064064a6cC994f9a2e95680782
+            export ATTESTATION_ADDRESS=0xF27440B4Bd3c9cabe858261F0BD500831ce7E1bD
+            export PEM_CERTCHAIN_ADDRESS=0xd5d5Fb936141a7a08cf94b6e9E14882E5aA7E111
             ;;
-
         mainnet|mainnet-ontake|mainnet-ontake-sgxreth)
             export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
             export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
@@ -134,13 +143,24 @@ load_env() {
             export ATTESTATION_ADDRESS=0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261
             export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
             ;;
+        mainnet-shasta-sgxreth)
+            export SGX_VERIFIER_ADDRESS=0xa1018ba2e22139076f91da2a856b2cab22d968f6
+            export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
+            export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
+            ;;
+        mainnet-shasta-sgxgeth)
+            export SGX_VERIFIER_ADDRESS=0x08568df252ecf37d6c3efd24f6ca3688118697f1
+            export ATTESTATION_ADDRESS=0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261
+            export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
+            ;;
         *)
             echo "Unknown environment: $1"
             echo "Available environments:"
-            echo "  dev: dev-ontake, dev-pacaya, dev-sgxgeth"
+            echo "  dev: dev-ontake, dev-pacaya, dev-shasta, dev-sgxgeth"
             echo "  hekla: hekla-ontake, hekla-pacaya, hekla-sgxgeth"
-            echo "  tolba: tolba-ontake, tolba-sgxgeth"
-            echo "  mainnet: mainnet, mainnet-pacaya, mainnet-sgxgeth"
+            echo "  tolba: tolba-pacaya, tolba-sgxgeth, tolba-shasta-sgxreth, tolba-shasta-sgxgeth"
+            echo "  transition: transition-pacaya-sgxreth, transition-pacaya-sgxgeth, transition-shasta-sgxreth, transition-shasta-sgxgeth"
+            echo "  mainnet: mainnet, mainnet-pacaya, mainnet-sgxgeth, mainnet-shasta-sgxreth, mainnet-shasta-sgxgeth"
             exit 1
             ;;
     esac
