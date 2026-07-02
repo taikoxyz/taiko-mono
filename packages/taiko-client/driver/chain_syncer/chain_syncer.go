@@ -99,13 +99,19 @@ func (s *L2ChainSyncer) Sync() error {
 		return nil
 	}
 
+	// If we have triggered a beacon sync and the L2 execution engine is still catching up
+	// on chain data, postpone event synchronization until it finishes. Index-only progress
+	// (see chainDataStillSyncing) does not postpone.
 	if s.progressTracker.Triggered() && !s.progressTracker.Finished() && !s.progressTracker.OutOfSync() {
-		progress, err := s.progressTracker.SyncProgress(s.ctx)
+		progress, err := s.rpc.L2.SyncProgress(s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch L2 execution engine sync progress: %w", err)
 		}
-		if progress != nil {
-			log.Info("L2 execution engine is still syncing, postpone event synchronization", "progress", progress)
+		if chainDataStillSyncing(progress) {
+			log.Info(
+				"L2 execution engine is still syncing chain data, postpone event synchronization",
+				"progress", progress,
+			)
 			return nil
 		}
 	}
@@ -175,6 +181,23 @@ func (s *L2ChainSyncer) Sync() error {
 // shouldEnablePreconfImports reports whether preconf imports can open after beacon sync.
 func shouldEnablePreconfImports(headL1OriginWritten bool, nextProposalID *big.Int) bool {
 	return headL1OriginWritten || (nextProposalID != nil && nextProposalID.Cmp(common.Big1) <= 0)
+}
+
+// chainDataStillSyncing reports whether the given sync progress indicates the L2 execution
+// engine is still downloading or executing chain data (block download or state healing).
+// `eth_syncing` also stays non-nil during the post-sync transaction / state index backfill
+// (`SyncProgress.Done` requires both indexes to finish), but chain data is already complete
+// then and event synchronization is safe to start, so index-only progress does not count.
+// The legacy fast-sync fields (`PulledStates` / `KnownStates`) are deliberately ignored:
+// they have been dead since go-ethereum v1.10 and taiko-geth's `eth_syncing` response
+// never populates them.
+func chainDataStillSyncing(progress *ethereum.SyncProgress) bool {
+	if progress == nil {
+		return false
+	}
+	return progress.CurrentBlock < progress.HighestBlock ||
+		progress.HealingTrienodes > 0 ||
+		progress.HealingBytecode > 0
 }
 
 // SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head.
