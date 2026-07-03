@@ -73,6 +73,21 @@ describe('isClaimBlockedByQuota', () => {
     );
   });
 
+  it('checks ETH quota with the zero address token', async () => {
+    vi.mocked(readContract).mockResolvedValue(99n);
+
+    await expect(isClaimBlockedByQuota(bridgeTx({ tokenType: TokenType.ETH }))).resolves.toBe(true);
+    expect(readContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        address: '0x1000010000000000000000000000000000000006',
+        chainId: 1,
+        functionName: 'availableQuota',
+        args: [zeroAddress, 0n],
+      }),
+    );
+  });
+
   it('returns false when quota is available', async () => {
     vi.mocked(readContract).mockResolvedValue(100n);
 

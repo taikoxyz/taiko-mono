@@ -14,7 +14,6 @@
     warningToast,
   } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import { isClaimBlockedByQuota } from '$libs/bridge/checkQuota';
   import type { BridgeTransaction } from '$libs/bridge/types';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
@@ -34,8 +33,9 @@
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
-  import { isMessageNotReceivedError, isQuotaManagerOutOfQuotaError } from './error';
+  import { isMessageNotReceivedError } from './error';
   import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from './mode';
+  import { claimWithQuotaGuard, showQuotaToastForClaimError } from './quota';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
@@ -55,8 +55,13 @@
   export let directClaim = false;
 
   export const handleClaimClick = async () => {
-    claiming = true;
-    await ClaimComponent.claim(ClaimAction.CLAIM, force, shouldSkipMessageStatusCheck(claimMode));
+    await claimWithQuotaGuard({
+      bridgeTx,
+      claim: () => ClaimComponent.claim(ClaimAction.CLAIM, force, shouldSkipMessageStatusCheck(claimMode)),
+      setClaiming: (value) => (claiming = value),
+      showQuotaReachedToast,
+      onQuotaCheckError: logQuotaCheckError,
+    });
   };
 
   let force = false;
@@ -140,16 +145,8 @@
     });
   };
 
-  const showQuotaToastIfClaimIsBlocked = async () => {
-    try {
-      if (await isClaimBlockedByQuota(bridgeTx)) {
-        showQuotaReachedToast();
-        return true;
-      }
-    } catch (quotaError) {
-      console.error('Failed to check claim quota', quotaError);
-    }
-    return false;
+  const logQuotaCheckError = (quotaError: unknown) => {
+    console.error('Failed to check claim quota', quotaError);
   };
 
   const handleClaimError = async (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
@@ -182,10 +179,13 @@
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
           });
-        } else if (isQuotaManagerOutOfQuotaError(err)) {
-          showQuotaReachedToast();
         } else {
-          if (!(await showQuotaToastIfClaimIsBlocked())) {
+          if (
+            !(await showQuotaToastForClaimError(err, bridgeTx, {
+              showQuotaReachedToast,
+              onQuotaCheckError: logQuotaCheckError,
+            }))
+          ) {
             showUnknownErrorToast();
           }
         }
