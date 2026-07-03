@@ -111,6 +111,9 @@ func (s *State) initL1Current(ctx context.Context, l2Head *types.Header) error {
 	// restart before the first event sync insertion, or a snapshot restore without
 	// L1Origin data). Derive the cursor from the head block's anchor instead of falling
 	// back to the activation block, which would rescan the whole proposal history.
+	// A preconfirmation-tip head is safe here: preconfirmation blocks carry the same
+	// Shasta extra-data layout, proposal IDs <= 1 resolve to the activation block inside
+	// ResetL1Current, and any derivation failure falls through to the previous fallback.
 	if headL1Origin == nil && l2Head.Number.Sign() > 0 {
 		resetErr := s.ResetL1Current(ctx, l2Head.Number)
 		if resetErr == nil {
