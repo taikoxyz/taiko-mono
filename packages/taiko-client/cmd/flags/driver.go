@@ -19,9 +19,10 @@ var (
 	}
 	P2PSyncTimeout = &cli.DurationFlag{
 		Name: "p2p.syncTimeout",
-		Usage: "P2P syncing timeout, if no sync progress is made within this time span, " +
-			"driver will stop the P2P sync and insert all remaining L2 blocks one by one",
-		Value:    1 * time.Hour,
+		Usage: "P2P syncing watchdog, if no sync progress at all is made within this time span " +
+			"(any progress resets it, it is not a total sync time budget), driver will stop " +
+			"the P2P sync and insert all remaining L2 blocks one by one",
+		Value:    72 * time.Hour,
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_SYNC_TIMEOUT"},
 	}
