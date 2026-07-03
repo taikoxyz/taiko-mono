@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -55,11 +54,10 @@ func New(
 	rpc *rpc.Client,
 	state *state.State,
 	p2pSync bool,
-	p2pSyncTimeout time.Duration,
 	blobServerEndpoint *url.URL,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*L2ChainSyncer, error) {
-	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
+	tracker := beaconsync.NewSyncProgressTracker(rpc.L2)
 	go tracker.Track(ctx)
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
@@ -107,7 +105,7 @@ func (s *L2ChainSyncer) Sync() error {
 	// If we have triggered a beacon sync and the L2 execution engine is still catching up
 	// on chain data, postpone event synchronization until it finishes. Index-only progress
 	// (see chainDataStillSyncing) does not postpone.
-	if s.progressTracker.Triggered() && !s.progressTracker.Finished() && !s.progressTracker.OutOfSync() {
+	if s.progressTracker.Triggered() && !s.progressTracker.Finished() {
 		progress, err := s.rpc.L2.SyncProgress(s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch L2 execution engine sync progress: %w", err)
@@ -131,7 +129,6 @@ func (s *L2ChainSyncer) Sync() error {
 		log.Info(
 			"Switch to insert pending proposals one by one",
 			"p2pEnabled", s.p2pSync,
-			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
 
 		if err := s.SetUpEventSync(blockIDToSync); err != nil {
@@ -204,16 +201,15 @@ func chainDataStillSyncing(progress *ethereum.SyncProgress) bool {
 // This method should only be called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	var headNumber = new(big.Int).SetUint64(blockIDToSync)
-	// Fall back to the live EE head when the tracker is OutOfSync, or when
-	// blockIDToSync is 0 (the Finished() short-circuit path) — otherwise
-	// HeaderByNumber(0) resolves to genesis and resets L1Current there.
-	if s.progressTracker.OutOfSync() || blockIDToSync == 0 {
+	// Fall back to the live EE head when blockIDToSync is 0 (the Finished()
+	// short-circuit path) — otherwise HeaderByNumber(0) resolves to genesis
+	// and resets L1Current there.
+	if blockIDToSync == 0 {
 		headNumber = nil
 	}
 	log.Info(
 		"Setting up event synchronization",
 		"blockIDToSync", blockIDToSync,
-		"outOfSync", s.progressTracker.OutOfSync(),
 		"headNumber", headNumber,
 	)
 	l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, headNumber)
@@ -286,7 +282,6 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 // 1. The `--p2p.sync` flag is set.
 // 2. The protocol's (last verified) block head is not zero.
 // 3. The L2 execution engine's chain is behind of the protocol's (latest verified) block head.
-// 4. The L2 execution engine's chain has met a sync timeout issue.
 func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 	// If the flag is not set or there was a finished beacon sync, we simply return false.
 	if !s.p2pSync || s.progressTracker.Finished() {
@@ -315,8 +310,7 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		return 0, false, nil
 	}
 
-	return head.BlockID.Uint64(), !s.AheadOfHeadToSync(head.BlockID.Uint64()) &&
-		!s.progressTracker.OutOfSync(), nil
+	return head.BlockID.Uint64(), !s.AheadOfHeadToSync(head.BlockID.Uint64()), nil
 }
 
 // BeaconSyncer returns the inner beacon syncer.

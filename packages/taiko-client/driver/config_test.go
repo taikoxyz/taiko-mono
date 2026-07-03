@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/urfave/cli/v2"
@@ -77,7 +76,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(l2EngineEndpoint, c.L2EngineEndpoint)
 		s.Equal(inbox, c.InboxAddress.String())
 		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
-		s.Equal(120*time.Second, c.P2PSyncTimeout)
 		s.Equal(uint64(8), c.HandoverSkipSlots)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
@@ -96,7 +94,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
-		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
@@ -153,7 +150,6 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.PreconfBlockServerJWTSecret.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
-		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},
 	}, p2pFlags.P2PFlags("PRECONFIRMATION"))
@@ -198,7 +194,6 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
-		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
