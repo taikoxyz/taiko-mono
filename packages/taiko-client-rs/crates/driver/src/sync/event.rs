@@ -138,17 +138,6 @@ fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_
     rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
-/// Select scanner start block when the resolved target proposal id is zero.
-///
-/// - If finalized-safe proposal id is zero, scanner can safely start from finalized L1 block.
-/// - Otherwise, keep genesis start to avoid skipping historical proposal events.
-fn resolve_zero_target_start_block(
-    finalized_safe_proposal_id: u64,
-    finalized_block_number: u64,
-) -> u64 {
-    if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
-}
-
 /// Resolve the target proposal id and finalized-safe proposal id, accounting for the
 /// finalized snapshot being unavailable on fresh chains.
 ///
@@ -170,19 +159,21 @@ fn resolve_target_with_optional_finalization(
 enum MissingBatchMappingFallback {
     /// Extract the scanner anchor from the resume head block itself.
     UseResumeHead,
-    /// Restart derivation from genesis.
-    GenesisReplay,
+    /// Restart derivation from proposal zero, scanning from the inbox activation block.
+    ReplayFromActivation,
 }
 
-/// Decide how to bootstrap when `last_block_id_by_batch_id(target)` has no answer.
+/// Decide how to bootstrap when no batch mapping exists for the target proposal.
 ///
 /// Blocks reached via checkpoint/P2P sync bypass derivation, so the engine's custom tables hold
 /// no rows for them and the lookup reports the match at head as uncertain. When the target is
 /// the resume head's own proposal, the resume head block substitutes for the mapped target
 /// block: it belongs to the target proposal, and every later proposal is included on L1 after
-/// that proposal's anchor. When the finalized bound rewound the target below the resume
-/// proposal, no local substitute exists and derivation restarts from genesis, which is safe
-/// because derivation is idempotent.
+/// that proposal's anchor. This arm also covers the genesis bootstrap, where the zero target
+/// resolves its anchor through the genesis block's activation fallback. When the finalized
+/// bound rewound the target below the resume proposal, no local substitute exists and
+/// derivation replays from the activation block instead — safe because derivation is
+/// idempotent and no proposal events exist before activation.
 fn resolve_missing_batch_mapping_fallback(
     target_proposal_id: u64,
     resume_proposal_id: u64,
@@ -190,7 +181,7 @@ fn resolve_missing_batch_mapping_fallback(
     if target_proposal_id == resume_proposal_id {
         MissingBatchMappingFallback::UseResumeHead
     } else {
-        MissingBatchMappingFallback::GenesisReplay
+        MissingBatchMappingFallback::ReplayFromActivation
     }
 }
 
@@ -1058,35 +1049,24 @@ where
             resume_number = resume_head_block.number(),
             "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
-        if target_proposal_id == 0 {
-            let start_block = finalized_snapshot.as_ref().map_or(0, |snapshot| {
-                resolve_zero_target_start_block(
-                    snapshot.finalized_safe_proposal_id,
-                    snapshot.block_number,
-                )
-            });
-            info!(
-                start_block,
-                finalized_safe_proposal_id,
-                finalized_block_number,
-                "resolved zero-target scanner start block",
-            );
-            return Ok(EventStreamStartPoint {
-                anchor_block_number: start_block,
-                initial_proposal_id: 0,
-                bootstrap_confirmed_tip: 0,
-            });
-        }
-
-        let target_block_number = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(target_proposal_id))
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        // Batch zero is the genesis boundary: the engine has no mapping for it and looking it up
+        // would trigger a full backward chain scan, so route it through the fallback arms below.
+        let target_block_number = if target_proposal_id == 0 {
+            None
+        } else {
+            self.rpc
+                .last_block_id_by_batch_id(U256::from(target_proposal_id))
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                .map(|block_number| block_number.to::<u64>())
+        };
 
         let (target_block, bootstrap_confirmed_tip) = match target_block_number {
+            // The mapped target block usually is the resume head itself; skip the refetch.
+            Some(block_number) if block_number == resume_head_block.header.number => {
+                (resume_head_block, block_number)
+            }
             Some(block_number) => {
-                let block_number = block_number.to::<u64>();
                 let block = self
                     .rpc
                     .l2_provider
@@ -1102,24 +1082,42 @@ where
                 match resolve_missing_batch_mapping_fallback(target_proposal_id, resume_proposal_id)
                 {
                     MissingBatchMappingFallback::UseResumeHead => {
-                        warn!(
-                            target_proposal_id,
-                            resume_number = resume_head_block.header.number,
-                            "batch mapping unavailable for resume-head proposal; extracting anchor \
-                         from the resume head block",
-                        );
+                        if target_proposal_id == 0 {
+                            info!(
+                                resume_number = resume_head_block.header.number,
+                                "bootstrapping event sync from the genesis resume head",
+                            );
+                        } else {
+                            warn!(
+                                target_proposal_id,
+                                resume_number = resume_head_block.header.number,
+                                "batch mapping unavailable for resume-head proposal; extracting \
+                                 anchor from the resume head block",
+                            );
+                        }
                         let resume_number = resume_head_block.header.number;
                         (resume_head_block, resume_number)
                     }
-                    MissingBatchMappingFallback::GenesisReplay => {
-                        warn!(
-                            target_proposal_id,
-                            resume_proposal_id,
-                            "batch mapping unavailable for finalized-bounded target; falling back \
-                         to genesis replay",
-                        );
+                    MissingBatchMappingFallback::ReplayFromActivation => {
+                        let anchor_block_number = self.activation_block_number().await?;
+                        if target_proposal_id == 0 {
+                            info!(
+                                resume_proposal_id,
+                                anchor_block_number,
+                                "no finalized proposal to resume from; replaying derivation from \
+                                 the activation block",
+                            );
+                        } else {
+                            warn!(
+                                target_proposal_id,
+                                resume_proposal_id,
+                                anchor_block_number,
+                                "batch mapping unavailable for finalized-bounded target; replaying \
+                                 derivation from the activation block",
+                            );
+                        }
                         return Ok(EventStreamStartPoint {
-                            anchor_block_number: 0,
+                            anchor_block_number,
                             initial_proposal_id: 0,
                             bootstrap_confirmed_tip: 0,
                         });
@@ -1128,11 +1126,6 @@ where
             }
         };
 
-        info!(
-            target_hash = ?target_block.hash(),
-            target_block_number = target_block.number(),
-            "determined target block for anchor extraction",
-        );
         let anchor_block_number =
             self.decode_anchor_block_number(&target_block, anchor_address).await?;
         info!(
@@ -1140,7 +1133,7 @@ where
             target_hash = ?target_block.hash(),
             target_number = target_block.number(),
             target_proposal_id,
-            "derived anchor block number from anchorV4 transaction",
+            "derived anchor block number from target block",
         );
         Ok(EventStreamStartPoint {
             anchor_block_number,
@@ -2091,18 +2084,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn zero_target_uses_finalized_block_when_finalized_safe_is_zero() {
-        let start_block = resolve_zero_target_start_block(0, 4_096);
-        assert_eq!(start_block, 4_096);
-    }
-
-    #[test]
-    fn zero_target_uses_genesis_when_finalized_safe_exists() {
-        let start_block = resolve_zero_target_start_block(17, 4_096);
-        assert_eq!(start_block, 0);
-    }
-
     // -- resolve_target_with_optional_finalization tests --
 
     #[test]
@@ -2171,10 +2152,26 @@ mod tests {
     }
 
     #[test]
-    fn missing_batch_mapping_replays_from_genesis_for_rewound_target() {
+    fn missing_batch_mapping_replays_from_activation_for_rewound_target() {
         assert_eq!(
             resolve_missing_batch_mapping_fallback(18_045, 18_058),
-            MissingBatchMappingFallback::GenesisReplay
+            MissingBatchMappingFallback::ReplayFromActivation
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_uses_resume_head_for_genesis_target() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(0, 0),
+            MissingBatchMappingFallback::UseResumeHead
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_replays_from_activation_for_zero_target_with_nonzero_resume() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(0, 7),
+            MissingBatchMappingFallback::ReplayFromActivation
         );
     }
 }
