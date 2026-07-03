@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
@@ -118,6 +119,11 @@ type Processor struct {
 	processingTxHashMu sync.Mutex
 
 	minFeeToProcess uint64
+
+	// minTipCap is the minimum tip cap (in wei) the tx manager enforces when
+	// sending transactions. The profitability estimate floors the suggested tip
+	// at this value so it reflects what the tx manager actually pays.
+	minTipCap *big.Int
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -267,6 +273,15 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	); err != nil {
 		return err
 	}
+
+	// Mirror the tx manager's minimum tip cap so the profitability estimate can
+	// floor the suggested tip at the same value the tx manager will pay.
+	minTipCap, err := eth.GweiToWei(cfg.TxmgrConfigs.MinTipCapGwei)
+	if err != nil {
+		return err
+	}
+
+	p.minTipCap = minTipCap
 
 	p.prover = prover
 	p.eventRepo = eventRepository

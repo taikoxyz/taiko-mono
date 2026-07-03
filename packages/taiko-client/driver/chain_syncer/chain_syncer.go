@@ -41,8 +41,12 @@ type L2ChainSyncer struct {
 	// the latest verified block head
 	p2pSync bool
 
-	// True after a beacon sync trigger until the first event sync writes head L1 origin.
-	postBeaconSyncPending bool
+	// True while preconfirmation block imports must stay disabled: from process start and
+	// from each beacon sync trigger, until event synchronization establishes a safe base
+	// (head L1 origin written, or no proposal created yet). Starting as true keeps the gate
+	// closed across driver restarts that land between a beacon sync and the first event
+	// sync insertion, when the L1 origin base is still missing.
+	preconfImportsPending bool
 }
 
 // New creates a new chain syncer instance.
@@ -65,13 +69,14 @@ func New(
 	}
 
 	return &L2ChainSyncer{
-		ctx:             ctx,
-		rpc:             rpc,
-		state:           state,
-		beaconSyncer:    beaconSyncer,
-		eventSyncer:     eventSyncer,
-		progressTracker: tracker,
-		p2pSync:         p2pSync,
+		ctx:                   ctx,
+		rpc:                   rpc,
+		state:                 state,
+		beaconSyncer:          beaconSyncer,
+		eventSyncer:           eventSyncer,
+		progressTracker:       tracker,
+		p2pSync:               p2pSync,
+		preconfImportsPending: true,
 	}, nil
 }
 
@@ -91,7 +96,7 @@ func (s *L2ChainSyncer) Sync() error {
 			log.Info("Mark preconfirmation block server as not ready to insert blocks")
 			s.preconfBlockServer.SetSyncReady(false)
 		}
-		s.postBeaconSyncPending = true
+		s.preconfImportsPending = true
 		if err := s.beaconSyncer.TriggerBeaconSync(blockIDToSync); err != nil {
 			return fmt.Errorf("trigger beacon sync error: %w", err)
 		}
@@ -99,13 +104,19 @@ func (s *L2ChainSyncer) Sync() error {
 		return nil
 	}
 
+	// If we have triggered a beacon sync and the L2 execution engine is still catching up
+	// on chain data, postpone event synchronization until it finishes. Index-only progress
+	// (see chainDataStillSyncing) does not postpone.
 	if s.progressTracker.Triggered() && !s.progressTracker.Finished() && !s.progressTracker.OutOfSync() {
-		progress, err := s.progressTracker.SyncProgress(s.ctx)
+		progress, err := s.rpc.L2.SyncProgress(s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch L2 execution engine sync progress: %w", err)
 		}
-		if progress != nil {
-			log.Info("L2 execution engine is still syncing, postpone event synchronization", "progress", progress)
+		if chainDataStillSyncing(progress) {
+			log.Info(
+				"L2 execution engine is still syncing chain data, postpone event synchronization",
+				"progress", progress,
+			)
 			return nil
 		}
 	}
@@ -128,22 +139,17 @@ func (s *L2ChainSyncer) Sync() error {
 		}
 	}
 
-	// Mark the preconfirmation block server as ready to insert blocks unless we are
-	// waiting for the first event sync to establish head L1 origin after beacon sync.
-	if s.preconfBlockServer != nil && !s.postBeaconSyncPending {
-		log.Info("Mark preconfirmation block server as ready to insert blocks")
-		s.preconfBlockServer.SetSyncReady(true)
-	}
-
 	// Insert the proposed proposals one by one.
 	if err := s.eventSyncer.ProcessL1Blocks(s.ctx); err != nil {
 		return err
 	}
 
-	// After beacon sync, enable preconf imports once event sync has established a safe base:
-	// either head L1 origin has been written, or no proposal has been created yet.
-	// This avoids importing cached forks before the L1 origin base exists for non-genesis chains.
-	if s.preconfBlockServer != nil && s.postBeaconSyncPending {
+	// Enable preconf imports once event sync has established a safe base: either head
+	// L1 origin has been written, or no proposal has been created yet. This avoids
+	// importing cached forks before the L1 origin base exists for non-genesis chains.
+	// The gate holds from process start and from each beacon sync trigger, so it is
+	// checked here, after event synchronization, rather than enabling unconditionally.
+	if s.preconfBlockServer != nil && s.preconfImportsPending {
 		headL1Origin, err := s.rpc.L2.HeadL1Origin(s.ctx)
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			return fmt.Errorf("failed to fetch head L1 origin after event sync: %w", err)
@@ -164,7 +170,7 @@ func (s *L2ChainSyncer) Sync() error {
 			if err := s.preconfBlockServer.ImportPendingBlocksFromCache(s.ctx); err != nil {
 				log.Warn("Failed to import pending preconfirmation blocks from cache, skip the import", "error", err)
 			}
-			s.postBeaconSyncPending = false
+			s.preconfImportsPending = false
 		} else {
 			log.Info("Head L1 origin not set after event sync, keep preconf imports disabled")
 		}
@@ -172,9 +178,26 @@ func (s *L2ChainSyncer) Sync() error {
 	return nil
 }
 
-// shouldEnablePreconfImports reports whether preconf imports can open after beacon sync.
+// shouldEnablePreconfImports reports whether preconf imports can open after event synchronization.
 func shouldEnablePreconfImports(headL1OriginWritten bool, nextProposalID *big.Int) bool {
 	return headL1OriginWritten || (nextProposalID != nil && nextProposalID.Cmp(common.Big1) <= 0)
+}
+
+// chainDataStillSyncing reports whether the given sync progress indicates the L2 execution
+// engine is still downloading or executing chain data (block download or state healing).
+// `eth_syncing` also stays non-nil during the post-sync transaction / state index backfill
+// (`SyncProgress.Done` requires both indexes to finish), but chain data is already complete
+// then and event synchronization is safe to start, so index-only progress does not count.
+// The legacy fast-sync fields (`PulledStates` / `KnownStates`) are deliberately ignored:
+// they have been dead since go-ethereum v1.10 and taiko-geth's `eth_syncing` response
+// never populates them.
+func chainDataStillSyncing(progress *ethereum.SyncProgress) bool {
+	if progress == nil {
+		return false
+	}
+	return progress.CurrentBlock < progress.HighestBlock ||
+		progress.HealingTrienodes > 0 ||
+		progress.HealingBytecode > 0
 }
 
 // SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head.

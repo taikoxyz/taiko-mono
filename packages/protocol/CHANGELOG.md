@@ -1,5 +1,39 @@
 # Changelog
 
+## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
+
+> Released from the `taiko-alethia-protocol-v3.0.0` branch (tag: [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v3.1.0)). This release consists of the security hardening and recovery changes made in response to the June 2026 mainnet incident.
+
+
+### Features
+
+* **protocol:** port hack recovery hooks to v3 ([#21820](https://github.com/taikoxyz/taiko-mono/issues/21820)) ([741c93b](https://github.com/taikoxyz/taiko-mono/commit/741c93b9c7a413fd00870148c7d32e7a200d0028))
+* **protocol:** designated pauser address for SignalService and Bridge ([#21816](https://github.com/taikoxyz/taiko-mono/issues/21816)) ([cc76bec](https://github.com/taikoxyz/taiko-mono/commit/cc76bec9442ca1f3d21850c2bbd97221d16ca8f8))
+* **protocol:** restore Ether withdrawal quota in Bridge ([#21821](https://github.com/taikoxyz/taiko-mono/issues/21821)) ([9f3b307](https://github.com/taikoxyz/taiko-mono/commit/9f3b3077a5793e5ea712833e2be2215549256864))
+* **protocol:** restore QuotaManager for ERC20Vault withdrawal quota ([#21828](https://github.com/taikoxyz/taiko-mono/issues/21828)) ([27a3e36](https://github.com/taikoxyz/taiko-mono/commit/27a3e36e3a7cd0655d6e85dbe0cc0f9f561b6c93))
+* **protocol:** gate Bridge `receive()` to the pauser ([#21837](https://github.com/taikoxyz/taiko-mono/issues/21837)) ([6f05f94](https://github.com/taikoxyz/taiko-mono/commit/6f05f94054c8ddc5117c8692202b183c7c13ee43))
+* **protocol:** disable forced inclusion submission and add hack recovery deploy script ([#21847](https://github.com/taikoxyz/taiko-mono/issues/21847)) ([b736086](https://github.com/taikoxyz/taiko-mono/commit/b7360869631942ad8b681f644e602d5812c58933))
+* **protocol:** use audited upstream Automata DCAP attestation code with DEBUG enclave rejection ([#21827](https://github.com/taikoxyz/taiko-mono/issues/21827)) ([add6e28](https://github.com/taikoxyz/taiko-mono/commit/add6e2862343d3f71278b47da2093da6501ad03b))
+
+
+### Bug Fixes
+
+* **protocol:** disable permissionless inbox proving and proposing ([#21805](https://github.com/taikoxyz/taiko-mono/issues/21805)) ([fd8a698](https://github.com/taikoxyz/taiko-mono/commit/fd8a69852580340ecab8c2298a6af2110a9f177a))
+* **protocol:** reject DEBUG SGX instances ([#21822](https://github.com/taikoxyz/taiko-mono/issues/21822)) ([32abaf7](https://github.com/taikoxyz/taiko-mono/commit/32abaf7465dbaef7b006c1da65966efdb533c7e3))
+* **protocol:** prevent quota issuance overflow in QuotaManager ([#21841](https://github.com/taikoxyz/taiko-mono/issues/21841)) ([f3f4295](https://github.com/taikoxyz/taiko-mono/commit/f3f429593e1cfa7df7f285e6be51694bdabd9da6))
+* **protocol:** remove `_nextProposalId` and `_lastProposalBlockId` from `Inbox.init2` ([#21838](https://github.com/taikoxyz/taiko-mono/issues/21838)) ([7501994](https://github.com/taikoxyz/taiko-mono/commit/7501994ac259bda468582e00394c3b09ea18533a))
+
+
+### Chores
+
+* **protocol:** align mainnet `LibL1Addrs` with main (drop unused `LEGACY_PACAYA_INBOX`) ([#21844](https://github.com/taikoxyz/taiko-mono/issues/21844)) ([632c0e1](https://github.com/taikoxyz/taiko-mono/commit/632c0e1133aeec51c293deb022c000d4c91db305))
+* **protocol:** fill `QUOTA_MANAGER` address in mainnet `LibL1Addrs` ([#21858](https://github.com/taikoxyz/taiko-mono/issues/21858)) ([1042230](https://github.com/taikoxyz/taiko-mono/commit/10422300f77f1ca2b7060ec5d68cf69c1dcee149))
+* **protocol:** bump solady v0.1.26, risc0-ethereum v3.0.1, sp1-contracts v6.1.1 ([#21819](https://github.com/taikoxyz/taiko-mono/issues/21819)) ([3f1df1c](https://github.com/taikoxyz/taiko-mono/commit/3f1df1cde16d63a032b4dba8670338d3dab31d93))
+
+## [3.0.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.3.0...taiko-alethia-protocol-v3.0.0) (2026-04-02)
+
+> This release introduces the **Shasta** fork of the Taiko Alethia protocol, a major upgrade over the previous Pacaya fork. It was developed and released from the `taiko-alethia-protocol-v3.0.0` branch; see the [v3.0.0 release](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v3.0.0) and the branch history for the full change list.
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.2.0...taiko-alethia-protocol-v2.3.0) (2025-05-06)
 
 

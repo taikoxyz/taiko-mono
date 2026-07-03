@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -107,8 +108,45 @@ func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 	s.NotNil(s.s.EventSyncer())
 }
 
+func (s *ChainSyncerTestSuite) TestPreconfImportsPendingOnStart() {
+	// The preconf import gate must start closed, so that a driver restart landing
+	// between a beacon sync and the first event sync insertion can not re-open
+	// imports while the head L1 origin base is still missing.
+	s.True(s.s.preconfImportsPending)
+}
+
 func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
+}
+
+func TestChainDataStillSyncing(t *testing.T) {
+	tests := []struct {
+		name     string
+		progress *ethereum.SyncProgress
+		want     bool
+	}{
+		{"notSyncing", nil, false},
+		{"blockDownloadInProgress", &ethereum.SyncProgress{CurrentBlock: 1, HighestBlock: 2}, true},
+		{"stateHealInProgress", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, HealingTrienodes: 5}, true},
+		{"bytecodeHealInProgress", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, HealingBytecode: 1}, true},
+		{
+			"txIndexBackfillOnly",
+			&ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, TxIndexRemainingBlocks: 100},
+			false,
+		},
+		{
+			"stateIndexBackfillOnly",
+			&ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, StateIndexRemaining: 7},
+			false,
+		},
+		{"chainDataComplete", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, chainDataStillSyncing(tt.progress))
+		})
+	}
 }
 
 func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
@@ -118,6 +156,7 @@ func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
 
 	syncer := &L2ChainSyncer{
 		ctx:             context.Background(),
+		rpc:             &rpc.Client{L2: l2Client},
 		progressTracker: tracker,
 	}
 
@@ -131,14 +170,18 @@ func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
 func newSyncingEthClient(t *testing.T) *rpc.EthClient {
 	t.Helper()
 
+	// NOTE: the handler runs on the HTTP server's goroutine, where t.Fatalf / require
+	// (testing.T.FailNow) must not be used; report failures with t.Errorf instead.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
-
 		var req struct {
 			ID     json.RawMessage `json:"id"`
 			Method string          `json:"method"`
 		}
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("failed to decode RPC request: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		var result any
 		switch req.Method {
@@ -151,14 +194,18 @@ func newSyncingEthClient(t *testing.T) *rpc.EthClient {
 				"highestBlock":  "0x2",
 			}
 		default:
-			t.Fatalf("unexpected RPC method: %s", req.Method)
+			t.Errorf("unexpected RPC method: %s", req.Method)
+			http.Error(w, "unexpected RPC method", http.StatusInternalServerError)
+			return
 		}
 
-		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"jsonrpc": "2.0",
 			"id":      req.ID,
 			"result":  result,
-		}))
+		}); err != nil {
+			t.Errorf("failed to encode RPC response: %v", err)
+		}
 	}))
 	t.Cleanup(server.Close)
 
