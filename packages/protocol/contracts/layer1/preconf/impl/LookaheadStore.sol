@@ -646,9 +646,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
-            payload: abi.encode(_lookahead),
-            slasher: lookaheadSlasher
+            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
         });
     }
 
@@ -672,12 +670,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     error OperatorHasNotOptedIn();
     error OperatorHasNotRegistered();
     error OperatorHasUnregistered();
-    error PosterHasBeenSlashed();
-    error PosterHasInsufficientCollateral();
-    error PosterHasNotOptedIn();
-    error PosterHasUnregistered();
     error ProposerIsNotPreconfer();
     error ProposerIsNotFallbackPreconfer();
-    error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 }

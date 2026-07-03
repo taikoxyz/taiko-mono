@@ -9,13 +9,16 @@ import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
+import "./LookaheadSlasher_Layout.sol"; // DO NOT DELETE
+
 /// @title LookaheadSlasher
-/// @dev This is a stateless contract intended to be delegatecall-ed to by a URC slasher entrypoint
 /// @custom:security-contact security@taiko.xyz
-contract LookaheadSlasher is ILookaheadSlasher {
+contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     address public immutable urc;
     address public immutable lookaheadStore;
     uint256 public immutable slashAmount;
+
+    uint256[50] private __gap;
 
     constructor(address _urc, address _lookaheadStore, uint256 _slashAmount) {
         urc = _urc;
@@ -23,20 +26,23 @@ contract LookaheadSlasher is ILookaheadSlasher {
         slashAmount = _slashAmount;
     }
 
-    /// @inheritdoc ILookaheadSlasher
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
+    /// @inheritdoc ISlasher
     function slash(
-        ISlasher.Commitment calldata _commitment,
-        bytes calldata _evidence
+        Delegation calldata, /*_delegation*/
+        Commitment calldata _commitment,
+        address, /*_committer*/
+        bytes calldata _evidence,
+        address /*_challenger*/
     )
         external
-        view
+        nonReentrant
+        onlyFrom(urc)
         returns (uint256)
     {
-        require(
-            _commitment.commitmentType == LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
-            InvalidCommitmentType()
-        );
-
         // Todo: move to calldata
         ILookaheadStore.LookaheadSlot[] memory lookaheadSlots =
             abi.decode(_commitment.payload, (ILookaheadStore.LookaheadSlot[]));
@@ -277,16 +283,4 @@ contract LookaheadSlasher is ILookaheadSlasher {
             z.offset := add(zOuterOffset, 0x20)
         }
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidCommitmentType();
-    error InvalidLookaheadSlotsIndex();
-    error InvalidRegistrationProofValidator();
-    error LookaheadHashMismatch();
-    error PreconfValidatorIsSameAsBeaconValidator();
-    error PreconfValidatorIsNotRegistered();
-    error RegistrationRootMismatch();
 }
