@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
