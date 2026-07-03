@@ -244,6 +244,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.ignoredMsgHashes = cfg.IgnoredMsgHashes
 
 	slog.Info("minFeeToIndex", "minFeeToIndex", i.minFeeToIndex)
+	slog.Info("ignoredMsgHashes loaded", "count", len(i.ignoredMsgHashes))
 
 	return nil
 }

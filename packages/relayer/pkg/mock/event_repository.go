@@ -35,6 +35,10 @@ func NewEventRepository() *EventRepository {
 	}
 }
 
+func (r *EventRepository) SavedCount() int {
+	return len(r.events)
+}
+
 func (r *EventRepository) Close() error {
 	return nil
 }

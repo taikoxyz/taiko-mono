@@ -160,7 +160,7 @@ func parseIgnoredMsgHashes(value string) (map[common.Hash]struct{}, error) {
 			continue
 		}
 
-		hexHash := strings.TrimPrefix(msgHash, "0x")
+		hexHash := strings.TrimPrefix(strings.ToLower(msgHash), "0x")
 		if len(hexHash) != common.HashLength*2 {
 			return nil, fmt.Errorf("invalid ignoredMsgHashes value %q: expected 32-byte hex hash", msgHash)
 		}

@@ -114,3 +114,71 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.IgnoredMsgHashes.Name, ignoredMsgHash,
 	}))
 }
+
+func Test_parseIgnoredMsgHashes(t *testing.T) {
+	hashA := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	hashB := "0x0000000000000000000000000000000000000000000000000000000000000002"
+
+	tests := []struct {
+		name      string
+		value     string
+		want      []common.Hash
+		wantError bool
+	}{
+		{
+			name:  "empty",
+			value: "",
+		},
+		{
+			name:  "whitespace",
+			value: " \t ",
+		},
+		{
+			name:  "comma separated multi hash",
+			value: hashA + "," + hashB,
+			want:  []common.Hash{common.HexToHash(hashA), common.HexToHash(hashB)},
+		},
+		{
+			name:  "duplicate collapse",
+			value: hashA + "," + hashA,
+			want:  []common.Hash{common.HexToHash(hashA)},
+		},
+		{
+			name:  "uppercase prefix",
+			value: "0X0000000000000000000000000000000000000000000000000000000000000001",
+			want:  []common.Hash{common.HexToHash(hashA)},
+		},
+		{
+			name:      "wrong length",
+			value:     "0x1",
+			wantError: true,
+		},
+		{
+			name:      "non hex",
+			value:     "0xzz00000000000000000000000000000000000000000000000000000000000000",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseIgnoredMsgHashes(tt.value)
+			if tt.wantError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+
+			if len(tt.want) == 0 {
+				assert.Nil(t, got)
+				return
+			}
+
+			assert.Len(t, got, len(tt.want))
+			for _, want := range tt.want {
+				assert.Contains(t, got, want)
+			}
+		})
+	}
+}

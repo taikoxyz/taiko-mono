@@ -52,9 +52,10 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 }
 
 func TestHandleMessageProcessedEventSkipsIgnoredMessageHash(t *testing.T) {
-	ignoredHash := common.HexToHash("0x1")
+	ignoredHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
 	i, b := newTestService(Sync, Filter)
 	mockBridge := b.(*mock.Bridge)
+	eventRepo := i.eventRepo.(*mock.EventRepository)
 	i.eventName = relayer.EventNameMessageProcessed
 	i.srcChainId = big.NewInt(1)
 	i.ignoredMsgHashes = map[common.Hash]struct{}{
@@ -76,4 +77,5 @@ func TestHandleMessageProcessedEventSkipsIgnoredMessageHash(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, mockBridge.IsMessageSentCalls)
+	assert.Equal(t, 0, eventRepo.SavedCount())
 }
