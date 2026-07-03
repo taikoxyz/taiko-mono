@@ -2,9 +2,10 @@
 //!
 //! The sync target is read trustlessly from the L1 inbox core state
 //! (`lastFinalizedProposalId` / `lastFinalizedBlockHash`) at the finalized L1 block, so the
-//! target is final on both layers. The optional checkpoint node only serves block bodies:
-//! every fetched block is verified against the L1-recorded hash before submission, and the
-//! execution engine backfills its hash-linked ancestors over P2P.
+//! target is final on both layers. The optional checkpoint node only serves block bodies and is
+//! consulted only when the target body is not already stored locally: every fetched block is
+//! verified against the L1-recorded hash before submission, and the execution engine backfills
+//! its hash-linked ancestors over P2P.
 
 use std::{sync::Arc, time::Duration};
 
@@ -109,10 +110,10 @@ where
         })
     }
 
-    /// Submit a proof-finalized block body to the local execution engine, starting or advancing
-    /// the engine's backfill toward it.
+    /// Submit a proof-finalized block body (from either the local store or the checkpoint node)
+    /// to the execution engine, starting or advancing the engine's backfill toward it.
     #[instrument(skip(self, block), level = "debug")]
-    async fn submit_remote_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
+    async fn submit_target_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
         let block_number = block.header.number;
         let block_hash = block.hash();
         let tx_root = block.header.transactions_root;
@@ -279,42 +280,64 @@ where
                 break Ok(());
             }
 
-            let block = match checkpoint_provider.get_block_by_hash(target.block_hash).full().await
-            {
-                Ok(Some(block)) => {
-                    checkpoint_seen_once = true;
-                    block.map_transactions(|tx: RpcTransaction| tx.into())
-                }
-                Ok(None) => {
-                    checkpoint_seen_once = true;
-                    warn!(
-                        target_proposal_id = target.proposal_id,
-                        target_hash = ?target.block_hash,
-                        "checkpoint node does not have the finalized target block; retrying"
-                    );
-                    continue;
-                }
-                Err(err) => {
-                    let err = resolve_checkpoint_poll_error(
-                        checkpoint_seen_once,
-                        SyncError::CheckpointQuery(RpcClientError::from(err)),
-                    )?;
-                    warn!(
-                        error = %err,
-                        "failed to fetch finalized target block from checkpoint node; retrying"
-                    );
-                    continue;
-                }
+            // Prefer a locally stored body: after a routine restart the target is usually
+            // already canonical, and any locally available copy keeps this stage independent
+            // of checkpoint availability. Trust comes from hashing to the L1-recorded value,
+            // not from the body's source.
+            let local_body =
+                match self.rpc.l2_provider.get_block_by_hash(target.block_hash).full().await {
+                    Ok(block) => {
+                        block.map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+                    }
+                    Err(err) => {
+                        warn!(
+                            target_hash = ?target.block_hash,
+                            error = %err,
+                            "failed to query local engine for the finalized target body; retrying"
+                        );
+                        continue;
+                    }
+                };
+
+            let block = match local_body {
+                Some(block) => block,
+                None => match checkpoint_provider.get_block_by_hash(target.block_hash).full().await
+                {
+                    Ok(Some(block)) => {
+                        checkpoint_seen_once = true;
+                        block.map_transactions(|tx: RpcTransaction| tx.into())
+                    }
+                    Ok(None) => {
+                        checkpoint_seen_once = true;
+                        warn!(
+                            target_proposal_id = target.proposal_id,
+                            target_hash = ?target.block_hash,
+                            "checkpoint node does not have the finalized target block; retrying"
+                        );
+                        continue;
+                    }
+                    Err(err) => {
+                        let err = resolve_checkpoint_poll_error(
+                            checkpoint_seen_once,
+                            SyncError::CheckpointQuery(RpcClientError::from(err)),
+                        )?;
+                        warn!(
+                            error = %err,
+                            "failed to fetch finalized target block from checkpoint node; retrying"
+                        );
+                        continue;
+                    }
+                },
             };
 
-            // Never trust the checkpoint response: the body must hash to the L1-recorded value.
-            // The engine re-checks this on newPayload, but verifying here keeps a lying
-            // checkpoint node a retryable condition instead of a fatal INVALID.
+            // Never trust the body source: it must hash to the L1-recorded value. The engine
+            // re-checks this on newPayload, but verifying here keeps a bad source a retryable
+            // condition instead of a fatal INVALID.
             if block.header.inner.hash_slow() != target.block_hash {
                 warn!(
                     target_proposal_id = target.proposal_id,
                     target_hash = ?target.block_hash,
-                    "checkpoint node returned a block that does not hash to the L1 checkpoint; retrying"
+                    "fetched target block does not hash to the L1 checkpoint; retrying"
                 );
                 continue;
             }
@@ -362,7 +385,7 @@ where
                 target_block_number, local_head, "syncing execution engine toward finalized target"
             );
 
-            match self.submit_remote_block(block).await {
+            match self.submit_target_block(block).await {
                 Ok(()) => DriverMetrics::beacon_sync_remote_submissions_total().inc(),
                 // An INVALID verdict is not transient: the block hashes to the L1 checkpoint yet
                 // the engine rejects it, which needs operator attention rather than retries.
