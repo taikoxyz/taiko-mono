@@ -821,7 +821,7 @@ dependencies = [
  "derive_more",
  "ethereum_ssz",
  "ethereum_ssz_derive",
- "jsonwebtoken",
+ "jsonwebtoken 9.3.1",
  "rand 0.8.6",
  "serde",
  "strum",
@@ -1049,7 +1049,7 @@ dependencies = [
  "hyper-tls",
  "hyper-util",
  "itertools 0.14.0",
- "jsonwebtoken",
+ "jsonwebtoken 9.3.1",
  "opentelemetry",
  "opentelemetry-http",
  "reqwest",
@@ -2794,7 +2794,7 @@ dependencies = [
  "prometheus",
  "proposer",
  "protocol",
- "rand 0.8.6",
+ "rand 0.10.1",
  "rpc",
  "secp256k1 0.30.0",
  "serial_test",
@@ -4314,6 +4314,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonwebtoken"
+version = "10.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eba32bfb4ffdeaca3e34431072faf01745c9b26d25504aa7a6cf5684334fc4fc"
+dependencies = [
+ "base64",
+ "getrandom 0.2.17",
+ "js-sys",
+ "pem",
+ "serde",
+ "serde_json",
+ "signature",
+ "simple_asn1",
+ "zeroize",
+]
+
+[[package]]
 name = "k256"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5686,9 +5703,9 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openssl"
-version = "0.10.79"
+version = "0.10.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf0b434746ee2832f4f0baf10137e1cabb18cbe6912c69e2e33263c45250f542"
+checksum = "a45fa2aa886c42762255da344f0a0d313e254066c46aad76f300c3d3da62d967"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -5726,9 +5743,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.115"
+version = "0.9.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "158fe5b292746440aa6e7a7e690e55aeb72d41505e2804c23c6973ad0e9c9781"
+checksum = "f28a22dc7140cda5f096e5e7724a6962ca81a7f8bfd2979f9b18c11af56318c4"
 dependencies = [
  "cc",
  "libc",
@@ -6078,7 +6095,7 @@ dependencies = [
  "preconfirmation-types",
  "prometheus",
  "protocol",
- "rand 0.8.6",
+ "rand 0.10.1",
  "rpc",
  "secp256k1 0.30.0",
  "serde",
@@ -6117,7 +6134,7 @@ dependencies = [
  "once_cell",
  "preconfirmation-types",
  "prometheus",
- "rand 0.8.6",
+ "rand 0.10.1",
  "reth-discv5",
  "reth-network-types",
  "reth-tokio-util",
@@ -6338,7 +6355,7 @@ dependencies = [
  "flate2",
  "k256",
  "prometheus",
- "rand 0.8.6",
+ "rand 0.10.1",
  "robust-provider",
  "serde",
  "thiserror 2.0.18",
@@ -10471,7 +10488,7 @@ dependencies = [
  "http",
  "http-body",
  "http-body-util",
- "jsonwebtoken",
+ "jsonwebtoken 10.4.0",
  "kona-gossip",
  "libp2p",
  "once_cell",
