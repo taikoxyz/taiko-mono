@@ -65,6 +65,20 @@ describe('isQuotaManagerOutOfQuotaError', () => {
     expect(isQuotaManagerOutOfQuotaError(wrappedError)).toBe(true);
   });
 
+  it('returns false when retryMessage wraps an invocation failure as B_RETRY_FAILED', () => {
+    const wrappedError = {
+      message: 'The contract function "retryMessage" reverted.',
+      cause: {
+        shortMessage: 'The contract function reverted with the following signature: 0x161e3ead',
+        data: {
+          errorName: 'B_RETRY_FAILED',
+        },
+      },
+    };
+
+    expect(isQuotaManagerOutOfQuotaError(wrappedError)).toBe(false);
+  });
+
   it('returns false for unrelated quota manager errors', () => {
     expect(isQuotaManagerOutOfQuotaError(new Error('execution reverted: QM_INVALID_PARAM()'))).toBe(false);
   });
