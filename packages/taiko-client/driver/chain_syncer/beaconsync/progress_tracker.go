@@ -18,9 +18,8 @@ var (
 	gapToResync               = new(big.Int).SetUint64(64)
 )
 
-// SyncProgressTracker is responsible for tracking the L2 execution engine's sync progress, after
-// a beacon sync is triggered, and check whether the L2 execution is not able to sync through P2P (due to no
-// connected peer or some other reasons).
+// SyncProgressTracker is responsible for tracking the L2 execution engine's sync progress
+// after a beacon sync is triggered.
 type SyncProgressTracker struct {
 	// RPC client
 	client *rpc.EthClient
