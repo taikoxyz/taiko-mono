@@ -71,7 +71,6 @@ alloy-transport = { version = "1.8.3", default-features = false }
 alloy-transport-http = { version = "1.8.3", features = ["hyper", "jwt-auth"] }
 base-tx-manager = { git = "https://github.com/base/base", rev = "1f1149cca0748f7ee7c6234f54d0be8dab51579a" }
 event-scanner = "1.1.1"
-jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
@@ -112,7 +111,6 @@ tower-http = { version = "0.6", features = ["cors"] }
 
 # types
 anyhow = "1"
-dashmap = "6.1.0"
 flate2 = { version = "1.0", default-features = false, features = ["zlib"] }
 once_cell = "1.19"
 reqwest = { version = "0.13", features = ["json"] }
@@ -123,7 +121,6 @@ url = "2.5.4"
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde_json = "1"
 sha2 = "0.10"
-ssz_rs = "0.9.0"
 
 # testing
 serial_test = { version = "3", features = ["async"] }
