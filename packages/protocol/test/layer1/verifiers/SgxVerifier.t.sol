@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
+import { StdStorage, stdStorage } from "forge-std/src/StdStorage.sol";
 import "forge-std/src/Test.sol";
 import { IDcapAttestation } from "src/layer1/verifiers/IDcapAttestation.sol";
 import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
@@ -19,6 +20,8 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 /// TCB-status and ATTRIBUTES-pin behaviour is asserted in the subclasses below.
 /// @custom:security-contact security@taiko.xyz
 abstract contract SgxVerifierTestBase is Test {
+    using stdStorage for StdStorage;
+
     uint64 internal constant CHAIN_ID = 167;
     address internal constant ATTESTATION = address(0xA11CE);
 
@@ -590,6 +593,26 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.addInstances(addrs);
 
         vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        verifier.addInstances(addrs);
+    }
+
+    /// @dev The last id that still fits the uint32 field decoded in `verifyProof` registers; the
+    /// next one would overflow that field and be unreachable from a proof, so it is rejected.
+    function test_addInstances_RevertWhen_InstanceIdOverflows() external {
+        // Fast-forward the id counter to the largest uint32-representable id.
+        stdstore.target(address(verifier)).sig("nextInstanceId()")
+            .checked_write(uint256(type(uint32).max));
+
+        // id == type(uint32).max still fits the uint32 proof field and is accepted.
+        address[] memory addrs = new address[](1);
+        addrs[0] = address(0xA1);
+        uint256[] memory ids = verifier.addInstances(addrs);
+        assertEq(ids[0], uint256(type(uint32).max));
+        assertEq(verifier.nextInstanceId(), uint256(type(uint32).max) + 1);
+
+        // The next id (2^32) would truncate to 0 in `verifyProof`; registration must reject it.
+        addrs[0] = address(0xA2);
+        vm.expectRevert(SgxVerifier.SGX_INSTANCE_ID_OVERFLOW.selector);
         verifier.addInstances(addrs);
     }
 

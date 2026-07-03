@@ -187,6 +187,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
+    error SGX_INSTANCE_ID_OVERFLOW();
     error SGX_INVALID_CHAIN_ID();
     error SGX_NOT_REGISTRAR();
     error SGX_MR_ENCLAVE_REVOKED();
@@ -534,6 +535,12 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             addressRegistered[_instances[i]] = true;
 
             require(_instances[i] != address(0), SGX_INVALID_INSTANCE());
+
+            // `verifyProof` references an instance by a uint32 id decoded from the proof, while ids
+            // are assigned from the uint256 `nextInstanceId`. Reject any id that would not survive
+            // that truncation, so a registered instance is always reachable from a proof (a
+            // reachable-instance invariant made explicit rather than left to a silent wrap).
+            require(nextInstanceId <= type(uint32).max, SGX_INSTANCE_ID_OVERFLOW());
 
             instances[nextInstanceId] =
                 Instance(_instances[i], validSince, _policyVersion, _mrEnclave, _mrSigner);
