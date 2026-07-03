@@ -21,24 +21,22 @@ type RaikoCheckpoint struct {
 	StateRoot string   `json:"state_root"`
 }
 
-// RaikoRequestProofBodyV4Proposal represents the JSON body for requesting one proposal proof.
-type RaikoRequestProofBodyV4Proposal struct {
-	ProofType              ProofType        `json:"proof_type"`
-	ProposalIDStart        *big.Int         `json:"proposal_id_start"`
-	ProposalIDEnd          *big.Int         `json:"proposal_id_end"`
-	LastAnchorBlockNumber  *big.Int         `json:"last_anchor_block_number"`
+// RaikoRequestProofBodyV4 represents the JSON body for requesting a v4 proposal-side proof task.
+type RaikoRequestProofBodyV4 struct {
+	ProofType ProofType          `json:"proof_type"`
+	Aggregate bool               `json:"aggregate"`
+	Proposals []*RaikoProposalV4 `json:"proposals"`
+	Prover    string             `json:"prover,omitempty"`
+}
+
+// RaikoProposalV4 represents one proposal carried by a v4 proof request.
+type RaikoProposalV4 struct {
+	ProposalID             *big.Int         `json:"proposal_id"`
+	Checkpoint             *RaikoCheckpoint `json:"checkpoint,omitempty"`
 	L1InclusionBlockNumber *big.Int         `json:"l1_inclusion_block_number"`
 	L2BlockNumberStart     *big.Int         `json:"l2_block_number_start"`
 	L2BlockNumberEnd       *big.Int         `json:"l2_block_number_end"`
-	Checkpoint             *RaikoCheckpoint `json:"checkpoint,omitempty"`
-	Prover                 string           `json:"prover,omitempty"`
-}
-
-// RaikoRequestProofBodyV4Aggregation represents the JSON body for requesting an aggregation proof.
-type RaikoRequestProofBodyV4Aggregation struct {
-	ProofType       ProofType `json:"proof_type"`
-	ProposalIDStart *big.Int  `json:"proposal_id_start"`
-	ProposalIDEnd   *big.Int  `json:"proposal_id_end"`
+	LastAnchorBlockNumber  *big.Int         `json:"last_anchor_block_number"`
 }
 
 // ComposeProofProducer generates a compose proof for the given block.
@@ -268,50 +266,42 @@ func requestRaikoProofV4(
 		return nil, nil, nil, ErrInvalidLength
 	}
 	var (
-		output *RaikoRequestProofBodyResponse
-		err    error
-		start  *big.Int
-		end    *big.Int
+		output    *RaikoRequestProofBodyResponse
+		err       error
+		start     *big.Int
+		end       *big.Int
+		proposals = make([]*RaikoProposalV4, 0, len(opts))
 	)
 
-	if isAggregation {
-		start, end = metas[0].GetProposalID(), metas[len(metas)-1].GetProposalID()
-		output, err = requestHTTPProof[RaikoRequestProofBodyV4Aggregation, RaikoRequestProofBodyResponse](
-			ctx,
-			raikoHostEndpoint+"/v4/proof/aggregation",
-			apiKey,
-			RaikoRequestProofBodyV4Aggregation{
-				ProofType:       proofType,
-				ProposalIDStart: start,
-				ProposalIDEnd:   end,
-			},
-		)
-	} else {
-		if len(opts) != 1 {
-			return nil, nil, nil, ErrInvalidLength
-		}
-		l2BlockNums := opts[0].ProposalOptions().L2BlockNums
+	if !isAggregation && len(opts) != 1 {
+		return nil, nil, nil, ErrInvalidLength
+	}
+	for i, meta := range metas {
+		l2BlockNums := opts[i].ProposalOptions().L2BlockNums
 		if len(l2BlockNums) == 0 {
 			return nil, nil, nil, ErrInvalidLength
 		}
-		start, end = metas[0].GetProposalID(), metas[0].GetProposalID()
-		output, err = requestHTTPProof[RaikoRequestProofBodyV4Proposal, RaikoRequestProofBodyResponse](
-			ctx,
-			raikoHostEndpoint+"/v4/proof/proposal",
-			apiKey,
-			RaikoRequestProofBodyV4Proposal{
-				ProofType:              proofType,
-				ProposalIDStart:        metas[0].GetProposalID(),
-				ProposalIDEnd:          metas[0].GetProposalID(),
-				LastAnchorBlockNumber:  opts[0].ProposalOptions().LastAnchorBlockNumber,
-				L1InclusionBlockNumber: metas[0].GetRawBlockHeight(),
-				L2BlockNumberStart:     l2BlockNums[0],
-				L2BlockNumberEnd:       l2BlockNums[len(l2BlockNums)-1],
-				Checkpoint:             raikoCheckpointFromOptions(opts[0].ProposalOptions()),
-				Prover:                 opts[0].GetProverAddress().Hex(),
-			},
-		)
+		proposals = append(proposals, &RaikoProposalV4{
+			ProposalID:             meta.GetProposalID(),
+			Checkpoint:             raikoCheckpointFromOptions(opts[i].ProposalOptions()),
+			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
+			L2BlockNumberStart:     l2BlockNums[0],
+			L2BlockNumberEnd:       l2BlockNums[len(l2BlockNums)-1],
+			LastAnchorBlockNumber:  opts[i].ProposalOptions().LastAnchorBlockNumber,
+		})
 	}
+	start, end = metas[0].GetProposalID(), metas[len(metas)-1].GetProposalID()
+	output, err = requestHTTPProof[RaikoRequestProofBodyV4, RaikoRequestProofBodyResponse](
+		ctx,
+		raikoHostEndpoint+"/v4/proof/proposal",
+		apiKey,
+		RaikoRequestProofBodyV4{
+			ProofType: proofType,
+			Aggregate: isAggregation,
+			Proposals: proposals,
+			Prover:    opts[0].GetProverAddress().Hex(),
+		},
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
