@@ -128,17 +128,50 @@ where
         };
 
         let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
-        if forkchoice.payload_status.status != PayloadStatusEnum::Syncing {
-            return Err(DriverError::Other(anyhow!(
-                "unexpected forkchoice status {:?} for block {}",
-                forkchoice.payload_status.status,
-                block_number
-            )));
-        }
+        resolve_checkpoint_forkchoice_status(&forkchoice.payload_status.status, block_number)?;
 
-        info!(block_number, ?block_hash, "checkpoint block submitted");
+        info!(
+            block_number,
+            ?block_hash,
+            forkchoice_status = ?forkchoice.payload_status.status,
+            "checkpoint block submitted"
+        );
         Ok(())
     }
+}
+
+/// Classify the forkchoice status returned while importing a checkpoint block.
+///
+/// `SYNCING` means the engine started backfilling toward the submitted head; `VALID` means the
+/// head connected to the local chain immediately (small gap or final catch-up tick). Both are
+/// successful imports. `INVALID` is a hard rejection, and `ACCEPTED` is never returned by
+/// forkchoice updates per the engine API spec.
+fn resolve_checkpoint_forkchoice_status(
+    status: &PayloadStatusEnum,
+    block_number: u64,
+) -> Result<(), DriverError> {
+    match status {
+        PayloadStatusEnum::Valid | PayloadStatusEnum::Syncing => Ok(()),
+        PayloadStatusEnum::Invalid { validation_error } => {
+            Err(DriverError::EngineInvalidPayload(validation_error.clone()))
+        }
+        PayloadStatusEnum::Accepted => Err(DriverError::Other(anyhow!(
+            "unexpected forkchoice status ACCEPTED for block {block_number}"
+        ))),
+    }
+}
+
+/// Convert a checkpoint poll failure into either a fatal startup error or a retryable error.
+///
+/// Before the checkpoint node has answered successfully, poll failures indicate a misconfigured
+/// or unreachable checkpoint endpoint and must fail fast. After the first successful answer the
+/// same failures are transient, so the caller logs the returned error and retries on the next
+/// tick instead of aborting a potentially hours-long catch-up.
+fn resolve_checkpoint_poll_error(
+    checkpoint_seen_once: bool,
+    error: SyncError,
+) -> Result<SyncError, SyncError> {
+    if checkpoint_seen_once { Ok(error) } else { Err(error) }
 }
 
 #[async_trait::async_trait]
@@ -154,19 +187,10 @@ where
         // consume an old checkpoint head after a failed or skipped beacon sync run.
         self.checkpoint_resume_head.clear();
 
-        if self.checkpoint.is_none() {
+        let Some(checkpoint_provider) = &self.checkpoint else {
             info!("no checkpoint endpoint configured; skipping beacon sync stage");
             return Ok(());
-        }
-
-        let Some(mut checkpoint_head) =
-            self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
-        else {
-            return Err(SyncError::CheckpointNoOrigin);
         };
-
-        DriverMetrics::beacon_sync_checkpoint_head_block().set(checkpoint_head as f64);
-        info!(checkpoint_head, "initial checkpoint head");
 
         let poll_interval = if self.retry_interval.is_zero() {
             DEFAULT_BEACON_SYNC_POLL_INTERVAL
@@ -178,6 +202,11 @@ where
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         info!(interval_secs = poll_interval.as_secs(), "beacon sync stage started");
+
+        // Flips once the checkpoint node has reported a head, gating fail-fast startup errors
+        // from retryable mid-catch-up errors. The first tick fires immediately, so a
+        // misconfigured endpoint still fails at startup.
+        let mut checkpoint_seen_once = false;
 
         loop {
             ticker.tick().await;
@@ -194,46 +223,33 @@ where
                     }
                 };
 
-            checkpoint_head = self
-                .checkpoint_head()
-                .await
-                .map_err(SyncError::CheckpointQuery)?
-                .ok_or(SyncError::CheckpointNoOrigin)?;
+            let checkpoint_head = match self.checkpoint_head().await {
+                Ok(Some(head)) => {
+                    checkpoint_seen_once = true;
+                    head
+                }
+                Ok(None) => {
+                    let err = resolve_checkpoint_poll_error(
+                        checkpoint_seen_once,
+                        SyncError::CheckpointNoOrigin,
+                    )?;
+                    warn!(error = %err, "checkpoint node reported no L1 origin; retrying");
+                    continue;
+                }
+                Err(err) => {
+                    let err = resolve_checkpoint_poll_error(
+                        checkpoint_seen_once,
+                        SyncError::CheckpointQuery(err),
+                    )?;
+                    warn!(error = %err, "failed to query checkpoint head; retrying");
+                    continue;
+                }
+            };
             DriverMetrics::beacon_sync_checkpoint_head_block().set(checkpoint_head as f64);
             DriverMetrics::beacon_sync_head_lag_blocks()
                 .set(checkpoint_head.saturating_sub(local_head) as f64);
 
-            if checkpoint_head > local_head {
-                info!(
-                    checkpoint_head,
-                    local_head, "checkpoint head ahead of local engine; syncing"
-                );
-                let checkpoint_provider =
-                    self.checkpoint.as_ref().ok_or(SyncError::CheckpointNoOrigin)?;
-
-                let block = checkpoint_provider
-                    .get_block_by_number(BlockNumberOrTag::Number(checkpoint_head))
-                    .full()
-                    .await
-                    .map_err(RpcClientError::from)
-                    .map_err(|err| SyncError::RemoteBlockSubmit {
-                        block_number: checkpoint_head,
-                        error: DriverError::from(err).into(),
-                    })?
-                    .ok_or_else(|| SyncError::RemoteBlockSubmit {
-                        block_number: checkpoint_head,
-                        error: DriverError::BlockNotFound(checkpoint_head).into(),
-                    })?
-                    .map_transactions(|tx: RpcTransaction| tx.into());
-
-                self.submit_remote_block(block).await.map_err(|err| {
-                    SyncError::RemoteBlockSubmit {
-                        block_number: checkpoint_head,
-                        error: err.into(),
-                    }
-                })?;
-                DriverMetrics::beacon_sync_remote_submissions_total().inc();
-            } else {
+            if checkpoint_head <= local_head {
                 // Persist the checkpoint head we have confirmed local execution is synced to.
                 // Event sync uses this exact value as its authoritative resume source when
                 // checkpoint mode is enabled.
@@ -241,6 +257,84 @@ where
                 info!(checkpoint_head, local_head, "local engine at or ahead of checkpoint; done");
                 break Ok(());
             }
+
+            info!(checkpoint_head, local_head, "checkpoint head ahead of local engine; syncing");
+
+            let block = match checkpoint_provider
+                .get_block_by_number(BlockNumberOrTag::Number(checkpoint_head))
+                .full()
+                .await
+            {
+                Ok(Some(block)) => block.map_transactions(|tx: RpcTransaction| tx.into()),
+                Ok(None) => {
+                    warn!(checkpoint_head, "checkpoint node missing its own head block; retrying");
+                    continue;
+                }
+                Err(err) => {
+                    warn!(
+                        checkpoint_head,
+                        error = %err,
+                        "failed to fetch checkpoint head block; retrying"
+                    );
+                    continue;
+                }
+            };
+
+            match self.submit_remote_block(block).await {
+                Ok(()) => DriverMetrics::beacon_sync_remote_submissions_total().inc(),
+                // An INVALID verdict is not transient: the checkpoint served a block the local
+                // engine rejects, which needs operator attention rather than retries.
+                Err(err @ DriverError::EngineInvalidPayload(_)) => {
+                    return Err(SyncError::RemoteBlockSubmit {
+                        block_number: checkpoint_head,
+                        error: err.into(),
+                    });
+                }
+                Err(err) => {
+                    warn!(
+                        checkpoint_head,
+                        error = %err,
+                        "failed to submit checkpoint block; retrying"
+                    );
+                }
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn checkpoint_forkchoice_accepts_syncing_and_valid() {
+        assert!(resolve_checkpoint_forkchoice_status(&PayloadStatusEnum::Syncing, 7).is_ok());
+        assert!(resolve_checkpoint_forkchoice_status(&PayloadStatusEnum::Valid, 7).is_ok());
+    }
+
+    #[test]
+    fn checkpoint_forkchoice_rejects_invalid_with_engine_error() {
+        let status = PayloadStatusEnum::Invalid { validation_error: "bad state root".into() };
+        assert!(matches!(
+            resolve_checkpoint_forkchoice_status(&status, 7),
+            Err(DriverError::EngineInvalidPayload(message)) if message == "bad state root"
+        ));
+    }
+
+    #[test]
+    fn checkpoint_forkchoice_rejects_accepted_as_unexpected() {
+        assert!(resolve_checkpoint_forkchoice_status(&PayloadStatusEnum::Accepted, 7).is_err());
+    }
+
+    #[test]
+    fn checkpoint_poll_errors_fail_fast_only_before_first_success() {
+        assert!(matches!(
+            resolve_checkpoint_poll_error(false, SyncError::CheckpointNoOrigin),
+            Err(SyncError::CheckpointNoOrigin)
+        ));
+        assert!(matches!(
+            resolve_checkpoint_poll_error(true, SyncError::CheckpointNoOrigin),
+            Ok(SyncError::CheckpointNoOrigin)
+        ));
     }
 }
