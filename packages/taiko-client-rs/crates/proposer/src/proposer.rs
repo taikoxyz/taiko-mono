@@ -164,7 +164,9 @@ impl Proposer {
                     continue;
                 }
                 Err(err) if is_operational_loop_error(&err) => {
-                    ProposerMetrics::proposals_failed().inc();
+                    if should_increment_loop_failure_metric(&err) {
+                        ProposerMetrics::proposals_failed().inc();
+                    }
                     warn!(
                         epoch,
                         error = %err,
@@ -186,7 +188,9 @@ impl Proposer {
                     );
                 }
                 Err(err) if is_operational_loop_error(&err) => {
-                    ProposerMetrics::proposals_failed().inc();
+                    if should_increment_loop_failure_metric(&err) {
+                        ProposerMetrics::proposals_failed().inc();
+                    }
                     warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
                 }
                 Err(err) => return Err(err),
@@ -670,8 +674,9 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 
 /// Return `true` when a surfaced proposer loop error should be retried on the next epoch.
 ///
-/// Only transport-layer failures (network blips, timeouts, backend-gone) are operational; RPC
-/// error responses (`ErrorResp`) and local errors (decoding, unsupported features, unknown
+/// Transport failures (network blips, timeouts, backend-gone), tx-manager execution reverts,
+/// and proposer-owned reverted receipt errors are operational.
+/// RPC error responses (`ErrorResp`) and local errors (decoding, unsupported features, unknown
 /// functions, fatal tx-manager errors) are fatal and exit the loop.
 fn is_operational_loop_error(err: &ProposerError) -> bool {
     matches!(
@@ -686,8 +691,18 @@ fn is_operational_loop_error(err: &ProposerError) -> bool {
                     TxManagerError::SendTimeout |
                     TxManagerError::MempoolDeadlineExpired |
                     TxManagerError::ExecutionReverted,
-            )
+            ) |
+            ProposerError::ProposalTransactionReverted { .. }
     )
+}
+
+/// Return whether a retryable proposer loop error should increment the loop failure counter.
+///
+/// Receipt-level proposal reverts are already counted when the receipt is recorded, so counting
+/// here would double-count the same failure.
+#[must_use]
+fn should_increment_loop_failure_metric(err: &ProposerError) -> bool {
+    !matches!(err, ProposerError::ProposalTransactionReverted { .. })
 }
 
 #[cfg(test)]
@@ -710,7 +725,7 @@ mod tests {
     use super::{
         calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
         forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
-        record_submission_attempt, record_submission_receipt,
+        record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
@@ -816,6 +831,32 @@ mod tests {
         assert!(is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::ExecutionReverted,
         )));
+        assert!(is_operational_loop_error(&ProposerError::ProposalTransactionReverted {
+            tx_hash: B256::repeat_byte(0x22),
+        }));
+    }
+
+    #[test]
+    fn loop_failure_metric_not_double_counted_for_reverted_receipts() {
+        let before = ProposerMetrics::proposals_failed().get();
+
+        let reverted_err =
+            ProposerError::ProposalTransactionReverted { tx_hash: B256::repeat_byte(0x22) };
+        if is_operational_loop_error(&reverted_err) &&
+            should_increment_loop_failure_metric(&reverted_err)
+        {
+            ProposerMetrics::proposals_failed().inc();
+        }
+        assert_eq!(ProposerMetrics::proposals_failed().get(), before);
+
+        let execution_reverted = ProposerError::TxManager(TxManagerError::ExecutionReverted);
+        let before = ProposerMetrics::proposals_failed().get();
+        if is_operational_loop_error(&execution_reverted) &&
+            should_increment_loop_failure_metric(&execution_reverted)
+        {
+            ProposerMetrics::proposals_failed().inc();
+        }
+        assert_eq!(ProposerMetrics::proposals_failed().get(), before + 1);
     }
 
     #[test]
