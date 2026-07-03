@@ -14,6 +14,7 @@
     warningToast,
   } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
+  import { isClaimBlockedByQuota } from '$libs/bridge/checkQuota';
   import type { BridgeTransaction } from '$libs/bridge/types';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
@@ -125,7 +126,33 @@
     });
   };
 
-  const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
+  const showQuotaReachedToast = () => {
+    errorToast({
+      title: $t('bridge.errors.claim.quota_reached.title'),
+      message: $t('bridge.errors.claim.quota_reached.message'),
+    });
+  };
+
+  const showUnknownErrorToast = () => {
+    errorToast({
+      title: $t('bridge.errors.unknown_error.title'),
+      message: $t('bridge.errors.unknown_error.message'),
+    });
+  };
+
+  const showQuotaToastIfClaimIsBlocked = async () => {
+    try {
+      if (await isClaimBlockedByQuota(bridgeTx)) {
+        showQuotaReachedToast();
+        return true;
+      }
+    } catch (quotaError) {
+      console.error('Failed to check claim quota', quotaError);
+    }
+    return false;
+  };
+
+  const handleClaimError = async (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
     // canForceTransaction = true;
@@ -156,23 +183,16 @@
             message: $t('bridge.errors.claim.not_received.message'),
           });
         } else if (isQuotaManagerOutOfQuotaError(err)) {
-          errorToast({
-            title: $t('bridge.errors.claim.quota_reached.title'),
-            message: $t('bridge.errors.claim.quota_reached.message'),
-          });
+          showQuotaReachedToast();
         } else {
-          errorToast({
-            title: $t('bridge.errors.unknown_error.title'),
-            message: $t('bridge.errors.unknown_error.message'),
-          });
+          if (!(await showQuotaToastIfClaimIsBlocked())) {
+            showUnknownErrorToast();
+          }
         }
         break;
       default:
         console.error(err);
-        errorToast({
-          title: $t('bridge.errors.unknown_error.title'),
-          message: $t('bridge.errors.unknown_error.message'),
-        });
+        showUnknownErrorToast();
         break;
     }
     claiming = false;
