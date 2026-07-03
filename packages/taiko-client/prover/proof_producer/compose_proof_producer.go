@@ -238,7 +238,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 ) (*RaikoRequestProofBodyResponse, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
-	output, start, end, err := requestRaikoProofV4(
+	output, start, end, err := requestRaikoProposalProofV4(
 		ctx,
 		s.RaikoHostEndpoint,
 		s.ApiKey,
@@ -253,7 +253,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 	return validateRaikoProofResponse(output, start, end, proofType, isAggregation, requestAt, alreadyGenerated)
 }
 
-func requestRaikoProofV4(
+func requestRaikoProposalProofV4(
 	ctx context.Context,
 	raikoHostEndpoint string,
 	apiKey string,

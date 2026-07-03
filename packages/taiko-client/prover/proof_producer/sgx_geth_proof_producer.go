@@ -130,7 +130,7 @@ func (s *SgxGethProofProducer) requestBatchProof(
 ) (*RaikoRequestProofBodyResponse, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
-	output, start, end, err := requestRaikoProofV4(
+	output, start, end, err := requestRaikoProposalProofV4(
 		ctx,
 		s.RaikoHostEndpoint,
 		s.ApiKey,
