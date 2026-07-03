@@ -142,8 +142,9 @@ fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_
 /// finalized snapshot being unavailable on fresh chains.
 ///
 /// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
-/// - When finalization is unavailable, both values reset to 0 triggering a full genesis replay.
-///   This is safe because derivation is idempotent (the engine skips already-known blocks).
+/// - When finalization is unavailable, both values reset to 0 so the caller can replay from the
+///   inbox activation block. This is safe because derivation is idempotent (the engine skips
+///   already-known blocks).
 fn resolve_target_with_optional_finalization(
     resume_proposal_id: u64,
     finalized_safe_proposal_id: Option<u64>,
@@ -1023,8 +1024,8 @@ where
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
 
-        // Try to get finalized snapshot. When unavailable, fall back to genesis replay
-        // which is safe because derivation is idempotent.
+        // Try to get finalized snapshot. When unavailable, replay proposal zero from the inbox
+        // activation block, which is safe because derivation is idempotent.
         let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
 
         let (target_proposal_id, finalized_safe_proposal_id) =
