@@ -2,7 +2,7 @@
 //!
 //! This module provides the main CLI structure and command dispatch logic.
 //! It parses command-line arguments using `clap` and routes to the appropriate
-//! subcommand handler (proposer, driver, or preconfirmation driver).
+//! subcommand handler (proposer, driver, or whitelist preconfirmation driver).
 
 use std::future::Future;
 
@@ -11,8 +11,7 @@ use clap::{Parser, Subcommand};
 use tokio::runtime::{Builder, Runtime};
 
 use crate::commands::{
-    driver::DriverSubCommand, preconfirmation_driver::PreconfirmationDriverSubCommand,
-    proposer::ProposerSubCommand,
+    driver::DriverSubCommand, proposer::ProposerSubCommand,
     whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverSubCommand,
 };
 
@@ -23,8 +22,6 @@ pub enum Commands {
     Proposer(Box<ProposerSubCommand>),
     /// Run the driver.
     Driver(Box<DriverSubCommand>),
-    /// Run the preconfirmation driver with P2P client.
-    PreconfirmationDriver(Box<PreconfirmationDriverSubCommand>),
     /// Run the whitelist preconfirmation driver with whitelist P2P protocol.
     WhitelistPreconfirmationDriver(Box<WhitelistPreconfirmationDriverSubCommand>),
 }
@@ -44,7 +41,6 @@ impl Cli {
         match self.subcommand {
             Commands::Proposer(proposer_cmd) => Self::run_until_ctrl_c(proposer_cmd.run()),
             Commands::Driver(driver_cmd) => Self::run_until_ctrl_c(driver_cmd.run()),
-            Commands::PreconfirmationDriver(cmd) => Self::run_until_ctrl_c(cmd.run()),
             Commands::WhitelistPreconfirmationDriver(cmd) => Self::run_until_ctrl_c(cmd.run()),
         }
     }
