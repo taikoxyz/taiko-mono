@@ -684,7 +684,8 @@ fn is_operational_loop_error(err: &ProposerError) -> bool {
             ProposerError::TxManager(
                 TxManagerError::Rpc(_) |
                     TxManagerError::SendTimeout |
-                    TxManagerError::MempoolDeadlineExpired,
+                    TxManagerError::MempoolDeadlineExpired |
+                    TxManagerError::ExecutionReverted,
             )
     )
 }
@@ -811,6 +812,9 @@ mod tests {
         assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::SendTimeout,)));
         assert!(is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::MempoolDeadlineExpired,
+        )));
+        assert!(is_operational_loop_error(&ProposerError::TxManager(
+            TxManagerError::ExecutionReverted,
         )));
     }
 
