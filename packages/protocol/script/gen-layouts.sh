@@ -39,8 +39,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
-"contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
-"contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
 "contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
