@@ -176,6 +176,7 @@ func Test_parseIgnoredMsgHashes(t *testing.T) {
 			}
 
 			assert.Len(t, got, len(tt.want))
+
 			for _, want := range tt.want {
 				assert.Contains(t, got, want)
 			}
