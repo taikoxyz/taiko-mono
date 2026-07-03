@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -57,6 +58,11 @@ func (i *Indexer) handleMessageProcessedEvent(
 		); err != nil {
 			return err
 		}
+	}
+
+	if _, ignored := i.ignoredMsgHashes[event.MsgHash]; ignored {
+		slog.Warn("skipping ignored MessageProcessed msgHash", "msgHash", common.Hash(event.MsgHash).Hex())
+		return nil
 	}
 
 	// if the message is not status new, and we are iterating crawling past blocks,
