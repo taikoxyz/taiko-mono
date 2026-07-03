@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.17.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.17.0...bridge-ui-v2.17.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* **bridge-ui:** cleanup leftover env ([#21650](https://github.com/taikoxyz/taiko-mono/issues/21650)) ([2aecb4a](https://github.com/taikoxyz/taiko-mono/commit/2aecb4a0c68fcd54178c4f00b483dc455e32bd31))
+* **bridge-ui:** show quota exhaustion claim error ([#21903](https://github.com/taikoxyz/taiko-mono/issues/21903)) ([d92e7a8](https://github.com/taikoxyz/taiko-mono/commit/d92e7a81f582c6438b6313826d3bc14a1b7abb11))
+* **relayer:** align bridge processing fee estimates ([#21674](https://github.com/taikoxyz/taiko-mono/issues/21674)) ([4890e74](https://github.com/taikoxyz/taiko-mono/commit/4890e74674b538f9ed1a2e22ce66657075cf233d))
+
 ## [2.17.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.16.0...bridge-ui-v2.17.0) (2026-05-07)
 
 
