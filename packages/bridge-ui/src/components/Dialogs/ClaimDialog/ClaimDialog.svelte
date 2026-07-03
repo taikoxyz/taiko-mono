@@ -33,7 +33,7 @@
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
-  import { isMessageNotReceivedError } from './error';
+  import { isMessageNotReceivedError, isQuotaManagerOutOfQuotaError } from './error';
   import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from './mode';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
@@ -154,6 +154,11 @@
           errorToast({
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
+          });
+        } else if (isQuotaManagerOutOfQuotaError(err)) {
+          errorToast({
+            title: $t('bridge.errors.claim.quota_reached.title'),
+            message: $t('bridge.errors.claim.quota_reached.message'),
           });
         } else {
           errorToast({
