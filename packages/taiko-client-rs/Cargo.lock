@@ -6051,7 +6051,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bindings",
- "dashmap",
  "event-scanner",
  "flate2",
  "k256",
@@ -6061,7 +6060,6 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "tokio",
- "tokio-retry",
  "tokio-stream",
  "tracing",
 ]
