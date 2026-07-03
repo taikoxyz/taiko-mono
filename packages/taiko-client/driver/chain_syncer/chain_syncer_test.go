@@ -144,7 +144,7 @@ func TestChainDataStillSyncing(t *testing.T) {
 
 func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
 	l2Client := newSyncingEthClient(t)
-	tracker := beaconsync.NewSyncProgressTracker(l2Client, time.Hour)
+	tracker := beaconsync.NewSyncProgressTracker(l2Client)
 	tracker.UpdateMeta(common.Big1, common.Hash{})
 
 	syncer := &L2ChainSyncer{
