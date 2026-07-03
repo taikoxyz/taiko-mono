@@ -474,6 +474,72 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.setMrSigner(MR_SIGNER, true);
     }
 
+    /// @dev Untrusting a trusted MRENCLAVE is permanent: it is recorded as revoked and can never be
+    /// re-trusted, so instances revoked by the removal can never be silently revived.
+    function test_setMrEnclave_RevertWhen_ReTrustAfterUntrust() external {
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+        // Untrusting a trusted value emits the dedicated revocation event on the transition.
+        vm.expectEmit();
+        emit SgxVerifier.MrEnclaveRevoked(MR_ENCLAVE);
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        assertTrue(verifier.revokedMrEnclave(MR_ENCLAVE));
+
+        vm.expectRevert(SgxVerifier.SGX_MR_ENCLAVE_REVOKED.selector);
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+    }
+
+    function test_setMrSigner_RevertWhen_ReTrustAfterUntrust() external {
+        verifier.setMrSigner(MR_SIGNER, true);
+        vm.expectEmit();
+        emit SgxVerifier.MrSignerRevoked(MR_SIGNER);
+        verifier.setMrSigner(MR_SIGNER, false);
+        assertTrue(verifier.revokedMrSigner(MR_SIGNER));
+
+        vm.expectRevert(SgxVerifier.SGX_MR_SIGNER_REVOKED.selector);
+        verifier.setMrSigner(MR_SIGNER, true);
+    }
+
+    /// @dev Untrusting a value that was never trusted is a no-op: it does not poison the value, so it
+    /// can still be trusted afterwards (revocation is armed only by a trusted -> untrusted change).
+    function test_setMrEnclave_UntrustWhenNeverTrustedDoesNotRevoke() external {
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        assertFalse(verifier.revokedMrEnclave(MR_ENCLAVE));
+
+        verifier.setMrEnclave(MR_ENCLAVE, true); // still allowed
+        assertTrue(verifier.trustedUserMrEnclave(MR_ENCLAVE));
+    }
+
+    /// @dev Symmetric to the MRENCLAVE case: untrusting a never-trusted MRSIGNER does not poison it.
+    function test_setMrSigner_UntrustWhenNeverTrustedDoesNotRevoke() external {
+        verifier.setMrSigner(MR_SIGNER, false);
+        assertFalse(verifier.revokedMrSigner(MR_SIGNER));
+
+        verifier.setMrSigner(MR_SIGNER, true); // still allowed
+        assertTrue(verifier.trustedUserMrSigner(MR_SIGNER));
+    }
+
+    /// @dev End-to-end: an instance revoked by untrusting its MRENCLAVE cannot be revived, because
+    /// the measurement can never be re-trusted.
+    function test_verifyProof_RevokedInstanceCannotBeRevived() external {
+        _trustStandardEnclave();
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        uint256 id = verifier.registerInstance(_mockValidQuote(instance));
+        bytes32 aggHash = bytes32(uint256(0x1234));
+        bytes memory proof = _proof(uint32(id), instance, _sign(key, aggHash, instance));
+
+        verifier.verifyProof(0, aggHash, proof); // valid
+
+        // Untrust the MRENCLAVE: the instance is revoked at proof time.
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        verifier.verifyProof(0, aggHash, proof);
+
+        // Re-trusting the same measurement is impossible, so the instance can never come back.
+        vm.expectRevert(SgxVerifier.SGX_MR_ENCLAVE_REVOKED.selector);
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+    }
+
     function test_toggleLocalReportCheck_togglesAndEmits() external {
         // Enforced by default; first toggle disables it.
         assertTrue(verifier.checkLocalEnclaveReport());
