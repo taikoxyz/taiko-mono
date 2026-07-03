@@ -10,12 +10,8 @@ use crate::derivation::DerivationError;
 /// Errors emitted by sync components.
 #[derive(Debug, Error)]
 pub enum SyncError {
-    /// Beacon sync: checkpoint node has no L1 origin.
-    #[error("checkpoint node has no L1 origin")]
-    CheckpointNoOrigin,
-
-    /// Beacon sync: failed to query checkpoint head.
-    #[error("failed to query checkpoint head")]
+    /// Beacon sync: failed to query the checkpoint node.
+    #[error("failed to query checkpoint node")]
     CheckpointQuery(#[source] RpcClientError),
 
     /// Beacon sync: failed to submit remote block.

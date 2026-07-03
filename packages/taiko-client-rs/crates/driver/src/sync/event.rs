@@ -1,8 +1,5 @@
 //! Event sync logic.
 
-/// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
-const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
-
 use std::{
     sync::{
         Arc, Mutex,
@@ -33,7 +30,7 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    SyncError, SyncStage,
+    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
 };
