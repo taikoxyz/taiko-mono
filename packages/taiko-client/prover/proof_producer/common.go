@@ -2,6 +2,7 @@ package producer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -85,7 +86,7 @@ func requestRaiko[U any](
 		req = req.SetHeader("X-API-KEY", apiKey)
 	}
 
-	log.Debug("Requesting raiko", "url", url, "method", method, "body", body)
+	log.Debug("Requesting raiko", "url", url, "method", method, "body", raikoRequestLogBody(body))
 	resp, err := req.Execute(method, url)
 	if err != nil {
 		return nil, err
@@ -108,6 +109,17 @@ func requestRaiko[U any](
 // endpoint and unmarshals the response into U.
 func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
 	return requestRaiko[U](ctx, http.MethodPost, url, apiKey, reqBody)
+}
+
+func raikoRequestLogBody(body any) any {
+	if body == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return body
+	}
+	return string(encoded)
 }
 
 // updateProvingMetrics updates the metrics for the given proof type, including
