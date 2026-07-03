@@ -50,7 +50,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		s.RPCClient,
 		state,
 		false,
-		1*time.Hour,
 		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)

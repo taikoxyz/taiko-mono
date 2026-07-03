@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -51,7 +50,6 @@ func New(
 	rpc *rpc.Client,
 	state *state.State,
 	p2pSync bool,
-	p2pSyncTimeout time.Duration,
 	blobServerEndpoint *url.URL,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*L2ChainSyncer, error) {
