@@ -63,4 +63,6 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 alloy = { workspace = true, features = ["node-bindings"] }
+proptest = { workspace = true }
 rand = { workspace = true, features = ["std", "std_rng"] }
+serde_json = { workspace = true }
