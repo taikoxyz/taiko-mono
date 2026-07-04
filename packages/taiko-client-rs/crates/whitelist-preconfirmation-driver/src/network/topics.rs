@@ -46,3 +46,28 @@ impl Topics {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A topic-string typo silently partitions the mesh from Go peers; Go
+    /// formats the chain id with `big.Int.String()` (decimal).
+    #[test]
+    fn preconf_topics_are_exact_go_strings() {
+        let topics = Topics::new(167000);
+        assert_eq!(topics.preconf_blocks.hash().into_string(), "/taiko/167000/0/preconfBlocks");
+        assert_eq!(
+            topics.preconf_request.hash().into_string(),
+            "/taiko/167000/0/requestPreconfBlocks"
+        );
+        assert_eq!(
+            topics.preconf_response.hash().into_string(),
+            "/taiko/167000/0/responsePreconfBlocks"
+        );
+        assert_eq!(
+            topics.eos_request.hash().into_string(),
+            "/taiko/167000/0/requestEndOfSequencingPreconfBlocks"
+        );
+    }
+}

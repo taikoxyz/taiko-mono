@@ -347,10 +347,22 @@ pub(crate) fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use alloy_primitives::{Bloom, Bytes};
 
     use super::*;
+
+    /// Reads a Go-generated fixture, failing with a regeneration hint.
+    pub(crate) fn go_fixture(rel: &str) -> Vec<u8> {
+        let path = format!("{}/fixtures/go/{rel}", env!("CARGO_MANIFEST_DIR"));
+        std::fs::read(&path)
+            .unwrap_or_else(|e| panic!("missing fixture {path} ({e}) — run `just gen-fixtures`"))
+    }
+
+    /// Parses a fixture JSON sidecar.
+    pub(crate) fn go_fixture_json(rel: &str) -> serde_json::Value {
+        serde_json::from_slice(&go_fixture(rel)).expect("fixture json")
+    }
 
     fn sample_envelope() -> WhitelistExecutionPayloadEnvelope {
         WhitelistExecutionPayloadEnvelope {
@@ -470,5 +482,88 @@ mod tests {
             WhitelistPreconfirmationDriverError::InvalidPayload(msg)
                 if msg.contains("too large after decompression")
         ));
+    }
+
+    /// Pins `block_signing_hash` byte-for-byte against Go `p2p.BlockSigningHash`.
+    #[test]
+    fn block_signing_hash_matches_go_golden() {
+        let fixture = go_fixture_json("signing_hash.json");
+        let chain_id: u64 = fixture["chain_id"].as_str().expect("chain_id").parse().expect("u64");
+        let payload = alloy_primitives::hex::decode(fixture["payload"].as_str().expect("payload"))
+            .expect("hex");
+        let expected: B256 =
+            fixture["expected_hash"].as_str().expect("hash").parse().expect("b256");
+        assert_eq!(block_signing_hash(chain_id, &payload), expected);
+    }
+
+    /// Decodes Go-`MarshalSSZ` envelopes — including the legacy-tx txlist shape
+    /// that froze mainnet (PR #21906) and the Uzen HeaderDifficulty flag.
+    #[test]
+    fn decode_envelope_ssz_accepts_go_encoded_fixtures() {
+        for name in ["legacy_tx_signed", "all_flags_difficulty", "unsigned"] {
+            let ssz = go_fixture(&format!("envelope/{name}.ssz.bin"));
+            let meta = go_fixture_json(&format!("envelope/{name}.json"));
+            let envelope = decode_envelope_ssz(&ssz)
+                .unwrap_or_else(|e| panic!("fixture {name} must decode: {e:?}"));
+
+            assert_eq!(
+                envelope.execution_payload.block_number,
+                meta["block_number"].as_u64().expect("block_number"),
+                "{name}: block number"
+            );
+            assert_eq!(envelope.execution_payload.transactions.len(), 1, "{name}: tx_count");
+            assert_eq!(
+                envelope.end_of_sequencing.unwrap_or(false),
+                meta["end_of_sequencing"].as_bool().expect("eos"),
+                "{name}: eos flag"
+            );
+            assert_eq!(
+                envelope.is_forced_inclusion.unwrap_or(false),
+                meta["is_forced_inclusion"].as_bool().expect("forced"),
+                "{name}: forced flag"
+            );
+            assert_eq!(
+                envelope.signature.is_some(),
+                meta["has_signature"].as_bool().expect("sig"),
+                "{name}: signature presence"
+            );
+            let expected_difficulty: U256 =
+                meta["header_difficulty"].as_str().expect("difficulty").parse().expect("u256");
+            assert_eq!(
+                envelope.header_difficulty.unwrap_or_default(),
+                expected_difficulty,
+                "{name}: header difficulty"
+            );
+        }
+    }
+
+    /// Re-encoding a Go-decoded envelope must reproduce Go's exact bytes.
+    #[test]
+    fn encode_envelope_ssz_matches_go_bytes() {
+        for name in ["legacy_tx_signed", "all_flags_difficulty", "unsigned"] {
+            let ssz = go_fixture(&format!("envelope/{name}.ssz.bin"));
+            let envelope = decode_envelope_ssz(&ssz).expect("decode");
+            assert_eq!(encode_envelope_ssz(&envelope), ssz, "{name}: re-encode byte mismatch");
+        }
+    }
+
+    /// Full gossip-wire path: snappy frame -> SSZ -> envelope, then the txlist
+    /// inside decodes through the protocol codec (legacy + typed mix).
+    #[test]
+    fn decode_go_snappy_response_and_inner_txlist() {
+        use protocol::codec::ZlibTxListCodec;
+
+        let snappy = go_fixture("envelope/legacy_tx_signed.snappy.bin");
+        let envelope = decode_unsafe_response_message(&snappy).expect("snappy+ssz decode");
+        let compressed_txlist = envelope.execution_payload.transactions[0].as_ref();
+        let txs = ZlibTxListCodec::new_with_limits(
+            MAX_COMPRESSED_TX_LIST_BYTES,
+            MAX_DECOMPRESSED_TX_LIST_BYTES,
+        )
+        .decode(compressed_txlist)
+        .expect("Go txlist with a legacy tx must decode — this is the #21906 regression");
+        assert_eq!(txs.len(), 2, "legacy + eip1559");
+        assert!(txs[0][0] >= 0xc0, "first tx is legacy (bare RLP list)");
+        assert_eq!(txs[1][0], 0x02, "second tx is typed eip1559");
     }
 }

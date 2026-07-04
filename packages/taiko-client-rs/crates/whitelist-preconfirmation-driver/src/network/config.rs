@@ -145,4 +145,27 @@ mod tests {
         let result = build_gossipsub();
         assert!(result.is_ok(), "build_gossipsub must succeed: {:?}", result.err());
     }
+
+    /// The inequality tests above can't catch a hash-construction drift; this pins
+    /// the absolute 20-byte id against Go's BuildMsgIdFn output.
+    #[test]
+    fn taiko_message_id_matches_go_golden() {
+        let fixture = crate::codec::tests::go_fixture_json("msgid.json");
+        for case in ["valid_snappy", "invalid_snappy"] {
+            let entry = &fixture[case];
+            let topic = entry["topic"].as_str().expect("topic");
+            let data =
+                alloy_primitives::hex::decode(entry["data"].as_str().expect("data")).expect("hex");
+            let expected =
+                alloy_primitives::hex::decode(entry["expected_id"].as_str().expect("id"))
+                    .expect("hex");
+            let message = gossipsub::Message {
+                source: None,
+                data,
+                sequence_number: None,
+                topic: gossipsub::TopicHash::from_raw(topic),
+            };
+            assert_eq!(taiko_message_id(&message).0, expected, "{case} id mismatch vs Go");
+        }
+    }
 }
