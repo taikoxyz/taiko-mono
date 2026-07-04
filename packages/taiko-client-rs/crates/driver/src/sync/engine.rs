@@ -206,14 +206,26 @@ fn envelope_into_submission(
     (payload_input, sidecar, block_hash, block_number)
 }
 
-/// Map engine payload status into submission errors, rejecting syncing/invalid statuses.
+/// Map engine payload status into submission errors, rejecting non-executed statuses.
+///
+/// Only `VALID` confirms the payload was executed and the head can advance. Per the
+/// Engine API, `newPayload` returns `ACCEPTED` when the payload was accepted but NOT
+/// processed (a possible side chain the engine has not yet made canonical), and
+/// `SYNCING` when it was accepted on top of an active sync — in both cases the engine
+/// has not executed the block, so acknowledging it would let the preconf ingress
+/// advance past a block that never ran (the 2026-06/07 mainnet head-freeze family).
+/// `ACCEPTED` and `SYNCING` are therefore folded into `EngineSyncing`, which the
+/// whitelist importer's defer classifier retries rather than drops, so an `ACCEPTED`
+/// payload is re-submitted once the engine catches up instead of being lost.
 fn ensure_valid_payload_status(
     block_number: u64,
     status: PayloadStatusEnum,
 ) -> Result<(), EngineSubmissionError> {
     match status {
-        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => Ok(()),
-        PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
+        PayloadStatusEnum::Valid => Ok(()),
+        PayloadStatusEnum::Syncing | PayloadStatusEnum::Accepted => {
+            Err(EngineSubmissionError::EngineSyncing(block_number))
+        }
         PayloadStatusEnum::Invalid { validation_error } => {
             Err(EngineSubmissionError::InvalidBlock(block_number, validation_error))
         }
@@ -391,8 +403,9 @@ mod tests {
         assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
     }
 
-    /// The gate that turns engine responses into driver control flow: Valid
-    /// passes, Syncing defers, Invalid rejects. This decides freeze-vs-drop.
+    /// The gate that turns engine responses into driver control flow: only
+    /// Valid passes; Syncing and Accepted defer (retry); Invalid rejects. This
+    /// decides freeze-vs-drop.
     #[test]
     fn ensure_valid_payload_status_maps_each_variant() {
         assert!(ensure_valid_payload_status(7, PayloadStatusEnum::Valid).is_ok());
@@ -408,19 +421,16 @@ mod tests {
             Err(EngineSubmissionError::InvalidBlock(7, msg)) if msg.contains("bad state root")
         ));
 
-        // FINDING (Task 3.1): `Accepted` currently maps to `Ok(())` at
-        // engine.rs:215 (`Valid | Accepted => Ok(())`). Per the Engine API,
-        // `Accepted` means the payload was NOT executed — it was only accepted
-        // as a possible future side chain (the engine is syncing and could not
-        // fully validate it). Treating it as a confirmed injection lets the
-        // driver advance its head past a block the engine never executed. This
-        // test pins the CURRENT behavior so the gap is visible and any change
-        // is a deliberate, reviewed edit; it is reported as a real finding in
-        // task-3.1-report.md rather than silently asserted as correct.
-        assert!(
-            ensure_valid_payload_status(7, PayloadStatusEnum::Accepted).is_ok(),
-            "Accepted currently maps to Ok (see FINDING above); update this \
-             assertion together with the production mapping if that changes"
-        );
+        // `Accepted` means the engine persisted the payload WITHOUT executing it
+        // (a possible side chain, not yet canonical). It must NOT be treated as a
+        // confirmed injection — doing so would advance the head past a block the
+        // engine never ran (the 2026-06/07 mainnet head-freeze family). It folds
+        // into `EngineSyncing` so the importer's defer classifier retries it once
+        // the engine catches up, carrying the same block number as the other
+        // deferred statuses.
+        assert!(matches!(
+            ensure_valid_payload_status(7, PayloadStatusEnum::Accepted),
+            Err(EngineSubmissionError::EngineSyncing(7))
+        ));
     }
 }
