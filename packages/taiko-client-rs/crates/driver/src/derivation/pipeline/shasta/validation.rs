@@ -477,6 +477,96 @@ mod tests {
         assert_eq!(manifest.blocks[0].coinbase, Address::repeat_byte(0xAA));
     }
 
+    /// Build a validation context whose timestamp lower bound is driven purely by
+    /// the inherited `parent_ts + 1` term. With `proposal_timestamp` (1_010) below the
+    /// chain's timestamp offset (Hoodi = 12 * 128 = 1_536) and `fork_timestamp` = 0, the
+    /// `proposal - offset` and `fork` terms in `compute_timestamp_lower_bound` are inert,
+    /// so each block's floor is exactly one greater than the previous block's timestamp.
+    fn three_block_ctx() -> ValidationContext {
+        ValidationContext {
+            parent_timestamp: 1_000,
+            parent_gas_limit: 30_000_000,
+            parent_block_number: 1,
+            parent_anchor_block_number: 60,
+            proposal_timestamp: 1_010,
+            origin_block_number: 1_000,
+            is_forced_inclusion: false,
+            fork_timestamp: 0,
+            chain_id: TAIKO_HOODI_CHAIN_ID,
+        }
+    }
+
+    /// Construct a three-block manifest from explicit per-block timestamps.
+    ///
+    /// Anchors advance non-decreasingly (900 -> 950 -> 980, all within
+    /// `[origin - MAX_ANCHOR_OFFSET, origin]` = `[872, 1_000]` and above the parent
+    /// anchor of 60) and gas limits stay constant at 29_000_000 (the effective parent
+    /// gas limit, i.e. 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT), so only the timestamps
+    /// vary between the valid and regression fixtures.
+    fn three_block_manifest(timestamps: [u64; 3]) -> DerivationSourceManifest {
+        let anchors = [900_u64, 950, 980];
+        let gas_limit = 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT;
+        manifest_with_blocks(
+            (0..3)
+                .map(|i| BlockManifest {
+                    timestamp: timestamps[i],
+                    coinbase: Address::ZERO,
+                    anchor_block_number: anchors[i],
+                    gas_limit,
+                    transactions: Vec::new(),
+                })
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn multi_block_manifest_carries_inherited_state() {
+        // Blocks: ts = parent+2, +4, +6; anchors non-decreasing. The timestamp loop
+        // carries `parent_ts` block-to-block (validation.rs:118), so block N's floor is
+        // block N-1's timestamp + 1. This sequence is valid: 1_002 < 1_004 < 1_006, all
+        // within [floor, proposal_timestamp = 1_010].
+        let ctx = three_block_ctx();
+        let manifest = three_block_manifest([1_002, 1_004, 1_006]);
+        assert_eq!(validate_source_manifest(&manifest, &ctx), Ok(()));
+
+        // Same three blocks, but block 2's timestamp precedes block 1's (1_006 then
+        // 1_004). Block 2 alone would pass against the *original* parent (floor 1_001),
+        // yet the sequence must fail because block 1 advanced the inherited `parent_ts`
+        // to 1_006, pushing block 2's floor to 1_007. The single failure surfaces as
+        // `DefaultManifest`.
+        let out_of_order = three_block_manifest([1_006, 1_004, 1_008]);
+        assert_eq!(
+            validate_source_manifest(&out_of_order, &ctx),
+            Err(ValidationError::DefaultManifest),
+            "inherited timestamp must be enforced across blocks"
+        );
+
+        // Direct confirmation that the regression is the inherited-state path: the
+        // out-of-order block 2 timestamp (1_004) validates against the original parent
+        // timestamp on its own, and only the carried state rejects it in sequence.
+        let lone_block_2 = manifest_with_blocks(vec![BlockManifest {
+            timestamp: 1_004,
+            coinbase: Address::ZERO,
+            anchor_block_number: 900,
+            gas_limit: 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT,
+            transactions: Vec::new(),
+        }]);
+        assert!(validate_timestamps(
+            &lone_block_2,
+            ctx.parent_timestamp,
+            ctx.proposal_timestamp,
+            ctx.fork_timestamp,
+            ctx.chain_id,
+        ));
+        assert!(!validate_timestamps(
+            &three_block_manifest([1_006, 1_004, 1_008]),
+            ctx.parent_timestamp,
+            ctx.proposal_timestamp,
+            ctx.fork_timestamp,
+            ctx.chain_id,
+        ));
+    }
+
     #[test]
     fn mainnet_offsets_expand_validation_window() {
         use protocol::shasta::constants::TAIKO_MAINNET_CHAIN_ID;
