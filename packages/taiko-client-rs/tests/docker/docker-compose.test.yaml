@@ -1,9 +1,11 @@
 services:
   l1_node:
     container_name: l1_node
-    image: ghcr.io/foundry-rs/foundry:stable
+    # foundry:stable as of 2026-07-04 — bump deliberately by re-capturing the
+    # manifest-list digest (docker pull ...:stable + docker inspect, or the
+    # ghcr.io /v2/.../manifests/stable HEAD), never implicitly.
+    image: ghcr.io/foundry-rs/foundry@sha256:043752653d5be351c71709091b3db97c4421c907eb40ea294195e7f532aadf46
     restart: unless-stopped
-    pull_policy: always
     ports:
       - "18545:8545"
     entrypoint:
@@ -12,12 +14,26 @@ services:
       - "0.0.0.0"
       - --gas-limit
       - "200000000"
+    # foundry ships `cast`; gate the L2 nodes on a real JSON-RPC response.
+    healthcheck:
+      test:
+        ["CMD-SHELL", "cast chain-id --rpc-url http://127.0.0.1:8545 || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
 
   l2_node_0:
     container_name: l2_node_0
-    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
+    # alethia-reth:main as of 2026-07-04 — bump deliberately by re-capturing the
+    # manifest-list digest (docker pull ...:main + docker inspect, or the
+    # us-docker.pkg.dev /v2/.../manifests/main HEAD), never implicitly.
+    image: us-docker.pkg.dev/evmchain/images/alethia-reth@sha256:6cdcfe48bc8ee4fa5c745c2bc1671a1da9f94a2527503623a308565e4aab83f0
     restart: unless-stopped
-    pull_policy: always
+    # reth has no shell/curl guarantee, so it gets no healthcheck of its own;
+    # instead wait for L1 to be healthy before starting (readiness bounded by 5.4).
+    depends_on:
+      l1_node:
+        condition: service_healthy
     volumes:
       - .:/host
     ports:
@@ -46,9 +62,16 @@ services:
 
   l2_node_1:
     container_name: l2_node_1
-    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
+    # alethia-reth:main as of 2026-07-04 — bump deliberately by re-capturing the
+    # manifest-list digest (docker pull ...:main + docker inspect, or the
+    # us-docker.pkg.dev /v2/.../manifests/main HEAD), never implicitly.
+    image: us-docker.pkg.dev/evmchain/images/alethia-reth@sha256:6cdcfe48bc8ee4fa5c745c2bc1671a1da9f94a2527503623a308565e4aab83f0
     restart: unless-stopped
-    pull_policy: always
+    # reth has no shell/curl guarantee, so it gets no healthcheck of its own;
+    # instead wait for L1 to be healthy before starting (readiness bounded by 5.4).
+    depends_on:
+      l1_node:
+        condition: service_healthy
     volumes:
       - .:/host
     ports:
