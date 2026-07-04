@@ -509,7 +509,12 @@ where
     /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until
     /// the chain syncer rewinds. Lowering it here unblocks them immediately. All failures are
     /// non-fatal: log and return.
-    async fn reset_head_l1_origin_after_reorg(&self, common_ancestor: u64) {
+    ///
+    /// Returns `Some(block_id)` with the head-origin block id that was written, or `None` when
+    /// nothing was written (genesis boundary, missing batch mapping, or any RPC failure). The
+    /// return value is observability-only — it lets tests assert the exact value written rather
+    /// than merely that the RPC was called; it does NOT change control flow or side effects.
+    async fn reset_head_l1_origin_after_reorg(&self, common_ancestor: u64) -> Option<u64> {
         let core_state = match self
             .rpc
             .shasta
@@ -522,7 +527,7 @@ where
             Ok(core_state) => core_state,
             Err(err) => {
                 warn!(common_ancestor, %err, "failed to read core state for head_l1_origin reset");
-                return;
+                return None;
             }
         };
 
@@ -532,7 +537,7 @@ where
                 common_ancestor,
                 next_proposal_id, "skipping head_l1_origin reset at genesis boundary"
             );
-            return;
+            return None;
         }
         let proposal_id = next_proposal_id - 1;
 
@@ -544,7 +549,7 @@ where
                         common_ancestor,
                         proposal_id, "missing batch mapping; skipping head_l1_origin reset"
                     );
-                    return;
+                    return None;
                 }
                 Err(err) => {
                     warn!(
@@ -553,24 +558,30 @@ where
                         ?err,
                         "failed to read batch mapping; skipping head_l1_origin reset"
                     );
-                    return;
+                    return None;
                 }
             };
 
         match self.rpc.set_head_l1_origin(block_id).await {
-            Ok(_) => info!(
-                common_ancestor,
-                proposal_id,
-                %block_id,
-                "reset head_l1_origin after reorg"
-            ),
-            Err(err) => warn!(
-                common_ancestor,
-                proposal_id,
-                %block_id,
-                ?err,
-                "failed to reset head_l1_origin after reorg"
-            ),
+            Ok(_) => {
+                info!(
+                    common_ancestor,
+                    proposal_id,
+                    %block_id,
+                    "reset head_l1_origin after reorg"
+                );
+                Some(block_id.to::<u64>())
+            }
+            Err(err) => {
+                warn!(
+                    common_ancestor,
+                    proposal_id,
+                    %block_id,
+                    ?err,
+                    "failed to reset head_l1_origin after reorg"
+                );
+                None
+            }
         }
     }
 
@@ -1315,19 +1326,25 @@ where
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
-                                if timeout(
+                                match timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
                                 )
                                 .await
-                                .is_err()
                                 {
-                                    warn!(
+                                    // The written block id is observability-only; the reset is
+                                    // best-effort and already logged its own outcome internally.
+                                    Ok(written_head_l1_origin) => debug!(
+                                        common_ancestor,
+                                        ?written_head_l1_origin,
+                                        "completed head_l1_origin reset after reorg"
+                                    ),
+                                    Err(_) => warn!(
                                         common_ancestor,
                                         timeout_ms =
                                             REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT.as_millis() as u64,
                                         "timed out resetting head_l1_origin after reorg"
-                                    );
+                                    ),
                                 }
                             }
                             Notification::NoPastLogsFound => {}
@@ -2138,8 +2155,23 @@ mod tests {
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
     }
 
-    #[tokio::test]
-    async fn reset_head_l1_origin_after_reorg_lowers_head_to_latest_canonical_batch_tip() {
+    /// Latest canonical batch tip the queued `last_certain_block_id_by_batch_id` mapping response
+    /// resolves to on the success path — the exact value `reset_head_l1_origin_after_reorg` must
+    /// write to (and therefore return from) `set_head_l1_origin`.
+    const EXPECTED_TIP: u64 = 7_777;
+
+    /// Build a syncer wired to fresh L1 + L2-auth asserters preloaded with the RPC responses
+    /// `reset_head_l1_origin_after_reorg` consumes for one reorg, returning the asserters so the
+    /// caller can assert every queued response was drained.
+    ///
+    /// Both variants queue `getCoreState` (nextProposalId = 100, so proposal_id = 99, past the
+    /// genesis boundary). With `queue_mapping = true` the batch mapping resolves to
+    /// `Some(EXPECTED_TIP)` and a `set_head_l1_origin` response is queued (its echoed value is
+    /// unused by the function; only success/failure matters). With `queue_mapping = false` the
+    /// mapping resolves to `None`, so the function must skip the write entirely.
+    async fn build_syncer_with_reorg_queues(
+        queue_mapping: bool,
+    ) -> (EventSyncer<RootProvider>, Asserter, Asserter) {
         let l1_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
         let syncer = EventSyncer {
@@ -2150,34 +2182,43 @@ mod tests {
         let core_state = sample_core_state(100);
         let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
         l1_asserter.push_success(&encoded_core_state);
-        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_certain_block_id_by_batch_id
-        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // set_head_l1_origin
+        if queue_mapping {
+            l2_auth_asserter.push_success(&Some(U256::from(EXPECTED_TIP))); // last_certain_block_id_by_batch_id
+            l2_auth_asserter.push_success(&Some(U256::from(EXPECTED_TIP))); // set_head_l1_origin
+        } else {
+            l2_auth_asserter.push_success(&Option::<U256>::None); // last_certain_block_id_by_batch_id
+        }
 
-        syncer.reset_head_l1_origin_after_reorg(1_234).await;
-
-        assert!(l1_asserter.read_q().is_empty());
-        assert!(l2_auth_asserter.read_q().is_empty());
+        (syncer, l1_asserter, l2_auth_asserter)
     }
 
+    /// After a reorg the head L1 origin must be lowered to the latest canonical batch tip —
+    /// asserting the VALUE written, not merely that the RPCs were called. A regression that wrote
+    /// the wrong block id (or nothing) would drain the same mock queue yet fail this assertion.
     #[tokio::test]
-    async fn reset_head_l1_origin_after_reorg_skips_when_batch_mapping_missing() {
-        let l1_asserter = Asserter::new();
-        let l2_auth_asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
-            ..build_syncer().await
-        };
+    async fn reset_head_l1_origin_after_reorg_writes_canonical_tip() {
+        // (mapping present -> writes Some(tip)) and (mapping missing -> best-effort skip -> None).
+        for (queue_mapping, expected) in [(true, Some(EXPECTED_TIP)), (false, None)] {
+            let (syncer, l1_asserter, l2_auth_asserter) =
+                build_syncer_with_reorg_queues(queue_mapping).await;
 
-        let core_state = sample_core_state(100);
-        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
-        l1_asserter.push_success(&encoded_core_state);
-        l2_auth_asserter.push_success(&Option::<U256>::None);
+            let written = syncer.reset_head_l1_origin_after_reorg(1_234).await;
 
-        syncer.reset_head_l1_origin_after_reorg(1_234).await;
-
-        // No set_head_l1_origin call should be queued: missing mapping is a best-effort skip.
-        assert!(l1_asserter.read_q().is_empty());
-        assert!(l2_auth_asserter.read_q().is_empty());
+            assert_eq!(
+                written, expected,
+                "reset must return the exact head_l1_origin block id it wrote (queue_mapping = {queue_mapping})"
+            );
+            // A missing mapping must NOT issue a set_head_l1_origin call; both paths drain their
+            // full queue.
+            assert!(
+                l1_asserter.read_q().is_empty(),
+                "all queued L1 RPC responses consumed (queue_mapping = {queue_mapping})"
+            );
+            assert!(
+                l2_auth_asserter.read_q().is_empty(),
+                "all queued L2-auth RPC responses consumed (queue_mapping = {queue_mapping})"
+            );
+        }
     }
 
     #[test]
