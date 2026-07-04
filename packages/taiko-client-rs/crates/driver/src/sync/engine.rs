@@ -390,4 +390,37 @@ mod tests {
 
         assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
     }
+
+    /// The gate that turns engine responses into driver control flow: Valid
+    /// passes, Syncing defers, Invalid rejects. This decides freeze-vs-drop.
+    #[test]
+    fn ensure_valid_payload_status_maps_each_variant() {
+        assert!(ensure_valid_payload_status(7, PayloadStatusEnum::Valid).is_ok());
+
+        assert!(matches!(
+            ensure_valid_payload_status(7, PayloadStatusEnum::Syncing),
+            Err(EngineSubmissionError::EngineSyncing(7))
+        ));
+
+        let invalid = PayloadStatusEnum::Invalid { validation_error: "bad state root".into() };
+        assert!(matches!(
+            ensure_valid_payload_status(7, invalid),
+            Err(EngineSubmissionError::InvalidBlock(7, msg)) if msg.contains("bad state root")
+        ));
+
+        // FINDING (Task 3.1): `Accepted` currently maps to `Ok(())` at
+        // engine.rs:215 (`Valid | Accepted => Ok(())`). Per the Engine API,
+        // `Accepted` means the payload was NOT executed — it was only accepted
+        // as a possible future side chain (the engine is syncing and could not
+        // fully validate it). Treating it as a confirmed injection lets the
+        // driver advance its head past a block the engine never executed. This
+        // test pins the CURRENT behavior so the gap is visible and any change
+        // is a deliberate, reviewed edit; it is reported as a real finding in
+        // task-3.1-report.md rather than silently asserted as correct.
+        assert!(
+            ensure_valid_payload_status(7, PayloadStatusEnum::Accepted).is_ok(),
+            "Accepted currently maps to Ok (see FINDING above); update this \
+             assertion together with the production mapping if that changes"
+        );
+    }
 }
