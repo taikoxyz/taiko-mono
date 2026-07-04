@@ -960,13 +960,40 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use crate::derivation::manifest::fetcher::shasta::ShastaSourceManifestFetcher;
+    use alethia_reth_consensus::anchor_constants::anchorV4Call;
+    use alethia_reth_primitives::{
+        addresses::TAIKO_GOLDEN_TOUCH_ADDRESS,
+        payload::attributes::{EngineRpcL1Origin, RpcL1Origin, TaikoBlockMetadata},
+    };
+    use alloy::{
+        consensus::transaction::Recovered,
+        rpc::types::eth::{Block as RpcBlock, BlockTransactions, Transaction as RpcTransaction},
+        sol_types::SolCall,
+    };
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};
+    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
+    use alloy_transport::mock::Asserter;
     use anyhow::Result;
-
-    use protocol::FixedKSigner;
+    use bindings::{
+        anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint},
+        inbox::Inbox::InboxInstance,
+    };
+    use protocol::{
+        FixedKSigner,
+        shasta::{
+            AnchorTxConstructor,
+            constants::{TAIKO_MAINNET_CHAIN_ID, min_base_fee_for_chain},
+        },
+    };
+    use rpc::{
+        blob::BlobDataSource,
+        client::{Client, ShastaProtocolInstance},
+    };
+    use std::sync::Arc;
 
     #[test]
     fn anchor_signature_recovers_to_golden_touch() -> Result<()> {
@@ -1003,5 +1030,285 @@ mod tests {
         let recovered = signed.recover_signer()?;
         assert_eq!(recovered, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS));
         Ok(())
+    }
+
+    /// Byte constants used to seed every field of the matching pair so that a single-field flip
+    /// is unambiguous (each field carries a distinct value that nothing else shares).
+    const ANCHOR_ADDRESS: Address = Address::repeat_byte(0x44);
+    const ANCHOR_BLOCK_NUMBER: u64 = 55;
+    const BLOCK_NUMBER: u64 = 5;
+    const PARENT_HASH: B256 = B256::repeat_byte(0xA1);
+    const FEE_RECIPIENT: Address = Address::repeat_byte(0xB2);
+    const PREV_RANDAO: B256 = B256::repeat_byte(0xC3);
+    const GAS_LIMIT: u64 = 30_000_000;
+    const TIMESTAMP: u64 = 1_775_200_000;
+    const BASE_FEE: u64 = 1_000_000_000;
+    const PAYLOAD_ARGS_ID: [u8; 8] = [7u8; 8];
+    /// Arbitrary non-empty extra data; the canonical header and the payload metadata must agree.
+    const EXTRA_DATA: [u8; 3] = [0xD4, 0xD5, 0xD6];
+
+    /// Build a signed golden-touch anchorV4 transaction for the given anchor block number.
+    ///
+    /// `matching_anchor_tx()` (using `ANCHOR_BLOCK_NUMBER`) is shared by the derivation context and
+    /// the canonical block's first transaction so they compare equal; the anchor-mismatch flip uses
+    /// a different block number to produce a well-formed but unequal tx.
+    fn anchor_tx(anchor_block_number: u64) -> TxEnvelope {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer should load");
+        let checkpoint = Checkpoint {
+            blockNumber: alloy_primitives::aliases::U48::from(anchor_block_number),
+            blockHash: B256::from([0x22; 32]),
+            stateRoot: B256::from([0x33; 32]),
+        };
+        let tx = TxEip1559 {
+            chain_id: TAIKO_MAINNET_CHAIN_ID,
+            nonce: 0,
+            max_fee_per_gas: 1_000_000_000,
+            max_priority_fee_per_gas: 0,
+            gas_limit: 250_000,
+            to: TxKind::Call(ANCHOR_ADDRESS),
+            value: U256::ZERO,
+            access_list: AccessList::default(),
+            input: Bytes::from(anchorV4Call(checkpoint.into()).abi_encode()),
+        };
+        let sighash = tx.signature_hash();
+        let mut hash_bytes = [0u8; 32];
+        hash_bytes.copy_from_slice(sighash.as_slice());
+        let signature =
+            signer.sign_with_predefined_k(&hash_bytes).expect("test anchor tx should sign");
+        TxEnvelope::new_unchecked(
+            EthereumTypedTransaction::Eip1559(tx),
+            signature.signature,
+            sighash,
+        )
+    }
+
+    /// The anchor tx the matching pair agrees on.
+    fn matching_anchor_tx() -> TxEnvelope {
+        anchor_tx(ANCHOR_BLOCK_NUMBER)
+    }
+
+    /// Minimal proposal metadata; only `proposal_id` is read by `verify_canonical_block` (for
+    /// logging), the rest satisfy the struct.
+    fn matching_meta() -> BundleMeta {
+        BundleMeta {
+            proposal_id: 9,
+            last_finalized_proposal_id: None,
+            proposal_timestamp: TIMESTAMP,
+            l1_block_number: 100,
+            l1_block_hash: B256::repeat_byte(0x06),
+            origin_block_number: 100,
+            proposer: Address::repeat_byte(0x02),
+            basefee_sharing_pctg: 0,
+        }
+    }
+
+    /// Payload attributes whose fields line up with the canonical header built below.
+    fn matching_payload() -> TaikoPayloadAttributes {
+        TaikoPayloadAttributes {
+            payload_attributes: EthPayloadAttributes {
+                timestamp: TIMESTAMP,
+                prev_randao: PREV_RANDAO,
+                suggested_fee_recipient: FEE_RECIPIENT,
+                withdrawals: Some(Vec::new()),
+                parent_beacon_block_root: None,
+                slot_number: None,
+            },
+            base_fee_per_gas: U256::from(BASE_FEE),
+            block_metadata: TaikoBlockMetadata {
+                beneficiary: FEE_RECIPIENT,
+                gas_limit: GAS_LIMIT,
+                timestamp: U256::from(TIMESTAMP),
+                mix_hash: PREV_RANDAO,
+                tx_list: None,
+                extra_data: Bytes::from(EXTRA_DATA.to_vec()),
+            },
+            l1_origin: RpcL1Origin {
+                block_id: U256::from(BLOCK_NUMBER),
+                l2_block_hash: B256::ZERO,
+                l1_block_height: None,
+                l1_block_hash: None,
+                build_payload_args_id: PAYLOAD_ARGS_ID,
+                is_forced_inclusion: false,
+                signature: [0u8; 65],
+            },
+            // `verify_canonical_block` never inspects this field, so leaving it unset keeps the
+            // fixture minimal.
+            anchor_transaction: None,
+        }
+    }
+
+    /// Build the derivation context paired with the canonical block below.
+    fn matching_derivation_context(anchor_tx: TxEnvelope) -> BlockDerivationContext {
+        BlockDerivationContext {
+            payload: matching_payload(),
+            anchor_tx,
+            parent_hash: PARENT_HASH,
+            block_number: BLOCK_NUMBER,
+            anchor_block_number: ANCHOR_BLOCK_NUMBER,
+            is_final_block: true,
+        }
+    }
+
+    /// Wrap a signed envelope as the RPC `Transaction` shape that `get_block_by_number(..).full()`
+    /// deserializes into (it carries the recovered sender, which a bare envelope lacks). The
+    /// golden-touch address is the recovered signer of every anchor tx here.
+    fn as_rpc_transaction(envelope: TxEnvelope) -> RpcTransaction {
+        RpcTransaction {
+            inner: Recovered::new_unchecked(envelope, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS)),
+            block_hash: None,
+            block_number: None,
+            transaction_index: None,
+            effective_gas_price: None,
+        }
+    }
+
+    /// Build the canonical execution block that, unflipped, satisfies every comparison in
+    /// `verify_canonical_block` on a mainnet (pre-Unzen) chain. Transactions use the RPC
+    /// `Transaction` shape so the block round-trips through the mocked `.full()` fetch, after which
+    /// the pipeline maps them back to `TxEnvelope`.
+    fn matching_canonical_block(anchor_tx: TxEnvelope) -> RpcBlock {
+        let mut block: RpcBlock = RpcBlock::default();
+        // `Header::default()` already sets ommers_hash to the empty-list hash and every optional
+        // Unzen field (blob gas, beacon root, requests hash) to None, matching the pre-Unzen leg.
+        block.header.number = BLOCK_NUMBER;
+        block.header.parent_hash = PARENT_HASH;
+        block.header.beneficiary = FEE_RECIPIENT;
+        block.header.difficulty = U256::ZERO;
+        block.header.mix_hash = PREV_RANDAO;
+        block.header.gas_limit = GAS_LIMIT;
+        block.header.timestamp = TIMESTAMP;
+        block.header.extra_data = Bytes::from(EXTRA_DATA.to_vec());
+        block.header.base_fee_per_gas = Some(BASE_FEE);
+        block.withdrawals = None;
+        block.transactions = BlockTransactions::Full(vec![as_rpc_transaction(anchor_tx)]);
+        block
+    }
+
+    /// The L1 origin the engine returns for the block; its payload args id must line up with the
+    /// derivation context so the fast path is not rejected before the header comparisons.
+    fn matching_origin() -> EngineRpcL1Origin {
+        EngineRpcL1Origin(RpcL1Origin {
+            block_id: U256::from(BLOCK_NUMBER),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: PAYLOAD_ARGS_ID,
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        })
+    }
+
+    /// Drive `verify_canonical_block` with a mainnet pipeline whose L2 provider serves, in order,
+    /// the L1 origin lookup then the canonical block. Returns whether the fast path was taken.
+    async fn run_verify(
+        meta: &BundleMeta,
+        derived_block: &BlockDerivationContext,
+        origin: EngineRpcL1Origin,
+        canonical_block: RpcBlock,
+    ) -> Option<VerifiedCanonicalBlock> {
+        // The L2 provider used by `verify_canonical_block` serves ONLY the two responses that
+        // function issues: `l1_origin_by_id` (taiko_l1OriginByID) then
+        // `get_block_by_number(..).full()`, in order.
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&Some(origin));
+        l2_asserter.push_success(&Some(canonical_block));
+
+        let l1_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(ANCHOR_ADDRESS, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+        let client: Client<RootProvider> = Client {
+            chain_id: TAIKO_MAINNET_CHAIN_ID,
+            l1_provider,
+            l2_provider,
+            l2_auth_provider,
+            shasta,
+        };
+
+        let blob_source = Arc::new(
+            BlobDataSource::new(None, None, true)
+                .await
+                .expect("blob data source should initialise"),
+        );
+        // `AnchorTxConstructor::new` issues its own `get_chain_id` call, so give it a dedicated
+        // provider rather than draining `verify_canonical_block`'s L2 asserter.
+        let anchor_asserter = Asserter::new();
+        anchor_asserter.push_success(&TAIKO_MAINNET_CHAIN_ID);
+        let anchor_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(anchor_asserter);
+        let anchor_constructor = AnchorTxConstructor::new(anchor_provider, ANCHOR_ADDRESS)
+            .await
+            .expect("anchor constructor should initialise");
+        let pipeline = ShastaDerivationPipeline {
+            rpc: client,
+            anchor_constructor,
+            derivation_source_manifest_fetcher: ShastaSourceManifestFetcher::new(blob_source),
+            shasta_fork_timestamp: 0,
+            min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            chain_id: TAIKO_MAINNET_CHAIN_ID,
+            initial_proposal_id: U256::ZERO,
+        };
+
+        pipeline
+            .verify_canonical_block(meta, derived_block)
+            .await
+            .expect("verify_canonical_block should not error for these inputs")
+    }
+
+    /// The known-canonical fast path must accept an exactly-matching (context, block) pair and
+    /// reject it the moment any single guarded header/tx field diverges. Regression guard for the
+    /// ~25 comparisons in `verify_canonical_block`, which previously had zero unit coverage.
+    #[tokio::test]
+    async fn verify_canonical_block_rejects_field_mismatches() {
+        // Sanity: the unflipped pair takes the fast path. This must hold before any flip below is
+        // meaningful.
+        {
+            let meta = matching_meta();
+            let ctx = matching_derivation_context(matching_anchor_tx());
+            let verdict = run_verify(
+                &meta,
+                &ctx,
+                matching_origin(),
+                matching_canonical_block(ctx.anchor_tx.clone()),
+            )
+            .await;
+            assert!(verdict.is_some(), "unflipped matching pair must take the canonical fast path");
+        }
+
+        // Each flip mutates exactly ONE field on the canonical block (the "block side") and must
+        // drop the fast path. A mismatch means "derive it yourself", i.e. Ok(None) rather than an
+        // error, so `run_verify` unwraps the Ok and we assert None here.
+        type Flip = fn(&mut RpcBlock);
+        let flips: [(&str, Flip); 6] = [
+            ("parent_hash", |b| b.header.parent_hash = B256::repeat_byte(0xEE)),
+            ("base_fee", |b| b.header.base_fee_per_gas = Some(BASE_FEE + 1)),
+            ("gas_limit", |b| b.header.gas_limit += 1),
+            ("timestamp", |b| b.header.timestamp += 1),
+            ("difficulty", |b| b.header.difficulty = U256::from(999)),
+            ("anchor_tx", |b| {
+                // Replace the anchor tx with a different (but still valid) golden-touch tx so the
+                // first-transaction comparison fails.
+                b.transactions = BlockTransactions::Full(vec![as_rpc_transaction(anchor_tx(
+                    ANCHOR_BLOCK_NUMBER + 1,
+                ))]);
+            }),
+        ];
+
+        for (label, flip) in flips {
+            let meta = matching_meta();
+            let ctx = matching_derivation_context(matching_anchor_tx());
+            let mut canonical_block = matching_canonical_block(ctx.anchor_tx.clone());
+            flip(&mut canonical_block);
+            let verdict = run_verify(&meta, &ctx, matching_origin(), canonical_block).await;
+            assert!(verdict.is_none(), "{label} mismatch must reject the canonical fast path");
+        }
     }
 }
