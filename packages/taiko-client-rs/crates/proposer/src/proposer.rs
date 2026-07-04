@@ -743,40 +743,39 @@ mod tests {
         assert!(timestamp <= after);
     }
 
+    /// Sent/success/failed metric deltas across one success and one revert —
+    /// sequential in one test to touch the process-global registry once.
     #[test]
-    fn submission_attempt_increments_sent_metric() {
-        let before = ProposerMetrics::proposals_sent().get();
+    fn submission_metrics_track_success_and_revert() {
+        // 1. snapshot the counters we assert deltas against.
+        let sent_before = ProposerMetrics::proposals_sent().get();
         record_submission_attempt();
-        assert_eq!(ProposerMetrics::proposals_sent().get(), before + 1);
-    }
+        assert_eq!(ProposerMetrics::proposals_sent().get(), sent_before + 1);
 
-    #[test]
-    fn successful_submission_receipt_is_returned_and_recorded() {
-        let receipt = receipt_with_status(true);
-        let tx_hash = receipt.transaction_hash;
-        let before = ProposerMetrics::proposals_success().get();
+        // 2. a success receipt is returned unchanged and bumps the success counter.
+        let success_receipt = receipt_with_status(true);
+        let success_hash = success_receipt.transaction_hash;
+        let success_before = ProposerMetrics::proposals_success().get();
 
-        let recorded = record_submission_receipt(receipt)
+        let recorded = record_submission_receipt(success_receipt)
             .expect("successful receipt should remain successful");
 
-        assert_eq!(recorded.transaction_hash, tx_hash);
-        assert_eq!(ProposerMetrics::proposals_success().get(), before + 1);
-    }
+        assert_eq!(recorded.transaction_hash, success_hash);
+        assert_eq!(ProposerMetrics::proposals_success().get(), success_before + 1);
 
-    #[test]
-    fn reverted_submission_receipt_becomes_failed_proposal_error() {
-        let receipt = receipt_with_status(false);
-        let tx_hash = receipt.transaction_hash;
-        let before = ProposerMetrics::proposals_failed().get();
+        // 3. a reverted receipt surfaces the proposal error and bumps the failed counter.
+        let reverted_receipt = receipt_with_status(false);
+        let reverted_hash = reverted_receipt.transaction_hash;
+        let failed_before = ProposerMetrics::proposals_failed().get();
 
-        let err = record_submission_receipt(receipt)
+        let err = record_submission_receipt(reverted_receipt)
             .expect_err("reverted receipt should be surfaced as a proposer error");
 
         assert!(matches!(
             err,
-            ProposerError::ProposalTransactionReverted { tx_hash: observed } if observed == tx_hash
+            ProposerError::ProposalTransactionReverted { tx_hash: observed } if observed == reverted_hash
         ));
-        assert_eq!(ProposerMetrics::proposals_failed().get(), before + 1);
+        assert_eq!(ProposerMetrics::proposals_failed().get(), failed_before + 1);
     }
 
     fn receipt_with_status(status: bool) -> TransactionReceipt {
@@ -819,21 +818,73 @@ mod tests {
         assert!(!forced_inclusion_is_permissionless(0, 1_000, 10, 5));
     }
 
+    /// Retryable-vs-fatal classification for the proposer loop — the single
+    /// decision that keeps the proposer alive through transient RPC failures.
+    /// One row per (error construction, expected operational) pair, folded from
+    /// the seven per-variant tests this replaces.
     #[test]
-    fn tx_manager_operational_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Rpc(
-            "provider timed out".into(),
-        ))));
-        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::SendTimeout,)));
-        assert!(is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::MempoolDeadlineExpired,
-        )));
-        assert!(is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::ExecutionReverted,
-        )));
-        assert!(is_operational_loop_error(&ProposerError::ProposalTransactionReverted {
-            tx_hash: B256::repeat_byte(0x22),
-        }));
+    fn operational_loop_error_classification_table() {
+        // A JSON-RPC error response used by both the RPC and RpcClient fatal rows.
+        // Verify once that alloy still surfaces it as revert data before classifying.
+        let payload: ErrorPayload = serde_json::from_str(
+            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
+        )
+        .expect("valid JSON-RPC error payload");
+        let error_resp_contract =
+            alloy::contract::Error::TransportError(RpcError::ErrorResp(payload.clone()));
+        assert!(error_resp_contract.as_revert_data().is_some());
+
+        let cases: Vec<(ProposerError, bool)> = vec![
+            // Operational tx-manager execution failures — retry next epoch.
+            (ProposerError::TxManager(TxManagerError::Rpc("provider timed out".into())), true),
+            (ProposerError::TxManager(TxManagerError::SendTimeout), true),
+            (ProposerError::TxManager(TxManagerError::MempoolDeadlineExpired), true),
+            (ProposerError::TxManager(TxManagerError::ExecutionReverted), true),
+            (ProposerError::ProposalTransactionReverted { tx_hash: B256::repeat_byte(0x22) }, true),
+            // Transport failures on precheck RPC / contract calls — retry.
+            (ProposerError::Rpc(TransportErrorKind::backend_gone()), true),
+            (
+                ProposerError::Contract(alloy::contract::Error::TransportError(
+                    TransportErrorKind::backend_gone(),
+                )),
+                true,
+            ),
+            // RPC error responses on precheck RPC / contract calls — fatal, exit.
+            (ProposerError::Rpc(RpcError::ErrorResp(payload.clone())), false),
+            (ProposerError::Contract(error_resp_contract), false),
+            // RpcClient transport failure — retry; RpcClient error response — fatal.
+            (ProposerError::from(RpcClientError::from(TransportErrorKind::backend_gone())), true),
+            (ProposerError::from(RpcClientError::from(RpcError::ErrorResp(payload))), false),
+            // Local contract errors (unknown function) — fatal, exit.
+            (
+                ProposerError::Contract(alloy::contract::Error::UnknownFunction(
+                    "getOperatorForCurrentEpoch".into(),
+                )),
+                false,
+            ),
+            // Fatal tx-manager errors — exit the loop.
+            (ProposerError::TxManager(TxManagerError::NonceTooLow), false),
+            (
+                ProposerError::TxManager(TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 }),
+                false,
+            ),
+            (
+                ProposerError::TxManager(TxManagerError::Sign("wallet rejected signing".into())),
+                false,
+            ),
+            (
+                ProposerError::TxManager(TxManagerError::InvalidConfig("bad fee limit".into())),
+                false,
+            ),
+        ];
+
+        for (err, expected) in cases {
+            assert_eq!(
+                is_operational_loop_error(&err),
+                expected,
+                "classification changed for {err:?}"
+            );
+        }
     }
 
     #[test]
@@ -857,69 +908,6 @@ mod tests {
             ProposerMetrics::proposals_failed().inc();
         }
         assert_eq!(ProposerMetrics::proposals_failed().get(), before + 1);
-    }
-
-    #[test]
-    fn precheck_transport_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_loop_error(&ProposerError::Rpc(TransportErrorKind::backend_gone())));
-        assert!(is_operational_loop_error(&ProposerError::Contract(
-            alloy::contract::Error::TransportError(TransportErrorKind::backend_gone()),
-        )));
-    }
-
-    #[test]
-    fn precheck_error_responses_still_exit_the_proposer_loop() {
-        let payload: ErrorPayload = serde_json::from_str(
-            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
-        )
-        .expect("valid JSON-RPC error payload");
-        let contract_error =
-            alloy::contract::Error::TransportError(RpcError::ErrorResp(payload.clone()));
-
-        assert!(contract_error.as_revert_data().is_some());
-        assert!(!is_operational_loop_error(&ProposerError::Rpc(RpcError::ErrorResp(payload))));
-        assert!(!is_operational_loop_error(&ProposerError::Contract(contract_error)));
-    }
-
-    #[test]
-    fn rpc_client_transport_errors_keep_the_proposer_loop_running() {
-        let err = ProposerError::from(RpcClientError::from(TransportErrorKind::backend_gone()));
-
-        assert!(is_operational_loop_error(&err));
-    }
-
-    #[test]
-    fn rpc_client_error_responses_still_exit_the_proposer_loop() {
-        let payload: ErrorPayload = serde_json::from_str(
-            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
-        )
-        .expect("valid JSON-RPC error payload");
-        let err = ProposerError::from(RpcClientError::from(RpcError::ErrorResp(payload)));
-
-        assert!(!is_operational_loop_error(&err));
-    }
-
-    #[test]
-    fn precheck_local_contract_errors_still_exit_the_proposer_loop() {
-        assert!(!is_operational_loop_error(&ProposerError::Contract(
-            alloy::contract::Error::UnknownFunction("getOperatorForCurrentEpoch".into()),
-        )));
-    }
-
-    #[test]
-    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
-        assert!(!is_operational_loop_error(
-            &ProposerError::TxManager(TxManagerError::NonceTooLow,)
-        ));
-        assert!(!is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
-        )));
-        assert!(!is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Sign(
-            "wallet rejected signing".into(),
-        ))));
-        assert!(!is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::InvalidConfig("bad fee limit".into()),
-        )));
     }
 
     #[test]
