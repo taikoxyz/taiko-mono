@@ -866,18 +866,17 @@ mod drain_tests {
             "orphaned child C must stay cached (deferred)"
         );
 
-        // The deferred child published exactly one parent request for B's (missing) block.
-        let mut requested_parent = None;
+        // The deferred child published EXACTLY ONE parent request, for B's (missing)
+        // block. Collect every request hash (not last-wins) so a duplicate or spurious
+        // extra request would fail the assert rather than being masked by overwrite;
+        // non-request commands are ignored as before.
+        let mut requests: Vec<B256> = Vec::new();
         while let Ok(command) = command_rx.try_recv() {
             if let NetworkCommand::PublishUnsafeRequest { hash } = command {
-                requested_parent = Some(hash);
+                requests.push(hash);
             }
         }
-        assert_eq!(
-            requested_parent,
-            Some(b_cache_key),
-            "deferred child must request its missing parent (B's block hash)"
-        );
+        assert_eq!(requests, vec![b_cache_key], "exactly one parent request, for B's hash");
 
         syncer_handle.abort();
         beacon_stub.shutdown().await.expect("beacon shutdown");

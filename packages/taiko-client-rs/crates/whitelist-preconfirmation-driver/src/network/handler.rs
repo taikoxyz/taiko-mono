@@ -418,6 +418,13 @@ mod tests {
         }
         assert!(!tracker.can_accept(5, 3), "4th response in epoch 5 refused");
         assert!(tracker.can_accept(6, 3), "fresh epoch unaffected");
+
+        // Accepting into epoch 6 must not re-open the exhausted epoch 5. The per-epoch
+        // map makes this bleed-back structurally impossible today; the assert exists to
+        // catch a future compaction to a single (last_epoch, count) pair, which would
+        // silently reset the counter — and thus re-open old epochs — on any epoch change.
+        tracker.mark(6);
+        assert!(!tracker.can_accept(5, 3), "accepting epoch 6 must not re-open epoch 5");
     }
 
     /// Signs `payload_bytes` the way a publisher does and returns

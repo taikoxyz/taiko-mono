@@ -42,8 +42,48 @@ use test_harness::{
     blocks::{fetch_block_by_number, wait_for_block},
     transactions::{build_mixed_preconf_txlist, build_preconf_txlist},
 };
-use tokio::spawn;
+use tokio::{spawn, task::JoinHandle};
 use tracing::warn;
+
+/// Concrete provider type produced by the plain (walletless) `Client::new` used
+/// throughout this file — `FillProvider<JoinedRecommendedFillers, RootProvider>`,
+/// the same alias the drain tests bind (`whitelist-preconfirmation-driver/src/
+/// importer/tests.rs::DriverProvider`). Naming it lets `start_syncer` below carry
+/// a concrete return type rather than an un-nameable generic.
+type DriverProvider = alloy_provider::fillers::FillProvider<
+    alloy_provider::utils::JoinedRecommendedFillers,
+    alloy_provider::RootProvider,
+>;
+
+/// Spin up a preconf-ingress-enabled `EventSyncer` for `config` against `beacon`,
+/// spawn its run loop, and block until ingress readiness latches.
+///
+/// This folds the ~15-line setup block that all four test sites in this file
+/// otherwise copy-paste (`DriverConfig` with `preconfirmation_enabled = true`,
+/// `Client::new`, `Arc<EventSyncer::new>`, spawned `run()`, and
+/// `wait_preconf_ingress_ready`). It returns the driver `Client` too because most
+/// callers need it afterward (head reads, proposal-processing waits, L1-origin
+/// lookups); sites that do not simply bind it to `_`.
+async fn start_syncer(
+    config: ClientConfig,
+    beacon: &BeaconStubServer,
+) -> Result<(Arc<EventSyncer<DriverProvider>>, Client<DriverProvider>, JoinHandle<()>)> {
+    let mut driver_config =
+        DriverConfig::new(config, Duration::from_millis(50), beacon.endpoint().clone(), None, None);
+    driver_config.preconfirmation_enabled = true;
+    let driver_client = Client::new(driver_config.client.clone()).await?;
+    let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
+    let handle = {
+        let syncer = event_syncer.clone();
+        spawn(async move {
+            if let Err(err) = syncer.run().await {
+                warn!(?err, "event syncer exited");
+            }
+        })
+    };
+    event_syncer.wait_preconf_ingress_ready().await?;
+    Ok((event_syncer, driver_client, handle))
+}
 
 /// Compressed/decompressed txlist size caps used by the whitelist ingress path
 /// (`crates/whitelist-preconfirmation-driver/src/codec.rs`): 6 blobs compressed,
@@ -145,29 +185,10 @@ fn build_preconf_attrs(
 #[serial]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn preconf_ingress_injects_block_smoke(env: &mut ShastaEnv) -> Result<()> {
-    // --- setup mirrored from proposer_driver_e2e.rs: beacon stub, DriverConfig
-    // with preconfirmation_enabled = true, EventSyncer::new, spawn run loop,
-    // wait_preconf_ingress_ready ---
+    // Preconf-ingress-enabled syncer against L2 node 0 (see `start_syncer`).
     let beacon_stub = BeaconStubServer::start().await?;
-    let mut driver_config = DriverConfig::new(
-        env.client_config.clone(),
-        Duration::from_millis(50),
-        beacon_stub.endpoint().clone(),
-        None,
-        None,
-    );
-    driver_config.preconfirmation_enabled = true;
-    let driver_client = Client::new(driver_config.client.clone()).await?;
-    let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
-    let syncer_handle = {
-        let syncer = event_syncer.clone();
-        spawn(async move {
-            if let Err(err) = syncer.run().await {
-                warn!(?err, "event syncer exited");
-            }
-        })
-    };
-    event_syncer.wait_preconf_ingress_ready().await?;
+    let (event_syncer, _driver_client, syncer_handle) =
+        start_syncer(env.client_config.clone(), &beacon_stub).await?;
 
     let parent_number = env.client.l2_provider.get_block_number().await?;
     let parent = fetch_block_by_number(&env.client.l2_provider, parent_number).await?;
@@ -387,27 +408,50 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
     let request = builder.build(vec![proposal_txs], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    // Start the node-0 driver/event-syncer (same DriverConfig pattern as the
-    // rest of this file and proposer_driver_e2e.rs).
-    let mut driver_config = DriverConfig::new(
-        env.client_config.clone(),
-        Duration::from_millis(50),
-        beacon_stub.endpoint().clone(),
-        None,
-        None,
-    );
-    driver_config.preconfirmation_enabled = true;
-    let driver_client = Client::new(driver_config.client.clone()).await?;
-    let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
-    let syncer_handle = {
-        let syncer = event_syncer.clone();
-        spawn(async move {
-            if let Err(err) = syncer.run().await {
-                warn!(?err, "node0 event syncer exited");
-            }
-        })
+    // Start the node-0 driver/event-syncer (see `start_syncer`).
+    let (event_syncer, driver_client, syncer_handle) =
+        start_syncer(env.client_config.clone(), &beacon_stub).await?;
+
+    // --- Node 1: a SECOND syncer, wired to l2_ws_1/l2_auth_1 (clone
+    // env.client_config, swap only the two L2 urls) so it holds an inbox view
+    // independent of node 0's L2. ShastaEnv already reset BOTH L2 nodes to the same
+    // base block, so node 1's parent state matches node 0's pre-derivation parent.
+    // A second beacon stub satisfies DriverConfig's beacon requirement; crucially it
+    // is left FRESH and BLOB-LESS, so node 1's L1 scanner can never derive proposal N
+    // (see below). Started BEFORE the proposal is submitted — this is what makes the
+    // "which path built block N" question decidable rather than a race. ---
+    //
+    // WHY BEFORE THE PROPOSAL (the ordering is load-bearing):
+    // Node 1's ingress-readiness gate (`confirmed_sync_snapshot` ->
+    // `ConfirmedSyncSnapshot::is_ready`, driver/src/sync/confirmed_sync.rs:32-41) is
+    // "immediately ready" only while `target_proposal_id == 0`. Once proposal N lands
+    // on the shared L1, `target_proposal_id >= 1` and readiness would additionally
+    // require node 1's OWN L2 to have derived proposal N. But node 1's beacon stub
+    // serves no blobs, so its derivation of N retries forever (unbounded
+    // ExponentialBackoff, event.rs) and `wait_preconf_ingress_ready()` would hang
+    // deterministically. Starting node 1 here, at `target_proposal_id == 0`, latches
+    // readiness the instant it probes — before N exists.
+    //
+    // WHY THE RACE IS NOW STRUCTURALLY IMPOSSIBLE (not merely improbable):
+    //  - Readiness cannot regress: the only reset is the scanner stream ending, which is
+    //    unreachable while the scanner is parked retrying `process_log_batch` for the un-derivable
+    //    proposal N. So readiness, once latched pre-proposal, holds.
+    //  - Node 1 can NEVER derive block N: derivation needs the proposal's blobs, and node 1's
+    //    beacon stub has none. Its scanner sees the `Proposed` log after submission and
+    //    warn-retries in the background, but each backoff releases the router lock, so the ingress
+    //    replay still acquires it and injects. The blob-less stub IS the independent inbox view —
+    //    node 1's ONLY route to block N is the preconf ingress this test exists to pin.
+    // The `is_preconf_block()` discriminator after `wait_for_block` therefore stays as
+    // belt-and-braces, not as the sole guard against a live race.
+    let node1_config = ClientConfig {
+        l2_provider_url: env.l2_ws_1.clone(),
+        l2_auth_provider_url: env.l2_auth_1.clone(),
+        ..env.client_config.clone()
     };
-    event_syncer.wait_preconf_ingress_ready().await?;
+    let beacon_stub_node1 = BeaconStubServer::start().await?;
+    let (event_syncer_node1, driver_client_node1, syncer_handle_node1) =
+        start_syncer(node1_config, &beacon_stub_node1).await?;
+    let node1_provider = driver_client_node1.l2_provider.clone();
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
     let (proposal_id, _log) = submit_proposal(&proposer, request, env.inbox_address).await?;
@@ -426,80 +470,6 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
         derived.header.number == block_number,
         "derived block number must match the proposed block number"
     );
-
-    // --- Node 1: build a driver client against l2_ws_1/l2_auth_1 (clone
-    // env.client_config, swap the two L2 urls), fresh EventSyncer, wait ready.
-    // ShastaEnv already reset BOTH L2 nodes to the same base block, so node 1's
-    // parent state matches node 0's pre-derivation parent. A second beacon stub
-    // is used because DriverConfig requires a beacon endpoint; the preconf
-    // ingress path itself never touches it. ---
-    //
-    // THE RACE (why this test could pass while proving nothing):
-    // Node 1's EventSyncer is wired to the SAME L1 + inbox as node 0 (only the
-    // two L2 urls are swapped). By the time node 1's syncer starts, proposal N is
-    // already confirmed on L1, so node 1's own scanner would derive block N during
-    // catch-up. If that happens, the replayed `submit_preconfirmation_payload`
-    // short-circuits WITHOUT ever running the preconf-ingress engine path:
-    //   - `preconfirmation_payload_is_materialized` (event.rs) may ack it, or
-    //   - once node 1's head_l1_origin reaches N, `is_stale_preconf` drops it with an `Ok(())` ack
-    //     (event.rs ingress loop).
-    // Either way the block-hash assertion below would pass vacuously — green while
-    // proving nothing about the ingress path this test exists to pin.
-    //
-    // DEFENSE 1 — REJECTED: blinding node 1's inbox. The brief's first idea was to
-    // point node 1 at an event-less dummy `inbox_address` so its scanner (which
-    // filters `Proposed` logs by `contract_address(inbox_address)`, event.rs) never
-    // sees proposal N. That is NOT viable here: node 1's readiness path issues
-    // `eth_call`s against the SAME inbox address — `getCoreState()` in both
-    // `try_finalized_l1_snapshot` (event.rs, at `run()` start) and
-    // `confirmed_sync_snapshot` (event.rs, the ingress-readiness probe). A dummy
-    // (no-code) address returns empty `0x`, which fails to ABI-decode into
-    // `CoreState`, so the readiness probe errors forever and
-    // `wait_preconf_ingress_ready()` below would hang. `ClientConfig` exposes a
-    // single `inbox_address` shared by scanner-filter AND `getCoreState`, with no
-    // way to separate them, so we keep node 1 on the REAL inbox.
-    //
-    // DEFENSE 2 — the actual guarantee: prove which path produced block N by
-    // inspecting node 1's L1-origin record for N after ingress (see the
-    // `l1_block_height` assertion after `wait_for_block`). The ingress path writes
-    // `l1_block_height: None`; L1 derivation writes a real non-zero L1 height. So
-    // if the race above ever wins, that assertion FAILS LOUDLY instead of the test
-    // passing vacuously. This converts the race from a silent false-green into a
-    // hard failure — which is the whole point of the finding.
-    //
-    // CI-WATCH: the first CI run validates the assumption that node 1 reaches
-    // ingress readiness on the shared real inbox and that ingress (not derivation)
-    // wins the block. If the `l1_block_height` assertion ever trips in CI, the race
-    // materialized and node 1 needs a genuinely independent inbox view (e.g. a
-    // second deployed Inbox returning genesis core state) rather than a dummy
-    // address — do NOT weaken the assertion to make it pass.
-    let node1_config = ClientConfig {
-        l2_provider_url: env.l2_ws_1.clone(),
-        l2_auth_provider_url: env.l2_auth_1.clone(),
-        ..env.client_config.clone()
-    };
-    let beacon_stub_node1 = BeaconStubServer::start().await?;
-    let mut driver_config_node1 = DriverConfig::new(
-        node1_config,
-        Duration::from_millis(50),
-        beacon_stub_node1.endpoint().clone(),
-        None,
-        None,
-    );
-    driver_config_node1.preconfirmation_enabled = true;
-    let driver_client_node1 = Client::new(driver_config_node1.client.clone()).await?;
-    let node1_provider = driver_client_node1.l2_provider.clone();
-    let event_syncer_node1 =
-        Arc::new(EventSyncer::new(&driver_config_node1, driver_client_node1.clone()).await?);
-    let syncer_handle_node1 = {
-        let syncer = event_syncer_node1.clone();
-        spawn(async move {
-            if let Err(err) = syncer.run().await {
-                warn!(?err, "node1 event syncer exited");
-            }
-        })
-    };
-    event_syncer_node1.wait_preconf_ingress_ready().await?;
 
     // Rebuild the payload attrs FROM node 0's derived block. `tx_list` is the RLP
     // list of the derived block's OWN transactions (anchor included, taken from
@@ -535,22 +505,21 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
     let injected =
         wait_for_block(&node1_provider, derived.header.number, Duration::from_secs(30)).await?;
 
-    // RACE-PREVENTION PROOF (Defense 2, see the node-1 setup comment above): assert
-    // block N on node 1 was produced by the PRECONF INGRESS path, not by node 1's
-    // own L1 derivation of the shared proposal. The single most definitive
-    // discriminator is the L1-origin record's `l1_block_height`, queried via the
-    // exact RPC the driver itself uses (`taiko_l1OriginByID`, rpc::l1_origin):
+    // BELT-AND-BRACES (the setup already makes ingress the only possible producer of
+    // block N on node 1 — see the node-1 comment: readiness latched pre-proposal and
+    // node 1's blob-less stub can never derive N): confirm block N came from the
+    // PRECONF INGRESS path, not L1 derivation. The definitive discriminator is the
+    // L1-origin record's `l1_block_height`, queried via the exact RPC the driver
+    // itself uses (`taiko_l1OriginByID`, rpc::l1_origin):
     //   - ingress writes `l1_block_height: None` (build_driver_payload /
     //     build_payload_attributes_with_id pass `l1_block_height: None`; then sync_l1_origin
     //     persists that origin verbatim), and
     //   - L1 derivation writes a REAL, non-zero L1 block height (the height of the L1 block that
     //     included the proposal).
     // `RpcL1Origin::is_preconf_block()` encodes exactly this test
-    // (`l1_block_height.is_none() || == Some(0)`). If node 1 had lost the race and
-    // derived N itself, `l1_block_height` would be a real height and this fails —
-    // catching the vacuous-green the finding is about. This runs BEFORE the hash
-    // assertion so a race is reported as "wrong path" rather than masquerading as a
-    // hash mismatch.
+    // (`l1_block_height.is_none() || == Some(0)`). It runs BEFORE the hash assertion so
+    // that, in the impossible event the structural guarantee is ever broken by a
+    // refactor, the failure reads as "wrong path" rather than a bare hash mismatch.
     let injected_origin = driver_client_node1
         .l1_origin_by_id(U256::from(derived.header.number))
         .await?
@@ -558,8 +527,8 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
     assert!(
         injected_origin.is_preconf_block(),
         "block {} on node 1 must come from preconf INGRESS (l1_block_height=None), not L1 \
-         derivation of the shared proposal; got l1_block_height={:?} — the paths-agree race won \
-         and the block hash below would prove nothing",
+         derivation of the shared proposal; got l1_block_height={:?} — a broken structural \
+         guarantee means the block hash below would prove nothing",
         derived.header.number,
         injected_origin.l1_block_height,
     );
@@ -595,27 +564,10 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
 #[serial]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn preconf_payload_with_legacy_tx_is_injected(env: &mut ShastaEnv) -> Result<()> {
-    // --- same setup block as the smoke test (mirrored from proposer_driver_e2e.rs) ---
+    // Same preconf-ingress-enabled syncer setup as the smoke test (see `start_syncer`).
     let beacon_stub = BeaconStubServer::start().await?;
-    let mut driver_config = DriverConfig::new(
-        env.client_config.clone(),
-        Duration::from_millis(50),
-        beacon_stub.endpoint().clone(),
-        None,
-        None,
-    );
-    driver_config.preconfirmation_enabled = true;
-    let driver_client = Client::new(driver_config.client.clone()).await?;
-    let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
-    let syncer_handle = {
-        let syncer = event_syncer.clone();
-        spawn(async move {
-            if let Err(err) = syncer.run().await {
-                warn!(?err, "event syncer exited");
-            }
-        })
-    };
-    event_syncer.wait_preconf_ingress_ready().await?;
+    let (event_syncer, _driver_client, syncer_handle) =
+        start_syncer(env.client_config.clone(), &beacon_stub).await?;
 
     let parent_number = env.client.l2_provider.get_block_number().await?;
     let parent = fetch_block_by_number(&env.client.l2_provider, parent_number).await?;
