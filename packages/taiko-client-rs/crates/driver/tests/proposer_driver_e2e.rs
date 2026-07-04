@@ -319,6 +319,189 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     Ok(())
 }
 
+/// Reads the current `head_l1_origin` block id, or `None` when the pointer is unset
+/// (mirrors `shasta_event_sync.rs::head_l1_origin_block_id`; each `tests/*.rs` file is
+/// its own crate so the helper is copied, not imported).
+async fn head_l1_origin_block_id<P>(driver_client: &Client<P>) -> Result<Option<u64>>
+where
+    P: Provider + Clone,
+{
+    Ok(driver_client.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>()))
+}
+
+/// A restarted syncer must resume from the confirmed head — reaching ready
+/// without re-deriving existing blocks (known-canonical fast path) and
+/// without moving the head backwards.
+///
+/// Readiness rationale (the difference between green and a deterministic CI hang):
+/// syncer #2 starts AFTER proposal 1 is confirmed, so its readiness gate
+/// (`ConfirmedSyncSnapshot::is_ready`) requires `last_block_id_by_batch_id(pid1)` to
+/// resolve on the L2 node. It WILL, because syncer #1 already derived proposal 1 into
+/// that same L2 node before being killed — the L2 tables persist across the restart.
+/// Readiness therefore means "the L2 already reflects the confirmed boundary", NOT
+/// "this syncer derived it": `wait_preconf_ingress_ready()` on syncer #2 latches via the
+/// known-canonical state WITHOUT re-derivation. If instead syncer #2 re-derived from
+/// genesis, the L2-head assertions below catch it (the head number/hash would move, or
+/// the run would take abnormally long and blow the 60s deadline).
+///
+/// Compile-verified here; CI-executed against the Docker harness (unavailable locally).
+#[test_context(ShastaEnv)]
+#[serial]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
+async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) -> Result<()> {
+    // Bounded windows: proposal processing reuses the crate-wide 30s bound; restart
+    // readiness gets its own 60s bound with a loud, explicit timeout message (never a
+    // silent hang) because the resume path is what this test exercises.
+    const PROPOSAL_TIMEOUT: Duration = Duration::from_secs(30);
+    const RESTART_READY_TIMEOUT: Duration = Duration::from_secs(60);
+
+    let beacon_stub = BeaconStubServer::start().await?;
+    let proposer = proposer_client(env).await?;
+
+    // Build ONE proposal request and serve its sidecar as the default so both the
+    // pre-restart proposal 1 and the post-restart proposal 2 derive from a blob the stub
+    // can always return regardless of L1 slot (`set_default_blob_sidecar` serves ANY
+    // slot). Reusing a single request across sequential proposals is the pattern proven
+    // by `multiple_proposals_event_sync` above.
+    let builder =
+        ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
+    let request = builder.build(vec![Vec::new()], None).await?;
+    beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
+
+    // 1. First syncer: EventSyncer::new against the harness nodes, spawn its run loop, wait for
+    //    ingress readiness, then propose + process proposal 1 (existing flow). Record l2_head_1
+    //    (number + hash) and head_l1_origin_1, then kill it: abort the run-loop JoinHandle AND drop
+    //    the Arc<EventSyncer>. Any channels/tasks the syncer left behind are per-instance, so the
+    //    second syncer starts clean.
+    let mut driver_config = DriverConfig::new(
+        env.client_config.clone(),
+        Duration::from_millis(50),
+        beacon_stub.endpoint().clone(),
+        None,
+        None,
+    );
+    driver_config.preconfirmation_enabled = true;
+    let driver_client = Client::new(driver_config.client.clone()).await?;
+    let event_syncer_1 = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
+    let syncer_handle_1 = {
+        let syncer = event_syncer_1.clone();
+        spawn(async move {
+            if let Err(err) = syncer.run().await {
+                warn!(?err, "first event syncer exited");
+            }
+        })
+    };
+    event_syncer_1.wait_preconf_ingress_ready().await?;
+
+    let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+    let (proposal_id_1, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let l2_head_1 = wait_for_proposal_processed(
+        &event_syncer_1,
+        &driver_client,
+        proposal_id_1,
+        l2_head_before,
+        PROPOSAL_TIMEOUT,
+    )
+    .await?;
+    // Capture the exact canonical block (number + hash) and the confirmed boundary that
+    // proposal 1 established — these must be byte-identical after the restart.
+    let canonical_block_1 = driver_client
+        .l2_provider
+        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow!("missing canonical block after proposal 1"))?;
+    let l2_head_number_1 = canonical_block_1.number();
+    let l2_head_hash_1 = canonical_block_1.hash();
+    let head_l1_origin_1 = head_l1_origin_block_id(&driver_client)
+        .await?
+        .context("head_l1_origin must be set after proposal 1 is processed")?;
+    info!(l2_head_1, l2_head_number_1, head_l1_origin_1, "captured confirmed head before restart");
+
+    // Kill the first syncer: abort its run task and drop the Arc so no run loop or
+    // per-instance channel survives into the second syncer's lifetime.
+    syncer_handle_1.abort();
+    drop(event_syncer_1);
+
+    // 2. Second syncer: EventSyncer::new against the SAME nodes (same driver_config / client),
+    //    spawn its run loop, and wait for ingress readiness within a bounded 60s window. This must
+    //    latch via the known-canonical fast path (see the readiness rationale above) rather than
+    //    re-deriving proposal 1.
+    let event_syncer_2 = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
+    let syncer_handle_2 = {
+        let syncer = event_syncer_2.clone();
+        spawn(async move {
+            if let Err(err) = syncer.run().await {
+                warn!(?err, "second event syncer exited");
+            }
+        })
+    };
+    tokio::time::timeout(RESTART_READY_TIMEOUT, event_syncer_2.wait_preconf_ingress_ready())
+        .await
+        .map_err(|_| {
+            // Loud, explicit failure — never a silent hang. If the resume path re-derived
+            // from genesis instead of latching on the persisted L2 tables, readiness would
+            // stall here past the deadline.
+            anyhow!(
+                "restarted syncer did not reach ingress readiness within {}s; the resume path \
+                 failed to latch on the persisted confirmed head",
+                RESTART_READY_TIMEOUT.as_secs()
+            )
+        })??;
+
+    // 3. Assert the restart resumed from the confirmed head and re-derived nothing: the L2 head
+    //    number AND hash are still exactly proposal 1's (no re-execution, no rollback), and
+    //    head_l1_origin is unchanged.
+    let canonical_block_after_restart = driver_client
+        .l2_provider
+        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow!("missing canonical block after restart"))?;
+    ensure!(
+        canonical_block_after_restart.number() == l2_head_number_1,
+        "restart must not move the L2 head: expected {l2_head_number_1}, got {}",
+        canonical_block_after_restart.number()
+    );
+    ensure!(
+        canonical_block_after_restart.hash() == l2_head_hash_1,
+        "restart must not re-execute the head block: L2 head hash changed"
+    );
+    let head_l1_origin_after_restart = head_l1_origin_block_id(&driver_client)
+        .await?
+        .context("head_l1_origin must remain set after restart")?;
+    ensure!(
+        head_l1_origin_after_restart == head_l1_origin_1,
+        "restart must not move the confirmed boundary: expected {head_l1_origin_1}, got \
+         {head_l1_origin_after_restart}"
+    );
+    ensure!(
+        event_syncer_2.is_preconf_ingress_ready(),
+        "restarted syncer must report ingress readiness"
+    );
+
+    // 4. Prove liveness: propose proposal 2 and assert the resumed syncer processes it (head
+    //    advances) within the usual 30s window — it is live, not wedged on a stale resume point.
+    let (proposal_id_2, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    ensure!(proposal_id_2 > proposal_id_1, "expected sequential proposal ids across restart");
+    let l2_head_after_second = wait_for_proposal_processed(
+        &event_syncer_2,
+        &driver_client,
+        proposal_id_2,
+        l2_head_1,
+        PROPOSAL_TIMEOUT,
+    )
+    .await?;
+    ensure!(
+        l2_head_after_second > l2_head_1,
+        "resumed syncer must advance the L2 head after proposal 2: got {l2_head_after_second}, \
+         pre-restart head {l2_head_1}"
+    );
+
+    syncer_handle_2.abort();
+    beacon_stub.shutdown().await?;
+
+    Ok(())
+}
+
 /// Return the blob sidecar needed by beacon-based derivation tests.
 fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVariant {
     request.blob_sidecar()
