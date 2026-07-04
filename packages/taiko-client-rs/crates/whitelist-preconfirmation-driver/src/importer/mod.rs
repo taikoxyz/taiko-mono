@@ -71,8 +71,13 @@ pub(crate) struct WhitelistPreconfirmationImporter {
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
-    /// Latched once the head L1 origin row has been observed. The row is never deleted,
-    /// so readiness derived from it is permanent and needs no further RPC re-checks.
+    /// Latched once the head L1 origin row has been observed. The row is put-only and never
+    /// cleared: locally `set_head_l1_origin` only ever writes another real block id (a reorg
+    /// reset lowers it or skips the write), and the pinned alethia-reth EE persists it as an
+    /// unconditional put at a fixed key with no unwind/prune path. So once observed it can
+    /// never revert to absent, and readiness derived from it is permanent and needs no
+    /// further RPC re-checks (WLP-INV-002/003). Re-confirm this put-only guarantee if the
+    /// alethia-reth pin is bumped.
     head_origin_written: bool,
     /// Shasta anchor contract address used to validate the first transaction.
     anchor_address: Address,
@@ -173,6 +178,13 @@ impl WhitelistPreconfirmationImporter {
 
     /// Handle an incoming end-of-sequencing request by serving the recorded
     /// envelope for the epoch from the recent cache or an L2 rebuild.
+    ///
+    /// This node only ever *serves* EOS requests; it never publishes one. In the Go client
+    /// the request is published from the incoming sequencer's handover loop
+    /// (`driver.go` `cacheLookaheadLoop` / `checkHandover`) when it has not seen the epoch's
+    /// EOS block. Here Catalyst owns handover and supplies the build `parent_hash`
+    /// explicitly, so this driver has no handover loop and never needs to request EOS blocks
+    /// — it only answers peers that do. Reintroduce a publish path if that ownership changes.
     async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
         let served = match self.state.end_of_sequencing_for_epoch(epoch).await {
             Some(hash) => self.serve_envelope_by_hash(hash, true).await?.is_some(),

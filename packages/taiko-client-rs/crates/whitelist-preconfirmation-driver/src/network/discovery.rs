@@ -3,9 +3,10 @@
 //! Every configured bootnode — ENR, `enode://` URL, or raw multiaddr — resolves to a
 //! TCP multiaddr that the network runtime dials directly and retries alongside static
 //! peers. There is no DHT discovery: the whitelist fleet is a small, known set of
-//! operators, and Go taiko-client peers filter ENRs without the `opstack` chain entry
-//! out of their discv5 tables, so a DHT never yields connectivity that direct dialing
-//! of the configured peers does not.
+//! operators, so the configured peers are the connectivity mechanism. The previous discv5
+//! integration only ever dialed addresses it discovered and never advertised this node into
+//! any DHT, so removing it cannot lose connectivity that direct dialing of the configured
+//! peers does not already provide.
 
 use std::net::SocketAddr;
 
