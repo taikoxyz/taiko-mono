@@ -1,6 +1,8 @@
 //! Transfer transaction building for E2E tests.
 
-use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
+use alloy_consensus::{
+    EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope, TxLegacy,
+};
 use alloy_eips::{BlockId, BlockNumberOrTag, eip2718::Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, TxKind, U256};
 use alloy_provider::Provider;
@@ -91,6 +93,84 @@ where
 
     let signature = signer.sign_hash(&tx.signature_hash()).await?;
     let envelope = TxEnvelope::new_unhashed(EthereumTypedTransaction::Eip1559(tx), signature);
+
+    Ok(TransferPayload { raw_bytes: envelope.encoded_2718().into(), hash: *envelope.hash(), from })
+}
+
+/// Builds and signs a LEGACY (type-0) transfer transaction.
+///
+/// This mirrors [`build_signed_transfer`] exactly except for the transaction
+/// type: it produces a legacy (pre-EIP-1559) transaction instead of an
+/// EIP-1559 one. It exists to pin the PR #21906 regression — Go peers gossip
+/// legacy transactions, so every txlist decoder must accept them.
+///
+/// The fee derivation is identical to the EIP-1559 builder: the legacy
+/// `gas_price` is set to what the EIP-1559 builder uses for `max_fee_per_gas`
+/// (`PRIORITY_FEE_GWEI + base_fee`), since a legacy transaction has no separate
+/// priority-fee field.
+///
+/// Creates a simple ETH transfer with:
+/// - Gas limit of 21,000 (standard transfer).
+/// - Gas price of `PRIORITY_FEE_GWEI + base fee`.
+///
+/// # Arguments
+///
+/// * `provider` - Provider to fetch nonce and chain ID.
+/// * `block_number` - Target block number (used to calculate base fee).
+/// * `private_key` - Hex-encoded private key (with or without 0x prefix).
+/// * `to` - Recipient address.
+/// * `value` - Amount to transfer in wei.
+///
+/// # Returns
+///
+/// A `TransferPayload` containing the signed transaction bytes, hash, and sender.
+///
+/// # Example
+///
+/// ```ignore
+/// let transfer = build_signed_legacy_transfer(
+///     &provider,
+///     100,
+///     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+///     Address::repeat_byte(0x11),
+///     U256::from(1_000_000_000_000_000_000u128), // 1 ETH
+/// ).await?;
+///
+/// assert_eq!(transfer.hash, expected_hash);
+/// ```
+pub(crate) async fn build_signed_legacy_transfer<P>(
+    provider: &P,
+    block_number: u64,
+    private_key: &str,
+    to: Address,
+    value: U256,
+) -> Result<TransferPayload>
+where
+    P: Provider + Send + Sync,
+{
+    let signer: PrivateKeySigner = private_key.parse()?;
+    let from = signer.address();
+
+    let nonce = provider
+        .get_transaction_count(from)
+        // Use on-chain nonce to avoid stale pending txs after L2 resets in tests.
+        .block_id(BlockId::Number(BlockNumberOrTag::Latest))
+        .await?;
+    let chain_id = provider.get_chain_id().await?;
+    let base_fee = compute_next_block_base_fee(provider, block_number.saturating_sub(1)).await?;
+
+    let tx = TxLegacy {
+        chain_id: Some(chain_id),
+        nonce,
+        gas_price: PRIORITY_FEE_GWEI + u128::from(base_fee),
+        gas_limit: 21_000,
+        to: TxKind::Call(to),
+        value,
+        input: Bytes::new(),
+    };
+
+    let signature = signer.sign_hash(&tx.signature_hash()).await?;
+    let envelope = TxEnvelope::new_unhashed(EthereumTypedTransaction::Legacy(tx), signature);
 
     Ok(TransferPayload { raw_bytes: envelope.encoded_2718().into(), hash: *envelope.hash(), from })
 }
