@@ -12,6 +12,8 @@ mod network;
 mod operator_set;
 mod payload;
 mod runner;
+#[cfg(test)]
+pub(crate) mod test_support;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};
 pub use metrics::WhitelistPreconfirmationDriverMetrics;

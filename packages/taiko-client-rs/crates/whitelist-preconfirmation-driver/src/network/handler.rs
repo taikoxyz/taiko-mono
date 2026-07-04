@@ -332,7 +332,7 @@ mod tests {
     use libp2p::{PeerId, gossipsub::MessageAcceptance};
 
     use super::*;
-    use crate::codec::tests::fixed_k_sign;
+    use crate::test_support::fixed_k_sign;
 
     /// Chain ID used across these tests; matches the signer domain.
     const CHAIN_ID: u64 = 167;

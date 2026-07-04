@@ -186,7 +186,6 @@ mod tests {
     use alloy_rpc_types::eth::Block as RpcBlock;
     use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
     use std::sync::{Arc, Mutex};
-    use tokio::runtime::Runtime;
 
     #[derive(Clone, Default)]
     struct MockApplier {
@@ -295,16 +294,16 @@ mod tests {
         }
     }
 
-    #[test]
-    fn router_routes_l1_to_canonical() {
+    #[tokio::test]
+    async fn router_routes_l1_to_canonical() {
         let canonical = Arc::new(MockPath::new());
         let preconf = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
         let log = Log::default();
 
-        let rt = Runtime::new().unwrap();
-        let outcomes = rt
-            .block_on(router.produce(ProductionInput::L1ProposalLog(log)))
+        let outcomes = router
+            .produce(ProductionInput::L1ProposalLog(log))
+            .await
             .expect("router should route to canonical path");
 
         assert_eq!(canonical.calls(), 1);
@@ -312,16 +311,16 @@ mod tests {
         assert_eq!(outcomes.len(), 1);
     }
 
-    #[test]
-    fn router_routes_preconf_to_preconf_path() {
+    #[tokio::test]
+    async fn router_routes_preconf_to_preconf_path() {
         let canonical = Arc::new(MockPath::new());
         let preconf = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
         let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0)));
 
-        let rt = Runtime::new().unwrap();
-        let outcomes = rt
-            .block_on(router.produce(ProductionInput::Preconfirmation(payload)))
+        let outcomes = router
+            .produce(ProductionInput::Preconfirmation(payload))
+            .await
             .expect("router should route to preconfirmation path");
 
         assert_eq!(preconf.calls(), 1);
@@ -329,47 +328,47 @@ mod tests {
         assert_eq!(outcomes.len(), 1);
     }
 
-    #[test]
-    fn router_rejects_preconf_without_path() {
+    #[tokio::test]
+    async fn router_rejects_preconf_without_path() {
         let canonical = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), None);
         let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0)));
 
-        let rt = Runtime::new().unwrap();
-        let err = rt
-            .block_on(router.produce(ProductionInput::Preconfirmation(payload)))
+        let err = router
+            .produce(ProductionInput::Preconfirmation(payload))
+            .await
             .expect_err("router should reject preconfirmation input without a path");
 
         assert!(matches!(err, DriverError::PreconfirmationDisabled));
         assert_eq!(canonical.calls(), 0);
     }
 
-    #[test]
-    fn preconfirmation_path_delegates_to_applier() {
+    #[tokio::test]
+    async fn preconfirmation_path_delegates_to_applier() {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(0, parent_hash);
         let path = PreconfirmationPath::new(applier.clone());
         let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(1)));
 
-        let rt = Runtime::new().unwrap();
-        let outcomes = rt
-            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
+        let outcomes = path
+            .produce(ProductionInput::Preconfirmation(payload))
+            .await
             .expect("preconfirmation path should succeed");
 
         assert_eq!(applier.calls(), 1);
         assert_eq!(outcomes.len(), 1);
     }
 
-    #[test]
-    fn preconfirmation_path_produces_above_parent() {
+    #[tokio::test]
+    async fn preconfirmation_path_produces_above_parent() {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(1, parent_hash);
         let path = PreconfirmationPath::new(applier.clone());
         let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(2)));
 
-        let rt = Runtime::new().unwrap();
-        let outcomes = rt
-            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
+        let outcomes = path
+            .produce(ProductionInput::Preconfirmation(payload))
+            .await
             .expect("preconfirmation above canonical boundary should be allowed");
 
         assert_eq!(applier.calls(), 1);

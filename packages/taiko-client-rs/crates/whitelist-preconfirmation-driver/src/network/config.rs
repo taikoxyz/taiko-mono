@@ -150,7 +150,7 @@ mod tests {
     /// the absolute 20-byte id against Go's BuildMsgIdFn output.
     #[test]
     fn taiko_message_id_matches_go_golden() {
-        let fixture = crate::codec::tests::go_fixture_json("msgid.json");
+        let fixture = crate::test_support::go_fixture_json("msgid.json");
         for case in ["valid_snappy", "invalid_snappy"] {
             let entry = &fixture[case];
             let topic = entry["topic"].as_str().expect("topic");

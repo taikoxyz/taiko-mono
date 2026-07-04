@@ -213,35 +213,18 @@ impl RequestThrottle {
 mod tests {
     use std::sync::Arc;
 
-    use alloy_primitives::{Address, Bloom, Bytes, U256};
-    use alloy_rpc_types_engine::ExecutionPayloadV1;
+    use alloy_primitives::Bytes;
 
     use super::*;
+    use crate::test_support::sample_envelope_with_transactions;
 
+    /// Cache tests key envelopes by `(block_hash, block_number)`; wrap the shared
+    /// builder and override just those two fields.
     fn sample_envelope(hash: B256, block_number: u64) -> WhitelistExecutionPayloadEnvelope {
-        WhitelistExecutionPayloadEnvelope {
-            end_of_sequencing: None,
-            is_forced_inclusion: None,
-            parent_beacon_block_root: None,
-            header_difficulty: Some(U256::from(1_000_000u64)),
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from([0x10u8; 32]),
-                fee_recipient: Address::from([0x11u8; 20]),
-                state_root: B256::from([0x12u8; 32]),
-                receipts_root: B256::from([0x13u8; 32]),
-                logs_bloom: Bloom::default(),
-                prev_randao: B256::from([0x14u8; 32]),
-                block_number,
-                gas_limit: 30_000_000,
-                gas_used: 21_000,
-                timestamp: 1_735_000_000,
-                extra_data: Bytes::from(vec![0x55u8; 8]),
-                base_fee_per_gas: U256::from(1_000_000_000u64),
-                block_hash: hash,
-                transactions: vec![Bytes::from(vec![0x99u8; 4])],
-            },
-            signature: Some([0x22u8; 65]),
-        }
+        let mut envelope = sample_envelope_with_transactions(vec![Bytes::from(vec![0x99u8; 4])]);
+        envelope.execution_payload.block_hash = hash;
+        envelope.execution_payload.block_number = block_number;
+        envelope
     }
 
     #[test]

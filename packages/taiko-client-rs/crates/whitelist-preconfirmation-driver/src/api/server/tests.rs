@@ -24,48 +24,33 @@ use crate::{
 use alloy_primitives::{Address, B256, Bytes as RpcBytes};
 use async_trait::async_trait;
 
-struct MockApi;
-
-#[async_trait]
-impl WhitelistApi for MockApi {
-    async fn build_preconf_block(
-        &self,
-        _request: BuildPreconfBlockRequest,
-    ) -> Result<BuildPreconfBlockResponse> {
-        Ok(BuildPreconfBlockResponse { block_header: Default::default() })
-    }
-
-    async fn get_status(&self) -> Result<ApiStatus> {
-        Ok(ApiStatus {
-            highest_unsafe_l2_payload_block_id: 100,
-            end_of_sequencing_block_hash: B256::ZERO.to_string(),
-            can_shutdown: true,
-        })
-    }
-
-    fn is_sync_ready(&self) -> bool {
-        true
-    }
-
-    fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
-        let (_tx, rx) = broadcast::channel(1);
-        rx
-    }
-}
-
+/// Configurable [`WhitelistApi`] test double (replaces the former `MockApi` +
+/// `SyncReadyApi`). `sync_ready` drives the sync-ready gate; `build_calls`
+/// counts `build_preconf_block` invocations (what `SyncReadyApi` tracked) and is
+/// an `Arc` so a clone can be retained to assert the count after the server has
+/// taken ownership of the `Arc<dyn WhitelistApi>`.
 #[derive(Clone)]
-struct SyncReadyApi {
-    build_preconf_calls: Arc<AtomicUsize>,
+struct TestApi {
+    /// Value returned from the sync-ready gate.
     sync_ready: bool,
+    /// Counts `build_preconf_block` calls.
+    build_calls: Arc<AtomicUsize>,
+}
+
+impl Default for TestApi {
+    /// A sync-ready double with a fresh call counter — the common case.
+    fn default() -> Self {
+        Self { sync_ready: true, build_calls: Arc::new(AtomicUsize::new(0)) }
+    }
 }
 
 #[async_trait]
-impl WhitelistApi for SyncReadyApi {
+impl WhitelistApi for TestApi {
     async fn build_preconf_block(
         &self,
         _request: BuildPreconfBlockRequest,
     ) -> Result<BuildPreconfBlockResponse> {
-        self.build_preconf_calls.fetch_add(1, Ordering::SeqCst);
+        self.build_calls.fetch_add(1, Ordering::SeqCst);
         Ok(BuildPreconfBlockResponse { block_header: Default::default() })
     }
 
@@ -118,14 +103,14 @@ fn test_config() -> WhitelistApiServerConfig {
 async fn start_jwt_server() -> WhitelistApiServer {
     let config =
         WhitelistApiServerConfig { jwt_secret: Some(b"test-secret".to_vec()), ..test_config() };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
     WhitelistApiServer::start(config, api).await.expect("server should start")
 }
 
 #[tokio::test]
 async fn server_start_stop() {
     let config = test_config();
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
 
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
     assert_eq!(server.local_addr().ip().to_string(), "127.0.0.1");
@@ -149,7 +134,7 @@ async fn cors_layer_allows_configured_origin() {
         cors_origins: vec!["https://example.com".to_string()],
         ..test_config()
     };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
 
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
     let response = reqwest::Client::new()
@@ -173,12 +158,12 @@ async fn cors_layer_allows_configured_origin() {
 
 #[tokio::test]
 async fn preconf_blocks_is_rejected_when_not_sync_ready() {
-    let build_preconf_calls = Arc::new(AtomicUsize::new(0));
+    let build_calls = Arc::new(AtomicUsize::new(0));
     let config = WhitelistApiServerConfig {
         cors_origins: vec!["https://example.com".to_string()],
         ..test_config()
     };
-    let api = SyncReadyApi { build_preconf_calls: build_preconf_calls.clone(), sync_ready: false };
+    let api = TestApi { sync_ready: false, build_calls: build_calls.clone() };
     let server =
         WhitelistApiServer::start(config, Arc::new(api)).await.expect("server should start");
 
@@ -190,7 +175,7 @@ async fn preconf_blocks_is_rejected_when_not_sync_ready() {
         .await
         .expect("request should succeed");
     assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
-    assert_eq!(build_preconf_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(build_calls.load(Ordering::SeqCst), 0);
 
     server.stop().await;
 }
@@ -240,7 +225,7 @@ async fn jwt_auth_is_required_when_secret_configured() {
 #[tokio::test]
 async fn websocket_route_rejects_non_upgrade_requests() {
     let config = test_config();
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
@@ -256,7 +241,7 @@ async fn websocket_route_rejects_non_upgrade_requests() {
 #[tokio::test]
 async fn preconf_blocks_enforces_body_limit() {
     let config = test_config();
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let oversized_body = vec![b'a'; PRECONF_BLOCKS_BODY_LIMIT_BYTES + 1];
@@ -280,7 +265,7 @@ async fn preconf_blocks_enforces_body_limit() {
 #[tokio::test]
 async fn preconf_blocks_rejects_invalid_json() {
     let config = test_config();
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
@@ -305,7 +290,7 @@ async fn preconf_blocks_rejects_invalid_json() {
 #[tokio::test]
 async fn get_status_returns_can_shutdown_field_in_camel_case() {
     let config = test_config();
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
@@ -429,7 +414,7 @@ async fn unknown_path_requires_jwt_when_secret_configured() {
 #[tokio::test]
 async fn unknown_path_returns_not_found_when_no_jwt_secret() {
     let config = test_config();
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(TestApi::default());
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()

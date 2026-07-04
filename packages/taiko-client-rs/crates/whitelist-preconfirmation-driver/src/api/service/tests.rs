@@ -1,21 +1,11 @@
-use std::{
-    io::Write,
-    time::{Duration, Instant},
-};
-
-use flate2::{Compression, write::ZlibEncoder};
+use std::time::{Duration, Instant};
 
 use crate::{
     api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for, reconcile_highest_unsafe},
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
+    test_support::compress,
 };
-
-fn compress(payload: &[u8]) -> Vec<u8> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(payload).expect("write zlib payload");
-    encoder.finish().expect("finish zlib encoding")
-}
 
 #[test]
 fn decompress_tx_list_rejects_oversized_compressed_payload() {

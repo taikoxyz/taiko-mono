@@ -5,13 +5,15 @@ use alloy_consensus::{
     EthereumTypedTransaction, TxEip1559, TxEnvelope, transaction::SignableTransaction,
 };
 use alloy_eips::{Encodable2718, eip2930::AccessList};
-use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
-use alloy_rpc_types_engine::ExecutionPayloadV1;
+use alloy_primitives::{Address, Bytes, U256};
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
 use crate::{
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope},
     error::WhitelistPreconfirmationDriverError,
+    test_support::{
+        compress, sample_envelope_with_transactions as sample_execution_payload_with_transactions,
+    },
 };
 
 use super::{
@@ -24,46 +26,12 @@ const TEST_CHAIN_ID: u64 = 167;
 const NON_GOLDEN_SIGNER_PRIVATE_KEY: &str =
     "0x0000000000000000000000000000000000000000000000000000000000000001";
 
-fn sample_execution_payload_with_transactions(
-    transactions: Vec<Bytes>,
-) -> WhitelistExecutionPayloadEnvelope {
-    WhitelistExecutionPayloadEnvelope {
-        end_of_sequencing: None,
-        is_forced_inclusion: None,
-        parent_beacon_block_root: None,
-        header_difficulty: Some(U256::from(1_000_000u64)),
-        execution_payload: ExecutionPayloadV1 {
-            parent_hash: B256::from([0x10u8; 32]),
-            fee_recipient: Address::from([0x11u8; 20]),
-            state_root: B256::from([0x12u8; 32]),
-            receipts_root: B256::from([0x13u8; 32]),
-            logs_bloom: Bloom::default(),
-            prev_randao: B256::from([0x14u8; 32]),
-            block_number: 42,
-            gas_limit: 30_000_000,
-            gas_used: 21_000,
-            timestamp: 1_735_000_000,
-            extra_data: Bytes::from(vec![0x55u8; 8]),
-            base_fee_per_gas: U256::from(1_000_000_000u64),
-            block_hash: B256::from([0x15u8; 32]),
-            transactions,
-        },
-        signature: Some([0x22u8; 65]),
-    }
-}
-
 fn sample_unsigned_execution_payload_with_transactions(
     transactions: Vec<Bytes>,
 ) -> WhitelistExecutionPayloadEnvelope {
     let mut envelope = sample_execution_payload_with_transactions(transactions);
     envelope.signature = None;
     envelope
-}
-
-fn compress(data: &[u8]) -> Bytes {
-    let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
-    std::io::Write::write_all(&mut encoder, data).expect("zlib write");
-    Bytes::from(encoder.finish().expect("zlib finish"))
 }
 
 fn sample_anchor_address() -> Address {
@@ -235,11 +203,16 @@ fn validate_payload_rejects_oversized_compressed_transactions_list() {
         anchor_address,
     )
     .expect_err("oversized compressed tx list must be rejected");
-    assert!(matches!(
-        err,
-        WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("compressed txlist exceeds max size")
-    ));
+    // Assert on this crate's own wrapper context (validation.rs), not the
+    // protocol codec's inner message, so protocol rewording can't break us.
+    assert!(
+        matches!(
+            &err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("invalid transactions list bytes")
+        ),
+        "unexpected error shape: {err}"
+    );
 }
 
 #[test]
@@ -368,11 +341,15 @@ fn validate_payload_rejects_invalid_zlib_transactions_bytes() {
         anchor_address,
     )
     .expect_err("invalid zlib bytes must be rejected");
-    assert!(matches!(
-        err,
-        WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("zlib decode failed")
-    ));
+    // Owned by this crate (validation.rs) — survives protocol codec rewording.
+    assert!(
+        matches!(
+            &err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("invalid transactions list bytes")
+        ),
+        "unexpected error shape: {err}"
+    );
 }
 
 #[test]
@@ -386,11 +363,17 @@ fn validate_payload_rejects_invalid_rlp_transactions_bytes() {
         anchor_address,
     )
     .expect_err("invalid RLP bytes must be rejected");
-    assert!(matches!(
-        err,
-        WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("rlp decode failed")
-    ));
+    // `compress(b"not-rlp")` fails RLP-list decode INSIDE the protocol codec, so
+    // the crate wrapper here is the tx-list one (validation.rs), not the
+    // per-transaction `decode_2718` wrapper. Assert on our own prefix regardless.
+    assert!(
+        matches!(
+            &err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("invalid transactions list bytes")
+        ),
+        "unexpected error shape: {err}"
+    );
 }
 
 #[test]
@@ -406,11 +389,15 @@ fn validate_payload_rejects_oversized_decompressed_transactions_bytes() {
         anchor_address,
     )
     .expect_err("oversized decompressed tx list must be rejected");
-    assert!(matches!(
-        err,
-        WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("decompressed txlist exceeds max size")
-    ));
+    // Owned by this crate (validation.rs) — survives protocol codec rewording.
+    assert!(
+        matches!(
+            &err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("invalid transactions list bytes")
+        ),
+        "unexpected error shape: {err}"
+    );
 }
 
 #[test]

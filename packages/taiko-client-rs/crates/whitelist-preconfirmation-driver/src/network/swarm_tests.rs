@@ -9,7 +9,7 @@ use libp2p::Multiaddr;
 use tokio::time::timeout;
 
 use super::runtime::{NetworkCommand, NetworkConfig, NetworkEvent, WhitelistNetwork};
-use crate::codec::{WhitelistExecutionPayloadEnvelope, tests::fixed_k_sign};
+use crate::{codec::WhitelistExecutionPayloadEnvelope, test_support::fixed_k_sign};
 
 const CHAIN_ID: u64 = 167;
 
@@ -48,10 +48,10 @@ async fn dialable_addr(node: &WhitelistNetwork) -> Multiaddr {
 /// signer address). Uses the Task 2.1 self-consistent signing convention: the
 /// caller registers the *recovered* address, so no v-byte convention is assumed.
 fn signed_envelope(block_number: u64) -> ([u8; 65], WhitelistExecutionPayloadEnvelope, Address) {
-    // Reuse the existing fixture builder from codec tests for the payload body,
-    // overriding block_number, with signature: None (the wire signature travels
-    // in front of the payload).
-    let mut envelope = crate::codec::tests::sample_envelope();
+    // Reuse the shared fixture builder for the payload body, overriding
+    // block_number, with signature: None (the wire signature travels in front of
+    // the payload).
+    let mut envelope = crate::test_support::sample_envelope();
     envelope.execution_payload.block_number = block_number;
     envelope.signature = None;
 
