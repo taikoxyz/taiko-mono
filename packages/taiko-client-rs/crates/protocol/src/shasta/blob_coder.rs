@@ -307,7 +307,42 @@ fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
 mod tests {
     use super::{BLOB_MAX_DATA_SIZE, BlobCoder, decode_blob};
     use alloy::consensus::SidecarBuilder;
-    use alloy_eips::eip4844::builder::SidecarCoder;
+    use alloy_eips::eip4844::{Blob, builder::SidecarCoder};
+
+    /// Reads a Go-generated blob fixture, failing with a regeneration hint.
+    fn go_blob_fixture(rel: &str) -> Vec<u8> {
+        let path = format!("{}/fixtures/go/blob/{rel}", env!("CARGO_MANIFEST_DIR"));
+        std::fs::read(&path)
+            .unwrap_or_else(|e| panic!("missing fixture {path} ({e}) — run `just gen-fixtures`"))
+    }
+
+    #[test]
+    fn decode_blob_accepts_go_encoded_blobs() {
+        for name in ["empty", "one_byte", "len_27", "len_28", "max"] {
+            let blob_bytes = go_blob_fixture(&format!("{name}.blob.bin"));
+            let payload = go_blob_fixture(&format!("{name}.payload.bin"));
+            let blob = Blob::try_from(blob_bytes.as_slice()).expect("131072-byte fixture");
+            let decoded = BlobCoder::decode_blob(&blob)
+                .unwrap_or_else(|| panic!("Go-encoded blob fixture {name} must decode"));
+            assert_eq!(decoded, payload, "fixture {name} payload mismatch");
+        }
+    }
+
+    #[test]
+    fn encode_blob_matches_go_bytes() {
+        // The proposer encodes blobs Go nodes must read back — pin encoder parity too.
+        for name in ["one_byte", "len_27", "len_28", "max"] {
+            let payload = go_blob_fixture(&format!("{name}.payload.bin"));
+            let expected = go_blob_fixture(&format!("{name}.blob.bin"));
+            let blobs = SidecarBuilder::<BlobCoder>::from_slice(&payload).take();
+            assert_eq!(blobs.len(), 1, "fixture {name} should fit one blob");
+            assert_eq!(
+                blobs[0].as_slice(),
+                expected.as_slice(),
+                "fixture {name} blob byte mismatch"
+            );
+        }
+    }
 
     #[test]
     fn required_field_elements_matches_capacity() {
