@@ -179,53 +179,14 @@ mod tests {
         production::{PreconfPayload, ProductionRouter},
         sync::{engine::AppliedPayload, error::EngineSubmissionError},
     };
-    use alethia_reth_primitives::payload::attributes::{
-        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-    };
+    use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
     use alloy::rpc::types::Log;
     use alloy_consensus::TxEnvelope;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types::eth::Block as RpcBlock;
     use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
-    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
-
-    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
-        let payload_attributes = EthPayloadAttributes {
-            timestamp: 0,
-            prev_randao: B256::ZERO,
-            suggested_fee_recipient: Address::ZERO,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: Address::ZERO,
-            gas_limit: 0,
-            timestamp: U256::ZERO,
-            mix_hash: B256::ZERO,
-            tx_list: Some(Bytes::new()),
-            extra_data: Bytes::new(),
-        };
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: None,
-            l1_block_hash: None,
-            build_payload_args_id: [0u8; 8],
-            is_forced_inclusion: false,
-            signature: [0u8; 65],
-        };
-
-        TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::ZERO,
-            block_metadata,
-            l1_origin,
-            anchor_transaction: None,
-        }
-    }
 
     #[derive(Clone, Default)]
     struct MockApplier {
@@ -356,7 +317,7 @@ mod tests {
         let canonical = Arc::new(MockPath::new());
         let preconf = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
-        let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
+        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0)));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
@@ -372,7 +333,7 @@ mod tests {
     fn router_rejects_preconf_without_path() {
         let canonical = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), None);
-        let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
+        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0)));
 
         let rt = Runtime::new().unwrap();
         let err = rt
@@ -388,7 +349,7 @@ mod tests {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(0, parent_hash);
         let path = PreconfirmationPath::new(applier.clone());
-        let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
+        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(1)));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
@@ -404,7 +365,7 @@ mod tests {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(1, parent_hash);
         let path = PreconfirmationPath::new(applier.clone());
-        let payload = Arc::new(PreconfPayload::new(sample_payload(2)));
+        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(2)));
 
         let rt = Runtime::new().unwrap();
         let outcomes = rt
@@ -427,7 +388,7 @@ mod tests {
         let applier =
             MockApplier { fail_invalid: true, expected_parent: 5, ..MockApplier::default() };
         let path = PreconfirmationPath::new(applier);
-        let payload = Arc::new(PreconfPayload::new(sample_payload(6)));
+        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(6)));
         let err = path
             .produce(ProductionInput::Preconfirmation(payload))
             .await
