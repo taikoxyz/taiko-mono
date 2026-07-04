@@ -567,3 +567,19 @@ pub(crate) mod tests {
         assert_eq!(txs[1][0], 0x02, "second tx is typed eip1559");
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Gossip bytes are attacker-controlled: neither decoder may panic.
+        #[test]
+        fn envelope_decoders_never_panic(data in proptest::collection::vec(any::<u8>(), 0..8192)) {
+            let _ = decode_envelope_ssz(&data);
+            let _ = decode_unsafe_response_message(&data);
+            let _ = decode_unsafe_payload_signature(&data);
+        }
+    }
+}

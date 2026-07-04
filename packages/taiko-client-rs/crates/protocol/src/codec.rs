@@ -393,3 +393,53 @@ mod tests {
     // the decode tests above cover; both encoders round-trip through either
     // decoder, so encoded bytes are semantically equivalent.
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Builds a syntactically-valid legacy-shaped tx: a bare RLP list wrapping
+    /// arbitrary payload bytes.
+    fn legacy_shaped(payload: &[u8]) -> Vec<u8> {
+        let mut out = Vec::new();
+        alloy_rlp::Header { list: true, payload_length: payload.len() }.encode(&mut out);
+        out.extend_from_slice(payload);
+        out
+    }
+
+    /// Strategy producing a mix of typed-shaped (first byte 0x00..=0x7f) and
+    /// legacy-shaped transactions.
+    fn tx_strategy() -> impl Strategy<Value = Vec<u8>> {
+        prop_oneof![
+            // typed: type byte then arbitrary body
+            (0u8..=0x7f, proptest::collection::vec(any::<u8>(), 0..256)).prop_map(
+                |(t, mut body)| {
+                    let mut tx = vec![t];
+                    tx.append(&mut body);
+                    tx
+                }
+            ),
+            // legacy: RLP list of arbitrary payload
+            proptest::collection::vec(any::<u8>(), 0..256).prop_map(|p| legacy_shaped(&p)),
+        ]
+    }
+
+    proptest! {
+        /// Decode must never panic, whatever bytes a peer sends.
+        #[test]
+        fn decode_never_panics(data in proptest::collection::vec(any::<u8>(), 0..4096)) {
+            let _ = ZlibTxListCodec::new_with_limits(1 << 20, 1 << 22).decode(&data);
+        }
+
+        /// encode -> decode round-trips arbitrary mixes of tx shapes.
+        #[test]
+        fn roundtrips_arbitrary_tx_shape_mixes(
+            txs in proptest::collection::vec(tx_strategy(), 0..32)
+        ) {
+            let codec = ZlibTxListCodec::new_with_limits(1 << 22, 1 << 24);
+            let encoded = codec.encode(&txs).expect("encode");
+            prop_assert_eq!(codec.decode(&encoded).expect("decode"), txs);
+        }
+    }
+}

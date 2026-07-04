@@ -440,3 +440,48 @@ mod tests {
         assert_eq!(decoded, payload);
     }
 }
+
+#[cfg(test)]
+mod prop_tests {
+    use super::*;
+    use alloy::consensus::SidecarBuilder;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 64, ..ProptestConfig::default() })]
+        /// A malformed blob from a peer or beacon must fail cleanly, never panic.
+        #[test]
+        fn decode_blob_never_panics(bytes in proptest::collection::vec(any::<u8>(), 131072)) {
+            let blob = Blob::try_from(bytes.as_slice()).expect("exact size");
+            let _ = BlobCoder::decode_blob(&blob);
+        }
+    }
+
+    /// Each rejection guard in `decode_blob` returns None (wrong version byte,
+    /// oversized length header, dirty field-element high bits).
+    #[test]
+    fn decode_blob_rejects_each_malformed_shape() {
+        // Start from a valid encoding of a small payload.
+        let valid: Blob = {
+            let blobs = SidecarBuilder::<BlobCoder>::from_slice(&[0x42; 64]).take();
+            blobs[0]
+        };
+
+        // Wrong version byte (byte 1 of the first field element holds the version).
+        let mut wrong_version = valid;
+        wrong_version[1] ^= 0xff;
+        assert!(BlobCoder::decode_blob(&wrong_version).is_none(), "wrong version accepted");
+
+        // Length header claiming more data than a blob can hold.
+        let mut oversized = valid;
+        oversized[2] = 0xff;
+        oversized[3] = 0xff;
+        oversized[4] = 0xff;
+        assert!(BlobCoder::decode_blob(&oversized).is_none(), "oversized length accepted");
+
+        // High bits set in a later field element's header byte.
+        let mut dirty_fe = valid;
+        dirty_fe[32] = 0xc0;
+        assert!(BlobCoder::decode_blob(&dirty_fe).is_none(), "dirty FE header accepted");
+    }
+}
