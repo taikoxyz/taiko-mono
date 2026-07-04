@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -61,7 +62,7 @@ func (m *mockProofProducer) RequestProof(
 		return nil, m.shouldReturnErr
 	}
 
-	pacayaOpts, ok := opts.(*proofProducer.ProofRequestOptionsPacaya)
+	proposalOpts, ok := opts.(*proofProducer.ProposalProofRequestOptions)
 	if !ok {
 		return nil, errors.New("invalid options type")
 	}
@@ -71,7 +72,7 @@ func (m *mockProofProducer) RequestProof(
 		Meta:      meta,
 		Proof:     testutils.RandomBytes(100),
 		ProofType: proofProducer.ProofTypeOp,
-		Opts:      pacayaOpts,
+		Opts:      proposalOpts,
 	}, nil
 }
 
@@ -93,8 +94,8 @@ func TestProofRequestWithMockProducer(t *testing.T) {
 
 	// Test basic proof request
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID: big.NewInt(1),
+	opts := &proofProducer.ProposalProofRequestOptions{
+		ProposalID: big.NewInt(1),
 		Headers: []*types.Header{
 			{
 				Number: big.NewInt(100),
@@ -102,11 +103,10 @@ func TestProofRequestWithMockProducer(t *testing.T) {
 		},
 	}
 
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(&pacayaBindings.TaikoInboxClientBatchProposed{
-		Meta: pacayaBindings.ITaikoInboxBatchMetadata{
-			BatchId: 1,
-		},
-	})
+	meta := metadata.NewTaikoProposalMetadataShasta(
+		&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(1)},
+		0,
+	)
 
 	startTime := time.Now()
 	resp, err := mockProducer.RequestProof(ctx, opts, big.NewInt(1), meta, startTime)
@@ -124,8 +124,8 @@ func TestProofRequestWithTimeout(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID: big.NewInt(2),
+	opts := &proofProducer.ProposalProofRequestOptions{
+		ProposalID: big.NewInt(2),
 		Headers: []*types.Header{
 			{
 				Number: big.NewInt(200),
@@ -133,11 +133,10 @@ func TestProofRequestWithTimeout(t *testing.T) {
 		},
 	}
 
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(&pacayaBindings.TaikoInboxClientBatchProposed{
-		Meta: pacayaBindings.ITaikoInboxBatchMetadata{
-			BatchId: 2,
-		},
-	})
+	meta := metadata.NewTaikoProposalMetadataShasta(
+		&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(2)},
+		0,
+	)
 
 	// Simulate that the request started more than maxProofRequestTimeout ago
 	startTime := time.Now().Add(-maxProofRequestTimeout - 1*time.Second)
@@ -158,8 +157,8 @@ func TestProofRequestWithRetryTimeout(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID: big.NewInt(3),
+	opts := &proofProducer.ProposalProofRequestOptions{
+		ProposalID: big.NewInt(3),
 		Headers: []*types.Header{
 			{
 				Number: big.NewInt(300),
@@ -167,11 +166,10 @@ func TestProofRequestWithRetryTimeout(t *testing.T) {
 		},
 	}
 
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(&pacayaBindings.TaikoInboxClientBatchProposed{
-		Meta: pacayaBindings.ITaikoInboxBatchMetadata{
-			BatchId: 3,
-		},
-	})
+	meta := metadata.NewTaikoProposalMetadataShasta(
+		&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(3)},
+		0,
+	)
 
 	// Simulate that the request started more than maxProofRequestTimeout ago
 	startTime := time.Now().Add(-maxProofRequestTimeout - 1*time.Second)
@@ -192,8 +190,8 @@ func TestProofRequestNoTimeoutWithinThreshold(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID: big.NewInt(4),
+	opts := &proofProducer.ProposalProofRequestOptions{
+		ProposalID: big.NewInt(4),
 		Headers: []*types.Header{
 			{
 				Number: big.NewInt(400),
@@ -201,11 +199,10 @@ func TestProofRequestNoTimeoutWithinThreshold(t *testing.T) {
 		},
 	}
 
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(&pacayaBindings.TaikoInboxClientBatchProposed{
-		Meta: pacayaBindings.ITaikoInboxBatchMetadata{
-			BatchId: 4,
-		},
-	})
+	meta := metadata.NewTaikoProposalMetadataShasta(
+		&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(4)},
+		0,
+	)
 
 	// Recent start time, no timeout
 	startTime := time.Now()
@@ -226,8 +223,8 @@ func TestProofRequestSuccessful(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsPacaya{
-		BatchID: big.NewInt(5),
+	opts := &proofProducer.ProposalProofRequestOptions{
+		ProposalID: big.NewInt(5),
 		Headers: []*types.Header{
 			{
 				Number: big.NewInt(500),
@@ -235,11 +232,10 @@ func TestProofRequestSuccessful(t *testing.T) {
 		},
 	}
 
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(&pacayaBindings.TaikoInboxClientBatchProposed{
-		Meta: pacayaBindings.ITaikoInboxBatchMetadata{
-			BatchId: 5,
-		},
-	})
+	meta := metadata.NewTaikoProposalMetadataShasta(
+		&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(5)},
+		0,
+	)
 
 	startTime := time.Now()
 	resp, err := mockProducer.RequestProof(ctx, opts, big.NewInt(5), meta, startTime)
@@ -250,4 +246,65 @@ func TestProofRequestSuccessful(t *testing.T) {
 	require.Equal(t, big.NewInt(5), resp.BatchID)
 	require.Equal(t, proofProducer.ProofTypeOp, resp.ProofType)
 	require.Equal(t, 1, mockProducer.requestCount)
+}
+
+func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	buffer := proofProducer.NewProofBuffer(2)
+	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(1)})
+	require.NoError(t, err)
+
+	s := &ProofSubmitter{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeOp: buffer,
+		},
+		batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+		forceBatchProvingInterval: 50 * time.Millisecond,
+		proofPollingInterval:      10 * time.Millisecond,
+	}
+
+	go monitorProofBuffer(ctx, proofProducer.ProofTypeOp, buffer, 50*time.Millisecond, s.TryAggregate)
+
+	select {
+	case proofType := <-s.batchAggregationNotify:
+		require.Equal(t, proofProducer.ProofTypeOp, proofType)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected aggregation signal but timed out")
+	}
+
+	require.True(t, buffer.IsAggregating())
+}
+
+func TestTryAggregateUsesLastItemInsertTimeForForcedInterval(t *testing.T) {
+	buffer := proofProducer.NewProofBuffer(3)
+	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(1)})
+	require.NoError(t, err)
+
+	time.Sleep(60 * time.Millisecond)
+
+	_, err = buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(2)})
+	require.NoError(t, err)
+
+	s := &ProofSubmitter{
+		batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+		forceBatchProvingInterval: 50 * time.Millisecond,
+	}
+
+	require.False(t, s.TryAggregate(buffer, proofProducer.ProofTypeOp))
+	require.False(t, buffer.IsAggregating())
+	require.Empty(t, s.batchAggregationNotify)
+}
+
+func TestCacheAccess(t *testing.T) {
+	cacheMap := cmap.New[*proofProducer.ProofResponse]()
+	cacheMap.Set("1", &proofProducer.ProofResponse{})
+	value, ok := cacheMap.Get("1")
+	require.True(t, ok)
+	require.NotNil(t, value)
+}
+
+func TestDefaultProofBufferMonitorInterval(t *testing.T) {
+	require.Equal(t, time.Minute, monitorInterval)
 }

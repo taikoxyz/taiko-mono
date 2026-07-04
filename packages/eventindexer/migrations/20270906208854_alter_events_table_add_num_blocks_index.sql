@@ -5,6 +5,6 @@ ALTER TABLE `events` ADD INDEX `events_block_id_event_num_blocks_index` (`block_
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-ALTER TABLE events 
+ALTER TABLE events
   DROP INDEX events_block_id_event_num_blocks_index
 -- +goose StatementEnd

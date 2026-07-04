@@ -40,14 +40,18 @@ func SetGasTipOrPrice(ctx context.Context, auth *bind.TransactOpts, ethClient et
 	if err != nil {
 		if IsMaxPriorityFeePerGasNotFoundError(err) {
 			auth.GasTipCap = FallbackGasTipCap
-		} else {
-			gasPrice, err := ethClient.SuggestGasPrice(context.Background())
-			if err != nil {
-				return errors.Wrap(err, "w.destBridge.SuggestGasPrice")
-			}
 
-			auth.GasPrice = gasPrice
+			return nil
 		}
+
+		gasPrice, err := ethClient.SuggestGasPrice(context.Background())
+		if err != nil {
+			return errors.Wrap(err, "w.destBridge.SuggestGasPrice")
+		}
+
+		auth.GasPrice = gasPrice
+
+		return nil
 	}
 
 	auth.GasTipCap = gasTipCap

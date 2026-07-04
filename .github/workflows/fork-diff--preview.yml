@@ -18,17 +18,17 @@ concurrency:
 
 jobs:
   deploy-fork-diff-preview:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') && github.event.pull_request.head.repo.fork == false}}
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Install Vercel CLI
-        run: pnpm add --global vercel@latest
+        run: pnpm add --global vercel@53.3.2
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}

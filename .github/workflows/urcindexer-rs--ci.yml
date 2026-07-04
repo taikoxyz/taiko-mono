@@ -20,7 +20,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   RUST_TOOLCHAIN: stable
@@ -33,13 +33,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ runner.os }}-urcindexer-rs-${{ hashFiles('packages/urcindexer-rs/Cargo.lock') }}
+          shared-key: "urcindexer-rs"
+          # Only the Tests job saves this shared key; lint just consumes it.
+          save-if: "false"
+          workspaces: |
+            packages/urcindexer-rs
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -59,22 +63,20 @@ jobs:
     if: ${{ github.event_name == 'push' || (github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please')) }}
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     needs: lint
 
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
-        with:
-          access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ runner.os }}-urcindexer-rs-${{ hashFiles('packages/urcindexer-rs/Cargo.lock') }}
+          shared-key: "urcindexer-rs"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: |
+            packages/urcindexer-rs
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master

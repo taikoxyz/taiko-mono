@@ -5,8 +5,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -22,9 +20,9 @@ var (
 // Required flags used by all client software.
 var (
 	L1WSEndpoint = &cli.StringFlag{
-		Name:     "l1.ws",
-		Usage:    "Websocket RPC endpoint of a L1 ethereum node",
-		Required: true,
+		Name: "l1.ws",
+		Usage: "WebSocket RPC endpoint of an L1 ethereum node " +
+			"(omit to use --l1.http with polling; required for prover/proposer)",
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
@@ -34,10 +32,16 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L1_PRIVATE"},
 	}
+	L1HTTPEndpoint = &cli.StringFlag{
+		Name:     "l1.http",
+		Usage:    "HTTP RPC endpoint of an L1 ethereum node (used as a polling fallback when --l1.ws is not provided)",
+		Category: commonCategory,
+		EnvVars:  []string{"L1_HTTP"},
+	}
 	L2WSEndpoint = &cli.StringFlag{
-		Name:     "l2.ws",
-		Usage:    "Websocket RPC endpoint of a L2 taiko-geth execution engine",
-		Required: true,
+		Name: "l2.ws",
+		Usage: "WebSocket RPC endpoint of a L2 taiko-geth execution engine " +
+			"(omit to use --l2.http with polling; required for prover/proposer)",
 		Category: commonCategory,
 		EnvVars:  []string{"L2_WS"},
 	}
@@ -48,9 +52,9 @@ var (
 		EnvVars:  []string{"L1_BEACON"},
 	}
 	L2HTTPEndpoint = &cli.StringFlag{
-		Name:     "l2.http",
-		Usage:    "HTTP RPC endpoint of a L2 taiko-geth execution engine",
-		Required: true,
+		Name: "l2.http",
+		Usage: "HTTP RPC endpoint of a L2 taiko-geth execution engine " +
+			"(driver: polling fallback when --l2.ws absent)",
 		Category: commonCategory,
 		EnvVars:  []string{"L2_HTTP"},
 	}
@@ -68,19 +72,12 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"JWT_SECRET"},
 	}
-	PacayaInboxAddress = &cli.StringFlag{
-		Name:     "pacayaInbox",
-		Usage:    "Inbox contract `address` for Pacaya protocol",
+	InboxAddress = &cli.StringFlag{
+		Name:     "inbox",
+		Usage:    "Inbox contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"PACAYA_INBOX"},
-	}
-	ShastaInboxAddress = &cli.StringFlag{
-		Name:     "shastaInbox",
-		Usage:    "Inbox contract `address` for Shasta protocol",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"SHASTA_INBOX"},
+		EnvVars:  []string{"INBOX"},
 	}
 	TaikoAnchorAddress = &cli.StringFlag{
 		Name:     "taikoAnchor",
@@ -88,13 +85,6 @@ var (
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_ANCHOR"},
-	}
-	TaikoTokenAddress = &cli.StringFlag{
-		Name:     "taikoToken",
-		Usage:    "TaikoToken contract `address`",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
 
 	// Optional flags used by all client software.
@@ -155,24 +145,23 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	ProverSetAddress = &cli.StringFlag{
-		Name:     "proverSet",
-		Usage:    "ProverSet contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
+	TaikoDevnetUnzenTime = &cli.Uint64Flag{
+		Name:     "taiko.devnet-unzen-time",
+		Usage:    "Override Unzen fork time for Taiko internal devnet; must match taiko-geth's --taiko.devnet-unzen-time",
 		Category: commonCategory,
-		EnvVars:  []string{"PROVER_SET"},
+		Value:    0,
+		EnvVars:  []string{"TAIKO_DEVNET_UNZEN_TIME"},
 	}
 )
 
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
-	L1WSEndpoint,
-	PacayaInboxAddress,
-	ShastaInboxAddress,
+	InboxAddress,
 	TaikoAnchorAddress,
 	// Optional
-	ProverSetAddress,
+	L1WSEndpoint,
+	L1HTTPEndpoint,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,
@@ -182,6 +171,7 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
+	TaikoDevnetUnzenTime,
 }
 
 // MergeFlags merges the given flag slices.

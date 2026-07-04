@@ -35,5 +35,4 @@ const hasAttribute = (token: Token, attribute: TokenAttributeKey): boolean => {
 export const isWrapped = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Wrapped);
 export const isSupported = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Supported);
 export const isStablecoin = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Stablecoin);
-export const isQuotaLimited = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.QuotaLimited);
 export const isMintable = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Mintable);

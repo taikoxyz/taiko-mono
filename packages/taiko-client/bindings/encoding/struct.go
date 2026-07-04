@@ -1,56 +1,18 @@
 package encoding
 
-import (
-	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-)
+import "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 
 var GoldenTouchPrivKey = "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38"
 
-// BlobParams should be same with ITaikoInbox.BlobParams.
-type BlobParams struct {
-	BlobHashes     [][32]byte
-	FirstBlobIndex uint8
-	NumBlobs       uint8
-	ByteOffset     uint32
-	ByteSize       uint32
-	CreatedIn      uint64
+// SubProofShasta should be same with Shasta ComposeVerifier.SubProof.
+type SubProofShasta struct {
+	VerifierId uint8
+	Proof      []byte
 }
 
-// BatchParams should be same with ITaikoInbox.BatchParams.
-type BatchParams struct {
-	Proposer                 common.Address
-	Coinbase                 common.Address
-	ParentMetaHash           [32]byte
-	AnchorBlockId            uint64
-	LastBlockTimestamp       uint64
-	RevertIfNotFirstProposal bool
-	BlobParams               BlobParams
-	Blocks                   []pacayaBindings.ITaikoInboxBlockParams
-}
-
-// SubProof should be same with ComposeVerifier.SubProof.
-type SubProof struct {
-	Verifier common.Address
-	Proof    []byte
-}
-
-// LastSeenProposal is a wrapper for pacayaBindings.TaikoInboxClientBatchProposed,
-// which contains additional information about the proposal.
+// LastSeenProposal wraps a proposal metadata object with extra sync state.
 type LastSeenProposal struct {
 	metadata.TaikoProposalMetaData
 	PreconfChainReorged bool
 	LastBlockID         uint64
-}
-
-// ProverAuth represents the prover authorization data structure in ShastaAnchor.
-type ProverAuth struct {
-	ProposalId     *big.Int
-	Proposer       common.Address
-	ProvingFeeGwei *big.Int
-	Signature      []byte
 }

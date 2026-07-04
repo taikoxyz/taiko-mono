@@ -11,14 +11,14 @@ import (
 var (
 	L1ProverPrivKey = &cli.StringFlag{
 		Name:     "l1.proverPrivKey",
-		Usage:    "Private key of L1 prover, who will send transactions to Pacaya / Shasta inbox",
+		Usage:    "Private key of L1 prover, who will send transactions to the inbox",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
 	}
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service",
+		Usage:    "RPC endpoint of a Raiko host service for post Shasta fork",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
@@ -29,7 +29,7 @@ var (
 var (
 	RaikoZKVMHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host.zkvm",
-		Usage:    "RPC endpoint of a Raiko ZKVM host service",
+		Usage:    "RPC endpoint of a Raiko ZKVM host service for post Shasta fork",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
 	}
@@ -46,19 +46,41 @@ var (
 		Value:    10 * time.Minute,
 		EnvVars:  []string{"RAIKO_REQUEST_TIMEOUT"},
 	}
-	StartingBatchID = &cli.Uint64Flag{
-		Name:     "prover.startingBatchID",
-		Usage:    "If set, prover will start proving batches from the batch with this ID",
+	StartingProposalID = &cli.Uint64Flag{
+		Name:     "prover.startingProposalID",
+		Usage:    "If set, prover will start proving proposals from the proposal with this ID",
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_STARTING_BATCH_ID"},
+		EnvVars:  []string{"PROVER_STARTING_PROPOSAL_ID"},
 	}
 	// Proving strategy.
-	ProveUnassignedBlocks = &cli.BoolFlag{
-		Name:     "prover.proveUnassignedBlocks",
-		Usage:    "Whether you want to prove unassigned blocks, or only work on assigned proofs",
+	ProveUnassignedProposals = &cli.BoolFlag{
+		Name:     "prover.proveUnassignedProposals",
+		Usage:    "Whether you want to prove unassigned proposals, or only work on assigned proofs",
 		Category: proverCategory,
 		Value:    false,
-		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_BLOCKS"},
+		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_PROPOSALS"},
+	}
+	ProposalWindowSize = &cli.Uint64Flag{
+		Name: "prover.proposal.window.size",
+		Usage: "The proposal window size counted from lastFinalizedProposalID. " +
+			"The proof request will only be triggered" +
+			" when proposalID falls within [lastFinalizedProposalID + 1, lastFinalizedProposalID + proposalWindowSize]. " +
+			"This value is ignored if it is less than 1. " +
+			"This flag only works for post Shasta fork. ",
+		Value:    0,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
+	}
+	MaxZKProofProposalDistance = &cli.Uint64Flag{
+		Name: "prover.maxZKProofProposalDistance",
+		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting ZK proofs. " +
+			"When proposalID exceeds lastFinalizedProposalID + maxZKProofProposalDistance, the prover stops " +
+			"requesting ZK proofs, clears the ZK backlog, and drains via the base (SGX) proof until the backlog " +
+			"is cleared and the ZK endpoint reports clean, then resumes ZK. Set to 0 to disable ZK proving " +
+			"(always use the base/SGX proof). Post Shasta fork only.",
+		Value:    30,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE"},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
@@ -67,12 +89,6 @@ var (
 		Value:    false,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_DUMMY"},
-	}
-	Allowance = &cli.Float64Flag{
-		Name:     "prover.allowance",
-		Usage:    "Amount without decimal to approve TaikoInbox contract for TaikoToken usage",
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_ALLOWANCE"},
 	}
 	ProofPollingInterval = &cli.DurationFlag{
 		Name:     "prover.proofPollingInterval",
@@ -84,7 +100,7 @@ var (
 	LocalProposerAddresses = &cli.StringSliceFlag{
 		Name: "prover.localProposerAddresses",
 		Usage: "Comma separated list of local proposer addresses, " +
-			"if set, prover will prove the batches proposed by these addresses before the assignment expiration time",
+			"if set, prover will prove proposals from these addresses before the assignment expiration time",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_LOCAL_PROPOSER_ADDRESSES"},
 	}
@@ -98,8 +114,8 @@ var (
 	}
 	ForceBatchProvingInterval = &cli.DurationFlag{
 		Name: "prover.forceBatchProvingInterval",
-		Usage: "Time interval to prove blocks even if the number of pending proofs does not exceed prover.batchSize, " +
-			"this flag only works for post Ontake fork blocks",
+		Usage: "Time interval to prove proposals even if the number of pending proofs does not exceed prover.batchSize, " +
+			"this flag only works for proposal proof aggregation",
 		Category: proverCategory,
 		Value:    30 * time.Minute,
 		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
@@ -108,7 +124,7 @@ var (
 	SGXBatchSize = &cli.Uint64Flag{
 		Name: "prover.sgx.batchSize",
 		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proofs immediately, " +
-			"this flag only works for post Ontake fork blocks",
+			"this flag only works for proposal proof aggregation",
 		Value:    1,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
@@ -116,7 +132,7 @@ var (
 	ZKVMBatchSize = &cli.Uint64Flag{
 		Name: "prover.zkvm.batchSize",
 		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proofs immediately, " +
-			"this flag only works for post Ontake fork blocks",
+			"this flag only works for proposal proof aggregation",
 		Value:    1,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
@@ -125,16 +141,16 @@ var (
 
 // ProverFlags All prover flags.
 var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
+	L1BeaconEndpoint,
 	L2WSEndpoint,
-	L2HTTPEndpoint,
+	L2AuthEndpoint,
+	JWTSecret,
 	RaikoHostEndpoint,
 	RaikoApiKeyPath,
 	L1ProverPrivKey,
-	StartingBatchID,
+	StartingProposalID,
 	Dummy,
-	ProveUnassignedBlocks,
-	TaikoTokenAddress,
-	Allowance,
+	ProveUnassignedProposals,
 	ProofPollingInterval,
 	LocalProposerAddresses,
 	BlockConfirmations,
@@ -143,4 +159,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
+	ProposalWindowSize,
+	MaxZKProofProposalDistance,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

@@ -16,7 +16,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,18 +28,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # Toolchain + components (rustfmt, clippy)
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       # Cache target/ and cargo registry/git
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: "ejector"
+          # Only the Test job saves this shared key; lint just consumes it.
+          save-if: "false"
           workspaces: |
             packages/ejector
 
@@ -61,16 +65,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: "ejector"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: |
             packages/ejector
 
@@ -86,11 +93,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88
+        uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
@@ -101,6 +109,9 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: "ejector"
+          # Only the Test job saves this shared key; coverage just consumes it.
+          save-if: "false"
           workspaces: |
             packages/ejector
 
@@ -109,13 +120,13 @@ jobs:
         run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lcov.info
           path: packages/ejector/lcov.info
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: packages/ejector/lcov.info
           flags: ejector

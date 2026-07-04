@@ -30,17 +30,13 @@ impl Driver {
     #[instrument(skip(self))]
     pub async fn run(&self) -> Result<()> {
         info!(?self.cfg, "starting driver sync pipeline");
-        SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?.run().await?;
+        let pipeline = SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?;
+        pipeline.run().await?;
         Ok(())
     }
 
     /// Access the underlying RPC client (primarily for tests).
     pub fn rpc_client(&self) -> &DriverRpcClient {
         &self.rpc
-    }
-
-    /// Access configuration.
-    pub fn config(&self) -> &DriverConfig {
-        &self.cfg
     }
 }

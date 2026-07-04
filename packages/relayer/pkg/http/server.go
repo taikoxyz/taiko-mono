@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 
 	echo "github.com/labstack/echo/v4"
 )
@@ -50,7 +49,6 @@ type Server struct {
 	destEthClient           ethClient
 	destChainID             *big.Int
 	processingFeeMultiplier float64
-	taikoL2                 *taikol2.TaikoL2
 }
 
 type NewServerOpts struct {
@@ -60,7 +58,6 @@ type NewServerOpts struct {
 	SrcEthClient            ethClient
 	DestEthClient           ethClient
 	ProcessingFeeMultiplier float64
-	TaikoL2                 *taikol2.TaikoL2
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -108,7 +105,6 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		srcEthClient:            opts.SrcEthClient,
 		destEthClient:           opts.DestEthClient,
 		processingFeeMultiplier: opts.ProcessingFeeMultiplier,
-		taikoL2:                 opts.TaikoL2,
 		srcChainID:              srcChainID,
 		destChainID:             destChainID,
 	}
@@ -163,6 +159,8 @@ func LogSkipper(c echo.Context) bool {
 func (srv *Server) configureMiddleware(corsOrigins []string) {
 	srv.echo.Use(middleware.RequestID())
 
+	// nolint:staticcheck
+	// Keep legacy logger format for now to avoid changing log consumers.
 	srv.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: LogSkipper,
 		Format: `{"time":"${time_rfc3339_nano}","level":"INFO","message":{"id":"${id}","remote_ip":"${remote_ip}",` + //nolint:lll

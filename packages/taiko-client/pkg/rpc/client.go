@@ -3,8 +3,8 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -20,28 +19,13 @@ const (
 	DefaultRpcTimeout = 1 * time.Minute
 )
 
-// PacayaClients contains all smart contract clients for Pacaya fork.
-type PacayaClients struct {
-	TaikoInbox           *pacayaBindings.TaikoInboxClient
-	TaikoWrapper         *pacayaBindings.TaikoWrapperClient
-	ForcedInclusionStore *pacayaBindings.ForcedInclusionStore
-	TaikoAnchor          *pacayaBindings.TaikoAnchorClient
-	TaikoToken           *pacayaBindings.TaikoToken
-	ProverSet            *pacayaBindings.ProverSet
-	ForkRouter           *pacayaBindings.ForkRouter
-	ComposeVerifier      *pacayaBindings.ComposeVerifier
-	PreconfWhitelist     *pacayaBindings.PreconfWhitelist
-	PreconfRouter        *pacayaBindings.PreconfRouter
-	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
-}
-
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	Inbox      *shastaBindings.ShastaInboxClient
-	InboxCodec *shastaBindings.CodecOptimizedClient
-	Anchor     *shastaBindings.ShastaAnchor
-	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
-	ForkTime uint64
+	Inbox            *shastaBindings.ShastaInboxClient
+	Anchor           *shastaBindings.ShastaAnchor
+	ComposeVerifier  *shastaBindings.ComposeVerifier
+	PreconfWhitelist *shastaBindings.PreconfWhitelist
+	InboxAddress     common.Address
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -54,8 +38,7 @@ type Client struct {
 	L2Engine *EngineClient
 	// Beacon clients
 	L1Beacon *BeaconClient
-	// Protocol contracts clients
-	PacayaClients *PacayaClients
+	// Protocol contract clients
 	ShastaClients *ShastaClients
 }
 
@@ -63,21 +46,15 @@ type Client struct {
 // RPC client. If not providing L2EngineEndpoint or JwtSecret, then the L2Engine client
 // won't be initialized.
 type ClientConfig struct {
-	L1Endpoint                  string
-	L2Endpoint                  string
-	L1BeaconEndpoint            string
-	L2CheckPoint                string
-	PacayaInboxAddress          common.Address
-	ShastaInboxAddress          common.Address
-	TaikoWrapperAddress         common.Address
-	TaikoAnchorAddress          common.Address
-	TaikoTokenAddress           common.Address
-	ForcedInclusionStoreAddress common.Address
-	PreconfWhitelistAddress     common.Address
-	ProverSetAddress            common.Address
-	L2EngineEndpoint            string
-	JwtSecret                   string
-	Timeout                     time.Duration
+	L1Endpoint         string
+	L2Endpoint         string
+	L1BeaconEndpoint   string
+	L2CheckPoint       string
+	InboxAddress       common.Address
+	TaikoAnchorAddress common.Address
+	L2EngineEndpoint   string
+	JwtSecret          string
+	Timeout            time.Duration
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -134,6 +111,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
+		l2AuthClient.chainID = new(big.Int).Set(l2Client.ChainID)
 	}
 
 	c := &Client{
@@ -144,193 +122,51 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		L2Engine:     l2AuthClient,
 	}
 
-	// Initialize all smart contract clients.
-	if err := c.initPacayaClients(cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
-	}
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
-	// Initialize the fork height numbers.
-	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
-		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
-	}
-	if err := c.initShastaClients(ctx, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
-	}
-
-	// Ensure that the genesis block hash of L1 and L2 match.
-	if cfg.PacayaInboxAddress != (common.Address{}) {
-		if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
-			return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
-		}
+	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize clients: %w", err)
 	}
 
 	return c, nil
 }
 
-// initPacayaClients initializes all Pacaya smart contract clients.
-func (c *Client) initPacayaClients(cfg *ClientConfig) error {
-	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.PacayaInboxAddress, c.L1)
+// initShastaClients initializes all smart contract clients.
+func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error {
+	inbox, err := shastaBindings.NewShastaInboxClient(cfg.InboxAddress, c.L1)
 	if err != nil {
-		return fmt.Errorf("failed to create new instance of TaikoInboxClient: %w", err)
+		return fmt.Errorf("failed to create new inbox client: %w", err)
 	}
 
-	forkRouter, err := pacayaBindings.NewForkRouter(cfg.PacayaInboxAddress, c.L1)
+	anchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
 	if err != nil {
-		return fmt.Errorf("failed to create new instance of ForkRouter: %w", err)
+		return fmt.Errorf("failed to create new instance of AnchorClient: %w", err)
 	}
 
-	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoAnchorAddress, c.L2)
+	config, err := inbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to create new instance of TaikoAnchorClient: %w", err)
+		return fmt.Errorf("failed to get inbox config: %w", err)
 	}
-
-	var (
-		taikoToken           *pacayaBindings.TaikoToken
-		proverSet            *pacayaBindings.ProverSet
-		taikoWrapper         *pacayaBindings.TaikoWrapperClient
-		forcedInclusionStore *pacayaBindings.ForcedInclusionStore
-		preconfWhitelist     *pacayaBindings.PreconfWhitelist
-		preconfRouter        *pacayaBindings.PreconfRouter
-	)
-	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
-		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
-			return fmt.Errorf("failed to create new instance of TaikoToken: %w", err)
-		}
-	}
-	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
-		if proverSet, err = pacayaBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
-			return fmt.Errorf("failed to create new instance of ProverSet: %w", err)
-		}
-	}
-	var cancel context.CancelFunc
-	opts := &bind.CallOpts{Context: context.Background()}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-	composeVerifierAddress, err := taikoInbox.Verifier(opts)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve compose verifier address: %w", err)
-	}
-	composeVerifier, err := pacayaBindings.NewComposeVerifier(composeVerifierAddress, c.L1)
+	composeVerifier, err := shastaBindings.NewComposeVerifier(config.ProofVerifier, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
 
-	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
-		if taikoWrapper, err = pacayaBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
-			return fmt.Errorf("failed to create new instance of TaikoWrapperClient: %w", err)
-		}
-	}
-
-	if cfg.ForcedInclusionStoreAddress.Hex() != ZeroAddress.Hex() {
-		if forcedInclusionStore, err = pacayaBindings.NewForcedInclusionStore(
-			cfg.ForcedInclusionStoreAddress,
-			c.L1,
-		); err != nil {
-			return fmt.Errorf("failed to create new instance of ForcedInclusionStore: %w", err)
-		}
-	}
-
-	if cfg.PreconfWhitelistAddress.Hex() != ZeroAddress.Hex() {
-		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(cfg.PreconfWhitelistAddress, c.L1)
+	var preconfWhitelist *shastaBindings.PreconfWhitelist
+	if config.ProposerChecker.Hex() != ZeroAddress.Hex() {
+		preconfWhitelist, err = shastaBindings.NewPreconfWhitelist(config.ProposerChecker, c.L1)
 		if err != nil {
 			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}
 	}
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), DefaultRpcTimeout)
-	defer cancel()
-	if taikoWrapper != nil {
-		preconfRouterAddress, err := taikoWrapper.PreconfRouter(&bind.CallOpts{Context: ctxWithTimeout})
-		if err != nil {
-			return fmt.Errorf("failed to get address of PreconfRouter: %w", err)
-		}
-		if preconfRouterAddress.Hex() != ZeroAddress.Hex() {
-			preconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddress, c.L1)
-			if err != nil {
-				return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
-			}
-		}
-	}
-
-	c.PacayaClients = &PacayaClients{
-		TaikoInbox:           taikoInbox,
-		TaikoAnchor:          taikoAnchor,
-		TaikoToken:           taikoToken,
-		ProverSet:            proverSet,
-		ForkRouter:           forkRouter,
-		TaikoWrapper:         taikoWrapper,
-		ForcedInclusionStore: forcedInclusionStore,
-		ComposeVerifier:      composeVerifier,
-		PreconfWhitelist:     preconfWhitelist,
-		PreconfRouter:        preconfRouter,
-	}
-
-	return nil
-}
-
-// initShastaClients initializes all Shasta smart contract clients.
-func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error {
-	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.ShastaInboxAddress, c.L1)
-	if err != nil {
-		return fmt.Errorf("failed to create new instance of ShastaInboxClient: %w", err)
-	}
-
-	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
-	if err != nil {
-		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
-	}
-
-	config, err := shastaInbox.GetConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get shasta inbox config: %w", err)
-	}
-	inboxCodec, err := shastaBindings.NewCodecOptimizedClient(config.Codec, c.L1)
-	if err != nil {
-		return fmt.Errorf("failed to create new instance of InboxCodecClient: %w", err)
-	}
 
 	c.ShastaClients = &ShastaClients{
-		Inbox:      shastaInbox,
-		InboxCodec: inboxCodec,
-		Anchor:     shastaAnchor,
-		ForkTime:   c.PacayaClients.ForkHeights.Shasta, // TODO(matus): double check this
+		Inbox:            inbox,
+		Anchor:           anchor,
+		ComposeVerifier:  composeVerifier,
+		PreconfWhitelist: preconfWhitelist,
+		InboxAddress:     cfg.InboxAddress,
 	}
-
-	// If an environment override is provided, prefer it to keep tests/tools
-	// consistent with the taiko-geth flag `--taiko.internal-shasta-time`.
-	if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
-		if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
-			c.ShastaClients.ForkTime = parsed
-		}
-	}
-
-	return nil
-}
-
-// initForkHeightConfigs initializes the fork heights in protocol.
-func (c *Client) initForkHeightConfigs(ctx context.Context) error {
-	protocolConfigs, err := c.PacayaClients.TaikoInbox.PacayaConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return err
-	}
-
-	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
-		Ontake: protocolConfigs.ForkHeights.Ontake,
-		Pacaya: protocolConfigs.ForkHeights.Pacaya,
-		Shasta: protocolConfigs.ForkHeights.Shasta,
-	}
-
-	// ShastaClients may not yet be initialized here; guard the log value.
-	var shastaForkTime uint64
-	if c.ShastaClients != nil {
-		shastaForkTime = c.ShastaClients.ForkTime
-	}
-	log.Info(
-		"Fork height configs",
-		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
-		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
-		"shastaForkTime", shastaForkTime,
-	)
 
 	return nil
 }
