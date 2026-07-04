@@ -9824,6 +9824,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "snap",
+ "test-harness",
  "thiserror 2.0.18",
  "tokio",
  "tower-http",

@@ -48,3 +48,9 @@ tracing = { workspace = true }
 [dev-dependencies]
 proptest = { workspace = true }
 reqwest = { workspace = true }
+# `driver` is already a prod dependency above; the docker-backed drain test
+# (importer/tests.rs `mod drain_tests`) additionally needs the shared harness to
+# build a real ShastaEnv + valid anchor transactions. `test-harness` is a
+# path-only workspace member (not in `[workspace.dependencies]`), so mirror how
+# `crates/driver/Cargo.toml` dev-depends on it.
+test-harness = { path = "../test-harness" }

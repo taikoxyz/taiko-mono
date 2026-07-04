@@ -537,3 +537,350 @@ fn should_not_enable_preconf_imports_when_proposals_exist_without_origin() {
 fn should_not_enable_preconf_imports_when_next_proposal_id_unknown() {
     assert!(!should_enable_preconf_imports(false, None));
 }
+
+/// Docker-backed drain tests exercising [`WhitelistPreconfirmationImporter`] against a
+/// live L1/L2 harness. Skipped (returning green) when the harness env is absent, so the
+/// module still compiles and runs on developer machines without Docker; CI runs it for
+/// real via `just test`. Serialized into the `l1-shared` nextest group by the
+/// `test(docker_)` override in `nextest.toml`.
+mod drain_tests {
+    use std::{sync::Arc, time::Duration};
+
+    use alloy_eips::BlockNumberOrTag;
+    use alloy_primitives::{Address, B256, Bytes, U256};
+    use alloy_provider::Provider;
+    use alloy_rpc_types_engine::ExecutionPayloadV1;
+    use protocol::shasta::calculate_shasta_mix_hash;
+    use rpc::{beacon::BeaconClient, client::Client};
+    use tokio::sync::mpsc;
+
+    // `SyncStage` provides `EventSyncer::run`, spawned in the background as in the e2e setup.
+    use driver::{
+        DriverConfig,
+        sync::{SyncStage, event::EventSyncer},
+    };
+    use test_harness::{
+        BeaconStubServer,
+        blocks::wait_for_block,
+        shasta::ShastaEnv,
+        transactions::{build_anchor_tx_bytes, compute_next_block_base_fee},
+    };
+
+    use super::{ANCHOR_V4_SELECTOR, encode_compressed_tx_list, signed_anchor_tx_bytes};
+    use crate::{
+        cache::SharedPreconfState,
+        codec::WhitelistExecutionPayloadEnvelope,
+        importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
+        network::NetworkCommand,
+    };
+
+    /// Concrete provider type inside the [`Client`] produced by [`Client::new`], matching the
+    /// harness `RpcClient` alias (`test-harness/src/shasta/helpers.rs`). This is the `P` the
+    /// importer/syncer are generic over (they hold `Client<P>` / `EventSyncer<P>`), and it
+    /// satisfies the `P: Provider + Clone + Send + Sync + 'static` bound.
+    type DriverProvider = alloy_provider::fillers::FillProvider<
+        alloy_provider::utils::JoinedRecommendedFillers,
+        alloy_provider::RootProvider,
+    >;
+    /// The concrete client type: `Client<DriverProvider>`, i.e. the harness `RpcClient`.
+    type DriverClient = Client<DriverProvider>;
+
+    /// Fields, other than the tx list and block number/parent chain, needed to make a
+    /// preconf envelope the drain will submit to the engine as a valid block. Sourced from
+    /// the parent block exactly as `preconf_ingress_e2e.rs::build_preconf_attrs` does, so an
+    /// envelope built this way maps (through `payload::build_driver_payload`) to attributes
+    /// byte-identical to that passing e2e smoke path.
+    struct BlockTemplate {
+        /// L2 suggested fee recipient (block beneficiary).
+        fee_recipient: Address,
+        /// Block gas limit, carried over from the parent.
+        gas_limit: u64,
+        /// EIP-4396 base fee for the next block.
+        base_fee: u64,
+        /// Header extra data, carried over from the parent.
+        extra_data: Bytes,
+    }
+
+    /// Build a cache-ready preconf envelope for `block_number` chained onto `parent_hash`.
+    ///
+    /// `raw_txs` are the RAW (uncompressed) transaction bytes; the envelope carries them
+    /// zlib-compressed in `transactions[0]`, the shape the drain's `build_driver_payload`
+    /// decompresses. `block_hash` is only ever used as the cache key (the engine recomputes
+    /// the real hash from the attributes), so it doubles as the child's `parent_hash` when
+    /// chaining. `prev_randao` must be the correct Shasta mix hash for the one envelope that
+    /// actually imports (A); the deferred envelopes never reach the engine, so any value is
+    /// fine. `header_difficulty`/`signature`/`is_forced_inclusion` mirror the local-build
+    /// defaults; the drain path never reads `header_difficulty`.
+    #[allow(clippy::too_many_arguments)]
+    fn build_cache_envelope(
+        block_number: u64,
+        parent_hash: B256,
+        block_hash: B256,
+        timestamp: u64,
+        prev_randao: B256,
+        template: &BlockTemplate,
+        raw_txs: &[Bytes],
+    ) -> WhitelistExecutionPayloadEnvelope {
+        let compressed = encode_compressed_tx_list(raw_txs.iter().map(|tx| tx.to_vec()).collect());
+        WhitelistExecutionPayloadEnvelope {
+            end_of_sequencing: None,
+            is_forced_inclusion: None,
+            parent_beacon_block_root: None,
+            header_difficulty: None,
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash,
+                fee_recipient: template.fee_recipient,
+                state_root: B256::ZERO,
+                receipts_root: B256::ZERO,
+                logs_bloom: Default::default(),
+                prev_randao,
+                block_number,
+                gas_limit: template.gas_limit,
+                gas_used: 0,
+                timestamp,
+                extra_data: template.extra_data.clone(),
+                base_fee_per_gas: U256::from(template.base_fee),
+                block_hash,
+                transactions: vec![compressed],
+            },
+            signature: Some([0u8; 65]),
+        }
+    }
+
+    /// Shasta mix hash for a block, derived from the parent header difficulty exactly as the
+    /// local-build path does (`payload_build.rs::derive_prev_randao`).
+    fn shasta_prev_randao(parent_difficulty: U256, block_number: u64) -> B256 {
+        calculate_shasta_mix_hash(B256::from(parent_difficulty.to_be_bytes::<32>()), block_number)
+    }
+
+    /// Spin up an `EventSyncer` (preconf ingress enabled) against L2 node 0, mirroring the
+    /// setup block in `crates/driver/tests/preconf_ingress_e2e.rs`.
+    async fn start_event_syncer(
+        env: &ShastaEnv,
+        beacon_stub: &BeaconStubServer,
+    ) -> (Arc<EventSyncer<DriverProvider>>, DriverClient, tokio::task::JoinHandle<()>) {
+        let mut driver_config = DriverConfig::new(
+            env.client_config.clone(),
+            Duration::from_millis(50),
+            beacon_stub.endpoint().clone(),
+            None,
+            None,
+        );
+        driver_config.preconfirmation_enabled = true;
+        let driver_client = Client::new(driver_config.client.clone()).await.expect("driver client");
+        let event_syncer = Arc::new(
+            EventSyncer::new(&driver_config, driver_client.clone()).await.expect("syncer"),
+        );
+        let handle = {
+            let syncer = event_syncer.clone();
+            tokio::spawn(async move {
+                if let Err(err) = syncer.run().await {
+                    tracing::warn!(?err, "event syncer exited");
+                }
+            })
+        };
+        event_syncer.wait_preconf_ingress_ready().await.expect("ingress ready");
+        (event_syncer, driver_client, handle)
+    }
+
+    /// Construct an importer wired to the given syncer/client and a fresh command channel,
+    /// mirroring `runner.rs`'s production wiring. `state` is seeded with the current L2 head
+    /// (`seed_highest_unsafe`) as the runner does.
+    async fn build_importer(
+        event_syncer: Arc<EventSyncer<DriverProvider>>,
+        driver_client: DriverClient,
+        beacon_stub: &BeaconStubServer,
+        chain_id: u64,
+        seed_highest_unsafe: u64,
+    ) -> (WhitelistPreconfirmationImporter<DriverProvider>, mpsc::Receiver<NetworkCommand>) {
+        let beacon_client =
+            Arc::new(BeaconClient::new(beacon_stub.endpoint().clone()).await.expect("beacon"));
+        let (command_tx, command_rx) = mpsc::channel(16);
+        let importer =
+            WhitelistPreconfirmationImporter::new(WhitelistPreconfirmationImporterParams {
+                event_syncer,
+                rpc: driver_client,
+                chain_id,
+                network_command_tx: command_tx,
+                state: SharedPreconfState::new(seed_highest_unsafe),
+                beacon_client,
+            });
+        (importer, command_rx)
+    }
+
+    /// One invalid envelope in a cached sequence must be dropped without freezing the drain:
+    /// the valid parent imports, the invalid one is removed, and the now-orphaned child stays
+    /// deferred (and triggers a parent request). This is the "one bad payload must not freeze
+    /// the head" invariant from the 2026-06/07 mainnet incident.
+    ///
+    /// # Real branch mapping (see `importer/cache_import.rs`)
+    /// The drain (`try_import_cached`) does NOT re-run anchor validation — that happens only
+    /// at gossip ingress. During drain an envelope with a corrupt anchor is submitted to the
+    /// engine, which returns `INVALID` → `EngineSubmissionError::InvalidBlock` →
+    /// `DriverError::PreconfInjectionFailed{InvalidBlock}` → `should_drop_cached_import_error`
+    /// is true → the DROP branch (`cache.remove`, `progressed = true`). The orphaned child hits
+    /// the missing-parent branch (`Ok(false)`), publishing one `PublishUnsafeRequest`.
+    ///
+    /// Because the engine — not the envelope — decides the resulting block hash, the child's
+    /// `parent_hash` can only be A's REAL post-import hash, which is unknowable before A lands.
+    /// So the drain is driven in two phases (A alone, then B+C) rather than the single call in
+    /// the brief sketch; the A/B/C three-envelope structure and the `head == parent + 1`
+    /// assertion are preserved.
+    #[tokio::test]
+    async fn docker_drain_drops_invalid_and_continues() {
+        if std::env::var("HARNESS_L1_HTTP").is_err() {
+            eprintln!("skipping: docker harness env not present (run via `just test`)");
+            return;
+        }
+
+        let env = ShastaEnv::load_from_env().await.expect("env");
+        let beacon_stub = BeaconStubServer::start().await.expect("beacon stub");
+        let chain_id = env.client.l2_provider.get_chain_id().await.expect("chain id");
+
+        let parent_number = env.client.l2_provider.get_block_number().await.expect("head number");
+        let parent = env
+            .client
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(parent_number))
+            .await
+            .expect("head block")
+            .expect("head present");
+        let parent_hash = parent.header.hash;
+
+        let (event_syncer, driver_client, syncer_handle) =
+            start_event_syncer(&env, &beacon_stub).await;
+        let (mut importer, mut command_rx) =
+            build_importer(event_syncer, driver_client, &beacon_stub, chain_id, parent_number)
+                .await;
+
+        // Per-block header fields, taken from the parent (as build_preconf_attrs does).
+        let base_fee = compute_next_block_base_fee(&env.client.l2_provider, parent.header.number)
+            .await
+            .expect("base fee");
+        let template = BlockTemplate {
+            fee_recipient: env.l2_suggested_fee_recipient,
+            gas_limit: parent.header.gas_limit,
+            base_fee,
+            extra_data: parent.header.extra_data.clone(),
+        };
+        // --- Envelope A: valid block at parent+1, anchored to the real head. ---
+        let anchor_a = build_anchor_tx_bytes(&env.client, parent_hash, parent_number + 1, base_fee)
+            .await
+            .expect("anchor A");
+        let envelope_a = build_cache_envelope(
+            parent_number + 1,
+            parent_hash,
+            // Cache key for A; distinct sentinel so removal/retention is unambiguous.
+            B256::repeat_byte(0xa1),
+            parent.header.timestamp + 1,
+            // A must actually import, so its mix hash has to be the real one.
+            shasta_prev_randao(parent.header.difficulty, parent_number + 1),
+            &template,
+            &[anchor_a],
+        );
+
+        // Phase 1: import A alone. Its parent is the real head, so it submits and the engine
+        // accepts it, advancing the head to parent+1.
+        importer.cache.insert(Arc::new(envelope_a));
+        importer.maybe_import_from_cache().await.expect("phase-1 drain must not return fatal");
+
+        // Wait for A to materialize (as the e2e smoke test does) to avoid any WS-head lag,
+        // then confirm it imported and was removed from the cache.
+        let block_a =
+            wait_for_block(&env.client.l2_provider, parent_number + 1, Duration::from_secs(30))
+                .await
+                .expect("A must materialize");
+        assert_eq!(
+            block_a.header.number,
+            parent_number + 1,
+            "valid head-of-line envelope must import"
+        );
+        assert!(importer.cache.is_empty(), "A must be removed from the cache after import");
+
+        // A's REAL, engine-computed hash: the parent B must chain onto so the drain SUBMITS B
+        // (and the engine can then reject it). This is the parent-matching rule from Step 1
+        // (`block_hash_by_number(parent_number) == parent_hash`).
+        let a_real_hash = block_a.header.hash;
+
+        // --- Envelope B: block at parent+2 with a CORRUPT anchor (wrong selector), chained
+        // onto A's real hash so it is submitted to the engine (which rejects it). ---
+        let corrupt_anchor = signed_anchor_tx_bytes(
+            &protocol::FixedKSigner::golden_touch().expect("golden touch"),
+            chain_id,
+            env.taiko_anchor_address,
+            [0xde, 0xad, 0xbe, 0xef], // not ANCHOR_V4_SELECTOR
+        );
+        debug_assert_ne!([0xde, 0xad, 0xbe, 0xef], *ANCHOR_V4_SELECTOR);
+        let b_cache_key = B256::repeat_byte(0xb2);
+        let envelope_b = build_cache_envelope(
+            parent_number + 2,
+            a_real_hash,
+            b_cache_key,
+            parent.header.timestamp + 2,
+            // B never lands as a valid block (its anchor is corrupt), so the mix hash is
+            // irrelevant; the engine rejects it before hashing matters.
+            shasta_prev_randao(parent.header.difficulty, parent_number + 2),
+            &template,
+            &[Bytes::from(corrupt_anchor)],
+        );
+
+        // --- Envelope C: valid-looking block at parent+3 whose parent is B's (never-created)
+        // block. Its parent is missing, so the drain defers it and requests the parent. ---
+        let anchor_c = build_anchor_tx_bytes(&env.client, b_cache_key, parent_number + 3, base_fee)
+            .await
+            .expect("anchor C");
+        let c_cache_key = B256::repeat_byte(0xc3);
+        let envelope_c = build_cache_envelope(
+            parent_number + 3,
+            b_cache_key, // C.parent == B's cache-key hash (the block that never lands)
+            c_cache_key,
+            parent.header.timestamp + 3,
+            // C never reaches the engine (its parent is missing), so the mix hash is irrelevant.
+            shasta_prev_randao(parent.header.difficulty, parent_number + 3),
+            &template,
+            &[anchor_c],
+        );
+
+        // Phase 2: drain B+C. B submits -> engine INVALID -> dropped; C's parent is missing ->
+        // deferred + one parent request published.
+        importer.cache.insert(Arc::new(envelope_b));
+        importer.cache.insert(Arc::new(envelope_c));
+        importer.maybe_import_from_cache().await.expect("phase-2 drain must not return fatal");
+
+        // Head did NOT advance past A: B was rejected, C never imported.
+        let head_after_bc =
+            env.client.l2_provider.get_block_number().await.expect("head after B/C");
+        assert_eq!(
+            head_after_bc,
+            parent_number + 1,
+            "invalid B and orphaned C must not advance the head beyond A"
+        );
+
+        // B dropped from cache; C retained (deferred).
+        assert!(
+            importer.cache.get(&b_cache_key).is_none(),
+            "invalid envelope B must be dropped from the cache"
+        );
+        assert!(
+            importer.cache.get(&c_cache_key).is_some(),
+            "orphaned child C must stay cached (deferred)"
+        );
+
+        // The deferred child published exactly one parent request for B's (missing) block.
+        let mut requested_parent = None;
+        while let Ok(command) = command_rx.try_recv() {
+            if let NetworkCommand::PublishUnsafeRequest { hash } = command {
+                requested_parent = Some(hash);
+            }
+        }
+        assert_eq!(
+            requested_parent,
+            Some(b_cache_key),
+            "deferred child must request its missing parent (B's block hash)"
+        );
+
+        syncer_handle.abort();
+        beacon_stub.shutdown().await.expect("beacon shutdown");
+        env.shutdown().await.expect("env shutdown");
+    }
+}

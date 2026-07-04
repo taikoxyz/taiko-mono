@@ -8,5 +8,14 @@ nextest-version = "0.9.104"
 filter = 'kind(test)'
 test-group = "l1-shared"
 
+[[profile.default.overrides]]
+# Docker-backed lib tests (named docker_*) share the L1/L2 env with the
+# integration binaries, so serialize them into the same group. `kind(test)`
+# above only matches integration binaries, not the crate's own `--lib` unit
+# tests, so this override is required for the drain test in
+# `crates/whitelist-preconfirmation-driver/src/importer/tests.rs`.
+filter = 'package(whitelist-preconfirmation-driver) and test(docker_)'
+test-group = "l1-shared"
+
 [test-groups.l1-shared]
 max-threads = 1
