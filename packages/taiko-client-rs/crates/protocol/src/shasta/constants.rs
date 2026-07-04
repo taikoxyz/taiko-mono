@@ -256,9 +256,11 @@ pub fn derivation_source_max_blocks_for_chain_timestamp(
 #[cfg(test)]
 mod tests {
     use super::{
-        DERIVATION_SOURCE_MAX_BLOCKS, ForkConfigError, MAX_ANCHOR_OFFSET,
-        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
-        TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain,
+        BLOCK_TIME_TARGET, DERIVATION_SOURCE_MAX_BLOCKS, ELASTICITY_MULTIPLIER, ForkConfigError,
+        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE,
+        TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
+        TIMESTAMP_MAX_OFFSET_MAINNET, calculate_next_block_eip4396_base_fee_for_parent,
+        calculate_next_block_eip4396_base_fee_from_parent_values, max_anchor_offset_for_chain,
         shasta_fork_condition_for_chain, timestamp_max_offset_for_chain,
         unzen_fork_condition_for_chain,
     };
@@ -291,6 +293,83 @@ mod tests {
         assert_eq!(
             super::derivation_source_max_blocks_for_chain_timestamp(u64::MAX, u64::MAX),
             DERIVATION_SOURCE_MAX_BLOCKS
+        );
+    }
+
+    /// ~70 lines of consensus-critical fee math, previously untested here.
+    /// Relationship-based assertions (no magic constants beyond the re-exported
+    /// protocol values) so alethia-reth const bumps don't break the test shape.
+    #[test]
+    fn eip4396_base_fee_vectors() {
+        const GAS_LIMIT: u64 = 30_000_000;
+        let target = |block_time: u64| {
+            // EIP-4396: gas target scales with block time against the protocol
+            // target. Verify this against the function under test, not vibes:
+            // an at-target block leaves the fee unchanged.
+            (GAS_LIMIT / ELASTICITY_MULTIPLIER) * block_time / BLOCK_TIME_TARGET
+        };
+        let fee = |gas_used: u64, block_time: u64, parent_fee: u64| {
+            calculate_next_block_eip4396_base_fee_from_parent_values(
+                1,
+                GAS_LIMIT,
+                gas_used,
+                block_time,
+                parent_fee,
+                MIN_BASE_FEE,
+            )
+        };
+        // Mid-range parent fee: below MAX_BASE_FEE so the ceiling clamp does not
+        // mask an increase, and above MIN_BASE_FEE so a decrease is observable.
+        let parent_fee = 100_000_000u64;
+
+        // Genesis parent: the _for_parent wrapper returns the Shasta initial fee.
+        assert_eq!(
+            calculate_next_block_eip4396_base_fee_for_parent(
+                0,
+                GAS_LIMIT,
+                0,
+                0,
+                Some(parent_fee),
+                0,
+                MIN_BASE_FEE,
+            ),
+            Some(SHASTA_INITIAL_BASE_FEE),
+            "genesis parent uses the initial base fee"
+        );
+
+        // At target: unchanged.
+        assert_eq!(
+            fee(target(BLOCK_TIME_TARGET), BLOCK_TIME_TARGET, parent_fee),
+            parent_fee,
+            "an at-target block leaves the fee unchanged"
+        );
+        // Above target: strictly increases.
+        assert!(
+            fee(GAS_LIMIT, BLOCK_TIME_TARGET, parent_fee) > parent_fee,
+            "an above-target block strictly increases the fee"
+        );
+        // Below target (empty block): strictly decreases.
+        assert!(
+            fee(0, BLOCK_TIME_TARGET, parent_fee) < parent_fee,
+            "an empty (below-target) block strictly decreases the fee"
+        );
+        // Long block time doubles the target: the same gas_used that was
+        // "at target" is now under target, so the fee decreases.
+        assert!(
+            fee(target(BLOCK_TIME_TARGET), 2 * BLOCK_TIME_TARGET, parent_fee) < parent_fee,
+            "doubling the block time doubles the target, pushing the fee down"
+        );
+        // Clamp floor: decreasing from the minimum stays at the minimum.
+        assert_eq!(
+            fee(0, BLOCK_TIME_TARGET, MIN_BASE_FEE),
+            MIN_BASE_FEE,
+            "decreasing from the minimum stays clamped at the minimum"
+        );
+        // Increase from a tiny fee still moves by at least 1 (the max(delta,1)
+        // floor), never getting stuck.
+        assert!(
+            fee(GAS_LIMIT, BLOCK_TIME_TARGET, MIN_BASE_FEE) > MIN_BASE_FEE,
+            "an increase from the minimum moves by at least 1"
         );
     }
 }
