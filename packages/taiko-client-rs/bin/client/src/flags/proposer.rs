@@ -92,9 +92,22 @@ pub struct ProposerArgs {
 
 #[cfg(test)]
 mod tests {
-    use clap::CommandFactory;
+    use clap::{CommandFactory, Parser};
 
     use super::ProposerArgs;
+
+    /// Smallest valid arg set: only the two `required = true` flags, leaving every
+    /// `default_value` to take effect so the defaults can be pinned.
+    fn parse_minimal() -> ProposerArgs {
+        ProposerArgs::try_parse_from([
+            "proposer",
+            "--l1.proposerPrivKey",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "--l2.suggestedFeeRecipient",
+            "0x0000000000000000000000000000000000000000",
+        ])
+        .expect("minimal proposer args should parse")
+    }
 
     #[test]
     fn proposer_help_describes_tx_manager_flags_as_active() {
@@ -107,5 +120,21 @@ mod tests {
         assert!(!help.contains("Inactive until the tx-manager-backed proposer send path lands"));
         assert!(help.contains("--propose.retryInterval"));
         assert!(help.contains("tx-manager resubmissions"));
+    }
+
+    /// Prod-relied defaults; changing one is a deploy-affecting decision that
+    /// must show up in review. One assert per `default_value` in this file.
+    #[test]
+    fn proposer_defaults_are_pinned() {
+        let args = parse_minimal();
+        assert_eq!(args.propose_interval, 12);
+        assert!(!args.use_engine_mode);
+        assert_eq!(args.retry_interval, 48);
+        assert_eq!(args.confirmation_timeout, 180);
+        assert_eq!(args.min_tip_cap_gwei, 1);
+        assert_eq!(args.min_base_fee_gwei, 1);
+        assert_eq!(args.min_blob_fee_gwei, 1);
+        // No `default_value`: the optional gas limit falls back to provider estimation.
+        assert_eq!(args.gas_limit, None);
     }
 }

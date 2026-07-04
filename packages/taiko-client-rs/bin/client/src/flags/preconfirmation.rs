@@ -44,6 +44,12 @@ mod tests {
 
     use super::PreconfirmationArgs;
 
+    /// Smallest valid arg set: this struct has no `required = true` flags, so the
+    /// program name alone leaves every `default_value` to take effect.
+    fn parse_minimal() -> PreconfirmationArgs {
+        PreconfirmationArgs::try_parse_from(["test"]).expect("minimal preconf args should parse")
+    }
+
     #[test]
     fn parses_p2p_advertise_addr() {
         let args = PreconfirmationArgs::try_parse_from([
@@ -57,5 +63,23 @@ mod tests {
             args.p2p_advertise_addr,
             Some("127.0.0.1:30303".parse::<SocketAddr>().expect("socket addr"))
         );
+    }
+
+    /// P2P defaults, including the deprecated no-op discovery flags kept for
+    /// compat (removed in a later release — the no-op must not silently grow
+    /// behavior back). One assert per `#[arg]` default in this file.
+    #[test]
+    fn preconfirmation_p2p_defaults_are_pinned() {
+        let args = parse_minimal();
+        assert_eq!(args.p2p_listen, "0.0.0.0:9000".parse::<SocketAddr>().expect("socket addr"));
+        assert_eq!(
+            args.p2p_discovery_addr,
+            "0.0.0.0:9001".parse::<SocketAddr>().expect("socket addr")
+        );
+        assert!(!args.p2p_disable_discovery);
+        assert_eq!(args.p2p_advertise_addr, None);
+        // No `default_value`: unset list flags fall back to empty vectors.
+        assert!(args.p2p_bootnodes.is_empty());
+        assert!(args.p2p_static_peers.is_empty());
     }
 }

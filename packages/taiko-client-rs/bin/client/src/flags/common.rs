@@ -300,4 +300,25 @@ mod tests {
 
         assert_eq!(args.devnet_unzen_timestamp, 0);
     }
+
+    /// Dropping `required = true` on a prod-critical flag must fail CI, not ship.
+    #[test]
+    fn omitting_each_required_flag_fails_parsing() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_l1_env();
+        let full = required_args();
+        // Indices of flag NAMES in required_args(): 1 --l2.http, 3 --l2.auth,
+        // 5 --jwt.secret, 7 --shasta.inbox (each value follows at index + 1).
+        for flag_index in [1usize, 3, 5, 7] {
+            let mut args: Vec<&str> = full.to_vec();
+            args.drain(flag_index..flag_index + 2); // remove flag + value
+            args.push("--l1.http");
+            args.push("http://localhost:8545");
+            assert!(
+                CommonArgs::try_parse_from(args).is_err(),
+                "parsing must fail without {}",
+                full[flag_index]
+            );
+        }
+    }
 }
