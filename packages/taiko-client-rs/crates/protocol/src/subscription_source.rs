@@ -214,6 +214,24 @@ mod tests {
         assert!(matches!(result, Err(SubscriptionSourceError::MissingScheme)));
     }
 
+    /// A dead WS endpoint must surface as a Connection error the caller can
+    /// retry on — a silently-dead subscription freezes the driver. The connect
+    /// is wrapped in a timeout so a regression that hangs (rather than erroring)
+    /// fails loudly instead of blocking the test suite forever.
+    #[tokio::test]
+    async fn ws_connect_refused_maps_to_connection_error() {
+        // Port 1 is unassigned/refused on all platforms we run.
+        let source = SubscriptionSource::try_from("ws://127.0.0.1:1").expect("parse");
+        let err = timeout(Duration::from_secs(10), source.to_provider())
+            .await
+            .expect("connect must not hang — refused connections error immediately")
+            .expect_err("must not connect to a dead endpoint");
+        assert!(
+            matches!(err, SubscriptionSourceError::Connection(_)),
+            "expected Connection variant, got {err:?}"
+        );
+    }
+
     #[tokio::test]
     async fn http_event_scanner_switches_to_live_without_pubsub() {
         let anvil = Anvil::new().block_time(1).try_spawn().expect("anvil should start");
