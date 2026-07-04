@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
+import { StdStorage, stdStorage } from "forge-std/src/StdStorage.sol";
 import "forge-std/src/Test.sol";
 import { IDcapAttestation } from "src/layer1/verifiers/IDcapAttestation.sol";
 import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
@@ -19,6 +20,8 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 /// TCB-status and ATTRIBUTES-pin behaviour is asserted in the subclasses below.
 /// @custom:security-contact security@taiko.xyz
 abstract contract SgxVerifierTestBase is Test {
+    using stdStorage for StdStorage;
+
     uint64 internal constant CHAIN_ID = 167;
     address internal constant ATTESTATION = address(0xA11CE);
 
@@ -509,6 +512,72 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.setMrSigner(MR_SIGNER, true);
     }
 
+    /// @dev Untrusting a trusted MRENCLAVE is permanent: it is recorded as revoked and can never be
+    /// re-trusted, so instances revoked by the removal can never be silently revived.
+    function test_setMrEnclave_RevertWhen_ReTrustAfterUntrust() external {
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+        // Untrusting a trusted value emits the dedicated revocation event on the transition.
+        vm.expectEmit();
+        emit SgxVerifier.MrEnclaveRevoked(MR_ENCLAVE);
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        assertTrue(verifier.revokedMrEnclave(MR_ENCLAVE));
+
+        vm.expectRevert(SgxVerifier.SGX_MR_ENCLAVE_REVOKED.selector);
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+    }
+
+    function test_setMrSigner_RevertWhen_ReTrustAfterUntrust() external {
+        verifier.setMrSigner(MR_SIGNER, true);
+        vm.expectEmit();
+        emit SgxVerifier.MrSignerRevoked(MR_SIGNER);
+        verifier.setMrSigner(MR_SIGNER, false);
+        assertTrue(verifier.revokedMrSigner(MR_SIGNER));
+
+        vm.expectRevert(SgxVerifier.SGX_MR_SIGNER_REVOKED.selector);
+        verifier.setMrSigner(MR_SIGNER, true);
+    }
+
+    /// @dev Untrusting a value that was never trusted is a no-op: it does not poison the value, so it
+    /// can still be trusted afterwards (revocation is armed only by a trusted -> untrusted change).
+    function test_setMrEnclave_UntrustWhenNeverTrustedDoesNotRevoke() external {
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        assertFalse(verifier.revokedMrEnclave(MR_ENCLAVE));
+
+        verifier.setMrEnclave(MR_ENCLAVE, true); // still allowed
+        assertTrue(verifier.trustedUserMrEnclave(MR_ENCLAVE));
+    }
+
+    /// @dev Symmetric to the MRENCLAVE case: untrusting a never-trusted MRSIGNER does not poison it.
+    function test_setMrSigner_UntrustWhenNeverTrustedDoesNotRevoke() external {
+        verifier.setMrSigner(MR_SIGNER, false);
+        assertFalse(verifier.revokedMrSigner(MR_SIGNER));
+
+        verifier.setMrSigner(MR_SIGNER, true); // still allowed
+        assertTrue(verifier.trustedUserMrSigner(MR_SIGNER));
+    }
+
+    /// @dev End-to-end: an instance revoked by untrusting its MRENCLAVE cannot be revived, because
+    /// the measurement can never be re-trusted.
+    function test_verifyProof_RevokedInstanceCannotBeRevived() external {
+        _trustStandardEnclave();
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        uint256 id = verifier.registerInstance(_mockValidQuote(instance));
+        bytes32 aggHash = bytes32(uint256(0x1234));
+        bytes memory proof = _proof(uint32(id), instance, _sign(key, aggHash, instance));
+
+        verifier.verifyProof(0, aggHash, proof); // valid
+
+        // Untrust the MRENCLAVE: the instance is revoked at proof time.
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        verifier.verifyProof(0, aggHash, proof);
+
+        // Re-trusting the same measurement is impossible, so the instance can never come back.
+        vm.expectRevert(SgxVerifier.SGX_MR_ENCLAVE_REVOKED.selector);
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+    }
+
     function test_toggleLocalReportCheck_togglesAndEmits() external {
         // Enforced by default; first toggle disables it.
         assertTrue(verifier.checkLocalEnclaveReport());
@@ -665,6 +734,26 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.addInstances(addrs);
 
         vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        verifier.addInstances(addrs);
+    }
+
+    /// @dev The last id that still fits the uint32 field decoded in `verifyProof` registers; the
+    /// next one would overflow that field and be unreachable from a proof, so it is rejected.
+    function test_addInstances_RevertWhen_InstanceIdOverflows() external {
+        // Fast-forward the id counter to the largest uint32-representable id.
+        stdstore.target(address(verifier)).sig("nextInstanceId()")
+            .checked_write(uint256(type(uint32).max));
+
+        // id == type(uint32).max still fits the uint32 proof field and is accepted.
+        address[] memory addrs = new address[](1);
+        addrs[0] = address(0xA1);
+        uint256[] memory ids = verifier.addInstances(addrs);
+        assertEq(ids[0], uint256(type(uint32).max));
+        assertEq(verifier.nextInstanceId(), uint256(type(uint32).max) + 1);
+
+        // The next id (2^32) would truncate to 0 in `verifyProof`; registration must reject it.
+        addrs[0] = address(0xA2);
+        vm.expectRevert(SgxVerifier.SGX_INSTANCE_ID_OVERFLOW.selector);
         verifier.addInstances(addrs);
     }
 
