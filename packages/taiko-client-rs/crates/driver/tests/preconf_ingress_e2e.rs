@@ -433,6 +433,46 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
     // parent state matches node 0's pre-derivation parent. A second beacon stub
     // is used because DriverConfig requires a beacon endpoint; the preconf
     // ingress path itself never touches it. ---
+    //
+    // THE RACE (why this test could pass while proving nothing):
+    // Node 1's EventSyncer is wired to the SAME L1 + inbox as node 0 (only the
+    // two L2 urls are swapped). By the time node 1's syncer starts, proposal N is
+    // already confirmed on L1, so node 1's own scanner would derive block N during
+    // catch-up. If that happens, the replayed `submit_preconfirmation_payload`
+    // short-circuits WITHOUT ever running the preconf-ingress engine path:
+    //   - `preconfirmation_payload_is_materialized` (event.rs) may ack it, or
+    //   - once node 1's head_l1_origin reaches N, `is_stale_preconf` drops it with an `Ok(())` ack
+    //     (event.rs ingress loop).
+    // Either way the block-hash assertion below would pass vacuously — green while
+    // proving nothing about the ingress path this test exists to pin.
+    //
+    // DEFENSE 1 — REJECTED: blinding node 1's inbox. The brief's first idea was to
+    // point node 1 at an event-less dummy `inbox_address` so its scanner (which
+    // filters `Proposed` logs by `contract_address(inbox_address)`, event.rs) never
+    // sees proposal N. That is NOT viable here: node 1's readiness path issues
+    // `eth_call`s against the SAME inbox address — `getCoreState()` in both
+    // `try_finalized_l1_snapshot` (event.rs, at `run()` start) and
+    // `confirmed_sync_snapshot` (event.rs, the ingress-readiness probe). A dummy
+    // (no-code) address returns empty `0x`, which fails to ABI-decode into
+    // `CoreState`, so the readiness probe errors forever and
+    // `wait_preconf_ingress_ready()` below would hang. `ClientConfig` exposes a
+    // single `inbox_address` shared by scanner-filter AND `getCoreState`, with no
+    // way to separate them, so we keep node 1 on the REAL inbox.
+    //
+    // DEFENSE 2 — the actual guarantee: prove which path produced block N by
+    // inspecting node 1's L1-origin record for N after ingress (see the
+    // `l1_block_height` assertion after `wait_for_block`). The ingress path writes
+    // `l1_block_height: None`; L1 derivation writes a real non-zero L1 height. So
+    // if the race above ever wins, that assertion FAILS LOUDLY instead of the test
+    // passing vacuously. This converts the race from a silent false-green into a
+    // hard failure — which is the whole point of the finding.
+    //
+    // CI-WATCH: the first CI run validates the assumption that node 1 reaches
+    // ingress readiness on the shared real inbox and that ingress (not derivation)
+    // wins the block. If the `l1_block_height` assertion ever trips in CI, the race
+    // materialized and node 1 needs a genuinely independent inbox view (e.g. a
+    // second deployed Inbox returning genesis core state) rather than a dummy
+    // address — do NOT weaken the assertion to make it pass.
     let node1_config = ClientConfig {
         l2_provider_url: env.l2_ws_1.clone(),
         l2_auth_provider_url: env.l2_auth_1.clone(),
@@ -494,6 +534,35 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
 
     let injected =
         wait_for_block(&node1_provider, derived.header.number, Duration::from_secs(30)).await?;
+
+    // RACE-PREVENTION PROOF (Defense 2, see the node-1 setup comment above): assert
+    // block N on node 1 was produced by the PRECONF INGRESS path, not by node 1's
+    // own L1 derivation of the shared proposal. The single most definitive
+    // discriminator is the L1-origin record's `l1_block_height`, queried via the
+    // exact RPC the driver itself uses (`taiko_l1OriginByID`, rpc::l1_origin):
+    //   - ingress writes `l1_block_height: None` (build_driver_payload /
+    //     build_payload_attributes_with_id pass `l1_block_height: None`; then sync_l1_origin
+    //     persists that origin verbatim), and
+    //   - L1 derivation writes a REAL, non-zero L1 block height (the height of the L1 block that
+    //     included the proposal).
+    // `RpcL1Origin::is_preconf_block()` encodes exactly this test
+    // (`l1_block_height.is_none() || == Some(0)`). If node 1 had lost the race and
+    // derived N itself, `l1_block_height` would be a real height and this fails —
+    // catching the vacuous-green the finding is about. This runs BEFORE the hash
+    // assertion so a race is reported as "wrong path" rather than masquerading as a
+    // hash mismatch.
+    let injected_origin = driver_client_node1
+        .l1_origin_by_id(U256::from(derived.header.number))
+        .await?
+        .context("node 1 must have an L1-origin record for the injected block")?;
+    assert!(
+        injected_origin.is_preconf_block(),
+        "block {} on node 1 must come from preconf INGRESS (l1_block_height=None), not L1 \
+         derivation of the shared proposal; got l1_block_height={:?} — the paths-agree race won \
+         and the block hash below would prove nothing",
+        derived.header.number,
+        injected_origin.l1_block_height,
+    );
 
     // Mismatch-debugging guidance (per the brief): if the hashes differ, print
     // both headers field-by-field BEFORE touching the test. A mismatch is either
