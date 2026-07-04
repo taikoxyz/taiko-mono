@@ -194,7 +194,7 @@ mod tests {
     use alloy_rlp::Bytes as RlpBytes;
     use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 
-    use super::ZlibTxListCodec;
+    use super::{ZlibTxListCodec, is_legacy_transaction};
 
     fn compress_payload(payload: &[u8]) -> Vec<u8> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -392,6 +392,26 @@ mod tests {
     // decode-direction compatibility (importing Go-produced tx-lists), which
     // the decode tests above cover; both encoders round-trip through either
     // decoder, so encoded bytes are semantically equivalent.
+
+    /// First-byte classification boundaries: 0x00..=0x7f typed, 0xc0.. legacy
+    /// (RLP list). 0x80..=0xbf is an RLP string header — not a valid tx of either
+    /// kind; we classify it as typed/opaque and round-trip it verbatim, matching
+    /// Go's behavior of deferring per-tx validation to the consumer.
+    #[test]
+    fn tx_classification_boundary_bytes() {
+        assert!(!is_legacy_transaction(&[0x00]));
+        assert!(!is_legacy_transaction(&[0x7f]));
+        assert!(!is_legacy_transaction(&[0x80]));
+        assert!(!is_legacy_transaction(&[0xbf]));
+        assert!(is_legacy_transaction(&[0xc0]));
+        assert!(is_legacy_transaction(&[0xf7]));
+
+        // The 0x80..=0xbf gap round-trips as an opaque typed element.
+        let codec = ZlibTxListCodec::new_with_limits(1 << 20, 1 << 22);
+        let odd = vec![vec![0x80u8, 0x01, 0x02]];
+        let encoded = codec.encode(&odd).expect("encode");
+        assert_eq!(codec.decode(&encoded).expect("decode"), odd);
+    }
 }
 
 #[cfg(test)]

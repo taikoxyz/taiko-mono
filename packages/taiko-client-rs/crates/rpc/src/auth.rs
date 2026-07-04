@@ -390,4 +390,19 @@ mod tests {
 
         assert_eq!(obj.get("withdrawals"), Some(&serde_json::json!([])));
     }
+
+    /// These strings are a wire contract with alethia-reth's engine responses —
+    /// if reth rewords them, real errors get silently converted to Ok(None).
+    /// `is_ignorable_origin_error` substring-matches, so any message *containing*
+    /// "not found" or "proposal last block uncertain" is treated as ignorable.
+    /// Update both sides together.
+    #[test]
+    fn ignorable_origin_error_pins_exact_reth_strings() {
+        assert!(is_ignorable_origin_error("not found"));
+        assert!(is_ignorable_origin_error("L1 origin not found for block 5"));
+        assert!(is_ignorable_origin_error("proposal last block uncertain"));
+        assert!(!is_ignorable_origin_error("connection refused"));
+        assert!(!is_ignorable_origin_error("internal error"));
+        assert!(!is_ignorable_origin_error(""));
+    }
 }
