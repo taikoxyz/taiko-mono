@@ -15,7 +15,7 @@ use tracing::warn;
 /// Resolve bootnode entries into dialable TCP multiaddrs.
 ///
 /// Each entry is tested in order: ENR (`enr:` prefix), enode URL (`enode://` prefix),
-/// or raw multiaddr. Unparseable or undialable entries are logged and skipped.
+/// or raw multiaddr. Unparsable or undialable entries are logged and skipped.
 pub(crate) fn classify_bootnodes(bootnodes: Vec<String>) -> Vec<Multiaddr> {
     let mut dial_addrs = Vec::new();
 
