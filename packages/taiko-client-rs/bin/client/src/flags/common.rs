@@ -175,24 +175,19 @@ mod tests {
         ]
     }
 
+    /// Base required args; tests extend with the L1 flags under test. The two
+    /// devnet tests below already use this style — this aligns the rest.
+    fn base_args() -> Vec<&'static str> {
+        required_args().to_vec()
+    }
+
     #[test]
     fn accepts_http_l1_endpoint() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let args = CommonArgs::try_parse_from([
-            required_args()[0],
-            "--l1.http",
-            "http://localhost:8545",
-            required_args()[1],
-            required_args()[2],
-            required_args()[3],
-            required_args()[4],
-            required_args()[5],
-            required_args()[6],
-            required_args()[7],
-            required_args()[8],
-        ])
-        .expect("http endpoint should parse");
+        let mut args = base_args();
+        args.extend(["--l1.http", "http://localhost:8545"]);
+        let args = CommonArgs::try_parse_from(args).expect("http endpoint should parse");
 
         assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Http(_)));
     }
@@ -201,20 +196,9 @@ mod tests {
     fn accepts_ws_l1_endpoint() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let args = CommonArgs::try_parse_from([
-            required_args()[0],
-            "--l1.ws",
-            "ws://localhost:8546",
-            required_args()[1],
-            required_args()[2],
-            required_args()[3],
-            required_args()[4],
-            required_args()[5],
-            required_args()[6],
-            required_args()[7],
-            required_args()[8],
-        ])
-        .expect("ws endpoint should parse");
+        let mut args = base_args();
+        args.extend(["--l1.ws", "ws://localhost:8546"]);
+        let args = CommonArgs::try_parse_from(args).expect("ws endpoint should parse");
 
         assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Ws(_)));
     }
@@ -242,22 +226,10 @@ mod tests {
     fn rejects_both_l1_endpoints() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
-        let args = CommonArgs::try_parse_from([
-            required_args()[0],
-            "--l1.http",
-            "http://localhost:8545",
-            "--l1.ws",
-            "ws://localhost:8546",
-            required_args()[1],
-            required_args()[2],
-            required_args()[3],
-            required_args()[4],
-            required_args()[5],
-            required_args()[6],
-            required_args()[7],
-            required_args()[8],
-        ])
-        .expect("dual endpoints should parse before validation");
+        let mut args = base_args();
+        args.extend(["--l1.http", "http://localhost:8545", "--l1.ws", "ws://localhost:8546"]);
+        let args = CommonArgs::try_parse_from(args)
+            .expect("dual endpoints should parse before validation");
 
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
     }
@@ -278,12 +250,12 @@ mod tests {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
         let _clear_dut = EnvGuard::unset("DEVNET_UNZEN_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-        argv.extend(["--devnet-unzen-timestamp", "12345"]);
+        let mut args = base_args();
+        args.extend(["--l1.http", "http://localhost:8545"]);
+        args.extend(["--devnet-unzen-timestamp", "12345"]);
 
         let args =
-            CommonArgs::try_parse_from(argv).expect("devnet unzen timestamp flag should parse");
+            CommonArgs::try_parse_from(args).expect("devnet unzen timestamp flag should parse");
 
         assert_eq!(args.devnet_unzen_timestamp, 12345);
     }
@@ -293,10 +265,10 @@ mod tests {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
         let _clear_dut = EnvGuard::unset("DEVNET_UNZEN_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
+        let mut args = base_args();
+        args.extend(["--l1.http", "http://localhost:8545"]);
 
-        let args = CommonArgs::try_parse_from(argv).expect("default parse should succeed");
+        let args = CommonArgs::try_parse_from(args).expect("default parse should succeed");
 
         assert_eq!(args.devnet_unzen_timestamp, 0);
     }
