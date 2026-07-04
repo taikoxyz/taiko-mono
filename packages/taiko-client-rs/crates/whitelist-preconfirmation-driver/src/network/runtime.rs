@@ -771,153 +771,33 @@ impl NetworkRuntime {
             return Ok(());
         };
 
-        let topic = &message.topic;
         let from = propagation_source;
-        let now = Instant::now();
 
         if from == self.peer_id_for_events {
-            debug!(peer = %from, topic = %topic, "ignoring self-propagated whitelist preconfirmation gossip");
-            let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
-                &message_id,
-                &from,
-                gossipsub::MessageAcceptance::Ignore,
-            );
+            debug!(peer = %from, topic = %message.topic, "ignoring self-propagated whitelist preconfirmation gossip");
+            self.report_validation(&message_id, from, gossipsub::MessageAcceptance::Ignore);
             return Ok(());
         }
 
-        if *topic == self.topics.preconf_blocks.hash() {
-            let acceptance = match decode_unsafe_payload_signature(&message.data)
-                .and_then(|(sig, bytes)| decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env)))
-            {
-                Ok((wire_signature, payload_bytes, envelope)) => {
-                    let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
-                    let acceptance =
-                        self.inbound_validation_state.validate_preconf_blocks(&payload);
+        let (mut acceptance, event) = classify_inbound(
+            &self.topics,
+            &mut self.inbound_validation_state,
+            from,
+            &message,
+            Instant::now(),
+        );
 
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-                        log_inbound_envelope(
-                            from,
-                            &payload.envelope,
-                            "📥 New preconfirmation block gossip",
-                        );
-                        if let Err(err) = forward_event(
-                            &self.event_tx,
-                            NetworkEvent::UnsafePayload { from, payload },
-                        )
-                        .await
-                        {
-                            // If forwarding to importer fails, reject to avoid silently
-                            // accepting data that local consumers could not process.
-                            self.report_validation(
-                                &message_id,
-                                from,
-                                gossipsub::MessageAcceptance::Reject,
-                            );
-                            return Err(err);
-                        }
-                    }
-
-                    acceptance
-                }
-                Err(_) => {
-                    self.record_decode_failed("preconf_blocks", &message_id, from);
-                    return Ok(());
-                }
-            };
-
-            self.record_inbound_and_report("preconf_blocks", acceptance, &message_id, from);
-            return Ok(());
+        if let Some(event) = event
+            && let Err(err) = forward_event(&self.event_tx, event).await
+        {
+            // If forwarding to the importer fails, reject to avoid silently
+            // accepting data that local consumers could not process.
+            acceptance = gossipsub::MessageAcceptance::Reject;
+            self.report_validation(&message_id, from, acceptance);
+            return Err(err);
         }
 
-        if *topic == self.topics.preconf_response.hash() {
-            let acceptance = match decode_unsafe_response_message(&message.data) {
-                Ok(envelope) => {
-                    let acceptance = self.inbound_validation_state.validate_response(&envelope);
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-                        log_inbound_envelope(
-                            from,
-                            &envelope,
-                            "📥 New preconfirmation block response gossip",
-                        );
-                        if let Err(err) = forward_event(
-                            &self.event_tx,
-                            NetworkEvent::UnsafeResponse { from, envelope },
-                        )
-                        .await
-                        {
-                            self.report_validation(
-                                &message_id,
-                                from,
-                                gossipsub::MessageAcceptance::Reject,
-                            );
-                            return Err(err);
-                        }
-                    }
-
-                    acceptance
-                }
-                Err(_) => {
-                    self.record_decode_failed("response_preconf_blocks", &message_id, from);
-                    return Ok(());
-                }
-            };
-
-            self.record_inbound_and_report(
-                "response_preconf_blocks",
-                acceptance,
-                &message_id,
-                from,
-            );
-            return Ok(());
-        }
-
-        if *topic == self.topics.preconf_request.hash() {
-            let Some(hash) = decode_request_hash_exact(&message.data) else {
-                self.record_decode_failed("request_preconf_blocks", &message_id, from);
-                return Ok(());
-            };
-
-            let acceptance = self.inbound_validation_state.validate_request(from, now);
-            if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-                info!(
-                    peer = %from,
-                    requested_block_hash = %hash,
-                    "📥 New preconfirmation block request gossip"
-                );
-                // Requests are relayed only after inbound dedupe/rate checks pass.
-                forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
-            }
-
-            self.record_inbound_and_report("request_preconf_blocks", acceptance, &message_id, from);
-            return Ok(());
-        }
-
-        if *topic == self.topics.eos_request.hash() {
-            let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
-                self.record_decode_failed("request_eos_preconf_blocks", &message_id, from);
-                return Ok(());
-            };
-
-            let acceptance = self.inbound_validation_state.validate_eos_request(from, epoch, now);
-            if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-                info!(
-                    peer = %from,
-                    epoch,
-                    "📥 New end-of-sequencing preconfirmation request gossip"
-                );
-                // EOS requests follow the same acceptance gate as preconf requests.
-                forward_event(&self.event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch })
-                    .await?;
-            }
-
-            self.record_inbound_and_report(
-                "request_eos_preconf_blocks",
-                acceptance,
-                &message_id,
-                from,
-            );
-        }
-
+        self.report_validation(&message_id, from, acceptance);
         Ok(())
     }
 
@@ -935,60 +815,142 @@ impl NetworkRuntime {
             .gossipsub
             .report_message_validation_result(message_id, &from, acceptance);
     }
+}
 
-    /// Record an inbound-message metric for `topic_label` (using the acceptance's
-    /// label) and report the validation decision in one step.
-    fn record_inbound_and_report(
-        &mut self,
-        topic_label: &'static str,
-        acceptance: gossipsub::MessageAcceptance,
-        message_id: &gossipsub::MessageId,
-        from: PeerId,
-    ) {
-        self.record_inbound_and_report_labeled(
-            topic_label,
-            acceptance_label(&acceptance),
-            acceptance,
-            message_id,
-            from,
-        );
+/// Record an inbound-message metric for `topic_label` using the acceptance's
+/// standard label (`accepted`/`ignored`/`rejected`).
+fn record_inbound(topic_label: &'static str, acceptance: &gossipsub::MessageAcceptance) {
+    WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+        topic_label,
+        acceptance_label(acceptance),
+    );
+}
+
+/// Record a `decode_failed` inbound metric for `topic_label`.
+///
+/// The metric label (`"decode_failed"`) differs from the reported acceptance
+/// (`Reject`) so callers report `Reject` separately.
+fn record_decode_failed(topic_label: &'static str) {
+    WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+        topic_label,
+        "decode_failed",
+    );
+}
+
+/// Classifies one inbound gossip message: decode + per-topic validation.
+/// Returns the gossipsub validation verdict and, on acceptance, the event to
+/// forward to the importer. Pure with respect to the swarm — testable.
+///
+/// Metric recording (`inc_network_inbound_message`) moves with the per-topic
+/// logic so it stays coupled to the decode/validation decision; the caller is
+/// responsible only for reporting the returned acceptance to gossipsub and for
+/// forwarding the returned event.
+pub(super) fn classify_inbound(
+    topics: &Topics,
+    state: &mut GossipsubInboundState,
+    from: PeerId,
+    message: &gossipsub::Message,
+    now: Instant,
+) -> (gossipsub::MessageAcceptance, Option<NetworkEvent>) {
+    let topic = &message.topic;
+
+    if *topic == topics.preconf_blocks.hash() {
+        let (wire_signature, payload_bytes, envelope) =
+            match decode_unsafe_payload_signature(&message.data)
+                .and_then(|(sig, bytes)| decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env)))
+            {
+                Ok(decoded) => decoded,
+                Err(_) => {
+                    record_decode_failed("preconf_blocks");
+                    return (gossipsub::MessageAcceptance::Reject, None);
+                }
+            };
+
+        let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
+        let acceptance = state.validate_preconf_blocks(&payload);
+
+        let event = if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+            log_inbound_envelope(from, &payload.envelope, "📥 New preconfirmation block gossip");
+            Some(NetworkEvent::UnsafePayload { from, payload })
+        } else {
+            None
+        };
+
+        record_inbound("preconf_blocks", &acceptance);
+        return (acceptance, event);
     }
 
-    /// Record an inbound-message metric for `topic_label` using an explicit
-    /// `inbound_label`, then report `acceptance` to gossipsub.
-    ///
-    /// Used for decode failures, where the metric label (`"decode_failed"`) differs
-    /// from the reported acceptance (`Reject`).
-    fn record_inbound_and_report_labeled(
-        &mut self,
-        topic_label: &'static str,
-        inbound_label: &str,
-        acceptance: gossipsub::MessageAcceptance,
-        message_id: &gossipsub::MessageId,
-        from: PeerId,
-    ) {
-        WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
-            topic_label,
-            inbound_label,
-        );
-        self.report_validation(message_id, from, acceptance);
+    if *topic == topics.preconf_response.hash() {
+        let envelope = match decode_unsafe_response_message(&message.data) {
+            Ok(envelope) => envelope,
+            Err(_) => {
+                record_decode_failed("response_preconf_blocks");
+                return (gossipsub::MessageAcceptance::Reject, None);
+            }
+        };
+
+        let acceptance = state.validate_response(&envelope);
+
+        let event = if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+            log_inbound_envelope(from, &envelope, "📥 New preconfirmation block response gossip");
+            Some(NetworkEvent::UnsafeResponse { from, envelope })
+        } else {
+            None
+        };
+
+        record_inbound("response_preconf_blocks", &acceptance);
+        return (acceptance, event);
     }
 
-    /// Record a `decode_failed` inbound metric for `topic_label` and report `Reject`.
-    fn record_decode_failed(
-        &mut self,
-        topic_label: &'static str,
-        message_id: &gossipsub::MessageId,
-        from: PeerId,
-    ) {
-        self.record_inbound_and_report_labeled(
-            topic_label,
-            "decode_failed",
-            gossipsub::MessageAcceptance::Reject,
-            message_id,
-            from,
-        );
+    if *topic == topics.preconf_request.hash() {
+        let Some(hash) = decode_request_hash_exact(&message.data) else {
+            record_decode_failed("request_preconf_blocks");
+            return (gossipsub::MessageAcceptance::Reject, None);
+        };
+
+        let acceptance = state.validate_request(from, now);
+        let event = if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+            info!(
+                peer = %from,
+                requested_block_hash = %hash,
+                "📥 New preconfirmation block request gossip"
+            );
+            // Requests are relayed only after inbound dedupe/rate checks pass.
+            Some(NetworkEvent::UnsafeRequest { from, hash })
+        } else {
+            None
+        };
+
+        record_inbound("request_preconf_blocks", &acceptance);
+        return (acceptance, event);
     }
+
+    if *topic == topics.eos_request.hash() {
+        let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
+            record_decode_failed("request_eos_preconf_blocks");
+            return (gossipsub::MessageAcceptance::Reject, None);
+        };
+
+        let acceptance = state.validate_eos_request(from, epoch, now);
+        let event = if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+            info!(
+                peer = %from,
+                epoch,
+                "📥 New end-of-sequencing preconfirmation request gossip"
+            );
+            // EOS requests follow the same acceptance gate as preconf requests.
+            Some(NetworkEvent::EndOfSequencingRequest { from, epoch })
+        } else {
+            None
+        };
+
+        record_inbound("request_eos_preconf_blocks", &acceptance);
+        return (acceptance, event);
+    }
+
+    // Unknown topic: gossipsub only delivers messages for subscribed topics, so
+    // this arm is unreachable in practice. Ignore without recording a metric.
+    (gossipsub::MessageAcceptance::Ignore, None)
 }
 
 /// Format peer ids into a compact comma-separated log value.
@@ -1172,6 +1134,105 @@ mod tests {
         let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
 
         assert_eq!(advertised_enode_url(&local_key, true, listen_addr, None, None), None);
+    }
+
+    /// Builds Topics + a permissive inbound state for dispatch tests.
+    fn dispatch_fixture() -> (Topics, GossipsubInboundState) {
+        let topics = Topics::new(167);
+        let state = GossipsubInboundState::new(
+            167,
+            std::sync::Arc::new(arc_swap::ArcSwap::from_pointee(Default::default())),
+        );
+        (topics, state)
+    }
+
+    /// Builds a gossipsub message on the given topic.
+    fn inbound_message(topic: &gossipsub::IdentTopic, data: Vec<u8>) -> gossipsub::Message {
+        gossipsub::Message { source: None, data, sequence_number: None, topic: topic.hash() }
+    }
+
+    /// Malformed bytes on every topic must Reject and never produce an event —
+    /// a peer feeding garbage must not reach the importer (the #21906 blast
+    /// radius was exactly an undecodable gossip payload).
+    #[test]
+    fn classify_rejects_malformed_data_on_every_topic() {
+        let (topics, mut state) = dispatch_fixture();
+        let peer = PeerId::random();
+        let garbage = vec![0xff, 0x00, 0xde, 0xad];
+        for topic in [
+            &topics.preconf_blocks,
+            &topics.preconf_request,
+            &topics.preconf_response,
+            &topics.eos_request,
+        ] {
+            let (acceptance, event) = classify_inbound(
+                &topics,
+                &mut state,
+                peer,
+                &inbound_message(topic, garbage.clone()),
+                std::time::Instant::now(),
+            );
+            assert!(
+                matches!(acceptance, gossipsub::MessageAcceptance::Reject),
+                "garbage on {topic:?} must Reject"
+            );
+            assert!(event.is_none(), "garbage on {topic:?} must not forward");
+        }
+    }
+
+    /// A well-formed 32-byte request produces an UnsafeRequest event.
+    #[test]
+    fn classify_accepts_exact_request_hash() {
+        let (topics, mut state) = dispatch_fixture();
+        let hash = alloy_primitives::B256::repeat_byte(0x42);
+        let (acceptance, event) = classify_inbound(
+            &topics,
+            &mut state,
+            PeerId::random(),
+            &inbound_message(&topics.preconf_request, hash.to_vec()),
+            std::time::Instant::now(),
+        );
+        assert!(matches!(acceptance, gossipsub::MessageAcceptance::Accept));
+        assert!(
+            matches!(event, Some(NetworkEvent::UnsafeRequest { hash: h, .. }) if h == hash),
+            "expected UnsafeRequest event"
+        );
+    }
+
+    /// Documented divergence from Go: Go pads any-length request payloads via
+    /// common.BytesToHash (gossip.go:527); we require exactly 32 bytes and
+    /// Reject otherwise. Both implementations SEND 32 bytes, so this only
+    /// penalizes nonconforming peers. If this test breaks because we chose to
+    /// match Go's leniency, update this comment and assert Accept instead.
+    #[test]
+    fn classify_rejects_non_32_byte_request_that_go_would_pad() {
+        let (topics, mut state) = dispatch_fixture();
+        for len in [0usize, 31, 33] {
+            let (acceptance, event) = classify_inbound(
+                &topics,
+                &mut state,
+                PeerId::random(),
+                &inbound_message(&topics.preconf_request, vec![0x01; len]),
+                std::time::Instant::now(),
+            );
+            assert!(matches!(acceptance, gossipsub::MessageAcceptance::Reject), "len {len}");
+            assert!(event.is_none(), "len {len}");
+        }
+    }
+
+    /// An 8-byte big-endian epoch on the EOS topic produces the event.
+    #[test]
+    fn classify_accepts_eos_epoch() {
+        let (topics, mut state) = dispatch_fixture();
+        let (acceptance, event) = classify_inbound(
+            &topics,
+            &mut state,
+            PeerId::random(),
+            &inbound_message(&topics.eos_request, 9u64.to_be_bytes().to_vec()),
+            std::time::Instant::now(),
+        );
+        assert!(matches!(acceptance, gossipsub::MessageAcceptance::Accept));
+        assert!(matches!(event, Some(NetworkEvent::EndOfSequencingRequest { epoch: 9, .. })));
     }
 }
 
