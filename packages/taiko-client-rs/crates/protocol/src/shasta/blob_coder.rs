@@ -457,8 +457,9 @@ mod prop_tests {
         }
     }
 
-    /// Each rejection guard in `decode_blob` returns None (wrong version byte,
-    /// oversized length header, dirty field-element high bits).
+    /// Each reachable rejection guard in `decode_blob` returns None (wrong version byte,
+    /// oversized length header, dirty field-element high bits, nonzero output past the declared
+    /// length, and nonzero input padding).
     #[test]
     fn decode_blob_rejects_each_malformed_shape() {
         // Start from a valid encoding of a small payload.
@@ -483,5 +484,28 @@ mod prop_tests {
         let mut dirty_fe = valid;
         dirty_fe[32] = 0xc0;
         assert!(BlobCoder::decode_blob(&dirty_fe).is_none(), "dirty FE header accepted");
+
+        // Nonzero byte in the reconstructed output past the declared length.
+        // The payload is 64 bytes, so output position 64 is the first byte beyond `length` and
+        // must decode to zero. It is filled from the field-element data at data[69] (a data byte,
+        // not a header — headers sit at positions divisible by 32). Dirtying data[69] leaves every
+        // FE header clean, so decoding proceeds until the trailing-region check rejects it.
+        let mut trailing_nonzero = valid;
+        trailing_nonzero[69] = 0xff;
+        assert!(
+            BlobCoder::decode_blob(&trailing_nonzero).is_none(),
+            "nonzero byte past declared length accepted"
+        );
+
+        // Nonzero byte in the unused zero padding after the consumed field elements.
+        // The last blob byte (index 131071) lies in the padding region the decoder requires to be
+        // all zeros, and is not an FE header, so every earlier guard still passes.
+        let mut dirty_padding = valid;
+        dirty_padding[BYTES_PER_BLOB - 1] = 0xff;
+        assert!(BlobCoder::decode_blob(&dirty_padding).is_none(), "nonzero input padding accepted");
+
+        // The sixth `return None` (the bounds guard in `decode_field_element_bytes`) is
+        // unreachable for a fixed-size `Blob`: `input_pos`/`output_pos` can never overrun the
+        // 131072-byte input or the `BLOB_MAX_DATA_SIZE` output, so it needs no arm here.
     }
 }
