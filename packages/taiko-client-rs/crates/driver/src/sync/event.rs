@@ -243,6 +243,12 @@ type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 ///
 /// Wraps a payload and a oneshot channel for returning the processing result
 /// back to the caller.
+///
+/// The mpsc-plus-oneshot decoupling here is load-bearing: a submitter future dropped mid-await
+/// (e.g. an axum handler cancelled by a client disconnect) must not cancel an in-flight engine
+/// injection. Because the job is owned by the ingress loop once enqueued, dropping the submitter
+/// only drops the oneshot `Receiver` — the loop still runs the job to completion and the dead
+/// `respond_to` send is simply ignored.
 pub struct PreconfJob {
     /// The preconfirmation payload to be processed.
     payload: Arc<PreconfPayload>,
@@ -357,96 +363,105 @@ where
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
                 DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                let start = Instant::now();
-                let block_number = job.payload.block_number();
-                match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
-                    Ok(true) => {
-                        debug!(
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            "acknowledging already materialized preconfirmation payload"
-                        );
-                        let _ = job.respond_to.send(Ok(()));
-                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                        continue;
-                    }
-                    Ok(false) => {}
-                    Err(err) => {
-                        error!(
-                            ?err,
-                            block_number, "failed to check preconfirmation materialization state"
-                        );
-                        let _ = job.respond_to.send(Err(err));
-                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                        continue;
-                    }
-                }
-
-                let router_guard = router.lock().await;
-                // Re-check after acquiring router lock so event-sync updates cannot race this
-                // preconfirmation submission.
-                // On genesis chains head_l1_origin is not yet written; default to 0 so
-                // the staleness check passes for any block_number >= 1.  This matches the
-                // Go driver's `checkMessageBlockNumber` which skips the check when nil.
-                let head_l1_origin_block_id = match rpc.head_l1_origin().await {
-                    Ok(Some(origin)) => origin.block_id.to::<u64>(),
-                    Ok(None) => 0,
-                    Err(err) => {
-                        error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
-                        let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
-                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                        continue;
-                    }
-                };
-                if is_stale_preconf(block_number, head_l1_origin_block_id) {
-                    DriverMetrics::preconf_stale_dropped_total().inc();
-                    DriverMetrics::preconf_stale_dropped_ingress_total().inc();
-                    warn!(
-                        block_number,
-                        head_l1_origin_block_id,
-                        "dropping stale preconfirmation payload in ingress loop"
-                    );
-                    let _ = job.respond_to.send(Ok(()));
-                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                    continue;
-                }
-
-                // Single-shot injection while holding router lock to avoid interleaving.
-                let router_call = router_guard
-                    .produce(ProductionInput::Preconfirmation(job.payload.clone()))
-                    .await;
-
-                let duration_secs = start.elapsed().as_secs_f64();
-                DriverMetrics::preconf_injection_duration_seconds().observe(duration_secs);
-
-                match router_call {
-                    Ok(_) => {
-                        DriverMetrics::preconf_injection_success_total().inc();
-                        info!(
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            duration_secs,
-                            "preconfirmation payload injected"
-                        );
-                        // Return success to the original sender.
-                        let _ = job.respond_to.send(Ok(()));
-                    }
-                    Err(err) => {
-                        DriverMetrics::preconf_injection_failures_total().inc();
-                        error!(
-                            ?err,
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            duration_secs,
-                            "preconfirmation processing failed"
-                        );
-                        // Surface the error to the original sender.
-                        let _ = job.respond_to.send(Err(err));
-                    }
-                }
+                Self::process_preconf_job(&router, &rpc, job).await;
+                // Re-sample the backlog after the job settles (every processing path used to set
+                // this before continuing; a single post-call update preserves that behavior).
                 DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
             }
         });
+    }
+
+    /// Process one preconfirmation ingress job start to finish: materialization check, staleness
+    /// gate, router production, and response delivery.
+    ///
+    /// Extracted verbatim from the `spawn_preconf_ingress` loop so the per-job path is directly
+    /// testable. The readiness signalling and the `rx.recv()` loop stay in `spawn_preconf_ingress`;
+    /// the per-job queue-depth gauge sampling stays there too because it reads the receiver
+    /// backlog. Every verdict, metric call, `respond_to` send, and the router-lock scope (the
+    /// mutex is held across `produce`) is identical to the original inline body.
+    async fn process_preconf_job(
+        router: &Arc<AsyncMutex<ProductionRouter>>,
+        rpc: &Client<P>,
+        job: PreconfJob,
+    ) {
+        let start = Instant::now();
+        let block_number = job.payload.block_number();
+        match preconfirmation_payload_is_materialized(rpc, job.payload.as_ref()).await {
+            Ok(true) => {
+                debug!(
+                    block_number,
+                    build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                    "acknowledging already materialized preconfirmation payload"
+                );
+                let _ = job.respond_to.send(Ok(()));
+                return;
+            }
+            Ok(false) => {}
+            Err(err) => {
+                error!(?err, block_number, "failed to check preconfirmation materialization state");
+                let _ = job.respond_to.send(Err(err));
+                return;
+            }
+        }
+
+        let router_guard = router.lock().await;
+        // Re-check after acquiring router lock so event-sync updates cannot race this
+        // preconfirmation submission.
+        // On genesis chains head_l1_origin is not yet written; default to 0 so
+        // the staleness check passes for any block_number >= 1.  This matches the
+        // Go driver's `checkMessageBlockNumber` which skips the check when nil.
+        let head_l1_origin_block_id = match rpc.head_l1_origin().await {
+            Ok(Some(origin)) => origin.block_id.to::<u64>(),
+            Ok(None) => 0,
+            Err(err) => {
+                error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
+                let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
+                return;
+            }
+        };
+        if is_stale_preconf(block_number, head_l1_origin_block_id) {
+            DriverMetrics::preconf_stale_dropped_total().inc();
+            DriverMetrics::preconf_stale_dropped_ingress_total().inc();
+            warn!(
+                block_number,
+                head_l1_origin_block_id, "dropping stale preconfirmation payload in ingress loop"
+            );
+            let _ = job.respond_to.send(Ok(()));
+            return;
+        }
+
+        // Single-shot injection while holding router lock to avoid interleaving.
+        let router_call =
+            router_guard.produce(ProductionInput::Preconfirmation(job.payload.clone())).await;
+
+        let duration_secs = start.elapsed().as_secs_f64();
+        DriverMetrics::preconf_injection_duration_seconds().observe(duration_secs);
+
+        match router_call {
+            Ok(_) => {
+                DriverMetrics::preconf_injection_success_total().inc();
+                info!(
+                    block_number,
+                    build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                    duration_secs,
+                    "preconfirmation payload injected"
+                );
+                // Return success to the original sender.
+                let _ = job.respond_to.send(Ok(()));
+            }
+            Err(err) => {
+                DriverMetrics::preconf_injection_failures_total().inc();
+                error!(
+                    ?err,
+                    block_number,
+                    build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                    duration_secs,
+                    "preconfirmation processing failed"
+                );
+                // Surface the error to the original sender.
+                let _ = job.respond_to.send(Err(err));
+            }
+        }
     }
 
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
@@ -1683,6 +1698,196 @@ mod tests {
 
     fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
         mock_client_with_asserters(l1_asserter, Asserter::new())
+    }
+
+    /// Build a client whose public L2 provider serves queued responses. Both
+    /// `l1_origin_by_id` (materialization pre-check) and `head_l1_origin` (staleness boundary)
+    /// route through the public L2 provider, so the ingress-job tests queue their answers on
+    /// this asserter.
+    fn mock_client_with_l2_asserter(l2_asserter: Asserter) -> Client<RootProvider> {
+        let l1_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    /// Queue an L2 asserter so a `process_preconf_job` call reads a fresh (unmaterialized) payload
+    /// and a `head_l1_origin` boundary of `head_l1_origin`.
+    ///
+    /// Materialization short-circuits on the first `taiko_l1OriginByID` when it returns `None`, so
+    /// a single `None` covers the pre-check; the following value answers `taiko_headL1Origin`.
+    /// `None` there is read by the loop as a genesis boundary of 0.
+    fn queue_ingress_job_rpc(asserter: &Asserter, head_l1_origin: Option<u64>) {
+        // taiko_l1OriginByID -> not materialized.
+        asserter.push_success(&Option::<RpcL1Origin>::None);
+        // taiko_headL1Origin -> confirmed boundary (None => genesis 0).
+        let head = head_l1_origin.map(|block_id| RpcL1Origin {
+            block_id: U256::from(block_id),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        });
+        asserter.push_success(&head);
+    }
+
+    /// Preconfirmation production path that counts `produce` calls and optionally fails for a fixed
+    /// set of block numbers. Modeled on `production/path.rs`'s call-counting `MockPath`.
+    #[derive(Clone, Default)]
+    struct CountingPreconfPath {
+        calls: StdArc<Mutex<u64>>,
+        fail_block_numbers: StdArc<HashSet<u64>>,
+    }
+
+    impl CountingPreconfPath {
+        /// A path whose `produce` always succeeds.
+        fn always_ok() -> Self {
+            Self::default()
+        }
+
+        /// A path whose `produce` fails for the given block numbers and succeeds otherwise.
+        fn failing_for(block_numbers: impl IntoIterator<Item = u64>) -> Self {
+            Self {
+                calls: StdArc::new(Mutex::new(0)),
+                fail_block_numbers: StdArc::new(block_numbers.into_iter().collect()),
+            }
+        }
+
+        fn calls(&self) -> u64 {
+            *self.calls.lock().expect("counting path mutex should not be poisoned")
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for CountingPreconfPath {
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::Preconfirmation(payload) = input else {
+                panic!("counting preconf path only supports preconfirmation inputs");
+            };
+            *self.calls.lock().expect("counting path mutex should not be poisoned") += 1;
+
+            let block_number = payload.block_number();
+            if self.fail_block_numbers.contains(&block_number) {
+                return Err(DriverError::Other(anyhow!("mock preconf failure")));
+            }
+            Ok(vec![sample_engine_outcome(block_number)])
+        }
+    }
+
+    /// Wrap a preconfirmation path in a router. The canonical path is a never-called stub because
+    /// these tests only drive the preconfirmation branch.
+    fn router_with_preconf_path(preconf: CountingPreconfPath) -> Arc<AsyncMutex<ProductionRouter>> {
+        let canonical: Arc<dyn BlockProductionPath + Send + Sync> =
+            Arc::new(CountingPreconfPath::always_ok());
+        let preconf: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(preconf);
+        Arc::new(AsyncMutex::new(ProductionRouter::new(canonical, Some(preconf))))
+    }
+
+    /// One failing payload must fail ONLY its own submitter; the loop keeps processing subsequent
+    /// jobs. This is the "one bad payload must not freeze the head" invariant from the 2026-06/07
+    /// mainnet incident.
+    #[tokio::test]
+    async fn ingress_job_failure_is_isolated_to_its_submitter() {
+        let preconf = CountingPreconfPath::failing_for([1]);
+        let router = router_with_preconf_path(preconf.clone());
+        let asserter = Asserter::new();
+        // Two jobs, each: materialization not-materialized + head_l1_origin genesis (0, not stale).
+        queue_ingress_job_rpc(&asserter, None);
+        queue_ingress_job_rpc(&asserter, None);
+        let rpc = mock_client_with_l2_asserter(asserter);
+
+        let (tx1, rx1) = oneshot::channel();
+        let (tx2, rx2) = oneshot::channel();
+        EventSyncer::process_preconf_job(
+            &router,
+            &rpc,
+            PreconfJob {
+                payload: Arc::new(PreconfPayload::new(sample_payload(1))),
+                respond_to: tx1,
+            },
+        )
+        .await;
+        EventSyncer::process_preconf_job(
+            &router,
+            &rpc,
+            PreconfJob {
+                payload: Arc::new(PreconfPayload::new(sample_payload(2))),
+                respond_to: tx2,
+            },
+        )
+        .await;
+
+        assert!(rx1.await.expect("responded").is_err(), "failing job reports its error");
+        assert!(rx2.await.expect("responded").is_ok(), "next job unaffected");
+        assert_eq!(preconf.calls(), 2, "both jobs reached the engine");
+    }
+
+    /// The load-bearing design decision behind the mpsc+oneshot ingress channel: a submitter future
+    /// dropped mid-await (e.g. an axum handler cancelled by a client disconnect) must NOT cancel an
+    /// in-flight engine injection. Pinned here mechanically: the job runs to completion even though
+    /// its receiver is already gone.
+    #[tokio::test]
+    async fn dropped_submitter_does_not_cancel_in_flight_injection() {
+        let preconf = CountingPreconfPath::always_ok();
+        let router = router_with_preconf_path(preconf.clone());
+        let asserter = Asserter::new();
+        queue_ingress_job_rpc(&asserter, None);
+        let rpc = mock_client_with_l2_asserter(asserter);
+
+        let (tx, rx) = oneshot::channel::<Result<(), DriverError>>();
+        drop(rx); // submitter went away before the job ran
+        EventSyncer::process_preconf_job(
+            &router,
+            &rpc,
+            PreconfJob {
+                payload: Arc::new(PreconfPayload::new(sample_payload(1))),
+                respond_to: tx,
+            },
+        )
+        .await;
+
+        assert_eq!(preconf.calls(), 1, "injection ran to completion");
+        // and no panic from the dead oneshot: reaching this line is the assert.
+    }
+
+    /// A payload at/below the confirmed L1-origin boundary is acknowledged Ok (idempotent) but
+    /// never re-injected.
+    #[tokio::test]
+    async fn stale_preconf_payload_is_acked_without_injection() {
+        let preconf = CountingPreconfPath::always_ok();
+        let router = router_with_preconf_path(preconf.clone());
+        let asserter = Asserter::new();
+        // head_l1_origin boundary at 5; payload block 5 is stale (block <= boundary).
+        queue_ingress_job_rpc(&asserter, Some(5));
+        let rpc = mock_client_with_l2_asserter(asserter);
+
+        let (tx, rx) = oneshot::channel();
+        EventSyncer::process_preconf_job(
+            &router,
+            &rpc,
+            PreconfJob {
+                payload: Arc::new(PreconfPayload::new(sample_payload(5))),
+                respond_to: tx,
+            },
+        )
+        .await;
+
+        assert!(rx.await.expect("responded").is_ok(), "stale payload acked Ok");
+        assert_eq!(preconf.calls(), 0, "stale payload never reaches the engine");
     }
 
     fn mock_client_with_asserters(
