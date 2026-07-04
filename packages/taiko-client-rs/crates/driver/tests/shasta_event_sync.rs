@@ -288,10 +288,14 @@ fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVa
 /// reverted to genesis would land the common ancestor at `nextProposalId <= 1`,
 /// where the reset is a documented no-op, and nothing would lower the boundary.)
 ///
-/// Every wait is deadline-bounded (<=60s) so a CI failure is a loud timeout, never a
-/// hang. If this proves irreducibly flaky in CI (reorg-notification timing), mark it
-/// `#[ignore = "flaky: reorg notification timing"]` with a tracking note per the
-/// task brief — do NOT delete it. It is compile-verified + CI-executed here because
+/// Every observe/processing poll is deadline-bounded (<=60s) so a CI failure there is a
+/// loud timeout, never a hang. The one wait that is intentionally NOT bounded is
+/// `start_syncer`'s `wait_preconf_ingress_ready()`: it runs before any proposal is
+/// submitted, at `target_proposal_id == 0`, where readiness latches immediately and cannot
+/// hang (see the pre-proposal readiness rationale in `preconf_ingress_e2e.rs` ~:423) — so
+/// it is left bare by convention. If this proves irreducibly flaky in CI (reorg-notification
+/// timing), mark it `#[ignore = "flaky: reorg notification timing"]` with a tracking note
+/// per the task brief — do NOT delete it. It is compile-verified + CI-executed here because
 /// the Docker harness is unavailable locally.
 #[test_context(ShastaEnv)]
 #[serial]

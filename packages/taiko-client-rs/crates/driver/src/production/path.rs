@@ -263,10 +263,10 @@ mod tests {
                 *guard += 1;
             }
             if self.fail_invalid {
-                return Err(EngineSubmissionError::InvalidBlock(
-                    self.expected_parent + 1,
-                    "mock reject".into(),
-                ));
+                // Carry a sentinel block number distinct from any payload number a test would
+                // use, so `PreconfInjectionFailed.block_number` asserting on the payload's number
+                // proves that number flows from the PAYLOAD, not from this engine error.
+                return Err(EngineSubmissionError::InvalidBlock(u64::MAX, "mock reject".into()));
             }
             let block: RpcBlock<TxEnvelope> = RpcBlock::<TxEnvelope>::default();
             let payload_id = PayloadId::new([0u8; 8]);
@@ -416,12 +416,18 @@ mod tests {
     }
 
     /// An engine rejection must map to a per-payload injection error the ingress
-    /// loop can isolate — not a panic, not a silent Ok.
+    /// loop can isolate — not a panic, not a silent Ok — carrying the PAYLOAD's block
+    /// number so the loop can report exactly which payload it dropped.
     #[tokio::test]
     async fn preconf_path_maps_engine_rejection_to_injection_error() {
-        let applier = MockApplier { fail_invalid: true, ..MockApplier::default() };
+        // Payload targets block 6; its parent is 5. `expected_parent: 5` makes the parent-hash
+        // lookup succeed so the path reaches `apply_payload` (which then rejects). The mock's
+        // engine error carries a sentinel number (u64::MAX), distinct from the payload's 6, so
+        // pinning `block_number: 6` proves the number came from the payload, not the engine error.
+        let applier =
+            MockApplier { fail_invalid: true, expected_parent: 5, ..MockApplier::default() };
         let path = PreconfirmationPath::new(applier);
-        let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
+        let payload = Arc::new(PreconfPayload::new(sample_payload(6)));
         let err = path
             .produce(ProductionInput::Preconfirmation(payload))
             .await
@@ -429,6 +435,9 @@ mod tests {
         // The mapping at path.rs wraps the engine error in
         // `DriverError::PreconfInjectionFailed { block_number, source }`, so the
         // ingress loop can drop a single bad payload without freezing the head.
-        assert!(matches!(err, DriverError::PreconfInjectionFailed { .. }), "got {err:?}");
+        assert!(
+            matches!(err, DriverError::PreconfInjectionFailed { block_number: 6, .. }),
+            "got {err:?}"
+        );
     }
 }

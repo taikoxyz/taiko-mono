@@ -1266,6 +1266,12 @@ mod tests {
     /// The known-canonical fast path must accept an exactly-matching (context, block) pair and
     /// reject it the moment any single guarded header/tx field diverges. Regression guard for the
     /// ~25 comparisons in `verify_canonical_block`, which previously had zero unit coverage.
+    ///
+    /// Scope: this fixture drives the pre-Unzen leg only (mainnet's Unzen fork is unscheduled, so
+    /// `unzen_active` is false for `matching_canonical_block`). The Unzen-active guards
+    /// (payload.rs:781-805: zero-difficulty mirror, and the blob_gas / excess_blob_gas /
+    /// beacon-root / requests-hash presence checks) are NOT exercised here. An Unzen variant of
+    /// this fixture family is the follow-up.
     #[tokio::test]
     async fn verify_canonical_block_rejects_field_mismatches() {
         // Sanity: the unflipped pair takes the fast path. This must hold before any flip below is
@@ -1291,6 +1297,11 @@ mod tests {
             ("parent_hash", |b| b.header.parent_hash = B256::repeat_byte(0xEE)),
             ("base_fee", |b| b.header.base_fee_per_gas = Some(BASE_FEE + 1)),
             ("gas_limit", |b| b.header.gas_limit += 1),
+            // The timestamp also feeds `unzen_active_for_chain_timestamp`, which selects which
+            // guard leg (pre- vs post-Unzen) runs. This flip is safe here only because mainnet's
+            // Unzen fork is unscheduled, so nudging the timestamp cannot cross the fork boundary
+            // and change what the flip tests. A future mainnet Unzen timestamp near the fixture's
+            // TIMESTAMP constant would silently alter that.
             ("timestamp", |b| b.header.timestamp += 1),
             ("difficulty", |b| b.header.difficulty = U256::from(999)),
             ("anchor_tx", |b| {

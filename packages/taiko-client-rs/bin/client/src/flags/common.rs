@@ -306,6 +306,16 @@ mod tests {
     fn omitting_each_required_flag_fails_parsing() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _clear = clear_l1_env();
+        // Clear every required flag's env fallback so clap cannot fill an "omitted" flag
+        // from the environment. tests/entrypoint.sh (the docker CI lane) exports JWT_SECRET
+        // and SHASTA_INBOX, which would otherwise satisfy the flag we dropped and make this
+        // test pass a broken build.
+        let _clear_required = [
+            EnvGuard::unset("L2_HTTP"),
+            EnvGuard::unset("L2_AUTH"),
+            EnvGuard::unset("JWT_SECRET"),
+            EnvGuard::unset("SHASTA_INBOX"),
+        ];
         let full = required_args();
         // Indices of flag NAMES in required_args(): 1 --l2.http, 3 --l2.auth,
         // 5 --jwt.secret, 7 --shasta.inbox (each value follows at index + 1).

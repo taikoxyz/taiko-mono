@@ -340,9 +340,13 @@ where
 /// that same L2 node before being killed — the L2 tables persist across the restart.
 /// Readiness therefore means "the L2 already reflects the confirmed boundary", NOT
 /// "this syncer derived it": `wait_preconf_ingress_ready()` on syncer #2 latches via the
-/// known-canonical state WITHOUT re-derivation. If instead syncer #2 re-derived from
-/// genesis, the L2-head assertions below catch it (the head number/hash would move, or
-/// the run would take abnormally long and blow the 60s deadline).
+/// known-canonical state WITHOUT re-derivation. The L2-head number+hash assertions below
+/// are what actually pin this: re-execution from genesis would change the head hash (or,
+/// on a divergent replay, its number). We do NOT rely on the 60s deadline to catch
+/// re-derivation — a deterministic re-derivation of one small proposal could finish inside
+/// 60s and even reproduce identical hashes; the deadline only guards against a wedged
+/// resume that never reaches readiness. The real guarantees here are: no wedge, no
+/// rollback, stays live.
 ///
 /// Compile-verified here; CI-executed against the Docker harness (unavailable locally).
 #[test_context(ShastaEnv)]
@@ -420,6 +424,11 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
     // Kill the first syncer: abort its run task and drop the Arc so no run loop or
     // per-instance channel survives into the second syncer's lifetime.
     syncer_handle_1.abort();
+    // Join the aborted task so its termination (and the drop of the task-held
+    // Arc<EventSyncer> clone) is complete by construction, not merely scheduled, before
+    // syncer #2 starts. An aborted JoinHandle resolves to Err(cancelled); ignoring it is
+    // correct here.
+    let _ = syncer_handle_1.await;
     drop(event_syncer_1);
 
     // 2. Second syncer: EventSyncer::new against the SAME nodes (same driver_config / client),
@@ -438,9 +447,12 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
     tokio::time::timeout(RESTART_READY_TIMEOUT, event_syncer_2.wait_preconf_ingress_ready())
         .await
         .map_err(|_| {
-            // Loud, explicit failure — never a silent hang. If the resume path re-derived
-            // from genesis instead of latching on the persisted L2 tables, readiness would
-            // stall here past the deadline.
+            // Loud, explicit failure — never a silent hang. The deadline exists so that a
+            // resume path which wedges (never latches readiness) surfaces as a timeout
+            // rather than blocking CI forever. It is NOT a re-derivation detector: a
+            // deterministic re-derivation of this one small proposal could well finish
+            // inside 60s. The no-wedge / no-rollback / stays-live guarantees are what the
+            // assertions below actually enforce.
             anyhow!(
                 "restarted syncer did not reach ingress readiness within {}s; the resume path \
                  failed to latch on the persisted confirmed head",

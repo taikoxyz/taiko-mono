@@ -257,9 +257,10 @@ pub fn derivation_source_max_blocks_for_chain_timestamp(
 mod tests {
     use super::{
         BLOCK_TIME_TARGET, DERIVATION_SOURCE_MAX_BLOCKS, ELASTICITY_MULTIPLIER, ForkConfigError,
-        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE,
-        TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
-        TIMESTAMP_MAX_OFFSET_MAINNET, calculate_next_block_eip4396_base_fee_for_parent,
+        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, MAX_BASE_FEE, MIN_BASE_FEE,
+        SHASTA_INITIAL_BASE_FEE, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
+        TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET,
+        calculate_next_block_eip4396_base_fee_for_parent,
         calculate_next_block_eip4396_base_fee_from_parent_values, max_anchor_offset_for_chain,
         shasta_fork_condition_for_chain, timestamp_max_offset_for_chain,
         unzen_fork_condition_for_chain,
@@ -370,6 +371,12 @@ mod tests {
         assert!(
             fee(GAS_LIMIT, BLOCK_TIME_TARGET, MIN_BASE_FEE) > MIN_BASE_FEE,
             "an increase from the minimum moves by at least 1"
+        );
+        // Clamp ceiling: an increase from just below the maximum clamps at the maximum.
+        assert_eq!(
+            fee(GAS_LIMIT, BLOCK_TIME_TARGET, MAX_BASE_FEE - 1),
+            MAX_BASE_FEE,
+            "an increase from just below the ceiling clamps at the maximum"
         );
     }
 }
