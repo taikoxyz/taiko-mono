@@ -17,3 +17,6 @@ yarn.lock
 
 # ignore changelog because release-please-action manages it
 CHANGELOG.md
+
+# generated Go golden fixtures — must stay byte-identical to `just gen-fixtures` output
+packages/taiko-client-rs/crates/**/fixtures/go/

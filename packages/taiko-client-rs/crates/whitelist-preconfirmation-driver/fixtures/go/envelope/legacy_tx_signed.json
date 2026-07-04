@@ -1,0 +1,10 @@
+{
+  "block_hash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+  "block_number": 7,
+  "end_of_sequencing": false,
+  "has_signature": true,
+  "header_difficulty": "0x0",
+  "is_forced_inclusion": false,
+  "parent_beacon_root": "0x6666666666666666666666666666666666666666666666666666666666666666",
+  "tx_count": 1
+}

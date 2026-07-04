@@ -1,0 +1,12 @@
+{
+  "invalid_snappy": {
+    "data": "0xff00deadbeef",
+    "expected_id": "0xb6fec542d5af611291b5c6d7f13973074e91fd41",
+    "topic": "/taiko/167000/0/preconfBlocks"
+  },
+  "valid_snappy": {
+    "data": "0x1654676f6c64656e2066697874757265207061796c6f6164",
+    "expected_id": "0x09e0bf44f18273c7ccc97b80e4843233fffe98a4",
+    "topic": "/taiko/167000/0/preconfBlocks"
+  }
+}

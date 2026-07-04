@@ -23,3 +23,7 @@ test:
 
 gen_bindings:
   ./script/gen_bindings.sh
+
+# Regenerate Go-encoded golden fixtures (requires the monorepo Go toolchain).
+gen-fixtures:
+  cd ../.. && go run ./packages/taiko-client/cmd/fixturegen -out packages/taiko-client-rs
