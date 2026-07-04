@@ -1,0 +1,18 @@
+[package]
+name = "overseer-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+clap = { version = "4.5", features = ["derive", "env"] }
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "signal", "net"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+prometheus = "0.13"
+hyper = { version = "0.14", features = ["server", "http1"] }
+alloy = { version = "1.0", default-features = false, features = ["consensus", "contract", "providers", "provider-http", "reqwest-rustls-tls", "signer-local", "sol-types", "rpc-types"] }
+urc = { git = "https://github.com/NethermindEth/Catalyst", package = "urc", rev = "46a051d6cd833c20e9e57509e5ae5cc82751e263" }
+common = { git = "https://github.com/NethermindEth/Catalyst", package = "common", rev = "46a051d6cd833c20e9e57509e5ae5cc82751e263" }

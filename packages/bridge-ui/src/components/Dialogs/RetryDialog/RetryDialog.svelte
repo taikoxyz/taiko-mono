@@ -7,7 +7,7 @@
   import { CloseButton } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { DialogStep, DialogStepper } from '$components/Dialogs/Stepper';
-  import { errorToast, infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
@@ -15,7 +15,6 @@
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
-  import { claimWithQuotaGuard, showQuotaToastForClaimError } from '../ClaimDialog/quota';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { ClaimAction } from '../Shared/types';
@@ -47,27 +46,7 @@
 
   let txHash: Hash;
 
-  const showQuotaReachedToast = () => {
-    errorToast({
-      title: $t('bridge.errors.claim.quota_reached.title'),
-      message: $t('bridge.errors.claim.quota_reached.message'),
-    });
-  };
-
-  const logQuotaCheckError = (quotaError: unknown) => {
-    console.error('Failed to check claim quota', quotaError);
-  };
-
-  const handleRetryError = async (event: CustomEvent<{ error: unknown }>) => {
-    const err = event.detail.error;
-    if (
-      !(await showQuotaToastForClaimError(err, bridgeTx, {
-        showQuotaReachedToast,
-        onQuotaCheckError: logQuotaCheckError,
-      }))
-    ) {
-      console.error(err);
-    }
+  const handleRetryError = () => {
     retrying = false;
   };
 
@@ -87,13 +66,8 @@
   };
 
   export const handleClaimClick = async () => {
-    await claimWithQuotaGuard({
-      bridgeTx,
-      claim: () => ClaimComponent.claim(ClaimAction.RETRY),
-      setClaiming: (value) => (retrying = value),
-      showQuotaReachedToast,
-      onQuotaCheckError: logQuotaCheckError,
-    });
+    retrying = true;
+    await ClaimComponent.claim(ClaimAction.RETRY);
   };
 
   const handleRetryTxSent = async (event: CustomEvent<{ txHash: Hash }>) => {

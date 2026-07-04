@@ -37,6 +37,15 @@ type BlockHeader struct {
 	WithdrawalsRoot  [32]byte       `abi:"withdrawalsRoot"`
 }
 
+type CacheOption uint8
+
+const (
+	CACHE_NOTHING     = iota
+	CACHE_SIGNAL_ROOT = iota
+	CACHE_STATE_ROOT  = iota
+	CACHE_BOTH        = iota
+)
+
 type HopProof struct {
 	ChainID      uint64   `abi:"chainId"`
 	BlockID      uint64   `abi:"blockId"`

@@ -28,7 +28,6 @@ var (
 	syncMode                = "sync"
 	watchMode               = "filter"
 	eventName               = relayer.EventNameMessageSent
-	ignoredMsgHash          = "0x0000000000000000000000000000000000000000000000000000000000000001"
 )
 
 func setupApp() *cli.App {
@@ -71,7 +70,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, SyncMode(syncMode), c.SyncMode)
 		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
 		assert.Equal(t, eventName, c.EventName)
-		assert.Contains(t, c.IgnoredMsgHashes, common.HexToHash(ignoredMsgHash))
 
 		c.OpenDBFunc = func() (db.DB, error) {
 			return &mock.DB{}, nil
@@ -111,75 +109,5 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.SyncMode.Name, syncMode,
 		"--" + flags.WatchMode.Name, watchMode,
 		"--" + flags.EventName.Name, eventName,
-		"--" + flags.IgnoredMsgHashes.Name, ignoredMsgHash,
 	}))
-}
-
-func Test_parseIgnoredMsgHashes(t *testing.T) {
-	hashA := "0x0000000000000000000000000000000000000000000000000000000000000001"
-	hashB := "0x0000000000000000000000000000000000000000000000000000000000000002"
-
-	tests := []struct {
-		name      string
-		value     string
-		want      []common.Hash
-		wantError bool
-	}{
-		{
-			name:  "empty",
-			value: "",
-		},
-		{
-			name:  "whitespace",
-			value: " \t ",
-		},
-		{
-			name:  "comma separated multi hash",
-			value: hashA + "," + hashB,
-			want:  []common.Hash{common.HexToHash(hashA), common.HexToHash(hashB)},
-		},
-		{
-			name:  "duplicate collapse",
-			value: hashA + "," + hashA,
-			want:  []common.Hash{common.HexToHash(hashA)},
-		},
-		{
-			name:  "uppercase prefix",
-			value: "0X0000000000000000000000000000000000000000000000000000000000000001",
-			want:  []common.Hash{common.HexToHash(hashA)},
-		},
-		{
-			name:      "wrong length",
-			value:     "0x1",
-			wantError: true,
-		},
-		{
-			name:      "non hex",
-			value:     "0xzz00000000000000000000000000000000000000000000000000000000000000",
-			wantError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseIgnoredMsgHashes(tt.value)
-			if tt.wantError {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-
-			if len(tt.want) == 0 {
-				assert.Nil(t, got)
-				return
-			}
-
-			assert.Len(t, got, len(tt.want))
-
-			for _, want := range tt.want {
-				assert.Contains(t, got, want)
-			}
-		})
-	}
 }

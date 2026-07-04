@@ -91,7 +91,7 @@ export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'>
 
 export type BridgeTransaction = {
   srcTxHash: Hash;
-  destTxHash?: Hash;
+  destTxHash: Hash;
   from: Address;
   amount: bigint;
   symbol: string;
@@ -99,7 +99,7 @@ export type BridgeTransaction = {
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
-  blockNumber?: Hex;
+  blockNumber: Hex;
   msgHash: Hash;
   processingFee: bigint;
   message?: Message;
@@ -246,15 +246,24 @@ export type AddressConfig = {
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
+  crossChainSyncAddress: Address;
   signalServiceAddress: Address;
-  anchorForkRouter?: Address;
   quotaManagerAddress?: Address;
+  hops?: Array<HopAddressConfig>;
+};
+
+export type HopAddressConfig = {
+  chainId: number;
+  crossChainSyncAddress: Address;
+  signalServiceAddress: Address;
 };
 
 export enum ContractType {
   BRIDGE,
   VAULT,
   SIGNALSERVICE,
+  CROSSCHAINSYNC,
+  QUOTAMANAGER,
 }
 
 export type GetContractAddressType = {

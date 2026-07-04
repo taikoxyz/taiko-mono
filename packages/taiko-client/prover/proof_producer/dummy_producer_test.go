@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 func TestDummyProducerRequestProof(t *testing.T) {
@@ -19,9 +18,9 @@ func TestDummyProducerRequestProof(t *testing.T) {
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
-		&ProposalProofRequestOptions{},
+		&ProofRequestOptionsPacaya{},
 		blockID,
-		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: blockID}, 0),
+		&metadata.TaikoDataBlockMetadataPacaya{},
 		time.Now(),
 	)
 	require.Nil(t, err)

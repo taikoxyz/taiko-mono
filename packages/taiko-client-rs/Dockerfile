@@ -1,4 +1,4 @@
-FROM rust:1.94.1 AS build
+FROM rust:1.88 AS build
 
 WORKDIR /app
 
@@ -7,18 +7,11 @@ RUN apt-get update && \
   apt-get install -y git libclang-dev pkg-config curl build-essential && \
   rm -rf /var/lib/apt/lists/*
 
-COPY packages/taiko-client-rs packages/taiko-client-rs
-COPY packages/preconfirmation-p2p packages/preconfirmation-p2p
+COPY ./ .
 
-WORKDIR /app/packages/taiko-client-rs
+RUN cargo build --release
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/packages/taiko-client-rs/target \
-    cargo build --release --locked && \
-    cp /app/packages/taiko-client-rs/target/release/taiko-client /tmp/taiko-client
-
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 RUN apt-get update && \
   apt-get install -y jq curl && \
@@ -26,6 +19,6 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY --from=build /tmp/taiko-client ./taiko-client
+COPY --from=build /app/target/release/taiko-client ./
 
 ENTRYPOINT ["./taiko-client"]

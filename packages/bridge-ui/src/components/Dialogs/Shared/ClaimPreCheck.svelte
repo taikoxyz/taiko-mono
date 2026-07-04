@@ -11,7 +11,8 @@
   import { Tooltip } from '$components/Tooltip';
   import { claimConfig } from '$config';
   import { type BridgeTransaction } from '$libs/bridge';
-  import { getChainName } from '$libs/chain';
+  import { checkEnoughBridgeQuotaForClaim } from '$libs/bridge/checkBridgeQuota';
+  import { getChainName, isL2Chain } from '$libs/chain';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -56,12 +57,20 @@
   const checkConditions = async () => {
     checkingPrerequisites = true;
 
-    const results = await Promise.allSettled([checkEnoughBalance($account.address, Number(tx.destChainId))]);
+    const results = await Promise.allSettled([
+      checkEnoughBalance($account.address, Number(tx.destChainId)),
+      checkEnoughBridgeQuotaForClaim({
+        transaction: tx,
+        amount: tx.amount,
+      }),
+    ]);
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         if (index === 0) {
           hasEnoughEth = result.value;
+        } else if (index === 1) {
+          hasEnoughQuota = result.value;
         }
       } else {
         // You can log or handle errors here if a promise was rejected.
@@ -75,7 +84,7 @@
 
   $: correctChain = Number(tx.destChainId) === $connectedSourceChain?.id;
 
-  $: successfulPreChecks = correctChain && hasEnoughEth;
+  $: successfulPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
 
   $: if (!checkingPrerequisites && successfulPreChecks && $account && !onlyDestOwnerCanClaimWarning) {
     hideContinueButton = false;
@@ -90,6 +99,7 @@
   $: $account && checkConditions();
 
   $: hasEnoughEth = false;
+  $: hasEnoughQuota = false;
 
   $: hasPaidProcessingFee = tx.processingFee > 0;
 
@@ -169,6 +179,24 @@
             <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
           {/if}
         </div>
+        {#if isL2Chain(Number(tx.srcChainId))}
+          <div class="f-between-center">
+            <div class="f-row gap-1">
+              <span class="text-secondary-content">{$t('transactions.claim.steps.pre_check.quota_check')}</span>
+              <Tooltip>
+                <h2>{$t('transactions.claim.steps.pre_check.tooltip.quota.title')}</h2>
+                <span>{$t('transactions.claim.steps.pre_check.tooltip.quota.description')} </span>
+              </Tooltip>
+            </div>
+            {#if checkingPrerequisites}
+              <Spinner />
+            {:else if hasEnoughQuota}
+              <Icon type="check-circle" fillClass="fill-positive-sentiment" />
+            {:else}
+              <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
+            {/if}
+          </div>
+        {/if}
         {#if hasPaidProcessingFee}
           <div class="h-sep" />
           <div class="f-between-center">

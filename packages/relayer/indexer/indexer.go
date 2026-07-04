@@ -14,14 +14,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/inbox"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
+	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -88,13 +91,15 @@ type Indexer struct {
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
 
-	signalService *signalservice.SignalService
+	signalService relayer.SignalService
 
 	blockBatchSize      uint64
 	numGoroutines       int
 	subscriptionBackoff time.Duration
 
-	shastaInbox *inbox.ShastaInboxClient
+	taikol1      *taikol1.TaikoL1
+	taikoL1V2    *v2.TaikoL1
+	taikoInboxV3 *v3.TaikoInbox
 
 	queue queue.Queue
 
@@ -118,8 +123,6 @@ type Indexer struct {
 	eventName string
 
 	minFeeToIndex uint64
-
-	ignoredMsgHashes map[common.Hash]struct{}
 
 	cfg *Config
 
@@ -173,26 +176,41 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return errors.Wrap(err, "bridge.NewBridge")
 	}
 
-	var shastaInbox *inbox.ShastaInboxClient
+	// taikoL1 will only be set when initializing a L1 - L2 indexer
+	var taikoL1 *taikol1.TaikoL1
+
+	var taikoL1V2 *v2.TaikoL1
+
+	var taikoInboxV3 *v3.TaikoInbox
 
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
 
-		shastaInbox, err = inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		taikoL1, err = taikol1.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
-			return errors.Wrap(err, "inbox.NewShastaInboxClient")
+			return errors.Wrap(err, "taikol1.NewTaikoL1")
+		}
+
+		taikoL1V2, err = v2.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v2.NewTaikoL1")
+		}
+
+		taikoInboxV3, err = v3.NewTaikoInbox(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "v3.NewTaikoInbox")
 		}
 	}
 
-	if cfg.SrcSignalServiceAddress == ZeroAddress {
-		return errors.New("srcSignalServiceAddress not provided")
-	}
+	var signalService relayer.SignalService
 
-	slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
+	if cfg.SrcSignalServiceAddress != ZeroAddress {
+		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
 
-	ss, err := signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
-	if err != nil {
-		return errors.Wrap(err, "signalservice.NewSignalService")
+		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "signalservice.NewSignalService")
+		}
 	}
 
 	srcChainID, err := srcEthClient.ChainID(context.Background())
@@ -210,8 +228,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.bridge = srcBridge
 	i.destBridge = destBridge
-	i.signalService = ss
-	i.shastaInbox = shastaInbox
+	i.signalService = signalService
+	i.taikol1 = taikoL1
+	i.taikoL1V2 = taikoL1V2
+	i.taikoInboxV3 = taikoInboxV3
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)
@@ -241,10 +261,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.ctx = ctx
 
 	i.minFeeToIndex = i.cfg.MinFeeToIndex
-	i.ignoredMsgHashes = cfg.IgnoredMsgHashes
 
 	slog.Info("minFeeToIndex", "minFeeToIndex", i.minFeeToIndex)
-	slog.Info("ignoredMsgHashes loaded", "count", len(i.ignoredMsgHashes))
 
 	return nil
 }
@@ -344,15 +362,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
 
-			if *i.targetBlockNumber == 0 {
-				slog.Error("invalid targetBlockNumber, must be greater than 0", "targetBlockNumber", *i.targetBlockNumber)
+			i.latestIndexedBlockNumber = *i.targetBlockNumber
 
-				return errors.New("targetBlockNumber must be greater than 0")
-			}
-
-			i.latestIndexedBlockNumber = *i.targetBlockNumber - 1
-
-			endBlockID = *i.targetBlockNumber
+			endBlockID = i.latestIndexedBlockNumber + 1
 		} else {
 			// set the initial processing block back to either 0 or the genesis block again.
 			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
@@ -413,9 +425,10 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
 				}
 
-				if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
-					slog.Error("i.indexCheckpointSavedEvents", "error", err)
-					relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
+				// we also want to index chain data synced events.
+				if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
+					slog.Error("i.indexChainDataSyncedEvents", "error", err)
+					relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
 				}
 			}
 		case relayer.EventNameMessageProcessed:
@@ -440,7 +453,6 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
-	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -505,7 +517,6 @@ func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageProcessed")
 	}
-	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -555,7 +566,6 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 	}
-	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -585,31 +595,37 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 	return nil
 }
 
-func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
+// indexChainDataSyncedEvents indexes `ChainDataSynced` events on the bridge contract
+// and stores them to the database. It does not add them to any queue. It only indexes
+// the "STATE_ROOT" kind, not the "SIGNAL_ROOT" kind.
+func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	slog.Info("indexing checkpointSaved events")
+	slog.Info("indexing chainDataSynced events")
 
-	checkpointEvents, err := i.signalService.FilterCheckpointSaved(
+	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(
 		filterOpts,
+		[]uint64{i.destChainId.Uint64()}, // only index intended events destination chain
 		nil,
+		[][32]byte{crypto.Keccak256Hash([]byte("STATE_ROOT"))}, // only index state root
 	)
 	if err != nil {
-		return errors.Wrap(err, "signalService.FilterCheckpointSaved")
+		return errors.Wrap(err, "bridge.FilterChainDataSynced")
 	}
-	defer checkpointEvents.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
-	for checkpointEvents.Next() {
-		event := checkpointEvents.Event
+	for chainDataSyncedEvents.Next() {
+		event := chainDataSyncedEvents.Event
 
 		group.Go(func() error {
-			err := i.handleCheckpointSavedEvent(ctx, event, true)
+			err := i.handleChainDataSyncedEvent(ctx, event, true)
 			if err != nil {
-				relayer.CheckpointSavedEventsIndexingErrors.Inc()
-				slog.Error("error handling checkpointSaved", "err", err.Error())
+				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling chainDataSynced", "err", err.Error())
 
 				return err
 			}
@@ -618,6 +634,7 @@ func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
 		})
 	}
 
+	// wait for the last of the goroutines to finish
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}

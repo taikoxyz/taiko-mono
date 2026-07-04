@@ -39,8 +39,7 @@ func (s *CacheTestSuite) TestOrphanBlockDetectionWithoutGetBlockByHash() {
 			ParentHash:   genesis,
 			Transactions: []eth.Data{testutils.RandomBytes(100)},
 		},
-		Signature:        &[65]byte{},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{},
 	}
 	cache.put(1, env1)
 
@@ -52,8 +51,7 @@ func (s *CacheTestSuite) TestOrphanBlockDetectionWithoutGetBlockByHash() {
 			ParentHash:   block1Hash,
 			Transactions: []eth.Data{testutils.RandomBytes(100)},
 		},
-		Signature:        &[65]byte{},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{},
 	}
 	cache.put(2, env2A)
 
@@ -65,8 +63,7 @@ func (s *CacheTestSuite) TestOrphanBlockDetectionWithoutGetBlockByHash() {
 			ParentHash:   block1Hash,
 			Transactions: []eth.Data{testutils.RandomBytes(100)},
 		},
-		Signature:        &[65]byte{1, 2, 3},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{1, 2, 3},
 	}
 	cache.put(2, env2B)
 
@@ -104,7 +101,6 @@ func (s *CacheTestSuite) TestL1OriginUpdateUsingCachedData() {
 		},
 		Signature:         &[65]byte{5, 6, 7, 8},
 		IsForcedInclusion: true,
-		HeaderDifficulty:  common.Big1,
 	}
 	cache.put(parentBlockNum, parentEnv)
 
@@ -143,8 +139,7 @@ func (s *CacheTestSuite) TestEnvelopeCachingFlow() {
 			ParentHash:   parentHash,
 			Transactions: []eth.Data{testutils.RandomBytes(100)},
 		},
-		Signature:        &[65]byte{1},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{1},
 	}
 	cache.put(blockNum, env1)
 	s.True(cache.hasExact(blockNum, blockHash))
@@ -159,8 +154,7 @@ func (s *CacheTestSuite) TestEnvelopeCachingFlow() {
 			ParentHash:   blockHash,
 			Transactions: []eth.Data{testutils.RandomBytes(100)},
 		},
-		Signature:        &[65]byte{2},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{2},
 	}
 	cache.put(blockNum2, env2)
 	s.True(cache.hasExact(blockNum2, blockHash2))
@@ -175,8 +169,7 @@ func (s *CacheTestSuite) TestEnvelopeCachingFlow() {
 			ParentHash:   blockHash2,
 			Transactions: []eth.Data{testutils.RandomBytes(100)},
 		},
-		Signature:        &[65]byte{3},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{3},
 	}
 	cache.put(blockNum3, env3)
 	s.True(cache.hasExact(blockNum3, blockHash3))
@@ -210,8 +203,7 @@ func (s *CacheTestSuite) TestCachedParentForOrphanHandling() {
 			Timestamp:    eth.Uint64Quantity(1000),
 			PrevRandao:   eth.Bytes32(testutils.RandomHash()),
 		},
-		Signature:        &[65]byte{10, 11, 12},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{10, 11, 12},
 	}
 	cache.put(parentBlockNum, parentEnvA)
 
@@ -226,8 +218,7 @@ func (s *CacheTestSuite) TestCachedParentForOrphanHandling() {
 			Timestamp:    eth.Uint64Quantity(1001),
 			PrevRandao:   eth.Bytes32(testutils.RandomHash()),
 		},
-		Signature:        &[65]byte{20, 21, 22},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{20, 21, 22},
 	}
 	cache.put(parentBlockNum, parentEnvB)
 
@@ -268,8 +259,7 @@ func (s *CacheTestSuite) TestDuplicateCachingPrevention() {
 			BlockHash:   blockHash,
 			ParentHash:  testutils.RandomHash(),
 		},
-		Signature:        &[65]byte{1, 2, 3},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{1, 2, 3},
 	}
 
 	// First insertion
@@ -286,8 +276,7 @@ func (s *CacheTestSuite) TestDuplicateCachingPrevention() {
 			BlockHash:   blockHash, // Same hash
 			ParentHash:  testutils.RandomHash(),
 		},
-		Signature:        &[65]byte{1, 2, 3},
-		HeaderDifficulty: common.Big1,
+		Signature: &[65]byte{1, 2, 3},
 	}
 	cache.put(blockNum, env2)
 

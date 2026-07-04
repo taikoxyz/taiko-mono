@@ -6,18 +6,16 @@
 set -eou pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
-PROTOCOL_DIR="${PROTOCOL_DIR:-../protocol}"
 
 echo ""
 echo "TAIKO_GETH_DIR: ${TAIKO_GETH_DIR}"
-echo "PROTOCOL_DIR: ${PROTOCOL_DIR}"
 echo ""
 
 cd ${TAIKO_GETH_DIR} &&
   make all &&
   cd -
 
-cd "${PROTOCOL_DIR}" &&
+cd ../protocol &&
   pnpm clean &&
   pnpm compile &&
   cd -
@@ -33,21 +31,21 @@ echo ""
 echo "Start generating Go contract bindings..."
 echo ""
 
-cat "${PROTOCOL_DIR}/out/layer1/MainnetInbox.sol/MainnetInbox.json" |
+cat ../protocol/out/layer1/MainnetInbox.sol/MainnetInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox.go
 
-cat "${PROTOCOL_DIR}/out/layer2/Anchor.sol/Anchor.json" |
+cat ../protocol/out/layer1/CodecOptimized.sol/CodecOptimized.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type CodecOptimizedClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox_codec.go
+
+cat ../protocol/out/layer2/Anchor.sol/Anchor.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaAnchor --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_anchor.go
 
-cat "${PROTOCOL_DIR}/out/layer1/ComposeVerifier.sol/ComposeVerifier.json" |
+cat ../protocol/out/layer2/BondManager.sol/BondManager.json |
   jq .abi |
-  ${ABIGEN_BIN} --abi - --type ComposeVerifier --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_compose_verifier.go
-
-cat "${PROTOCOL_DIR}/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json" |
-  jq .abi |
-  ${ABIGEN_BIN} --abi - --type PreconfWhitelist --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_whitelist.go
+  ${ABIGEN_BIN} --abi - --type BondManager --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_bond_manager.go
 
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 

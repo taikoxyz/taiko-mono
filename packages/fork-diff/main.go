@@ -201,7 +201,7 @@ func main() {
 
 			err := enc.Encode(FilePatch{filePatch: fps.Patch})
 			if err != nil {
-				return "", fmt.Errorf("failed to encode file patch: %w", err)
+				return "", errors.New("")
 			}
 			return string(t2html.Render(out.Bytes())), nil
 		},

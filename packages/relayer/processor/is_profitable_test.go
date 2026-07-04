@@ -42,16 +42,6 @@ func Test_isProfitable(t *testing.T) {
 		},
 		{
 			2,
-			"profitableAtEstimatedCost",
-			1200000000600000,
-			600000,
-			1000000000,
-			1,
-			true,
-			nil,
-		},
-		{
-			3,
 			"unprofitable",
 			590000000600000,
 			600000,

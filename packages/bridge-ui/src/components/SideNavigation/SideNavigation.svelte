@@ -19,8 +19,6 @@
   } from '$env/static/public';
   import { connectedSourceChain } from '$stores/network';
 
-  import { sideNavigationTabs } from './navigationItems';
-
   let testnetName = PUBLIC_TESTNET_NAME || '';
   let drawerToggleElem: HTMLInputElement;
 
@@ -42,7 +40,9 @@
     return active ? 'fill-white' : 'fill-primary-icon';
   }
 
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
+  $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
 <div class=" drawer lg:drawer-open">
@@ -73,14 +73,12 @@
         </div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
           <ul class="menu p-0 space-y-2">
-            {#each sideNavigationTabs as tab}
-              <li>
-                <LinkButton href={tab.href} active={$page.route.id === tab.routeId} on:click={closeDrawer}>
-                  <Icon type={tab.icon} fillClass={getIconFillClass($page.route.id === tab.routeId)} />
-                  <span>{$t(tab.label)}</span>
-                </LinkButton>
-              </li>
-            {/each}
+            <li>
+              <LinkButton active={isBridgePage}>
+                <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
+                <span>{$t('nav.bridge')}</span>
+              </LinkButton>
+            </li>
             {#if testnetName !== ''}
               <li>
                 <LinkButton href="/faucet" active={isFaucetPage}>
@@ -89,6 +87,12 @@
                 </LinkButton>
               </li>
             {/if}
+            <li>
+              <LinkButton href="/transactions" active={isTransactionsPage} on:click={closeDrawer}>
+                <Icon type="transactions" fillClass={getIconFillClass(isTransactionsPage)} />
+                <span>{$t('nav.transactions')}</span>
+              </LinkButton>
+            </li>
             {#if PUBLIC_DEFAULT_SWAP_URL && PUBLIC_DEFAULT_SWAP_URL !== ''}
               <li class="border-t border-t-divider-border pt-2">
                 <LinkButton href={PUBLIC_DEFAULT_SWAP_URL} external>

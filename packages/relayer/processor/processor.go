@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
@@ -32,8 +31,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -49,7 +48,6 @@ type ethClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
@@ -57,6 +55,18 @@ type ethClient interface {
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+}
+
+// hop is a struct which needs to be created based on the config parameters
+// for a hop. Each hop is an intermediary hop - if we are just processing
+// srcChain to destChain, we should have no hops.
+type hop struct {
+	chainID              *big.Int
+	signalServiceAddress common.Address
+	signalService        relayer.SignalService
+	taikoAddress         common.Address
+	ethClient            ethClient
+	caller               relayer.Caller
 }
 
 // Processor is the main struct which handles message processing and queue
@@ -67,6 +77,8 @@ type Processor struct {
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
+
+	hops []hop
 
 	srcEthClient  ethClient
 	destEthClient ethClient
@@ -119,11 +131,6 @@ type Processor struct {
 	processingTxHashMu sync.Mutex
 
 	minFeeToProcess uint64
-
-	// minTipCap is the minimum tip cap (in wei) the tx manager enforces when
-	// sending transactions. The profitability estimate floors the suggested tip
-	// at this value so it reflects what the tx manager actually pays.
-	minTipCap *big.Int
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -165,8 +172,52 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	if cfg.SrcSignalServiceAddress == relayer.ZeroAddress {
-		return errors.New("srcSignalServiceAddress not provided")
+	hops := []hop{}
+
+	// iteraate over all the hop configs and create a hop struct
+	// which can be used to generate hop proofs
+	for _, hopConfig := range cfg.hopConfigs {
+		var hopEthClient *ethclient.Client
+
+		var hopChainID *big.Int
+
+		var hopRpcClient *rpc.Client
+
+		var hopSignalService *signalservice.SignalService
+
+		hopEthClient, err = ethclient.Dial(hopConfig.rpcURL)
+		if err != nil {
+			return err
+		}
+
+		hopChainID, err = hopEthClient.ChainID(context.Background())
+		if err != nil {
+			return err
+		}
+
+		hopSignalService, err = signalservice.NewSignalService(
+			hopConfig.signalServiceAddress,
+			hopEthClient,
+		)
+		if err != nil {
+			return err
+		}
+
+		hopRpcClient, err = rpc.Dial(hopConfig.rpcURL)
+		if err != nil {
+			return err
+		}
+
+		// only support one hop rn, add in array configs
+		// to support more.
+		hops = append(hops, hop{
+			caller:               hopRpcClient,
+			signalServiceAddress: hopConfig.signalServiceAddress,
+			taikoAddress:         hopConfig.taikoAddress,
+			chainID:              hopChainID,
+			signalService:        hopSignalService,
+			ethClient:            hopEthClient,
+		})
 	}
 
 	srcSignalService, err := signalservice.NewSignalService(
@@ -233,7 +284,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	prover, err := proof.New(srcEthClient)
+	prover, err := proof.New(srcEthClient, p.cfg.CacheOption)
 	if err != nil {
 		return err
 	}
@@ -274,15 +325,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	// Mirror the tx manager's minimum tip cap so the profitability estimate can
-	// floor the suggested tip at the same value the tx manager will pay.
-	minTipCap, err := eth.GweiToWei(cfg.TxmgrConfigs.MinTipCapGwei)
-	if err != nil {
-		return err
-	}
-
-	p.minTipCap = minTipCap
-
+	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
 
@@ -336,12 +379,6 @@ func (p *Processor) Name() string {
 	return "processor"
 }
 
-// WaitForInterrupt returns whether processor should keep running and wait for
-// shutdown signals after Start() returns.
-func (p *Processor) WaitForInterrupt() bool {
-	return p.targetTxHash == nil
-}
-
 func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
@@ -360,7 +397,12 @@ func (p *Processor) Start() error {
 
 	// if a targetTxHash is set, we only want to process that specific one.
 	if p.targetTxHash != nil {
-		return p.processSingle(ctx)
+		err := p.processSingle(ctx)
+		if err != nil {
+			slog.Error(err.Error())
+		}
+
+		os.Exit(0)
 	}
 
 	// otherwise, we can start the queue, and process messages from it
@@ -373,14 +415,6 @@ func (p *Processor) Start() error {
 	}
 
 	go func() {
-		bo := backoff.WithContext(
-			backoff.WithMaxRetries(
-				backoff.NewConstantBackOff(p.backOffRetryInterval),
-				p.backOffMaxRetries,
-			),
-			ctx,
-		)
-
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := p.queue.Subscribe(ctx, p.msgCh, &p.wg); err != nil {
@@ -389,9 +423,8 @@ func (p *Processor) Start() error {
 			}
 
 			return nil
-		}, bo); err != nil {
-			slog.Error("rabbitmq subscribe backoff retry error, exiting so container restarts", "err", err.Error())
-			os.Exit(1)
+		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
+			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()
 
@@ -424,120 +457,78 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			go func(m queue.Message) {
-				defer func() {
-					if r := recover(); r != nil {
-						slog.Error("panic processing message", "panic", r)
+				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
 
-						if err := p.queue.Nack(ctx, m, false); err != nil {
-							slog.Error("Err nacking panicked message", "err", err.Error())
+				if err != nil {
+					switch {
+					case errors.Is(err, errUnprocessable):
+						if err := p.queue.Ack(ctx, m); err != nil {
+							slog.Error("Err acking message", "err", err.Error())
+						}
+					case errors.Is(err, relayer.ErrUnprofitable):
+						slog.Info("publishing to unprofitable queue")
+
+						headers := make(map[string]interface{}, 0)
+
+						headers["retries"] = int64(timesRetried + 1)
+
+						if err := p.queue.Publish(
+							ctx,
+							fmt.Sprintf("%v-unprofitable", p.queueName()),
+							m.Body,
+							headers,
+							p.cfg.UnprofitableMessageQueueExpiration,
+						); err != nil {
+							slog.Error("error publishing to unprofitable queue", "error", err)
+						}
+
+						// after publishing successfully, we can acknowledge this message to remove it
+						// from our main queue.
+						if err := p.queue.Ack(ctx, m); err != nil {
+							slog.Error("Err acking message", "err", err.Error())
+						}
+					case errors.Is(err, context.Canceled) ||
+						strings.Contains(err.Error(), "timeout") ||
+						strings.Contains(err.Error(), "i/o") ||
+						strings.Contains(err.Error(), "connect") ||
+						strings.Contains(err.Error(), "failed to get tx into the mempool"):
+						// we want to do nothing, just log, and the message will be re-picked up
+						// by another consumer. no need to nack or ack.
+						slog.Error("process message failed", "err", err.Error())
+					default:
+						slog.Error("process message failed", "err", err.Error())
+
+						// we want to negatively acknowledge the message and requeue it if we
+						// encountered an error, but the message is processable.
+						if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
+							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
-				}()
 
-				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
-				p.handleProcessMessageResult(ctx, m, shouldRequeue, timesRetried, err)
+					return
+				}
+
+				if shouldRequeue {
+					// we want to negatively acknowledge the message
+					if err := p.queue.Nack(ctx, m, true); err != nil {
+						slog.Error("Err nacking message", "err", err.Error())
+					}
+
+					marshalledMsg, err := json.Marshal(msg)
+					if err != nil {
+						slog.Error("err marshaling queue message", "err", err.Error())
+					} else {
+						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
+							slog.Error("err publishing to queue", "err", err.Error())
+						}
+					}
+				} else {
+					// otherwise if no error, we can acknowledge it successfully.
+					if err := p.queue.Ack(ctx, m); err != nil {
+						slog.Error("Err acking message", "err", err.Error())
+					}
+				}
 			}(msg)
 		}
 	}
-}
-
-func (p *Processor) handleProcessMessageResult(
-	ctx context.Context,
-	m queue.Message,
-	shouldRequeue bool,
-	timesRetried uint64,
-	err error,
-) {
-	if err != nil {
-		switch {
-		case errors.Is(err, errUnprocessable):
-			if err := p.queue.Ack(ctx, m); err != nil {
-				slog.Error("Err acking message", "err", err.Error())
-			}
-		case errors.Is(err, relayer.ErrUnprofitable):
-			p.handleUnprofitableMessage(ctx, m, timesRetried)
-		case isTransientProcessMessageError(err):
-			slog.Error("process message failed", "err", err.Error())
-
-			if err := p.queue.Nack(ctx, m, true); err != nil {
-				slog.Error("Err nacking message", "err", err.Error())
-			}
-		default:
-			slog.Error("process message failed", "err", err.Error())
-
-			if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
-				slog.Error("Err nacking message", "err", err.Error())
-			}
-		}
-
-		return
-	}
-
-	if shouldRequeue {
-		if err := p.queue.Nack(ctx, m, true); err != nil {
-			slog.Error("Err nacking message", "err", err.Error())
-		}
-	} else if err := p.queue.Ack(ctx, m); err != nil {
-		slog.Error("Err acking message", "err", err.Error())
-	}
-}
-
-func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Message, timesRetried uint64) {
-	slog.Info("publishing to unprofitable queue")
-
-	headers := make(map[string]interface{}, 0)
-	nextRetries := timesRetried + 1
-	headers["retries"] = int64(nextRetries)
-
-	msgBody := &queue.QueueMessageSentBody{}
-	if err := json.Unmarshal(m.Body, msgBody); err != nil {
-		slog.Error("error decoding unprofitable message", "error", err)
-
-		if err := p.queue.Nack(ctx, m, false); err != nil {
-			slog.Error("Err nacking message", "err", err.Error())
-		}
-
-		return
-	}
-
-	msgBody.TimesRetried = nextRetries
-
-	body, err := json.Marshal(msgBody)
-	if err != nil {
-		slog.Error("error encoding unprofitable message", "error", err)
-
-		if err := p.queue.Nack(ctx, m, false); err != nil {
-			slog.Error("Err nacking message", "err", err.Error())
-		}
-
-		return
-	}
-
-	if err := p.queue.Publish(
-		ctx,
-		fmt.Sprintf("%v-unprofitable", p.queueName()),
-		body,
-		headers,
-		p.cfg.UnprofitableMessageQueueExpiration,
-	); err != nil {
-		slog.Error("error publishing to unprofitable queue", "error", err)
-
-		if err := p.queue.Nack(ctx, m, true); err != nil {
-			slog.Error("Err nacking message", "err", err.Error())
-		}
-
-		return
-	}
-
-	if err := p.queue.Ack(ctx, m); err != nil {
-		slog.Error("Err acking message", "err", err.Error())
-	}
-}
-
-func isTransientProcessMessageError(err error) bool {
-	return errors.Is(err, context.Canceled) ||
-		strings.Contains(err.Error(), "timeout") ||
-		strings.Contains(err.Error(), "i/o") ||
-		strings.Contains(err.Error(), "connect") ||
-		strings.Contains(err.Error(), "failed to get tx into the mempool")
 }

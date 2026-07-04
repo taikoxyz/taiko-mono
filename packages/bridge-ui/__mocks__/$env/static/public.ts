@@ -9,4 +9,3 @@ export const CONFIGURED_CHAINS = '';
 export const CONFIGURED_CUSTOM_TOKENS = '';
 export const CONFIGURED_RELAYER = '';
 export const PUBLIC_IPFS_GATEWAYS = 'https://ipfs.io/ipfs/';
-export const PUBLIC_FEE_MULTIPLIER = '';

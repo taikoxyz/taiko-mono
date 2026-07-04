@@ -18,4 +18,5 @@ type Proposer interface {
 	ProposeOp(ctx context.Context) error
 	ProposeTxLists(ctx context.Context, txLists []types.Transactions) error
 	SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) error
+	RegisterTxMgrSelectorToBlobServer(blobServer *MemoryBlobServer)
 }

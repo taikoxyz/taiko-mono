@@ -18,8 +18,9 @@ var (
 	gapToResync               = new(big.Int).SetUint64(64)
 )
 
-// SyncProgressTracker is responsible for tracking the L2 execution engine's sync progress
-// after a beacon sync is triggered.
+// SyncProgressTracker is responsible for tracking the L2 execution engine's sync progress, after
+// a beacon sync is triggered, and check whether the L2 execution is not able to sync through P2P (due to no
+// connected peer or some other reasons).
 type SyncProgressTracker struct {
 	// RPC client
 	client *rpc.EthClient
@@ -29,9 +30,12 @@ type SyncProgressTracker struct {
 	lastSyncedBlockID   *big.Int
 	lastSyncedBlockHash common.Hash
 
-	// Sync progress tracking
-	lastSyncProgress *ethereum.SyncProgress
-	ticker           *time.Ticker
+	// Out-of-sync check related
+	lastSyncProgress   *ethereum.SyncProgress
+	lastProgressedTime time.Time
+	timeout            time.Duration
+	outOfSync          bool
+	ticker             *time.Ticker
 
 	// A marker to indicate whether the beacon sync has been finished.
 	finished bool
@@ -41,8 +45,8 @@ type SyncProgressTracker struct {
 }
 
 // NewSyncProgressTracker creates a new SyncProgressTracker instance.
-func NewSyncProgressTracker(c *rpc.EthClient) *SyncProgressTracker {
-	return &SyncProgressTracker{client: c, ticker: time.NewTicker(syncProgressCheckInterval)}
+func NewSyncProgressTracker(c *rpc.EthClient, timeout time.Duration) *SyncProgressTracker {
+	return &SyncProgressTracker{client: c, timeout: timeout, ticker: time.NewTicker(syncProgressCheckInterval)}
 }
 
 // Track starts the inner event loop, to monitor the sync progress.
@@ -69,7 +73,7 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 		return
 	}
 
-	if t.finished {
+	if t.outOfSync {
 		return
 	}
 
@@ -80,7 +84,12 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 	}
 
 	if progress != nil {
-		log.Info("L2 execution engine sync progress", "progress", progress)
+		log.Info(
+			"L2 execution engine sync progress",
+			"progress", progress,
+			"lastProgressedTime", t.lastProgressedTime,
+			"timeout", t.timeout,
+		)
 	}
 
 	if progress == nil {
@@ -91,6 +100,7 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 		}
 
 		if new(big.Int).SetUint64(headHeight).Cmp(t.lastSyncedBlockID) >= 0 {
+			t.lastProgressedTime = time.Now()
 			log.Info(
 				"L2 execution engine has finished the P2P sync work, all verified blocks synced, "+
 					"will switch to insert pending blocks one by one",
@@ -100,10 +110,29 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 			return
 		}
 
-		log.Info("L2 execution engine has not started P2P syncing yet")
+		log.Info("L2 execution engine has not started P2P syncing yet", "timeout", t.timeout)
 	}
 
-	t.lastSyncProgress = progress
+	defer func() { t.lastSyncProgress = progress }()
+
+	// Check whether the L2 execution engine has synced any new block through P2P since last event loop.
+	if syncProgressed(t.lastSyncProgress, progress) {
+		t.outOfSync = false
+		t.lastProgressedTime = time.Now()
+		return
+	}
+
+	// Has not synced any new block since last loop, check whether reaching the timeout.
+	if time.Since(t.lastProgressedTime) > t.timeout {
+		// Mark the L2 execution engine out of sync.
+		t.outOfSync = true
+
+		log.Warn(
+			"L2 execution engine is not able to sync through P2P",
+			"lastProgressedTime", t.lastProgressedTime,
+			"timeout", t.timeout,
+		)
+	}
 }
 
 // UpdateMeta updates the inner beacon sync metadata.
@@ -112,6 +141,10 @@ func (t *SyncProgressTracker) UpdateMeta(id *big.Int, blockHash common.Hash) {
 	defer t.mutex.Unlock()
 
 	log.Debug("Update sync progress tracker meta", "id", id, "hash", blockHash)
+
+	if !t.triggered {
+		t.lastProgressedTime = time.Now()
+	}
 
 	t.triggered = true
 	t.lastSyncedBlockID = id
@@ -128,6 +161,7 @@ func (t *SyncProgressTracker) ClearMeta() {
 	t.triggered = false
 	t.lastSyncedBlockID = nil
 	t.lastSyncedBlockHash = common.Hash{}
+	t.outOfSync = false
 }
 
 // NeedReSync checks if a new beacon sync request will be needed:
@@ -167,6 +201,14 @@ func (t *SyncProgressTracker) NeedReSync(newID *big.Int) (bool, error) {
 	return false, nil
 }
 
+// OutOfSync tells whether the L2 execution engine is marked as out of sync.
+func (t *SyncProgressTracker) OutOfSync() bool {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.outOfSync
+}
+
 // Triggered returns tracker.triggered.
 func (t *SyncProgressTracker) Triggered() bool {
 	t.mutex.RLock()
@@ -195,26 +237,51 @@ func (t *SyncProgressTracker) LastSyncedBlockHash() common.Hash {
 	return t.lastSyncedBlockHash
 }
 
-// LastSyncProgress returns tracker.lastSyncProgress.
-func (t *SyncProgressTracker) LastSyncProgress() *ethereum.SyncProgress {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+// syncProgressed checks whether there is any new progress since last sync progress check.
+func syncProgressed(last *ethereum.SyncProgress, new *ethereum.SyncProgress) bool {
+	if last == nil {
+		return false
+	}
 
-	return t.lastSyncProgress
+	if new == nil {
+		return true
+	}
+
+	// Block
+	if new.CurrentBlock > last.CurrentBlock {
+		return true
+	}
+
+	// Fast sync fields
+	if new.PulledStates > last.PulledStates {
+		return true
+	}
+
+	// Snap sync fields
+	if new.SyncedAccounts > last.SyncedAccounts ||
+		new.SyncedAccountBytes > last.SyncedAccountBytes ||
+		new.SyncedBytecodes > last.SyncedBytecodes ||
+		new.SyncedBytecodeBytes > last.SyncedBytecodeBytes ||
+		new.SyncedStorage > last.SyncedStorage ||
+		new.SyncedStorageBytes > last.SyncedStorageBytes ||
+		new.HealedTrienodes > last.HealedTrienodes ||
+		new.HealedTrienodeBytes > last.HealedTrienodeBytes ||
+		new.HealedBytecodes > last.HealedBytecodes ||
+		new.HealedBytecodeBytes > last.HealedBytecodeBytes ||
+		new.HealingTrienodes > last.HealingTrienodes ||
+		new.HealingBytecode > last.HealingBytecode {
+		return true
+	}
+
+	return false
 }
 
 // MarkFinished marks the current beacon sync as finished.
 func (t *SyncProgressTracker) MarkFinished() {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
 	t.finished = true
 }
 
 // Finished returns whether the current beacon sync has been finished.
 func (t *SyncProgressTracker) Finished() bool {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
 	return t.finished
 }

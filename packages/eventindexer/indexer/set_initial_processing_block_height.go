@@ -12,9 +12,27 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 ) error {
-	startingBlock, err := i.getFirstShastaBlockHeight(ctx)
-	if err != nil {
-		return err
+	var startingBlock uint64 = 0
+	// only check stateVars on L1, otherwise sync from 0
+	if i.taikol1 != nil {
+		slotA, _, err := i.taikol1.GetStateVariables(nil)
+		if err != nil {
+			// check v2
+			slotA, _, err := i.taikol1V2.GetStateVariables(nil)
+			if err != nil {
+				// check v3
+				stats1, err := i.taikoInbox.GetStats1(nil)
+				if err != nil {
+					return errors.Wrap(err, "i.taikoInbox.GetStats1")
+				}
+
+				startingBlock = stats1.GenesisHeight
+			} else {
+				startingBlock = slotA.GenesisHeight
+			}
+		} else {
+			startingBlock = slotA.GenesisHeight
+		}
 	}
 
 	switch mode {
@@ -41,23 +59,4 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	i.latestIndexedBlockNumber = startingBlock
 
 	return nil
-}
-
-// getFirstShastaBlockHeight returns the first Shasta block height.
-func (i *Indexer) getFirstShastaBlockHeight(ctx context.Context) (uint64, error) {
-	if i.inbox == nil {
-		return 0, errors.New("inbox contract not configured")
-	}
-
-	ts, err := i.inbox.ActivationTimestamp(nil)
-	if err != nil {
-		return 0, errors.Wrap(err, "inbox.ActivationTimestamp")
-	}
-
-	blockNum, err := i.getBlockByTimestamp(ctx, ts.Uint64())
-	if err != nil {
-		return 0, errors.Wrap(err, "getBlockByTimestamp")
-	}
-
-	return blockNum, nil
 }

@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockConfirmer struct{}
+type mockConfirmer struct {
+}
 
 var (
 	notFoundTxHash = common.HexToHash("0x123")

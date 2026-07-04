@@ -1,5 +1,5 @@
 import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
-import { type Address, type Hash, numberToHex, type TransactionReceipt } from 'viem';
+import type { Address, Hash, TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -124,11 +124,6 @@ export class BridgeTxService {
     // We have receipt
     bridgeTx.receipt = receipt;
 
-    // Populate blockNumber from receipt if not already set
-    if (!bridgeTx.blockNumber) {
-      bridgeTx.blockNumber = numberToHex(receipt.blockNumber);
-    }
-
     let messageSentEvent;
 
     try {
@@ -172,36 +167,9 @@ export class BridgeTxService {
 
     log('Bridge transactions from storage', txs);
 
-    // Helper to wrap enhancement with timeout - returns original tx if enhancement times out
-    const enhanceWithTimeout = async (tx: BridgeTransaction, timeoutMs = 10000) => {
-      const timeoutPromise = new Promise<BridgeTransaction>((resolve) => {
-        setTimeout(() => {
-          log('Enhancement timed out for tx, returning unenhanced', tx.srcTxHash);
-          resolve(tx); // Return original tx if timeout
-        }, timeoutMs);
-      });
-      try {
-        const result = await Promise.race([this._enhanceTx(tx, address, true), timeoutPromise]);
-        return result ?? tx; // Return original tx if _enhanceTx returns undefined
-      } catch (error) {
-        log('Enhancement failed for tx, returning unenhanced', tx.srcTxHash, error);
-        return tx; // Return original tx on error
-      }
-    };
+    const enhancedTxPromises = txs.map((tx) => this._enhanceTx(tx, address, true));
 
-    const enhancedTxPromises = txs.map((tx) => enhanceWithTimeout(tx));
-
-    // Use allSettled so one failing tx doesn't block others
-    const settledResults = await Promise.allSettled(enhancedTxPromises);
-
-    // Extract fulfilled values, falling back to original tx for rejected ones
-    const resolvedTxs = settledResults.map((result, idx) => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-      log('Enhancement rejected for tx', txs[idx].srcTxHash, result.reason);
-      return txs[idx]; // Return original tx
-    });
+    const resolvedTxs = await Promise.all(enhancedTxPromises);
 
     // Remove any undefined values from the array of resolved transactions
     const enhancedTxs = resolvedTxs.filter((tx): tx is BridgeTransaction => Boolean(tx));

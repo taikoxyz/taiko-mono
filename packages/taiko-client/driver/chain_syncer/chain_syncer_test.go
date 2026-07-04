@@ -2,28 +2,23 @@ package chainsyncer
 
 import (
 	"context"
-	"encoding/json"
 	"math/big"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -34,9 +29,9 @@ import (
 
 type ChainSyncerTestSuite struct {
 	testutils.ClientTestSuite
-	s               *L2ChainSyncer
-	p               testutils.Proposer
-	proposalBuilder *builder.BlobTransactionBuilder
+	s                     *L2ChainSyncer
+	p                     testutils.Proposer
+	shastaProposalBuilder *builder.BlobTransactionBuilder
 }
 
 func (s *ChainSyncerTestSuite) SetupTest() {
@@ -48,9 +43,11 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	syncer, err := New(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		state,
 		false,
-		s.ParseL1HttpURLFromEnv(),
+		1*time.Hour,
+		s.BlobServer.URL(),
 		nil,
 	)
 	s.Nil(err)
@@ -65,13 +62,19 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         os.Getenv("L1_WS"),
-			L2Endpoint:         os.Getenv("L2_WS"),
-			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			JwtSecret:          string(jwtSecret),
-			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
-			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			L1Endpoint:                  os.Getenv("L1_WS"),
+			L2Endpoint:                  os.Getenv("L2_WS"),
+			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
+			JwtSecret:                   string(jwtSecret),
+			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
+			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
+			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
+		BlobAllowed:             true,
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:         1024 * time.Hour,
@@ -91,14 +94,38 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
+		PrivateTxmgrConfigs: &txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_WS"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
 	}, nil, nil))
 	s.p = prop
+	s.Nil(prop.ShastaIndexer().Start())
+	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 
-	s.proposalBuilder = builder.NewBlobTransactionBuilder(
+	s.shastaProposalBuilder = builder.NewBlobTransactionBuilder(
 		s.RPCClient,
-		common.HexToAddress(os.Getenv("INBOX")),
+		prop.ShastaIndexer(),
+		l1ProposerPrivKey,
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+		common.HexToAddress(os.Getenv("PROVER_SET")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		1_000_000,
+		nil,
+		true,
 	)
 }
 
@@ -107,152 +134,8 @@ func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 	s.NotNil(s.s.EventSyncer())
 }
 
-func (s *ChainSyncerTestSuite) TestPreconfImportsPendingOnStart() {
-	// The preconf import gate must start closed, so that a driver restart landing
-	// between a beacon sync and the first event sync insertion can not re-open
-	// imports while the head L1 origin base is still missing.
-	s.True(s.s.preconfImportsPending)
-}
-
 func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
-}
-
-func TestChainDataStillSyncing(t *testing.T) {
-	tests := []struct {
-		name     string
-		progress *ethereum.SyncProgress
-		want     bool
-	}{
-		{"notSyncing", nil, false},
-		{"blockDownloadInProgress", &ethereum.SyncProgress{CurrentBlock: 1, HighestBlock: 2}, true},
-		{"stateHealInProgress", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, HealingTrienodes: 5}, true},
-		{"bytecodeHealInProgress", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, HealingBytecode: 1}, true},
-		{
-			"txIndexBackfillOnly",
-			&ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, TxIndexRemainingBlocks: 100},
-			false,
-		},
-		{
-			"stateIndexBackfillOnly",
-			&ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, StateIndexRemaining: 7},
-			false,
-		},
-		{"chainDataComplete", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, chainDataStillSyncing(tt.progress))
-		})
-	}
-}
-
-func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
-	l2Client := newSyncingEthClient(t)
-	tracker := beaconsync.NewSyncProgressTracker(l2Client)
-	tracker.UpdateMeta(common.Big1, common.Hash{})
-
-	syncer := &L2ChainSyncer{
-		ctx:             context.Background(),
-		rpc:             &rpc.Client{L2: l2Client},
-		progressTracker: tracker,
-	}
-
-	require.NotPanics(t, func() {
-		require.NoError(t, syncer.Sync())
-	})
-	require.True(t, tracker.Triggered())
-	require.False(t, tracker.Finished())
-}
-
-func newSyncingEthClient(t *testing.T) *rpc.EthClient {
-	t.Helper()
-
-	// NOTE: the handler runs on the HTTP server's goroutine, where t.Fatalf / require
-	// (testing.T.FailNow) must not be used; report failures with t.Errorf instead.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			ID     json.RawMessage `json:"id"`
-			Method string          `json:"method"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			t.Errorf("failed to decode RPC request: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var result any
-		switch req.Method {
-		case "eth_chainId":
-			result = "0x1"
-		case "eth_syncing":
-			result = map[string]string{
-				"startingBlock": "0x0",
-				"currentBlock":  "0x1",
-				"highestBlock":  "0x2",
-			}
-		default:
-			t.Errorf("unexpected RPC method: %s", req.Method)
-			http.Error(w, "unexpected RPC method", http.StatusInternalServerError)
-			return
-		}
-
-		if err := json.NewEncoder(w).Encode(map[string]any{
-			"jsonrpc": "2.0",
-			"id":      req.ID,
-			"result":  result,
-		}); err != nil {
-			t.Errorf("failed to encode RPC response: %v", err)
-		}
-	}))
-	t.Cleanup(server.Close)
-
-	client, err := rpc.NewEthClient(context.Background(), server.URL, time.Second)
-	require.NoError(t, err)
-	return client
-}
-
-func TestShouldEnablePreconfImportsAfterEventSync(t *testing.T) {
-	tests := []struct {
-		name                string
-		headL1OriginWritten bool
-		nextProposalID      *big.Int
-		expected            bool
-	}{
-		{
-			name:                "ready when head L1 origin exists",
-			headL1OriginWritten: true,
-			nextProposalID:      common.Big2,
-			expected:            true,
-		},
-		{
-			name:                "ready before first proposal",
-			headL1OriginWritten: false,
-			nextProposalID:      common.Big1,
-			expected:            true,
-		},
-		{
-			name:                "not ready without head L1 origin after proposals exist",
-			headL1OriginWritten: false,
-			nextProposalID:      common.Big2,
-			expected:            false,
-		},
-		{
-			name:                "not ready without any signal",
-			headL1OriginWritten: false,
-			nextProposalID:      nil,
-			expected:            false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldEnablePreconfImports(tt.headL1OriginWritten, tt.nextProposalID); got != tt.expected {
-				t.Fatalf("expected %v, got %v", tt.expected, got)
-			}
-		})
-	}
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
@@ -260,10 +143,9 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
-	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
-	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
+	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	l1StateRoot, l1Height, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
@@ -273,9 +155,12 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.NotZero(l1Height)
 	s.Zero(parentGasUsed)
 
-	txCandidate, err := s.proposalBuilder.Build(
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
+		common.Big1,
+		common.Address{},
+		[]byte{},
 	)
 	s.Nil(err)
 	b, err := builder.SplitToBlobs([]byte{0x1})
@@ -294,17 +179,21 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.GreaterOrEqual(len(head.Extra()), 1)
 	s.GreaterOrEqual(len(head2.Extra()), 1)
 	s.Equal(head.Extra()[0], head2.Extra()[0])
-	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
+	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
+	s.Equal(uint8(75), basefeeSharingPctg)
 
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.NotZero(l1Height2)
+	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot2)
+	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
 }
 
 func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -312,12 +201,12 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot)
 
-	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
-	s.Nil(err)
-
-	txCandidate, err := s.proposalBuilder.Build(
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
+		common.Big1,
+		common.Address{},
+		[]byte{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -330,8 +219,9 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Equal(head.GasLimit(), head2.GasLimit())
 	s.Less(head.Time(), head2.Time())
 	s.Equal(head.Coinbase(), head2.Coinbase())
-	s.Equal(head.Extra()[0], head2.Extra()[0])
-	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
+	s.Equal(head.Extra(), head2.Extra())
+	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
+	s.Equal(uint8(75), basefeeSharingPctg)
 
 	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
@@ -341,249 +231,93 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Zero(parentGasUsed)
 }
 
-func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
-	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
+func (s *ChainSyncerTestSuite) TestShastaLowBondProposal() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
 
-	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
-	s.Nil(err)
-
-	testTx1, err := testutils.AssembleAndSendTestTx(
-		s.RPCClient.L2,
-		s.TestAddrPrivKey,
-		nonce,
-		&s.TestAddr,
-		common.Big1,
-		nil,
-	)
-	s.Nil(err)
-
-	testTx2, err := testutils.AssembleAndSendTestTx(
-		s.RPCClient.L2,
-		s.TestAddrPrivKey,
-		nonce+1,
-		&s.TestAddr,
-		common.Big1,
-		nil,
-	)
-	s.Nil(err)
-
-	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	// Make the proposal block timestamp reach the final manifest block timestamp.
-	s.SetNextBlockTimestamp(l1Head.Time() + 1)
-
-	txCandidate, err := s.proposalBuilder.Build(
-		context.Background(),
-		[]types.Transactions{{testTx1}, {testTx2}},
-	)
-	s.Nil(err)
-	s.Nil(s.p.SendTx(context.Background(), txCandidate))
-	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
-
-	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big1))
-	s.Nil(err)
-	s.Equal(2, len(head2.Transactions()))
-	s.Equal(testTx1.Hash(), head2.Transactions()[1].Hash())
-
-	head3, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big2))
-	s.Nil(err)
-	s.Equal(2, len(head3.Transactions()))
-	s.Equal(testTx2.Hash(), head3.Transactions()[1].Hash())
-}
-
-func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() {
-	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
-	s.Nil(err)
-
-	batches := 5
-	txBatch := make([]types.Transactions, batches)
-	txsInBatch := 1
-
-	for i := 0; i < batches; i++ {
-		for j := 0; j < txsInBatch; j++ {
-			testTx, err := testutils.AssembleAndSendTestTx(
-				s.RPCClient.L2,
-				s.TestAddrPrivKey,
-				nonce,
-				&s.TestAddr,
-				common.Big1,
-				nil,
-			)
-			s.Nil(err)
-			txBatch[i] = append(txBatch[i], testTx)
-			nonce++
-		}
-	}
-
-	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	// Make the proposal block timestamp reach the final manifest block timestamp.
-	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches) - 1)
-
-	txCandidate, err := s.proposalBuilder.Build(
-		context.Background(),
-		txBatch,
-	)
-	s.Nil(err)
-	s.Nil(s.p.SendTx(context.Background(), txCandidate))
-	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
-
-	for i := 1; i <= batches; i++ {
-		head, err := s.RPCClient.L2.BlockByNumber(
-			context.Background(),
-			new(big.Int).SetUint64(head1.Number().Uint64()+uint64(i)),
-		)
-		s.Nil(err)
-		s.Equal(txsInBatch+1, len(head.Transactions()))
-	}
-}
-
-func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
-	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
-	s.Nil(err)
-
-	txBatch := make([]types.Transactions, manifest.ProposalMaxBlocks+1)
-
-	for i := 0; i < len(txBatch); i++ {
-		testTx, err := testutils.AssembleAndSendTestTx(
-			s.RPCClient.L2,
-			s.TestAddrPrivKey,
-			nonce,
-			&s.TestAddr,
-			common.Big1,
-			nil,
-		)
-		s.Nil(err)
-		txBatch[i] = types.Transactions{testTx}
-		nonce++
-	}
-
-	txCandidate, err := s.proposalBuilder.Build(
-		context.Background(),
-		txBatch,
-	)
-	s.Nil(err)
-	s.Nil(s.p.SendTx(context.Background(), txCandidate))
-	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
-
-	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big1))
-	s.Nil(err)
-	s.Equal(head1.NumberU64()+1, head2.NumberU64())
-	s.Equal(1, len(head2.Transactions()))
-}
-
-func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
+	l1StateRoot, l1Height, _, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
 	s.Nil(err)
+	s.NotEqual(common.Hash{}, l1StateRoot)
 
-	testTx, err := testutils.AssembleAndSendTestTx(
-		s.RPCClient.L2,
-		s.TestAddrPrivKey,
-		nonce,
-		&s.TestAddr,
-		common.Big1,
-		nil,
-	)
-	s.Nil(err)
+	proposalId := new(big.Int).Add(s.ShastaStateIndexer.GetLastProposal().Proposal.Id, common.Big1)
+	proposer := s.ShastaStateIndexer.GetLastProposal().Proposal.Proposer
+	provingFeeGwei := new(big.Int).SetUint64(281474976710655)
 
-	testTx2, err := testutils.AssembleAndSendTestTx(
-		s.RPCClient.L2,
-		s.TestAddrPrivKey,
-		nonce+1,
-		&s.TestAddr,
-		common.Big1,
-		nil,
-	)
-	s.Nil(err)
-
-	manifest := &manifest.DerivationSourceManifest{
-		Blocks: []*manifest.BlockManifest{
-			{
-				Timestamp:         0,
-				Coinbase:          s.TestAddr,
-				AnchorBlockNumber: head.NumberU64(),
-				GasLimit:          head.GasLimit(),
-				Transactions:      types.Transactions{testTx},
-			},
-			{
-				Timestamp:         0,
-				Coinbase:          s.TestAddr,
-				AnchorBlockNumber: head.NumberU64(),
-				GasLimit:          head.GasLimit(),
-				Transactions:      types.Transactions{testTx2},
-			},
-		},
+	uint48Type, _ := abi.NewType("uint48", "", nil)
+	addressType, _ := abi.NewType("address", "", nil)
+	args := abi.Arguments{
+		{Name: "proposalId", Type: uint48Type},
+		{Name: "proposer", Type: addressType},
+		{Name: "provingFeeGwei", Type: uint48Type},
 	}
 
-	derivationSourceManifestBytes, err := builder.EncodeSourceManifest(manifest)
+	data, err := args.Pack(proposalId, proposer, provingFeeGwei)
 	s.Nil(err)
 
-	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
+	// Sign the message with L1_PROVER_PRIVATE_KEY
+	signature, err := crypto.Sign(crypto.Keccak256Hash(data).Bytes(), s.KeyFromEnv("L1_PROVER_PRIVATE_KEY"))
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("INBOX"))
-	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
-	s.Nil(err)
-	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{
-		BlobStartIndex: 0,
-		NumBlobs:       1,
-		Offset:         common.Big0,
-	})
-	s.Nil(err)
-	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{
-		To:     &inbox,
-		TxData: data,
-		Blobs:  b,
-		Value: new(big.Int).Mul(
-			new(big.Int).SetUint64(config.ForcedInclusionFeeInGwei), new(big.Int).SetUint64(params.GWei)),
-	}))
+	auth := &encoding.ProverAuth{
+		ProposalId:     proposalId,
+		Proposer:       proposer,
+		ProvingFeeGwei: provingFeeGwei,
+		Signature:      signature,
+	}
+	s.NotNil(auth)
 
-	time.Sleep(time.Duration(config.ForcedInclusionDelay*2) * time.Second)
-
-	// Forced inclusion is prepended ahead of the normal source and will consume
-	// the first post-parent timestamp slot, so advance L1 once before building
-	// the proposer source manifest.
-	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
+	encodedAuth, err := encoding.EncodeProverAuth(auth)
 	s.Nil(err)
-	s.SetNextBlockTimestamp(l1Head.Time() + 1)
-	s.L1Mine()
 
-	txCandidate, err := s.proposalBuilder.Build(
-		context.Background(),
-		[]types.Transactions{{}},
+	proposalState, err := s.RPCClient.ShastaClients.Anchor.GetProposalState(nil)
+	s.Nil(err)
+	info, err := s.RPCClient.ShastaClients.Anchor.GetDesignatedProver(
+		nil,
+		proposalId,
+		proposer,
+		encodedAuth,
+		proposalState.DesignatedProver,
 	)
 	s.Nil(err)
-	txCandidate.GasLimit = 0
+	s.True(info.IsLowBondProposal)
+
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+		context.Background(),
+		[]types.Transactions{{}},
+		common.Big1,
+		common.Address{},
+		encodedAuth,
+	)
+	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
 	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
 
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal(head.NumberU64()+2, head2.NumberU64())
-	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
+	s.Equal(head.NumberU64()+1, head2.NumberU64())
+	s.Equal(1, len(head2.Transactions()))
+	s.Equal(head.GasLimit(), head2.GasLimit())
+	s.Less(head.Time(), head2.Time())
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
+	basefeeSharingPctg, _ := core.DecodeShastaExtraData(head2.Header().Extra)
+	s.Equal(uint8(75), basefeeSharingPctg)
+	s.GreaterOrEqual(len(head2.Header().Extra), 2)
+	isLowBondProposal := head2.Header().Extra[1]&0x01 == 0x01
+	s.True(isLowBondProposal)
 
-	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
-		context.Background(),
-		new(big.Int).SetUint64(head.NumberU64()+1),
-	)
+	l1StateRoot2, l1Height2, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.Equal(head2.NumberU64()-1, forcedIncludedHeader1.NumberU64())
-	s.Equal(1, len(forcedIncludedHeader1.Transactions()))
+	s.NotEqual(common.Hash{}, l1StateRoot2)
+	s.NotZero(l1Height2)
+	s.Equal(l1Height, l1Height2)
+	s.Zero(parentGasUsed)
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
+	s.ForkIntoShasta(s.p, s.s.EventSyncer())
+
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -612,13 +346,13 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	derivationSourceManifestBytes, err := builder.EncodeSourceManifest(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
 	s.Nil(err)
 
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("INBOX"))
+	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{
@@ -637,17 +371,12 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 
 	time.Sleep(time.Duration(config.ForcedInclusionDelay*2) * time.Second)
 
-	// Forced inclusion is prepended ahead of the normal source and will consume
-	// the first post-parent timestamp slot, so advance L1 once before building
-	// the proposer source manifest.
-	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.SetNextBlockTimestamp(l1Head.Time() + 1)
-	s.L1Mine()
-
-	txCandidate, err := s.proposalBuilder.Build(
+	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
+		common.Big1,
+		common.Address{},
+		[]byte{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0
@@ -659,17 +388,17 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
 	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
 
-	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
+	forcedIncludedHeader, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
 		new(big.Int).SetUint64(head.NumberU64()+1),
 	)
 	s.Nil(err)
-	s.Equal(head2.NumberU64()-1, forcedIncludedHeader1.NumberU64())
-	s.Equal(2, len(forcedIncludedHeader1.Transactions()))
-	s.Equal(testTx.Hash(), forcedIncludedHeader1.Transactions()[1].Hash())
-	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader1.Coinbase())
-	s.NotEqual(s.TestAddr, forcedIncludedHeader1.Coinbase())
-	s.Greater(head2.Header().Time, forcedIncludedHeader1.Header().Time)
+	s.Equal(head2.NumberU64()-1, forcedIncludedHeader.NumberU64())
+	s.Equal(2, len(forcedIncludedHeader.Transactions()))
+	s.Equal(testTx.Hash(), forcedIncludedHeader.Transactions()[1].Hash())
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), forcedIncludedHeader.Coinbase())
+	s.NotEqual(s.TestAddr, forcedIncludedHeader.Coinbase())
+	s.Greater(head2.Header().Time, forcedIncludedHeader.Header().Time)
 }
 
 func TestChainSyncerTestSuite(t *testing.T) {

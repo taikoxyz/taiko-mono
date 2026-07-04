@@ -101,6 +101,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       clearInterval(interval as ReturnType<typeof setInterval>); // clearInterval only needs the ID
       delete hashEmitterMap[srcTxHash];
       delete hashIntervalMap[srcTxHash];
+      hashIntervalMap[srcTxHash] = null;
 
       emitter.emit(PollingEvent.STOP);
     }

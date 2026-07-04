@@ -31,6 +31,8 @@ type Config struct {
 	IndexNFTs               bool
 	IndexERC20s             bool
 	Layer                   string
+	OntakeForkHeight        uint64
+	PacayaForkHeight        uint64
 	OpenDBFunc              func() (db.DB, error)
 }
 
@@ -55,6 +57,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),
 		IndexERC20s:             c.Bool(flags.IndexERC20s.Name),
 		Layer:                   c.String(flags.Layer.Name),
+		OntakeForkHeight:        c.Uint64(flags.OntakeForkHeight.Name),
+		PacayaForkHeight:        c.Uint64(flags.PacayaForkHeight.Name),
 		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

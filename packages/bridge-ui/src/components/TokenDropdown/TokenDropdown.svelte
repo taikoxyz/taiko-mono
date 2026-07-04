@@ -192,6 +192,7 @@
   });
 </script>
 
+<!-- svelte-ignore missing-declaration -->
 <DesktopOrLarger bind:is={isDesktopOrLarger} />
 
 <div class="relative h-full {$$props.class}">

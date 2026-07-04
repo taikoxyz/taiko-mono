@@ -8,7 +8,7 @@ use alloy_consensus::{
     TxEnvelope,
     proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder},
 };
-use alloy_primitives::{U256, bytes::BufMut};
+use alloy_primitives::bytes::BufMut;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 #[cfg(test)]
 use alloy_rpc_types_engine::ExecutionPayloadV1;
@@ -17,7 +17,6 @@ use alloy_rpc_types_engine::{
     PayloadId, PayloadStatusEnum,
 };
 use async_trait::async_trait;
-use protocol::shasta::unzen_active_for_chain_timestamp;
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
@@ -47,12 +46,22 @@ impl EngineBlockOutcome {
 /// Trait that converts derivation payload attributes into concrete execution engine blocks.
 #[async_trait]
 pub trait PayloadApplier {
+    /// Submit the provided payload attributes to the execution engine, building canonical L2
+    /// blocks.
+    ///
+    /// Callers should supply the payloads in chain order as returned by the derivation pipeline.
+    /// The implementation queries the current engine head, advances forkchoice, and finally
+    /// materialises the payloads into blocks.
+    async fn attributes_to_blocks(
+        &self,
+        payloads: &[TaikoPayloadAttributes],
+    ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError>;
+
     /// Submit a single payload to the execution engine while internally managing forkchoice state.
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
         parent_hash: B256,
-        finalized_block_hash: Option<B256>,
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
@@ -61,17 +70,54 @@ impl<P> PayloadApplier for Client<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Submit a single payload to the execution engine while internally managing forkchoice state.
+    #[instrument(skip(self, payloads))]
+    async fn attributes_to_blocks(
+        &self,
+        payloads: &[TaikoPayloadAttributes],
+    ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError> {
+        if payloads.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let parent_block: RpcBlock<TxEnvelope> = self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+            .ok_or(EngineSubmissionError::MissingParent)?;
+        debug!(
+            parent_number = parent_block.header.number,
+            parent_hash = ?parent_block.hash(),
+            "fetched latest parent block for payload submission"
+        );
+
+        let mut outcomes = Vec::with_capacity(payloads.len());
+        let mut parent_hash = parent_block.hash();
+        debug!(
+            head = ?parent_hash,
+            payload_count = payloads.len(),
+            "submitting batched payloads"
+        );
+
+        for payload in payloads {
+            let applied = apply_payload_internal(self, payload, parent_hash).await?;
+            parent_hash = applied.outcome.block_hash();
+            outcomes.push(applied.outcome);
+        }
+
+        info!(inserted_blocks = outcomes.len(), "successfully applied payload batch");
+        Ok(outcomes)
+    }
+
     #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
         parent_hash: B256,
-        finalized_block_hash: Option<B256>,
     ) -> Result<AppliedPayload, EngineSubmissionError> {
         let span = tracing::Span::current();
-        let applied =
-            apply_payload_internal(self, payload, parent_hash, finalized_block_hash).await?;
+        let applied = apply_payload_internal(self, payload, parent_hash).await?;
         span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
         Ok(applied)
     }
@@ -87,14 +133,11 @@ pub struct AppliedPayload {
     pub payload: ExecutionPayloadInputV2,
 }
 
-/// Submit the provided payload attributes to the execution engine, building canonical L2
-/// blocks.
 #[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
 async fn apply_payload_internal<P>(
     rpc: &Client<P>,
     payload: &TaikoPayloadAttributes,
     parent_hash: B256,
-    finalized_block_hash: Option<B256>,
 ) -> Result<AppliedPayload, EngineSubmissionError>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -109,7 +152,7 @@ where
         rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
-    tracing::Span::current().record("payload_id", format_args!("{payload_id}"));
+    tracing::Span::current().record("payload_id", format_args!("{}", payload_id));
 
     let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
     if expected_payload_id != payload_id {
@@ -122,9 +165,21 @@ where
 
     // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
     let envelope = rpc.engine_get_payload_v2(payload_id).await?;
-    let (payload_input, sidecar, block_hash, block_number) =
-        envelope_into_submission(rpc.chain_id, envelope);
+    let (payload_input, block_hash, block_number) = envelope_into_submission(envelope);
+    let sidecar = derive_payload_sidecar(&payload_input);
 
+    // Submit the new block to the execution engine and bail out on unrecoverable statuses.
+    let payload_status = rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
+
+    match payload_status.status {
+        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
+        PayloadStatusEnum::Syncing => {
+            return Err(EngineSubmissionError::EngineSyncing(block_number));
+        }
+        PayloadStatusEnum::Invalid { validation_error } => {
+            return Err(EngineSubmissionError::InvalidBlock(block_number, validation_error));
+        }
+    }
     debug!(
         block_number,
         block_hash = ?block_hash,
@@ -132,32 +187,34 @@ where
         "engine accepted execution payload"
     );
 
-    let outcome = submit_payload_to_engine(
-        rpc,
-        &payload_input,
-        &sidecar,
-        block_hash,
-        block_number,
-        finalized_block_hash,
-        payload_id,
-    )
-    .await?;
+    // Update forkchoice to promote the freshly inserted block as the new head and safe block.
+    let promoted_state = ForkchoiceState {
+        head_block_hash: block_hash,
+        // TODO: set the correct `safe_block_hash` and `finalized_block_hash`.
+        safe_block_hash: B256::ZERO,
+        finalized_block_hash: B256::ZERO,
+    };
+    rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
+
+    let block = rpc
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        .await
+        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))?;
 
     info!(
         block_number,
-        block_hash = ?outcome.block.hash(),
-        payload_id = %outcome.payload_id,
+        block_hash = ?block.hash(),
+        payload_id = %payload_id,
         "inserted l2 block via payload applier",
     );
 
-    Ok(AppliedPayload { outcome, payload: payload_input })
+    Ok(AppliedPayload { outcome: EngineBlockOutcome { block, payload_id }, payload: payload_input })
 }
 
-/// Derive the Taiko-specific execution data sidecar from the provided execution payload.
-fn derive_payload_sidecar(
-    payload: &ExecutionPayloadInputV2,
-    header_difficulty: Option<U256>,
-) -> TaikoExecutionDataSidecar {
+fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {
     let tx_hash =
         ordered_trie_root_with_encoder(&payload.execution_payload.transactions, |tx, buf| {
             buf.put_slice(tx)
@@ -165,112 +222,27 @@ fn derive_payload_sidecar(
     let withdrawals_hash =
         payload.withdrawals.as_ref().map(|withdrawals| calculate_withdrawals_root(withdrawals));
 
-    TaikoExecutionDataSidecar {
-        tx_hash,
-        withdrawals_hash,
-        header_difficulty,
-        taiko_block: Some(true),
-    }
+    TaikoExecutionDataSidecar { tx_hash, withdrawals_hash, taiko_block: Some(true) }
 }
 
-/// Restore the hash-relevant header difficulty from a Taiko engine envelope when Unzen is active.
-fn unzen_header_difficulty(chain_id: u64, timestamp: u64, block_value: U256) -> Option<U256> {
-    unzen_active_for_chain_timestamp(chain_id, timestamp).unwrap_or(false).then_some(block_value)
-}
-
-/// Convert an execution payload envelope into the submission format expected by the engine.
 fn envelope_into_submission(
-    chain_id: u64,
     envelope: ExecutionPayloadEnvelopeV2,
-) -> (ExecutionPayloadInputV2, TaikoExecutionDataSidecar, B256, u64) {
-    let block_value = envelope.block_value;
-    let (execution_payload, withdrawals) = match envelope.execution_payload {
-        // Taiko chains are always post-Shanghai so withdrawals must be non-nil even when the
-        // engine returns a V1 envelope (which omits the withdrawals field).
-        ExecutionPayloadFieldV2::V1(payload) => (payload, Vec::new()),
-        ExecutionPayloadFieldV2::V2(payload) => (payload.payload_inner, payload.withdrawals),
-    };
-
-    let block_hash = execution_payload.block_hash;
-    let block_number = execution_payload.block_number;
-    // Taiko Unzen reuses `getPayloadV2.blockValue` to transport the original
-    // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
-    // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
-    let header_difficulty =
-        unzen_header_difficulty(chain_id, execution_payload.timestamp, block_value);
-
-    let payload_input =
-        ExecutionPayloadInputV2 { execution_payload, withdrawals: Some(withdrawals) };
-    let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
-
-    (payload_input, sidecar, block_hash, block_number)
-}
-
-/// Map engine payload status into submission errors, rejecting syncing/invalid statuses.
-fn ensure_valid_payload_status(
-    block_number: u64,
-    status: PayloadStatusEnum,
-) -> Result<(), EngineSubmissionError> {
-    match status {
-        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => Ok(()),
-        PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
-        PayloadStatusEnum::Invalid { validation_error } => {
-            Err(EngineSubmissionError::InvalidBlock(block_number, validation_error))
-        }
+) -> (ExecutionPayloadInputV2, B256, u64) {
+    match envelope.execution_payload {
+        ExecutionPayloadFieldV2::V1(payload) => (
+            ExecutionPayloadInputV2 { execution_payload: payload.clone(), withdrawals: None },
+            payload.block_hash,
+            payload.block_number,
+        ),
+        ExecutionPayloadFieldV2::V2(payload) => (
+            ExecutionPayloadInputV2 {
+                execution_payload: payload.payload_inner.clone(),
+                withdrawals: Some(payload.withdrawals.clone()),
+            },
+            payload.payload_inner.block_hash,
+            payload.payload_inner.block_number,
+        ),
     }
-}
-
-/// Build a forkchoice state pointing head/safe/finalized to the provided hashes.
-fn promotion_forkchoice_state(
-    block_hash: B256,
-    finalized_block_hash: Option<B256>,
-) -> ForkchoiceState {
-    let resolved_finalized_hash = finalized_block_hash.unwrap_or(B256::ZERO);
-    ForkchoiceState {
-        head_block_hash: block_hash,
-        safe_block_hash: resolved_finalized_hash,
-        finalized_block_hash: resolved_finalized_hash,
-    }
-}
-
-/// Fetch the inserted block by number and map provider errors into submission errors.
-async fn fetch_block_by_number<P>(
-    rpc: &Client<P>,
-    block_number: u64,
-) -> Result<RpcBlock<TxEnvelope>, EngineSubmissionError>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    rpc.l2_provider
-        .get_block_by_number(BlockNumberOrTag::Number(block_number))
-        .await
-        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
-        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-        .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))
-}
-
-/// Common flow to submit a payload to the engine, promote forkchoice, and read back the block.
-async fn submit_payload_to_engine<P>(
-    rpc: &Client<P>,
-    payload_input: &ExecutionPayloadInputV2,
-    sidecar: &TaikoExecutionDataSidecar,
-    block_hash: B256,
-    block_number: u64,
-    finalized_block_hash: Option<B256>,
-    payload_id: PayloadId,
-) -> Result<EngineBlockOutcome, EngineSubmissionError>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    let status = rpc.engine_new_payload_v2(payload_input, sidecar).await?;
-    ensure_valid_payload_status(block_number, status.status)?;
-
-    let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
-    rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
-
-    let block = fetch_block_by_number(rpc, block_number).await?;
-
-    Ok(EngineBlockOutcome { block, payload_id })
 }
 
 #[cfg(test)]
@@ -280,44 +252,6 @@ mod tests {
     use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
     use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::bytes::BufMut;
-    use alloy_rpc_types_engine::ExecutionPayloadV2;
-    use protocol::shasta::constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID};
-
-    fn sample_payload(timestamp: u64) -> ExecutionPayloadV1 {
-        ExecutionPayloadV1 {
-            parent_hash: B256::from(U256::from(10u64)),
-            fee_recipient: Address::from([1u8; 20]),
-            state_root: B256::from(U256::from(2u64)),
-            receipts_root: B256::from(U256::from(3u64)),
-            logs_bloom: Bloom::default(),
-            prev_randao: B256::from(U256::from(4u64)),
-            block_number: 7,
-            gas_limit: 30_000_000,
-            gas_used: 0,
-            timestamp,
-            extra_data: Bytes::new(),
-            base_fee_per_gas: U256::from(1u64),
-            block_hash: B256::from(U256::from(42u64)),
-            transactions: vec![Bytes::from_static(&[0x01, 0x23])],
-        }
-    }
-
-    fn sample_envelope_v1(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V1(sample_payload(timestamp)),
-            block_value,
-        }
-    }
-
-    fn sample_envelope_v2(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V2(ExecutionPayloadV2 {
-                payload_inner: sample_payload(timestamp),
-                withdrawals: vec![],
-            }),
-            block_value,
-        }
-    }
 
     #[test]
     fn derive_payload_sidecar_matches_roots() {
@@ -352,7 +286,7 @@ mod tests {
             withdrawals: Some(withdrawals.clone()),
         };
 
-        let sidecar = derive_payload_sidecar(&payload_input, None);
+        let sidecar = derive_payload_sidecar(&payload_input);
 
         let expected_tx_root =
             ordered_trie_root_with_encoder(&transactions, |item, buf| buf.put_slice(item));
@@ -360,34 +294,6 @@ mod tests {
 
         let expected_withdrawals_root = calculate_withdrawals_root(&withdrawals);
         assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
-        assert_eq!(sidecar.header_difficulty, None);
         assert_eq!(sidecar.taiko_block, Some(true));
-    }
-
-    #[test]
-    fn unzen_block_value_becomes_header_difficulty() {
-        let envelope = sample_envelope_v1(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
-    }
-
-    #[test]
-    fn pre_unzen_block_value_is_not_reused_as_header_difficulty() {
-        let envelope = sample_envelope_v1(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_MAINNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, None);
-    }
-
-    #[test]
-    fn unzen_block_value_becomes_header_difficulty_for_v2_envelope() {
-        let envelope = sample_envelope_v2(0, U256::from(42u64));
-
-        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
-
-        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
     }
 }

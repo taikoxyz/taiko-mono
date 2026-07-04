@@ -2,12 +2,12 @@ package transaction
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -18,13 +18,12 @@ import (
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-var ErrUnretryableSubmission = errors.New("unretryable submission error")
-
 // Sender is responsible for sending proof submission transactions with a backoff policy.
 type Sender struct {
-	rpc           *rpc.Client
-	txmgrSelector *utils.TxMgrSelector
-	gasLimit      uint64
+	rpc              *rpc.Client
+	txmgrSelector    *utils.TxMgrSelector
+	proverSetAddress common.Address
+	gasLimit         uint64
 }
 
 // NewSender creates a new Sener instance.
@@ -32,12 +31,14 @@ func NewSender(
 	cli *rpc.Client,
 	txmgr txmgr.TxManager,
 	privateTxmgr txmgr.TxManager,
+	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
 	return &Sender{
-		rpc:           cli,
-		txmgrSelector: utils.NewTxMgrSelector(txmgr, privateTxmgr, nil),
-		gasLimit:      gasLimit,
+		rpc:              cli,
+		txmgrSelector:    utils.NewTxMgrSelector(txmgr, privateTxmgr, nil),
+		proverSetAddress: proverSetAddress,
+		gasLimit:         gasLimit,
 	}
 }
 
@@ -45,7 +46,7 @@ func NewSender(
 func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
 	txMgr, isPrivate := s.txmgrSelector.Select()
 
-	// Assemble the inbox.prove transaction.
+	// Assemble the Pacaya TaikoInbox.proveBatches transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit, Context: ctx, From: txMgr.From()})
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		log.Error(
-			"Failed to submit aggregated proposal proofs",
+			"Failed to submit batch proofs",
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
@@ -74,7 +75,7 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 	log.Info(
 		fmt.Sprintf("🚚 Your %s batch proofs have been accepted", batchProof.ProofType),
 		"txHash", receipt.TxHash,
-		"proposalIDs", batchProof.BatchIDs,
+		"blockIDs", batchProof.BatchIDs,
 	)
 
 	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BatchIDs)))
@@ -83,7 +84,7 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 }
 
 // ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
-// latest verified proposal is not ahead of this proof.
+// latest verified head is not ahead of this block proof.
 func (s *Sender) ValidateProof(
 	ctx context.Context,
 	proofResponse *producer.ProofResponse,
@@ -112,20 +113,19 @@ func (s *Sender) ValidateProof(
 	}
 
 	var verifiedID = latestVerifiedID
-	// 2. Check if latest verified head is ahead of the current proposal.
+	// 2. Check if latest verified head is ahead of the current block.
 	if verifiedID == nil {
-		coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
+		ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
 		if err != nil {
 			return false, err
 		}
-		verifiedID = coreState.LastFinalizedProposalId
+		verifiedID = new(big.Int).SetUint64(ts.BlockId)
 	}
 
-	proposalID := proofResponse.Meta.Shasta().GetEventData().Id
-	if verifiedID.Cmp(proposalID) >= 0 {
+	if verifiedID.Cmp(new(big.Int).SetUint64(proofResponse.Meta.Pacaya().GetLastBlockID())) >= 0 {
 		log.Info(
-			"Proposal is already verified, skip current proof submission",
-			"proposalID", proposalID,
+			"Batch is already verified, skip current proof submission",
+			"batchID", proofResponse.Meta.Pacaya().GetBatchID(),
 			"latestVerifiedID", latestVerifiedID,
 		)
 		return false, nil

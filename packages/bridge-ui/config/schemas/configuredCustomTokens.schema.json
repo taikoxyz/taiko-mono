@@ -42,6 +42,9 @@
             "stablecoin": {
               "type": "boolean"
             },
+            "quotaLimited": {
+              "type": "boolean"
+            },
             "mintable": {
               "type": "boolean"
             }

@@ -12,6 +12,13 @@ export const tokenVaultABI = [
   },
 ] as const;
 
+export const crossChainSyncABI = [
+  {
+    type: 'event',
+    name: 'CrossChainSynced',
+  },
+] as const;
+
 export const freeMintErc20Abi = [
   {
     type: 'event',

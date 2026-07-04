@@ -6,13 +6,12 @@
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
+  import { BridgePausedError } from '$libs/error';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
   import { bridgeTxService } from '$libs/storage';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
-
-  import { assertBridgeNotPaused, shouldShowManualClaimEntry } from './status';
 
   const dispatch = createEventDispatcher();
 
@@ -26,12 +25,6 @@
   let loading = false;
   let hasError = false;
 
-  $: showManualClaimEntry = shouldShowManualClaimEntry({
-    bridgeTxStatus,
-    isProcessable,
-    processingFee: bridgeTx.processingFee,
-  });
-
   function onProcessable(isTxProcessable: boolean) {
     isProcessable = isTxProcessable;
   }
@@ -43,33 +36,41 @@
   }
 
   async function handleRetryClick() {
-    assertBridgeNotPaused(await isBridgePaused());
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
     if (!$connectedSourceChain || !$account?.address) return;
     // retryModalOpen = true;
     dispatch('openModal', 'retry');
   }
 
   async function handleReleaseClick() {
-    assertBridgeNotPaused(await isBridgePaused());
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
     if (!$connectedSourceChain || !$account?.address) return;
     // releaseModalOpen = true;
     dispatch('openModal', 'release');
   }
 
   async function handleClaimClick() {
-    assertBridgeNotPaused(await isBridgePaused());
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
     if (!$connectedSourceChain || !$account?.address) return;
 
     // claimModalOpen = true;
     dispatch('openModal', 'claim');
   }
 
-  async function handleTryClaimClick() {
-    assertBridgeNotPaused(await isBridgePaused());
+  async function release() {
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
     if (!$connectedSourceChain || !$account?.address) return;
-
-    dispatch('openModal', 'try_claim');
+    // TODO: implement release handling
   }
+
   $: if (hasError && $account.address) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
       // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
@@ -112,16 +113,7 @@
 </script>
 
 <div class="Status f-items-center space-x-1">
-  {#if showManualClaimEntry}
-    {#if textOnly}
-      <StatusDot type="pending" />
-      <span>{$t('transactions.status.processing.name')}</span>
-    {:else}
-      <button class="status-btn" on:click={handleTryClaimClick}>
-        {$t('transactions.button.try_claim')}
-      </button>
-    {/if}
-  {:else if !isProcessable}
+  {#if !isProcessable}
     <StatusDot type="pending" />
     <span>{$t('transactions.status.processing.name')}</span>
   {:else if loading}
@@ -155,7 +147,7 @@
       <StatusDot type="pending" />
       <span>{$t('transactions.status.releasable')}</span>
     {:else}
-      <button class="status-btn" on:click={handleReleaseClick}>
+      <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
         {$t('transactions.button.release')}
       </button>
     {/if}

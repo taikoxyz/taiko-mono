@@ -11,7 +11,6 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
 import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
@@ -46,11 +45,9 @@ export class ETHBridge extends Bridge {
       log('Gas limit is set to 0');
       gasLimit = 0;
     } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: args.tokenObject,
-        srcChainId,
-        destChainId,
-      });
+      const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([0n]);
+      log('Min gas limit for message', minGasLimit);
+      gasLimit = minGasLimit + 1;
     }
 
     const message: Message = {

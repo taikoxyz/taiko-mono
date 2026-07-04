@@ -2,7 +2,6 @@ package mock
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"math/big"
 	"math/rand"
@@ -25,23 +24,14 @@ func NewEventRepository() *EventRepository {
 	}
 }
 func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventOpts) (*eventindexer.Event, error) {
-	e := &eventindexer.Event{
+	r.events = append(r.events, &eventindexer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		Data:    datatypes.JSON(opts.Data),
 		ChainID: opts.ChainID.Int64(),
 		Name:    opts.Name,
 		Event:   opts.Event,
 		Address: opts.Address,
-	}
-
-	if opts.BatchID != nil {
-		e.BatchID = sql.NullInt64{
-			Valid: true,
-			Int64: *opts.BatchID,
-		}
-	}
-
-	r.events = append(r.events, e)
+	})
 
 	return nil, nil
 }
@@ -139,6 +129,24 @@ func (r *EventRepository) FirstByAddressAndEventName(
 	return nil, nil
 }
 
+func (r *EventRepository) GetAssignedBlocksByProverAddress(
+	ctx context.Context,
+	req *http.Request,
+	address string,
+) (paginate.Page, error) {
+	var events []*eventindexer.Event
+
+	for _, e := range r.events {
+		if e.AssignedProver == address && e.Event == eventindexer.EventNameBlockProposed {
+			events = append(events, e)
+		}
+	}
+
+	return paginate.Page{
+		Items: events,
+	}, nil
+}
+
 // DeleteAllAfterBlockID is used when a reorg is detected
 func (r *EventRepository) DeleteAllAfterBlockID(ctx context.Context, blockID uint64, srcChainID uint64) error {
 	return nil
@@ -156,22 +164,24 @@ func (r *EventRepository) FindLatestBlockID(
 	return 0, errors.New("invalid")
 }
 
-func (r *EventRepository) GetProposalProposedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]*eventindexer.Event, error) {
+	var events []*eventindexer.Event
+
 	for _, e := range r.events {
-		if int(e.BatchID.Int64) == proposalID && e.Event == eventindexer.EventNameProposed {
-			return e, nil
+		if int(e.BlockID.Int64) == blockID && e.Event == eventindexer.EventNameTransitionProved {
+			events = append(events, e)
 		}
 	}
 
-	return nil, gorm.ErrRecordNotFound
+	return events, nil
 }
 
-func (r *EventRepository) GetProposalProvedBy(ctx context.Context, proposalID int) (*eventindexer.Event, error) {
+func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (*eventindexer.Event, error) {
 	for _, e := range r.events {
-		if int(e.BatchID.Int64) == proposalID && e.Event == eventindexer.EventNameProved {
+		if int(e.BlockID.Int64) == blockID && e.Event == eventindexer.EventNameBlockProposed {
 			return e, nil
 		}
 	}
 
-	return nil, gorm.ErrRecordNotFound
+	return nil, errors.New("not found")
 }

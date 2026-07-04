@@ -73,6 +73,7 @@
       }
     },
     "errors": {
+      "amount_exceeds_quota": "This amount exceeds the quota. Please lower the amount.",
       "approve_error": {
         "message": "We encountered an issue while trying to approve this token.",
         "title": "Approval failed"
@@ -85,10 +86,6 @@
         "not_received": {
           "message": "The message is not proven and cannot be claimed right now.",
           "title": "Not received"
-        },
-        "quota_reached": {
-          "message": "This asset's withdrawal quota is currently used up. Your funds are safe; wait for the quota to replenish, then try claiming again.",
-          "title": "Withdrawal quota reached"
         }
       },
       "custom_token": {
@@ -385,7 +382,6 @@
     "faucet": "Faucet",
     "guide": "Guide",
     "nft": "NFT",
-    "relayer": "Manual Claim",
     "swap": "Swap",
     "theme": "Theme",
     "token": "Token",
@@ -423,7 +419,6 @@
     "link": "Customize fee",
     "none": {
       "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
-      "claim": "Claim it yourself later in Transactions",
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
       "warning": "Insufficient ETH to cover the gas fees for claiming."
@@ -448,7 +443,7 @@
   },
   "relayer_component": {
     "address_input_label": "Enter the recipient address",
-    "description": "Search by recipient address, then claim eligible bridge transactions from any connected wallet with enough ETH.",
+    "description": "This component allows you to manually claim any claimable transaction",
     "no_tx_found": "No claimable transactions found",
     "step1": {
       "title": "Step 1: Select the recipient"
@@ -456,7 +451,7 @@
     "step2": {
       "title": "Step 2: Search the transaction you want"
     },
-    "title": "Manual Claim"
+    "title": "Relayer Component"
   },
   "switch_modal": {
     "description": "Your current network is not supported. Please select one of the following chains to proceed:",
@@ -512,8 +507,7 @@
       "claim": "Claim",
       "prove": "Prove",
       "release": "Release",
-      "retry": "Retry",
-      "try_claim": "Try claim"
+      "retry": "Retry"
     },
     "claim": {
       "steps": {
@@ -526,6 +520,7 @@
           "chain_check": "Connected to the correct chain",
           "funds_check": "Sufficient funds to claim",
           "only_destowner_can_claim": "This transaction can only be claimed by the destination owner. Please connect to the correct wallet to claim this transaction.",
+          "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
           "switch_chain": "This transaction is bridging to <span class=\"font-bold text-primary\">{chain}</span> You need to be connected           to this chain",
@@ -541,6 +536,10 @@
             },
             "processing_fee": {
               "description": "A processing fee has been set for this transaction. If the fee is high enough, a relayer may claim it automatically. Regardless, you can choose to manually claim the transaction. Note that the fee is non-refundable."
+            },
+            "quota": {
+              "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
+              "title": "What is \"Sufficient daily quota\"?"
             }
           }
         },

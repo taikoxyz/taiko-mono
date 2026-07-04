@@ -1,27 +1,69 @@
 {
   "configuredBridges": [
     {
-      "source": "L1_CHAIN_ID",
-      "destination": "L2_CHAIN_ID",
+      "source": "",
+      "destination": "",
       "addresses": {
         "bridgeAddress": "",
         "erc20VaultAddress": "",
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
         "signalServiceAddress": "",
-        "quotaManagerAddress": ""
+        "quotaManagerAddress: ""
       }
     },
     {
-      "source": "L2_CHAIN_ID",
-      "destination": "L1_CHAIN_ID",
+      "source": "",
+      "destination": "",
       "addresses": {
         "bridgeAddress": "",
         "erc20VaultAddress": "",
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
         "signalServiceAddress": "",
-        "anchorForkRouter": ""
+        "quotaManagerAddress: ""
+      }
+    },
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "",
+        "quotaManagerAddress: ""
+        "hops": [
+          {
+            "chainId": ,
+            "crossChainSyncAddress": "",
+            "signalServiceAddress": "",
+          }
+        ]
+      }
+    },
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "",
+        "quotaManagerAddress: ""
+        "hops": [
+          {
+            "chainId": ,
+            "crossChainSyncAddress": "",
+            "signalServiceAddress": "",
+          }
+        ]
       }
     }
   ]

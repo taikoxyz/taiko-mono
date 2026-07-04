@@ -18,9 +18,6 @@ pub struct DriverConfig {
     pub l2_checkpoint_url: Option<Url>,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
-    /// Enable preconfirmation handling (disabled by default).
-    /// NOTE: will be changed to be decided by flag in future.
-    pub preconfirmation_enabled: bool,
 }
 
 impl DriverConfig {
@@ -35,13 +32,6 @@ impl DriverConfig {
         l2_checkpoint_url: Option<Url>,
         blob_server_endpoint: Option<Url>,
     ) -> Self {
-        Self {
-            client,
-            retry_interval,
-            l1_beacon_endpoint,
-            l2_checkpoint_url,
-            blob_server_endpoint,
-            preconfirmation_enabled: false,
-        }
+        Self { client, retry_interval, l1_beacon_endpoint, l2_checkpoint_url, blob_server_endpoint }
     }
 }

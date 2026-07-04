@@ -23,7 +23,7 @@ func Test_GetByAddressAndEvent(t *testing.T) {
 		Data:         `{"Owner": "0x0000000000000000000000000000000000000123"}`,
 		ChainID:      big.NewInt(167001),
 		Address:      "0x123",
-		Event:        eventindexer.EventNameProposed,
+		Event:        eventindexer.EventNameBlockProposed,
 		TransactedAt: time.Now(),
 	})
 
@@ -39,14 +39,14 @@ func Test_GetByAddressAndEvent(t *testing.T) {
 		{
 			"successZeroEvents",
 			"0xhasntProposedAnything",
-			eventindexer.EventNameProposed,
+			eventindexer.EventNameBlockProposed,
 			http.StatusOK,
 			[]string{`{"items":`},
 		},
 		{
 			"success",
 			"0x123",
-			eventindexer.EventNameProposed,
+			eventindexer.EventNameBlockProposed,
 			http.StatusOK,
 			[]string{`{"items":`},
 		},

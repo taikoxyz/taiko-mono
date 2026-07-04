@@ -18,18 +18,21 @@ var (
 func Test_EncodedSignalProof(t *testing.T) {
 	p := newTestProver()
 
-	params := SignalProofParams{
-		ChainID:              mock.MockChainID,
-		SignalServiceAddress: common.Address{},
-		Key:                  [32]byte{},
-		Blocker:              &mock.EthClient{},
-		Caller:               &mock.Caller{},
-		BlockNumber:          uint64(mock.BlockNum),
+	hops := []HopParams{
+		{
+			ChainID:              mock.MockChainID,
+			SignalServiceAddress: common.Address{},
+			SignalService:        &mock.SignalService{},
+			Key:                  [32]byte{},
+			Blocker:              &mock.EthClient{},
+			Caller:               &mock.Caller{},
+			BlockNumber:          uint64(mock.BlockNum),
+		},
 	}
 
-	encoded, err := p.EncodedSignalProof(
+	encoded, err := p.EncodedSignalProofWithHops(
 		context.Background(),
-		params,
+		hops,
 	)
 
 	assert.Nil(t, err)

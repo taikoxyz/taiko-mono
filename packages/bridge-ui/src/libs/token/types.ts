@@ -18,6 +18,7 @@ export enum TokenAttributeKey {
   Wrapped = 'wrapped',
   Stablecoin = 'stablecoin',
   Supported = 'supported',
+  QuotaLimited = 'quotaLimited',
 }
 
 export type TokenAttributes = {
@@ -25,6 +26,7 @@ export type TokenAttributes = {
   [TokenAttributeKey.Wrapped]?: boolean;
   [TokenAttributeKey.Stablecoin]?: boolean;
   [TokenAttributeKey.Supported]?: boolean;
+  [TokenAttributeKey.QuotaLimited]?: boolean;
 };
 
 export type Token = {

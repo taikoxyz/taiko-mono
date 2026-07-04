@@ -13,38 +13,40 @@
 <div align="center">
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
-[![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/aGZYtKqMjj)
+[![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
+[![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
 </div>
 
 > [!WARNING]
-> The `main` branch is under active development. For the latest version of the Taiko Alethia protocol contracts (Shasta fork), please use the [`taiko-alethia-protocol-v3.0.0`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v3.0.0) branch. The release process involves security measures that the `main` branch does not guarantee.
+> The `main` branch is under active development for the next Shasta fork. For the latest version of the Taiko Alethia protocol contracts (Pacaya fork), please use the [`taiko-alethia-protocol-v2.3.1`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v2.3.1) branch. The release process involves security measures that the `main` branch does not guarantee.
 
 ## Documentation
 
 Get started with Taiko Alethia:
 
-- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started (source: [taiko-docs](https://github.com/taikoxyz/taiko-docs)).
+- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
 - [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko Alethia protocol for deeper understanding.
 - [Smart contracts](./packages/protocol/contracts/) — Taiko Alethia protocol smart contracts, fully documented with NatSpec.
 
 ## Packages
 
 > [!TIP]
-> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network/software-releases) for the latest versions.
+> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://github.com/taikoxyz/taiko-mono/releases)!
 
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |
 | [balance-monitor](./packages/balance-monitor)                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
+| [blobindexer-rs](./packages/blobindexer-rs/)                  | Service that indexes Ethereum L1 blobs.                            |
 | [bridge-ui](./packages/bridge-ui)                             | Bridge UI.                                                         |
+| [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
 | [ejector](./packages/ejector)                                 | Preconfirmation ejector service for operators with issues.         |
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
-| [preconfirmation-p2p](./packages/preconfirmation-p2p)         | Permissionless preconfirmation P2P networking libraries.           |
 | [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
 | [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
@@ -53,7 +55,6 @@ Get started with Taiko Alethia:
 | [taiko-client-rs](./packages/taiko-client-rs)                 | Taiko Alethia client implementation in Rust.                       |
 | [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
-| [urcindexer-rs](./packages/urcindexer-rs)                     | URC registry indexer service backed by MySQL.                      |
 
 ## Issues
 
@@ -65,4 +66,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
 
 ## Getting support
 
-Reach out to the community on [Discord](https://discord.gg/7cAp9kQ8) if you need any help!
+Reach out to the community on [Discord](https://discord.gg/taikoxyz) if you need any help!

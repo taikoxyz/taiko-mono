@@ -26,8 +26,5 @@
       "Bash(go build:*)"
     ],
     "deny": ["Bash(git push --force:*)"]
-  },
-  "enabledPlugins": {
-    "code-simplifier@claude-plugins-official": true
   }
 }

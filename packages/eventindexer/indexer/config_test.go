@@ -11,7 +11,7 @@ import (
 
 var (
 	metricsHttpPort         = "1001"
-	l1TaikoAddress          = "0x53FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	l1TaikoAddress          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"

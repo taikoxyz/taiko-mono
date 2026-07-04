@@ -49,10 +49,6 @@ type DBConnectionOpts struct {
 	OpenFunc        func(dsn string) (DB, error)
 }
 
-func ConnMaxLifetimeFromSeconds(seconds uint64) time.Duration {
-	return time.Duration(seconds) * time.Second
-}
-
 func OpenDBConnection(opts DBConnectionOpts) (DB, error) {
 	dsn := ""
 	if opts.Password == "" {
@@ -91,7 +87,7 @@ func OpenDBConnection(opts DBConnectionOpts) (DB, error) {
 	sqlDB.SetMaxIdleConns(int(opts.MaxIdleConns))
 
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
-	sqlDB.SetConnMaxLifetime(ConnMaxLifetimeFromSeconds(opts.MaxConnLifetime))
+	sqlDB.SetConnMaxLifetime(time.Duration(opts.MaxConnLifetime))
 
 	return db, nil
 }

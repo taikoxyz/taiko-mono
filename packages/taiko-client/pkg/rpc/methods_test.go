@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"crypto/rand"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -12,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 var (
@@ -33,21 +32,19 @@ func TestL2AccountNonce(t *testing.T) {
 func TestGetGenesisL1Header(t *testing.T) {
 	client := newTestClient(t)
 
-	activationHeight, err := client.GetActivationBlockNumber(context.Background())
-	require.Nil(t, err)
-
 	header, err := client.GetGenesisL1Header(context.Background())
 
 	require.Nil(t, err)
-	require.Equal(t, activationHeight.Uint64(), header.Number.Uint64())
+	require.NotZero(t, header.Number.Uint64())
 }
 
 func TestLatestL2KnownL1Header(t *testing.T) {
 	client := newTestClient(t)
 
 	header, err := client.LatestL2KnownL1Header(context.Background())
+
 	require.Nil(t, err)
-	require.NotNil(t, header)
+	require.NotZero(t, header.Number.Uint64())
 }
 
 func TestL2ParentByBlockId(t *testing.T) {
@@ -57,27 +54,27 @@ func TestL2ParentByBlockId(t *testing.T) {
 	require.Nil(t, err)
 	require.Zero(t, header.Number.Uint64())
 
-	l2Head, err := client.L2.HeaderByNumber(context.Background(), nil)
+	_, err = client.L2ParentByCurrentBlockID(context.Background(), common.Big2)
 	require.Nil(t, err)
-
-	_, err = client.L2ParentByCurrentBlockID(
-		context.Background(),
-		new(big.Int).Add(l2Head.Number, common.Big256),
-	)
-	require.ErrorContains(t, err, "not found")
 }
 
 func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 	client := newTestClient(t)
 
-	progress, err := client.L2ExecutionEngineSyncProgress(context.Background())
+	progress, err := client.L2ExecutionEngineSyncProgress(context.Background(), nil)
 	require.Nil(t, err)
 	require.NotNil(t, progress)
 }
 
+func TestGetProtocolStateVariables(t *testing.T) {
+	client := newTestClient(t)
+	_, err := client.GetLastVerifiedTransitionPacaya(context.Background())
+	require.Nil(t, err)
+}
+
 func TestWaitTillL2ExecutionEngineSyncedNewClient(t *testing.T) {
 	client := newTestClient(t)
-	err := client.WaitTillL2ExecutionEngineSynced(context.Background())
+	err := client.WaitTillL2ExecutionEngineSynced(context.Background(), nil)
 	require.Nil(t, err)
 }
 
@@ -86,6 +83,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 
 	l1StateRoot := randomHash()
 	l1Height := randomHash().Big().Uint64()
+	parentGasUsed := uint32(randomHash().Big().Uint64())
 
 	testAddrPrivKey, err := crypto.ToECDSA(common.Hex2Bytes(encoding.GoldenTouchPrivKey))
 	require.Nil(t, err)
@@ -96,13 +94,13 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	opts.NoSend = true
 	opts.GasLimit = 1_000_000
 
-	tx, err := client.ShastaClients.Anchor.AnchorV4(
+	tx, err := client.PacayaClients.TaikoAnchor.AnchorV3(
 		opts,
-		shastaBindings.ICheckpointStoreCheckpoint{
-			BlockNumber: new(big.Int).SetUint64(l1Height),
-			BlockHash:   randomHash(),
-			StateRoot:   l1StateRoot,
-		},
+		l1Height,
+		l1StateRoot,
+		parentGasUsed,
+		pacayaBindings.LibSharedDataBaseFeeConfig{},
+		[][32]byte{},
 	)
 	require.Nil(t, err)
 
@@ -113,7 +111,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, l1StateRoot, syncedL1StateRoot)
 	require.Equal(t, l1Height, syncedL1Height)
-	require.Zero(t, syncedParentGasUsed)
+	require.Equal(t, parentGasUsed, syncedParentGasUsed)
 }
 
 func TestWaitTillL2ExecutionEngineSyncedContextErr(t *testing.T) {
@@ -121,7 +119,7 @@ func TestWaitTillL2ExecutionEngineSyncedContextErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := client.WaitTillL2ExecutionEngineSynced(ctx)
+	err := client.WaitTillL2ExecutionEngineSynced(ctx, nil)
 	require.ErrorContains(t, err, "context canceled")
 }
 

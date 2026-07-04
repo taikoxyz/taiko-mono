@@ -128,6 +128,67 @@ info:
   title: Taiko Event Indexer API
   version: "1.0"
 paths:
+  /assignedBlocks:
+    get:
+      consumes:
+        - application/json
+      operationId: get-assigned-blocks-by-prover-address
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get assigned blocks by prover address
+  /blockProposedBy:
+    get:
+      consumes:
+        - application/json
+      operationId: get-block-proposed-by
+      parameters:
+        - description: blockID to query
+          in: query
+          name: blockID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: "#/definitions/eventindexer.Event"
+            type: array
+      summary: Get block proposed by
+  /blockProvenBy:
+    get:
+      consumes:
+        - application/json
+      operationId: get-block-proven-by
+      parameters:
+        - description: blockID to query
+          in: query
+          name: blockID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: "#/definitions/eventindexer.Event"
+            type: array
+      summary: Get block proven by
   /chart/chartByTask:
     get:
       consumes:

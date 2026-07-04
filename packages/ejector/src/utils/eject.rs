@@ -23,7 +23,7 @@ async fn eject_operator_internal(
         return Ok(());
     }
 
-    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url);
+    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url.clone());
     let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
 
     let info = preconf_whitelist.operators(operator).call().await?;
@@ -50,13 +50,12 @@ async fn eject_operator_internal(
         return Ok(());
     }
 
-    //since this pulls from active_operator_count which pulls from operatorMapping, operator_hex == proposer_hex
     let operator_hex = format!("{operator:#x}");
     metrics::ensure_eject_metric_labels(&operator_hex);
 
     info!(reason = reason, operator = %operator_hex, "Sending removeOperator transaction");
 
-    let pending = preconf_whitelist.removeOperator(U256::from(info.index)).send().await?;
+    let pending = preconf_whitelist.removeOperator(operator, true).send().await?;
     let tx_hash = pending.tx_hash();
     info!(
         reason = reason,
@@ -150,8 +149,8 @@ where
             if let Some(set) = seen.as_deref_mut() {
                 let inserted = set.insert((addr, info.sequencerAddress));
                 if inserted {
-                    let proposer_addr = addr.to_string();
-                    metrics::ensure_eject_metric_labels(&proposer_addr);
+                    let sequencer_addr = info.sequencerAddress.to_string();
+                    metrics::ensure_eject_metric_labels(&sequencer_addr);
                 }
             }
             count += 1;

@@ -34,6 +34,11 @@ type QueueMessageSentBody struct {
 	TimesRetried uint64
 }
 
+type QueueMessageProcessedBody struct {
+	Message bridge.IBridgeMessage
+	ID      int
+}
+
 type Message struct {
 	Body     []byte
 	Internal interface{}

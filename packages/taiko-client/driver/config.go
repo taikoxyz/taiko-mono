@@ -21,32 +21,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-var (
-	errEndpointMissing = errors.New("must provide one of the WS / HTTP endpoint flags")
-)
-
-// resolveEndpoints picks the endpoint URL for one network: prefer the WS flag,
-// fall back to HTTP.
-func resolveEndpoints(ws, http string) (string, error) {
-	if ws == "" && http == "" {
-		return "", errEndpointMissing
-	}
-	if ws != "" {
-		return ws, nil
-	}
-	return http, nil
-}
-
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
 	P2PSync                       bool
+	P2PSyncTimeout                time.Duration
 	RetryInterval                 time.Duration
 	BlobServerEndpoint            *url.URL
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
 	PreconfBlockServerCORSOrigins string
-	HandoverSkipSlots             uint64
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
 	PreconfOperatorAddress        common.Address
@@ -95,38 +79,22 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 		}
 	}
-	if c.Uint64(flags.PreconfBlockServerPort.Name) > 0 && len(preconfBlockServerJWTSecret) == 0 {
-		return nil, errors.New("preconfirmation.jwtSecret is required when preconfirmation.serverPort is enabled")
-	}
-
-	// Resolve L1 / L2 endpoints (WS preferred, HTTP fallback).
-	l1Endpoint, err := resolveEndpoints(
-		c.String(flags.L1WSEndpoint.Name),
-		c.String(flags.L1HTTPEndpoint.Name),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("L1 endpoint: %w", err)
-	}
-	l2Endpoint, err := resolveEndpoints(
-		c.String(flags.L2WSEndpoint.Name),
-		c.String(flags.L2HTTPEndpoint.Name),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("L2 endpoint: %w", err)
-	}
 
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:         l1Endpoint,
-			L1BeaconEndpoint:   beaconEndpoint,
-			L2Endpoint:         l2Endpoint,
-			L2CheckPoint:       l2CheckPoint,
-			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
-			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-			L2EngineEndpoint:   c.String(flags.L2AuthEndpoint.Name),
-			JwtSecret:          string(jwtSecret),
-			Timeout:            c.Duration(flags.RPCTimeout.Name),
+			L1Endpoint:              c.String(flags.L1WSEndpoint.Name),
+			L1BeaconEndpoint:        beaconEndpoint,
+			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
+			L2CheckPoint:            l2CheckPoint,
+			PacayaInboxAddress:      common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
+			ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
+			TaikoAnchorAddress:      common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
+			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
+			JwtSecret:               string(jwtSecret),
+			Timeout:                 c.Duration(flags.RPCTimeout.Name),
+			TaikoWrapperAddress:     common.HexToAddress(c.String(flags.DriverTaikoWrapperAddress.Name)),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup
@@ -165,11 +133,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ClientConfig:                  clientConfig,
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
 		P2PSync:                       p2pSync,
+		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
 		BlobServerEndpoint:            blobServerEndpoint,
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
-		HandoverSkipSlots:             c.Uint64(flags.PreconfHandoverSkipSlots.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
 		PreconfOperatorAddress:        preconfOperatorAddress,

@@ -15,13 +15,13 @@ jobs:
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Install Vercel CLI
-        run: pnpm add --global vercel@53.3.2
+        run: pnpm add --global vercel@latest
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}

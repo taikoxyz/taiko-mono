@@ -16,8 +16,9 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
@@ -34,7 +35,10 @@ func (s *TransactionTestSuite) SetupTest() {
 
 	s.builder = NewProveBatchesTxBuilder(
 		s.RPCClient,
-		common.HexToAddress(os.Getenv("INBOX")),
+		s.ShastaStateIndexer,
+		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+		rpc.ZeroAddress,
 	)
 
 	txmgr, err := txmgr.NewSimpleTxManager(
@@ -59,39 +63,37 @@ func (s *TransactionTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
-	s.sender = NewSender(s.RPCClient, txmgr, txmgr, 0)
+	s.sender = NewSender(s.RPCClient, txmgr, txmgr, rpc.ZeroAddress, 0)
 }
 
 func (s *TransactionTestSuite) TestValidateProof() {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	coreState, err := s.RPCClient.GetCoreState(nil)
+	ts, err := s.RPCClient.GetLastVerifiedTransitionPacaya(context.Background())
 	s.Nil(err)
 
-	proposalID := new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
-	meta := metadata.NewTaikoProposalMetadataShasta(
-		&shastaBindings.ShastaInboxClientProposed{
-			Id:       proposalID,
-			Proposer: common.Address{},
+	meta := metadata.NewTaikoDataBlockMetadataPacaya(
+		&pacayaBindings.TaikoInboxClientBatchProposed{
+			Meta: pacayaBindings.ITaikoInboxBatchMetadata{BatchId: 1},
+			Info: pacayaBindings.ITaikoInboxBatchInfo{LastBlockId: ts.BlockId + 1},
 			Raw: types.Log{
 				BlockNumber: l1Head.Number.Uint64(),
 				BlockHash:   l1Head.Hash(),
 			},
 		},
-		l1Head.Time,
 	)
 
 	ok, err := s.sender.ValidateProof(
 		context.Background(),
 		&producer.ProofResponse{
-			BatchID:   proposalID,
+			BatchID:   common.Big1,
 			Meta:      meta,
 			Proof:     testutils.RandomBytes(100),
-			Opts:      &producer.ProposalProofRequestOptions{EventL1Hash: l1Head.Hash()},
+			Opts:      &producer.ProofRequestOptionsPacaya{EventL1Hash: l1Head.Hash()},
 			ProofType: producer.ProofTypeOp,
 		},
-		coreState.LastFinalizedProposalId,
+		new(big.Int).SetUint64(ts.BlockId),
 	)
 	s.Nil(err)
 	s.True(ok)

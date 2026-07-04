@@ -52,20 +52,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("invalid bridgeMessageValue")
 	}
 
-	srcBridgeAddress, err := parseRequiredAddress(c.String(flags.SrcBridgeAddress.Name), "srcBridgeAddress")
-	if err != nil {
-		return nil, err
-	}
-
-	destBridgeAddress, err := parseRequiredAddress(c.String(flags.DestBridgeAddress.Name), "destBridgeAddress")
-	if err != nil {
-		return nil, err
-	}
-
 	return &Config{
 		BridgePrivateKey:     bridgePrivateKey,
-		DestBridgeAddress:    destBridgeAddress,
-		SrcBridgeAddress:     srcBridgeAddress,
+		DestBridgeAddress:    common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
+		SrcBridgeAddress:     common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
 		SrcRPCUrl:            c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:           c.String(flags.DestRPCUrl.Name),
 		Confirmations:        c.Uint64(flags.Confirmations.Name),
@@ -76,17 +66,4 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:     c.Uint64(flags.ETHClientTimeout.Name),
 		BridgeMessageValue:   bridgeMessageValue,
 	}, nil
-}
-
-func parseRequiredAddress(value string, name string) (common.Address, error) {
-	if !common.IsHexAddress(value) {
-		return common.Address{}, fmt.Errorf("invalid %s", name)
-	}
-
-	address := common.HexToAddress(value)
-	if address == (common.Address{}) {
-		return common.Address{}, fmt.Errorf("invalid %s: zero address", name)
-	}
-
-	return address, nil
 }

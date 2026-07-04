@@ -34,6 +34,14 @@ export const getContractAddressByType = (args: GetContractAddressType): Address 
       return getVaultAddress(args);
     case ContractType.SIGNALSERVICE:
       return addressConfig.signalServiceAddress;
+    case ContractType.CROSSCHAINSYNC:
+      return addressConfig.crossChainSyncAddress;
+    case ContractType.QUOTAMANAGER:
+      if (addressConfig.quotaManagerAddress) {
+        return addressConfig.quotaManagerAddress;
+      } else {
+        throw new Error('QuotaManager not configured for this chain pair');
+      }
     default:
       throw new Error('Invalid contract type');
   }

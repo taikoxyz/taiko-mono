@@ -1,9 +1,11 @@
-import { getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { getPublicClient, getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
-import { erc721Abi, erc721VaultAbi } from '$abi';
+import { bridgeAbi, erc721Abi, erc721VaultAbi } from '$abi';
+import { routingContractsMap } from '$bridgeConfig';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
+import { gasLimitConfig } from '$config';
 import {
   ApproveError,
   BridgePausedError,
@@ -20,7 +22,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
+import { calculateMessageDataSize } from './calculateMessageDataSize';
 import type { ERC721BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC721Bridge');
@@ -206,18 +208,28 @@ export class ERC721Bridge extends Bridge {
 
     if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
 
+    const { size } = await calculateMessageDataSize({ token: tokenObject, chainId: srcChainId, tokenIds });
+
+    const client = await getPublicClient(config, { chainId: destChainId });
+    if (!client) throw new Error('Could not get public client');
+
+    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
+    const destBridgeContract = getContract({
+      client,
+      abi: bridgeAbi,
+      address: destBridgeAddress,
+    });
+
+    const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
+
     let gasLimit: number;
     if (get(gasLimitZero)) {
       log('Gas limit is set to 0');
       gasLimit = 0;
     } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: tokenObject,
-        srcChainId,
-        destChainId,
-        isTokenAlreadyDeployed,
-        tokenIds,
-      });
+      gasLimit = !isTokenAlreadyDeployed
+        ? minGasLimit + gasLimitConfig.erc721NotDeployedGasLimit // Token is not deployed
+        : minGasLimit + gasLimitConfig.erc721DeployedGasLimit; // Token is deployed
     }
 
     const sendERC721Args: NFTBridgeTransferOp = {

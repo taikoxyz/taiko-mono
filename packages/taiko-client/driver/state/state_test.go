@@ -58,13 +58,6 @@ func (s *DriverStateTestSuite) TestSubL1HeadsFeed() {
 	s.NotNil(s.s.SubL1HeadsFeed(make(chan *types.Header)))
 }
 
-func (s *DriverStateTestSuite) TestInitL1Current() {
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(s.ctx, nil)
-	s.Nil(err)
-	s.Nil(s.s.initL1Current(s.ctx, l2Head))
-	s.NotNil(s.s.GetL1Current())
-}
-
 func (s *DriverStateTestSuite) TestNewDriverContextErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

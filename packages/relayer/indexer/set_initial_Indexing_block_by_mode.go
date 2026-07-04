@@ -13,9 +13,26 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	mode SyncMode,
 	chainID *big.Int,
 ) error {
-	startingBlock, err := i.getShastaGenesisBlockHeight()
-	if err != nil {
-		return err
+	var startingBlock uint64 = 0
+
+	if i.taikol1 != nil {
+		slotA, _, err := i.taikol1.GetStateVariables(nil)
+		if err != nil {
+			// use v2 bindings
+			slotA, _, err := i.taikoL1V2.GetStateVariables(nil)
+			if err != nil {
+				stats, err := i.taikoInboxV3.GetStats1(nil)
+				if err != nil {
+					return errors.Wrap(err, "v3.taikoInboxV3.GetStats1")
+				}
+
+				startingBlock = stats.GenesisHeight - 1
+			} else {
+				startingBlock = slotA.GenesisHeight - 1
+			}
+		} else {
+			startingBlock = slotA.GenesisHeight - 1
+		}
 	}
 
 	switch mode {
@@ -42,24 +59,4 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	i.latestIndexedBlockNumber = startingBlock
 
 	return nil
-}
-
-// getShastaGenesisBlockHeight returns the Shasta genesis block height using the
-// inbox contract. Returns 0 if no inbox contract is configured.
-func (i *Indexer) getShastaGenesisBlockHeight() (uint64, error) {
-	if i.shastaInbox == nil {
-		return 0, nil
-	}
-
-	ts, err := i.shastaInbox.ActivationTimestamp(nil)
-	if err != nil {
-		return 0, errors.Wrap(err, "shastaInbox.ActivationTimestamp")
-	}
-
-	blockNum, err := i.getBlockByTimestamp(i.ctx, ts.Uint64())
-	if err != nil {
-		return 0, errors.Wrap(err, "getBlockByTimestamp")
-	}
-
-	return blockNum, nil
 }

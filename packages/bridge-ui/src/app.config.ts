@@ -1,4 +1,6 @@
 export const gasLimitConfig = {
+  GAS_RESERVE: 650_000, // based on Bridge.sol
+  ethGasLimit: 100_000,
   erc20NotDeployedGasLimit: 750_000,
   erc20DeployedGasLimit: 500_000,
   erc721NotDeployedGasLimit: 2_400_000,

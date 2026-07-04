@@ -11,10 +11,10 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/taiko"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
@@ -24,6 +24,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -73,7 +74,10 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	start := time.Now()
+	var (
+		start = time.Now()
+	)
+
 	defer func() {
 		elapsedMs := time.Since(start).Milliseconds()
 		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(float64(elapsedMs) / 1_000)
@@ -83,20 +87,29 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// make a new context, we don't want to cancel the request if the caller times out.
 	ctx := context.Background()
 
+	if s.rpc.PacayaClients.TaikoWrapper != nil {
+		// Check if the preconfirmation is enabled.
+		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return s.returnError(c, http.StatusInternalServerError, err)
+		}
+		if preconfRouter == rpc.ZeroAddress {
+			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
+			return s.returnError(
+				c,
+				http.StatusInternalServerError,
+				errors.New("preconfirmation is disabled via taikoWrapper"),
+			)
+		}
+	}
+
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
 	if err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
 	if progress.IsSyncing() {
 		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
-	}
-	if !s.syncReady {
-		return s.returnError(
-			c,
-			http.StatusBadRequest,
-			errors.New("preconfirmation block server is not ready to insert blocks"),
-		)
 	}
 
 	// Parse the request body.
@@ -113,36 +126,56 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	if s.latestSeenProposal != nil &&
-		s.latestSeenProposal.IsShasta() &&
-		bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
-		parentProposalID, err := core.DecodeShastaProposalID(parent.Extra())
-		if err != nil {
-			return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
-		}
+	if s.latestSeenProposal != nil {
+		if s.latestSeenProposal.IsShasta() {
+			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) &&
+				s.latestSeenProposal.IsShasta() {
+				parentProposalID := new(big.Int).SetBytes(parent.Transactions()[0].Data()[4:36])
 
-		latestProposalID := s.latestSeenProposal.Shasta().GetEventData().Id
-		if parentProposalID.Cmp(latestProposalID) < 0 {
-			log.Warn(
-				"The parent block proposal ID is smaller than the latest proposal ID seen in event",
-				"parentProposalID", parentProposalID,
-				"latestProposalIDSeenInEvent", latestProposalID,
-			)
+				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetProposal().Id) < 0 {
+					log.Warn(
+						"The parent block proposal ID is smaller than the latest proposal ID seen in event",
+						"parentProposalID", parentProposalID,
+						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetProposal().Id,
+					)
 
-			return s.returnError(c, http.StatusBadRequest,
-				fmt.Errorf(
-					"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
-					latestProposalID,
-					parentProposalID,
-				),
-			)
+					return s.returnError(c, http.StatusBadRequest,
+						fmt.Errorf(
+							"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
+							s.latestSeenProposal.Shasta().GetProposal().Id,
+							parentProposalID,
+						),
+					)
+				}
+			}
+		} else {
+			if parent.NumberU64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
+				log.Warn(
+					"The parent block ID is smaller than the latest block ID seen in event",
+					"parentBlockID", parent.NumberU64(),
+					"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
+				)
+
+				return s.returnError(c, http.StatusBadRequest,
+					fmt.Errorf(
+						"latestBatchProposalBlockID: %v, parentBlockID: %v",
+						s.latestSeenProposal.Pacaya().GetLastBlockID(),
+						parent.NumberU64(),
+					),
+				)
+			}
 		}
 	}
 
-	var (
-		endOfSequencing   = reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing
-		isForcedInclusion = reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion
-	)
+	endOfSequencing := false
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
+		endOfSequencing = true
+	}
+
+	isForcedInclusion := false
+	if reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion {
+		isForcedInclusion = true
+	}
 
 	log.Info(
 		"🏗️ New preconfirmation block building request",
@@ -157,20 +190,27 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"isForcedInclusion", isForcedInclusion,
 	)
 
-	// Check that the current L1 slot falls inside this operator's sequencing window
-	// (current or next, covering the handover window).
+	// Check if the fee recipient the current operator or the next operator if its in handover window.
 	if s.rpc.L1Beacon != nil {
-		if err := s.CheckLookaheadHandover(s.rpc.L1Beacon.CurrentSlot()); err != nil {
+		if err := s.CheckLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 			return s.returnError(c, http.StatusBadRequest, err)
 		}
 	}
 
-	mixHash, err := encoding.CalculateShastaMixHash(
-		parent.Difficulty(),
-		new(big.Int).SetUint64(reqBody.ExecutableData.Number),
-	)
-	if err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
+	var difficulty []byte
+	if reqBody.ExecutableData.Timestamp >= s.rpc.ShastaClients.ForkTime {
+		if difficulty, err = encoding.CalculateShastaDifficulty(
+			parent.Difficulty(),
+			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
+		); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
+	} else {
+		if difficulty, err = encoding.CalculatePacayaDifficulty(
+			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
+		); err != nil {
+			return s.returnError(c, http.StatusBadRequest, err)
+		}
 	}
 
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
@@ -181,7 +221,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	executablePayload := &eth.ExecutionPayload{
 		ParentHash:    reqBody.ExecutableData.ParentHash,
 		FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
-		PrevRandao:    eth.Bytes32(mixHash[:]),
+		PrevRandao:    eth.Bytes32(difficulty[:]),
 		BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
 		GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
 		Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),
@@ -228,7 +268,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"extraData", common.Bytes2Hex(header.Extra),
 			"parentHash", header.ParentHash,
 			"endOfSequencing", endOfSequencing,
-			"isForcedInclusion", isForcedInclusion,
+			"isForcedInclusion", reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion,
 		)
 
 		var u256 uint256.Int
@@ -263,15 +303,23 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			}
 
 			// Build envelope once, cache locally, then publish to P2P.
-			env, err := headerToEnvelope(
-				header,
-				[]eth.Data{reqBody.ExecutableData.Transactions},
-				reqBody.EndOfSequencing,
-				&isForcedInclusion,
-				sigBytes,
-			)
-			if err != nil {
-				return s.returnError(c, http.StatusInternalServerError, err)
+			env := &eth.ExecutionPayloadEnvelope{
+				ExecutionPayload: &eth.ExecutionPayload{
+					BaseFeePerGas: eth.Uint256Quantity(u256),
+					ParentHash:    header.ParentHash,
+					FeeRecipient:  header.Coinbase,
+					ExtraData:     header.Extra,
+					PrevRandao:    eth.Bytes32(header.MixDigest),
+					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+					GasLimit:      eth.Uint64Quantity(header.GasLimit),
+					GasUsed:       eth.Uint64Quantity(header.GasUsed),
+					Timestamp:     eth.Uint64Quantity(header.Time),
+					BlockHash:     header.Hash(),
+					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+				},
+				EndOfSequencing:   reqBody.EndOfSequencing,
+				IsForcedInclusion: &isForcedInclusion,
+				Signature:         sigBytes,
 			}
 
 			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.
@@ -296,7 +344,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		)
 	}
 
-	if endOfSequencing && s.rpc.L1Beacon != nil {
+	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
 		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
 		s.sequencingEndedForEpochCache.Add(currentEpoch, header.Hash())
 		log.Info(
@@ -336,9 +384,6 @@ type Status struct {
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
-	// CanShutdown is true when the server is safe to receive SIGTERM, i.e.,
-	// not the active or imminent preconfer for the current L1 slot.
-	CanShutdown bool `json:"canShutdown"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -361,33 +406,23 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		}
 	}
 
-	currentSlot := uint64(0)
-	if s.rpc.L1Beacon != nil {
-		currentSlot = s.rpc.L1Beacon.CurrentSlot()
-	}
-	canShutdown := s.canShutdownLocked(currentSlot)
-
-	if s.lookahead != nil && s.rpc.L1Beacon != nil {
-		log.Debug(
-			"Get preconfirmation block server status",
-			"currOperator", s.lookahead.CurrOperator.Hex(),
-			"nextOperator", s.lookahead.NextOperator.Hex(),
-			"currRanges", s.lookahead.CurrRanges,
-			"nextRanges", s.lookahead.NextRanges,
-			"totalCached", s.envelopesCache.getTotalCached(),
-			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-			"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
-			"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
-			"canShutdown", canShutdown,
-		)
-	}
+	log.Debug(
+		"Get preconfirmation block server status",
+		"currOperator", s.lookahead.CurrOperator.Hex(),
+		"nextOperator", s.lookahead.NextOperator.Hex(),
+		"currRanges", s.lookahead.CurrRanges,
+		"nextRanges", s.lookahead.NextRanges,
+		"totalCached", s.envelopesCache.getTotalCached(),
+		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
+	)
 
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.envelopesCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
-		CanShutdown:                   canShutdown,
 	})
 }
 

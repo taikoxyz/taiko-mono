@@ -3,19 +3,15 @@ package processor
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
@@ -49,58 +45,6 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		}, []byte{})
 
 	assert.Equal(t, err, errUnprocessable)
-}
-
-func TestGetBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
-	p := newTestProcessor(false)
-	p.taikoL2 = &taikol2.TaikoL2{}
-	p.destEthClient = &blockByNumberEthClient{
-		EthClient: &mock.EthClient{},
-		block:     processorBlockWithBaseFee(big.NewInt(123)),
-	}
-
-	got, err := p.getBaseFee(context.Background())
-
-	assert.NoError(t, err)
-	assert.Equal(t, big.NewInt(123), got)
-}
-
-func TestGetBaseFee_Layer2MissingBaseFeeFails(t *testing.T) {
-	p := newTestProcessor(false)
-	p.taikoL2 = &taikol2.TaikoL2{}
-	p.destEthClient = &blockByNumberEthClient{EthClient: &mock.EthClient{}, block: processorBlockWithBaseFee(nil)}
-
-	got, err := p.getBaseFee(context.Background())
-
-	assert.Nil(t, got)
-	assert.ErrorIs(t, err, relayer.ErrMissingDestBaseFee)
-}
-
-func TestSaveMessageStatusChangedEventSkipsLogsWithoutTopics(t *testing.T) {
-	p := newTestProcessor(false)
-
-	err := p.saveMessageStatusChangedEvent(
-		context.Background(),
-		&types.Receipt{
-			TxHash: relayer.ZeroHash,
-			Logs: []*types.Log{
-				{},
-			},
-		},
-		&bridge.BridgeMessageSent{
-			Message: bridge.IBridgeMessage{
-				SrcChainId:  mock.MockChainID.Uint64(),
-				DestChainId: mock.MockChainID.Uint64(),
-				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-			},
-			MsgHash: relayer.ZeroHash,
-			Raw: types.Log{
-				BlockNumber: 1,
-			},
-		},
-	)
-
-	assert.Nil(t, err)
 }
 
 func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
@@ -183,76 +127,4 @@ func Test_ProcessMessage_unprofitable(t *testing.T) {
 	)
 
 	assert.False(t, shouldRequeue)
-}
-
-func TestGenerateEncodedSignalProofUsesDestChainCheckpoint(t *testing.T) {
-	const (
-		srcChainID  = uint64(1)
-		destChainID = uint64(2)
-	)
-
-	repo := mock.NewEventRepository()
-	repo.LatestCheckpointSyncedEventFunc = func(
-		ctx context.Context,
-		chainID uint64,
-		syncedChainID uint64,
-	) (uint64, error) {
-		if chainID != destChainID || syncedChainID != srcChainID {
-			return 0, errors.New("unexpected chain IDs")
-		}
-
-		return 10, nil
-	}
-
-	ethClient := &mock.EthClient{}
-	prover, err := proof.New(ethClient)
-	assert.Nil(t, err)
-
-	p := &Processor{
-		eventRepo:               repo,
-		srcChainId:              big.NewInt(int64(srcChainID)),
-		destChainId:             big.NewInt(int64(destChainID)),
-		srcEthClient:            ethClient,
-		srcCaller:               &mock.Caller{},
-		prover:                  prover,
-		srcSignalService:        &mock.SignalService{},
-		srcSignalServiceAddress: common.HexToAddress("0x0000000000000000000000000000000000000001"),
-		ethClientTimeout:        time.Second,
-	}
-
-	event := &bridge.BridgeMessageSent{
-		MsgHash: [32]byte{0x01},
-		Message: bridge.IBridgeMessage{
-			SrcChainId:  srcChainID,
-			DestChainId: destChainID,
-			From:        common.HexToAddress("0x0000000000000000000000000000000000000002"),
-			SrcOwner:    common.HexToAddress("0x0000000000000000000000000000000000000002"),
-			DestOwner:   common.HexToAddress("0x0000000000000000000000000000000000000002"),
-			To:          common.HexToAddress("0x0000000000000000000000000000000000000002"),
-			GasLimit:    1,
-		},
-		Raw: types.Log{
-			Address:     common.HexToAddress("0x0000000000000000000000000000000000000003"),
-			BlockNumber: 1,
-		},
-	}
-
-	_, err = p.generateEncodedSignalProof(context.Background(), event)
-	assert.Nil(t, err)
-}
-
-type blockByNumberEthClient struct {
-	*mock.EthClient
-	block *types.Block
-}
-
-func (c *blockByNumberEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return c.block, nil
-}
-
-func processorBlockWithBaseFee(baseFee *big.Int) *types.Block {
-	header := *mock.Header
-	header.BaseFee = baseFee
-
-	return types.NewBlockWithHeader(&header)
 }

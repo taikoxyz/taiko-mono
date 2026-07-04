@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
@@ -15,26 +14,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
-// SubcommandApplication defines the lifecycle hooks shared by Taiko client
-// subcommands such as the driver, proposer, and prover.
 type SubcommandApplication interface {
-	// InitFromCli initializes the application from CLI flags before startup.
 	InitFromCli(context.Context, *cli.Context) error
-	// Name returns the application name used in logs and lifecycle messages.
 	Name() string
-	// Start starts the application services and returns once startup succeeds or fails.
 	Start() error
-	// Close releases application resources during shutdown.
 	Close(context.Context)
 }
 
-// SubcommandAction wraps a SubcommandApplication as a urfave/cli action with
-// logger setup, devnet overrides, metrics serving, and signal-based shutdown.
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		logger.InitLogger(c)
-
-		applyDevnetUnzenTimeOverride(c)
 
 		ctx, ctxClose := context.WithCancel(context.Background())
 		defer ctxClose()
@@ -77,18 +66,4 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 
 		return nil
 	}
-}
-
-// applyDevnetUnzenTimeOverride mutates the embedded taiko-geth's core.DevnetUnzenTime
-// package variable from the CLI flag, if and only if the flag was explicitly set.
-// It must run before any chain-config or genesis lookup so downstream consumers
-// observe the overridden Unzen activation timestamp. When the flag is absent this
-// is a no-op (the package var is left untouched, never overwritten with 0).
-func applyDevnetUnzenTimeOverride(c *cli.Context) {
-	if !c.IsSet(flags.TaikoDevnetUnzenTime.Name) {
-		return
-	}
-	ts := c.Uint64(flags.TaikoDevnetUnzenTime.Name)
-	core.DevnetUnzenTime = ts
-	log.Info("Overriding devnet Unzen activation time", "timestamp", ts)
 }

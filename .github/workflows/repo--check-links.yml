@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "**/README.md"
+      - docs/**
 
 jobs:
   check-links:
@@ -11,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
 
       - name: Check links
         uses: lycheeverse/lychee-action@v2

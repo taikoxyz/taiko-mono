@@ -109,12 +109,6 @@ var (
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_INDEX"},
 	}
-	IgnoredMsgHashes = &cli.StringFlag{
-		Name:     "ignoredMsgHashes",
-		Usage:    "Comma-separated MessageProcessed msgHash values to skip",
-		Category: indexerCategory,
-		EnvVars:  []string{"IGNORED_MSG_HASHES"},
-	}
 	WaitForConfirmationTimeout = &cli.DurationFlag{
 		Name:     "waitForConfirmationTimeout",
 		Usage:    "Timeout waiting for confirmations",
@@ -145,7 +139,6 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	NumLatestBlocksStartWhenCrawling,
 	EventName,
 	MinFeeToIndex,
-	IgnoredMsgHashes,
 	TargetBlockNumber,
 	WaitForConfirmationTimeout,
 	IndexingConfirmations,
