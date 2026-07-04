@@ -273,11 +273,16 @@ where
 mod tests {
     use super::*;
     use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
+    use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
 
-    #[test]
-    fn engine_new_payload_v2_value_preserves_header_difficulty() {
+    /// One payload/sidecar pair, parameterized on the two fields the serde-shape
+    /// tests vary. Field values copied from the first test's literals.
+    fn sample_payload_and_sidecar(
+        header_difficulty: Option<U256>,
+        withdrawals: Option<Vec<Withdrawal>>,
+    ) -> (ExecutionPayloadInputV2, TaikoExecutionDataSidecar) {
         let payload = ExecutionPayloadInputV2 {
             execution_payload: ExecutionPayloadV1 {
                 parent_hash: B256::from(U256::from(10u64)),
@@ -295,15 +300,22 @@ mod tests {
                 block_hash: B256::from(U256::from(42u64)),
                 transactions: vec![],
             },
-            withdrawals: None,
+            withdrawals,
         };
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::from([0x11; 32]),
             withdrawals_hash: Some(B256::from([0x22; 32])),
-            header_difficulty: Some(U256::from(7u64)),
+            header_difficulty,
             taiko_block: Some(true),
         };
+
+        (payload, sidecar)
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_preserves_header_difficulty() {
+        let (payload, sidecar) = sample_payload_and_sidecar(Some(U256::from(7u64)), None);
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
         let obj = value.as_object().expect("payload should serialize to a JSON object");
@@ -323,32 +335,7 @@ mod tests {
 
     #[test]
     fn engine_new_payload_v2_value_omits_header_difficulty_when_absent() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: None,
-        };
-
-        let sidecar = TaikoExecutionDataSidecar {
-            tx_hash: B256::ZERO,
-            withdrawals_hash: None,
-            header_difficulty: None,
-            taiko_block: Some(true),
-        };
+        let (payload, sidecar) = sample_payload_and_sidecar(None, None);
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
         let obj = value.as_object().expect("payload should serialize to a JSON object");
@@ -358,32 +345,7 @@ mod tests {
 
     #[test]
     fn engine_new_payload_v2_value_preserves_withdrawals_when_present() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: Some(vec![]),
-        };
-
-        let sidecar = TaikoExecutionDataSidecar {
-            tx_hash: B256::ZERO,
-            withdrawals_hash: None,
-            header_difficulty: None,
-            taiko_block: Some(true),
-        };
+        let (payload, sidecar) = sample_payload_and_sidecar(None, Some(vec![]));
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
         let obj = value.as_object().expect("payload should serialize to a JSON object");

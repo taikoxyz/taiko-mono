@@ -236,13 +236,12 @@ mod tests {
         assert!(secret.is_none());
     }
 
+    /// The HTTP timeout must cover one preconfirmation submit budget — the
+    /// driver's submit timeout is 12s (event.rs); an RPC timeout below it would
+    /// abort injections from underneath the ingress loop.
     #[test]
-    fn test_default_http_timeout_covers_preconfirmation_budget() {
-        assert_eq!(
-            DEFAULT_HTTP_TIMEOUT,
-            Duration::from_secs(12),
-            "DEFAULT_HTTP_TIMEOUT should default to 12 seconds"
-        );
+    fn default_http_timeout_covers_preconf_submit_budget() {
+        assert!(DEFAULT_HTTP_TIMEOUT >= Duration::from_secs(12));
     }
 
     #[tokio::test]
