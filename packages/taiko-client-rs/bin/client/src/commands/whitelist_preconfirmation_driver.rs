@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
 use protocol::shasta::set_devnet_unzen_override;
-use tracing::warn;
+use tracing::{debug, warn};
 use whitelist_preconfirmation_driver::{
     NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
     WhitelistPreconfirmationDriverRunner,
@@ -72,6 +72,17 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
     /// Build P2P configuration from command-line arguments.
     fn build_p2p_config(&self) -> Result<NetworkConfig> {
+        if self.preconf_flags.p2p_disable_discovery {
+            warn!(
+                "--p2p.disable-discovery is deprecated and ignored: discv5 discovery has been \
+                 removed and bootnodes are dialed directly"
+            );
+        }
+        debug!(
+            discovery_addr = %self.preconf_flags.p2p_discovery_addr,
+            "ignoring deprecated --p2p.discovery.addr; discv5 discovery has been removed"
+        );
+
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -84,14 +95,11 @@ impl WhitelistPreconfirmationDriverSubCommand {
         Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             advertise_addr: self.preconf_flags.p2p_advertise_addr,
-            discovery_listen: self.preconf_flags.p2p_discovery_addr,
-            enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             pre_dial_peers,
             preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(
                 self.preconfirmation_p2p_priv_raw.as_deref(),
             )?,
-            ..Default::default()
         })
     }
 

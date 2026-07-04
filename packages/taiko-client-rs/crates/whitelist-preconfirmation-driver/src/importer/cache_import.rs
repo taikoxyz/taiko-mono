@@ -32,10 +32,7 @@ fn build_driver_payload(
     ))
 }
 
-impl<P> WhitelistPreconfirmationImporter<P>
-where
-    P: alloy_provider::Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistPreconfirmationImporter {
     /// Attempt to import cached envelopes if sync is ready.
     pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
         self.refresh_sync_ready().await?;
@@ -50,13 +47,23 @@ where
     pub(super) async fn import_from_cache(&mut self) -> Result<()> {
         loop {
             let mut progressed = false;
+            // One confirmed-boundary snapshot per drain pass instead of one RPC per
+            // envelope. If the boundary advances mid-pass the stale snapshot only
+            // under-drops here and the already-inserted check below still drops
+            // just-confirmed duplicates; if a reorg reset lowers it mid-pass, a
+            // stale-high snapshot can over-drop a cached block, which is the safe
+            // direction and self-heals via re-gossip or a parent request. Either way
+            // the driver's preconf ingress re-reads the boundary per submitted payload
+            // (WLP-INV-003 stays enforced at the ingress path). An unwritten origin
+            // means no confirmed boundary yet (genesis cold start).
+            let head_l1_origin_block_id = self.head_l1_origin_block_id().await?.unwrap_or(0);
             let hashes = self.cache.sorted_hashes_by_block_number();
 
             for hash in hashes {
                 let Some(entry) = self.cache.get(&hash).cloned() else {
                     continue;
                 };
-                match self.try_import_cached(&entry).await {
+                match self.try_import_cached(&entry, head_l1_origin_block_id).await {
                     Ok(true) => {
                         WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
                             "progressed",
@@ -108,18 +115,16 @@ where
         Ok(())
     }
 
-    /// Try to import one cached envelope.
+    /// Try to import one cached envelope against the pass-level confirmed boundary.
     async fn try_import_cached(
         &mut self,
         envelope: &WhitelistExecutionPayloadEnvelope,
+        head_l1_origin_block_id: u64,
     ) -> Result<bool> {
         let payload = &envelope.execution_payload;
         let block_number = payload.block_number;
         let block_hash = payload.block_hash;
         let end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false);
-
-        // An unwritten head origin means no confirmed boundary yet (genesis cold start).
-        let head_l1_origin_block_id = self.head_l1_origin_block_id().await?.unwrap_or(0);
 
         if block_number <= head_l1_origin_block_id {
             debug!(

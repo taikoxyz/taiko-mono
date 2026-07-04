@@ -35,6 +35,12 @@ use crate::{
 /// Type alias for a Client with a provider that includes a wallet.
 pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
 
+/// Default walletless L1 provider type: recommended fillers over an HTTP/WS root provider.
+///
+/// Every read-only consumer (driver, whitelist preconfirmation driver) uses exactly this
+/// provider, so those crates can name it concretely instead of threading a generic.
+pub type DefaultProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
+
 /// Default HTTP timeout for RPC and auxiliary HTTP clients.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -84,7 +90,7 @@ pub struct ClientConfig {
     pub inbox_address: Address,
 }
 
-impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
+impl Client<DefaultProvider> {
     /// Create a new `Client` without a wallet from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
         let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {

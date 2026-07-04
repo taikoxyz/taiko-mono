@@ -33,10 +33,7 @@ use super::{
     },
 };
 
-impl<P> WhitelistPreconfirmationImporter<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistPreconfirmationImporter {
     /// Cache a validated envelope and persist EOS epoch mapping when applicable.
     async fn ingest_validated_envelope(
         &mut self,

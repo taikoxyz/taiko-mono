@@ -14,7 +14,10 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
-use rpc::{beacon::BeaconClient, client::Client};
+use rpc::{
+    beacon::BeaconClient,
+    client::{Client, DefaultProvider},
+};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
 
@@ -86,14 +89,11 @@ fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
 }
 
 /// Implements whitelist preconfirmation API business logic.
-pub(crate) struct WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) struct WhitelistApiService {
     /// Event syncer for L1 origin lookups.
-    event_syncer: Arc<EventSyncer<P>>,
+    event_syncer: Arc<EventSyncer<DefaultProvider>>,
     /// RPC client for L1/L2 reads.
-    rpc: Client<P>,
+    rpc: Client<DefaultProvider>,
     /// Chain ID for signature domain separation.
     chain_id: u64,
     /// Deterministic signer for block signing.
@@ -118,14 +118,11 @@ where
 }
 
 /// Dependency bundle for constructing `WhitelistApiService`.
-pub(crate) struct WhitelistApiServiceParams<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) struct WhitelistApiServiceParams {
     /// Shared event syncer used to read the current L1 origin.
-    pub(crate) event_syncer: Arc<EventSyncer<P>>,
+    pub(crate) event_syncer: Arc<EventSyncer<DefaultProvider>>,
     /// L1/L2 RPC client.
-    pub(crate) rpc: Client<P>,
+    pub(crate) rpc: Client<DefaultProvider>,
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
     /// Signer used for block signing operations.
@@ -140,10 +137,7 @@ where
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
 }
 
-impl<P> WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistApiService {
     /// Create a new API service instance.
     pub(crate) fn new(
         WhitelistApiServiceParams {
@@ -155,7 +149,7 @@ where
             operator_set,
             state,
             network_command_tx,
-        }: WhitelistApiServiceParams<P>,
+        }: WhitelistApiServiceParams,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
