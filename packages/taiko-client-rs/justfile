@@ -18,8 +18,8 @@ clippy-fix:
 udeps:
   cargo +{{toolchain}} udeps --all-targets
 
-test:
-  ./tests/entrypoint.sh
+test *ARGS:
+  ./tests/entrypoint.sh {{ARGS}}
 
 gen_bindings:
   ./script/gen_bindings.sh
