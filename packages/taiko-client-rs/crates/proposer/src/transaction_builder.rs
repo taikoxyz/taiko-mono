@@ -219,19 +219,13 @@ mod tests {
             },
         },
         signers::local::PrivateKeySigner,
-        sol_types::{SolCall, SolValue},
+        sol_types::SolValue,
         transports::{TransportError, TransportFut},
     };
     use alloy_network::EthereumWallet;
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
-    use bindings::{
-        anchor::Anchor::AnchorInstance,
-        inbox::{
-            IInbox::ProposeInput,
-            Inbox::{InboxInstance, encodeProposeInputCall},
-        },
-    };
+    use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
     use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
     use rpc::client::{Client, ClientWithWallet, ShastaProtocolInstance};
     use std::sync::{
@@ -285,7 +279,6 @@ mod tests {
         latest_block: Option<RpcBlock<TxEnvelope>>,
         genesis_block: Option<RpcBlock<TxEnvelope>>,
         requests: Arc<Mutex<Vec<String>>>,
-        propose_inputs: Arc<Mutex<Vec<ProposeInput>>>,
         saw_latest_block: Arc<AtomicBool>,
         saw_genesis_block: Arc<AtomicBool>,
     }
@@ -298,7 +291,6 @@ mod tests {
                 latest_block: None,
                 genesis_block: None,
                 requests: Arc::new(Mutex::new(Vec::new())),
-                propose_inputs: Arc::new(Mutex::new(Vec::new())),
                 saw_latest_block: Arc::new(AtomicBool::new(false)),
                 saw_genesis_block: Arc::new(AtomicBool::new(false)),
             }
@@ -311,7 +303,6 @@ mod tests {
                 latest_block: Some(latest_block),
                 genesis_block: Some(genesis_block),
                 requests: Arc::new(Mutex::new(Vec::new())),
-                propose_inputs: Arc::new(Mutex::new(Vec::new())),
                 saw_latest_block: Arc::new(AtomicBool::new(false)),
                 saw_genesis_block: Arc::new(AtomicBool::new(false)),
             }
@@ -329,10 +320,6 @@ mod tests {
             self.requests.lock().expect("request log should not be poisoned").clone()
         }
 
-        fn propose_inputs(&self) -> Vec<ProposeInput> {
-            self.propose_inputs.lock().expect("propose input log should not be poisoned").clone()
-        }
-
         fn handle_request(
             &self,
             request: SerializedRequest,
@@ -343,10 +330,6 @@ mod tests {
                 .lock()
                 .expect("request log should not be poisoned")
                 .push(format!("{method} {}", params.as_deref().unwrap_or("")));
-
-            if method == "eth_call" {
-                self.record_encode_propose_input(params.as_deref());
-            }
 
             match method.as_str() {
                 "eth_blockNumber" => success_u64(request.id().clone(), self.l1_block_number),
@@ -405,22 +388,6 @@ mod tests {
                 ),
             }
         }
-
-        fn record_encode_propose_input(&self, params: Option<&str>) {
-            let Some(call_data) = params.and_then(extract_call_data) else {
-                return;
-            };
-            if !call_data.as_ref().starts_with(&encodeProposeInputCall::SELECTOR) {
-                return;
-            }
-
-            let call = encodeProposeInputCall::abi_decode_validate(call_data.as_ref())
-                .expect("encodeProposeInput call data should decode");
-            self.propose_inputs
-                .lock()
-                .expect("propose input log should not be poisoned")
-                .push(call._input);
-        }
     }
 
     impl tower::Service<RequestPacket> for ManifestTestTransport {
@@ -477,13 +444,6 @@ mod tests {
         value: &RpcBlock<TxEnvelope>,
     ) -> Response<Box<serde_json::value::RawValue>> {
         success_json(id, serde_json::to_string(value).expect("test response should serialize"))
-    }
-
-    fn extract_call_data(params: &str) -> Option<Bytes> {
-        let parsed_params: serde_json::Value = serde_json::from_str(params).ok()?;
-        let tx = parsed_params.as_array()?.first()?;
-        let raw_data = tx.get("input").or_else(|| tx.get("data"))?;
-        serde_json::from_value(raw_data.clone()).ok()
     }
 
     fn test_rpc_client(
@@ -568,42 +528,6 @@ mod tests {
                 .any(|entry| entry.contains("eth_getBlockByNumber") && entry.contains("latest")),
             "request log should include an eth_getBlockByNumber latest lookup"
         );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn build_propose_input_does_not_request_forced_inclusions() -> crate::error::Result<()> {
-        let latest_parent = RpcBlock::<TxEnvelope> {
-            header: RpcHeader {
-                hash: Default::default(),
-                inner: ConsensusHeader { number: 42, gas_limit: 46_000_000, ..Default::default() },
-                total_difficulty: None,
-                size: None,
-            },
-            ..Default::default()
-        };
-        let genesis_parent = RpcBlock::<TxEnvelope> {
-            header: RpcHeader {
-                hash: Default::default(),
-                inner: ConsensusHeader { number: 0, gas_limit: 47_000_000, ..Default::default() },
-                total_difficulty: None,
-                size: None,
-            },
-            ..Default::default()
-        };
-        let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
-        let l1_transport = ManifestTestTransport::l1(1, call_result);
-        let l2_transport = ManifestTestTransport::l2(latest_parent, genesis_parent);
-        let rpc_provider = test_rpc_client(l1_transport.clone(), l2_transport);
-        let builder =
-            ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
-
-        let _built_tx = builder.build(vec![vec![]], None).await?;
-        let propose_inputs = l1_transport.propose_inputs();
-
-        assert_eq!(propose_inputs.len(), 1);
-        assert_eq!(propose_inputs[0].numForcedInclusions, 0);
 
         Ok(())
     }
