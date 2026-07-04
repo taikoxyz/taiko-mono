@@ -326,4 +326,70 @@ mod tests {
         let decoded = codec.decode(&compressed).expect("legacy tx-list should decode successfully");
         assert_eq!(decoded, vec![legacy]);
     }
+
+    /// Reads a Go-generated fixture file, failing with a regeneration hint.
+    fn go_fixture(rel: &str) -> Vec<u8> {
+        let path = format!("{}/fixtures/go/{rel}", env!("CARGO_MANIFEST_DIR"));
+        std::fs::read(&path)
+            .unwrap_or_else(|e| panic!("missing fixture {path} ({e}) — run `just gen-fixtures`"))
+    }
+
+    /// Parses the expected canonical tx encodings from a fixture's sidecar JSON.
+    fn go_fixture_txs(name: &str) -> Vec<Vec<u8>> {
+        let json = go_fixture(&format!("txlist/{name}.json"));
+        let value: serde_json::Value = serde_json::from_slice(&json).expect("fixture json");
+        value["txs"]
+            .as_array()
+            .expect("txs array")
+            .iter()
+            .map(|s| {
+                let s = s.as_str().expect("hex string");
+                alloy_primitives::hex::decode(s).expect("hex decode")
+            })
+            .collect()
+    }
+
+    /// Decoder sized like the whitelist ingress path (6 blobs compressed, 8 MiB raw).
+    fn go_parity_codec() -> ZlibTxListCodec {
+        ZlibTxListCodec::new_with_limits(131_072 * 6, 8 * 1024 * 1024)
+    }
+
+    #[test]
+    fn txlist_codec_decodes_go_encoded_fixtures() {
+        for name in [
+            "empty",
+            "single_legacy",
+            "single_1559",
+            "single_2930",
+            "single_4844",
+            "single_7702",
+            "mixed_all",
+            "bulk_100",
+        ] {
+            let compressed = go_fixture(&format!("txlist/{name}.bin"));
+            let decoded = go_parity_codec()
+                .decode(&compressed)
+                .unwrap_or_else(|e| panic!("fixture {name} must decode: {e}"));
+            assert_eq!(decoded, go_fixture_txs(name), "fixture {name} tx mismatch");
+        }
+    }
+
+    #[test]
+    fn txlist_codec_decodes_any_zlib_level() {
+        // Same txs as mixed_all, but compressed by Go at BestCompression: the
+        // decoder must be level-independent.
+        let compressed = go_fixture("txlist/mixed_all_best_compression.bin");
+        let decoded = go_parity_codec().decode(&compressed).expect("best-compression decode");
+        assert_eq!(decoded, go_fixture_txs("mixed_all"));
+    }
+
+    // NOTE: An encode-direction byte-parity test against the Go fixtures
+    // (`txlist_codec_encode_matches_go_bytes`) was intentionally omitted.
+    // Go's `compress/zlib` writer and Rust's `flate2` emit different zlib
+    // stream framing (block final-bit placement and sync-flush markers) for
+    // the same RLP payload, so the compressed bytes are not bit-for-bit equal
+    // even at matching compression levels. The production requirement is
+    // decode-direction compatibility (importing Go-produced tx-lists), which
+    // the decode tests above cover; both encoders round-trip through either
+    // decoder, so encoded bytes are semantically equivalent.
 }
