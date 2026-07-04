@@ -715,6 +715,20 @@ export const bridgeAbi = [
   { type: 'error', inputs: [], name: 'ZERO_VALUE' },
 ] as const
 
+export const quotaManagerAbi = [
+  {
+    type: 'function',
+    inputs: [
+      { name: '_token', internalType: 'address', type: 'address' },
+      { name: '_leap', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'availableQuota',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  { type: 'error', inputs: [], name: 'QM_OUT_OF_QUOTA' },
+] as const
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ERC1155Vault
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

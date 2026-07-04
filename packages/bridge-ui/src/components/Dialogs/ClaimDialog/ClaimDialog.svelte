@@ -33,8 +33,9 @@
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
-  import { isMessageNotReceivedError, isQuotaManagerOutOfQuotaError } from './error';
+  import { isMessageNotReceivedError } from './error';
   import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from './mode';
+  import { claimWithQuotaGuard, showQuotaToastForClaimError } from './quota';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
@@ -54,8 +55,13 @@
   export let directClaim = false;
 
   export const handleClaimClick = async () => {
-    claiming = true;
-    await ClaimComponent.claim(ClaimAction.CLAIM, force, shouldSkipMessageStatusCheck(claimMode));
+    await claimWithQuotaGuard({
+      bridgeTx,
+      claim: () => ClaimComponent.claim(ClaimAction.CLAIM, force, shouldSkipMessageStatusCheck(claimMode)),
+      setClaiming: (value) => (claiming = value),
+      showQuotaReachedToast,
+      onQuotaCheckError: logQuotaCheckError,
+    });
   };
 
   let force = false;
@@ -125,7 +131,25 @@
     });
   };
 
-  const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
+  const showQuotaReachedToast = () => {
+    errorToast({
+      title: $t('bridge.errors.claim.quota_reached.title'),
+      message: $t('bridge.errors.claim.quota_reached.message'),
+    });
+  };
+
+  const showUnknownErrorToast = () => {
+    errorToast({
+      title: $t('bridge.errors.unknown_error.title'),
+      message: $t('bridge.errors.unknown_error.message'),
+    });
+  };
+
+  const logQuotaCheckError = (quotaError: unknown) => {
+    console.error('Failed to check claim quota', quotaError);
+  };
+
+  const handleClaimError = async (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
     // canForceTransaction = true;
@@ -155,24 +179,20 @@
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
           });
-        } else if (isQuotaManagerOutOfQuotaError(err)) {
-          errorToast({
-            title: $t('bridge.errors.claim.quota_reached.title'),
-            message: $t('bridge.errors.claim.quota_reached.message'),
-          });
         } else {
-          errorToast({
-            title: $t('bridge.errors.unknown_error.title'),
-            message: $t('bridge.errors.unknown_error.message'),
-          });
+          if (
+            !(await showQuotaToastForClaimError(err, bridgeTx, {
+              showQuotaReachedToast,
+              onQuotaCheckError: logQuotaCheckError,
+            }))
+          ) {
+            showUnknownErrorToast();
+          }
         }
         break;
       default:
         console.error(err);
-        errorToast({
-          title: $t('bridge.errors.unknown_error.title'),
-          message: $t('bridge.errors.unknown_error.message'),
-        });
+        showUnknownErrorToast();
         break;
     }
     claiming = false;
