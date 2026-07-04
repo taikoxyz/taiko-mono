@@ -17,7 +17,7 @@ use libp2p::{
     multiaddr::Protocol, noise, swarm::DialError, tcp, yamux,
 };
 use tokio::{
-    sync::mpsc,
+    sync::{mpsc, watch},
     task::JoinHandle,
     time::{Instant as TokioInstant, Interval, MissedTickBehavior},
 };
@@ -119,6 +119,13 @@ pub(crate) struct WhitelistNetwork {
     pub(crate) event_rx: mpsc::Receiver<NetworkEvent>,
     /// Outbound command sender.
     pub(crate) command_tx: mpsc::Sender<NetworkCommand>,
+    /// First confirmed swarm listen address (None until the listener is bound).
+    ///
+    /// Only consumed by tests today (to dial a `:0`-bound node); production
+    /// callers bind fixed ports and never read it, so the field is allowed to be
+    /// dead outside `cfg(test)`.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) listen_addr_rx: watch::Receiver<Option<Multiaddr>>,
     /// Background task running the swarm.
     pub(crate) handle: JoinHandle<Result<()>>,
 }
@@ -291,6 +298,9 @@ impl WhitelistNetwork {
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, command_rx) = mpsc::channel(512);
+        // Publishes the first confirmed listen address so callers can dial a
+        // `:0`-bound node; the sender moves into the swarm task below.
+        let (listen_addr_tx, listen_addr_rx) = watch::channel(None);
 
         let inbound_validation_state = GossipsubInboundState::new(chain_id, operator_set);
 
@@ -307,11 +317,12 @@ impl WhitelistNetwork {
             peer_status_log_interval: delayed_interval(PEER_STATUS_LOG_INTERVAL),
             inbound_validation_state,
             peer_id_for_events: peer_id,
+            listen_addr_tx,
         };
 
         let handle = tokio::spawn(async move { runtime.run().await });
 
-        Ok(Self { peer_id, event_rx, command_tx, handle })
+        Ok(Self { peer_id, event_rx, command_tx, listen_addr_rx, handle })
     }
 }
 
@@ -503,6 +514,8 @@ struct NetworkRuntime {
     inbound_validation_state: GossipsubInboundState,
     /// Local peer id used to ignore self-propagated gossip.
     peer_id_for_events: PeerId,
+    /// Publishes the first confirmed swarm listen address to `WhitelistNetwork`.
+    listen_addr_tx: watch::Sender<Option<Multiaddr>>,
 }
 
 impl NetworkRuntime {
@@ -732,6 +745,16 @@ impl NetworkRuntime {
                 self.handle_gossipsub_event(*event).await?;
             }
             libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
+                // Publish only the first confirmed address; later listen addrs do
+                // not overwrite it, matching the `listen_addr_rx` doc contract.
+                self.listen_addr_tx.send_if_modified(|current| {
+                    if current.is_none() {
+                        *current = Some(address.clone());
+                        true
+                    } else {
+                        false
+                    }
+                });
                 debug!(%address, "whitelist preconfirmation network listening");
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
@@ -787,8 +810,8 @@ impl NetworkRuntime {
             Instant::now(),
         );
 
-        if let Some(event) = event
-            && let Err(err) = forward_event(&self.event_tx, event).await
+        if let Some(event) = event &&
+            let Err(err) = forward_event(&self.event_tx, event).await
         {
             // If forwarding to the importer fails, reject to avoid silently
             // accepting data that local consumers could not process.

@@ -381,7 +381,7 @@ pub(crate) mod tests {
         sig_bytes
     }
 
-    fn sample_envelope() -> WhitelistExecutionPayloadEnvelope {
+    pub(crate) fn sample_envelope() -> WhitelistExecutionPayloadEnvelope {
         WhitelistExecutionPayloadEnvelope {
             end_of_sequencing: Some(true),
             is_forced_inclusion: Some(true),

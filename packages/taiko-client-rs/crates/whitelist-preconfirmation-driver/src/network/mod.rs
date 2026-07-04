@@ -5,6 +5,8 @@ mod config;
 mod discovery;
 pub(crate) mod handler;
 mod runtime;
+#[cfg(test)]
+mod swarm_tests;
 mod topics;
 
 pub use self::runtime::NetworkConfig;
