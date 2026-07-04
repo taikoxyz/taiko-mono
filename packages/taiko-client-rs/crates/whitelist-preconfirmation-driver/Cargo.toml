@@ -46,7 +46,5 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-flate2 = { workspace = true }
 proptest = { workspace = true }
 reqwest = { workspace = true }
-serde_json = { workspace = true }

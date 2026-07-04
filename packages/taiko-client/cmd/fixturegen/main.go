@@ -81,9 +81,7 @@ func buildTxs() map[string]*types.Transaction {
 			BlobHashes: []common.Hash{{0x01}},
 		}),
 	}
-	// EIP-7702 (type-4): only if the pinned geth fork ships types.SetCodeTx.
-	// If the build fails on the next block, delete it and note the omission in
-	// the task checkpoint report.
+	// EIP-7702 (type-4): the pinned geth fork ships types.SetCodeTx.
 	out["eip7702"] = sign(&types.SetCodeTx{
 		ChainID: uint256.NewInt(uint64(chainID)), Nonce: 4,
 		GasTipCap: uint256.NewInt(1_000_000_000), GasFeeCap: uint256.NewInt(2_000_000_000),
@@ -104,12 +102,11 @@ func writeTxListFixtures(dir string, txs map[string]*types.Transaction) {
 		"single_4844":   {txs["eip4844"]},
 		"mixed_all":     {txs["legacy"], txs["eip2930"], txs["eip1559"], txs["eip4844"]},
 	}
-	if t, ok := txs["eip7702"]; ok {
-		cases["single_7702"] = types.Transactions{t}
-		cases["mixed_all"] = append(cases["mixed_all"], t)
-	}
+	cases["single_7702"] = types.Transactions{txs["eip7702"]}
+	cases["mixed_all"] = append(cases["mixed_all"], txs["eip7702"])
 	// 100-tx bulk case: repeat legacy/1559 alternating (re-signing with bumped nonces).
-	key, _ := crypto.HexToECDSA(fixedKey)
+	key, err := crypto.HexToECDSA(fixedKey)
+	must(err)
 	signer := types.LatestSignerForChainID(big.NewInt(chainID))
 	to := common.HexToAddress("0x000000000000000000000000000000000000dEaD")
 	bulk := types.Transactions{}
@@ -244,10 +241,12 @@ func writeEnvelopeFixtures(dir string, txs map[string]*types.Transaction) {
 		must(err)
 		must(os.WriteFile(filepath.Join(dir, name+".ssz.bin"), buf, 0o644))
 		must(os.WriteFile(filepath.Join(dir, name+".snappy.bin"), snappy.Encode(nil, buf), 0o644))
+		// tx_count is the number of payload.transactions entries (each a compressed
+		// txlist blob), not the count of txs inside the txlist.
 		meta := map[string]any{
-			"block_number":        7,
+			"block_number":        uint64(env.ExecutionPayload.BlockNumber),
 			"block_hash":          env.ExecutionPayload.BlockHash.Hex(),
-			"tx_count":            1,
+			"tx_count":            len(env.ExecutionPayload.Transactions),
 			"end_of_sequencing":   env.EndOfSequencing != nil && *env.EndOfSequencing,
 			"is_forced_inclusion": env.IsForcedInclusion != nil && *env.IsForcedInclusion,
 			"has_signature":       env.Signature != nil,
