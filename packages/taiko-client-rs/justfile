@@ -21,6 +21,13 @@ udeps:
 test:
   ./tests/entrypoint.sh
 
+# Fast lane: all inline unit tests (lib + bin targets), no docker required.
+# Integration tests (crates' tests/ dirs) still need `just test`.
+# test-harness is included: its inline env.rs tests are hermetic (EnvGuard sets/unsets
+# its own vars under a lock). Env-gated tests (e.g. the whitelist `docker_` case) self-skip.
+test-unit:
+  cargo nextest run --workspace --exclude bindings --all-features --lib --bins
+
 gen_bindings:
   ./script/gen_bindings.sh
 

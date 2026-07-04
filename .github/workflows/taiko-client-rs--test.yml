@@ -238,6 +238,20 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
+      - name: Run unit tests (no docker)
+        working-directory: packages/taiko-client-rs
+        run: just test-unit
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify Go golden fixtures are regenerable
+        working-directory: packages/taiko-client-rs
+        run: just gen-fixtures && git diff --exit-code crates/protocol/fixtures crates/whitelist-preconfirmation-driver/fixtures
+
       - name: Checkout protocol for testing
         uses: actions/checkout@v6
         with:
