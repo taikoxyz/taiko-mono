@@ -364,6 +364,23 @@ pub(crate) mod tests {
         serde_json::from_slice(&go_fixture(rel)).expect("fixture json")
     }
 
+    /// Signs a 32-byte prehash with the golden-touch [`FixedKSigner`] and returns
+    /// the 65-byte wire signature (`r || s || recovery_id`).
+    ///
+    /// Shared crate-wide test helper: mirrors the production
+    /// `payload_build::sign_digest` assembly so callers get a signature that
+    /// [`recover_signer`] accepts without assuming any v-byte convention.
+    pub(crate) fn fixed_k_sign(prehash: B256) -> [u8; SIGNATURE_LEN] {
+        let signer = protocol::FixedKSigner::golden_touch().expect("golden touch signer");
+        let sig = signer.sign_with_predefined_k(prehash.as_ref()).expect("fixed-k signature");
+
+        let mut sig_bytes = [0u8; SIGNATURE_LEN];
+        sig_bytes[..32].copy_from_slice(&sig.signature.r().to_be_bytes::<32>());
+        sig_bytes[32..64].copy_from_slice(&sig.signature.s().to_be_bytes::<32>());
+        sig_bytes[64] = sig.recovery_id;
+        sig_bytes
+    }
+
     fn sample_envelope() -> WhitelistExecutionPayloadEnvelope {
         WhitelistExecutionPayloadEnvelope {
             end_of_sequencing: Some(true),

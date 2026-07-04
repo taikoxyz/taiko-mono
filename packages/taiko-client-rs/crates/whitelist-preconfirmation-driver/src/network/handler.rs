@@ -322,3 +322,164 @@ fn accept_by_height(
         gossipsub::MessageAcceptance::Ignore
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashSet, sync::Arc, time::Duration};
+
+    use alloy_primitives::{Address, B256};
+    use arc_swap::ArcSwap;
+    use libp2p::{PeerId, gossipsub::MessageAcceptance};
+
+    use super::*;
+    use crate::codec::tests::fixed_k_sign;
+
+    /// Chain ID used across these tests; matches the signer domain.
+    const CHAIN_ID: u64 = 167;
+
+    /// `MessageAcceptance` does not implement `PartialEq` (it is defined in
+    /// libp2p-gossipsub), so verdicts are compared by matching the `Accept`
+    /// variant — the same pattern the handler itself uses (see
+    /// `verify_envelope_signer`).
+    fn is_accept(acceptance: MessageAcceptance) -> bool {
+        matches!(acceptance, MessageAcceptance::Accept)
+    }
+
+    /// Builds an inbound state with the given operator addresses.
+    fn state_with_operators(operators: &[Address]) -> GossipsubInboundState {
+        let set: HashSet<Address> = operators.iter().copied().collect();
+        GossipsubInboundState::new(CHAIN_ID, Arc::new(ArcSwap::from_pointee(set)))
+    }
+
+    /// Token bucket starts at 40 tokens and refills at 200/min: the initial
+    /// burst is exactly 40, then requests are throttled until time passes.
+    #[test]
+    fn request_rate_allows_initial_burst_then_throttles() {
+        let mut state = state_with_operators(&[]);
+        let peer = PeerId::random();
+        let start = Instant::now();
+
+        for i in 0..40 {
+            assert!(
+                is_accept(state.validate_request(peer, start)),
+                "request {i} within the 40-token initial burst must pass"
+            );
+        }
+        assert!(
+            !is_accept(state.validate_request(peer, start)),
+            "41st request at t=0 must be throttled"
+        );
+
+        // 60s later the bucket refilled by 200 (capped at 200): a fresh burst passes.
+        let later = start + Duration::from_secs(60);
+        for i in 0..40 {
+            assert!(
+                is_accept(state.validate_request(peer, later)),
+                "request {i} after refill must pass"
+            );
+        }
+    }
+
+    /// Rate limiting is per-peer: throttling peer A must not affect peer B.
+    #[test]
+    fn request_rate_is_per_peer() {
+        let mut state = state_with_operators(&[]);
+        let (a, b) = (PeerId::random(), PeerId::random());
+        let now = Instant::now();
+        for _ in 0..40 {
+            state.validate_request(a, now);
+        }
+        assert!(!is_accept(state.validate_request(a, now)), "peer A is throttled");
+        assert!(is_accept(state.validate_request(b, now)), "peer B is unaffected");
+    }
+
+    /// At most 10 distinct preconf blocks per height; the 11th distinct hash
+    /// at the same height is refused, and duplicates never double-count.
+    #[test]
+    fn height_tracker_caps_at_ten_per_height() {
+        let mut tracker = HeightSeenTracker::default();
+        for i in 0..10u8 {
+            assert!(tracker.try_accept(7, B256::repeat_byte(i), 10), "hash {i} under cap");
+        }
+        assert!(!tracker.try_accept(7, B256::repeat_byte(0xaa), 10), "11th hash refused");
+        // A duplicate of an accepted hash is also refused (dedup, not re-count).
+        assert!(!tracker.try_accept(7, B256::repeat_byte(0), 10), "duplicate refused");
+        // Another height is unaffected.
+        assert!(tracker.try_accept(8, B256::repeat_byte(0), 10));
+    }
+
+    /// EOS responses: 3 per epoch, then refused until a new epoch.
+    #[test]
+    fn epoch_tracker_caps_at_three_per_epoch() {
+        let mut tracker = EpochSeenTracker::default();
+        for _ in 0..3 {
+            assert!(tracker.can_accept(5, 3));
+            tracker.mark(5);
+        }
+        assert!(!tracker.can_accept(5, 3), "4th response in epoch 5 refused");
+        assert!(tracker.can_accept(6, 3), "fresh epoch unaffected");
+    }
+
+    /// Signs `payload_bytes` the way a publisher does and returns
+    /// (wire_signature, recovered_signer_address). Self-consistent: the test
+    /// registers the *recovered* address, so no v-byte convention is assumed.
+    fn signed_payload(chain_id: u64, payload_bytes: &[u8]) -> ([u8; 65], Address) {
+        let prehash = block_signing_hash(chain_id, payload_bytes);
+        let signature = fixed_k_sign(prehash);
+        let signer = recover_signer(prehash, &signature).expect("recoverable");
+        (signature, signer)
+    }
+
+    /// An operator's signature is accepted; a non-operator's is rejected; a
+    /// rotation via `ArcSwap::store` takes effect on the next message.
+    ///
+    /// `validate_preconf_block_signer` does not touch dedup state, but distinct
+    /// payload bytes per call are used defensively so nothing but the operator
+    /// set can decide the verdict.
+    #[test]
+    fn preconf_signer_gate_and_rotation() {
+        let (signature, signer) = signed_payload(CHAIN_ID, b"payload-1");
+
+        let set = Arc::new(ArcSwap::from_pointee(HashSet::from([signer])));
+        let mut state = GossipsubInboundState::new(CHAIN_ID, set.clone());
+
+        assert!(
+            is_accept(state.validate_preconf_block_signer(&signature, b"payload-1")),
+            "whitelisted signer accepted"
+        );
+
+        // Rotate the operator out (epoch boundary): a fresh signature over new
+        // bytes from the same signer is now rejected.
+        let (signature_2, signer_2) = signed_payload(CHAIN_ID, b"payload-2");
+        assert_eq!(signer_2, signer, "same signer across payloads");
+        set.store(Arc::new(HashSet::new()));
+        assert!(
+            !is_accept(state.validate_preconf_block_signer(&signature_2, b"payload-2")),
+            "rotated-out signer rejected"
+        );
+
+        // Rotate back in: accepted again over yet-distinct bytes.
+        let (signature_3, _) = signed_payload(CHAIN_ID, b"payload-3");
+        set.store(Arc::new(HashSet::from([signer])));
+        assert!(
+            is_accept(state.validate_preconf_block_signer(&signature_3, b"payload-3")),
+            "rotated-back-in signer accepted"
+        );
+    }
+
+    /// A signature that recovers to an address absent from the operator set is
+    /// rejected even when the recovery itself succeeds (pure signer gate).
+    #[test]
+    fn preconf_signer_gate_rejects_non_operator() {
+        let (signature, signer) = signed_payload(CHAIN_ID, b"payload");
+        // Operator set holds a different address, never the actual signer.
+        let other = Address::repeat_byte(0xcd);
+        assert_ne!(other, signer, "fixture must differ from the golden signer");
+
+        let mut state = state_with_operators(&[other]);
+        assert!(
+            !is_accept(state.validate_preconf_block_signer(&signature, b"payload")),
+            "signer absent from operator set must be rejected"
+        );
+    }
+}
