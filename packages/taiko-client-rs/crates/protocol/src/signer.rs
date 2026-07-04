@@ -206,20 +206,46 @@ mod tests {
         assert_eq!(signature.recovery_id, expected_v);
     }
 
+    /// The predefined-k path tries `k = 1` first and only falls back to `k = 2`,
+    /// so its output must be pinned to the FIRST candidate that succeeds — an
+    /// either-of-k assertion would silently survive a swapped preference order.
+    ///
+    /// For this payload `k = 1` already yields a valid signature, so the
+    /// predefined path resolves to `k = 1` — NOT the `k = 2` Go golden vector in
+    /// `sign_with_specific_k_matches_go_vectors` for the same payload. The bytes
+    /// below are the captured `k = 1` output (RFC-6979 signing is deterministic,
+    /// so a captured constant is stable); `r` is the secp256k1 generator
+    /// x-coordinate `Gx`, as expected for `r = x(1 * G)`. Correctness is anchored
+    /// by recovering the signer address from the signature.
     #[test]
-    fn sign_with_predefined_k_matches_specific_k() {
+    fn sign_with_predefined_k_is_deterministic_and_matches_k1_golden() {
         let signer = FixedKSigner::golden_touch().expect("golden touch key");
         let payload = hex::decode_to_array::<_, 32>(
             "0x663d210fa6dba171546498489de1ba024b89db49e21662f91bf83cdffe788820",
         )
         .unwrap();
-        let k1_sig = signer.sign_with_specific_k(Scalar::ONE, &payload).ok();
-        let k2_sig =
-            signer.sign_with_specific_k(Scalar::from(2u64), &payload).expect("k=2 signature");
-        let actual =
-            signer.sign_with_predefined_k(&payload).expect("predefined k signature").signature;
-        let matches_k1 = k1_sig.as_ref().map(|sig| sig.signature == actual).unwrap_or(false);
-        let matches_k2 = k2_sig.signature == actual;
-        assert!(matches_k1 || matches_k2, "predefined-k result matches neither k=1 nor k=2 output");
+
+        // Exact expected output for the resolved k = 1 candidate.
+        let (expected_sig, expected_v) = expected_signature(
+            "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "0x568130fab1a3a9e63261d4278a7e130588beb51f27de7c20d0258d38a85a27ff",
+            1,
+        );
+
+        let actual = signer.sign_with_predefined_k(&payload).expect("predefined k signature");
+        assert_eq!(actual.signature, expected_sig, "predefined-k output must be pinned to k=1");
+        assert_eq!(actual.recovery_id, expected_v);
+
+        // The predefined path must prefer k = 1 over k = 2: its output must equal
+        // the explicit k = 1 signature, not the k = 2 one.
+        let k1 = signer.sign_with_specific_k(Scalar::ONE, &payload).expect("k=1 signature");
+        assert_eq!(actual.signature, k1.signature, "predefined-k must resolve to k=1, not k=2");
+
+        // The pinned signature must recover to the golden-touch signer address.
+        let recovered = actual
+            .signature
+            .recover_address_from_prehash(&payload.into())
+            .expect("recover signer address");
+        assert_eq!(recovered, signer.address(), "signature must recover to the signer address");
     }
 }
