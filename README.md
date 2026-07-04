@@ -44,7 +44,6 @@ Get started with Taiko Alethia:
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
-| [preconfirmation-p2p](./packages/preconfirmation-p2p)         | Permissionless preconfirmation P2P networking libraries.           |
 | [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
 | [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
@@ -53,7 +52,6 @@ Get started with Taiko Alethia:
 | [taiko-client-rs](./packages/taiko-client-rs)                 | Taiko Alethia client implementation in Rust.                       |
 | [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
-| [urcindexer-rs](./packages/urcindexer-rs)                     | URC registry indexer service backed by MySQL.                      |
 
 ## Issues
 

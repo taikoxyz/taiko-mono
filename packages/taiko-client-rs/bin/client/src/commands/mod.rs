@@ -14,7 +14,6 @@ use crate::{
 };
 
 pub mod driver;
-pub mod preconfirmation_driver;
 pub mod proposer;
 pub mod whitelist_preconfirmation_driver;
 

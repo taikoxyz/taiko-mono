@@ -34,10 +34,6 @@ pub struct PreconfirmationArgs {
     /// Externally dialable TCP address advertised in the local P2P node record.
     #[clap(long = "p2p.advertise.addr", env = "P2P_ADVERTISE_ADDR")]
     pub p2p_advertise_addr: Option<SocketAddr>,
-
-    /// Optional address for user-facing preconfirmation RPC server.
-    #[clap(long = "preconf.rpc.addr", env = "PRECONF_RPC_ADDR")]
-    pub preconf_rpc_addr: Option<SocketAddr>,
 }
 
 #[cfg(test)]

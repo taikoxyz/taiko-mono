@@ -1,7 +1,6 @@
 //! Peer discovery using discv5 and bootnode parsing.
 //!
-//! Replaces the external `preconfirmation-net` crate's `spawn_discovery` with
-//! a direct discv5 integration that parses ENR boot entries, runs periodic
+//! Provides a direct discv5 integration that parses ENR boot entries, runs periodic
 //! `find_node` queries, and feeds discovered TCP multiaddrs back through a
 //! channel for the network event loop to dial.
 

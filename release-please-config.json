@@ -126,11 +126,6 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name == \"preconfirmation-driver\")].version"
-        },
-        {
-          "type": "toml",
-          "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name == \"whitelist-preconfirmation-driver\")].version"
         },
         {
@@ -152,23 +147,6 @@
           "type": "toml",
           "path": "Cargo.lock",
           "jsonpath": "$.package[?(@.name == \"test-harness\")].version"
-        }
-      ]
-    },
-    "packages/urcindexer-rs": {
-      "package-name": "urcindexer-rs",
-      "release-type": "simple",
-      "component": "urcindexer-rs",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "Cargo.toml",
-          "jsonpath": "$.package.version"
-        },
-        {
-          "type": "toml",
-          "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name == \"urcindexer-rs\")].version"
         }
       ]
     },
