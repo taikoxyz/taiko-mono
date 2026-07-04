@@ -525,7 +525,10 @@ async fn proposal_log_reorg_check_is_transient_on_rpc_error() {
     assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
 }
 
-#[tokio::test]
+// Paused clock: the impl retries with a real tokio `ExponentialBackoff` (tokio-retry uses
+// `tokio::time::sleep`), so under `start_paused` tokio auto-advances the timer when idle and the
+// virtual 60s wrapper resolves instantly and deterministically. Attempt-count is the real contract.
+#[tokio::test(start_paused = true)]
 async fn process_log_batch_skips_orphaned_proposal_log_and_continues_batch() {
     let orphaned_block_hash = B256::from([0x11; 32]);
     let orphaned_tx_hash = B256::from([0x21; 32]);
@@ -540,7 +543,7 @@ async fn process_log_batch_skips_orphaned_proposal_log_and_continues_batch() {
     let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
     let result = timeout(
-        Duration::from_millis(250),
+        Duration::from_secs(60),
         syncer.process_log_batch(
             router,
             vec![
@@ -579,7 +582,9 @@ async fn process_log_batch_fails_when_proposal_log_missing_block_hash() {
     assert!(path.seen_tx_hashes().is_empty());
 }
 
-#[tokio::test]
+// Paused clock: see `process_log_batch_skips_orphaned_proposal_log_and_continues_batch`. The
+// virtual 60s wrapper resolves instantly since tokio-retry's backoff sleeps on a tokio timer.
+#[tokio::test(start_paused = true)]
 async fn process_log_batch_retries_when_orphan_recheck_errors() {
     let retry_block_hash = B256::from([0x51; 32]);
     let retry_tx_hash = B256::from([0x61; 32]);
@@ -592,7 +597,7 @@ async fn process_log_batch_retries_when_orphan_recheck_errors() {
     let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
     let result = timeout(
-        Duration::from_millis(250),
+        Duration::from_secs(60),
         syncer.process_log_batch(
             router,
             vec![sample_proposed_log(1, retry_block_hash, retry_tx_hash)],

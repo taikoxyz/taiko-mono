@@ -46,5 +46,7 @@ serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
-tokio = { workspace = true }
+# `test-util` (not in tokio's "full") enables `#[tokio::test(start_paused = true)]` so the
+# backoff-sensitive `process_log_batch` tests run on a paused clock. Dev-only: never in prod builds.
+tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber = { workspace = true }
