@@ -243,6 +243,12 @@ type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 ///
 /// Wraps a payload and a oneshot channel for returning the processing result
 /// back to the caller.
+///
+/// The channel indirection is deliberate and load-bearing: injections run inside the
+/// ingress loop's own task, so a submitter whose future is dropped mid-await (for
+/// example an axum handler cancelled by a client disconnect) cannot cancel an engine
+/// injection already in flight. Do not replace this queue with direct router calls
+/// from submitter tasks.
 pub struct PreconfJob {
     /// The preconfirmation payload to be processed.
     payload: Arc<PreconfPayload>,

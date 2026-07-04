@@ -53,13 +53,6 @@ pub struct ShastaProtocolInstance<P: Provider + Clone> {
     pub anchor: AnchorInstance<RootProvider>,
 }
 
-/// Snapshot of anchor contract state at a given L2 block.
-#[derive(Clone, Debug)]
-pub struct AnchorState {
-    /// Anchor block number advertised by the anchor contract.
-    pub anchor_block_number: u64,
-}
-
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
@@ -154,13 +147,14 @@ impl<P: Provider + Clone> Client<P> {
         Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
     }
 
-    /// Fetch the Shasta anchor state for the given parent block hash.
-    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
+    /// Fetch the anchor block number advertised by the anchor contract at the given
+    /// parent block hash.
+    pub async fn shasta_anchor_block_number_by_hash(&self, block_hash: B256) -> Result<u64> {
         let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
 
         let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
 
-        Ok(AnchorState { anchor_block_number: block_state.anchorBlockNumber.to::<u64>() })
+        Ok(block_state.anchorBlockNumber.to::<u64>())
     }
 }
 

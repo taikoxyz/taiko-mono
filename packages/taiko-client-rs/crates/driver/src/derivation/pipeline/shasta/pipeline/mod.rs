@@ -477,7 +477,7 @@ where
         {
             decode_parent_anchor_block_number(parent_block, *self.rpc.shasta.anchor.address())?
         } else {
-            self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?.anchor_block_number
+            self.rpc.shasta_anchor_block_number_by_hash(parent_block.hash()).await?
         };
 
         let grandparent_timestamp = if parent_header.number == 0 {

@@ -845,49 +845,28 @@ impl NetworkRuntime {
         message_id: &gossipsub::MessageId,
         from: PeerId,
     ) {
-        self.record_inbound_and_report_labeled(
-            topic_label,
-            acceptance_label(&acceptance),
-            acceptance,
-            message_id,
-            from,
-        );
-    }
-
-    /// Record an inbound-message metric for `topic_label` using an explicit
-    /// `inbound_label`, then report `acceptance` to gossipsub.
-    ///
-    /// Used for decode failures, where the metric label (`"decode_failed"`) differs
-    /// from the reported acceptance (`Reject`).
-    fn record_inbound_and_report_labeled(
-        &mut self,
-        topic_label: &'static str,
-        inbound_label: &str,
-        acceptance: gossipsub::MessageAcceptance,
-        message_id: &gossipsub::MessageId,
-        from: PeerId,
-    ) {
         WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
             topic_label,
-            inbound_label,
+            acceptance_label(&acceptance),
         );
         self.report_validation(message_id, from, acceptance);
     }
 
     /// Record a `decode_failed` inbound metric for `topic_label` and report `Reject`.
+    ///
+    /// The metric label (`"decode_failed"`) intentionally differs from the reported
+    /// acceptance (`Reject`) so undecodable traffic is distinguishable in metrics.
     fn record_decode_failed(
         &mut self,
         topic_label: &'static str,
         message_id: &gossipsub::MessageId,
         from: PeerId,
     ) {
-        self.record_inbound_and_report_labeled(
+        WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
             topic_label,
             "decode_failed",
-            gossipsub::MessageAcceptance::Reject,
-            message_id,
-            from,
         );
+        self.report_validation(message_id, from, gossipsub::MessageAcceptance::Reject);
     }
 }
 

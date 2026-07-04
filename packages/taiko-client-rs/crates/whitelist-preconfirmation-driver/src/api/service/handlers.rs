@@ -147,22 +147,11 @@ impl WhitelistApi for WhitelistApiService {
             .await?;
         self.state.set_highest_unsafe(block_number).await;
 
-        let execution_payload = ExecutionPayloadV1 {
-            parent_hash: inserted_block.header.parent_hash,
-            fee_recipient: inserted_block.header.beneficiary,
-            state_root: inserted_block.header.state_root,
-            receipts_root: inserted_block.header.receipts_root,
-            logs_bloom: inserted_block.header.logs_bloom,
-            prev_randao: inserted_block.header.mix_hash,
-            block_number,
-            gas_limit: inserted_block.header.gas_limit,
-            gas_used: inserted_block.header.gas_used,
-            timestamp: inserted_block.header.timestamp,
-            extra_data: inserted_block.header.extra_data.clone(),
-            base_fee_per_gas: U256::from(base_fee_per_gas),
-            block_hash,
-            transactions: vec![data.transactions.clone()],
-        };
+        let execution_payload = crate::payload::execution_payload_from_header(
+            &inserted_block.header,
+            base_fee_per_gas,
+            vec![data.transactions.clone()],
+        );
 
         let envelope = WhitelistExecutionPayloadEnvelope {
             end_of_sequencing,
