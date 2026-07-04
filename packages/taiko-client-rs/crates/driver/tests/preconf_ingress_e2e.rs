@@ -15,21 +15,26 @@
 use std::{sync::Arc, time::Duration};
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy_consensus::TxEnvelope;
-use alloy_eips::eip2718::Decodable2718;
+use alloy::consensus::BlobTransactionSidecarVariant;
+use alloy_consensus::{TxEnvelope, transaction::Recovered};
+use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_primitives::{Address, B256, Bytes, U256};
 use alloy_provider::Provider;
-use anyhow::{Result, ensure};
+use alloy_rpc_types::{Log, Transaction as RpcTransaction};
+use alloy_sol_types::SolEvent;
+use anyhow::{Context, Result, anyhow, ensure};
+use bindings::inbox::Inbox::Proposed;
 use driver::{
     DriverConfig,
     production::PreconfPayload,
     sync::{SyncStage, event::EventSyncer},
 };
+use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
 use protocol::{
     codec::ZlibTxListCodec,
     shasta::{PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash},
 };
-use rpc::client::Client;
+use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
@@ -217,6 +222,296 @@ async fn preconf_ingress_injects_block_smoke(env: &mut ShastaEnv) -> Result<()> 
 
     syncer_handle.abort();
     beacon_stub.shutdown().await?;
+
+    Ok(())
+}
+
+// --- L1 proposal-path helpers, copied verbatim from proposer_driver_e2e.rs ---
+// (each `tests/*.rs` file is its own crate, so these cannot be shared by `use`;
+// the copies below are line-for-line identical to that file so the derivation
+// side of this test exercises the exact same proposal flow.)
+
+/// Builds a wallet-backed proposer client (copied from proposer_driver_e2e.rs).
+async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
+    Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key)
+        .await
+        .map_err(Into::into)
+}
+
+/// Decodes the proposal id from a `Proposed` log (copied from proposer_driver_e2e.rs).
+fn decode_proposal_id(log: &Log) -> Result<u64> {
+    Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())
+        .map(|event| event.id.to::<u64>())
+        .map_err(|err| anyhow!("decode proposal log failed: {err}"))
+}
+
+/// Submits a proposal transaction and returns the proposal id and log
+/// (copied from proposer_driver_e2e.rs).
+async fn submit_proposal(
+    proposer: &ClientWithWallet,
+    request: BuiltProposalTx,
+    inbox: Address,
+) -> Result<(u64, Log)> {
+    let pending_tx =
+        proposer.l1_provider.send_transaction(request.to_transaction_request()).await?;
+    let receipt = pending_tx.get_receipt().await?;
+    ensure!(receipt.status(), "proposal transaction failed");
+    let proposal_log: Log = receipt
+        .logs()
+        .iter()
+        .find(|log| log.address() == inbox)
+        .cloned()
+        .context("missing Proposed log in receipt")?;
+    let proposal_id = decode_proposal_id(&proposal_log)?;
+    Ok((proposal_id, proposal_log))
+}
+
+/// Waits for the event syncer to process a specific proposal using confirmed-sync
+/// state polling (copied from proposer_driver_e2e.rs).
+async fn wait_for_proposal_processed<P>(
+    event_syncer: &EventSyncer<P>,
+    driver_client: &Client<P>,
+    expected_proposal_id: u64,
+    l2_head_before: u64,
+    timeout: Duration,
+) -> Result<u64>
+where
+    P: Provider + Clone + 'static,
+{
+    let deadline = tokio::time::Instant::now() + timeout;
+
+    loop {
+        let target_block = driver_client
+            .last_certain_block_id_by_batch_id(U256::from(expected_proposal_id))
+            .await?
+            .map(|block_number| block_number.to::<u64>());
+        let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
+        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) {
+            if head_block >= target_block {
+                let l2_head = driver_client.l2_provider.get_block_number().await?;
+                if l2_head < l2_head_before {
+                    warn!(
+                        l2_head_before,
+                        l2_head, "L2 head moved backward while waiting for proposal processing"
+                    );
+                }
+                if l2_head >= target_block {
+                    return Ok(l2_head);
+                }
+            }
+        };
+
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}"));
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+/// Returns the blob sidecar needed by beacon-based derivation
+/// (copied from proposer_driver_e2e.rs).
+fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVariant {
+    request.blob_sidecar()
+}
+
+/// The two decode paths (L1 blob derivation vs preconf ingress) historically
+/// diverged — that asymmetry caused the mainnet freeze. This pins them to
+/// byte-identical blocks: derive block N from an L1 proposal on node 0, then
+/// feed the SAME block as a preconf payload to node 1 and require the same
+/// block hash.
+///
+/// Every replay input comes straight off node 0's DERIVED block, matching the
+/// production ingress path (`whitelist-preconfirmation-driver/src/importer/
+/// ingress.rs::request_response_block_to_envelope`) field-for-field:
+/// `fee_recipient := beneficiary`, `prev_randao := mix_hash` (passed through,
+/// NOT recomputed), `gas_limit`, `timestamp` (the block's OWN timestamp, not
+/// parent+1), `extra_data`, `base_fee_per_gas`, and the tx list = the block's
+/// own transactions re-`encoded_2718()` (the anchor is already element 0 of the
+/// block body, so it is carried through with no manual prepend).
+#[test_context(ShastaEnv)]
+#[serial]
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
+async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result<()> {
+    // --- Node 0: standard L1 proposal -> derivation, with a NON-EMPTY txlist.
+    // The proposal `build()` takes typed user transactions (Vec<Vec<TxEnvelope>>,
+    // no anchor — the deriver injects its own anchor). We reuse the harness'
+    // mixed-txlist builder for a deterministic legacy + EIP-1559 pair, then feed
+    // ONLY its transfers (decoded to TxEnvelope) into the proposal; its
+    // raw_tx_bytes[0] anchor is intentionally dropped so the anchor is not
+    // double-counted (see ShastaProposalTransactionBuilder::build). ---
+    let beacon_stub = BeaconStubServer::start().await?;
+    let proposer = proposer_client(env).await?;
+
+    let parent_number = env.client.l2_provider.get_block_number().await?;
+    let parent = fetch_block_by_number(&env.client.l2_provider, parent_number).await?;
+    let block_number = parent.header.number + 1;
+    // Base fee for block N+1 under EIP-4396, derived exactly as the harness
+    // txlist builders do (compute_next_block_base_fee, from parent number N).
+    let base_fee = test_harness::transactions::compute_next_block_base_fee(
+        &env.client.l2_provider,
+        parent.header.number,
+    )
+    .await?;
+
+    // Mixed (legacy + EIP-1559) transfers targeting block N+1 at `base_fee`.
+    let mixed =
+        build_mixed_preconf_txlist(&env.client, parent.header.hash, block_number, base_fee).await?;
+    // The proposal carries only the USER transactions. `build()` takes
+    // `Vec<Vec<alloy_rpc_types::Transaction>>` and converts each to a TxEnvelope
+    // for the manifest via `Into` (transaction_builder.rs), so wrap each decoded
+    // transfer envelope in a minimal RPC `Transaction` (only `inner` is read;
+    // the block metadata fields are discarded by that `Into`). raw_tx_bytes[0]
+    // (the anchor) is deliberately excluded — the deriver injects its own anchor.
+    let proposal_txs: Vec<RpcTransaction> = mixed
+        .transfers
+        .iter()
+        .map(|transfer| {
+            let envelope = TxEnvelope::decode_2718(&mut transfer.raw_bytes.as_ref())
+                .expect("valid transfer tx");
+            RpcTransaction {
+                inner: Recovered::new_unchecked(envelope, transfer.from),
+                block_hash: None,
+                block_number: None,
+                transaction_index: None,
+                effective_gas_price: None,
+            }
+        })
+        .collect();
+
+    // Build a single-block proposal (one inner Vec = one L2 block) with the
+    // mixed txlist and inject its sidecar into the beacon stub.
+    let builder =
+        ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
+    let request = builder.build(vec![proposal_txs], None).await?;
+    beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
+
+    // Start the node-0 driver/event-syncer (same DriverConfig pattern as the
+    // rest of this file and proposer_driver_e2e.rs).
+    let mut driver_config = DriverConfig::new(
+        env.client_config.clone(),
+        Duration::from_millis(50),
+        beacon_stub.endpoint().clone(),
+        None,
+        None,
+    );
+    driver_config.preconfirmation_enabled = true;
+    let driver_client = Client::new(driver_config.client.clone()).await?;
+    let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
+    let syncer_handle = {
+        let syncer = event_syncer.clone();
+        spawn(async move {
+            if let Err(err) = syncer.run().await {
+                warn!(?err, "node0 event syncer exited");
+            }
+        })
+    };
+    event_syncer.wait_preconf_ingress_ready().await?;
+
+    let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+    let (proposal_id, _log) = submit_proposal(&proposer, request, env.inbox_address).await?;
+    wait_for_proposal_processed(
+        &event_syncer,
+        &driver_client,
+        proposal_id,
+        l2_head_before,
+        Duration::from_secs(30),
+    )
+    .await?;
+
+    // Fetch the full derived block N from node 0 (with transaction bodies).
+    let derived = fetch_block_by_number(&env.client.l2_provider, block_number).await?;
+    ensure!(
+        derived.header.number == block_number,
+        "derived block number must match the proposed block number"
+    );
+
+    // --- Node 1: build a driver client against l2_ws_1/l2_auth_1 (clone
+    // env.client_config, swap the two L2 urls), fresh EventSyncer, wait ready.
+    // ShastaEnv already reset BOTH L2 nodes to the same base block, so node 1's
+    // parent state matches node 0's pre-derivation parent. A second beacon stub
+    // is used because DriverConfig requires a beacon endpoint; the preconf
+    // ingress path itself never touches it. ---
+    let node1_config = ClientConfig {
+        l2_provider_url: env.l2_ws_1.clone(),
+        l2_auth_provider_url: env.l2_auth_1.clone(),
+        ..env.client_config.clone()
+    };
+    let beacon_stub_node1 = BeaconStubServer::start().await?;
+    let mut driver_config_node1 = DriverConfig::new(
+        node1_config,
+        Duration::from_millis(50),
+        beacon_stub_node1.endpoint().clone(),
+        None,
+        None,
+    );
+    driver_config_node1.preconfirmation_enabled = true;
+    let driver_client_node1 = Client::new(driver_config_node1.client.clone()).await?;
+    let node1_provider = driver_client_node1.l2_provider.clone();
+    let event_syncer_node1 =
+        Arc::new(EventSyncer::new(&driver_config_node1, driver_client_node1.clone()).await?);
+    let syncer_handle_node1 = {
+        let syncer = event_syncer_node1.clone();
+        spawn(async move {
+            if let Err(err) = syncer.run().await {
+                warn!(?err, "node1 event syncer exited");
+            }
+        })
+    };
+    event_syncer_node1.wait_preconf_ingress_ready().await?;
+
+    // Rebuild the payload attrs FROM node 0's derived block. `tx_list` is the RLP
+    // list of the derived block's OWN transactions (anchor included, taken from
+    // the block body); every header-relevant field mirrors the production
+    // ingress path (see ingress.rs mapping in this test's doc comment).
+    let raw: Vec<Bytes> = derived
+        .transactions
+        .as_transactions()
+        .map(|txs| txs.iter().map(|tx| tx.encoded_2718().into()).collect())
+        .unwrap_or_default();
+    ensure!(!raw.is_empty(), "derived block must carry at least the anchor transaction");
+
+    let attrs = build_preconf_attrs(
+        derived.header.number,
+        // The derived block's OWN timestamp — NOT parent+1. The proposal path
+        // stamps this from the manifest, and the replay must reproduce it
+        // exactly for the block hash to match.
+        derived.header.timestamp,
+        derived.header.beneficiary,
+        derived.header.gas_limit,
+        derived.header.base_fee_per_gas.expect("post-london derived block has a base fee"),
+        parent.header.hash,
+        // prev_randao := the derived block's mix_hash, passed through verbatim
+        // (production ingress does `prev_randao: block.header.mix_hash`); do NOT
+        // recompute via calculate_shasta_mix_hash here.
+        derived.header.mix_hash,
+        derived.header.extra_data.clone(),
+        &raw,
+    )?;
+
+    event_syncer_node1.submit_preconfirmation_payload(PreconfPayload::new(attrs)).await?;
+
+    let injected =
+        wait_for_block(&node1_provider, derived.header.number, Duration::from_secs(30)).await?;
+
+    // Mismatch-debugging guidance (per the brief): if the hashes differ, print
+    // both headers field-by-field BEFORE touching the test. A mismatch is either
+    // a missing/incorrect attrs field (fix the test's mapping to match the
+    // production ingress path) or a REAL path divergence (stop and report) — the
+    // very asymmetry this test exists to catch. Do NOT weaken the assertion.
+    if injected.header.hash != derived.header.hash {
+        warn!(?derived.header, ?injected.header, "derived vs injected header mismatch");
+    }
+    assert_eq!(
+        injected.header.hash, derived.header.hash,
+        "preconf ingress and L1 derivation must produce byte-identical blocks"
+    );
+
+    syncer_handle.abort();
+    syncer_handle_node1.abort();
+    beacon_stub.shutdown().await?;
+    beacon_stub_node1.shutdown().await?;
 
     Ok(())
 }
