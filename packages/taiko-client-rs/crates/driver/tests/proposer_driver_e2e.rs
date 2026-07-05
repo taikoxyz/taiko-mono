@@ -398,6 +398,18 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
     event_syncer_1.wait_preconf_ingress_ready().await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+    // Snapshot the canonical head hash BEFORE submitting proposal 1. On this devnet the head
+    // is the `fork_to` base block (block 1, created by the harness with a random coinbase);
+    // deriving proposal 1 produces block NUMBER 1 as well (genesis parent, manifest coinbase,
+    // anchor tx), so it REPLACES this base block at the same height — only the HASH changes,
+    // never the number. We hold the base hash so we can later prove the derived block has
+    // observably landed (hash flipped away from this value).
+    let base_head_hash = driver_client
+        .l2_provider
+        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow!("missing canonical base block before proposal 1"))?
+        .hash();
     let (proposal_id_1, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
     let l2_head_1 = wait_for_proposal_processed(
         &event_syncer_1,
@@ -407,13 +419,42 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
         PROPOSAL_TIMEOUT,
     )
     .await?;
+    // `wait_for_proposal_processed` can return VACUOUSLY on this shared, serialized devnet:
+    // CI proved all three of its gates are already true at t=0 before syncer #1 derives
+    // anything — `last_certain_block_id_by_batch_id(1)` is Some(1) (the batch-1→block-1
+    // mapping persists in reth from earlier e2e tests, which all derive proposal 1 into
+    // block 1), `event_sync_tip()` is Some(1) from the harness-bootstrapped head_l1_origin,
+    // and `l2_head` (1) >= target (1). It therefore returned ~3ms after the scanner logged
+    // "decoded proposal payload", MID-DERIVATION, so a naive capture here would snapshot the
+    // BASE block and then race syncer #1's kill against its own derivation. We do NOT touch
+    // the shared helper (sibling tests rely on its current semantics); instead we locally
+    // wait until the derived block has OBSERVABLY landed — the head hash at the head height
+    // has flipped away from `base_head_hash`. Only then is syncer #1's derivation of
+    // proposal 1 guaranteed complete, so the post-restart re-derivation hits the SAME
+    // known-canonical block and the hash assertion holds.
+    let derivation_deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    let canonical_block_1 = loop {
+        let block = driver_client
+            .l2_provider
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+            .await?
+            .ok_or_else(|| {
+                anyhow!("missing canonical block while waiting for proposal 1 to land")
+            })?;
+        if block.hash() != base_head_hash {
+            break block;
+        }
+        if tokio::time::Instant::now() >= derivation_deadline {
+            return Err(anyhow!(
+                "proposal 1's derived block never landed: canonical head hash still equals the \
+                 fork_to base block hash after 30s, so syncer #1's derivation did not complete \
+                 before the restart"
+            ));
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    };
     // Capture the exact canonical block (number + hash) and the confirmed boundary that
     // proposal 1 established — these must be byte-identical after the restart.
-    let canonical_block_1 = driver_client
-        .l2_provider
-        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
-        .await?
-        .ok_or_else(|| anyhow!("missing canonical block after proposal 1"))?;
     let l2_head_number_1 = canonical_block_1.number();
     let l2_head_hash_1 = canonical_block_1.hash();
     let head_l1_origin_1 = head_l1_origin_block_id(&driver_client)
