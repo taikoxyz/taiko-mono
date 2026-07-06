@@ -96,6 +96,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @notice The address authorized to register SGX instances via `registerInstance`.
     /// @dev If set to a non-zero address, only this address may call `registerInstance`.
     /// If set to `address(0)`, `registerInstance` is permissionless and callable by anyone.
+    /// The registrar also selects the quote-freshness policy: permissionless registration requires
+    /// the attested quote to commit a recent L1 block (see `registerInstance`), while a trusted
+    /// registrar vouches for the provenance — and thus the age — of the quotes it submits, so its
+    /// registrations are exempt.
     address public immutable registrar;
 
     /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
@@ -130,10 +134,6 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// pre-migration security model. Enabled by default (set in the constructor); toggle off with
     /// toggleLocalReportCheck().
     bool public checkLocalEnclaveReport;
-    /// @notice Whether `registerInstance` requires the attested quote to commit a recent L1 block,
-    /// bounding how old the quote may be. Off by default (backward compatible; requires prover
-    /// support to embed the block commitment in reportData). Toggle with `toggleQuoteFreshnessCheck`.
-    bool public requireQuoteFreshness;
     /// @dev Trusted-MRENCLAVE allowlist + policy version, co-located per measurement. Exposed via the
     /// `trustedUserMrEnclave` view (allowlist flag) and, in versioned subclasses, a policy-version
     /// view; `internal` so those subclasses can maintain the version in the same slot.
@@ -184,10 +184,6 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @notice Emitted when enforcement of the local enclave identity allowlist is toggled.
     /// @param checkLocalEnclaveReport Whether the allowlist is enforced.
     event LocalReportCheckToggled(bool checkLocalEnclaveReport);
-
-    /// @notice Emitted when enforcement of the quote-freshness gate is toggled.
-    /// @param requireQuoteFreshness Whether a recent-block commitment is required at registration.
-    event QuoteFreshnessCheckToggled(bool requireQuoteFreshness);
 
     error SGX_ALREADY_ATTESTED();
     error SGX_DEBUG_ENCLAVE();
@@ -303,15 +299,6 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         emit LocalReportCheckToggled(checkLocalEnclaveReport);
     }
 
-    /// @notice Toggles enforcement of the quote-freshness gate in `registerInstance`.
-    /// @dev Enable only once the prover embeds a recent L1 block commitment (block number then that
-    /// block's hash) into reportData immediately after the instance address; otherwise every
-    /// registration reverts with `SGX_STALE_QUOTE`.
-    function toggleQuoteFreshnessCheck() external onlyOwner {
-        requireQuoteFreshness = !requireQuoteFreshness;
-        emit QuoteFreshnessCheckToggled(requireQuoteFreshness);
-    }
-
     /// @notice Adds an SGX instance after remote attestation is verified fully on-chain.
     /// @dev Migrated to the Automata DCAP attestation entrypoint
     /// (`IDcapAttestation.verifyAndAttestOnChain`), which consumes a raw quote and reads Intel
@@ -320,6 +307,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @dev A non-owner (permissionless or registrar) registration is subject to the validity
     /// delay; an owner-submitted registration is as trusted as `addInstances` and takes effect
     /// immediately.
+    /// @dev When registration is permissionless (`registrar == address(0)`), the quote must also
+    /// commit a recent L1 block in reportData — block number (8 bytes, big-endian) then that
+    /// block's hash (32 bytes), right after the 20-byte instance address — proving the quote was
+    /// generated within the last 256 blocks (see the freshness gate below).
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
     function registerInstance(bytes calldata _rawQuote) external nonReentrant returns (uint256) {
@@ -430,16 +421,20 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
 
-        // Optional quote-freshness gate. INSTANCE_EXPIRY only bounds key exposure *after*
-        // registration; nothing otherwise bounds how old the attested quote itself is, so a quote (or
-        // a slowly side-channel-extracted key) from long ago could be registered today and trusted
-        // for a fresh 90-day window. When enabled, require the enclave to have committed a recent L1
-        // block into reportData right after the instance address — block number (8 bytes, BE) then
-        // that block's hash (32 bytes) — and check the hash matches on-chain. `blockhash` returns
-        // zero outside the most recent 256 blocks, so a non-zero match bounds the quote's age to that
-        // window. Both fields are bound to the verified enclave report by the body-hash check above.
-        // Off by default (backward compatible); requires prover support to embed the block commitment.
-        if (requireQuoteFreshness) {
+        // Quote-freshness gate, derived from the registration trust model rather than stored
+        // config. INSTANCE_EXPIRY only bounds key exposure *after* registration; nothing otherwise
+        // bounds how old the attested quote itself is, so a quote (or a slowly side-channel-
+        // extracted key) from long ago could be registered today and trusted for a fresh 90-day
+        // window. Permissionless registration (no registrar) therefore fails closed: the enclave
+        // must have committed a recent L1 block into reportData right after the instance address —
+        // block number (8 bytes, BE) then that block's hash (32 bytes) — and the hash must match
+        // on-chain. `blockhash` returns zero outside the most recent 256 blocks, so a non-zero match
+        // bounds the quote's age to that window (the prover embeds the commitment and the
+        // registration must land within that window). With a registrar, the trusted registrar
+        // vouches for the provenance — and thus the age — of the quotes it submits, and registrar
+        // flows (e.g. a multisig) are typically slower than 256 blocks, so the gate is skipped.
+        // Both fields are bound to the verified enclave report by the body-hash check above.
+        if (registrar == address(0)) {
             uint64 quoteBlock =
                 uint64(bytes8(_rawQuote[REPORT_DATA_OFFSET + 20:REPORT_DATA_OFFSET + 28]));
             bytes32 quoteBlockHash =
