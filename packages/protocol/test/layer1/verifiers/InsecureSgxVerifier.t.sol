@@ -36,6 +36,10 @@ contract InsecureSgxVerifierTest is Test {
     bytes32 internal constant MR_SIGNER = bytes32(uint256(0x2222));
 
     function setUp() external {
+        // The permissionless verifier (registrar == address(0)) enforces the quote-freshness gate,
+        // so the mock quotes embed a commitment to a recent block; roll to a sane height so
+        // blockhash(block.number - 1) is available and non-zero.
+        vm.roll(1000);
         // owner == address(this) so this test can call the onlyOwner admin functions.
         verifier = new InsecureSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
         // The MRENCLAVE/MRSIGNER allowlist is enforced by default; trust the standard enclave so
@@ -49,6 +53,9 @@ contract InsecureSgxVerifierTest is Test {
     // ---------------------------------------------------------------
 
     /// @dev Builds a 384-byte SGX enclave report with the given fields at their Intel-spec offsets.
+    /// reportData embeds a fresh recent-block commitment after the instance address — block number
+    /// (8 bytes, BE) then that block's hash (32 bytes) — so success-path registrations pass the
+    /// permissionless quote-freshness gate.
     function _report(
         bool debug,
         bytes32 mrEnclave,
@@ -56,11 +63,17 @@ contract InsecureSgxVerifierTest is Test {
         address instance
     )
         internal
-        pure
+        view
         returns (bytes memory)
     {
         bytes16 attributes = debug ? bytes16(0x02000000000000000000000000000000) : bytes16(0);
-        bytes memory reportData = abi.encodePacked(bytes20(instance), new bytes(44)); // 64 bytes
+        // 64 bytes: instance(20) | blockNumber(8, BE) | blockHash(32) | zero padding(4)
+        bytes memory reportData = abi.encodePacked(
+            bytes20(instance),
+            bytes8(uint64(block.number - 1)),
+            blockhash(block.number - 1),
+            new bytes(4)
+        );
         return abi.encodePacked(
             new bytes(48), // cpuSvn(16)+miscSelect(4)+reserved1(28)        [0:48]
             attributes, //                                                  [48:64]
