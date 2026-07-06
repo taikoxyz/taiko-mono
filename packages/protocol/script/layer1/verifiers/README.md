@@ -253,10 +253,11 @@ It self-discovers the rest of the tree from the two roots
 - **SGX verifiers (×2):** the strict `SecureSgxVerifier` (rejects out-of-date TCB), pointed at the
   shared entrypoint, on `TAIKO_HOODI`, Taiko-owned, `checkLocalEnclaveReport == true`, 24h validity
   delay.
-- **Risc0 / SP1 tiers:** correct chain id and owner, with deployed sub-verifiers (SP1 remote gateway
-  is the #21907 v6.1 verifier).
-- **MainnetVerifier:** TDX/OP tiers disabled, four active tiers distinct and non-zero, and the inbox
-  points at it.
+- **Risc0 / SP1 tiers:** correct chain id and owner, with deployed sub-verifiers (the SP1 remote
+  gateway, expected to be the #21907 v6.1 verifier — only checked to have code, not its version).
+- **MainnetVerifier:** TDX/OP tiers disabled, four active tiers distinct and non-zero. (The
+  MainnetVerifier is the one the inbox's config points at — read from it during discovery, so that
+  link holds by construction.)
 
 The report tags each check `[PASS]` / `[FAIL]` / `[WARN]`. Advisories (`[WARN]`, e.g. the
 MRENCLAVE/MRSIGNER allowlist not yet populated by `ConfigureSgxVerifier`) do not fail the run; any

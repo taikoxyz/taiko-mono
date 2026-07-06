@@ -202,16 +202,12 @@ contract VerifyHoodiDeploymentTest is Test {
         assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
     }
 
-    function test_verify_sgxDifferentEntrypoints_fails() public {
-        // reth points at goodEntrypoint, geth points at a different entrypoint -> cross-cutting fail.
-        address other = _entrypoint(OWNER, 0);
-        address reth =
-            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
-        address geth = address(new SecureSgxVerifier(CHAIN_ID, OWNER, other, address(0), 24 hours));
-        address risc0 = address(new Risc0Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
-        address sp1 = address(new SP1Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
-        address mv = address(new MainnetVerifier(geth, reth, risc0, sp1));
-        address inbox = address(new MockInbox(mv));
+    function test_verify_codelessAggregator_reportsNotReverts() public {
+        // A MockInbox whose proofVerifier is a codeless address (EOA-style, no code). Discovery
+        // leaves the tier locals as address(0); the check bodies must early-return on the codeless
+        // target so the run RETURNS a positive hardFail count rather than reverting on a typed call
+        // to address(0). Before the has-code guards in _check* this reverts with empty `0x`.
+        address inbox = address(new MockInbox(address(0xC0DE1E55)));
         assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
     }
 }

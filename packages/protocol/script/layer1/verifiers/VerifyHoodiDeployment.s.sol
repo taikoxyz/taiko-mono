@@ -141,7 +141,6 @@ contract VerifyHoodiDeployment is Script {
         _checkRisc0(risc0);
         _checkSp1(sp1);
         _checkAggregation(compose, sgxGeth, sgxReth, risc0, sp1);
-        _checkCrossCutting(sgxReth, sgxGeth, attestation);
 
         console2.log("---");
         console2.log("[PASS] count :", passes);
@@ -196,6 +195,10 @@ contract VerifyHoodiDeployment is Script {
     /// on the Hoodi chain id, Taiko-owned, and fail-closed. Allowlist population is advisory
     /// (ConfigureSgxVerifier runs after deployment).
     function _checkSgx(address sgx, address attestation, string memory tag) internal {
+        // The has-code hard check already recorded the [FAIL] for a codeless verifier; returning
+        // here keeps the typed reads below from reverting the whole run on a codeless target.
+        if (!_hasCode(sgx)) return;
+
         // Secure/Insecure discriminator: both implement isTcbStatusAccepted; only Secure rejects
         // out-of-date TCB. Expressed against the pinned Automata TCBStatus enum.
         bool rejectsOutOfDate = !ISgxView(sgx).isTcbStatusAccepted(uint8(TCBStatus.TCB_OUT_OF_DATE));
@@ -235,11 +238,22 @@ contract VerifyHoodiDeployment is Script {
             ISgxView(sgx).nextInstanceId() >= 1,
             string.concat(tag, ": >= 1 instance registered (advisory)")
         );
+
+        // Advisory: the current deploy leaves the registrar unset (address(0)); a non-zero
+        // registrar is a deviation worth flagging, never a hard failure.
+        _warn(
+            ISgxView(sgx).registrar() == address(0),
+            string.concat(tag, ": registrar == address(0) (advisory)")
+        );
     }
 
     /// @dev Asserts the Risc0 tier verifier is on the Hoodi chain id, Taiko-owned, and wired to a
     /// deployed groth16 verifier.
     function _checkRisc0(address risc0) internal {
+        // The has-code hard check already recorded the [FAIL] for a codeless verifier; returning
+        // here keeps the typed reads below from reverting the whole run on a codeless target.
+        if (!_hasCode(risc0)) return;
+
         _hard(
             IRisc0View(risc0).taikoChainId() == EXPECTED_CHAIN_ID,
             "Risc0: taikoChainId == TAIKO_HOODI"
@@ -253,6 +267,10 @@ contract VerifyHoodiDeployment is Script {
     /// @dev Asserts the SP1 tier verifier is on the Hoodi chain id, Taiko-owned, and wired to a
     /// deployed remote verifier (the v6.1 gateway).
     function _checkSp1(address sp1) internal {
+        // The has-code hard check already recorded the [FAIL] for a codeless verifier; returning
+        // here keeps the typed reads below from reverting the whole run on a codeless target.
+        if (!_hasCode(sp1)) return;
+
         _hard(ISP1View(sp1).taikoChainId() == EXPECTED_CHAIN_ID, "SP1: taikoChainId == TAIKO_HOODI");
         _hard(ISP1View(sp1).owner() == EXPECTED_OWNER, "SP1: owner == Hoodi owner");
         _hard(_hasCode(ISP1View(sp1).sp1RemoteVerifier()), "SP1: remote verifier has code");
@@ -270,6 +288,11 @@ contract VerifyHoodiDeployment is Script {
     )
         internal
     {
+        // The has-code hard check already recorded the [FAIL] for a codeless MainnetVerifier;
+        // returning here keeps the typed reads below from reverting the whole run on a codeless
+        // target (e.g. a wrong --inbox, or the MainnetVerifier not deployed yet).
+        if (!_hasCode(compose)) return;
+
         _hard(
             IComposeView(compose).tdxGethVerifier() == address(0), "Mainnet: tdxGethVerifier == 0"
         );
@@ -280,15 +303,6 @@ contract VerifyHoodiDeployment is Script {
         bool nonZero = sgxGeth != address(0) && sgxReth != address(0) && risc0 != address(0)
             && sp1 != address(0);
         _hard(nonZero, "Mainnet: four tiers are non-zero");
-    }
-
-    /// @dev Asserts the stack-wide invariant that both SGX verifiers share the same entrypoint.
-    function _checkCrossCutting(address sgxReth, address sgxGeth, address attestation) internal {
-        _hard(
-            ISgxView(sgxReth).automataDcapAttestation() == attestation
-                && ISgxView(sgxGeth).automataDcapAttestation() == attestation,
-            "cross-cut: both SGX verifiers share the entrypoint"
-        );
     }
 
     /// @dev Records a hard check: increments passes or hardFails and logs the outcome.
