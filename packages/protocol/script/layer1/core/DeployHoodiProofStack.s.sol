@@ -20,7 +20,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 contract DeployHoodiProofStack is Script {
     uint64 internal constant CHAIN_ID = LibNetwork.TAIKO_HOODI;
     address internal constant OWNER = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
-    uint64 internal constant VALIDITY_DELAY = 24 hours;
+    uint64 internal constant VALIDITY_DELAY = 1 hours;
     // Hoodi verifier dependencies, mirroring DeployShastaHoodi._loadConfig.
     address internal constant R0_GROTH16 = 0x32Db7dc407AC886807277636a1633A1381748DD8;
     address internal constant SP1_PLONK = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
@@ -62,7 +62,7 @@ contract DeployHoodiProofStack is Script {
         require(_dcapAttestation != address(0), "DCAP_ATTESTATION not set");
 
         // Both SGX instances share the one Taiko-owned entrypoint (the #21827 shared-entrypoint
-        // model). registrar is address(0) (permissionless registration); 24h instance-validity delay.
+        // model). registrar is address(0) (permissionless registration); 1h instance-validity delay.
         stack_.sgxReth = address(
             new SecureSgxVerifier(CHAIN_ID, OWNER, _dcapAttestation, address(0), VALIDITY_DELAY)
         );

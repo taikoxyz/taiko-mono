@@ -42,5 +42,11 @@ contract DeployHoodiProofStackTest is Test {
         assertEq(
             SecureSgxVerifier(s.sgxReth).owner(), LibL1HoodiAddrs.HOODI_CONTRACT_OWNER, "owner"
         );
+
+        // Hoodi uses a 1-hour instance-validity delay.
+        assertEq(SecureSgxVerifier(s.sgxReth).instanceValidityDelay(), 1 hours, "validity delay");
+        assertEq(
+            SecureSgxVerifier(s.sgxGeth).instanceValidityDelay(), 1 hours, "validity delay geth"
+        );
     }
 }
