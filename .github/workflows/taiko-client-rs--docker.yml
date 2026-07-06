@@ -1,6 +1,7 @@
-name: "Build and Push Multi-Arch Docker Image"
+name: "Build and Push Multi-Arch Docker Image (taiko-client-rs)"
 permissions:
   contents: read
+  id-token: write
 
 on:
   push:
@@ -16,6 +17,9 @@ concurrency:
 
 env:
   REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/taiko-client-rs
+  # Keyless GAR auth via Workload Identity Federation (replaces secrets.GAR_JSON_KEY).
+  WIF_PROVIDER: projects/790288402401/locations/global/workloadIdentityPools/terraform-pool/providers/github-provider
+  WIF_SERVICE_ACCOUNT: gar-github-action@evmchain.iam.gserviceaccount.com
 
 jobs:
   build:
@@ -37,26 +41,36 @@ jobs:
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
+      - name: Authenticate to Google Cloud (Workload Identity)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_lifetime: 3600s
+          create_credentials_file: false
       - name: Login to GAR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: us-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GAR_JSON_KEY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.11.1
+        uses: docker/setup-buildx-action@v4.0.0
         with:
-          version: latest
+          version: v0.29.1
+          cache-binary: false
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
@@ -67,15 +81,16 @@ jobs:
 
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
-          context: packages/taiko-client-rs
+          context: .
           file: packages/taiko-client-rs/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ env.REGISTRY_IMAGE }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE
+            }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -84,7 +99,7 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
@@ -97,20 +112,21 @@ jobs:
       - build
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.11.1
+        uses: docker/setup-buildx-action@v4.0.0
         with:
-          version: latest
+          version: v0.29.1
+          cache-binary: false
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
@@ -119,12 +135,21 @@ jobs:
             type=ref,event=tag
             type=sha
 
+      - name: Authenticate to Google Cloud (Workload Identity)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_lifetime: 3600s
+          create_credentials_file: false
       - name: Login to GAR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: us-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GAR_JSON_KEY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests

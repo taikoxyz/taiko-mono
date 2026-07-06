@@ -19,17 +19,18 @@ Taiko is a based rollup on Ethereum that uses validity proofs for finalization. 
 ```
 packages/
 ├── protocol/           # Core smart contracts (Solidity, Foundry)
-├── taiko-client/      # Go client (driver, proposer, prover)
-├── bridge-ui/         # Bridge frontend (SvelteKit)
-├── relayer/           # Bridge message relayer (Go)
-├── eventindexer/      # Event indexing service (Go)
-└── [other packages]   # NFTs, monitoring, documentation
+├── taiko-client/       # Go client (driver, proposer, prover)
+├── taiko-client-rs/    # Rust client implementation
+├── relayer/            # Bridge message relayer (Go)
+├── eventindexer/       # Event indexing service (Go)
+├── bridge-ui/          # Bridge frontend (SvelteKit)
+└── [other packages]    # UIs, NFTs, monitoring, tools
 ```
 
 **Technology Stack:**
 
 - Smart contracts: Solidity + Foundry
-- Backend services: Go
+- Backend services: Go, Rust
 - Frontend applications: TypeScript/SvelteKit
 - Package management: pnpm workspaces
 
@@ -64,12 +65,13 @@ pnpm clean && pnpm install
 - **GitHub**: Use the GitHub CLI (`gh`) instead of direct API requests or curl requests
 - **Package Management**: Use pnpm commands at the monorepo root for cross-package operations
 - **Development**: Prefer package-specific commands when working within a single package
-- **IDE**: Leverage VS Code extensions for Solidity, Go, and TypeScript development
+- **IDE**: Leverage VS Code extensions for Solidity, Go, Rust, and TypeScript development
 
 ## 🐛 Debugging Strategies
 
 - **Smart contracts**: Use `forge test -vvvv` for maximum verbosity
 - **Go services**: Use `dlv` debugger or extensive logging
+- **Rust services**: Use `cargo test`, `RUST_BACKTRACE=1`, or `rust-lldb`
 - **Frontend**: Use browser DevTools and SvelteKit's built-in debugging
 - **General**: Use proper debuggers over console.log debugging
 

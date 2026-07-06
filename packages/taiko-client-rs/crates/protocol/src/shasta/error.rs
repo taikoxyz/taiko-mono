@@ -13,10 +13,6 @@ pub enum ProtocolError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// RLP encoding/decoding error
-    #[error("RLP error: {0}")]
-    Rlp(String),
-
     /// Compression error
     #[error("compression error: {0}")]
     Compression(String),
@@ -24,23 +20,19 @@ pub enum ProtocolError {
     /// Invalid payload format
     #[error("invalid payload format: {0}")]
     InvalidPayload(String),
-
-    /// Generic error
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 /// Result type alias for fork configuration lookups.
-pub type ForkConfigResult<T> = StdResult<T, ShastaForkConfigError>;
+pub type ForkConfigResult<T> = StdResult<T, ForkConfigError>;
 
-/// Errors returned when resolving Shasta fork activation metadata.
+/// Errors returned when resolving fork activation metadata.
 #[derive(Debug, Error)]
-pub enum ShastaForkConfigError {
+pub enum ForkConfigError {
     /// Chain ID is not recognised.
-    #[error("unsupported chain id {0} for shasta fork configuration")]
+    #[error("unsupported chain id {0} for fork configuration")]
     UnsupportedChainId(u64),
-    /// The fork activation is not block-based (e.g. configured as timestamp/TTD).
-    #[error("unsupported shasta fork activation condition")]
+    /// The fork activation does not have a timestamp.
+    #[error("unsupported fork activation condition")]
     UnsupportedActivation,
 }
 

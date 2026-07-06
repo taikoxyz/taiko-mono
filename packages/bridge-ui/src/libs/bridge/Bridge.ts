@@ -34,7 +34,7 @@ export abstract class Bridge {
    * 1. Check that the message is owned by the user
    * 2. Check that the message has not been claimed already
    */
-  protected async beforeProcessing({ bridgeTx, wallet }: ClaimArgs) {
+  protected async beforeProcessing({ bridgeTx, wallet }: ClaimArgs, skipMessageStatusCheck = false) {
     const { msgHash, message } = bridgeTx;
     if (!message || !msgHash) throw new Error('Message is not defined');
 
@@ -54,6 +54,10 @@ export abstract class Bridge {
 
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
 
+    if (skipMessageStatusCheck) {
+      return { destBridgeAddress };
+    }
+
     const messageStatus = await readContract(config, {
       address: destBridgeAddress,
       abi: bridgeAbi,
@@ -69,6 +73,18 @@ export abstract class Bridge {
       throw new MessageStatusError('message already processed');
     }
     return { messageStatus, destBridgeAddress };
+  }
+
+  protected async beforeDirectClaiming({ bridgeTx, wallet }: ClaimArgs) {
+    const { message, msgHash } = bridgeTx;
+    if (!message || !msgHash) throw new Error('Message is not defined');
+
+    const connectedChainId = await wallet.getChainId();
+    const destChainId = Number(message.destChainId);
+
+    if (connectedChainId !== destChainId) {
+      throw new WrongChainError('wallet must be connected to the destination chain');
+    }
   }
 
   /**
@@ -169,8 +185,8 @@ export abstract class Bridge {
   abstract estimateGas(args: BridgeArgs): Promise<bigint>;
   abstract bridge(args: BridgeArgs): Promise<Hash>;
 
-  async processMessage(args: ClaimArgs, force = false): Promise<Hash> {
-    const { messageStatus, destBridgeAddress } = await this.beforeProcessing(args);
+  async processMessage(args: ClaimArgs, force = false, skipMessageStatusCheck = false): Promise<Hash> {
+    const { messageStatus, destBridgeAddress } = await this.beforeProcessing(args, skipMessageStatusCheck);
     let blockNumber;
 
     if (!args.bridgeTx.blockNumber && args.bridgeTx.receipt) {
@@ -202,7 +218,10 @@ export abstract class Bridge {
 
     try {
       let txHash: Hash;
-      if (messageStatus === MessageStatus.NEW) {
+      if (skipMessageStatusCheck) {
+        await this.beforeDirectClaiming(args);
+        txHash = await this.processNewMessage({ ...args, bridgeContract, client }, force);
+      } else if (messageStatus === MessageStatus.NEW) {
         // Initial claim
         await this.beforeClaiming({ ...args, messageStatus });
 

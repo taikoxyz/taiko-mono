@@ -2,7 +2,6 @@ package producer
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 // SgxGethProofProducer generates a sgx geth proof for the given block.
 type SgxGethProofProducer struct {
 	Verifier            common.Address
+	VerifierID          uint8
 	RaikoHostEndpoint   string // a prover RPC endpoint
 	ApiKey              string // ApiKey provided by Raiko
 	Dummy               bool
@@ -35,8 +35,8 @@ func (s *SgxGethProofProducer) RequestProof(
 		"Request proof from raiko-host service",
 		"type", ProofTypeSgxGeth,
 		"batchID", batchID,
-		"coinbase", meta.Pacaya().GetCoinbase(),
 		"time", time.Since(requestAt),
+		"dummy", s.Dummy,
 	)
 
 	if s.Dummy {
@@ -45,12 +45,12 @@ func (s *SgxGethProofProducer) RequestProof(
 
 	resp, err := s.requestBatchProof(
 		ctx,
-		[]*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}},
-		opts.GetProverAddress(),
+		[]ProofRequestOptions{opts},
+		[]metadata.TaikoProposalMetaData{meta},
 		false,
 		ProofTypeSgxGeth,
 		requestAt,
-		opts.PacayaOptions().IsGethProofGenerated,
+		opts.IsGethProofGenerated(),
 	)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	return &ProofResponse{
 		BatchID: batchID,
 		Meta:    meta,
-		Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
+		Proof:   common.Hex2Bytes(resp.Data.Proof[2:]),
 		Opts:    opts,
 	}, nil
 }
@@ -85,82 +85,62 @@ func (s *SgxGethProofProducer) Aggregate(
 
 	if s.Dummy {
 		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, ProofTypeSgxGeth)
-		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier}, nil
+		return &BatchProofs{BatchProof: resp.BatchProof, Verifier: s.Verifier, VerifierID: s.VerifierID}, nil
 	}
+	var (
+		opts  = make([]ProofRequestOptions, 0, len(items))
+		metas = make([]metadata.TaikoProposalMetaData, 0, len(items))
+		err   error
+	)
 
-	batches := make([]*RaikoBatches, 0, len(items))
 	for _, item := range items {
-		batches = append(batches, &RaikoBatches{
-			BatchID:                item.Meta.Pacaya().GetBatchID(),
-			L1InclusionBlockNumber: item.Meta.GetRawBlockHeight(),
-		})
+		opts = append(opts, item.Opts)
+		metas = append(metas, item.Meta)
 	}
 
 	resp, err := s.requestBatchProof(
 		ctx,
-		batches,
-		items[0].Opts.GetProverAddress(),
+		opts,
+		metas,
 		true,
 		ProofTypeSgxGeth,
 		requestAt,
-		items[0].Opts.PacayaOptions().IsGethProofAggregationGenerated,
+		items[0].Opts.IsGethProofAggregationGenerated(),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &BatchProofs{BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]), Verifier: s.Verifier}, nil
+	return &BatchProofs{
+		BatchProof: common.Hex2Bytes(resp.Data.Proof[2:]),
+		Verifier:   s.Verifier,
+		VerifierID: s.VerifierID,
+	}, nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
 func (s *SgxGethProofProducer) requestBatchProof(
 	ctx context.Context,
-	batches []*RaikoBatches,
-	proverAddress common.Address,
+	opts []ProofRequestOptions,
+	metas []metadata.TaikoProposalMetaData,
 	isAggregation bool,
 	proofType ProofType,
 	requestAt time.Time,
 	alreadyGenerated bool,
-) (*RaikoRequestProofBodyResponseV2, error) {
+) (*RaikoRequestProofBodyResponse, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
-
-	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
+	output, start, end, err := requestRaikoProposalProofV4(
 		ctx,
-		s.RaikoHostEndpoint+"/v3/proof/batch",
+		s.RaikoHostEndpoint,
 		s.ApiKey,
-		RaikoRequestProofBodyV3Pacaya{
-			Type:      proofType,
-			Batches:   batches,
-			Prover:    proverAddress.Hex()[2:],
-			Aggregate: isAggregation,
-		},
+		opts,
+		metas,
+		isAggregation,
+		proofType,
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := output.Validate(); err != nil {
-		return nil, fmt.Errorf(
-			"invalid Raiko response(start: %d, end: %d): %w",
-			batches[0].BatchID,
-			batches[len(batches)-1].BatchID,
-			err,
-		)
-	}
-
-	if !alreadyGenerated {
-		log.Info(
-			"Batch proof generated",
-			"start", batches[0].BatchID,
-			"end", batches[len(batches)-1].BatchID,
-			"isAggregation", isAggregation,
-			"proofType", proofType,
-			"time", time.Since(requestAt),
-		)
-		// Update metrics.
-		updateProvingMetrics(proofType, requestAt, isAggregation)
-	}
-
-	return output, nil
+	return validateRaikoProofResponse(output, start, end, proofType, isAggregation, requestAt, alreadyGenerated)
 }

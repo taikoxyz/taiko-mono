@@ -13,6 +13,7 @@ extend-ignore-identifiers-re = [
   "GROTH",
   "TTKOt",
   "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
+  "consts",
 ]
 
 [files]

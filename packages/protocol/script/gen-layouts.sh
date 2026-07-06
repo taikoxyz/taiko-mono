@@ -25,7 +25,6 @@ contracts_shared=(
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
-"contracts/shared/signal/SignalServiceForkRouter.sol:SignalServiceForkRouter"
 )
 
 # Layer 1 contracts
@@ -39,8 +38,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
-"contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
-"contracts/layer1/preconf/impl/LookaheadSlasher.sol:LookaheadSlasher"
 "contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
@@ -49,7 +46,6 @@ contracts_layer2=(
 "contracts/layer2/mainnet/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
-"contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
 )
 
 # Update storage layout for a single contract

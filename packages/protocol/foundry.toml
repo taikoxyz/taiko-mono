@@ -107,6 +107,7 @@ src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
+cache_path = "cache/layer1"
 # The Automata DCAP verifier (X.509/ASN.1 parsing in QuoteVerifierBase) needs the IR pipeline to
 # compile, but via_ir alters codegen in a way that breaks unrelated Shasta tests. So the standard
 # L1 build/test stays non-IR here, and the only file that pulls in the Automata verifier
@@ -130,6 +131,7 @@ src = "contracts/layer2"
 test = "test/layer2"
 script = "script/layer2"
 out = "out/layer2"
+cache_path = "cache/layer2"
 evm_version = "shanghai"
 
 [profile.shared]
@@ -137,6 +139,7 @@ src = "contracts/shared"
 test = "test/shared"
 script = "script/shared"
 out = "out/shared"
+cache_path = "cache/shared"
 evm_version = "shanghai"
 
 [profile.genesis]
@@ -144,4 +147,5 @@ src = "contracts/layer2"
 test = "test/genesis"
 script = "script/layer2"
 out = "out/genesis"
+cache_path = "cache/genesis"
 evm_version = "shanghai"

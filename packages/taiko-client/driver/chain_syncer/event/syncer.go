@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -20,42 +21,33 @@ import (
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
-	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
-	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
 // pending block through deriving L1 calldata.
 type Syncer struct {
-	ctx                context.Context
-	rpc                *rpc.Client
-	indexer            *shastaIndexer.Indexer
-	state              *state.State
-	progressTracker    *beaconsync.SyncProgressTracker        // Sync progress tracker
-	txListDecompressor *txListDecompressor.TxListDecompressor // Transactions list decompressor
+	ctx             context.Context
+	rpc             *rpc.Client
+	state           *state.State
+	progressTracker *beaconsync.SyncProgressTracker // Sync progress tracker
+	blocksInserter  blocksInserter.Inserter         // Blocks inserter
 
-	// Blocks inserters
-	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
-	blocksInserterShasta blocksInserter.Inserter // Shasta blocks inserter
+	lastInsertedProposalID *big.Int
+	reorgDetectedFlag      bool
 
-	lastInsertedBatchID *big.Int
-	reorgDetectedFlag   bool
-
-	// Shasta derivation source fetcher
-	derivationSourceFetcher *shastaManifest.ShastaDerivationSourceFetcher
+	// Derivation source fetcher
+	derivationSourceFetcher *derivation.DerivationSourceFetcher
 }
 
 // NewSyncer creates a new syncer instance.
 func NewSyncer(
 	ctx context.Context,
 	client *rpc.Client,
-	indexer *shastaIndexer.Indexer,
 	state *state.State,
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobServerEndpoint *url.URL,
@@ -66,40 +58,25 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	var (
-		blobDataSource     = rpc.NewBlobDataSource(ctx, client, blobServerEndpoint)
-		txListDecompressor = txListDecompressor.NewTxListDecompressor(rpc.BlockMaxTxListBytes)
-	)
+	blobDataSource := rpc.NewBlobDataSource(ctx, client, blobServerEndpoint)
 
 	return &Syncer{
-		ctx:                ctx,
-		rpc:                client,
-		indexer:            indexer,
-		state:              state,
-		progressTracker:    progressTracker,
-		txListDecompressor: txListDecompressor,
-		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
-			client,
-			progressTracker,
-			blobDataSource,
-			txListDecompressor,
-			constructor,
-			txlistFetcher.NewCalldataFetcher(client),
-			txlistFetcher.NewBlobFetcher(client, blobDataSource),
-			latestSeenProposalCh,
-		),
-		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
+		ctx:             ctx,
+		rpc:             client,
+		state:           state,
+		progressTracker: progressTracker,
+		blocksInserter: blocksInserter.NewBlocksInserter(
 			client,
 			progressTracker,
 			constructor,
 			latestSeenProposalCh,
 		),
-		derivationSourceFetcher: shastaManifest.NewDerivationSourceFetcher(client, blobDataSource),
+		derivationSourceFetcher: derivation.NewDerivationSourceFetcher(client, blobDataSource),
 	}, nil
 }
 
-// ProcessL1Blocks fetches all `TaikoInbox.BatchProposed` events between given
-// L1 block heights, and then tries inserting them into L2 execution engine's blockchain.
+// ProcessL1Blocks fetches all `Inbox.Proposed` events between given L1 block heights,
+// and then tries inserting them into L2 execution engine's blockchain.
 func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 	for {
 		if err := s.processL1Blocks(ctx); err != nil {
@@ -141,14 +118,14 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		)
 
 		s.state.SetL1Current(newL1Current)
-		s.lastInsertedBatchID = nil
+		s.lastInsertedProposalID = nil
 	}
 
-	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
-		RpcClient:            s.rpc,
-		StartHeight:          s.state.GetL1Current().Number,
-		EndHeight:            l1End.Number,
-		OnBatchProposedEvent: s.onBatchProposed,
+	iter, err := eventIterator.NewProposalIterator(ctx, &eventIterator.ProposalIteratorConfig{
+		RpcClient:       s.rpc,
+		StartHeight:     s.state.GetL1Current().Number,
+		EndHeight:       l1End.Number,
+		OnProposalEvent: s.onProposal,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create event iterator: %w", err)
@@ -167,25 +144,22 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	return nil
 }
 
-// onBatchProposed is a `BatchProposed` event callback which responsible for
-// inserting the proposed block one by one to the L2 execution engine.
-func (s *Syncer) onBatchProposed(
+// onProposal is the proposal-event callback which is responsible for
+// inserting proposal blocks one by one into the L2 execution engine.
+func (s *Syncer) onProposal(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
+	endIter eventIterator.EndProposalEventIterFunc,
 ) error {
-	if meta.IsPacaya() {
-		return s.processPacayaBatch(ctx, meta, endIter)
-	}
-	return s.processShastaProposal(ctx, meta, endIter)
+	return s.processProposal(ctx, meta, endIter)
 }
 
-// processShastaProposal processes a Shasta proposal event, and tries inserting
-// the proposed blocks to the L2 execution engine.
-func (s *Syncer) processShastaProposal(
+// processProposal processes a proposal event, and tries inserting
+// the proposal's blocks into the L2 execution engine.
+func (s *Syncer) processProposal(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
+	endIter eventIterator.EndProposalEventIterFunc,
 ) error {
 	var (
 		meta   = metadata.Shasta()
@@ -193,18 +167,18 @@ func (s *Syncer) processShastaProposal(
 		err    error
 	)
 
-	// We simply ignore the genesis Shasta block's `Proposed` event.
-	if meta.GetProposal().Id.Cmp(common.Big0) == 0 {
-		// Reset the lastInsertedBatchID when processing the genesis Shasta proposal.
-		s.lastInsertedBatchID = common.Big0
-		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetProposal().Id)
+	// We simply ignore the genesis L2 block's `Proposed` event.
+	if meta.GetEventData().Id.Cmp(common.Big0) == 0 {
+		// Reset the lastInsertedProposalID when processing the genesis proposal.
+		s.lastInsertedProposalID = common.Big0
+		log.Debug("Ignore genesis proposal event", "proposalID", meta.GetEventData().Id)
 		return nil
 	}
 
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetProposal().Id, s.indexer)
+		reorgCheckResult, err := s.checkReorg(ctx, meta.GetEventData().Id)
 		if err != nil {
 			return err
 		}
@@ -216,11 +190,11 @@ func (s *Syncer) processShastaProposal(
 				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
-				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
+				"lastInsertedProposalIDOld", s.lastInsertedProposalID,
+				"lastInsertedProposalIDNew", reorgCheckResult.LastHandledProposalIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
+			s.lastInsertedProposalID = reorgCheckResult.LastHandledProposalIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -228,97 +202,95 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	// Ignore those already inserted blatches.
-	if s.lastInsertedBatchID != nil && meta.GetProposal().Id.Cmp(s.lastInsertedBatchID) <= 0 {
+	// Ignore those already inserted proposals.
+	if s.lastInsertedProposalID != nil && meta.GetEventData().Id.Cmp(s.lastInsertedProposalID) <= 0 {
 		log.Debug(
-			"Skip already inserted batch",
-			"batchID", meta.GetProposal().Id,
-			"lastInsertedBatchID", s.lastInsertedBatchID,
+			"Skip already inserted proposal",
+			"proposalID", meta.GetEventData().Id,
+			"lastInsertedProposalID", s.lastInsertedProposalID,
 		)
 		return nil
 	}
 
 	log.Info(
-		"New Shasta Proposed event",
-		"proposalID", meta.GetProposal().Id,
-		"proposer", meta.GetProposal().Proposer,
-		"derivationSources", len(meta.GetDerivation().Sources),
+		"New Proposed event",
+		"proposalID", meta.GetEventData().Id,
+		"proposer", meta.GetEventData().Proposer,
+		"derivationSources", len(meta.GetEventData().Sources),
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 	)
 
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
 	// only happen when testing.
-	if meta.GetProposal().Timestamp.Uint64() > uint64(time.Now().Unix()) {
+	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
 		log.Warn(
 			"Future L2 block, waiting",
-			"L2BlockTimestamp", meta.GetProposal().Timestamp.Uint64(),
+			"L2BlockTimestamp", meta.GetTimestamp(),
 			"now", time.Now().Unix(),
 		)
-		time.Sleep(time.Until(time.Unix(int64(meta.GetProposal().Timestamp.Uint64()), 0)))
+		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
 	}
 
-	if meta.GetProposal().Id.Cmp(common.Big1) == 0 {
-		// For the first Shasta proposal, its parent block is the last Pacaya block.
-		lastPacayaBlockID := common.Big0
-		if s.rpc.ShastaClients.ForkTime > 0 {
-			if lastPacayaBlockID, err = s.rpc.LastPacayaBlockID(ctx); err != nil {
-				return fmt.Errorf("failed to fetch last Pacaya block ID: %w", err)
-			}
-		}
+	if meta.GetEventData().Id.Cmp(common.Big1) == 0 {
+		// For the first proposal, its parent block is the genesis block.
 		log.Info(
-			"First Shasta proposal, fetch last Pacaya block as parent",
-			"proposalID", meta.GetProposal().Id,
-			"proposer", meta.GetProposal().Proposer,
-			"lastPacayaBlockID", lastPacayaBlockID,
+			"First proposal, fetch genesis block as parent",
+			"proposalID", meta.GetEventData().Id,
+			"proposer", meta.GetEventData().Proposer,
 		)
-		if parent, err = s.rpc.L2.BlockByNumber(ctx, lastPacayaBlockID); err != nil {
-			return fmt.Errorf("failed to fetch the last Pacaya block: %w", err)
+		if parent, err = s.rpc.L2.BlockByNumber(ctx, common.Big0); err != nil {
+			return fmt.Errorf("failed to fetch genesis block: %w", err)
 		}
 	} else {
-		// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
-		// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
-		// P2P sync, then we just use the latest block as parent block in this case.
-		l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetProposal().Id, common.Big1))
-		if err != nil && err.Error() != ethereum.NotFound.Error() {
-			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
+		// For other proposals, fetch the parent block by getting the last block in the previous proposal.
+		blockID, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
+		if err != nil {
+			return fmt.Errorf("failed to fetch last L1 origin for proposal: %w", err)
 		}
-		if l1Origin != nil {
-			if parent, err = s.rpc.L2.BlockByNumber(ctx, l1Origin.BlockID); err != nil {
-				return err
-			}
-		} else {
-			if parent, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
-				return err
-			}
-			log.Info(
-				"No L1 origin found for the previous proposal, using the latest block as parent",
-				"proposalID", meta.GetProposal().Id,
-				"proposer", meta.GetProposal().Proposer,
-				"parentBlockID", parent.Number(),
+		if blockID == nil {
+			return fmt.Errorf(
+				"no last L1 origin found for proposal %s",
+				new(big.Int).Sub(meta.GetEventData().Id, common.Big1),
 			)
+		}
+
+		if parent, err = s.rpc.L2.BlockByNumber(ctx, blockID.ToInt()); err != nil {
+			return err
 		}
 	}
 
-	for derivationIdx := range meta.GetDerivation().Sources {
+	// Prefetch all derivation source payloads.
+	sourcePayloads := make([]*derivation.DerivationSourcePayload, len(meta.GetEventData().Sources))
+	// Fetch all derivation source payloads.
+	for i := range meta.GetEventData().Sources {
+		p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
+		if err != nil {
+			return fmt.Errorf("failed to fetch derivation payload for index %d: %w", i, err)
+		}
+		sourcePayloads[i] = p
+	}
+
+	for derivationIdx := range meta.GetEventData().Sources {
 		log.Info(
-			"Processing Shasta derivation source",
-			"proposalID", meta.GetProposal().Id,
-			"proposer", meta.GetProposal().Proposer,
+			"Processing derivation source",
+			"proposalID", meta.GetEventData().Id,
+			"proposer", meta.GetEventData().Proposer,
 			"index", derivationIdx,
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1Hash", meta.GetRawBlockHash(),
 		)
-		// Fetch and parse the derivation payload from blobs.
-		sourcePayload, err := s.derivationSourceFetcher.Fetch(ctx, meta, derivationIdx)
-		if err != nil {
-			return err
+		// Reuse the prefetched derivation payload.
+		sourcePayload := sourcePayloads[derivationIdx]
+		if sourcePayload == nil {
+			return fmt.Errorf("missing derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
+		isForcedInclusion := meta.GetEventData().Sources[derivationIdx].IsForcedInclusion
 
 		log.Info(
-			"Parent block info for Shasta derivation payload",
-			"proposalID", meta.GetProposal().Id,
+			"Parent block info for derivation payload",
+			"proposalID", meta.GetEventData().Id,
 			"blocks", len(sourcePayload.BlockPayloads),
 			"parentBlockID", sourcePayload.ParentBlock.Number(),
 			"parentHash", sourcePayload.ParentBlock.Hash(),
@@ -326,323 +298,119 @@ func (s *Syncer) processShastaProposal(
 			"parentTimestamp", sourcePayload.ParentBlock.Time(),
 		)
 
-		latestBlockState, latestProposalState, err := s.rpc.GetShastaAnchorState(
-			&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
-		)
-		if err != nil {
-			return err
-		}
-		lastAnchorBlockNumber := latestBlockState.AnchorBlockNumber.Uint64()
-		if meta.GetProposal().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		var lastAnchorBlockNumber uint64
+		if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
+			meta.GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],
 			); err != nil {
 				return err
 			}
-		}
-		// If the proposal is not a default one, we need to do some extra validations for
-		// the proposer and `isLowBondProposal` flag.
-		if !sourcePayload.Default {
-			opts := &bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx}
-			proposalState, err := s.rpc.ShastaClients.Anchor.GetProposalState(opts)
-			if err != nil {
-				return err
-			}
-			designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
-				opts,
-				meta.GetProposal().Id,
-				meta.GetProposal().Proposer,
-				sourcePayload.ProverAuthBytes,
-				proposalState.DesignatedProver,
+		} else {
+			latestBlockState, err := s.rpc.GetAnchorState(
+				&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
 			)
 			if err != nil {
 				return err
 			}
 
-			log.Info(
-				"Designated prover info",
-				"proposalID", meta.GetProposal().Id,
-				"blocks", len(sourcePayload.BlockPayloads),
-				"proposer", meta.GetProposal().Proposer,
-				"prover", designatedProverInfo.DesignatedProver,
-				"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
-				"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
-				"proverAuth", common.Bytes2Hex(sourcePayload.ProverAuthBytes[:]),
-			)
-
-			if designatedProverInfo.IsLowBondProposal {
-				sourcePayload = &shastaManifest.ShastaDerivationSourcePayload{
-					Default:           true,
-					IsLowBondProposal: true,
-					ParentBlock:       sourcePayload.ParentBlock,
+			lastAnchorBlockNumber = latestBlockState.AnchorBlockNumber.Uint64()
+			if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+				if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
+					sourcePayload.ParentBlock.Transactions()[0],
+				); err != nil {
+					return err
 				}
 			}
-
-			// Check block-level metadata and reset some incorrect value.
-			if err := shastaManifest.ValidateMetadata(
-				ctx,
-				s.rpc,
-				sourcePayload,
-				meta.GetDerivation().Sources[derivationIdx].IsForcedInclusion,
-				meta.GetProposal(),
-				meta.GetRawBlockHeight().Uint64(),
-				latestProposalState.BondInstructionsHash,
-				lastAnchorBlockNumber,
-			); err != nil {
-				return err
-			}
 		}
 
-		if sourcePayload.Default {
-			// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-			// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
-			// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
-			// the real gas limit from parent block metadata.
-			gasLimit := sourcePayload.ParentBlock.GasLimit()
-			if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
-				gasLimit = gasLimit - consensus.AnchorV3V4GasLimit
-			}
-
-			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
-				{
-					BlockManifest: manifest.BlockManifest{
-						Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
-						Coinbase:          meta.GetProposal().Proposer,
-						AnchorBlockNumber: lastAnchorBlockNumber,
-						GasLimit:          gasLimit,
-						Transactions:      types.Transactions{},
-					},
-				},
-			}
-			log.Info(
-				"Use default Shasta derivation payload",
-				"proposalID", meta.GetProposal().Id,
-				"proposer", meta.GetProposal().Proposer,
+		// If the derivation source is forced inclusion, we apply inherited metadata first.
+		if isForcedInclusion {
+			derivation.ApplyInheritedMetadata(
+				sourcePayload,
+				meta.GetEventData(),
+				meta.GetTimestamp(),
+				lastAnchorBlockNumber,
+				s.rpc.L2.ChainID,
 			)
 		}
 
-		// Assemble bond instructions for the derivation payload.
-		if err := shastaManifest.AssembleBondInstructions(
-			ctx,
-			meta.GetProposal().Id,
-			s.indexer,
+		// If the derivation source payload's metadata is invalid, we replace it with default metadata.
+		if !derivation.ValidateMetadata(
+			s.rpc,
 			sourcePayload,
-		); err != nil {
-			return fmt.Errorf("failed to assemble bond instructions: %w", err)
+			meta.GetEventData(),
+			meta.GetTimestamp(),
+			meta.GetRawBlockHeight().Uint64()-1,
+			lastAnchorBlockNumber,
+			isForcedInclusion,
+		) {
+			sourcePayload.Default = true
+			sourcePayload.BlockPayloads = []*derivation.BlockPayload{
+				{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
+			}
+			derivation.ApplyInheritedMetadata(
+				sourcePayload,
+				meta.GetEventData(),
+				meta.GetTimestamp(),
+				lastAnchorBlockNumber,
+				s.rpc.L2.ChainID,
+			)
+			log.Info(
+				"Use default derivation payload",
+				"proposalID", meta.GetEventData().Id,
+				"proposer", meta.GetEventData().Proposer,
+				"anchorBlockNumber", lastAnchorBlockNumber,
+			)
 		}
 
 		// Insert new blocks to L2 EE's chain.
-		if err := s.blocksInserterShasta.InsertBlocksWithManifest(
+		lastInsertedBlockID, err := s.blocksInserter.InsertBlocksWithManifest(
 			ctx,
 			metadata,
 			sourcePayload,
 			endIter,
-		); err != nil {
-			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
-		}
-		if parent, err = s.rpc.L2.BlockByNumber(ctx, new(big.Int).Add(parent.Number(), common.Big1)); err != nil {
-			return fmt.Errorf("failed to fetch the new parent block: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// processPacayaBatch processes a Pacaya batch event, and tries inserting
-// the proposed blocks to the L2 execution engine.
-func (s *Syncer) processPacayaBatch(
-	ctx context.Context,
-	meta metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
-) error {
-	var (
-		timestamp = meta.Pacaya().GetLastBlockTimestamp()
-	)
-
-	// We simply ignore the genesis block's `BatchesProposed` event.
-	if meta.Pacaya().GetBatchID().Cmp(common.Big0) == 0 {
-		return nil
-	}
-
-	// If we are not inserting a block whose parent block is the latest verified block in protocol,
-	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
-	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgPacaya(ctx, meta.Pacaya().GetBatchID())
+		)
 		if err != nil {
-			return fmt.Errorf("failed to check for reorg: %w", err)
+			return fmt.Errorf("failed to insert proposal blocks: %w", err)
 		}
-
-		if reorgCheckResult.IsReorged {
-			log.Info(
-				"Reset L1Current cursor due to L1 reorg",
-				"l1CurrentHeightOld", s.state.GetL1Current().Number,
-				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
-				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
-				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
-				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
-			)
-			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
-			s.reorgDetectedFlag = true
-			endIter()
-
-			return nil
+		if parent, err = s.rpc.WaitL2Block(ctx, lastInsertedBlockID); err != nil {
+			log.Warn("Failed to fetch the new parent block", "error", err)
+			return err
 		}
 	}
-
-	// Ignore those already inserted blatches.
-	if s.lastInsertedBatchID != nil && meta.Pacaya().GetBatchID().Cmp(s.lastInsertedBatchID) <= 0 {
-		log.Debug(
-			"Skip already inserted batch",
-			"batchID", meta.Pacaya().GetBatchID(),
-			"lastInsertedBatchID", s.lastInsertedBatchID,
-		)
-		return nil
-	}
-
-	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
-	// only happen when testing.
-	if timestamp > uint64(time.Now().Unix()) {
-		log.Warn(
-			"Future L2 block, waiting",
-			"L2BlockTimestamp", timestamp,
-			"now", time.Now().Unix(),
-		)
-		time.Sleep(time.Until(time.Unix(int64(timestamp), 0)))
-	}
-
-	// Insert new blocks to L2 EE's chain.
-	log.Info(
-		"New BatchProposed event",
-		"l1Height", meta.GetRawBlockHeight(),
-		"l1Hash", meta.GetRawBlockHash(),
-		"batchID", meta.Pacaya().GetBatchID(),
-		"lastBlockID", meta.Pacaya().GetLastBlockID(),
-		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
-		"blocks", len(meta.Pacaya().GetBlocks()),
-	)
-	if err := s.blocksInserterPacaya.InsertBlocks(ctx, meta, endIter); err != nil {
-		return fmt.Errorf("failed to insert Pacaya blocks: %w", err)
-	}
-
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
-	s.lastInsertedBatchID = meta.Pacaya().GetBatchID()
+	s.lastInsertedProposalID = meta.GetEventData().Id
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()
 	}
-
 	return nil
 }
 
-// checkLastVerifiedBlockMismatchPacaya checks if there is a mismatch between protocol's last verified block hash and
+// checkLastVerifiedBlockMismatch checks if there is a mismatch between protocol's last verified block hash and
 // the corresponding L2 EE block hash.
-func (s *Syncer) checkLastVerifiedBlockMismatchPacaya(ctx context.Context) (*rpc.ReorgCheckResult, error) {
-	// Fetch the latest verified block hash.
-	ts, err := s.rpc.GetLastVerifiedTransitionPacaya(ctx)
+func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.ReorgCheckResult, error) {
+	reorgCheckResult := new(rpc.ReorgCheckResult)
+
+	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get last verified transition: %w", err)
+		return nil, fmt.Errorf("failed to fetch core state: %w", err)
 	}
 
-	var (
-		reorgCheckResult    = new(rpc.ReorgCheckResult)
-		lastVerifiedBatchID = ts.BatchId
-	)
-
-	// If the current L2 chain is behind of the last verified block, we skip the check.
-	if s.state.GetL2Head().Number.Uint64() < ts.BlockId ||
-		(s.lastInsertedBatchID != nil && s.lastInsertedBatchID.Uint64() < ts.BlockId) {
+	// If there is no finalized proposal yet, we skip the check.
+	if coreState.LastFinalizedProposalId.Cmp(common.Big0) == 0 {
 		return reorgCheckResult, nil
 	}
 
-	header, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(ts.BlockId))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
-	}
-
-	// If the last verified block hash matches the L2 EE block hash, we skip the check.
-	if header.Hash() == ts.Ts.BlockHash {
-		return reorgCheckResult, nil
-	}
-
-	for {
-		batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID))
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
-		}
-		previousBatch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastVerifiedBatchID-1))
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch previous batch by ID: %w", err)
-		}
-
-		if batch.VerifiedTransitionId.Cmp(common.Big0) == 0 {
-			lastVerifiedBatchID = previousBatch.BatchId
-			continue
-		}
-		ts, err := s.rpc.PacayaClients.TaikoInbox.GetBatchVerifyingTransition(&bind.CallOpts{Context: ctx}, batch.BatchId)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch Pacaya transition: %w", err)
-		}
-		if header, err = s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(batch.LastBlockId)); err != nil {
-			return nil, fmt.Errorf("failed to fetch L2 header by number: %w", err)
-		}
-
-		if header.Hash() == ts.BlockHash {
-			log.Info(
-				"Verified block matched, start reorging",
-				"currentHeightToCheck", batch.LastBlockId,
-				"chainBlockHash", header.Hash(),
-				"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
-			)
-			reorgCheckResult.IsReorged = true
-			if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(
-				ctx,
-				new(big.Int).SetUint64(batch.AnchorBlockId),
-			); err != nil {
-				return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
-			}
-			reorgCheckResult.LastHandledBatchIDToReset = header.Number
-			return reorgCheckResult, nil
-		}
-
-		log.Info(
-			"Verified block mismatch",
-			"currentHeightToCheck", batch.LastBlockId,
-			"chainBlockHash", header.Hash(),
-			"transitionBlockHash", common.BytesToHash(ts.BlockHash[:]),
-		)
-
-		lastVerifiedBatchID = previousBatch.BatchId
-	}
-}
-
-// checkLastVerifiedBlockMismatchShasta checks if there is a mismatch between protocol's last verified block hash and
-// the corresponding L2 EE block hash.
-func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
-	ctx context.Context,
-	indexer *shastaIndexer.Indexer,
-) (*rpc.ReorgCheckResult, error) {
-	var (
-		reorgCheckResult    = new(rpc.ReorgCheckResult)
-		lastVerifiedBatchID = indexer.GetLastProposal().CoreState.LastFinalizedProposalId
-	)
-
-	if lastVerifiedBatchID.Cmp(common.Big0) == 0 {
-		return reorgCheckResult, nil
-	}
-
-	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, lastVerifiedBatchID)
-	if err != nil && err.Error() != ethereum.NotFound.Error() {
+	lastBlockInBatch, err := s.rpc.L2Engine.LastL1OriginByBatchID(ctx, coreState.LastFinalizedProposalId)
+	if err != nil &&
+		err.Error() != ethereum.NotFound.Error() &&
+		err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
-	record := indexer.GetTransitionRecordByProposalID(lastVerifiedBatchID.Uint64())
-	if record == nil {
-		return nil, fmt.Errorf("no transition record found for proposal ID %d", lastVerifiedBatchID.Uint64())
-	}
-
 	// If the current L2 chain is behind of the last verified block, or the hash matches, return directly.
-	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == record.Transition.Checkpoint.BlockHash {
+	if lastBlockInBatch == nil || lastBlockInBatch.L2BlockHash == coreState.LastFinalizedBlockHash {
 		return reorgCheckResult, nil
 	}
 
@@ -650,7 +418,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 		"Verified block mismatch",
 		"currentHeightToCheck", lastBlockInBatch.BlockID,
 		"chainBlockHash", lastBlockInBatch.L2BlockHash,
-		"transitionBlockHash", common.BytesToHash(record.Transition.Checkpoint.BlockHash[:]),
+		"transitionBlockHash", common.Hash(coreState.LastFinalizedBlockHash),
 	)
 
 	// For Shasta, we simply reset to genesis if there is a mismatch.
@@ -658,48 +426,31 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 	if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(ctx, common.Big0); err != nil {
 		return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
 	}
-	reorgCheckResult.LastHandledBatchIDToReset = common.Big0
+	reorgCheckResult.LastHandledProposalIDToReset = common.Big0
 	return reorgCheckResult, nil
 }
 
-// checkReorgPacaya checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
-func (s *Syncer) checkReorgPacaya(ctx context.Context, batchID *big.Int) (*rpc.ReorgCheckResult, error) {
-	// If the L2 chain is at genesis, we don't need to check L1 reorg.
-	if s.state.GetL1Current().Number == s.state.GenesisL1Height {
-		return new(rpc.ReorgCheckResult), nil
-	}
-
-	// 1. Check if the verified blocks in L2 EE have been reorged.
-	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchPacaya(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
-	}
-
-	// 2. If the verified blocks check is passed, we check the unverified blocks.
-	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), false); err != nil {
-			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
-		}
-	}
-
-	return reorgCheckResult, nil
-}
-
-// checkReorgShasta checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
-func (s *Syncer) checkReorgShasta(
+// checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
+func (s *Syncer) checkReorg(
 	ctx context.Context,
-	batchID *big.Int,
-	indexer *shastaIndexer.Indexer,
+	proposalID *big.Int,
 ) (*rpc.ReorgCheckResult, error) {
 	// 1. Check if the verified blocks in L2 EE have been reorged.
-	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx, indexer)
+	reorgCheckResult, err := s.checkLastVerifiedBlockMismatch(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
 	}
 
-	// 2. If the verified blocks check is passed, we check the unverified blocks.
+	// 2. Proposal 1 has no prior proposal to validate against L1 origin data.
+	// Skipping the proposalID-1 reorg check here avoids treating normal genesis state
+	// as a synthetic reorg back to genesis.
+	if proposalID.Cmp(common.Big1) <= 0 {
+		return reorgCheckResult, nil
+	}
+
+	// 3. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), true); err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(proposalID, common.Big1)); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}
@@ -707,12 +458,7 @@ func (s *Syncer) checkReorgShasta(
 	return reorgCheckResult, nil
 }
 
-// BlocksInserterPacaya returns the Pacaya blocks inserter.
-func (s *Syncer) BlocksInserterPacaya() *blocksInserter.Pacaya {
-	return s.blocksInserterPacaya.(*blocksInserter.Pacaya)
-}
-
-// blocksInserterShasta returns the Shasta blocks inserter.
-func (s *Syncer) BlocksInserterShasta() *blocksInserter.Shasta {
-	return s.blocksInserterShasta.(*blocksInserter.Shasta)
+// BlocksInserter returns the blocks inserter.
+func (s *Syncer) BlocksInserter() *blocksInserter.Shasta {
+	return s.blocksInserter.(*blocksInserter.Shasta)
 }

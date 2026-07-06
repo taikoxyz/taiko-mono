@@ -16,7 +16,6 @@ var (
 	ErrInvalidLength   = errors.New("invalid items length")
 	ErrProofInProgress = errors.New("work_in_progress")
 	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
 	StatusRegistered   = "registered"
 )
 
@@ -41,8 +40,10 @@ type BatchProofs struct {
 	BatchIDs             []*big.Int
 	ProofType            ProofType
 	Verifier             common.Address
+	VerifierID           uint8
 	SgxGethBatchProof    []byte
 	SgxGethProofVerifier common.Address
+	SgxGethVerifierID    uint8
 }
 
 // ProofProducer is an interface that contains all methods to generate a proof.

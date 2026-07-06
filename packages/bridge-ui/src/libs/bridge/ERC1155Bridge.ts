@@ -2,10 +2,8 @@ import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
-import { bridgeAbi, erc1155Abi, erc1155VaultAbi } from '$abi';
-import { routingContractsMap } from '$bridgeConfig';
+import { erc1155Abi, erc1155VaultAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
-import { gasLimitConfig } from '$config';
 import {
   ApproveError,
   NoApprovalRequiredError,
@@ -20,7 +18,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { calculateMessageDataSize } from './calculateMessageDataSize';
+import { estimateMessageGasLimit } from './estimateMessageGasLimit';
 import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC1155Bridge');
@@ -196,28 +194,19 @@ export class ERC1155Bridge extends Bridge {
       address: tokenVaultAddress,
     });
 
-    const { size } = await calculateMessageDataSize({ token: tokenObject, chainId: srcChainId, tokenIds, amounts });
-
-    const client = await getPublicClient(config, { chainId: destChainId });
-    if (!client) throw new Error('Could not get public client');
-
-    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-    const destBridgeContract = getContract({
-      client,
-      abi: bridgeAbi,
-      address: destBridgeAddress,
-    });
-
-    const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
-
     let gasLimit: number;
     if (get(gasLimitZero)) {
       log('Gas limit is set to 0');
       gasLimit = 0;
     } else {
-      gasLimit = !isTokenAlreadyDeployed
-        ? minGasLimit + gasLimitConfig.erc1155DeployedGasLimit // Token is not deployed
-        : minGasLimit + gasLimitConfig.erc1155NotDeployedGasLimit; // Token is deployed
+      gasLimit = await estimateMessageGasLimit({
+        token: tokenObject,
+        srcChainId,
+        destChainId,
+        isTokenAlreadyDeployed,
+        tokenIds,
+        amounts,
+      });
     }
 
     const sendERC1155Args: NFTBridgeTransferOp = {

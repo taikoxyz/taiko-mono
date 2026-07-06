@@ -20,7 +20,14 @@ contract TaikoToken is TaikoTokenBase {
     // v20.based.taiko.eth
     address public constant TAIKO_ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
+    mapping(address account => bool renounced) private _votingPowerRenounced;
+
+    /// @notice Emitted when an address permanently renounces its voting power.
+    /// @param account The address that renounced.
+    event VotingPowerRenounced(address indexed account);
+
     error TT_NON_VOTING_ACCOUNT();
+    error TT_VOTING_POWER_RENOUNCED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -43,6 +50,36 @@ contract TaikoToken is TaikoTokenBase {
         }
     }
 
+    /// @notice Permanently renounces the caller's voting power. Irreversible.
+    /// @dev After calling, `getVotes(msg.sender)` and `getPastVotes(msg.sender, _)` always return
+    /// 0. The caller's TAIKO balance is unaffected and the total voting supply
+    /// (`getPastTotalSupply`) is unchanged — the renouncer's tokens remain in the raw checkpoint
+    /// store so the governance denominator does not shrink. Delegation calls (including
+    /// `delegateBySig`) are not blocked, but any voting power routed to the renouncer is read as
+    /// 0 via the view overrides.
+    ///
+    /// Side effect: any address that had previously delegated to the renouncer also loses voting
+    /// power until it re-delegates elsewhere, because `getPastVotes` of the renouncer returns 0.
+    /// There is no on-chain way to enumerate inbound delegators, so they must act themselves.
+    function renounceVotingPower() external {
+        require(!_votingPowerRenounced[msg.sender], TT_VOTING_POWER_RENOUNCED());
+
+        address[] memory accounts = getNonVotingAccounts();
+        for (uint256 i; i < accounts.length; ++i) {
+            require(msg.sender != accounts[i], TT_NON_VOTING_ACCOUNT());
+        }
+
+        _votingPowerRenounced[msg.sender] = true;
+        emit VotingPowerRenounced(msg.sender);
+    }
+
+    /// @notice Returns whether an address has permanently renounced its voting power.
+    /// @param _account The address to query.
+    /// @return renounced_ True if the address has renounced.
+    function hasRenouncedVotingPower(address _account) external view returns (bool renounced_) {
+        renounced_ = _votingPowerRenounced[_account];
+    }
+
     function delegate(address _account) public override {
         // Ensure non-voting accounts cannot delegate or being delegated to.
         address[] memory accounts = getNonVotingAccounts();
@@ -50,6 +87,12 @@ contract TaikoToken is TaikoTokenBase {
             require(_account != accounts[i] && msg.sender != accounts[i], TT_NON_VOTING_ACCOUNT());
         }
         super.delegate(_account);
+    }
+
+    function getVotes(address _account) public view override returns (uint256) {
+        uint256 votes = super.getVotes(_account);
+        if (votes == 0) return 0;
+        return _votingPowerRenounced[_account] ? 0 : votes;
     }
 
     function getPastVotes(
@@ -65,7 +108,9 @@ contract TaikoToken is TaikoTokenBase {
         for (uint256 i; i < accounts.length; ++i) {
             if (_account == accounts[i]) return 0;
         }
-        return super.getPastVotes(_account, _timepoint);
+        uint256 votes = super.getPastVotes(_account, _timepoint);
+        if (votes == 0) return 0;
+        return _votingPowerRenounced[_account] ? 0 : votes;
     }
 
     /// @notice This override modifies the return value to reflect the past total supply eligible

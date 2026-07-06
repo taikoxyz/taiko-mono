@@ -244,3 +244,29 @@
   - taiko: `0x1670000000000000000000000000000000010001`
 - logs:
   - deployed on May 19, 2025 @commit`879fda0` @tx `0x4eb337b2b8d41ddc2f35e138a58765dc0e1055f1075e7667babf32d6ec1bc451`
+
+## Shasta Contracts
+
+#### anchor_impl
+
+- impl: `0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7f4fc8912f351b08679388a54bd47815c533623ba9358c8d344385d8b3b64efd`
+
+#### anchor_fork_router
+
+- impl: `0x38e4A497aD70aa0581BAc29747b0Ea7a53258585`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbc01389f634088578c7451eb4d4f51dd1ae875794ae266505427343b9f53a4f1`
+
+#### signal_service_impl
+
+- impl: `0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbf8a4eb0552c1a46ca2941c49a6f12213a2f1f9c8e216ffb9bab877c4e5fae6f`
+
+#### signal_service_fork_router
+
+- impl: `0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x027cfcd2de0a9171dc1f304afce1ecd9f522c8a619df3dde17769209812b181a`

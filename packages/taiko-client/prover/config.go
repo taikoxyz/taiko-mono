@@ -16,40 +16,41 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
-	L1WsEndpoint              string
-	L2WsEndpoint              string
-	L2HttpEndpoint            string
-	PacayaInboxAddress        common.Address
-	ShastaInboxAddress        common.Address
-	TaikoAnchorAddress        common.Address
-	TaikoTokenAddress         common.Address
-	ProverSetAddress          common.Address
-	L1ProverPrivKey           *ecdsa.PrivateKey
-	StartingBatchID           *big.Int
-	BackOffMaxRetries         uint64
-	BackOffRetryInterval      time.Duration
-	ProveUnassignedBlocks     bool
-	RPCTimeout                time.Duration
-	ProveBatchesGasLimit      uint64
-	Allowance                 *big.Int
-	RaikoHostEndpoint         string
-	RaikoZKVMHostEndpoint     string
-	RaikoApiKey               string
-	RaikoRequestTimeout       time.Duration
-	LocalProposerAddresses    []common.Address
-	BlockConfirmations        uint64
-	TxmgrConfigs              *txmgr.CLIConfig
-	PrivateTxmgrConfigs       *txmgr.CLIConfig
-	SGXProofBufferSize        uint64
-	ZKVMProofBufferSize       uint64
-	ForceBatchProvingInterval time.Duration
-	ProofPollingInterval      time.Duration
-	Dummy                     bool
+	L1WsEndpoint                  string
+	L1BeaconEndpoint              string
+	L2WsEndpoint                  string
+	L2EngineEndpoint              string
+	JwtSecret                     string
+	InboxAddress                  common.Address
+	TaikoAnchorAddress            common.Address
+	L1ProverPrivKey               *ecdsa.PrivateKey
+	StartingProposalID            *big.Int
+	BackOffMaxRetries             uint64
+	BackOffRetryInterval          time.Duration
+	ProveUnassignedProposals      bool
+	RPCTimeout                    time.Duration
+	ProveBatchesGasLimit          uint64
+	RaikoHostEndpoint             string
+	RaikoZKVMHostEndpoint         string
+	RaikoApiKey                   string
+	RaikoRequestTimeout           time.Duration
+	LocalProposerAddresses        []common.Address
+	BlockConfirmations            uint64
+	TxmgrConfigs                  *txmgr.CLIConfig
+	PrivateTxmgrConfigs           *txmgr.CLIConfig
+	SGXProofBufferSize            uint64
+	ZKVMProofBufferSize           uint64
+	ForceBatchProvingInterval     time.Duration
+	ProofPollingInterval          time.Duration
+	Dummy                         bool
+	ProposalWindowSize            uint64
+	MaxRisc0ProofProposalDistance uint64
+	ForceSP1Proof                 bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -62,19 +63,25 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
 	}
 
-	var startingBatchID *big.Int
-	if c.IsSet(flags.StartingBatchID.Name) {
-		startingBatchID = new(big.Int).SetUint64(c.Uint64(flags.StartingBatchID.Name))
+	// The cli library no longer marks --l1.ws / --l2.ws as Required (the driver
+	// can fall back to HTTP polling), so we enforce the prover's requirement
+	// here. Placed after the private-key validation so existing error-precedence
+	// assertions in tests stay intact.
+	if c.String(flags.L1WSEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L1WSEndpoint.Name)
+	}
+	if c.String(flags.L2WSEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2WSEndpoint.Name)
 	}
 
-	var allowance = common.Big0
-	if c.IsSet(flags.Allowance.Name) {
-		amt, err := utils.EtherToWei(c.Float64(flags.Allowance.Name))
-		if err != nil {
-			return nil, fmt.Errorf("invalid setting allowance config value: %v", c.Float64(flags.Allowance.Name))
-		}
+	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
+	if err != nil {
+		return nil, fmt.Errorf("invalid JWT secret file: %w", err)
+	}
 
-		allowance = amt
+	var startingProposalID *big.Int
+	if c.IsSet(flags.StartingProposalID.Name) {
+		startingProposalID = new(big.Int).SetUint64(c.Uint64(flags.StartingProposalID.Name))
 	}
 
 	if c.IsSet(flags.RaikoApiKeyPath.Name) {
@@ -93,31 +100,33 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		addr := common.HexToAddress(localProposerAddress)
 		localProposerAddresses = append(localProposerAddresses, addr)
 	}
-
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
 	return &Config{
-		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
-		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
-		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
-		PacayaInboxAddress:     common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
-		ShastaInboxAddress:     common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
-		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-		L1ProverPrivKey:        l1ProverPrivKey,
-		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
-		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
-		RaikoApiKey:            strings.TrimSpace(string(raikoApiKey)),
-		RaikoRequestTimeout:    c.Duration(flags.RaikoRequestTimeout.Name),
-		StartingBatchID:        startingBatchID,
-		Dummy:                  c.Bool(flags.Dummy.Name),
-		BackOffMaxRetries:      c.Uint64(flags.BackOffMaxRetries.Name),
-		BackOffRetryInterval:   c.Duration(flags.BackOffRetryInterval.Name),
-		ProveUnassignedBlocks:  c.Bool(flags.ProveUnassignedBlocks.Name),
+		L1WsEndpoint:             c.String(flags.L1WSEndpoint.Name),
+		L1BeaconEndpoint:         c.String(flags.L1BeaconEndpoint.Name),
+		L2WsEndpoint:             c.String(flags.L2WSEndpoint.Name),
+		L2EngineEndpoint:         c.String(flags.L2AuthEndpoint.Name),
+		JwtSecret:                string(jwtSecret),
+		InboxAddress:             common.HexToAddress(c.String(flags.InboxAddress.Name)),
+		TaikoAnchorAddress:       common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+		L1ProverPrivKey:          l1ProverPrivKey,
+		RaikoHostEndpoint:        c.String(flags.RaikoHostEndpoint.Name),
+		RaikoZKVMHostEndpoint:    c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoApiKey:              strings.TrimSpace(string(raikoApiKey)),
+		RaikoRequestTimeout:      c.Duration(flags.RaikoRequestTimeout.Name),
+		StartingProposalID:       startingProposalID,
+		Dummy:                    c.Bool(flags.Dummy.Name),
+		BackOffMaxRetries:        c.Uint64(flags.BackOffMaxRetries.Name),
+		BackOffRetryInterval:     c.Duration(flags.BackOffRetryInterval.Name),
+		ProveUnassignedProposals: c.Bool(flags.ProveUnassignedProposals.Name),
+		ProposalWindowSize:       c.Uint64(flags.ProposalWindowSize.Name),
+		MaxRisc0ProofProposalDistance: c.Uint64(
+			flags.MaxRisc0ProofProposalDistance.Name,
+		),
+		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
-		Allowance:              allowance,
 		LocalProposerAddresses: localProposerAddresses,
 		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),

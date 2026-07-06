@@ -1,3 +1,8 @@
+# Pass recipe arguments through as real positional args ($@) instead of a
+# space-joined string, so forwarded values keep their quoting (e.g.
+# `just test -E 'test(some_name)'` reaches nextest as two intact args).
+set positional-arguments := true
+
 toolchain := "nightly-2025-09-27"
 
 fmt:
@@ -10,7 +15,7 @@ fmt-check:
   cargo +{{toolchain}} fmt --check
 
 clippy:
-  cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings
+  cargo clippy --workspace --all-features --no-deps --exclude bindings --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items
 
 clippy-fix:
   cargo clippy --fix --workspace --all-features --no-deps --exclude bindings --allow-dirty --allow-staged -- -D warnings
@@ -18,8 +23,8 @@ clippy-fix:
 udeps:
   cargo +{{toolchain}} udeps --all-targets
 
-test:
-  ./tests/entrypoint.sh
+test *ARGS:
+  ./tests/entrypoint.sh "$@"
 
 gen_bindings:
   ./script/gen_bindings.sh

@@ -9,8 +9,15 @@ import (
 )
 
 var (
-	_               Submitter = (*ProofSubmitterPacaya)(nil)
-	ErrInvalidProof           = errors.New("invalid proof found")
+	_ Submitter = (*ProofSubmitter)(nil)
+
+	ErrInvalidProof  = errors.New("invalid proof found")
+	ErrCacheNotFound = errors.New("cache not found")
+)
+
+const (
+	MaxNumSupportedZkTypes    = 2
+	MaxNumSupportedProofTypes = 3
 )
 
 // Submitter is the interface for submitting proofs of the L2 blocks.
@@ -18,4 +25,6 @@ type Submitter interface {
 	RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error
 	BatchSubmitProofs(ctx context.Context, proofsWithHeaders *proofProducer.BatchProofs) error
 	AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error
+	FlushCache(ctx context.Context, proofType proofProducer.ProofType) error
+	ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error
 }

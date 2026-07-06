@@ -1,0 +1,264 @@
+name: OpenRouter PR Review
+
+# On-demand, multi-model PR reviewer backed by OpenRouter.
+# A trusted author comments `@review [model]` on a PR to run a review:
+#   @review                          -> default model (OPENROUTER_DEFAULT_MODEL)
+#   @review z-ai/glm-5.2             -> GLM 5.2
+#   @review deepseek/deepseek-chat-v3-> DeepSeek
+#   @review anthropic/claude-3.7-sonnet, openai/gpt-..., etc.
+# Each model keeps its own sticky comment, so several models can be run on
+# the same PR and compared side by side.
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  # Key on the comment id so independent `@review` invocations (e.g. different
+  # models) run in parallel and never cancel one another.
+  group: ${{ github.workflow }}-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
+jobs:
+  openrouter-review:
+    # Opt-in only: runs when a trusted, human author comments `@review` on a PR.
+    # SECURITY: gated to OWNER/MEMBER/COLLABORATOR and non-bot authors so fork
+    # PRs / bots cannot burn the OPENROUTER_API_KEY budget or cause loops.
+    if: >-
+      github.event.issue.pull_request != null
+      && github.event.comment.user.type != 'Bot'
+      && contains(github.event.comment.body, '@review')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    # Cap the whole job. Must exceed two full fetch attempts (the 180s request
+    # timeout can be hit on the first try and again on the retry) plus API
+    # overhead, so a slow first attempt + retry is never killed mid-run.
+    timeout-minutes: 8
+    permissions:
+      # `pull-requests: write` is required to post the review: the job comments
+      # via issues.createComment against the PR number, and on a pull request
+      # that write is governed by the pull-requests scope (not issues). With
+      # only read access the post fails with "Resource not accessible by
+      # integration" even though the diff fetch (a read) and the model call
+      # both succeed.
+      pull-requests: write
+      issues: write
+    steps:
+      # No checkout / setup-node: github-script runs on the runner's Node and
+      # the diff is fetched via the API, so a repo checkout is unnecessary.
+      - name: Run OpenRouter Code Review
+        uses: actions/github-script@v8
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_DEFAULT_MODEL: ${{ vars.OPENROUTER_DEFAULT_MODEL }}
+          OPENROUTER_MAX_TOKENS: ${{ vars.OPENROUTER_MAX_TOKENS }}
+          OPENROUTER_MAX_DIFF: ${{ vars.OPENROUTER_MAX_DIFF }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = context.issue.number;
+
+            // Confirm a real `@review` command with a word boundary so
+            // `@reviewers` / `@reviewfoo` don't trigger, and capture the
+            // optional model slug that follows it.
+            const commentBody = context.payload.comment.body || '';
+            const match = commentBody.match(/(?:^|\s)@review\b[ \t]*(\S+)?/);
+            if (!match) {
+              core.info('No `@review` command found in comment; nothing to do.');
+              return;
+            }
+
+            const DEFAULT_MODEL = process.env.OPENROUTER_DEFAULT_MODEL || 'z-ai/glm-5.2';
+            const model = (match[1] || '').trim() || DEFAULT_MODEL;
+
+            // Parse a positive integer from a repo variable, warning (not
+            // silently falling back) when a value is set but invalid.
+            const intFromEnv = (name, fallback) => {
+              const raw = process.env[name];
+              if (raw === undefined || raw === '') return fallback;
+              const n = parseInt(raw, 10);
+              if (Number.isFinite(n) && n > 0) return n;
+              core.warning(`Ignoring invalid ${name}="${raw}"; using fallback ${fallback}.`);
+              return fallback;
+            };
+
+            // Per-model sticky comment, matched on a hidden marker (robust
+            // against header text being quoted by humans or other bots).
+            const marker = `<!-- openrouter-review:${model} -->`;
+            const header = `## 🤖 OpenRouter Review — \`${model}\``;
+            const footer = `*Triggered by \`@review\` • model: \`${model}\` • via OpenRouter*`;
+            const compose = (text) => `${marker}\n${header}\n\n${text}\n\n---\n${footer}`;
+
+            // GitHub issue-comment bodies are capped at 65536 chars; stay under.
+            const MAX_COMMENT = 65000;
+
+            async function upsert(text) {
+              let body = compose(text);
+              if (body.length > MAX_COMMENT) {
+                const note = "\n\n... (truncated to fit GitHub's comment size limit)";
+                const room = MAX_COMMENT - compose('').length - note.length;
+                body = compose(text.substring(0, Math.max(0, room)) + note);
+              }
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: prNumber, per_page: 100
+              });
+              const existing = comments.find(c =>
+                c.user && c.user.login === 'github-actions[bot]' &&
+                c.body && c.body.includes(marker)
+              );
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                core.info(`Updated review comment #${existing.id} for model ${model}`);
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+                core.info(`Posted review comment for model ${model}`);
+              }
+            }
+
+            // Require the API key. Since this is comment-triggered, reply
+            // visibly instead of failing silently.
+            if (!process.env.OPENROUTER_API_KEY) {
+              await upsert('⚠️ `OPENROUTER_API_KEY` secret is not configured, so the review cannot run. Add it under **Settings → Secrets and variables → Actions**.');
+              core.setFailed('OPENROUTER_API_KEY is not set.');
+              return;
+            }
+
+            // Everything below can hit the network (PR/diff fetch, the model
+            // call, posting the comment); wrap it all in one try so any failure
+            // is reported back as a visible comment instead of crashing the job
+            // with no feedback to the requester.
+            try {
+            // Fetch PR details + diff (raw text via the diff media type).
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const title = pr.data.title;
+            const prBody = pr.data.body || '';
+
+            const diffResponse = await github.request({
+              method: 'GET',
+              url: `/repos/${owner}/${repo}/pulls/${prNumber}`,
+              headers: { Accept: 'application/vnd.github.v3.diff' }
+            });
+            const diffText = typeof diffResponse.data === 'string'
+              ? diffResponse.data
+              : JSON.stringify(diffResponse.data);
+            if (!diffText) {
+              core.info('No diff found - skipping review.');
+              return;
+            }
+
+            const MAX_DIFF = intFromEnv('OPENROUTER_MAX_DIFF', 2000000);
+            const truncatedDiff = diffText.length > MAX_DIFF
+              ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
+              : diffText;
+
+            const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
+
+            Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
+            - Smart contracts (Solidity/Foundry) in packages/protocol
+            - Go services (taiko-client, relayer, eventindexer)
+            - Rust services (taiko-client-rs)
+            - Frontend apps (SvelteKit, TypeScript)
+
+            Provide a CONCISE code review in the following format. Skip sections that don't apply:
+
+            ### 🔴 Critical Issues
+            Issues that could lead to security vulnerabilities, fund loss, or chain halts.
+
+            ### 🟡 Warnings
+            Logic errors, edge cases, or potential bugs that should be addressed.
+
+            ### 🔵 Suggestions
+            Performance improvements, style/convention fixes, better error handling.
+
+            ### 🟢 What Looks Good
+            No need to comment on things that are already clear or don't need review.
+
+            ### Review Guidelines
+            - **Solidity**: Check access control, reentrancy, overflow, storage layout, gas optimization, NatSpec docs
+            - **Go/Rust**: Check error handling, race conditions, resource leaks, proper use of contexts
+            - **TypeScript**: Check type safety, XSS, unsafe API calls
+            - Be direct and constructive. Don't be overly polite.
+            - If there are no issues in a category, skip it entirely.`;
+
+            const userPrompt = `## PR #${prNumber}: ${title}
+
+            **Description:**
+            ${prBody || 'No description provided.'}
+
+            **Diff:**
+            \`\`\`diff
+            ${truncatedDiff}
+            \`\`\`
+
+            Review this PR thoroughly. Be direct - flag only real issues.`;
+
+            const maxTokens = intFromEnv('OPENROUTER_MAX_TOKENS', 65536);
+
+            // Call OpenRouter (OpenAI-compatible) with a hard timeout so a hung
+            // request can't stall the job until the 6h Actions limit.
+            const requestReview = async () => {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 180000);
+              let response;
+              try {
+                response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    // Optional OpenRouter attribution headers (used for rankings).
+                    'HTTP-Referer': `https://github.com/${owner}/${repo}`,
+                    'X-Title': 'Taiko OpenRouter PR Review'
+                  },
+                  body: JSON.stringify({
+                    model,
+                    messages: [
+                      { role: 'system', content: systemPrompt },
+                      { role: 'user', content: userPrompt }
+                    ],
+                    max_tokens: maxTokens,
+                    temperature: 0.3
+                  }),
+                  signal: controller.signal
+                });
+              } finally {
+                clearTimeout(timer);
+              }
+              // Read as text first so a non-JSON error body (e.g. a 5xx HTML
+              // page) surfaces the real status instead of a misleading JSON
+              // parse error.
+              const raw = await response.text();
+              let data = {};
+              try { data = raw ? JSON.parse(raw) : {}; } catch (_) { /* non-JSON body */ }
+              if (!response.ok) {
+                const detail = (data && data.error && data.error.message) || raw.slice(0, 200) || `HTTP ${response.status}`;
+                throw new Error(`OpenRouter API error (${response.status}): ${detail}`);
+              }
+              const choice = data.choices && data.choices[0];
+              return {
+                reviewText: ((choice && choice.message && choice.message.content) || '').trim(),
+                finishReason: (choice && choice.finish_reason) || 'unknown',
+                usage: data.usage ? JSON.stringify(data.usage) : 'unknown'
+              };
+            };
+
+            // Empty content usually means the token budget was exhausted by
+            // reasoning or the model id is invalid; retry once.
+            let { reviewText, finishReason, usage } = await requestReview();
+            if (!reviewText) {
+              core.warning(`Empty response (model=${model}, finish_reason=${finishReason}, usage=${usage}); retrying once.`);
+              ({ reviewText, finishReason, usage } = await requestReview());
+            }
+            await upsert(reviewText
+              ? reviewText
+              : `⚠️ The model returned no content after a retry (finish_reason: \`${finishReason}\`, usage: \`${usage}\`). The model id may be invalid/aliased or the token budget was exhausted before any visible output.`);
+            } catch (err) {
+              // Always surface failures to the requester; still fail the job.
+              try {
+                await upsert(`⚠️ Review failed for model \`${model}\`: ${err.message}`);
+              } catch (e) {
+                core.warning(`Failed to post error comment: ${e.message}`);
+              }
+              core.setFailed(err.message);
+            }

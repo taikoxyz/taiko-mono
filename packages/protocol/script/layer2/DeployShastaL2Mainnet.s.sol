@@ -18,9 +18,6 @@ contract DeployShastaL2Mainnet is DeployShastaL2Contracts {
         config.l2SignalService = LibL2Addrs.SIGNAL_SERVICE;
         config.anchorProxy = LibL2Addrs.ANCHOR;
 
-        config.oldSignalServiceImpl = 0xaea51c413Bd15bBee72737C8094BE942B5208762;
-        config.oldAnchorImpl = 0xE6d1efcC6AC8969474308C99a3805c332D33a1E0;
 
-        config.shastaForkTimestamp = 1_775_135_700; // 2026-04-02 13:15:00 UTC
     }
 }

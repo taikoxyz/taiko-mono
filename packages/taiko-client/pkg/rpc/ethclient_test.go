@@ -7,8 +7,30 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
+
+func recentL1BlockWithTransactions(t *testing.T, client *Client) *types.Block {
+	t.Helper()
+
+	head, err := client.L1.BlockByNumber(context.Background(), nil)
+	require.Nil(t, err)
+
+	for number := head.NumberU64(); ; number-- {
+		block, err := client.L1.BlockByNumber(context.Background(), new(big.Int).SetUint64(number))
+		require.Nil(t, err)
+		if block.Transactions().Len() != 0 {
+			return block
+		}
+		if number == 0 {
+			break
+		}
+	}
+
+	require.FailNow(t, "expected a recent L1 block with transactions")
+	return nil
+}
 
 func TestBlockByHash(t *testing.T) {
 	client := newTestClientWithTimeout(t)
@@ -47,28 +69,33 @@ func TestTransactionByHash(t *testing.T) {
 func TestTransactionSender(t *testing.T) {
 	client := newTestClientWithTimeout(t)
 
-	block, err := client.L1.BlockByNumber(context.Background(), nil)
+	block := recentL1BlockWithTransactions(t, client)
+	tx, err := client.L1.TransactionInBlock(context.Background(), block.Hash(), 0)
 	require.Nil(t, err)
-	require.NotZero(t, block.Transactions().Len())
+
+	sender, err := client.L1.TransactionSender(context.Background(), tx, block.Hash(), 0)
+	require.Nil(t, err)
+	require.NotZero(t, sender)
 }
 
 func TestTransactionCount(t *testing.T) {
 	client := newTestClientWithTimeout(t)
 
-	block, err := client.L1.BlockByNumber(context.Background(), nil)
+	block := recentL1BlockWithTransactions(t, client)
+
+	count, err := client.L1.TransactionCount(context.Background(), block.Hash())
 	require.Nil(t, err)
-	require.NotZero(t, block.Transactions().Len())
+	require.Equal(t, uint(block.Transactions().Len()), count)
 }
 
 func TestTransactionInBlock(t *testing.T) {
 	client := newTestClientWithTimeout(t)
 
-	block, err := client.L1.BlockByNumber(context.Background(), nil)
-	require.Nil(t, err)
-	require.NotZero(t, block.Transactions().Len())
+	block := recentL1BlockWithTransactions(t, client)
 
-	_, err = client.L1.TransactionInBlock(context.Background(), block.Hash(), 0)
+	tx, err := client.L1.TransactionInBlock(context.Background(), block.Hash(), 0)
 	require.Nil(t, err)
+	require.Equal(t, block.Transactions()[0].Hash(), tx.Hash())
 }
 
 func TestNetworkID(t *testing.T) {
@@ -193,4 +220,25 @@ func TestBatchBlocksByHashes(t *testing.T) {
 	blocks, err := client.L1.BatchBlocksByHashes(context.Background(), hashes)
 	require.Nil(t, err)
 	require.Len(t, blocks, 2)
+}
+
+func TestIsHTTPEndpoint(t *testing.T) {
+	cases := []struct {
+		url      string
+		wantHTTP bool
+	}{
+		{"http://localhost:8545", true},
+		{"https://rpc.example.com", true},
+		{"HTTP://localhost:8545", true},
+		{"ws://localhost:8546", false},
+		{"wss://rpc.example.com", false},
+		{"WS://localhost:8546", false},
+		{"localhost:8545", true},
+		{"", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.url, func(t *testing.T) {
+			require.Equal(t, tc.wantHTTP, isHTTPEndpoint(tc.url))
+		})
+	}
 }

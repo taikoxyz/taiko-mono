@@ -15,7 +15,18 @@ import (
 )
 
 type EventRepository struct {
-	events []*relayer.Event
+	events                                          []*relayer.Event
+	CheckpointSyncedEventByBlockNumberOrGreaterFunc func(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*relayer.Event, error)
+	LatestCheckpointSyncedEventFunc func(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
 }
 
 func NewEventRepository() *EventRepository {
@@ -28,8 +39,13 @@ func (r *EventRepository) Close() error {
 	return nil
 }
 
+// SavedCount returns the number of events persisted via Save. For tests.
+func (r *EventRepository) SavedCount() int {
+	return len(r.events)
+}
+
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
-	r.events = append(r.events, &relayer.Event{
+	event := &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
 		Data:         datatypes.JSON(opts.Data),
 		Status:       opts.Status,
@@ -39,9 +55,11 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
 		EventType:    opts.EventType,
-	})
+	}
 
-	return nil, nil
+	r.events = append(r.events, event)
+
+	return event, nil
 }
 
 func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
@@ -184,23 +202,31 @@ func (r *EventRepository) Delete(
 	return nil
 }
 
-func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
+func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
 	ctx context.Context,
-	srcChainId uint64,
+	chainId uint64,
 	syncedChainId uint64,
 	blockNumber uint64,
 ) (*relayer.Event, error) {
+	if r.CheckpointSyncedEventByBlockNumberOrGreaterFunc != nil {
+		return r.CheckpointSyncedEventByBlockNumberOrGreaterFunc(ctx, chainId, syncedChainId, blockNumber)
+	}
+
 	return &relayer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		ChainID: MockChainID.Int64(),
 	}, nil
 }
 
-func (r *EventRepository) LatestChainDataSyncedEvent(
+func (r *EventRepository) LatestCheckpointSyncedEvent(
 	ctx context.Context,
-	srcChainId uint64,
+	chainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
+	if r.LatestCheckpointSyncedEventFunc != nil {
+		return r.LatestCheckpointSyncedEventFunc(ctx, chainId, syncedChainId)
+	}
+
 	return 5, nil
 }
 

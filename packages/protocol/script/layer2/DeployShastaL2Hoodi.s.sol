@@ -11,7 +11,6 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - SHASTA_FORK_TIMESTAMP: Timestamp for the Shasta fork
 contract DeployShastaL2Hoodi is DeployShastaL2Contracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
         config.l1ChainId = uint64(LibNetwork.ETHEREUM_HOODI);
@@ -19,9 +18,6 @@ contract DeployShastaL2Hoodi is DeployShastaL2Contracts {
         config.l2SignalService = LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE;
         config.anchorProxy = LibL2HoodiAddrs.HOODI_ANCHOR;
 
-        config.oldSignalServiceImpl = 0x0167013000000000000000000000000000000005;
-        config.oldAnchorImpl = 0x5E652dC4033C6860b27d6860164369D15b421A42;
 
-        config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }
 }

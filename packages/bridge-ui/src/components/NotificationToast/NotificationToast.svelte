@@ -27,12 +27,12 @@
   }
 
   export function notify(notificationType: NotificationType) {
-    const id = Number(crypto.randomUUID());
-    const close = () => toast.pop(id);
     const { title, message, type = 'unknown', closeManually = getDefaultCloseBehaviour(type) } = notificationType;
 
-    toast.push({
-      id,
+    let id = 0;
+    const close = () => toast.pop(id);
+
+    id = toast.push({
       ...(closeManually ? { initial: 0 } : {}),
       component: {
         src: ItemToast,

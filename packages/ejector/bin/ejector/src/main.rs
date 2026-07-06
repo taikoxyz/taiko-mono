@@ -7,7 +7,12 @@ use clap::Parser;
 use color_eyre::Result;
 use dotenvy::{dotenv, from_path};
 // project modules
-use ejector::{beacon::BeaconClient, config::Config, monitor::Monitor, server::spawn_server};
+use ejector::{
+    beacon::BeaconClient,
+    config::Config,
+    monitor::{Monitor, MonitorParams},
+    server::spawn_server,
+};
 use tokio::signal;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal as unix_signal};
@@ -22,6 +27,19 @@ fn load_env_for_dev() {
     let crate_env = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".env");
     let _ = from_path(&crate_env);
     let _ = dotenv();
+}
+
+fn parse_preconfer_addresses(addresses: Option<&str>) -> Result<Vec<Address>> {
+    addresses
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|addr| {
+            Address::from_str(addr)
+                .map_err(|err| color_eyre::eyre::eyre!("invalid preconfer address {addr}: {err}"))
+        })
+        .collect()
 }
 
 #[tokio::main]
@@ -42,7 +60,7 @@ async fn main() -> Result<()> {
     let config = Config::parse();
 
     let l1_http_url = Url::parse(&config.l1_http_url).expect("Invalid L1 RPC URL");
-    let l1_ws_url = Url::parse(&config.l1_ws_url).expect("Invalid L1 WS URL");
+    let l2_http_url = Url::parse(&config.l2_http_url).expect("Invalid L2 HTTP URL");
 
     let signer = PrivateKeySigner::from_str(&config.private_key).expect("Invalid private key");
 
@@ -57,13 +75,23 @@ async fn main() -> Result<()> {
     let preconf_router_address =
         Address::from_str(&config.preconf_router_address).expect("Invalid preconf router address");
 
-    let l2_ws_url = Url::parse(&config.l2_ws_url).expect("Invalid L2 WS URL");
+    let anchor_address = match &config.anchor_address {
+        Some(addr) => Some(Address::from_str(addr).expect("Invalid anchor address")),
+        None => {
+            if config.enable_reorg_ejection {
+                panic!("ANCHOR_ADDRESS is required when ENABLE_REORG_EJECTION is true");
+            }
+            None
+        }
+    };
 
     let beacon_url = Url::parse(&config.beacon_url).expect("Invalid Beacon URL");
 
-    let beacon_client = BeaconClient::new(beacon_url.clone()).await?;
+    let beacon_client = BeaconClient::new(beacon_url).await?;
 
     let handover_slots = config.handover_slots;
+
+    let preconfer_addresses = parse_preconfer_addresses(config.preconfer_addresses.as_deref())?;
 
     let server_handle = tokio::spawn(async move {
         // convert oneshot Receiver into a future (// TODO: why do i need to do this?)
@@ -75,21 +103,22 @@ async fn main() -> Result<()> {
         }
     });
 
-    let monitor = Monitor::new(
+    let monitor = Monitor::new(MonitorParams {
         beacon_client,
-        signer,
-        l2_ws_url.clone(),
-        l1_ws_url.clone(),
-        l1_http_url.clone(),
-        config.l2_target_block_time,
-        config.eject_after_n_slots_missed,
+        l1_signer: signer,
+        l1_http_url,
+        l2_http_url,
+        eject_after_seconds: config.eject_after_seconds,
         taiko_wrapper_address,
         whitelist_address,
         handover_slots,
         preconf_router_address,
-        config.min_operators,
-        config.min_reorg_depth_for_eject,
-    );
+        anchor_address,
+        min_operators: config.min_operators,
+        min_reorg_depth_for_eject: config.min_reorg_depth_for_eject,
+        reorg_ejection_enabled: config.enable_reorg_ejection,
+        preconfer_addresses,
+    });
 
     let monitor_handle = tokio::spawn(async move {
         if let Err(e) = monitor.run().await {
@@ -119,4 +148,36 @@ async fn main() -> Result<()> {
 
     tracing::info!("Successfully shut down ejector gracefully");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_comma_separated_preconfer_addresses() {
+        let first = Address::with_last_byte(0x11);
+        let second = Address::with_last_byte(0x22);
+
+        let parsed = parse_preconfer_addresses(Some(&format!("{first:#x}, {second:#x},")))
+            .expect("preconfer addresses should parse");
+
+        assert_eq!(parsed, vec![first, second]);
+    }
+
+    #[test]
+    fn missing_preconfer_addresses_parse_as_empty_list() {
+        let parsed =
+            parse_preconfer_addresses(None).expect("missing preconfer addresses should parse");
+
+        assert!(parsed.is_empty());
+    }
+
+    #[test]
+    fn invalid_preconfer_address_returns_error() {
+        let err = parse_preconfer_addresses(Some("0xnot-an-address"))
+            .expect_err("invalid preconfer address should fail");
+
+        assert!(err.to_string().contains("invalid preconfer address"));
+    }
 }
