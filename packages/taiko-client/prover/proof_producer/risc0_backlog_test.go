@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,21 +10,22 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// Compile-time assertion that the ZK compose producer satisfies the interface.
-var _ ZKBacklogController = (*ComposeProofProducer)(nil)
+// Compile-time assertion that the compose producer satisfies the RISC0 backlog controller interface.
+var _ Risc0BacklogController = (*ComposeProofProducer)(nil)
 
-type ZKBacklogTestSuite struct {
+type Risc0BacklogTestSuite struct {
 	suite.Suite
 }
 
-func TestZKBacklogTestSuite(t *testing.T) {
-	suite.Run(t, new(ZKBacklogTestSuite))
+func TestRisc0BacklogTestSuite(t *testing.T) {
+	suite.Run(t, new(Risc0BacklogTestSuite))
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanReturnsTrue() {
+func (s *Risc0BacklogTestSuite) TestStatusCleanReturnsTrue() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
-		s.Equal("/v3/prover/status", r.URL.Path)
+		s.Equal("/v4/prover/status", r.URL.Path)
+		s.Equal("risc0", r.URL.Query().Get("proof_type"))
 		_, _ = w.Write([]byte(
 			`{"status":"ok","data":{"clean":true,"tasks":{"pending":0},"network":{"risc0":{"inflight_orders":0}}}}`,
 		))
@@ -36,7 +38,7 @@ func (s *ZKBacklogTestSuite) TestStatusCleanReturnsTrue() {
 	s.True(clean)
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanReturnsFalse() {
+func (s *Risc0BacklogTestSuite) TestStatusCleanReturnsFalse() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"status":"ok","data":{"clean":false}}`))
 	}))
@@ -48,7 +50,7 @@ func (s *ZKBacklogTestSuite) TestStatusCleanReturnsFalse() {
 	s.False(clean)
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanErrorsOnNon200() {
+func (s *Risc0BacklogTestSuite) TestStatusCleanErrorsOnNon200() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -59,19 +61,21 @@ func (s *ZKBacklogTestSuite) TestStatusCleanErrorsOnNon200() {
 	s.Error(err)
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanDummyShortCircuits() {
+func (s *Risc0BacklogTestSuite) TestStatusCleanDummyShortCircuits() {
 	p := &ComposeProofProducer{Dummy: true}
 	clean, err := p.StatusClean(s.T().Context())
 	s.NoError(err)
 	s.True(clean)
 }
 
-func (s *ZKBacklogTestSuite) TestClearBacklogPostsToEndpoint() {
+func (s *Risc0BacklogTestSuite) TestClearBacklogPostsToEndpoint() {
 	var called bool
+	var gotBody map[string]string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		s.Equal(http.MethodPost, r.Method)
-		s.Equal("/v3/prover/clear", r.URL.Path)
+		s.Equal("/v4/prover/clear", r.URL.Path)
+		s.NoError(json.NewDecoder(r.Body).Decode(&gotBody))
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer server.Close()
@@ -79,9 +83,10 @@ func (s *ZKBacklogTestSuite) TestClearBacklogPostsToEndpoint() {
 	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
 	s.NoError(p.ClearBacklog(s.T().Context()))
 	s.True(called)
+	s.Equal("risc0", gotBody["proof_type"])
 }
 
-func (s *ZKBacklogTestSuite) TestClearBacklogErrorsOnNon200() {
+func (s *Risc0BacklogTestSuite) TestClearBacklogErrorsOnNon200() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -91,7 +96,7 @@ func (s *ZKBacklogTestSuite) TestClearBacklogErrorsOnNon200() {
 	s.Error(p.ClearBacklog(s.T().Context()))
 }
 
-func (s *ZKBacklogTestSuite) TestClearBacklogDummyShortCircuits() {
+func (s *Risc0BacklogTestSuite) TestClearBacklogDummyShortCircuits() {
 	p := &ComposeProofProducer{Dummy: true}
 	s.NoError(p.ClearBacklog(s.T().Context()))
 }

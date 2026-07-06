@@ -20,12 +20,10 @@ import (
 // mockProofProducer is a mock implementation of ProofProducer for testing
 type mockProofProducer struct {
 	proofProducer.ProofProducer
-	requestCount      int
-	requestDelay      time.Duration
-	shouldReturnErr   error
-	shouldTimeout     bool
-	timeoutCheckCount int
-	callHistory       []time.Time
+	requestCount    int
+	requestDelay    time.Duration
+	shouldReturnErr error
+	callHistory     []time.Time
 }
 
 func (m *mockProofProducer) RequestProof(
@@ -41,21 +39,6 @@ func (m *mockProofProducer) RequestProof(
 	// Simulate processing delay
 	if m.requestDelay > 0 {
 		time.Sleep(m.requestDelay)
-	}
-
-	// Check if we should simulate timeout
-	if m.shouldTimeout {
-		elapsed := time.Since(startAt)
-		if elapsed > maxProofRequestTimeout {
-			m.timeoutCheckCount++
-			// After timeout, if it's zkvm producer returning ErrProofInProgress,
-			// the submitter should switch to SGX
-			if errors.Is(m.shouldReturnErr, proofProducer.ErrProofInProgress) ||
-				errors.Is(m.shouldReturnErr, proofProducer.ErrRetry) {
-				// Return error to trigger fallback
-				return nil, m.shouldReturnErr
-			}
-		}
 	}
 
 	if m.shouldReturnErr != nil {
@@ -116,11 +99,9 @@ func TestProofRequestWithMockProducer(t *testing.T) {
 	require.Equal(t, 1, mockProducer.requestCount)
 }
 
-func TestProofRequestWithTimeout(t *testing.T) {
-	// Create a mock proof producer that simulates timeout
+func TestProofRequestWithProofInProgressError(t *testing.T) {
 	mockProducer := &mockProofProducer{
 		shouldReturnErr: proofProducer.ErrProofInProgress,
-		shouldTimeout:   true,
 	}
 
 	ctx := context.Background()
@@ -138,8 +119,7 @@ func TestProofRequestWithTimeout(t *testing.T) {
 		0,
 	)
 
-	// Simulate that the request started more than maxProofRequestTimeout ago
-	startTime := time.Now().Add(-maxProofRequestTimeout - 1*time.Second)
+	startTime := time.Now()
 	resp, err := mockProducer.RequestProof(ctx, opts, big.NewInt(2), meta, startTime)
 
 	// When timeout occurs with ErrProofInProgress, it should return error
@@ -149,11 +129,9 @@ func TestProofRequestWithTimeout(t *testing.T) {
 	require.Equal(t, 1, mockProducer.requestCount)
 }
 
-func TestProofRequestWithRetryTimeout(t *testing.T) {
-	// Create a mock proof producer that simulates retry timeout
+func TestProofRequestWithRetryError(t *testing.T) {
 	mockProducer := &mockProofProducer{
 		shouldReturnErr: proofProducer.ErrRetry,
-		shouldTimeout:   true,
 	}
 
 	ctx := context.Background()
@@ -171,8 +149,7 @@ func TestProofRequestWithRetryTimeout(t *testing.T) {
 		0,
 	)
 
-	// Simulate that the request started more than maxProofRequestTimeout ago
-	startTime := time.Now().Add(-maxProofRequestTimeout - 1*time.Second)
+	startTime := time.Now()
 	resp, err := mockProducer.RequestProof(ctx, opts, big.NewInt(3), meta, startTime)
 
 	// When timeout occurs with ErrRetry, it should return error
@@ -180,40 +157,6 @@ func TestProofRequestWithRetryTimeout(t *testing.T) {
 	require.Nil(t, resp)
 	require.True(t, errors.Is(err, proofProducer.ErrRetry))
 	require.Equal(t, 1, mockProducer.requestCount)
-}
-
-func TestProofRequestNoTimeoutWithinThreshold(t *testing.T) {
-	// Create a mock proof producer without timeout
-	mockProducer := &mockProofProducer{
-		shouldReturnErr: proofProducer.ErrProofInProgress,
-		shouldTimeout:   false,
-	}
-
-	ctx := context.Background()
-	opts := &proofProducer.ProposalProofRequestOptions{
-		ProposalID: big.NewInt(4),
-		Headers: []*types.Header{
-			{
-				Number: big.NewInt(400),
-			},
-		},
-	}
-
-	meta := metadata.NewTaikoProposalMetadataShasta(
-		&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(4)},
-		0,
-	)
-
-	// Recent start time, no timeout
-	startTime := time.Now()
-	resp, err := mockProducer.RequestProof(ctx, opts, big.NewInt(4), meta, startTime)
-
-	// Should return error without timeout logic triggering
-	require.NotNil(t, err)
-	require.Nil(t, resp)
-	require.True(t, errors.Is(err, proofProducer.ErrProofInProgress))
-	require.Equal(t, 1, mockProducer.requestCount)
-	require.Equal(t, 0, mockProducer.timeoutCheckCount)
 }
 
 func TestProofRequestSuccessful(t *testing.T) {

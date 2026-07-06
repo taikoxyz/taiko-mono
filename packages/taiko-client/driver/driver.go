@@ -331,7 +331,6 @@ func (d *Driver) reportProtocolStatus() {
 func (d *Driver) exchangeTransitionConfigLoop() {
 	ticker := time.NewTicker(exchangeTransitionConfigInterval)
 	d.wg.Add(1)
-
 	defer func() {
 		ticker.Stop()
 		d.wg.Done()

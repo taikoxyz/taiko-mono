@@ -8,19 +8,18 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// ZKBacklogController is implemented by proof producers whose backend exposes the
-// raiko2 control-plane endpoints for draining the ZK (`zk_any`) task backlog and
-// reporting when the backend is idle. See raiko2 issue #93.
-type ZKBacklogController interface {
-	// ClearBacklog discards all non-terminal `zk_any` tasks on the ZK backend
-	// (POST /v3/prover/clear).
+// Risc0BacklogController is implemented by proof producers whose backend exposes the
+// raiko2 control-plane endpoints for draining the RISC0 task backlog and
+// reporting when the backend is idle.
+type Risc0BacklogController interface {
+	// ClearBacklog discards non-terminal proof tasks on the RISC0 backend.
 	ClearBacklog(ctx context.Context) error
-	// StatusClean reports whether the ZK backend is fully idle, i.e. the
-	// `data.clean` field of GET /v3/prover/status is true.
+	// StatusClean reports whether the RISC0 backend is fully idle, i.e. the
+	// `data.clean` field of GET /v4/prover/status?proof_type=risc0 is true.
 	StatusClean(ctx context.Context) (bool, error)
 }
 
-// raikoProverStatusResponse is the body returned by GET /v3/prover/status. Only
+// raikoProverStatusResponse is the body returned by GET /v4/prover/status. Only
 // `data.clean` is consumed; the remaining fields (`status`, `tasks`, `network`)
 // are intentionally ignored.
 type raikoProverStatusResponse struct {
@@ -29,7 +28,11 @@ type raikoProverStatusResponse struct {
 	} `json:"data"`
 }
 
-// ClearBacklog implements the ZKBacklogController interface.
+type raikoProverProofTypeRequest struct {
+	ProofType ProofType `json:"proof_type"`
+}
+
+// ClearBacklog implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	if s.Dummy {
 		return nil
@@ -41,16 +44,16 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	if _, err := requestRaiko[struct{}](
 		ctx,
 		http.MethodPost,
-		s.RaikoHostEndpoint+"/v3/prover/clear",
+		s.RaikoHostEndpoint+"/v4/prover/clear",
 		s.ApiKey,
-		nil,
+		raikoProverProofTypeRequest{ProofType: ProofTypeZKR0},
 	); err != nil {
-		return fmt.Errorf("failed to clear ZK backlog: %w", err)
+		return fmt.Errorf("failed to clear RISC0 backlog: %w", err)
 	}
 	return nil
 }
 
-// StatusClean implements the ZKBacklogController interface.
+// StatusClean implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	if s.Dummy {
 		return true, nil
@@ -61,12 +64,12 @@ func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	out, err := requestRaiko[raikoProverStatusResponse](
 		ctx,
 		http.MethodGet,
-		s.RaikoHostEndpoint+"/v3/prover/status",
+		s.RaikoHostEndpoint+"/v4/prover/status?proof_type="+string(ProofTypeZKR0),
 		s.ApiKey,
 		nil,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to get ZK prover status: %w", err)
+		return false, fmt.Errorf("failed to get RISC0 prover status: %w", err)
 	}
 	return out.Data.Clean, nil
 }

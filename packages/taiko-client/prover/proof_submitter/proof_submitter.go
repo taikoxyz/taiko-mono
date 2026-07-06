@@ -54,15 +54,16 @@ type ProofSubmitter struct {
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
 	// Intervals
-	forceBatchProvingInterval  time.Duration
-	proofPollingInterval       time.Duration
-	proposalWindowSize         *big.Int
-	maxZKProofProposalDistance *big.Int
-	// ZK backlog drain/resume state machine (see zk_fallback.go).
-	zkBacklog  proofProducer.ZKBacklogController
-	zkFallback zkFallback
+	forceBatchProvingInterval     time.Duration
+	proofPollingInterval          time.Duration
+	proposalWindowSize            *big.Int
+	maxRisc0ProofProposalDistance *big.Int
+	forceSP1Proof                 bool
+	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
+	risc0Backlog proofProducer.Risc0BacklogController
+	sp1Fallback  sp1Fallback
 	// ctx is the prover's long-lived context, used by background goroutines
-	// (e.g. the ZK backlog clear) that must outlive a single RequestProof call.
+	// (e.g. the RISC0 backlog clear) that must outlive a single RequestProof call.
 	ctx context.Context
 }
 
@@ -82,7 +83,8 @@ func NewProofSubmitter(
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 	proposalWindowSize *big.Int,
-	maxZKProofProposalDistance *big.Int,
+	maxRisc0ProofProposalDistance *big.Int,
+	forceSP1Proof bool,
 ) (*ProofSubmitter, error) {
 	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
@@ -98,25 +100,27 @@ func NewProofSubmitter(
 			senderOpts.PrivateTxmgr,
 			senderOpts.GasLimit,
 		),
-		proverAddress:              senderOpts.Txmgr.From(),
-		proofPollingInterval:       proofPollingInterval,
-		proofBuffers:               proofBuffers,
-		forceBatchProvingInterval:  forceBatchProvingInterval,
-		proofCacheMaps:             proofCacheMaps,
-		flushCacheNotify:           flushCacheNotify,
-		proposalWindowSize:         proposalWindowSize,
-		maxZKProofProposalDistance: maxZKProofProposalDistance,
-		ctx:                        ctx,
+		proverAddress:                 senderOpts.Txmgr.From(),
+		proofPollingInterval:          proofPollingInterval,
+		proofBuffers:                  proofBuffers,
+		forceBatchProvingInterval:     forceBatchProvingInterval,
+		proofCacheMaps:                proofCacheMaps,
+		flushCacheNotify:              flushCacheNotify,
+		proposalWindowSize:            proposalWindowSize,
+		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
+		forceSP1Proof:                 forceSP1Proof,
+		ctx:                           ctx,
 	}
 
-	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a ZK
-	// producer is configured. This is a compile-time capability check, not a probe
-	// of the remote host: with no ZK endpoint set, zkvmProofProducer is nil and
-	// zkBacklog stays nil, so decideUseZK bypasses the drain/resume machine. When a
-	// ZK endpoint IS set but its host predates raiko2 #93, the control-plane calls
-	// return 404 and the machine degrades by design (see canResumeZK).
-	if zkBacklog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
-		proofSubmitter.zkBacklog = zkBacklog
+	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a
+	// RISC0 producer is configured. This is a compile-time capability check, not a
+	// probe of the remote host: with no ZK endpoint set, zkvmProofProducer is nil
+	// and risc0Backlog stays nil, so decideZKProofType bypasses the drain/resume
+	// machine. When a ZK endpoint IS set but its host predates raiko2 #93, the
+	// control-plane calls return 404 and the machine degrades by design (see
+	// canResumeRisc0).
+	if risc0Backlog, ok := zkvmProofProducer.(proofProducer.Risc0BacklogController); ok {
+		proofSubmitter.risc0Backlog = risc0Backlog
 	}
 
 	proofSubmitter.startBackgroundWorkers(ctx)
@@ -190,7 +194,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
-		useZK         = true
 	)
 
 	// Send the generated proof.
@@ -223,60 +226,20 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
-		// backlogAllowsZK is the drain/resume state machine's verdict for this proposal
-		// (it may latch SGX mode + fire a one-off backlog clear, or resume ZK; see
-		// zk_fallback.go). useZK is the per-call fallback (zk_any_not_drawn / timeout)
-		// that sticks for the rest of this call. ZK is used only when both agree; once
-		// either goes false the ZK path stays off for the remaining retries.
-		backlogAllowsZK := s.decideUseZK(ctx, proposalID, lastFinalizedProposalID)
-
-		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
-		if s.zkvmProofProducer != nil && useZK && backlogAllowsZK {
-			if proofResponse, err = s.zkvmProofProducer.RequestProof(
-				ctx,
-				opts,
-				meta.Shasta().GetEventData().Id,
-				meta,
-				startAt,
-			); err != nil {
-				if time.Since(startAt) > maxProofRequestTimeout {
-					log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
-					useZK = false
-					startAt = time.Now()
-				} else {
-					if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-						log.Debug(
-							"ZK proof was not chosen, attempting to request SGX proof",
-							"proposalID", opts.ProposalID,
-							"err", err,
-						)
-						useZK = false
-						startAt = time.Now()
-					}
-					log.Debug("Got error, retrying", "err", err)
-					return err
-				}
-			}
-		}
-		// If zk proof is not enabled or zk proof is not drawn, request the base level proof.
-		if proofResponse == nil {
-			if proofResponse, err = s.baseLevelProofProducer.RequestProof(
-				ctx,
-				opts,
-				meta.Shasta().GetEventData().Id,
-				meta,
-				startAt,
-			); err != nil {
-				if time.Since(startAt) > maxProofRequestTimeout {
-					log.Warn("WARN: Proof generation taking too long, please investigate")
-				}
-				return fmt.Errorf("failed to request base proof, error: %w", err)
-			}
+		if proofResponse, err = s.requestProposalProof(
+			ctx,
+			opts,
+			meta.Shasta().GetEventData().Id,
+			meta,
+			startAt,
+			lastFinalizedProposalID,
+		); err != nil {
+			log.Debug("Got error, retrying", "err", err)
+			return err
 		}
 		return s.handleProofResponse(meta, fromID, proofResponse)
 	}, backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx)); err != nil {
-		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
-			!errors.Is(err, proofProducer.ErrProofInProgress) &&
+		if !errors.Is(err, proofProducer.ErrProofInProgress) &&
 			!errors.Is(err, proofProducer.ErrRetry) &&
 			!errors.Is(err, ErrProposalOutOfAllowedRange) {
 			log.Error("Failed to request a proof", "proposalID", meta.Shasta().GetEventData().Id, "error", err)
@@ -303,14 +266,46 @@ func (s *ProofSubmitter) isProposalOutOfRange(
 	return proposalID.Cmp(maxAllowedProposalID) > 0 || proposalID.Cmp(lastFinalizedProposalID) <= 0
 }
 
-func (s *ProofSubmitter) shouldUseZKProof(proposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
-	maxZKProofProposalDistance := s.maxZKProofProposalDistance
-	if maxZKProofProposalDistance == nil {
+func (s *ProofSubmitter) requestProposalProof(
+	ctx context.Context,
+	opts proofProducer.ProofRequestOptions,
+	proposalID *big.Int,
+	meta metadata.TaikoProposalMetaData,
+	startAt time.Time,
+	lastFinalizedProposalID *big.Int,
+) (*proofProducer.ProofResponse, error) {
+	if s.zkvmProofProducer == nil {
+		proofResponse, err := s.baseLevelProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to request base proof, error: %w", err)
+		}
+		if proofResponse == nil {
+			return nil, fmt.Errorf("received nil proof response from base proof producer")
+		}
+		return proofResponse, nil
+	}
+
+	proofType := s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
+	opts.ProposalOptions().ProofType = proofType
+
+	proofResponse, err := s.zkvmProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to request %s proof, error: %w", proofType, err)
+	}
+	if proofResponse == nil {
+		return nil, fmt.Errorf("received nil proof response from ZKVM producer for type %s", proofType)
+	}
+	return proofResponse, nil
+}
+
+func (s *ProofSubmitter) shouldUseRisc0Proof(proposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
+	maxRisc0ProofProposalDistance := s.maxRisc0ProofProposalDistance
+	if maxRisc0ProofProposalDistance == nil {
 		return true
 	}
 
-	maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
-	return proposalID.Cmp(maxZKProofProposalID) <= 0
+	maxRisc0ProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxRisc0ProofProposalDistance)
+	return proposalID.Cmp(maxRisc0ProofProposalID) <= 0
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
@@ -362,6 +357,7 @@ func (s *ProofSubmitter) handleProofResponse(
 		"maxBufferSize", proofBuffer.MaxLength,
 		"proofType", proofResponse.ProofType,
 		"bufferIsAggregating", proofBuffer.IsAggregating(),
+		"bufferLastInsertID", proofBuffer.LastInsertID(),
 		"bufferLastItemAt", proofBuffer.LastItemAt(),
 	)
 	return nil
@@ -478,6 +474,9 @@ func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType pr
 		producer = s.zkvmProofProducer
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
+	}
+	if producer == nil {
+		return fmt.Errorf("proof producer is not configured for proof type %s", proofType)
 	}
 	startAt := time.Now()
 	buffer, err := proofBuffer.ReadAll()
