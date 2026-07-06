@@ -146,8 +146,8 @@ fn build_preconf_attrs(
 
     // CI-runnable guard against the PR #21906 bug class: the RLP list we hand the
     // engine must round-trip through the *production* codec that the whitelist
-    // ingress path uses to decode gossiped lists. If a legacy tx were mis-encoded
-    // this would fail here (cheaply, in CI) rather than silently stalling ingress.
+    // ingress path uses to decode gossiped lists. If a legacy tx were encoded
+    // incorrectly this would fail here (cheaply, in CI) rather than silently stalling ingress.
     let codec = ZlibTxListCodec::new_with_limits(
         MAX_COMPRESSED_TX_LIST_BYTES,
         MAX_DECOMPRESSED_TX_LIST_BYTES,

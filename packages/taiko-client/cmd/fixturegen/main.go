@@ -207,7 +207,7 @@ func writeEnvelopeFixtures(dir string, txs map[string]*types.Transaction) {
 	for i := range sig {
 		sig[i] = 0x11
 	}
-	tru := true
+	truePtr := true
 	diff := big.NewInt(123456)
 
 	cases := map[string]*eth.ExecutionPayloadEnvelope{
@@ -221,8 +221,8 @@ func writeEnvelopeFixtures(dir string, txs map[string]*types.Transaction) {
 		// All flag bits set: EOS + forced-inclusion + signature + non-zero
 		// Uzen HeaderDifficulty (flags[0]&0x02 path).
 		"all_flags_difficulty": {
-			EndOfSequencing:       &tru,
-			IsForcedInclusion:     &tru,
+			EndOfSequencing:       &truePtr,
+			IsForcedInclusion:     &truePtr,
 			ParentBeaconBlockRoot: &root,
 			ExecutionPayload:      basePayload(),
 			Signature:             &sig,
