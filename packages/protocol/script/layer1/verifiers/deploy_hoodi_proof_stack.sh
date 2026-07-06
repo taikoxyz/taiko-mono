@@ -15,9 +15,11 @@ set -euo pipefail
 FORK_URL="${FORK_URL:-https://ethereum-hoodi-rpc.publicnode.com}"
 VERIFY=false
 
-# Automata's on-chain PCCS router on Ethereum Hoodi (deterministic CREATE2, verified live). Consumed
-# by DeployAutomataDcapAttestation to build the V3QuoteVerifier. Export PCCS_ROUTER to override.
-export PCCS_ROUTER="${PCCS_ROUTER:-0xe20C4d54afBbea5123728d5b7dAcD9CB3c65C39a}"
+# Automata's on-chain PCCS router on Ethereum Hoodi, from Automata's official deployment registry
+# (automata-dcap-attestation v1.1.0, matching the pinned on-chain-pccs@1.1.1):
+# https://github.com/automata-network/automata-dcap-attestation/blob/v1.1.0/rust-crates/libraries/network-registry/deployment/current/DEPLOYMENT.md
+# Consumed by DeployAutomataDcapAttestation to build the V3QuoteVerifier. Export PCCS_ROUTER to override.
+export PCCS_ROUTER="${PCCS_ROUTER:-0x8e480c9879F1Db31dC209e5f4d239d5126e6e07B}"
 
 usage() {
     cat << 'EOF'
@@ -34,8 +36,8 @@ Required environment variables:
   CONTRACT_OWNER        Owner of the AutomataDcapAttestationFee entrypoint
 
 Optional environment variables:
-  PCCS_ROUTER           Automata on-chain PCCS router; defaults to the verified Ethereum Hoodi
-                        router 0xe20C4d54afBbea5123728d5b7dAcD9CB3c65C39a
+  PCCS_ROUTER           Automata on-chain PCCS router; defaults to the Ethereum Hoodi router
+                        0x8e480c9879F1Db31dC209e5f4d239d5126e6e07B (Automata v1.1.0 registry)
   ETHERSCAN_API_KEY     Etherscan API key; REQUIRED when --verify is passed
   VERIFIER_URL          Override the Etherscan verifier URL (default: forge auto-resolves the
                         Etherscan v2 API for Hoodi; if it can't, set
