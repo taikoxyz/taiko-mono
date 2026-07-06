@@ -79,9 +79,11 @@ impl WhitelistPreconfirmationDriverRunner {
         let operator_set = operator_poller.shared_set();
         tokio::spawn(operator_poller.run_refresh_loop());
 
-        let network =
-            WhitelistNetwork::spawn(chain_id, self.config.p2p_config.clone(), operator_set.clone())
-                .await?;
+        let network = WhitelistNetwork::spawn(
+            chain_id,
+            self.config.p2p_config.clone(),
+            operator_set.clone(),
+        )?;
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
                 |err| {
