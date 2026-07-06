@@ -171,6 +171,32 @@ contract AnchorTest is Test {
         assertEq(childMeta.parentRawTxListHash, bytes32(uint256(0xAAAA)));
     }
 
+    /// @dev The parent-linkage counterpart of the zero-anchor regression: a parent recorded with
+    /// `anchorBlockNumber == 0` must still propagate its `submissionWindowEnd` / `rawTxListHash`
+    /// into the child's parent fields, which `PreconfSlasherL2` consumes.
+    function test_getPreconfMetadata_inheritsMetadataThroughZeroAnchorParent() external {
+        // Parent block skips anchoring (anchorBlockNumber == 0) but still carries metadata.
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            Anchor.ProposalParams({ submissionWindowEnd: 15 }),
+            _blockParamsWithTxList(0, bytes32(uint256(0xDEAD)))
+        );
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            Anchor.ProposalParams({ submissionWindowEnd: 25 }),
+            _blockParamsWithTxList(1001, bytes32(uint256(0xF00D)))
+        );
+
+        Anchor.PreconfMetadata memory childMeta = anchor.getPreconfMetadata(block.number);
+        assertTrue(childMeta.exists);
+        assertEq(childMeta.submissionWindowEnd, 25);
+        assertEq(childMeta.parentSubmissionWindowEnd, 15);
+        assertEq(childMeta.parentRawTxListHash, bytes32(uint256(0xDEAD)));
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------

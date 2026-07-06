@@ -50,13 +50,15 @@ contract Anchor is EssentialContract {
     /// @dev `exists` is an explicit existence flag. Every other field can legitimately be zero
     /// (`anchorBlockNumber` is `0` when a block skips anchoring, and `submissionWindowEnd` and the
     /// tx-list hashes are `0` for whitelist preconfs), so none of them can act as a sentinel to
-    /// tell a recorded block apart from one that was never recorded. It packs into the same storage
-    /// slot as the three `uint48` fields, so tracking it adds no storage slot and no extra SSTORE.
+    /// tell a recorded block apart from one that was never recorded. It is declared after the three
+    /// `uint48` fields so it fills otherwise-unused space in their shared storage slot: tracking it
+    /// adds no storage slot and no extra SSTORE, and — being appended in free space rather than
+    /// prepended — it leaves every existing field at its original offset for upgrade safety.
     struct PreconfMetadata {
-        bool exists;
         uint48 anchorBlockNumber;
         uint48 submissionWindowEnd;
         uint48 parentSubmissionWindowEnd;
+        bool exists;
         bytes32 rawTxListHash;
         bytes32 parentRawTxListHash;
     }
@@ -259,12 +261,15 @@ contract Anchor is EssentialContract {
     )
         private
     {
+        // anchorV4 runs on every block, so the parent (the preceding block) exists for all but the
+        // first recorded block; there the zero-defaults are the correct "no parent" values, so the
+        // parent is read without an existence check by design.
         PreconfMetadata storage parentPreconfMetadata = _preconfMetadata[block.number - 1];
         _preconfMetadata[block.number] = PreconfMetadata({
-            exists: true,
             anchorBlockNumber: _blockParams.anchorBlockNumber,
             submissionWindowEnd: _proposalParams.submissionWindowEnd,
             parentSubmissionWindowEnd: parentPreconfMetadata.submissionWindowEnd,
+            exists: true,
             rawTxListHash: _blockParams.rawTxListHash,
             parentRawTxListHash: parentPreconfMetadata.rawTxListHash
         });
