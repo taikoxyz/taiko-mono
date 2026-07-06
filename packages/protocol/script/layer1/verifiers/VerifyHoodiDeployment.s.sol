@@ -136,6 +136,8 @@ contract VerifyHoodiDeployment is Script {
         _hard(_hasCode(sp1), "SP1Verifier has code");
 
         _checkEntrypoint(attestation, v3, pccs, pccsExpected);
+        _checkSgx(sgxReth, attestation, "SGX-reth");
+        _checkSgx(sgxGeth, attestation, "SGX-geth");
 
         console2.log("---");
         console2.log("[PASS] count :", passes);
@@ -184,6 +186,51 @@ contract VerifyHoodiDeployment is Script {
         if (pccsExpected != address(0)) {
             _warn(pccs == pccsExpected, "PCCS router == expected (optional)");
         }
+    }
+
+    /// @dev Asserts an SGX verifier is the strict Secure variant, wired to the shared entrypoint,
+    /// on the Hoodi chain id, Taiko-owned, and fail-closed. Allowlist population is advisory
+    /// (ConfigureSgxVerifier runs after deployment).
+    function _checkSgx(address sgx, address attestation, string memory tag) internal {
+        // Secure/Insecure discriminator: both implement isTcbStatusAccepted; only Secure rejects
+        // out-of-date TCB. Expressed against the pinned Automata TCBStatus enum.
+        bool rejectsOutOfDate = !ISgxView(sgx).isTcbStatusAccepted(uint8(TCBStatus.TCB_OUT_OF_DATE));
+        bool acceptsOk = ISgxView(sgx).isTcbStatusAccepted(uint8(TCBStatus.OK));
+        _hard(
+            rejectsOutOfDate && acceptsOk,
+            string.concat(tag, ": Secure TCB policy (rejects OUT_OF_DATE)")
+        );
+
+        // Secure-only immutable; reverts on an Insecure verifier (caught as a failure).
+        try ISgxView(sgx).instanceValidityDelay() returns (uint64 d) {
+            _hard(
+                d == EXPECTED_VALIDITY_DELAY, string.concat(tag, ": instanceValidityDelay == 24h")
+            );
+        } catch {
+            _hard(false, string.concat(tag, ": instanceValidityDelay getter (Secure-only) present"));
+        }
+
+        _hard(
+            ISgxView(sgx).automataDcapAttestation() == attestation,
+            string.concat(tag, ": automataDcapAttestation == entrypoint")
+        );
+        _hard(
+            ISgxView(sgx).taikoChainId() == EXPECTED_CHAIN_ID,
+            string.concat(tag, ": taikoChainId == TAIKO_HOODI")
+        );
+        _hard(ISgxView(sgx).owner() == EXPECTED_OWNER, string.concat(tag, ": owner == Hoodi owner"));
+        _hard(
+            ISgxView(sgx).checkLocalEnclaveReport(),
+            string.concat(tag, ": checkLocalEnclaveReport == true")
+        );
+
+        // Advisory: instances are registered post-deploy by ConfigureSgxVerifier. The allowlist
+        // mappings are keyed by value and cannot be enumerated on-chain, so nextInstanceId is the
+        // readable proxy for "at least one instance has been registered".
+        _warn(
+            ISgxView(sgx).nextInstanceId() >= 1,
+            string.concat(tag, ": >= 1 instance registered (advisory)")
+        );
     }
 
     /// @dev Records a hard check: increments passes or hardFails and logs the outcome.

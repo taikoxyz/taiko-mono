@@ -140,4 +140,28 @@ contract VerifyHoodiDeploymentTest is Test {
         // Supplying a wrong expected PCCS is an advisory: hardFails stays 0 on an otherwise-good stack.
         assertEq(verifier.verify(goodInbox, goodEntrypoint, address(0x9999)), 0);
     }
+
+    function test_verify_insecureSgxPolicy_fails() public {
+        // A public testnet must use SecureSgxVerifier; the lenient one must be rejected.
+        (address inbox, address att) = _stack(goodEntrypoint, goodEntrypoint, true, CHAIN_ID, OWNER);
+        assertGt(verifier.verify(inbox, att, address(0)), 0);
+    }
+
+    function test_verify_sgxWrongChainId_fails() public {
+        (address inbox, address att) = _stack(goodEntrypoint, goodEntrypoint, false, 999, OWNER);
+        assertGt(verifier.verify(inbox, att, address(0)), 0);
+    }
+
+    function test_verify_sgxWrongOwner_fails() public {
+        (address inbox, address att) =
+            _stack(goodEntrypoint, goodEntrypoint, false, CHAIN_ID, address(0xBAD));
+        assertGt(verifier.verify(inbox, att, address(0)), 0);
+    }
+
+    function test_verify_sgxPointsAtWrongEntrypoint_fails() public {
+        address other = _entrypoint(OWNER, 0);
+        // SGX verifiers point at `other`, but we verify against `goodEntrypoint` as the root.
+        (address inbox,) = _stack(goodEntrypoint, other, false, CHAIN_ID, OWNER);
+        assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
+    }
 }
