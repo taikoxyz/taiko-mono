@@ -47,10 +47,18 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Metadata that will be required for slashing violations of permissionless preconfs.
+    /// @dev `exists` is an explicit existence flag. Every other field can legitimately be zero
+    /// (`anchorBlockNumber` is `0` when a block skips anchoring, and `submissionWindowEnd` and the
+    /// tx-list hashes are `0` for whitelist preconfs), so none of them can act as a sentinel to
+    /// tell a recorded block apart from one that was never recorded. It is declared after the three
+    /// `uint48` fields so it fills otherwise-unused space in their shared storage slot: tracking it
+    /// adds no storage slot and no extra SSTORE, and — being appended in free space rather than
+    /// prepended — it leaves every existing field at its original offset for upgrade safety.
     struct PreconfMetadata {
         uint48 anchorBlockNumber;
         uint48 submissionWindowEnd;
         uint48 parentSubmissionWindowEnd;
+        bool exists;
         bytes32 rawTxListHash;
         bytes32 parentRawTxListHash;
     }
@@ -199,13 +207,20 @@ contract Anchor is EssentialContract {
         return _blockState;
     }
 
+    /// @notice Returns the preconfirmation metadata recorded for a given L2 block.
+    /// @dev Reverts with `InvalidBlockNumber` when no metadata has been recorded for the block.
+    /// Existence is determined by the explicit `exists` flag rather than by `anchorBlockNumber`,
+    /// which is legitimately `0` for blocks that skip anchoring and would otherwise make a recorded
+    /// block indistinguishable from an unrecorded one.
+    /// @param _blockNumber The L2 block number to query.
+    /// @return The preconfirmation metadata recorded for `_blockNumber`.
     function getPreconfMetadata(uint256 _blockNumber)
         external
         view
         returns (PreconfMetadata memory)
     {
         PreconfMetadata memory preconfMetadata = _preconfMetadata[_blockNumber];
-        require(preconfMetadata.anchorBlockNumber != 0, InvalidBlockNumber());
+        require(preconfMetadata.exists, InvalidBlockNumber());
         return preconfMetadata;
     }
 
@@ -246,11 +261,15 @@ contract Anchor is EssentialContract {
     )
         private
     {
+        // anchorV4 runs on every block, so the parent (the preceding block) exists for all but the
+        // first recorded block; there the zero-defaults are the correct "no parent" values, so the
+        // parent is read without an existence check by design.
         PreconfMetadata storage parentPreconfMetadata = _preconfMetadata[block.number - 1];
         _preconfMetadata[block.number] = PreconfMetadata({
             anchorBlockNumber: _blockParams.anchorBlockNumber,
             submissionWindowEnd: _proposalParams.submissionWindowEnd,
             parentSubmissionWindowEnd: parentPreconfMetadata.submissionWindowEnd,
+            exists: true,
             rawTxListHash: _blockParams.rawTxListHash,
             parentRawTxListHash: parentPreconfMetadata.rawTxListHash
         });
