@@ -48,5 +48,10 @@ contract DeployHoodiProofStackTest is Test {
         assertEq(
             SecureSgxVerifier(s.sgxGeth).instanceValidityDelay(), 1 hours, "validity delay geth"
         );
+
+        // The deployer (PRIVATE_KEY signer) is set as the SGX registrar.
+        address deployer = vm.addr(uint256(0xA11CE));
+        assertEq(SecureSgxVerifier(s.sgxReth).registrar(), deployer, "reth registrar = deployer");
+        assertEq(SecureSgxVerifier(s.sgxGeth).registrar(), deployer, "geth registrar = deployer");
     }
 }

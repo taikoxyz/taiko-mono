@@ -38,9 +38,11 @@ contract DeployHoodiProofStack is Script {
     function run() external returns (ProofStack memory stack_) {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address dcapAttestation = vm.envAddress("DCAP_ATTESTATION");
+        // The deployer (broadcast signer) is set as the SGX registrar (see _deployProofStack).
+        address deployer = vm.addr(privateKey);
 
         vm.startBroadcast(privateKey);
-        stack_ = _deployProofStack(dcapAttestation);
+        stack_ = _deployProofStack(dcapAttestation, deployer);
         vm.stopBroadcast();
 
         console2.log("SgxVerifier (reth) deployed:", stack_.sgxReth);
@@ -54,20 +56,25 @@ contract DeployHoodiProofStack is Script {
     /// to `_dcapAttestation`. Mirrors DeployShastaContracts._deployAllVerifiers (kept self-contained).
     /// @param _dcapAttestation The Taiko-owned AutomataDcapAttestationFee entrypoint shared by both
     /// SGX instances.
+    /// @param _registrar The SGX registrar (the only address allowed to call `registerInstance`).
     /// @return stack_ The deployed proof-stack addresses.
-    function _deployProofStack(address _dcapAttestation)
+    function _deployProofStack(
+        address _dcapAttestation,
+        address _registrar
+    )
         internal
         returns (ProofStack memory stack_)
     {
         require(_dcapAttestation != address(0), "DCAP_ATTESTATION not set");
 
         // Both SGX instances share the one Taiko-owned entrypoint (the #21827 shared-entrypoint
-        // model). registrar is address(0) (permissionless registration); 1h instance-validity delay.
+        // model). The registrar (the deployer) is the only address allowed to registerInstance
+        // (defense-in-depth); 1h instance-validity delay.
         stack_.sgxReth = address(
-            new SecureSgxVerifier(CHAIN_ID, OWNER, _dcapAttestation, address(0), VALIDITY_DELAY)
+            new SecureSgxVerifier(CHAIN_ID, OWNER, _dcapAttestation, _registrar, VALIDITY_DELAY)
         );
         stack_.sgxGeth = address(
-            new SecureSgxVerifier(CHAIN_ID, OWNER, _dcapAttestation, address(0), VALIDITY_DELAY)
+            new SecureSgxVerifier(CHAIN_ID, OWNER, _dcapAttestation, _registrar, VALIDITY_DELAY)
         );
         stack_.risc0 = address(new Risc0Verifier(CHAIN_ID, R0_GROTH16, OWNER));
         stack_.sp1 = address(new SP1Verifier(CHAIN_ID, SP1_PLONK, OWNER));
