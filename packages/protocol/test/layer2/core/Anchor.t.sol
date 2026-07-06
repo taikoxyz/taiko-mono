@@ -106,6 +106,72 @@ contract AnchorTest is Test {
     }
 
     // ---------------------------------------------------------------
+    // getPreconfMetadata
+    // ---------------------------------------------------------------
+
+    function test_getPreconfMetadata_returnsMetadataForRecordedBlock() external {
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            Anchor.ProposalParams({ submissionWindowEnd: 42 }),
+            _blockParamsWithTxList(1000, bytes32(uint256(0xBEEF)))
+        );
+
+        Anchor.PreconfMetadata memory metadata = anchor.getPreconfMetadata(block.number);
+        assertTrue(metadata.exists);
+        assertEq(metadata.anchorBlockNumber, 1000);
+        assertEq(metadata.submissionWindowEnd, 42);
+        assertEq(metadata.rawTxListHash, bytes32(uint256(0xBEEF)));
+    }
+
+    /// @dev Regression test: a block recorded with `anchorBlockNumber == 0` (anchoring skipped)
+    /// must remain retrievable. Before the explicit existence flag, `getPreconfMetadata` treated
+    /// `anchorBlockNumber == 0` as "never recorded" and reverted, blocking PreconfSlasherL2 from
+    /// validating faults for that block or its predecessor.
+    function test_getPreconfMetadata_returnsMetadataWhenAnchorBlockNumberIsZero() external {
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            Anchor.ProposalParams({ submissionWindowEnd: 7 }),
+            _blockParamsWithTxList(0, bytes32(uint256(0xC0FFEE)))
+        );
+
+        Anchor.PreconfMetadata memory metadata = anchor.getPreconfMetadata(block.number);
+        assertTrue(metadata.exists);
+        assertEq(metadata.anchorBlockNumber, 0);
+        assertEq(metadata.submissionWindowEnd, 7);
+        assertEq(metadata.rawTxListHash, bytes32(uint256(0xC0FFEE)));
+    }
+
+    function test_getPreconfMetadata_RevertWhen_BlockNeverRecorded() external {
+        vm.expectRevert(Anchor.InvalidBlockNumber.selector);
+        anchor.getPreconfMetadata(999_999);
+    }
+
+    function test_getPreconfMetadata_inheritsParentMetadataAcrossBlocks() external {
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            Anchor.ProposalParams({ submissionWindowEnd: 10 }),
+            _blockParamsWithTxList(1000, bytes32(uint256(0xAAAA)))
+        );
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(
+            Anchor.ProposalParams({ submissionWindowEnd: 20 }),
+            _blockParamsWithTxList(1001, bytes32(uint256(0xBBBB)))
+        );
+
+        Anchor.PreconfMetadata memory childMeta = anchor.getPreconfMetadata(block.number);
+        assertTrue(childMeta.exists);
+        assertEq(childMeta.submissionWindowEnd, 20);
+        assertEq(childMeta.rawTxListHash, bytes32(uint256(0xBBBB)));
+        assertEq(childMeta.parentSubmissionWindowEnd, 10);
+        assertEq(childMeta.parentRawTxListHash, bytes32(uint256(0xAAAA)));
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
@@ -123,6 +189,22 @@ contract AnchorTest is Test {
             anchorBlockHash: bytes32(_blockHash),
             anchorStateRoot: bytes32(_stateRoot),
             rawTxListHash: bytes32(0)
+        });
+    }
+
+    function _blockParamsWithTxList(
+        uint48 _anchorBlockNumber,
+        bytes32 _rawTxListHash
+    )
+        internal
+        pure
+        returns (Anchor.BlockParams memory)
+    {
+        return Anchor.BlockParams({
+            anchorBlockNumber: _anchorBlockNumber,
+            anchorBlockHash: bytes32(0),
+            anchorStateRoot: bytes32(0),
+            rawTxListHash: _rawTxListHash
         });
     }
 }
