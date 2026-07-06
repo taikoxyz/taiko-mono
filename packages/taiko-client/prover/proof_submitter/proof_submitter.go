@@ -357,6 +357,7 @@ func (s *ProofSubmitter) handleProofResponse(
 		"maxBufferSize", proofBuffer.MaxLength,
 		"proofType", proofResponse.ProofType,
 		"bufferIsAggregating", proofBuffer.IsAggregating(),
+		"bufferLastInsertID", proofBuffer.LastInsertID(),
 		"bufferLastItemAt", proofBuffer.LastItemAt(),
 	)
 	return nil
