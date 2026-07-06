@@ -223,6 +223,38 @@ The script interacts with these `SgxVerifier` functions:
 > Automata's on-chain PCCS. SGX attestation is provided by the pinned
 > `@automata-network/automata-dcap-attestation` dependency, called via `IDcapAttestation`.
 
+## Deployment
+
+Deploy the full Taiko Hoodi proof stack — a fresh Taiko-owned `AutomataDcapAttestationFee`
+entrypoint plus the Shasta contracts wired to it — with
+[deploy_hoodi_proof_stack.sh](./deploy_hoodi_proof_stack.sh):
+
+```bash
+PRIVATE_KEY=0x... CONTRACT_OWNER=0x... PCCS_ROUTER=0x... \
+ACTIVATOR=0x... PROVERS=0x...,0x... SHASTA_FORK_TIMESTAMP=1700000000 \
+./script/layer1/verifiers/deploy_hoodi_proof_stack.sh
+```
+
+It broadcasts two transactions: `DeployAutomataDcapAttestation` (under `FOUNDRY_PROFILE=layer1o`) to
+deploy the entrypoint, then `DeployShastaHoodi` (under `FOUNDRY_PROFILE=layer1`) with
+`DCAP_ATTESTATION` set to that entrypoint, so both `SecureSgxVerifier`s are constructed pointing at
+it. It reads the deployed `ATTESTATION`/`INBOX` addresses from the scripts' logged output and prints
+the ready-to-run verify command.
+
+> This wires the Hoodi SGX verifiers to the new Taiko-owned entrypoint — reversing #21871's legacy
+> codesize-170 per-tier proxies for Hoodi (the #21827 shared-entrypoint model). `SgxVerifier`'s
+> `automataDcapAttestation` is immutable, so this is a fresh deploy of the SGX verifiers, not an
+> in-place upgrade.
+
+The full flow is **deploy → verify → configure**:
+
+1. `deploy_hoodi_proof_stack.sh` — deploy the stack (above).
+2. `verify_hoodi_deployment.sh` — assert the wiring (the command the deploy script prints). Ships in
+   the companion Hoodi deployment verifier,
+   [PR #21917](https://github.com/taikoxyz/taiko-mono/pull/21917).
+3. [configure_sgx_verifier.sh](./configure_sgx_verifier.sh) — trust the MRENCLAVE/MRSIGNER allowlist
+   and register SGX instances (a separate operational step).
+
 ## See Also
 
 - [enclave-attribute-policies.md](./enclave-attribute-policies.md) - Canonical `_mask` / `_expected`
