@@ -17,7 +17,5 @@ contract DeployShastaL2Hoodi is DeployShastaL2Contracts {
         config.l1SignalService = LibL1HoodiAddrs.HOODI_SIGNAL_SERVICE;
         config.l2SignalService = LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE;
         config.anchorProxy = LibL2HoodiAddrs.HOODI_ANCHOR;
-
-
     }
 }

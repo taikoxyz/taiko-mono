@@ -17,7 +17,5 @@ contract DeployShastaL2Mainnet is DeployShastaL2Contracts {
         config.l1SignalService = LibL1Addrs.SIGNAL_SERVICE;
         config.l2SignalService = LibL2Addrs.SIGNAL_SERVICE;
         config.anchorProxy = LibL2Addrs.ANCHOR;
-
-
     }
 }
