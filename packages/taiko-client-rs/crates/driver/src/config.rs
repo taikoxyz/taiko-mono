@@ -14,7 +14,7 @@ pub struct DriverConfig {
     pub retry_interval: Duration,
     /// L1 beacon endpoint used for lookahead / slot metadata.
     pub l1_beacon_endpoint: Url,
-    /// Optional L2 checkpoint endpoint used for beacon sync.
+    /// Optional L2 checkpoint endpoint used as an untrusted block-body source for beacon sync.
     pub l2_checkpoint_url: Option<Url>,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,

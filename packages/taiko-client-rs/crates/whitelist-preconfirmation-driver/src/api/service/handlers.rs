@@ -2,10 +2,7 @@
 
 use super::*;
 
-impl<P> WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistApiService {
     /// Reject build requests when this node's own P2P signer is not a registered
     /// operator in the on-chain whitelist.
     ///
@@ -58,10 +55,7 @@ fn log_build_preconf_block_entry(
 }
 
 #[async_trait]
-impl<P> WhitelistApi for WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistApi for WhitelistApiService {
     /// Build, sign, publish, and return a preconfirmation block.
     async fn build_preconf_block(
         &self,
@@ -153,22 +147,11 @@ where
             .await?;
         self.state.set_highest_unsafe(block_number).await;
 
-        let execution_payload = ExecutionPayloadV1 {
-            parent_hash: inserted_block.header.parent_hash,
-            fee_recipient: inserted_block.header.beneficiary,
-            state_root: inserted_block.header.state_root,
-            receipts_root: inserted_block.header.receipts_root,
-            logs_bloom: inserted_block.header.logs_bloom,
-            prev_randao: inserted_block.header.mix_hash,
-            block_number,
-            gas_limit: inserted_block.header.gas_limit,
-            gas_used: inserted_block.header.gas_used,
-            timestamp: inserted_block.header.timestamp,
-            extra_data: inserted_block.header.extra_data.clone(),
-            base_fee_per_gas: U256::from(base_fee_per_gas),
-            block_hash,
-            transactions: vec![data.transactions.clone()],
-        };
+        let execution_payload = crate::payload::execution_payload_from_header(
+            &inserted_block.header,
+            base_fee_per_gas,
+            vec![data.transactions.clone()],
+        );
 
         let envelope = WhitelistExecutionPayloadEnvelope {
             end_of_sequencing,
@@ -202,7 +185,10 @@ where
         )
         .await?;
 
-        // If end-of-sequencing, also publish the EOS request.
+        // If end-of-sequencing, record the epoch marker and notify `/ws` subscribers. The
+        // envelope gossiped above already carries the EOS flag; incoming sequencers that
+        // missed it request it themselves on the EOS request topic, which the importer
+        // serves from the recent-envelope cache.
         if end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.timestamp_to_epoch(data.timestamp).map_err(|e| {
                 WhitelistPreconfirmationDriverError::InvalidPayload(format!(
@@ -221,11 +207,6 @@ where
                     "failed to deliver end-of-sequencing websocket notification"
                 );
             }
-            self.send_network_command(
-                NetworkCommand::PublishEndOfSequencingRequest { epoch },
-                "end-of-sequencing",
-            )
-            .await?;
         }
 
         crate::metrics::WhitelistPreconfirmationDriverMetrics::observe_build_preconf_block_duration(

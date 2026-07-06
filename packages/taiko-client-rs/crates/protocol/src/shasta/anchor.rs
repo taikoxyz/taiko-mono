@@ -1,8 +1,8 @@
-//! Anchor transaction construction for Taiko Shasta.
+//! Anchor transaction construction and validation for Taiko Shasta.
 
 use std::borrow::Cow;
 
-use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
+use alethia_reth_consensus::validation::{ANCHOR_V3_V4_GAS_LIMIT, ANCHOR_V4_SELECTOR};
 use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy::{
     primitives::{Address, B256, Bytes, TxKind, U256},
@@ -10,7 +10,7 @@ use alloy::{
 };
 use alloy_consensus::{
     EthereumTypedTransaction, TxEip1559, TxEnvelope,
-    transaction::{SignableTransaction, TxHashable},
+    transaction::{SignableTransaction, SignerRecoverable, Transaction as _, TxHashable},
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
@@ -195,4 +195,97 @@ where
             tx_hash,
         ))
     }
+}
+
+/// Validation failures for a transaction that must be the Shasta anchor call.
+#[derive(Debug, Error)]
+pub enum AnchorTransactionValidationError {
+    /// Anchor transaction omitted the recipient field.
+    #[error("invalid anchor transaction recipient: <none> (expected {expected})")]
+    MissingRecipient {
+        /// Required anchor contract address.
+        expected: Address,
+    },
+    /// Anchor transaction targeted the wrong contract.
+    #[error("invalid anchor transaction recipient: {actual} (expected {expected})")]
+    UnexpectedRecipient {
+        /// Actual recipient address found in the transaction.
+        actual: Address,
+        /// Required anchor contract address.
+        expected: Address,
+    },
+    /// Anchor transaction carried an unexpected chain id.
+    #[error("failed to get anchor transaction sender: unexpected chain id {actual:?}")]
+    UnexpectedChainId {
+        /// Chain id observed on the transaction.
+        actual: Option<u64>,
+    },
+    /// Sender recovery from signature failed.
+    #[error("failed to get anchor transaction sender: {reason}")]
+    SenderRecovery {
+        /// Underlying recover-signature failure.
+        reason: String,
+    },
+    /// Sender did not match the golden touch account.
+    #[error("invalid anchor transaction sender: {sender}")]
+    UnexpectedSender {
+        /// Sender recovered from the transaction signature.
+        sender: Address,
+    },
+    /// Anchor calldata is too short to include a 4-byte selector.
+    #[error("failed to get anchor transaction method: missing selector")]
+    MissingSelector,
+    /// Anchor selector bytes did not match `ANCHOR_V4_SELECTOR`.
+    #[error("invalid anchor transaction method: {selector:?}")]
+    UnexpectedMethod {
+        /// Four-byte function selector encoded in the anchor transaction calldata.
+        selector: [u8; 4],
+    },
+}
+
+/// Validate that `tx` is a genuine Shasta anchor transaction for untrusted-input admission:
+/// the recipient is the anchor contract, the chain id matches, the recovered sender is the
+/// golden-touch account, and the calldata invokes `anchorV4`.
+pub fn validate_anchor_transaction(
+    tx: &TxEnvelope,
+    anchor_address: Address,
+    chain_id: u64,
+) -> Result<(), AnchorTransactionValidationError> {
+    let to = tx
+        .to()
+        .ok_or(AnchorTransactionValidationError::MissingRecipient { expected: anchor_address })?;
+
+    if to != anchor_address {
+        return Err(AnchorTransactionValidationError::UnexpectedRecipient {
+            actual: to,
+            expected: anchor_address,
+        });
+    }
+
+    let actual_chain_id = tx.chain_id();
+    if actual_chain_id != Some(chain_id) {
+        return Err(AnchorTransactionValidationError::UnexpectedChainId { actual: actual_chain_id });
+    }
+
+    let sender = tx.recover_signer().map_err(|err| {
+        AnchorTransactionValidationError::SenderRecovery { reason: err.to_string() }
+    })?;
+
+    let golden_touch_address = Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS);
+    if sender != golden_touch_address {
+        return Err(AnchorTransactionValidationError::UnexpectedSender { sender });
+    }
+
+    let calldata = tx.input();
+    if calldata.len() < ANCHOR_V4_SELECTOR.len() {
+        return Err(AnchorTransactionValidationError::MissingSelector);
+    }
+
+    let mut selector = [0u8; 4];
+    selector.copy_from_slice(&calldata[..4]);
+    if selector != *ANCHOR_V4_SELECTOR {
+        return Err(AnchorTransactionValidationError::UnexpectedMethod { selector });
+    }
+
+    Ok(())
 }

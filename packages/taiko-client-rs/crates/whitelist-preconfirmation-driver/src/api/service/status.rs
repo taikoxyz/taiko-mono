@@ -2,10 +2,7 @@
 
 use super::*;
 
-impl<P> WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistApiService {
     /// Build the current status snapshot served by the REST `/status` route.
     pub(super) async fn get_status_snapshot(&self) -> Result<ApiStatus> {
         // Current L2 execution head, best-effort: a failed read yields `None`, which skips

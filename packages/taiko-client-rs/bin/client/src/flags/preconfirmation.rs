@@ -11,15 +11,17 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.listen", env = "P2P_LISTEN", default_value = "0.0.0.0:9000")]
     pub p2p_listen: SocketAddr,
 
-    /// UDP listen address for discv5 discovery.
+    /// Deprecated and ignored: discv5 discovery has been removed. Bootnodes are
+    /// dialed directly instead. Kept so existing deployment manifests keep parsing.
     #[clap(
         long = "p2p.discovery.addr",
         env = "P2P_DISCOVERY_ADDR",
-        default_value = "0.0.0.0:9001"
+        default_value = "0.0.0.0:9001",
+        hide = true
     )]
     pub p2p_discovery_addr: SocketAddr,
 
-    /// Comma-separated list of bootnodes (ENR or multiaddr).
+    /// Comma-separated list of bootnodes (ENR, enode URL, or multiaddr), dialed directly.
     #[clap(long = "p2p.bootnodes", env = "P2P_BOOTNODES", value_delimiter = ',')]
     pub p2p_bootnodes: Vec<String>,
 
@@ -27,17 +29,19 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.static-peers", env = "P2P_STATIC_PEERS", value_delimiter = ',')]
     pub p2p_static_peers: Vec<String>,
 
-    /// Disable discv5 peer discovery.
-    #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
+    /// Deprecated and ignored: discv5 discovery has been removed. Kept so existing
+    /// deployment manifests keep parsing.
+    #[clap(
+        long = "p2p.disable-discovery",
+        env = "P2P_DISABLE_DISCOVERY",
+        default_value = "false",
+        hide = true
+    )]
     pub p2p_disable_discovery: bool,
 
     /// Externally dialable TCP address advertised in the local P2P node record.
     #[clap(long = "p2p.advertise.addr", env = "P2P_ADVERTISE_ADDR")]
     pub p2p_advertise_addr: Option<SocketAddr>,
-
-    /// Optional address for user-facing preconfirmation RPC server.
-    #[clap(long = "preconf.rpc.addr", env = "PRECONF_RPC_ADDR")]
-    pub preconf_rpc_addr: Option<SocketAddr>,
 }
 
 #[cfg(test)]

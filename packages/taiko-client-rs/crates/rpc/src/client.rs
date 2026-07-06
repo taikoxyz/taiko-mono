@@ -35,6 +35,12 @@ use crate::{
 /// Type alias for a Client with a provider that includes a wallet.
 pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
 
+/// Default walletless L1 provider type: recommended fillers over an HTTP/WS root provider.
+///
+/// Every read-only consumer (driver, whitelist preconfirmation driver) uses exactly this
+/// provider, so those crates can name it concretely instead of threading a generic.
+pub type DefaultProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
+
 /// Default HTTP timeout for RPC and auxiliary HTTP clients.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -45,13 +51,6 @@ pub struct ShastaProtocolInstance<P: Provider + Clone> {
     pub inbox: InboxInstance<P>,
     /// Anchor contract instance on L2 (auth provider).
     pub anchor: AnchorInstance<RootProvider>,
-}
-
-/// Snapshot of anchor contract state at a given L2 block.
-#[derive(Clone, Debug)]
-pub struct AnchorState {
-    /// Anchor block number advertised by the anchor contract.
-    pub anchor_block_number: u64,
 }
 
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
@@ -84,7 +83,7 @@ pub struct ClientConfig {
     pub inbox_address: Address,
 }
 
-impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
+impl Client<DefaultProvider> {
     /// Create a new `Client` without a wallet from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
         let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
@@ -148,13 +147,14 @@ impl<P: Provider + Clone> Client<P> {
         Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
     }
 
-    /// Fetch the Shasta anchor state for the given parent block hash.
-    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
+    /// Fetch the anchor block number advertised by the anchor contract at the given
+    /// parent block hash.
+    pub async fn shasta_anchor_block_number_by_hash(&self, block_hash: B256) -> Result<u64> {
         let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
 
         let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
 
-        Ok(AnchorState { anchor_block_number: block_state.anchorBlockNumber.to::<u64>() })
+        Ok(block_state.anchorBlockNumber.to::<u64>())
     }
 }
 

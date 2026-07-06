@@ -127,16 +127,17 @@ func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	if derivationIdx != len(meta.GetEventData().Sources)-1 {
-		// For forced-inclusion source, ensure it contains exactly one block.
-		if len(derivationSourceManifest.Blocks) != 1 {
-			log.Warn(
-				"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
-				"blobs", len(meta.GetEventData().Sources[derivationIdx].BlobSlice.BlobHashes),
-				"blocks", len(derivationSourceManifest.Blocks),
-			)
-			return defaultPayload, nil
-		}
+	// A forced-inclusion source must contain exactly one block. This is keyed on the source's
+	// isForcedInclusion flag (not its position in the array) to match the derivation spec and the
+	// Rust client.
+	if meta.GetEventData().Sources[derivationIdx].IsForcedInclusion &&
+		len(derivationSourceManifest.Blocks) != 1 {
+		log.Warn(
+			"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
+			"blobs", len(meta.GetEventData().Sources[derivationIdx].BlobSlice.BlobHashes),
+			"blocks", len(derivationSourceManifest.Blocks),
+		)
+		return defaultPayload, nil
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.

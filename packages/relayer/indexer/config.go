@@ -1,6 +1,9 @@
 package indexer
 
 import (
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -51,6 +54,7 @@ type Config struct {
 	BackOffRetryInterval             time.Duration
 	BackOffMaxRetries                uint64
 	MinFeeToIndex                    uint64
+	IgnoredMsgHashes                 map[common.Hash]struct{}
 	OpenQueueFunc                    func() (queue.Queue, error)
 	OpenDBFunc                       func() (db.DB, error)
 	ConfirmationTimeout              time.Duration
@@ -59,6 +63,11 @@ type Config struct {
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	ignoredMsgHashes, err := parseIgnoredMsgHashes(c.String(flags.IgnoredMsgHashes.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		SrcBridgeAddress:                 common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
 		SrcTaikoAddress:                  common.HexToAddress(c.String(flags.SrcTaikoAddress.Name)),
@@ -89,6 +98,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffMaxRetries:                c.Uint64(flags.BackOffMaxRetries.Name),
 		BackOffRetryInterval:             c.Duration(flags.BackOffRetryInterval.Name),
 		MinFeeToIndex:                    c.Uint64(flags.MinFeeToIndex.Name),
+		IgnoredMsgHashes:                 ignoredMsgHashes,
 		ConfirmationTimeout:              c.Duration(flags.WaitForConfirmationTimeout.Name),
 		Confirmations:                    c.Uint64(flags.IndexingConfirmations.Name),
 		TargetBlockNumber: func() *uint64 {
@@ -135,4 +145,37 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return q, nil
 		},
 	}, nil
+}
+
+func parseIgnoredMsgHashes(value string) (map[common.Hash]struct{}, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+
+	hashes := make(map[common.Hash]struct{})
+
+	for _, raw := range strings.Split(value, ",") {
+		msgHash := strings.TrimSpace(raw)
+		if msgHash == "" {
+			continue
+		}
+
+		hexHash := strings.TrimPrefix(strings.ToLower(msgHash), "0x")
+		if len(hexHash) != common.HashLength*2 {
+			return nil, fmt.Errorf("invalid ignoredMsgHashes value %q: expected 32-byte hex hash", msgHash)
+		}
+
+		decoded, err := hex.DecodeString(hexHash)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ignoredMsgHashes value %q: %w", msgHash, err)
+		}
+
+		hashes[common.BytesToHash(decoded)] = struct{}{}
+	}
+
+	if len(hashes) == 0 {
+		return nil, nil
+	}
+
+	return hashes, nil
 }

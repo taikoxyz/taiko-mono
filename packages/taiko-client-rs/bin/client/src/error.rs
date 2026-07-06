@@ -1,7 +1,7 @@
 //! Error types for the CLI.
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
-//! It consolidates errors from downstream crates (driver, proposer, rpc, preconfirmation-driver)
+//! It consolidates errors from downstream crates (driver, proposer, rpc)
 //! and whitelist-preconfirmation-driver, as well as CLI-specific errors like URL parsing, runtime
 //! initialization, and metrics setup.
 
@@ -10,7 +10,7 @@ use thiserror::Error;
 /// Errors that can occur during CLI execution.
 ///
 /// This enum covers all error cases in the CLI binary, including:
-/// - Errors propagated from downstream crates (driver, proposer, rpc, preconfirmation-driver,
+/// - Errors propagated from downstream crates (driver, proposer, rpc,
 ///   whitelist-preconfirmation-driver)
 /// - Configuration errors (URL parsing, socket address parsing)
 /// - Runtime errors (tokio runtime initialization, I/O)
@@ -44,20 +44,6 @@ pub enum CliError {
     /// initialization and provider communication.
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
-
-    /// Error from the preconfirmation driver crate.
-    ///
-    /// Wraps [`preconfirmation_driver::PreconfirmationClientError`] for errors
-    /// occurring during P2P networking, commitment validation, and catchup sync.
-    #[error(transparent)]
-    Preconfirmation(#[from] preconfirmation_driver::PreconfirmationClientError),
-
-    /// Error from the preconfirmation driver runner.
-    ///
-    /// Wraps [`preconfirmation_driver::RunnerError`] for errors occurring during
-    /// preconfirmation driver orchestration.
-    #[error(transparent)]
-    PreconfirmationRunner(#[from] preconfirmation_driver::RunnerError),
 
     /// Error from the whitelist preconfirmation driver.
     ///
@@ -94,14 +80,6 @@ pub enum CliError {
     /// L1 endpoints.
     #[error("configure exactly one of --l1.http / L1_HTTP or --l1.ws / L1_WS")]
     InvalidL1EndpointConfig,
-
-    /// Preconfirmation ingress was not enabled on the driver.
-    ///
-    /// Occurs when the preconfirmation driver command is run but the underlying
-    /// event syncer does not have preconfirmation ingress enabled. This typically
-    /// indicates a configuration mismatch.
-    #[error("preconfirmation ingress not enabled on driver")]
-    PreconfIngressNotEnabled,
 }
 
 /// Result alias for CLI operations.
