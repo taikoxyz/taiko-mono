@@ -8,10 +8,12 @@
 # Two broadcasts: (1) DeployAutomataDcapAttestation under profile layer1o (via_ir),
 # (2) DeployHoodiProofStack under profile layer1 with DCAP_ATTESTATION set to (1)'s
 # deployed address. Deployed addresses are read from each script's logged output.
+# Pass --verify to also verify the deployed contracts on Etherscan (needs ETHERSCAN_API_KEY).
 
 set -euo pipefail
 
 FORK_URL="${FORK_URL:-https://ethereum-hoodi-rpc.publicnode.com}"
+VERIFY=false
 
 # Automata's on-chain PCCS router on Ethereum Hoodi (deterministic CREATE2, verified live). Consumed
 # by DeployAutomataDcapAttestation to build the V3QuoteVerifier. Export PCCS_ROUTER to override.
@@ -25,7 +27,7 @@ whitelists — use DeployShastaHoodi for the full system.
 
 Usage:
   PRIVATE_KEY=0x... CONTRACT_OWNER=0x... \
-  ./deploy_hoodi_proof_stack.sh [--rpc URL]
+  ./deploy_hoodi_proof_stack.sh [--rpc URL] [--verify]
 
 Required environment variables:
   PRIVATE_KEY           Funded deployer key (this script BROADCASTS real transactions)
@@ -34,10 +36,15 @@ Required environment variables:
 Optional environment variables:
   PCCS_ROUTER           Automata on-chain PCCS router; defaults to the verified Ethereum Hoodi
                         router 0xe20C4d54afBbea5123728d5b7dAcD9CB3c65C39a
+  ETHERSCAN_API_KEY     Etherscan API key; REQUIRED when --verify is passed
+  VERIFIER_URL          Override the Etherscan verifier URL (default: forge auto-resolves the
+                        Etherscan v2 API for Hoodi; if it can't, set
+                        VERIFIER_URL=https://api.etherscan.io/v2/api?chainid=560048)
 
 Options:
   --rpc URL, --fork-url URL   RPC endpoint (default: https://ethereum-hoodi-rpc.publicnode.com,
                               or the FORK_URL env var)
+  --verify                    Verify the deployed contracts on Etherscan (needs ETHERSCAN_API_KEY)
 EOF
 }
 
@@ -46,6 +53,10 @@ while [[ $# -gt 0 ]]; do
         --rpc | --fork-url)
             FORK_URL="$2"
             shift 2
+            ;;
+        --verify)
+            VERIFY=true
+            shift
             ;;
         -h | --help)
             usage
@@ -67,10 +78,25 @@ for v in PRIVATE_KEY CONTRACT_OWNER; do
     fi
 done
 
+# Etherscan verification args, forwarded to both forge broadcasts. Empty unless --verify was passed.
+verify_args=()
+if [[ "$VERIFY" == "true" ]]; then
+    if [[ -z "${ETHERSCAN_API_KEY:-}" ]]; then
+        echo "Error: --verify requires ETHERSCAN_API_KEY" >&2
+        exit 1
+    fi
+    verify_args=(--verify --etherscan-api-key "$ETHERSCAN_API_KEY")
+    # Optional explicit verifier URL, in case forge can't auto-resolve the Hoodi Etherscan endpoint.
+    if [[ -n "${VERIFIER_URL:-}" ]]; then
+        verify_args+=(--verifier-url "$VERIFIER_URL")
+    fi
+fi
+
 echo "==> [1/2] Deploying AutomataDcapAttestationFee entrypoint (profile layer1o)..."
 entrypoint_log=$(FOUNDRY_PROFILE=layer1o forge script \
     script/layer1/verifiers/DeployAutomataDcapAttestation.s.sol:DeployAutomataDcapAttestation \
-    --fork-url "$FORK_URL" --broadcast --legacy 2>&1 | tee /dev/stderr)
+    --fork-url "$FORK_URL" --broadcast --legacy ${verify_args[@]+"${verify_args[@]}"} 2>&1 \
+    | tee /dev/stderr)
 
 ATTESTATION=$(echo "$entrypoint_log" \
     | grep -oE 'AutomataDcapAttestationFee deployed: 0x[0-9a-fA-F]{40}' \
@@ -84,7 +110,8 @@ echo "==> Entrypoint deployed: $ATTESTATION"
 echo "==> [2/2] Deploying the proof verifiers wired to the entrypoint (profile layer1)..."
 stack_log=$(DCAP_ATTESTATION="$ATTESTATION" FOUNDRY_PROFILE=layer1 forge script \
     script/layer1/core/DeployHoodiProofStack.s.sol:DeployHoodiProofStack \
-    --fork-url "$FORK_URL" --broadcast --legacy 2>&1 | tee /dev/stderr)
+    --fork-url "$FORK_URL" --broadcast --legacy ${verify_args[@]+"${verify_args[@]}"} 2>&1 \
+    | tee /dev/stderr)
 
 MAINNET_VERIFIER=$(echo "$stack_log" \
     | grep -oE 'MainnetVerifier deployed: 0x[0-9a-fA-F]{40}' \

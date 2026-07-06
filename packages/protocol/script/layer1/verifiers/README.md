@@ -240,6 +240,10 @@ deploy the entrypoint, then `DeployHoodiProofStack` (under `FOUNDRY_PROFILE=laye
 it. `PCCS_ROUTER` defaults to Automata's verified Ethereum Hoodi router. It prints the deployed
 `ATTESTATION` and `MainnetVerifier` addresses.
 
+Add `--verify` (with `ETHERSCAN_API_KEY` set) to verify the deployed contracts on Etherscan; both
+broadcasts forward it. forge auto-resolves the Hoodi Etherscan v2 endpoint — set `VERIFIER_URL` to
+override if needed.
+
 > The SGX verifiers point at the new Taiko-owned entrypoint (the #21827 shared-entrypoint model).
 > `SgxVerifier`'s `automataDcapAttestation` is immutable, so this is a fresh deploy of the SGX
 > verifiers, not an in-place upgrade.
