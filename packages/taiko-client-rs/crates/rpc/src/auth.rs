@@ -256,8 +256,13 @@ impl<P: Provider + Clone> Client<P> {
 }
 
 /// Checks whether the underlying RPC error message represents a "not found" or ignorable response.
+///
+/// Covers all three "no usable mapping" responses emitted by the execution engine's batch
+/// lookup: missing entry, uncertain match at head, and backward-scan lookback exhaustion.
 fn is_ignorable_origin_error(message: &str) -> bool {
-    message.contains("not found") || message.contains("proposal last block uncertain")
+    message.contains("not found") ||
+        message.contains("proposal last block uncertain") ||
+        message.contains("proposal last block lookback exceeded")
 }
 
 /// Converts an RPC error into an optional origin, mapping ignorable errors to `Ok(None)`.
@@ -275,6 +280,18 @@ mod tests {
     use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
+
+    #[test]
+    fn ignorable_origin_errors_cover_all_engine_lookup_miss_messages() {
+        assert!(is_ignorable_origin_error("not found"));
+        assert!(is_ignorable_origin_error(
+            "proposal last block uncertain: BatchToLastBlockID missing and no newer proposal observed"
+        ));
+        assert!(is_ignorable_origin_error(
+            "proposal last block lookback exceeded: BatchToLastBlockID missing and lookback limit reached"
+        ));
+        assert!(!is_ignorable_origin_error("connection refused"));
+    }
 
     #[test]
     fn engine_new_payload_v2_value_preserves_header_difficulty() {
