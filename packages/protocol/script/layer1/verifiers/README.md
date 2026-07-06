@@ -231,3 +231,38 @@ The script interacts with these `SgxVerifier` functions:
 - [SecureSgxVerifier.sol](../../../contracts/layer1/verifiers/SecureSgxVerifier.sol)
 - [InsecureSgxVerifier.sol](../../../contracts/layer1/verifiers/InsecureSgxVerifier.sol)
 - [IDcapAttestation.sol](../../../contracts/layer1/verifiers/IDcapAttestation.sol)
+
+## Deployment Verification
+
+After deploying the Taiko Hoodi proof stack, verify it end-to-end (read-only, no key) with
+[VerifyHoodiDeployment.s.sol](./VerifyHoodiDeployment.s.sol) via its wrapper:
+
+```bash
+./script/layer1/verifiers/verify_hoodi_deployment.sh \
+  --inbox 0xShastaInboxProxy \
+  --attestation 0xAutomataDcapAttestationFee \
+  --pccs 0xPccsRouter   # optional
+```
+
+It self-discovers the rest of the tree from the two roots
+(`inbox → MainnetVerifier → {sgxReth, sgxGeth, risc0, sp1}` and
+`attestation → V3QuoteVerifier → PCCS`) and asserts:
+
+- **Entrypoint:** Taiko-owned, fee `bp == 0`, wired to a v3 quote verifier, and live (an empty
+  quote is rejected via `verifyAndAttestOnChain`).
+- **SGX verifiers (×2):** the strict `SecureSgxVerifier` (rejects out-of-date TCB), pointed at the
+  shared entrypoint, on `TAIKO_HOODI`, Taiko-owned, `checkLocalEnclaveReport == true`, 24h validity
+  delay.
+- **Risc0 / SP1 tiers:** correct chain id and owner, with deployed sub-verifiers (SP1 remote gateway
+  is the #21907 v6.1 verifier).
+- **MainnetVerifier:** TDX/OP tiers disabled, four active tiers distinct and non-zero, and the inbox
+  points at it.
+
+The report tags each check `[PASS]` / `[FAIL]` / `[WARN]`. Advisories (`[WARN]`, e.g. the
+MRENCLAVE/MRSIGNER allowlist not yet populated by `ConfigureSgxVerifier`) do not fail the run; any
+`[FAIL]` makes the script exit non-zero.
+
+> **Migration gate.** Until `DeployShastaHoodi` is rewired from the legacy codesize-170 Automata
+> proxies to the new `AutomataDcapAttestationFee` (deployed via `DeployAutomataDcapAttestation` +
+> `DCAP_ATTESTATION`), the SGX-verifier → entrypoint checks will fail by design — the script doubles
+> as a readiness gate for that migration.
