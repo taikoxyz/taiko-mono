@@ -164,4 +164,30 @@ contract VerifyHoodiDeploymentTest is Test {
         (address inbox,) = _stack(goodEntrypoint, other, false, CHAIN_ID, OWNER);
         assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
     }
+
+    function test_verify_risc0WrongChainId_fails() public {
+        // Build a stack whose Risc0 verifier has a wrong chain id.
+        address reth =
+            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
+        address geth =
+            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
+        address risc0 = address(new Risc0Verifier(999, address(new MockCoded()), OWNER));
+        address sp1 = address(new SP1Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
+        address mv = address(new MainnetVerifier(geth, reth, risc0, sp1));
+        address inbox = address(new MockInbox(mv));
+        assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
+    }
+
+    function test_verify_sp1RemoteWithoutCode_fails() public {
+        // SP1's remote verifier is an EOA (no code) -> has-code sub-check fails.
+        address reth =
+            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
+        address geth =
+            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
+        address risc0 = address(new Risc0Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
+        address sp1 = address(new SP1Verifier(CHAIN_ID, address(0xEE), OWNER)); // 0xEE has no code
+        address mv = address(new MainnetVerifier(geth, reth, risc0, sp1));
+        address inbox = address(new MockInbox(mv));
+        assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
+    }
 }

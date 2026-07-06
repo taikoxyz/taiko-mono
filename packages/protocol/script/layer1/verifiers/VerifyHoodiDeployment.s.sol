@@ -138,6 +138,8 @@ contract VerifyHoodiDeployment is Script {
         _checkEntrypoint(attestation, v3, pccs, pccsExpected);
         _checkSgx(sgxReth, attestation, "SGX-reth");
         _checkSgx(sgxGeth, attestation, "SGX-geth");
+        _checkRisc0(risc0);
+        _checkSp1(sp1);
 
         console2.log("---");
         console2.log("[PASS] count :", passes);
@@ -231,6 +233,27 @@ contract VerifyHoodiDeployment is Script {
             ISgxView(sgx).nextInstanceId() >= 1,
             string.concat(tag, ": >= 1 instance registered (advisory)")
         );
+    }
+
+    /// @dev Asserts the Risc0 tier verifier is on the Hoodi chain id, Taiko-owned, and wired to a
+    /// deployed groth16 verifier.
+    function _checkRisc0(address risc0) internal {
+        _hard(
+            IRisc0View(risc0).taikoChainId() == EXPECTED_CHAIN_ID,
+            "Risc0: taikoChainId == TAIKO_HOODI"
+        );
+        _hard(IRisc0View(risc0).owner() == EXPECTED_OWNER, "Risc0: owner == Hoodi owner");
+        _hard(
+            _hasCode(IRisc0View(risc0).riscoGroth16Verifier()), "Risc0: groth16 verifier has code"
+        );
+    }
+
+    /// @dev Asserts the SP1 tier verifier is on the Hoodi chain id, Taiko-owned, and wired to a
+    /// deployed remote verifier (the v6.1 gateway).
+    function _checkSp1(address sp1) internal {
+        _hard(ISP1View(sp1).taikoChainId() == EXPECTED_CHAIN_ID, "SP1: taikoChainId == TAIKO_HOODI");
+        _hard(ISP1View(sp1).owner() == EXPECTED_OWNER, "SP1: owner == Hoodi owner");
+        _hard(_hasCode(ISP1View(sp1).sp1RemoteVerifier()), "SP1: remote verifier has code");
     }
 
     /// @dev Records a hard check: increments passes or hardFails and logs the outcome.
