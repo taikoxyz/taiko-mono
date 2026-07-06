@@ -12,7 +12,6 @@ net = [
     "alloy/signers",
     "bindings",
     "tokio",
-    "tokio-retry",
     "tokio-stream",
     "alloy-provider",
     "event-scanner",
@@ -23,7 +22,6 @@ net = [
 # async
 async-trait = { workspace = true }
 tokio = { workspace = true, optional = true }
-tokio-retry = { workspace = true, optional = true }
 tokio-stream = { workspace = true, optional = true }
 
 # observability
@@ -57,7 +55,6 @@ bindings = { path = "../bindings", optional = true }
 
 # types
 anyhow = { workspace = true }
-dashmap = { workspace = true }
 flate2 = { workspace = true }
 thiserror = { workspace = true }
 

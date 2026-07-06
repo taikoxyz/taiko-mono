@@ -33,10 +33,7 @@ use super::{
     },
 };
 
-impl<P> WhitelistPreconfirmationImporter<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistPreconfirmationImporter {
     /// Cache a validated envelope and persist EOS epoch mapping when applicable.
     async fn ingest_validated_envelope(
         &mut self,
@@ -234,22 +231,11 @@ where
             // blocks whose difficulty is zero.
             header_difficulty: (!block.header.difficulty.is_zero())
                 .then_some(block.header.difficulty),
-            execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
-                parent_hash: block.header.parent_hash,
-                fee_recipient: block.header.beneficiary,
-                state_root: block.header.state_root,
-                receipts_root: block.header.receipts_root,
-                logs_bloom: block.header.logs_bloom,
-                prev_randao: block.header.mix_hash,
-                block_number: block.header.number,
-                gas_limit: block.header.gas_limit,
-                gas_used: block.header.gas_used,
-                timestamp: block.header.timestamp,
-                extra_data: block.header.extra_data.clone(),
-                base_fee_per_gas: U256::from(base_fee),
-                block_hash: block.header.hash,
-                transactions: vec![Bytes::from(compressed_tx_list)],
-            },
+            execution_payload: crate::payload::execution_payload_from_header(
+                &block.header,
+                base_fee,
+                vec![Bytes::from(compressed_tx_list)],
+            ),
             // Use L1-origin signature as-is. This endpoint serves responses
             // only from the local node; caller-side validation and allowlist
             // checks are performed when importing the envelope.

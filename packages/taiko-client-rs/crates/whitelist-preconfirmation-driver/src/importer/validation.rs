@@ -1,15 +1,12 @@
 //! Payload-level validation for preconfirmation import compatibility.
 
-use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
-use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
-use alloy_consensus::{
-    TxEnvelope,
-    transaction::{SignerRecoverable, Transaction as _},
-};
+use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
-use protocol::{codec::ZlibTxListCodec, shasta::unzen_active_for_chain_timestamp};
-use thiserror::Error;
+use protocol::{
+    codec::ZlibTxListCodec,
+    shasta::{unzen_active_for_chain_timestamp, validate_anchor_transaction},
+};
 
 use crate::{
     codec::{
@@ -18,52 +15,6 @@ use crate::{
     },
     error::{Result, WhitelistPreconfirmationDriverError},
 };
-
-/// Validation failures for the first transaction that must be the Shasta anchor call.
-#[derive(Debug, Error)]
-enum AnchorTransactionValidationError {
-    /// Anchor transaction omitted the recipient field.
-    #[error("invalid anchor transaction recipient: <none> (expected {expected})")]
-    MissingRecipient {
-        /// Required anchor contract address.
-        expected: Address,
-    },
-    /// Anchor transaction targeted the wrong contract.
-    #[error("invalid anchor transaction recipient: {actual} (expected {expected})")]
-    UnexpectedRecipient {
-        /// Actual recipient address found in the transaction.
-        actual: Address,
-        /// Required anchor contract address.
-        expected: Address,
-    },
-    /// Anchor transaction carried an unexpected chain id.
-    #[error("failed to get anchor transaction sender: unexpected chain id {actual:?}")]
-    UnexpectedChainId {
-        /// Chain id observed on the transaction.
-        actual: Option<u64>,
-    },
-    /// Sender recovery from signature failed.
-    #[error("failed to get anchor transaction sender: {reason}")]
-    SenderRecovery {
-        /// Underlying recover-signature failure.
-        reason: String,
-    },
-    /// Sender did not match the golden touch account.
-    #[error("invalid anchor transaction sender: {sender}")]
-    UnexpectedSender {
-        /// Sender recovered from the transaction signature.
-        sender: Address,
-    },
-    /// Anchor calldata is too short to include a 4-byte selector.
-    #[error("failed to get anchor transaction method: missing selector")]
-    MissingSelector,
-    /// Anchor selector bytes did not match `ANCHOR_V4_SELECTOR`.
-    #[error("invalid anchor transaction method: {selector:?}")]
-    UnexpectedMethod {
-        /// Four-byte function selector encoded in the anchor transaction calldata.
-        selector: [u8; 4],
-    },
-}
 
 /// Validate execution payload shape for preconfirmation import compatibility.
 pub(crate) fn validate_execution_payload_for_preconf(
@@ -130,59 +81,12 @@ pub(crate) fn validate_execution_payload_for_preconf(
         )
     })?;
 
-    validate_anchor_transaction_for_preconf(&first_tx, anchor_address, chain_id).map_err(
-        |reason| {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid anchor transaction",
-                reason,
-            )
-        },
-    )?;
-
-    Ok(())
-}
-
-/// Validate the first transaction in a preconfirmation tx-list as the expected Shasta anchor tx.
-fn validate_anchor_transaction_for_preconf(
-    tx: &TxEnvelope,
-    anchor_address: Address,
-    chain_id: u64,
-) -> std::result::Result<(), AnchorTransactionValidationError> {
-    let to = tx
-        .to()
-        .ok_or(AnchorTransactionValidationError::MissingRecipient { expected: anchor_address })?;
-
-    if to != anchor_address {
-        return Err(AnchorTransactionValidationError::UnexpectedRecipient {
-            actual: to,
-            expected: anchor_address,
-        });
-    }
-
-    let actual_chain_id = tx.chain_id();
-    if actual_chain_id != Some(chain_id) {
-        return Err(AnchorTransactionValidationError::UnexpectedChainId { actual: actual_chain_id });
-    }
-
-    let sender = tx.recover_signer().map_err(|err| {
-        AnchorTransactionValidationError::SenderRecovery { reason: err.to_string() }
+    validate_anchor_transaction(&first_tx, anchor_address, chain_id).map_err(|reason| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "invalid anchor transaction",
+            reason,
+        )
     })?;
-
-    let golden_touch_address = Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS);
-    if sender != golden_touch_address {
-        return Err(AnchorTransactionValidationError::UnexpectedSender { sender });
-    }
-
-    let calldata = tx.input();
-    if calldata.len() < ANCHOR_V4_SELECTOR.len() {
-        return Err(AnchorTransactionValidationError::MissingSelector);
-    }
-
-    let mut selector = [0u8; 4];
-    selector.copy_from_slice(&calldata[..4]);
-    if selector != *ANCHOR_V4_SELECTOR {
-        return Err(AnchorTransactionValidationError::UnexpectedMethod { selector });
-    }
 
     Ok(())
 }

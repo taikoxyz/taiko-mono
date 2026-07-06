@@ -9,7 +9,10 @@ pub mod manifest;
 pub mod payload_helpers;
 
 #[cfg(feature = "net")]
-pub use anchor::{AnchorTxConstructor, AnchorTxConstructorError, AnchorV4Input};
+pub use anchor::{
+    AnchorTransactionValidationError, AnchorTxConstructor, AnchorTxConstructorError, AnchorV4Input,
+    validate_anchor_transaction,
+};
 pub use blob_coder::BlobCoder;
 pub use constants::{
     set_devnet_unzen_override, unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain,

@@ -1,6 +1,9 @@
 //! Error types for proposer operations.
 
-use alloy::transports::{RpcError, TransportErrorKind};
+use alloy::{
+    primitives::B256,
+    transports::{RpcError, TransportErrorKind},
+};
 use alloy_eips::eip2718::Eip2718Error;
 use base_tx_manager::TxManagerError;
 use protocol::shasta::ProtocolError;
@@ -69,6 +72,13 @@ pub enum ProposerError {
         count: usize,
         /// Maximum block count allowed for the selected fork.
         max: usize,
+    },
+
+    /// Proposal transaction was mined but reverted.
+    #[error("proposal transaction reverted: {tx_hash}")]
+    ProposalTransactionReverted {
+        /// Hash of the reverted proposal transaction.
+        tx_hash: B256,
     },
 
     /// Anchor constructor not initialized (engine mode disabled).

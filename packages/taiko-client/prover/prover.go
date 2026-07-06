@@ -174,15 +174,33 @@ func InitFromConfig(
 
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
-	// Start the main event loop of the prover.
+	// Keep proposal iteration separate from the main event loop so a stuck
+	// iterator does not block proof request processing.
+	p.wg.Add(2)
+	go p.proveLoop()
 	go p.eventLoop()
 
 	return nil
 }
 
+// proveLoop starts the proving trigger loop of Taiko prover.
+func (p *Prover) proveLoop() {
+	defer p.wg.Done()
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-p.proveNotify:
+			if err := p.proveOp(); err != nil {
+				log.Error("Prove new proposals error", "error", err)
+			}
+		}
+	}
+}
+
 // eventLoop starts the main loop of Taiko prover.
 func (p *Prover) eventLoop() {
-	p.wg.Add(1)
 	defer p.wg.Done()
 
 	// reqProving requests performing a proving operation, won't block
@@ -228,10 +246,6 @@ func (p *Prover) eventLoop() {
 			)
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
-		case <-p.proveNotify:
-			if err := p.proveOp(); err != nil {
-				log.Error("Prove new proposals error", "error", err)
-			}
 		case proofType := <-p.batchesAggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(proofType) }, nil)
 		case proofType := <-p.flushCacheNotify:

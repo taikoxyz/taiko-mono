@@ -1,9 +1,35 @@
+# Shared config for the two identical alethia-reth L2 nodes; each service below
+# only overrides its container name and host port mappings.
+x-l2-node: &l2-node
+  image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
+  pull_policy: ${PULL_POLICY:-always}
+  volumes:
+    - .:/host
+  entrypoint:
+    - ./alethia-reth
+    - node
+    - --http
+    - --http.addr
+    - "0.0.0.0"
+    - --http.api
+    - eth,net,debug,trace,rpc
+    - --ws
+    - --ws.addr
+    - "0.0.0.0"
+    - --chain
+    - devnet
+    - --disable-discovery
+    - --authrpc.jwtsecret
+    - /host/jwt.hex
+    - --authrpc.addr
+    - "0.0.0.0"
+    - -vvvv
+
 services:
   l1_node:
     container_name: l1_node
     image: ghcr.io/foundry-rs/foundry:stable
-    restart: unless-stopped
-    pull_policy: always
+    pull_policy: ${PULL_POLICY:-always}
     ports:
       - "18545:8545"
     entrypoint:
@@ -14,63 +40,17 @@ services:
       - "200000000"
 
   l2_node_0:
+    <<: *l2-node
     container_name: l2_node_0
-    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
-    restart: unless-stopped
-    pull_policy: always
-    volumes:
-      - .:/host
     ports:
       - "28545:8545"
       - "28546:8546"
       - "28551:8551"
-    entrypoint:
-      - ./alethia-reth
-      - node
-      - --http
-      - --http.addr
-      - "0.0.0.0"
-      - --http.api
-      - eth,net,debug,trace,rpc
-      - --ws
-      - --ws.addr
-      - "0.0.0.0"
-      - --chain
-      - devnet
-      - --disable-discovery
-      - --authrpc.jwtsecret
-      - /host/jwt.hex
-      - --authrpc.addr
-      - "0.0.0.0"
-      - -vvvv
 
   l2_node_1:
+    <<: *l2-node
     container_name: l2_node_1
-    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
-    restart: unless-stopped
-    pull_policy: always
-    volumes:
-      - .:/host
     ports:
       - "38545:8545"
       - "38546:8546"
       - "38551:8551"
-    entrypoint:
-      - ./alethia-reth
-      - node
-      - --http
-      - --http.addr
-      - "0.0.0.0"
-      - --http.api
-      - eth,net,debug,trace,rpc
-      - --ws
-      - --ws.addr
-      - "0.0.0.0"
-      - --chain
-      - devnet
-      - --disable-discovery
-      - --authrpc.jwtsecret
-      - /host/jwt.hex
-      - --authrpc.addr
-      - "0.0.0.0"
-      - -vvvv

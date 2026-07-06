@@ -2,22 +2,28 @@ package chainsyncer
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -44,7 +50,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		s.RPCClient,
 		state,
 		false,
-		1*time.Hour,
 		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
@@ -102,8 +107,110 @@ func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 	s.NotNil(s.s.EventSyncer())
 }
 
+func (s *ChainSyncerTestSuite) TestPreconfImportsPendingOnStart() {
+	// The preconf import gate must start closed, so that a driver restart landing
+	// between a beacon sync and the first event sync insertion can not re-open
+	// imports while the head L1 origin base is still missing.
+	s.True(s.s.preconfImportsPending)
+}
+
 func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
+}
+
+func TestChainDataStillSyncing(t *testing.T) {
+	tests := []struct {
+		name     string
+		progress *ethereum.SyncProgress
+		want     bool
+	}{
+		{"notSyncing", nil, false},
+		{"blockDownloadInProgress", &ethereum.SyncProgress{CurrentBlock: 1, HighestBlock: 2}, true},
+		{"stateHealInProgress", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, HealingTrienodes: 5}, true},
+		{"bytecodeHealInProgress", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, HealingBytecode: 1}, true},
+		{
+			"txIndexBackfillOnly",
+			&ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, TxIndexRemainingBlocks: 100},
+			false,
+		},
+		{
+			"stateIndexBackfillOnly",
+			&ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2, StateIndexRemaining: 7},
+			false,
+		},
+		{"chainDataComplete", &ethereum.SyncProgress{CurrentBlock: 2, HighestBlock: 2}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, chainDataStillSyncing(tt.progress))
+		})
+	}
+}
+
+func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
+	l2Client := newSyncingEthClient(t)
+	tracker := beaconsync.NewSyncProgressTracker(l2Client)
+	tracker.UpdateMeta(common.Big1, common.Hash{})
+
+	syncer := &L2ChainSyncer{
+		ctx:             context.Background(),
+		rpc:             &rpc.Client{L2: l2Client},
+		progressTracker: tracker,
+	}
+
+	require.NotPanics(t, func() {
+		require.NoError(t, syncer.Sync())
+	})
+	require.True(t, tracker.Triggered())
+	require.False(t, tracker.Finished())
+}
+
+func newSyncingEthClient(t *testing.T) *rpc.EthClient {
+	t.Helper()
+
+	// NOTE: the handler runs on the HTTP server's goroutine, where t.Fatalf / require
+	// (testing.T.FailNow) must not be used; report failures with t.Errorf instead.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("failed to decode RPC request: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var result any
+		switch req.Method {
+		case "eth_chainId":
+			result = "0x1"
+		case "eth_syncing":
+			result = map[string]string{
+				"startingBlock": "0x0",
+				"currentBlock":  "0x1",
+				"highestBlock":  "0x2",
+			}
+		default:
+			t.Errorf("unexpected RPC method: %s", req.Method)
+			http.Error(w, "unexpected RPC method", http.StatusInternalServerError)
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result":  result,
+		}); err != nil {
+			t.Errorf("failed to encode RPC response: %v", err)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := rpc.NewEthClient(context.Background(), server.URL, time.Second)
+	require.NoError(t, err)
+	return client
 }
 
 func TestShouldEnablePreconfImportsAfterEventSync(t *testing.T) {
