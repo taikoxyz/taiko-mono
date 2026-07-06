@@ -21,8 +21,22 @@ const clearBackoffMaxRetries uint64 = 5
 // It is shared across the concurrent RequestProof goroutines, so all access is
 // guarded by mu.
 type sp1Fallback struct {
-	mu    sync.Mutex
-	inSP1 bool
+	mu               sync.Mutex
+	inSP1            bool
+	maxSP1ProposalID *big.Int
+}
+
+// trackSP1FallbackProposal records the highest proposal that has required SP1
+// fallback since the submitter latched into fallback mode.
+func (s *ProofSubmitter) trackSP1FallbackProposal(proposalID *big.Int) {
+	if proposalID == nil {
+		return
+	}
+	s.sp1Fallback.mu.Lock()
+	defer s.sp1Fallback.mu.Unlock()
+	if s.sp1Fallback.maxSP1ProposalID == nil || proposalID.Cmp(s.sp1Fallback.maxSP1ProposalID) > 0 {
+		s.sp1Fallback.maxSP1ProposalID = new(big.Int).Set(proposalID)
+	}
 }
 
 // markSP1Fallback latches into SP1 fallback mode. It returns true only for the
@@ -46,6 +60,17 @@ func (s *ProofSubmitter) inSP1Fallback() bool {
 	return s.sp1Fallback.inSP1
 }
 
+// maxSP1FallbackProposalID returns the highest proposal recorded for the active
+// SP1 fallback cycle.
+func (s *ProofSubmitter) maxSP1FallbackProposalID() *big.Int {
+	s.sp1Fallback.mu.Lock()
+	defer s.sp1Fallback.mu.Unlock()
+	if s.sp1Fallback.maxSP1ProposalID == nil {
+		return nil
+	}
+	return new(big.Int).Set(s.sp1Fallback.maxSP1ProposalID)
+}
+
 // resumeRisc0 unlatches SP1 fallback mode so subsequent proposals use RISC0 again.
 // It returns true only for the caller that performed the transition.
 func (s *ProofSubmitter) resumeRisc0() bool {
@@ -55,6 +80,7 @@ func (s *ProofSubmitter) resumeRisc0() bool {
 		return false
 	}
 	s.sp1Fallback.inSP1 = false
+	s.sp1Fallback.maxSP1ProposalID = nil
 	metrics.ProverRisc0BacklogSP1ModeGauge.Set(0)
 	return true
 }
@@ -86,11 +112,20 @@ func (s *ProofSubmitter) decideZKProofType(
 	}
 
 	if s.inSP1Fallback() {
-		if s.canResumeRisc0(ctx, proposalID, lastFinalizedProposalID) {
+		if !s.shouldUseRisc0Proof(proposalID, lastFinalizedProposalID) {
+			s.trackSP1FallbackProposal(proposalID)
+		}
+
+		maxSP1ProposalID := s.maxSP1FallbackProposalID()
+		if maxSP1ProposalID == nil {
+			maxSP1ProposalID = proposalID
+		}
+		if s.canResumeRisc0(ctx, maxSP1ProposalID, lastFinalizedProposalID) {
 			if s.resumeRisc0() {
 				log.Info(
 					"RISC0 backlog drained, resuming RISC0 proofs",
 					"proposalID", proposalID,
+					"maxSP1ProposalID", maxSP1ProposalID,
 					"lastFinalizedProposalID", lastFinalizedProposalID,
 				)
 			}
@@ -100,6 +135,7 @@ func (s *ProofSubmitter) decideZKProofType(
 	}
 
 	if !s.shouldUseRisc0Proof(proposalID, lastFinalizedProposalID) {
+		s.trackSP1FallbackProposal(proposalID)
 		if s.markSP1Fallback() {
 			log.Warn(
 				"RISC0 proof backlog detected, clearing RISC0 backlog and falling back to SP1",
