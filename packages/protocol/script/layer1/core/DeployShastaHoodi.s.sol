@@ -12,6 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
+/// - DCAP_ATTESTATION: Taiko-owned AutomataDcapAttestationFee entrypoint (shared by both SGX tiers)
 /// - ACTIVATOR: Address to set as initial inbox owner
 /// - PROVERS: Comma-separated list of prover addresses
 contract DeployShastaHoodi is DeployShastaContracts {
@@ -27,9 +28,13 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.ejectorManager = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
 
         config.r0Groth16Verifier = 0x32Db7dc407AC886807277636a1633A1381748DD8;
-        config.sgxGethAutomataProxy = 0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5;
-        // Reth
-        config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E;
+        // Both SGX instances share ONE Taiko-owned AutomataDcapAttestationFee entrypoint, deployed by
+        // DeployAutomataDcapAttestation and passed via the DCAP_ATTESTATION env var. This reverses
+        // #21871's legacy per-tier proxy wiring (0x4887…/0xebA8…) for Hoodi, matching the #21827
+        // shared-entrypoint model so the deployed stack passes VerifyHoodiDeployment.
+        address dcapAttestation = vm.envAddress("DCAP_ATTESTATION");
+        config.sgxGethAutomataProxy = dcapAttestation;
+        config.sgxRethAutomataProxy = dcapAttestation;
         config.sp1PlonkVerifier = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
 
         // Hoodi is a public testnet, so it MUST use the strict SecureSgxVerifier (secure default),
