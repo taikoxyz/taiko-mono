@@ -6,7 +6,6 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
-import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
 
@@ -14,16 +13,7 @@ import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol"
 contract InboxForcedInclusionTest is InboxTestBase {
     LibForcedInclusion.Storage private feeStore;
 
-    function test_saveForcedInclusion_RevertWhen_Disabled() public {
-        LibBlobs.BlobReference memory forcedRef =
-            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
-
-        vm.expectRevert(Inbox.ForcedInclusionsDisabled.selector);
-        vm.prank(proposer);
-        inbox.saveForcedInclusion(forcedRef);
-    }
-
-    function disabled_test_saveForcedInclusion_refundsExcessPayment() public {
+    function test_saveForcedInclusion_refundsExcessPayment() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -49,7 +39,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(balanceBefore - balanceAfter, requiredFee, "only required fee deducted");
     }
 
-    function disabled_test_saveForcedInclusion_RevertWhen_InsufficientFee() public {
+    function test_saveForcedInclusion_RevertWhen_InsufficientFee() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -68,7 +58,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: insufficientFee }(forcedRef);
     }
 
-    function disabled_test_saveForcedInclusion_RevertWhen_MultipleBlobsProvided() public {
+    function test_saveForcedInclusion_RevertWhen_MultipleBlobsProvided() public {
         // First propose to enable forced inclusions
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
@@ -87,37 +77,36 @@ contract InboxForcedInclusionTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: requiredFee }(forcedRef);
     }
 
-    // function test_getForcedInclusions_returnsEmptyWhen_StartBelowHead() public {
-    //     // First propose to enable forced inclusions
-    //     _setBlobHashes(2);
-    //     _proposeAndDecode(_defaultProposeInput());
+    function test_getForcedInclusions_returnsEmptyWhen_StartBelowHead() public {
+        // First propose to enable forced inclusions
+        _setBlobHashes(2);
+        _proposeAndDecode(_defaultProposeInput());
 
-    //     vm.roll(block.number + 1);
-    //     vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
 
-    //     // Save one forced inclusion
-    //     LibBlobs.BlobReference memory forcedRef =
-    //         LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-    //     uint256 fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
-    //     vm.prank(proposer);
-    //     inbox.saveForcedInclusion{ value: fee }(forcedRef);
+        // Save one forced inclusion
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        uint256 fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: fee }(forcedRef);
 
-    //     // Process the forced inclusion
-    //     vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
-    //     vm.roll(block.number + 1);
-    //     _setBlobHashes(1);
+        // Process the forced inclusion
+        vm.warp(block.timestamp + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
+        _setBlobHashes(1);
 
-    //     IInbox.ProposeInput memory input = _defaultProposeInput();
-    //     input.numForcedInclusions = 1;
-    //     _proposeAndDecode(input);
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+        _proposeAndDecode(input);
 
-    //     // Now head = 1, tail = 1, so start = 0 is below head
-    //     IForcedInclusionStore.ForcedInclusion[] memory inclusions =
-    //         inbox.getForcedInclusions(0, 10);
-    //     assertEq(inclusions.length, 0, "should return empty array");
-    // }
+        // Now head = 1, tail = 1, so start = 0 is below head
+        IForcedInclusionStore.ForcedInclusion[] memory inclusions = inbox.getForcedInclusions(0, 10);
+        assertEq(inclusions.length, 0, "should return empty array");
+    }
 
-    function disabled_test_getForcedInclusions_returnsEmptyWhen_StartAtOrAboveTail() public {
+    function test_getForcedInclusions_returnsEmptyWhen_StartAtOrAboveTail() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -141,7 +130,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(inclusions.length, 0, "should return empty array for start > tail");
     }
 
-    function disabled_test_getForcedInclusions_returnsEmptyWhen_MaxCountZero() public {
+    function test_getForcedInclusions_returnsEmptyWhen_MaxCountZero() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -161,7 +150,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(inclusions.length, 0, "should return empty array");
     }
 
-    function disabled_test_getForcedInclusions_returnsCorrectSubset() public {
+    function test_getForcedInclusions_returnsCorrectSubset() public {
         // First propose to enable forced inclusions
         _setBlobHashes(4);
         _proposeAndDecode(_defaultProposeInput());
@@ -199,7 +188,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         );
     }
 
-    function disabled_test_getCurrentForcedInclusionFee_scalesWithQueueDepth() public {
+    function test_getCurrentForcedInclusionFee_scalesWithQueueDepth() public {
         // First propose to enable forced inclusions
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
@@ -225,7 +214,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(inbox.getCurrentForcedInclusionFee(), expectedFee, "fee scales linearly");
     }
 
-    function disabled_test_getCurrentForcedInclusionFee_matchesFormulaAndIsMonotonic() public {
+    function test_getCurrentForcedInclusionFee_matchesFormulaAndIsMonotonic() public {
         // First propose to enable forced inclusions
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
@@ -267,51 +256,50 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(actual, type(uint64).max, "fee should saturate at max uint64");
     }
 
-    // function test_getForcedInclusionState_tracksQueueProgress() public {
-    //     _setBlobHashes(3);
-    //     _proposeAndDecode(_defaultProposeInput());
+    function test_getForcedInclusionState_tracksQueueProgress() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
 
-    //     vm.roll(block.number + 1);
-    //     vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
 
-    //     // Enqueue two inclusions with different timestamps so only the first becomes due.
-    //     uint48 firstInclusionTimestamp = uint48(block.timestamp);
+        // Enqueue two inclusions with different timestamps so only the first becomes due.
+        uint48 firstInclusionTimestamp = uint48(block.timestamp);
 
-    //     LibBlobs.BlobReference memory forcedRef1 =
-    //         LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-    //     uint256 fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
-    //     vm.prank(proposer);
-    //     inbox.saveForcedInclusion{ value: fee }(forcedRef1);
+        LibBlobs.BlobReference memory forcedRef1 =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        uint256 fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: fee }(forcedRef1);
 
-    //     vm.warp(block.timestamp + 2);
-    //     vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 2);
+        vm.roll(block.number + 1);
 
-    //     LibBlobs.BlobReference memory forcedRef2 =
-    //         LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
-    //     fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
-    //     vm.prank(proposer);
-    //     inbox.saveForcedInclusion{ value: fee }(forcedRef2);
+        LibBlobs.BlobReference memory forcedRef2 =
+            LibBlobs.BlobReference({ blobStartIndex: 2, numBlobs: 1, offset: 0 });
+        fee = inbox.getCurrentForcedInclusionFee() * 1 gwei;
+        vm.prank(proposer);
+        inbox.saveForcedInclusion{ value: fee }(forcedRef2);
 
-    //     (uint48 headBefore, uint48 tailBefore) = inbox.getForcedInclusionState();
-    //     assertEq(headBefore, 0, "head before processing");
-    //     assertEq(tailBefore, 2, "tail after enqueues");
+        (uint48 headBefore, uint48 tailBefore) = inbox.getForcedInclusionState();
+        assertEq(headBefore, 0, "head before processing");
+        assertEq(tailBefore, 2, "tail after enqueues");
 
-    //     vm.warp(uint256(firstInclusionTimestamp) + config.forcedInclusionDelay + 1);
-    //     vm.roll(block.number + 1);
+        vm.warp(uint256(firstInclusionTimestamp) + config.forcedInclusionDelay + 1);
+        vm.roll(block.number + 1);
 
-    //     IInbox.ProposeInput memory input = _defaultProposeInput();
-    //     input.numForcedInclusions = type(uint16).max;
-    //     _setBlobHashes(1);
-    //     _proposeAndDecode(input);
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = type(uint16).max;
+        _setBlobHashes(1);
+        _proposeAndDecode(input);
 
-    //     (uint48 headAfter, uint48 tailAfter) = inbox.getForcedInclusionState();
-    //     assertEq(headAfter, 2, "head after consuming all");
-    //     assertEq(tailAfter, 2, "tail unchanged after consume");
+        (uint48 headAfter, uint48 tailAfter) = inbox.getForcedInclusionState();
+        assertEq(headAfter, 2, "head after consuming all");
+        assertEq(tailAfter, 2, "tail unchanged after consume");
 
-    //     IForcedInclusionStore.ForcedInclusion[] memory remaining =
-    //         inbox.getForcedInclusions(2, 1);
-    //     assertEq(remaining.length, 0, "no inclusion remains");
-    // }
+        IForcedInclusionStore.ForcedInclusion[] memory remaining = inbox.getForcedInclusions(2, 1);
+        assertEq(remaining.length, 0, "no inclusion remains");
+    }
 }
 
 /// @notice Tests for LibBlobs error cases
