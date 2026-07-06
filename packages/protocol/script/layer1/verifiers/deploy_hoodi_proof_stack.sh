@@ -11,23 +11,30 @@ set -euo pipefail
 
 FORK_URL="${FORK_URL:-https://ethereum-hoodi-rpc.publicnode.com}"
 
+# Automata's on-chain PCCS router on Ethereum Hoodi (deterministic CREATE2, verified live). Consumed
+# by DeployAutomataDcapAttestation to build the V3QuoteVerifier. Export PCCS_ROUTER to override.
+export PCCS_ROUTER="${PCCS_ROUTER:-0xe20C4d54afBbea5123728d5b7dAcD9CB3c65C39a}"
+
 usage() {
     cat << 'EOF'
 Deploy the Taiko Hoodi proof stack (AutomataDcapAttestationFee entrypoint + Shasta
 contracts wired to it), then print the verify command.
 
 Usage:
-  PRIVATE_KEY=0x... CONTRACT_OWNER=0x... PCCS_ROUTER=0x... \
+  PRIVATE_KEY=0x... CONTRACT_OWNER=0x... \
   ACTIVATOR=0x... PROVERS=0x...,0x... SHASTA_FORK_TIMESTAMP=1700000000 \
   ./deploy_hoodi_proof_stack.sh [--rpc URL]
 
 Required environment variables:
   PRIVATE_KEY           Funded deployer key (this script BROADCASTS real transactions)
   CONTRACT_OWNER        Owner of the AutomataDcapAttestationFee entrypoint
-  PCCS_ROUTER           Automata on-chain PCCS router address
   ACTIVATOR             Initial Shasta inbox owner (for activation)
   PROVERS               Comma-separated prover addresses
   SHASTA_FORK_TIMESTAMP Unix timestamp for the Shasta fork
+
+Optional environment variables:
+  PCCS_ROUTER           Automata on-chain PCCS router; defaults to the verified Ethereum Hoodi
+                        router 0xe20C4d54afBbea5123728d5b7dAcD9CB3c65C39a
 
 Options:
   --rpc URL, --fork-url URL   RPC endpoint (default: https://ethereum-hoodi-rpc.publicnode.com,
@@ -53,7 +60,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-for v in PRIVATE_KEY CONTRACT_OWNER PCCS_ROUTER ACTIVATOR PROVERS SHASTA_FORK_TIMESTAMP; do
+for v in PRIVATE_KEY CONTRACT_OWNER ACTIVATOR PROVERS SHASTA_FORK_TIMESTAMP; do
     if [[ -z "${!v:-}" ]]; then
         echo "Error: $v not set" >&2
         usage
