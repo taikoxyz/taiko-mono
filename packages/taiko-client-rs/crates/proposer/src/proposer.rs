@@ -164,7 +164,9 @@ impl Proposer {
                     continue;
                 }
                 Err(err) if is_operational_loop_error(&err) => {
-                    ProposerMetrics::proposals_failed().inc();
+                    if should_increment_loop_failure_metric(&err) {
+                        ProposerMetrics::proposals_failed().inc();
+                    }
                     warn!(
                         epoch,
                         error = %err,
@@ -186,7 +188,9 @@ impl Proposer {
                     );
                 }
                 Err(err) if is_operational_loop_error(&err) => {
-                    ProposerMetrics::proposals_failed().inc();
+                    if should_increment_loop_failure_metric(&err) {
+                        ProposerMetrics::proposals_failed().inc();
+                    }
                     warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
                 }
                 Err(err) => return Err(err),
@@ -227,7 +231,7 @@ impl Proposer {
 
         record_submission_attempt();
         let receipt = self.tx_manager.send(proposal_candidate(proposal_tx)).await?;
-        Ok(record_submission_receipt(receipt))
+        record_submission_receipt(receipt)
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
@@ -597,7 +601,7 @@ fn calculate_next_shasta_block_base_fee_from_parent(
 }
 
 /// Record metrics and logs for a proposer submission receipt.
-fn record_submission_receipt(receipt: TransactionReceipt) -> TransactionReceipt {
+fn record_submission_receipt(receipt: TransactionReceipt) -> Result<TransactionReceipt> {
     if receipt.status() {
         info!(
             tx_hash = %receipt.transaction_hash,
@@ -608,12 +612,13 @@ fn record_submission_receipt(receipt: TransactionReceipt) -> TransactionReceipt 
 
         // Record gas used once the confirmed receipt shows successful execution.
         ProposerMetrics::gas_used().observe(receipt.gas_used as f64);
+        Ok(receipt)
     } else {
-        error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
+        let tx_hash = receipt.transaction_hash;
+        error!(tx_hash = %tx_hash, "proposal transaction failed");
         ProposerMetrics::proposals_failed().inc();
+        Err(ProposerError::ProposalTransactionReverted { tx_hash })
     }
-
-    receipt
 }
 
 /// Record that the proposer started an L1 submission attempt for a built proposal.
@@ -669,8 +674,9 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 
 /// Return `true` when a surfaced proposer loop error should be retried on the next epoch.
 ///
-/// Only transport-layer failures (network blips, timeouts, backend-gone) are operational; RPC
-/// error responses (`ErrorResp`) and local errors (decoding, unsupported features, unknown
+/// Transport failures (network blips, timeouts, backend-gone), tx-manager execution reverts,
+/// and proposer-owned reverted receipt errors are operational.
+/// RPC error responses (`ErrorResp`) and local errors (decoding, unsupported features, unknown
 /// functions, fatal tx-manager errors) are fatal and exit the loop.
 fn is_operational_loop_error(err: &ProposerError) -> bool {
     matches!(
@@ -683,20 +689,35 @@ fn is_operational_loop_error(err: &ProposerError) -> bool {
             ProposerError::TxManager(
                 TxManagerError::Rpc(_) |
                     TxManagerError::SendTimeout |
-                    TxManagerError::MempoolDeadlineExpired,
-            )
+                    TxManagerError::MempoolDeadlineExpired |
+                    TxManagerError::ExecutionReverted,
+            ) |
+            ProposerError::ProposalTransactionReverted { .. }
     )
+}
+
+/// Return whether a retryable proposer loop error should increment the loop failure counter.
+///
+/// Receipt-level proposal reverts are already counted when the receipt is recorded, so counting
+/// here would double-count the same failure.
+#[must_use]
+fn should_increment_loop_failure_metric(err: &ProposerError) -> bool {
+    !matches!(err, ProposerError::ProposalTransactionReverted { .. })
 }
 
 #[cfg(test)]
 mod tests {
     use alloy::{
         consensus::Header as ConsensusHeader,
-        primitives::{B256, Bytes, U256},
+        primitives::{Address, B256, Bytes, U256},
         transports::{RpcError, TransportErrorKind},
     };
+    use alloy_consensus::{Eip658Value, Receipt, ReceiptEnvelope, ReceiptWithBloom};
     use alloy_json_rpc::ErrorPayload;
-    use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
+    use alloy_rpc_types::{
+        TransactionReceipt,
+        eth::{Block as RpcBlock, Header as RpcHeader},
+    };
     use base_tx_manager::TxManagerError;
 
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -704,7 +725,7 @@ mod tests {
     use super::{
         calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
         forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
-        record_submission_attempt,
+        record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
@@ -727,6 +748,59 @@ mod tests {
         let before = ProposerMetrics::proposals_sent().get();
         record_submission_attempt();
         assert_eq!(ProposerMetrics::proposals_sent().get(), before + 1);
+    }
+
+    #[test]
+    fn successful_submission_receipt_is_returned_and_recorded() {
+        let receipt = receipt_with_status(true);
+        let tx_hash = receipt.transaction_hash;
+        let before = ProposerMetrics::proposals_success().get();
+
+        let recorded = record_submission_receipt(receipt)
+            .expect("successful receipt should remain successful");
+
+        assert_eq!(recorded.transaction_hash, tx_hash);
+        assert_eq!(ProposerMetrics::proposals_success().get(), before + 1);
+    }
+
+    #[test]
+    fn reverted_submission_receipt_becomes_failed_proposal_error() {
+        let receipt = receipt_with_status(false);
+        let tx_hash = receipt.transaction_hash;
+        let before = ProposerMetrics::proposals_failed().get();
+
+        let err = record_submission_receipt(receipt)
+            .expect_err("reverted receipt should be surfaced as a proposer error");
+
+        assert!(matches!(
+            err,
+            ProposerError::ProposalTransactionReverted { tx_hash: observed } if observed == tx_hash
+        ));
+        assert_eq!(ProposerMetrics::proposals_failed().get(), before + 1);
+    }
+
+    fn receipt_with_status(status: bool) -> TransactionReceipt {
+        TransactionReceipt {
+            inner: ReceiptEnvelope::Eip1559(ReceiptWithBloom {
+                receipt: Receipt {
+                    status: Eip658Value::Eip658(status),
+                    cumulative_gas_used: 21_000,
+                    logs: vec![],
+                },
+                logs_bloom: Default::default(),
+            }),
+            transaction_hash: B256::repeat_byte(if status { 0x11 } else { 0x22 }),
+            transaction_index: Some(0),
+            block_hash: Some(B256::repeat_byte(0x33)),
+            block_number: Some(1),
+            gas_used: 21_000,
+            effective_gas_price: 1,
+            blob_gas_used: None,
+            blob_gas_price: None,
+            from: Address::repeat_byte(0x44),
+            to: Some(Address::repeat_byte(0x55)),
+            contract_address: None,
+        }
     }
 
     #[test]
@@ -754,6 +828,35 @@ mod tests {
         assert!(is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::MempoolDeadlineExpired,
         )));
+        assert!(is_operational_loop_error(&ProposerError::TxManager(
+            TxManagerError::ExecutionReverted,
+        )));
+        assert!(is_operational_loop_error(&ProposerError::ProposalTransactionReverted {
+            tx_hash: B256::repeat_byte(0x22),
+        }));
+    }
+
+    #[test]
+    fn loop_failure_metric_not_double_counted_for_reverted_receipts() {
+        let before = ProposerMetrics::proposals_failed().get();
+
+        let reverted_err =
+            ProposerError::ProposalTransactionReverted { tx_hash: B256::repeat_byte(0x22) };
+        if is_operational_loop_error(&reverted_err) &&
+            should_increment_loop_failure_metric(&reverted_err)
+        {
+            ProposerMetrics::proposals_failed().inc();
+        }
+        assert_eq!(ProposerMetrics::proposals_failed().get(), before);
+
+        let execution_reverted = ProposerError::TxManager(TxManagerError::ExecutionReverted);
+        let before = ProposerMetrics::proposals_failed().get();
+        if is_operational_loop_error(&execution_reverted) &&
+            should_increment_loop_failure_metric(&execution_reverted)
+        {
+            ProposerMetrics::proposals_failed().inc();
+        }
+        assert_eq!(ProposerMetrics::proposals_failed().get(), before + 1);
     }
 
     #[test]

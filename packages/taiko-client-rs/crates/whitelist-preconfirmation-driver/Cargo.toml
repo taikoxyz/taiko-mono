@@ -20,8 +20,8 @@ async-trait = { workspace = true }
 axum = { workspace = true }
 bindings = { path = "../bindings" }
 bytes = { workspace = true }
-discv5 = { workspace = true }
 driver = { path = "../driver" }
+enr = { workspace = true }
 flate2 = { workspace = true }
 futures = { workspace = true }
 hashlink = { workspace = true }

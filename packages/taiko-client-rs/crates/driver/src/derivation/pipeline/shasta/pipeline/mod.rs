@@ -294,7 +294,8 @@ where
     /// Load the parent L2 block used as context when constructing payload attributes.
     ///
     /// Preference is given to the execution engine's cached origin pointer for the proposal.
-    /// If unavailable, fall back to the latest canonical block.
+    /// If unavailable, fall back to the batch-to-block mapping so derivation always anchors to
+    /// the last execution block of the preceding proposal.
     #[instrument(skip(self), fields(proposal_id), level = "debug")]
     async fn load_parent_block(
         &self,
@@ -477,7 +478,7 @@ where
         {
             decode_parent_anchor_block_number(parent_block, *self.rpc.shasta.anchor.address())?
         } else {
-            self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?.anchor_block_number
+            self.rpc.shasta_anchor_block_number_by_hash(parent_block.hash()).await?
         };
 
         let grandparent_timestamp = if parent_header.number == 0 {

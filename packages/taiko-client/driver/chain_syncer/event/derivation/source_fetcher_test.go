@@ -63,6 +63,32 @@ func (s *DerivationSourceFetcherTestSuite) TestManifestEncodeDecode() {
 	s.Equal(len(m.Blocks[0].Transactions), len(decoded.BlockPayloads[0].Transactions))
 }
 
+func (s *DerivationSourceFetcherTestSuite) TestForcedInclusionMustBeSingleBlock() {
+	// A forced-inclusion source must contain exactly one block. The rule is keyed on the source's
+	// IsForcedInclusion flag rather than its position, so a multi-block forced inclusion degrades to
+	// the default payload even when it is the last (or only) source.
+	b, err := builder.EncodeSourceManifest(sourceManifestWithBlockCount(2))
+	s.Nil(err)
+
+	meta := &metadata.TaikoProposalMetadataShasta{
+		ShastaInboxClientProposed: &shastaBindings.ShastaInboxClientProposed{
+			Sources: []shastaBindings.IInboxDerivationSource{
+				{
+					IsForcedInclusion: true,
+					BlobSlice: shastaBindings.LibBlobsBlobSlice{
+						Offset:    big.NewInt(0),
+						Timestamp: big.NewInt(0),
+					},
+				},
+			},
+		},
+	}
+
+	decoded, err := (&DerivationSourceFetcher{cli: s.RPCClient}).manifestFromBlobBytes(b, meta, 0)
+	s.Nil(err)
+	s.True(decoded.Default)
+}
+
 func (s *DerivationSourceFetcherTestSuite) TestManifestBlockLimitUsesProposalTimestamp() {
 	original := gethcore.DevnetUnzenTime
 	s.T().Cleanup(func() { gethcore.DevnetUnzenTime = original })

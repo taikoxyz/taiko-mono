@@ -1,8 +1,5 @@
 //! Event sync logic.
 
-/// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
-const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
-
 use std::{
     sync::{
         Arc, Mutex,
@@ -33,7 +30,7 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    SyncError, SyncStage,
+    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
 };
@@ -138,23 +135,13 @@ fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_
     rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
-/// Select scanner start block when the resolved target proposal id is zero.
-///
-/// - If finalized-safe proposal id is zero, scanner can safely start from finalized L1 block.
-/// - Otherwise, keep genesis start to avoid skipping historical proposal events.
-fn resolve_zero_target_start_block(
-    finalized_safe_proposal_id: u64,
-    finalized_block_number: u64,
-) -> u64 {
-    if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
-}
-
 /// Resolve the target proposal id and finalized-safe proposal id, accounting for the
 /// finalized snapshot being unavailable on fresh chains.
 ///
 /// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
-/// - When finalization is unavailable, both values reset to 0 triggering a full genesis replay.
-///   This is safe because derivation is idempotent (the engine skips already-known blocks).
+/// - When finalization is unavailable, both values reset to 0 so the caller can replay from the
+///   inbox activation block. This is safe because derivation is idempotent (the engine skips
+///   already-known blocks).
 fn resolve_target_with_optional_finalization(
     resume_proposal_id: u64,
     finalized_safe_proposal_id: Option<u64>,
@@ -162,6 +149,37 @@ fn resolve_target_with_optional_finalization(
     match finalized_safe_proposal_id {
         Some(safe_id) => (resume_proposal_id.min(safe_id), safe_id),
         None => (0, 0),
+    }
+}
+
+/// Fallback strategy when the execution engine has no batch mapping for the resume target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MissingBatchMappingFallback {
+    /// Extract the scanner anchor from the resume head block itself.
+    UseResumeHead,
+    /// Restart derivation from proposal zero, scanning from the inbox activation block.
+    ReplayFromActivation,
+}
+
+/// Decide how to bootstrap when no batch mapping exists for the target proposal.
+///
+/// Blocks reached via checkpoint/P2P sync bypass derivation, so the engine's custom tables hold
+/// no rows for them and the lookup reports the match at head as uncertain. When the target is
+/// the resume head's own proposal, the resume head block substitutes for the mapped target
+/// block: it belongs to the target proposal, and every later proposal is included on L1 after
+/// that proposal's anchor. This arm also covers the genesis bootstrap, where the zero target
+/// resolves its anchor through the genesis block's activation fallback. When the finalized
+/// bound rewound the target below the resume proposal, no local substitute exists and
+/// derivation replays from the activation block instead — safe because derivation is
+/// idempotent and no proposal events exist before activation.
+fn resolve_missing_batch_mapping_fallback(
+    target_proposal_id: u64,
+    resume_proposal_id: u64,
+) -> MissingBatchMappingFallback {
+    if target_proposal_id == resume_proposal_id {
+        MissingBatchMappingFallback::UseResumeHead
+    } else {
+        MissingBatchMappingFallback::ReplayFromActivation
     }
 }
 
@@ -243,6 +261,12 @@ type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 ///
 /// Wraps a payload and a oneshot channel for returning the processing result
 /// back to the caller.
+///
+/// The channel indirection is deliberate and load-bearing: injections run inside the
+/// ingress loop's own task, so a submitter whose future is dropped mid-await (for
+/// example an axum handler cancelled by a client disconnect) cannot cancel an engine
+/// injection already in flight. Do not replace this queue with direct router calls
+/// from submitter tasks.
 pub struct PreconfJob {
     /// The preconfirmation payload to be processed.
     payload: Arc<PreconfPayload>,
@@ -1003,8 +1027,8 @@ where
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
 
-        // Try to get finalized snapshot. When unavailable, fall back to genesis replay
-        // which is safe because derivation is idempotent.
+        // Try to get finalized snapshot. When unavailable, replay proposal zero from the inbox
+        // activation block, which is safe because derivation is idempotent.
         let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
 
         let (target_proposal_id, finalized_safe_proposal_id) =
@@ -1029,47 +1053,83 @@ where
             resume_number = resume_head_block.number(),
             "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
-        if target_proposal_id == 0 {
-            let start_block = finalized_snapshot.as_ref().map_or(0, |snapshot| {
-                resolve_zero_target_start_block(
-                    snapshot.finalized_safe_proposal_id,
-                    snapshot.block_number,
-                )
-            });
-            info!(
-                start_block,
-                finalized_safe_proposal_id,
-                finalized_block_number,
-                "resolved zero-target scanner start block",
-            );
-            return Ok(EventStreamStartPoint {
-                anchor_block_number: start_block,
-                initial_proposal_id: 0,
-                bootstrap_confirmed_tip: 0,
-            });
-        }
+        // Batch zero is the genesis boundary: the engine has no mapping for it and looking it up
+        // would trigger a full backward chain scan, so route it through the fallback arms below.
+        let target_block_number = if target_proposal_id == 0 {
+            None
+        } else {
+            self.rpc
+                .last_block_id_by_batch_id(U256::from(target_proposal_id))
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                .map(|block_number| block_number.to::<u64>())
+        };
 
-        let target_block_number = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(target_proposal_id))
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
-        let target_block = self
-            .rpc
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
-            .full()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
-            .map_transactions(|tx: RpcTransaction| tx.into());
+        let (target_block, bootstrap_confirmed_tip) = match target_block_number {
+            // The mapped target block usually is the resume head itself; skip the refetch.
+            Some(block_number) if block_number == resume_head_block.header.number => {
+                (resume_head_block, block_number)
+            }
+            Some(block_number) => {
+                let block = self
+                    .rpc
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Number(block_number))
+                    .full()
+                    .await
+                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                    .ok_or(SyncError::MissingExecutionBlock { number: block_number })?
+                    .map_transactions(|tx: RpcTransaction| tx.into());
+                (block, block_number)
+            }
+            None => {
+                match resolve_missing_batch_mapping_fallback(target_proposal_id, resume_proposal_id)
+                {
+                    MissingBatchMappingFallback::UseResumeHead => {
+                        if target_proposal_id == 0 {
+                            info!(
+                                resume_number = resume_head_block.header.number,
+                                "bootstrapping event sync from the genesis resume head",
+                            );
+                        } else {
+                            warn!(
+                                target_proposal_id,
+                                resume_number = resume_head_block.header.number,
+                                "batch mapping unavailable for resume-head proposal; extracting \
+                                 anchor from the resume head block",
+                            );
+                        }
+                        let resume_number = resume_head_block.header.number;
+                        (resume_head_block, resume_number)
+                    }
+                    MissingBatchMappingFallback::ReplayFromActivation => {
+                        let anchor_block_number = self.activation_block_number().await?;
+                        if target_proposal_id == 0 {
+                            info!(
+                                resume_proposal_id,
+                                anchor_block_number,
+                                "no finalized proposal to resume from; replaying derivation from \
+                                 the activation block",
+                            );
+                        } else {
+                            warn!(
+                                target_proposal_id,
+                                resume_proposal_id,
+                                anchor_block_number,
+                                "batch mapping unavailable for finalized-bounded target; replaying \
+                                 derivation from the activation block",
+                            );
+                        }
+                        return Ok(EventStreamStartPoint {
+                            anchor_block_number,
+                            initial_proposal_id: 0,
+                            bootstrap_confirmed_tip: 0,
+                        });
+                    }
+                }
+            }
+        };
 
-        info!(
-            target_hash = ?target_block.hash(),
-            target_block_number = target_block.number(),
-            "determined target block for anchor extraction",
-        );
         let anchor_block_number =
             self.decode_anchor_block_number(&target_block, anchor_address).await?;
         info!(
@@ -1077,12 +1137,12 @@ where
             target_hash = ?target_block.hash(),
             target_number = target_block.number(),
             target_proposal_id,
-            "derived anchor block number from anchorV4 transaction",
+            "derived anchor block number from target block",
         );
         Ok(EventStreamStartPoint {
             anchor_block_number,
             initial_proposal_id: target_proposal_id,
-            bootstrap_confirmed_tip: target_block_number.to::<u64>(),
+            bootstrap_confirmed_tip,
         })
     }
 }
@@ -2028,18 +2088,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn zero_target_uses_finalized_block_when_finalized_safe_is_zero() {
-        let start_block = resolve_zero_target_start_block(0, 4_096);
-        assert_eq!(start_block, 4_096);
-    }
-
-    #[test]
-    fn zero_target_uses_genesis_when_finalized_safe_exists() {
-        let start_block = resolve_zero_target_start_block(17, 4_096);
-        assert_eq!(start_block, 0);
-    }
-
     // -- resolve_target_with_optional_finalization tests --
 
     #[test]
@@ -2095,5 +2143,39 @@ mod tests {
         let err = resolve_event_scanner_setup_error(true, "boom".into())
             .expect("post-start scanner errors should be retryable");
         assert_eq!(err, "boom");
+    }
+
+    // -- resolve_missing_batch_mapping_fallback tests --
+
+    #[test]
+    fn missing_batch_mapping_uses_resume_head_for_resume_proposal() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(18_058, 18_058),
+            MissingBatchMappingFallback::UseResumeHead
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_replays_from_activation_for_rewound_target() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(18_045, 18_058),
+            MissingBatchMappingFallback::ReplayFromActivation
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_uses_resume_head_for_genesis_target() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(0, 0),
+            MissingBatchMappingFallback::UseResumeHead
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_replays_from_activation_for_zero_target_with_nonzero_resume() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(0, 7),
+            MissingBatchMappingFallback::ReplayFromActivation
+        );
     }
 }

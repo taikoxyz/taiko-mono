@@ -248,6 +248,7 @@ export type AddressConfig = {
   erc1155VaultAddress: Address;
   signalServiceAddress: Address;
   anchorForkRouter?: Address;
+  quotaManagerAddress?: Address;
 };
 
 export enum ContractType {

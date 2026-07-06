@@ -85,6 +85,10 @@
         "not_received": {
           "message": "The message is not proven and cannot be claimed right now.",
           "title": "Not received"
+        },
+        "quota_reached": {
+          "message": "This asset's withdrawal quota is currently used up. Your funds are safe; wait for the quota to replenish, then try claiming again.",
+          "title": "Withdrawal quota reached"
         }
       },
       "custom_token": {
