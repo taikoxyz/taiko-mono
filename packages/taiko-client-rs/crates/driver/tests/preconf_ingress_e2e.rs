@@ -311,18 +311,18 @@ where
             .await?
             .map(|block_number| block_number.to::<u64>());
         let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
-        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) {
-            if head_block >= target_block {
-                let l2_head = driver_client.l2_provider.get_block_number().await?;
-                if l2_head < l2_head_before {
-                    warn!(
-                        l2_head_before,
-                        l2_head, "L2 head moved backward while waiting for proposal processing"
-                    );
-                }
-                if l2_head >= target_block {
-                    return Ok(l2_head);
-                }
+        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) &&
+            head_block >= target_block
+        {
+            let l2_head = driver_client.l2_provider.get_block_number().await?;
+            if l2_head < l2_head_before {
+                warn!(
+                    l2_head_before,
+                    l2_head, "L2 head moved backward while waiting for proposal processing"
+                );
+            }
+            if l2_head >= target_block {
+                return Ok(l2_head);
             }
         };
 
@@ -635,7 +635,7 @@ async fn preconf_payload_with_legacy_tx_is_injected(env: &mut ShastaEnv) -> Resu
 
     // Sanity: the block should carry the anchor plus both transfers.
     ensure!(
-        block_tx_hashes.len() >= txlist.transfers.len() + 1,
+        block_tx_hashes.len() > txlist.transfers.len(),
         "block must contain the anchor plus every transfer"
     );
 

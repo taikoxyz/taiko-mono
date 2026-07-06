@@ -202,18 +202,18 @@ where
             .await?
             .map(|block_number| block_number.to::<u64>());
         let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
-        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) {
-            if head_block >= target_block {
-                let l2_head = driver_client.l2_provider.get_block_number().await?;
-                if l2_head < l2_head_before {
-                    warn!(
-                        l2_head_before,
-                        l2_head, "L2 head moved backward while waiting for proposal processing"
-                    );
-                }
-                if l2_head >= target_block {
-                    return Ok(l2_head);
-                }
+        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) &&
+            head_block >= target_block
+        {
+            let l2_head = driver_client.l2_provider.get_block_number().await?;
+            if l2_head < l2_head_before {
+                warn!(
+                    l2_head_before,
+                    l2_head, "L2 head moved backward while waiting for proposal processing"
+                );
+            }
+            if l2_head >= target_block {
+                return Ok(l2_head);
             }
         };
 
@@ -381,10 +381,10 @@ async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) ->
     //    1's tip (nextProposalId == 2 at the common ancestor).
     let observe_deadline = tokio::time::Instant::now() + REORG_OBSERVE_TIMEOUT;
     let lowered = loop {
-        if let Some(current) = head_l1_origin_block_id(&driver_client).await? {
-            if current < recorded_boundary {
-                break current;
-            }
+        if let Some(current) = head_l1_origin_block_id(&driver_client).await? &&
+            current < recorded_boundary
+        {
+            break current;
         }
         if tokio::time::Instant::now() >= observe_deadline {
             // Loud, explicit failure — never a silent hang (the reorg check only runs on
