@@ -96,6 +96,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @notice The address authorized to register SGX instances via `registerInstance`.
     /// @dev If set to a non-zero address, only this address may call `registerInstance`.
     /// If set to `address(0)`, `registerInstance` is permissionless and callable by anyone.
+    /// The registrar also selects the quote-freshness policy: permissionless registration requires
+    /// the attested quote to commit a recent L1 block (see `registerInstance`), while a trusted
+    /// registrar vouches for the provenance — and thus the age — of the quotes it submits, so its
+    /// registrations are exempt.
     address public immutable registrar;
 
     /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
@@ -190,6 +194,8 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_INSTANCE_ID_OVERFLOW();
     error SGX_INVALID_CHAIN_ID();
     error SGX_NOT_REGISTRAR();
+    error SGX_STALE_QUOTE();
+    error SGX_QUOTE_BLOCK_HASH_MISMATCH();
     error SGX_MR_ENCLAVE_REVOKED();
     error SGX_MR_SIGNER_REVOKED();
 
@@ -301,6 +307,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @dev A non-owner (permissionless or registrar) registration is subject to the validity
     /// delay; an owner-submitted registration is as trusted as `addInstances` and takes effect
     /// immediately.
+    /// @dev When registration is permissionless (`registrar == address(0)`), the quote must also
+    /// commit a recent L1 block in reportData — block number (8 bytes, big-endian) then that
+    /// block's hash (32 bytes), right after the 20-byte instance address — proving the quote was
+    /// generated within the last 256 blocks (see the freshness gate below).
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
     function registerInstance(bytes calldata _rawQuote) external nonReentrant returns (uint256) {
@@ -410,6 +420,32 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         // bound to the verified enclave report by the body-hash check above.
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
+
+        // Quote-freshness gate, derived from the registration trust model rather than stored
+        // config. INSTANCE_EXPIRY only bounds key exposure *after* registration; nothing otherwise
+        // bounds how old the attested quote itself is, so a quote (or a slowly side-channel-
+        // extracted key) from long ago could be registered today and trusted for a fresh 90-day
+        // window. Permissionless registration (no registrar) therefore fails closed: the enclave
+        // must have committed a recent L1 block into reportData right after the instance address —
+        // block number (8 bytes, BE) then that block's hash (32 bytes) — and the hash must match
+        // on-chain. `blockhash` returns zero outside the most recent 256 blocks, so a non-zero match
+        // bounds the quote's age to that window (the prover embeds the commitment and the
+        // registration must land within that window). With a registrar, the trusted registrar
+        // vouches for the provenance — and thus the age — of the quotes it submits, and registrar
+        // flows (e.g. a multisig) are typically slower than 256 blocks, so the gate is skipped.
+        // Both fields are bound to the verified enclave report by the body-hash check above.
+        if (registrar == address(0)) {
+            uint64 quoteBlock =
+                uint64(bytes8(_rawQuote[REPORT_DATA_OFFSET + 20:REPORT_DATA_OFFSET + 28]));
+            bytes32 quoteBlockHash =
+                bytes32(_rawQuote[REPORT_DATA_OFFSET + 28:REPORT_DATA_OFFSET + 60]);
+            bytes32 actualBlockHash = blockhash(quoteBlock);
+            // A zero `blockhash` means the committed block is outside the most recent 256 (too old,
+            // or the current/a future block) — the quote is stale. A non-zero hash that does not
+            // match means the commitment is wrong. Split for on-chain diagnosability.
+            require(actualBlockHash != bytes32(0), SGX_STALE_QUOTE());
+            require(actualBlockHash == quoteBlockHash, SGX_QUOTE_BLOCK_HASH_MISMATCH());
+        }
 
         // An owner-submitted registration is as trusted as `addInstances`, so it skips the validity
         // delay; permissionless (and registrar) registrations remain delayed. The attested MRENCLAVE,
