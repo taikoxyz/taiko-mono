@@ -190,4 +190,28 @@ contract VerifyHoodiDeploymentTest is Test {
         address inbox = address(new MockInbox(mv));
         assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
     }
+
+    function test_verify_mainnetTiersNotDistinct_fails() public {
+        // The same verifier is wired into both SGX tiers -> the "four tiers distinct" check fails.
+        address sgx =
+            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
+        address risc0 = address(new Risc0Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
+        address sp1 = address(new SP1Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
+        address mv = address(new MainnetVerifier(sgx, sgx, risc0, sp1)); // sgxGeth == sgxReth
+        address inbox = address(new MockInbox(mv));
+        assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
+    }
+
+    function test_verify_sgxDifferentEntrypoints_fails() public {
+        // reth points at goodEntrypoint, geth points at a different entrypoint -> cross-cutting fail.
+        address other = _entrypoint(OWNER, 0);
+        address reth =
+            address(new SecureSgxVerifier(CHAIN_ID, OWNER, goodEntrypoint, address(0), 24 hours));
+        address geth = address(new SecureSgxVerifier(CHAIN_ID, OWNER, other, address(0), 24 hours));
+        address risc0 = address(new Risc0Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
+        address sp1 = address(new SP1Verifier(CHAIN_ID, address(new MockCoded()), OWNER));
+        address mv = address(new MainnetVerifier(geth, reth, risc0, sp1));
+        address inbox = address(new MockInbox(mv));
+        assertGt(verifier.verify(inbox, goodEntrypoint, address(0)), 0);
+    }
 }

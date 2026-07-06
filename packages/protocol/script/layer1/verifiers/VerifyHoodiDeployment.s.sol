@@ -140,6 +140,8 @@ contract VerifyHoodiDeployment is Script {
         _checkSgx(sgxGeth, attestation, "SGX-geth");
         _checkRisc0(risc0);
         _checkSp1(sp1);
+        _checkAggregation(compose, sgxGeth, sgxReth, risc0, sp1);
+        _checkCrossCutting(sgxReth, sgxGeth, attestation);
 
         console2.log("---");
         console2.log("[PASS] count :", passes);
@@ -254,6 +256,39 @@ contract VerifyHoodiDeployment is Script {
         _hard(ISP1View(sp1).taikoChainId() == EXPECTED_CHAIN_ID, "SP1: taikoChainId == TAIKO_HOODI");
         _hard(ISP1View(sp1).owner() == EXPECTED_OWNER, "SP1: owner == Hoodi owner");
         _hard(_hasCode(ISP1View(sp1).sp1RemoteVerifier()), "SP1: remote verifier has code");
+    }
+
+    /// @dev Asserts the MainnetVerifier aggregation shape: TDX/OP tiers disabled, and the four
+    /// active tiers non-zero and mutually distinct. The inbox -> aggregator identity needs no check:
+    /// `compose` is read from `inbox.getConfig().proofVerifier`, so it holds by construction.
+    function _checkAggregation(
+        address compose,
+        address sgxGeth,
+        address sgxReth,
+        address risc0,
+        address sp1
+    )
+        internal
+    {
+        _hard(
+            IComposeView(compose).tdxGethVerifier() == address(0), "Mainnet: tdxGethVerifier == 0"
+        );
+        _hard(IComposeView(compose).opVerifier() == address(0), "Mainnet: opVerifier == 0");
+        bool distinct = sgxGeth != sgxReth && sgxGeth != risc0 && sgxGeth != sp1 && sgxReth != risc0
+            && sgxReth != sp1 && risc0 != sp1;
+        _hard(distinct, "Mainnet: four tiers are distinct");
+        bool nonZero = sgxGeth != address(0) && sgxReth != address(0) && risc0 != address(0)
+            && sp1 != address(0);
+        _hard(nonZero, "Mainnet: four tiers are non-zero");
+    }
+
+    /// @dev Asserts the stack-wide invariant that both SGX verifiers share the same entrypoint.
+    function _checkCrossCutting(address sgxReth, address sgxGeth, address attestation) internal {
+        _hard(
+            ISgxView(sgxReth).automataDcapAttestation() == attestation
+                && ISgxView(sgxGeth).automataDcapAttestation() == attestation,
+            "cross-cut: both SGX verifiers share the entrypoint"
+        );
     }
 
     /// @dev Records a hard check: increments passes or hardFails and logs the outcome.
