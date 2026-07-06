@@ -157,6 +157,10 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
         "L2 head should not move backwards after proposal processing"
     );
     syncer_handle.abort();
+    // Bounded join so the aborted syncer actually stops before the beacon stub shuts down;
+    // otherwise it leaks as a zombie retrying blob derivation against a dead stub, contending
+    // the shared serialized devnet and wedging later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
     beacon_stub.shutdown().await?;
 
     Ok(())
@@ -197,6 +201,18 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     event_syncer.wait_preconf_ingress_ready().await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+    // Snapshot the canonical head hash BEFORE submitting the proposal. On this shared,
+    // serialized devnet the head may already be a prior test's derived block 1 (e.g. the
+    // resume test, which runs just before this one and derives proposal 1 into block 1);
+    // deriving THIS test's proposal 1 replaces that block at the same height, so only the
+    // HASH changes, never the number. We hold this pre-submit hash so we can later prove
+    // THIS test's derivation has observably landed (hash flipped away from this value).
+    let pre_submit_head_hash = driver_client
+        .l2_provider
+        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow!("missing canonical base block before proposal submission"))?
+        .hash();
     let (proposal_id, proposal_log) =
         submit_proposal(&proposer, request, env.inbox_address).await?;
 
@@ -208,12 +224,36 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_secs(30),
     )
     .await?;
-    // Capture the canonical block hash produced by the first processing.
-    let canonical_block = driver_client
-        .l2_provider
-        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
-        .await?
-        .ok_or_else(|| anyhow!("missing canonical block after proposal processing"))?;
+    // `wait_for_proposal_processed` gates on block NUMBER and can return VACUOUSLY on this
+    // shared devnet: block 1 already exists at number 1 (from the prior test's derivation),
+    // so all its gates are satisfied at t=0, MID-DERIVATION, and it returns before this
+    // test's derivation has actually landed. A naive capture here would snapshot the STALE
+    // pre-existing block 1; the real derivation then reorgs block 1 to a fresh hash and the
+    // "canonical block hash should remain unchanged" assertion below would fail. We do NOT
+    // touch the shared helper (sibling tests rely on its current semantics); instead we
+    // locally wait until the canonical head hash has flipped away from `pre_submit_head_hash`
+    // — i.e. THIS test's derivation has observably landed — and capture from THAT settled
+    // block, so the re-process pass legitimately matches it via the known-canonical fast path.
+    let derivation_deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    let canonical_block = loop {
+        let block = driver_client
+            .l2_provider
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+            .await?
+            .ok_or_else(|| {
+                anyhow!("missing canonical block while waiting for derivation to land")
+            })?;
+        if block.hash() != pre_submit_head_hash {
+            break block;
+        }
+        if tokio::time::Instant::now() >= derivation_deadline {
+            return Err(anyhow!(
+                "proposal's derived block never landed: canonical head hash still equals the \
+                 pre-submit head hash after 30s, so this test's derivation did not complete"
+            ));
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    };
     let canonical_number = canonical_block.number();
     info!(canonical_number, l2_head_after, "captured canonical block after first processing");
     let canonical_hash = canonical_block.hash();
@@ -244,6 +284,10 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     );
 
     syncer_handle.abort();
+    // Bounded join so the aborted syncer actually stops before the beacon stub shuts down;
+    // otherwise it leaks as a zombie retrying blob derivation against a dead stub, contending
+    // the shared serialized devnet and wedging later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
     beacon_stub.shutdown().await?;
 
     Ok(())
@@ -314,6 +358,10 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     );
 
     syncer_handle.abort();
+    // Bounded join so the aborted syncer actually stops before the beacon stub shuts down;
+    // otherwise it leaks as a zombie retrying blob derivation against a dead stub, contending
+    // the shared serialized devnet and wedging later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
     beacon_stub.shutdown().await?;
 
     Ok(())
@@ -550,6 +598,9 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
     );
 
     syncer_handle_2.abort();
+    // Bounded join so the aborted syncer actually stops before the beacon stub shuts down
+    // (prevents a zombie derivation loop against a dead stub — see the abort sites above).
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle_2).await;
     beacon_stub.shutdown().await?;
 
     Ok(())

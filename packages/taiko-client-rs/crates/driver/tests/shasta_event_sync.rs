@@ -288,17 +288,25 @@ fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVa
 /// reverted to genesis would land the common ancestor at `nextProposalId <= 1`,
 /// where the reset is a documented no-op, and nothing would lower the boundary.)
 ///
-/// Every observe/processing poll is deadline-bounded (<=60s) so a CI failure there is a
-/// loud timeout, never a hang. The one wait that is intentionally NOT bounded is
-/// `start_syncer`'s `wait_preconf_ingress_ready()`: it runs before any proposal is
-/// submitted, at `target_proposal_id == 0`, where readiness latches immediately and cannot
-/// hang (see the pre-proposal readiness rationale in `preconf_ingress_e2e.rs` ~:423) — so
-/// it is left bare by convention. If this proves irreducibly flaky in CI (reorg-notification
-/// timing), mark it `#[ignore = "flaky: reorg notification timing"]` with a tracking note
-/// per the task brief — do NOT delete it. It is compile-verified + CI-executed here because
-/// the Docker harness is unavailable locally.
+/// The observe/processing polls in the body are all deadline-bounded (<=60s). The
+/// irreducible fragility is NOT in this test's logic but in simulating an L1 reorg on
+/// anvil: after `l1_revert(snapshot)` rolls the chain back, the shared proposer's alloy
+/// nonce tracker is stale (it already sent proposal 2's now-reverted tx), so the
+/// re-proposal in step 5 can fail to mine and the `get_receipt()` inside the shared
+/// `submit_proposal` helper — which is intentionally unbounded to match its other callers —
+/// blocks until the nextest hang-backstop terminates the test (~600s). This is a harness
+/// limitation (anvil evm_revert + nonce state), not a driver defect: the driver's actual
+/// reorg-reset logic is covered deterministically by the
+/// `reset_head_l1_origin_after_reorg_writes_canonical_tip` unit test (crates/driver/src/
+/// sync/event_tests.rs), which asserts the exact lowered value. This integration test is
+/// therefore `#[ignore]`d (kept, not deleted) pending a harness fix that resets the
+/// proposer nonce after a revert (or bounds `submit_proposal`'s receipt wait). Run it
+/// explicitly with `--ignored` to investigate.
 #[test_context(ShastaEnv)]
 #[serial]
+#[ignore = "harness: anvil evm_revert leaves the proposer nonce stale so the re-proposal's \
+            unbounded get_receipt hangs; reorg-reset logic is covered by the \
+            reset_head_l1_origin_after_reorg_writes_canonical_tip unit test"]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) -> Result<()> {
     // Generous-but-bounded windows. Reorg observation is bounded independently at 60s
@@ -420,6 +428,12 @@ async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) ->
     );
 
     syncer_handle.abort();
+    // Await the aborted syncer (bounded) so its task actually stops before the beacon stub
+    // shuts down. `abort()` only schedules cancellation; without this join the syncer keeps
+    // running against a dead stub, retrying blob derivation forever ("no beacon or blob
+    // server available") — a zombie that contends the shared serialized devnet and wedges
+    // later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
     beacon_stub.shutdown().await?;
 
     Ok(())

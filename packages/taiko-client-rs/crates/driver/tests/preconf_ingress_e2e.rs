@@ -242,6 +242,10 @@ async fn preconf_ingress_injects_block_smoke(env: &mut ShastaEnv) -> Result<()> 
     );
 
     syncer_handle.abort();
+    // Bounded join so the aborted syncer actually stops before the beacon stub shuts down;
+    // otherwise it leaks as a zombie retrying blob derivation against a dead stub, contending
+    // the shared serialized devnet and wedging later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
     beacon_stub.shutdown().await?;
 
     Ok(())
@@ -548,6 +552,11 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
 
     syncer_handle.abort();
     syncer_handle_node1.abort();
+    // Bounded joins so both aborted syncers actually stop before their beacon stubs shut
+    // down; otherwise they leak as zombies retrying blob derivation against dead stubs,
+    // contending the shared serialized devnet and wedging later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle_node1).await;
     beacon_stub.shutdown().await?;
     beacon_stub_node1.shutdown().await?;
 
@@ -631,6 +640,10 @@ async fn preconf_payload_with_legacy_tx_is_injected(env: &mut ShastaEnv) -> Resu
     );
 
     syncer_handle.abort();
+    // Bounded join so the aborted syncer actually stops before the beacon stub shuts down;
+    // otherwise it leaks as a zombie retrying blob derivation against a dead stub, contending
+    // the shared serialized devnet and wedging later tests.
+    let _ = tokio::time::timeout(Duration::from_secs(5), syncer_handle).await;
     beacon_stub.shutdown().await?;
 
     Ok(())
