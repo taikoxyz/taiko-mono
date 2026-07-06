@@ -157,6 +157,11 @@ abstract contract DeployShastaContracts is DeployCapability {
         // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
         // instance before it can prove (owner `addInstances` registrations are not delayed); it
         // applies to SecureSgxVerifier only.
+        // NOTE: with registrar == address(0) the quote-freshness gate is enforced (permissionless
+        // registration fails closed): `registerInstance` reverts with SGX_STALE_QUOTE unless the
+        // prover embeds the recent-block commitment in reportData and the registration lands within
+        // the 256-block window. Deploy with a non-zero registrar (or use owner `addInstances`) if
+        // the prover does not embed the commitment yet.
         verifiers.sgxReth = _deploySgxVerifier(
             config.useInsecureSgxPolicy,
             config.l2ChainId,
@@ -186,9 +191,11 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     /// @dev Deploys an SGX verifier, selecting the strict SecureSgxVerifier by default and the
     /// lenient InsecureSgxVerifier only when `useInsecureSgxPolicy` is true. The registrar is set to
-    /// address(0), leaving registerInstance permissionless. SecureSgxVerifier is given a 24h
-    /// instance-validity delay so off-chain monitoring can evict a rogue self-registered instance
-    /// before it can prove (owner `addInstances` registrations are not delayed).
+    /// address(0), leaving registerInstance permissionless — which also enforces the quote-freshness
+    /// gate (see SgxVerifier.registerInstance): registration requires the prover to embed a
+    /// recent-block commitment in reportData. SecureSgxVerifier is given a 24h instance-validity
+    /// delay so off-chain monitoring can evict a rogue self-registered instance before it can prove
+    /// (owner `addInstances` registrations are not delayed).
     function _deploySgxVerifier(
         bool useInsecureSgxPolicy,
         uint64 l2ChainId,
