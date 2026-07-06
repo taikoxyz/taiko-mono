@@ -135,7 +135,7 @@ contract VerifyHoodiDeployment is Script {
         _hard(_hasCode(risc0), "Risc0Verifier has code");
         _hard(_hasCode(sp1), "SP1Verifier has code");
 
-        // (later tasks insert _check* calls here)
+        _checkEntrypoint(attestation, v3, pccs, pccsExpected);
 
         console2.log("---");
         console2.log("[PASS] count :", passes);
@@ -147,6 +147,44 @@ contract VerifyHoodiDeployment is Script {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Asserts the DCAP entrypoint is Taiko-owned, fee-free, wired to a v3 quote verifier, and
+    /// live (an empty quote is rejected, proving entrypoint -> V3 -> PCCS plumbing is real).
+    function _checkEntrypoint(
+        address attestation,
+        address v3,
+        address pccs,
+        address pccsExpected
+    )
+        internal
+    {
+        // The has-code hard check already recorded the [FAIL] for a codeless entrypoint; returning
+        // here keeps the high-level reads below (which revert on a codeless address) from reverting
+        // the whole run, so a codeless root still surfaces as > 0 hardFails instead of a revert.
+        if (!_hasCode(attestation)) return;
+
+        _hard(
+            IEntrypointView(attestation).owner() == EXPECTED_OWNER,
+            "entrypoint owner == Hoodi owner"
+        );
+        _hard(v3 != address(0), "entrypoint quoteVerifiers(3) set");
+        _hard(IEntrypointView(attestation).getBp() == 0, "entrypoint fee bp == 0");
+
+        // Liveness: an empty quote must return success == false (Automata's early length rejection)
+        // without reverting. bp == 0 (asserted above) keeps this staticcall state-change-free.
+        (bool callOk, bytes memory ret) = attestation.staticcall(
+            abi.encodeWithSelector(IEntrypointView.verifyAndAttestOnChain.selector, bytes(""))
+        );
+        bool attestOk = callOk && ret.length >= 32 && abi.decode(ret, (bool));
+        _hard(callOk && !attestOk, "entrypoint liveness: empty quote rejected");
+
+        if (v3 != address(0)) {
+            _hard(IV3QuoteVerifierView(v3).quoteVersion() == 3, "V3QuoteVerifier.quoteVersion == 3");
+        }
+        if (pccsExpected != address(0)) {
+            _warn(pccs == pccsExpected, "PCCS router == expected (optional)");
+        }
+    }
 
     /// @dev Records a hard check: increments passes or hardFails and logs the outcome.
     function _hard(bool ok, string memory label) internal {

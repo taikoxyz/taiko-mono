@@ -117,4 +117,27 @@ contract VerifyHoodiDeploymentTest is Test {
         // An EOA-style address (no code) as the attestation root trips the has-code check.
         assertGt(verifier.verify(goodInbox, address(0xEE), address(0)), 0);
     }
+
+    function test_verify_entrypointWrongOwner_fails() public {
+        address badEntry = _entrypoint(address(0xBAD), 0);
+        (address inbox,) = _stack(badEntry, badEntry, false, CHAIN_ID, OWNER);
+        assertGt(verifier.verify(inbox, badEntry, address(0)), 0);
+    }
+
+    function test_verify_entrypointNonZeroFee_fails() public {
+        address badEntry = _entrypoint(OWNER, 100); // bp != 0
+        (address inbox,) = _stack(badEntry, badEntry, false, CHAIN_ID, OWNER);
+        assertGt(verifier.verify(inbox, badEntry, address(0)), 0);
+    }
+
+    function test_verify_entrypointStubLiveness_fails() public {
+        // A stub entrypoint that "accepts" an empty quote must be caught by the liveness probe.
+        MockEntrypoint(goodEntrypoint).setStubAccept(true);
+        assertGt(verifier.verify(goodInbox, goodEntrypoint, address(0)), 0);
+    }
+
+    function test_verify_pccsMismatch_advisoryNotHardFail() public {
+        // Supplying a wrong expected PCCS is an advisory: hardFails stays 0 on an otherwise-good stack.
+        assertEq(verifier.verify(goodInbox, goodEntrypoint, address(0x9999)), 0);
+    }
 }
