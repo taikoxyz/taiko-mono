@@ -3,10 +3,14 @@ pragma solidity ^0.8.24;
 
 import "./ComposeVerifier.sol";
 
-/// @title AnyTwoVerifier
-/// @notice (SGX + RISC0) or (RISC0 + SP1) or (SGX + SP1) verifier
+/// @title ZkRequiredVerifier
+/// @notice Requires exactly two sub-proofs of which at least one is a ZK proof:
+/// (SGX + RISC0), (SGX + SP1), or (RISC0 + SP1).
+/// @dev The ZK mandate is structural, not configurational: only one SGX slot exists in the
+/// accepted combinations, so no TEE-only (SGX + SGX) pair can ever satisfy this verifier —
+/// the exact combination that finalized the June 2026 forged proofs on the old MainnetVerifier.
 /// @custom:security-contact security@taiko.xyz
-contract AnyTwoVerifier is ComposeVerifier {
+contract ZkRequiredVerifier is ComposeVerifier {
     constructor(
         address _sgxRethVerifier,
         address _risc0RethVerifier,

@@ -5,7 +5,7 @@ import { Script, console2 } from "forge-std/src/Script.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
-import { AnyTwoVerifier } from "src/layer1/verifiers/compose/AnyTwoVerifier.sol";
+import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 
 /// @title DeployUnzenContracts
@@ -22,7 +22,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// artifacts via `vm.getCode`.
 ///
 /// The verifier wiring is immutable at every level (SgxVerifier -> attestation,
-/// AnyTwoVerifier -> sub-verifiers, Inbox -> proof verifier), so the chain deploys bottom-up:
+/// ZkRequiredVerifier -> sub-verifiers, Inbox -> proof verifier), so the chain deploys bottom-up:
 ///
 /// 1. `AutomataDcapAttestationFee` — the audited upstream Automata DCAP entrypoint
 ///    (+ `V3QuoteVerifier`, RIP-7212 P256 verifier), pointed at Automata's on-chain PCCS
@@ -35,7 +35,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///    instance-id overflow rejection, and the quote-freshness gate. It deploys fail-closed: no
 ///    instance can register until the DAO trusts an MRENCLAVE and MRSIGNER (proposal actions)
 ///    and the registrar registers the raiko instance post-execution.
-/// 3. `AnyTwoVerifier` replaces `MainnetVerifier`: two sub-proofs with at least one ZK proof
+/// 3. `ZkRequiredVerifier` replaces `MainnetVerifier`: two sub-proofs with at least one ZK proof
 ///    (SGX+RISC0, SGX+SP1, or RISC0+SP1), removing the SGX-geth + SGX-reth (zero ZK) combination.
 /// 4. A new `MainnetInbox` implementation with forced inclusions re-enabled, wired to the new
 ///    verifier. `init3` voids the stale pre-incident forced inclusion queue entry whose blob
@@ -55,7 +55,7 @@ contract DeployUnzenContracts is Script {
     struct Deployment {
         address dcapAttestation;
         address sgxRethVerifier;
-        address anyTwoVerifier;
+        address zkRequiredVerifier;
         address mainnetInboxImpl;
     }
 
@@ -122,8 +122,8 @@ contract DeployUnzenContracts is Script {
             )
         );
 
-        deployment_.anyTwoVerifier = address(
-            new AnyTwoVerifier(
+        deployment_.zkRequiredVerifier = address(
+            new ZkRequiredVerifier(
                 deployment_.sgxRethVerifier,
                 LibL1Addrs.RISC0_RETH_VERIFIER,
                 LibL1Addrs.SP1_RETH_VERIFIER
@@ -132,7 +132,7 @@ contract DeployUnzenContracts is Script {
 
         deployment_.mainnetInboxImpl = address(
             new MainnetInbox(
-                deployment_.anyTwoVerifier,
+                deployment_.zkRequiredVerifier,
                 LibL1Addrs.PRECONF_WHITELIST,
                 LibL1Addrs.PROVER_WHITELIST,
                 LibL1Addrs.SIGNAL_SERVICE,
@@ -162,7 +162,7 @@ contract DeployUnzenContracts is Script {
     function _logDeployment(Deployment memory _deployment) private pure {
         console2.log("DCAP_ATTESTATION:", _deployment.dcapAttestation);
         console2.log("SGXRETH_VERIFIER_NEW:", _deployment.sgxRethVerifier);
-        console2.log("ANY_TWO_VERIFIER:", _deployment.anyTwoVerifier);
+        console2.log("ZK_REQUIRED_VERIFIER:", _deployment.zkRequiredVerifier);
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
         console2.log("RISC0_RETH_VERIFIER (reused):", LibL1Addrs.RISC0_RETH_VERIFIER);
         console2.log("SP1_RETH_VERIFIER (reused):", LibL1Addrs.SP1_RETH_VERIFIER);

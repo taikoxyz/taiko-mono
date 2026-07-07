@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Test.sol";
 import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { AnyTwoVerifier } from "src/layer1/verifiers/compose/AnyTwoVerifier.sol";
+import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 import { AnyVerifier } from "src/layer1/verifiers/compose/AnyVerifier.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { SgxAndZkVerifier } from "src/layer1/verifiers/compose/SgxAndZkVerifier.sol";
@@ -20,7 +20,7 @@ contract ComposeVerifierTest is Test {
     StubVerifier internal sp1;
 
     AnyVerifier internal anyVerifier;
-    AnyTwoVerifier internal anyTwoVerifier;
+    ZkRequiredVerifier internal zkRequiredVerifier;
     SgxAndZkVerifier internal sgxAndZkVerifier;
     MainnetVerifier internal mainnetVerifier;
 
@@ -33,7 +33,7 @@ contract ComposeVerifierTest is Test {
         sp1 = new StubVerifier();
 
         anyVerifier = new AnyVerifier(address(sgx), address(risc0), address(sp1));
-        anyTwoVerifier = new AnyTwoVerifier(address(sgx), address(risc0), address(sp1));
+        zkRequiredVerifier = new ZkRequiredVerifier(address(sgx), address(risc0), address(sp1));
         sgxAndZkVerifier = new SgxAndZkVerifier(address(sgx), address(risc0), address(sp1));
         mainnetVerifier =
             new MainnetVerifier(address(sgxGeth), address(sgx), address(risc0), address(sp1));
@@ -102,10 +102,10 @@ contract ComposeVerifierTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // AnyTwoVerifier
+    // ZkRequiredVerifier
     // ---------------------------------------------------------------
 
-    function test_anyTwoVerifier_AllowsSgxAndRisc0() external {
+    function test_zkRequiredVerifier_AllowsSgxAndRisc0() external {
         bytes memory data = _encodeProof(
             _toArray(
                 ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.RISC0_RETH
@@ -122,10 +122,10 @@ contract ComposeVerifierTest is Test {
             abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("r0")))
         );
 
-        anyTwoVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+        zkRequiredVerifier.verifyProof(0, TRANSITIONS_HASH, data);
     }
 
-    function test_anyTwoVerifier_RevertWhen_OrderNotIncreasing() external {
+    function test_zkRequiredVerifier_RevertWhen_OrderNotIncreasing() external {
         bytes memory data = _encodeProof(
             _toArray(ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.SGX_RETH),
             _toBytesArray(bytes("sgx"), bytes("sgx2"))
@@ -137,7 +137,7 @@ contract ComposeVerifierTest is Test {
         );
 
         vm.expectRevert(ComposeVerifier.CV_INVALID_SUB_VERIFIER_ORDER.selector);
-        anyTwoVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+        zkRequiredVerifier.verifyProof(0, TRANSITIONS_HASH, data);
     }
 
     // ---------------------------------------------------------------
