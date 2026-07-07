@@ -7,7 +7,6 @@
 
 use std::{future::Future, result, sync::Arc};
 
-use rpc::client::DefaultProvider;
 use thiserror::Error;
 
 use crate::{
@@ -54,9 +53,9 @@ impl From<DriverError> for PreconfIngressSyncError {
 /// Runs the preconfirmation ingress event syncer and exposes handles to its resources.
 pub struct PreconfIngressSync {
     /// RPC client shared across ingress sync and driver integrations.
-    client: rpc::client::Client<DefaultProvider>,
+    client: rpc::client::Client,
     /// Event syncer exposing ingress readiness and preconfirmation submit hooks.
-    event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    event_syncer: Arc<EventSyncer>,
     /// Join handle for the background sync pipeline task.
     handle: tokio::task::JoinHandle<EventSyncResult>,
 }
@@ -78,12 +77,12 @@ impl PreconfIngressSync {
     }
 
     /// Access the preconfirmation ingress RPC client.
-    pub fn client(&self) -> &rpc::client::Client<DefaultProvider> {
+    pub fn client(&self) -> &rpc::client::Client {
         &self.client
     }
 
     /// Access the event syncer handle.
-    pub fn event_syncer(&self) -> Arc<EventSyncer<DefaultProvider>> {
+    pub fn event_syncer(&self) -> Arc<EventSyncer> {
         self.event_syncer.clone()
     }
 

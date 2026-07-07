@@ -15,7 +15,7 @@ use crate::{
 use super::WhitelistPreconfirmationImporter;
 
 /// Build the driver payload from a whitelist envelope.
-fn build_driver_payload(
+fn driver_payload_from_envelope(
     envelope: &WhitelistExecutionPayloadEnvelope,
 ) -> Result<TaikoPayloadAttributes> {
     let compressed_tx_list = envelope.execution_payload.transactions.first().ok_or_else(|| {
@@ -74,35 +74,37 @@ impl WhitelistPreconfirmationImporter {
                     Ok(false) => {
                         WhitelistPreconfirmationDriverMetrics::inc_cache_import_result("deferred");
                     }
-                    Err(err) if should_defer_cached_import_error(&err) => {
-                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
-                            "deferred_error",
-                        );
-                        debug!(
-                            block_hash = %hash,
-                            error = %err,
-                            "deferring cached whitelist preconfirmation payload import for retry"
-                        );
-                    }
-                    Err(err) if should_drop_cached_import_error(&err) => {
-                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
-                            "dropped_error",
-                        );
-                        warn!(
-                            block_hash = %hash,
-                            error = %err,
-                            "dropping cached whitelist preconfirmation payload after invalid import"
-                        );
-                        self.cache.remove(&hash);
-                        progressed = true;
-                    }
-                    Err(err) => {
-                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
-                            "fatal_error",
-                        );
-                        self.update_pending_cache_gauge();
-                        return Err(err);
-                    }
+                    Err(err) => match classify_cached_import_error(&err) {
+                        CachedImportDisposition::Defer => {
+                            WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                                "deferred_error",
+                            );
+                            debug!(
+                                block_hash = %hash,
+                                error = %err,
+                                "deferring cached whitelist preconfirmation payload import for retry"
+                            );
+                        }
+                        CachedImportDisposition::Drop => {
+                            WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                                "dropped_error",
+                            );
+                            warn!(
+                                block_hash = %hash,
+                                error = %err,
+                                "dropping cached whitelist preconfirmation payload after invalid import"
+                            );
+                            self.cache.remove(&hash);
+                            progressed = true;
+                        }
+                        CachedImportDisposition::Propagate => {
+                            WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                                "fatal_error",
+                            );
+                            self.update_pending_cache_gauge();
+                            return Err(err);
+                        }
+                    },
                 }
             }
 
@@ -167,7 +169,7 @@ impl WhitelistPreconfirmationImporter {
             return Ok(false);
         }
 
-        let driver_payload = build_driver_payload(envelope)?;
+        let driver_payload = driver_payload_from_envelope(envelope)?;
         let submit_start = Instant::now();
         let submit_result = self
             .event_syncer
@@ -187,58 +189,58 @@ impl WhitelistPreconfirmationImporter {
             "inserted whitelist preconfirmation block"
         );
 
-        self.state.raise_highest_unsafe(block_number).await;
+        self.state.record_inserted_block(block_number);
 
         Ok(true)
     }
 }
 
-/// Returns true when a cached-envelope import error should be logged and dropped.
-pub(super) fn should_drop_cached_import_error(err: &WhitelistPreconfirmationDriverError) -> bool {
+/// Disposition of a cached-envelope import error: retry later, discard the envelope, or abort
+/// the drain loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CachedImportDisposition {
+    /// Transient condition; keep the envelope cached and retry on a later pass.
+    Defer,
+    /// Envelope-scoped rejection; log and discard the envelope.
+    Drop,
+    /// Unexpected failure; abort the drain loop and surface the error.
+    Propagate,
+}
+
+/// Classify a cached-envelope import error into exactly one disposition.
+pub(super) fn classify_cached_import_error(
+    err: &WhitelistPreconfirmationDriverError,
+) -> CachedImportDisposition {
     match err {
         WhitelistPreconfirmationDriverError::InvalidPayload(_) |
-        WhitelistPreconfirmationDriverError::InvalidSignature(_) => true,
+        WhitelistPreconfirmationDriverError::InvalidSignature(_) => CachedImportDisposition::Drop,
         WhitelistPreconfirmationDriverError::Driver(driver_err) => {
-            should_drop_cached_driver_error(driver_err)
+            classify_cached_driver_error(driver_err)
         }
-        _ => false,
+        _ => CachedImportDisposition::Propagate,
     }
 }
 
-/// Returns true when a cached-envelope import error should be retried later.
-pub(super) fn should_defer_cached_import_error(err: &WhitelistPreconfirmationDriverError) -> bool {
-    match err {
-        WhitelistPreconfirmationDriverError::Driver(driver_err) => {
-            should_defer_cached_driver_error(driver_err)
-        }
-        _ => false,
-    }
-}
+/// Classify a driver-layer error observed while importing a cached envelope.
+///
+/// Envelope-scoped rejections drop the envelope, sync-related conditions defer it, and
+/// anything else aborts the drain loop.
+fn classify_cached_driver_error(err: &driver::DriverError) -> CachedImportDisposition {
+    use driver::sync::error::EngineSubmissionError;
 
-/// Returns true when a driver error is envelope-scoped and safe to drop during cached import.
-fn should_drop_cached_driver_error(err: &driver::DriverError) -> bool {
     match err {
-        driver::DriverError::EngineInvalidPayload(_) => true,
-        driver::DriverError::PreconfInjectionFailed { source, .. } => {
-            matches!(source, driver::sync::error::EngineSubmissionError::InvalidBlock(_, _))
-        }
-        _ => false,
-    }
-}
-
-/// Returns true when a driver error is expected to recover after sync catches up.
-fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
-    match err {
+        driver::DriverError::EngineInvalidPayload(_) => CachedImportDisposition::Drop,
         driver::DriverError::EngineSyncing(_) |
         driver::DriverError::BlockNotFound(_) |
         driver::DriverError::PreconfEnqueueTimeout { .. } |
-        driver::DriverError::PreconfResponseTimeout { .. } => true,
-        driver::DriverError::PreconfInjectionFailed { source, .. } => matches!(
-            source,
-            driver::sync::error::EngineSubmissionError::EngineSyncing(_) |
-                driver::sync::error::EngineSubmissionError::MissingPayloadId |
-                driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
-        ),
-        _ => false,
+        driver::DriverError::PreconfResponseTimeout { .. } => CachedImportDisposition::Defer,
+        driver::DriverError::PreconfInjectionFailed { source, .. } => match source {
+            EngineSubmissionError::InvalidBlock(_, _) => CachedImportDisposition::Drop,
+            EngineSubmissionError::EngineSyncing(_) |
+            EngineSubmissionError::MissingPayloadId |
+            EngineSubmissionError::MissingInsertedBlock(_) => CachedImportDisposition::Defer,
+            _ => CachedImportDisposition::Propagate,
+        },
+        _ => CachedImportDisposition::Propagate,
     }
 }

@@ -103,7 +103,7 @@ impl WhitelistApi for WhitelistApiService {
         // Insert the preconfirmation payload locally first to
         // obtain the canonical block hash before gossiping.
         let driver_payload =
-            self.build_driver_payload(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
+            self.driver_payload_from_request(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
         self.event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
             .await?;
@@ -145,7 +145,7 @@ impl WhitelistApi for WhitelistApiService {
                 FixedBytes::<65>::from(block_hash_signature),
             )
             .await?;
-        self.state.set_highest_unsafe(block_number).await;
+        self.state.record_inserted_block(block_number);
 
         let execution_payload = crate::payload::execution_payload_from_header(
             &inserted_block.header,

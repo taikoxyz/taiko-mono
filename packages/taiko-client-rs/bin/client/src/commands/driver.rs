@@ -26,7 +26,7 @@ pub struct DriverSubCommand {
 impl DriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
-        build_driver_config(&self.common_flags, &self.driver_flags)
+        build_driver_config(&self.common_flags, &self.driver_flags, false)
     }
 
     /// Run the driver.

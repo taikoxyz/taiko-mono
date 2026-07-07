@@ -5,10 +5,7 @@ use std::sync::Arc;
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use driver::sync::event::EventSyncer;
-use rpc::{
-    beacon::BeaconClient,
-    client::{Client, DefaultProvider},
-};
+use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
@@ -33,14 +30,14 @@ pub(crate) use validation::validate_execution_payload_for_preconf;
 /// Dependency bundle for constructing [`WhitelistPreconfirmationImporter`].
 pub(crate) struct WhitelistPreconfirmationImporterParams {
     /// Event syncer used to submit validated preconfirmation payloads.
-    pub(crate) event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    pub(crate) event_syncer: Arc<EventSyncer>,
     /// RPC client used for L1/L2 reads and head-origin updates.
-    pub(crate) rpc: Client<DefaultProvider>,
+    pub(crate) rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     pub(crate) state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     pub(crate) beacon_client: Arc<BeaconClient>,
@@ -54,12 +51,12 @@ pub(crate) struct WhitelistPreconfirmationImporterParams {
 /// importer. The importer performs payload-level validation only.
 pub(crate) struct WhitelistPreconfirmationImporter {
     /// Event syncer used to submit validated preconfirmation payloads.
-    event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    event_syncer: Arc<EventSyncer>,
     /// RPC client used for L1/L2 reads and head-origin updates.
-    rpc: Client<DefaultProvider>,
+    rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     beacon_client: Arc<BeaconClient>,

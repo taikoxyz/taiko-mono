@@ -78,7 +78,7 @@ fn engine_new_payload_v2_value(
     .map_err(|err| RpcClientError::Other(anyhow!(err)))
 }
 
-impl<P: Provider + Clone> Client<P> {
+impl Client {
     /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
     /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
     pub(crate) async fn request_l1_origin<Params: RpcSend>(

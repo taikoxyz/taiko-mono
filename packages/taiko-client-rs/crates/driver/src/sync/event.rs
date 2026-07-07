@@ -13,7 +13,7 @@ use alloy::{
     primitives::{Address, B256, U256},
     sol_types::SolEvent,
 };
-use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
+use alloy_consensus::TxEnvelope;
 use alloy_provider::Provider;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
@@ -106,7 +106,8 @@ fn resolve_confirmed_sync_probe(
     }
 }
 
-/// Resolve the L2 block number that event sync should use as its resume source.
+/// Resolve the L2 block number that event sync should use as its resume source, paired with a
+/// static label naming the chosen source so the caller's log cannot diverge from the decision.
 ///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
 /// resume point such as `Latest`, which can include local preconfirmation-only blocks.
@@ -115,16 +116,20 @@ fn resolve_resume_head_block_number(
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
     rpc_l2_block_number: Option<u64>,
-) -> Result<u64, SyncError> {
+) -> Result<(u64, &'static str), SyncError> {
     if checkpoint_configured {
-        return checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead);
+        return checkpoint_synced_head
+            .map(|head| (head, "checkpoint-synced head"))
+            .ok_or(SyncError::MissingCheckpointResumeHead);
     }
     match (head_l1_origin_block_id, rpc_l2_block_number) {
-        (Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => Ok(rpc),
-        (Some(origin), _) => Ok(origin),
+        (Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => {
+            Ok((rpc, "lower rpc block number (instead of local head_l1_origin)"))
+        }
+        (Some(origin), _) => Ok((origin, "local head_l1_origin")),
         // Genesis fallback: no local origin yet and the RPC reports block 0, i.e. a brand-new
         // chain bootstrapped from genesis.
-        (None, Some(0)) => Ok(0),
+        (None, Some(0)) => Ok((0, "genesis fallback (head_l1_origin unavailable)")),
         (None, _) => Err(SyncError::MissingHeadL1OriginResume),
     }
 }
@@ -200,22 +205,6 @@ fn resolve_reconnect_start_block(
         .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
 }
 
-/// Convert a scanner setup error into either a fatal startup error or a retryable reconnect error.
-///
-/// Before the first successful scanner start, setup failures must fail fast so callers waiting on
-/// ingress readiness observe a clear startup error. After the scanner has started once, the same
-/// failures are treated as transient reconnect errors.
-fn resolve_event_scanner_setup_error(
-    scanner_started_once: bool,
-    error_message: String,
-) -> Result<String, SyncError> {
-    if scanner_started_once {
-        Ok(error_message)
-    } else {
-        Err(SyncError::EventScannerInit(error_message))
-    }
-}
-
 /// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
@@ -223,12 +212,9 @@ fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
-pub struct EventSyncer<P>
-where
-    P: Provider + Clone,
-{
+pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
-    rpc: Client<P>,
+    rpc: Client,
     /// Static driver configuration.
     cfg: DriverConfig,
     /// Beacon-sync checkpoint head shared by the sync pipeline.
@@ -279,13 +265,10 @@ pub struct PreconfJob {
 ///
 /// Materialization requires both the per-block L1 origin record and the execution header to match
 /// the payload attributes previously submitted to the engine.
-async fn preconfirmation_payload_is_materialized<P>(
-    rpc: &Client<P>,
+async fn preconfirmation_payload_is_materialized(
+    rpc: &Client,
     payload: &PreconfPayload,
-) -> Result<bool, DriverError>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+) -> Result<bool, DriverError> {
     let block_number = payload.block_number();
     let expected_payload = payload.payload();
     let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
@@ -337,14 +320,11 @@ where
     ))
 }
 
-impl<P> EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl EventSyncer {
     /// Build the production router with the enabled paths.
     fn build_router(
         &self,
-        derivation: Arc<ShastaDerivationPipeline<P>>,
+        derivation: Arc<ShastaDerivationPipeline>,
     ) -> Arc<AsyncMutex<ProductionRouter>> {
         let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
             CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
@@ -364,7 +344,7 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         mut rx: PreconfReceiver,
-        rpc: Client<P>,
+        rpc: Client,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
     ) {
@@ -706,7 +686,7 @@ where
 
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
-    pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
+    pub async fn new(cfg: &DriverConfig, rpc: Client) -> Result<Self, SyncError> {
         Self::new_with_checkpoint_resume_head(cfg, rpc, Arc::new(CheckpointResumeHead::default()))
             .await
     }
@@ -715,7 +695,7 @@ where
     #[instrument(skip(cfg, rpc, checkpoint_resume_head))]
     pub(crate) async fn new_with_checkpoint_resume_head(
         cfg: &DriverConfig,
-        rpc: Client<P>,
+        rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Result<Self, SyncError> {
         let blob_source = Arc::new(
@@ -952,21 +932,13 @@ where
             (head_l1_origin_block_id, rpc_l2_block_number)
         };
 
-        let resume_head_block_number = resolve_resume_head_block_number(
+        let (resume_head_block_number, source) = resolve_resume_head_block_number(
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
             rpc_l2_block_number,
         )?;
 
-        let source = match (checkpoint_configured, head_l1_origin_block_id, rpc_l2_block_number) {
-            (true, _, _) => "checkpoint-synced head",
-            (false, Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => {
-                "lower rpc block number (instead of local head_l1_origin)"
-            }
-            (false, Some(_), _) => "local head_l1_origin",
-            (false, None, _) => "genesis fallback (head_l1_origin unavailable)",
-        };
         info!(
             resume_head_block_number,
             head_l1_origin_block_id, rpc_l2_block_number, source, "resolved event resume source",
@@ -1147,10 +1119,7 @@ where
     }
 }
 
-impl<P> EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl EventSyncer {
     /// Resolve the activation block number by converting the inbox activation timestamp through
     /// the beacon endpoint.
     async fn activation_block_number(&self) -> Result<u64, SyncError> {
@@ -1224,27 +1193,12 @@ fn decode_anchor_call(
     let missing =
         |reason: &'static str| SyncError::MissingAnchorTransaction { block_number, reason };
 
-    let txs = block
-        .transactions
-        .as_transactions()
-        .ok_or_else(|| missing("block body returned only transaction hashes"))?;
-    let first_tx = txs.first().ok_or_else(|| missing("block contains no transactions"))?;
-    // Anchor transactions are injected as the first transaction for every non-genesis block.
-    let destination =
-        first_tx.to().ok_or_else(|| missing("unable to determine anchor transaction recipient"))?;
-    if destination != anchor_address {
-        return Err(missing("first transaction is not the anchor contract"));
-    }
-
-    anchorV4Call::abi_decode(first_tx.input())
-        .map_err(|_| missing("failed to decode anchorV4 calldata"))
+    let input = crate::anchor_tx::first_anchor_tx_input(block, anchor_address).map_err(missing)?;
+    anchorV4Call::abi_decode(input).map_err(|_| missing("failed to decode anchorV4 calldata"))
 }
 
 #[async_trait::async_trait]
-impl<P> SyncStage for EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl SyncStage for EventSyncer {
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
@@ -1297,7 +1251,8 @@ where
                 Ok(scanner) => scanner,
                 Err(err) => {
                     let err =
-                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
+                        super::retryable_after_first_success(scanner_started_once, err.to_string())
+                            .map_err(SyncError::EventScannerInit)?;
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
@@ -1319,7 +1274,8 @@ where
                 }
                 Err(err) => {
                     let err =
-                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
+                        super::retryable_after_first_success(scanner_started_once, err.to_string())
+                            .map_err(SyncError::EventScannerInit)?;
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
@@ -1479,7 +1435,7 @@ mod tests {
         },
         transports::http::reqwest::Url,
     };
-    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_provider::ProviderBuilder;
     use alloy_rpc_types_engine::PayloadId;
     use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
@@ -1539,11 +1495,11 @@ mod tests {
         }
     }
 
-    fn mock_client() -> Client<RootProvider> {
+    fn mock_client() -> Client {
         mock_client_with_l1_asserter(Asserter::new())
     }
 
-    async fn build_syncer() -> EventSyncer<RootProvider> {
+    async fn build_syncer() -> EventSyncer {
         let client_config = ClientConfig {
             l1_provider_source: SubscriptionSource::Http(
                 Url::parse("http://localhost:8545").expect("valid http url"),
@@ -1553,14 +1509,14 @@ mod tests {
             jwt_secret: PathBuf::from("/dev/null"),
             inbox_address: Address::ZERO,
         };
-        let mut cfg = DriverConfig::new(
+        let cfg = DriverConfig::new(
             client_config,
             Duration::from_secs(1),
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
             None,
+            true,
         );
-        cfg.preconfirmation_enabled = true;
 
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
         let blob_source =
@@ -1741,16 +1697,12 @@ mod tests {
         }
     }
 
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client {
         mock_client_with_asserters(l1_asserter, Asserter::new())
     }
 
-    fn mock_client_with_asserters(
-        l1_asserter: Asserter,
-        l2_auth_asserter: Asserter,
-    ) -> Client<RootProvider> {
-        let l1_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+    fn mock_client_with_asserters(l1_asserter: Asserter, l2_auth_asserter: Asserter) -> Client {
+        let l1_provider = ProviderBuilder::new().connect_mocked_client(l1_asserter);
         let l2_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
             .connect_mocked_client(Asserter::new());
@@ -2043,7 +1995,7 @@ mod tests {
 
         let resolved = resolve_resume_head_block_number(true, Some(420), None, None)
             .expect("checkpoint resume head should be used when present");
-        assert_eq!(resolved, 420);
+        assert_eq!(resolved, (420, "checkpoint-synced head"));
     }
 
     #[test]
@@ -2054,29 +2006,29 @@ mod tests {
 
         let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(80))
             .expect("head_l1_origin should drive resume when rpc head is not lower");
-        assert_eq!(resolved, 64);
+        assert_eq!(resolved, (64, "local head_l1_origin"));
 
         let resolved = resolve_resume_head_block_number(false, None, None, Some(0))
             .expect("genesis fallback when rpc reports block 0 and origin is missing");
-        assert_eq!(resolved, 0);
+        assert_eq!(resolved, (0, "genesis fallback (head_l1_origin unavailable)"));
     }
 
     #[test]
     fn resume_head_resolution_prefers_lower_non_zero_rpc_over_origin() {
         let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(32))
             .expect("lower non-zero rpc block number should win");
-        assert_eq!(resolved, 32);
+        assert_eq!(resolved, (32, "lower rpc block number (instead of local head_l1_origin)"));
 
         let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(0))
             .expect("zero rpc block number must not override origin");
-        assert_eq!(resolved, 64);
+        assert_eq!(resolved, (64, "local head_l1_origin"));
     }
 
     #[test]
     fn resume_head_resolution_falls_back_to_origin_when_rpc_missing() {
         let resolved = resolve_resume_head_block_number(false, None, Some(64), None)
             .expect("missing rpc block number should fall back to local origin");
-        assert_eq!(resolved, 64);
+        assert_eq!(resolved, (64, "local head_l1_origin"));
     }
 
     #[test]
@@ -2132,17 +2084,6 @@ mod tests {
     fn reconnect_start_falls_back_to_startup_anchor_without_finalization() {
         let reconnect_start = resolve_reconnect_start_block(120, None, 10);
         assert_eq!(reconnect_start, 10);
-    }
-
-    #[test]
-    fn scanner_setup_errors_fail_fast_before_first_successful_start() {
-        let err = resolve_event_scanner_setup_error(false, "boom".into())
-            .expect_err("startup scanner errors should fail fast");
-        assert!(matches!(err, SyncError::EventScannerInit(reason) if reason == "boom"));
-
-        let err = resolve_event_scanner_setup_error(true, "boom".into())
-            .expect("post-start scanner errors should be retryable");
-        assert_eq!(err, "boom");
     }
 
     // -- resolve_missing_batch_mapping_fallback tests --
