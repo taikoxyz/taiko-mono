@@ -397,20 +397,20 @@ impl ShastaDerivationPipeline {
         let derived_block = self.prepare_block(block, state, ctx).await?;
         let BlockDerivationContext { payload, parent_hash, is_final_block, .. } = derived_block;
 
-        let applied = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
-        let header = applied.outcome.block.header.clone().into_consensus();
+        let outcome = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
+        let header = outcome.block.header.clone().into_consensus();
         *state = state.advance(header, block.anchor_block_number)?;
 
         info!(
             proposal_id = meta.proposal_id,
-            block_number = applied.outcome.block_number(),
-            block_hash = ?applied.outcome.block_hash(),
+            block_number = outcome.block_number(),
+            block_hash = ?outcome.block_hash(),
             "payload applied to execution engine"
         );
 
-        self.sync_l1_origin(meta, &payload, &applied.outcome, is_final_block).await?;
+        self.sync_l1_origin(meta, &payload, &outcome, is_final_block).await?;
 
-        Ok(applied.outcome)
+        Ok(outcome)
     }
 
     /// Prepare the payload attributes and anchor transaction for a manifest block without

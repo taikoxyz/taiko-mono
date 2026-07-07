@@ -65,6 +65,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         beacon_endpoint.clone(),
         None,
         None,
+        false,
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();
