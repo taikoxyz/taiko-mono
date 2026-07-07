@@ -2,8 +2,6 @@
 #![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
 //! RPC client utilities for connecting to Taiko nodes.
 
-mod server_macro;
-
 pub mod auth;
 pub mod beacon;
 pub mod blob;
@@ -13,6 +11,4 @@ pub mod l1_origin;
 
 pub use auth::TxPoolContentParams;
 pub use error::{Result, RpcClientError};
-pub use protocol::subscription_source::{
-    JoinedRecommendedFillersWithWallet, SubscriptionSource, SubscriptionSourceError,
-};
+pub use protocol::subscription_source::{SubscriptionSource, SubscriptionSourceError};

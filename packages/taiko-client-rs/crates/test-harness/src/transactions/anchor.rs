@@ -41,15 +41,12 @@ use rpc::client::Client;
 /// let mut txlist = vec![anchor_tx];
 /// txlist.extend(transfer_txs);
 /// ```
-pub(crate) async fn build_anchor_tx_bytes<P>(
-    client: &Client<P>,
+pub(crate) async fn build_anchor_tx_bytes(
+    client: &Client,
     parent_hash: B256,
     block_number: u64,
     base_fee: u64,
-) -> Result<Bytes>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+) -> Result<Bytes> {
     let anchor_block_number = client.l1_provider.get_block_number().await?;
     let anchor_block = client
         .l1_provider

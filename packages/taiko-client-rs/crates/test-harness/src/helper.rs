@@ -9,10 +9,7 @@ use rpc::client::Client;
 pub(crate) const PRIORITY_FEE_GWEI: u128 = 10_000_000_000;
 
 /// Mines a single empty L1 block via the connected execution engine.
-pub async fn mine_l1_block<P>(client: &Client<P>) -> anyhow::Result<()>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub async fn mine_l1_block(client: &Client) -> anyhow::Result<()> {
     client
         .l1_provider
         .raw_request::<_, String>(Cow::Borrowed("evm_mine"), NoParams::default())
@@ -22,10 +19,7 @@ where
 }
 
 /// Increases L1 time by the specified number of seconds.
-pub(crate) async fn increase_l1_time<P>(client: &Client<P>, seconds: u64) -> anyhow::Result<()>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) async fn increase_l1_time(client: &Client, seconds: u64) -> anyhow::Result<()> {
     client
         .l1_provider
         .raw_request::<_, i64>(Cow::Borrowed("evm_increaseTime"), (seconds,))
@@ -37,10 +31,7 @@ where
 /// Mines multiple L1 blocks at once using Anvil's batch mining.
 ///
 /// This is more efficient than calling `mine_l1_block` in a loop.
-pub(crate) async fn mine_l1_blocks<P>(client: &Client<P>, count: usize) -> anyhow::Result<()>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) async fn mine_l1_blocks(client: &Client, count: usize) -> anyhow::Result<()> {
     client
         .l1_provider
         .raw_request::<_, ()>(Cow::Borrowed("anvil_mine"), (count,))

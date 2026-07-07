@@ -12,7 +12,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/indexer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/processor"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/watchdog"
 	"github.com/urfave/cli/v2"
 )
 
@@ -59,13 +58,6 @@ func main() {
 			Usage:       "Starts the processor software",
 			Description: "Taiko relayer processor software",
 			Action:      utils.SubcommandAction(new(processor.Processor)),
-		},
-		{
-			Name:        "watchdog",
-			Flags:       flags.WatchdogFlags,
-			Usage:       "Starts the watchdog software",
-			Description: "Taiko relayer watchdog software",
-			Action:      utils.SubcommandAction(new(watchdog.Watchdog)),
 		},
 		{
 			Name:        "bridge",

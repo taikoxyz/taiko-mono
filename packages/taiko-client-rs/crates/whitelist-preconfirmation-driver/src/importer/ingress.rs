@@ -33,10 +33,7 @@ use super::{
     },
 };
 
-impl<P> WhitelistPreconfirmationImporter<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistPreconfirmationImporter {
     /// Cache a validated envelope and persist EOS epoch mapping when applicable.
     async fn ingest_validated_envelope(
         &mut self,
@@ -84,25 +81,25 @@ where
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
-        validate_execution_payload_for_preconf(
-            &envelope.execution_payload,
-            self.chain_id,
-            self.anchor_address,
-        )?;
-        validate_envelope_header_difficulty(
-            self.chain_id,
-            envelope.execution_payload.timestamp,
-            envelope.header_difficulty,
-        )?;
-        self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
-
-        Ok(())
+        self.validate_and_ingest(envelope, "payload").await
     }
 
     /// Handle an incoming unsafe response from the `responsePreconfBlocks` topic.
     pub(super) async fn handle_unsafe_response(
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
+    ) -> Result<()> {
+        self.validate_and_ingest(envelope, "response").await
+    }
+
+    /// Run payload-level validation and ingest the envelope, tagged with its ingress source.
+    ///
+    /// This is the single ordering site for the validation that runs before any preconfirmation
+    /// envelope is cached.
+    async fn validate_and_ingest(
+        &mut self,
+        envelope: WhitelistExecutionPayloadEnvelope,
+        ingress_source: &'static str,
     ) -> Result<()> {
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
@@ -114,8 +111,7 @@ where
             envelope.execution_payload.timestamp,
             envelope.header_difficulty,
         )?;
-
-        self.ingest_validated_envelope(Arc::new(envelope), "response").await;
+        self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await;
 
         Ok(())
     }
@@ -234,22 +230,11 @@ where
             // blocks whose difficulty is zero.
             header_difficulty: (!block.header.difficulty.is_zero())
                 .then_some(block.header.difficulty),
-            execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
-                parent_hash: block.header.parent_hash,
-                fee_recipient: block.header.beneficiary,
-                state_root: block.header.state_root,
-                receipts_root: block.header.receipts_root,
-                logs_bloom: block.header.logs_bloom,
-                prev_randao: block.header.mix_hash,
-                block_number: block.header.number,
-                gas_limit: block.header.gas_limit,
-                gas_used: block.header.gas_used,
-                timestamp: block.header.timestamp,
-                extra_data: block.header.extra_data.clone(),
-                base_fee_per_gas: U256::from(base_fee),
-                block_hash: block.header.hash,
-                transactions: vec![Bytes::from(compressed_tx_list)],
-            },
+            execution_payload: crate::payload::execution_payload_from_header(
+                &block.header,
+                base_fee,
+                vec![Bytes::from(compressed_tx_list)],
+            ),
             // Use L1-origin signature as-is. This endpoint serves responses
             // only from the local node; caller-side validation and allowlist
             // checks are performed when importing the envelope.

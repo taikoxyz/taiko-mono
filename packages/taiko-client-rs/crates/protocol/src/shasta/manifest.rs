@@ -7,7 +7,7 @@ use std::{
 
 use alloy::primitives::{Address, U256};
 use alloy_consensus::TxEnvelope;
-use alloy_rlp::{self, Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{self, Encodable, RlpDecodable, RlpEncodable};
 use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
@@ -76,8 +76,11 @@ impl DerivationSourceManifest {
             }
         };
 
-        let mut decoded_slice = decoded.as_slice();
-        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
+        // Decode with `decode_exact`, which rejects any bytes left after the RLP structure instead
+        // of silently ignoring them. A lenient decode would let a proposer append junk to an
+        // otherwise valid manifest and still have the crafted blocks derived; such trailing data
+        // must instead degrade the source to the default payload.
+        let manifest = match alloy_rlp::decode_exact::<DerivationSourceManifest>(&decoded) {
             Ok(m) => m,
             Err(err) => {
                 warn!(?err, "failed to decode derivation manifest RLP; returning default manifest");
@@ -106,8 +109,12 @@ where
     let rlp_encoded = alloy_rlp::encode(manifest);
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&rlp_encoded)?;
-    let compressed = encoder.finish()?;
+    encoder
+        .write_all(&rlp_encoded)
+        .map_err(|e| ProtocolError::Compression(format!("failed to compress manifest: {e}")))?;
+    let compressed = encoder
+        .finish()
+        .map_err(|e| ProtocolError::Compression(format!("failed to compress manifest: {e}")))?;
 
     let mut output = Vec::with_capacity(64 + compressed.len());
 
@@ -280,6 +287,39 @@ mod tests {
 
         let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
         assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn test_derivation_manifest_decode_rejects_trailing_bytes() {
+        use flate2::{Compression, write::ZlibEncoder};
+
+        // A valid single-block manifest with a stray byte appended past the RLP structure. Trailing
+        // data must be rejected so the source degrades to the default payload rather than deriving
+        // the crafted block.
+        let manifest = manifest_with_gas_limit(0xBEEF);
+        let mut body = alloy_rlp::encode(&manifest);
+        body.push(0xFF);
+
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&body).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut payload = Vec::with_capacity(64 + compressed.len());
+        let mut version_bytes = [0u8; 32];
+        version_bytes[31] = SHASTA_PAYLOAD_VERSION;
+        payload.extend_from_slice(&version_bytes);
+
+        let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
+        payload.extend_from_slice(&len_bytes);
+        payload.extend_from_slice(&compressed);
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
+        // Falls back to the default single-block manifest, not the crafted 0xBEEF block.
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        assert_eq!(
+            decoded.blocks[0].gas_limit,
+            DerivationSourceManifest::default().blocks[0].gas_limit
+        );
     }
 
     #[test]

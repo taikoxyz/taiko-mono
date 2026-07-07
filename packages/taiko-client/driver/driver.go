@@ -106,7 +106,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.rpc,
 		d.state,
 		cfg.P2PSync,
-		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
 		latestSeenProposalCh,
 	); err != nil {
@@ -332,7 +331,6 @@ func (d *Driver) reportProtocolStatus() {
 func (d *Driver) exchangeTransitionConfigLoop() {
 	ticker := time.NewTicker(exchangeTransitionConfigInterval)
 	d.wg.Add(1)
-
 	defer func() {
 		ticker.Stop()
 		d.wg.Done()

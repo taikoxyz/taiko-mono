@@ -15,9 +15,6 @@
 //! - [`transactions::TransferPayload`]: A signed transfer for assertions.
 //! - [`transactions::compute_next_block_base_fee`]: Calculates EIP-4396 base fee.
 //! - [`transactions::build_preconf_txlist`]: Builds anchor + transfers in one call.
-//!
-//! ## Preconfirmation Utilities (feature-gated)
-//! See [`preconfirmation`] module for P2P, event, client setup, and payload helpers.
 
 use std::sync::OnceLock;
 
@@ -28,9 +25,6 @@ pub mod blocks;
 mod helper;
 pub mod shasta;
 pub mod transactions;
-
-#[cfg(feature = "preconfirmation")]
-pub mod preconfirmation;
 
 pub use beacon_stub::BeaconStubServer;
 pub use blocks::{fetch_block_by_number, wait_for_block, wait_for_block_or_loop_error};

@@ -339,6 +339,12 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	// The tx manager floors the tip at its configured MinTipCap before sending,
+	// so use that same effective tip in the profitability estimate below.
+	// Otherwise the estimate under-counts the tip whenever the suggested tip is
+	// below MinTipCap, producing false "unprofitable after transacting" events.
+	gasTipCap = relayer.EffectiveGasTipCap(gasTipCap, p.minTipCap)
+
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
 	if err != nil {
 		return nil, err

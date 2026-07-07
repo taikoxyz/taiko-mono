@@ -7,9 +7,6 @@
 
 use std::{future::Future, result, sync::Arc};
 
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
 use thiserror::Error;
 
 use crate::{
@@ -54,19 +51,16 @@ impl From<DriverError> for PreconfIngressSyncError {
 }
 
 /// Runs the preconfirmation ingress event syncer and exposes handles to its resources.
-pub struct PreconfIngressSync<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub struct PreconfIngressSync {
     /// RPC client shared across ingress sync and driver integrations.
-    client: rpc::client::Client<P>,
+    client: rpc::client::Client,
     /// Event syncer exposing ingress readiness and preconfirmation submit hooks.
-    event_syncer: Arc<EventSyncer<P>>,
+    event_syncer: Arc<EventSyncer>,
     /// Join handle for the background sync pipeline task.
     handle: tokio::task::JoinHandle<EventSyncResult>,
 }
 
-impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
+impl PreconfIngressSync {
     /// Start the preconfirmation ingress sync pipeline and its background task.
     pub async fn start(config: &DriverConfig) -> result::Result<Self, PreconfIngressSyncError> {
         let client = rpc::client::Client::new(config.client.clone()).await?;
@@ -81,19 +75,14 @@ impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
 
         Ok(Self { client, event_syncer, handle })
     }
-}
 
-impl<P> PreconfIngressSync<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
     /// Access the preconfirmation ingress RPC client.
-    pub fn client(&self) -> &rpc::client::Client<P> {
+    pub fn client(&self) -> &rpc::client::Client {
         &self.client
     }
 
     /// Access the event syncer handle.
-    pub fn event_syncer(&self) -> Arc<EventSyncer<P>> {
+    pub fn event_syncer(&self) -> Arc<EventSyncer> {
         self.event_syncer.clone()
     }
 

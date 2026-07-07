@@ -28,45 +28,42 @@ use tower::{ServiceBuilder, timeout::TimeoutLayer};
 use tracing::info;
 
 use crate::{
-    JoinedRecommendedFillersWithWallet, SubscriptionSource,
+    SubscriptionSource,
     error::{Result, RpcClientError},
 };
 
-/// Type alias for a Client with a provider that includes a wallet.
-pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
+/// L1 provider type used by [`Client`]: recommended fillers over an HTTP/WS root provider.
+pub type DefaultProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
 
 /// Default HTTP timeout for RPC and auxiliary HTTP clients.
 pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Instances of Shasta protocol contracts.
 #[derive(Clone, Debug)]
-pub struct ShastaProtocolInstance<P: Provider + Clone> {
+pub struct ShastaProtocolInstance {
     /// Inbox contract instance on L1.
-    pub inbox: InboxInstance<P>,
+    pub inbox: InboxInstance<DefaultProvider>,
     /// Anchor contract instance on L2 (auth provider).
     pub anchor: AnchorInstance<RootProvider>,
 }
 
-/// Snapshot of anchor contract state at a given L2 block.
-#[derive(Clone, Debug)]
-pub struct AnchorState {
-    /// Anchor block number advertised by the anchor contract.
-    pub anchor_block_number: u64,
-}
-
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
+///
+/// The client is read-only towards L1: it never signs or submits transactions, so it
+/// carries no wallet. L1 transaction submission is owned by the proposer's transaction
+/// manager, which keeps nonce management on a single path.
 #[derive(Clone, Debug)]
-pub struct Client<P: Provider + Clone> {
+pub struct Client {
     /// L2 chain ID, fetched from the L2 provider at startup.
     pub chain_id: u64,
-    /// L1 provider (optionally with wallet) used for contract calls.
-    pub l1_provider: P,
+    /// Walletless L1 provider used for contract calls and event scans.
+    pub l1_provider: DefaultProvider,
     /// L2 public provider for read-only access.
     pub l2_provider: RootProvider,
     /// L2 authenticated provider for engine/anchor interactions.
     pub l2_auth_provider: RootProvider,
     /// Shasta protocol contract bundle (Inbox/Anchor).
-    pub shasta: ShastaProtocolInstance<P>,
+    pub shasta: ShastaProtocolInstance,
 }
 
 /// Configuration for the `Client`.
@@ -84,8 +81,8 @@ pub struct ClientConfig {
     pub inbox_address: Address,
 }
 
-impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
-    /// Create a new `Client` without a wallet from the given configuration.
+impl Client {
+    /// Create a new `Client` from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
         let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
             RpcClientError::Connection(format!(
@@ -93,27 +90,6 @@ impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
                 e
             ))
         })?;
-        Self::new_with_l1_provider(l1_provider, config).await
-    }
-}
-
-impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
-    /// Create a new `Client` with a wallet from the given configuration.
-    pub async fn new_with_wallet(config: ClientConfig, private_key: B256) -> Result<Self> {
-        let l1_provider =
-            config.l1_provider_source.to_provider_with_wallet(private_key).await.map_err(|e| {
-                RpcClientError::Connection(format!(
-                    "L1 provider source (l1.http or l1.ws) connection failed: {}",
-                    e
-                ))
-            })?;
-        Self::new_with_l1_provider(l1_provider, config).await
-    }
-}
-
-impl<P: Provider + Clone> Client<P> {
-    /// Create a new `Client` from the given L1 provider and configuration.
-    async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
         let l2_provider =
             connect_provider_with_timeout(config.l2_provider_url.clone()).await.map_err(|e| {
                 RpcClientError::Connection(format!(
@@ -148,13 +124,14 @@ impl<P: Provider + Clone> Client<P> {
         Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
     }
 
-    /// Fetch the Shasta anchor state for the given parent block hash.
-    pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
+    /// Fetch the anchor block number advertised by the anchor contract at the given
+    /// parent block hash.
+    pub async fn shasta_anchor_block_number_by_hash(&self, block_hash: B256) -> Result<u64> {
         let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
 
         let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
 
-        Ok(AnchorState { anchor_block_number: block_state.anchorBlockNumber.to::<u64>() })
+        Ok(block_state.anchorBlockNumber.to::<u64>())
     }
 }
 
