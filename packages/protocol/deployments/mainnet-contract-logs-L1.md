@@ -104,7 +104,7 @@
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
 - impl: `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49`
 - owner: `controller.taiko.eth`
-- note: `resolver()` still points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
+- note: `addressManager()` points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -120,7 +120,7 @@
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
 - impl: `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8`
 - owner: `controller.taiko.eth`
-- note: `resolver()` still points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
+- note: `addressManager()` points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -172,6 +172,40 @@
   - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
 - logs:
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
+  - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
+
+#### shared_address_manager (sam)
+
+- ens: `sam.based.taiko.eth`
+- proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
+- impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
+- owner : `controller.taiko.eth`
+- note: legacy shared AddressManager (pre-`DefaultResolver`). Kept because `erc721_vault` + `erc1155_vault` still resolve through it via `addressManager()` (their `resolver()` reverts) — verified on-chain: `getAddress(1,"erc721_vault")` returns the vault, `getAddress(1,"bridge")` returns the bridge. `bridge` + `erc20_vault` were migrated to shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`.
+- names:
+  - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
+  - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
+  - signal_service@167000: `0x1670000000000000000000000000000000000005`
+  - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
+  - bridge@167000: `0x1670000000000000000000000000000000000001`
+  - erc20_vault: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
+  - erc20_vault@167000: `0x1670000000000000000000000000000000000002`
+  - erc721_vault: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
+  - erc721_vault@167000: `0x1670000000000000000000000000000000000003`
+  - erc1155_vault: `0xaf145913EA4a56BE22E120ED9C24589659881702`
+  - erc1155_vault@167000: `0x1670000000000000000000000000000000000004`
+  - bridged_erc20: `0x65666141a541423606365123Ed280AB16a09A2e1`
+  - bridged_erc721: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
+  - bridged_erc1155: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
+  - quota_manager: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
+- logs:
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
+  - Upgraded from `0x9cA1Ab10c9fAc5153F8b78E67f03aAa69C9c6A15` to `0xF1cA1F1A068468E1dcF90dA6add185467de80943` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
+  - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
+  - Upgraded from `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` to `0x2f7126f78365AD54EAB26fD7faEc60435008E2fD` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
+  - register `bridged_erc20` to `0x65666141a541423606365123Ed280AB16a09A2e1` @tx`0x0ad38201728e782a04d74c5984efedba4c2c0669c9ce791db2b010efe4f15b1d`
+  - Upgraded from `0x2f7126f78365AD54EAB26fD7faEc60435008E2fD` to `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
 ## Rollup Specific
