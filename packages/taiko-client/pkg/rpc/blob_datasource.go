@@ -128,14 +128,24 @@ func (ds *BlobDataSource) GetSidecars(
 		err = pkg.ErrBeaconNotFound
 	} else {
 		allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+		if err == nil {
+			log.Debug("Serving blobs from L1 beacon", "timestamp", timestamp)
+		}
 	}
 	if err != nil {
-		if !errors.Is(err, pkg.ErrBeaconNotFound) {
-			log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
-		}
 		if ds.blobServerEndpoint == nil {
-			log.Info("No blob server endpoint set")
+			// Beacon failed and there is no blob server to fall back to; surface
+			// the beacon error so the failure reason is not lost at this layer.
+			log.Info("No blob server endpoint set", "error", err.Error())
 			return nil, err
+		}
+		// Falling back to the blob server. Name the source and the reason so a
+		// beacon outage (recurring "beacon unavailable") is distinguishable from a
+		// deployment with no beacon configured (steady "no beacon configured").
+		if errors.Is(err, pkg.ErrBeaconNotFound) {
+			log.Info("Serving blobs from blob server: no beacon configured", "timestamp", timestamp)
+		} else {
+			log.Info("Serving blobs from blob server: beacon unavailable", "timestamp", timestamp, "error", err.Error())
 		}
 		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
 		if err != nil {
