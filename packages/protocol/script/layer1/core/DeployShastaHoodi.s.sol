@@ -12,7 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - L2_GENESIS_HASH: Genesis block hash
+/// - ACTIVATOR: Address to set as initial inbox owner
 /// - PROVERS: Comma-separated list of prover addresses
 contract DeployShastaHoodi is DeployShastaContracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
@@ -25,7 +25,6 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.contractOwner = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
         config.proverManager = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
         config.ejectorManager = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
-        config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
         config.r0Groth16Verifier = 0x32Db7dc407AC886807277636a1633A1381748DD8;
         config.sgxGethAutomataProxy = 0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5;
@@ -33,6 +32,14 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E;
         config.sp1PlonkVerifier = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
 
+        // Hoodi is a public testnet, so it MUST use the strict SecureSgxVerifier (secure default),
+        // matching mainnet and every other public network. The lenient InsecureSgxVerifier is for
+        // local devnets only. A prover whose platform reports an out-of-date TCB must update its
+        // microcode rather than rely on a weakened public-testnet policy.
+        config.useInsecureSgxPolicy = false;
+
+        // Load deployment-specific values from environment
+        config.activator = vm.envAddress("ACTIVATOR");
         config.provers = vm.envAddress("PROVERS", ",");
     }
 }
