@@ -559,7 +559,7 @@ mod tests {
             ctx.chain_id,
         ));
         assert!(!validate_timestamps(
-            &three_block_manifest([1_006, 1_004, 1_008]),
+            &out_of_order,
             ctx.parent_timestamp,
             ctx.proposal_timestamp,
             ctx.fork_timestamp,

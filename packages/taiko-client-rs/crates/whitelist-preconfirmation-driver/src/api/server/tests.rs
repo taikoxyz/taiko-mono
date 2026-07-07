@@ -24,11 +24,9 @@ use crate::{
 use alloy_primitives::{Address, B256, Bytes as RpcBytes};
 use async_trait::async_trait;
 
-/// Configurable [`WhitelistApi`] test double (replaces the former `MockApi` +
-/// `SyncReadyApi`). `sync_ready` drives the sync-ready gate; `build_calls`
-/// counts `build_preconf_block` invocations (what `SyncReadyApi` tracked) and is
-/// an `Arc` so a clone can be retained to assert the count after the server has
-/// taken ownership of the `Arc<dyn WhitelistApi>`.
+/// Configurable [`WhitelistApi`] test double. `build_calls` is an `Arc` so a
+/// clone can be retained to assert the count after the server has taken
+/// ownership of the `Arc<dyn WhitelistApi>`.
 #[derive(Clone)]
 struct TestApi {
     /// Value returned from the sync-ready gate.

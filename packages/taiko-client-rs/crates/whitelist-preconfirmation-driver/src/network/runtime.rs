@@ -702,7 +702,7 @@ impl NetworkRuntime {
             return Ok(());
         }
 
-        let (mut acceptance, event) = classify_inbound(
+        let (acceptance, event) = classify_inbound(
             &self.topics,
             &mut self.inbound_validation_state,
             from,
@@ -715,8 +715,7 @@ impl NetworkRuntime {
         {
             // If forwarding to the importer fails, reject to avoid silently
             // accepting data that local consumers could not process.
-            acceptance = gossipsub::MessageAcceptance::Reject;
-            self.report_validation(&message_id, from, acceptance);
+            self.report_validation(&message_id, from, gossipsub::MessageAcceptance::Reject);
             return Err(err);
         }
 
