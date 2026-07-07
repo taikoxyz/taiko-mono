@@ -82,14 +82,6 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
-### rollup_address_resolver
-
-- proxy: `0x0d006d8d394dD69fAfEfF62D21Fc03E7F50eDaF4`
-- impl: `0x977836Ff9A19a930ebBc174226eF2fF990088eAB`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-
 ### ShastaInbox
 
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
@@ -150,51 +142,40 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - upgraded to `0xE24C96e026e0ef3c48bdaD11F02097aE9925246b` on Oct 20, 2025 @tx`0x9452f77f540556ba5f86a320f538d49a057a38aab12c0d02546d791006bcec5e` @commit`(to confirm)`
 
-### proof_verifier(Pacaya)
+### mainnet_verifier
 
-- proxy : `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59`
-- impl : `0xbE3CA2aF1bc74b22E96799e998E0a19f8A40bcbC`
+- impl : `0x145d0f2140ab6d662217c59641d535cbc21f30f9`
+- note: immutable; the ShastaInbox (`0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`) proof verifier — composes the sgx/risc0/sp1 verifiers below
+- logs:
+  - deployed on Feb 2, 2026 @tx`0x6d5d9eb6e4c40fa68555d9250049e708c5373d42f1cb12514d7db340c0e97d41` @commit`(to confirm)`
+
+### sgx_verifier_reth
+
+- impl : `0x40CcAFC1C2D14bdD70984b221F2b49af5e7C6114`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Oct 20, 2025 at commit `7217552`
+  - deployed on Feb 2, 2026 @tx`0xa7bdd35b6a68b3bff4c07ed6ed82a44006bfb16138bd62d64681cb84d54fbb5e` @commit`(to confirm)`
 
-### sgx_reth_verifier(Pacaya)
+### sgx_verifier_geth
 
-- proxy : `0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11`
-- impl : `0xD35d8408A50b5F9002f53BFeEFcA053d333d35BA`
+- impl : `0x8e362ef5140B0b9BE4a1141b6367784b0A7cefB1`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Oct 20, 2025 at commit `520ed22`
+  - deployed on Feb 2, 2026 @tx`0xdf988ad004c423d2e34a75fe34b2268c2c4867bd132d4cf4151df44960cb1ad8` @commit`(to confirm)`
 
-### risc0_reth_verifier(Pacaya)
+### risc0_verifier
 
-- proxy : `0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd`
-- impl : `0xF0BabD64159D3A711bC0A412B9DfCd7d08d8FF75`
+- impl : `0xfa0e7dAFe9785627df034c123A9B87497EB06b41`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Oct 20, 2025 at commit `7217552`
+  - deployed on Feb 2, 2026 @tx`0xa36c84d44a16783cd272b077ee49f44bb97272da6a2ad3af7e8d3978d07659bb` @commit`(to confirm)`
 
-### sp1_reth_verifier(Pacaya)
+### sp1_verifier
 
-- proxy : `0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3`
-- impl : `0xfB8c56e9f550f49fC77dfaa3DC56A4519455fFb8`
+- impl : `0xc42Ef1A7A606162e144F696A07A7D3Ad98bF4EE7`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Oct 20, 2025 at commit `7217552`
-  - upgraded to `0xfB8c56e9f550f49fC77dfaa3DC56A4519455fFb8` on Oct 20, 2025 @tx`0x2c270d119a898a0a16be8ebf1a97851e7058568e0ab6f64ed0bbe456b8bdbf26` @commit`(to confirm)`
-
-### sgx_geth_verifier(Pacaya)
-
-- proxy : `0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e`
-- impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Oct 20, 2025 at commit `520ed22`
+  - deployed on Feb 2, 2026 @tx`0x34fe3c84aab9278128cca65e7b32ef608fc2a0262e79704eed5caa36101caf2a` @commit`(to confirm)`
 
 - HorseToken: 0x0a5Db5597ADC81c871Ebd89e81cfa07bDc8fAfE3
 - BullToken: 0xB7A4DE1200eaA20af19e4998281117497645ecC1
