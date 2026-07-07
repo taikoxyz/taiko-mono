@@ -82,7 +82,7 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
-### ShastaInbox
+### inbox
 
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
 - impl: `0xaDeb8cF142991D2AE46e5Ab6BE3172979fE6D10F`

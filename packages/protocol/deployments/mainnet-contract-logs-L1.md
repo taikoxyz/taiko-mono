@@ -176,6 +176,15 @@
 
 ## Rollup Specific
 
+### inbox
+
+- proxy : `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
+- impl : `0x64523f2580f4E7038a121D55b220a9C12C1E8f01`
+- logs:
+  - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8a7c1e426b8fb8d7c00c7ffd9d1c41e3ce907f57f696f18fe3718abcd234a6de`
+  - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
+  - upgraded to `0x64523f2580f4E7038a121D55b220a9C12C1E8f01` on Jun 29, 2026 @commit`462920aae` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
+
 #### automata_dcap_attestation
 
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
@@ -207,8 +216,6 @@
   - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
   - deployed @commit`3d89d24` @tx`0x28fdfb26c1409e420fe9ecce22063fa70efdbe56359aeacf9f65e68db8b8d34a`
   - deployed @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19457/files) @tx`0xfa94bc59c0bc52131a418598780c4e289a13407143a7bdf54c871b5cec35d0b0`
-
-## Shasta Contracts
 
 ### sgx_verifier_reth
 
@@ -269,12 +276,6 @@
   - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0x2c03bd01a944dc1ecfc254946a62c8f652df5730facc79f965742acd7319b4c4`
   - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`3c66b0f8d` (Proposal0009)
 
-### preconf_whitelist_impl
-
-- impl : `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149`
-- logs:
-  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x55776c3ca4062444e6d852ec3e316c29b2da34eaffdf7030f8ac804aebdc90c0`
-
 ### prover_whitelist
 
 - proxy : `0xEa798547d97e345395dA071a0D7ED8144CD612Ae`
@@ -282,15 +283,6 @@
 - logs:
   - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x3281686f0d3ce87d69fcc0a0c1a92d87574b29fbd348cd944bf9f38fa5012153`
   - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x9ae9f5d95306d569099fbf42c0aa730a6b6e84e18f35e5f1a1374025597762d5`
-
-### inbox
-
-- proxy : `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
-- impl : `0x64523f2580f4E7038a121D55b220a9C12C1E8f01`
-- logs:
-  - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8a7c1e426b8fb8d7c00c7ffd9d1c41e3ce907f57f696f18fe3718abcd234a6de`
-  - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
-  - upgraded to `0x64523f2580f4E7038a121D55b220a9C12C1E8f01` on Jun 29, 2026 @commit`462920aae` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
 
 ## Taiko DAO Specific
 
