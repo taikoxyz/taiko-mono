@@ -224,14 +224,6 @@
   - upgraded on Feb 4, 2026 at commit `a01f51c`
   - upgraded on Mar 2, 2026 at commit `a01f51c`
 
-### rollup_resolver
-
-- proxy: `0x1670130000000000000000000000000000010002`
-- impl: `0x0167013000000000000000000000000000010002`
-- owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
-- logs:
-  - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
-
 ### bridged_erc20
 
 - impl: `0x0167013000000000000000000000000000010096`

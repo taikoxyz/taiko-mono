@@ -292,18 +292,6 @@
   - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
   - upgraded to `0x64523f2580f4E7038a121D55b220a9C12C1E8f01` on Jun 29, 2026 @commit`462920aae` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
 
-### signal_service_impl
-
-- impl : `0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752`
-- logs:
-  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x820ee4ccf25cbbef1bd98df770e5dc4f41adfb6e36fe2401cc458f141cc8b758`
-
-### signal_service_fork_router
-
-- impl : `0x6a4B15E4b0296B2ECE03Ee9Ed74E4A3E3ECA68D6`
-- logs:
-  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbb697a35b8607c49887a310f3fa6ce2c2018b595c71360c6a484a5cf4589bc38`
-
 ## Taiko DAO Specific
 
 ### MainnetDAOController

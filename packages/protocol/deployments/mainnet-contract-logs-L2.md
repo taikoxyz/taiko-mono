@@ -118,21 +118,6 @@
 
 ## Rollup Specific
 
-#### rollup_address_manager (ram)
-
-- proxy: `0x1670000000000000000000000000000000010002`
-- impl: `0x0167000000000000000000000000000000010002`
-- owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
-- names:
-  - signal_service: `0x1670000000000000000000000000000000000005`
-  - bridge: `0x1670000000000000000000000000000000000001`
-  - taiko: `0x1670000000000000000000000000000000010001`
-- logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - redeployed on May 22, 2024 @commit`b955e0e`
-  - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
-  - changed owner to delegate controller (`0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`) on Sep 6, 2025 @tx`0xc64e48e65d4858370509045250d81cdd7d74dff0a7fca7d0248c056117b0dc82`
-
 #### Anchor
 
 - proxy: `0x1670000000000000000000000000000000010001`
@@ -200,20 +185,8 @@
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7f4fc8912f351b08679388a54bd47815c533623ba9358c8d344385d8b3b64efd`
 
-#### anchor_fork_router
-
-- impl: `0x38e4A497aD70aa0581BAc29747b0Ea7a53258585`
-- logs:
-  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbc01389f634088578c7451eb4d4f51dd1ae875794ae266505427343b9f53a4f1`
-
 #### signal_service_impl
 
 - impl: `0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbf8a4eb0552c1a46ca2941c49a6f12213a2f1f9c8e216ffb9bab877c4e5fae6f`
-
-#### signal_service_fork_router
-
-- impl: `0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb`
-- logs:
-  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x027cfcd2de0a9171dc1f304afce1ecd9f522c8a619df3dde17769209812b181a`
