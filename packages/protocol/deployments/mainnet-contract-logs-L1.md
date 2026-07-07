@@ -56,7 +56,7 @@
   - called `selfDelegate` for Taiko Token @tx`0x740c255322873b3feb62ad1de71b51417053787328eae3aa84557c953463d55f`
   - upgraded from `0xc71CC3B0a47149878fad337fb2ca54E546A645ba` to `0x02F21B4C3d4dbfF70cE851741175a727c8D782Be` @commit`fa481c1` in @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - unpaused on 27 May, 2024 @tx`0x71ce1e61f1e42e34c9a51f5671ac260f2ac398e016ae645f2661f074e7f230ce`
-  - upgraded from `0x02F21B4C3d4dbfF70cE851741175a727c8D782Be` to `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0.` @commit`` in @tx`0x8a380a25d03a740d9535dfc3e2fc4f6960e22d49ad88b8d85f59af4013aedf87`
+  - upgraded from `0x02F21B4C3d4dbfF70cE851741175a727c8D782Be` to `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0` in @tx`0x8a380a25d03a740d9535dfc3e2fc4f6960e22d49ad88b8d85f59af4013aedf87`
   - upgrade impl to `0x951B7Ae1bB26d12dB37f01748e8fB62FEf45A8B5` @commit`1bd3285` @tx`0xf21f6bf720767db3bc9b63ef69cacb20340bdedfb6589e6a4d11fe082dfa7bd6`
   - upgrade impl to `0x3c326483EBFabCf3252205f26dF632FE83d11108` @commit`3ae25fd` @tx`0xc0ba6558642b93ee892bee0705dbcfb5130c53637e6266bfa5e3a6501167d6f2`
   - upgrade impl to `0xD28f2c26aD8bA88b0691F6BB41Ff021878052561` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
@@ -79,7 +79,7 @@
   - USDT(`0xdAC17F958D2ee523a2206206994597C13D831ec7`): 250,000
   - USDC(`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`): 250,000
 - logs:
-  - deployed via the Proposal0017 recovery bundle (`DeployHackRecoveryContracts`) on Jun 25, 2026 @commit`b73608696` @tx`(to confirm)`
+  - deployed via the Proposal0017 recovery bundle (`DeployHackRecoveryContracts`) on Jun 25, 2026 @commit`b73608696` @tx`0xeb1b4c11afdf3c0522ab01c847fbc9bd94c6f3a9e42bb09dc0ed70bf01bee6af`
 
 #### erc20_vault
 
@@ -222,7 +222,7 @@
   - added proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d` @tx`0x8e5968f459f817b986153d607fd44c279b613447557d51be390331135bccfafd`
   - removed proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xa11e6650c33072f4229773e6cbaac404ad66595485c3aed747a47de00d5dfc28`
   - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0x2c03bd01a944dc1ecfc254946a62c8f652df5730facc79f965742acd7319b4c4`
-  - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`(to confirm)` @tx`(to confirm)` (Proposal0009)
+  - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`3c66b0f8d` (Proposal0009)
 
 ### sgx_geth_automata
 
@@ -260,14 +260,14 @@
 - impl : `0x73A0Db393ef87ce781ac7957bE10D6628432100F`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xe29fb424175bfe33dc401026026bc40e03dc0ee38d833edb33b698f55c89bacb`
-  - upgraded to `0x73A0Db393ef87ce781ac7957bE10D6628432100F` on Jun 27, 2026 @commit`462920aae` @tx`(to confirm)` (Proposal0017)
+  - upgraded to `0x73A0Db393ef87ce781ac7957bE10D6628432100F` on Jun 27, 2026 @commit`462920aae` @tx`0xccec9c500467272fdee5b6df1b377b212e74944446f29e6df6902b07c7a63177` (Proposal0017)
 
 ### mainnet_verifier
 
 - impl : `0x71808449A6217898d602c1a392D95b931Ac5d878`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x18e0a43926b02144951bc6f0c233667f9f40651a3b86e9b575c09768f9670d13`
-  - upgraded to `0x71808449A6217898d602c1a392D95b931Ac5d878` on Jun 27, 2026 @commit`462920aae` @tx`(to confirm)` (Proposal0017)
+  - upgraded to `0x71808449A6217898d602c1a392D95b931Ac5d878` on Jun 27, 2026 @commit`462920aae` @tx`0x6f26b1ee9c0965df9dc4ec14bd5721fa6f2041e17e18bd87f7a7d04eebc0dcd9` (Proposal0017)
 
 ### preconf_whitelist_impl
 
