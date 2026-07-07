@@ -101,28 +101,9 @@
 
 #### quota_manager
 
-- proxy: `0x91f67118DD47d502B1f0C354D0611997B022f29E`
-- impl: `0xdb627bfD79e81fE42138Eb875287F94FAd5BBc64`
-- owner: `controller.taiko.eth`
-- quota:
-  - Quota Period: 24 hours
-  - ETH: 1000 ETH
-  - WETH(`0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2`): 1000 ETH
-  - TAIKO(`0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`): 2,000,000
-  - USDT(`0xdAC17F958D2ee523a2206206994597C13D831ec7`): 4,000,000
-  - USDC(`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`): 4,000,000
-- logs:
-  - deployed on May 13, 2024 at commit `b90b932`
-  - admin.taiko.eth accepted the ownership @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
-  - upgraded from `0x49c5e5F131314Bb24b17E249960F8B12F925ef22` to `0xdb627bfD79e81fE42138Eb875287F94FAd5BBc64` @commit`a3faee0` @tx`0x8de1631a25b337c1e702f9ce9d9ab8a3b626922441855e959b2d79dae40bd131`
-  - change owner to controller @tx`0x4445a905ba77f382914a1dcbb1ddd3ce704822c1fd4512042a8195ebb816c631`
-  - superseded as the Bridge/ERC20Vault quota source by the immutable recovery QuotaManager `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` on Jun 25, 2026 (Proposal0017); the recovered Bridge/ERC20Vault `quotaManager()` now returns that immutable contract, not this proxy
-
-#### quota_manager (recovery, immutable)
-
 - address: `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC`
 - owner: `admin.taiko.eth` (`0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`)
-- note: immutable (no proxy); deployed with the Proposal0017 Bridge/ERC20Vault implementations as their constructor `QUOTA_MANAGER`. The live Bridge (`0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`) and ERC20Vault (`0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`) are its only quota consumers (`quotaManager()` on both returns this address).
+- note: immutable (no proxy), verified `QuotaManager`; deployed with the Proposal0017 Bridge/ERC20Vault implementations as their constructor `QUOTA_MANAGER`. The live Bridge (`0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`) and ERC20Vault (`0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`) are its only quota consumers (`quotaManager()` on both returns this address). Replaces the previous upgradeable QuotaManager proxy `0x91f67118DD47d502B1f0C354D0611997B022f29E`.
 - quota (configured maxima, read on-chain 2026-07-07):
   - Quota Period: 24 hours
   - ETH: 250 ETH
