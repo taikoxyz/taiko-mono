@@ -14,7 +14,8 @@ use crate::{codec::WhitelistExecutionPayloadEnvelope, test_support::fixed_k_sign
 const CHAIN_ID: u64 = 167;
 
 /// Loopback config bound to an ephemeral port, wired peer-to-peer via `pre_dial`
-/// (no bootnodes). TCP transport comes from `..NetworkConfig::default()`.
+/// (no bootnodes). TCP transport is unconditional (built in `build_swarm`); the
+/// `..NetworkConfig::default()` tail only supplies the P2P key (`None` → ephemeral).
 fn loopback_config(pre_dial: Vec<Multiaddr>) -> NetworkConfig {
     NetworkConfig {
         listen_addr: "127.0.0.1:0".parse().expect("addr"),
