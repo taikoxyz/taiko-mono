@@ -145,6 +145,7 @@ impl WhitelistApi for WhitelistApiService {
                 FixedBytes::<65>::from(block_hash_signature),
             )
             .await?;
+        self.state.record_inserted_block(block_number);
 
         let execution_payload = crate::payload::execution_payload_from_header(
             &inserted_block.header,

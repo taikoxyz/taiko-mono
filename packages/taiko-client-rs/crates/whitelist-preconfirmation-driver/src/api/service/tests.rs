@@ -101,3 +101,15 @@ fn reported_head_falls_back_to_seed_before_first_observation() {
     let state = SharedPreconfState::new(5_811_208);
     assert_eq!(state.reconcile_reported_head(None), 5_811_208);
 }
+
+#[test]
+fn reported_head_covers_locally_inserted_blocks_when_head_unreadable() {
+    // Blocks inserted by this process (cached import or local build) must survive a failed
+    // head read even before any successful status poll observed them.
+    let state = SharedPreconfState::new(5_811_208);
+    state.record_inserted_block(5_811_209);
+    assert_eq!(state.reconcile_reported_head(None), 5_811_209);
+    // A successful poll still overwrites the fallback with the live head.
+    assert_eq!(state.reconcile_reported_head(Some(5_811_210)), 5_811_210);
+    assert_eq!(state.reconcile_reported_head(None), 5_811_210);
+}

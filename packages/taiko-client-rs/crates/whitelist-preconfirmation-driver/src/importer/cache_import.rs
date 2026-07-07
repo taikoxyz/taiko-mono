@@ -189,6 +189,8 @@ impl WhitelistPreconfirmationImporter {
             "inserted whitelist preconfirmation block"
         );
 
+        self.state.record_inserted_block(block_number);
+
         Ok(true)
     }
 }

@@ -40,8 +40,8 @@ pub(crate) struct SharedPreconfState {
     end_of_sequencing_by_epoch: Arc<Mutex<LinkedHashMap<u64, B256>>>,
     /// Recently validated envelopes retained for serving request-topic responses.
     recent_envelopes: Arc<Mutex<EnvelopeCache>>,
-    /// Most recent L2 execution head observed by `/status`, reported as a fallback when the
-    /// head becomes unreadable. Seeded with the head at startup.
+    /// Most recent L2 head observed by `/status` or advanced by locally inserted blocks,
+    /// reported as a fallback when the head is unreadable. Seeded with the head at startup.
     last_reported_l2_head: Arc<AtomicU64>,
 }
 
@@ -93,7 +93,8 @@ impl SharedPreconfState {
     /// The Catalyst sync gate only opens when the reported value equals the execution head
     /// exactly, and every canonical block is inserted by this driver, so the live head is
     /// always the honest answer. The stored value exists purely to keep `/status` answering
-    /// through transient L2 RPC failures.
+    /// through transient L2 RPC failures; [`Self::record_inserted_block`] keeps it fresh for
+    /// blocks inserted between polls.
     pub(crate) fn reconcile_reported_head(&self, head: Option<u64>) -> u64 {
         match head {
             Some(head) => {
@@ -102,6 +103,16 @@ impl SharedPreconfState {
             }
             None => self.last_reported_l2_head.load(Ordering::Relaxed),
         }
+    }
+
+    /// Record a block this process just inserted (cached import or local build) so the
+    /// `/status` fallback covers blocks inserted since the last successful head read.
+    ///
+    /// A plain store suffices: cached imports drain in ascending block order, local builds
+    /// insert sequentially, and any successful status poll overwrites the value with the
+    /// live head anyway.
+    pub(crate) fn record_inserted_block(&self, block_number: u64) {
+        self.last_reported_l2_head.store(block_number, Ordering::Relaxed);
     }
 }
 
