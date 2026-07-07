@@ -90,17 +90,6 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
-### PacayaInbox
-
-- proxy: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`
-- impl: `0x355dFebFa8234412D86EE0e2493580F60666758A`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - updated on Oct 20, 2025 at commit `520ed22`
-  - updated on Dec 3, 2025 at commit `379f5cb`
-  - updated on Feb 9, 2026 at commit `8051523`
-
 ### ShastaInbox
 
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
@@ -113,10 +102,11 @@
 ### forced_inclusion_store
 
 - proxy : `0xA7F175Aff7C62854d0A0498a0da17b66A9D452D0`
-- impl : `0x49d661f2c0c3Ba054a9e756AA4FD55983c58Ac48`
+- impl : `0x1d4b338687BD4C20c0a8f24a7C4C3d61903545F8`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded to `0x1d4b338687BD4C20c0a8f24a7C4C3d61903545F8` on Oct 20, 2025 @tx`0x8a739362535eae5b0011567830605cadab688111d4570da5314023d08ce8ede0` @commit`(to confirm)`
 
 ### preconf_whitelist
 
@@ -154,10 +144,11 @@
 ### taiko_wrapper
 
 - proxy : `0xB843132A26C13D751470a6bAf5F926EbF5d0E4b8`
-- impl : `0xa3d20eab2922E85ce7Ef2De66249F5dbDB039527`
+- impl : `0xE24C96e026e0ef3c48bdaD11F02097aE9925246b`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded to `0xE24C96e026e0ef3c48bdaD11F02097aE9925246b` on Oct 20, 2025 @tx`0x9452f77f540556ba5f86a320f538d49a057a38aab12c0d02546d791006bcec5e` @commit`(to confirm)`
 
 ### proof_verifier(Pacaya)
 
@@ -189,11 +180,12 @@
 ### sp1_reth_verifier(Pacaya)
 
 - proxy : `0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3`
-- impl : `0x801dcb74ed6c45764c91b9e818ec204b41eada9b`
+- impl : `0xfB8c56e9f550f49fC77dfaa3DC56A4519455fFb8`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
+  - upgraded to `0xfB8c56e9f550f49fC77dfaa3DC56A4519455fFb8` on Oct 20, 2025 @tx`0x2c270d119a898a0a16be8ebf1a97851e7058568e0ab6f64ed0bbe456b8bdbf26` @commit`(to confirm)`
 
 ### sgx_geth_verifier(Pacaya)
 
@@ -201,7 +193,6 @@
 - impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
-
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
 
@@ -258,7 +249,7 @@
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - upgraded on Feb 4, 2026 at commit `a01f51c`
-  - upgraded on Mar 2, 2026 at commit `a01f51c` 
+  - upgraded on Mar 2, 2026 at commit `a01f51c`
 
 ### shared_resolver
 
@@ -277,7 +268,7 @@
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - updated on Dec 19, 2025 at commit `7492388`
   - upgraded on Feb 4, 2026 at commit `a01f51c`
-  - upgraded on Mar 2, 2026 at commit `a01f51c` 
+  - upgraded on Mar 2, 2026 at commit `a01f51c`
 
 ### rollup_resolver
 
