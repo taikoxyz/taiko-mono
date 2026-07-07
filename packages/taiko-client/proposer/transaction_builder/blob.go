@@ -43,7 +43,8 @@ func NewBlobTransactionBuilder(
 	}
 }
 
-// Build implements the ProposeBatchTransactionBuilder interface.
+// Build builds an inbox propose transaction that carries the given transaction
+// lists in blobs, returning a tx candidate for the tx manager to send.
 func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
 	txBatch []types.Transactions,
