@@ -15,7 +15,7 @@ use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, Payloa
 /// Engine API `engine_getPayloadV2` discriminator.
 ///
 /// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
-pub const PAYLOAD_ID_VERSION_V2: u8 = 2;
+const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 alloy::sol! {
     struct ShastaMixHashInput {
@@ -53,15 +53,8 @@ pub fn encode_transactions(transactions: &[TxEnvelope]) -> Bytes {
     Bytes::from(buf.freeze())
 }
 
-/// Encode a list of raw transaction bytes into the format expected by the execution engine.
-pub fn encode_tx_list(transactions: &[Bytes]) -> Bytes {
-    let mut buf = BytesMut::new();
-    encode_list::<Bytes, [u8]>(transactions, &mut buf);
-    Bytes::from(buf.freeze())
-}
-
 /// Convert a `PayloadId` into an array of bytes.
-pub fn payload_id_to_bytes(payload_id: PayloadId) -> [u8; 8] {
+fn payload_id_to_bytes(payload_id: PayloadId) -> [u8; 8] {
     payload_id.0.0
 }
 

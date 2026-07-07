@@ -165,10 +165,7 @@ struct VerifiedCanonicalBlock {
     header: Header,
 }
 
-impl<P> ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + 'static,
-{
+impl ShastaDerivationPipeline {
     /// Resolve the hash of the last finalized proposal's block if available.
     ///
     /// Errors are logged but never propagated so payload application can proceed even when the
@@ -400,20 +397,20 @@ where
         let derived_block = self.prepare_block(block, state, ctx).await?;
         let BlockDerivationContext { payload, parent_hash, is_final_block, .. } = derived_block;
 
-        let applied = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
-        let header = applied.outcome.block.header.clone().into_consensus();
+        let outcome = applier.apply_payload(&payload, parent_hash, finalized_block_hash).await?;
+        let header = outcome.block.header.clone().into_consensus();
         *state = state.advance(header, block.anchor_block_number)?;
 
         info!(
             proposal_id = meta.proposal_id,
-            block_number = applied.outcome.block_number(),
-            block_hash = ?applied.outcome.block_hash(),
+            block_number = outcome.block_number(),
+            block_hash = ?outcome.block_hash(),
             "payload applied to execution engine"
         );
 
-        self.sync_l1_origin(meta, &payload, &applied.outcome, is_final_block).await?;
+        self.sync_l1_origin(meta, &payload, &outcome, is_final_block).await?;
 
-        Ok(applied.outcome)
+        Ok(outcome)
     }
 
     /// Prepare the payload attributes and anchor transaction for a manifest block without
@@ -974,7 +971,7 @@ mod tests {
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};
-    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_provider::ProviderBuilder;
     use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
     use anyhow::Result;
@@ -1213,9 +1210,7 @@ mod tests {
         l2_asserter.push_success(&Some(origin));
         l2_asserter.push_success(&Some(canonical_block));
 
-        let l1_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
+        let l1_provider = ProviderBuilder::new().connect_mocked_client(Asserter::new());
         let l2_provider =
             ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
         let l2_auth_provider = ProviderBuilder::new()
@@ -1224,7 +1219,7 @@ mod tests {
         let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
         let anchor = AnchorInstance::new(ANCHOR_ADDRESS, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
-        let client: Client<RootProvider> = Client {
+        let client = Client {
             chain_id: TAIKO_MAINNET_CHAIN_ID,
             l1_provider,
             l2_provider,

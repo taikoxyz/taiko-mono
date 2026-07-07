@@ -12,7 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
 contract DeployShastaL2Hoodi is DeployShastaL2Contracts {
-    function _loadConfig() internal pure override returns (DeploymentConfig memory config) {
+    function _loadConfig() internal view override returns (DeploymentConfig memory config) {
         config.l1ChainId = uint64(LibNetwork.ETHEREUM_HOODI);
         config.l1SignalService = LibL1HoodiAddrs.HOODI_SIGNAL_SERVICE;
         config.l2SignalService = LibL2HoodiAddrs.HOODI_SIGNAL_SERVICE;

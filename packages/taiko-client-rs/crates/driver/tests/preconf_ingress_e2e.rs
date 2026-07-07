@@ -34,7 +34,7 @@ use protocol::{
     codec::ZlibTxListCodec,
     shasta::{PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash},
 };
-use rpc::client::{Client, ClientConfig, ClientWithWallet};
+use rpc::client::{Client, ClientConfig};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
@@ -44,16 +44,6 @@ use test_harness::{
 };
 use tokio::{spawn, task::JoinHandle};
 use tracing::warn;
-
-/// Concrete provider type produced by the plain (walletless) `Client::new` used
-/// throughout this file — `FillProvider<JoinedRecommendedFillers, RootProvider>`,
-/// the same alias the drain tests bind (`whitelist-preconfirmation-driver/src/
-/// importer/tests.rs::DriverProvider`). Naming it lets `start_syncer` below carry
-/// a concrete return type rather than an un-nameable generic.
-type DriverProvider = alloy_provider::fillers::FillProvider<
-    alloy_provider::utils::JoinedRecommendedFillers,
-    alloy_provider::RootProvider,
->;
 
 /// Spin up a preconf-ingress-enabled `EventSyncer` for `config` against `beacon`,
 /// spawn its run loop, and block until ingress readiness latches.
@@ -67,10 +57,15 @@ type DriverProvider = alloy_provider::fillers::FillProvider<
 async fn start_syncer(
     config: ClientConfig,
     beacon: &BeaconStubServer,
-) -> Result<(Arc<EventSyncer<DriverProvider>>, Client<DriverProvider>, JoinHandle<()>)> {
-    let mut driver_config =
-        DriverConfig::new(config, Duration::from_millis(50), beacon.endpoint().clone(), None, None);
-    driver_config.preconfirmation_enabled = true;
+) -> Result<(Arc<EventSyncer>, Client, JoinHandle<()>)> {
+    let driver_config = DriverConfig::new(
+        config,
+        Duration::from_millis(50),
+        beacon.endpoint().clone(),
+        None,
+        None,
+        true,
+    );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let handle = {
@@ -256,11 +251,9 @@ async fn preconf_ingress_injects_block_smoke(env: &mut ShastaEnv) -> Result<()> 
 // the copies below are line-for-line identical to that file so the derivation
 // side of this test exercises the exact same proposal flow.)
 
-/// Builds a wallet-backed proposer client (copied from proposer_driver_e2e.rs).
-async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
-    Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key)
-        .await
-        .map_err(Into::into)
+/// Builds a walletless proposer client (copied from proposer_driver_e2e.rs).
+async fn proposer_client(env: &ShastaEnv) -> Result<Client> {
+    Client::new(env.client_config.clone()).await.map_err(Into::into)
 }
 
 /// Decodes the proposal id from a `Proposed` log (copied from proposer_driver_e2e.rs).
@@ -270,21 +263,22 @@ fn decode_proposal_id(log: &Log) -> Result<u64> {
         .map_err(|err| anyhow!("decode proposal log failed: {err}"))
 }
 
-/// Submits a proposal transaction and returns the proposal id and log
-/// (copied from proposer_driver_e2e.rs).
-async fn submit_proposal(
-    proposer: &ClientWithWallet,
-    request: BuiltProposalTx,
-    inbox: Address,
-) -> Result<(u64, Log)> {
-    let pending_tx =
-        proposer.l1_provider.send_transaction(request.to_transaction_request()).await?;
+/// Submits a proposal transaction through a wallet-backed L1 provider and returns
+/// the proposal id and log (copied from proposer_driver_e2e.rs). The wallet lives
+/// only in this test helper: the production `Client` is walletless.
+async fn submit_proposal(env: &ShastaEnv, request: BuiltProposalTx) -> Result<(u64, Log)> {
+    let wallet_provider = env
+        .client_config
+        .l1_provider_source
+        .to_provider_with_wallet(env.l1_proposer_private_key)
+        .await?;
+    let pending_tx = wallet_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt = pending_tx.get_receipt().await?;
     ensure!(receipt.status(), "proposal transaction failed");
     let proposal_log: Log = receipt
         .logs()
         .iter()
-        .find(|log| log.address() == inbox)
+        .find(|log| log.address() == env.inbox_address)
         .cloned()
         .context("missing Proposed log in receipt")?;
     let proposal_id = decode_proposal_id(&proposal_log)?;
@@ -293,16 +287,13 @@ async fn submit_proposal(
 
 /// Waits for the event syncer to process a specific proposal using confirmed-sync
 /// state polling (copied from proposer_driver_e2e.rs).
-async fn wait_for_proposal_processed<P>(
-    event_syncer: &EventSyncer<P>,
-    driver_client: &Client<P>,
+async fn wait_for_proposal_processed(
+    event_syncer: &EventSyncer,
+    driver_client: &Client,
     expected_proposal_id: u64,
     l2_head_before: u64,
     timeout: Duration,
-) -> Result<u64>
-where
-    P: Provider + Clone + 'static,
-{
+) -> Result<u64> {
     let deadline = tokio::time::Instant::now() + timeout;
 
     loop {
@@ -458,7 +449,7 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
     let node1_provider = driver_client_node1.l2_provider.clone();
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
-    let (proposal_id, _log) = submit_proposal(&proposer, request, env.inbox_address).await?;
+    let (proposal_id, _log) = submit_proposal(env, request).await?;
     wait_for_proposal_processed(
         &event_syncer,
         &driver_client,

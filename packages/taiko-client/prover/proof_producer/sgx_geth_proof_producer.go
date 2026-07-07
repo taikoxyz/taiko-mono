@@ -2,7 +2,6 @@ package producer
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -60,7 +59,7 @@ func (s *SgxGethProofProducer) RequestProof(
 	return &ProofResponse{
 		BatchID: batchID,
 		Meta:    meta,
-		Proof:   common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
+		Proof:   common.Hex2Bytes(resp.Data.Proof[2:]),
 		Opts:    opts,
 	}, nil
 }
@@ -113,7 +112,7 @@ func (s *SgxGethProofProducer) Aggregate(
 	}
 
 	return &BatchProofs{
-		BatchProof: common.Hex2Bytes(resp.Data.Proof.Proof[2:]),
+		BatchProof: common.Hex2Bytes(resp.Data.Proof[2:]),
 		Verifier:   s.Verifier,
 		VerifierID: s.VerifierID,
 	}, nil
@@ -128,66 +127,20 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	proofType ProofType,
 	requestAt time.Time,
 	alreadyGenerated bool,
-) (*RaikoRequestProofBodyResponseV2, error) {
+) (*RaikoRequestProofBodyResponse, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
-	var (
-		output     *RaikoRequestProofBodyResponseV2
-		err        error
-		proposals  = make([]*RaikoProposals, 0, len(opts))
-		start, end *big.Int
-	)
-
-	for i, meta := range metas {
-		proposals = append(proposals, &RaikoProposals{
-			ProposalId:             meta.Shasta().GetEventData().Id,
-			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			L2BlockNumbers:         opts[i].ProposalOptions().L2BlockNums,
-			Checkpoint: &RaikoCheckpoint{
-				BlockNum:  opts[i].ProposalOptions().Checkpoint.BlockNumber,
-				BlockHash: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.BlockHash[:]).Hex()[2:],
-				StateRoot: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.StateRoot[:]).Hex()[2:],
-			},
-			LastAnchorBlockNumber: opts[i].ProposalOptions().LastAnchorBlockNumber,
-		})
-	}
-	output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
+	output, start, end, err := requestRaikoProposalProofV4(
 		ctx,
-		s.RaikoHostEndpoint+"/v3/proof/batch/shasta",
+		s.RaikoHostEndpoint,
 		s.ApiKey,
-		RaikoRequestProofBodyV3Shasta{
-			Type:      proofType,
-			Proposals: proposals,
-			Prover:    opts[0].GetProverAddress().Hex()[2:],
-			Aggregate: isAggregation,
-		},
+		opts,
+		metas,
+		isAggregation,
+		proofType,
 	)
-	start, end = proposals[0].ProposalId, proposals[len(proposals)-1].ProposalId
 	if err != nil {
 		return nil, err
 	}
-
-	if err := output.Validate(); err != nil {
-		return nil, fmt.Errorf(
-			"invalid Raiko response(start: %d, end: %d): %w",
-			start,
-			end,
-			err,
-		)
-	}
-
-	if !alreadyGenerated {
-		log.Info(
-			"Batch proof generated",
-			"start", start,
-			"end", end,
-			"isAggregation", isAggregation,
-			"proofType", proofType,
-			"time", time.Since(requestAt),
-		)
-		// Update metrics.
-		updateProvingMetrics(proofType, requestAt, isAggregation)
-	}
-
-	return output, nil
+	return validateRaikoProofResponse(output, start, end, proofType, isAggregation, requestAt, alreadyGenerated)
 }

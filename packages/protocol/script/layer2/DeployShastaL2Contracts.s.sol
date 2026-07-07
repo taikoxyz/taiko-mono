@@ -14,6 +14,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address l1SignalService;
         address l2SignalService;
         address anchorProxy;
+        address signalServicePauser;
     }
 
     modifier broadcast() {
@@ -45,8 +46,11 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
             address(new Anchor(ICheckpointStore(config.l2SignalService), config.l1ChainId));
         console2.log("New anchorImpl deployed:", anchorImpl);
 
-        address signalServiceImpl =
-            address(new SignalService(config.anchorProxy, config.l1SignalService));
+        address signalServiceImpl = address(
+            new SignalService(
+                config.anchorProxy, config.l1SignalService, config.signalServicePauser
+            )
+        );
         console2.log("New signalServiceImpl deployed:", signalServiceImpl);
     }
 }

@@ -2,7 +2,9 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -34,6 +36,10 @@ const (
 	peerLoopReportInterval                  = 30 * time.Second
 	defaultHandoverSkipSlots         uint64 = 8
 )
+
+// preconfServerShutdownTimeout bounds how long Close waits for the preconf
+// block server to drain in-flight requests.
+const preconfServerShutdownTimeout = 5 * time.Second
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
 // contract.
@@ -180,23 +186,36 @@ func (d *Driver) Start() error {
 
 	// Start the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
+		d.wg.Add(1)
 		go func() {
-			if err := d.preconfBlockServer.Start(d.PreconfBlockServerPort); err != nil {
+			defer d.wg.Done()
+			// echo.Start returns http.ErrServerClosed on a graceful Shutdown; that
+			// is the normal stop path, not a crash.
+			if err := d.preconfBlockServer.Start(d.PreconfBlockServerPort); err != nil &&
+				!errors.Is(err, http.ErrServerClosed) {
 				log.Crit("Failed to start preconfirmation block server", "error", err)
 			}
 		}()
 
-		go d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
+		}()
 	}
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
 		log.Info("Start P2P discovery process")
 
-		go d.p2pNode.DiscoveryProcess(
-			d.ctx,
-			log.Root(),
-			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
-			d.p2pSetup.TargetPeers(),
-		)
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			d.p2pNode.DiscoveryProcess(
+				d.ctx,
+				log.Root(),
+				&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
+				d.p2pSetup.TargetPeers(),
+			)
+		}()
 
 		go d.peerLoop(d.ctx)
 	} else {
@@ -218,9 +237,13 @@ func (d *Driver) Close(_ context.Context) {
 		d.l1HeadSub.Unsubscribe()
 	}
 	d.state.Close()
-	// Close the preconfirmation block server if it is enabled.
+	// Close the preconfirmation block server if it is enabled. Use a fresh,
+	// bounded context: d.ctx (and the ctx passed to Close) are already cancelled
+	// by this point, which would give the graceful shutdown no grace period.
 	if d.preconfBlockServer != nil {
-		if err := d.preconfBlockServer.Shutdown(d.ctx); err != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), preconfServerShutdownTimeout)
+		defer cancel()
+		if err := d.preconfBlockServer.Shutdown(shutdownCtx); err != nil {
 			log.Error("Failed to shutdown preconfirmation block server", "error", err)
 		}
 	}
@@ -331,7 +354,6 @@ func (d *Driver) reportProtocolStatus() {
 func (d *Driver) exchangeTransitionConfigLoop() {
 	ticker := time.NewTicker(exchangeTransitionConfigInterval)
 	d.wg.Add(1)
-
 	defer func() {
 		ticker.Stop()
 		d.wg.Done()

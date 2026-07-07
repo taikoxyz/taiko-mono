@@ -1,0 +1,22 @@
+nextest-version = "0.9.104"
+
+[profile.default]
+# Flag-only slow backstop for the whole suite (mostly unit tests): a test still
+# running after 60s is reported as SLOW so a hang surfaces in CI logs. NO
+# terminate-after here — a slow *unit* test is a bug to fail loudly, not mask.
+slow-timeout = { period = "60s" }
+
+[[profile.default.overrides]]
+# L1-shared group: (1) all integration test binaries (`kind(test)`), which race
+# on shared node state; (2) the whitelist crate's docker_* --lib tests, which
+# kind(test) does NOT match. Both need identical policy, so one override.
+filter = 'kind(test) or (package(whitelist-preconfirmation-driver) and test(docker_))'
+test-group = "l1-shared"
+# Docker-backed tests are timing-flaky; exponential backoff (5s, 10s) lets a
+# wedged node recover between attempts.
+retries = { backoff = "exponential", count = 2, delay = "5s" }
+# Hang backstop for the docker group: SLOW at 2min, KILL after 5 periods (10min).
+slow-timeout = { period = "120s", terminate-after = 5 }
+
+[test-groups.l1-shared]
+max-threads = 1

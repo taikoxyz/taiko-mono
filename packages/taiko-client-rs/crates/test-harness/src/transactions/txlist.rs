@@ -7,7 +7,6 @@
 //!   call.
 
 use alloy_primitives::{Address, B256, Bytes, U256};
-use alloy_provider::Provider;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use rpc::client::Client;
@@ -68,15 +67,12 @@ pub struct PreconfTxList {
 ///     assert!(block_contains_tx(&block, transfer.hash));
 /// }
 /// ```
-pub async fn build_preconf_txlist<P>(
-    client: &Client<P>,
+pub async fn build_preconf_txlist(
+    client: &Client,
     parent_hash: B256,
     block_number: u64,
     base_fee: u64,
-) -> Result<PreconfTxList>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+) -> Result<PreconfTxList> {
     let anchor_tx = build_anchor_tx_bytes(client, parent_hash, block_number, base_fee).await?;
     let transfers = build_test_transfers(&client.l2_provider, block_number).await?;
 
@@ -130,15 +126,12 @@ where
 ///     assert!(block_contains_tx(&block, transfer.hash));
 /// }
 /// ```
-pub async fn build_mixed_preconf_txlist<P>(
-    client: &Client<P>,
+pub async fn build_mixed_preconf_txlist(
+    client: &Client,
     parent_hash: B256,
     block_number: u64,
     base_fee: u64,
-) -> Result<PreconfTxList>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+) -> Result<PreconfTxList> {
     let anchor_tx = build_anchor_tx_bytes(client, parent_hash, block_number, base_fee).await?;
 
     let funder_key = std::env::var("PRIVATE_KEY")?;

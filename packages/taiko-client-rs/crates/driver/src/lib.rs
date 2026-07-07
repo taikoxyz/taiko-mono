@@ -7,6 +7,8 @@
 //! - Processing L1 inbox events to derive L2 blocks
 //! - Handling preconfirmation payloads for block production
 
+/// Shared helper for locating the anchor transaction inside a fetched L2 block.
+pub(crate) mod anchor_tx;
 /// Driver runtime configuration types.
 pub mod config;
 /// L1-to-L2 derivation pipelines and manifest handling.

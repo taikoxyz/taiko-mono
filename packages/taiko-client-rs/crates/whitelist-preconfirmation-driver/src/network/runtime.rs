@@ -25,7 +25,7 @@ use tracing::{debug, info, warn};
 
 use super::{
     behaviour::{BehaviourEvent, TaikoBehaviour, build_behaviour},
-    discovery::{classify_bootnodes, init_discovery, recv_discovered_multiaddr},
+    discovery::classify_bootnodes,
     handler::GossipsubInboundState,
     topics::Topics,
 };
@@ -33,7 +33,7 @@ use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
         decode_unsafe_payload_signature, decode_unsafe_response_message,
-        encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
+        encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
@@ -102,11 +102,6 @@ pub(crate) enum NetworkCommand {
         /// Envelope to publish.
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
     },
-    /// Publish an end-of-sequencing request to the `requestEndOfSequencingPreconfBlocks` topic.
-    PublishEndOfSequencingRequest {
-        /// Epoch number.
-        epoch: u64,
-    },
     /// Shutdown the network loop.
     Shutdown,
 }
@@ -133,20 +128,14 @@ pub(crate) struct WhitelistNetwork {
 /// Configuration for the whitelist preconfirmation P2P network.
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
-    /// Enable TCP transport.
-    pub enable_tcp: bool,
     /// TCP listen address.
     pub listen_addr: SocketAddr,
     /// Optional externally dialable TCP address advertised in the local enode URL.
     pub advertise_addr: Option<SocketAddr>,
-    /// Bootnodes as ENR or multiaddr strings.
+    /// Bootnodes as ENR, enode URL, or multiaddr strings; all are dialed directly.
     pub bootnodes: Vec<String>,
     /// Static peers to dial on startup.
     pub pre_dial_peers: Vec<Multiaddr>,
-    /// Enable discv5 peer discovery.
-    pub enable_discovery: bool,
-    /// UDP listen address for discv5 discovery.
-    pub discovery_listen: SocketAddr,
     /// Optional parsed secp256k1 keypair for the local P2P network identity.
     pub preconfirmation_p2p_key: Option<identity::Keypair>,
 }
@@ -154,13 +143,10 @@ pub struct NetworkConfig {
 impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
-            enable_tcp: true,
             listen_addr: SocketAddr::from(([0, 0, 0, 0], 9222)),
             advertise_addr: None,
             bootnodes: Vec::new(),
             pre_dial_peers: Vec::new(),
-            enable_discovery: false,
-            discovery_listen: SocketAddr::from(([0, 0, 0, 0], 9223)),
             preconfirmation_p2p_key: None,
         }
     }
@@ -207,29 +193,17 @@ fn parse_preconfirmation_p2p_priv_raw(raw_key: &str) -> Result<identity::Keypair
 /// Build the Ethereum-style enode URL advertised for the secp256k1 P2P identity.
 fn advertised_enode_url(
     local_key: &identity::Keypair,
-    enable_tcp: bool,
     listen_addr: SocketAddr,
     advertise_addr: Option<SocketAddr>,
-    discovery_listen: Option<SocketAddr>,
 ) -> Option<String> {
-    if !enable_tcp {
-        return None;
-    }
-
     let secp256k1_key = local_key.clone().try_into_secp256k1().ok()?;
     let uncompressed_public_key = secp256k1_key.public().to_bytes_uncompressed();
     let advertised_addr = advertise_addr.unwrap_or(listen_addr);
-    let mut enode = format!(
+    Some(format!(
         "enode://{}@{}",
         alloy_primitives::hex::encode(&uncompressed_public_key[1..]),
         enode_endpoint(advertised_addr)
-    );
-    if let Some(discovery_listen) =
-        discovery_listen.filter(|addr| addr.port() != advertised_addr.port())
-    {
-        enode.push_str(&format!("?discport={}", discovery_listen.port()));
-    }
-    Some(enode)
+    ))
 }
 
 /// Format the endpoint component of an enode URL.
@@ -251,35 +225,25 @@ struct ConfiguredPeerAddr {
 
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
-    pub(crate) async fn spawn(
+    pub(crate) fn spawn(
         chain_id: u64,
         cfg: NetworkConfig,
         operator_set: SharedOperatorSet,
     ) -> Result<Self> {
         let local_key = cfg.local_key();
         let NetworkConfig {
-            enable_tcp,
             listen_addr,
             advertise_addr,
             bootnodes,
             pre_dial_peers,
-            enable_discovery,
-            discovery_listen,
             preconfirmation_p2p_key: _,
         } = cfg;
 
         let peer_id = local_key.public().to_peer_id();
-        let advertised_enode = advertised_enode_url(
-            &local_key,
-            enable_tcp,
-            listen_addr,
-            advertise_addr,
-            enable_discovery.then_some(discovery_listen),
-        );
+        let advertised_enode = advertised_enode_url(&local_key, listen_addr, advertise_addr);
         info!(
             %peer_id,
             advertised_enode = advertised_enode.as_deref().unwrap_or("unavailable"),
-            tcp_enabled = enable_tcp,
             listen_addr = %listen_addr,
             advertise_addr = advertise_addr.map(|addr| addr.to_string()).as_deref().unwrap_or("unset"),
             "whitelist preconfirmation local P2P identity"
@@ -288,13 +252,11 @@ impl WhitelistNetwork {
         let topics = Topics::new(chain_id);
         let behaviour = build_behaviour(&local_key, &topics)?;
         let mut swarm = build_swarm(&local_key, peer_id, behaviour)?;
-        configure_listen_addr(&mut swarm, enable_tcp, listen_addr)?;
+        configure_listen_addr(&mut swarm, listen_addr)?;
 
-        let bootnodes = classify_bootnodes(bootnodes);
+        let bootnode_dial_addrs = classify_bootnodes(bootnodes);
         let configured_peer_addrs =
-            dial_initial_peers(&mut swarm, pre_dial_peers, bootnodes.dial_addrs);
-        let discovery_rx =
-            init_discovery(enable_discovery, discovery_listen, bootnodes.discovery_enrs).await;
+            dial_initial_peers(&mut swarm, pre_dial_peers, bootnode_dial_addrs);
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, command_rx) = mpsc::channel(512);
@@ -309,8 +271,6 @@ impl WhitelistNetwork {
             topics,
             event_tx,
             command_rx,
-            discovery_rx,
-            discovered_dial_addrs: HashSet::new(),
             connected_configured_addrs: HashSet::new(),
             configured_peer_addrs,
             peer_retry_interval: delayed_interval(CONFIGURED_PEER_RETRY_INTERVAL),
@@ -346,16 +306,8 @@ fn build_swarm(
     Ok(Swarm::new(transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor()))
 }
 
-/// Configure the TCP listen address when TCP serving is enabled.
-fn configure_listen_addr(
-    swarm: &mut Swarm<TaikoBehaviour>,
-    enable_tcp: bool,
-    listen_addr: SocketAddr,
-) -> Result<()> {
-    if !enable_tcp {
-        return Ok(());
-    }
-
+/// Configure the TCP listen address.
+fn configure_listen_addr(swarm: &mut Swarm<TaikoBehaviour>, listen_addr: SocketAddr) -> Result<()> {
     let listen_addr = if listen_addr.is_ipv4() {
         format!("/ip4/{}/tcp/{}", listen_addr.ip(), listen_addr.port())
     } else {
@@ -414,20 +366,6 @@ fn dial_configured_peer(
     }
 
     dial_addr(swarm, peer.addr.clone(), peer.source, reason);
-}
-
-/// Dial one discovered peer address at most once.
-fn dial_discovered_peer(
-    swarm: &mut Swarm<TaikoBehaviour>,
-    discovered_dial_addrs: &mut HashSet<Multiaddr>,
-    addr: Multiaddr,
-) {
-    if !discovered_dial_addrs.insert(addr.clone()) {
-        debug!(%addr, source = "discovery", "already dialed discovered address; skipping");
-        return;
-    }
-
-    dial_addr(swarm, addr, "discovery", "discovered");
 }
 
 /// Dial a peer address and record the immediate swarm result.
@@ -498,10 +436,6 @@ struct NetworkRuntime {
     event_tx: mpsc::Sender<NetworkEvent>,
     /// Channel receiving outbound publish commands from higher-level components.
     command_rx: mpsc::Receiver<NetworkCommand>,
-    /// Optional discovery stream for ENR-derived dial candidates.
-    discovery_rx: Option<mpsc::Receiver<Multiaddr>>,
-    /// Set of discovered addresses already dialed to avoid discovery churn.
-    discovered_dial_addrs: HashSet<Multiaddr>,
     /// Connected configured addresses used to prevent duplicate direct dials.
     connected_configured_addrs: HashSet<Multiaddr>,
     /// Configured static peer and bootnode addresses retried for connectivity.
@@ -526,10 +460,8 @@ impl NetworkRuntime {
         Ok(())
     }
 
-    /// Process one input event from command, discovery, or swarm.
+    /// Process one input event from command, timer, or swarm.
     async fn run_once(&mut self) -> Result<bool> {
-        let has_discovery = self.discovery_rx.is_some();
-
         tokio::select! {
             maybe_command = self.command_rx.recv() => {
                 match maybe_command {
@@ -540,10 +472,6 @@ impl NetworkRuntime {
                         Ok(true)
                     },
                 }
-            }
-            maybe_addr = recv_discovered_multiaddr(&mut self.discovery_rx), if has_discovery => {
-                self.handle_discovery_multiaddr(maybe_addr);
-                Ok(true)
             }
             _ = self.peer_retry_interval.tick() => {
                 self.retry_configured_peers();
@@ -571,9 +499,6 @@ impl NetworkRuntime {
             }
             NetworkCommand::PublishUnsafePayload { signature, envelope } => {
                 self.publish_unsafe_payload(signature, envelope);
-            }
-            NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
-                self.publish_end_of_sequencing_request(epoch);
             }
             NetworkCommand::Shutdown => unreachable!("handled in run_once"),
         }
@@ -613,17 +538,6 @@ impl NetworkRuntime {
             self.topics.preconf_blocks.clone(),
             "preconf_blocks",
             &format!("{hash}"),
-        );
-    }
-
-    /// Publish a `requestEndOfSequencingPreconfBlocks` message.
-    fn publish_end_of_sequencing_request(&mut self, epoch: u64) {
-        let payload = encode_eos_request_message(epoch);
-        self.publish_to_gossipsub(
-            self.topics.eos_request.clone(),
-            payload,
-            "request_eos_preconf_blocks",
-            &format!("epoch {epoch}"),
         );
     }
 
@@ -680,19 +594,6 @@ impl NetworkRuntime {
         }
     }
 
-    /// Handle one discovery result by dialing or disabling discovery when closed.
-    fn handle_discovery_multiaddr(&mut self, maybe_addr: Option<Multiaddr>) {
-        match maybe_addr {
-            Some(addr) => {
-                dial_discovered_peer(&mut self.swarm, &mut self.discovered_dial_addrs, addr);
-            }
-            None => {
-                self.discovery_rx = None;
-                debug!("whitelist preconfirmation discovery stream closed");
-            }
-        }
-    }
-
     /// Retry all configured bootnode/static peer addresses.
     fn retry_configured_peers(&mut self) {
         if self.configured_peer_addrs.is_empty() {
@@ -724,7 +625,6 @@ impl NetworkRuntime {
             connected_peers = %format_peer_ids(&connected_peers),
             configured_peer_count = self.configured_peer_addrs.len(),
             connected_configured_addr_count = self.connected_configured_addrs.len(),
-            discovered_peer_count = self.discovered_dial_addrs.len(),
             gossip_topic_peer_count = gossip_topic_peers,
             preconf_blocks_mesh_peers,
             request_mesh_peers,
@@ -1086,8 +986,8 @@ mod tests {
             .expect("key should be configured");
         let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
 
-        let enode = advertised_enode_url(&local_key, true, listen_addr, None, None)
-            .expect("secp key has enode");
+        let enode =
+            advertised_enode_url(&local_key, listen_addr, None).expect("secp key has enode");
         let public_key = enode
             .strip_prefix("enode://")
             .and_then(|rest| rest.split_once('@'))
@@ -1108,7 +1008,7 @@ mod tests {
         let listen_addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30303));
         let advertise_addr = SocketAddr::from(([203, 0, 113, 10], 30303));
 
-        let enode = advertised_enode_url(&local_key, true, listen_addr, Some(advertise_addr), None)
+        let enode = advertised_enode_url(&local_key, listen_addr, Some(advertise_addr))
             .expect("secp key has enode");
 
         assert!(enode.ends_with("@203.0.113.10:30303"));
@@ -1123,32 +1023,10 @@ mod tests {
         let listen_addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 30303));
         let advertise_addr = SocketAddr::from((Ipv6Addr::LOCALHOST, 30303));
 
-        let enode = advertised_enode_url(&local_key, true, listen_addr, Some(advertise_addr), None)
+        let enode = advertised_enode_url(&local_key, listen_addr, Some(advertise_addr))
             .expect("secp key has enode");
 
         assert!(enode.ends_with("@[::1]:30303"));
-    }
-
-    #[test]
-    fn advertised_enode_url_appends_discovery_port_when_different_from_tcp_port() {
-        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
-            .expect("raw key should parse")
-            .expect("key should be configured");
-        let listen_addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 4001));
-        let advertise_addr = SocketAddr::from(([34, 41, 203, 88], 4001));
-        let discovery_listen = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30304));
-
-        let enode = advertised_enode_url(
-            &local_key,
-            true,
-            listen_addr,
-            Some(advertise_addr),
-            Some(discovery_listen),
-        )
-        .expect("secp key has enode");
-
-        assert!(enode.ends_with("@34.41.203.88:4001?discport=30304"));
     }
 
     #[test]
@@ -1156,7 +1034,7 @@ mod tests {
         let local_key = identity::Keypair::generate_ed25519();
         let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
 
-        assert_eq!(advertised_enode_url(&local_key, true, listen_addr, None, None), None);
+        assert_eq!(advertised_enode_url(&local_key, listen_addr, None), None);
     }
 
     /// Builds Topics + a permissive inbound state for dispatch tests.

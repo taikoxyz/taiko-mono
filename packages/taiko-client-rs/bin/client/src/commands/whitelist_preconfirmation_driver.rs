@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
 use protocol::shasta::set_devnet_unzen_override;
-use tracing::warn;
+use tracing::{debug, warn};
 use whitelist_preconfirmation_driver::{
     NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
     WhitelistPreconfirmationDriverRunner,
@@ -64,14 +64,24 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
 impl WhitelistPreconfirmationDriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_driver_config(&self) -> Result<DriverConfig> {
-        let mut cfg = build_driver_config(&self.common_flags, &self.driver_flags)?;
-        // Enable preconfirmation ingress so whitelist payload imports can reuse the driver queue.
-        cfg.preconfirmation_enabled = true;
-        Ok(cfg)
+        // Preconfirmation ingress is enabled so whitelist payload imports can reuse the
+        // driver queue.
+        build_driver_config(&self.common_flags, &self.driver_flags, true)
     }
 
     /// Build P2P configuration from command-line arguments.
     fn build_p2p_config(&self) -> Result<NetworkConfig> {
+        if self.preconf_flags.p2p_disable_discovery {
+            warn!(
+                "--p2p.disable-discovery is deprecated and ignored: discv5 discovery has been \
+                 removed and bootnodes are dialed directly"
+            );
+        }
+        debug!(
+            discovery_addr = %self.preconf_flags.p2p_discovery_addr,
+            "ignoring deprecated --p2p.discovery.addr; discv5 discovery has been removed"
+        );
+
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -84,14 +94,11 @@ impl WhitelistPreconfirmationDriverSubCommand {
         Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             advertise_addr: self.preconf_flags.p2p_advertise_addr,
-            discovery_listen: self.preconf_flags.p2p_discovery_addr,
-            enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             pre_dial_peers,
             preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(
                 self.preconfirmation_p2p_priv_raw.as_deref(),
             )?,
-            ..Default::default()
         })
     }
 

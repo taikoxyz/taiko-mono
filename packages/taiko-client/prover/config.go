@@ -21,35 +21,36 @@ import (
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
-	L1WsEndpoint               string
-	L1BeaconEndpoint           string
-	L2WsEndpoint               string
-	L2EngineEndpoint           string
-	JwtSecret                  string
-	InboxAddress               common.Address
-	TaikoAnchorAddress         common.Address
-	L1ProverPrivKey            *ecdsa.PrivateKey
-	StartingProposalID         *big.Int
-	BackOffMaxRetries          uint64
-	BackOffRetryInterval       time.Duration
-	ProveUnassignedProposals   bool
-	RPCTimeout                 time.Duration
-	ProveBatchesGasLimit       uint64
-	RaikoHostEndpoint          string
-	RaikoZKVMHostEndpoint      string
-	RaikoApiKey                string
-	RaikoRequestTimeout        time.Duration
-	LocalProposerAddresses     []common.Address
-	BlockConfirmations         uint64
-	TxmgrConfigs               *txmgr.CLIConfig
-	PrivateTxmgrConfigs        *txmgr.CLIConfig
-	SGXProofBufferSize         uint64
-	ZKVMProofBufferSize        uint64
-	ForceBatchProvingInterval  time.Duration
-	ProofPollingInterval       time.Duration
-	Dummy                      bool
-	ProposalWindowSize         uint64
-	MaxZKProofProposalDistance uint64
+	L1WsEndpoint                  string
+	L1BeaconEndpoint              string
+	L2WsEndpoint                  string
+	L2EngineEndpoint              string
+	JwtSecret                     string
+	InboxAddress                  common.Address
+	TaikoAnchorAddress            common.Address
+	L1ProverPrivKey               *ecdsa.PrivateKey
+	StartingProposalID            *big.Int
+	BackOffMaxRetries             uint64
+	BackOffRetryInterval          time.Duration
+	ProveUnassignedProposals      bool
+	RPCTimeout                    time.Duration
+	ProveBatchesGasLimit          uint64
+	RaikoHostEndpoint             string
+	RaikoZKVMHostEndpoint         string
+	RaikoApiKey                   string
+	RaikoRequestTimeout           time.Duration
+	LocalProposerAddresses        []common.Address
+	BlockConfirmations            uint64
+	TxmgrConfigs                  *txmgr.CLIConfig
+	PrivateTxmgrConfigs           *txmgr.CLIConfig
+	SGXProofBufferSize            uint64
+	ZKVMProofBufferSize           uint64
+	ForceBatchProvingInterval     time.Duration
+	ProofPollingInterval          time.Duration
+	Dummy                         bool
+	ProposalWindowSize            uint64
+	MaxRisc0ProofProposalDistance uint64
+	ForceSP1Proof                 bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -62,15 +63,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
 	}
 
-	// The cli library no longer marks --l1.ws / --l2.ws as Required (the driver
-	// can fall back to HTTP polling), so we enforce the prover's requirement
-	// here. Placed after the private-key validation so existing error-precedence
-	// assertions in tests stay intact.
-	if c.String(flags.L1WSEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L1WSEndpoint.Name)
-	}
-	if c.String(flags.L2WSEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2WSEndpoint.Name)
+	// Enforce WS endpoints after the private-key validation, so existing
+	// error-precedence assertions in tests stay intact.
+	if err := flags.CheckWSEndpointsRequired(c, "prover"); err != nil {
+		return nil, err
 	}
 
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
@@ -120,9 +116,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffRetryInterval:     c.Duration(flags.BackOffRetryInterval.Name),
 		ProveUnassignedProposals: c.Bool(flags.ProveUnassignedProposals.Name),
 		ProposalWindowSize:       c.Uint64(flags.ProposalWindowSize.Name),
-		MaxZKProofProposalDistance: c.Uint64(
-			flags.MaxZKProofProposalDistance.Name,
+		MaxRisc0ProofProposalDistance: c.Uint64(
+			flags.MaxRisc0ProofProposalDistance.Name,
 		),
+		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
 		LocalProposerAddresses: localProposerAddresses,

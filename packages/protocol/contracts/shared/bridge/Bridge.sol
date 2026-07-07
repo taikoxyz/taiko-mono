@@ -8,7 +8,7 @@ import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
-import "./IEthMinter.sol";
+import "./IQuotaManager.sol";
 
 import "./Bridge_Layout.sol"; // DO NOT DELETE
 
@@ -17,7 +17,7 @@ import "./Bridge_Layout.sol"; // DO NOT DELETE
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
 /// on L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
-contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
+contract Bridge is EssentialResolverContract, IBridge {
     using LibMath for uint256;
     using LibAddress for address;
 
@@ -30,11 +30,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
     event MessageProcessed(bytes32 indexed msgHash, Message message, ProcessingStats stats);
-
-    /// @notice Emitted when an ETH minter is enabled or disabled.
-    /// @param ethMinter The address of the ETH minter.
-    /// @param enabled The enabled status.
-    event EthMinterSet(address indexed ethMinter, bool enabled);
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
@@ -62,6 +57,11 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
     ISignalService public immutable signalService;
+    IQuotaManager public immutable quotaManager;
+
+    /// @dev Address authorized to pause/unpause alongside the owner, and to fund the bridge with
+    /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
+    address public immutable pauser;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -81,9 +81,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     /// @dev Slot 6.
     uint256 private __reserved3;
 
-    /// @dev Slot 7.
-    mapping(address ethMinter => bool enabled) public isEthMinter;
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Modifiers
@@ -99,18 +97,36 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         _;
     }
 
+    /// @notice Initializes the bridge's immutable state.
+    /// @param _resolver The address of the resolver contract.
+    /// @param _signalService The address of the signal service contract.
+    /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
-        address _signalService
+        address _signalService,
+        address _quotaManager,
+        address _pauser
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
+        quotaManager = IQuotaManager(_quotaManager);
+        pauser = _pauser;
     }
 
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Accepts plain Ether transfers from the pauser to fund the bridge.
+    /// @dev Reverts for any sender other than `pauser`, preventing arbitrary Ether deposits. The
+    /// bridge is deployed behind a proxy, so the pauser must use `call` (which forwards all gas);
+    /// the 2300-gas stipend of `transfer`/`send` is insufficient for the proxy's delegatecall.
+    receive() external payable {
+        require(msg.sender == pauser, B_PERMISSION_DENIED());
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -124,6 +140,18 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         __reserved1 = 0;
         __reserved2 = 0;
         __reserved3 = 0;
+    }
+
+    /// @notice Invalidates stale bridge messages by marking them done.
+    /// @dev Intended for one-time recovery on already deployed contracts. Each listed message hash
+    /// is force-marked as `DONE`, preventing retries and later processing as a new message.
+    /// @param _msgHashes The hashes of the messages to invalidate.
+    function init3(bytes32[] calldata _msgHashes) external onlyOwner reinitializer(3) {
+        if (_msgHashes.length == 0) revert B_INVALID_VALUE();
+        for (uint256 i; i < _msgHashes.length; ++i) {
+            messageStatus[_msgHashes[i]] = Status.DONE;
+            emit MessageStatusChanged(_msgHashes[i], Status.DONE);
+        }
     }
 
     /// @inheritdoc IBridge
@@ -190,6 +218,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
+        // A recall always releases `_message.value` back to the source owner, so debit its quota.
+        _consumeEtherQuota(_message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -269,6 +299,11 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
             }
         }
 
+        // Debit the Ether quota only for funds actually leaving the bridge: the fee is always
+        // released here, while the value is released only when the message reaches DONE. When the
+        // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
+        _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
+
         if (_message.fee != 0) {
             refundAmount += _message.fee;
 
@@ -335,6 +370,10 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         }
 
         if (succeeded) {
+            // The value is released to the recipient only on a successful retry, so debit its
+            // quota here. A failed retry leaves the message RETRIABLE/FAILED with the value still
+            // in the bridge, consuming no quota.
+            _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -362,33 +401,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
         _updateMessageStatus(msgHash, Status.FAILED);
         signalService.sendSignal(signalForFailedMessage(msgHash));
-    }
-
-    /// @notice Sets the enabled status of an ETH minter.
-    /// @param _ethMinter The address of the ETH minter.
-    /// @param _enabled The enabled status.
-    function setEthMinter(address _ethMinter, bool _enabled) external onlyOwner {
-        if (_ethMinter == address(0)) revert ZERO_ADDRESS();
-        if (isEthMinter[_ethMinter] == _enabled) revert B_INVALID_STATUS();
-        isEthMinter[_ethMinter] = _enabled;
-        emit EthMinterSet(_ethMinter, _enabled);
-    }
-
-    /// @inheritdoc IEthMinter
-    function mintEth(
-        address _recipient,
-        uint256 _amount
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        if (_recipient == address(0)) revert ZERO_ADDRESS();
-        if (_recipient == address(this)) revert B_INVALID_MINT_RECIPIENT();
-        if (_amount == 0) revert B_INVALID_VALUE();
-        if (!isEthMinter[msg.sender]) revert B_INVALID_ETH_MINTER();
-        _recipient.sendEtherAndVerify(_amount, _SEND_ETHER_GAS_LIMIT);
-        emit EthMinted(_recipient, _amount);
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
@@ -479,6 +491,9 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
+
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
@@ -562,6 +577,15 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
+        }
+    }
+
+    /// @dev Consumes a given amount of Ether from the quota manager; reverts if quota is
+    /// insufficient. Skips the external call when nothing is released (`_amount == 0`).
+    /// @param _amount The amount of Ether to consume.
+    function _consumeEtherQuota(uint256 _amount) private {
+        if (_amount != 0 && address(quotaManager) != address(0)) {
+            quotaManager.consumeQuota(address(0), _amount);
         }
     }
 
@@ -711,10 +735,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
-    error B_INVALID_ETH_MINTER();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_MINT_RECIPIENT();
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use alloy::consensus::BlobTransactionSidecarVariant;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::U256;
 use alloy_provider::Provider;
 use alloy_rpc_types::Log;
 use alloy_sol_types::SolEvent;
@@ -15,7 +15,7 @@ use driver::{
 use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
 use rpc::{
     blob::BlobDataSource,
-    client::{Client, ClientConfig, ClientWithWallet},
+    client::{Client, ClientConfig},
 };
 use serial_test::serial;
 use test_context::test_context;
@@ -27,8 +27,7 @@ use tracing::warn;
 #[serial]
 #[test_log::test(tokio::test)]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
-    let proposer_client =
-        Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key).await?;
+    let proposer_client = Client::new(env.client_config.clone()).await?;
 
     let builder = ShastaProposalTransactionBuilder::new(
         proposer_client.clone(),
@@ -43,8 +42,13 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let beacon_stub = BeaconStubServer::start().await?;
     let beacon_endpoint = beacon_stub.endpoint().clone();
 
-    let pending_tx =
-        proposer_client.l1_provider.send_transaction(request.to_transaction_request()).await?;
+    // Sends are signed by a test-local wallet provider; the `Client` itself is walletless.
+    let wallet_provider = env
+        .client_config
+        .l1_provider_source
+        .to_provider_with_wallet(env.l1_proposer_private_key)
+        .await?;
+    let pending_tx = wallet_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt =
         pending_tx.get_receipt().await.context("fetching proposal transaction receipt")?;
     ensure!(receipt.status(), "proposal transaction failed");
@@ -71,6 +75,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         beacon_endpoint.clone(),
         None,
         None,
+        false,
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();
@@ -112,15 +117,6 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
 // and `preconf_ingress_e2e.rs`; the copies keep the derivation/proposal flow
 // byte-identical to those files rather than hand-transcribed.
 
-/// Concrete provider type produced by the walletless `Client::new` used by the
-/// spawned event syncer below — `FillProvider<JoinedRecommendedFillers, RootProvider>`.
-/// Naming it lets `start_syncer` carry a concrete return type rather than an
-/// un-nameable generic (mirrors `preconf_ingress_e2e.rs::DriverProvider`).
-type DriverProvider = alloy_provider::fillers::FillProvider<
-    alloy_provider::utils::JoinedRecommendedFillers,
-    alloy_provider::RootProvider,
->;
-
 /// Spin up a preconf-ingress-enabled `EventSyncer` for `config` against `beacon`,
 /// spawn its run loop, and block until ingress readiness latches (mirrors
 /// `preconf_ingress_e2e.rs::start_syncer`). The syncer's L1 scanner runs against
@@ -129,10 +125,15 @@ type DriverProvider = alloy_provider::fillers::FillProvider<
 async fn start_syncer(
     config: ClientConfig,
     beacon: &BeaconStubServer,
-) -> Result<(Arc<EventSyncer<DriverProvider>>, Client<DriverProvider>, JoinHandle<()>)> {
-    let mut driver_config =
-        DriverConfig::new(config, Duration::from_millis(50), beacon.endpoint().clone(), None, None);
-    driver_config.preconfirmation_enabled = true;
+) -> Result<(Arc<EventSyncer>, Client, JoinHandle<()>)> {
+    let driver_config = DriverConfig::new(
+        config,
+        Duration::from_millis(50),
+        beacon.endpoint().clone(),
+        None,
+        None,
+        true,
+    );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let handle = {
@@ -147,11 +148,9 @@ async fn start_syncer(
     Ok((event_syncer, driver_client, handle))
 }
 
-/// Builds a wallet-backed proposer client (copied from `proposer_driver_e2e.rs`).
-async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
-    Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key)
-        .await
-        .map_err(Into::into)
+/// Builds a walletless proposer client (copied from `proposer_driver_e2e.rs`).
+async fn proposer_client(env: &ShastaEnv) -> Result<Client> {
+    Client::new(env.client_config.clone()).await.map_err(Into::into)
 }
 
 /// Decodes the proposal id from a `Proposed` log (copied from `proposer_driver_e2e.rs`).
@@ -161,21 +160,22 @@ fn decode_proposal_id(log: &Log) -> Result<u64> {
         .map_err(|err| anyhow!("decode proposal log failed: {err}"))
 }
 
-/// Submits a proposal transaction and returns the proposal id and log
-/// (copied from `proposer_driver_e2e.rs`).
-async fn submit_proposal(
-    proposer: &ClientWithWallet,
-    request: BuiltProposalTx,
-    inbox: Address,
-) -> Result<(u64, Log)> {
-    let pending_tx =
-        proposer.l1_provider.send_transaction(request.to_transaction_request()).await?;
+/// Submits a proposal transaction through a wallet-backed L1 provider and returns
+/// the proposal id and log (copied from `proposer_driver_e2e.rs`). The wallet lives
+/// only in this test helper: the production `Client` is walletless.
+async fn submit_proposal(env: &ShastaEnv, request: BuiltProposalTx) -> Result<(u64, Log)> {
+    let wallet_provider = env
+        .client_config
+        .l1_provider_source
+        .to_provider_with_wallet(env.l1_proposer_private_key)
+        .await?;
+    let pending_tx = wallet_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt = pending_tx.get_receipt().await?;
     ensure!(receipt.status(), "proposal transaction failed");
     let proposal_log: Log = receipt
         .logs()
         .iter()
-        .find(|log| log.address() == inbox)
+        .find(|log| log.address() == env.inbox_address)
         .cloned()
         .context("missing Proposed log in receipt")?;
     let proposal_id = decode_proposal_id(&proposal_log)?;
@@ -184,16 +184,13 @@ async fn submit_proposal(
 
 /// Waits for the event syncer to process a specific proposal using confirmed-sync
 /// state polling (copied from `proposer_driver_e2e.rs`). Deadline-bounded.
-async fn wait_for_proposal_processed<P>(
-    event_syncer: &EventSyncer<P>,
-    driver_client: &Client<P>,
+async fn wait_for_proposal_processed(
+    event_syncer: &EventSyncer,
+    driver_client: &Client,
     expected_proposal_id: u64,
     l2_head_before: u64,
     timeout: Duration,
-) -> Result<u64>
-where
-    P: Provider + Clone + 'static,
-{
+) -> Result<u64> {
     let deadline = tokio::time::Instant::now() + timeout;
 
     loop {
@@ -227,10 +224,7 @@ where
 }
 
 /// Reads the current `head_l1_origin` block id, or `None` when the pointer is unset.
-async fn head_l1_origin_block_id<P>(driver_client: &Client<P>) -> Result<Option<u64>>
-where
-    P: Provider + Clone,
-{
+async fn head_l1_origin_block_id(driver_client: &Client) -> Result<Option<u64>> {
     Ok(driver_client.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>()))
 }
 
@@ -239,10 +233,7 @@ where
 /// inside the one `ShastaEnv::setup` already took (helpers.rs `create_snapshot`):
 /// reverting to THIS (newer) id discards only it, leaving the older setup snapshot
 /// valid, so `ShastaEnv::teardown`'s outer revert still succeeds.
-async fn l1_snapshot<P>(driver_client: &Client<P>) -> Result<String>
-where
-    P: Provider + Clone,
-{
+async fn l1_snapshot(driver_client: &Client) -> Result<String> {
     driver_client
         .l1_provider
         .raw_request::<_, String>(
@@ -254,10 +245,7 @@ where
 }
 
 /// Revert the harness L1 to a previously taken snapshot id.
-async fn l1_revert<P>(driver_client: &Client<P>, snapshot_id: &str) -> Result<()>
-where
-    P: Provider + Clone,
-{
+async fn l1_revert(driver_client: &Client, snapshot_id: &str) -> Result<()> {
     let reverted = driver_client
         .l1_provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (snapshot_id,))
@@ -336,7 +324,7 @@ async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) ->
 
     // Proposal 1: establishes a non-genesis canonical batch that MUST survive the
     // reorg, so the post-revert common ancestor has nextProposalId == 2.
-    let (proposal_id_1, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let (proposal_id_1, _) = submit_proposal(env, request.clone()).await?;
     let l2_head_after_first = wait_for_proposal_processed(
         &event_syncer,
         &driver_client,
@@ -352,7 +340,7 @@ async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) ->
 
     // 2. Proposal 2: processed on top of proposal 1. Record the confirmed boundary it establishes
     //    (proposal 2's tip); the reorg must push head_l1_origin below this.
-    let (proposal_id_2, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let (proposal_id_2, _) = submit_proposal(env, request.clone()).await?;
     ensure!(proposal_id_2 > proposal_id_1, "expected sequential proposal ids");
     wait_for_proposal_processed(
         &event_syncer,
@@ -409,7 +397,7 @@ async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) ->
     //    boundary must climb back to (at least) the recorded value, proving the driver did not
     //    wedge on the stale, lowered origin. Deadline-bounded.
     let l2_head_before_reproposal = driver_client.l2_provider.get_block_number().await?;
-    let (reproposal_id, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let (reproposal_id, _) = submit_proposal(env, request.clone()).await?;
     wait_for_proposal_processed(
         &event_syncer,
         &driver_client,

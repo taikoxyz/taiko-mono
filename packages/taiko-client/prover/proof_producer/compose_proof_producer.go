@@ -21,21 +21,22 @@ type RaikoCheckpoint struct {
 	StateRoot string   `json:"state_root"`
 }
 
-// RaikoProposals represents the JSON body of RaikoRequestProofBodyV3Shasta's `Proposals` field.
-type RaikoProposals struct {
-	ProposalId             *big.Int         `json:"proposal_id"`
-	L1InclusionBlockNumber *big.Int         `json:"l1_inclusion_block_number"`
-	L2BlockNumbers         []*big.Int       `json:"l2_block_numbers"`
-	Checkpoint             *RaikoCheckpoint `json:"checkpoint"`
-	LastAnchorBlockNumber  *big.Int         `json:"last_anchor_block_number"`
+// RaikoRequestProofBodyV4 represents the JSON body for requesting a v4 proposal-side proof task.
+type RaikoRequestProofBodyV4 struct {
+	ProofType ProofType          `json:"proof_type"`
+	Aggregate bool               `json:"aggregate"`
+	Proposals []*RaikoProposalV4 `json:"proposals"`
+	Prover    string             `json:"prover,omitempty"`
 }
 
-// RaikoRequestProofBodyV3Shasta represents the JSON body for requesting the proof.
-type RaikoRequestProofBodyV3Shasta struct {
-	Proposals []*RaikoProposals `json:"proposals"`
-	Prover    string            `json:"prover"`
-	Aggregate bool              `json:"aggregate"`
-	Type      ProofType         `json:"proof_type"`
+// RaikoProposalV4 represents one proposal carried by a v4 proof request.
+type RaikoProposalV4 struct {
+	ProposalID             *big.Int         `json:"proposal_id"`
+	Checkpoint             *RaikoCheckpoint `json:"checkpoint,omitempty"`
+	L1InclusionBlockNumber *big.Int         `json:"l1_inclusion_block_number"`
+	L2BlockNumberStart     *big.Int         `json:"l2_block_number_start"`
+	L2BlockNumberEnd       *big.Int         `json:"l2_block_number_end"`
+	LastAnchorBlockNumber  *big.Int         `json:"last_anchor_block_number"`
 }
 
 // ComposeProofProducer generates a compose proof for the given block.
@@ -59,10 +60,15 @@ func (s *ComposeProofProducer) RequestProof(
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
 ) (*ProofResponse, error) {
+	requestProofType := s.ProofType
+	if opts.ProposalOptions().ProofType != "" {
+		requestProofType = opts.ProposalOptions().ProofType
+	}
+
 	log.Info(
 		"Request proof from raiko-host service",
 		"proposalID", proposalID,
-		"proofType", s.ProofType,
+		"proofType", requestProofType,
 		"time", time.Since(requestAt),
 		"dummy", s.Dummy,
 	)
@@ -76,7 +82,7 @@ func (s *ComposeProofProducer) RequestProof(
 
 	g.Go(func() error {
 		if s.Dummy {
-			proofType = s.ProofType
+			proofType = requestProofType
 			if resp, err := s.DummyProofProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 				return err
 			} else {
@@ -88,7 +94,7 @@ func (s *ComposeProofProducer) RequestProof(
 				[]ProofRequestOptions{opts},
 				[]metadata.TaikoProposalMetaData{meta},
 				false,
-				s.ProofType,
+				requestProofType,
 				requestAt,
 				opts.IsRethProofGenerated(),
 			); err != nil {
@@ -100,7 +106,7 @@ func (s *ComposeProofProducer) RequestProof(
 				opts.ProposalOptions().RethProofGenerated = true
 				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 				if ProofTypeZKSP1 != proofType {
-					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+					proof = common.Hex2Bytes(resp.Data.Proof[2:])
 				}
 			}
 		}
@@ -182,8 +188,7 @@ func (s *ComposeProofProducer) Aggregate(
 	})
 	g.Go(func() error {
 		if s.Dummy {
-			proofType = s.ProofType
-			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.ProofType)
+			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, proofType)
 			batchProofs = resp.BatchProof
 		} else {
 			if resp, err := s.requestBatchProof(
@@ -199,7 +204,7 @@ func (s *ComposeProofProducer) Aggregate(
 			} else {
 				// Note: we mark `RethProofAggregationGenerated` in the first item with true.
 				items[0].Opts.ProposalOptions().RethProofAggregationGenerated = true
-				batchProofs = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
+				batchProofs = common.Hex2Bytes(resp.Data.Proof[2:])
 			}
 		}
 		return nil
@@ -230,48 +235,89 @@ func (s *ComposeProofProducer) requestBatchProof(
 	proofType ProofType,
 	requestAt time.Time,
 	alreadyGenerated bool,
-) (*RaikoRequestProofBodyResponseV2, error) {
+) (*RaikoRequestProofBodyResponse, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
-	if len(opts) == 0 || len(opts) != len(metas) {
-		return nil, ErrInvalidLength
-	}
-	var (
-		output     *RaikoRequestProofBodyResponseV2
-		err        error
-		proposals  = make([]*RaikoProposals, 0, len(opts))
-		start, end *big.Int
-	)
-
-	for i, meta := range metas {
-		proposals = append(proposals, &RaikoProposals{
-			ProposalId:             meta.Shasta().GetEventData().Id,
-			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			L2BlockNumbers:         opts[i].ProposalOptions().L2BlockNums,
-			Checkpoint: &RaikoCheckpoint{
-				BlockNum:  opts[i].ProposalOptions().Checkpoint.BlockNumber,
-				BlockHash: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.BlockHash[:]).Hex()[2:],
-				StateRoot: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.StateRoot[:]).Hex()[2:],
-			},
-			LastAnchorBlockNumber: opts[i].ProposalOptions().LastAnchorBlockNumber,
-		})
-	}
-	output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
+	output, start, end, err := requestRaikoProposalProofV4(
 		ctx,
-		s.RaikoHostEndpoint+"/v3/proof/batch/shasta",
+		s.RaikoHostEndpoint,
 		s.ApiKey,
-		RaikoRequestProofBodyV3Shasta{
-			Type:      proofType,
-			Proposals: proposals,
-			Prover:    opts[0].GetProverAddress().Hex()[2:],
-			Aggregate: isAggregation,
-		},
+		opts,
+		metas,
+		isAggregation,
+		proofType,
 	)
-	start, end = proposals[0].ProposalId, proposals[len(proposals)-1].ProposalId
 	if err != nil {
 		return nil, err
 	}
+	return validateRaikoProofResponse(output, start, end, proofType, isAggregation, requestAt, alreadyGenerated)
+}
 
+func requestRaikoProposalProofV4(
+	ctx context.Context,
+	raikoHostEndpoint string,
+	apiKey string,
+	opts []ProofRequestOptions,
+	metas []metadata.TaikoProposalMetaData,
+	isAggregation bool,
+	proofType ProofType,
+) (*RaikoRequestProofBodyResponse, *big.Int, *big.Int, error) {
+	if len(opts) == 0 || len(opts) != len(metas) {
+		return nil, nil, nil, ErrInvalidLength
+	}
+	var (
+		output    *RaikoRequestProofBodyResponse
+		err       error
+		start     *big.Int
+		end       *big.Int
+		proposals = make([]*RaikoProposalV4, 0, len(opts))
+	)
+
+	if !isAggregation && len(opts) != 1 {
+		return nil, nil, nil, ErrInvalidLength
+	}
+	for i, meta := range metas {
+		l2BlockNums := opts[i].ProposalOptions().L2BlockNums
+		if len(l2BlockNums) == 0 {
+			return nil, nil, nil, ErrInvalidLength
+		}
+		proposals = append(proposals, &RaikoProposalV4{
+			ProposalID:             meta.GetProposalID(),
+			Checkpoint:             raikoCheckpointFromOptions(opts[i].ProposalOptions()),
+			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
+			L2BlockNumberStart:     l2BlockNums[0],
+			L2BlockNumberEnd:       l2BlockNums[len(l2BlockNums)-1],
+			LastAnchorBlockNumber:  opts[i].ProposalOptions().LastAnchorBlockNumber,
+		})
+	}
+	start, end = metas[0].GetProposalID(), metas[len(metas)-1].GetProposalID()
+	output, err = requestHTTPProof[RaikoRequestProofBodyV4, RaikoRequestProofBodyResponse](
+		ctx,
+		raikoHostEndpoint+"/v4/proof/proposal",
+		apiKey,
+		RaikoRequestProofBodyV4{
+			ProofType: proofType,
+			Aggregate: isAggregation,
+			Proposals: proposals,
+			Prover:    opts[0].GetProverAddress().Hex(),
+		},
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return output, start, end, nil
+}
+
+func validateRaikoProofResponse(
+	output *RaikoRequestProofBodyResponse,
+	start *big.Int,
+	end *big.Int,
+	proofType ProofType,
+	isAggregation bool,
+	requestAt time.Time,
+	alreadyGenerated bool,
+) (*RaikoRequestProofBodyResponse, error) {
 	if err := output.Validate(); err != nil {
 		log.Debug(
 			"Proof output validation result",
@@ -302,4 +348,15 @@ func (s *ComposeProofProducer) requestBatchProof(
 	}
 
 	return output, nil
+}
+
+func raikoCheckpointFromOptions(opts *ProposalProofRequestOptions) *RaikoCheckpoint {
+	if opts.Checkpoint == nil {
+		return nil
+	}
+	return &RaikoCheckpoint{
+		BlockNum:  opts.Checkpoint.BlockNumber,
+		BlockHash: common.BytesToHash(opts.Checkpoint.BlockHash[:]).Hex()[2:],
+		StateRoot: common.BytesToHash(opts.Checkpoint.StateRoot[:]).Hex()[2:],
+	}
 }

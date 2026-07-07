@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
+    cache_import::{CachedImportDisposition, classify_cached_import_error},
     should_enable_preconf_imports,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
@@ -85,22 +85,19 @@ fn valid_anchor_tx_list(anchor_address: Address) -> Bytes {
 #[test]
 fn drops_cached_import_errors_for_invalid_payload() {
     let err = WhitelistPreconfirmationDriverError::InvalidPayload("bad payload".to_string());
-    assert!(should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop);
 }
 
 #[test]
 fn drops_cached_import_errors_for_invalid_signature() {
     let err = WhitelistPreconfirmationDriverError::InvalidSignature("bad signature".to_string());
-    assert!(should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop);
 }
 
 #[test]
 fn defers_cached_import_errors_for_engine_syncing_driver_error() {
     let err = WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(42));
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
@@ -113,8 +110,7 @@ fn drops_cached_import_errors_for_invalid_block_driver_error() {
                 "invalid payload".to_string(),
             ),
         });
-    assert!(should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop);
 }
 
 #[test]
@@ -124,15 +120,13 @@ fn defers_cached_import_errors_for_missing_payload_id_driver_error() {
             block_number: 42,
             source: driver::sync::error::EngineSubmissionError::MissingPayloadId,
         });
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
 fn propagates_cached_import_errors_for_non_payload_failures() {
     let err = WhitelistPreconfirmationDriverError::MissingInsertedBlock(42);
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Propagate);
 }
 
 #[test]
@@ -141,8 +135,7 @@ fn defers_cached_import_errors_for_preconf_enqueue_timeout() {
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfEnqueueTimeout {
             waited: Duration::from_secs(1),
         });
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
@@ -151,8 +144,7 @@ fn defers_cached_import_errors_for_preconf_response_timeout() {
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfResponseTimeout {
             waited: Duration::from_secs(12),
         });
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
@@ -561,16 +553,9 @@ mod drain_tests {
         network::NetworkCommand,
     };
 
-    /// Concrete provider type inside the [`Client`] produced by [`Client::new`], matching the
-    /// harness `RpcClient` alias (`test-harness/src/shasta/helpers.rs`). This is the `P` the
-    /// importer/syncer are generic over (they hold `Client<P>` / `EventSyncer<P>`), and it
-    /// satisfies the `P: Provider + Clone + Send + Sync + 'static` bound.
-    type DriverProvider = alloy_provider::fillers::FillProvider<
-        alloy_provider::utils::JoinedRecommendedFillers,
-        alloy_provider::RootProvider,
-    >;
-    /// The concrete client type: `Client<DriverProvider>`, i.e. the harness `RpcClient`.
-    type DriverClient = Client<DriverProvider>;
+    /// The concrete client type produced by [`Client::new`] (main dropped the `Client<P>`
+    /// provider generic), i.e. the harness `RpcClient`.
+    type DriverClient = Client;
 
     /// Fields, other than the tx list and block number/parent chain, needed to make a
     /// preconf envelope the drain will submit to the engine as a valid block. Sourced from
@@ -645,15 +630,15 @@ mod drain_tests {
     async fn start_event_syncer(
         env: &ShastaEnv,
         beacon_stub: &BeaconStubServer,
-    ) -> (Arc<EventSyncer<DriverProvider>>, DriverClient, tokio::task::JoinHandle<()>) {
-        let mut driver_config = DriverConfig::new(
+    ) -> (Arc<EventSyncer>, DriverClient, tokio::task::JoinHandle<()>) {
+        let driver_config = DriverConfig::new(
             env.client_config.clone(),
             Duration::from_millis(50),
             beacon_stub.endpoint().clone(),
             None,
             None,
+            true,
         );
-        driver_config.preconfirmation_enabled = true;
         let driver_client = Client::new(driver_config.client.clone()).await.expect("driver client");
         let event_syncer = Arc::new(
             EventSyncer::new(&driver_config, driver_client.clone()).await.expect("syncer"),
@@ -674,12 +659,12 @@ mod drain_tests {
     /// mirroring `runner.rs`'s production wiring. `state` is seeded with the current L2 head
     /// (`seed_highest_unsafe`) as the runner does.
     async fn build_importer(
-        event_syncer: Arc<EventSyncer<DriverProvider>>,
+        event_syncer: Arc<EventSyncer>,
         driver_client: DriverClient,
         beacon_stub: &BeaconStubServer,
         chain_id: u64,
         seed_highest_unsafe: u64,
-    ) -> (WhitelistPreconfirmationImporter<DriverProvider>, mpsc::Receiver<NetworkCommand>) {
+    ) -> (WhitelistPreconfirmationImporter, mpsc::Receiver<NetworkCommand>) {
         let beacon_client =
             Arc::new(BeaconClient::new(beacon_stub.endpoint().clone()).await.expect("beacon"));
         let (command_tx, command_rx) = mpsc::channel(16);

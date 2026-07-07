@@ -166,9 +166,9 @@ static METRICS: Lazy<DriverMetricHandles> = Lazy::new(DriverMetricHandles::new);
 struct DriverMetricHandles {
     /// Latest L2 head observed on the execution engine during beacon sync.
     beacon_sync_local_head_block: Gauge,
-    /// Checkpoint node head height.
+    /// Proof-finalized sync target block height read from the L1 inbox.
     beacon_sync_checkpoint_head_block: Gauge,
-    /// Delta between checkpoint and local heads.
+    /// Delta between the sync target and the local head.
     beacon_sync_head_lag_blocks: Gauge,
     /// Submitted checkpoint blocks.
     beacon_sync_remote_submissions_total: IntCounter,
@@ -234,11 +234,11 @@ impl DriverMetricHandles {
             ),
             beacon_sync_checkpoint_head_block: gauge(
                 "driver_beacon_sync_checkpoint_head_block",
-                "Checkpoint node head height sampled during beacon sync",
+                "Proof-finalized sync target block height read from the L1 inbox",
             ),
             beacon_sync_head_lag_blocks: gauge(
                 "driver_beacon_sync_head_lag_blocks",
-                "Checkpoint vs local head lag tracked by beacon sync",
+                "Sync target vs local head lag tracked by beacon sync",
             ),
             beacon_sync_remote_submissions_total: counter(
                 "driver_beacon_sync_remote_submissions_total",

@@ -13,17 +13,14 @@ use crate::{codec::WhitelistExecutionPayloadEnvelope, test_support::fixed_k_sign
 
 const CHAIN_ID: u64 = 167;
 
-/// Loopback config bound to an ephemeral port; discovery off.
-///
-/// `enable_tcp` defaults to `true` (runtime.rs), so `..NetworkConfig::default()`
-/// already enables the transport we need here.
+/// Loopback config bound to an ephemeral port, wired peer-to-peer via `pre_dial`
+/// (no bootnodes). TCP transport comes from `..NetworkConfig::default()`.
 fn loopback_config(pre_dial: Vec<Multiaddr>) -> NetworkConfig {
     NetworkConfig {
         listen_addr: "127.0.0.1:0".parse().expect("addr"),
         advertise_addr: None,
         bootnodes: Vec::new(),
         pre_dial_peers: pre_dial,
-        enable_discovery: false,
         ..NetworkConfig::default()
     }
 }
@@ -72,11 +69,9 @@ async fn two_swarms_deliver_operator_signed_payload() {
         Arc::new(ArcSwap::from_pointee(HashSet::from([signer])));
 
     let node_a = WhitelistNetwork::spawn(CHAIN_ID, loopback_config(Vec::new()), operators.clone())
-        .await
         .expect("spawn A");
     let addr_a = dialable_addr(&node_a).await;
     let mut node_b = WhitelistNetwork::spawn(CHAIN_ID, loopback_config(vec![addr_a]), operators)
-        .await
         .expect("spawn B");
 
     // Publish repeatedly until the mesh forms and B validates+delivers. A single
@@ -119,12 +114,10 @@ async fn two_swarms_drop_non_operator_payload() {
         Arc::new(ArcSwap::from_pointee(HashSet::new()));
 
     let node_a = WhitelistNetwork::spawn(CHAIN_ID, loopback_config(Vec::new()), empty.clone())
-        .await
         .expect("spawn A");
     let addr_a = dialable_addr(&node_a).await;
-    let mut node_b = WhitelistNetwork::spawn(CHAIN_ID, loopback_config(vec![addr_a]), empty)
-        .await
-        .expect("spawn B");
+    let mut node_b =
+        WhitelistNetwork::spawn(CHAIN_ID, loopback_config(vec![addr_a]), empty).expect("spawn B");
 
     let envelope = Arc::new(envelope);
     // Give the mesh ample time; keep publishing; assert NO event arrives.

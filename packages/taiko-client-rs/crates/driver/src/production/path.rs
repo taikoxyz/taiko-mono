@@ -33,10 +33,7 @@ pub trait BlockHashReader: Send + Sync {
 }
 
 #[async_trait]
-impl<P> BlockHashReader for Client<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl BlockHashReader for Client {
     /// Fetch the parent hash for the given block number via RPC.
     async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError> {
         let block = self
@@ -115,11 +112,11 @@ where
                     }
                 };
 
-                let applied =
+                let outcome =
                     self.applier.apply_payload(payload, parent_hash, None).await.map_err(
                         |err| DriverError::PreconfInjectionFailed { block_number, source: err },
                     )?;
-                Ok(vec![applied.outcome])
+                Ok(vec![outcome])
             }
             ProductionInput::L1ProposalLog(_) => Err(UnsupportedInputError.into()),
         }
@@ -127,23 +124,17 @@ where
 }
 
 /// `BlockProductionPath` implementation for canonical L1 proposal logs.
-pub struct CanonicalL1ProductionPath<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub struct CanonicalL1ProductionPath {
     /// Derivation pipeline used to decode L1 proposal logs.
-    derivation: Arc<ShastaDerivationPipeline<P>>,
+    derivation: Arc<ShastaDerivationPipeline>,
     /// Engine payload applier shared with the canonical path.
     applier: Arc<dyn PayloadApplier + Send + Sync>,
 }
 
-impl<P> CanonicalL1ProductionPath<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl CanonicalL1ProductionPath {
     /// Construct a new canonical path backed by the provided derivation pipeline.
     pub fn new(
-        derivation: Arc<ShastaDerivationPipeline<P>>,
+        derivation: Arc<ShastaDerivationPipeline>,
         applier: Arc<dyn PayloadApplier + Send + Sync>,
     ) -> Self {
         Self { derivation, applier }
@@ -151,10 +142,7 @@ where
 }
 
 #[async_trait]
-impl<P> BlockProductionPath for CanonicalL1ProductionPath<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl BlockProductionPath for CanonicalL1ProductionPath {
     /// Produce blocks by processing L1 proposal logs via the derivation pipeline.
     async fn produce(
         &self,
@@ -177,14 +165,14 @@ mod tests {
     use super::*;
     use crate::{
         production::{PreconfPayload, ProductionRouter},
-        sync::{engine::AppliedPayload, error::EngineSubmissionError},
+        sync::error::EngineSubmissionError,
     };
     use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
     use alloy::rpc::types::Log;
     use alloy_consensus::TxEnvelope;
-    use alloy_primitives::{Address, B256, Bytes, U256};
+    use alloy_primitives::B256;
     use alloy_rpc_types::eth::Block as RpcBlock;
-    use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
+    use alloy_rpc_types_engine::PayloadId;
     use std::sync::{Arc, Mutex};
 
     #[derive(Clone, Default)]
@@ -217,7 +205,7 @@ mod tests {
             _payload: &TaikoPayloadAttributes,
             _parent_hash: B256,
             _finalized_block_hash: Option<B256>,
-        ) -> Result<AppliedPayload, EngineSubmissionError> {
+        ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
             {
                 let mut guard = self.calls.lock().unwrap();
                 *guard += 1;
@@ -230,28 +218,7 @@ mod tests {
             }
             let block: RpcBlock<TxEnvelope> = RpcBlock::<TxEnvelope>::default();
             let payload_id = PayloadId::new([0u8; 8]);
-            Ok(AppliedPayload {
-                outcome: EngineBlockOutcome { block, payload_id },
-                payload: ExecutionPayloadInputV2 {
-                    execution_payload: ExecutionPayloadV1 {
-                        parent_hash: B256::ZERO,
-                        fee_recipient: Address::ZERO,
-                        state_root: B256::ZERO,
-                        receipts_root: B256::ZERO,
-                        logs_bloom: Default::default(),
-                        prev_randao: B256::ZERO,
-                        block_number: 0,
-                        gas_limit: 0,
-                        gas_used: 0,
-                        timestamp: 0,
-                        extra_data: Bytes::new(),
-                        base_fee_per_gas: U256::ZERO,
-                        block_hash: B256::ZERO,
-                        transactions: Vec::new(),
-                    },
-                    withdrawals: None,
-                },
-            })
+            Ok(EngineBlockOutcome { block, payload_id })
         }
     }
 

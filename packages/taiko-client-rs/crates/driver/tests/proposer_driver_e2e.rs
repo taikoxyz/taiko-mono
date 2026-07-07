@@ -15,20 +15,15 @@ use driver::{
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
 use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
-use rpc::{
-    blob::BlobDataSource,
-    client::{Client, ClientWithWallet},
-};
+use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::spawn;
 use tracing::{info, warn};
 
-async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
-    Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key)
-        .await
-        .map_err(Into::into)
+async fn proposer_client(env: &ShastaEnv) -> Result<Client> {
+    Client::new(env.client_config.clone()).await.map_err(Into::into)
 }
 
 fn decode_proposal_id(log: &Log) -> Result<u64> {
@@ -37,20 +32,24 @@ fn decode_proposal_id(log: &Log) -> Result<u64> {
         .map_err(|err| anyhow!("decode proposal log failed: {err}"))
 }
 
-/// Submits a proposal transaction and returns the proposal ID and log.
-async fn submit_proposal(
-    proposer: &ClientWithWallet,
-    request: BuiltProposalTx,
-    inbox: alloy_primitives::Address,
-) -> Result<(u64, Log)> {
-    let pending_tx =
-        proposer.l1_provider.send_transaction(request.to_transaction_request()).await?;
+/// Submits a proposal transaction through a wallet-backed L1 provider and returns the
+/// proposal ID and log.
+///
+/// The wallet lives only in this test helper: the production `Client` is walletless and
+/// all production L1 sends flow through the proposer's tx-manager.
+async fn submit_proposal(env: &ShastaEnv, request: BuiltProposalTx) -> Result<(u64, Log)> {
+    let wallet_provider = env
+        .client_config
+        .l1_provider_source
+        .to_provider_with_wallet(env.l1_proposer_private_key)
+        .await?;
+    let pending_tx = wallet_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt = pending_tx.get_receipt().await?;
     ensure!(receipt.status(), "proposal transaction failed");
     let proposal_log: Log = receipt
         .logs()
         .iter()
-        .find(|log| log.address() == inbox)
+        .find(|log| log.address() == env.inbox_address)
         .cloned()
         .context("missing Proposed log in receipt")?;
     let proposal_id = decode_proposal_id(&proposal_log)?;
@@ -58,16 +57,13 @@ async fn submit_proposal(
 }
 
 /// Waits for the event syncer to process a specific proposal using confirmed-sync state polling.
-async fn wait_for_proposal_processed<P>(
-    event_syncer: &EventSyncer<P>,
-    driver_client: &Client<P>,
+async fn wait_for_proposal_processed(
+    event_syncer: &EventSyncer,
+    driver_client: &Client,
     expected_proposal_id: u64,
     l2_head_before: u64,
     timeout: Duration,
-) -> Result<u64>
-where
-    P: Provider + Clone + 'static,
-{
+) -> Result<u64> {
     let deadline = tokio::time::Instant::now() + timeout;
 
     loop {
@@ -115,14 +111,14 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start event syncer before submitting the proposal.
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -137,7 +133,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
-    let (proposal_id, _log) = submit_proposal(&proposer, request, env.inbox_address).await?;
+    let (proposal_id, _log) = submit_proposal(env, request).await?;
 
     let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
@@ -180,14 +176,14 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -213,8 +209,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow!("missing canonical base block before proposal submission"))?
         .hash();
-    let (proposal_id, proposal_log) =
-        submit_proposal(&proposer, request, env.inbox_address).await?;
+    let (proposal_id, proposal_log) = submit_proposal(env, request).await?;
 
     let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
@@ -307,14 +302,14 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -330,7 +325,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
     // Submit first proposal.
-    let (proposal_id_1, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let (proposal_id_1, _) = submit_proposal(env, request.clone()).await?;
     let l2_head_after_first = wait_for_proposal_processed(
         &event_syncer,
         &driver_client,
@@ -341,7 +336,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     .await?;
 
     // Submit second proposal (same manifest/sidecar).
-    let (proposal_id_2, _) = submit_proposal(&proposer, request, env.inbox_address).await?;
+    let (proposal_id_2, _) = submit_proposal(env, request).await?;
     let l2_head_after_second = wait_for_proposal_processed(
         &event_syncer,
         &driver_client,
@@ -370,10 +365,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
 /// Reads the current `head_l1_origin` block id, or `None` when the pointer is unset
 /// (mirrors `shasta_event_sync.rs::head_l1_origin_block_id`; each `tests/*.rs` file is
 /// its own crate so the helper is copied, not imported).
-async fn head_l1_origin_block_id<P>(driver_client: &Client<P>) -> Result<Option<u64>>
-where
-    P: Provider + Clone,
-{
+async fn head_l1_origin_block_id(driver_client: &Client) -> Result<Option<u64>> {
     Ok(driver_client.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>()))
 }
 
@@ -425,14 +417,14 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
     //    (number + hash) and head_l1_origin_1, then kill it: abort the run-loop JoinHandle AND drop
     //    the Arc<EventSyncer>. Any channels/tasks the syncer left behind are per-instance, so the
     //    second syncer starts clean.
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer_1 = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle_1 = {
@@ -458,7 +450,7 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
         .await?
         .ok_or_else(|| anyhow!("missing canonical base block before proposal 1"))?
         .hash();
-    let (proposal_id_1, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let (proposal_id_1, _) = submit_proposal(env, request.clone()).await?;
     let l2_head_1 = wait_for_proposal_processed(
         &event_syncer_1,
         &driver_client,
@@ -581,7 +573,7 @@ async fn driver_resumes_after_restart_without_rederiving(env: &mut ShastaEnv) ->
 
     // 4. Prove liveness: propose proposal 2 and assert the resumed syncer processes it (head
     //    advances) within the usual 30s window — it is live, not wedged on a stale resume point.
-    let (proposal_id_2, _) = submit_proposal(&proposer, request.clone(), env.inbox_address).await?;
+    let (proposal_id_2, _) = submit_proposal(env, request.clone()).await?;
     ensure!(proposal_id_2 > proposal_id_1, "expected sequential proposal ids across restart");
     let l2_head_after_second = wait_for_proposal_processed(
         &event_syncer_2,
