@@ -13,8 +13,8 @@ use test_context::AsyncTestContext;
 use tracing::info;
 
 use super::helpers::{
-    RpcClient, create_snapshot, ensure_preconf_whitelist_active, reset_head_l1_origin,
-    reset_to_base_block, revert_snapshot,
+    create_snapshot, ensure_preconf_whitelist_active, reset_head_l1_origin, reset_to_base_block,
+    revert_snapshot,
 };
 
 /// Environment configuration required to exercise Shasta fork integration tests against
@@ -32,7 +32,7 @@ pub struct ShastaEnv {
     pub l1_proposer_private_key: B256,
     pub taiko_anchor_address: Address,
     pub client_config: ClientConfig,
-    pub client: RpcClient,
+    pub client: Client,
     cleanup_provider: RootProvider,
     snapshot_id: String,
     /// Secondary L2 WebSocket endpoint for dual-driver E2E tests.

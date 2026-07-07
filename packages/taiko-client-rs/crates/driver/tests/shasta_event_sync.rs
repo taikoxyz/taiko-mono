@@ -17,8 +17,7 @@ use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 #[serial]
 #[test_log::test(tokio::test)]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
-    let proposer_client =
-        Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key).await?;
+    let proposer_client = Client::new(env.client_config.clone()).await?;
 
     let builder = ShastaProposalTransactionBuilder::new(
         proposer_client.clone(),
@@ -33,8 +32,13 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let beacon_stub = BeaconStubServer::start().await?;
     let beacon_endpoint = beacon_stub.endpoint().clone();
 
-    let pending_tx =
-        proposer_client.l1_provider.send_transaction(request.to_transaction_request()).await?;
+    // Sends are signed by a test-local wallet provider; the `Client` itself is walletless.
+    let wallet_provider = env
+        .client_config
+        .l1_provider_source
+        .to_provider_with_wallet(env.l1_proposer_private_key)
+        .await?;
+    let pending_tx = wallet_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt =
         pending_tx.get_receipt().await.context("fetching proposal transaction receipt")?;
     ensure!(receipt.status(), "proposal transaction failed");

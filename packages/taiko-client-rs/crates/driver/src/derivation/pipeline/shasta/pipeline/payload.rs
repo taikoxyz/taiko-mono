@@ -165,10 +165,7 @@ struct VerifiedCanonicalBlock {
     header: Header,
 }
 
-impl<P> ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + 'static,
-{
+impl ShastaDerivationPipeline {
     /// Resolve the hash of the last finalized proposal's block if available.
     ///
     /// Errors are logged but never propagated so payload application can proceed even when the

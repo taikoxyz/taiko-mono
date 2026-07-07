@@ -11,6 +11,4 @@ pub mod l1_origin;
 
 pub use auth::TxPoolContentParams;
 pub use error::{Result, RpcClientError};
-pub use protocol::subscription_source::{
-    JoinedRecommendedFillersWithWallet, SubscriptionSource, SubscriptionSourceError,
-};
+pub use protocol::subscription_source::{SubscriptionSource, SubscriptionSourceError};
