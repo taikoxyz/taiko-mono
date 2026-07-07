@@ -33,7 +33,7 @@ use protocol::shasta::{
 };
 use rpc::{
     RpcClientError,
-    client::{Client, ClientConfig, ClientWithWallet},
+    client::{Client, ClientConfig},
 };
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -67,8 +67,8 @@ pub struct EngineBuildContext {
 
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
-    /// RPC client bundle with signing wallet for L1 submission.
-    rpc_provider: ClientWithWallet,
+    /// RPC client bundle used for L1/L2 reads; L1 submission is signed by the tx-manager.
+    rpc_provider: Client,
     /// Builder that converts txpool content into proposal transactions.
     transaction_builder: ShastaProposalTransactionBuilder,
     /// Tx-manager responsible for proposal submission and retry handling.
@@ -94,25 +94,22 @@ impl Proposer {
             "initializing proposer"
         );
 
-        let rpc_provider = Client::new_with_wallet(
-            ClientConfig {
-                l1_provider_source: cfg.l1_provider_source.clone(),
-                l2_provider_url: cfg.l2_provider_url.clone(),
-                l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
-                jwt_secret: cfg.jwt_secret.clone(),
-                inbox_address: cfg.inbox_address,
-            },
-            cfg.l1_proposer_private_key,
-        )
+        let rpc_provider = Client::new(ClientConfig {
+            l1_provider_source: cfg.l1_provider_source.clone(),
+            l2_provider_url: cfg.l2_provider_url.clone(),
+            l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
+            jwt_secret: cfg.jwt_secret.clone(),
+            inbox_address: cfg.inbox_address,
+        })
         .await?;
 
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
-        // The RPC client wallet and tx-manager signer are both derived from the same
-        // proposer key, so all L1 proposal submissions must continue to flow through
-        // tx-manager to avoid splitting nonce management across two send paths.
+        // The RPC client carries no wallet; the tx-manager owns the proposer key, so all
+        // L1 proposal submissions flow through tx-manager and nonce management stays on a
+        // single send path.
         let tx_manager = build_tx_manager(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
         let l1_proposer_address = proposer_address_from_key(&cfg.l1_proposer_private_key)?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
@@ -235,7 +232,7 @@ impl Proposer {
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
-    pub fn rpc_client(&self) -> ClientWithWallet {
+    pub fn rpc_client(&self) -> Client {
         self.rpc_provider.clone()
     }
 

@@ -18,7 +18,7 @@ use protocol::shasta::{
     constants::DERIVATION_SOURCE_MAX_BLOCKS,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
-use rpc::client::ClientWithWallet;
+use rpc::client::Client;
 use tracing::info;
 
 use crate::{
@@ -82,15 +82,15 @@ impl BuiltProposalTx {
 
 /// A transaction builder for Shasta `propose` transactions.
 pub struct ShastaProposalTransactionBuilder {
-    /// The RPC provider with wallet.
-    pub rpc_provider: ClientWithWallet,
+    /// The RPC client used for L1/L2 reads while assembling proposals.
+    pub rpc_provider: Client,
     /// The address of the suggested fee recipient for the proposed L2 block.
     pub l2_suggested_fee_recipient: Address,
 }
 
 impl ShastaProposalTransactionBuilder {
     /// Creates a new `ShastaProposalTransactionBuilder`.
-    pub fn new(rpc_provider: ClientWithWallet, l2_suggested_fee_recipient: Address) -> Self {
+    pub fn new(rpc_provider: Client, l2_suggested_fee_recipient: Address) -> Self {
         Self { rpc_provider, l2_suggested_fee_recipient }
     }
 
@@ -218,11 +218,9 @@ mod tests {
                 Id, RequestPacket, Response, ResponsePacket, ResponsePayload, SerializedRequest,
             },
         },
-        signers::local::PrivateKeySigner,
         sol_types::{SolCall, SolValue},
         transports::{TransportError, TransportFut},
     };
-    use alloy_network::EthereumWallet;
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use bindings::{
@@ -233,7 +231,7 @@ mod tests {
         },
     };
     use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
-    use rpc::client::{Client, ClientWithWallet, ShastaProtocolInstance};
+    use rpc::client::{Client, ShastaProtocolInstance};
     use std::sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -489,14 +487,8 @@ mod tests {
     fn test_rpc_client(
         l1_transport: ManifestTestTransport,
         l2_transport: ManifestTestTransport,
-    ) -> ClientWithWallet {
-        let signer = PrivateKeySigner::from_bytes(&alloy::primitives::B256::from([1u8; 32]))
-            .expect("test private key should be valid");
-        let wallet = EthereumWallet::new(signer);
-
-        let l1_provider = ProviderBuilder::new()
-            .wallet(wallet)
-            .connect_client(RpcClient::new(l1_transport, true));
+    ) -> Client {
+        let l1_provider = ProviderBuilder::new().connect_client(RpcClient::new(l1_transport, true));
         let l2_provider =
             ProviderBuilder::default().connect_client(RpcClient::new(l2_transport, true));
         let l2_auth_provider = l2_provider.clone();

@@ -45,29 +45,23 @@ struct FinalizedSyncTarget {
 }
 
 /// Drives the L2 execution engine toward the proof-finalized block recorded on L1.
-pub struct BeaconSyncer<P>
-where
-    P: Provider + Clone,
-{
+pub struct BeaconSyncer {
     /// Interval between beacon sync retries.
     retry_interval: Duration,
     /// RPC client used for L1 inbox reads and local engine calls.
-    rpc: Client<P>,
+    rpc: Client,
     /// Optional untrusted provider used to fetch catch-up block bodies.
     checkpoint: Option<RootProvider>,
     /// Shared resume head consumed by event sync after this stage completes.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
 }
 
-impl<P> BeaconSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl BeaconSyncer {
     /// Construct a new beacon syncer from the provided configuration and RPC client.
     #[instrument(skip(config, rpc))]
     pub fn new(
         config: &DriverConfig,
-        rpc: Client<P>,
+        rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Self {
         let checkpoint =
@@ -211,10 +205,7 @@ fn resolve_checkpoint_poll_error(
 }
 
 #[async_trait::async_trait]
-impl<P> SyncStage for BeaconSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl SyncStage for BeaconSyncer {
     /// Run the beacon sync stage, steering the local execution engine toward the proof-finalized
     /// block recorded on L1 until the local canonical chain contains it.
     #[instrument(skip(self), name = "beacon_syncer_run")]

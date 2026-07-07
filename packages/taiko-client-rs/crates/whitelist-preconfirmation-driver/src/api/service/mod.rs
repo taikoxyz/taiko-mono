@@ -14,10 +14,7 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
-use rpc::{
-    beacon::BeaconClient,
-    client::{Client, DefaultProvider},
-};
+use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
 
@@ -91,9 +88,9 @@ fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
 /// Implements whitelist preconfirmation API business logic.
 pub(crate) struct WhitelistApiService {
     /// Event syncer for L1 origin lookups.
-    event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    event_syncer: Arc<EventSyncer>,
     /// RPC client for L1/L2 reads.
-    rpc: Client<DefaultProvider>,
+    rpc: Client,
     /// Chain ID for signature domain separation.
     chain_id: u64,
     /// Deterministic signer for block signing.
@@ -120,9 +117,9 @@ pub(crate) struct WhitelistApiService {
 /// Dependency bundle for constructing `WhitelistApiService`.
 pub(crate) struct WhitelistApiServiceParams {
     /// Shared event syncer used to read the current L1 origin.
-    pub(crate) event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    pub(crate) event_syncer: Arc<EventSyncer>,
     /// L1/L2 RPC client.
-    pub(crate) rpc: Client<DefaultProvider>,
+    pub(crate) rpc: Client,
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
     /// Signer used for block signing operations.

@@ -33,10 +33,7 @@ pub trait BlockHashReader: Send + Sync {
 }
 
 #[async_trait]
-impl<P> BlockHashReader for Client<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl BlockHashReader for Client {
     /// Fetch the parent hash for the given block number via RPC.
     async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError> {
         let block = self
@@ -127,23 +124,17 @@ where
 }
 
 /// `BlockProductionPath` implementation for canonical L1 proposal logs.
-pub struct CanonicalL1ProductionPath<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub struct CanonicalL1ProductionPath {
     /// Derivation pipeline used to decode L1 proposal logs.
-    derivation: Arc<ShastaDerivationPipeline<P>>,
+    derivation: Arc<ShastaDerivationPipeline>,
     /// Engine payload applier shared with the canonical path.
     applier: Arc<dyn PayloadApplier + Send + Sync>,
 }
 
-impl<P> CanonicalL1ProductionPath<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl CanonicalL1ProductionPath {
     /// Construct a new canonical path backed by the provided derivation pipeline.
     pub fn new(
-        derivation: Arc<ShastaDerivationPipeline<P>>,
+        derivation: Arc<ShastaDerivationPipeline>,
         applier: Arc<dyn PayloadApplier + Send + Sync>,
     ) -> Self {
         Self { derivation, applier }
@@ -151,10 +142,7 @@ where
 }
 
 #[async_trait]
-impl<P> BlockProductionPath for CanonicalL1ProductionPath<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl BlockProductionPath for CanonicalL1ProductionPath {
     /// Produce blocks by processing L1 proposal logs via the derivation pipeline.
     async fn produce(
         &self,

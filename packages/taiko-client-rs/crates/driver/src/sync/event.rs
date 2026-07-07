@@ -223,12 +223,9 @@ fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
-pub struct EventSyncer<P>
-where
-    P: Provider + Clone,
-{
+pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
-    rpc: Client<P>,
+    rpc: Client,
     /// Static driver configuration.
     cfg: DriverConfig,
     /// Beacon-sync checkpoint head shared by the sync pipeline.
@@ -279,13 +276,10 @@ pub struct PreconfJob {
 ///
 /// Materialization requires both the per-block L1 origin record and the execution header to match
 /// the payload attributes previously submitted to the engine.
-async fn preconfirmation_payload_is_materialized<P>(
-    rpc: &Client<P>,
+async fn preconfirmation_payload_is_materialized(
+    rpc: &Client,
     payload: &PreconfPayload,
-) -> Result<bool, DriverError>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+) -> Result<bool, DriverError> {
     let block_number = payload.block_number();
     let expected_payload = payload.payload();
     let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
@@ -337,14 +331,11 @@ where
     ))
 }
 
-impl<P> EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl EventSyncer {
     /// Build the production router with the enabled paths.
     fn build_router(
         &self,
-        derivation: Arc<ShastaDerivationPipeline<P>>,
+        derivation: Arc<ShastaDerivationPipeline>,
     ) -> Arc<AsyncMutex<ProductionRouter>> {
         let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
             CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
@@ -364,7 +355,7 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         mut rx: PreconfReceiver,
-        rpc: Client<P>,
+        rpc: Client,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
     ) {
@@ -706,7 +697,7 @@ where
 
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
-    pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
+    pub async fn new(cfg: &DriverConfig, rpc: Client) -> Result<Self, SyncError> {
         Self::new_with_checkpoint_resume_head(cfg, rpc, Arc::new(CheckpointResumeHead::default()))
             .await
     }
@@ -715,7 +706,7 @@ where
     #[instrument(skip(cfg, rpc, checkpoint_resume_head))]
     pub(crate) async fn new_with_checkpoint_resume_head(
         cfg: &DriverConfig,
-        rpc: Client<P>,
+        rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Result<Self, SyncError> {
         let blob_source = Arc::new(
@@ -1147,10 +1138,7 @@ where
     }
 }
 
-impl<P> EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl EventSyncer {
     /// Resolve the activation block number by converting the inbox activation timestamp through
     /// the beacon endpoint.
     async fn activation_block_number(&self) -> Result<u64, SyncError> {
@@ -1241,10 +1229,7 @@ fn decode_anchor_call(
 }
 
 #[async_trait::async_trait]
-impl<P> SyncStage for EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl SyncStage for EventSyncer {
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
@@ -1479,7 +1464,7 @@ mod tests {
         },
         transports::http::reqwest::Url,
     };
-    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_provider::ProviderBuilder;
     use alloy_rpc_types_engine::PayloadId;
     use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
@@ -1539,11 +1524,11 @@ mod tests {
         }
     }
 
-    fn mock_client() -> Client<RootProvider> {
+    fn mock_client() -> Client {
         mock_client_with_l1_asserter(Asserter::new())
     }
 
-    async fn build_syncer() -> EventSyncer<RootProvider> {
+    async fn build_syncer() -> EventSyncer {
         let client_config = ClientConfig {
             l1_provider_source: SubscriptionSource::Http(
                 Url::parse("http://localhost:8545").expect("valid http url"),
@@ -1741,16 +1726,12 @@ mod tests {
         }
     }
 
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client {
         mock_client_with_asserters(l1_asserter, Asserter::new())
     }
 
-    fn mock_client_with_asserters(
-        l1_asserter: Asserter,
-        l2_auth_asserter: Asserter,
-    ) -> Client<RootProvider> {
-        let l1_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+    fn mock_client_with_asserters(l1_asserter: Asserter, l2_auth_asserter: Asserter) -> Client {
+        let l1_provider = ProviderBuilder::new().connect_mocked_client(l1_asserter);
         let l2_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
             .connect_mocked_client(Asserter::new());
