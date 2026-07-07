@@ -111,14 +111,14 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start event syncer before submitting the proposal.
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -172,14 +172,14 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -258,14 +258,14 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    let mut driver_config = DriverConfig::new(
+    let driver_config = DriverConfig::new(
         env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
+        true,
     );
-    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {

@@ -2,7 +2,10 @@
 
 use std::{
     collections::HashMap,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -29,29 +32,28 @@ pub(crate) const L1_EPOCH_DURATION_SECS: u64 = 12 * 32;
 ///
 /// Holds everything both the importer (P2P ingestion) and the API service
 /// (REST build/status) need to observe: end-of-sequencing markers, the
-/// recently validated envelopes served to request topics, and the highest
-/// unsafe L2 payload block id.
+/// recently validated envelopes served to request topics, and the most
+/// recently observed L2 head reported by `/status`.
 #[derive(Debug, Clone)]
 pub(crate) struct SharedPreconfState {
     /// End-of-sequencing markers tracked per epoch.
     end_of_sequencing_by_epoch: Arc<Mutex<LinkedHashMap<u64, B256>>>,
     /// Recently validated envelopes retained for serving request-topic responses.
     recent_envelopes: Arc<Mutex<EnvelopeCache>>,
-    /// Highest unsafe L2 payload block id observed via P2P import or local build.
-    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    /// Most recent L2 execution head observed by `/status`, reported as a fallback when the
+    /// head becomes unreadable. Seeded with the head at startup.
+    last_reported_l2_head: Arc<AtomicU64>,
 }
 
 impl SharedPreconfState {
     /// Create shared state seeded with the current L2 head block number.
-    pub(crate) fn new(initial_highest_unsafe_l2_payload_block_id: u64) -> Self {
+    pub(crate) fn new(initial_l2_head: u64) -> Self {
         Self {
             end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())),
             recent_envelopes: Arc::new(Mutex::new(EnvelopeCache::with_capacity(
                 RECENT_ENVELOPE_CAPACITY,
             ))),
-            highest_unsafe_l2_payload_block_id: Arc::new(Mutex::new(
-                initial_highest_unsafe_l2_payload_block_id,
-            )),
+            last_reported_l2_head: Arc::new(AtomicU64::new(initial_l2_head)),
         }
     }
 
@@ -85,21 +87,21 @@ impl SharedPreconfState {
         self.recent_envelopes.lock().await.get(hash).cloned()
     }
 
-    /// Raise the highest unsafe block id to `block_number` when it is higher.
-    pub(crate) async fn raise_highest_unsafe(&self, block_number: u64) {
-        let mut guard = self.highest_unsafe_l2_payload_block_id.lock().await;
-        *guard = block_number.max(*guard);
-    }
-
-    /// Set the highest unsafe block id unconditionally (local builds may
-    /// legitimately lower it after an L1 reorg).
-    pub(crate) async fn set_highest_unsafe(&self, block_number: u64) {
-        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
-    }
-
-    /// Read the highest unsafe block id.
-    pub(crate) async fn highest_unsafe(&self) -> u64 {
-        *self.highest_unsafe_l2_payload_block_id.lock().await
+    /// Record a freshly observed L2 head and return it; when the head is `None` (a failed RPC
+    /// read) return the most recently recorded value instead.
+    ///
+    /// The Catalyst sync gate only opens when the reported value equals the execution head
+    /// exactly, and every canonical block is inserted by this driver, so the live head is
+    /// always the honest answer. The stored value exists purely to keep `/status` answering
+    /// through transient L2 RPC failures.
+    pub(crate) fn reconcile_reported_head(&self, head: Option<u64>) -> u64 {
+        match head {
+            Some(head) => {
+                self.last_reported_l2_head.store(head, Ordering::Relaxed);
+                head
+            }
+            None => self.last_reported_l2_head.load(Ordering::Relaxed),
+        }
     }
 }
 
@@ -344,7 +346,7 @@ mod tests {
         let state = SharedPreconfState::new(7);
         let hash = B256::from([0x77u8; 32]);
 
-        assert_eq!(state.highest_unsafe().await, 7);
+        assert_eq!(state.reconcile_reported_head(None), 7, "seed backs the fallback");
         assert!(state.get_recent(&hash).await.is_none());
 
         state.insert_recent(Arc::new(sample_envelope(hash, 8))).await;
@@ -353,19 +355,5 @@ mod tests {
         state.record_end_of_sequencing(42, hash).await;
         assert_eq!(state.end_of_sequencing_for_epoch(42).await, Some(hash));
         assert_eq!(state.end_of_sequencing_for_epoch(43).await, None);
-    }
-
-    #[tokio::test]
-    async fn shared_state_highest_unsafe_raise_and_set_semantics() {
-        let state = SharedPreconfState::new(10);
-
-        state.raise_highest_unsafe(5).await;
-        assert_eq!(state.highest_unsafe().await, 10, "raise must never lower the counter");
-
-        state.raise_highest_unsafe(12).await;
-        assert_eq!(state.highest_unsafe().await, 12);
-
-        state.set_highest_unsafe(3).await;
-        assert_eq!(state.highest_unsafe().await, 3, "set may lower after an L1 reorg rebuild");
     }
 }

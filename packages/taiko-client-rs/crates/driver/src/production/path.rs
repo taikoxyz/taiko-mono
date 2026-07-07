@@ -112,11 +112,11 @@ where
                     }
                 };
 
-                let applied =
+                let outcome =
                     self.applier.apply_payload(payload, parent_hash, None).await.map_err(
                         |err| DriverError::PreconfInjectionFailed { block_number, source: err },
                     )?;
-                Ok(vec![applied.outcome])
+                Ok(vec![outcome])
             }
             ProductionInput::L1ProposalLog(_) => Err(UnsupportedInputError.into()),
         }
@@ -165,7 +165,7 @@ mod tests {
     use super::*;
     use crate::{
         production::{PreconfPayload, ProductionRouter},
-        sync::{engine::AppliedPayload, error::EngineSubmissionError},
+        sync::error::EngineSubmissionError,
     };
     use alethia_reth_primitives::payload::attributes::{
         RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
@@ -174,7 +174,7 @@ mod tests {
     use alloy_consensus::TxEnvelope;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types::eth::Block as RpcBlock;
-    use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
+    use alloy_rpc_types_engine::PayloadId;
     use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
@@ -238,33 +238,12 @@ mod tests {
             _payload: &TaikoPayloadAttributes,
             _parent_hash: B256,
             _finalized_block_hash: Option<B256>,
-        ) -> Result<AppliedPayload, EngineSubmissionError> {
+        ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
             let mut guard = self.calls.lock().unwrap();
             *guard += 1;
             let block: RpcBlock<TxEnvelope> = RpcBlock::<TxEnvelope>::default();
             let payload_id = PayloadId::new([0u8; 8]);
-            Ok(AppliedPayload {
-                outcome: EngineBlockOutcome { block, payload_id },
-                payload: ExecutionPayloadInputV2 {
-                    execution_payload: ExecutionPayloadV1 {
-                        parent_hash: B256::ZERO,
-                        fee_recipient: Address::ZERO,
-                        state_root: B256::ZERO,
-                        receipts_root: B256::ZERO,
-                        logs_bloom: Default::default(),
-                        prev_randao: B256::ZERO,
-                        block_number: 0,
-                        gas_limit: 0,
-                        gas_used: 0,
-                        timestamp: 0,
-                        extra_data: Bytes::new(),
-                        base_fee_per_gas: U256::ZERO,
-                        block_hash: B256::ZERO,
-                        transactions: Vec::new(),
-                    },
-                    withdrawals: None,
-                },
-            })
+            Ok(EngineBlockOutcome { block, payload_id })
         }
     }
 

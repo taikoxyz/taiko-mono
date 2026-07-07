@@ -47,41 +47,33 @@ impl EngineBlockOutcome {
 /// Trait that converts derivation payload attributes into concrete execution engine blocks.
 #[async_trait]
 pub trait PayloadApplier {
-    /// Submit a single payload to the execution engine while internally managing forkchoice state.
+    /// Submit a single payload to the execution engine while internally managing forkchoice
+    /// state, returning the inserted-block outcome.
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
         parent_hash: B256,
         finalized_block_hash: Option<B256>,
-    ) -> Result<AppliedPayload, EngineSubmissionError>;
+    ) -> Result<EngineBlockOutcome, EngineSubmissionError>;
 }
 
 #[async_trait]
 impl PayloadApplier for Client {
-    /// Submit a single payload to the execution engine while internally managing forkchoice state.
+    /// Submit a single payload to the execution engine while internally managing forkchoice
+    /// state, returning the inserted-block outcome.
     #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(
         &self,
         payload: &TaikoPayloadAttributes,
         parent_hash: B256,
         finalized_block_hash: Option<B256>,
-    ) -> Result<AppliedPayload, EngineSubmissionError> {
+    ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
         let span = tracing::Span::current();
-        let applied =
+        let outcome =
             apply_payload_internal(self, payload, parent_hash, finalized_block_hash).await?;
-        span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
-        Ok(applied)
+        span.record("payload_id", format_args!("{}", outcome.payload_id));
+        Ok(outcome)
     }
-}
-
-/// Description of a payload inserted into the execution engine, including the constructed
-/// execution payload.
-#[derive(Debug, Clone)]
-pub struct AppliedPayload {
-    /// Outcome metadata describing the inserted block.
-    pub outcome: EngineBlockOutcome,
-    /// The execution payload returned by the engine when building the block.
-    pub payload: ExecutionPayloadInputV2,
 }
 
 /// Submit the provided payload attributes to the execution engine, building canonical L2
@@ -92,7 +84,7 @@ async fn apply_payload_internal(
     payload: &TaikoPayloadAttributes,
     parent_hash: B256,
     finalized_block_hash: Option<B256>,
-) -> Result<AppliedPayload, EngineSubmissionError> {
+) -> Result<EngineBlockOutcome, EngineSubmissionError> {
     // Advertise the next payload attributes so the execution engine can build the block body.
     let forkchoice_state = ForkchoiceState {
         head_block_hash: parent_hash,
@@ -144,7 +136,7 @@ async fn apply_payload_internal(
         "inserted l2 block via payload applier",
     );
 
-    Ok(AppliedPayload { outcome, payload: payload_input })
+    Ok(outcome)
 }
 
 /// Derive the Taiko-specific execution data sidecar from the provided execution payload.

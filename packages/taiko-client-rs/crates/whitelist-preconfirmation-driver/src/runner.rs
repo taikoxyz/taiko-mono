@@ -99,8 +99,8 @@ impl WhitelistPreconfirmationDriverRunner {
             "whitelist preconfirmation p2p subscriber started"
         );
 
-        // Seed the shared highest-unsafe counter with the current L2 head.
-        let initial_highest_unsafe_l2_payload_block_id = preconf_ingress_sync
+        // Seed the shared status-reporting fallback with the current L2 head.
+        let initial_l2_head = preconf_ingress_sync
             .client()
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
@@ -113,7 +113,7 @@ impl WhitelistPreconfirmationDriverRunner {
             })?
             .header
             .number;
-        let state = SharedPreconfState::new(initial_highest_unsafe_l2_payload_block_id);
+        let state = SharedPreconfState::new(initial_l2_head);
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.

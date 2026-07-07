@@ -81,25 +81,25 @@ impl WhitelistPreconfirmationImporter {
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
-        validate_execution_payload_for_preconf(
-            &envelope.execution_payload,
-            self.chain_id,
-            self.anchor_address,
-        )?;
-        validate_envelope_header_difficulty(
-            self.chain_id,
-            envelope.execution_payload.timestamp,
-            envelope.header_difficulty,
-        )?;
-        self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
-
-        Ok(())
+        self.validate_and_ingest(envelope, "payload").await
     }
 
     /// Handle an incoming unsafe response from the `responsePreconfBlocks` topic.
     pub(super) async fn handle_unsafe_response(
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
+    ) -> Result<()> {
+        self.validate_and_ingest(envelope, "response").await
+    }
+
+    /// Run payload-level validation and ingest the envelope, tagged with its ingress source.
+    ///
+    /// This is the single ordering site for the validation that runs before any preconfirmation
+    /// envelope is cached.
+    async fn validate_and_ingest(
+        &mut self,
+        envelope: WhitelistExecutionPayloadEnvelope,
+        ingress_source: &'static str,
     ) -> Result<()> {
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
@@ -111,8 +111,7 @@ impl WhitelistPreconfirmationImporter {
             envelope.execution_payload.timestamp,
             envelope.header_difficulty,
         )?;
-
-        self.ingest_validated_envelope(Arc::new(envelope), "response").await;
+        self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await;
 
         Ok(())
     }

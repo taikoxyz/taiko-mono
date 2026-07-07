@@ -6,7 +6,8 @@ use std::{
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
-    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for, reconcile_highest_unsafe},
+    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for},
+    cache::SharedPreconfState,
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
 };
@@ -81,28 +82,22 @@ fn shutdown_block_window_is_one_hundred_forty_four_seconds() {
 }
 
 #[test]
-fn reconcile_clamps_down_when_counter_exceeds_reth_head() {
-    // The L1-reorg wedge: counter stuck above reth's rewound head -> report the head.
-    assert_eq!(reconcile_highest_unsafe(5_811_227, Some(5_811_208)), 5_811_208);
+fn reported_head_prefers_live_head_and_records_it_as_fallback() {
+    let state = SharedPreconfState::new(5_811_208);
+    // The live head always wins — the Catalyst sync gate compares the reported value
+    // against the execution head exactly, and reporting anything else wedges it in a
+    // restart loop. This covers both the L1-reorg (head rewound) and the catch-up
+    // (head advanced via canonical derivation with no gossip) directions.
+    assert_eq!(state.reconcile_reported_head(Some(5_811_227)), 5_811_227);
+    assert_eq!(state.reconcile_reported_head(Some(5_811_190)), 5_811_190);
+    // A later failed read reports the most recently observed head, not the startup seed.
+    assert_eq!(state.reconcile_reported_head(None), 5_811_190);
 }
 
 #[test]
-fn reconcile_keeps_counter_when_equal_to_reth_head() {
-    // Healthy steady state.
-    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_208)), 5_811_208);
-}
-
-#[test]
-fn reconcile_reports_head_when_counter_below_reth_head() {
-    // The catch-up wedge: reth advanced via canonical L1 derivation while no gossip was
-    // flowing, so the counter was never raised. Catalyst's sync gate requires the
-    // reported value to equal the head exactly; a lagging report blocks preconfirmation
-    // (and triggers Catalyst self-restarts) until a driver restart re-seeds the counter.
-    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_227)), 5_811_227);
-}
-
-#[test]
-fn reconcile_keeps_counter_when_reth_head_unknown() {
-    // Best-effort: a failed reth head read leaves the counter untouched.
-    assert_eq!(reconcile_highest_unsafe(5_811_227, None), 5_811_227);
+fn reported_head_falls_back_to_seed_before_first_observation() {
+    // Best-effort: a failed head read before any successful observation reports the
+    // startup seed.
+    let state = SharedPreconfState::new(5_811_208);
+    assert_eq!(state.reconcile_reported_head(None), 5_811_208);
 }

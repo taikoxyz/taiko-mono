@@ -37,7 +37,7 @@ pub(crate) struct WhitelistPreconfirmationImporterParams {
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     pub(crate) state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     pub(crate) beacon_client: Arc<BeaconClient>,
@@ -56,7 +56,7 @@ pub(crate) struct WhitelistPreconfirmationImporter {
     rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     beacon_client: Arc<BeaconClient>,

@@ -8,7 +8,7 @@ use alloy::{
     rpc::types::Log,
     sol_types::{SolCall, SolEvent},
 };
-use alloy_consensus::{Transaction, TxEnvelope};
+use alloy_consensus::TxEnvelope;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
@@ -128,26 +128,9 @@ fn decode_parent_anchor_block_number(
     anchor_address: Address,
 ) -> Result<u64, DerivationError> {
     let block_number = parent_block.header.number;
-    let txs = parent_block.transactions.as_transactions().ok_or_else(|| {
-        DerivationError::Other(anyhow!(
-            "parent block {block_number} returned only transaction hashes"
-        ))
-    })?;
-    let first_tx = txs.first().ok_or_else(|| {
-        DerivationError::Other(anyhow!("parent block {block_number} contains no transactions"))
-    })?;
-    let destination = first_tx.to().ok_or_else(|| {
-        DerivationError::Other(anyhow!(
-            "unable to determine anchor transaction recipient for parent block {block_number}"
-        ))
-    })?;
-    if destination != anchor_address {
-        return Err(DerivationError::Other(anyhow!(
-            "parent block {block_number} first transaction is not the anchor contract"
-        )));
-    }
-
-    let input = first_tx.input();
+    let input = crate::anchor_tx::first_anchor_tx_input(parent_block, anchor_address).map_err(
+        |reason| DerivationError::Other(anyhow!("parent block {block_number}: {reason}")),
+    )?;
     if let Ok(call) = anchorV4Call::abi_decode(input) {
         return Ok(call.0.0.to::<u64>());
     }

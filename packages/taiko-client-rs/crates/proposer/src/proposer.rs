@@ -31,10 +31,7 @@ use protocol::shasta::{
     },
     encode_extra_data,
 };
-use rpc::{
-    RpcClientError,
-    client::{Client, ClientConfig},
-};
+use rpc::{RpcClientError, client::Client};
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
@@ -85,23 +82,16 @@ pub struct Proposer {
 
 impl Proposer {
     /// Creates a new proposer instance.
-    #[instrument(skip(cfg), fields(inbox_address = ?cfg.inbox_address))]
+    #[instrument(skip(cfg), fields(inbox_address = ?cfg.client.inbox_address))]
     pub async fn new(cfg: ProposerConfigs) -> Result<Self> {
         info!(
-            inbox_address = ?cfg.inbox_address,
+            inbox_address = ?cfg.client.inbox_address,
             l2_suggested_fee_recipient = ?cfg.l2_suggested_fee_recipient,
             propose_interval = ?cfg.propose_interval,
             "initializing proposer"
         );
 
-        let rpc_provider = Client::new(ClientConfig {
-            l1_provider_source: cfg.l1_provider_source.clone(),
-            l2_provider_url: cfg.l2_provider_url.clone(),
-            l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
-            jwt_secret: cfg.jwt_secret.clone(),
-            inbox_address: cfg.inbox_address,
-        })
-        .await?;
+        let rpc_provider = Client::new(cfg.client.clone()).await?;
 
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),

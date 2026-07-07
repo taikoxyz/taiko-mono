@@ -64,10 +64,9 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
 impl WhitelistPreconfirmationDriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_driver_config(&self) -> Result<DriverConfig> {
-        let mut cfg = build_driver_config(&self.common_flags, &self.driver_flags)?;
-        // Enable preconfirmation ingress so whitelist payload imports can reuse the driver queue.
-        cfg.preconfirmation_enabled = true;
-        Ok(cfg)
+        // Preconfirmation ingress is enabled so whitelist payload imports can reuse the
+        // driver queue.
+        build_driver_config(&self.common_flags, &self.driver_flags, true)
     }
 
     /// Build P2P configuration from command-line arguments.
