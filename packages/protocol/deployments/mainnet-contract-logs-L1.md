@@ -104,6 +104,7 @@
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
 - impl: `0xA4C5c20aB33C96B1c281Dca37D03E23609274C49`
 - owner: `controller.taiko.eth`
+- note: `resolver()` still points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -119,6 +120,7 @@
 - proxy: `0xaf145913EA4a56BE22E120ED9C24589659881702`
 - impl: `0x838ed469db456b67EB3b0B74D759Be4DA999b9c8`
 - owner: `controller.taiko.eth`
+- note: `resolver()` still points at the legacy shared_address_manager `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa` (SAM), superseded by shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`; the bridge and erc20_vault were migrated to it, these NFT vaults were not.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x7748dA086A2e6EDd8Db97eD236840910013c6396` to `0xd90b5fcf8d00d333d107E4Ab7F94c0c0A41CDcfE` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -147,34 +149,6 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
-## Rollup Specific
-
-#### automata_dcap_attestation
-
-- proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-- impl: `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5`
-- owner : `controller.taiko.eth`
-- logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit`b90b932` @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
-  - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit`cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
-  - Upgraded from `0xde1b1FBe7D721af4A56651272ef91A59B7303323` to `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5` @commit`3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
-  - Called `configureTcbInfoJson` @commit`3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
-  - Update mrenclave & mrsign on May 28, 2024 @commit`b335b70` @tx`0x6a240314c6a48f3ab58e0a3d5bf0e915668dac5eec19c694656eeb3d66c12465`
-  - Called `setMrEnclave` @commit`9d06958` @tx`0x0aa35e03c521f8e4b4d03662a6ecc6de5dd3e336f63e6ea00eff7b4184eae9be`
-  - Called `setMrEnclave` @commit`9a89166` @tx`0x6368890b9aa2f87c6a6b727efdd8af0ea357a11460b546d8a7f3e19e38a34e41`
-
-### token_unlock
-
-- impl: `0x5c475bB14727833394b0704266f14157678A72b6`
-- logs:
-  - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
-  - deployed @commit`3d89d24` @tx`0x28fdfb26c1409e420fe9ecce22063fa70efdbe56359aeacf9f65e68db8b8d34a`
-  - deployed @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19457/files) @tx`0xfa94bc59c0bc52131a418598780c4e289a13407143a7bdf54c871b5cec35d0b0`
-
-## Pacaya Contracts
-
 #### shared_resolver
 
 - proxy: `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`
@@ -200,37 +174,39 @@
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
   - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
-### preconf_whitelist
+## Rollup Specific
 
-- proxy : `0xFD019460881e6EeC632258222393d5821029b2ac`
-- impl : `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149`
+#### automata_dcap_attestation
+
+- proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
+- impl: `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5`
 - owner : `controller.taiko.eth`
-- enabled operators:
-  - taiko proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`(sequencer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`)
-  - gattaca proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`(sequencer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`)
-  - nethermind proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d`(sequencer `0x2ABD9afD6D41d0c37b8d55df11BFc73B53c3ac61`)
-  - chainbound proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7`(sequencer `0x000cb000E880A92a8f383D69dA2142a969B93DE7`)
-- ejectors:
-  - `0x45D4403351Bc34283CE6450D91c099f40D06dA4e`
-  - `0x0F026a3efE44E0Fe34B87375EFe69b16c05D0438`
 - logs:
-  - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x797256dc575734f2af55c2c2138aaf72aaed91e0909b6cd03d637b54b0c99bba`
-  - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
-  - added proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
-  - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
-  - added proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74` @tx`0xb714b8a82f04f73f9c0581fe59fd1887abf3e3cd51e71ff5d5ba4bd13ac77e70`
-  - added proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d` @tx`0x8e5968f459f817b986153d607fd44c279b613447557d51be390331135bccfafd`
-  - removed proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xa11e6650c33072f4229773e6cbaac404ad66595485c3aed747a47de00d5dfc28`
-  - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0x2c03bd01a944dc1ecfc254946a62c8f652df5730facc79f965742acd7319b4c4`
-  - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`3c66b0f8d` (Proposal0009)
+  - deployed on May 1, 2024 @commit`56dddf2b6`
+  - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
+  - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit`b90b932` @tx`0x2d6ce1781137899f65c1810e42f556c27caa4e9bd13077ba5bc7a9a0975eefcb`
+  - Called `configureTcbInfoJson` and `configureQeIdentityJson` @commit`cd5144255` @tx`0x8030569e293baddbc4e8b26688a1ecf14a231d86c90e9d02dad1e919ea2f3964`
+  - Upgraded from `0xde1b1FBe7D721af4A56651272ef91A59B7303323` to `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5` @commit`3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
+  - Called `configureTcbInfoJson` @commit`3740dc0` @tx`0x46a6d47c15505a1259c64d1e09353680e525b2706dd9e095e15019dda7c1b295`
+  - Update mrenclave & mrsign on May 28, 2024 @commit`b335b70` @tx`0x6a240314c6a48f3ab58e0a3d5bf0e915668dac5eec19c694656eeb3d66c12465`
+  - Called `setMrEnclave` @commit`9d06958` @tx`0x0aa35e03c521f8e4b4d03662a6ecc6de5dd3e336f63e6ea00eff7b4184eae9be`
+  - Called `setMrEnclave` @commit`9a89166` @tx`0x6368890b9aa2f87c6a6b727efdd8af0ea357a11460b546d8a7f3e19e38a34e41`
 
-### sgx_geth_automata
+#### sgx_geth_automata
 
 - proxy : `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261`
 - impl : `0x5e46443bd131eB6d4c6Fb4849bAD29af9596dd72`
 - owner : `controller.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x7486b942c054eb6641ea701f0835d23fa606accad0e96051791da26c56a10771`
+
+### token_unlock
+
+- impl: `0x5c475bB14727833394b0704266f14157678A72b6`
+- logs:
+  - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
+  - deployed @commit`3d89d24` @tx`0x28fdfb26c1409e420fe9ecce22063fa70efdbe56359aeacf9f65e68db8b8d34a`
+  - deployed @PR[19457](https://github.com/taikoxyz/taiko-mono/pull/19457/files) @tx`0xfa94bc59c0bc52131a418598780c4e289a13407143a7bdf54c871b5cec35d0b0`
 
 ## Shasta Contracts
 
@@ -268,6 +244,30 @@
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x18e0a43926b02144951bc6f0c233667f9f40651a3b86e9b575c09768f9670d13`
   - upgraded to `0x71808449A6217898d602c1a392D95b931Ac5d878` on Jun 27, 2026 @commit`462920aae` @tx`0x6f26b1ee9c0965df9dc4ec14bd5721fa6f2041e17e18bd87f7a7d04eebc0dcd9` (Proposal0017)
+
+### preconf_whitelist
+
+- proxy : `0xFD019460881e6EeC632258222393d5821029b2ac`
+- impl : `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149`
+- owner : `controller.taiko.eth`
+- enabled operators:
+  - taiko proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`(sequencer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`)
+  - gattaca proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`(sequencer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`)
+  - nethermind proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d`(sequencer `0x2ABD9afD6D41d0c37b8d55df11BFc73B53c3ac61`)
+  - chainbound proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7`(sequencer `0x000cb000E880A92a8f383D69dA2142a969B93DE7`)
+- ejectors:
+  - `0x45D4403351Bc34283CE6450D91c099f40D06dA4e`
+  - `0x0F026a3efE44E0Fe34B87375EFe69b16c05D0438`
+- logs:
+  - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x797256dc575734f2af55c2c2138aaf72aaed91e0909b6cd03d637b54b0c99bba`
+  - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - added proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - added proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74` @tx`0xb714b8a82f04f73f9c0581fe59fd1887abf3e3cd51e71ff5d5ba4bd13ac77e70`
+  - added proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d` @tx`0x8e5968f459f817b986153d607fd44c279b613447557d51be390331135bccfafd`
+  - removed proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xa11e6650c33072f4229773e6cbaac404ad66595485c3aed747a47de00d5dfc28`
+  - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0x2c03bd01a944dc1ecfc254946a62c8f652df5730facc79f965742acd7319b4c4`
+  - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`3c66b0f8d` (Proposal0009)
 
 ### preconf_whitelist_impl
 
