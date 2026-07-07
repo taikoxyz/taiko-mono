@@ -116,9 +116,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
-        // Taiko-owned Automata DCAP attestation entrypoint for the SGX verifiers. Deploy it first
-        // with DeployAutomataDcapAttestation (under FOUNDRY_PROFILE=layer1o) and pass its address
-        // here. Optional for dummy-verifier deployments, which don't exercise real attestation.
+        // Taiko-owned Automata DCAP attestation entrypoint for the SGX verifiers. Deploy one from
+        // the layer1o artifacts (see DeployUnzenContracts._deployAttestation; `pnpm compile:l1o`
+        // first) and pass its address here. Optional for dummy-verifier deployments, which don't
+        // exercise real attestation.
         config.automataDcap = vm.envOr("DCAP_ATTESTATION", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
@@ -138,8 +139,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.op = address(new OpVerifier());
         console2.log("OpVerifier deployed:", verifiers.op);
 
-        // Taiko-owned Automata DCAP attestation entrypoint (deployed separately by
-        // DeployAutomataDcapAttestation), shared by both SGX verifier instances; each SgxVerifier
+        // Taiko-owned Automata DCAP attestation entrypoint (deployed separately from the layer1o
+        // artifacts), shared by both SGX verifier instances; each SgxVerifier
         // enforces its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment). Required for
         // real deployments; dummy deployments don't exercise real attestation.
         address automataDcap = config.automataDcap;

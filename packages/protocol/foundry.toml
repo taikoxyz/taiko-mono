@@ -109,10 +109,11 @@ script = "script/layer1"
 out = "out/layer1"
 cache_path = "cache/layer1"
 # The Automata DCAP verifier (X.509/ASN.1 parsing in QuoteVerifierBase) needs the IR pipeline to
-# compile, but via_ir alters codegen in a way that breaks unrelated Shasta tests. So the standard
-# L1 build/test stays non-IR here, and the only file that pulls in the Automata verifier
-# (DeployAutomataDcapAttestation) is skipped. Deploy it under profile.layer1o, which enables via_ir.
-skip = ["*DeployAutomataDcapAttestation.s.sol"]
+# compile, but via_ir alters codegen in a way that breaks unrelated Shasta tests, so the standard
+# L1 build/test stays non-IR here. Deploy scripts consume the pre-built out/layer1o artifacts
+# via vm.getCode (run `pnpm compile:l1o` first — see DeployUnzenContracts); the only file that
+# imports the Automata sources is the layer1o compilation anchor, skipped here.
+skip = ["*AutomataArtifacts.sol"]
 
 [profile.layer1o]
 src = "contracts/layer1"
@@ -122,8 +123,9 @@ script = "script/layer1"
 # (mixing them makes the Shasta suite fail under the IR codegen).
 out = "out/layer1o"
 cache_path = "cache/layer1o"
-# via_ir is required to compile the Automata DCAP verifier. Use this profile to run
-# DeployAutomataDcapAttestation (and any other IR-only L1 build); the standard suite uses layer1.
+# via_ir is required to compile the upstream Automata DCAP contracts. This profile exists to
+# build their artifacts (consumed from out/layer1o by deploy scripts); the standard suite uses
+# layer1.
 via_ir = true
 
 [profile.layer2]
