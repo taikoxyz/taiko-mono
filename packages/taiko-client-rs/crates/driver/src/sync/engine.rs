@@ -388,8 +388,8 @@ mod tests {
             Err(EngineSubmissionError::InvalidBlock(7, msg)) if msg.contains("bad state root")
         ));
 
-        // FINDING (Task 3.1): `Accepted` currently maps to `Ok(())` at
-        // engine.rs:215 (`Valid | Accepted => Ok(())`). Per the Engine API,
+        // FINDING (Task 3.1): `Accepted` currently maps to `Ok(())` in the
+        // `Valid | Accepted => Ok(())` arm of `ensure_valid_payload_status`. Per the Engine API,
         // `Accepted` means the payload was NOT executed — it was only accepted
         // as a possible future side chain (the engine is syncing and could not
         // fully validate it). Treating it as a confirmed injection lets the
