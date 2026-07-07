@@ -285,8 +285,9 @@ fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVa
 /// blocks until the nextest hang-backstop terminates the test (~600s). This is a harness
 /// limitation (anvil evm_revert + nonce state), not a driver defect: the driver's actual
 /// reorg-reset logic is covered deterministically by the
-/// `reset_head_l1_origin_after_reorg_writes_canonical_tip` unit test (crates/driver/src/
-/// sync/event_tests.rs), which asserts the exact lowered value. This integration test is
+/// `reset_head_l1_origin_after_reorg_lowers_head_to_latest_canonical_batch_tip` unit test
+/// (crates/driver/src/sync/event.rs), which asserts the exact lowered value. This integration
+/// test is
 /// therefore `#[ignore]`d (kept, not deleted) pending a harness fix that resets the
 /// proposer nonce after a revert (or bounds `submit_proposal`'s receipt wait). Run it
 /// explicitly with `--ignored` to investigate.
@@ -294,7 +295,7 @@ fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVa
 #[serial]
 #[ignore = "harness: anvil evm_revert leaves the proposer nonce stale so the re-proposal's \
             unbounded get_receipt hangs; reorg-reset logic is covered by the \
-            reset_head_l1_origin_after_reorg_writes_canonical_tip unit test"]
+            reset_head_l1_origin_after_reorg_lowers_head_to_latest_canonical_batch_tip unit test"]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) -> Result<()> {
     // Generous-but-bounded windows. Reorg observation is bounded independently at 60s
