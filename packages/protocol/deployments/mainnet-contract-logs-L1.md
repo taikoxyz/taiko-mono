@@ -561,7 +561,7 @@
 - impl : `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xff70e373b4ff4f0f4a5fdd7b1709d6d3be74ea21426fa05e315d90adb81637a8`
-  - not referenced by the active MainnetVerifier `0x71808449…` as of Proposal0017 (recovery verifier set: SGX-reth + SGX-geth + SP1-reth); retained as historical deployment record
+  - reused (unchanged) by the Proposal0017 recovery MainnetVerifier `0x71808449…` — its `risc0RethVerifier()` returns this address. The active recovery verifier set is SGX-geth + SGX-reth + SP1 + RISC0.
 
 ### sp1_verifier
 
