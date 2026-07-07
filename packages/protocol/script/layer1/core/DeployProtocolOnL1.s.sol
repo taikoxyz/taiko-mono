@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
@@ -158,6 +158,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
         // instance before it can prove (owner `addInstances` registrations are not delayed); it
         // applies to SecureSgxVerifier only.
+        // NOTE: with registrar == address(0) the quote-freshness gate is enforced (permissionless
+        // registration fails closed): `registerInstance` reverts with SGX_STALE_QUOTE unless the
+        // prover embeds the recent-block commitment in reportData and the registration lands within
+        // the 256-block window. Deploy with a non-zero registrar (or use owner `addInstances`) if
+        // the prover does not embed the commitment yet.
         verifiers.sgx = config.useInsecureSgxPolicy
             ? address(
                 new InsecureSgxVerifier(
