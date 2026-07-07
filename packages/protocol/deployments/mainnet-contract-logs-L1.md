@@ -60,7 +60,7 @@
 
 - ens: `signals.based.taiko.eth`
 - proxy: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
-- impl: `0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c`
+- impl: `0x1A06832992785766a105838C95c1E13a0045AC85`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -73,12 +73,13 @@
   - Upgraded from `0x45fed11Ba70D4217545F18E27DDAF7D76Ff499f3` to `0x0783Ee019C9b0f918A741469bD488A88827b3617` @commit`cf55838` @tx`0x97789b6668d0a287b1f57bb6c8e23cce62308fb887139faeb0f06b77855995fd`
   - Upgraded from `0x0783Ee019C9b0f918A741469bD488A88827b3617` to `0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c` @commit`cf55838` @tx`0x0ae99d24b294622e3d3868c8dca911a5936231ce1f97254ec0c6a6f65f7aa81c`
   - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
+  - upgraded to `0x1A06832992785766a105838C95c1E13a0045AC85` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
 
 #### bridge
 
 - ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
-- impl: `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F`
+- impl: `0x1c94D798CFA08F396E5BA9F81697289c53273381`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -96,6 +97,7 @@
   - Upgrade impl to `0xAc96FF285158bceBB8573D20d853e86BB2915aF3` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - Upgrade impl to `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
+  - upgraded to `0x1c94D798CFA08F396E5BA9F81697289c53273381` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
 
 #### quota_manager
 
@@ -119,7 +121,7 @@
 
 - ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
-- impl: `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63`
+- impl: `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c`
 - owner: `controller.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -130,6 +132,7 @@
   - upgraded from `0xa303784B0557BF1F1FB8b8abEF2B18a005722689` to `0x7ACFBb369a552C45d402448A4d64b9da54C3FF30` @commit`bb2abc5` @tx`0xee632b50626beb2f7db84c9c7f303f29366f86dfaccd24ddd831ceac714c20e5`
   - upgraded from `0x7ACFBb369a552C45d402448A4d64b9da54C3FF30` to `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
+  - upgraded to `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
 
 #### erc721_vault
 
@@ -228,41 +231,6 @@
   - upgraded from `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` to `0x0079a79E5d8DDA67029051d505E5A11DE279B36D` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
   - register `prover_set` to `0x280eAbfd252f017B78e15b69580F249F45FB55Fa` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
   - remove `chain_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
-
-#### Inbox
-
-- ens: `inbox_based.taiko.eth`
-- proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xB0600e011e02eD35A142B45B506B16A35493c3F5`
-- owner : `controller.taiko.eth`
-- logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x99Ba70E62cab0cB983e66F72330fBDDC11d85501` to `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - `Init2()` called and reset block hash to `0411D9F84A525864E0A7E8BB51667D49C6BF73820AF9E4BC76EA66ADB6BE8903` @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
-  - Upgraded from `0x9fBBedBBcBb753E7214BE08381efE10d89D712fE` to `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` on May 21 @commit`c817e76d9` @tx`0xaed098ad0c93113e401f61358f963501f40a046c5b5b659a1610f10120a9a86b`
-  - `resetGenesisHash()` called to reset genesis block hash to `0x90bc60466882de9637e269e87abab53c9108cf9113188bc4f80bcfcb10e489b9` on May 22 @tx`0x5a60c5815947a199cc84e1bc75539e01a202597b20c1f87bd9d02f8be6453abd`
-  - Upgraded from `0xe0A5D394878723CEAEC8B993e04756DF1f4B44eF` to `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` on May 27 @commit`06f97d6` @tx`0x187cc99e9bcf2a94f723cf52d85b74b79bdb3872681e2a3808cadbbc3ba301e2`
-  - Upgraded from `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` to `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on May 28 @commit`b335b70` @tx`0xa603b6d55457e64e18ddae684bfd14948452cdd7b927dd22bf0b83045e8fd028`
-  - Upgrade to `0xE84DC8E2a21e59426542Ab040D77f81d6dB881eE` @commit`3ae25fd` @tx`0x2c455ae888a23c232bb5c7603657eda010ffadc602a74e626332bc06eaaa3b78`
-  - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
-  - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
-  - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
-  - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
-  - Upgrade to `0xcEe590fACd976B9BDE87BC1B7620B284c5edD2C3` @commit`2dd30ab` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
-  - Upgrade to `0xBA1d90BCfA74163bFE09e8eF609b346507D83231` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
-  - Upgrade to `0xf0E6d34937701622cA887a75c150cC23d4FFDf2F` @commit`b4f8547` @tx`0x8778064404816273804d74c97b051f3865bc03062cfa4b0e9567f4556ad31981`
-  - Upgrade to `0x4229d14F520848aa83760Cf748abEB8A69cdaB2d` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
-  - Upgrade to `0xA3E75eDA1Be2114816f388A5cF53EbA142DCDB17` @commit`ea0158f` @tx`0x78ca7c7d9c7e5aa9c5e6ab80e0229289a8d3bc8df2c2b9ba6baa74a0f60a0703`
-  - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
-  - Upgrade to `0xb74A66b6CF50AD63E29669F0BDE4354E11758162` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
-  - Upgrade to `0xd4896d4537c6425aC5d89B9f122d4E4ac4D65e1c` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `7394458` @tx`0x9c2f36af40c0004110041fc45d980b73b0c8dde8064713a55aeb6f69fca77a99`
-  - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
-  - Upgrade to `0x2784423f7c61Bc7B75dB6CdA26959946f437588D` @commit`9d2aac8` @tx`0xc0e8ec30d1479ca2414d4d28a09a543c2845247d80387f78c179d663ffe55c3c`
-  - Upgrade to `0x5110634593Ccb8072d161A7d260A409A7E74D7Ca` @commit`9a89166` @tx`0x6368890b9aa2f87c6a6b727efdd8af0ea357a11460b546d8a7f3e19e38a34e41`
-  - Upgrade to `0x4e030b19135869F6fd926614754B7F9c184E2B83` @commit`cf55838` @tx`0x78f766ae83ce94ef2293c9c7d81ae514e8fa0a79fbce1530c3c68d7624708795`
-  - Upgrade to `0xde813DD3b89702E5Eb186FeE6FBC5dCf02aE6319` @commit`3328024` @tx`0xffedb70a513e71486c3a47079508d3ba87ae5362e7efb3300febac1be69276bc`
-  - Upgrade to `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F` @commit`c2a941e` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
-  - Upgrade to `0xB0600e011e02eD35A142B45B506B16A35493c3F5` @commit` @tx`
 
 #### tier_router
 
@@ -463,16 +431,17 @@
 ### taiko_wrapper
 
 - proxy : `0x9F9D2fC7abe74C79f86F0D1212107692430eef72`
-- impl : `0xa2D216dD9c84cb2e738240aac0956BE98293be61`
+- impl : `0x52d6fc6f6db9e370c336f64f61ff3c29568d1859`
 - owner : `controller.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
   - upgraded to `0xa2D216dD9c84cb2e738240aac0956BE98293be61` @commit`31094a6` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
+  - upgraded to `0x52d6fc6f6db9e370c336f64f61ff3c29568d1859` on Aug 27, 2025 @commit`(to confirm)` @tx`(to confirm)`
 
 ### preconf_whitelist
 
 - proxy : `0xFD019460881e6EeC632258222393d5821029b2ac`
-- impl : `0x44eC275996BD69361EF062ed488882a58256CF11`
+- impl : `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149`
 - owner : `controller.taiko.eth`
 - enabled operators:
   - taiko proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`(sequencer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`)
@@ -491,15 +460,17 @@
   - added proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d` @tx`0x8e5968f459f817b986153d607fd44c279b613447557d51be390331135bccfafd`
   - removed proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xa11e6650c33072f4229773e6cbaac404ad66595485c3aed747a47de00d5dfc28`
   - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0x2c03bd01a944dc1ecfc254946a62c8f652df5730facc79f965742acd7319b4c4`
+  - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`(to confirm)` @tx`(to confirm)` (Proposal0009)
 
 ### preconf_router
 
 - proxy : `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a`
-- impl : `0xf571E2626E2CE68127852123A2cC6AA522C586A0`
+- impl : `0xafCEDDe020dB8D431Fa86dF6B14C20f327382709`
 - owner : `controller.taiko.eth`
 - logs:
   - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x5a309fa38d79de894c96e5082356b0e52e9653726b1400b1d8d72e181b50d5d8`
   - upgraded to `0xf571E2626E2CE68127852123A2cC6AA522C586A0` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - upgraded to `0xafCEDDe020dB8D431Fa86dF6B14C20f327382709` on Dec 4, 2025 @commit`(to confirm)` @tx`(to confirm)` (Proposal0004)
 
 ### proof_verifier
 
@@ -526,7 +497,7 @@
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
   - upgraded on Jun 11, 2025 at commit `9dfb5b9` @tx `0x2b9250ebdcf10b1a1ec658e5cc9e7fd9aa19dd32573e6ab5bc036499682dea3a`
   - upgraded on Jul 21, 2025 at commit `92ad14e` @tx `0x95d0cfffe42dc984ce8b24104a28d1083100ab638bb4fe396d1a145c17460db9`
-  - upgraded on Sep 30, 2025 at commit `c459c0d` @tx `` //TODO(@yue): fill the tx hash
+  - upgraded on Sep 30, 2025 at commit `c459c0d` @tx `(to confirm)`
 
 ### sp1_reth_verifier(Pacaya)
 
@@ -557,33 +528,38 @@
 
 ### sgx_verifier_reth
 
-- impl : `0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6`
+- impl : `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x5f76012a42f150330fd01824ce6b6c55f9695b2fb2dd3a25f6b9a1a82e90d437`
+  - upgraded to `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` on Jun 25, 2026 @commit`b73608696` @tx`0xbf692bdeb84725573c8d2fc6589e6db53db7477403900c7c24f559d769d5c6b1` (Proposal0017)
 
 ### sgx_verifier_geth
 
-- impl : `0x08568Df252ecf37D6C3eFD24f6ca3688118697F1`
+- impl : `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8e1982ca9273a77d9d39fedf0c17620f28469da9b79a1e6df0bd002f8a25a5fd`
+  - upgraded to `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` on Jun 25, 2026 @commit`b73608696` @tx`0xfa680d3a56248a3e3802f7f1f93b63c55a19ed1330281e5c6143738c849ef31c` (Proposal0017)
 
 ### risc0_verifier
 
 - impl : `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xff70e373b4ff4f0f4a5fdd7b1709d6d3be74ea21426fa05e315d90adb81637a8`
+  - not referenced by the active MainnetVerifier `0x71808449…` as of Proposal0017 (recovery verifier set: SGX-reth + SGX-geth + SP1-reth); retained as historical deployment record
 
 ### sp1_verifier
 
-- impl : `0x96337327648dcFA22b014009cf10A2D5E2F305f6`
+- impl : `0x73A0Db393ef87ce781ac7957bE10D6628432100F`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xe29fb424175bfe33dc401026026bc40e03dc0ee38d833edb33b698f55c89bacb`
+  - upgraded to `0x73A0Db393ef87ce781ac7957bE10D6628432100F` on Jun 27, 2026 @commit`462920aae` @tx`(to confirm)` (Proposal0017)
 
 ### mainnet_verifier
 
-- impl : `0x9cAa4948381590900FCdd8a4F06EB24138eD665d`
+- impl : `0x71808449A6217898d602c1a392D95b931Ac5d878`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x18e0a43926b02144951bc6f0c233667f9f40651a3b86e9b575c09768f9670d13`
+  - upgraded to `0x71808449A6217898d602c1a392D95b931Ac5d878` on Jun 27, 2026 @commit`462920aae` @tx`(to confirm)` (Proposal0017)
 
 ### preconf_whitelist_impl
 
@@ -602,10 +578,11 @@
 ### inbox
 
 - proxy : `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
-- impl : `0x0680c84378FA6A7D2F46ADa5A70637Fa2A938d42`
+- impl : `0x64523f2580f4E7038a121D55b220a9C12C1E8f01`
 - logs:
   - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8a7c1e426b8fb8d7c00c7ffd9d1c41e3ce907f57f696f18fe3718abcd234a6de`
   - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
+  - upgraded to `0x64523f2580f4E7038a121D55b220a9C12C1E8f01` on Jun 29, 2026 @commit`462920aae` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
 
 ### signal_service_impl
 
@@ -618,12 +595,6 @@
 - impl : `0x6a4B15E4b0296B2ECE03Ee9Ed74E4A3E3ECA68D6`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbb697a35b8607c49887a310f3fa6ce2c2018b595c71360c6a484a5cf4589bc38`
-
-### pacaya_inbox_new_impl
-
-- impl : `0x38Dd73fed93F8051E7A0dDd6FB3b9E7C25668187`
-- logs:
-  - deployed on Mar 4, 2026 @commit `3c66b0f8d`
 
 ## Taiko DAO Specific
 
