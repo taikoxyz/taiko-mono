@@ -200,24 +200,6 @@
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x0a48a276897935e7406b4cc8f17a9b1480c56cb866d6504fd28184ac8e79e8a0`
   - remove `bridge_watchdog` on May 16, 2025 @tx`0x48961d6d5c2a3301f6d6b5e0a78f1ddee396bf55b3b654a5067d0768d61f978b`
 
-### forced_inclusion_store
-
-- proxy : `0x05d88855361808fA1d7fc28084Ef3fCa191c4e03`
-- impl : `0xcdb25e201Ad3fdcFe16730A6CA2cC0B1Ce2137a2`
-- owner : `controller.taiko.eth`
-- logs:
-  - deployed on May 15, 2025 @commit `cf55838` @tx `0x042beff750bfb1b1167a5acc32f68c4565a6e698c162ecff445eaac9fca66fdf`
-
-### taiko_wrapper
-
-- proxy : `0x9F9D2fC7abe74C79f86F0D1212107692430eef72`
-- impl : `0x52d6fc6f6db9e370c336f64f61ff3c29568d1859`
-- owner : `controller.taiko.eth`
-- logs:
-  - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
-  - upgraded to `0xa2D216dD9c84cb2e738240aac0956BE98293be61` @commit`31094a6` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
-  - upgraded to `0x52d6fc6f6db9e370c336f64f61ff3c29568d1859` on Aug 27, 2025 @commit`(to confirm)` @tx`(to confirm)`
-
 ### preconf_whitelist
 
 - proxy : `0xFD019460881e6EeC632258222393d5821029b2ac`
@@ -241,16 +223,6 @@
   - removed proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xa11e6650c33072f4229773e6cbaac404ad66595485c3aed747a47de00d5dfc28`
   - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0x2c03bd01a944dc1ecfc254946a62c8f652df5730facc79f965742acd7319b4c4`
   - upgraded to `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149` on Mar 31, 2026 @commit`(to confirm)` @tx`(to confirm)` (Proposal0009)
-
-### preconf_router
-
-- proxy : `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a`
-- impl : `0xafCEDDe020dB8D431Fa86dF6B14C20f327382709`
-- owner : `controller.taiko.eth`
-- logs:
-  - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x5a309fa38d79de894c96e5082356b0e52e9653726b1400b1d8d72e181b50d5d8`
-  - upgraded to `0xf571E2626E2CE68127852123A2cC6AA522C586A0` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
-  - upgraded to `0xafCEDDe020dB8D431Fa86dF6B14C20f327382709` on Dec 4, 2025 @commit`(to confirm)` @tx`(to confirm)` (Proposal0004)
 
 ### sgx_geth_automata
 

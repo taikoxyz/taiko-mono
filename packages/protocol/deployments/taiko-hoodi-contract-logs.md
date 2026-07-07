@@ -91,15 +91,6 @@
   - deployed on Feb 2, 2026 at commit `392bfa0`
   - upgraded on Feb 4, 2026 at commit `a01f51c`
 
-### forced_inclusion_store
-
-- proxy : `0xA7F175Aff7C62854d0A0498a0da17b66A9D452D0`
-- impl : `0x1d4b338687BD4C20c0a8f24a7C4C3d61903545F8`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded to `0x1d4b338687BD4C20c0a8f24a7C4C3d61903545F8` on Oct 20, 2025 @tx`0x8a739362535eae5b0011567830605cadab688111d4570da5314023d08ce8ede0` @commit`(to confirm)`
-
 ### preconf_whitelist
 
 - proxy : `0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba`
@@ -123,24 +114,6 @@
   - taiko prover `0x7B399987D24FC5951f3E94A4cb16E87414bF2229`
 - logs:
   - deployed on Feb 2, 2026 at commit `392bfa0`
-
-### preconf_router
-
-- proxy : `0xCD15bdEc91BbD45E56D81b4b76d4f97f5a84e555`
-- impl : `0x8ab91D91c80e923280D866c447a7B993b017A8B2`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded on Oct 20, 2025 at commit `7217552`
-
-### taiko_wrapper
-
-- proxy : `0xB843132A26C13D751470a6bAf5F926EbF5d0E4b8`
-- impl : `0xE24C96e026e0ef3c48bdaD11F02097aE9925246b`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Oct 20, 2025 at commit `2dfbeca`
-  - upgraded to `0xE24C96e026e0ef3c48bdaD11F02097aE9925246b` on Oct 20, 2025 @tx`0x9452f77f540556ba5f86a320f538d49a057a38aab12c0d02546d791006bcec5e` @commit`(to confirm)`
 
 ### mainnet_verifier
 
