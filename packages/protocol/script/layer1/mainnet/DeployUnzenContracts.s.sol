@@ -100,6 +100,7 @@ contract DeployUnzenContracts is Script {
             )
         );
 
+        // New mainnet verifier
         deployment_.zkRequiredVerifier = address(
             new ZkRequiredVerifier(
                 deployment_.sgxGethVerifier,
