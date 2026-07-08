@@ -311,7 +311,9 @@ export default function TokenInput({
       });
       tokenBalance.setState(newBalance);
     } else {
-      console.error("No account connected or token selected");
+      // Normal pre-connect / no-token state — not an error (was console.error,
+      // which polluted the console and dinged Lighthouse best-practices).
+      log("no account connected or token selected; skipping balance refresh");
     }
   };
 
@@ -351,7 +353,13 @@ export default function TokenInput({
               error={invalidInput}
               value={value}
               onValueChange={setValue}
-              onInput={() => handleAmountInputChange(value)}
+              // Read the value off the EVENT, not the render-scope `value`
+              // state: setValue only schedules a re-render, so the closure's
+              // `value` still holds the previous keystroke (Svelte's
+              // bind:value updated it synchronously before on:input ran).
+              onInput={(event) =>
+                handleAmountInputChange(event.currentTarget.value)
+              }
               className={`min-h-[64px] pl-[15px] w-full border-0 h-full !rounded-r-none z-20  ${className ?? ""}`}
             />
 

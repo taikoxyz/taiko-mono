@@ -6,7 +6,7 @@
 // same imperative `get(tokenInfoStore)` / `setTokenInfo()` API keeps working from
 // outside React. The public surface (tokenInfoStore, setTokenInfo,
 // isCanonicalAddress, isBridgedAddress, TokenInfo, SetTokenInfoParams) is identical.
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 import type { Address } from "viem";
 
 import { getLogger } from "$libs/util/logger";
@@ -34,7 +34,7 @@ type TokenInfoStore = Record<Address, TokenInfo>;
  * Vanilla zustand store. `tokenInfoStore.getState()` returns the Record, mirroring
  * the svelte `get(tokenInfoStore)` access used throughout the token lib.
  */
-export const tokenInfoStore = createStore<TokenInfoStore>(() => ({}));
+export const tokenInfoStore = createValueStore<TokenInfoStore>(() => ({}));
 
 export const setTokenInfo = ({
   canonicalAddress,

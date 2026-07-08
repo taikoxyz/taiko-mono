@@ -52,6 +52,8 @@
     "@radix-ui/react-separator": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.1.6",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/debug": "^4.1.12",
     "@types/node": "^20",
     "@types/object-hash": "^3.0.6",

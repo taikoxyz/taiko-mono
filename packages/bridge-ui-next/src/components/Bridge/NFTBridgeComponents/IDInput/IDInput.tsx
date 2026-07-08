@@ -3,8 +3,8 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
-  useMemo,
   useRef,
   type FormEvent,
 } from "react";
@@ -60,8 +60,9 @@ const IDInput = forwardRef<IDInputHandle, IDInputProps>(function IDInput(
 ) {
   const { t } = useTranslation();
 
-  // `let inputId = `input-${crypto.randomUUID()}`` — stable for the component's lifetime.
-  const inputId = useMemo(() => `input-${crypto.randomUUID()}`, []);
+  // Stable, SSR-safe per-instance id (replaces Svelte `crypto.randomUUID()`,
+  // which differs between server render and hydration).
+  const inputId = `input-${useId()}`;
 
   // Keep latest callbacks in refs so the unmount cleanup (onDestroy -> clearIds)
   // can stay stable without re-running.

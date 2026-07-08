@@ -4,6 +4,58 @@
 
 ---
 
+## 0. Post-migration review & hardening (this pass)
+
+After the initial port, a deep review drove a round of test-first fixes and an
+upstream drift sync. Everything below is covered by unit tests
+(**177 passing**, up from 110), `tsc --noEmit` clean, and a green `next build`.
+
+**Correctness fixes (all had a failing test written first):**
+
+- **zustand replace-semantics** — ported Svelte `writable.set` stores merged
+  instead of replaced under zustand v5 (`setState([])` over `[nft]` became
+  `{0: nft}`; stale token fields leaked between selections). New
+  `stores/createValueStore.ts` forces `replace: true` and now backs every
+  vanilla value store.
+- **TokenInput stale amount** — the amount handler read the previous render's
+  `value`, lagging one keystroke, so a user could bridge a different amount
+  than displayed. Now reads `event.currentTarget.value`.
+- **Moralis NFT cross-user cache bleed** — the singleton repository shared one
+  cursor/list across all `/api/nft` callers, so wallet A's NFTs could be
+  returned to wallet B. Cache is now keyed `chainId:address`.
+- **wagmi watcher** — threw on StrictMode cleanup and double-subscribed
+  (duplicate account-change RPCs). Rewritten with a generation counter.
+
+**Upstream drift ported** (from `packages/bridge-ui` on `main`, commits
+`d92e7a81f` + `e91ad7f5f` — quota-exhaustion claim handling): `checkQuota.ts`,
+`quotaManagerAbi`, `AddressConfig.quotaManagerAddress`, the schema field,
+`isQuotaManagerOutOfQuotaError`, the `quota.ts` guard helpers, and
+Claim/RetryDialog wiring, with all upstream tests.
+
+**Security / data-layer hardening:**
+
+- `/api/nft` now validates `address` (viem `isAddress`), positive-integer
+  `chainId`, strict-boolean `refresh`, returns 400 (not 500) on bad JSON, and
+  sends `Cache-Control: no-store` (wallet-derived data).
+- `next.config.ts` sets baseline headers: `frame-ancestors 'none'` +
+  `X-Frame-Options: DENY` (clickjacking over wallet prompts), `nosniff`,
+  referrer policy, `Permissions-Policy`, `poweredByHeader: false`. A full CSP
+  is intentionally NOT set (web3modal/WalletConnect need remote icons + WS).
+- Added missing axios timeouts on the relayer `blockInfo` /
+  `recommendedProcessingFees` calls.
+
+**Cleanup:** deleted ~1,170 lines of dead React Query hooks (no consumers);
+fixed the Public Sans font wiring (`var(--font-public-sans)` — next/font
+registers a hashed family, the literal "Public Sans" never existed); wired
+web3modal `chainImages`; bridge-error toasts now use the shared pixel-parity
+`NotificationToast` helpers; added SEO `description`/OpenGraph/Twitter metadata.
+
+Still open (needs a running environment): side-by-side visual QA with real
+`CONFIGURED_*`, full testnet bridge/claim/release flows, the Web3Modal v5 →
+Reown AppKit decision (v5 is deprecated upstream), and `<img>` → `next/image`.
+
+---
+
 ## 1. Overview & goals
 
 This package, `@taiko/bridge-ui-next` (directory `packages/bridge-ui-next`), is a 1:1 port of the existing Taiko Bridge web app from **SvelteKit** to **Next.js (App Router)**.
@@ -81,7 +133,7 @@ Zustand was chosen over React Context for the many fine-grained, frequently-upda
 
 ### 2.5 Web3 layer
 
-- **wagmi + viem + @web3modal/wagmi** (same major versions of the libraries the original used).
+- **wagmi + viem + @web3modal/wagmi.** wagmi core and viem stay on the original's major versions (2.x), but **`@web3modal/wagmi` moved from v4 (original) to v5** — a major-version jump in the wallet-connection layer. Note that Web3Modal v5 is deprecated upstream in favor of Reown AppKit; plan that migration before this stack calcifies.
 - `src/libs/wagmi/client.ts` — the wagmi config (`createConfig`), `ssr: false`, WalletConnect connector reading `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`. Barrel at `src/libs/wagmi/index.ts`.
 - `src/libs/connect/web3modal.ts` — `initWeb3Modal()`, client-only and idempotent; called from `AppClientInit`.
 - The `$libs/**` business layer (bridge classes `ETHBridge`/`ERC20Bridge`/`ERC721Bridge`/`ERC1155Bridge`, `proof`, `fee`, `relayer`, `token`, `storage`, `chain`, `network`) is ported and uses `@wagmi/core` actions against the config singleton — framework-agnostic, same as the original.

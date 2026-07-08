@@ -3,7 +3,7 @@
 import { createWeb3Modal } from "@web3modal/wagmi/react";
 
 import { publicEnv } from "@/config/env";
-// TODO: once `$libs/chain` is ported, wire chainImages: `import { getChainImages } from '@/libs/chain';`
+import { getChainImages } from "@/libs/chain";
 import { config } from "@/libs/wagmi";
 
 /**
@@ -29,7 +29,6 @@ export function initWeb3Modal(): Web3Modal | undefined {
     return web3modalInstance;
 
   const projectId = publicEnv.WALLETCONNECT_PROJECT_ID;
-  // TODO: wire chainImages once `$libs/chain` is ported -> `const chainImages = getChainImages();`
 
   web3modalInstance = createWeb3Modal({
     wagmiConfig: config,
@@ -37,12 +36,14 @@ export function initWeb3Modal(): Web3Modal | undefined {
     featuredWalletIds: [],
     allowUnsupportedChain: true,
     excludeWalletIds: [],
-    // chains,
-    // chainImages,
+    chainImages: getChainImages(),
     themeVariables: {
       "--w3m-color-mix": "var(--neutral-background)",
       "--w3m-color-mix-strength": 20,
-      "--w3m-font-family": '"Public Sans", sans-serif',
+      // next/font registers Public Sans under a hashed family name exposed
+      // via this CSS variable — the literal "Public Sans" family does not
+      // exist in this app.
+      "--w3m-font-family": 'var(--font-public-sans), "Public Sans", sans-serif',
       "--w3m-border-radius-master": "9999px",
       "--w3m-accent": "var(--primary-brand)",
     },

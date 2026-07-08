@@ -7,7 +7,7 @@
 // existing `metadataCache.update((cache) => { ... return cache; })` calls work
 // unchanged. The helper functions (addMetadataToCache / getMetadataFromCache /
 // isMetadataCached) keep their exact signatures.
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 import type { Address } from "viem";
 
 import type { NFTMetadata } from "$libs/token";
@@ -21,7 +21,7 @@ function createCacheKey(identifier: NFTCacheIdentifier): string {
   return `${identifier.address}-${identifier.id.toString()}`;
 }
 
-const cacheStore = createStore<Map<string, NFTMetadata>>(() => new Map());
+const cacheStore = createValueStore<Map<string, NFTMetadata>>(() => new Map());
 
 /**
  * Svelte-`writable`-compatible facade around the vanilla zustand store so callers

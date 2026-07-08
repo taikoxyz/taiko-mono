@@ -1,7 +1,7 @@
 import "server-only";
 
 import Moralis from "moralis";
-import { type Address, zeroAddress } from "viem";
+import type { Address } from "viem";
 
 import { moralisApiConfig } from "$config";
 import type { INFTRepository } from "$nftAPI/domain/interfaces/INFTRepository";
@@ -15,14 +15,24 @@ import type { FetchNftArgs } from "../types/common";
 // Never expose this on the client; this module is `server-only`.
 const MORALIS_API_KEY = process.env.MORALIS_API_KEY ?? "";
 
+// The repository is a process-wide singleton serving every request to
+// /api/nft, so pagination state MUST be keyed per (chain, address): a shared
+// cursor/list would leak one wallet's NFTs to other callers.
+type CacheEntry = {
+  cursor: string;
+  hasFetchedAll: boolean;
+  nfts: NFT[];
+};
+
+// Simple insertion-order eviction bound so the per-wallet cache cannot grow
+// without limit on a long-lived server process.
+const MAX_CACHE_ENTRIES = 500;
+
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
   private static isInitialized = false;
 
-  private cursor: string;
-  private lastFetchedAddress: Address;
-  private hasFetchedAll: boolean;
-  private nfts: NFT[] = [];
+  private cache = new Map<string, CacheEntry>();
 
   private constructor() {
     if (!MoralisNFTRepository.isInitialized) {
@@ -32,10 +42,6 @@ class MoralisNFTRepository implements INFTRepository {
         })
         .catch(console.error);
     }
-
-    this.cursor = "";
-    this.lastFetchedAddress = zeroAddress;
-    this.hasFetchedAll = false;
   }
 
   public static getInstance(): MoralisNFTRepository {
@@ -50,17 +56,19 @@ class MoralisNFTRepository implements INFTRepository {
     chainId,
     refresh = false,
   }: FetchNftArgs): Promise<NFT[]> {
-    this.lastFetchedAddress = address;
+    const key = MoralisNFTRepository.cacheKey(chainId, address);
     if (refresh) {
-      this.reset();
+      this.cache.delete(key);
     }
-    if (this.hasFetchedAll) {
-      return this.nfts;
+
+    const cached = this.cache.get(key);
+    if (cached?.hasFetchedAll) {
+      return cached.nfts;
     }
 
     try {
       const response = await Moralis.EvmApi.nft.getWalletNFTs({
-        cursor: this.getCursor(address, refresh),
+        cursor: cached?.cursor ?? "",
         chain: chainId,
         excludeSpam: moralisApiConfig.excludeSpam,
         mediaItems: moralisApiConfig.mediaItems,
@@ -68,31 +76,36 @@ class MoralisNFTRepository implements INFTRepository {
         limit: moralisApiConfig.limit,
       });
 
-      this.cursor = response.pagination.cursor || "";
-      this.hasFetchedAll = !this.cursor; // If there is no cursor, we have fetched all NFTs
-
+      const cursor = response.pagination.cursor || "";
       const mappedData = response.result.map((nft) =>
         mapToNFTFromMoralis(nft as unknown as NFTApiData, chainId),
       );
-      this.nfts = [...this.nfts, ...mappedData];
-      return this.nfts;
+      const nfts = [...(cached?.nfts ?? []), ...mappedData];
+
+      this.cache.set(key, {
+        cursor,
+        hasFetchedAll: !cursor, // no cursor -> all pages fetched
+        nfts,
+      });
+      this.evictIfOverCapacity();
+
+      return nfts;
     } catch (e) {
       console.error("Failed to fetch NFTs from Moralis:", e);
       return [];
     }
   }
 
-  private reset(): void {
-    this.cursor = "";
-    this.hasFetchedAll = false;
-    this.nfts = [];
+  private static cacheKey(chainId: number, address: Address): string {
+    return `${chainId}:${address.toLowerCase()}`;
   }
 
-  private getCursor(address: Address, refresh: boolean): string {
-    if (this.lastFetchedAddress !== address || refresh) {
-      return "";
+  private evictIfOverCapacity(): void {
+    while (this.cache.size > MAX_CACHE_ENTRIES) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey === undefined) return;
+      this.cache.delete(oldestKey);
     }
-    return this.cursor || "";
   }
 }
 

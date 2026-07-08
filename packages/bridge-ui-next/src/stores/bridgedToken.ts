@@ -8,7 +8,7 @@
 // imperative get/set helpers keep working outside React; the public surface
 // (bridgedTokens, setBridgedTokenInfoStore, getBridgedStatusFromStore,
 // getBridgedTokenInfoStore) is identical.
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 import type { Address } from "viem";
 
 import { getLogger } from "$libs/util/logger";
@@ -23,7 +23,7 @@ type TokenInfo = {
 type BridgedTokens = Record<Address, TokenInfo>;
 
 /** Vanilla zustand store. `bridgedTokens.getState()` mirrors svelte `get(bridgedTokens)`. */
-export const bridgedTokens = createStore<BridgedTokens>(() => ({}));
+export const bridgedTokens = createValueStore<BridgedTokens>(() => ({}));
 
 export const setBridgedTokenInfoStore = (
   tokenAddress: Address,

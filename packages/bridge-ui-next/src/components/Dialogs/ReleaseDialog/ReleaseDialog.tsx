@@ -31,7 +31,7 @@
 //
 // DOM / class strings preserved verbatim for pixel parity.
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   ContractFunctionExecutionError,
   type Hash,
@@ -98,10 +98,9 @@ export default function ReleaseDialog({
 
   const isDesktopOrLarger = useDesktopOrLarger();
 
-  // `const dialogId = `dialog-${crypto.randomUUID()}`;` — stable per instance.
-  // Lazy `useState` initializer keeps the id constant for the component's
-  // lifetime without reading a ref during render.
-  const [dialogId] = useState(() => `dialog-${crypto.randomUUID()}`);
+  // SSR-safe per-instance id (replaces Svelte `crypto.randomUUID()`, which
+  // differs between server render and hydration).
+  const dialogId = `dialog-${useId()}`;
 
   const ClaimComponent = useRef<ClaimHandle>(null);
 

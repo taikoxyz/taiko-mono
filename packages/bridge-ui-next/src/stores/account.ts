@@ -14,7 +14,7 @@
 // the single source of truth the watcher writes to and expose a thin hook over it.
 import type { GetAccountReturnType } from "@wagmi/core";
 import { useStore } from "zustand";
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 
 export type Account = GetAccountReturnType;
 
@@ -23,12 +23,12 @@ export type Account = GetAccountReturnType;
  * `GetAccountReturnType` (or `undefined` before the watcher's first write),
  * mirroring svelte's `get(account)`.
  */
-export const account = createStore<GetAccountReturnType | undefined>(
+export const account = createValueStore<GetAccountReturnType | undefined>(
   () => undefined,
 );
 
 /** Whether the connected wallet is a smart-contract wallet (set inside the watcher). */
-export const connectedSmartContractWallet = createStore<boolean>(() => false);
+export const connectedSmartContractWallet = createValueStore<boolean>(() => false);
 
 /** React hook bound to the vanilla account store. */
 export function useAccount<T>(

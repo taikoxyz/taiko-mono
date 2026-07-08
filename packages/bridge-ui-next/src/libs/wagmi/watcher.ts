@@ -20,7 +20,11 @@ import { config, reconnectionPromise } from "./client";
 const log = getLogger("wagmi:watcher");
 
 let isWatching = false;
-let unWatchAccount: () => void;
+let unWatchAccount: (() => void) | undefined;
+// Incremented by every start/stop so an in-flight startWatching (suspended on
+// reconnectionPromise) can detect it was superseded — under React StrictMode
+// the mount effect's cleanup runs while the first start is still awaiting.
+let watchGeneration = 0;
 
 async function handleAccountChange(data: GetAccountReturnType) {
   await checkForPausedContracts();
@@ -59,35 +63,45 @@ async function handleAccountChange(data: GetAccountReturnType) {
 export async function startWatching() {
   checkForPausedContracts();
 
-  if (!isWatching) {
-    // Wait for wagmi reconnection to complete before checking initial state
-    // This ensures we get the correct connection status
-    try {
-      await reconnectionPromise;
-    } catch (error) {
-      log("Reconnection failed or not needed", error);
-    }
+  if (isWatching) return;
+  // Claim the watching slot SYNCHRONOUSLY so a concurrent startWatching
+  // (e.g. StrictMode's remounted effect) cannot start a second subscription
+  // while this one is still awaiting the reconnection below.
+  isWatching = true;
+  const generation = ++watchGeneration;
 
-    // Get initial account state and sync it immediately
-    const initialAccount = getAccount(config);
-    log("Initial account state", initialAccount);
-    account.setState(initialAccount);
-
-    // Handle initial account state if connected
-    if (initialAccount.isConnected) {
-      await handleAccountChange(initialAccount);
-    }
-
-    // Set up watcher for future changes
-    unWatchAccount = watchAccount(config, {
-      onChange: handleAccountChange,
-    });
-
-    isWatching = true;
+  // Wait for wagmi reconnection to complete before checking initial state
+  // This ensures we get the correct connection status
+  try {
+    await reconnectionPromise;
+  } catch (error) {
+    log("Reconnection failed or not needed", error);
   }
+
+  // A stopWatching (or a newer start) superseded this call while it was
+  // suspended — abandon it without registering a watcher.
+  if (generation !== watchGeneration) return;
+
+  // Get initial account state and sync it immediately
+  const initialAccount = getAccount(config);
+  log("Initial account state", initialAccount);
+  account.setState(initialAccount);
+
+  // Handle initial account state if connected
+  if (initialAccount.isConnected) {
+    await handleAccountChange(initialAccount);
+    if (generation !== watchGeneration) return;
+  }
+
+  // Set up watcher for future changes
+  unWatchAccount = watchAccount(config, {
+    onChange: handleAccountChange,
+  });
 }
 
 export function stopWatching() {
-  unWatchAccount();
+  watchGeneration++;
+  unWatchAccount?.();
+  unWatchAccount = undefined;
   isWatching = false;
 }

@@ -304,6 +304,9 @@ export class RelayerAPIService {
     try {
       const response = await axios.get<{ data: RelayerBlockInfo[] }>(
         requestURL,
+        // Same request budget as getTransactionsFromAPI — without it a hung
+        // relayer endpoint stalls the caller indefinitely.
+        { timeout: apiService.timeout },
       );
 
       if (response.status >= 400) throw response;
@@ -346,7 +349,9 @@ export class RelayerAPIService {
     const requestURL = `${this.baseUrl}/recommendedProcessingFees`;
 
     try {
-      const response = await axios.get<ProcessingFeeApiResponse>(requestURL);
+      const response = await axios.get<ProcessingFeeApiResponse>(requestURL, {
+        timeout: apiService.timeout,
+      });
 
       if (response.status >= 400)
         throw new Error("HTTP error", { cause: response });

@@ -5,14 +5,14 @@
 // parity as Zustand VANILLA stores so any imperative `.setState()` / `.getState()`
 // access mirrors svelte's writable contract. If relayer pagination/block info is
 // ever needed it should move to TanStack React Query alongside RelayerAPIService.
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 
 import type { PaginationInfo, RelayerBlockInfo } from "$libs/relayer/types";
 
-export const paginationInfo = createStore<PaginationInfo | undefined>(
+export const paginationInfo = createValueStore<PaginationInfo | undefined>(
   () => undefined,
 );
 
-export const relayerBlockInfoMap = createStore<
+export const relayerBlockInfoMap = createValueStore<
   Map<number, RelayerBlockInfo> | undefined
 >(() => undefined);

@@ -3,5 +3,6 @@ import type { Address } from "viem";
 export type FetchNftArgs = {
   address: Address;
   chainId: number;
-  refresh: boolean;
+  /** Defaults to false: serve cached pages when available. */
+  refresh?: boolean;
 };

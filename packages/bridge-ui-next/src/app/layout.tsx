@@ -15,10 +15,25 @@ const publicSans = Public_Sans({
   display: "swap",
 });
 
+const APP_DESCRIPTION =
+  "Bridge ETH, ERC-20, ERC-721 and ERC-1155 tokens between Ethereum and Taiko.";
+
 export const metadata: Metadata = {
   title: "Taiko Bridge",
+  description: APP_DESCRIPTION,
   icons: {
     icon: "/taiko-favicon.svg",
+  },
+  openGraph: {
+    title: "Taiko Bridge",
+    description: APP_DESCRIPTION,
+    type: "website",
+    siteName: "Taiko Bridge",
+  },
+  twitter: {
+    card: "summary",
+    title: "Taiko Bridge",
+    description: APP_DESCRIPTION,
   },
 };
 
@@ -64,11 +79,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Clash Grotesk (headings) — NOT on Google Fonts; loaded from Fontshare. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/* Clash Grotesk (headings) — NOT on Google Fonts; loaded from Fontshare.
+            (Public Sans is self-hosted via next/font, so no Google Fonts
+            preconnects are needed.) */}
+        <link rel="preconnect" href="https://api.fontshare.com" />
         <link
           rel="preconnect"
-          href="https://fonts.gstatic.com"
+          href="https://cdn.fontshare.com"
           crossOrigin=""
         />
         <link

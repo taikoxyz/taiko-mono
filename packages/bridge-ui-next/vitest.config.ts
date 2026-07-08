@@ -15,15 +15,23 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // Next.js virtual marker module — a no-op outside the Next build.
+      "server-only": path.resolve(
+        __dirname,
+        "./src/tests/stubs/server-only.ts",
+      ),
       "@": path.resolve(__dirname, "./src"),
       $components: path.resolve(__dirname, "./src/components"),
       $stores: path.resolve(__dirname, "./src/stores"),
       $config: path.resolve(__dirname, "./src/app.config.ts"),
       $libs: path.resolve(__dirname, "./src/libs"),
       $abi: path.resolve(__dirname, "./src/abi/index.ts"),
+      // Tests use the ported __mocks__ fixture (the generated bridgeConfig is
+      // an empty placeholder without real CONFIGURED_BRIDGES env), mirroring
+      // the original bridge-ui vitest alias.
       $bridgeConfig: path.resolve(
         __dirname,
-        "./src/config/generated/bridgeConfig.ts",
+        "./src/tests/mocks/bridgeConfig.ts",
       ),
       $chainConfig: path.resolve(
         __dirname,

@@ -1,6 +1,6 @@
 /* Ported verbatim from TokenInput.svelte <style> block. */
 .maxButton {
-  font-family: "Public Sans";
+  font-family: var(--font-public-sans), "Public Sans", sans-serif;
   font-size: 14px;
   font-style: normal;
   font-weight: 400;

@@ -39,6 +39,7 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -49,7 +50,11 @@ import { chainConfig } from "$chainConfig";
 import { CloseButton } from "@/components/Button";
 import { useDesktopOrLarger } from "@/components/DesktopOrLarger";
 import Claim, { type ClaimHandle } from "@/components/Dialogs/Claim";
-import { infoToast, successToast } from "@/components/NotificationToast";
+import {
+  errorToast,
+  infoToast,
+  successToast,
+} from "@/components/NotificationToast";
 import { OnAccount } from "@/components/OnAccount";
 import type { BridgeTransaction } from "@/libs/bridge";
 import { useCloseOnEscapeOrOutsideClick } from "@/libs/customActions";
@@ -58,6 +63,10 @@ import { useTranslation } from "@/i18n/useTranslation";
 import { cn } from "@/lib/utils";
 import { pendingTransactions } from "@/stores/pendingTransactions";
 
+import {
+  claimWithQuotaGuard,
+  showQuotaToastForClaimError,
+} from "../ClaimDialog/quota";
 import ClaimConfirmStep from "../Shared/ClaimConfirmStep";
 import ClaimPreCheck from "../Shared/ClaimPreCheck";
 import ReviewStep from "../Shared/ReviewStep";
@@ -108,8 +117,8 @@ const RetryDialog = forwardRef<RetryDialogHandle, RetryDialogProps>(
   ) {
     const { t } = useTranslation();
 
-    const dialogIdRef = useRef<string>(`dialog-${crypto.randomUUID()}`);
-    const dialogId = dialogIdRef.current;
+    // SSR-safe per-instance id (replaces Svelte `crypto.randomUUID()`).
+    const dialogId = `dialog-${useId()}`;
 
     const isDesktopOrLarger = useDesktopOrLarger();
 
@@ -135,7 +144,27 @@ const RetryDialog = forwardRef<RetryDialogHandle, RetryDialogProps>(
     // let txHash: Hash;
     const [txHash, setTxHash] = useState<Hash>();
 
-    const handleRetryError = () => {
+    const showQuotaReachedToast = () => {
+      errorToast({
+        title: t("bridge.errors.claim.quota_reached.title"),
+        message: t("bridge.errors.claim.quota_reached.message"),
+      });
+    };
+
+    const logQuotaCheckError = (quotaError: unknown) => {
+      console.error("Failed to check claim quota", quotaError);
+    };
+
+    const handleRetryError = async (detail: { error: unknown }) => {
+      const err = detail.error;
+      if (
+        !(await showQuotaToastForClaimError(err, bridgeTx, {
+          showQuotaReachedToast,
+          onQuotaCheckError: logQuotaCheckError,
+        }))
+      ) {
+        console.error(err);
+      }
       setRetrying(false);
     };
 
@@ -155,8 +184,15 @@ const RetryDialog = forwardRef<RetryDialogHandle, RetryDialogProps>(
     };
 
     const handleClaimClick = async () => {
-      setRetrying(true);
-      await claimComponentRef.current?.claim(ClaimAction.RETRY);
+      await claimWithQuotaGuard({
+        bridgeTx,
+        claim: async () => {
+          await claimComponentRef.current?.claim(ClaimAction.RETRY);
+        },
+        setClaiming: setRetrying,
+        showQuotaReachedToast,
+        onQuotaCheckError: logQuotaCheckError,
+      });
     };
 
     // Expose the public method (Svelte `export const handleClaimClick`).

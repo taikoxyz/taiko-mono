@@ -39,6 +39,7 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -83,6 +84,7 @@ import { DialogStep, DialogStepper } from "../Stepper";
 import ClaimStepNavigation from "./ClaimStepNavigation";
 import { isMessageNotReceivedError } from "./error";
 import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from "./mode";
+import { claimWithQuotaGuard, showQuotaToastForClaimError } from "./quota";
 import { ClaimSteps, INITIAL_STEP } from "./types";
 
 const log = getLogger("ClaimDialog");
@@ -132,8 +134,8 @@ const ClaimDialog = forwardRef<ClaimDialogHandle, ClaimDialogProps>(
   ) {
     const { t } = useTranslation();
 
-    const dialogIdRef = useRef<string>(`dialog-${crypto.randomUUID()}`);
-    const dialogId = dialogIdRef.current;
+    // SSR-safe per-instance id (replaces Svelte `crypto.randomUUID()`).
+    const dialogId = `dialog-${useId()}`;
 
     // $connectedSourceChain
     const connectedSourceChain = useConnectedSourceChain();
@@ -167,13 +169,38 @@ const ClaimDialog = forwardRef<ClaimDialogHandle, ClaimDialogProps>(
     // $: claimMode = directClaim ? 'try_claim' : 'claim';
     const claimMode: ClaimDialogMode = directClaim ? "try_claim" : "claim";
 
+    const showQuotaReachedToast = () => {
+      errorToast({
+        title: t("bridge.errors.claim.quota_reached.title"),
+        message: t("bridge.errors.claim.quota_reached.message"),
+      });
+    };
+
+    const showUnknownErrorToast = () => {
+      errorToast({
+        title: t("bridge.errors.unknown_error.title"),
+        message: t("bridge.errors.unknown_error.message"),
+      });
+    };
+
+    const logQuotaCheckError = (quotaError: unknown) => {
+      console.error("Failed to check claim quota", quotaError);
+    };
+
     const handleClaimClick = async () => {
-      setClaiming(true);
-      await claimComponentRef.current?.claim(
-        ClaimAction.CLAIM,
-        force,
-        shouldSkipMessageStatusCheck(claimMode),
-      );
+      await claimWithQuotaGuard({
+        bridgeTx,
+        claim: async () => {
+          await claimComponentRef.current?.claim(
+            ClaimAction.CLAIM,
+            force,
+            shouldSkipMessageStatusCheck(claimMode),
+          );
+        },
+        setClaiming,
+        showQuotaReachedToast,
+        onQuotaCheckError: logQuotaCheckError,
+      });
     };
 
     // Expose the public method (Svelte `export const handleClaimClick`).
@@ -249,7 +276,7 @@ const ClaimDialog = forwardRef<ClaimDialogHandle, ClaimDialogProps>(
       });
     };
 
-    const handleClaimError = (detail: {
+    const handleClaimError = async (detail: {
       error: unknown;
       action: ClaimAction;
     }) => {
@@ -288,18 +315,19 @@ const ClaimDialog = forwardRef<ClaimDialogHandle, ClaimDialogProps>(
               message: t("bridge.errors.claim.not_received.message"),
             });
           } else {
-            errorToast({
-              title: t("bridge.errors.unknown_error.title"),
-              message: t("bridge.errors.unknown_error.message"),
-            });
+            if (
+              !(await showQuotaToastForClaimError(err, bridgeTx, {
+                showQuotaReachedToast,
+                onQuotaCheckError: logQuotaCheckError,
+              }))
+            ) {
+              showUnknownErrorToast();
+            }
           }
           break;
         default:
           console.error(err);
-          errorToast({
-            title: t("bridge.errors.unknown_error.title"),
-            message: t("bridge.errors.unknown_error.message"),
-          });
+          showUnknownErrorToast();
           break;
       }
       setClaiming(false);

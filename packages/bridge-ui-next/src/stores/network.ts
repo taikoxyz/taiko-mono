@@ -10,16 +10,16 @@
 // NOTE: the wagmi React watcher (a later unit) is responsible for calling
 // `connectedSourceChain.setState(chain)` when the wallet's chain changes.
 import { useStore } from "zustand";
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 import type { Chain } from "viem";
 
 /** Currently connected source chain. `.getState()` returns `Chain | undefined`. */
-export const connectedSourceChain = createStore<Chain | undefined>(
+export const connectedSourceChain = createValueStore<Chain | undefined>(
   () => undefined,
 );
 
 /** Pure UI flag toggled around switchChain calls. */
-export const switchingNetwork = createStore<boolean>(() => false);
+export const switchingNetwork = createValueStore<boolean>(() => false);
 
 /**
  * React hook over the connected source chain (reactive in components).

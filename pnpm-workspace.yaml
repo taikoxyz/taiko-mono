@@ -9,6 +9,7 @@ allowBuilds:
   keccak: true
   lefthook: true
   optimism: true
+  "optimism@https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8": true
   protobufjs: true
   secp256k1: true
   sharp: true

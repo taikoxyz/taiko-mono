@@ -11,9 +11,3 @@ export {
   type HopProof,
   type StorageEntry,
 } from "./types";
-export {
-  useEncodedSignalProof,
-  useEncodedSignalProofForRecall,
-  useGenerateEncodedSignalProof,
-  useGenerateEncodedSignalProofForRecall,
-} from "./useProof";

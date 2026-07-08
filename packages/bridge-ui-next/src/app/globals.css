@@ -163,7 +163,7 @@
   }
 
   html {
-    font-family: "Public Sans", sans-serif;
+    font-family: var(--font-public-sans), "Public Sans", sans-serif;
   }
 
   html,

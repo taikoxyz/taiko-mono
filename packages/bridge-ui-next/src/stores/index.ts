@@ -31,12 +31,7 @@ export {
   useSmartContractWallet,
   connectedSmartContractWallet,
 } from "./account";
-export {
-  ethBalance,
-  useEthBalance,
-  useEthBalanceStore,
-  ethBalanceQueryKey,
-} from "./balance";
+export { ethBalance, useEthBalanceStore } from "./balance";
 export {
   switchingNetwork,
   useConnectedSourceChain,

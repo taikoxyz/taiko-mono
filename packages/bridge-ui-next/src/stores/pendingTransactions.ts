@@ -26,7 +26,7 @@ import {
   WaitForTransactionReceiptTimeoutError,
 } from "viem";
 import { useStore } from "zustand";
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 
 import { pendingTransaction } from "$config";
 import { FailedTransactionError, TransactionTimeoutError } from "$libs/error";
@@ -38,7 +38,7 @@ import { config } from "$libs/wagmi";
 const log = getLogger("store:pendingTransactions");
 
 // Vanilla zustand store backing the in-flight transaction hash list.
-const listStore = createStore<Hex[]>(() => []);
+const listStore = createValueStore<Hex[]>(() => []);
 
 /**
  * Custom store facade: preserves the original svelte writable contract

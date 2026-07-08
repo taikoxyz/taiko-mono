@@ -4,6 +4,7 @@ import type { GetBalanceReturnType } from "@wagmi/core";
 import {
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -78,7 +79,8 @@ const TokenAmountInput = forwardRef<
 >(function TokenAmountInput({ disabled = false, className }, ref) {
   const { t } = useTranslation();
 
-  const inputId = useMemo(() => `input-${crypto.randomUUID()}`, []);
+  // SSR-safe per-instance id (replaces Svelte `crypto.randomUUID()`).
+  const inputId = `input-${useId()}`;
   const inputBoxRef = useRef<InputBoxHandle>(null);
 
   const [computingMaxAmount, setComputingMaxAmount] = useState(false);

@@ -1,9 +1,8 @@
 "use client";
 
-import { toast } from "sonner";
 import { TransactionExecutionError, UserRejectedRequestError } from "viem";
 
-import { toastConfig } from "$config";
+import { errorToast, warningToast } from "@/components/NotificationToast";
 import {
   InsufficientAllowanceError,
   SendERC20Error,
@@ -19,23 +18,10 @@ import i18n from "@/i18n";
  * Ported from the original `handleBridgeErrors.ts`:
  *   - svelte-i18n `get(t)('key')` -> i18next standalone `i18n.t('key')`
  *     (callable outside React, matching the original render-less lookup).
- *   - `$components/NotificationToast` `errorToast({ title, message })` /
- *     `warningToast({ title })` -> sonner `toast.error` / `toast.warning`
- *     with the original title as the toast message and `message` as the
- *     description, preserving the exact title/message keys and behavior.
+ *   - Toasts render via the shared `$components/NotificationToast` helpers,
+ *     exactly like the original: pixel-parity ItemToast chrome, and
+ *     error/warning toasts stay open until manually dismissed.
  */
-const duration = toastConfig.duration;
-
-const errorToast = ({ title, message }: { title: string; message?: string }) =>
-  toast.error(title, { description: message, duration });
-
-const warningToast = ({
-  title,
-  message,
-}: {
-  title: string;
-  message?: string;
-}) => toast.warning(title, { description: message, duration });
 
 export const handleBridgeError = (error: Error) => {
   switch (true) {

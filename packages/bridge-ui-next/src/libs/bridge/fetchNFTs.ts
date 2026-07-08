@@ -13,7 +13,7 @@ const log = getLogger("bridge:fetchNFTs");
 export const fetchNFTs = async ({
   address: userAddress,
   chainId: srcChainId,
-  refresh,
+  refresh = false,
 }: FetchNftArgs): Promise<{ nfts: NFT[]; error: Error | null }> => {
   let nfts: NFT[] = [];
   try {

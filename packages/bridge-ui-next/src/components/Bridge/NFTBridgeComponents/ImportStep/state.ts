@@ -1,7 +1,7 @@
 "use client";
 
 import { useStore } from "zustand";
-import { createStore } from "zustand/vanilla";
+import { createValueStore } from "@/stores/createValueStore";
 
 import { ImportMethod } from "@/components/Bridge/types";
 
@@ -16,7 +16,7 @@ import { ImportMethod } from "@/components/Bridge/types";
  *
  * React components subscribe via `useSelectedImportMethod()` (mirrors `$store`).
  */
-export const selectedImportMethod = createStore<ImportMethod>(
+export const selectedImportMethod = createValueStore<ImportMethod>(
   () => ImportMethod.NONE,
 );
 
