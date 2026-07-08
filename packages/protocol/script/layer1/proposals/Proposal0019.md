@@ -4,21 +4,28 @@
 
 This proposal activates the Unzen hardfork on L1. It re-enables the forced inclusion mechanism
 that was disabled as part of the June 2026 incident response, replaces the proof verifier so
-that every proven batch must include at least one ZK proof, and completes the SGX remediation by
+that every proven batch must include at least one ZK proof, completes the SGX remediation by
 replacing the SGX verifier with the hardened implementation wired to the audited upstream
-Automata DCAP attestation.
+Automata DCAP attestation, and rotates the trusted RISC0/SP1 proving images to the raiko
+release shipping with Unzen.
 
-It executes **7 L1 actions** and **no L2 actions**:
+The new SGX verifiers' trust configuration (MRENCLAVE / ATTRIBUTES policy / MRSIGNER) and raiko
+instance registration are performed **manually by admin.taiko.eth before execution** — the
+verifiers deploy with the multisig as initial owner. The proposal then takes that trust
+boundary into DAO custody by accepting ownership (see
+[Trust configuration and registration](#trust-configuration-and-registration-manual-pre-execution)).
 
-1. `setMrEnclave(TRUSTED_MR_ENCLAVE_GETH, true)` on the new SGX-geth verifier.
-2. `setMrSigner(TRUSTED_MR_SIGNER, true)` on the new SGX-geth verifier.
-3. `setMrEnclave(TRUSTED_MR_ENCLAVE_RETH_1, true)` on the new SGX-reth verifier.
-4. `setMrEnclave(TRUSTED_MR_ENCLAVE_RETH_2, true)` on the new SGX-reth verifier.
-5. `setMrSigner(TRUSTED_MR_SIGNER, true)` on the new SGX-reth verifier.
-6. Upgrade `Inbox` to a new implementation with forced inclusions re-enabled and the new
-   `ZkRequiredVerifier` baked in as its immutable proof verifier.
-7. Call `Inbox.init3()` to void the stale forced inclusion queue entry left over from the
-   incident window.
+It executes **16 L1 actions** and **no L2 actions**:
+
+- **Actions 1–2**: `acceptOwnership()` on the new SGX-geth and SGX-reth verifiers.
+- **Actions 3–6**: rotate the trusted RISC0 image IDs — untrust the two live raiko2 v0.5.1
+  IDs, trust the two new ones.
+- **Actions 7–14**: rotate the trusted SP1 program vkeys — untrust the four live raiko2 v0.5.1
+  vkeys, trust the four new ones.
+- **Action 15**: upgrade `Inbox` to a new implementation with forced inclusions re-enabled and
+  the new `ZkRequiredVerifier` baked in as its immutable proof verifier.
+- **Action 16**: call `Inbox.init3()` to void the stale forced inclusion queue entry left over
+  from the incident window.
 
 The fork activates at proposal execution. There is no in-contract timestamp gating; proposer and
 prover software supporting forced inclusions and the ZK proof mandate must be rolled out **before**
@@ -93,40 +100,73 @@ The bundle therefore deploys, bottom-up:
 2. **Two `SecureSgxVerifier` instances (SGX-geth and SGX-reth)** — the hardened in-repo
    verifier: trust registry moved in-contract, permanent MRENCLAVE/MRSIGNER untrust (no silent
    revival), uint32 instance-id overflow rejection, quote-freshness gate, per-MRENCLAVE
-   ATTRIBUTES pin. Constructor params mirror Proposal0017: owner = DAO controller, registrar =
-   admin.taiko.eth multisig, 24h instance validity delay — but the attestation immutable points
-   at the upstream entrypoint, and **both flavors share the single entrypoint** (the old setup
-   needed one attester per flavor only because the allowlists lived in the attester; they now
-   live in each verifier). The contracts are identical: each becomes geth- or reth-flavored
+   ATTRIBUTES pin. Both deploy with **admin.taiko.eth as initial owner and registrar** (24h
+   instance validity delay, as in Proposal0017); ownership moves to the DAO controller via
+   `transferOwnership` (manual) + `acceptOwnership` (actions 1–2). The attestation immutable
+   points at the upstream entrypoint, and **both flavors share the single entrypoint** (the old
+   setup needed one attester per flavor only because the allowlists lived in the attester; they
+   now live in each verifier). The contracts are identical: each becomes geth- or reth-flavored
    through the `ZkRequiredVerifier` slot it occupies, the measurements trusted on it, and the
    raiko instances that register on it.
 3. **`ZkRequiredVerifier`** wiring both new SGX verifiers + the reused RISC0/SP1 verifiers.
 
-**Trust configuration (actions 1–5).** The new verifiers deploy fail-closed: with empty
-allowlists, `registerInstance` reverts for every quote. The trusted measurements are exactly the
-sets live on the Proposal0017 attesters (read from `MrEnclaveUpdated`/`MrSignerUpdated` events
-on `SGXGETH_ATTESTER 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` and `SGXRETH_ATTESTER
-0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`, set at Proposal0017 execution, L1 block
-`25,423,573`, unchanged since). The raiko images do not change; only the verifier contracts do,
-so the measurements carry over verbatim (both flavors share one raiko signing identity):
+#### Trust configuration and registration (manual, pre-execution)
 
-| Constant                   | Value                                                                | Meaning                      |
-| -------------------------- | -------------------------------------------------------------------- | ---------------------------- |
-| `TRUSTED_MR_ENCLAVE_GETH`  | `0xbefb2c7ec44cefe57f4ff0ca815a8b8f15e05631bf3abe36cbc12d28f778fa36` | raiko SGX-geth MRENCLAVE     |
-| `TRUSTED_MR_ENCLAVE_RETH_1`| `0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4` | raiko SGX-reth MRENCLAVE     |
-| `TRUSTED_MR_ENCLAVE_RETH_2`| `0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740` | raiko SGX-reth MRENCLAVE     |
-| `TRUSTED_MR_SIGNER`        | `0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013` | post-incident raiko MRSIGNER |
+The new verifiers deploy
+fail-closed: with empty allowlists, `registerInstance` reverts for every quote. Unlike
+Proposal0017, the trust configuration is **not** part of the proposal — admin.taiko.eth, as
+initial owner, performs it manually on each verifier before execution:
 
-**Instance registration (post-execution, operational).** Both new verifiers start with
-`nextInstanceId == 0`. After execution, the registrar (`admin.taiko.eth`,
-`0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`) must call `registerInstance` on each with a fresh
-raiko quote of the matching flavor, verified through the **new upstream attestation
-entrypoint**. Unlike
-Proposal0017 — where proving halted until SGX registration — the `RISC0 + SP1` combination keeps
-proving alive throughout; the SGX+ZK combinations become available once registration completes.
-Track registration as a required follow-up, not optional cleanup.
+1. `setMrEnclave(mrEnclave, true)` for each raiko measurement of the matching flavor;
+2. `setEnclaveAttributePolicy(mrEnclave, mask, expected)` for each trusted MRENCLAVE
+   (registration fails closed for any MRENCLAVE without a policy);
+3. `setMrSigner(mrSigner, true)` for the raiko signing identity;
+4. `registerInstance(rawQuote)` with a fresh raiko quote of the matching flavor, verified
+   through the **new upstream attestation entrypoint**. Because the multisig is still the
+   _owner_ at this point, these registrations skip the 24h `instanceValidityDelay` and are
+   usable immediately (the delay applies only to registrar, i.e. non-owner, registrations);
+5. `transferOwnership(DAO controller)` on both verifiers.
 
-### 4. Stale forced inclusion queue voided (`init3`)
+The measurement values must be verified against the raiko release shipping with Unzen at
+configuration time (the SGX images may be rebuilt alongside the rotated ZK images below); they
+are deliberately not constants of this proposal.
+
+**Ownership acceptance (actions 1–2).** The proposal completes the handover with
+`acceptOwnership()` on both verifiers. `SgxVerifier` is `Ownable2Step`, so these actions revert
+unless step 5 above has happened — the proposal **cannot execute** while the
+MRENCLAVE/MRSIGNER trust boundary still sits with the multisig. After execution the DAO
+controller owns both trust registries; admin.taiko.eth keeps only the registrar role (delayed,
+policy-constrained instance registration). Should registration still be pending at execution,
+the `RISC0 + SP1` combination keeps proving alive — the SGX+ZK combinations become available
+once registration completes.
+
+### 4. RISC0/SP1 proving images rotated (actions 3–14)
+
+The raiko release shipping with Unzen rebuilds the ZK guest programs, so the trusted image set
+on the (reused) `RISC0_RETH_VERIFIER` and `SP1_RETH_VERIFIER` rotates in the same bundle. The
+currently trusted set is exactly the raiko2 v0.5.1 set from Proposal0017 (verified still live
+on 2026-07-08 via `isImageTrusted` / `isProgramTrusted`):
+
+| Untrusted (raiko2 v0.5.1)                     | Value                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| `OLD_RISC0_PROPOSAL_IMAGE_ID`                 | `0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b` |
+| `OLD_RISC0_AGGREGATION_IMAGE_ID`              | `0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef` |
+| `OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256`         | `0x007594632ec31fae9d44799b97316fcbcaa3ff6b5db268c7a5d8025b3bbb487e` |
+| `OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES`    | `0x3aca319730c7eba7288f33727316fcbc551ffb5a76c9a31e4bb004b63bbb487e` |
+| `OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256`      | `0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc` |
+| `OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES` | `0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc` |
+
+The new IDs (`NEW_RISC0_*`, `NEW_SP1_*`) are **TODO** in
+[`Proposal0019.s.sol`](./Proposal0019.s.sol) until the release is cut; the build reverts while
+they are zero.
+
+The rotation is atomic with the rest of the bundle: from the execution block onward, proofs
+aggregated under the old images no longer verify. Operationally, two raiko2 services (old and
+new image sets) run in parallel before execution, and the prover's raiko endpoint must be
+switched to the new-image service at execution time (see
+[Client Rollout Prerequisite](#client-rollout-prerequisite)).
+
+### 5. Stale forced inclusion queue voided (`init3`)
 
 On-chain queue state at the time of writing: `head=2, tail=3` — exactly one pending entry.
 
@@ -151,30 +191,41 @@ contract (no refund path exists on-chain; the `ForcedInclusion` struct does not 
 
 ## Action Order
 
-1. `SGXGETH_VERIFIER_NEW.setMrEnclave(TRUSTED_MR_ENCLAVE_GETH, true)`
-2. `SGXGETH_VERIFIER_NEW.setMrSigner(TRUSTED_MR_SIGNER, true)`
-3. `SGXRETH_VERIFIER_NEW.setMrEnclave(TRUSTED_MR_ENCLAVE_RETH_1, true)`
-4. `SGXRETH_VERIFIER_NEW.setMrEnclave(TRUSTED_MR_ENCLAVE_RETH_2, true)`
-5. `SGXRETH_VERIFIER_NEW.setMrSigner(TRUSTED_MR_SIGNER, true)`
-6. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
-7. Call `Inbox.init3()`.
+1. `SGXGETH_VERIFIER_NEW.acceptOwnership()`
+2. `SGXRETH_VERIFIER_NEW.acceptOwnership()`
+3. `RISC0_RETH_VERIFIER.setImageIdTrusted(OLD_RISC0_PROPOSAL_IMAGE_ID, false)`
+4. `RISC0_RETH_VERIFIER.setImageIdTrusted(OLD_RISC0_AGGREGATION_IMAGE_ID, false)`
+5. `RISC0_RETH_VERIFIER.setImageIdTrusted(NEW_RISC0_PROPOSAL_IMAGE_ID, true)`
+6. `RISC0_RETH_VERIFIER.setImageIdTrusted(NEW_RISC0_AGGREGATION_IMAGE_ID, true)`
+7. `SP1_RETH_VERIFIER.setProgramTrusted(OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256, false)`
+8. `SP1_RETH_VERIFIER.setProgramTrusted(OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, false)`
+9. `SP1_RETH_VERIFIER.setProgramTrusted(OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256, false)`
+10. `SP1_RETH_VERIFIER.setProgramTrusted(OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, false)`
+11. `SP1_RETH_VERIFIER.setProgramTrusted(NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)`
+12. `SP1_RETH_VERIFIER.setProgramTrusted(NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)`
+13. `SP1_RETH_VERIFIER.setProgramTrusted(NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256, true)`
+14. `SP1_RETH_VERIFIER.setProgramTrusted(NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)`
+15. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
+16. Call `Inbox.init3()`.
 
-The order matters: the SGX verifiers' trust registries are configured before the Inbox starts
-routing proofs through them, and `init3` only exists on the new implementation. All actions
-execute atomically within the proposal, so no forced inclusion can be saved between the upgrade
-and the void, and neither verifier is ever live with an empty allowlist.
+The order matters: the `acceptOwnership` actions come first so the proposal fails immediately
+unless admin.taiko.eth has completed the manual trust configuration and handed over ownership;
+`init3` only exists on the new implementation, so it follows the upgrade. All actions execute
+atomically within the proposal, so no forced inclusion can be saved between the upgrade and the
+void, and there is no block in which the inbox routes proofs through the new verifiers while
+they are still admin-owned, nor one in which both old and new ZK image sets are trusted.
 
 ## Production Addresses
 
-| Constant              | Address                                      | Notes                                             |
-| --------------------- | -------------------------------------------- | ------------------------------------------------- |
-| `L1.INBOX`            | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | Shasta Inbox proxy                                |
-| `RISC0_RETH_VERIFIER` | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | RISC0 verifier (reused)                           |
-| `SP1_RETH_VERIFIER`   | `0x73A0Db393ef87ce781ac7957bE10D6628432100F` | SP1 verifier (Proposal0017, reused)               |
+| Constant              | Address                                      | Notes                                                                                  |
+| --------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `L1.INBOX`            | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | Shasta Inbox proxy                                                                     |
+| `RISC0_RETH_VERIFIER` | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | RISC0 verifier (reused)                                                                |
+| `SP1_RETH_VERIFIER`   | `0x73A0Db393ef87ce781ac7957bE10D6628432100F` | SP1 verifier (Proposal0017, reused)                                                    |
 | —                     | `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` | old SGX-geth verifier (Proposal0017) — **retired**, replaced by `SGXGETH_VERIFIER_NEW` |
 | —                     | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` | old SGX-reth verifier (Proposal0017) — **retired**, replaced by `SGXRETH_VERIFIER_NEW` |
-| —                     | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | old SGX-geth attester proxy — **retired**, replaced by `DCAP_ATTESTATION` |
-| —                     | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | old SGX-reth attester proxy — **retired**, replaced by `DCAP_ATTESTATION` |
+| —                     | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | old SGX-geth attester proxy — **retired**, replaced by `DCAP_ATTESTATION`              |
+| —                     | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | old SGX-reth attester proxy — **retired**, replaced by `DCAP_ATTESTATION`              |
 
 RISC0/SP1 addresses were read live from the current `MainnetVerifier` (`risc0RethVerifier()`,
 `sp1RethVerifier()`) and cross-checked against the Proposal0017 address table.
@@ -190,17 +241,23 @@ RISC0/SP1 addresses were read live from the current `MainnetVerifier` (`risc0Ret
 > 2. `DCAP_ATTESTATION=<entrypoint> forge script DeployUnzenContracts ...` (profile `layer1`;
 >    reverts if `DCAP_ATTESTATION` is unset or has no code).
 >
-> Then fill this table and the constants in [`Proposal0019.s.sol`](./Proposal0019.s.sol), and
-> regenerate `Proposal0019.action.md` (`P=0019 pnpm proposal`). The script reverts while the
-> constants are zero.
+> Then fill this table, the address constants **and the `NEW_RISC0_*` / `NEW_SP1_*` image IDs
+> from the Unzen raiko release** in [`Proposal0019.s.sol`](./Proposal0019.s.sol), and
+> regenerate `Proposal0019.action.md` (`P=0019 pnpm proposal`). The script reverts while any of
+> these constants are zero.
+>
+> Before the proposal executes, admin.taiko.eth must complete the manual sequence on both SGX
+> verifiers: `setMrEnclave` → `setEnclaveAttributePolicy` → `setMrSigner` →
+> `registerInstance` → `transferOwnership(DAO controller)` (see
+> [Trust configuration and registration](#trust-configuration-and-registration-manual-pre-execution)).
 
-| Constant                 | Address | Contract                                                     |
-| ------------------------ | ------- | ------------------------------------------------------------ |
-| `DCAP_ATTESTATION`       | TBD     | `AutomataDcapAttestationFee` (upstream, non-upgradeable)     |
-| `SGXGETH_VERIFIER_NEW`   | TBD     | `SecureSgxVerifier` (`ZkRequiredVerifier` immutable)         |
-| `SGXRETH_VERIFIER_NEW`   | TBD     | `SecureSgxVerifier` (`ZkRequiredVerifier` immutable)         |
-| `ZK_REQUIRED_VERIFIER`       | TBD     | `ZkRequiredVerifier` (`MainnetInbox` immutable)                  |
-| `MAINNET_INBOX_NEW_IMPL` | TBD     | `MainnetInbox` implementation                                |
+| Constant                 | Address | Contract                                                 |
+| ------------------------ | ------- | -------------------------------------------------------- |
+| `DCAP_ATTESTATION`       | TBD     | `AutomataDcapAttestationFee` (upstream, non-upgradeable) |
+| `SGXGETH_VERIFIER_NEW`   | TBD     | `SecureSgxVerifier` (`ZkRequiredVerifier` immutable)     |
+| `SGXRETH_VERIFIER_NEW`   | TBD     | `SecureSgxVerifier` (`ZkRequiredVerifier` immutable)     |
+| `ZK_REQUIRED_VERIFIER`   | TBD     | `ZkRequiredVerifier` (`MainnetInbox` immutable)          |
+| `MAINNET_INBOX_NEW_IMPL` | TBD     | `MainnetInbox` implementation                            |
 
 ## Client Rollout Prerequisite
 
@@ -210,6 +267,12 @@ pending longer than 576s. The queue is empty immediately after `init3`, so the r
 with the first post-fork `saveForcedInclusion` call. Proposer software supporting forced
 inclusion consumption, and raiko capacity for one ZK proof per proven batch, must both be in
 production before this proposal executes.
+
+The ZK image rotation adds a second prerequisite: a raiko2 service running the **new** image
+set must be deployed alongside the current (v0.5.1) one before execution, and the prover's
+raiko endpoint must be switched to it at execution time. Any proof aggregated under the old
+images that has not landed on L1 by execution is discarded and must be re-proven with the new
+images.
 
 ## Verification
 
@@ -246,7 +309,7 @@ Before submission:
    ```bash
    # must equal DCAP_ATTESTATION (the upstream entrypoint, shared by both)
    cast call <SGX_VERIFIER> "automataDcapAttestation()(address)" --rpc-url <RPC_URL>
-   # owner must be the DAO controller, registrar the admin multisig
+   # owner must be the admin multisig (0x9CBeE534...) until the handover; registrar likewise
    cast call <SGX_VERIFIER> "owner()(address)" --rpc-url <RPC_URL>
    cast call <SGX_VERIFIER> "registrar()(address)" --rpc-url <RPC_URL>
    # fail-closed enclave policy enforced
@@ -255,14 +318,32 @@ Before submission:
    cast call <DCAP_ATTESTATION> "getBp()(uint16)" --rpc-url <RPC_URL>
    ```
 
-5. Confirm the forced inclusion queue state is still `head=2, tail=3` (nothing can change it —
+5. Confirm the manual admin.taiko.eth sequence completed on both new SGX verifiers — the
+   proposal cannot execute before the last step, and the SGX+ZK proving paths depend on the
+   others:
+
+   ```bash
+   # trust registry configured (repeat per trusted measurement / the shared signer)
+   cast call <SGX_VERIFIER> "trustedUserMrEnclave(bytes32)(bool)" <MR_ENCLAVE> --rpc-url <RPC_URL>
+   cast call <SGX_VERIFIER> "enclaveAttributePolicy(bytes32)(bytes16,bytes16)" <MR_ENCLAVE> --rpc-url <RPC_URL>
+   cast call <SGX_VERIFIER> "trustedUserMrSigner(bytes32)(bool)" <MR_SIGNER> --rpc-url <RPC_URL>
+   # raiko instance(s) registered (owner registrations are usable immediately)
+   cast call <SGX_VERIFIER> "nextInstanceId()(uint256)" --rpc-url <RPC_URL>
+   # ownership handover initiated: pendingOwner must be the DAO controller
+   cast call <SGX_VERIFIER> "pendingOwner()(address)" --rpc-url <RPC_URL>
+   ```
+
+6. Confirm the `NEW_RISC0_*` / `NEW_SP1_*` constants match the Unzen raiko release artifacts,
+   and that the raiko2 service running the new images is deployed alongside the v0.5.1 one.
+
+7. Confirm the forced inclusion queue state is still `head=2, tail=3` (nothing can change it —
    saves are hard-disabled and consumption requires `numForcedInclusions > 0`, which reverts):
 
    ```bash
    cast call 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f "getForcedInclusionState()(uint48,uint48)" --rpc-url <RPC_URL>
    ```
 
-6. Confirm the Inbox reinitializer version is `2` (`init2` consumed by Proposal0017, `init3`
+8. Confirm the Inbox reinitializer version is `2` (`init2` consumed by Proposal0017, `init3`
    available):
 
    ```bash
@@ -271,20 +352,20 @@ Before submission:
 
    Expected: `0x...02`.
 
-7. Confirm proposer/prover client releases supporting forced inclusions and per-batch ZK proving
+9. Confirm proposer/prover client releases supporting forced inclusions and per-batch ZK proving
    are deployed in production.
 
-8. Generate calldata:
+10. Generate calldata:
 
-   ```bash
-   P=0019 pnpm proposal
-   ```
+    ```bash
+    P=0019 pnpm proposal
+    ```
 
-9. Dryrun on L1:
+11. Dryrun on L1:
 
-   ```bash
-   P=0019 pnpm proposal:dryrun:l1
-   ```
+    ```bash
+    P=0019 pnpm proposal:dryrun:l1
+    ```
 
 After execution:
 
@@ -293,17 +374,17 @@ After execution:
 3. Confirm `getConfig().proofVerifier` returns `ZK_REQUIRED_VERIFIER`.
 4. Confirm `saveForcedInclusion` accepts a fee-paying submission (no longer reverts with
    `ForcedInclusionsDisabled`).
-5. Confirm both new SGX verifiers' trust registries took effect (the geth MRENCLAVE on the geth
-   verifier, both reth MRENCLAVEs on the reth verifier, the MRSIGNER on both;
-   `revokedMrEnclave`/`revokedMrSigner` all false).
-6. **Register the raiko SGX instances** (registrar, `admin.taiko.eth`): call
-   `registerInstance(rawQuote)` on each new verifier with a fresh quote of the matching flavor,
-   then confirm `nextInstanceId() > 0` on both. Until this completes, proving runs on
-   RISC0 + SP1 only.
-7. Confirm proving continues: the next `prove()` transactions must carry two sub-proofs including
+5. Confirm the ownership handover completed: `owner()` on both new SGX verifiers returns the
+   DAO controller (`0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`) and `pendingOwner()` is zero.
+6. Confirm the ZK image rotation took effect: `isImageTrusted` returns false for both
+   `OLD_RISC0_*` IDs and true for both `NEW_RISC0_*` IDs; `isProgramTrusted` returns false for
+   all four `OLD_SP1_*` vkeys and true for all four `NEW_SP1_*` vkeys.
+7. **Switch the prover's raiko endpoint** (k8s config) to the raiko2 service running the new
+   images — proofs from the v0.5.1 images no longer verify.
+8. Confirm proving continues: the next `prove()` transactions must carry two sub-proofs including
    at least one of RISC0/SP1; an SGX_GETH + SGX_RETH pair must now revert with
    `CV_VERIFIERS_INSUFFICIENT`.
-8. Follow-up cleanup PR (post-execution): remove the now-retired `MainnetVerifier` contract and
+9. Follow-up cleanup PR (post-execution): remove the now-retired `MainnetVerifier` contract and
    the old SGX verifier/attester constants from `LibL1Addrs` — kept until execution so the live
    contracts remain rebuildable/verifiable from main and a rollback path exists.
 

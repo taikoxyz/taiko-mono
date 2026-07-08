@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../governance/BuildProposal.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
 
 // To print the proposal action data: `P=0019 pnpm proposal`
 // To dryrun the proposal on L1: `P=0019 pnpm proposal:dryrun:l1`
@@ -12,9 +14,9 @@ contract Proposal0019 is BuildProposal {
     // are zero so the action file cannot be generated with placeholder addresses.
     address public constant MAINNET_INBOX_NEW_IMPL = address(0);
 
-    // New ZkRequiredVerifier: SGX_RETH + (RISC0 or SP1), or RISC0 + SP1. Every accepted
-    // combination contains at least one ZK proof. Baked into MAINNET_INBOX_NEW_IMPL as an
-    // immutable; listed here for documentation and verification only.
+    // New ZkRequiredVerifier: (SGX_GETH or SGX_RETH) + (RISC0 or SP1), or RISC0 + SP1. Every
+    // accepted combination contains at least one ZK proof. Baked into MAINNET_INBOX_NEW_IMPL as
+    // an immutable; listed here for documentation and verification only.
     // TODO(unzen): fill in after running DeployUnzenContracts.
     address public constant ZK_REQUIRED_VERIFIER = address(0);
 
@@ -22,14 +24,21 @@ contract Proposal0019 is BuildProposal {
     // Automata DCAP attestation entrypoint (DCAP_ATTESTATION below) and carrying the post-v3.1.0
     // hardening (permanent untrust, uint32 id overflow rejection, quote-freshness gate). They
     // replace the Proposal0017 verifiers (0x41e79EB4... geth, 0x9D3C595B... reth), which are
-    // immutably wired to the old pre-incident vendored attestation. Trust configuration for both
-    // is part of this proposal; instance registration happens post-execution via the registrar.
+    // immutably wired to the old pre-incident vendored attestation.
+    //
+    // Both deploy with admin.taiko.eth as owner AND registrar. Before this proposal executes,
+    // the multisig configures each trust registry manually (setMrEnclave ->
+    // setEnclaveAttributePolicy -> setMrSigner), registers the raiko instances (owner
+    // registrations skip the 24h validity delay, so they are usable immediately), and calls
+    // transferOwnership(DAO controller). Actions 0-1 accept ownership and revert if the
+    // transfer has not happened, so the proposal cannot execute while the trust registries are
+    // still admin-controlled.
     // TODO(unzen): fill in after running DeployUnzenContracts.
     address public constant SGXGETH_VERIFIER_NEW = address(0);
     address public constant SGXRETH_VERIFIER_NEW = address(0);
 
     // Upstream Automata DCAP attestation entrypoint (AutomataDcapAttestationFee), baked into
-    // SGXRETH_VERIFIER_NEW as an immutable; listed for documentation and verification only.
+    // the new SGX verifiers as an immutable; listed for documentation and verification only.
     // TODO(unzen): fill in after running DeployAutomataDcapAttestation.
     address public constant DCAP_ATTESTATION = address(0);
 
@@ -37,79 +46,171 @@ contract Proposal0019 is BuildProposal {
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
     address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
 
-    // Trusted raiko measurements for the new SGX verifiers. These are exactly the values
-    // live-trusted on the Proposal0017 attesters (read from MrEnclaveUpdated/MrSignerUpdated
-    // events on SGXGETH_ATTESTER 0x0ffa4A62... and SGXRETH_ATTESTER 0x8d7C9549..., set at
-    // Proposal0017 execution, L1 block 25,423,573; unchanged since). The raiko images do not
-    // change in this proposal, only the verifier contracts, so the measurements carry over
-    // verbatim. Both flavors share one raiko signing identity (same MRSIGNER).
-    bytes32 public constant TRUSTED_MR_ENCLAVE_GETH =
-        0xbefb2c7ec44cefe57f4ff0ca815a8b8f15e05631bf3abe36cbc12d28f778fa36;
-    bytes32 public constant TRUSTED_MR_ENCLAVE_RETH_1 =
-        0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4;
-    bytes32 public constant TRUSTED_MR_ENCLAVE_RETH_2 =
-        0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
-    bytes32 public constant TRUSTED_MR_SIGNER =
-        0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
+    // Currently trusted raiko2 v0.5.1 ZK IDs, set by Proposal0017 (verified still live on
+    // 2026-07-08 via isImageTrusted/isProgramTrusted). Untrusted by this proposal: proofs from
+    // the old raiko2 images stop verifying at execution.
+    bytes32 public constant OLD_RISC0_PROPOSAL_IMAGE_ID =
+        0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b;
+    bytes32 public constant OLD_RISC0_AGGREGATION_IMAGE_ID =
+        0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef;
+    bytes32 public constant OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
+        0x007594632ec31fae9d44799b97316fcbcaa3ff6b5db268c7a5d8025b3bbb487e;
+    bytes32 public constant OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
+        0x3aca319730c7eba7288f33727316fcbc551ffb5a76c9a31e4bb004b63bbb487e;
+    bytes32 public constant OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
+        0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc;
+    bytes32 public constant OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
+        0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc;
+
+    // New raiko2 ZK IDs trusted by this proposal (the raiko release shipping with Unzen).
+    // TODO(unzen): fill in from the release, then update Proposal0019.md and regenerate the
+    // action file. The build reverts while these are zero.
+    bytes32 public constant NEW_RISC0_PROPOSAL_IMAGE_ID = bytes32(0);
+    bytes32 public constant NEW_RISC0_AGGREGATION_IMAGE_ID = bytes32(0);
+    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256 = bytes32(0);
+    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES = bytes32(0);
+    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256 = bytes32(0);
+    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES = bytes32(0);
 
     error ImplementationNotDeployed();
+    error ZkImageIdNotSet();
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         require(MAINNET_INBOX_NEW_IMPL != address(0), ImplementationNotDeployed());
         require(SGXGETH_VERIFIER_NEW != address(0), ImplementationNotDeployed());
         require(SGXRETH_VERIFIER_NEW != address(0), ImplementationNotDeployed());
+        require(
+            NEW_RISC0_PROPOSAL_IMAGE_ID != bytes32(0)
+                && NEW_RISC0_AGGREGATION_IMAGE_ID != bytes32(0),
+            ZkImageIdNotSet()
+        );
+        require(
+            NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256 != bytes32(0)
+                && NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256 != bytes32(0)
+                && NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0),
+            ZkImageIdNotSet()
+        );
 
-        actions = new Controller.Action[](7);
+        actions = new Controller.Action[](16);
 
-        // 0-4: Configure the trust registries of the new SGX verifiers. Both deploy fail-closed
-        // (checkLocalEnclaveReport enabled, empty allowlists), so without these actions no SGX
-        // instance can ever register. The DAO controller owns the verifiers, so these must be
-        // proposal actions. Registration itself happens post-execution: the registrar
-        // (admin.taiko.eth) calls registerInstance with fresh quotes, verified through the
-        // upstream attestation entrypoint. Until then ZkRequiredVerifier's RISC0+SP1 path keeps
-        // proving alive — no proving halt, unlike Proposal0017.
+        // 0-1: Accept ownership of the new SGX verifiers. admin.taiko.eth (initial owner and
+        // registrar) has already configured the trust registries and registered the raiko
+        // instances, and must have called transferOwnership(DAO controller) on both. These
+        // actions revert otherwise, so the proposal cannot execute while MRENCLAVE/MRSIGNER
+        // control still sits with the multisig — that trust boundary belongs to the DAO.
         actions[0] = Controller.Action({
             target: SGXGETH_VERIFIER_NEW,
             value: 0,
-            data: abi.encodeCall(
-                IProposal0019SgxVerifier.setMrEnclave, (TRUSTED_MR_ENCLAVE_GETH, true)
-            )
+            data: abi.encodeCall(IProposal0019SgxVerifier.acceptOwnership, ())
         });
         actions[1] = Controller.Action({
-            target: SGXGETH_VERIFIER_NEW,
-            value: 0,
-            data: abi.encodeCall(IProposal0019SgxVerifier.setMrSigner, (TRUSTED_MR_SIGNER, true))
-        });
-        actions[2] = Controller.Action({
             target: SGXRETH_VERIFIER_NEW,
             value: 0,
+            data: abi.encodeCall(IProposal0019SgxVerifier.acceptOwnership, ())
+        });
+
+        // 2-5: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
+        // raiko2 v0.5.1 IDs, trust the new ones. Proofs aggregated under the old images stop
+        // verifying at execution, so the raiko2 service running the new images must be live
+        // (and the prover pointed at it) when the proposal executes.
+        actions[2] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
             data: abi.encodeCall(
-                IProposal0019SgxVerifier.setMrEnclave, (TRUSTED_MR_ENCLAVE_RETH_1, true)
+                Risc0Verifier.setImageIdTrusted, (OLD_RISC0_PROPOSAL_IMAGE_ID, false)
             )
         });
         actions[3] = Controller.Action({
-            target: SGXRETH_VERIFIER_NEW,
+            target: RISC0_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0019SgxVerifier.setMrEnclave, (TRUSTED_MR_ENCLAVE_RETH_2, true)
+                Risc0Verifier.setImageIdTrusted, (OLD_RISC0_AGGREGATION_IMAGE_ID, false)
             )
         });
         actions[4] = Controller.Action({
-            target: SGXRETH_VERIFIER_NEW,
+            target: RISC0_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(IProposal0019SgxVerifier.setMrSigner, (TRUSTED_MR_SIGNER, true))
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (NEW_RISC0_PROPOSAL_IMAGE_ID, true)
+            )
+        });
+        actions[5] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (NEW_RISC0_AGGREGATION_IMAGE_ID, true)
+            )
         });
 
-        // 5: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
+        // 6-13: Rotate the trusted SP1 program verification keys the same way.
+        actions[6] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256, false)
+            )
+        });
+        actions[7] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, false)
+            )
+        });
+        actions[8] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256, false)
+            )
+        });
+        actions[9] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, false)
+            )
+        });
+        actions[10] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)
+            )
+        });
+        actions[11] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+        actions[12] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256, true)
+            )
+        });
+        actions[13] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+
+        // 14: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
         // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
         // (at least one ZK proof per batch, SGX paths via the new hardened verifiers) baked in
         // as the proof verifier.
-        actions[5] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
+        actions[14] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
 
-        // 6: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
+        // 15: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
         // June 2026 incident. Its blob has expired from the blob retention window and can no
         // longer be derived, so it must be skipped before the due-check is re-enabled.
-        actions[6] = Controller.Action({
+        actions[15] = Controller.Action({
             target: L1.INBOX, value: 0, data: abi.encodeCall(IProposal0019Inbox.init3, ())
         });
     }
@@ -120,6 +221,5 @@ interface IProposal0019Inbox {
 }
 
 interface IProposal0019SgxVerifier {
-    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
-    function setMrSigner(bytes32 _mrSigner, bool _trusted) external;
+    function acceptOwnership() external;
 }
