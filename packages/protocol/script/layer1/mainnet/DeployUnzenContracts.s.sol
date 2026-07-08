@@ -23,15 +23,16 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// ZkRequiredVerifier -> sub-verifiers, Inbox -> proof verifier), so the chain deploys
 /// bottom-up:
 ///
-/// 1. A new `SecureSgxVerifier` (SGX-reth) wired to the upstream attestation entrypoint. This
-///    replaces the Proposal0017 verifier (immutably wired to the old pre-incident vendored
-///    attestation) and carries the post-v3.1.0 hardening: permanent MRENCLAVE/MRSIGNER untrust,
-///    uint32 instance-id overflow rejection, and the quote-freshness gate. It deploys
-///    fail-closed: no instance can register until the DAO trusts an MRENCLAVE and MRSIGNER
-///    (proposal actions) and the registrar registers the raiko instance post-execution.
+/// 1. Two new `SecureSgxVerifier` instances (SGX-geth and SGX-reth) wired to the same upstream
+///    attestation entrypoint. They replace the Proposal0017 verifiers (immutably wired to the
+///    old pre-incident vendored attestation) and carry the post-v3.1.0 hardening: permanent
+///    MRENCLAVE/MRSIGNER untrust, uint32 instance-id overflow rejection, and the
+///    quote-freshness gate. Both deploy fail-closed: no instance can register until the DAO
+///    trusts an MRENCLAVE and MRSIGNER (proposal actions) and the registrar registers the
+///    raiko instances post-execution.
 /// 2. `ZkRequiredVerifier` replaces `MainnetVerifier`: two sub-proofs with at least one ZK
-///    proof (SGX+RISC0, SGX+SP1, or RISC0+SP1), removing the SGX-geth + SGX-reth (zero ZK)
-///    combination.
+///    proof ((SGX_GETH|SGX_RETH)+RISC0, (SGX_GETH|SGX_RETH)+SP1, or RISC0+SP1) — the
+///    SGX-geth + SGX-reth (zero ZK) combination no longer exists.
 /// 3. A new `MainnetInbox` implementation with forced inclusions re-enabled, wired to the new
 ///    verifier. `init3` voids the stale pre-incident forced inclusion queue entry whose blob
 ///    has expired from the blob retention window.
@@ -42,6 +43,7 @@ contract DeployUnzenContracts is Script {
 
     struct Deployment {
         address dcapAttestation;
+        address sgxGethVerifier;
         address sgxRethVerifier;
         address zkRequiredVerifier;
         address mainnetInboxImpl;
@@ -71,8 +73,23 @@ contract DeployUnzenContracts is Script {
     {
         deployment_.dcapAttestation = _dcapAttestation;
 
-        // New SGX-reth verifier on the hardened SgxVerifier, verifying quotes against the
-        // upstream Automata entrypoint. Same owner/registrar/delay as Proposal0017.
+        // New SGX verifiers (geth + reth) on the hardened SgxVerifier, both verifying quotes
+        // against the same upstream Automata entrypoint (unlike the old vendored setup, the
+        // MRENCLAVE/MRSIGNER allowlists live in each verifier, not the attestation, so one
+        // entrypoint serves both). The contracts are identical; each becomes geth- or
+        // reth-flavored through the ZkRequiredVerifier slot it occupies below, the raiko
+        // measurements the DAO trusts on it, and the raiko instances that register on it.
+        // Same owner/registrar/delay as Proposal0017.
+        deployment_.sgxGethVerifier = address(
+            new SecureSgxVerifier(
+                LibNetwork.TAIKO_MAINNET,
+                LibL1Addrs.DAO_CONTROLLER,
+                _dcapAttestation,
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                _INSTANCE_VALIDITY_DELAY
+            )
+        );
+
         deployment_.sgxRethVerifier = address(
             new SecureSgxVerifier(
                 LibNetwork.TAIKO_MAINNET,
@@ -85,6 +102,7 @@ contract DeployUnzenContracts is Script {
 
         deployment_.zkRequiredVerifier = address(
             new ZkRequiredVerifier(
+                deployment_.sgxGethVerifier,
                 deployment_.sgxRethVerifier,
                 LibL1Addrs.RISC0_RETH_VERIFIER,
                 LibL1Addrs.SP1_RETH_VERIFIER
@@ -104,6 +122,7 @@ contract DeployUnzenContracts is Script {
 
     function _logDeployment(Deployment memory _deployment) private pure {
         console2.log("DCAP_ATTESTATION (input):", _deployment.dcapAttestation);
+        console2.log("SGXGETH_VERIFIER_NEW:", _deployment.sgxGethVerifier);
         console2.log("SGXRETH_VERIFIER_NEW:", _deployment.sgxRethVerifier);
         console2.log("ZK_REQUIRED_VERIFIER:", _deployment.zkRequiredVerifier);
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
