@@ -225,23 +225,47 @@ The script interacts with these `SgxVerifier` functions:
 
 ## Deployment
 
-Deploy the Taiko Hoodi proof-verification stack — a fresh Taiko-owned `AutomataDcapAttestationFee`
-entrypoint plus the proof verifiers (2 SGX + Risc0 + SP1 + `MainnetVerifier`) wired to it — with
-[deploy_hoodi_proof_stack.sh](./deploy_hoodi_proof_stack.sh):
+Deploy the Taiko proof-verification stack for **Ethereum Hoodi or Mainnet** — a fresh Taiko-owned
+`AutomataDcapAttestationFee` entrypoint plus the proof verifiers (2 SGX + Risc0 + SP1 +
+`MainnetVerifier`) wired to it — with [deploy_proof_stack.sh](./deploy_proof_stack.sh):
 
 ```bash
 PRIVATE_KEY=0x... CONTRACT_OWNER=0x... \
-./script/layer1/verifiers/deploy_hoodi_proof_stack.sh
+./script/layer1/verifiers/deploy_proof_stack.sh --network hoodi   # or: --network mainnet
 ```
 
 It broadcasts two transactions: `DeployAutomataDcapAttestation` (under `FOUNDRY_PROFILE=layer1o`) to
-deploy the entrypoint, then `DeployHoodiProofStack` (under `FOUNDRY_PROFILE=layer1`) with
-`DCAP_ATTESTATION` set to that entrypoint, so both `SecureSgxVerifier`s are constructed pointing at
-it. `PCCS_ROUTER` defaults to Automata's verified Ethereum Hoodi router. It prints the deployed
-`ATTESTATION` and `MainnetVerifier` addresses.
+deploy the entrypoint, then the network's proof-stack script — `DeployHoodiProofStack` /
+`DeployMainnetProofStack` (under `FOUNDRY_PROFILE=layer1`) — with `DCAP_ATTESTATION` set to that
+entrypoint, so both `SecureSgxVerifier`s are constructed pointing at it. `--network` selects the
+`PCCS_ROUTER` default and RPC:
+
+| `--network` | `PCCS_ROUTER` default (Automata on-chain PCCS)     | validity delay |
+| ----------- | -------------------------------------------------- | -------------- |
+| `hoodi`     | `0x8e480c9879F1Db31dC209e5f4d239d5126e6e07B`       | 1 hour         |
+| `mainnet`   | `0xE2Cd5aA44a0896D683684B8EA15eB54B269fC933`       | 24 hours       |
+
+> **Mainnet `PCCS_ROUTER`:** `0xE2Cd5aA4…` is Automata's official Ethereum Mainnet PCCSRouter, but it
+> comes from Automata's latest deployment registry (the pinned v1.1.0 has no mainnet entry). Confirm
+> its Automata version is interface-compatible with Taiko's pinned `V3QuoteVerifier` before a
+> production run. Export `PCCS_ROUTER` to override.
+
+The SGX registrar (the only address allowed to `registerInstance`) is configurable via the
+`SGX_REGISTRAR` env, defaulting to the deployer — set it to a durable multisig, or to the zero
+address for permissionless registration.
+
+On Mainnet the underlying RiscZero Groth16 and SP1 Plonk verifiers are **redeployed fresh** by
+default; on Hoodi they default to the known verifiers. Override either with the `R0_GROTH16` /
+`SP1_PLONK` env to wrap an existing verifier instead (e.g. the live mainnet `0x8EaB2D97…` /
+`0x3B604117…`).
+
+> **Redeployed R0/SP1 versions:** a fresh mainnet RiscZero verifier is pinned to the repo's
+> `@risc0/contracts` `ControlID`, and SP1 to `@sp1-contracts/v6.1.0` — confirm these match mainnet's
+> raiko prover versions before a production run (or set `R0_GROTH16` / `SP1_PLONK` to reuse the live
+> ones).
 
 Add `--verify` (with `ETHERSCAN_API_KEY` set) to verify the deployed contracts on Etherscan; both
-broadcasts forward it. forge auto-resolves the Hoodi Etherscan v2 endpoint — set `VERIFIER_URL` to
+broadcasts forward it. forge auto-resolves the Etherscan v2 endpoint — set `VERIFIER_URL` to
 override if needed.
 
 > The SGX verifiers point at the new Taiko-owned entrypoint (the #21827 shared-entrypoint model).
@@ -249,12 +273,13 @@ override if needed.
 > verifiers, not an in-place upgrade.
 
 This deploys **only the proof-verification contracts** — no inbox / signal service / whitelists. For
-the full Shasta system use `DeployShastaHoodi` (which also consumes `DCAP_ATTESTATION`). To put the
-proof stack into use, point a Shasta inbox's `proofVerifier` at the deployed `MainnetVerifier`.
+the full Shasta system use `DeployShastaHoodi` / `DeployShastaMainnet` (which also consume
+`DCAP_ATTESTATION`). To put the proof stack into use, point a Shasta inbox's `proofVerifier` at the
+deployed `MainnetVerifier`.
 
 The operational flow is **deploy → verify → configure**:
 
-1. `deploy_hoodi_proof_stack.sh` — deploy the entrypoint + proof verifiers (above).
+1. `deploy_proof_stack.sh --network <net>` — deploy the entrypoint + proof verifiers (above).
 2. `verify_hoodi_deployment.sh` — assert the wiring, once an inbox points at the `MainnetVerifier`
    (the command the deploy script prints). Ships in the companion Hoodi deployment verifier,
    [PR #21917](https://github.com/taikoxyz/taiko-mono/pull/21917).
