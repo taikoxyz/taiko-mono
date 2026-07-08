@@ -388,6 +388,13 @@ func (s *DriverTestSuite) TestDoSyncNoNewL2Blocks() {
 }
 
 func (s *DriverTestSuite) TestForcedInclusion() {
+	// TODO(temporary): forced inclusions are disabled in the current protocol
+	// (Inbox._validateProposeInput requires numForcedInclusions == 0) and the
+	// proposer now sends 0, so forced-inclusion proposals cannot be produced.
+	// Re-enable once forced inclusions are supported in the protocol again and the
+	// proposer sends math.MaxUint16 (see proposer/transaction_builder/blob.go).
+	s.T().Skip("temporarily disabled: forced inclusions are turned off in the protocol")
+
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 

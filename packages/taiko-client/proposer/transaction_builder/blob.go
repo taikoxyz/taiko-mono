@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -44,7 +43,8 @@ func NewBlobTransactionBuilder(
 	}
 }
 
-// Build implements the ProposeBatchTransactionBuilder interface.
+// Build builds an inbox propose transaction that carries the given transaction
+// lists in blobs, returning a tx candidate for the tx manager to send.
 func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
 	txBatch []types.Transactions,
@@ -113,8 +113,13 @@ func (b *BlobTransactionBuilder) Build(
 				NumBlobs:       uint16(len(blobs)),
 				Offset:         common.Big0,
 			},
-			// We try to include all the forced inclusions in the source manifest.
-			NumForcedInclusions: math.MaxUint16,
+			// TODO(temporary): the current Shasta Inbox rejects a non-zero
+			// numForcedInclusions (Inbox._validateProposeInput requires it to be 0), so
+			// forced inclusions are disabled in the protocol for now. Sending anything
+			// else makes propose revert. Once forced inclusions are re-enabled in the
+			// protocol, change this back to math.MaxUint16 (import "math") to include all
+			// pending forced inclusions in the source manifest.
+			NumForcedInclusions: 0,
 		},
 	)
 	if err != nil {
