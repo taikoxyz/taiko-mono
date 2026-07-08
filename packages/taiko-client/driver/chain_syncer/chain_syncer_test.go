@@ -482,13 +482,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
-	// TODO(temporary): forced inclusions are disabled in the current protocol
-	// (Inbox._validateProposeInput requires numForcedInclusions == 0) and the
-	// proposer now sends 0, so forced-inclusion proposals cannot be produced.
-	// Re-enable once forced inclusions are supported in the protocol again and the
-	// proposer sends math.MaxUint16 (see proposer/transaction_builder/blob.go).
-	s.T().Skip("temporarily disabled: forced inclusions are turned off in the protocol")
-
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -591,13 +584,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
-	// TODO(temporary): forced inclusions are disabled in the current protocol
-	// (Inbox._validateProposeInput requires numForcedInclusions == 0) and the
-	// proposer now sends 0, so forced-inclusion proposals cannot be produced.
-	// Re-enable once forced inclusions are supported in the protocol again and the
-	// proposer sends math.MaxUint16 (see proposer/transaction_builder/blob.go).
-	s.T().Skip("temporarily disabled: forced inclusions are turned off in the protocol")
-
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
