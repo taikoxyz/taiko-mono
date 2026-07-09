@@ -111,44 +111,6 @@
 - logs:
   - deployed on Feb 2, 2026 at commit `392bfa0`
 
-### mainnet_verifier
-
-- impl : `0x145d0f2140ab6d662217c59641d535cbc21f30f9`
-- note: immutable; the ShastaInbox (`0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`) proof verifier — composes the sgx/risc0/sp1 verifiers below
-- logs:
-  - deployed on Feb 2, 2026 @tx`0x6d5d9eb6e4c40fa68555d9250049e708c5373d42f1cb12514d7db340c0e97d41`
-
-### sgx_verifier_reth
-
-- impl : `0x40CcAFC1C2D14bdD70984b221F2b49af5e7C6114`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Feb 2, 2026 @tx`0xa7bdd35b6a68b3bff4c07ed6ed82a44006bfb16138bd62d64681cb84d54fbb5e`
-
-### sgx_verifier_geth
-
-- impl : `0x8e362ef5140B0b9BE4a1141b6367784b0A7cefB1`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Feb 2, 2026 @tx`0xdf988ad004c423d2e34a75fe34b2268c2c4867bd132d4cf4151df44960cb1ad8`
-
-### risc0_verifier
-
-- impl : `0xfa0e7dAFe9785627df034c123A9B87497EB06b41`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Feb 2, 2026 @tx`0xa36c84d44a16783cd272b077ee49f44bb97272da6a2ad3af7e8d3978d07659bb`
-
-### sp1_verifier
-
-- impl : `0xc42Ef1A7A606162e144F696A07A7D3Ad98bF4EE7`
-- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
-- logs:
-  - deployed on Feb 2, 2026 @tx`0x34fe3c84aab9278128cca65e7b32ef608fc2a0262e79704eed5caa36101caf2a`
-
-- HorseToken: 0x0a5Db5597ADC81c871Ebd89e81cfa07bDc8fAfE3
-- BullToken: 0xB7A4DE1200eaA20af19e4998281117497645ecC1
-
 ## L2 Contracts
 
 ### delegate_controller
