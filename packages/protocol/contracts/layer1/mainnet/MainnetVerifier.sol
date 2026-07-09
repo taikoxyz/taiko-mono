@@ -5,6 +5,13 @@ import "../verifiers/compose/ComposeVerifier.sol";
 
 /// @title MainnetVerifier
 /// @notice SGX-GETH or SGX-RETH + (the other SGX or RISC0 or SP1) verifier
+/// @dev DEPRECATED after the Unzen upgrade (Proposal0019): replaced by `ZkRequiredVerifier`,
+/// which mandates at least one ZK proof per batch — this contract still accepts the
+/// SGX-GETH + SGX-RETH (zero ZK) combination that finalized the June 2026 forged proofs.
+/// Do not wire into new deployments. Kept in-repo while the live instance
+/// (0x71808449A6217898d602c1a392D95b931Ac5d878) remains the active mainnet verifier, so it
+/// stays rebuildable/verifiable and available as a rollback path; remove in the post-Unzen
+/// cleanup once Proposal0019 has executed.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetVerifier is ComposeVerifier {
     /// @notice Creates a new MainnetVerifier instance
