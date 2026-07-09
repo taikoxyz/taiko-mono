@@ -243,7 +243,7 @@ jobs:
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PROTOCOL_FORK_DIR }}
-          ref: taiko-alethia-protocol-v3.0.0
+          ref: main
 
       - name: Install pnpm dependencies for protocol taiko-mono for testing
         working-directory: ${{ env.PROTOCOL_FORK_DIR }}
