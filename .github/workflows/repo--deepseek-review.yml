@@ -37,7 +37,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -61,7 +61,7 @@ jobs:
 
       - name: Run DeepSeek Code Review
         id: review
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
