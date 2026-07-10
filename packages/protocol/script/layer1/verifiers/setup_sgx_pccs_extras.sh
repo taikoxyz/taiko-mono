@@ -305,10 +305,14 @@ import sys, json, datetime
 data = json.load(open(sys.argv[1]))["tcbEvaluationDataNumbers"]["tcbEvalNumbers"]
 now = datetime.datetime.now(datetime.timezone.utc)
 twelve_mo = datetime.timedelta(days=365)
+eligible = []
 for e in data:
     dt = datetime.datetime.fromisoformat(e["tcbRecoveryEventDate"].replace("Z","+00:00"))
     if (now - dt) >= twelve_mo:
-        print(e["tcbEvaluationDataNumber"]); sys.exit(0)
+        eligible.append((dt, int(e["tcbEvaluationDataNumber"])))
+eligible.sort(key=lambda item: (item[0], item[1]), reverse=True)
+if eligible:
+    print(eligible[0][1]); sys.exit(0)
 sys.exit("no standard tcb eval number found")
 PY
 )
@@ -471,7 +475,7 @@ send() {
 
     out=$(cast send "$@" "${gas_args[@]}" --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" --json 2>&1) || {
         # ignore idempotent "already granted" reverts
-        echo "$out" | grep -qE 'AlreadyExists|already|0xdb148880|0x72bd8361|0x9f4daa9e|Out_Of_Date|out.of.date' && { log "$desc: already set"; return 0; }
+        echo "$out" | grep -qE 'AlreadyExists|Duplicate_Collateral|0xdb148880|0x72bd8361|0x9f4daa9e|Out_Of_Date|out.of.date' && { log "$desc: already set"; return 0; }
         log "$desc: $out"; return 1;
     }
     log "$desc: ok"
@@ -501,8 +505,8 @@ upload_fmspc_tcb_direct_storage() {
     )
 
     # `AutomataDaoStorage.attest` is guarded by grantDao(). The writer is intentionally the
-    # deployer/operator for this gas-cap workaround; the stored bytes still come from signed Intel
-    # collateral, encoded by the helper above.
+    # deployer/operator for this devnet gas-cap workaround. For security-equivalent on-chain Intel
+    # signature verification, set FMSPC_TCB_UPLOAD_MODE=dao and use the DAO upsert path instead.
     send "grantDao(deployer direct FMSPC writer)" "$STORAGE" "grantDao(address)" "$DEPLOYER"
 
     send_with_gas "$FMSPC_TCB_GAS_LIMIT" \

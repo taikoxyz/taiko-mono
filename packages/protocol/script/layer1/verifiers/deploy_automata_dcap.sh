@@ -23,9 +23,9 @@ export PRIVATE_KEY="${PRIVATE_KEY:-}"
 export RPC_URL="${RPC_URL:-http://localhost:8545}"
 
 AUTOMATA_PCCS_REPO="${AUTOMATA_PCCS_REPO:-https://github.com/automata-network/automata-on-chain-pccs.git}"
-AUTOMATA_PCCS_REF="${AUTOMATA_PCCS_REF:-main}"
+AUTOMATA_PCCS_REF="${AUTOMATA_PCCS_REF:-7bcb8c7ee6dfb91923c70a32d047db18f3eced1b}"
 AUTOMATA_DCAP_REPO="${AUTOMATA_DCAP_REPO:-https://github.com/automata-network/automata-dcap-attestation.git}"
-AUTOMATA_DCAP_REF="${AUTOMATA_DCAP_REF:-main}"
+AUTOMATA_DCAP_REF="${AUTOMATA_DCAP_REF:-ae7d6c480a5cf06bd5b3d9e16bb7461b93deda14}"
 
 # 6-byte FMSPC hex. SGX users should leave this unset here and run
 # setup_sgx_pccs_extras.sh after deployment.
@@ -35,7 +35,7 @@ UPLOAD_LEGACY_TDX_COLLATERALS="${UPLOAD_LEGACY_TDX_COLLATERALS:-false}"
 # Auto-detect FMSPC if not set: fetch from a running reth-tdx instance.
 # When set, this script calls GET <RETH_TDX_URL>/bootstrap, extracts the
 # raw TDX quote, and parses the FMSPC from the PCK certificate SGX extension.
-RETH_TDX_URL="${RETH_TDX_URL:-${RETH_TDX_URL:-}}"
+RETH_TDX_URL="${RETH_TDX_URL:-}"
 
 # Skip already-deployed steps by providing existing addresses/files:
 #   PCCS_JSON                  Path to existing PCCS deployment JSON → skips PCCS clone+deploy
@@ -54,6 +54,7 @@ DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}" # auto | true | false
 
 P256_RIP7212_PRECOMPILE="0x0000000000000000000000000000000000000100"
 P256_RIP7212_TEST_INPUT="0x8cde6da0726f3504f74fa0f0eae54e940397b10dfe7af5a53e69c6abb5059a348c6a3bb0346ec08d01b6351eeff099fd7131de48e5e569dbcd9dc3f29e08995692db2eaebd633a52fff4915d274859bbc241967c6ce3a6831e754b88066fc534710f9d7cb59f86798aaf92138320831b778016d02cf0f5b416a76917f85edd4d7440615935921eaaa33c66c6cf4b745e70176a391610ab14f845d7ff39b112a3"
+P256="$P256_RIP7212_PRECOMPILE"
 
 # ---------------------------------------------------------------
 # Helpers
@@ -82,8 +83,10 @@ Optional env:
                  Existing AutomataDcapAttestationFee address — skips DCAP clone+deploy.
                  Requires PCCS_JSON to also be set.
   OUTPUT_JSON    Write deployment summary JSON to this file path.
-  AUTOMATA_PCCS_REPO / AUTOMATA_PCCS_REF   (default: main)
-  AUTOMATA_DCAP_REPO / AUTOMATA_DCAP_REF   (default: main)
+  AUTOMATA_PCCS_REPO / AUTOMATA_PCCS_REF
+                 Defaults to pinned commit 7bcb8c7ee6dfb91923c70a32d047db18f3eced1b.
+  AUTOMATA_DCAP_REPO / AUTOMATA_DCAP_REF
+                 Defaults to pinned commit ae7d6c480a5cf06bd5b3d9e16bb7461b93deda14.
   WORK_DIR       Clone directory (default: \${TMPDIR:-/tmp}/automata-deploy-<pid>)
   KEEP_REPOS     Set true to keep clones after success (default: false)
   DEPLOY_DAIMO_P256
@@ -136,6 +139,16 @@ supports_rip7212_p256() {
         --rpc-url "$RPC_URL" 2>/dev/null || true)
     [[ "$ret" == "0x1" || "$ret" == "0x01" || \
        "$ret" == "0x0000000000000000000000000000000000000000000000000000000000000001" ]]
+}
+
+clone_repo_at_ref() {
+    local repo="$1"
+    local ref="$2"
+    local dest="$3"
+
+    git clone --depth 1 "$repo" "$dest"
+    git -C "$dest" fetch --depth 1 origin "$ref"
+    git -C "$dest" checkout --detach FETCH_HEAD
 }
 
 cleanup() {
@@ -350,6 +363,7 @@ case "$DEPLOY_DAIMO_P256" in
 esac
 
 if [[ "$SHOULD_DEPLOY_DAIMO_P256" == "true" ]]; then
+    P256="$DAIMO_P256"
     if has_code "$DAIMO_P256"; then
         echo "Daimo P256Verifier: already at $DAIMO_P256"
     else
@@ -374,8 +388,7 @@ if [[ -n "$PCCS_JSON" ]]; then
 else
     echo ""
     echo "--- Cloning automata-on-chain-pccs ---"
-    git clone --depth 1 --branch "$AUTOMATA_PCCS_REF" "$AUTOMATA_PCCS_REPO" "$WORK_DIR/pccs" 2>/dev/null || \
-        git clone --depth 1 "$AUTOMATA_PCCS_REPO" "$WORK_DIR/pccs"
+    clone_repo_at_ref "$AUTOMATA_PCCS_REPO" "$AUTOMATA_PCCS_REF" "$WORK_DIR/pccs"
     git -C "$WORK_DIR/pccs" submodule update --init --recursive
 
     cd "$WORK_DIR/pccs"
@@ -576,8 +589,7 @@ if [[ -n "$AUTOMATA_DCAP_ATTESTATION" ]]; then
 else
     echo ""
     echo "--- Cloning automata-dcap-attestation ---"
-    git clone --depth 1 --branch "$AUTOMATA_DCAP_REF" "$AUTOMATA_DCAP_REPO" "$WORK_DIR/dcap" 2>/dev/null || \
-        git clone --depth 1 "$AUTOMATA_DCAP_REPO" "$WORK_DIR/dcap"
+    clone_repo_at_ref "$AUTOMATA_DCAP_REPO" "$AUTOMATA_DCAP_REF" "$WORK_DIR/dcap"
     git -C "$WORK_DIR/dcap" submodule update --init --recursive
 
     # Wire PCCS output into the expected location
@@ -820,6 +832,7 @@ echo "======================================="
 echo "Automata DCAP deployment complete"
 echo "  Chain ID:                   $CHAIN_ID"
 echo "  AutomataDcapAttestationFee: $AUTOMATA_DCAP"
+echo "  P256Verifier:               $P256"
 echo "======================================="
 
 if [[ -n "$OUTPUT_JSON" ]]; then
@@ -835,7 +848,8 @@ if [[ -n "$OUTPUT_JSON" ]]; then
         --arg rpc    "$RPC_URL" \
         --arg dcap   "$AUTOMATA_DCAP" \
         --arg pccs   "$PCCS_JSON" \
-        '{chain_id: $chain, rpc_url: $rpc, AutomataDcapAttestationFee: $dcap, pccs_json: $pccs}' \
+        --arg p256   "$P256" \
+        '{chain_id: $chain, rpc_url: $rpc, AutomataDcapAttestationFee: $dcap, pccs_json: $pccs, p256: $p256}' \
         > "$OUTPUT_JSON"
     echo "Deployment summary written to $OUTPUT_JSON"
 fi
@@ -844,6 +858,7 @@ echo ""
 echo "Next for SGX:"
 echo "  AUTOMATA_DCAP_ATTESTATION=$AUTOMATA_DCAP \\"
 echo "  PCCS_JSON=$PCCS_JSON \\"
+echo "  P256=$P256 \\"
 echo "  PCCS_REPO=<automata-on-chain-pccs checkout> \\"
 echo "  SGX_BOOTSTRAP_JSON=<sgx-bootstrap-json> \\"
 echo "  ./setup_sgx_pccs_extras.sh"

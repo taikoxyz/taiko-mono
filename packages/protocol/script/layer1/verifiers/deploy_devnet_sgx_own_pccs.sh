@@ -180,10 +180,12 @@ log "out=$OUT_DIR work=$WORK_DIR"
 
 AUTOMATA_DCAP_ATTESTATION=$(jq -r '.AutomataDcapAttestationFee' "$OUTPUT_JSON")
 PCCS_JSON=$(jq -r '.pccs_json' "$OUTPUT_JSON")
+P256=$(jq -r '.p256 // empty' "$OUTPUT_JSON")
 PCCS_REPO="$WORK_DIR/pccs"
 
 [[ -n "$AUTOMATA_DCAP_ATTESTATION" && "$AUTOMATA_DCAP_ATTESTATION" != "null" ]] || die "missing AutomataDcapAttestationFee in $OUTPUT_JSON"
 [[ -f "$PCCS_JSON" ]] || die "PCCS_JSON not found: $PCCS_JSON"
+[[ "$P256" =~ ^0x[0-9a-fA-F]{40}$ ]] || die "missing P256 in $OUTPUT_JSON"
 [[ -d "$PCCS_REPO" ]] || die "PCCS_REPO not found: $PCCS_REPO"
 
 (
@@ -193,6 +195,7 @@ PCCS_REPO="$WORK_DIR/pccs"
     AUTOMATA_DCAP_ATTESTATION="$AUTOMATA_DCAP_ATTESTATION" \
     PCCS_JSON="$PCCS_JSON" \
     PCCS_REPO="$PCCS_REPO" \
+    P256="$P256" \
     SGX_BOOTSTRAP_JSON="$SETUP_SGX_BOOTSTRAP_JSON" \
     INTEL_API_SGX="$INTEL_API_SGX" \
     PCS_CURL_INSECURE="$PCS_CURL_INSECURE" \
@@ -398,6 +401,7 @@ jq -n \
     --arg deployer "$DEPLOYER" \
     --arg dcap "$AUTOMATA_DCAP_ATTESTATION" \
     --arg pccs "$PCCS_JSON" \
+    --arg p256 "$P256" \
     --arg quoteInfo "$QUOTE_INFO_JSON" \
     --arg sgxGethQuoteInfo "$SGX_GETH_QUOTE_INFO_JSON" \
     --arg sgxRethQuoteInfo "$SGX_RETH_QUOTE_INFO_JSON" \
@@ -421,6 +425,7 @@ jq -n \
         deployer: $deployer,
         AutomataDcapAttestationFee: $dcap,
         pccs_json: $pccs,
+        p256: $p256,
         sgx_quote_info_json: $quoteInfo,
         sgx_geth_quote_info_json: $sgxGethQuoteInfo,
         sgx_reth_quote_info_json: $sgxRethQuoteInfo,

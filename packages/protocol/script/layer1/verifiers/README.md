@@ -110,6 +110,16 @@ setup. To register real geth/reth instances during the same run, set `REGISTER_S
 provide `SGX_GETH_BOOTSTRAP_JSON`, `SGX_RETH_BOOTSTRAP_JSON`, or both depending on
 `REGISTER_SECURE_SGX_TARGET`.
 
+The self-hosted PCCS path pins the default Automata checkouts to reviewed commits. Override
+`AUTOMATA_PCCS_REF` or `AUTOMATA_DCAP_REF` only when intentionally testing a different upstream
+revision. If the target chain lacks the RIP-7212 P256 precompile, `deploy_automata_dcap.sh` records
+the deployed Daimo P256 address in its summary and the devnet wrapper passes it into
+`setup_sgx_pccs_extras.sh` for the versioned PCCS DAO constructors.
+
+`setup_sgx_pccs_extras.sh` defaults to `FMSPC_TCB_UPLOAD_MODE=direct-storage` only as a devnet gas-cap
+workaround for SGX FMSPC TCB info. Use `FMSPC_TCB_UPLOAD_MODE=dao` when the target chain can fit the
+DAO upsert path and you want the Intel signature verification to happen through the Automata DAO call.
+
 ## Configuration Options
 
 ### Set MR_ENCLAVE
