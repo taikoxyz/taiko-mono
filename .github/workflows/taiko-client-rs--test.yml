@@ -103,6 +103,12 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just fmt-check
 
+      - name: Check protocol feature isolation
+        working-directory: packages/taiko-client-rs
+        run: |
+          cargo check -p protocol --no-default-features --locked
+          cargo check -p protocol --locked
+
       - name: Check clippy
         working-directory: packages/taiko-client-rs
         run: just clippy
