@@ -103,12 +103,6 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just fmt-check
 
-      - name: Check protocol feature isolation
-        working-directory: packages/taiko-client-rs
-        run: |
-          cargo check -p protocol --no-default-features --locked
-          cargo check -p protocol --locked
-
       - name: Check clippy
         working-directory: packages/taiko-client-rs
         run: just clippy
@@ -241,6 +235,10 @@ jobs:
         uses: extractions/setup-just@v3
         with:
           just-version: 1.5.0
+
+      - name: Check protocol feature isolation
+        working-directory: packages/taiko-client-rs
+        run: just check-features
 
       - uses: taiki-e/install-action@nextest
 
