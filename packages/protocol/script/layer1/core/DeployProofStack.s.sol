@@ -53,7 +53,7 @@ abstract contract DeployProofStack is Script {
 
         Config memory cfg = _config();
         // The underlying RiscZero Groth16 / SP1 Plonk verifiers are configurable via env, defaulting
-        // to the network's config value; address(0) (Mainnet's default) means deploy fresh.
+        // to the network's live verifier; address(0) means deploy fresh.
         cfg.r0Groth16 = vm.envOr("R0_GROTH16", cfg.r0Groth16);
         cfg.sp1Plonk = vm.envOr("SP1_PLONK", cfg.sp1Plonk);
 
@@ -97,8 +97,8 @@ abstract contract DeployProofStack is Script {
                 _cfg.chainId, _cfg.owner, _dcapAttestation, _registrar, _cfg.validityDelay
             )
         );
-        // Deploy fresh underlying verifiers when the config address is zero (Mainnet's default),
-        // else wrap the configured/live one. Mirrors DeployProtocolOnL1._deployZKVerifiers.
+        // Deploy fresh underlying verifiers when the config address is zero, else wrap the
+        // configured/live one. Mirrors DeployProtocolOnL1._deployZKVerifiers.
         address r0Groth16 = _cfg.r0Groth16 == address(0)
             ? address(
                 new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID)

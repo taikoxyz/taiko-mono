@@ -254,15 +254,15 @@ The SGX registrar (the only address allowed to `registerInstance`) is configurab
 `SGX_REGISTRAR` env, defaulting to the deployer — set it to a durable multisig, or to the zero
 address for permissionless registration.
 
-On Mainnet the underlying RiscZero Groth16 and SP1 Plonk verifiers are **redeployed fresh** by
-default; on Hoodi they default to the known verifiers. Override either with the `R0_GROTH16` /
-`SP1_PLONK` env to wrap an existing verifier instead (e.g. the live mainnet `0x8EaB2D97…` /
-`0x3B604117…`).
+On both networks the underlying RiscZero Groth16 and SP1 Plonk verifiers default to the **live**
+deployments — Mainnet `0x8EaB2D97…` / `0x3B604117…`, Hoodi `0x32Db7dc4…` / `0x2a5A7040…` — the ones
+that network's raiko provers already target. Override either with the `R0_GROTH16` / `SP1_PLONK` env
+to wrap a different verifier, or set one to the zero address to deploy a fresh one.
 
-> **Redeployed R0/SP1 versions:** a fresh mainnet RiscZero verifier is pinned to the repo's
-> `@risc0/contracts` `ControlID`, and SP1 to `@sp1-contracts/v6.1.0` — confirm these match mainnet's
-> raiko prover versions before a production run (or set `R0_GROTH16` / `SP1_PLONK` to reuse the live
-> ones).
+> **Freshly deployed R0/SP1 versions:** a fresh RiscZero verifier is pinned to the repo's
+> `@risc0/contracts` `ControlID`, and SP1 to `@sp1-contracts/v6.1.0`. Only opt into a fresh deploy
+> once those match the network's raiko prover versions — otherwise proofs from the live provers will
+> not verify against the deployed stack.
 
 Add `--verify` (with `ETHERSCAN_API_KEY` set) to verify the deployed contracts on Etherscan; both
 broadcasts forward it. forge auto-resolves the Etherscan v2 endpoint — set `VERIFIER_URL` to

@@ -35,9 +35,9 @@ Optional environment variables:
   SGX_REGISTRAR         SGX registrar (the only address allowed to registerInstance); defaults to
                         the deployer. Set to a durable multisig, or to the zero address for
                         permissionless registration.
-  R0_GROTH16            RiscZero Groth16 verifier to wrap. Mainnet deploys a FRESH one when unset;
-                        Hoodi defaults to its known verifier. Set an address to reuse an existing one.
-  SP1_PLONK             SP1 Plonk verifier to wrap; same fresh-deploy / default rules as R0_GROTH16.
+  R0_GROTH16            RiscZero Groth16 verifier to wrap; defaults to the selected network's live
+                        verifier. Set the zero address to deploy a FRESH one instead.
+  SP1_PLONK             SP1 Plonk verifier to wrap; same default / fresh-deploy rules as R0_GROTH16.
   PCCS_ROUTER           Automata on-chain PCCS router; defaults to the selected network's router
   ETHERSCAN_API_KEY     Etherscan API key; REQUIRED when --verify is passed
   VERIFIER_URL          Override the Etherscan verifier URL

@@ -12,8 +12,8 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 
 /// @dev Exposes `_deployProofStack` (explicit params) and `_config()` so tests avoid process-global
 /// `vm.setEnv` (forge runs tests concurrently; env is shared, unreverted state). The base `run()`
-/// env plumbing is covered by DeployHoodiProofStackTest; here we assert the mainnet config + the
-/// fresh-deploy default.
+/// env plumbing is covered by DeployHoodiProofStackTest; here we assert the mainnet config + that
+/// the live R0/SP1 verifiers are referenced rather than redeployed.
 contract DeployMainnetProofStackHarness is DeployMainnetProofStack {
     function deployWith(
         address dcap,
@@ -38,6 +38,9 @@ contract DeployMainnetProofStackHarness is DeployMainnetProofStack {
 contract DeployMainnetProofStackTest is Test {
     DeployMainnetProofStackHarness internal harness;
 
+    address internal constant MAINNET_R0 = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
+    address internal constant MAINNET_SP1 = 0x3B6041173B80E77f038f3F2C0f9744f04837185e;
+
     function setUp() public {
         harness = new DeployMainnetProofStackHarness();
     }
@@ -47,15 +50,16 @@ contract DeployMainnetProofStackTest is Test {
         assertEq(c.chainId, LibNetwork.TAIKO_MAINNET, "chainId");
         assertEq(c.owner, LibL1Addrs.DAO_CONTROLLER, "owner");
         assertEq(c.validityDelay, 24 hours, "validity delay");
-        // Mainnet defaults to fresh-deploying the underlying verifiers.
-        assertEq(c.r0Groth16, address(0), "r0Groth16 defaults to fresh");
-        assertEq(c.sp1Plonk, address(0), "sp1Plonk defaults to fresh");
+        assertEq(c.r0Groth16, MAINNET_R0, "r0Groth16 default");
+        assertEq(c.sp1Plonk, MAINNET_SP1, "sp1Plonk default");
     }
 
-    function test_deploysFreshR0AndSp1ByDefault() public {
+    function test_referencesLiveR0AndSp1ByDefault() public {
         address entrypoint = address(0xDCA9);
+        // Drive the deploy off the config defaults, so this covers default -> deployed wiring.
+        DeployMainnetProofStack.Config memory c = harness.exposedConfig();
         DeployMainnetProofStack.ProofStack memory s =
-            harness.deployWith(entrypoint, address(0xA11CE), address(0), address(0));
+            harness.deployWith(entrypoint, address(0xA11CE), c.r0Groth16, c.sp1Plonk);
 
         // Both SGX verifiers point at the shared entrypoint; aggregation intact.
         assertEq(
@@ -68,9 +72,9 @@ contract DeployMainnetProofStackTest is Test {
         assertEq(mv.risc0RethVerifier(), s.risc0, "mv.risc0");
         assertEq(mv.sp1RethVerifier(), s.sp1, "mv.sp1");
 
-        // Fresh underlying R0 Groth16 + SP1 Plonk verifiers were actually deployed (have code).
-        assertGt(Risc0Verifier(s.risc0).riscoGroth16Verifier().code.length, 0, "fresh R0 deployed");
-        assertGt(SP1Verifier(s.sp1).sp1RemoteVerifier().code.length, 0, "fresh SP1 deployed");
+        // The live mainnet R0 Groth16 + SP1 Plonk verifiers are wrapped, not redeployed.
+        assertEq(Risc0Verifier(s.risc0).riscoGroth16Verifier(), MAINNET_R0, "R0 wrapped");
+        assertEq(SP1Verifier(s.sp1).sp1RemoteVerifier(), MAINNET_SP1, "SP1 wrapped");
 
         // Mainnet constants.
         assertEq(SecureSgxVerifier(s.sgxReth).taikoChainId(), LibNetwork.TAIKO_MAINNET, "chainId");
@@ -78,14 +82,16 @@ contract DeployMainnetProofStackTest is Test {
         assertEq(SecureSgxVerifier(s.sgxReth).instanceValidityDelay(), 24 hours, "validity delay");
     }
 
-    function test_referencesR0AndSp1WhenProvided() public {
-        address r0 = address(0xF00D);
-        address sp1 = address(0xD00D);
+    function test_deploysFreshR0AndSp1WhenZero() public {
         DeployMainnetProofStack.ProofStack memory s =
-            harness.deployWith(address(0xDCA9), address(0xA11CE), r0, sp1);
+            harness.deployWith(address(0xDCA9), address(0xA11CE), address(0), address(0));
 
-        // Provided addresses are wrapped verbatim — no fresh deploy.
-        assertEq(Risc0Verifier(s.risc0).riscoGroth16Verifier(), r0, "R0 referenced");
-        assertEq(SP1Verifier(s.sp1).sp1RemoteVerifier(), sp1, "SP1 referenced");
+        // A zero override means deploy fresh: the wrapped verifiers exist and are not the live ones.
+        address r0 = Risc0Verifier(s.risc0).riscoGroth16Verifier();
+        address sp1 = SP1Verifier(s.sp1).sp1RemoteVerifier();
+        assertGt(r0.code.length, 0, "fresh R0 deployed");
+        assertGt(sp1.code.length, 0, "fresh SP1 deployed");
+        assertTrue(r0 != MAINNET_R0, "R0 not the live one");
+        assertTrue(sp1 != MAINNET_SP1, "SP1 not the live one");
     }
 }
