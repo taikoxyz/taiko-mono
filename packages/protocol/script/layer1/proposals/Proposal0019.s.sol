@@ -96,7 +96,7 @@ contract Proposal0019 is BuildProposal {
             SgxMrEnclaveNotSet()
         );
 
-        actions = new Controller.Action[](20);
+        actions = new Controller.Action[](22);
 
         // 0-3: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
         // raiko2 v0.5.1 IDs, trust the new ones. Proofs aggregated under the old images stop
@@ -234,16 +234,30 @@ contract Proposal0019 is BuildProposal {
             )
         });
 
-        // 18: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
+        // 18-19: Delete the pre-Unzen SGX instances.
+        uint256[] memory instanceIds = new uint256[](1);
+        instanceIds[0] = 0;
+        actions[18] = Controller.Action({
+            target: SGXGETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(IProposal0019SgxVerifier.deleteInstances, (instanceIds))
+        });
+        actions[19] = Controller.Action({
+            target: SGXRETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(IProposal0019SgxVerifier.deleteInstances, (instanceIds))
+        });
+
+        // 20: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
         // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
         // (at least one ZK proof per batch, SGX paths via the reused Proposal0017 SGX
         // verifiers) baked in as the proof verifier.
-        actions[18] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
+        actions[20] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
 
-        // 19: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
+        // 21: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
         // June 2026 incident. Its blob has expired from the blob retention window and can no
         // longer be derived, so it must be skipped before the due-check is re-enabled.
-        actions[19] = Controller.Action({
+        actions[21] = Controller.Action({
             target: L1.INBOX, value: 0, data: abi.encodeCall(IProposal0019Inbox.init3, ())
         });
     }
@@ -255,4 +269,8 @@ interface IProposal0019Inbox {
 
 interface IProposal0019Attestation {
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
+}
+
+interface IProposal0019SgxVerifier {
+    function deleteInstances(uint256[] calldata _ids) external;
 }
