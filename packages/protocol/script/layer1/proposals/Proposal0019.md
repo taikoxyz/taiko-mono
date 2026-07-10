@@ -10,11 +10,10 @@ proving images to the raiko release shipping with Unzen.
 The SGX verifiers are the ones Proposal0017 deployed, reused unchanged. This proposal does not
 deploy new SGX verifier contracts, register SGX instances, or transfer ownership. It does rotate
 the trusted SGX MRENCLAVE allowlist on the existing attester proxies to the raiko release shipping
-with Unzen, and delete the instances registered under the retiring measurements; the trusted
-MRSIGNER remains unchanged (see
+with Unzen; the trusted MRSIGNER remains unchanged (see
 [SGX verifiers reused](#3-sgx-verifiers-reused-from-proposal0017)).
 
-It executes **22 L1 actions** and **no L2 actions**:
+It executes **20 L1 actions** and **no L2 actions**:
 
 - **Actions 1–4**: rotate the trusted RISC0 image IDs — untrust the two live raiko2 v0.5.1
   IDs, trust the two new ones.
@@ -22,18 +21,10 @@ It executes **22 L1 actions** and **no L2 actions**:
   vkeys, trust the four new ones.
 - **Actions 13–18**: rotate the trusted SGX MRENCLAVE values on the reused Proposal0017 attesters.
   The MRSIGNER allowlist is unchanged.
-- **Actions 19–20**: delete the SGX instance registered under each retiring MRENCLAVE, so the
-  retired enclaves' signing keys stop being accepted.
-- **Action 21**: upgrade `Inbox` to a new implementation with forced inclusions re-enabled and
+- **Action 19**: upgrade `Inbox` to a new implementation with forced inclusions re-enabled and
   the new `ZkRequiredVerifier` baked in as its immutable proof verifier.
-- **Action 22**: call `Inbox.init3()` to void the stale forced inclusion queue entry left over
+- **Action 20**: call `Inbox.init3()` to void the stale forced inclusion queue entry left over
   from the incident window.
-
-**SGX is unavailable between execution and re-registration.** Only the registrar
-(admin.taiko.eth) can call `registerInstance`, and only after the new MRENCLAVE is trusted —
-which happens in this proposal. So immediately after execution neither SGX leg can prove, and
-proving runs on the `RISC0 + SP1` combination, which `ZkRequiredVerifier` accepts. Register the
-raiko2 instances promptly to restore SGX prover diversity.
 
 The fork activates at proposal execution. There is no in-contract timestamp gating; proposer and
 prover software supporting forced inclusions and the ZK proof mandate must be rolled out **before**
@@ -117,17 +108,26 @@ Three properties, each read from mainnet, define the SGX scope:
    | `0x0ffa4A62….trustedUserMrSigner(0x48fa5bba…)` | `true` |
    | `0x8d7C9549….trustedUserMrSigner(0x48fa5bba…)` | `true` |
 
-3. **Untrusting a measurement does not revoke an instance registered under it.** `nextInstanceId()`
-   is `1` on each verifier — one registered instance apiece, whose enclave is measured by one of
-   the retiring MRENCLAVEs. The deployed verifier's `Instance` struct is
-   `(address addr, uint64 validSince)`: it stores no MRENCLAVE, so `verifyProof` has nothing to
-   re-check and that instance would keep signing accepted SGX sub-proofs until its
-   `INSTANCE_EXPIRY` lapses (~2027-06-29), long after its measurement was untrusted. Actions
-   19–20 therefore call `deleteInstances([0])` on each verifier, which is `onlyOwner` and so can
-   only happen here. Without them the MRENCLAVE rotation would be cosmetic for the keys that
-   already exist.
+3. **Each verifier has one registered instance, and this proposal does not touch it.**
+   `nextInstanceId()` is `1` on each verifier — one instance apiece, `validSince = 1782741203`
+   (2026-06-29) against an `INSTANCE_EXPIRY` of 31536000s, so both remain valid until roughly
+   2027-06-29.
 
-On those existing attesters the proposal rotates MRENCLAVE trust, untrusting:
+   Two consequences follow, and neither is addressed here:
+   - **Trusting a new MRENCLAVE does not register an instance.** `registerInstance` is
+     registrar-gated (admin.taiko.eth), and the attester rejects a quote whose MRENCLAVE is not
+     yet trusted — which only becomes true at execution. So the raiko2 instances must be
+     registered _after_ this proposal lands, and until they are, SGX cannot prove Unzen batches.
+     Proving runs on the `RISC0 + SP1` combination, which `ZkRequiredVerifier` accepts, so there
+     is no halt.
+   - **Untrusting an MRENCLAVE does not revoke an instance already registered under it.** The
+     deployed verifier's `Instance` struct is `(address addr, uint64 validSince)` — it stores no
+     MRENCLAVE, so `verifyProof` has nothing to re-check. The existing instance therefore stays
+     an accepted SGX signer until its expiry, even though its measurement is untrusted above.
+     Retiring it requires `deleteInstances`, which is `onlyOwner` and so must come from the DAO.
+     **That is deliberately out of scope for this proposal** and is left to a follow-up.
+
+The proposal rotates only MRENCLAVE trust on those existing attesters:
 
 | Attester | Untrusted MRENCLAVE                                                  |
 | -------- | -------------------------------------------------------------------- |
@@ -217,10 +217,8 @@ contract (no refund path exists on-chain; the `ForcedInclusion` struct does not 
 16. `SGXGETH_ATTESTER.setMrEnclave(NEW_SGXGETH_MR_ENCLAVE, true)`
 17. `SGXRETH_ATTESTER.setMrEnclave(NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)`
 18. `SGXRETH_ATTESTER.setMrEnclave(NEW_SGXRETH_EDMM_MR_ENCLAVE, true)`
-19. `SGXGETH_VERIFIER.deleteInstances([0])`
-20. `SGXRETH_VERIFIER.deleteInstances([0])`
-21. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
-22. Call `Inbox.init3()`.
+19. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
+20. Call `Inbox.init3()`.
 
 The order matters: `init3` only exists on the new implementation, so it follows the upgrade. All
 actions execute atomically within the proposal, so no forced inclusion can be saved between the
@@ -238,7 +236,7 @@ MRENCLAVE values are trusted.
 | `SGXRETH_VERIFIER`    | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` | SGX-reth verifier (Proposal0017, reused)                         |
 | —                     | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | SGX-geth attester proxy — MRENCLAVE/MRSIGNER registry, DAO-owned |
 | —                     | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | SGX-reth attester proxy — MRENCLAVE/MRSIGNER registry, DAO-owned |
-| —                     | `0x71808449A6217898d602c1a392D95b931Ac5d878` | `MainnetVerifier` — **retired** by action 21                     |
+| —                     | `0x71808449A6217898d602c1a392D95b931Ac5d878` | `MainnetVerifier` — **retired** by action 19                     |
 
 RISC0/SP1 addresses were read live from the current `MainnetVerifier` (`risc0RethVerifier()`,
 `sp1RethVerifier()`) and cross-checked against the Proposal0017 address table.
@@ -370,24 +368,19 @@ After execution:
    all four `OLD_SP1_*` vkeys and true for all four `NEW_SP1_*` vkeys.
 6. Confirm the SGX MRENCLAVE rotation took effect: `trustedUserMrEnclave` returns false for the
    three `OLD_SGX*_MR_ENCLAVE` values and true for the three `NEW_SGX*_MR_ENCLAVE` values.
-7. Confirm the retired enclave keys are gone: `instances(0)` on each SGX verifier returns the zero
-   address. (`nextInstanceId()` stays `1` — `deleteInstances` clears the slot, it does not rewind
-   the counter, so the raiko2 registrations below take id `1` onward.)
-
-   ```bash
-   cast call 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee "instances(uint256)(address,uint64)" 0 --rpc-url <RPC_URL>
-   cast call 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8 "instances(uint256)(address,uint64)" 0 --rpc-url <RPC_URL>
-   ```
-
-8. **Register the raiko2 SGX instances.** admin.taiko.eth (the registrar) calls `registerInstance`
+7. **Register the raiko2 SGX instances.** admin.taiko.eth (the registrar) calls `registerInstance`
    on each verifier with a fresh raiko2 quote of the matching flavor. This cannot be done before
    execution — the attester rejects a quote whose MRENCLAVE is not yet trusted. Until it lands,
-   both SGX legs are unavailable and every batch proves via `RISC0 + SP1`.
-9. **Switch the prover's raiko endpoint** (k8s config) to the raiko2 service running the new
+   SGX cannot prove Unzen batches and every batch proves via `RISC0 + SP1`.
+8. **Switch the prover's raiko endpoint** (k8s config) to the raiko2 service running the new
    images — proofs from the v0.5.1 images no longer verify.
-10. Confirm proving continues: the next `prove()` transactions must carry two sub-proofs including
-    at least one of RISC0/SP1; an SGX_GETH + SGX_RETH pair must now revert with
-    `CV_VERIFIERS_INSUFFICIENT`.
+9. Confirm proving continues: the next `prove()` transactions must carry two sub-proofs including
+   at least one of RISC0/SP1; an SGX_GETH + SGX_RETH pair must now revert with
+   `CV_VERIFIERS_INSUFFICIENT`.
+10. Follow-up: retire the pre-Unzen SGX instances. `deleteInstances([0])` on each verifier
+    (`onlyOwner`, so a DAO action) removes the raiko1 enclave keys, which remain accepted signers
+    until ~2027-06-29 because untrusting their MRENCLAVE does not revoke them. Sequence it after
+    the raiko2 registrations above so SGX prover diversity is never lost.
 11. Follow-up cleanup PR (post-execution): remove the now-retired `MainnetVerifier` contract source
     (`contracts/layer1/mainnet/MainnetVerifier.sol`) and its deploy-script wiring (the imports and
     `new MainnetVerifier(...)` calls in `DeployShastaContracts.s.sol` and

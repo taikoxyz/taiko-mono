@@ -71,15 +71,6 @@ contract Proposal0019 is BuildProposal {
     bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE = bytes32(0);
     bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE = bytes32(0);
 
-    // The single instance registered on each SGX verifier (`nextInstanceId() == 1`), holding the
-    // signing key of an enclave measured by one of the OLD_* MRENCLAVEs above. Untrusting a
-    // measurement only gates future `registerInstance` calls: the deployed verifier's `Instance`
-    // struct is `(address addr, uint64 validSince)` — it stores no MRENCLAVE, so `verifyProof`
-    // has nothing to re-check and an instance registered under a now-untrusted measurement keeps
-    // proving until it expires (~2027-06-29). Retiring those keys therefore needs an explicit
-    // `deleteInstances`, which is `onlyOwner` and so must happen in this proposal.
-    uint256 public constant OLD_SGX_INSTANCE_ID = 0;
-
     error ImplementationNotDeployed();
     error ZkImageIdNotSet();
     error SgxMrEnclaveNotSet();
@@ -105,7 +96,7 @@ contract Proposal0019 is BuildProposal {
             SgxMrEnclaveNotSet()
         );
 
-        actions = new Controller.Action[](22);
+        actions = new Controller.Action[](20);
 
         // 0-3: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
         // raiko2 v0.5.1 IDs, trust the new ones. Proofs aggregated under the old images stop
@@ -243,47 +234,18 @@ contract Proposal0019 is BuildProposal {
             )
         });
 
-        // 18-19: Retire the enclave signing keys measured by the now-untrusted MRENCLAVEs. The
-        // untrust above only gates future registrations; it cannot revoke an instance already
-        // registered, because the deployed verifier stores no MRENCLAVE per instance and so has
-        // nothing to re-check at proof time. Without this the retired enclaves' keys stay valid
-        // SGX signers until ~2027-06-29.
-        //
-        // Between execution and the raiko2 re-registration the SGX legs are unavailable: only the
-        // registrar (admin.taiko.eth) can call `registerInstance`, and only once the new MRENCLAVE
-        // is trusted, which happens above. Proving continues on RISC0 + SP1, which
-        // ZkRequiredVerifier accepts.
-        actions[18] = Controller.Action({
-            target: SGXGETH_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(IProposal0019SgxVerifier.deleteInstances, (_oldInstanceIds()))
-        });
-        actions[19] = Controller.Action({
-            target: SGXRETH_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(IProposal0019SgxVerifier.deleteInstances, (_oldInstanceIds()))
-        });
-
-        // 20: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
+        // 18: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
         // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
         // (at least one ZK proof per batch, SGX paths via the reused Proposal0017 SGX
         // verifiers) baked in as the proof verifier.
-        actions[20] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
+        actions[18] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
 
-        // 21: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
+        // 19: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
         // June 2026 incident. Its blob has expired from the blob retention window and can no
         // longer be derived, so it must be skipped before the due-check is re-enabled.
-        actions[21] = Controller.Action({
+        actions[19] = Controller.Action({
             target: L1.INBOX, value: 0, data: abi.encodeCall(IProposal0019Inbox.init3, ())
         });
-    }
-
-    /// @dev The instance ids to delete from each SGX verifier. Each verifier holds exactly one
-    /// registered instance (`nextInstanceId() == 1`), at id `OLD_SGX_INSTANCE_ID`.
-    /// @return ids_ The single-element id array.
-    function _oldInstanceIds() private pure returns (uint256[] memory ids_) {
-        ids_ = new uint256[](1);
-        ids_[0] = OLD_SGX_INSTANCE_ID;
     }
 }
 
@@ -293,8 +255,4 @@ interface IProposal0019Inbox {
 
 interface IProposal0019Attestation {
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
-}
-
-interface IProposal0019SgxVerifier {
-    function deleteInstances(uint256[] calldata _ids) external;
 }
