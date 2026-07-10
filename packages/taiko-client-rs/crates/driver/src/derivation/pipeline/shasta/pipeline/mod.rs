@@ -8,7 +8,7 @@ use alloy::{
     rpc::types::Log,
     sol_types::{SolCall, SolEvent},
 };
-use alloy_consensus::{Transaction, TxEnvelope};
+use alloy_consensus::TxEnvelope;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
@@ -62,13 +62,7 @@ pub use bundle::ShastaProposalBundle;
 ///
 /// Failures are downgraded to `None` so proposal derivation can proceed without finalized
 /// forkchoice hints.
-async fn try_last_finalized_proposal_id_at_block<P>(
-    rpc: &Client<P>,
-    block_hash: B256,
-) -> Option<u64>
-where
-    P: Provider + Clone + 'static,
-{
+async fn try_last_finalized_proposal_id_at_block(rpc: &Client, block_hash: B256) -> Option<u64> {
     match rpc
         .shasta
         .inbox
@@ -134,26 +128,9 @@ fn decode_parent_anchor_block_number(
     anchor_address: Address,
 ) -> Result<u64, DerivationError> {
     let block_number = parent_block.header.number;
-    let txs = parent_block.transactions.as_transactions().ok_or_else(|| {
-        DerivationError::Other(anyhow!(
-            "parent block {block_number} returned only transaction hashes"
-        ))
-    })?;
-    let first_tx = txs.first().ok_or_else(|| {
-        DerivationError::Other(anyhow!("parent block {block_number} contains no transactions"))
-    })?;
-    let destination = first_tx.to().ok_or_else(|| {
-        DerivationError::Other(anyhow!(
-            "unable to determine anchor transaction recipient for parent block {block_number}"
-        ))
-    })?;
-    if destination != anchor_address {
-        return Err(DerivationError::Other(anyhow!(
-            "parent block {block_number} first transaction is not the anchor contract"
-        )));
-    }
-
-    let input = first_tx.input();
+    let input = crate::anchor_tx::first_anchor_tx_input(parent_block, anchor_address).map_err(
+        |reason| DerivationError::Other(anyhow!("parent block {block_number}: {reason}")),
+    )?;
     if let Ok(call) = anchorV4Call::abi_decode(input) {
         return Ok(call.0.0.to::<u64>());
     }
@@ -233,12 +210,9 @@ fn resolve_source_manifest(
 /// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
 /// referenced manifests, and converts them into execution payloads that materialise new
 /// blocks in the execution engine.
-pub struct ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + 'static,
-{
+pub struct ShastaDerivationPipeline {
     /// RPC client bundle used for L1/L2 queries and engine calls.
-    rpc: Client<P>,
+    rpc: Client,
     /// Builder for Shasta anchor transactions.
     anchor_constructor: AnchorTxConstructor<RootProvider>,
     /// Manifest fetcher used to resolve derivation-source blobs.
@@ -253,17 +227,14 @@ where
     initial_proposal_id: U256,
 }
 
-impl<P> ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + 'static,
-{
+impl ShastaDerivationPipeline {
     /// Create a new derivation pipeline instance.
     ///
     /// Manifests are fetched via the supplied blob source while the driver client is
     /// reused to query both L1 contracts and L2 execution state.
     #[instrument(skip(rpc, blob_source), name = "shasta_derivation_new")]
     pub async fn new(
-        rpc: Client<P>,
+        rpc: Client,
         blob_source: Arc<BlobDataSource>,
         initial_proposal_id: U256,
     ) -> Result<Self, DerivationError> {
@@ -517,10 +488,7 @@ where
     }
 }
 
-impl<P> ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl ShastaDerivationPipeline {
     /// Convert a manifest into execution engine blocks for block production.
     #[instrument(skip(self, manifest, applier), name = "shasta_manifest_to_blocks")]
     async fn manifest_to_engine_blocks(
@@ -624,7 +592,7 @@ mod tests {
         rpc::types::eth::BlockTransactions,
         sol_types::SolCall,
     };
-    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_provider::ProviderBuilder;
     use alloy_transport::mock::Asserter;
     use bindings::{
         anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint},
@@ -677,7 +645,7 @@ mod tests {
         }
     }
 
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client {
         mock_client_with_asserters(l1_asserter, Asserter::new(), Asserter::new(), Address::ZERO)
     }
 
@@ -686,9 +654,8 @@ mod tests {
         l2_asserter: Asserter,
         l2_auth_asserter: Asserter,
         anchor_address: Address,
-    ) -> Client<RootProvider> {
-        let l1_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+    ) -> Client {
+        let l1_provider = ProviderBuilder::new().connect_mocked_client(l1_asserter);
         let l2_provider =
             ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
         let l2_auth_provider = ProviderBuilder::new()

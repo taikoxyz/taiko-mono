@@ -11,8 +11,11 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// @title DeployUnzenContracts
 /// @notice Deploys the mainnet implementation contracts for the Unzen hardfork bundle.
 /// @dev This script deploys new contracts only. It does not upgrade proxies or call
-/// initializers; the DAO proposal performs the Inbox upgrade, `init3`, and the SGX verifier
-/// trust configuration after reviewing the logged addresses.
+/// initializers. The SGX verifiers deploy with admin.taiko.eth as initial owner: the multisig
+/// configures the trust registries manually (`setMrEnclave` -> `setEnclaveAttributePolicy` ->
+/// `setMrSigner`), registers the raiko instances, and hands ownership to the DAO controller via
+/// `transferOwnership`. The DAO proposal then performs the Inbox upgrade, `init3`,
+/// `acceptOwnership` on both verifiers, and the RISC0/SP1 image rotation.
 ///
 /// PREREQUISITE: the upstream Automata DCAP attestation entrypoint must already be deployed —
 /// run `DeployAutomataDcapAttestation` first (under `FOUNDRY_PROFILE=layer1o`; the upstream
@@ -27,9 +30,11 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///    attestation entrypoint. They replace the Proposal0017 verifiers (immutably wired to the
 ///    old pre-incident vendored attestation) and carry the post-v3.1.0 hardening: permanent
 ///    MRENCLAVE/MRSIGNER untrust, uint32 instance-id overflow rejection, and the
-///    quote-freshness gate. Both deploy fail-closed: no instance can register until the DAO
-///    trusts an MRENCLAVE and MRSIGNER (proposal actions) and the registrar registers the
-///    raiko instances post-execution.
+///    quote-freshness gate. Both deploy fail-closed: no instance can register until the owner
+///    (admin.taiko.eth until the DAO accepts ownership) trusts an MRENCLAVE, pins its
+///    ATTRIBUTES policy, and trusts an MRSIGNER, then registers the raiko instances. Owner
+///    registrations skip the 24h validity delay, so instances registered before the ownership
+///    handover are usable immediately.
 /// 2. `ZkRequiredVerifier` replaces `MainnetVerifier`: two sub-proofs with at least one ZK
 ///    proof ((SGX_GETH|SGX_RETH)+RISC0, (SGX_GETH|SGX_RETH)+SP1, or RISC0+SP1) — the
 ///    SGX-geth + SGX-reth (zero ZK) combination no longer exists.
@@ -78,12 +83,14 @@ contract DeployUnzenContracts is Script {
         // MRENCLAVE/MRSIGNER allowlists live in each verifier, not the attestation, so one
         // entrypoint serves both). The contracts are identical; each becomes geth- or
         // reth-flavored through the ZkRequiredVerifier slot it occupies below, the raiko
-        // measurements the DAO trusts on it, and the raiko instances that register on it.
-        // Same owner/registrar/delay as Proposal0017.
+        // measurements trusted on it, and the raiko instances that register on it.
+        // admin.taiko.eth is initial owner AND registrar: it configures the trust registries
+        // and registers instances (no 24h delay while owner), then transfers ownership to the
+        // DAO controller, which accepts in Proposal0019. Registrar/delay match Proposal0017.
         deployment_.sgxGethVerifier = address(
             new SecureSgxVerifier(
                 LibNetwork.TAIKO_MAINNET,
-                LibL1Addrs.DAO_CONTROLLER,
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
                 _dcapAttestation,
                 LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
                 _INSTANCE_VALIDITY_DELAY
@@ -93,7 +100,7 @@ contract DeployUnzenContracts is Script {
         deployment_.sgxRethVerifier = address(
             new SecureSgxVerifier(
                 LibNetwork.TAIKO_MAINNET,
-                LibL1Addrs.DAO_CONTROLLER,
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
                 _dcapAttestation,
                 LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
                 _INSTANCE_VALIDITY_DELAY
@@ -129,8 +136,13 @@ contract DeployUnzenContracts is Script {
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
         console2.log("RISC0_RETH_VERIFIER (reused):", LibL1Addrs.RISC0_RETH_VERIFIER);
         console2.log("SP1_RETH_VERIFIER (reused):", LibL1Addrs.SP1_RETH_VERIFIER);
-        console2.log("NOTE: the new SGX verifier has no registered instances; after the DAO");
-        console2.log("proposal executes (trust config), the registrar must registerInstance.");
+        console2.log("NOTE: both SGX verifiers deploy fail-closed with admin.taiko.eth as owner.");
+        console2.log("Before the DAO proposal executes, admin.taiko.eth must, on each verifier:");
+        console2.log("  1. setMrEnclave(...) for the raiko measurements to trust");
+        console2.log("  2. setEnclaveAttributePolicy(...) for each trusted MRENCLAVE");
+        console2.log("  3. setMrSigner(...) for the raiko signing identity");
+        console2.log("  4. registerInstance(...) (owner registration: usable immediately)");
+        console2.log("  5. transferOwnership(DAO_CONTROLLER) - Proposal0019 accepts it");
         console2.log("RISC0+SP1 keeps proving alive until SGX registration completes.");
     }
 }

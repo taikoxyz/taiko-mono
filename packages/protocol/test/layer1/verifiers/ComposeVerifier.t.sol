@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Test.sol";
 import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 import { AnyVerifier } from "src/layer1/verifiers/compose/AnyVerifier.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { SgxAndZkVerifier } from "src/layer1/verifiers/compose/SgxAndZkVerifier.sol";
+import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 
 contract StubVerifier is IProofVerifier {
     function verifyProof(uint256, bytes32, bytes calldata) external view { }

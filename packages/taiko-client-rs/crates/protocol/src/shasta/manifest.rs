@@ -109,8 +109,12 @@ where
     let rlp_encoded = alloy_rlp::encode(manifest);
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&rlp_encoded)?;
-    let compressed = encoder.finish()?;
+    encoder
+        .write_all(&rlp_encoded)
+        .map_err(|e| ProtocolError::Compression(format!("failed to compress manifest: {e}")))?;
+    let compressed = encoder
+        .finish()
+        .map_err(|e| ProtocolError::Compression(format!("failed to compress manifest: {e}")))?;
 
     let mut output = Vec::with_capacity(64 + compressed.len());
 

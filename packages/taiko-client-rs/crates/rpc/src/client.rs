@@ -28,17 +28,11 @@ use tower::{ServiceBuilder, timeout::TimeoutLayer};
 use tracing::info;
 
 use crate::{
-    JoinedRecommendedFillersWithWallet, SubscriptionSource,
+    SubscriptionSource,
     error::{Result, RpcClientError},
 };
 
-/// Type alias for a Client with a provider that includes a wallet.
-pub type ClientWithWallet = Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>>;
-
-/// Default walletless L1 provider type: recommended fillers over an HTTP/WS root provider.
-///
-/// Every read-only consumer (driver, whitelist preconfirmation driver) uses exactly this
-/// provider, so those crates can name it concretely instead of threading a generic.
+/// L1 provider type used by [`Client`]: recommended fillers over an HTTP/WS root provider.
 pub type DefaultProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
 
 /// Default HTTP timeout for RPC and auxiliary HTTP clients.
@@ -46,26 +40,30 @@ pub const DEFAULT_HTTP_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Instances of Shasta protocol contracts.
 #[derive(Clone, Debug)]
-pub struct ShastaProtocolInstance<P: Provider + Clone> {
+pub struct ShastaProtocolInstance {
     /// Inbox contract instance on L1.
-    pub inbox: InboxInstance<P>,
+    pub inbox: InboxInstance<DefaultProvider>,
     /// Anchor contract instance on L2 (auth provider).
     pub anchor: AnchorInstance<RootProvider>,
 }
 
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
+///
+/// The client is read-only towards L1: it never signs or submits transactions, so it
+/// carries no wallet. L1 transaction submission is owned by the proposer's transaction
+/// manager, which keeps nonce management on a single path.
 #[derive(Clone, Debug)]
-pub struct Client<P: Provider + Clone> {
+pub struct Client {
     /// L2 chain ID, fetched from the L2 provider at startup.
     pub chain_id: u64,
-    /// L1 provider (optionally with wallet) used for contract calls.
-    pub l1_provider: P,
+    /// Walletless L1 provider used for contract calls and event scans.
+    pub l1_provider: DefaultProvider,
     /// L2 public provider for read-only access.
     pub l2_provider: RootProvider,
     /// L2 authenticated provider for engine/anchor interactions.
     pub l2_auth_provider: RootProvider,
     /// Shasta protocol contract bundle (Inbox/Anchor).
-    pub shasta: ShastaProtocolInstance<P>,
+    pub shasta: ShastaProtocolInstance,
 }
 
 /// Configuration for the `Client`.
@@ -83,8 +81,8 @@ pub struct ClientConfig {
     pub inbox_address: Address,
 }
 
-impl Client<DefaultProvider> {
-    /// Create a new `Client` without a wallet from the given configuration.
+impl Client {
+    /// Create a new `Client` from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
         let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
             RpcClientError::Connection(format!(
@@ -92,27 +90,6 @@ impl Client<DefaultProvider> {
                 e
             ))
         })?;
-        Self::new_with_l1_provider(l1_provider, config).await
-    }
-}
-
-impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
-    /// Create a new `Client` with a wallet from the given configuration.
-    pub async fn new_with_wallet(config: ClientConfig, private_key: B256) -> Result<Self> {
-        let l1_provider =
-            config.l1_provider_source.to_provider_with_wallet(private_key).await.map_err(|e| {
-                RpcClientError::Connection(format!(
-                    "L1 provider source (l1.http or l1.ws) connection failed: {}",
-                    e
-                ))
-            })?;
-        Self::new_with_l1_provider(l1_provider, config).await
-    }
-}
-
-impl<P: Provider + Clone> Client<P> {
-    /// Create a new `Client` from the given L1 provider and configuration.
-    async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
         let l2_provider =
             connect_provider_with_timeout(config.l2_provider_url.clone()).await.map_err(|e| {
                 RpcClientError::Connection(format!(
