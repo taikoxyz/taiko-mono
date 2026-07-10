@@ -104,9 +104,16 @@ impl WhitelistApi for WhitelistApiService {
         // obtain the canonical block hash before gossiping.
         let driver_payload =
             self.driver_payload_from_request(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
-        self.event_syncer
-            .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
+        let submission_outcome = self
+            .event_syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(driver_payload, data.parent_hash))
             .await?;
+        if matches!(submission_outcome, PreconfSubmissionOutcome::Stale) {
+            return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+                "preconfirmation block {} is stale",
+                data.block_number
+            )));
+        }
 
         let inserted_block = self
             .rpc

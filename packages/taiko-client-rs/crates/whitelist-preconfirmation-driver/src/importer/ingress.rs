@@ -33,17 +33,35 @@ use super::{
     },
 };
 
+/// Return whether an envelope is at or below a written event-confirmed tip.
+pub(super) fn is_stale_at_confirmed_tip(block_number: u64, confirmed_tip: Option<u64>) -> bool {
+    confirmed_tip.is_some_and(|tip| block_number <= tip)
+}
+
 impl WhitelistPreconfirmationImporter {
     /// Cache a validated envelope and persist EOS epoch mapping when applicable.
     async fn ingest_validated_envelope(
         &mut self,
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
         ingress_source: &'static str,
-    ) {
+    ) -> Result<()> {
+        let confirmed_tip = self.head_l1_origin_block_id().await?;
+        if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {
+            debug!(
+                block_number = envelope.execution_payload.block_number,
+                block_hash = %envelope.execution_payload.block_hash,
+                ?confirmed_tip,
+                ingress_source,
+                "ignoring stale whitelist preconfirmation envelope"
+            );
+            return Ok(());
+        }
+
         self.cache.insert(envelope.clone());
         self.update_pending_cache_gauge();
         self.state.insert_recent(envelope.clone()).await;
         self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
+        Ok(())
     }
 
     /// Record the envelope block hash for its beacon epoch when `end_of_sequencing` is set.
@@ -111,9 +129,7 @@ impl WhitelistPreconfirmationImporter {
             envelope.execution_payload.timestamp,
             envelope.header_difficulty,
         )?;
-        self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await;
-
-        Ok(())
+        self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await
     }
 
     /// Serve an envelope by block hash from the recent cache or local L2 state,
@@ -137,6 +153,19 @@ impl WhitelistPreconfirmationImporter {
         } else {
             return Ok(None);
         };
+
+        let confirmed_tip = self.head_l1_origin_block_id().await?;
+        if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {
+            debug!(
+                block_number = envelope.execution_payload.block_number,
+                block_hash = %hash,
+                ?confirmed_tip,
+                source,
+                "refusing to serve stale whitelist preconfirmation envelope"
+            );
+            self.state.remove_recent(&hash).await;
+            return Ok(None);
+        }
 
         self.state.insert_recent(envelope.clone()).await;
         self.publish_unsafe_response(envelope).await;

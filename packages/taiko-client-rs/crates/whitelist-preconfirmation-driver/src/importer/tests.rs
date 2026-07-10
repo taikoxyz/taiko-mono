@@ -16,6 +16,7 @@ use crate::{
 
 use super::{
     cache_import::{CachedImportDisposition, classify_cached_import_error},
+    ingress::is_stale_at_confirmed_tip,
     should_enable_preconf_imports,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
@@ -23,6 +24,14 @@ use super::{
 const TEST_CHAIN_ID: u64 = 167;
 const NON_GOLDEN_SIGNER_PRIVATE_KEY: &str =
     "0x0000000000000000000000000000000000000000000000000000000000000001";
+
+#[test]
+fn stale_envelope_requires_written_confirmed_tip() {
+    assert!(!is_stale_at_confirmed_tip(1, None));
+    assert!(is_stale_at_confirmed_tip(7, Some(7)));
+    assert!(is_stale_at_confirmed_tip(6, Some(7)));
+    assert!(!is_stale_at_confirmed_tip(8, Some(7)));
+}
 
 fn sample_execution_payload_with_transactions(
     transactions: Vec<Bytes>,

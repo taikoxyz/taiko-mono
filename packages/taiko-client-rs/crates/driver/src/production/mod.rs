@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use alloy::rpc::types::Log;
+use alloy::{primitives::B256, rpc::types::Log};
 
 use crate::error::DriverError;
 
@@ -54,12 +54,14 @@ pub enum ProductionInput {
 pub struct PreconfPayload {
     /// Wrapped payload attributes submitted through preconfirmation ingress.
     payload: TaikoPayloadAttributes,
+    /// Parent block hash authenticated by the preconfirmation sender.
+    expected_parent_hash: B256,
 }
 
 impl PreconfPayload {
-    /// Create a new preconfirmation payload.
-    pub fn new(payload: TaikoPayloadAttributes) -> Self {
-        Self { payload }
+    /// Create a new preconfirmation payload bound to its authenticated parent hash.
+    pub fn new(payload: TaikoPayloadAttributes, expected_parent_hash: B256) -> Self {
+        Self { payload, expected_parent_hash }
     }
 
     /// Access the underlying Taiko payload attributes.
@@ -67,10 +69,26 @@ impl PreconfPayload {
         &self.payload
     }
 
+    /// Return the parent block hash authenticated by the sender.
+    pub fn expected_parent_hash(&self) -> B256 {
+        self.expected_parent_hash
+    }
+
     /// Return the target block number for the preconfirmation payload.
     pub fn block_number(&self) -> u64 {
         self.payload.l1_origin.block_id.to::<u64>()
     }
+}
+
+/// Terminal outcome of submitting one preconfirmation payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreconfSubmissionOutcome {
+    /// The payload was injected through the execution-engine production path.
+    Inserted,
+    /// The exact payload was already materialized in local execution state.
+    AlreadyMaterialized,
+    /// The payload was at or below the event-confirmed L2 tip and was dropped.
+    Stale,
 }
 
 /// Routes `ProductionInput` to the matching `BlockProductionPath`.
