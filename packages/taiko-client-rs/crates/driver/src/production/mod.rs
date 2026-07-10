@@ -81,12 +81,23 @@ impl PreconfPayload {
 }
 
 /// Terminal outcome of submitting one preconfirmation payload.
+///
+/// `Inserted` and `AlreadyMaterialized` carry the exact block hash observed by the
+/// serialized submission path so callers can resolve the block by hash instead of by
+/// height — a same-height sibling can become canonical immediately after submission,
+/// and a height lookup would then bind the caller to a block the payload never produced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PreconfSubmissionOutcome {
     /// The payload was injected through the execution-engine production path.
-    Inserted,
+    Inserted {
+        /// Hash of the block the execution engine produced for this payload.
+        block_hash: B256,
+    },
     /// The exact payload was already materialized in local execution state.
-    AlreadyMaterialized,
+    AlreadyMaterialized {
+        /// Hash of the materialized block observed by the submission check.
+        block_hash: B256,
+    },
     /// The payload was at or below the event-confirmed L2 tip and was dropped.
     Stale,
 }

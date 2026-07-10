@@ -260,26 +260,28 @@ pub struct PreconfJob {
     respond_to: oneshot::Sender<Result<PreconfSubmissionOutcome, DriverError>>,
 }
 
-/// Return whether the provided preconfirmation payload already materialized into the local L2
-/// chain state.
+/// Return the block hash of the local L2 block the provided preconfirmation payload already
+/// materialized into, or `None` when it is not materialized.
 ///
 /// Materialization requires both the per-block L1 origin record and the execution header to match
-/// the payload attributes previously submitted to the engine.
-async fn preconfirmation_payload_is_materialized(
+/// the payload attributes previously submitted to the engine. The returned hash is the one
+/// observed by this check, so callers can bind their follow-up reads to the exact block that
+/// satisfied the comparison rather than re-resolving by height.
+async fn materialized_preconfirmation_block_hash(
     rpc: &Client,
     payload: &PreconfPayload,
-) -> Result<bool, DriverError> {
+) -> Result<Option<B256>, DriverError> {
     let block_number = payload.block_number();
     let expected_payload = payload.payload();
     let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
-        return Ok(false);
+        return Ok(None);
     };
     // Treat a zero build-payload id as an uninitialized origin record so we fail closed and
     // re-submit rather than falsely acknowledging a materialized payload.
     if origin.build_payload_args_id == [0u8; 8] ||
         origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
     {
-        return Ok(false);
+        return Ok(None);
     }
 
     let Some(block) = rpc
@@ -288,39 +290,40 @@ async fn preconfirmation_payload_is_materialized(
         .await
         .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
     else {
-        return Ok(false);
+        return Ok(None);
     };
     let header = &block.header;
 
     if header.parent_hash != payload.expected_parent_hash() {
-        return Ok(false);
+        return Ok(None);
     }
     if origin.l2_block_hash != B256::ZERO && header.hash != origin.l2_block_hash {
-        return Ok(false);
+        return Ok(None);
     }
     if header.number != block_number {
-        return Ok(false);
+        return Ok(None);
     }
     if header.beneficiary != expected_payload.payload_attributes.suggested_fee_recipient {
-        return Ok(false);
+        return Ok(None);
     }
     if header.mix_hash != expected_payload.payload_attributes.prev_randao {
-        return Ok(false);
+        return Ok(None);
     }
     if header.gas_limit != expected_payload.block_metadata.gas_limit {
-        return Ok(false);
+        return Ok(None);
     }
     if header.timestamp != expected_payload.payload_attributes.timestamp {
-        return Ok(false);
+        return Ok(None);
     }
     if header.extra_data != expected_payload.block_metadata.extra_data {
-        return Ok(false);
+        return Ok(None);
     }
 
-    Ok(matches!(
+    let matches_base_fee = matches!(
         header.base_fee_per_gas,
         Some(base_fee) if U256::from(base_fee) == expected_payload.base_fee_per_gas
-    ))
+    );
+    Ok(matches_base_fee.then_some(header.hash))
 }
 
 impl EventSyncer {
@@ -366,35 +369,9 @@ impl EventSyncer {
                 DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
-                let is_materialized = match preconfirmation_payload_is_materialized(
-                    &rpc,
-                    job.payload.as_ref(),
-                )
-                .await
-                {
-                    Ok(true) => {
-                        debug!(
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            "preconfirmation payload is already materialized"
-                        );
-                        true
-                    }
-                    Ok(false) => false,
-                    Err(err) => {
-                        error!(
-                            ?err,
-                            block_number, "failed to check preconfirmation materialization state"
-                        );
-                        let _ = job.respond_to.send(Err(err));
-                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                        continue;
-                    }
-                };
-
                 let router_guard = router.lock().await;
-                // Re-check after acquiring router lock so event-sync updates cannot race this
-                // preconfirmation submission.
+                // All checks below run while holding the router lock so event-sync updates and
+                // sibling injections cannot race this preconfirmation submission.
                 // On genesis chains head_l1_origin is not yet written; default to 0 so
                 // the staleness check passes for any block_number >= 1.  This matches the
                 // Go driver's `checkMessageBlockNumber` which skips the check when nil.
@@ -420,10 +397,33 @@ impl EventSyncer {
                     DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
                 }
-                if is_materialized {
-                    let _ = job.respond_to.send(Ok(PreconfSubmissionOutcome::AlreadyMaterialized));
-                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
-                    continue;
+                // Decide materialization inside the serialized section and bind the outcome to
+                // the exact observed block hash: once the lock is released a same-height sibling
+                // can become canonical, so callers must never re-resolve the block by height.
+                match materialized_preconfirmation_block_hash(&rpc, job.payload.as_ref()).await {
+                    Ok(Some(block_hash)) => {
+                        debug!(
+                            block_number,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                            %block_hash,
+                            "preconfirmation payload is already materialized"
+                        );
+                        let _ = job
+                            .respond_to
+                            .send(Ok(PreconfSubmissionOutcome::AlreadyMaterialized { block_hash }));
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        error!(
+                            ?err,
+                            block_number, "failed to check preconfirmation materialization state"
+                        );
+                        let _ = job.respond_to.send(Err(err));
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                        continue;
+                    }
                 }
 
                 // Single-shot injection while holding router lock to avoid interleaving.
@@ -435,17 +435,34 @@ impl EventSyncer {
                 DriverMetrics::preconf_injection_duration_seconds().observe(duration_secs);
 
                 match router_call {
-                    Ok(_) => {
-                        DriverMetrics::preconf_injection_success_total().inc();
-                        info!(
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            duration_secs,
-                            "preconfirmation payload injected"
-                        );
-                        // Return success to the original sender.
-                        let _ = job.respond_to.send(Ok(PreconfSubmissionOutcome::Inserted));
-                    }
+                    Ok(outcomes) => match outcomes.last() {
+                        Some(outcome) => {
+                            DriverMetrics::preconf_injection_success_total().inc();
+                            let block_hash = outcome.block.header.hash;
+                            info!(
+                                block_number,
+                                build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                                %block_hash,
+                                duration_secs,
+                                "preconfirmation payload injected"
+                            );
+                            // Return the produced block identity to the original sender.
+                            let _ = job
+                                .respond_to
+                                .send(Ok(PreconfSubmissionOutcome::Inserted { block_hash }));
+                        }
+                        // The preconfirmation path always yields exactly one outcome; treat an
+                        // empty result as a missing block rather than fabricating an identity.
+                        None => {
+                            DriverMetrics::preconf_injection_failures_total().inc();
+                            error!(
+                                block_number,
+                                duration_secs, "preconfirmation injection returned no block"
+                            );
+                            let _ =
+                                job.respond_to.send(Err(DriverError::BlockNotFound(block_number)));
+                        }
+                    },
                     Err(err) => {
                         DriverMetrics::preconf_injection_failures_total().inc();
                         error!(
@@ -821,11 +838,16 @@ impl EventSyncer {
             return Err(DriverError::PreconfIngressNotReady);
         }
 
-        let is_materialized = preconfirmation_payload_is_materialized(&self.rpc, &payload).await?;
-        if is_materialized {
+        // Best-effort duplicate fast path outside the serialized loop: the returned outcome
+        // carries the exact hash this check observed, so it stays self-consistent even if a
+        // sibling becomes canonical afterwards.
+        let materialized_block_hash =
+            materialized_preconfirmation_block_hash(&self.rpc, &payload).await?;
+        if let Some(block_hash) = materialized_block_hash {
             debug!(
                 block_number = payload.block_number(),
                 build_payload_args_id = %PayloadId::new(payload.payload().l1_origin.build_payload_args_id),
+                %block_hash,
                 "preconfirmation payload is already materialized"
             );
         }
@@ -846,8 +868,8 @@ impl EventSyncer {
             );
             return Ok(PreconfSubmissionOutcome::Stale);
         }
-        if is_materialized {
-            return Ok(PreconfSubmissionOutcome::AlreadyMaterialized);
+        if let Some(block_hash) = materialized_block_hash {
+            return Ok(PreconfSubmissionOutcome::AlreadyMaterialized { block_hash });
         }
 
         debug!(block_number, "submitting preconfirmation payload to queue");
@@ -1659,6 +1681,22 @@ mod tests {
     }
 
     #[derive(Clone)]
+    struct MockPreconfPath;
+
+    #[async_trait]
+    impl BlockProductionPath for MockPreconfPath {
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::Preconfirmation(preconf) = input else {
+                panic!("mock preconf path only supports preconfirmation inputs");
+            };
+            Ok(vec![sample_engine_outcome(preconf.block_number())])
+        }
+    }
+
+    #[derive(Clone)]
     struct MockRetryBatchPath {
         fail_once_tx_hashes: StdArc<Mutex<HashSet<B256>>>,
         seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
@@ -1944,9 +1982,44 @@ mod tests {
         l2_asserter.push_success(&Some(block));
 
         assert!(
-            !preconfirmation_payload_is_materialized(&client, &payload)
+            materialized_preconfirmation_block_hash(&client, &payload)
                 .await
                 .expect("materialization lookup should succeed")
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn materialized_preconfirmation_returns_observed_block_hash() {
+        let l2_asserter = Asserter::new();
+        let client =
+            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let mut attributes = sample_payload(2);
+        attributes.l1_origin.build_payload_args_id = [0x11; 8];
+        let origin = attributes.l1_origin.clone();
+        let expected_parent_hash = B256::from([0x22; 32]);
+        let payload = PreconfPayload::new(attributes.clone(), expected_parent_hash);
+
+        let observed_block_hash = B256::from([0x66; 32]);
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = observed_block_hash;
+        block.header.parent_hash = expected_parent_hash;
+        block.header.number = 2;
+        block.header.beneficiary = attributes.payload_attributes.suggested_fee_recipient;
+        block.header.mix_hash = attributes.payload_attributes.prev_randao;
+        block.header.gas_limit = attributes.block_metadata.gas_limit;
+        block.header.timestamp = attributes.payload_attributes.timestamp;
+        block.header.extra_data = attributes.block_metadata.extra_data.clone();
+        block.header.base_fee_per_gas = Some(0);
+
+        l2_asserter.push_success(&Some(origin));
+        l2_asserter.push_success(&Some(block));
+
+        assert_eq!(
+            materialized_preconfirmation_block_hash(&client, &payload)
+                .await
+                .expect("materialization lookup should succeed"),
+            Some(observed_block_hash)
         );
     }
 
@@ -2027,9 +2100,11 @@ mod tests {
         initial_head.block_id = U256::ZERO;
         let mut advanced_head = initial_head.clone();
         advanced_head.block_id = U256::from(1u64);
+        // Pre-enqueue: materialization origin miss, then non-stale head; ingress loop reads the
+        // advanced head first (under the router lock) and short-circuits as stale before any
+        // materialization lookup.
         l2_asserter.push_success(&Option::<RpcL1Origin>::None);
         l2_asserter.push_success(&Some(initial_head));
-        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
         l2_asserter.push_success(&Some(advanced_head));
 
         let outcome = syncer
@@ -2038,6 +2113,55 @@ mod tests {
             .expect("stale payload should return a terminal outcome");
 
         assert_eq!(outcome, PreconfSubmissionOutcome::Stale);
+    }
+
+    #[tokio::test]
+    async fn queued_preconfirmation_binds_inserted_outcome_to_produced_block() {
+        let l2_asserter = Asserter::new();
+        let client =
+            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let syncer = EventSyncer { rpc: client.clone(), ..build_syncer().await };
+        let rx = syncer
+            .preconf_rx
+            .lock()
+            .expect("preconfirmation receiver mutex should not be poisoned")
+            .take()
+            .expect("preconfirmation receiver should be available");
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockBatchPath::new([])),
+            Some(Arc::new(MockPreconfPath)),
+        )));
+        syncer.spawn_preconf_ingress(
+            router,
+            rx,
+            client,
+            Arc::clone(&syncer.preconf_ingress_ready),
+            Arc::clone(&syncer.preconf_ingress_notify),
+        );
+        syncer
+            .wait_preconf_ingress_ready()
+            .await
+            .expect("preconfirmation ingress should become ready");
+
+        let mut head = sample_payload(0).l1_origin;
+        head.block_id = U256::ZERO;
+        // Pre-enqueue: materialization origin miss + non-stale head; ingress loop: non-stale
+        // head (under the router lock) + materialization origin miss, then injection.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        l2_asserter.push_success(&Some(head.clone()));
+        l2_asserter.push_success(&Some(head));
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+
+        let outcome = syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(sample_payload(1), B256::ZERO))
+            .await
+            .expect("inserted payload should return a terminal outcome");
+
+        // `MockPreconfPath` replies with `sample_engine_outcome(1)`, whose block hash is below.
+        assert_eq!(
+            outcome,
+            PreconfSubmissionOutcome::Inserted { block_hash: B256::from([1u8; 32]) }
+        );
     }
 
     #[test]

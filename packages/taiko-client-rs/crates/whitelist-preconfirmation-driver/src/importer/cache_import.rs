@@ -184,22 +184,47 @@ impl WhitelistPreconfirmationImporter {
             submit_start.elapsed().as_secs_f64(),
         );
         match submit_result? {
-            PreconfSubmissionOutcome::Inserted => {
-                info!(
-                    block_number,
-                    block_hash = %block_hash,
-                    parent_hash = %parent_hash,
-                    end_of_sequencing,
-                    "inserted whitelist preconfirmation block"
-                );
+            PreconfSubmissionOutcome::Inserted { block_hash: inserted_block_hash } => {
+                if inserted_block_hash == block_hash {
+                    info!(
+                        block_number,
+                        block_hash = %block_hash,
+                        parent_hash = %parent_hash,
+                        end_of_sequencing,
+                        "inserted whitelist preconfirmation block"
+                    );
+                } else {
+                    // The operator-signed hash does not match the block its own payload
+                    // produces; stop re-serving the inconsistent envelope to peers. The
+                    // produced block still advanced the local unsafe head, so it is recorded.
+                    warn!(
+                        block_number,
+                        envelope_block_hash = %block_hash,
+                        inserted_block_hash = %inserted_block_hash,
+                        "operator-signed envelope hash mismatches inserted block; purging envelope"
+                    );
+                    self.state.remove_recent(&block_hash).await;
+                }
                 self.state.record_inserted_block(block_number);
             }
-            PreconfSubmissionOutcome::AlreadyMaterialized => {
-                debug!(
-                    block_number,
-                    block_hash = %block_hash,
-                    "cached preconfirmation already materialized"
-                );
+            PreconfSubmissionOutcome::AlreadyMaterialized {
+                block_hash: materialized_block_hash,
+            } => {
+                if materialized_block_hash == block_hash {
+                    debug!(
+                        block_number,
+                        block_hash = %block_hash,
+                        "cached preconfirmation already materialized"
+                    );
+                } else {
+                    warn!(
+                        block_number,
+                        envelope_block_hash = %block_hash,
+                        materialized_block_hash = %materialized_block_hash,
+                        "operator-signed envelope hash mismatches materialized block; purging envelope"
+                    );
+                    self.state.remove_recent(&block_hash).await;
+                }
             }
             PreconfSubmissionOutcome::Stale => {
                 debug!(

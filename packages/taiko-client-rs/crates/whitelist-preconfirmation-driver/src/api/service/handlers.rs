@@ -108,17 +108,24 @@ impl WhitelistApi for WhitelistApiService {
             .event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload, data.parent_hash))
             .await?;
-        if matches!(submission_outcome, PreconfSubmissionOutcome::Stale) {
-            return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
-                "preconfirmation block {} is stale",
-                data.block_number
-            )));
-        }
+        let bound_block_hash = match submission_outcome {
+            PreconfSubmissionOutcome::Inserted { block_hash } |
+            PreconfSubmissionOutcome::AlreadyMaterialized { block_hash } => block_hash,
+            PreconfSubmissionOutcome::Stale => {
+                return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+                    "preconfirmation block {} is stale",
+                    data.block_number
+                )));
+            }
+        };
 
+        // Resolve the block by the hash bound to the submission outcome: a same-height sibling
+        // can become canonical between submission and this read, and a height lookup would then
+        // sign a hash that does not match the request's transactions.
         let inserted_block = self
             .rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(data.block_number))
+            .get_block_by_hash(bound_block_hash)
             .await
             .map_err(WhitelistPreconfirmationDriverError::provider)?
             .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(data.block_number))?;
