@@ -34,6 +34,24 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		err error
 	)
 
+	// A ZK-only prover can only finalize against a proof verifier that accepts the
+	// [RISC0, SP1] sub-proof pair (ZkRequiredVerifier, live with the Unzen hardfork).
+	// That is not checkable on-chain (areVerifiersSufficient is internal), so surface the
+	// configured verifier loudly for the operator to check: on the pre-Unzen
+	// MainnetVerifier every ZK-only submission reverts with CV_VERIFIERS_INSUFFICIENT.
+	if p.cfg.ZkOnlyProofs {
+		if inboxConfig, err := p.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx}); err != nil {
+			log.Warn("ZK-only proof mode is enabled, but fetching the inbox's proof verifier failed", "error", err)
+		} else {
+			log.Warn(
+				"ZK-only proof mode is enabled: the inbox's proof verifier must accept the [RISC0, SP1] "+
+					"sub-proof pair (ZkRequiredVerifier, live with the Unzen hardfork), "+
+					"otherwise every proof submission will revert",
+				"proofVerifier", inboxConfig.ProofVerifier,
+			)
+		}
+	}
+
 	sgxGethProducer := &producer.SgxGethProofProducer{
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		VerifierID:          sgxGethVerifierID,
