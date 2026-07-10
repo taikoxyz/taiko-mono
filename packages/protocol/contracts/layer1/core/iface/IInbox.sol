@@ -195,6 +195,11 @@ interface IInbox {
         uint48 nextProposalId, uint48 lastFinalizedProposalId, bytes32 lastFinalizedBlockHash
     );
 
+    /// @notice Emitted when queued forced inclusions are voided by moving the queue head.
+    /// @param oldHead The queue head before the move.
+    /// @param newHead The queue head after the move (equals the queue tail).
+    event ForcedInclusionsVoided(uint48 oldHead, uint48 newHead);
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

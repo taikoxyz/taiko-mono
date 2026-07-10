@@ -243,6 +243,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         );
     }
 
+    /// @notice One-time owner function that voids all queued forced inclusions by moving the
+    ///         queue head to the tail.
+    /// @dev Invoke via `upgradeToAndCall` on the proxy. The skipped entries were queued while
+    ///      forced inclusions were disabled after the June 2026 incident; their blobs have
+    ///      expired from the blob retention window and can no longer be derived, so they must
+    ///      be evicted before forced inclusion processing is re-enabled. Their fees remain in
+    ///      the contract.
+    function init3() external onlyOwner reinitializer(3) {
+        LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
+        (uint48 head, uint48 tail) = ($.head, $.tail);
+        $.head = tail;
+        emit ForcedInclusionsVoided(head, tail);
+    }
+
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
@@ -415,8 +429,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// submitted to make sure blocks have been produced already and the derivation can use the
     /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        revert ForcedInclusionsDisabled();
-
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
@@ -636,8 +648,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            // Temporarily do not force proposers to process due forced inclusions.
-            // The previous due scan and `UnprocessedForcedInclusionIsDue` check are disabled.
+            uint256 dueToProcess;
+            uint256 maxToInspect = available.min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
+            for (uint256 i; i < maxToInspect; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                uint256 timestamp = inclusion.blobSlice.timestamp;
+                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay))
+                {
+                    break;
+                }
+                ++dueToProcess;
+            }
+            require(
+                _numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue()
+            );
 
             uint256 toProcess = _numForcedInclusionsRequested.min(available)
                 .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
@@ -738,7 +762,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Validates propose function inputs.
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.numForcedInclusions == 0);
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
@@ -796,7 +819,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
-    error ForcedInclusionsDisabled();
     error IncorrectProposalCount();
     error InsufficientBond();
     error InvalidRecoveryState();
