@@ -49,11 +49,16 @@ type ProposalProofRequestOptions struct {
 	GethProofAggregationGenerated bool
 	RethProofGenerated            bool
 	RethProofAggregationGenerated bool
-	ProofType                     ProofType
-	L2BlockNums                   []*big.Int
-	DesignatedProver              common.Address
-	Checkpoint                    *Checkpoint
-	LastAnchorBlockNumber         *big.Int
+	// Risc0CompanionProofGenerated / Risc0CompanionProofAggregationGenerated record whether
+	// the RISC0 companion proof has been generated in ZK-only mode, where it takes the
+	// place of the SGX_GETH leg.
+	Risc0CompanionProofGenerated            bool
+	Risc0CompanionProofAggregationGenerated bool
+	ProofType                               ProofType
+	L2BlockNums                             []*big.Int
+	DesignatedProver                        common.Address
+	Checkpoint                              *Checkpoint
+	LastAnchorBlockNumber                   *big.Int
 }
 
 // ProposalOptions implements the ProofRequestOptions interface.

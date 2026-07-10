@@ -59,6 +59,7 @@ type ProofSubmitter struct {
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
 	forceSP1Proof                 bool
+	zkOnlyProofs                  bool
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
 	risc0Backlog proofProducer.Risc0BacklogController
 	sp1Fallback  sp1Fallback
@@ -85,7 +86,11 @@ func NewProofSubmitter(
 	proposalWindowSize *big.Int,
 	maxRisc0ProofProposalDistance *big.Int,
 	forceSP1Proof bool,
+	zkOnlyProofs bool,
 ) (*ProofSubmitter, error) {
+	if zkOnlyProofs && zkvmProofProducer == nil {
+		return nil, fmt.Errorf("ZK-only proof mode requires a ZKVM proof producer")
+	}
 	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
@@ -109,6 +114,7 @@ func NewProofSubmitter(
 		proposalWindowSize:            proposalWindowSize,
 		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
 		forceSP1Proof:                 forceSP1Proof,
+		zkOnlyProofs:                  zkOnlyProofs,
 		ctx:                           ctx,
 	}
 
@@ -285,7 +291,14 @@ func (s *ProofSubmitter) requestProposalProof(
 		return proofResponse, nil
 	}
 
-	proofType := s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
+	// In ZK-only mode every proposal needs both ZK proofs: SP1 is the primary lane and the
+	// producer requests RISC0 as the companion leg, so the RISC0/SP1 selection machine (and
+	// its backlog-clearing side effects, which would cancel RISC0 tasks this mode depends
+	// on) must not run.
+	proofType := proofProducer.ProofTypeZKSP1
+	if !s.zkOnlyProofs {
+		proofType = s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
+	}
 	opts.ProposalOptions().ProofType = proofType
 
 	proofResponse, err := s.zkvmProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
