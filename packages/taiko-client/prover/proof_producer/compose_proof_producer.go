@@ -48,7 +48,11 @@ type ComposeProofProducer struct {
 	ApiKey              string // ApiKey provided by Raiko
 	SgxGethProducer     *SgxGethProofProducer
 	ProofType           ProofType
-	Dummy               bool
+	// ZkOnly pairs the primary SP1 proof with a RISC0 companion proof instead of an
+	// SGX_GETH proof, producing the [RISC0_RETH, SP1_RETH] combination that
+	// ZkRequiredVerifier accepts without any TEE leg.
+	ZkOnly bool
+	Dummy  bool
 	DummyProofProducer
 }
 
@@ -61,7 +65,11 @@ func (s *ComposeProofProducer) RequestProof(
 	requestAt time.Time,
 ) (*ProofResponse, error) {
 	requestProofType := s.ProofType
-	if opts.ProposalOptions().ProofType != "" {
+	if s.ZkOnly {
+		// In ZK-only mode SP1 is always the primary proof lane, and the RISC0 proof is
+		// requested as the companion leg alongside it.
+		requestProofType = ProofTypeZKSP1
+	} else if opts.ProposalOptions().ProofType != "" {
 		requestProofType = opts.ProposalOptions().ProofType
 	}
 
@@ -114,6 +122,9 @@ func (s *ComposeProofProducer) RequestProof(
 	})
 
 	g.Go(func() error {
+		if s.ZkOnly {
+			return s.requestRisc0CompanionProof(ctx, opts, meta, requestAt)
+		}
 		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 			return err
 		} else {
@@ -164,27 +175,42 @@ func (s *ComposeProofProducer) Aggregate(
 		"time", time.Since(requestAt),
 	)
 	var (
-		sgxGethBatchProofs *BatchProofs
-		batchProofs        []byte
-		batchIDs           = make([]*big.Int, 0, len(items))
-		opts               = make([]ProofRequestOptions, 0, len(items))
-		metas              = make([]metadata.TaikoProposalMetaData, 0, len(items))
-		g                  = new(errgroup.Group)
-		err                error
+		companionBatchProof []byte
+		companionVerifierID uint8
+		batchProofs         []byte
+		batchIDs            = make([]*big.Int, 0, len(items))
+		opts                = make([]ProofRequestOptions, 0, len(items))
+		metas               = make([]metadata.TaikoProposalMetaData, 0, len(items))
+		g                   = new(errgroup.Group)
 	)
+	if s.ZkOnly {
+		if companionVerifierID, exist = s.VerifierIDs[ProofTypeZKR0]; !exist {
+			return nil, fmt.Errorf("no verifier ID for the %s companion proof", ProofTypeZKR0)
+		}
+	}
 	for _, item := range items {
 		opts = append(opts, item.Opts)
 		metas = append(metas, item.Meta)
 		batchIDs = append(batchIDs, item.Meta.GetProposalID())
 	}
 	g.Go(func() error {
-		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
-			return err
-		} else {
-			// Note: we mark `GethProofAggregationGenerated` in the first item with true.
-			items[0].Opts.ProposalOptions().GethProofAggregationGenerated = true
+		if s.ZkOnly {
+			proof, err := s.aggregateRisc0CompanionProofs(ctx, opts, metas, items, requestAt)
+			if err != nil {
+				return err
+			}
+			companionBatchProof = proof
 			return nil
 		}
+		sgxGethBatchProofs, err := s.SgxGethProducer.Aggregate(ctx, items, requestAt)
+		if err != nil {
+			return err
+		}
+		// Note: we mark `GethProofAggregationGenerated` in the first item with true.
+		items[0].Opts.ProposalOptions().GethProofAggregationGenerated = true
+		companionBatchProof = sgxGethBatchProofs.BatchProof
+		companionVerifierID = sgxGethBatchProofs.VerifierID
+		return nil
 	})
 	g.Go(func() error {
 		if s.Dummy {
@@ -214,16 +240,73 @@ func (s *ComposeProofProducer) Aggregate(
 	}
 
 	return &BatchProofs{
-		ProofResponses:       items,
-		BatchProof:           batchProofs,
-		BatchIDs:             batchIDs,
-		ProofType:            proofType,
-		Verifier:             verifier,
-		VerifierID:           verifierID,
-		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
-		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
-		SgxGethVerifierID:    sgxGethBatchProofs.VerifierID,
+		ProofResponses:      items,
+		BatchProof:          batchProofs,
+		BatchIDs:            batchIDs,
+		ProofType:           proofType,
+		Verifier:            verifier,
+		VerifierID:          verifierID,
+		CompanionBatchProof: companionBatchProof,
+		CompanionVerifierID: companionVerifierID,
 	}, nil
+}
+
+// requestRisc0CompanionProof requests the RISC0 companion proof for the given proposal in
+// ZK-only mode, taking the place of the SGX_GETH leg. Like that leg, only the generation
+// status matters here: the proof bytes submitted on-chain come from the aggregation.
+func (s *ComposeProofProducer) requestRisc0CompanionProof(
+	ctx context.Context,
+	opts ProofRequestOptions,
+	meta metadata.TaikoProposalMetaData,
+	requestAt time.Time,
+) error {
+	if s.Dummy {
+		return nil
+	}
+	if _, err := s.requestBatchProof(
+		ctx,
+		[]ProofRequestOptions{opts},
+		[]metadata.TaikoProposalMetaData{meta},
+		false,
+		ProofTypeZKR0,
+		requestAt,
+		opts.ProposalOptions().Risc0CompanionProofGenerated,
+	); err != nil {
+		return err
+	}
+	// Note: we mark `Risc0CompanionProofGenerated` with true to record if it is the first time generated.
+	opts.ProposalOptions().Risc0CompanionProofGenerated = true
+	return nil
+}
+
+// aggregateRisc0CompanionProofs aggregates the RISC0 companion proofs of the given items in
+// ZK-only mode, taking the place of the SGX_GETH aggregation leg.
+func (s *ComposeProofProducer) aggregateRisc0CompanionProofs(
+	ctx context.Context,
+	opts []ProofRequestOptions,
+	metas []metadata.TaikoProposalMetaData,
+	items []*ProofResponse,
+	requestAt time.Time,
+) ([]byte, error) {
+	if s.Dummy {
+		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, ProofTypeZKR0)
+		return resp.BatchProof, nil
+	}
+	resp, err := s.requestBatchProof(
+		ctx,
+		opts,
+		metas,
+		true,
+		ProofTypeZKR0,
+		requestAt,
+		items[0].Opts.ProposalOptions().Risc0CompanionProofAggregationGenerated,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// Note: we mark `Risc0CompanionProofAggregationGenerated` in the first item with true.
+	items[0].Opts.ProposalOptions().Risc0CompanionProofAggregationGenerated = true
+	return common.Hex2Bytes(resp.Data.Proof[2:]), nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.

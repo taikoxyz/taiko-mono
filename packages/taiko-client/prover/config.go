@@ -51,6 +51,7 @@ type Config struct {
 	ProposalWindowSize            uint64
 	MaxRisc0ProofProposalDistance uint64
 	ForceSP1Proof                 bool
+	ZkOnlyProofs                  bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -84,6 +85,16 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid ApiKey secret file: %w", err)
 		}
+	}
+
+	// The ZK-only mode generates both ZK proofs from the ZKVM raiko host, so it cannot
+	// run without one configured.
+	if c.Bool(flags.ZkOnlyProofs.Name) && len(c.String(flags.RaikoZKVMHostEndpoint.Name)) == 0 {
+		return nil, fmt.Errorf(
+			"--%s requires --%s to be set",
+			flags.ZkOnlyProofs.Name,
+			flags.RaikoZKVMHostEndpoint.Name,
+		)
 	}
 
 	var localProposerAddresses []common.Address
@@ -120,6 +131,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			flags.MaxRisc0ProofProposalDistance.Name,
 		),
 		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
+		ZkOnlyProofs:           c.Bool(flags.ZkOnlyProofs.Name),
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
 		LocalProposerAddresses: localProposerAddresses,

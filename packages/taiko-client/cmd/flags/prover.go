@@ -86,10 +86,22 @@ var (
 		Name: "prover.forceSP1Proof",
 		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
 			"If no ZKVM proof producer is configured, the prover keeps using the base proof producer. " +
-			"Post Shasta fork only.",
+			"Ignored when --prover.zkOnlyProofs is set. Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_FORCE_SP1_PROOF"},
+	}
+	ZkOnlyProofs = &cli.BoolFlag{
+		Name: "prover.zkOnlyProofs",
+		Usage: "Prove every proposal with both RISC0 and SP1 proofs and submit the [RISC0, SP1] sub-proof pair, " +
+			"instead of pairing a single ZK proof with an SGX_GETH proof. Requires --raiko.host.zkvm. " +
+			"Intended for provers running without a TEE (sgx-geth) service or during SGX outages; " +
+			"note that it generates proofs on both ZKVMs for every proposal. " +
+			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
+			"Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZK_ONLY_PROOFS"},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
@@ -171,4 +183,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposalWindowSize,
 	MaxRisc0ProofProposalDistance,
 	ForceSP1Proof,
+	ZkOnlyProofs,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

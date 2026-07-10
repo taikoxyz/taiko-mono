@@ -70,6 +70,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 			ApiKey:              p.cfg.RaikoApiKey,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			ProofType:           producer.ProofTypeZKR0,
+			ZkOnly:              p.cfg.ZkOnlyProofs,
 			Dummy:               p.cfg.Dummy,
 		}
 	}
@@ -117,6 +118,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
 		new(big.Int).SetUint64(p.cfg.MaxRisc0ProofProposalDistance),
 		p.cfg.ForceSP1Proof,
+		p.cfg.ZkOnlyProofs,
 	); err != nil {
 		return fmt.Errorf("failed to initialize proof submitter: %w", err)
 	}

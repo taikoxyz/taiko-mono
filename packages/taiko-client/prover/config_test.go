@@ -104,6 +104,30 @@ func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
 	})
 }
 
+func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ZkOnlyProofs)
+	})
+
+	t.Run("requires the ZKVM raiko host", func(t *testing.T) {
+		err := runTestConfigFromCLI(t, "--"+flags.ZkOnlyProofs.Name)
+
+		require.ErrorContains(t, err, "--"+flags.RaikoZKVMHostEndpoint.Name)
+	})
+
+	t.Run("uses flag value with the ZKVM raiko host", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(
+			t,
+			"--"+flags.ZkOnlyProofs.Name,
+			"--"+flags.RaikoZKVMHostEndpoint.Name, "http://raiko.zkvm",
+		)
+
+		require.True(t, cfg.ZkOnlyProofs)
+	})
+}
+
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
 	app := s.SetupApp()
 
@@ -178,6 +202,8 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 			Value:   flags.MaxRisc0ProofProposalDistance.Value,
 		},
 		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
+		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
+		&cli.StringFlag{Name: flags.RaikoZKVMHostEndpoint.Name},
 	}
 
 	app.Action = func(ctx *cli.Context) error {
