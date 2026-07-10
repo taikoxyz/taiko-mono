@@ -108,6 +108,13 @@ impl Proposer {
 
         // Initialize anchor transaction constructor only for engine mode.
         let anchor_constructor = if cfg.use_engine_mode {
+            warn!(
+                "engine mode is enabled: the build-only FCU preview persists l1_origin, \
+                 head_l1_origin, and batch_to_last_block rows on the L2 node before (and \
+                 regardless of whether) the previewed block becomes canonical, leaving ghost \
+                 rows every proposal cycle; keep it disabled in production until alethia-reth \
+                 defers custom-table persistence to canonical promotion"
+            );
             Some(
                 AnchorTxConstructor::new(
                     rpc_provider.l2_provider.clone(),

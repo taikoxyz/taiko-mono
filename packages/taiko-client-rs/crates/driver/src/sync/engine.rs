@@ -93,6 +93,10 @@ async fn apply_payload_internal(
     };
     let fc_response =
         rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
+    ensure_valid_payload_status(
+        payload.l1_origin.block_id.to::<u64>(),
+        fc_response.payload_status.status,
+    )?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
     tracing::Span::current().record("payload_id", format_args!("{payload_id}"));
@@ -192,13 +196,20 @@ fn envelope_into_submission(
     (payload_input, sidecar, block_hash, block_number)
 }
 
-/// Map engine payload status into submission errors, rejecting syncing/invalid statuses.
+/// Map engine payload status into submission errors, accepting only VALID.
+///
+/// ACCEPTED means the engine stored the block on a side chain without executing it, so treating
+/// it as success would let the driver advance on a lineage the engine never validated.
 fn ensure_valid_payload_status(
     block_number: u64,
     status: PayloadStatusEnum,
 ) -> Result<(), EngineSubmissionError> {
     match status {
-        PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => Ok(()),
+        PayloadStatusEnum::Valid => Ok(()),
+        PayloadStatusEnum::Accepted => Err(EngineSubmissionError::UnexpectedPayloadStatus(
+            block_number,
+            PayloadStatusEnum::Accepted.as_str().to_string(),
+        )),
         PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
         PayloadStatusEnum::Invalid { validation_error } => {
             Err(EngineSubmissionError::InvalidBlock(block_number, validation_error))
@@ -216,6 +227,23 @@ fn promotion_forkchoice_state(
         head_block_hash: block_hash,
         safe_block_hash: resolved_finalized_hash,
         finalized_block_hash: resolved_finalized_hash,
+    }
+}
+
+/// Verify the canonical block read back after promotion matches the submitted payload hash.
+///
+/// A mismatch means the forkchoice update did not take effect (or another actor moved the head
+/// between promotion and readback); advancing on the mismatched block would silently desync the
+/// driver's parent state from the engine's canonical chain.
+fn ensure_inserted_block_hash(
+    block_number: u64,
+    expected: B256,
+    actual: B256,
+) -> Result<(), EngineSubmissionError> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(EngineSubmissionError::InsertedBlockHashMismatch { block_number, expected, actual })
     }
 }
 
@@ -246,9 +274,11 @@ async fn submit_payload_to_engine(
     ensure_valid_payload_status(block_number, status.status)?;
 
     let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
-    rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
+    let promotion = rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
+    ensure_valid_payload_status(block_number, promotion.payload_status.status)?;
 
     let block = fetch_block_by_number(rpc, block_number).await?;
+    ensure_inserted_block_hash(block_number, block_hash, block.header.hash)?;
 
     Ok(EngineBlockOutcome { block, payload_id })
 }
@@ -369,5 +399,59 @@ mod tests {
         let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
 
         assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
+    }
+
+    #[test]
+    fn valid_payload_status_is_ok() {
+        assert!(ensure_valid_payload_status(7, PayloadStatusEnum::Valid).is_ok());
+    }
+
+    #[test]
+    fn accepted_payload_status_is_rejected() {
+        let err = ensure_valid_payload_status(7, PayloadStatusEnum::Accepted).unwrap_err();
+        assert!(matches!(
+            err,
+            EngineSubmissionError::UnexpectedPayloadStatus(7, ref status) if status == "ACCEPTED"
+        ));
+    }
+
+    #[test]
+    fn syncing_payload_status_maps_to_engine_syncing() {
+        let err = ensure_valid_payload_status(7, PayloadStatusEnum::Syncing).unwrap_err();
+        assert!(matches!(err, EngineSubmissionError::EngineSyncing(7)));
+    }
+
+    #[test]
+    fn invalid_payload_status_maps_to_invalid_block() {
+        let err = ensure_valid_payload_status(
+            7,
+            PayloadStatusEnum::Invalid { validation_error: "bad block".to_string() },
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            EngineSubmissionError::InvalidBlock(7, ref reason) if reason == "bad block"
+        ));
+    }
+
+    #[test]
+    fn matching_readback_hash_is_ok() {
+        let hash = B256::from(U256::from(1u64));
+        assert!(ensure_inserted_block_hash(7, hash, hash).is_ok());
+    }
+
+    #[test]
+    fn mismatched_readback_hash_is_rejected() {
+        let expected = B256::from(U256::from(1u64));
+        let actual = B256::from(U256::from(2u64));
+        let err = ensure_inserted_block_hash(7, expected, actual).unwrap_err();
+        assert!(matches!(
+            err,
+            EngineSubmissionError::InsertedBlockHashMismatch {
+                block_number: 7,
+                expected: e,
+                actual: a,
+            } if e == expected && a == actual
+        ));
     }
 }
