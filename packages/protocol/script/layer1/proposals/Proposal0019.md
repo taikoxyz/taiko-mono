@@ -328,12 +328,14 @@ After execution:
 7. Confirm proving continues: the next `prove()` transactions must carry two sub-proofs including
    at least one of RISC0/SP1; an SGX_GETH + SGX_RETH pair must now revert with
    `CV_VERIFIERS_INSUFFICIENT`.
-8. Follow-up cleanup PR (post-execution): remove the now-retired `MainnetVerifier` contract and its
-   address from `LibL1Addrs` — kept until execution so the live contract remains
+8. Follow-up cleanup PR (post-execution): remove the now-retired `MainnetVerifier` contract source
+   (`contracts/layer1/mainnet/MainnetVerifier.sol`) and its deploy-script wiring (the imports and
+   `new MainnetVerifier(...)` calls in `DeployShastaContracts.s.sol` and
+   `DeployHackRecoveryContracts.s.sol`) — kept until execution so the live contract remains
    rebuildable/verifiable from main and a rollback path exists. **Do not** remove
-   `SGXGETH_VERIFIER` / `SGXRETH_VERIFIER` or the two attester addresses: `DeployUnzenContracts`
-   reads the verifiers from `LibL1Addrs`, and the attester proxies remain the live
-   MRENCLAVE/MRSIGNER registries.
+   `SGXGETH_VERIFIER` / `SGXRETH_VERIFIER` or the two attester addresses from `LibL1Addrs`:
+   `DeployUnzenContracts` reads the verifiers from `LibL1Addrs`, and the attester proxies remain the
+   live MRENCLAVE/MRSIGNER registries.
 
 ## Security Contacts
 
