@@ -94,7 +94,9 @@ var (
 	ZkOnlyProofs = &cli.BoolFlag{
 		Name: "prover.zkOnlyProofs",
 		Usage: "Prove every proposal with both RISC0 and SP1 proofs and submit the [RISC0, SP1] sub-proof pair, " +
-			"instead of pairing a single ZK proof with an SGX_GETH proof. Requires --raiko.host.zkvm. " +
+			"instead of pairing a single ZK proof with an SGX_GETH proof. Requires --raiko.host.zkvm, and the " +
+			"inbox's proof verifier must accept the [RISC0, SP1] pair — i.e. ZkRequiredVerifier, live with the " +
+			"Unzen hardfork; on the pre-Unzen MainnetVerifier every submission reverts. " +
 			"Intended for provers running without a TEE (sgx-geth) service or during SGX outages; " +
 			"note that it generates proofs on both ZKVMs for every proposal. " +
 			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
