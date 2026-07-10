@@ -113,28 +113,18 @@ Three properties, each read from mainnet, define the SGX scope:
    (2026-06-29) against an `INSTANCE_EXPIRY` of 31536000s, so both remain valid until roughly
    2027-06-29.
 
-   The MRENCLAVE allowlist is consulted **only at registration time**, inside the attester's
-   `verifyParsedQuote`. The deployed `verifyProof` reads none of it:
-
-   ```solidity
-   require(_isInstanceValid(id, instance), SGX_INVALID_INSTANCE());   // addr match + expiry window
-   require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
-   ```
-
    Two consequences follow, and neither is addressed here:
    - **Trusting a new MRENCLAVE does not register an instance.** `registerInstance` is
      registrar-gated (admin.taiko.eth), and the attester rejects a quote whose MRENCLAVE is not
      yet trusted — which only becomes true at execution. So the raiko2 instances must be
-     registered _after_ this proposal lands. Until then no raiko2 enclave can produce an accepted
-     SGX sub-proof, and proving leans on the `RISC0 + SP1` combination, which `ZkRequiredVerifier`
-     accepts. There is no halt.
+     registered _after_ this proposal lands, and until they are, SGX cannot prove Unzen batches.
+     Proving runs on the `RISC0 + SP1` combination, which `ZkRequiredVerifier` accepts, so there
+     is no halt.
    - **Untrusting an MRENCLAVE does not revoke an instance already registered under it.** The
-     deployed `Instance` struct is `(address addr, uint64 validSince)` — no MRENCLAVE is stored,
-     so `verifyProof` has nothing to re-check. The pre-Unzen instance therefore remains a fully
-     accepted SGX signer until `validSince + INSTANCE_EXPIRY` (~2027-06-29), even though its
-     measurement is untrusted by actions 13–15 above. Whether its enclave can still derive the
-     hash the `Inbox` demands is an off-chain question; on-chain, nothing stops it. Retiring it
-     requires `deleteInstances`, which is `onlyOwner` and so must come from the DAO.
+     deployed verifier's `Instance` struct is `(address addr, uint64 validSince)` — it stores no
+     MRENCLAVE, so `verifyProof` has nothing to re-check. The existing instance therefore stays
+     an accepted SGX signer until its expiry, even though its measurement is untrusted above.
+     Retiring it requires `deleteInstances`, which is `onlyOwner` and so must come from the DAO.
      **That is deliberately out of scope for this proposal** and is left to a follow-up.
 
 The proposal rotates only MRENCLAVE trust on those existing attesters:
@@ -381,7 +371,7 @@ After execution:
 7. **Register the raiko2 SGX instances.** admin.taiko.eth (the registrar) calls `registerInstance`
    on each verifier with a fresh raiko2 quote of the matching flavor. This cannot be done before
    execution — the attester rejects a quote whose MRENCLAVE is not yet trusted. Until it lands,
-   no raiko2 enclave can produce an accepted SGX sub-proof and proving leans on `RISC0 + SP1`.
+   SGX cannot prove Unzen batches and every batch proves via `RISC0 + SP1`.
 8. **Switch the prover's raiko endpoint** (k8s config) to the raiko2 service running the new
    images — proofs from the v0.5.1 images no longer verify.
 9. Confirm proving continues: the next `prove()` transactions must carry two sub-proofs including
