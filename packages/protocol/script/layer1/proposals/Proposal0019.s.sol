@@ -9,9 +9,9 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 // To dryrun the proposal on L1: `P=0019 pnpm proposal:dryrun:l1`
 contract Proposal0019 is BuildProposal {
     // Deployed mainnet implementation addresses.
-    // TODO(unzen): fill in after running DeployAutomataDcapAttestation (FOUNDRY_PROFILE=layer1o)
-    // and then DeployUnzenContracts, then update Proposal0019.md. The build reverts while these
-    // are zero so the action file cannot be generated with placeholder addresses.
+    // TODO(unzen): fill in after running DeployUnzenContracts (FOUNDRY_PROFILE=layer1), then
+    // update Proposal0019.md. The build reverts while these are zero so the action file cannot
+    // be generated with placeholder addresses.
     address public constant MAINNET_INBOX_NEW_IMPL = address(0);
 
     // New ZkRequiredVerifier: (SGX_GETH or SGX_RETH) + (RISC0 or SP1), or RISC0 + SP1. Every
@@ -20,27 +20,13 @@ contract Proposal0019 is BuildProposal {
     // TODO(unzen): fill in after running DeployUnzenContracts.
     address public constant ZK_REQUIRED_VERIFIER = address(0);
 
-    // NEW SGX SecureSgxVerifiers (geth + reth), each wired (immutably) to the audited upstream
-    // Automata DCAP attestation entrypoint (DCAP_ATTESTATION below) and carrying the post-v3.1.0
-    // hardening (permanent untrust, uint32 id overflow rejection, quote-freshness gate). They
-    // replace the Proposal0017 verifiers (0x41e79EB4... geth, 0x9D3C595B... reth), which are
-    // immutably wired to the old pre-incident vendored attestation.
-    //
-    // Both deploy with admin.taiko.eth as owner AND registrar. Before this proposal executes,
-    // the multisig configures each trust registry manually (setMrEnclave ->
-    // setEnclaveAttributePolicy -> setMrSigner), registers the raiko instances (owner
-    // registrations skip the 24h validity delay, so they are usable immediately), and calls
-    // transferOwnership(DAO controller). Actions 0-1 accept ownership and revert if the
-    // transfer has not happened, so the proposal cannot execute while the trust registries are
-    // still admin-controlled.
-    // TODO(unzen): fill in after running DeployUnzenContracts.
-    address public constant SGXGETH_VERIFIER_NEW = address(0);
-    address public constant SGXRETH_VERIFIER_NEW = address(0);
-
-    // Upstream Automata DCAP attestation entrypoint (AutomataDcapAttestationFee), baked into
-    // the new SGX verifiers as an immutable; listed for documentation and verification only.
-    // TODO(unzen): fill in after running DeployAutomataDcapAttestation.
-    address public constant DCAP_ATTESTATION = address(0);
+    // SGX sub-verifiers wired into ZK_REQUIRED_VERIFIER: the verifiers Proposal0017 deployed,
+    // reused unchanged. Both are already owned by the DAO controller and each carries a
+    // registered raiko instance, so this proposal neither configures trust nor accepts
+    // ownership. Baked into ZK_REQUIRED_VERIFIER as immutables; listed here so a reviewer can
+    // cross-check them against sgxGethVerifier()/sgxRethVerifier() on the deployed verifier.
+    address public constant SGXGETH_VERIFIER = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee;
+    address public constant SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
 
     // ZK sub-verifiers wired into ZK_REQUIRED_VERIFIER (reused from Proposal0017, live on mainnet).
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
@@ -77,8 +63,7 @@ contract Proposal0019 is BuildProposal {
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         require(MAINNET_INBOX_NEW_IMPL != address(0), ImplementationNotDeployed());
-        require(SGXGETH_VERIFIER_NEW != address(0), ImplementationNotDeployed());
-        require(SGXRETH_VERIFIER_NEW != address(0), ImplementationNotDeployed());
+        require(ZK_REQUIRED_VERIFIER != address(0), ImplementationNotDeployed());
         require(
             NEW_RISC0_PROPOSAL_IMAGE_ID != bytes32(0)
                 && NEW_RISC0_AGGREGATION_IMAGE_ID != bytes32(0),
@@ -92,50 +77,34 @@ contract Proposal0019 is BuildProposal {
             ZkImageIdNotSet()
         );
 
-        actions = new Controller.Action[](16);
+        actions = new Controller.Action[](14);
 
-        // 0-1: Accept ownership of the new SGX verifiers. admin.taiko.eth (initial owner and
-        // registrar) has already configured the trust registries and registered the raiko
-        // instances, and must have called transferOwnership(DAO controller) on both. These
-        // actions revert otherwise, so the proposal cannot execute while MRENCLAVE/MRSIGNER
-        // control still sits with the multisig — that trust boundary belongs to the DAO.
-        actions[0] = Controller.Action({
-            target: SGXGETH_VERIFIER_NEW,
-            value: 0,
-            data: abi.encodeCall(IProposal0019SgxVerifier.acceptOwnership, ())
-        });
-        actions[1] = Controller.Action({
-            target: SGXRETH_VERIFIER_NEW,
-            value: 0,
-            data: abi.encodeCall(IProposal0019SgxVerifier.acceptOwnership, ())
-        });
-
-        // 2-5: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
+        // 0-3: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
         // raiko2 v0.5.1 IDs, trust the new ones. Proofs aggregated under the old images stop
         // verifying at execution, so the raiko2 service running the new images must be live
         // (and the prover pointed at it) when the proposal executes.
-        actions[2] = Controller.Action({
+        actions[0] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted, (OLD_RISC0_PROPOSAL_IMAGE_ID, false)
             )
         });
-        actions[3] = Controller.Action({
+        actions[1] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted, (OLD_RISC0_AGGREGATION_IMAGE_ID, false)
             )
         });
-        actions[4] = Controller.Action({
+        actions[2] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted, (NEW_RISC0_PROPOSAL_IMAGE_ID, true)
             )
         });
-        actions[5] = Controller.Action({
+        actions[3] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -143,57 +112,57 @@ contract Proposal0019 is BuildProposal {
             )
         });
 
-        // 6-13: Rotate the trusted SP1 program verification keys the same way.
-        actions[6] = Controller.Action({
+        // 4-11: Rotate the trusted SP1 program verification keys the same way.
+        actions[4] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256, false)
             )
         });
-        actions[7] = Controller.Action({
+        actions[5] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, false)
             )
         });
-        actions[8] = Controller.Action({
+        actions[6] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256, false)
             )
         });
-        actions[9] = Controller.Action({
+        actions[7] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, false)
             )
         });
-        actions[10] = Controller.Action({
+        actions[8] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)
             )
         });
-        actions[11] = Controller.Action({
+        actions[9] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
-        actions[12] = Controller.Action({
+        actions[10] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256, true)
             )
         });
-        actions[13] = Controller.Action({
+        actions[11] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -201,16 +170,16 @@ contract Proposal0019 is BuildProposal {
             )
         });
 
-        // 14: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
+        // 12: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
         // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
         // (at least one ZK proof per batch, SGX paths via the new hardened verifiers) baked in
         // as the proof verifier.
-        actions[14] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
+        actions[12] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
 
-        // 15: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
+        // 13: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
         // June 2026 incident. Its blob has expired from the blob retention window and can no
         // longer be derived, so it must be skipped before the due-check is re-enabled.
-        actions[15] = Controller.Action({
+        actions[13] = Controller.Action({
             target: L1.INBOX, value: 0, data: abi.encodeCall(IProposal0019Inbox.init3, ())
         });
     }
@@ -218,8 +187,4 @@ contract Proposal0019 is BuildProposal {
 
 interface IProposal0019Inbox {
     function init3() external;
-}
-
-interface IProposal0019SgxVerifier {
-    function acceptOwnership() external;
 }
