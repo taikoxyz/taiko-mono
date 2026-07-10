@@ -205,21 +205,23 @@ RISC0/SP1 addresses were read live from the current `MainnetVerifier` (`risc0Ret
 
 ## Deployed Addresses
 
-> **TODO(unzen):** deployment is a single step:
->
-> ```bash
-> FOUNDRY_PROFILE=layer1 forge script DeployUnzenContracts ...
-> ```
->
-> Then fill this table, the two address constants **and the `NEW_RISC0_*` / `NEW_SP1_*` image IDs
-> from the Unzen raiko release** in [`Proposal0019.s.sol`](./Proposal0019.s.sol), and regenerate
-> `Proposal0019.action.md` (`P=0019 pnpm proposal`). The script reverts while any of these
-> constants are zero.
+Deployed in a single step with
+`FOUNDRY_PROFILE=layer1 forge script DeployUnzenContracts ...`:
 
-| Constant                 | Address | Contract                                        |
-| ------------------------ | ------- | ----------------------------------------------- |
-| `ZK_REQUIRED_VERIFIER`   | TBD     | `ZkRequiredVerifier` (`MainnetInbox` immutable) |
-| `MAINNET_INBOX_NEW_IMPL` | TBD     | `MainnetInbox` implementation                   |
+| Constant                 | Address                                      | Contract                                        |
+| ------------------------ | -------------------------------------------- | ----------------------------------------------- |
+| `ZK_REQUIRED_VERIFIER`   | `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec` | `ZkRequiredVerifier` (`MainnetInbox` immutable) |
+| `MAINNET_INBOX_NEW_IMPL` | `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` | `MainnetInbox` implementation                   |
+
+Both are verified on-chain: `ZK_REQUIRED_VERIFIER` returns the four production sub-verifiers (and
+`address(0)` for `tdxGethVerifier()` / `opVerifier()`), matching the outgoing `MainnetVerifier`
+getter-for-getter, and `MAINNET_INBOX_NEW_IMPL.getConfig().proofVerifier` equals
+`ZK_REQUIRED_VERIFIER`.
+
+> **TODO(unzen):** the `NEW_RISC0_*` / `NEW_SP1_*` image IDs in
+> [`Proposal0019.s.sol`](./Proposal0019.s.sol) are still `bytes32(0)`, pending the Unzen raiko
+> release. Fill them, then regenerate `Proposal0019.action.md` (`P=0019 pnpm proposal`). The
+> script reverts with `ZkImageIdNotSet()` while any of them is zero.
 
 ## Client Rollout Prerequisite
 

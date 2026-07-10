@@ -8,17 +8,13 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 // To print the proposal action data: `P=0019 pnpm proposal`
 // To dryrun the proposal on L1: `P=0019 pnpm proposal:dryrun:l1`
 contract Proposal0019 is BuildProposal {
-    // Deployed mainnet implementation addresses.
-    // TODO(unzen): fill in after running DeployUnzenContracts (FOUNDRY_PROFILE=layer1), then
-    // update Proposal0019.md. The build reverts while these are zero so the action file cannot
-    // be generated with placeholder addresses.
-    address public constant MAINNET_INBOX_NEW_IMPL = address(0);
+    // Deployed mainnet implementation addresses, from the DeployUnzenContracts broadcast.
+    address public constant MAINNET_INBOX_NEW_IMPL = 0x5253D4C91e80b880DdB54B78E74082Abe066F6b9;
 
     // New ZkRequiredVerifier: (SGX_GETH or SGX_RETH) + (RISC0 or SP1), or RISC0 + SP1. Every
     // accepted combination contains at least one ZK proof. Baked into MAINNET_INBOX_NEW_IMPL as
     // an immutable; listed here for documentation and verification only.
-    // TODO(unzen): fill in after running DeployUnzenContracts.
-    address public constant ZK_REQUIRED_VERIFIER = address(0);
+    address public constant ZK_REQUIRED_VERIFIER = 0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec;
 
     // SGX sub-verifiers wired into ZK_REQUIRED_VERIFIER: the verifiers Proposal0017 deployed,
     // reused unchanged. Both are already owned by the DAO controller and each carries a
