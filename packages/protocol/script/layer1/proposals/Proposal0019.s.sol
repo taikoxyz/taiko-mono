@@ -172,8 +172,8 @@ contract Proposal0019 is BuildProposal {
 
         // 12: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
         // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
-        // (at least one ZK proof per batch, SGX paths via the new hardened verifiers) baked in
-        // as the proof verifier.
+        // (at least one ZK proof per batch, SGX paths via the reused Proposal0017 SGX
+        // verifiers) baked in as the proof verifier.
         actions[12] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
 
         // 13: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
