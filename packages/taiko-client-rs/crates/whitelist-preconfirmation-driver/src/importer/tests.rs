@@ -142,6 +142,17 @@ fn defers_cached_import_errors_for_engine_syncing_driver_error() {
 }
 
 #[test]
+fn defers_cached_import_errors_for_parent_mismatch() {
+    let err =
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfParentMismatch {
+            block_number: 42,
+            expected: B256::from([0x11; 32]),
+            actual: B256::from([0x22; 32]),
+        });
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
+}
+
+#[test]
 fn drops_cached_import_errors_for_invalid_block_driver_error() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfInjectionFailed {

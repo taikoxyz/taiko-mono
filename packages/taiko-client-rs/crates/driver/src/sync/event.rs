@@ -205,13 +205,10 @@ fn resolve_reconnect_start_block(
         .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
 }
 
-/// Return the terminal stale outcome when a target is at or below the confirmed tip.
+/// Return whether a preconfirmation target is at or below the confirmed tip.
 #[inline]
-fn stale_preconf_outcome(
-    block_number: u64,
-    confirmed_tip: u64,
-) -> Option<PreconfSubmissionOutcome> {
-    (block_number <= confirmed_tip).then_some(PreconfSubmissionOutcome::Stale)
+fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
+    block_number <= confirmed_tip
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -411,8 +408,7 @@ impl EventSyncer {
                         continue;
                     }
                 };
-                if let Some(outcome) = stale_preconf_outcome(block_number, head_l1_origin_block_id)
-                {
+                if is_stale_preconf(block_number, head_l1_origin_block_id) {
                     DriverMetrics::preconf_stale_dropped_total().inc();
                     DriverMetrics::preconf_stale_dropped_ingress_total().inc();
                     warn!(
@@ -420,7 +416,7 @@ impl EventSyncer {
                         head_l1_origin_block_id,
                         "dropping stale preconfirmation payload in ingress loop"
                     );
-                    let _ = job.respond_to.send(Ok(outcome));
+                    let _ = job.respond_to.send(Ok(PreconfSubmissionOutcome::Stale));
                     DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
                 }
@@ -841,14 +837,14 @@ impl EventSyncer {
             Some(origin) => origin.block_id.to::<u64>(),
             None => 0,
         };
-        if let Some(outcome) = stale_preconf_outcome(block_number, head_l1_origin_block_id) {
+        if is_stale_preconf(block_number, head_l1_origin_block_id) {
             DriverMetrics::preconf_stale_dropped_total().inc();
             DriverMetrics::preconf_stale_dropped_before_enqueue_total().inc();
             warn!(
                 block_number,
                 head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
             );
-            return Ok(outcome);
+            return Ok(PreconfSubmissionOutcome::Stale);
         }
         if is_materialized {
             return Ok(PreconfSubmissionOutcome::AlreadyMaterialized);
@@ -1993,9 +1989,9 @@ mod tests {
     }
 
     #[test]
-    fn stale_preconfirmation_maps_to_explicit_outcome() {
-        assert_eq!(stale_preconf_outcome(42, 42), Some(PreconfSubmissionOutcome::Stale));
-        assert_eq!(stale_preconf_outcome(43, 42), None);
+    fn stale_preconfirmation_boundary_is_inclusive() {
+        assert!(is_stale_preconf(42, 42));
+        assert!(!is_stale_preconf(43, 42));
     }
 
     #[tokio::test]
