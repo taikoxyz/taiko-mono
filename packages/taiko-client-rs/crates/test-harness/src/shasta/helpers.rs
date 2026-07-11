@@ -107,7 +107,9 @@ pub(crate) async fn create_snapshot(
 }
 
 fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
-    matches!(status, PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted)
+    // Canonical insertion requires strict VALID, matching production submission: ACCEPTED
+    // means the engine stored the block on a side chain without executing it.
+    matches!(status, PayloadStatusEnum::Valid)
 }
 
 /// Reset the L2 chain head to the base block (height 1) using the engine API.

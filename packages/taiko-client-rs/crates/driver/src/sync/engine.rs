@@ -14,7 +14,7 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState,
-    PayloadId, PayloadStatusEnum,
+    ForkchoiceUpdated, PayloadId, PayloadStatus, PayloadStatusEnum,
 };
 use async_trait::async_trait;
 use protocol::shasta::unzen_active_for_chain_timestamp;
@@ -76,11 +76,87 @@ impl PayloadApplier for Client {
     }
 }
 
+/// Minimal engine/provider surface used to materialise payload attributes into blocks, letting
+/// the submission orchestration be exercised against a scripted engine in tests.
+#[async_trait]
+trait EnginePayloadRpc: Sync {
+    /// Chain id used to normalise Unzen payload envelopes.
+    fn chain_id(&self) -> u64;
+
+    /// Send `engine_forkchoiceUpdatedV2`, optionally carrying payload attributes.
+    async fn forkchoice_updated_v2(
+        &self,
+        state: ForkchoiceState,
+        attrs: Option<TaikoPayloadAttributes>,
+    ) -> Result<ForkchoiceUpdated, EngineSubmissionError>;
+
+    /// Fetch a built payload envelope via `engine_getPayloadV2`.
+    async fn get_payload_v2(
+        &self,
+        payload_id: PayloadId,
+    ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError>;
+
+    /// Submit an execution payload via `engine_newPayloadV2`.
+    async fn new_payload_v2(
+        &self,
+        payload: &ExecutionPayloadInputV2,
+        sidecar: &TaikoExecutionDataSidecar,
+    ) -> Result<PayloadStatus, EngineSubmissionError>;
+
+    /// Fetch a block by number from the execution client's public RPC.
+    async fn block_by_number(
+        &self,
+        number: u64,
+    ) -> Result<Option<RpcBlock<TxEnvelope>>, EngineSubmissionError>;
+}
+
+#[async_trait]
+impl EnginePayloadRpc for Client {
+    fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+
+    async fn forkchoice_updated_v2(
+        &self,
+        state: ForkchoiceState,
+        attrs: Option<TaikoPayloadAttributes>,
+    ) -> Result<ForkchoiceUpdated, EngineSubmissionError> {
+        Ok(self.engine_forkchoice_updated_v2(state, attrs).await?)
+    }
+
+    async fn get_payload_v2(
+        &self,
+        payload_id: PayloadId,
+    ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError> {
+        Ok(self.engine_get_payload_v2(payload_id).await?)
+    }
+
+    async fn new_payload_v2(
+        &self,
+        payload: &ExecutionPayloadInputV2,
+        sidecar: &TaikoExecutionDataSidecar,
+    ) -> Result<PayloadStatus, EngineSubmissionError> {
+        Ok(self.engine_new_payload_v2(payload, sidecar).await?)
+    }
+
+    async fn block_by_number(
+        &self,
+        number: u64,
+    ) -> Result<Option<RpcBlock<TxEnvelope>>, EngineSubmissionError> {
+        Ok(self
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(number))
+            .await
+            .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into())))
+    }
+}
+
 /// Submit the provided payload attributes to the execution engine, building canonical L2
 /// blocks.
 #[instrument(skip(rpc, payload), fields(payload_id = tracing::field::Empty))]
-async fn apply_payload_internal(
-    rpc: &Client,
+async fn apply_payload_internal<R: EnginePayloadRpc>(
+    rpc: &R,
     payload: &TaikoPayloadAttributes,
     parent_hash: B256,
     finalized_block_hash: Option<B256>,
@@ -91,8 +167,7 @@ async fn apply_payload_internal(
         safe_block_hash: parent_hash,
         finalized_block_hash: B256::ZERO,
     };
-    let fc_response =
-        rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
+    let fc_response = rpc.forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
     ensure_valid_payload_status(
         payload.l1_origin.block_id.to::<u64>(),
         fc_response.payload_status.status,
@@ -111,9 +186,9 @@ async fn apply_payload_internal(
     }
 
     // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
-    let envelope = rpc.engine_get_payload_v2(payload_id).await?;
+    let envelope = rpc.get_payload_v2(payload_id).await?;
     let (payload_input, sidecar, block_hash, block_number) =
-        envelope_into_submission(rpc.chain_id, envelope);
+        envelope_into_submission(rpc.chain_id(), envelope);
 
     debug!(
         block_number,
@@ -247,22 +322,19 @@ fn ensure_inserted_block_hash(
     }
 }
 
-/// Fetch the inserted block by number and map provider errors into submission errors.
-async fn fetch_block_by_number(
-    rpc: &Client,
+/// Fetch the inserted block by number, mapping absence into a submission error.
+async fn fetch_block_by_number<R: EnginePayloadRpc>(
+    rpc: &R,
     block_number: u64,
 ) -> Result<RpcBlock<TxEnvelope>, EngineSubmissionError> {
-    rpc.l2_provider
-        .get_block_by_number(BlockNumberOrTag::Number(block_number))
-        .await
-        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
-        .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+    rpc.block_by_number(block_number)
+        .await?
         .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))
 }
 
 /// Common flow to submit a payload to the engine, promote forkchoice, and read back the block.
-async fn submit_payload_to_engine(
-    rpc: &Client,
+async fn submit_payload_to_engine<R: EnginePayloadRpc>(
+    rpc: &R,
     payload_input: &ExecutionPayloadInputV2,
     sidecar: &TaikoExecutionDataSidecar,
     block_hash: B256,
@@ -270,11 +342,11 @@ async fn submit_payload_to_engine(
     finalized_block_hash: Option<B256>,
     payload_id: PayloadId,
 ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
-    let status = rpc.engine_new_payload_v2(payload_input, sidecar).await?;
+    let status = rpc.new_payload_v2(payload_input, sidecar).await?;
     ensure_valid_payload_status(block_number, status.status)?;
 
     let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
-    let promotion = rpc.engine_forkchoice_updated_v2(promoted_state, None).await?;
+    let promotion = rpc.forkchoice_updated_v2(promoted_state, None).await?;
     ensure_valid_payload_status(block_number, promotion.payload_status.status)?;
 
     let block = fetch_block_by_number(rpc, block_number).await?;
@@ -291,7 +363,10 @@ mod tests {
     use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::bytes::BufMut;
     use alloy_rpc_types_engine::ExecutionPayloadV2;
-    use protocol::shasta::constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID};
+    use protocol::shasta::{
+        PayloadAttributesInput, build_payload_attributes,
+        constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID},
+    };
 
     fn sample_payload(timestamp: u64) -> ExecutionPayloadV1 {
         ExecutionPayloadV1 {
@@ -432,6 +507,257 @@ mod tests {
             err,
             EngineSubmissionError::InvalidBlock(7, ref reason) if reason == "bad block"
         ));
+    }
+
+    /// Which engine RPC a scripted call hit, in production sequence order.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum EngineCall {
+        ForkchoiceWithAttributes,
+        GetPayload,
+        NewPayload,
+        PromotionForkchoice,
+        BlockByNumber,
+    }
+
+    /// Scripted [`EnginePayloadRpc`] double that records the call sequence and replays the
+    /// configured responses; unscripted calls return an error so a regression that keeps
+    /// calling after a failure surfaces as both a wrong call log and a wrong error.
+    #[derive(Default)]
+    struct ScriptedEngine {
+        calls: std::sync::Mutex<Vec<EngineCall>>,
+        attributes_forkchoice: Option<ForkchoiceUpdated>,
+        envelope: Option<ExecutionPayloadEnvelopeV2>,
+        new_payload: Option<PayloadStatus>,
+        promotion_forkchoice: Option<ForkchoiceUpdated>,
+        readback_block: Option<RpcBlock<TxEnvelope>>,
+    }
+
+    impl ScriptedEngine {
+        fn record(&self, call: EngineCall) {
+            self.calls.lock().expect("call log lock").push(call);
+        }
+
+        fn calls(&self) -> Vec<EngineCall> {
+            self.calls.lock().expect("call log lock").clone()
+        }
+
+        fn unscripted(call: &str) -> EngineSubmissionError {
+            EngineSubmissionError::Provider(format!("unscripted engine call: {call}"))
+        }
+    }
+
+    #[async_trait]
+    impl EnginePayloadRpc for ScriptedEngine {
+        fn chain_id(&self) -> u64 {
+            TAIKO_DEVNET_CHAIN_ID
+        }
+
+        async fn forkchoice_updated_v2(
+            &self,
+            _state: ForkchoiceState,
+            attrs: Option<TaikoPayloadAttributes>,
+        ) -> Result<ForkchoiceUpdated, EngineSubmissionError> {
+            if attrs.is_some() {
+                self.record(EngineCall::ForkchoiceWithAttributes);
+                self.attributes_forkchoice
+                    .clone()
+                    .ok_or_else(|| Self::unscripted("forkchoiceUpdated with attributes"))
+            } else {
+                self.record(EngineCall::PromotionForkchoice);
+                self.promotion_forkchoice
+                    .clone()
+                    .ok_or_else(|| Self::unscripted("promotion forkchoiceUpdated"))
+            }
+        }
+
+        async fn get_payload_v2(
+            &self,
+            _payload_id: PayloadId,
+        ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError> {
+            self.record(EngineCall::GetPayload);
+            self.envelope.clone().ok_or_else(|| Self::unscripted("getPayload"))
+        }
+
+        async fn new_payload_v2(
+            &self,
+            _payload: &ExecutionPayloadInputV2,
+            _sidecar: &TaikoExecutionDataSidecar,
+        ) -> Result<PayloadStatus, EngineSubmissionError> {
+            self.record(EngineCall::NewPayload);
+            self.new_payload.clone().ok_or_else(|| Self::unscripted("newPayload"))
+        }
+
+        async fn block_by_number(
+            &self,
+            _number: u64,
+        ) -> Result<Option<RpcBlock<TxEnvelope>>, EngineSubmissionError> {
+            self.record(EngineCall::BlockByNumber);
+            Ok(self.readback_block.clone())
+        }
+    }
+
+    /// Payload attributes for block 7, matching [`sample_envelope_v1`]'s block number.
+    fn sample_attributes() -> TaikoPayloadAttributes {
+        build_payload_attributes(PayloadAttributesInput {
+            beneficiary: Address::from([1u8; 20]),
+            timestamp: 1,
+            mix_hash: B256::ZERO,
+            gas_limit: 30_000_000,
+            tx_list: Some(Bytes::new()),
+            extra_data: Bytes::new(),
+            base_fee_per_gas: U256::from(1u64),
+            block_number: 7,
+            l1_block_height: Some(U256::from(100u64)),
+            l1_block_hash: Some(B256::ZERO),
+            is_forced_inclusion: false,
+            signature: [0; 65],
+            parent_beacon_block_root: None,
+            anchor_transaction: None,
+        })
+    }
+
+    fn forkchoice_response(
+        status: PayloadStatusEnum,
+        payload_id: Option<PayloadId>,
+    ) -> ForkchoiceUpdated {
+        ForkchoiceUpdated { payload_status: PayloadStatus::from_status(status), payload_id }
+    }
+
+    /// The block hash produced by [`sample_payload`], i.e. what getPayload advertises.
+    fn sample_block_hash() -> B256 {
+        B256::from(U256::from(42u64))
+    }
+
+    fn sample_readback_block(hash: B256) -> RpcBlock<TxEnvelope> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = hash;
+        block.header.inner.number = 7;
+        block
+    }
+
+    /// A scripted engine primed for the full happy-path sequence.
+    fn scripted_happy_engine() -> ScriptedEngine {
+        ScriptedEngine {
+            attributes_forkchoice: Some(forkchoice_response(
+                PayloadStatusEnum::Valid,
+                Some(PayloadId::new([0; 8])),
+            )),
+            envelope: Some(sample_envelope_v1(0, U256::ZERO)),
+            new_payload: Some(PayloadStatus::from_status(PayloadStatusEnum::Valid)),
+            promotion_forkchoice: Some(forkchoice_response(PayloadStatusEnum::Valid, None)),
+            readback_block: Some(sample_readback_block(sample_block_hash())),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn apply_payload_stops_when_attribute_forkchoice_is_not_valid() {
+        let engine = ScriptedEngine {
+            attributes_forkchoice: Some(forkchoice_response(PayloadStatusEnum::Syncing, None)),
+            ..Default::default()
+        };
+
+        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, EngineSubmissionError::EngineSyncing(7)));
+        assert_eq!(engine.calls(), vec![EngineCall::ForkchoiceWithAttributes]);
+    }
+
+    #[tokio::test]
+    async fn apply_payload_stops_when_new_payload_is_accepted() {
+        let engine = ScriptedEngine {
+            promotion_forkchoice: None,
+            readback_block: None,
+            new_payload: Some(PayloadStatus::from_status(PayloadStatusEnum::Accepted)),
+            ..scripted_happy_engine()
+        };
+
+        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, EngineSubmissionError::UnexpectedPayloadStatus(7, _)));
+        assert_eq!(
+            engine.calls(),
+            vec![
+                EngineCall::ForkchoiceWithAttributes,
+                EngineCall::GetPayload,
+                EngineCall::NewPayload,
+            ],
+            "no promotion or readback may happen after a non-VALID newPayload"
+        );
+    }
+
+    #[tokio::test]
+    async fn apply_payload_stops_when_promotion_forkchoice_is_not_valid() {
+        let engine = ScriptedEngine {
+            readback_block: None,
+            promotion_forkchoice: Some(forkchoice_response(
+                PayloadStatusEnum::Invalid { validation_error: "bad head".to_string() },
+                None,
+            )),
+            ..scripted_happy_engine()
+        };
+
+        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            EngineSubmissionError::InvalidBlock(7, ref reason) if reason == "bad head"
+        ));
+        assert_eq!(
+            engine.calls(),
+            vec![
+                EngineCall::ForkchoiceWithAttributes,
+                EngineCall::GetPayload,
+                EngineCall::NewPayload,
+                EngineCall::PromotionForkchoice,
+            ],
+            "no readback may happen after a failed promotion"
+        );
+    }
+
+    #[tokio::test]
+    async fn apply_payload_rejects_mismatched_readback_hash() {
+        let engine = ScriptedEngine {
+            readback_block: Some(sample_readback_block(B256::from(U256::from(43u64)))),
+            ..scripted_happy_engine()
+        };
+
+        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            EngineSubmissionError::InsertedBlockHashMismatch { block_number: 7, .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn apply_payload_returns_hash_verified_outcome_for_valid_sequence() {
+        let engine = scripted_happy_engine();
+
+        let outcome = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
+            .await
+            .expect("valid sequence must succeed");
+
+        assert_eq!(outcome.block_hash(), sample_block_hash());
+        assert_eq!(outcome.block_number(), 7);
+        assert_eq!(
+            engine.calls(),
+            vec![
+                EngineCall::ForkchoiceWithAttributes,
+                EngineCall::GetPayload,
+                EngineCall::NewPayload,
+                EngineCall::PromotionForkchoice,
+                EngineCall::BlockByNumber,
+            ]
+        );
     }
 
     #[test]
