@@ -17,7 +17,6 @@ use alloy_consensus::TxEnvelope;
 use alloy_provider::Provider;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
-use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, Notification, ScannerMessage};
 use tokio::{
@@ -25,18 +24,19 @@ use tokio::{
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
     time::{sleep, timeout},
 };
-use tokio_retry::{Retry, strategy::ExponentialBackoff};
+use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage,
+    SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
+    error::EngineSubmissionError,
 };
 use crate::{
     config::DriverConfig,
-    derivation::ShastaDerivationPipeline,
+    derivation::{DerivationError, ShastaDerivationPipeline},
     error::DriverError,
     metrics::DriverMetrics,
     production::{
@@ -54,6 +54,25 @@ enum ProposalLogResult {
     Processed(Vec<EngineBlockOutcome>),
     /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
     SkippedOrphaned,
+}
+
+/// Return whether a proposal-processing failure is a deterministic verdict that retrying the
+/// same input cannot change.
+///
+/// The execution engine rejecting a derived block as INVALID is a content-level verdict: the
+/// same proposal keeps producing the same rejection, so retrying only turns a hard failure into
+/// a silent stall. Transient failures (RPC transport, engine still syncing) stay retryable.
+/// This mirrors beacon sync, which treats INVALID as fatal during catch-up.
+fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
+    matches!(
+        err,
+        DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::InvalidBlock(..),
+        ))) | DriverError::PreconfInjectionFailed {
+            source: EngineSubmissionError::InvalidBlock(..),
+            ..
+        }
+    )
 }
 
 /// Default timeout for preconfirmation payload submission.
@@ -282,11 +301,8 @@ async fn preconfirmation_payload_is_materialized(
         return Ok(false);
     }
 
-    let Some(block) = rpc
-        .l2_provider
-        .get_block_by_number(BlockNumberOrTag::Number(block_number))
-        .await
-        .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
+    let Some(block) =
+        rpc.l2_provider.get_block_by_number(BlockNumberOrTag::Number(block_number)).await?
     else {
         return Ok(false);
     };
@@ -461,12 +477,7 @@ impl EventSyncer {
         block_hash: B256,
         log_block_number: Option<u64>,
     ) -> Result<bool, SyncError> {
-        let block = self
-            .rpc
-            .l1_provider
-            .get_block_by_hash(block_hash)
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let block = self.rpc.l1_provider.get_block_by_hash(block_hash).await?;
 
         // If the block is still resolvable, the failure came from downstream processing, not a
         // reorg that removed the source log.
@@ -483,12 +494,7 @@ impl EventSyncer {
         // A transiently lagging provider can return `None` for a block that has not yet reached
         // the provider's visible head. Only classify the log as orphaned once the head has caught
         // up to or passed the log's block number.
-        let chain_head = self
-            .rpc
-            .l1_provider
-            .get_block_number()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let chain_head = self.rpc.l1_provider.get_block_number().await?;
 
         Ok(chain_head >= log_block_number)
     }
@@ -598,69 +604,80 @@ impl EventSyncer {
                 });
             };
 
-            // Retry proposal processing on transient errors.
+            // Retry proposal processing on transient errors. Deterministic verdicts (e.g. the
+            // engine rejecting the derived block as INVALID) abort instead of retrying forever,
+            // so a content-level failure surfaces to the operator rather than stalling silently.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
             let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            let processing = Retry::spawn(retry_strategy, move || {
-                let router = router.clone();
-                let log = proposal_log.clone();
-                async move {
-                    let router_call = {
-                        // Lock router so L1 proposals and preconf inputs cannot interleave.
-                        let router_guard = router.lock().await;
-                        router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
-                    };
+            let processing = RetryIf::spawn(
+                retry_strategy,
+                move || {
+                    let router = router.clone();
+                    let log = proposal_log.clone();
+                    async move {
+                        let router_call = {
+                            // Lock router so L1 proposals and preconf inputs cannot interleave.
+                            let router_guard = router.lock().await;
+                            router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
+                        };
 
-                    match router_call {
-                        Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
-                        Err(err) => match syncer
-                            .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
-                            .await
-                        {
-                            Ok(true) => {
-                                DriverMetrics::event_orphaned_proposal_logs_total().inc();
-                                warn!(
-                                    ?err,
-                                    block_number = log.block_number,
-                                    block_hash = ?block_hash,
-                                    transaction_hash = ?log.transaction_hash,
-                                    "skipping permanently orphaned proposal log",
-                                );
-                                Ok(ProposalLogResult::SkippedOrphaned)
-                            }
-                            Ok(false) => {
-                                warn!(
-                                    ?err,
-                                    tx_hash = ?log.transaction_hash,
-                                    block_number = log.block_number,
-                                    "proposal derivation failed; retrying"
-                                );
-                                Err(err)
-                            }
-                            Err(recheck_err) => {
-                                warn!(
-                                    ?err,
-                                    ?recheck_err,
-                                    tx_hash = ?log.transaction_hash,
-                                    block_number = log.block_number,
-                                    "proposal derivation failed and orphaned-log recheck errored; retrying"
-                                );
-                                Err(err)
-                            }
-                        },
+                        match router_call {
+                            Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
+                            Err(err) => match syncer
+                                .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
+                                .await
+                            {
+                                Ok(true) => {
+                                    DriverMetrics::event_orphaned_proposal_logs_total().inc();
+                                    warn!(
+                                        ?err,
+                                        block_number = log.block_number,
+                                        block_hash = ?block_hash,
+                                        transaction_hash = ?log.transaction_hash,
+                                        "skipping permanently orphaned proposal log",
+                                    );
+                                    Ok(ProposalLogResult::SkippedOrphaned)
+                                }
+                                Ok(false) => {
+                                    if is_fatal_proposal_processing_error(&err) {
+                                        error!(
+                                            ?err,
+                                            tx_hash = ?log.transaction_hash,
+                                            block_number = log.block_number,
+                                            "proposal derivation failed with a non-retryable error"
+                                        );
+                                    } else {
+                                        warn!(
+                                            ?err,
+                                            tx_hash = ?log.transaction_hash,
+                                            block_number = log.block_number,
+                                            "proposal derivation failed; retrying"
+                                        );
+                                    }
+                                    Err(err)
+                                }
+                                Err(recheck_err) => {
+                                    warn!(
+                                        ?err,
+                                        ?recheck_err,
+                                        tx_hash = ?log.transaction_hash,
+                                        block_number = log.block_number,
+                                        "proposal derivation failed and orphaned-log recheck errored; retrying"
+                                    );
+                                    Err(err)
+                                }
+                            },
+                        }
                     }
-                }
-            })
+                },
+                |err: &DriverError| !is_fatal_proposal_processing_error(err),
+            )
             .await
-            .map_err(|err| match err {
-                DriverError::Sync(sync_err) => sync_err,
-                DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
-                other => SyncError::Other(anyhow!(other)),
-            })?;
+            .map_err(SyncError::from)?;
 
             let ProposalLogResult::Processed(outcomes) = processing else {
                 continue;
@@ -735,14 +752,7 @@ impl EventSyncer {
     ///   - `last_block_id_by_batch_id(target)` exists
     ///   - `head_l1_origin` exists and `head >= target_block`
     pub async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, SyncError> {
-        let core_state = self
-            .rpc
-            .shasta
-            .inbox
-            .getCoreState()
-            .call()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let core_state = self.rpc.shasta.inbox.getCoreState().call().await?;
         let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
         build_confirmed_sync_snapshot(
             target_proposal_id,
@@ -927,7 +937,7 @@ impl EventSyncer {
                     );
                     None
                 }
-                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+                Err(err) => return Err(err.into()),
             };
             (head_l1_origin_block_id, rpc_l2_block_number)
         };
@@ -952,15 +962,20 @@ impl EventSyncer {
     /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
-        let finalized_block =
-            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
-                Ok(block) => block,
-                // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh
-                // devnets before the beacon chain has finalized its first block. Treat this
-                // specific error as "not yet available" rather than a fatal failure.
-                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => return Ok(None),
-                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
-            };
+        let finalized_block = match self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Finalized)
+            .await
+            .map_err(RpcClientError::from)
+        {
+            Ok(block) => block,
+            // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh devnets
+            // before the beacon chain has finalized its first block. Treat this specific error
+            // as "not yet available" rather than a fatal failure.
+            Err(err) if err.is_finalized_block_unavailable() => return Ok(None),
+            Err(err) => return Err(SyncError::Rpc(err)),
+        };
 
         let Some(finalized_block) = finalized_block else {
             return Ok(None);
@@ -975,8 +990,7 @@ impl EventSyncer {
             .getCoreState()
             .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
             .call()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+            .await?;
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
         Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
@@ -991,8 +1005,7 @@ impl EventSyncer {
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Number(resume_head_block_number))
             .full()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+            .await?
             .ok_or(SyncError::MissingExecutionBlock { number: resume_head_block_number })?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
@@ -1032,8 +1045,7 @@ impl EventSyncer {
         } else {
             self.rpc
                 .last_block_id_by_batch_id(U256::from(target_proposal_id))
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                .await?
                 .map(|block_number| block_number.to::<u64>())
         };
 
@@ -1048,8 +1060,7 @@ impl EventSyncer {
                     .l2_provider
                     .get_block_by_number(BlockNumberOrTag::Number(block_number))
                     .full()
-                    .await
-                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                    .await?
                     .ok_or(SyncError::MissingExecutionBlock { number: block_number })?
                     .map_transactions(|tx: RpcTransaction| tx.into());
                 (block, block_number)
@@ -1123,15 +1134,7 @@ impl EventSyncer {
     /// Resolve the activation block number by converting the inbox activation timestamp through
     /// the beacon endpoint.
     async fn activation_block_number(&self) -> Result<u64, SyncError> {
-        let activation_time = self
-            .rpc
-            .shasta
-            .inbox
-            .activationTimestamp()
-            .call()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .to::<u64>();
+        let activation_time = self.rpc.shasta.inbox.activationTimestamp().call().await?.to::<u64>();
 
         if activation_time == 0 {
             return Ok(0);
@@ -1439,6 +1442,7 @@ mod tests {
     use alloy_rpc_types_engine::PayloadId;
     use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
+    use anyhow::anyhow;
     use async_trait::async_trait;
     use bindings::{
         anchor::Anchor::AnchorInstance,
@@ -1799,7 +1803,7 @@ mod tests {
             .await
             .expect_err("rpc lookup failure should be surfaced");
 
-        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Rpc(_))));
     }
 
     #[tokio::test]
@@ -1884,6 +1888,112 @@ mod tests {
             "recheck rpc errors should keep the log retryable until a later attempt succeeds",
         );
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
+    }
+
+    #[derive(Clone)]
+    struct MockInvalidBlockPath {
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockInvalidBlockPath {
+        fn new() -> Self {
+            Self { seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())) }
+        }
+
+        fn attempts(&self) -> usize {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").len()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockInvalidBlockPath {
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock invalid-block path only supports L1 proposal logs");
+            };
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").push(
+                log.transaction_hash.expect("test proposal log should always include tx hash"),
+            );
+
+            Err(DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+                EngineSubmissionError::InvalidBlock(1, "mock invalid block".into()),
+            ))))
+        }
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_aborts_without_retry_on_engine_invalid_block() {
+        let asserter = Asserter::new();
+        // Orphan recheck resolves the source L1 block, proving the log is not orphaned.
+        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockInvalidBlockPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, B256::from([0x71; 32]), B256::from([0x81; 32]))],
+            ),
+        )
+        .await;
+
+        let err = result
+            .expect("fatal engine verdicts must abort instead of retrying until the timeout")
+            .expect_err("engine INVALID must surface as an error");
+        assert!(matches!(
+            err,
+            SyncError::Derivation(DerivationError::Engine(EngineSubmissionError::InvalidBlock(..)))
+        ));
+        assert_eq!(path.attempts(), 1, "deterministic engine verdicts must not be retried");
+    }
+
+    #[test]
+    fn fatal_proposal_processing_error_matches_engine_invalid_block() {
+        let derivation_invalid = DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::InvalidBlock(1, "bad block".into()),
+        )));
+        assert!(is_fatal_proposal_processing_error(&derivation_invalid));
+
+        let preconf_invalid = DriverError::PreconfInjectionFailed {
+            block_number: 1,
+            source: EngineSubmissionError::InvalidBlock(1, "bad block".into()),
+        };
+        assert!(is_fatal_proposal_processing_error(&preconf_invalid));
+    }
+
+    #[test]
+    fn fatal_proposal_processing_error_ignores_transient_errors() {
+        let syncing = DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::EngineSyncing(1),
+        )));
+        assert!(!is_fatal_proposal_processing_error(&syncing));
+
+        let rpc = DriverError::Rpc(RpcClientError::Connection("boom".into()));
+        assert!(!is_fatal_proposal_processing_error(&rpc));
+
+        let other = DriverError::Other(anyhow!("boom"));
+        assert!(!is_fatal_proposal_processing_error(&other));
+    }
+
+    #[test]
+    fn sync_error_from_driver_error_preserves_structure() {
+        let unwrapped = SyncError::from(DriverError::Sync(SyncError::MissingHeadL1OriginResume));
+        assert!(matches!(unwrapped, SyncError::MissingHeadL1OriginResume));
+
+        let rpc = SyncError::from(DriverError::Rpc(RpcClientError::Connection("boom".into())));
+        assert!(matches!(rpc, SyncError::Rpc(RpcClientError::Connection(_))));
+
+        let boxed = SyncError::from(DriverError::BlockNotFound(7));
+        assert!(
+            matches!(boxed, SyncError::Driver(inner) if matches!(*inner, DriverError::BlockNotFound(7)))
+        );
     }
 
     #[tokio::test]

@@ -1,11 +1,11 @@
 //! Synchronization error types.
 
-use alloy::primitives::B256;
+use alloy::{primitives::B256, transports::TransportError};
 use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
 use thiserror::Error;
 
-use crate::derivation::DerivationError;
+use crate::{derivation::DerivationError, error::DriverError};
 
 /// Errors emitted by sync components.
 #[derive(Debug, Error)]
@@ -80,9 +80,40 @@ pub enum SyncError {
     #[error(transparent)]
     Rpc(#[from] RpcClientError),
 
+    /// Event sync: driver-level failure surfaced through proposal processing.
+    #[error(transparent)]
+    Driver(Box<DriverError>),
+
     /// Generic sync error.
     #[error(transparent)]
     Other(#[from] AnyhowError),
+}
+
+impl From<TransportError> for SyncError {
+    /// Preserve typed transport failures from raw provider calls as RPC sync errors.
+    fn from(err: TransportError) -> Self {
+        Self::Rpc(err.into())
+    }
+}
+
+impl From<alloy::contract::Error> for SyncError {
+    /// Preserve typed contract-call failures (including revert data) as RPC sync errors.
+    fn from(err: alloy::contract::Error) -> Self {
+        Self::Rpc(err.into())
+    }
+}
+
+impl From<DriverError> for SyncError {
+    /// Convert driver errors without collapsing them into stringly-typed buckets: sync errors
+    /// unwrap to themselves, RPC errors keep their variant, and everything else stays typed
+    /// behind [`SyncError::Driver`] so callers can still classify the failure.
+    fn from(err: DriverError) -> Self {
+        match err {
+            DriverError::Sync(sync_err) => sync_err,
+            DriverError::Rpc(rpc_err) => Self::Rpc(rpc_err),
+            other => Self::Driver(Box::new(other)),
+        }
+    }
 }
 
 /// Errors that can occur while submitting payload attributes to the execution engine.
@@ -91,9 +122,6 @@ pub enum EngineSubmissionError {
     /// Failure communicating with Taiko RPC wrappers.
     #[error(transparent)]
     Rpc(#[from] RpcClientError),
-    /// Failure communicating with the execution engine's public RPC.
-    #[error("execution engine provider error: {0}")]
-    Provider(String),
     /// Execution engine is syncing and cannot accept the provided block.
     #[error("execution engine syncing while inserting block {0}")]
     EngineSyncing(u64),
@@ -106,4 +134,11 @@ pub enum EngineSubmissionError {
     /// Execution engine failed to return the inserted block via RPC.
     #[error("inserted block {0} not found via rpc provider")]
     MissingInsertedBlock(u64),
+}
+
+impl From<TransportError> for EngineSubmissionError {
+    /// Preserve typed transport failures from engine-adjacent provider calls.
+    fn from(err: TransportError) -> Self {
+        Self::Rpc(err.into())
+    }
 }

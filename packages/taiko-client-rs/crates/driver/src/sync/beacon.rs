@@ -27,9 +27,7 @@ use rpc::{
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, info, instrument, warn};
 
-use super::{
-    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead,
-};
+use super::{SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead};
 use crate::{config::DriverConfig, error::DriverError, metrics::DriverMetrics};
 
 /// Default polling interval used when no retry interval is configured.
@@ -85,17 +83,13 @@ impl BeaconSyncer {
             .block(BlockId::Number(BlockNumberOrTag::Finalized))
             .call()
             .await
+            .map_err(RpcClientError::from)
         {
             Ok(core_state) => core_state,
-            Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => self
-                .rpc
-                .shasta
-                .inbox
-                .getCoreState()
-                .call()
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
-            Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            Err(err) if err.is_finalized_block_unavailable() => {
+                self.rpc.shasta.inbox.getCoreState().call().await.map_err(SyncError::from)?
+            }
+            Err(err) => return Err(SyncError::Rpc(err)),
         };
 
         Ok(FinalizedSyncTarget {

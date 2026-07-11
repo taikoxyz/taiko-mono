@@ -2,9 +2,6 @@
 
 use std::sync::Arc;
 
-/// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
-pub(crate) const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
-
 use async_trait::async_trait;
 use rpc::client::Client;
 use tracing::{info, instrument};

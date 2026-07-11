@@ -227,7 +227,7 @@ async fn fetch_block_by_number(
     rpc.l2_provider
         .get_block_by_number(BlockNumberOrTag::Number(block_number))
         .await
-        .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
+        .map_err(EngineSubmissionError::from)?
         .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
         .ok_or(EngineSubmissionError::MissingInsertedBlock(block_number))
 }

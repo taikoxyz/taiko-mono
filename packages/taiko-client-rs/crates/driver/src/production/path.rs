@@ -12,7 +12,7 @@ use crate::{
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
-use rpc::{RpcClientError, client::Client};
+use rpc::client::Client;
 use tracing::{debug, error};
 
 /// A block-production path capable of materialising the provided input into execution blocks.
@@ -39,8 +39,7 @@ impl BlockHashReader for Client {
         let block = self
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Number(block_number))
-            .await
-            .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
+            .await?
             .ok_or(DriverError::BlockNotFound(block_number))?;
         Ok(block.hash())
     }

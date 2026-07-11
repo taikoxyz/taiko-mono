@@ -84,3 +84,10 @@ pub enum DriverError {
     #[error(transparent)]
     Other(#[from] AnyhowError),
 }
+
+impl From<alloy::transports::TransportError> for DriverError {
+    /// Preserve typed transport failures from raw provider calls as RPC driver errors.
+    fn from(err: alloy::transports::TransportError) -> Self {
+        Self::Rpc(err.into())
+    }
+}
