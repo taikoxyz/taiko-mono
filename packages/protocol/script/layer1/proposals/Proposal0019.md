@@ -288,34 +288,89 @@ The ZK and TEE identifiers in [`Proposal0019.s.sol`](./Proposal0019.s.sol) come 
 | ZK digest summary | `guest-digests-summary.json` |
 | TEE attestation manifest | `tee-attestation-manifest-v0.6.0.json` |
 
-Reproduce the ZK guest digests from the release checkout:
+Reproduce the ZK guest digests from the release checkout. `guest-digests` reads the checked-in
+ELF/VK artifacts under `crates/guests/elf`; run the guest build first when the goal is to verify
+those artifacts from source rather than only re-hash the release checkout:
 
 ```bash
+export TAG=v0.6.0
+export REPRO_DIR=target/releases/${TAG}/zk-digest-repro
+
 git fetch --tags origin v0.6.0
-git checkout v0.6.0
+git checkout "${TAG}"
+mkdir -p "${REPRO_DIR}"
+
+just build-guest all --force
 
 cargo run -r -p xtask-build-guest --bin guest-digests --features digests -- \
-  --output target/releases/v0.6.0/guest-digests-summary.json
+  --output "${REPRO_DIR}/from-source.json"
+
+gh release download "${TAG}" --repo taikoxyz/raiko2 \
+  --pattern guest-digests-summary.json \
+  --dir "${REPRO_DIR}" \
+  --clobber
+
+jq -S '.digests | sort_by(.proof_system, .object_name, .stage, .digest_source)' \
+  "${REPRO_DIR}/guest-digests-summary.json" > "${REPRO_DIR}/release-digests.sorted.json"
+jq -S '.digests | sort_by(.proof_system, .object_name, .stage, .digest_source)' \
+  "${REPRO_DIR}/from-source.json" > "${REPRO_DIR}/source-digests.sorted.json"
+diff -u "${REPRO_DIR}/release-digests.sorted.json" "${REPRO_DIR}/source-digests.sorted.json"
 ```
 
-Compare the generated `guest-digests-summary.json` with the GitHub release asset.
+Do not compare the whole `guest-digests-summary.json` file directly: `created_at_unix` is generated
+per run. The canonical comparison is the sorted `.digests` projection above.
 
 Reproduce the TEE provider metadata from the release checkout. Official reproduction requires the
 release enclave signing key; a disposable local key can reproduce `mr_enclave`, but produces a
 different `mr_signer`.
 
 ```bash
+export TAG=v0.6.0
+export REPRO_DIR=target/releases/${TAG}/tee-provider-repro
+
 git fetch --tags origin v0.6.0
-git checkout v0.6.0
+git checkout "${TAG}"
 
 GCP_ENCLAVE_KEY_SECRET=<secret-name> \
 GCP_ENCLAVE_KEY_VERSION=<secret-version> \
 GCP_ENCLAVE_KEY_PROJECT=<gcp-project> \
-cargo run -r -p xtask -- release-tee-providers --tag v0.6.0 --no-push
+cargo run -r -p xtask -- release-tee-providers --tag "${TAG}" --no-push
+
+mkdir -p "${REPRO_DIR}"
+cp "target/releases/${TAG}/tee-attestation-manifest-${TAG}.json" \
+  "${REPRO_DIR}/from-source.json"
+
+gh release download "${TAG}" --repo taikoxyz/raiko2 \
+  --pattern "tee-attestation-manifest-${TAG}.json" \
+  --dir "${REPRO_DIR}" \
+  --clobber
+
+jq -S '[.providers[]
+  | {lane, provider, source, attestation}]
+  | sort_by(.lane, .provider)' \
+  "${REPRO_DIR}/tee-attestation-manifest-${TAG}.json" > "${REPRO_DIR}/release-tee.sorted.json"
+jq -S '[.providers[]
+  | {lane, provider, source, attestation}]
+  | sort_by(.lane, .provider)' \
+  "${REPRO_DIR}/from-source.json" > "${REPRO_DIR}/source-tee.sorted.json"
+diff -u "${REPRO_DIR}/release-tee.sorted.json" "${REPRO_DIR}/source-tee.sorted.json"
 ```
 
-Compare `target/releases/v0.6.0/tee-attestation-manifest-v0.6.0.json` with the GitHub release
-asset of the same name.
+Do not compare the whole TEE manifest directly: `generated_at` is generated per run. With the
+official signing key, compare the sorted `{ lane, provider, source, attestation }` projection above.
+With a disposable local key, compare the same projection without `attestation.mr_signer`, because
+the signer key intentionally changes. `release-tee-providers --no-push` is metadata-only; verify the
+published immutable image digests in the artifact table separately against the registry:
+
+```bash
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/raiko2:v0.6.0
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/raiko2-sgx:v0.6.0
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/raiko2-sgx:v0.6.0-edmm
+docker buildx imagetools inspect us-docker.pkg.dev/evmchain/images/gaiko2-sgxgeth:v0.6.0
+```
+
+Each reported digest must match the corresponding immutable `@sha256:...` reference in the
+artifact table.
 
 ## Client Rollout Prerequisite
 
