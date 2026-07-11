@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use alloy_primitives::U256;
 use alloy_provider::Provider;
 use alloy_rpc_types::Log;
 use anyhow::{Context, Result, ensure};
@@ -72,8 +71,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
 
     let blob_source =
         Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
-    let pipeline =
-        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
+    let pipeline = ShastaDerivationPipeline::new(driver_client.clone(), blob_source, 0).await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 

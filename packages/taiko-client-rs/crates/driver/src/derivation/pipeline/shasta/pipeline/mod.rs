@@ -53,10 +53,8 @@ mod payload;
 /// Parent-state tracking while deriving sequential blocks.
 mod state;
 
-use bundle::{BundleMeta, SourceManifestSegment};
+use bundle::{BundleMeta, ShastaProposalBundle, SourceManifestSegment};
 use state::ParentState;
-
-pub use bundle::ShastaProposalBundle;
 
 /// Query inbox core state at the provided L1 block hash and return the finalized proposal id.
 ///
@@ -224,7 +222,7 @@ pub struct ShastaDerivationPipeline {
     /// L2 chain ID for chain-aware derivation and validation rules.
     chain_id: u64,
     /// Initial proposal id used when bootstrapping event sync.
-    initial_proposal_id: U256,
+    initial_proposal_id: u64,
 }
 
 impl ShastaDerivationPipeline {
@@ -236,7 +234,7 @@ impl ShastaDerivationPipeline {
     pub async fn new(
         rpc: Client,
         blob_source: Arc<BlobDataSource>,
-        initial_proposal_id: U256,
+        initial_proposal_id: u64,
     ) -> Result<Self, DerivationError> {
         let source_manifest_fetcher = ShastaSourceManifestFetcher::new(blob_source.clone());
         let anchor_address = *rpc.shasta.anchor.address();
@@ -497,10 +495,10 @@ impl ShastaDerivationPipeline {
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
-        if meta.proposal_id < self.initial_proposal_id.to() {
+        if meta.proposal_id < self.initial_proposal_id {
             info!(
                 proposal_id = meta.proposal_id,
-                initial_proposal_id = ?self.initial_proposal_id,
+                initial_proposal_id = self.initial_proposal_id,
                 "skipping proposal below initial proposal id"
             );
             DriverMetrics::event_proposals_skipped_total().inc();
@@ -893,7 +891,7 @@ mod tests {
             shasta_fork_timestamp: 0,
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
             chain_id: TAIKO_MAINNET_CHAIN_ID,
-            initial_proposal_id: U256::ZERO,
+            initial_proposal_id: 0,
         };
 
         let mut parent_block = RpcBlock::<TxEnvelope>::default();

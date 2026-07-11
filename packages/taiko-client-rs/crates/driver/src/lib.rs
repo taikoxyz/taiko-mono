@@ -23,6 +23,8 @@ pub mod metrics;
 pub mod preconf_ingress_sync;
 /// Production path routing and payload wrappers.
 pub mod production;
+/// Cooperative OS shutdown-signal handling.
+pub mod shutdown;
 /// Synchronization stages and event scanning.
 pub mod sync;
 

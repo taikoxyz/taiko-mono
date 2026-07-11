@@ -12,7 +12,7 @@ use protocol::shasta::{
     PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
     encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    unzen_active_for_chain_timestamp,
+    payload_core_mismatch, unzen_active_for_chain_timestamp,
 };
 
 use crate::{
@@ -765,10 +765,15 @@ impl ShastaDerivationPipeline {
             return Ok(None);
         }
 
-        if block.header.beneficiary !=
-            derived_block.payload.payload_attributes.suggested_fee_recipient
+        // Shared with preconfirmation-materialization detection so both answers to "would these
+        // attributes produce this header" can never drift apart.
+        if let Some(mismatch) =
+            payload_core_mismatch(&block.header.inner, block_id, &derived_block.payload)
         {
-            debug!(proposal_id = meta.proposal_id, block_id, "coinbase mismatch");
+            debug!(
+                proposal_id = meta.proposal_id,
+                block_id, mismatch, "canonical block field mismatch"
+            );
             return Ok(None);
         }
 
@@ -829,44 +834,6 @@ impl ShastaDerivationPipeline {
                     proposal_id = meta.proposal_id,
                     block_id, "unexpected requests hash before Unzen"
                 );
-                return Ok(None);
-            }
-        }
-
-        if block.header.mix_hash != derived_block.payload.payload_attributes.prev_randao {
-            debug!(proposal_id = meta.proposal_id, block_id, "mix digest mismatch");
-            return Ok(None);
-        }
-
-        if block.header.number != block_id {
-            debug!(
-                proposal_id = meta.proposal_id,
-                block_id,
-                canonical = block.header.number,
-                "block number mismatch"
-            );
-            return Ok(None);
-        }
-
-        if block.header.gas_limit != derived_block.payload.block_metadata.gas_limit {
-            debug!(proposal_id = meta.proposal_id, block_id, "gas limit mismatch");
-            return Ok(None);
-        }
-
-        if block.header.timestamp != derived_block.payload.payload_attributes.timestamp {
-            debug!(proposal_id = meta.proposal_id, block_id, "timestamp mismatch");
-            return Ok(None);
-        }
-
-        if block.header.extra_data != derived_block.payload.block_metadata.extra_data {
-            debug!(proposal_id = meta.proposal_id, block_id, "extra data mismatch");
-            return Ok(None);
-        }
-
-        match block.header.base_fee_per_gas {
-            Some(base_fee) if U256::from(base_fee) == derived_block.payload.base_fee_per_gas => {}
-            _ => {
-                debug!(proposal_id = meta.proposal_id, block_id, "base fee mismatch");
                 return Ok(None);
             }
         }

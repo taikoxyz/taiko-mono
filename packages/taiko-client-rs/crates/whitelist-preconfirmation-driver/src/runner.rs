@@ -1,6 +1,6 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
@@ -8,6 +8,7 @@ use alloy_provider::Provider;
 use driver::{
     DriverConfig,
     preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
+    shutdown::shutdown_signal,
 };
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
@@ -25,6 +26,10 @@ use crate::{
     network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
     operator_set::OperatorSetPoller,
 };
+
+/// Bound on draining the REST/WS server after a shutdown signal, mirroring the Go driver's
+/// bounded preconfirmation-server shutdown window.
+const SHUTDOWN_DRAIN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Configuration for the whitelist preconfirmation runner.
 #[derive(Clone, Debug)]
@@ -171,8 +176,28 @@ impl WhitelistPreconfirmationDriverRunner {
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
         let mut event_syncer_handle = preconf_ingress_sync.handle_mut();
 
+        // Cooperative shutdown for the steady-state loop; pinned once so a signal arriving
+        // between loop iterations is not lost. Signals arriving before the first poll keep
+        // their default disposition (immediate exit), acceptable while nothing is in flight.
+        let shutdown = shutdown_signal();
+        tokio::pin!(shutdown);
+
         loop {
             tokio::select! {
+                _ = &mut shutdown => {
+                    info!("shutdown signal received; draining whitelist preconfirmation driver");
+                    let _ = command_tx.send(NetworkCommand::Shutdown).await;
+                    node_handle.abort();
+                    // Drain the REST server before killing the ingress loop so in-flight
+                    // submissions settle, bounded like the Go driver's shutdown window.
+                    if let Some(server) = rest_ws_server.take() &&
+                        tokio::time::timeout(SHUTDOWN_DRAIN_TIMEOUT, server.stop()).await.is_err()
+                    {
+                        warn!("whitelist REST/WS server drain timed out; exiting anyway");
+                    }
+                    event_syncer_handle.abort();
+                    return Ok(());
+                }
                 result = &mut node_handle => {
                     stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
                     return match result {

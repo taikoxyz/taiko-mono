@@ -39,14 +39,31 @@ impl Cli {
     /// Run the subcommand.
     pub fn run(self) -> Result<()> {
         match self.subcommand {
-            Commands::Proposer(proposer_cmd) => Self::run_until_ctrl_c(proposer_cmd.run()),
-            Commands::Driver(driver_cmd) => Self::run_until_ctrl_c(driver_cmd.run()),
-            Commands::WhitelistPreconfirmationDriver(cmd) => Self::run_until_ctrl_c(cmd.run()),
+            Commands::Proposer(proposer_cmd) => Self::run_until_shutdown_signal(proposer_cmd.run()),
+            Commands::Driver(driver_cmd) => Self::run_until_shutdown_signal(driver_cmd.run()),
+            // The whitelist runner installs its own signal handling so it can drain its REST
+            // server and sidecars before exiting; a second top-level handler would race it and
+            // cancel that teardown.
+            Commands::WhitelistPreconfirmationDriver(cmd) => Self::block_on(cmd.run()),
         }
     }
 
-    /// Run until ctrl-c is pressed.
-    pub fn run_until_ctrl_c<F>(fut: F) -> Result<()>
+    /// Run the future until it completes or the process receives a shutdown signal
+    /// (SIGINT/ctrl-c or SIGTERM).
+    pub fn run_until_shutdown_signal<F>(fut: F) -> Result<()>
+    where
+        F: Future<Output = Result<()>>,
+    {
+        Self::block_on(async {
+            tokio::select! {
+                res = fut => res,
+                _ = driver::shutdown::shutdown_signal() => Ok(()),
+            }
+        })
+    }
+
+    /// Drive the future to completion on a fresh multi-thread runtime.
+    pub fn block_on<F>(fut: F) -> Result<()>
     where
         F: Future<Output = Result<()>>,
     {

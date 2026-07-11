@@ -8,7 +8,7 @@ use alloy::{
     primitives::{Address, B256, Bytes, U256, keccak256},
     sol_types::SolValue,
 };
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{Header, TxEnvelope};
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types_engine_2::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 
@@ -44,6 +44,42 @@ pub fn encode_extra_data(basefee_sharing_pctg: u8, proposal_id: u64) -> Bytes {
     let proposal_bytes = proposal_id.to_be_bytes();
     data[1..7].copy_from_slice(&proposal_bytes[2..8]);
     Bytes::from(data.to_vec())
+}
+
+/// Compare the execution-header fields that [`build_payload_attributes`] derives from
+/// [`TaikoPayloadAttributes`] against an observed header.
+///
+/// Returns the name of the first mismatching field, or `None` when the header matches the
+/// attributes. This is the single source of truth for "would these attributes produce this
+/// header"; callers layer context-specific checks (L1 origin records, anchor transactions,
+/// fork-specific header fields) on top.
+pub fn payload_core_mismatch(
+    header: &Header,
+    expected_block_number: u64,
+    attrs: &TaikoPayloadAttributes,
+) -> Option<&'static str> {
+    if header.number != expected_block_number {
+        return Some("block number");
+    }
+    if header.beneficiary != attrs.payload_attributes.suggested_fee_recipient {
+        return Some("coinbase");
+    }
+    if header.mix_hash != attrs.payload_attributes.prev_randao {
+        return Some("mix hash");
+    }
+    if header.gas_limit != attrs.block_metadata.gas_limit {
+        return Some("gas limit");
+    }
+    if header.timestamp != attrs.payload_attributes.timestamp {
+        return Some("timestamp");
+    }
+    if header.extra_data != attrs.block_metadata.extra_data {
+        return Some("extra data");
+    }
+    match header.base_fee_per_gas {
+        Some(base_fee) if U256::from(base_fee) == attrs.base_fee_per_gas => None,
+        _ => Some("base fee"),
+    }
 }
 
 /// Encode a list of transactions into the format expected by the execution engine.
@@ -156,4 +192,83 @@ pub fn build_payload_attributes_with_id(
     let payload_id = payload_id_taiko(parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
     payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
     payload
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy::primitives::address;
+
+    /// Build a matching (header, attributes) pair sharing the same core field values.
+    fn matching_header_and_attrs() -> (Header, TaikoPayloadAttributes, u64) {
+        let block_number = 42u64;
+        let attrs = build_payload_attributes(PayloadAttributesInput {
+            beneficiary: address!("00000000000000000000000000000000000000aa"),
+            timestamp: 1_700_000_000,
+            mix_hash: B256::from([0x11; 32]),
+            gas_limit: 30_000_000,
+            tx_list: None,
+            extra_data: encode_extra_data(75, 7),
+            base_fee_per_gas: U256::from(1_000_000u64),
+            block_number,
+            l1_block_height: None,
+            l1_block_hash: None,
+            is_forced_inclusion: false,
+            signature: [0; 65],
+            parent_beacon_block_root: None,
+            anchor_transaction: None,
+        });
+        let header = Header {
+            number: block_number,
+            beneficiary: attrs.payload_attributes.suggested_fee_recipient,
+            mix_hash: attrs.payload_attributes.prev_randao,
+            gas_limit: attrs.block_metadata.gas_limit,
+            timestamp: attrs.payload_attributes.timestamp,
+            extra_data: attrs.block_metadata.extra_data.clone(),
+            base_fee_per_gas: Some(1_000_000),
+            ..Default::default()
+        };
+        (header, attrs, block_number)
+    }
+
+    #[test]
+    fn payload_core_mismatch_accepts_matching_header() {
+        let (header, attrs, block_number) = matching_header_and_attrs();
+        assert_eq!(payload_core_mismatch(&header, block_number, &attrs), None);
+    }
+
+    #[test]
+    fn payload_core_mismatch_reports_first_divergent_field() {
+        let (header, attrs, block_number) = matching_header_and_attrs();
+
+        assert_eq!(payload_core_mismatch(&header, block_number + 1, &attrs), Some("block number"));
+
+        let mut tweaked = header.clone();
+        tweaked.beneficiary = Address::ZERO;
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("coinbase"));
+
+        let mut tweaked = header.clone();
+        tweaked.mix_hash = B256::ZERO;
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("mix hash"));
+
+        let mut tweaked = header.clone();
+        tweaked.gas_limit += 1;
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("gas limit"));
+
+        let mut tweaked = header.clone();
+        tweaked.timestamp += 1;
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("timestamp"));
+
+        let mut tweaked = header.clone();
+        tweaked.extra_data = Bytes::from_static(&[0xde, 0xad]);
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("extra data"));
+
+        let mut tweaked = header.clone();
+        tweaked.base_fee_per_gas = Some(999_999);
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("base fee"));
+
+        let mut tweaked = header;
+        tweaked.base_fee_per_gas = None;
+        assert_eq!(payload_core_mismatch(&tweaked, block_number, &attrs), Some("base fee"));
+    }
 }

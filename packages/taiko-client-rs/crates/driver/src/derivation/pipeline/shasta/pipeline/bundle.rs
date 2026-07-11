@@ -12,7 +12,7 @@ pub(super) struct SourceManifestSegment {
 
 /// Fully decoded proposal payload containing all derivation sources.
 #[derive(Debug, Clone)]
-pub struct ShastaProposalBundle {
+pub(super) struct ShastaProposalBundle {
     /// Proposal-wide metadata derived from the log and L1 block.
     pub(super) meta: BundleMeta,
     /// Ordered source manifests included in the proposal.

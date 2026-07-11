@@ -8,6 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use alethia_reth_primitives::decode_shasta_proposal_id;
 use alloy::{
     eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
     primitives::{Address, B256, U256},
@@ -20,10 +21,11 @@ use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, Notification, ScannerMessage};
+use protocol::shasta::payload_core_mismatch;
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::{sleep, timeout},
+    time::{sleep, timeout, timeout_at},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -56,9 +58,10 @@ enum ProposalLogResult {
     SkippedOrphaned,
 }
 
-/// Default timeout for preconfirmation payload submission.
+/// Default total budget for preconfirmation payload submission.
 ///
-/// Covers both the enqueue operation and awaiting the processing response.
+/// Applied as one deadline spanning the materialization and staleness pre-checks, the enqueue
+/// operation, and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
 /// Timeout for best-effort `head_l1_origin` reset after an event-scanner reorg.
 const REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT: Duration = Duration::from_secs(12);
@@ -295,29 +298,10 @@ async fn preconfirmation_payload_is_materialized(
     if origin.l2_block_hash != B256::ZERO && header.hash != origin.l2_block_hash {
         return Ok(false);
     }
-    if header.number != block_number {
-        return Ok(false);
-    }
-    if header.beneficiary != expected_payload.payload_attributes.suggested_fee_recipient {
-        return Ok(false);
-    }
-    if header.mix_hash != expected_payload.payload_attributes.prev_randao {
-        return Ok(false);
-    }
-    if header.gas_limit != expected_payload.block_metadata.gas_limit {
-        return Ok(false);
-    }
-    if header.timestamp != expected_payload.payload_attributes.timestamp {
-        return Ok(false);
-    }
-    if header.extra_data != expected_payload.block_metadata.extra_data {
-        return Ok(false);
-    }
 
-    Ok(matches!(
-        header.base_fee_per_gas,
-        Some(base_fee) if U256::from(base_fee) == expected_payload.base_fee_per_gas
-    ))
+    // Shared with canonical-proposal detection so both answers to "would these attributes
+    // produce this header" can never drift apart.
+    Ok(payload_core_mismatch(&header.inner, block_number, expected_payload).is_none())
 }
 
 impl EventSyncer {
@@ -797,12 +781,17 @@ impl EventSyncer {
         .await
     }
 
-    /// Submit a preconfirmation payload with a caller-provided timeout for enqueue + response.
+    /// Submit a preconfirmation payload with a caller-provided total submission budget.
+    ///
+    /// The budget is applied as one deadline spanning the materialization and staleness
+    /// pre-checks, the enqueue operation, and awaiting the processing response, so callers
+    /// never wait longer than `timeout_duration` in total.
     pub async fn submit_preconfirmation_payload_with_timeout(
         &self,
         payload: PreconfPayload,
         timeout_duration: Duration,
     ) -> Result<(), DriverError> {
+        let deadline = tokio::time::Instant::now() + timeout_duration;
         let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
 
         // Reject early if strict ingress gating is not satisfied yet.
@@ -810,22 +799,37 @@ impl EventSyncer {
             return Err(DriverError::PreconfIngressNotReady);
         }
 
-        if preconfirmation_payload_is_materialized(&self.rpc, &payload).await? {
+        let block_number = payload.block_number();
+        // Shared handler for every phase that exhausts the budget before the response wait.
+        let enqueue_timeout = |phase: &'static str| {
+            DriverMetrics::preconf_enqueue_timeouts_total().inc();
+            error!(
+                block_number,
+                timeout_ms = timeout_duration.as_millis() as u64,
+                phase,
+                "preconfirmation submission timed out"
+            );
+            DriverError::PreconfEnqueueTimeout { waited: timeout_duration }
+        };
+
+        if timeout_at(deadline, preconfirmation_payload_is_materialized(&self.rpc, &payload))
+            .await
+            .map_err(|_| enqueue_timeout("materialization pre-check"))??
+        {
             debug!(
-                block_number = payload.block_number(),
+                block_number,
                 build_payload_args_id = %PayloadId::new(payload.payload().l1_origin.build_payload_args_id),
                 "skipping already materialized preconfirmation payload"
             );
             return Ok(());
         }
 
-        let block_number = payload.block_number();
         // On genesis chains head_l1_origin is not yet written; default to 0 so
         // the staleness check passes for any block_number >= 1.
-        let head_l1_origin_block_id = match self.rpc.head_l1_origin().await? {
-            Some(origin) => origin.block_id.to::<u64>(),
-            None => 0,
-        };
+        let head_l1_origin_block_id = timeout_at(deadline, self.rpc.head_l1_origin())
+            .await
+            .map_err(|_| enqueue_timeout("head_l1_origin pre-check"))??
+            .map_or(0, |origin| origin.block_id.to::<u64>());
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
             DriverMetrics::preconf_stale_dropped_total().inc();
             DriverMetrics::preconf_stale_dropped_before_enqueue_total().inc();
@@ -840,23 +844,15 @@ impl EventSyncer {
 
         // Create oneshot channel for receiving the processing result.
         let (resp_tx, resp_rx) = oneshot::channel();
-        // Enqueue the preconfirmation job with timeout.
-        let enqueue_result = timeout(
-            timeout_duration,
+        // Enqueue the preconfirmation job under the remaining budget.
+        let enqueue_result = timeout_at(
+            deadline,
             tx.send(PreconfJob { payload: Arc::new(payload), respond_to: resp_tx }),
         )
         .await;
 
         match enqueue_result {
-            Err(_) => {
-                DriverMetrics::preconf_enqueue_timeouts_total().inc();
-                error!(
-                    block_number,
-                    timeout_ms = timeout_duration.as_millis() as u64,
-                    "preconfirmation enqueue timed out"
-                );
-                return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
-            }
+            Err(_) => return Err(enqueue_timeout("enqueue")),
             Ok(Err(err)) => {
                 DriverMetrics::preconf_enqueue_failures_total().inc();
                 error!(block_number, ?err, "preconfirmation enqueue failed");
@@ -867,8 +863,8 @@ impl EventSyncer {
             }
         }
 
-        // Await the processing result with timeout.
-        let response_result = timeout(timeout_duration, resp_rx).await;
+        // Await the processing result under the remaining budget.
+        let response_result = timeout_at(deadline, resp_rx).await;
 
         match response_result {
             Err(_) => {
@@ -1166,22 +1162,19 @@ impl EventSyncer {
 }
 
 /// Recover the proposal id from header extra data.
-/// Byte layout: basefeeSharingPctg (byte 0), proposalId uint48 (bytes 1..6, big-endian).
+///
+/// Delegates to the execution client's [`decode_shasta_proposal_id`] so the extra-data layout
+/// has a single source of truth shared with the engine and the proposer.
 fn decode_anchor_proposal_id(block: &RpcBlock<TxEnvelope>) -> Result<u64, SyncError> {
     if block.header.number == 0 {
         return Ok(0);
     }
-    let extra_data = block.header.extra_data.as_ref();
-    if extra_data.len() < 7 {
-        return Err(SyncError::MissingAnchorTransaction {
+    decode_shasta_proposal_id(block.header.extra_data.as_ref()).ok_or(
+        SyncError::MissingAnchorTransaction {
             block_number: block.header.number,
             reason: "extra_data too short for proposal id",
-        });
-    }
-    let mut buf = [0u8; 8];
-    // Zero-pad the upper two bytes so the uint48 (bytes 1..6) becomes a big-endian u64.
-    buf[2..8].copy_from_slice(&extra_data[1..7]);
-    Ok(u64::from_be_bytes(buf))
+        },
+    )
 }
 
 /// Parse the first transaction in `block` and recover the `anchorV4` call data.
@@ -1221,7 +1214,7 @@ impl SyncStage for EventSyncer {
         let derivation_pipeline = ShastaDerivationPipeline::new(
             self.rpc.clone(),
             self.blob_source.clone(),
-            U256::from(initial_proposal_id),
+            initial_proposal_id,
         )
         .await?;
         let derivation = Arc::new(derivation_pipeline);

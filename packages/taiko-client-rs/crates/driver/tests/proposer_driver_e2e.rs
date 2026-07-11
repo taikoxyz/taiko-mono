@@ -216,8 +216,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     // Re-process the same proposal via the derivation pipeline.
     let blob_source =
         Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
-    let pipeline =
-        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
+    let pipeline = ShastaDerivationPipeline::new(driver_client.clone(), blob_source, 0).await?;
     let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
     let _outcomes = pipeline
         .process_proposal(&proposal_log, applier)
