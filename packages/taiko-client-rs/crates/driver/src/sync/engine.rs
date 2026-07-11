@@ -112,10 +112,13 @@ trait EnginePayloadRpc: Sync {
 
 #[async_trait]
 impl EnginePayloadRpc for Client {
+    /// Return the chain id cached on the client at construction time.
     fn chain_id(&self) -> u64 {
         self.chain_id
     }
 
+    /// Delegate to `engine_forkchoiceUpdatedV2` on the authenticated engine endpoint,
+    /// mapping RPC/transport failures into [`EngineSubmissionError::Rpc`].
     async fn forkchoice_updated_v2(
         &self,
         state: ForkchoiceState,
@@ -124,6 +127,8 @@ impl EnginePayloadRpc for Client {
         Ok(self.engine_forkchoice_updated_v2(state, attrs).await?)
     }
 
+    /// Delegate to `engine_getPayloadV2` on the authenticated engine endpoint, mapping
+    /// RPC/transport failures into [`EngineSubmissionError::Rpc`].
     async fn get_payload_v2(
         &self,
         payload_id: PayloadId,
@@ -131,6 +136,8 @@ impl EnginePayloadRpc for Client {
         Ok(self.engine_get_payload_v2(payload_id).await?)
     }
 
+    /// Delegate to `engine_newPayloadV2` on the authenticated engine endpoint, mapping
+    /// RPC/transport failures into [`EngineSubmissionError::Rpc`].
     async fn new_payload_v2(
         &self,
         payload: &ExecutionPayloadInputV2,
@@ -139,6 +146,9 @@ impl EnginePayloadRpc for Client {
         Ok(self.engine_new_payload_v2(payload, sidecar).await?)
     }
 
+    /// Fetch the block at the given height from the public L2 provider, converting its
+    /// transactions into [`TxEnvelope`]s; provider failures map into
+    /// [`EngineSubmissionError::Provider`], while an unknown height yields `Ok(None)`.
     async fn block_by_number(
         &self,
         number: u64,
@@ -512,11 +522,11 @@ mod tests {
     /// Which engine RPC a scripted call hit, in production sequence order.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum EngineCall {
-        ForkchoiceWithAttributes,
-        GetPayload,
-        NewPayload,
-        PromotionForkchoice,
-        BlockByNumber,
+        ForkchoiceWithAttributes { head: B256, attrs_block_number: u64 },
+        GetPayload { payload_id: PayloadId },
+        NewPayload { block_hash: B256 },
+        PromotionForkchoice { head: B256, safe: B256, finalized: B256 },
+        BlockByNumber { number: u64 },
     }
 
     /// Scripted [`EnginePayloadRpc`] double that records the call sequence and replays the
@@ -554,16 +564,23 @@ mod tests {
 
         async fn forkchoice_updated_v2(
             &self,
-            _state: ForkchoiceState,
+            state: ForkchoiceState,
             attrs: Option<TaikoPayloadAttributes>,
         ) -> Result<ForkchoiceUpdated, EngineSubmissionError> {
-            if attrs.is_some() {
-                self.record(EngineCall::ForkchoiceWithAttributes);
+            if let Some(attrs) = attrs {
+                self.record(EngineCall::ForkchoiceWithAttributes {
+                    head: state.head_block_hash,
+                    attrs_block_number: attrs.l1_origin.block_id.to::<u64>(),
+                });
                 self.attributes_forkchoice
                     .clone()
                     .ok_or_else(|| Self::unscripted("forkchoiceUpdated with attributes"))
             } else {
-                self.record(EngineCall::PromotionForkchoice);
+                self.record(EngineCall::PromotionForkchoice {
+                    head: state.head_block_hash,
+                    safe: state.safe_block_hash,
+                    finalized: state.finalized_block_hash,
+                });
                 self.promotion_forkchoice
                     .clone()
                     .ok_or_else(|| Self::unscripted("promotion forkchoiceUpdated"))
@@ -572,26 +589,28 @@ mod tests {
 
         async fn get_payload_v2(
             &self,
-            _payload_id: PayloadId,
+            payload_id: PayloadId,
         ) -> Result<ExecutionPayloadEnvelopeV2, EngineSubmissionError> {
-            self.record(EngineCall::GetPayload);
+            self.record(EngineCall::GetPayload { payload_id });
             self.envelope.clone().ok_or_else(|| Self::unscripted("getPayload"))
         }
 
         async fn new_payload_v2(
             &self,
-            _payload: &ExecutionPayloadInputV2,
+            payload: &ExecutionPayloadInputV2,
             _sidecar: &TaikoExecutionDataSidecar,
         ) -> Result<PayloadStatus, EngineSubmissionError> {
-            self.record(EngineCall::NewPayload);
+            self.record(EngineCall::NewPayload {
+                block_hash: payload.execution_payload.block_hash,
+            });
             self.new_payload.clone().ok_or_else(|| Self::unscripted("newPayload"))
         }
 
         async fn block_by_number(
             &self,
-            _number: u64,
+            number: u64,
         ) -> Result<Option<RpcBlock<TxEnvelope>>, EngineSubmissionError> {
-            self.record(EngineCall::BlockByNumber);
+            self.record(EngineCall::BlockByNumber { number });
             Ok(self.readback_block.clone())
         }
     }
@@ -635,6 +654,35 @@ mod tests {
         block
     }
 
+    /// Expected attribute-forkchoice log entry for the sample sequence (parent is zero).
+    fn attrs_call() -> EngineCall {
+        EngineCall::ForkchoiceWithAttributes { head: B256::ZERO, attrs_block_number: 7 }
+    }
+
+    /// Expected getPayload log entry: the id handed back by the attribute forkchoice.
+    fn get_payload_call() -> EngineCall {
+        EngineCall::GetPayload { payload_id: PayloadId::new([0; 8]) }
+    }
+
+    /// Expected newPayload log entry: the block hash advertised by getPayload.
+    fn new_payload_call() -> EngineCall {
+        EngineCall::NewPayload { block_hash: sample_block_hash() }
+    }
+
+    /// Expected promotion log entry: head at the built hash, safe/finalized zeroed.
+    fn promotion_call() -> EngineCall {
+        EngineCall::PromotionForkchoice {
+            head: sample_block_hash(),
+            safe: B256::ZERO,
+            finalized: B256::ZERO,
+        }
+    }
+
+    /// Expected readback log entry at the built block's height.
+    fn readback_call() -> EngineCall {
+        EngineCall::BlockByNumber { number: 7 }
+    }
+
     /// A scripted engine primed for the full happy-path sequence.
     fn scripted_happy_engine() -> ScriptedEngine {
         ScriptedEngine {
@@ -662,7 +710,7 @@ mod tests {
             .unwrap_err();
 
         assert!(matches!(err, EngineSubmissionError::EngineSyncing(7)));
-        assert_eq!(engine.calls(), vec![EngineCall::ForkchoiceWithAttributes]);
+        assert_eq!(engine.calls(), vec![attrs_call()]);
     }
 
     #[tokio::test]
@@ -681,11 +729,7 @@ mod tests {
         assert!(matches!(err, EngineSubmissionError::UnexpectedPayloadStatus(7, _)));
         assert_eq!(
             engine.calls(),
-            vec![
-                EngineCall::ForkchoiceWithAttributes,
-                EngineCall::GetPayload,
-                EngineCall::NewPayload,
-            ],
+            vec![attrs_call(), get_payload_call(), new_payload_call()],
             "no promotion or readback may happen after a non-VALID newPayload"
         );
     }
@@ -711,12 +755,7 @@ mod tests {
         ));
         assert_eq!(
             engine.calls(),
-            vec![
-                EngineCall::ForkchoiceWithAttributes,
-                EngineCall::GetPayload,
-                EngineCall::NewPayload,
-                EngineCall::PromotionForkchoice,
-            ],
+            vec![attrs_call(), get_payload_call(), new_payload_call(), promotion_call()],
             "no readback may happen after a failed promotion"
         );
     }
@@ -736,6 +775,16 @@ mod tests {
             err,
             EngineSubmissionError::InsertedBlockHashMismatch { block_number: 7, .. }
         ));
+        assert_eq!(
+            engine.calls(),
+            vec![
+                attrs_call(),
+                get_payload_call(),
+                new_payload_call(),
+                promotion_call(),
+                readback_call(),
+            ]
+        );
     }
 
     #[tokio::test]
@@ -751,11 +800,11 @@ mod tests {
         assert_eq!(
             engine.calls(),
             vec![
-                EngineCall::ForkchoiceWithAttributes,
-                EngineCall::GetPayload,
-                EngineCall::NewPayload,
-                EngineCall::PromotionForkchoice,
-                EngineCall::BlockByNumber,
+                attrs_call(),
+                get_payload_call(),
+                new_payload_call(),
+                promotion_call(),
+                readback_call(),
             ]
         );
     }
