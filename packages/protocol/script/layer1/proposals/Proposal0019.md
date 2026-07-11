@@ -126,7 +126,9 @@ Three properties, each read from mainnet, define the SGX scope:
      MRENCLAVE, so `verifyProof` has nothing to re-check. Actions 19–20 therefore call
      `deleteInstances([0])` from the DAO controller.
 
-The proposal rotates MRENCLAVE trust on those existing attesters:
+The proposal rotates MRENCLAVE trust on those existing attesters. The replacement values come
+from the [`raiko2 v0.6.0`](https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0) TEE
+attestation manifest:
 
 | Attester | Untrusted MRENCLAVE                                                  |
 | -------- | -------------------------------------------------------------------- |
@@ -134,9 +136,13 @@ The proposal rotates MRENCLAVE trust on those existing attesters:
 | SGX-reth | `0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4` |
 | SGX-reth | `0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740` |
 
-The replacement `NEW_SGXGETH_MR_ENCLAVE`, `NEW_SGXRETH_NON_EDMM_MR_ENCLAVE`, and
-`NEW_SGXRETH_EDMM_MR_ENCLAVE` constants are TODO placeholders until the Unzen raiko SGX release
-is cut. No SGX ATTRIBUTES policy is configured here because this proposal is not migrating to
+| Attester | Trusted MRENCLAVE                                                    | Release artifact |
+| -------- | -------------------------------------------------------------------- | ---------------- |
+| SGX-geth | `0x2d2216efbe9d8e80ba24b86606ccd5ce9faf11033d31ad9e5d3c5c89965c8a57` | `gaiko2-sgxgeth` |
+| SGX-reth | `0x90c79e65d6d0f83d658ff96cd0ef1204438f20b406c93cf1d4fafa0cff29842e` | `raiko2-sgx` |
+| SGX-reth | `0x041cadb0541bf8249c368482172d218608f3693975b65f74beb2ed6f0044f951` | `raiko2-sgx-edmm` |
+
+No SGX ATTRIBUTES policy is configured here because this proposal is not migrating to
 `SecureSgxVerifier`; the deployed Proposal0017 attester proxies expose only the existing
 MRENCLAVE/MRSIGNER allowlist interface used by `setMrEnclave(bytes32,bool)`.
 
@@ -163,9 +169,17 @@ on 2026-07-08 via `isImageTrusted` / `isProgramTrusted`):
 | `OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256`      | `0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc` |
 | `OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES` | `0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc` |
 
-The new IDs (`NEW_RISC0_*`, `NEW_SP1_*`) are **TODO** in
-[`Proposal0019.s.sol`](./Proposal0019.s.sol) until the release is cut; the build reverts while
-they are zero.
+The new IDs come from the [`raiko2 v0.6.0`](https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0)
+release:
+
+| Trusted (raiko2 v0.6.0)                       | Value                                                                |
+| --------------------------------------------- | -------------------------------------------------------------------- |
+| `NEW_RISC0_PROPOSAL_IMAGE_ID`                 | `0x5a818b4c7dc80e9ba85d55492c20c263c67238724e3982f76d15a158e501210b` |
+| `NEW_RISC0_AGGREGATION_IMAGE_ID`              | `0x9cfcc1b34a98853c3c5873a4d456726e528246f7f03a4ea35f27c2543aa6e7f0` |
+| `NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256`         | `0x00ad090221a8fa0f09e1be7a53feb67be010f01310d4b2314a69d10152ee1ce0` |
+| `NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES`    | `0x568481106a3e83c23c37cf4a3feb67be008780984352c8c514d3a20252ee1ce0` |
+| `NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256`      | `0x000b11691352e55fcf64f62620cefaa700161600093f2751032fe71ea912264d` |
+| `NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES` | `0x0588b48954b957f36c9ec4c40cefaa7000b0b00024fc9d44065fce3d2912264d` |
 
 The rotation is atomic with the rest of the bundle: from the execution block onward, proofs
 aggregated under the old images no longer verify. Operationally, two raiko2 services (old and
@@ -258,10 +272,50 @@ Both are verified on-chain: `ZK_REQUIRED_VERIFIER` returns the four production s
 getter-for-getter, and `MAINNET_INBOX_NEW_IMPL.getConfig().proofVerifier` equals
 `ZK_REQUIRED_VERIFIER`.
 
-> **TODO(unzen):** the `NEW_RISC0_*` / `NEW_SP1_*` image IDs and `NEW_SGX*_MR_ENCLAVE` values in
-> [`Proposal0019.s.sol`](./Proposal0019.s.sol) are still `bytes32(0)`, pending the Unzen raiko
-> release. Fill them, then regenerate `Proposal0019.action.md` (`P=0019 pnpm proposal`). The
-> script reverts with `ZkImageIdNotSet()` or `SgxMrEnclaveNotSet()` while any of them is zero.
+## raiko2 v0.6.0 Release Artifacts
+
+The ZK and TEE identifiers in [`Proposal0019.s.sol`](./Proposal0019.s.sol) come from
+[`raiko2 v0.6.0`](https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0), commit
+`a9e88a4bd9e38383d601685d74e9d977531c909f`.
+
+| Artifact | Value |
+| -------- | ----- |
+| Runtime image | `us-docker.pkg.dev/evmchain/images/raiko2@sha256:65f65549e054b9a385ecace181ddf11dc0606e5464e07a9e25efd71aaf85d407` |
+| `raiko2-sgx` image | `us-docker.pkg.dev/evmchain/images/raiko2-sgx@sha256:fe6ea483acc320ec19fa1892fbdcee01436e40a859e0e1d2ce54bd59c5368e8e` |
+| `raiko2-sgx-edmm` image | `us-docker.pkg.dev/evmchain/images/raiko2-sgx@sha256:8a99c38d4bacc842e6b360efa86f14174a76c775b556404f85752bd4aa8e101d` |
+| `gaiko2-sgxgeth` image | `us-docker.pkg.dev/evmchain/images/gaiko2-sgxgeth@sha256:a0b064bc0b33da8e6a7aea3404f4a8a83f8cd5cb18c0e0a87cd0da457fecb01a` |
+| Release manifest | `release-manifest-v0.6.0.json` |
+| ZK digest summary | `guest-digests-summary.json` |
+| TEE attestation manifest | `tee-attestation-manifest-v0.6.0.json` |
+
+Reproduce the ZK guest digests from the release checkout:
+
+```bash
+git fetch --tags origin v0.6.0
+git checkout v0.6.0
+
+cargo run -r -p xtask-build-guest --bin guest-digests --features digests -- \
+  --output target/releases/v0.6.0/guest-digests-summary.json
+```
+
+Compare the generated `guest-digests-summary.json` with the GitHub release asset.
+
+Reproduce the TEE provider metadata from the release checkout. Official reproduction requires the
+release enclave signing key; a disposable local key can reproduce `mr_enclave`, but produces a
+different `mr_signer`.
+
+```bash
+git fetch --tags origin v0.6.0
+git checkout v0.6.0
+
+GCP_ENCLAVE_KEY_SECRET=<secret-name> \
+GCP_ENCLAVE_KEY_VERSION=<secret-version> \
+GCP_ENCLAVE_KEY_PROJECT=<gcp-project> \
+cargo run -r -p xtask -- release-tee-providers --tag v0.6.0 --no-push
+```
+
+Compare `target/releases/v0.6.0/tee-attestation-manifest-v0.6.0.json` with the GitHub release
+asset of the same name.
 
 ## Client Rollout Prerequisite
 
@@ -323,9 +377,10 @@ Before submission:
    cast call 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3 "owner()(address)" --rpc-url <RPC_URL>
    ```
 
-5. Confirm the `NEW_RISC0_*` / `NEW_SP1_*` / `NEW_SGX*_MR_ENCLAVE` constants match the Unzen raiko
-   release artifacts, and that the raiko2 service running the new images is deployed alongside the
-   v0.5.1 one.
+5. Confirm the `NEW_RISC0_*` / `NEW_SP1_*` constants match the `raiko2 v0.6.0`
+   `guest-digests-summary.json` release asset, the `NEW_SGX*_MR_ENCLAVE` constants match
+   `tee-attestation-manifest-v0.6.0.json`, and that the raiko2 service running the new images is
+   deployed alongside the v0.5.1 one.
 
 6. Confirm the forced inclusion queue state is still `head=2, tail=3` (nothing can change it —
    saves are hard-disabled and consumption requires `numForcedInclusions > 0`, which reverts):

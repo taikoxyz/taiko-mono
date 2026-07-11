@@ -48,15 +48,20 @@ contract Proposal0019 is BuildProposal {
     bytes32 public constant OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
         0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc;
 
-    // New raiko2 ZK IDs trusted by this proposal (the raiko release shipping with Unzen).
-    // TODO(unzen): fill in from the release, then update Proposal0019.md and regenerate the
-    // action file. The build reverts while these are zero.
-    bytes32 public constant NEW_RISC0_PROPOSAL_IMAGE_ID = bytes32(0);
-    bytes32 public constant NEW_RISC0_AGGREGATION_IMAGE_ID = bytes32(0);
-    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256 = bytes32(0);
-    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES = bytes32(0);
-    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256 = bytes32(0);
-    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES = bytes32(0);
+    // New raiko2 v0.6.0 ZK IDs trusted by this proposal.
+    // Source: https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0
+    bytes32 public constant NEW_RISC0_PROPOSAL_IMAGE_ID =
+        0x5a818b4c7dc80e9ba85d55492c20c263c67238724e3982f76d15a158e501210b;
+    bytes32 public constant NEW_RISC0_AGGREGATION_IMAGE_ID =
+        0x9cfcc1b34a98853c3c5873a4d456726e528246f7f03a4ea35f27c2543aa6e7f0;
+    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
+        0x00ad090221a8fa0f09e1be7a53feb67be010f01310d4b2314a69d10152ee1ce0;
+    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
+        0x568481106a3e83c23c37cf4a3feb67be008780984352c8c514d3a20252ee1ce0;
+    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
+        0x000b11691352e55fcf64f62620cefaa700161600093f2751032fe71ea912264d;
+    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
+        0x0588b48954b957f36c9ec4c40cefaa7000b0b00024fc9d44065fce3d2912264d;
 
     // Current Proposal0017 SGX MRENCLAVE values trusted on the attester proxies.
     bytes32 public constant OLD_SGXGETH_MR_ENCLAVE =
@@ -66,10 +71,14 @@ contract Proposal0019 is BuildProposal {
     bytes32 public constant OLD_SGXRETH_EDMM_MR_ENCLAVE =
         0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
 
-    // New Unzen raiko SGX MRENCLAVE values. TODO(unzen): fill in from the release.
-    bytes32 public constant NEW_SGXGETH_MR_ENCLAVE = bytes32(0);
-    bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE = bytes32(0);
-    bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE = bytes32(0);
+    // New raiko2 v0.6.0 TEE MRENCLAVE values.
+    // Source: https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0
+    bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
+        0x2d2216efbe9d8e80ba24b86606ccd5ce9faf11033d31ad9e5d3c5c89965c8a57;
+    bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0x90c79e65d6d0f83d658ff96cd0ef1204438f20b406c93cf1d4fafa0cff29842e;
+    bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
+        0x041cadb0541bf8249c368482172d218608f3693975b65f74beb2ed6f0044f951;
 
     error ImplementationNotDeployed();
     error ZkImageIdNotSet();
