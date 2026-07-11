@@ -668,7 +668,12 @@ impl EventSyncer {
                                         block_number = log.block_number,
                                         "proposal derivation failed and orphaned-log recheck errored; retrying"
                                     );
-                                    Err(err)
+                                    // Surface the transient recheck error instead of the original
+                                    // failure: a fatal verdict may only abort the retry loop once
+                                    // the recheck confirms the log is still canonical. Otherwise a
+                                    // genuinely orphaned log producing an INVALID verdict could
+                                    // never be proven orphaned and skipped.
+                                    Err(DriverError::from(recheck_err))
                                 }
                             },
                         }
@@ -1952,6 +1957,41 @@ mod tests {
             SyncError::Derivation(DerivationError::Engine(EngineSubmissionError::InvalidBlock(..)))
         ));
         assert_eq!(path.attempts(), 1, "deterministic engine verdicts must not be retried");
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_keeps_retrying_invalid_block_until_orphan_recheck_resolves() {
+        let asserter = Asserter::new();
+        // First orphan recheck fails transiently; the fatal verdict must not abort yet.
+        asserter.push_failure_msg("boom");
+        // Second recheck proves the source L1 block is gone and the head has passed it.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&2u64);
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockInvalidBlockPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, B256::from([0x91; 32]), B256::from([0xa1; 32]))],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "an INVALID verdict must stay retryable until the recheck proves the log canonical \
+             or orphaned",
+        );
+        assert_eq!(
+            path.attempts(),
+            2,
+            "the fatal verdict may only abort after a conclusive recheck"
+        );
     }
 
     #[test]
