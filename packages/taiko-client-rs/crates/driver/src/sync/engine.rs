@@ -522,11 +522,32 @@ mod tests {
     /// Which engine RPC a scripted call hit, in production sequence order.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum EngineCall {
-        ForkchoiceWithAttributes { head: B256, attrs_block_number: u64 },
-        GetPayload { payload_id: PayloadId },
-        NewPayload { block_hash: B256 },
-        PromotionForkchoice { head: B256, safe: B256, finalized: B256 },
-        BlockByNumber { number: u64 },
+        ForkchoiceWithAttributes {
+            head: B256,
+            safe: B256,
+            finalized: B256,
+            attrs_block_number: u64,
+            attrs_payload_id: [u8; 8],
+        },
+        GetPayload {
+            payload_id: PayloadId,
+        },
+        NewPayload {
+            block_hash: B256,
+            block_number: u64,
+            tx_hash: B256,
+            withdrawals_hash: Option<B256>,
+            header_difficulty: Option<U256>,
+            taiko_block: Option<bool>,
+        },
+        PromotionForkchoice {
+            head: B256,
+            safe: B256,
+            finalized: B256,
+        },
+        BlockByNumber {
+            number: u64,
+        },
     }
 
     /// Scripted [`EnginePayloadRpc`] double that records the call sequence and replays the
@@ -570,7 +591,10 @@ mod tests {
             if let Some(attrs) = attrs {
                 self.record(EngineCall::ForkchoiceWithAttributes {
                     head: state.head_block_hash,
+                    safe: state.safe_block_hash,
+                    finalized: state.finalized_block_hash,
                     attrs_block_number: attrs.l1_origin.block_id.to::<u64>(),
+                    attrs_payload_id: attrs.l1_origin.build_payload_args_id,
                 });
                 self.attributes_forkchoice
                     .clone()
@@ -598,10 +622,15 @@ mod tests {
         async fn new_payload_v2(
             &self,
             payload: &ExecutionPayloadInputV2,
-            _sidecar: &TaikoExecutionDataSidecar,
+            sidecar: &TaikoExecutionDataSidecar,
         ) -> Result<PayloadStatus, EngineSubmissionError> {
             self.record(EngineCall::NewPayload {
                 block_hash: payload.execution_payload.block_hash,
+                block_number: payload.execution_payload.block_number,
+                tx_hash: sidecar.tx_hash,
+                withdrawals_hash: sidecar.withdrawals_hash,
+                header_difficulty: sidecar.header_difficulty,
+                taiko_block: sidecar.taiko_block,
             });
             self.new_payload.clone().ok_or_else(|| Self::unscripted("newPayload"))
         }
@@ -617,7 +646,7 @@ mod tests {
 
     /// Payload attributes for block 7, matching [`sample_envelope_v1`]'s block number.
     fn sample_attributes() -> TaikoPayloadAttributes {
-        build_payload_attributes(PayloadAttributesInput {
+        let mut attributes = build_payload_attributes(PayloadAttributesInput {
             beneficiary: Address::from([1u8; 20]),
             timestamp: 1,
             mix_hash: B256::ZERO,
@@ -632,7 +661,9 @@ mod tests {
             signature: [0; 65],
             parent_beacon_block_root: None,
             anchor_transaction: None,
-        })
+        });
+        attributes.l1_origin.build_payload_args_id = *expected_payload_id().0;
+        attributes
     }
 
     fn forkchoice_response(
@@ -647,6 +678,26 @@ mod tests {
         B256::from(U256::from(42u64))
     }
 
+    /// Parent hash supplied to the attribute forkchoice.
+    fn sample_parent_hash() -> B256 {
+        B256::from(U256::from(10u64))
+    }
+
+    /// Finalized hash supplied to the promotion forkchoice.
+    fn sample_finalized_hash() -> B256 {
+        B256::from(U256::from(20u64))
+    }
+
+    /// Payload id derived by the driver before contacting the engine.
+    fn expected_payload_id() -> PayloadId {
+        PayloadId::new([0x11; 8])
+    }
+
+    /// Distinct payload id returned by the engine and used for getPayload/outcome wiring.
+    fn engine_payload_id() -> PayloadId {
+        PayloadId::new([0x22; 8])
+    }
+
     fn sample_readback_block(hash: B256) -> RpcBlock<TxEnvelope> {
         let mut block = RpcBlock::<TxEnvelope>::default();
         block.header.hash = hash;
@@ -654,27 +705,42 @@ mod tests {
         block
     }
 
-    /// Expected attribute-forkchoice log entry for the sample sequence (parent is zero).
+    /// Expected attribute-forkchoice log entry for the sample sequence.
     fn attrs_call() -> EngineCall {
-        EngineCall::ForkchoiceWithAttributes { head: B256::ZERO, attrs_block_number: 7 }
+        EngineCall::ForkchoiceWithAttributes {
+            head: sample_parent_hash(),
+            safe: sample_parent_hash(),
+            finalized: B256::ZERO,
+            attrs_block_number: 7,
+            attrs_payload_id: *expected_payload_id().0,
+        }
     }
 
     /// Expected getPayload log entry: the id handed back by the attribute forkchoice.
     fn get_payload_call() -> EngineCall {
-        EngineCall::GetPayload { payload_id: PayloadId::new([0; 8]) }
+        EngineCall::GetPayload { payload_id: engine_payload_id() }
     }
 
     /// Expected newPayload log entry: the block hash advertised by getPayload.
     fn new_payload_call() -> EngineCall {
-        EngineCall::NewPayload { block_hash: sample_block_hash() }
+        let (_, sidecar, block_hash, block_number) =
+            envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, sample_envelope_v1(0, U256::ZERO));
+        EngineCall::NewPayload {
+            block_hash,
+            block_number,
+            tx_hash: sidecar.tx_hash,
+            withdrawals_hash: sidecar.withdrawals_hash,
+            header_difficulty: sidecar.header_difficulty,
+            taiko_block: sidecar.taiko_block,
+        }
     }
 
-    /// Expected promotion log entry: head at the built hash, safe/finalized zeroed.
+    /// Expected promotion log entry: head at the built hash, safe/finalized at the checkpoint.
     fn promotion_call() -> EngineCall {
         EngineCall::PromotionForkchoice {
             head: sample_block_hash(),
-            safe: B256::ZERO,
-            finalized: B256::ZERO,
+            safe: sample_finalized_hash(),
+            finalized: sample_finalized_hash(),
         }
     }
 
@@ -688,7 +754,7 @@ mod tests {
         ScriptedEngine {
             attributes_forkchoice: Some(forkchoice_response(
                 PayloadStatusEnum::Valid,
-                Some(PayloadId::new([0; 8])),
+                Some(engine_payload_id()),
             )),
             envelope: Some(sample_envelope_v1(0, U256::ZERO)),
             new_payload: Some(PayloadStatus::from_status(PayloadStatusEnum::Valid)),
@@ -705,9 +771,14 @@ mod tests {
             ..Default::default()
         };
 
-        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
-            .await
-            .unwrap_err();
+        let err = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
 
         assert!(matches!(err, EngineSubmissionError::EngineSyncing(7)));
         assert_eq!(engine.calls(), vec![attrs_call()]);
@@ -722,9 +793,14 @@ mod tests {
             ..scripted_happy_engine()
         };
 
-        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
-            .await
-            .unwrap_err();
+        let err = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
 
         assert!(matches!(err, EngineSubmissionError::UnexpectedPayloadStatus(7, _)));
         assert_eq!(
@@ -745,9 +821,14 @@ mod tests {
             ..scripted_happy_engine()
         };
 
-        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
-            .await
-            .unwrap_err();
+        let err = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
 
         assert!(matches!(
             err,
@@ -767,9 +848,14 @@ mod tests {
             ..scripted_happy_engine()
         };
 
-        let err = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
-            .await
-            .unwrap_err();
+        let err = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .unwrap_err();
 
         assert!(matches!(
             err,
@@ -791,12 +877,18 @@ mod tests {
     async fn apply_payload_returns_hash_verified_outcome_for_valid_sequence() {
         let engine = scripted_happy_engine();
 
-        let outcome = apply_payload_internal(&engine, &sample_attributes(), B256::ZERO, None)
-            .await
-            .expect("valid sequence must succeed");
+        let outcome = apply_payload_internal(
+            &engine,
+            &sample_attributes(),
+            sample_parent_hash(),
+            Some(sample_finalized_hash()),
+        )
+        .await
+        .expect("valid sequence must succeed");
 
         assert_eq!(outcome.block_hash(), sample_block_hash());
         assert_eq!(outcome.block_number(), 7);
+        assert_eq!(outcome.payload_id, engine_payload_id());
         assert_eq!(
             engine.calls(),
             vec![
