@@ -27,8 +27,8 @@ use crate::{
     operator_set::OperatorSetPoller,
 };
 
-/// Bound on draining the REST/WS server after a shutdown signal, mirroring the Go driver's
-/// bounded preconfirmation-server shutdown window.
+/// Bound on the whole signal-teardown sequence (REST/WS drain plus the network shutdown
+/// command), mirroring the Go driver's bounded preconfirmation-server shutdown window.
 const SHUTDOWN_DRAIN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -186,15 +186,20 @@ impl WhitelistPreconfirmationDriverRunner {
             tokio::select! {
                 _ = &mut shutdown => {
                     info!("shutdown signal received; draining whitelist preconfirmation driver");
-                    let _ = command_tx.send(NetworkCommand::Shutdown).await;
-                    node_handle.abort();
-                    // Drain the REST server before killing the ingress loop so in-flight
-                    // submissions settle, bounded like the Go driver's shutdown window.
-                    if let Some(server) = rest_ws_server.take() &&
-                        tokio::time::timeout(SHUTDOWN_DRAIN_TIMEOUT, server.stop()).await.is_err()
-                    {
-                        warn!("whitelist REST/WS server drain timed out; exiting anyway");
+                    // Drain the REST server first — with ingress and P2P still available — so
+                    // an in-flight build settles end to end (engine insert + gossip publish),
+                    // then ask the network to shut down. One deadline bounds the whole
+                    // teardown; the aborts below are synchronous and cannot block.
+                    let teardown = async {
+                        if let Some(server) = rest_ws_server.take() {
+                            server.stop().await;
+                        }
+                        let _ = command_tx.send(NetworkCommand::Shutdown).await;
+                    };
+                    if tokio::time::timeout(SHUTDOWN_DRAIN_TIMEOUT, teardown).await.is_err() {
+                        warn!("whitelist preconfirmation drain timed out; exiting anyway");
                     }
+                    node_handle.abort();
                     event_syncer_handle.abort();
                     return Ok(());
                 }
