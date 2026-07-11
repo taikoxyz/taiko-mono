@@ -351,13 +351,17 @@ impl EventSyncer {
     }
 
     /// Spawn the preconfirmation ingress processing loop.
+    ///
+    /// The event loop is the sole owner of the ingress readiness gate: it opens the gate after
+    /// spawning this loop (and on later probe-passed reopens) and closes it under the router
+    /// lock during scanner reconnects. This loop only reads the gate per job, so a spawn racing
+    /// a reconnect close can never reopen the gate.
     fn spawn_preconf_ingress(
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         mut rx: PreconfReceiver,
         rpc: Client,
         ready_flag: Arc<AtomicBool>,
-        ready_notify: Arc<Notify>,
     ) {
         spawn(async move {
             // Start consuming externally supplied preconfirmation payloads after strict event-sync
@@ -366,9 +370,6 @@ impl EventSyncer {
                 queue_capacity = PRECONF_CHANNEL_CAPACITY,
                 "started preconfirmation ingress loop"
             );
-            // Signal that the ingress loop is ready to accept submissions.
-            ready_flag.store(true, Ordering::Release);
-            ready_notify.notify_waiters();
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
                 DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
@@ -495,10 +496,10 @@ impl EventSyncer {
 
         // Resolve the height to compare at, preferring the stored block's own header. Without
         // either source (the hash is gone and the log carried no number) there is no canonical
-        // row to compare against, so keep classifying the log as orphaned; mined logs always
-        // carry a block number, making this fallback effectively unreachable.
+        // row to compare against, so no mismatch can be proven and the log stays retryable;
+        // mined logs always carry a block number, making this fallback effectively unreachable.
         let Some(block_number) = block.map(|block| block.header.number).or(log_block_number) else {
-            return Ok(true);
+            return Ok(false);
         };
 
         // By-hash resolvability proves nothing about canonicality in either direction: nodes
@@ -1256,15 +1257,14 @@ impl SyncStage for EventSyncer {
 
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
-        let mut scanner_live = false;
         let mut scanner_started_once = false;
 
         loop {
-            if !preconf_ingress_spawned {
-                // A reconnect re-enters historical sync and must wait for a fresh
-                // `SwitchingToLive` notification before probing ingress readiness.
-                scanner_live = false;
-            }
+            // Every reconnect re-enters historical sync with a fresh scanner, so the previous
+            // generation's live state must not leak forward: (re)opening ingress requires a
+            // fresh `SwitchingToLive` from the scanner actually streaming plus a passed
+            // confirmed-sync probe (WLP-INV-002).
+            let mut scanner_live = false;
             let mut scanner = match self
                 .cfg
                 .client
@@ -1401,11 +1401,14 @@ impl SyncStage for EventSyncer {
                                 rx,
                                 self.rpc.clone(),
                                 self.preconf_ingress_ready.clone(),
-                                self.preconf_ingress_notify.clone(),
                             );
                             preconf_ingress_spawned = true;
-                        } else if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
-                            info!("re-opened preconfirmation ingress after scanner reconnect");
+                        }
+                        // The event loop is the sole owner of the ingress gate: opening it here
+                        // rather than inside the freshly spawned consumer cannot race a
+                        // reconnect close, which this same task performs in program order.
+                        if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
+                            info!("opened preconfirmation ingress after confirmed-sync probe");
                             self.preconf_ingress_notify.notify_waiters();
                         }
                     }
@@ -1413,9 +1416,16 @@ impl SyncStage for EventSyncer {
             }
 
             // A dropped scanner forces a historical replay window again, so close ingress until
-            // the next live scanner transition and confirmed-sync probe re-open it.
-            if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
-                info!("closing preconfirmation ingress during event scanner reconnect");
+            // the next live scanner transition and confirmed-sync probe re-open it. Holding the
+            // router lock serializes the close against in-flight injections: a job that observed
+            // an open gate completes before the close lands, and every job dequeued afterwards
+            // observes the closed gate before replay derivation (which serializes on the same
+            // lock) begins.
+            {
+                let _router_guard = router.lock().await;
+                if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
+                    info!("closing preconfirmation ingress during event scanner reconnect");
+                }
             }
 
             if let Some(block_number) = last_seen_l1_block_number {
@@ -1868,15 +1878,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_is_orphaned_when_missing_by_hash_without_height() {
+    async fn proposal_log_is_retryable_when_missing_by_hash_without_height() {
         let asserter = Asserter::new();
         let syncer = EventSyncer {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
         // The hash is gone and the log carries no block number, so there is no canonical row
-        // to compare against; keep classifying the log as orphaned (unreachable for mined
-        // logs, which always carry a block number).
+        // to compare against — without a proven mismatch the log must stay retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
         let is_orphaned = syncer
@@ -1884,7 +1893,7 @@ mod tests {
             .await
             .expect("block lookup should succeed");
 
-        assert!(is_orphaned);
+        assert!(!is_orphaned);
     }
 
     #[tokio::test]
@@ -2091,7 +2100,10 @@ mod tests {
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
     }
 
-    /// Spawn the ingress loop with mock production paths and wait for its readiness signal.
+    /// Spawn the ingress loop with mock production paths, returning its job sender.
+    ///
+    /// The gate is left untouched: tests own the `ready_flag` transitions the way the event
+    /// loop does in production.
     async fn spawn_test_preconf_ingress(
         l2_asserter: Asserter,
         path: MockPreconfPath,
@@ -2105,15 +2117,7 @@ mod tests {
         )));
         let (tx, rx) = mpsc::channel(4);
 
-        syncer.spawn_preconf_ingress(router, rx, rpc, ready_flag.clone(), Arc::new(Notify::new()));
-
-        timeout(Duration::from_secs(1), async {
-            while !ready_flag.load(Ordering::Acquire) {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("ingress loop should signal readiness");
+        syncer.spawn_preconf_ingress(router, rx, rpc, ready_flag);
 
         tx
     }
@@ -2147,9 +2151,9 @@ mod tests {
         let ready_flag = Arc::new(AtomicBool::new(false));
         let tx = spawn_test_preconf_ingress(l2_asserter, path.clone(), ready_flag.clone()).await;
 
-        // Close the gate the way the event loop does when the scanner drops into a replay
-        // window, then enqueue a job that raced past the submit-side readiness check.
-        ready_flag.store(false, Ordering::Release);
+        // The event loop owns the gate and has not opened it (or a reconnect close landed
+        // right after this loop spawned), so the queued job must bounce even though the
+        // consumer task is already running.
         let result = enqueue_preconf_job(&tx, 1).await;
 
         assert!(matches!(result, Err(DriverError::PreconfIngressNotReady)));
@@ -2168,6 +2172,8 @@ mod tests {
         let ready_flag = Arc::new(AtomicBool::new(false));
         let tx = spawn_test_preconf_ingress(l2_asserter, path.clone(), ready_flag.clone()).await;
 
+        // Simulate the event loop opening the gate after a passed confirmed-sync probe.
+        ready_flag.store(true, Ordering::Release);
         let result = enqueue_preconf_job(&tx, 1).await;
 
         assert!(result.is_ok());
