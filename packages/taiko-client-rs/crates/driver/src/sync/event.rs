@@ -470,33 +470,43 @@ impl EventSyncer {
     }
 
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
-    /// no longer exists on the provider.
+    /// is no longer part of the provider's canonical chain.
+    ///
+    /// Canonicality is resolved by number, not by hash: providers serve `eth_getBlockByHash`
+    /// from block storage, which retains reorged-out side-chain blocks, so a successful hash
+    /// lookup does not prove the block is still canonical.
     #[instrument(skip(self), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(
         &self,
         block_hash: B256,
         log_block_number: Option<u64>,
     ) -> Result<bool, SyncError> {
-        let block = self.rpc.l1_provider.get_block_by_hash(block_hash).await?;
-
-        // If the block is still resolvable, the failure came from downstream processing, not a
-        // reorg that removed the source log.
-        if block.is_some() {
-            return Ok(false);
-        }
-
         let Some(log_block_number) = log_block_number else {
-            // We already proved the block hash is gone, and without a block number there is no
-            // head-height guard we can apply before classifying it as orphaned.
-            return Ok(true);
+            // Without a block number there is no canonical-height comparison to make; fall back
+            // to the hash lookup, which can still prove orphaning when the block is fully gone.
+            return Ok(self.rpc.l1_provider.get_block_by_hash(block_hash).await?.is_none());
         };
 
-        // A transiently lagging provider can return `None` for a block that has not yet reached
-        // the provider's visible head. Only classify the log as orphaned once the head has caught
-        // up to or passed the log's block number.
-        let chain_head = self.rpc.l1_provider.get_block_number().await?;
-
-        Ok(chain_head >= log_block_number)
+        match self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Number(log_block_number))
+            .await?
+        {
+            // The canonical chain still contains the emitting block: the failure came from
+            // downstream processing, not a reorg that removed the source log.
+            Some(canonical_block) if canonical_block.header.hash == block_hash => Ok(false),
+            // The canonical block at the log's height differs: the emitting block was reorged
+            // out, even if the provider still serves it by hash.
+            Some(_) => Ok(true),
+            // A transiently lagging provider can return `None` for a height it has not yet
+            // reached. Only classify the log as orphaned once the head has caught up to or
+            // passed the log's block number.
+            None => {
+                let chain_head = self.rpc.l1_provider.get_block_number().await?;
+                Ok(chain_head >= log_block_number)
+            }
+        }
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
@@ -1725,6 +1735,13 @@ mod tests {
         Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
+    /// Build a canonical block response whose header carries the provided hash.
+    fn canonical_block_with_hash(block_hash: B256) -> RpcBlock<TxEnvelope> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = block_hash;
+        block
+    }
+
     #[tokio::test]
     async fn orphaned_proposal_log_is_permanent_when_l1_block_is_missing() {
         let asserter = Asserter::new();
@@ -1770,13 +1787,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_is_retryable_when_l1_block_still_exists() {
+    async fn proposal_log_is_retryable_when_l1_block_still_canonical() {
         let asserter = Asserter::new();
         let syncer = EventSyncer {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
-        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        // The canonical block at the log height matches the emitting block hash.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([2u8; 32]))));
 
         let log = sample_event_log_with_block_hash(B256::from([2u8; 32]));
         let is_orphaned = syncer
@@ -1788,6 +1806,29 @@ mod tests {
             .expect("block lookup should succeed");
 
         assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn orphaned_proposal_log_detected_when_provider_retains_side_chain_block() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // The canonical block at the log height carries a different hash: the emitting block
+        // was reorged out, even though the provider may still serve it by hash.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0xEE; 32]))));
+
+        let log = sample_event_log_with_block_hash(B256::from([4u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(is_orphaned);
     }
 
     #[tokio::test]
@@ -1932,8 +1973,9 @@ mod tests {
     #[tokio::test]
     async fn process_log_batch_aborts_without_retry_on_engine_invalid_block() {
         let asserter = Asserter::new();
-        // Orphan recheck resolves the source L1 block, proving the log is not orphaned.
-        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        // The orphan recheck finds the emitting block canonical at its height, proving the log
+        // is not orphaned.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0x71; 32]))));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
