@@ -24,9 +24,14 @@ contract Proposal0019 is BuildProposal {
     address public constant SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
 
     // Existing SGX attester proxies reused by the Proposal0017 SGX verifiers. The signer remains
-    // unchanged; this proposal only rotates the trusted MRENCLAVE allowlist on these attesters.
+    // unchanged; this proposal rotates the trusted MRENCLAVE allowlist on these attesters.
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+
+    // Current Proposal0017 SGX verifier registrations. The deployed verifiers record only the SGX
+    // instance key, not its MRENCLAVE, so old instances must be deleted explicitly.
+    uint256 public constant OLD_SGXGETH_INSTANCE_ID = 0;
+    uint256 public constant OLD_SGXRETH_INSTANCE_ID = 0;
 
     // ZK sub-verifiers wired into ZK_REQUIRED_VERIFIER (reused from Proposal0017, live on mainnet).
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
@@ -96,7 +101,10 @@ contract Proposal0019 is BuildProposal {
             SgxMrEnclaveNotSet()
         );
 
-        actions = new Controller.Action[](20);
+        uint256[] memory sgxGethInstanceIdsToDelete = _sgxGethInstanceIdsToDelete();
+        uint256[] memory sgxRethInstanceIdsToDelete = _sgxRethInstanceIdsToDelete();
+
+        actions = new Controller.Action[](22);
 
         // 0-3: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
         // raiko2 v0.5.1 IDs, trust the new ones. Proofs aggregated under the old images stop
@@ -189,44 +197,61 @@ contract Proposal0019 is BuildProposal {
             )
         });
 
-        // 12-17: Rotate the trusted SGX MRENCLAVE values on the reused Proposal0017 attesters.
-        // MRSIGNER remains unchanged.
+        // 12-13: Delete the already-registered SGX instances on the reused Proposal0017 verifiers.
+        // These deployed verifiers do not re-check the attester MRENCLAVE allowlist at proof time.
         actions[12] = Controller.Action({
+            target: SGXGETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019SgxVerifier.deleteInstances, (sgxGethInstanceIdsToDelete)
+            )
+        });
+        actions[13] = Controller.Action({
+            target: SGXRETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019SgxVerifier.deleteInstances, (sgxRethInstanceIdsToDelete)
+            )
+        });
+
+        // 14-19: Rotate the trusted SGX MRENCLAVE values on the reused Proposal0017 attesters.
+        // MRSIGNER remains unchanged.
+        actions[14] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
                 IProposal0019Attestation.setMrEnclave, (OLD_SGXGETH_MR_ENCLAVE, false)
             )
         });
-        actions[13] = Controller.Action({
+        actions[15] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
                 IProposal0019Attestation.setMrEnclave, (OLD_SGXRETH_NON_EDMM_MR_ENCLAVE, false)
             )
         });
-        actions[14] = Controller.Action({
+        actions[16] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
                 IProposal0019Attestation.setMrEnclave, (OLD_SGXRETH_EDMM_MR_ENCLAVE, false)
             )
         });
-        actions[15] = Controller.Action({
+        actions[17] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
                 IProposal0019Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
             )
         });
-        actions[16] = Controller.Action({
+        actions[18] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
                 IProposal0019Attestation.setMrEnclave, (NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
             )
         });
-        actions[17] = Controller.Action({
+        actions[19] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
@@ -234,18 +259,28 @@ contract Proposal0019 is BuildProposal {
             )
         });
 
-        // 18: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
+        // 20: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
         // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
         // (at least one ZK proof per batch, SGX paths via the reused Proposal0017 SGX
         // verifiers) baked in as the proof verifier.
-        actions[18] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
+        actions[20] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
 
-        // 19: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
+        // 21: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
         // June 2026 incident. Its blob has expired from the blob retention window and can no
         // longer be derived, so it must be skipped before the due-check is re-enabled.
-        actions[19] = Controller.Action({
+        actions[21] = Controller.Action({
             target: L1.INBOX, value: 0, data: abi.encodeCall(IProposal0019Inbox.init3, ())
         });
+    }
+
+    function _sgxGethInstanceIdsToDelete() private pure returns (uint256[] memory ids_) {
+        ids_ = new uint256[](1);
+        ids_[0] = OLD_SGXGETH_INSTANCE_ID;
+    }
+
+    function _sgxRethInstanceIdsToDelete() private pure returns (uint256[] memory ids_) {
+        ids_ = new uint256[](1);
+        ids_[0] = OLD_SGXRETH_INSTANCE_ID;
     }
 }
 
@@ -255,4 +290,8 @@ interface IProposal0019Inbox {
 
 interface IProposal0019Attestation {
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
+}
+
+interface IProposal0019SgxVerifier {
+    function deleteInstances(uint256[] calldata _ids) external;
 }
