@@ -19,7 +19,7 @@ use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
-use event_scanner::{EventFilter, Notification, ScannerMessage};
+use event_scanner::{EventFilter, Notification, ScannerError, ScannerMessage};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
@@ -209,6 +209,17 @@ fn resolve_reconnect_start_block(
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
     block_number <= confirmed_tip
+}
+
+/// Return whether a scanner stream error breaks event continuity and requires dropping the
+/// subscription so the reconnect path can replay from a safe overlap.
+///
+/// `ScannerError::Lagged` is the only non-terminal scanner error: the stream keeps running but
+/// the lagged block ranges were dropped by the scanner and are never re-fetched, so continuing
+/// to consume the stream would silently skip proposals. All other errors are terminal and end
+/// the stream on their own.
+fn scanner_error_requires_reconnect(err: &ScannerError) -> bool {
+    matches!(err, ScannerError::Lagged(_))
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -454,7 +465,7 @@ impl EventSyncer {
     }
 
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
-    /// no longer exists on the provider.
+    /// is no longer part of the provider's canonical chain.
     #[instrument(skip(self), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(
         &self,
@@ -468,29 +479,38 @@ impl EventSyncer {
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
-        // If the block is still resolvable, the failure came from downstream processing, not a
-        // reorg that removed the source log.
-        if block.is_some() {
-            return Ok(false);
-        }
+        let Some(block) = block else {
+            let Some(log_block_number) = log_block_number else {
+                // We already proved the block hash is gone, and without a block number there is
+                // no head-height guard we can apply before classifying it as orphaned.
+                return Ok(true);
+            };
 
-        let Some(log_block_number) = log_block_number else {
-            // We already proved the block hash is gone, and without a block number there is no
-            // head-height guard we can apply before classifying it as orphaned.
-            return Ok(true);
+            // A transiently lagging provider can return `None` for a block that has not yet
+            // reached the provider's visible head. Only classify the log as orphaned once the
+            // head has caught up to or passed the log's block number.
+            let chain_head = self
+                .rpc
+                .l1_provider
+                .get_block_number()
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+            return Ok(chain_head >= log_block_number);
         };
 
-        // A transiently lagging provider can return `None` for a block that has not yet reached
-        // the provider's visible head. Only classify the log as orphaned once the head has caught
-        // up to or passed the log's block number.
-        let chain_head = self
+        // Nodes keep serving reorged-out blocks by hash, so resolvability alone does not prove
+        // the block is canonical. Compare against the canonical block at the same height.
+        let canonical_block = self
             .rpc
             .l1_provider
-            .get_block_number()
+            .get_block_by_number(BlockNumberOrTag::Number(block.header.number))
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
-        Ok(chain_head >= log_block_number)
+        // A canonical-hash mismatch proves the source block was reorged out. If the provider
+        // cannot resolve the height, stay conservative and keep the log retryable.
+        Ok(canonical_block.is_some_and(|canonical| canonical.header.hash != block_hash))
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
@@ -1336,6 +1356,14 @@ impl SyncStage for EventSyncer {
                     }
                     Err(err) => {
                         DriverMetrics::event_scanner_errors_total().inc();
+                        if scanner_error_requires_reconnect(&err) {
+                            warn!(
+                                ?err,
+                                "event scanner dropped lagged block ranges; replaying from \
+                                 reconnect overlap"
+                            );
+                            break;
+                        }
                         error!(?err, "error receiving proposal logs from event scanner");
                         continue;
                     }
@@ -1761,24 +1789,88 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_is_retryable_when_l1_block_still_exists() {
+    async fn proposal_log_is_retryable_when_l1_block_is_still_canonical() {
         let asserter = Asserter::new();
         let syncer = EventSyncer {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
-        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        let block_hash = B256::from([2u8; 32]);
+        let mut stored_block = RpcBlock::<TxEnvelope>::default();
+        stored_block.header.hash = block_hash;
+        // The block resolves by hash and the canonical block at its height carries the same
+        // hash, so the derivation failure came from downstream processing.
+        asserter.push_success(&Some(stored_block.clone()));
+        asserter.push_success(&Some(stored_block));
 
-        let log = sample_event_log_with_block_hash(B256::from([2u8; 32]));
+        let log = sample_event_log_with_block_hash(block_hash);
         let is_orphaned = syncer
             .is_permanently_orphaned_proposal_log(
                 log.block_hash.expect("test log should include block hash"),
                 log.block_number,
             )
             .await
-            .expect("block lookup should succeed");
+            .expect("block lookups should succeed");
 
         assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_orphaned_when_stored_block_is_not_canonical() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // Nodes keep serving reorged-out blocks by hash, so the by-hash lookup succeeds...
+        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        // ...but the canonical block at the same height carries a different hash.
+        let mut canonical_block = RpcBlock::<TxEnvelope>::default();
+        canonical_block.header.hash = B256::from([6u8; 32]);
+        asserter.push_success(&Some(canonical_block));
+
+        let log = sample_event_log_with_block_hash(B256::from([4u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_canonical_height_is_unresolved() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // The block resolves by hash but the provider cannot resolve its height (pruned or
+        // lagging view), so the log stays retryable rather than being skipped.
+        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let log = sample_event_log_with_block_hash(B256::from([7u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[test]
+    fn lagged_scanner_error_requires_reconnect_replay() {
+        assert!(scanner_error_requires_reconnect(&ScannerError::Lagged(3)));
+        assert!(!scanner_error_requires_reconnect(&ScannerError::Timeout));
+        assert!(!scanner_error_requires_reconnect(&ScannerError::BlockNotFound));
+        assert!(!scanner_error_requires_reconnect(&ScannerError::SubscriptionClosed));
     }
 
     #[tokio::test]
