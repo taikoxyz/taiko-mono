@@ -186,7 +186,6 @@ impl WhitelistPreconfirmationDriverRunner {
             let iteration = async {
                 let outcome: Option<Result<()>> = tokio::select! {
                     result = &mut node_handle => {
-                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
                         Some(match result {
                             Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                                 "whitelist preconfirmation network exited unexpectedly".to_string(),
@@ -198,9 +197,6 @@ impl WhitelistPreconfirmationDriverRunner {
                         })
                     }
                     result = &mut event_syncer_handle => {
-                        let _ = command_tx.send(NetworkCommand::Shutdown).await;
-                        node_handle.abort();
-                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
                         Some(map_event_syncer_exit(result).map_err(Into::into))
                     }
                     maybe_event = event_rx.recv() => match maybe_event {
@@ -214,7 +210,6 @@ impl WhitelistPreconfirmationDriverRunner {
                             None
                         }
                         None => {
-                            stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
                             Some(Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                                 "whitelist preconfirmation event channel closed".to_string(),
                             )))
@@ -234,7 +229,33 @@ impl WhitelistPreconfirmationDriverRunner {
             };
 
             match run_until_shutdown(shutdown.as_mut(), iteration).await {
-                Some(Some(result)) => return result,
+                Some(Some(result)) => {
+                    // Terminal task results must escape the signal-cancellable future before
+                    // cleanup starts. Otherwise a signal during REST draining can discard an
+                    // already-consumed JoinHandle result and later teardown may re-poll it.
+                    let cleanup = async {
+                        let _ = command_tx.send(NetworkCommand::Shutdown).await;
+                        node_handle.abort();
+                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                    };
+                    match complete_cleanup_or_timeout_on_shutdown(
+                        shutdown.as_mut(),
+                        &mut event_rx,
+                        cleanup,
+                        SHUTDOWN_DRAIN_TIMEOUT,
+                    )
+                    .await
+                    {
+                        ShutdownAwareCleanupOutcome::BeforeSignal => return result,
+                        ShutdownAwareCleanupOutcome::AfterSignal => return Ok(()),
+                        ShutdownAwareCleanupOutcome::TimedOut => {
+                            warn!("whitelist preconfirmation drain timed out; exiting anyway");
+                            node_handle.abort();
+                            event_syncer_handle.abort();
+                            return Ok(());
+                        }
+                    }
+                }
                 Some(None) => {}
                 None => {
                     info!("shutdown signal received; draining whitelist preconfirmation driver");
@@ -248,13 +269,82 @@ impl WhitelistPreconfirmationDriverRunner {
                         }
                         request_network_shutdown(&command_tx, &mut node_handle).await;
                     };
-                    if tokio::time::timeout(SHUTDOWN_DRAIN_TIMEOUT, teardown).await.is_err() {
+                    if tokio::time::timeout(
+                        SHUTDOWN_DRAIN_TIMEOUT,
+                        complete_while_draining(&mut event_rx, teardown),
+                    )
+                    .await
+                    .is_err()
+                    {
                         warn!("whitelist preconfirmation drain timed out; exiting anyway");
                         node_handle.abort();
                     }
                     event_syncer_handle.abort();
                     return Ok(());
                 }
+            }
+        }
+    }
+}
+
+/// Result of running terminal cleanup while still observing the process shutdown signal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ShutdownAwareCleanupOutcome {
+    /// Cleanup finished normally before a shutdown signal arrived.
+    BeforeSignal,
+    /// A shutdown signal arrived, and cleanup then finished within the shutdown deadline.
+    AfterSignal,
+    /// A shutdown signal arrived, but cleanup did not finish within the shutdown deadline.
+    TimedOut,
+}
+
+/// Run terminal cleanup while watching for shutdown, then bound the same in-progress cleanup
+/// future if a signal arrives.
+async fn complete_cleanup_or_timeout_on_shutdown<S, T, F>(
+    shutdown: Pin<&mut S>,
+    event_rx: &mut tokio::sync::mpsc::Receiver<T>,
+    cleanup: F,
+    shutdown_timeout: Duration,
+) -> ShutdownAwareCleanupOutcome
+where
+    S: Future<Output = ()>,
+    F: Future<Output = ()>,
+{
+    tokio::pin!(cleanup);
+    if run_until_shutdown(shutdown, complete_while_draining(event_rx, cleanup.as_mut()))
+        .await
+        .is_some()
+    {
+        return ShutdownAwareCleanupOutcome::BeforeSignal;
+    }
+
+    if tokio::time::timeout(shutdown_timeout, complete_while_draining(event_rx, cleanup.as_mut()))
+        .await
+        .is_err()
+    {
+        ShutdownAwareCleanupOutcome::TimedOut
+    } else {
+        ShutdownAwareCleanupOutcome::AfterSignal
+    }
+}
+
+/// Complete a future while discarding inbound events that could otherwise backpressure the
+/// network runtime and prevent it from consuming shutdown commands.
+async fn complete_while_draining<T, F>(
+    event_rx: &mut tokio::sync::mpsc::Receiver<T>,
+    future: F,
+) -> F::Output
+where
+    F: Future,
+{
+    tokio::pin!(future);
+    let mut event_rx_open = true;
+    loop {
+        tokio::select! {
+            biased;
+            result = &mut future => return result,
+            event = event_rx.recv(), if event_rx_open => {
+                event_rx_open = event.is_some();
             }
         }
     }
@@ -277,6 +367,11 @@ async fn request_network_shutdown(
     command_tx: &tokio::sync::mpsc::Sender<NetworkCommand>,
     node_handle: &mut tokio::task::JoinHandle<Result<()>>,
 ) {
+    // A terminal select branch may already have consumed the task output before a concurrent
+    // signal redirects control into teardown. Re-polling that completed handle would panic.
+    if node_handle.is_finished() {
+        return;
+    }
     let _ = command_tx.send(NetworkCommand::Shutdown).await;
     let _ = node_handle.await;
 }
@@ -340,5 +435,70 @@ mod tests {
 
         allow_exit_tx.send(()).expect("network task should still be waiting");
         shutdown.await;
+    }
+
+    #[tokio::test]
+    async fn network_shutdown_does_not_repoll_a_consumed_node_handle() {
+        let (command_tx, _command_rx) = mpsc::channel(1);
+        let mut node_handle = tokio::spawn(async { Ok(()) });
+        let result = (&mut node_handle).await;
+        assert!(matches!(result, Ok(Ok(()))));
+
+        request_network_shutdown(&command_tx, &mut node_handle).await;
+    }
+
+    #[tokio::test]
+    async fn network_shutdown_drains_inbound_backpressure_before_exit() {
+        let (event_tx, mut event_rx) = mpsc::channel(1);
+        event_tx.send(()).await.expect("first inbound event should fill the channel");
+
+        let (command_tx, mut command_rx) = mpsc::channel(2);
+        command_tx
+            .send(NetworkCommand::PublishUnsafeRequest { hash: B256::ZERO })
+            .await
+            .expect("publish command should be queued before shutdown");
+
+        let mut node_handle = tokio::spawn(async move {
+            event_tx.send(()).await.expect("runner should drain inbound backpressure");
+            assert!(matches!(
+                command_rx.recv().await,
+                Some(NetworkCommand::PublishUnsafeRequest { hash: B256::ZERO })
+            ));
+            assert!(matches!(command_rx.recv().await, Some(NetworkCommand::Shutdown)));
+            Ok(())
+        });
+
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            complete_while_draining(
+                &mut event_rx,
+                request_network_shutdown(&command_tx, &mut node_handle),
+            ),
+        )
+        .await
+        .expect("network shutdown should make progress while inbound forwarding is backpressured");
+    }
+
+    #[tokio::test]
+    async fn terminal_cleanup_uses_shutdown_deadline_after_signal() {
+        let (cleanup_started_tx, cleanup_started_rx) = oneshot::channel();
+        let mut shutdown = Box::pin(async {
+            cleanup_started_rx.await.expect("cleanup should start before shutdown");
+        });
+        let (_event_tx, mut event_rx) = mpsc::channel::<()>(1);
+        let cleanup = async move {
+            cleanup_started_tx.send(()).expect("shutdown should still be waiting");
+            pending::<()>().await;
+        };
+
+        let outcome = complete_cleanup_or_timeout_on_shutdown(
+            shutdown.as_mut(),
+            &mut event_rx,
+            cleanup,
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert_eq!(outcome, ShutdownAwareCleanupOutcome::TimedOut);
     }
 }
