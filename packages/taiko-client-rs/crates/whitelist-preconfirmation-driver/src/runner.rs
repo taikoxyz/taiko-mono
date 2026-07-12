@@ -1,6 +1,6 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
@@ -183,70 +183,102 @@ impl WhitelistPreconfirmationDriverRunner {
         tokio::pin!(shutdown);
 
         loop {
-            tokio::select! {
-                _ = &mut shutdown => {
+            let iteration = async {
+                let outcome: Option<Result<()>> = tokio::select! {
+                    result = &mut node_handle => {
+                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                        Some(match result {
+                            Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                "whitelist preconfirmation network exited unexpectedly".to_string(),
+                            )),
+                            Ok(Err(err)) => Err(err),
+                            Err(err) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                err.to_string(),
+                            )),
+                        })
+                    }
+                    result = &mut event_syncer_handle => {
+                        let _ = command_tx.send(NetworkCommand::Shutdown).await;
+                        node_handle.abort();
+                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                        Some(map_event_syncer_exit(result).map_err(Into::into))
+                    }
+                    maybe_event = event_rx.recv() => match maybe_event {
+                        Some(event) => {
+                            if let Err(err) = importer.handle_event(event).await {
+                                warn!(
+                                    error = %err,
+                                    "failed to handle whitelist preconfirmation network event"
+                                );
+                            }
+                            None
+                        }
+                        None => {
+                            stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                            Some(Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                "whitelist preconfirmation event channel closed".to_string(),
+                            )))
+                        }
+                    },
+                    _ = sync_ready_interval.tick() => {
+                        if let Err(err) = importer.maybe_import_from_cache().await {
+                            warn!(
+                                error = %err,
+                                "failed to import cached whitelist preconfirmation payloads on sync-ready poll"
+                            );
+                        }
+                        None
+                    }
+                };
+                outcome
+            };
+
+            match run_until_shutdown(shutdown.as_mut(), iteration).await {
+                Some(Some(result)) => return result,
+                Some(None) => {}
+                None => {
                     info!("shutdown signal received; draining whitelist preconfirmation driver");
                     // Drain the REST server first — with ingress and P2P still available — so
                     // an in-flight build settles end to end (engine insert + gossip publish),
-                    // then ask the network to shut down. One deadline bounds the whole
-                    // teardown; the aborts below are synchronous and cannot block.
+                    // then ask the network to shut down and wait for queued commands to be
+                    // consumed. One deadline bounds the whole sequence; abort only as fallback.
                     let teardown = async {
                         if let Some(server) = rest_ws_server.take() {
                             server.stop().await;
                         }
-                        let _ = command_tx.send(NetworkCommand::Shutdown).await;
+                        request_network_shutdown(&command_tx, &mut node_handle).await;
                     };
                     if tokio::time::timeout(SHUTDOWN_DRAIN_TIMEOUT, teardown).await.is_err() {
                         warn!("whitelist preconfirmation drain timed out; exiting anyway");
+                        node_handle.abort();
                     }
-                    node_handle.abort();
                     event_syncer_handle.abort();
                     return Ok(());
-                }
-                result = &mut node_handle => {
-                    stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
-                    return match result {
-                        Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                            "whitelist preconfirmation network exited unexpectedly".to_string(),
-                        )),
-                        Ok(Err(err)) => Err(err),
-                        Err(err) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                            err.to_string(),
-                        )),
-                    };
-                }
-                result = &mut event_syncer_handle => {
-                    let _ = command_tx.send(NetworkCommand::Shutdown).await;
-                    node_handle.abort();
-                    stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
-                    return map_event_syncer_exit(result).map_err(Into::into);
-                }
-                maybe_event = event_rx.recv() => {
-                    let Some(event) = maybe_event else {
-                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
-                        return Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                            "whitelist preconfirmation event channel closed".to_string(),
-                        ));
-                    };
-
-                    if let Err(err) = importer.handle_event(event).await {
-                        warn!(
-                            error = %err,
-                            "failed to handle whitelist preconfirmation network event"
-                        );
-                    }
-                }
-                _ = sync_ready_interval.tick() => {
-                    if let Err(err) = importer.maybe_import_from_cache().await {
-                        warn!(
-                            error = %err,
-                            "failed to import cached whitelist preconfirmation payloads on sync-ready poll"
-                        );
-                    }
                 }
             }
         }
     }
+}
+
+/// Resolve with `None` as soon as shutdown wins, including while `work` is already in progress.
+async fn run_until_shutdown<S, W, T>(shutdown: Pin<&mut S>, work: W) -> Option<T>
+where
+    S: Future<Output = ()>,
+    W: Future<Output = T>,
+{
+    tokio::select! {
+        _ = shutdown => None,
+        result = work => Some(result),
+    }
+}
+
+/// Enqueue network shutdown and wait until the runtime consumes all preceding commands and exits.
+async fn request_network_shutdown(
+    command_tx: &tokio::sync::mpsc::Sender<NetworkCommand>,
+    node_handle: &mut tokio::task::JoinHandle<Result<()>>,
+) {
+    let _ = command_tx.send(NetworkCommand::Shutdown).await;
+    let _ = node_handle.await;
 }
 
 /// Abort sidecar tasks and stop the REST server during shutdown.
@@ -257,5 +289,56 @@ async fn stop_sidecars<T>(
     event_syncer_handle.abort();
     if let Some(server) = rest_ws_server.take() {
         server.stop().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::{pending, ready};
+
+    use alloy_primitives::B256;
+    use tokio::sync::{mpsc, oneshot};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn shutdown_preempts_pending_steady_state_work() {
+        let mut shutdown = Box::pin(ready(()));
+
+        let result = run_until_shutdown(shutdown.as_mut(), pending::<()>()).await;
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn network_shutdown_waits_for_queued_commands_to_be_consumed() {
+        let (command_tx, mut command_rx) = mpsc::channel(2);
+        command_tx
+            .send(NetworkCommand::PublishUnsafeRequest { hash: B256::ZERO })
+            .await
+            .expect("publish command should be queued");
+
+        let (shutdown_received_tx, shutdown_received_rx) = oneshot::channel();
+        let (allow_exit_tx, allow_exit_rx) = oneshot::channel();
+        let mut node_handle = tokio::spawn(async move {
+            assert!(matches!(
+                command_rx.recv().await,
+                Some(NetworkCommand::PublishUnsafeRequest { hash: B256::ZERO })
+            ));
+            assert!(matches!(command_rx.recv().await, Some(NetworkCommand::Shutdown)));
+            shutdown_received_tx.send(()).expect("receiver should still be waiting");
+            allow_exit_rx.await.expect("test should release network task");
+            Ok(())
+        });
+
+        let shutdown = request_network_shutdown(&command_tx, &mut node_handle);
+        tokio::pin!(shutdown);
+        tokio::select! {
+            () = &mut shutdown => panic!("shutdown returned before the network task exited"),
+            result = shutdown_received_rx => result.expect("network task should observe shutdown"),
+        }
+
+        allow_exit_tx.send(()).expect("network task should still be waiting");
+        shutdown.await;
     }
 }
