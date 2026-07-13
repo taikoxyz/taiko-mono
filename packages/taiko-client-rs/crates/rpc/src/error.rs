@@ -50,8 +50,7 @@ impl RpcClientError {
     /// client-specific (geth) and intentionally centralized here.
     pub fn is_finalized_block_unavailable(&self) -> bool {
         match self {
-            Self::Rpc(err) => transport_error_reports_missing_finalized_block(err),
-            Self::Contract(alloy::contract::Error::TransportError(err)) => {
+            Self::Rpc(err) | Self::Contract(alloy::contract::Error::TransportError(err)) => {
                 transport_error_reports_missing_finalized_block(err)
             }
             _ => false,
