@@ -21,7 +21,7 @@ use protocol::shasta::unzen_active_for_chain_timestamp;
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
-use crate::sync::error::EngineSubmissionError;
+use crate::sync::error::{EnginePayloadStatusStage, EngineSubmissionError};
 
 /// Description of a block inserted via the execution engine.
 #[derive(Debug, Clone)]
@@ -180,6 +180,7 @@ async fn apply_payload_internal<R: EnginePayloadRpc>(
     let fc_response = rpc.forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
     ensure_valid_payload_status(
         payload.l1_origin.block_id.to::<u64>(),
+        EnginePayloadStatusStage::PayloadAttributesForkchoice,
         fc_response.payload_status.status,
     )?;
 
@@ -287,14 +288,16 @@ fn envelope_into_submission(
 /// it as success would let the driver advance on a lineage the engine never validated.
 fn ensure_valid_payload_status(
     block_number: u64,
+    stage: EnginePayloadStatusStage,
     status: PayloadStatusEnum,
 ) -> Result<(), EngineSubmissionError> {
     match status {
         PayloadStatusEnum::Valid => Ok(()),
-        PayloadStatusEnum::Accepted => Err(EngineSubmissionError::UnexpectedPayloadStatus(
+        PayloadStatusEnum::Accepted => Err(EngineSubmissionError::UnexpectedPayloadStatus {
             block_number,
-            PayloadStatusEnum::Accepted.as_str().to_string(),
-        )),
+            stage,
+            status: PayloadStatusEnum::Accepted.as_str().to_string(),
+        }),
         PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
         PayloadStatusEnum::Invalid { validation_error } => {
             Err(EngineSubmissionError::InvalidBlock(block_number, validation_error))
@@ -353,11 +356,15 @@ async fn submit_payload_to_engine<R: EnginePayloadRpc>(
     payload_id: PayloadId,
 ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
     let status = rpc.new_payload_v2(payload_input, sidecar).await?;
-    ensure_valid_payload_status(block_number, status.status)?;
+    ensure_valid_payload_status(block_number, EnginePayloadStatusStage::NewPayload, status.status)?;
 
     let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
     let promotion = rpc.forkchoice_updated_v2(promoted_state, None).await?;
-    ensure_valid_payload_status(block_number, promotion.payload_status.status)?;
+    ensure_valid_payload_status(
+        block_number,
+        EnginePayloadStatusStage::PromotionForkchoice,
+        promotion.payload_status.status,
+    )?;
 
     let block = fetch_block_by_number(rpc, block_number).await?;
     ensure_inserted_block_hash(block_number, block_hash, block.header.hash)?;
@@ -488,21 +495,42 @@ mod tests {
 
     #[test]
     fn valid_payload_status_is_ok() {
-        assert!(ensure_valid_payload_status(7, PayloadStatusEnum::Valid).is_ok());
+        assert!(
+            ensure_valid_payload_status(
+                7,
+                EnginePayloadStatusStage::NewPayload,
+                PayloadStatusEnum::Valid,
+            )
+            .is_ok()
+        );
     }
 
     #[test]
     fn accepted_payload_status_is_rejected() {
-        let err = ensure_valid_payload_status(7, PayloadStatusEnum::Accepted).unwrap_err();
+        let err = ensure_valid_payload_status(
+            7,
+            EnginePayloadStatusStage::NewPayload,
+            PayloadStatusEnum::Accepted,
+        )
+        .unwrap_err();
         assert!(matches!(
             err,
-            EngineSubmissionError::UnexpectedPayloadStatus(7, ref status) if status == "ACCEPTED"
+            EngineSubmissionError::UnexpectedPayloadStatus {
+                block_number: 7,
+                stage: EnginePayloadStatusStage::NewPayload,
+                ref status,
+            } if status == "ACCEPTED"
         ));
     }
 
     #[test]
     fn syncing_payload_status_maps_to_engine_syncing() {
-        let err = ensure_valid_payload_status(7, PayloadStatusEnum::Syncing).unwrap_err();
+        let err = ensure_valid_payload_status(
+            7,
+            EnginePayloadStatusStage::NewPayload,
+            PayloadStatusEnum::Syncing,
+        )
+        .unwrap_err();
         assert!(matches!(err, EngineSubmissionError::EngineSyncing(7)));
     }
 
@@ -510,6 +538,7 @@ mod tests {
     fn invalid_payload_status_maps_to_invalid_block() {
         let err = ensure_valid_payload_status(
             7,
+            EnginePayloadStatusStage::NewPayload,
             PayloadStatusEnum::Invalid { validation_error: "bad block".to_string() },
         )
         .unwrap_err();
@@ -804,7 +833,14 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(matches!(err, EngineSubmissionError::UnexpectedPayloadStatus(7, _)));
+        assert!(matches!(
+            err,
+            EngineSubmissionError::UnexpectedPayloadStatus {
+                block_number: 7,
+                stage: EnginePayloadStatusStage::NewPayload,
+                ..
+            }
+        ));
         assert_eq!(
             engine.calls(),
             vec![attrs_call(), get_payload_call(), new_payload_call()],

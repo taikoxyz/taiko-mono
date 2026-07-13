@@ -1,5 +1,7 @@
 //! Synchronization error types.
 
+use std::fmt;
+
 use alloy::{primitives::B256, transports::TransportError};
 use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
@@ -44,6 +46,14 @@ pub enum SyncError {
     CanonicalL1BlockUnavailable {
         /// L1 block number whose canonical block is not currently visible.
         number: u64,
+    },
+
+    /// Event sync: proposal log block is temporarily unavailable by hash while resolving its
+    /// missing height.
+    #[error("proposal log block {block_hash} unavailable while resolving its L1 height")]
+    ProposalLogBlockUnavailable {
+        /// Hash of the L1 block that emitted the proposal log.
+        block_hash: B256,
     },
 
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
@@ -123,6 +133,27 @@ impl From<DriverError> for SyncError {
     }
 }
 
+/// Engine API stage that returned a non-VALID payload status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnginePayloadStatusStage {
+    /// Initial forkchoice update carrying payload attributes.
+    PayloadAttributesForkchoice,
+    /// Submission of the built payload through `engine_newPayloadV2`.
+    NewPayload,
+    /// Forkchoice update promoting the submitted payload to the canonical head.
+    PromotionForkchoice,
+}
+
+impl fmt::Display for EnginePayloadStatusStage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::PayloadAttributesForkchoice => f.write_str("payload-attributes forkchoice"),
+            Self::NewPayload => f.write_str("newPayload"),
+            Self::PromotionForkchoice => f.write_str("promotion forkchoice"),
+        }
+    }
+}
+
 /// Errors that can occur while submitting payload attributes to the execution engine.
 #[derive(Debug, Error)]
 pub enum EngineSubmissionError {
@@ -136,8 +167,17 @@ pub enum EngineSubmissionError {
     #[error("execution engine rejected block {0}: {1}")]
     InvalidBlock(u64, String),
     /// Execution engine returned a status other than VALID for a canonical insert.
-    #[error("execution engine returned unexpected payload status for block {0}: {1}")]
-    UnexpectedPayloadStatus(u64, String),
+    #[error(
+        "execution engine returned unexpected payload status during {stage} for block {block_number}: {status}"
+    )]
+    UnexpectedPayloadStatus {
+        /// Number of the block being materialized.
+        block_number: u64,
+        /// Engine API stage that returned the unexpected status.
+        stage: EnginePayloadStatusStage,
+        /// Non-VALID status returned by the engine.
+        status: String,
+    },
     /// Engine did not return a payload identifier after forkchoice update.
     #[error("forkchoice update returned no payload id")]
     MissingPayloadId,

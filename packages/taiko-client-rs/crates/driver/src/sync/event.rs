@@ -32,7 +32,7 @@ use super::{
     SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
-    error::EngineSubmissionError,
+    error::{EnginePayloadStatusStage, EngineSubmissionError},
 };
 use crate::{
     config::DriverConfig,
@@ -56,6 +56,14 @@ enum ProposalLogResult {
     SkippedOrphaned,
 }
 
+/// Outcome of resolving metadata that an event-scanner proposal log omitted.
+enum ProposalLogMetadataResolution {
+    /// The log has the metadata required for canonical derivation.
+    Ready,
+    /// The hash-resolved block is not canonical at its recovered height.
+    Orphaned,
+}
+
 /// Return whether a proposal-processing failure is a deterministic verdict that retrying the
 /// same input cannot change.
 ///
@@ -67,7 +75,13 @@ fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
     matches!(
         err,
         DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
-            EngineSubmissionError::InvalidBlock(..),
+            EngineSubmissionError::InvalidBlock(..) |
+                EngineSubmissionError::MissingPayloadId |
+                EngineSubmissionError::UnexpectedPayloadStatus {
+                    stage: EnginePayloadStatusStage::PayloadAttributesForkchoice |
+                        EnginePayloadStatusStage::PromotionForkchoice,
+                    ..
+                },
         ))) | DriverError::PreconfInjectionFailed {
             source: EngineSubmissionError::InvalidBlock(..),
             ..
@@ -497,6 +511,37 @@ impl EventSyncer {
         });
     }
 
+    /// Populate a proposal log's missing block number from its block hash before derivation.
+    ///
+    /// A missing hash lookup is inconclusive under a lagging or load-balanced provider view, so
+    /// it surfaces as a typed transient error and lets the proposal retry instead of being skipped.
+    async fn resolve_proposal_log_block_number(
+        &self,
+        log: &mut Log,
+    ) -> Result<ProposalLogMetadataResolution, SyncError> {
+        if log.block_number.is_some() {
+            return Ok(ProposalLogMetadataResolution::Ready);
+        }
+
+        let block_hash = log.block_hash.ok_or(SyncError::MissingProposalLogBlockHash {
+            tx_hash: log.transaction_hash,
+            block_number: None,
+        })?;
+        let block = self
+            .rpc
+            .l1_provider
+            .get_block_by_hash(block_hash)
+            .await?
+            .ok_or(SyncError::ProposalLogBlockUnavailable { block_hash })?;
+        log.block_number = Some(block.header.number);
+
+        if self.is_permanently_orphaned_proposal_log(block_hash, log.block_number).await? {
+            Ok(ProposalLogMetadataResolution::Orphaned)
+        } else {
+            Ok(ProposalLogMetadataResolution::Ready)
+        }
+    }
+
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
     /// is no longer part of the provider's canonical chain.
     ///
@@ -512,13 +557,13 @@ impl EventSyncer {
         log_block_number: Option<u64>,
     ) -> Result<bool, SyncError> {
         // Height whose canonical block we compare against: the log's own number when present,
-        // otherwise the emitting block's height recovered via a hash lookup. A block the provider
-        // can no longer serve by hash is fully gone, which by itself proves orphaning.
+        // otherwise the emitting block's height recovered via a hash lookup. An unavailable hash
+        // lookup remains inconclusive because another provider backend may still have the block.
         let block_number = match log_block_number {
             Some(log_block_number) => log_block_number,
             None => match self.rpc.l1_provider.get_block_by_hash(block_hash).await? {
                 Some(block) => block.header.number,
-                None => return Ok(true),
+                None => return Err(SyncError::ProposalLogBlockUnavailable { block_hash }),
             },
         };
 
@@ -662,8 +707,22 @@ impl EventSyncer {
                 retry_strategy,
                 move || {
                     let router = router.clone();
-                    let log = proposal_log.clone();
+                    let mut log = proposal_log.clone();
                     async move {
+                        let metadata_resolution = syncer
+                            .resolve_proposal_log_block_number(&mut log)
+                            .await
+                            .map_err(DriverError::from)?;
+                        if matches!(metadata_resolution, ProposalLogMetadataResolution::Orphaned) {
+                            DriverMetrics::event_orphaned_proposal_logs_total().inc();
+                            warn!(
+                                block_number = log.block_number,
+                                block_hash = ?block_hash,
+                                transaction_hash = ?log.transaction_hash,
+                                "skipping orphaned proposal log after resolving its missing height",
+                            );
+                            return Ok(ProposalLogResult::SkippedOrphaned);
+                        }
                         let router_call = {
                             // Lock router so L1 proposals and preconf inputs cannot interleave.
                             let router_guard = router.lock().await;
@@ -1775,6 +1834,41 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Default)]
+    struct BlockNumberRecordingPath {
+        seen_block_numbers: StdArc<Mutex<Vec<Option<u64>>>>,
+    }
+
+    impl BlockNumberRecordingPath {
+        fn seen_block_numbers(&self) -> Vec<Option<u64>> {
+            self.seen_block_numbers
+                .lock()
+                .expect("seen block numbers mutex should not be poisoned")
+                .clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for BlockNumberRecordingPath {
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("block-number recording path only supports L1 proposal logs");
+            };
+            self.seen_block_numbers
+                .lock()
+                .expect("seen block numbers mutex should not be poisoned")
+                .push(log.block_number);
+
+            let block_number = log
+                .block_number
+                .ok_or_else(|| DriverError::Other(anyhow!("proposal log missing block number")))?;
+            Ok(vec![sample_engine_outcome(block_number)])
+        }
+    }
+
     fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client {
         mock_client_with_asserters(l1_asserter, Asserter::new())
     }
@@ -1805,6 +1899,13 @@ mod tests {
     fn canonical_block_with_hash(block_hash: B256) -> RpcBlock<TxEnvelope> {
         let mut block = RpcBlock::<TxEnvelope>::default();
         block.header.hash = block_hash;
+        block
+    }
+
+    /// Build a block response carrying the provided hash and height.
+    fn block_with_hash_and_number(block_hash: B256, block_number: u64) -> RpcBlock<TxEnvelope> {
+        let mut block = canonical_block_with_hash(block_hash);
+        block.header.number = block_number;
         block
     }
 
@@ -1906,27 +2007,82 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn orphaned_proposal_log_detected_without_block_number_when_block_fully_gone() {
+    async fn proposal_log_without_block_number_is_retryable_when_hash_lookup_is_missing() {
         let asserter = Asserter::new();
         let syncer = EventSyncer {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
-        // No block number and the provider can no longer serve the emitting block by hash: it is
-        // fully gone, which proves orphaning without a canonical-height comparison.
+        // A load-balanced or lagging provider may temporarily fail to serve the emitting block by
+        // hash, so absence cannot prove orphaning when the log carries no height.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
         let mut log = sample_event_log_with_block_hash(B256::from([0x44; 32]));
         log.block_number = None;
-        let is_orphaned = syncer
+        let result = syncer
             .is_permanently_orphaned_proposal_log(
                 log.block_hash.expect("test log should include block hash"),
                 log.block_number,
             )
-            .await
-            .expect("block lookup should succeed");
+            .await;
 
-        assert!(is_orphaned);
+        assert!(result.is_err(), "missing hash lookup must remain inconclusive and retryable");
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_recovers_missing_block_number_before_derivation() {
+        let block_hash = B256::from([0x45; 32]);
+        let transaction_hash = B256::from([0x55; 32]);
+        let asserter = Asserter::new();
+        // The first backend view is temporarily missing the block; a later retry resolves the
+        // canonical block and supplies the height derivation requires.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&Some(block_with_hash_and_number(block_hash, 7)));
+        asserter.push_success(&Some(block_with_hash_and_number(block_hash, 7)));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = BlockNumberRecordingPath::default();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+        let mut log = sample_proposed_log(7, block_hash, transaction_hash);
+        log.block_number = None;
+
+        let result =
+            timeout(Duration::from_millis(250), syncer.process_log_batch(router, vec![log])).await;
+
+        assert!(matches!(result, Ok(Ok(()))), "missing metadata should resolve on retry");
+        assert_eq!(
+            path.seen_block_numbers(),
+            vec![Some(7)],
+            "derivation must only receive the hash-resolved block height"
+        );
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_skips_missing_number_log_when_hash_resolves_to_side_chain() {
+        let block_hash = B256::from([0x46; 32]);
+        let transaction_hash = B256::from([0x56; 32]);
+        let asserter = Asserter::new();
+        // The provider retains the emitting side-chain block by hash and reveals its height...
+        asserter.push_success(&Some(block_with_hash_and_number(block_hash, 7)));
+        // ...but the canonical block at that height has a different hash, proving orphaning.
+        asserter.push_success(&Some(block_with_hash_and_number(B256::from([0xEE; 32]), 7)));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = BlockNumberRecordingPath::default();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+        let mut log = sample_proposed_log(7, block_hash, transaction_hash);
+        log.block_number = None;
+
+        let result =
+            timeout(Duration::from_millis(250), syncer.process_log_batch(router, vec![log])).await;
+
+        assert!(matches!(result, Ok(Ok(()))), "orphaned missing-height log should be skipped");
+        assert!(
+            path.seen_block_numbers().is_empty(),
+            "an orphaned log must never reach derivation"
+        );
     }
 
     #[tokio::test]
@@ -2176,6 +2332,29 @@ mod tests {
             source: EngineSubmissionError::InvalidBlock(1, "bad block".into()),
         };
         assert!(is_fatal_proposal_processing_error(&preconf_invalid));
+
+        let missing_payload_id = DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::MissingPayloadId,
+        )));
+        assert!(is_fatal_proposal_processing_error(&missing_payload_id));
+
+        let attributes_forkchoice_accepted = DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus {
+                block_number: 1,
+                stage: EnginePayloadStatusStage::PayloadAttributesForkchoice,
+                status: "ACCEPTED".into(),
+            }),
+        ));
+        assert!(is_fatal_proposal_processing_error(&attributes_forkchoice_accepted));
+
+        let promotion_forkchoice_accepted = DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus {
+                block_number: 1,
+                stage: EnginePayloadStatusStage::PromotionForkchoice,
+                status: "ACCEPTED".into(),
+            }),
+        ));
+        assert!(is_fatal_proposal_processing_error(&promotion_forkchoice_accepted));
     }
 
     #[test]
@@ -2190,6 +2369,15 @@ mod tests {
 
         let other = DriverError::Other(anyhow!("boom"));
         assert!(!is_fatal_proposal_processing_error(&other));
+
+        let new_payload_accepted = DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus {
+                block_number: 1,
+                stage: EnginePayloadStatusStage::NewPayload,
+                status: "ACCEPTED".into(),
+            }),
+        ));
+        assert!(!is_fatal_proposal_processing_error(&new_payload_accepted));
     }
 
     #[test]
