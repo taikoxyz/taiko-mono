@@ -111,22 +111,15 @@ func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
 		require.False(t, cfg.ZkOnlyProofs)
 	})
 
-	t.Run("requires the ZKVM raiko host", func(t *testing.T) {
-		err := runTestConfigFromCLI(t, "--"+flags.ZkOnlyProofs.Name)
-
-		require.ErrorContains(t, err, "--"+flags.RaikoZKVMHostEndpoint.Name)
-	})
-
 	t.Run("uses flag value with the ZKVM raiko host", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(
 			t,
-			"--"+flags.RaikoHostEndpoint.Name, "",
 			"--"+flags.ZkOnlyProofs.Name,
-			"--"+flags.RaikoZKVMHostEndpoint.Name, "http://raiko.zkvm",
 		)
 
 		require.True(t, cfg.ZkOnlyProofs)
-		require.Empty(t, cfg.RaikoHostEndpoint)
+		require.Equal(t, "http://raiko.host", cfg.RaikoHostEndpoint)
+		require.Equal(t, "http://raiko.zkvm", cfg.RaikoZKVMHostEndpoint)
 	})
 }
 
@@ -134,6 +127,12 @@ func TestNewConfigFromCliContextRequiresRaikoHostOutsideZkOnlyMode(t *testing.T)
 	err := runTestConfigFromCLI(t, "--"+flags.RaikoHostEndpoint.Name, "")
 
 	require.ErrorContains(t, err, "--"+flags.RaikoHostEndpoint.Name)
+}
+
+func TestNewConfigFromCliContextRequiresRaikoZKVMHost(t *testing.T) {
+	err := runTestConfigFromCLI(t, "--"+flags.RaikoZKVMHostEndpoint.Name, "   ")
+
+	require.ErrorContains(t, err, "--"+flags.RaikoZKVMHostEndpoint.Name)
 }
 
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
@@ -230,6 +229,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.JWTSecret.Name, jwtSecret,
 		"--" + flags.RaikoHostEndpoint.Name, "http://raiko.host",
+		"--" + flags.RaikoZKVMHostEndpoint.Name, "http://raiko.zkvm",
 	}
 	args = append(args, extraArgs...)
 

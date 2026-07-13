@@ -17,22 +17,23 @@ var (
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
 	}
 	RaikoHostEndpoint = &cli.StringFlag{
-		Name: "raiko.host",
-		Usage: "RPC endpoint of a Raiko host service for post Shasta fork " +
-			"(required unless --prover.zkOnlyProofs is set)",
+		Name:     "raiko.host",
+		Usage:    "RPC endpoint of a Raiko host service for post Shasta fork",
+		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
+	}
+	RaikoZKVMHostEndpoint = &cli.StringFlag{
+		Name:     "raiko.host.zkvm",
+		Usage:    "RPC endpoint of a Raiko ZKVM host service for post Shasta fork",
+		Required: true,
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
 	}
 )
 
 // Optional flags used by prover.
 var (
-	RaikoZKVMHostEndpoint = &cli.StringFlag{
-		Name:     "raiko.host.zkvm",
-		Usage:    "RPC endpoint of a Raiko ZKVM host service for post Shasta fork",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
-	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
 		Usage:    "Path to an Api key for the Raiko service",
@@ -85,7 +86,6 @@ var (
 	ForceSP1Proof = &cli.BoolFlag{
 		Name: "prover.forceSP1Proof",
 		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
-			"If no ZKVM proof producer is configured, the prover keeps using the base proof producer. " +
 			"Ignored when --prover.zkOnlyProofs is set. Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,

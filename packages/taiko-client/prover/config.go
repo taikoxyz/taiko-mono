@@ -87,24 +87,18 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	// The ZK-only mode generates both ZK proofs from the ZKVM raiko host, so it cannot
-	// run without one configured. Other modes still need the base raiko host for the
-	// SGX_GETH companion proof.
+	// Both Raiko endpoints are required CLI flags. Keep explicit validation here for
+	// callers that construct a CLI context without the application's flag validation.
+	raikoHostEndpoint := strings.TrimSpace(c.String(flags.RaikoHostEndpoint.Name))
+	if len(raikoHostEndpoint) == 0 {
+		return nil, fmt.Errorf("--%s is required", flags.RaikoHostEndpoint.Name)
+	}
+	raikoZKVMHostEndpoint := strings.TrimSpace(c.String(flags.RaikoZKVMHostEndpoint.Name))
+	if len(raikoZKVMHostEndpoint) == 0 {
+		return nil, fmt.Errorf("--%s is required", flags.RaikoZKVMHostEndpoint.Name)
+	}
+
 	zkOnlyProofs := c.Bool(flags.ZkOnlyProofs.Name)
-	if zkOnlyProofs && len(c.String(flags.RaikoZKVMHostEndpoint.Name)) == 0 {
-		return nil, fmt.Errorf(
-			"--%s requires --%s to be set",
-			flags.ZkOnlyProofs.Name,
-			flags.RaikoZKVMHostEndpoint.Name,
-		)
-	}
-	if !zkOnlyProofs && len(c.String(flags.RaikoHostEndpoint.Name)) == 0 {
-		return nil, fmt.Errorf(
-			"--%s is required unless --%s is set",
-			flags.RaikoHostEndpoint.Name,
-			flags.ZkOnlyProofs.Name,
-		)
-	}
 
 	var localProposerAddresses []common.Address
 	for _, localProposerAddress := range c.StringSlice(flags.LocalProposerAddresses.Name) {
@@ -126,8 +120,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		InboxAddress:             common.HexToAddress(c.String(flags.InboxAddress.Name)),
 		TaikoAnchorAddress:       common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		L1ProverPrivKey:          l1ProverPrivKey,
-		RaikoHostEndpoint:        c.String(flags.RaikoHostEndpoint.Name),
-		RaikoZKVMHostEndpoint:    c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoHostEndpoint:        raikoHostEndpoint,
+		RaikoZKVMHostEndpoint:    raikoZKVMHostEndpoint,
 		RaikoApiKey:              strings.TrimSpace(string(raikoApiKey)),
 		RaikoRequestTimeout:      c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingProposalID:       startingProposalID,
