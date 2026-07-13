@@ -474,38 +474,45 @@ impl EventSyncer {
     ///
     /// Canonicality is resolved by number, not by hash: providers serve `eth_getBlockByHash`
     /// from block storage, which retains reorged-out side-chain blocks, so a successful hash
-    /// lookup does not prove the block is still canonical.
+    /// lookup does not prove the block is still canonical. When the log carries no block number,
+    /// the emitting block's height is recovered through a hash lookup so the same canonical-height
+    /// comparison can still run.
     #[instrument(skip(self), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(
         &self,
         block_hash: B256,
         log_block_number: Option<u64>,
     ) -> Result<bool, SyncError> {
-        let Some(log_block_number) = log_block_number else {
-            // Without a block number there is no canonical-height comparison to make; fall back
-            // to the hash lookup, which can still prove orphaning when the block is fully gone.
-            return Ok(self.rpc.l1_provider.get_block_by_hash(block_hash).await?.is_none());
+        // Height whose canonical block we compare against: the log's own number when present,
+        // otherwise the emitting block's height recovered via a hash lookup. A block the provider
+        // can no longer serve by hash is fully gone, which by itself proves orphaning.
+        let block_number = match log_block_number {
+            Some(log_block_number) => log_block_number,
+            None => match self.rpc.l1_provider.get_block_by_hash(block_hash).await? {
+                Some(block) => block.header.number,
+                None => return Ok(true),
+            },
         };
 
         match self
             .rpc
             .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(log_block_number))
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
             .await?
         {
             // The canonical chain still contains the emitting block: the failure came from
             // downstream processing, not a reorg that removed the source log.
             Some(canonical_block) if canonical_block.header.hash == block_hash => Ok(false),
-            // The canonical block at the log's height differs: the emitting block was reorged
-            // out, even if the provider still serves it by hash.
+            // The canonical block at this height differs: the emitting block was reorged out,
+            // even if the provider still serves it by hash.
             Some(_) => Ok(true),
-            // The provider has no block at the log's height. On a consistent chain view this
-            // only means the height is beyond the provider's head (not yet observed), which is
-            // never a proof of either canonicality or orphaning. Surface a typed transient error
-            // so a fatal processing verdict remains retryable until a later recheck resolves the
-            // block. A genuinely reorged-out log resurfaces as `Some(<different hash>)` once the
-            // canonical chain re-extends to this height.
-            None => Err(SyncError::CanonicalL1BlockUnavailable { number: log_block_number }),
+            // The provider has no block at this height. On a consistent chain view this only means
+            // the height is beyond the provider's head (not yet observed), which is never a proof
+            // of either canonicality or orphaning. Surface a typed transient error so a fatal
+            // processing verdict remains retryable until a later recheck resolves the block. A
+            // genuinely reorged-out log resurfaces as `Some(<different hash>)` once the canonical
+            // chain re-extends to this height.
+            None => Err(SyncError::CanonicalL1BlockUnavailable { number: block_number }),
         }
     }
 
@@ -1801,6 +1808,57 @@ mod tests {
         asserter.push_success(&Some(canonical_block_with_hash(B256::from([0xEE; 32]))));
 
         let log = sample_event_log_with_block_hash(B256::from([4u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn orphaned_proposal_log_detected_without_block_number_via_hash_resolved_height() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // The log carries no block number, so the emitting block's height is recovered from the
+        // hash lookup (the provider still serves the reorged-out block by hash)...
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0x33; 32]))));
+        // ...and the canonical block at that height carries a different hash, so it is orphaned
+        // rather than treated as canonical just because a hash lookup still resolves it.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0xEE; 32]))));
+
+        let mut log = sample_event_log_with_block_hash(B256::from([0x33; 32]));
+        log.block_number = None;
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn orphaned_proposal_log_detected_without_block_number_when_block_fully_gone() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // No block number and the provider can no longer serve the emitting block by hash: it is
+        // fully gone, which proves orphaning without a canonical-height comparison.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let mut log = sample_event_log_with_block_hash(B256::from([0x44; 32]));
+        log.block_number = None;
         let is_orphaned = syncer
             .is_permanently_orphaned_proposal_log(
                 log.block_hash.expect("test log should include block hash"),
