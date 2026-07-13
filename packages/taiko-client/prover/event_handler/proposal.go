@@ -36,6 +36,11 @@ func (h *ProposalEventHandler) handleProposal(
 		return nil
 	}
 
+	skip, shouldProcess := h.proposalProcessingDecision(proposalID.Uint64())
+	if skip {
+		return nil
+	}
+
 	// Wait for the corresponding L2 block being mined in node.
 	header, err := h.rpc.WaitProposalHeader(ctx, proposalID)
 	if err != nil {
@@ -52,10 +57,17 @@ func (h *ProposalEventHandler) handleProposal(
 		return err
 	}
 
-	// If the current batch is handled, just skip it.
-	if proposalID.Uint64() <= h.sharedState.GetLastHandledProposalID() {
+	// Move l1Current cursor.
+	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.GetRawBlockHash())
+	if err != nil {
+		return err
+	}
+	h.sharedState.SetL1Current(newL1Current)
+	h.sharedState.SetLastHandledProposalID(proposalID.Uint64())
+	if !shouldProcess {
 		return nil
 	}
+	h.sharedState.MarkProposalProcessing(proposalID.Uint64())
 
 	log.Info(
 		"New Proposed event",
@@ -69,14 +81,6 @@ func (h *ProposalEventHandler) handleProposal(
 	)
 
 	metrics.ProverReceivedProposedBlockGauge.Set(float64(proposalID.Uint64()))
-
-	// Move l1Current cursor.
-	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.GetRawBlockHash())
-	if err != nil {
-		return err
-	}
-	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledProposalID(proposalID.Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
@@ -123,6 +127,11 @@ func (h *ProposalEventHandler) handleProposal(
 	}()
 
 	return nil
+}
+
+func (h *ProposalEventHandler) proposalProcessingDecision(proposalID uint64) (skip, shouldProcess bool) {
+	shouldProcess = h.sharedState.NeedsProposalProcessing(proposalID)
+	return proposalID <= h.sharedState.GetLastHandledProposalID() && !shouldProcess, shouldProcess
 }
 
 // checkExpirationAndSubmitProof checks whether the proposed proposal's proving window is expired,
