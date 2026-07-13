@@ -435,7 +435,7 @@ func (p *Prover) rollbackProposalCursorOnRetryExhaustion(
 		rollbackHeight := new(big.Int).Set(l1Height)
 		if !p.sharedState.RollbackProposalCursor(
 			p.ctx,
-			proposalID.Uint64()-1,
+			proposalID.Uint64(),
 			&types.Header{Number: rollbackHeight},
 		) {
 			return nil

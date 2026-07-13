@@ -10,9 +10,11 @@ import (
 
 // SharedState represents the internal state of a prover.
 type SharedState struct {
-	lastHandledProposalID atomic.Uint64
-	l1Current             atomic.Value
-	proposalCursorMu      sync.Mutex
+	lastHandledProposalID    atomic.Uint64
+	lastDispatchedProposalID atomic.Uint64
+	l1Current                atomic.Value
+	proposalCursorMu         sync.Mutex
+	retryProposalIDs         sync.Map
 }
 
 // New creates a new prover shared state instance.
@@ -30,6 +32,26 @@ func (s *SharedState) SetLastHandledProposalID(proposalID uint64) {
 	s.lastHandledProposalID.Store(proposalID)
 }
 
+// NeedsProposalProcessing returns whether a proposal has not been dispatched or
+// has been marked for retry after a failed processing attempt.
+func (s *SharedState) NeedsProposalProcessing(proposalID uint64) bool {
+	if _, ok := s.retryProposalIDs.Load(proposalID); ok {
+		return true
+	}
+	return proposalID > s.lastDispatchedProposalID.Load()
+}
+
+// MarkProposalProcessing marks a proposal as dispatched for processing.
+func (s *SharedState) MarkProposalProcessing(proposalID uint64) {
+	s.retryProposalIDs.Delete(proposalID)
+	for {
+		current := s.lastDispatchedProposalID.Load()
+		if current >= proposalID || s.lastDispatchedProposalID.CompareAndSwap(current, proposalID) {
+			return
+		}
+	}
+}
+
 // WithProposalCursor runs fn while holding the proposal cursor lock.
 func (s *SharedState) WithProposalCursor(fn func() error) error {
 	s.proposalCursorMu.Lock()
@@ -38,15 +60,17 @@ func (s *SharedState) WithProposalCursor(fn func() error) error {
 	return fn()
 }
 
-// RollbackProposalCursor rolls both proposal cursors back atomically relative to
-// a proposal scan. It never advances either cursor and returns false if the
-// context is canceled before the cursors are mutated.
+// RollbackProposalCursor registers a failed proposal for retry and rolls both
+// proposal cursors back atomically relative to a proposal scan. The proposal
+// cursor is lowered to the ID immediately before the failed proposal. It never
+// advances either cursor and returns false for ID zero or if the context is
+// canceled before the state is mutated.
 func (s *SharedState) RollbackProposalCursor(
 	ctx context.Context,
 	proposalID uint64,
 	header *types.Header,
 ) bool {
-	if ctx.Err() != nil {
+	if proposalID == 0 || ctx.Err() != nil {
 		return false
 	}
 
@@ -56,7 +80,8 @@ func (s *SharedState) RollbackProposalCursor(
 			return nil
 		}
 
-		s.lowerLastHandledProposalID(proposalID)
+		s.retryProposalIDs.Store(proposalID, struct{}{})
+		s.lowerLastHandledProposalID(proposalID - 1)
 		s.lowerL1Current(header)
 		rolledBack = true
 		return nil

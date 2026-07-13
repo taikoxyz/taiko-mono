@@ -39,6 +39,34 @@ func (s *ProverSharedStateTestSuite) TestLastHandledShastaProposalID() {
 	s.Equal(newLastHandledBlockID, s.state.GetLastHandledProposalID())
 }
 
+func (s *ProverSharedStateTestSuite) TestProposalProcessingHighWaterAndRetry() {
+	s.True(s.state.NeedsProposalProcessing(10))
+	s.state.MarkProposalProcessing(10)
+	s.False(s.state.NeedsProposalProcessing(10))
+	s.True(s.state.NeedsProposalProcessing(11))
+
+	s.state.SetLastHandledProposalID(10)
+	s.state.SetL1Current(&types.Header{Number: big.NewInt(100)})
+	s.True(s.state.RollbackProposalCursor(context.Background(), 5, &types.Header{Number: big.NewInt(50)}))
+	s.Equal(uint64(4), s.state.GetLastHandledProposalID())
+	s.True(s.state.NeedsProposalProcessing(5))
+	s.False(s.state.NeedsProposalProcessing(6))
+
+	s.state.MarkProposalProcessing(5)
+	s.False(s.state.NeedsProposalProcessing(5))
+}
+
+func (s *ProverSharedStateTestSuite) TestMultipleFailedProposalsRemainRetryable() {
+	s.state.MarkProposalProcessing(20)
+	s.state.SetLastHandledProposalID(20)
+	s.state.SetL1Current(&types.Header{Number: big.NewInt(200)})
+	s.True(s.state.RollbackProposalCursor(context.Background(), 8, &types.Header{Number: big.NewInt(80)}))
+	s.True(s.state.RollbackProposalCursor(context.Background(), 12, &types.Header{Number: big.NewInt(120)}))
+	s.True(s.state.NeedsProposalProcessing(8))
+	s.True(s.state.NeedsProposalProcessing(12))
+	s.False(s.state.NeedsProposalProcessing(9))
+}
+
 func (s *ProverSharedStateTestSuite) TestL1Current() {
 	newL1Current := &types.Header{Number: common.Big256}
 	s.NotEqual(newL1Current, s.state.GetL1Current())
@@ -83,16 +111,30 @@ func (s *ProverSharedStateTestSuite) TestRollbackProposalCursor() {
 	s.state.SetL1Current(&types.Header{Number: big.NewInt(100)})
 
 	s.True(s.state.RollbackProposalCursor(context.Background(), 5, &types.Header{Number: big.NewInt(90)}))
-	s.Equal(uint64(5), s.state.GetLastHandledProposalID())
+	s.Equal(uint64(4), s.state.GetLastHandledProposalID())
 	s.Equal(uint64(90), s.state.GetL1Current().Number.Uint64())
+	s.True(s.state.NeedsProposalProcessing(5))
 
 	// Rolling back to values above the current cursors must not advance them.
 	s.True(s.state.RollbackProposalCursor(context.Background(), 8, &types.Header{Number: big.NewInt(95)}))
-	s.Equal(uint64(5), s.state.GetLastHandledProposalID())
+	s.Equal(uint64(4), s.state.GetLastHandledProposalID())
 	s.Equal(uint64(90), s.state.GetL1Current().Number.Uint64())
+	s.True(s.state.NeedsProposalProcessing(8))
+}
+
+func (s *ProverSharedStateTestSuite) TestRollbackProposalCursorRejectsZeroProposalID() {
+	s.state.MarkProposalProcessing(10)
+	s.state.SetLastHandledProposalID(10)
+	s.state.SetL1Current(&types.Header{Number: big.NewInt(100)})
+
+	s.False(s.state.RollbackProposalCursor(context.Background(), 0, &types.Header{Number: big.NewInt(50)}))
+	s.Equal(uint64(10), s.state.GetLastHandledProposalID())
+	s.Equal(uint64(100), s.state.GetL1Current().Number.Uint64())
+	s.False(s.state.NeedsProposalProcessing(0))
 }
 
 func (s *ProverSharedStateTestSuite) TestRollbackProposalCursorCanceledWhileWaitingForLock() {
+	s.state.MarkProposalProcessing(10)
 	s.state.SetLastHandledProposalID(10)
 	s.state.SetL1Current(&types.Header{Number: big.NewInt(100)})
 
@@ -127,6 +169,7 @@ func (s *ProverSharedStateTestSuite) TestRollbackProposalCursorCanceledWhileWait
 	s.False(<-rollbackDone)
 	s.Equal(uint64(10), s.state.GetLastHandledProposalID())
 	s.Equal(uint64(100), s.state.GetL1Current().Number.Uint64())
+	s.False(s.state.NeedsProposalProcessing(5))
 }
 
 func (s *ProverSharedStateTestSuite) TestWithProposalCursorLocksDuringScan() {

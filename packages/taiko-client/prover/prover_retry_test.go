@@ -23,6 +23,7 @@ func TestProposalRetryExhaustionRollsBackCursor(t *testing.T) {
 	}
 	p.sharedState.SetLastHandledProposalID(42)
 	p.sharedState.SetL1Current(&types.Header{Number: big.NewInt(100)})
+	p.sharedState.MarkProposalProcessing(30)
 	meta := metadata.NewTaikoProposalMetadataShasta(
 		&shastaBindings.ShastaInboxClientProposed{
 			Id:  big.NewInt(21),
@@ -39,6 +40,8 @@ func TestProposalRetryExhaustionRollsBackCursor(t *testing.T) {
 
 	require.Equal(t, uint64(20), p.sharedState.GetLastHandledProposalID())
 	require.Equal(t, uint64(88), p.sharedState.GetL1Current().Number.Uint64())
+	require.True(t, p.sharedState.NeedsProposalProcessing(21))
+	require.False(t, p.sharedState.NeedsProposalProcessing(22))
 }
 
 func TestProposalRetryExhaustionDoesNotRollBackAfterCancellation(t *testing.T) {
