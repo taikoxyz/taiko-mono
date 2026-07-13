@@ -1,0 +1,285 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "../governance/BuildProposal.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
+
+// To print the proposal action data: `P=0019 pnpm proposal`
+// To dryrun the proposal on L1: `P=0019 pnpm proposal:dryrun:l1`
+contract Proposal0019 is BuildProposal {
+    // Deployed mainnet implementation addresses, from the DeployUnzenContracts broadcast.
+    address public constant MAINNET_INBOX_NEW_IMPL = 0x5253D4C91e80b880DdB54B78E74082Abe066F6b9;
+
+    // New ZkRequiredVerifier: (SGX_GETH or SGX_RETH) + (RISC0 or SP1), or RISC0 + SP1. Every
+    // accepted combination contains at least one ZK proof. Baked into MAINNET_INBOX_NEW_IMPL as
+    // an immutable; listed here for documentation and verification only.
+    address public constant ZK_REQUIRED_VERIFIER = 0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec;
+
+    // SGX sub-verifiers wired into ZK_REQUIRED_VERIFIER: the verifiers Proposal0017 deployed,
+    // reused unchanged. Both are already owned by the DAO controller and baked into
+    // ZK_REQUIRED_VERIFIER as immutables; listed here so a reviewer can cross-check them against
+    // sgxGethVerifier()/sgxRethVerifier() on the deployed verifier.
+    address public constant SGXGETH_VERIFIER = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee;
+    address public constant SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
+
+    // Existing SGX attester proxies reused by the Proposal0017 SGX verifiers. The signer remains
+    // unchanged; this proposal only rotates the trusted MRENCLAVE allowlist on these attesters.
+    address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
+    address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+
+    // ZK sub-verifiers wired into ZK_REQUIRED_VERIFIER (reused from Proposal0017, live on mainnet).
+    address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
+    address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
+
+    // Currently trusted raiko2 v0.5.1 ZK IDs, set by Proposal0017 (verified still live on
+    // 2026-07-08 via isImageTrusted/isProgramTrusted). Untrusted by this proposal: proofs from
+    // the old raiko2 images stop verifying at execution.
+    bytes32 public constant OLD_RISC0_PROPOSAL_IMAGE_ID =
+        0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b;
+    bytes32 public constant OLD_RISC0_AGGREGATION_IMAGE_ID =
+        0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef;
+    bytes32 public constant OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
+        0x007594632ec31fae9d44799b97316fcbcaa3ff6b5db268c7a5d8025b3bbb487e;
+    bytes32 public constant OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
+        0x3aca319730c7eba7288f33727316fcbc551ffb5a76c9a31e4bb004b63bbb487e;
+    bytes32 public constant OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
+        0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc;
+    bytes32 public constant OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
+        0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc;
+
+    // New raiko2 v0.6.0 ZK IDs trusted by this proposal.
+    // Source: https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0
+    bytes32 public constant NEW_RISC0_PROPOSAL_IMAGE_ID =
+        0x5a818b4c7dc80e9ba85d55492c20c263c67238724e3982f76d15a158e501210b;
+    bytes32 public constant NEW_RISC0_AGGREGATION_IMAGE_ID =
+        0x9cfcc1b34a98853c3c5873a4d456726e528246f7f03a4ea35f27c2543aa6e7f0;
+    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
+        0x00ad090221a8fa0f09e1be7a53feb67be010f01310d4b2314a69d10152ee1ce0;
+    bytes32 public constant NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
+        0x568481106a3e83c23c37cf4a3feb67be008780984352c8c514d3a20252ee1ce0;
+    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
+        0x000b11691352e55fcf64f62620cefaa700161600093f2751032fe71ea912264d;
+    bytes32 public constant NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
+        0x0588b48954b957f36c9ec4c40cefaa7000b0b00024fc9d44065fce3d2912264d;
+
+    // Current Proposal0017 SGX MRENCLAVE values trusted on the attester proxies.
+    bytes32 public constant OLD_SGXGETH_MR_ENCLAVE =
+        0xbefb2c7ec44cefe57f4ff0ca815a8b8f15e05631bf3abe36cbc12d28f778fa36;
+    bytes32 public constant OLD_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4;
+    bytes32 public constant OLD_SGXRETH_EDMM_MR_ENCLAVE =
+        0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
+
+    // New raiko2 v0.6.0 TEE MRENCLAVE values.
+    // Source: https://github.com/taikoxyz/raiko2/releases/tag/v0.6.0
+    bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
+        0x2d2216efbe9d8e80ba24b86606ccd5ce9faf11033d31ad9e5d3c5c89965c8a57;
+    bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0x90c79e65d6d0f83d658ff96cd0ef1204438f20b406c93cf1d4fafa0cff29842e;
+    bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
+        0x041cadb0541bf8249c368482172d218608f3693975b65f74beb2ed6f0044f951;
+
+    error ImplementationNotDeployed();
+    error ZkImageIdNotSet();
+    error SgxMrEnclaveNotSet();
+
+    function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
+        require(MAINNET_INBOX_NEW_IMPL != address(0), ImplementationNotDeployed());
+        require(ZK_REQUIRED_VERIFIER != address(0), ImplementationNotDeployed());
+        require(
+            NEW_RISC0_PROPOSAL_IMAGE_ID != bytes32(0)
+                && NEW_RISC0_AGGREGATION_IMAGE_ID != bytes32(0),
+            ZkImageIdNotSet()
+        );
+        require(
+            NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256 != bytes32(0)
+                && NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256 != bytes32(0)
+                && NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0),
+            ZkImageIdNotSet()
+        );
+        require(
+            NEW_SGXGETH_MR_ENCLAVE != bytes32(0) && NEW_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && NEW_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
+            SgxMrEnclaveNotSet()
+        );
+
+        actions = new Controller.Action[](22);
+
+        // 0-3: Rotate the trusted RISC0 image IDs to the Unzen raiko release. Untrust the live
+        // raiko2 v0.5.1 IDs, trust the new ones. Proofs aggregated under the old images stop
+        // verifying at execution, so the raiko2 service running the new images must be live
+        // (and the prover pointed at it) when the proposal executes.
+        actions[0] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (OLD_RISC0_PROPOSAL_IMAGE_ID, false)
+            )
+        });
+        actions[1] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (OLD_RISC0_AGGREGATION_IMAGE_ID, false)
+            )
+        });
+        actions[2] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (NEW_RISC0_PROPOSAL_IMAGE_ID, true)
+            )
+        });
+        actions[3] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (NEW_RISC0_AGGREGATION_IMAGE_ID, true)
+            )
+        });
+
+        // 4-11: Rotate the trusted SP1 program verification keys the same way.
+        actions[4] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_PROPOSAL_PROGRAM_VKEY_BN256, false)
+            )
+        });
+        actions[5] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, false)
+            )
+        });
+        actions[6] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_AGGREGATION_PROGRAM_VKEY_BN256, false)
+            )
+        });
+        actions[7] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (OLD_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, false)
+            )
+        });
+        actions[8] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)
+            )
+        });
+        actions[9] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+        actions[10] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_AGGREGATION_PROGRAM_VKEY_BN256, true)
+            )
+        });
+        actions[11] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (NEW_SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+
+        // 12-17: Rotate the trusted SGX MRENCLAVE values on the reused Proposal0017 attesters.
+        // MRSIGNER remains unchanged.
+        actions[12] = Controller.Action({
+            target: SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019Attestation.setMrEnclave, (OLD_SGXGETH_MR_ENCLAVE, false)
+            )
+        });
+        actions[13] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019Attestation.setMrEnclave, (OLD_SGXRETH_NON_EDMM_MR_ENCLAVE, false)
+            )
+        });
+        actions[14] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019Attestation.setMrEnclave, (OLD_SGXRETH_EDMM_MR_ENCLAVE, false)
+            )
+        });
+        actions[15] = Controller.Action({
+            target: SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
+            )
+        });
+        actions[16] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019Attestation.setMrEnclave, (NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+            )
+        });
+        actions[17] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0019Attestation.setMrEnclave, (NEW_SGXRETH_EDMM_MR_ENCLAVE, true)
+            )
+        });
+
+        // 18-19: Delete the pre-Unzen SGX instances.
+        uint256[] memory instanceIds = new uint256[](1);
+        instanceIds[0] = 0;
+        actions[18] = Controller.Action({
+            target: SGXGETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(IProposal0019SgxVerifier.deleteInstances, (instanceIds))
+        });
+        actions[19] = Controller.Action({
+            target: SGXRETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(IProposal0019SgxVerifier.deleteInstances, (instanceIds))
+        });
+
+        // 20: Upgrade the Inbox to the Unzen implementation: forced inclusions re-enabled
+        // (submission + mandatory processing of due inclusions) and the ZkRequiredVerifier
+        // (at least one ZK proof per batch, SGX paths via the reused Proposal0017 SGX
+        // verifiers) baked in as the proof verifier.
+        actions[20] = buildUpgradeAction(L1.INBOX, MAINNET_INBOX_NEW_IMPL);
+
+        // 21: Void the stale forced inclusion queue entry (head=2, tail=3) queued during the
+        // June 2026 incident. Its blob has expired from the blob retention window and can no
+        // longer be derived, so it must be skipped before the due-check is re-enabled.
+        actions[21] = Controller.Action({
+            target: L1.INBOX, value: 0, data: abi.encodeCall(IProposal0019Inbox.init3, ())
+        });
+    }
+}
+
+interface IProposal0019Inbox {
+    function init3() external;
+}
+
+interface IProposal0019Attestation {
+    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
+}
+
+interface IProposal0019SgxVerifier {
+    function deleteInstances(uint256[] calldata _ids) external;
+}
