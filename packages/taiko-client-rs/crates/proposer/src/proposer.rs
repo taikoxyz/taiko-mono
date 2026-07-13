@@ -108,6 +108,13 @@ impl Proposer {
 
         // Initialize anchor transaction constructor only for engine mode.
         let anchor_constructor = if cfg.use_engine_mode {
+            warn!(
+                "engine mode is enabled: on execution clients without deferred L1-origin \
+                 persistence (taikoxyz/alethia-reth#219), the build-only FCU preview persists \
+                 l1_origin, head_l1_origin, and batch_to_last_block rows for blocks that never \
+                 become canonical, leaving ghost rows every proposal cycle; verify the \
+                 connected node includes that fix before using engine mode in production"
+            );
             Some(
                 AnchorTxConstructor::new(
                     rpc_provider.l2_provider.clone(),
@@ -750,8 +757,14 @@ mod tests {
         assert_eq!(ProposerMetrics::proposals_success().get(), before + 1);
     }
 
+    /// Serializes tests that snapshot and assert on the process-global proposal-failure
+    /// counter, which would otherwise race each other under the parallel test runner.
+    static PROPOSALS_FAILED_METRIC_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn reverted_submission_receipt_becomes_failed_proposal_error() {
+        let _metric_guard =
+            PROPOSALS_FAILED_METRIC_GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let receipt = receipt_with_status(false);
         let tx_hash = receipt.transaction_hash;
         let before = ProposerMetrics::proposals_failed().get();
@@ -825,6 +838,8 @@ mod tests {
 
     #[test]
     fn loop_failure_metric_not_double_counted_for_reverted_receipts() {
+        let _metric_guard =
+            PROPOSALS_FAILED_METRIC_GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let before = ProposerMetrics::proposals_failed().get();
 
         let reverted_err =

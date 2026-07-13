@@ -33,13 +33,49 @@ use super::{
     },
 };
 
+/// Return whether an envelope is at or below a written event-confirmed tip.
+pub(super) fn is_stale_at_confirmed_tip(block_number: u64, confirmed_tip: Option<u64>) -> bool {
+    confirmed_tip.is_some_and(|tip| block_number <= tip)
+}
+
 impl WhitelistPreconfirmationImporter {
     /// Cache a validated envelope and persist EOS epoch mapping when applicable.
+    ///
+    /// The admission-time staleness check is a best-effort filter: the authoritative
+    /// WLP-INV-003 boundary checks run again at cache drain, response serving, and driver
+    /// ingress. A transient confirmed-tip read failure therefore admits the envelope instead
+    /// of dropping it — gossipsub dedupe suppresses redelivery of the same message and a tip
+    /// or EOS envelope with no later child never triggers a parent request, so a dropped
+    /// envelope would be unrecoverable until L1 confirmation catches up.
     async fn ingest_validated_envelope(
         &mut self,
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
         ingress_source: &'static str,
     ) {
+        let confirmed_tip = match self.head_l1_origin_block_id().await {
+            Ok(tip) => tip,
+            Err(err) => {
+                warn!(
+                    block_number = envelope.execution_payload.block_number,
+                    block_hash = %envelope.execution_payload.block_hash,
+                    ingress_source,
+                    error = %err,
+                    "confirmed-tip lookup failed at admission; admitting envelope for deferred stale checks"
+                );
+                None
+            }
+        };
+        if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {
+            debug!(
+                block_number = envelope.execution_payload.block_number,
+                block_hash = %envelope.execution_payload.block_hash,
+                ?confirmed_tip,
+                ingress_source,
+                "ignoring stale whitelist preconfirmation envelope"
+            );
+            return;
+        }
+
         self.cache.insert(envelope.clone());
         self.update_pending_cache_gauge();
         self.state.insert_recent(envelope.clone()).await;
@@ -112,7 +148,6 @@ impl WhitelistPreconfirmationImporter {
             envelope.header_difficulty,
         )?;
         self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await;
-
         Ok(())
     }
 
@@ -137,6 +172,19 @@ impl WhitelistPreconfirmationImporter {
         } else {
             return Ok(None);
         };
+
+        let confirmed_tip = self.head_l1_origin_block_id().await?;
+        if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {
+            debug!(
+                block_number = envelope.execution_payload.block_number,
+                block_hash = %hash,
+                ?confirmed_tip,
+                source,
+                "refusing to serve stale whitelist preconfirmation envelope"
+            );
+            self.state.remove_recent(&hash).await;
+            return Ok(None);
+        }
 
         self.state.insert_recent(envelope.clone()).await;
         self.publish_unsafe_response(envelope).await;
