@@ -15,6 +15,7 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_provider::Provider;
+use alloy_rpc_client::BatchRequest;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
@@ -556,6 +557,23 @@ impl EventSyncer {
         }
     }
 
+    /// Close preconfirmation ingress ahead of a scanner replay window.
+    ///
+    /// The gate is stored closed before the router lock is touched: the lock is fair, so
+    /// waiting on it first would let every already-queued ingress job acquire ahead of the
+    /// close and inject after lag detection. Storing first bounds post-lag injection to the
+    /// single job currently holding the lock; the acquire/release below is the barrier that
+    /// lets that in-flight injection finish before replay derivation (which serializes on the
+    /// same lock) begins, while every job dequeued afterwards observes the closed gate.
+    ///
+    /// Must only be called from the event-loop task, keeping gate transitions single-owner.
+    async fn close_preconf_ingress(&self, router: &Arc<AsyncMutex<ProductionRouter>>) {
+        if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
+            info!("closing preconfirmation ingress during event scanner reconnect");
+        }
+        drop(router.lock().await);
+    }
+
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
     /// is no longer part of the canonical chain, proven at a finalized height.
     #[instrument(skip(self), level = "debug")]
@@ -585,12 +603,34 @@ impl EventSyncer {
         // following a losing fork) rather than proof that the log's block lost a reorg — and
         // the scanner, having observed no reorg on its own view, would never re-serve a wrongly
         // skipped log. Stay retryable until the height finalizes.
-        let finalized_block_number =
-            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
-                Ok(block) => block.map(|block| block.header.number),
-                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
-                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
-            };
+        //
+        // The finality and canonicality reads must themselves share one view: issued as
+        // separate requests over a load-balanced HTTP endpoint, a synced backend could vouch
+        // for finality while a stale one serves a losing fork at the height. A JSON-RPC batch
+        // travels as one request, so one backend answers both.
+        let mut batch = BatchRequest::new(self.rpc.l1_provider.client());
+        let finalized_waiter = batch
+            .add_call::<_, Option<RpcBlock<TxEnvelope>>>(
+                "eth_getBlockByNumber",
+                &(BlockNumberOrTag::Finalized, false),
+            )
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let canonical_waiter = batch
+            .add_call::<_, Option<RpcBlock<TxEnvelope>>>(
+                "eth_getBlockByNumber",
+                &(BlockNumberOrTag::Number(block_number), false),
+            )
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        batch
+            .send()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        let finalized_block_number = match finalized_waiter.await {
+            Ok(block) => block.map(|block| block.header.number),
+            Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
+            Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+        };
         if finalized_block_number.is_none_or(|finalized| finalized < block_number) {
             return Ok(false);
         }
@@ -599,10 +639,7 @@ impl EventSyncer {
         // keep serving reorged-out blocks by hash, while lagging or mixed backends can
         // transiently miss canonical ones. Compare against the finalized canonical block at the
         // height instead.
-        let canonical_block = self
-            .rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        let canonical_block = canonical_waiter
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
@@ -1508,17 +1545,8 @@ impl SyncStage for EventSyncer {
             }
 
             // A dropped scanner forces a historical replay window again, so close ingress until
-            // the next live scanner transition and confirmed-sync probe re-open it. Holding the
-            // router lock serializes the close against in-flight injections: a job that observed
-            // an open gate completes before the close lands, and every job dequeued afterwards
-            // observes the closed gate before replay derivation (which serializes on the same
-            // lock) begins.
-            {
-                let _router_guard = router.lock().await;
-                if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
-                    info!("closing preconfirmation ingress during event scanner reconnect");
-                }
-            }
+            // the next live scanner transition and confirmed-sync probe re-open it.
+            self.close_preconf_ingress(&router).await;
 
             if let Some(block_number) = last_seen_l1_block_number {
                 let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
@@ -2036,12 +2064,13 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_mismatch_height_is_not_finalized() {
         let asserter = Asserter::new();
-        // The hash misses, but the log height (1) is above the finalized height (0): the
-        // provider may be lagging the scanner or briefly following a losing fork, so a
-        // canonical mismatch read here proves nothing and the log must stay retryable. The
-        // canonical row is never fetched.
+        // The hash misses and the canonical row at the log height (1) conflicts, but the
+        // finalized height (0) has not reached the log height: the provider may be lagging the
+        // scanner or briefly following a losing fork, so the mismatch proves nothing and the
+        // log must stay retryable. The canonical row arrives in the same batch but is ignored.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&finalized_l1_block_at(0));
+        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let is_orphaned =
             check_orphaned_proposal_log(asserter.clone(), B256::from([10u8; 32]), Some(1))
@@ -2049,16 +2078,18 @@ mod tests {
                 .expect("block lookups should succeed");
 
         assert!(!is_orphaned);
-        assert!(asserter.read_q().is_empty(), "unfinalized height must short-circuit");
+        assert!(asserter.read_q().is_empty(), "batched reads must all be consumed");
     }
 
     #[tokio::test]
     async fn proposal_log_is_retryable_when_finalized_height_is_unavailable() {
         let asserter = Asserter::new();
         // Without a finalized height there is no immutable canonical row to compare against,
-        // so no mismatch can be proven and the log stays retryable.
+        // so no mismatch can be proven and the log stays retryable; the batched canonical row
+        // is ignored.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([11u8; 32]), Some(1))
             .await
@@ -2072,8 +2103,10 @@ mod tests {
         let asserter = Asserter::new();
         // Fresh chains report "finalized block not found" until the first finalized epoch;
         // treat it as "finality unavailable" rather than an error, keeping the log retryable.
+        // The batched canonical row is ignored.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
+        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([12u8; 32]), Some(1))
             .await
@@ -2087,6 +2120,7 @@ mod tests {
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_failure_msg("boom");
+        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let err = check_orphaned_proposal_log(asserter, B256::from([13u8; 32]), Some(1))
             .await
@@ -2594,6 +2628,31 @@ mod tests {
 
         assert!(preconf_ingress_spawned);
         assert!(syncer.preconf_ingress_ready.load(Ordering::Acquire));
+    }
+
+    #[tokio::test]
+    async fn close_preconf_ingress_stores_closed_before_router_barrier() {
+        let syncer = build_syncer().await;
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockBatchPath::new([])),
+            None,
+        )));
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        // Simulate an in-flight injection holding the router lock: the fair mutex would serve
+        // queued waiters ahead of the close, so the gate must already read closed while the
+        // close is still blocked on its barrier.
+        let in_flight = router.lock().await;
+        let blocked_close =
+            timeout(Duration::from_millis(50), syncer.close_preconf_ingress(&router)).await;
+        assert!(blocked_close.is_err(), "barrier must wait for the in-flight lock holder");
+        assert!(
+            !syncer.preconf_ingress_ready.load(Ordering::Acquire),
+            "gate must be closed before the barrier is acquired"
+        );
+
+        drop(in_flight);
+        syncer.close_preconf_ingress(&router).await;
     }
 
     #[tokio::test]
