@@ -15,7 +15,6 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_provider::Provider;
-use alloy_rpc_client::BatchRequest;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
@@ -70,6 +69,13 @@ const REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT: Duration = Duration::from_secs(12);
 /// inbox would otherwise leave ingress closed until an unrelated proposal event arrives — which
 /// a closed ingress itself suppresses on a preconfirmation-driven chain.
 const CONFIRMED_SYNC_PROBE_RETRY_INTERVAL: Duration = Duration::from_secs(6);
+/// Maximum orphan-proof ancestry walk, in blocks between the log height and the finalized head.
+///
+/// Orphan candidates arrive on the live scanner path near the L1 head (catch-up ranges stream
+/// only canonical logs) and the proof first runs once finality reaches the log height, so the
+/// walk normally spans the finality lag (~2 epochs). The cap guards the practically
+/// unreachable deep case, which stays retryable.
+const MAX_ORPHAN_PROOF_ANCESTRY_WALK: u64 = 512;
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -222,14 +228,6 @@ fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
 /// Return whether a scanner stream error breaks event continuity and requires dropping the
 /// subscription so the reconnect path can replay from a safe overlap.
 ///
-/// `ScannerError::Lagged` is the only non-terminal scanner error: the stream keeps running but
-/// the lagged block ranges were dropped by the scanner and are never re-fetched, so continuing
-/// to consume the stream would silently skip proposals. All other errors are terminal and end
-/// the stream on their own.
-fn scanner_error_requires_reconnect(err: &ScannerError) -> bool {
-    matches!(err, ScannerError::Lagged(_))
-}
-
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
@@ -575,7 +573,7 @@ impl EventSyncer {
     }
 
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
-    /// is no longer part of the canonical chain, proven at a finalized height.
+    /// is proven not to be an ancestor of the finalized L1 block.
     #[instrument(skip(self), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(
         &self,
@@ -597,55 +595,67 @@ impl EventSyncer {
             return Ok(false);
         };
 
-        // A canonical row is only immutable once its height is finalized. The scanner and
-        // `l1_provider` are independent connections, so above the finalized height a mismatch
-        // can still be a transient view split (a load-balanced backend lagging or briefly
-        // following a losing fork) rather than proof that the log's block lost a reorg — and
-        // the scanner, having observed no reorg on its own view, would never re-serve a wrongly
-        // skipped log. Stay retryable until the height finalizes.
-        //
-        // The finality and canonicality reads must themselves share one view: issued as
-        // separate requests over a load-balanced HTTP endpoint, a synced backend could vouch
-        // for finality while a stale one serves a losing fork at the height. A JSON-RPC batch
-        // travels as one request, so one backend answers both.
-        let mut batch = BatchRequest::new(self.rpc.l1_provider.client());
-        let finalized_waiter = batch
-            .add_call::<_, Option<RpcBlock<TxEnvelope>>>(
-                "eth_getBlockByNumber",
-                &(BlockNumberOrTag::Finalized, false),
-            )
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
-        let canonical_waiter = batch
-            .add_call::<_, Option<RpcBlock<TxEnvelope>>>(
-                "eth_getBlockByNumber",
-                &(BlockNumberOrTag::Number(block_number), false),
-            )
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
-        batch
-            .send()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
-
-        let finalized_block_number = match finalized_waiter.await {
-            Ok(block) => block.map(|block| block.header.number),
-            Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
-            Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+        // A canonical row is only immutable once its height is finalized. Above the finalized
+        // height a mismatch can still be a transient view split (a load-balanced backend
+        // lagging or briefly following a losing fork) rather than proof that the log's block
+        // lost a reorg — and the scanner, having observed no reorg on its own view, would never
+        // re-serve a wrongly skipped log. Stay retryable until the height finalizes.
+        let finalized_block =
+            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block,
+                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
+        let Some(finalized_block) = finalized_block else {
+            return Ok(false);
         };
-        if finalized_block_number.is_none_or(|finalized| finalized < block_number) {
+        if finalized_block.header.number < block_number {
             return Ok(false);
         }
 
-        // By-hash resolvability proves nothing about canonicality in either direction: nodes
-        // keep serving reorged-out blocks by hash, while lagging or mixed backends can
-        // transiently miss canonical ones. Compare against the finalized canonical block at the
-        // height instead.
-        let canonical_block = canonical_waiter
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        // The canonical hash at the log height is derived from the finalized block's own
+        // parent-hash chain rather than a by-number read: no multi-request scheme observes one
+        // chain snapshot (not even a JSON-RPC batch — its items execute against live state and,
+        // on some backends, concurrently), while every hop below is a content-addressed by-hash
+        // read that is identical across backends, load balancers, and fork-choice updates.
+        // Missing or inconsistent ancestry data leaves the mismatch unproven, so the log stays
+        // retryable.
+        if finalized_block.header.number - block_number > MAX_ORPHAN_PROOF_ANCESTRY_WALK {
+            warn!(
+                block_number,
+                finalized_block_number = finalized_block.header.number,
+                "orphan-proof ancestry walk exceeds cap; keeping proposal log retryable"
+            );
+            return Ok(false);
+        }
+        let mut cursor = finalized_block;
+        while cursor.header.number > block_number.saturating_add(1) {
+            let parent_number = cursor.header.number - 1;
+            let parent = self
+                .rpc
+                .l1_provider
+                .get_block_by_hash(cursor.header.parent_hash)
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+            let Some(parent) = parent else {
+                return Ok(false);
+            };
+            // Content addressing fixes the parent's height on honest data; treat anything else
+            // as unproven rather than risking a non-terminating walk.
+            if parent.header.number != parent_number {
+                return Ok(false);
+            }
+            cursor = parent;
+        }
+        let canonical_hash_at_height = if cursor.header.number == block_number {
+            cursor.header.hash
+        } else {
+            cursor.header.parent_hash
+        };
 
-        // Only a canonical-hash mismatch proven at a finalized height classifies the log as
-        // permanently orphaned; unresolved canonical data stays retryable.
-        Ok(canonical_block.is_some_and(|canonical| canonical.header.hash != block_hash))
+        // Only a hash mismatch anchored into the finalized chain classifies the log as
+        // permanently orphaned.
+        Ok(canonical_hash_at_height != block_hash)
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
@@ -1521,16 +1531,22 @@ impl SyncStage for EventSyncer {
                     }
                     Err(err) => {
                         DriverMetrics::event_scanner_errors_total().inc();
-                        if scanner_error_requires_reconnect(&err) {
+                        // Every stream error ends the generation. `Lagged` is the only
+                        // non-terminal error, but its dropped ranges are never re-fetched, so
+                        // continuing would silently skip proposals; all other errors halt the
+                        // stream on their own, and waiting for the trailing `None` would let
+                        // the probe-retry timer reopen ingress on a generation whose scanner is
+                        // already dead (WLP-INV-002).
+                        if matches!(err, ScannerError::Lagged(_)) {
                             warn!(
                                 ?err,
                                 "event scanner dropped lagged block ranges; replaying from \
                                  reconnect overlap"
                             );
-                            break;
+                        } else {
+                            error!(?err, "terminal event scanner error; reconnecting");
                         }
-                        error!(?err, "error receiving proposal logs from event scanner");
-                        continue;
+                        break;
                     }
                 }
 
@@ -1695,17 +1711,12 @@ mod tests {
         }
     }
 
-    /// Finalized-block response for the orphan check's finalized-height guard.
-    fn finalized_l1_block_at(number: u64) -> Option<RpcBlock<TxEnvelope>> {
+    /// L1 block response with explicit height, hash, and parent hash for orphan-proof tests.
+    fn l1_block_at(number: u64, hash: B256, parent_hash: B256) -> Option<RpcBlock<TxEnvelope>> {
         let mut block = RpcBlock::<TxEnvelope>::default();
         block.header.number = number;
-        Some(block)
-    }
-
-    /// L1 block response carrying `block_hash`, used to stand in for by-hash and canonical reads.
-    fn l1_block_with_hash(block_hash: B256) -> Option<RpcBlock<TxEnvelope>> {
-        let mut block = RpcBlock::<TxEnvelope>::default();
-        block.header.hash = block_hash;
+        block.header.hash = hash;
+        block.header.parent_hash = parent_hash;
         Some(block)
     }
 
@@ -1950,12 +1961,10 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_orphaned_when_missing_by_hash_and_canonical_hash_differs() {
         let asserter = Asserter::new();
-        // The reorged-out block is no longer served by hash and the canonical block at the
-        // finalized log height carries a different hash, proving the source block left the
-        // canonical chain.
+        // The reorged-out block is no longer served by hash and the finalized block sits at the
+        // log height with a different hash, proving the source block left the canonical chain.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&finalized_l1_block_at(100));
-        asserter.push_success(&l1_block_with_hash(B256::from([6u8; 32])));
+        asserter.push_success(&l1_block_at(1, B256::from([6u8; 32]), B256::ZERO));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([1u8; 32]), Some(1))
             .await
@@ -1968,12 +1977,11 @@ mod tests {
     async fn proposal_log_is_retryable_when_missing_by_hash_but_still_canonical() {
         let asserter = Asserter::new();
         let block_hash = B256::from([8u8; 32]);
-        // A lagging or mixed RPC backend cannot resolve the hash, but the canonical block at
-        // the log height carries the same hash: the block is still canonical and the by-hash
-        // miss was transient, so the log must stay retryable instead of being skipped.
+        // A lagging or mixed RPC backend cannot resolve the hash, but the finalized block at
+        // the log height carries the same hash: the block is canonical and the by-hash miss
+        // was transient, so the log must stay retryable instead of being skipped.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&finalized_l1_block_at(100));
-        asserter.push_success(&l1_block_with_hash(block_hash));
+        asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
             .await
@@ -1983,12 +1991,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_is_retryable_when_missing_by_hash_and_height_unresolved() {
+    async fn proposal_log_is_retryable_when_finalized_ancestor_is_missing() {
         let asserter = Asserter::new();
-        // Neither the hash nor the canonical height resolves, so there is no proof of a reorg
-        // and the log stays retryable.
+        // The finalized block anchors the walk, but the hop toward the log height cannot be
+        // resolved, so no mismatch is proven and the log stays retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&finalized_l1_block_at(100));
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([5u8; 32]), Some(1))
@@ -2016,11 +2024,10 @@ mod tests {
     async fn proposal_log_is_retryable_when_l1_block_is_still_canonical() {
         let asserter = Asserter::new();
         let block_hash = B256::from([2u8; 32]);
-        // The block resolves by hash and the canonical block at its height carries the same
+        // The block resolves by hash and the finalized block at its height carries the same
         // hash, so the derivation failure came from downstream processing.
-        asserter.push_success(&l1_block_with_hash(block_hash));
-        asserter.push_success(&finalized_l1_block_at(100));
-        asserter.push_success(&l1_block_with_hash(block_hash));
+        asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+        asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
             .await
@@ -2033,10 +2040,9 @@ mod tests {
     async fn proposal_log_is_orphaned_when_stored_block_is_not_canonical() {
         let asserter = Asserter::new();
         // Nodes keep serving reorged-out blocks by hash, so the by-hash lookup succeeds...
-        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
-        asserter.push_success(&finalized_l1_block_at(100));
-        // ...but the finalized canonical block at the same height carries a different hash.
-        asserter.push_success(&l1_block_with_hash(B256::from([6u8; 32])));
+        asserter.push_success(&l1_block_at(1, B256::from([4u8; 32]), B256::ZERO));
+        // ...but the finalized child's parent hash differs at the log height.
+        asserter.push_success(&l1_block_at(2, B256::from([0xf2u8; 32]), B256::from([6u8; 32])));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([4u8; 32]), Some(1))
             .await
@@ -2046,13 +2052,45 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_is_retryable_when_canonical_height_is_unresolved() {
+    async fn proposal_log_is_orphaned_after_walking_finalized_ancestry() {
         let asserter = Asserter::new();
-        // The block resolves by hash but the provider cannot resolve the canonical row at its
-        // height (pruned or lagging view), so the log stays retryable rather than being skipped.
-        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
-        asserter.push_success(&finalized_l1_block_at(100));
+        // The finalized block sits two above the log height; one content-addressed hop reaches
+        // the log-height child, whose parent hash differs from the log's block hash.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&l1_block_at(2, B256::from([0xf2u8; 32]), B256::from([6u8; 32])));
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([7u8; 32]), Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_walked_ancestor_matches() {
+        let asserter = Asserter::new();
+        let block_hash = B256::from([7u8; 32]);
+        // Same walk, but the ancestor at the log height is the log's own block: canonical.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&l1_block_at(2, B256::from([0xf2u8; 32]), block_hash));
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_ancestor_height_is_inconsistent() {
+        let asserter = Asserter::new();
+        // A hop returning a block at the wrong height cannot extend the proof; treat it as
+        // unproven instead of walking further.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&l1_block_at(7, B256::from([0xf2u8; 32]), B256::ZERO));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([7u8; 32]), Some(1))
             .await
@@ -2062,15 +2100,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn proposal_log_is_retryable_when_ancestry_walk_exceeds_cap() {
+        let asserter = Asserter::new();
+        // Finality this far above the log height is unreachable for live orphan candidates;
+        // the capped walk stays retryable instead of issuing an unbounded chain of hops.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(1000, B256::from([0xf1u8; 32]), B256::ZERO));
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([8u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(asserter.read_q().is_empty(), "capped walk must not fetch ancestors");
+    }
+
+    #[tokio::test]
     async fn proposal_log_is_retryable_when_mismatch_height_is_not_finalized() {
         let asserter = Asserter::new();
-        // The hash misses and the canonical row at the log height (1) conflicts, but the
-        // finalized height (0) has not reached the log height: the provider may be lagging the
-        // scanner or briefly following a losing fork, so the mismatch proves nothing and the
-        // log must stay retryable. The canonical row arrives in the same batch but is ignored.
+        // The hash misses and the finalized height (0) has not reached the log height (1): the
+        // provider may be lagging the scanner or briefly following a losing fork, so nothing
+        // can be proven and the log must stay retryable without any ancestry fetch.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&finalized_l1_block_at(0));
-        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
+        asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
 
         let is_orphaned =
             check_orphaned_proposal_log(asserter.clone(), B256::from([10u8; 32]), Some(1))
@@ -2078,18 +2131,16 @@ mod tests {
                 .expect("block lookups should succeed");
 
         assert!(!is_orphaned);
-        assert!(asserter.read_q().is_empty(), "batched reads must all be consumed");
+        assert!(asserter.read_q().is_empty(), "unfinalized height must not fetch ancestors");
     }
 
     #[tokio::test]
     async fn proposal_log_is_retryable_when_finalized_height_is_unavailable() {
         let asserter = Asserter::new();
-        // Without a finalized height there is no immutable canonical row to compare against,
-        // so no mismatch can be proven and the log stays retryable; the batched canonical row
-        // is ignored.
+        // Without a finalized block there is no immutable chain to anchor the proof, so no
+        // mismatch can be proven and the log stays retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([11u8; 32]), Some(1))
             .await
@@ -2103,10 +2154,8 @@ mod tests {
         let asserter = Asserter::new();
         // Fresh chains report "finalized block not found" until the first finalized epoch;
         // treat it as "finality unavailable" rather than an error, keeping the log retryable.
-        // The batched canonical row is ignored.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
-        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([12u8; 32]), Some(1))
             .await
@@ -2120,21 +2169,12 @@ mod tests {
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_failure_msg("boom");
-        asserter.push_success(&l1_block_with_hash(B256::from([0x99; 32])));
 
         let err = check_orphaned_proposal_log(asserter, B256::from([13u8; 32]), Some(1))
             .await
             .expect_err("finalized lookup failure should be surfaced");
 
         assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
-    }
-
-    #[test]
-    fn lagged_scanner_error_requires_reconnect_replay() {
-        assert!(scanner_error_requires_reconnect(&ScannerError::Lagged(3)));
-        assert!(!scanner_error_requires_reconnect(&ScannerError::Timeout));
-        assert!(!scanner_error_requires_reconnect(&ScannerError::BlockNotFound));
-        assert!(!scanner_error_requires_reconnect(&ScannerError::SubscriptionClosed));
     }
 
     #[tokio::test]
@@ -2165,8 +2205,7 @@ mod tests {
         let later_tx_hash = B256::from([0x22; 32]);
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&finalized_l1_block_at(100));
-        asserter.push_success(&l1_block_with_hash(B256::from([0x66; 32])));
+        asserter.push_success(&l1_block_at(1, B256::from([0x66; 32]), B256::ZERO));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
