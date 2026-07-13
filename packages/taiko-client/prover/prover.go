@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
@@ -245,13 +246,19 @@ func (p *Prover) eventLoop() {
 				func() error { return p.clearProofBuffer(batchProof, true) },
 			)
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
+			p.withRetry(
+				func() error { return p.requestProofOp(req.Meta) },
+				p.rollbackProposalCursorOnRetryExhaustion(req.Meta),
+			)
 		case proofType := <-p.batchesAggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(proofType) }, nil)
 		case proofType := <-p.flushCacheNotify:
 			p.withRetry(func() error { return p.proofSubmitter.FlushCache(p.ctx, proofType) }, nil)
 		case m := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) }, nil)
+			p.withRetry(
+				func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) },
+				p.rollbackProposalCursorOnRetryExhaustion(m),
+			)
 		case <-proposedCh:
 			reqProving()
 		case e := <-provedCh:
@@ -269,18 +276,20 @@ func (p *Prover) Close(_ context.Context) {
 
 // proveOp iterates through Proposed events.
 func (p *Prover) proveOp() error {
-	iter, err := eventIterator.NewProposalIterator(p.ctx, &eventIterator.ProposalIteratorConfig{
-		RpcClient:          p.rpc,
-		StartHeight:        new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnProposalEvent:    p.eventHandlers.proposalHandler.Handle,
-		BlockConfirmations: &p.cfg.BlockConfirmations,
-	})
-	if err != nil {
-		log.Error("Failed to start proposal iterator", "error", err)
-		return err
-	}
+	return p.sharedState.WithProposalCursor(func() error {
+		iter, err := eventIterator.NewProposalIterator(p.ctx, &eventIterator.ProposalIteratorConfig{
+			RpcClient:          p.rpc,
+			StartHeight:        new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
+			OnProposalEvent:    p.eventHandlers.proposalHandler.Handle,
+			BlockConfirmations: &p.cfg.BlockConfirmations,
+		})
+		if err != nil {
+			log.Error("Failed to start proposal iterator", "error", err)
+			return err
+		}
 
-	return iter.Iter()
+		return iter.Iter()
+	})
 }
 
 // aggregateOp aggregates all proofs in buffer.
@@ -395,4 +404,47 @@ func (p *Prover) withRetry(f func() error, callback func() error) {
 			log.Error("Operation failed", "error", err)
 		}
 	}()
+}
+
+func (p *Prover) rollbackProposalCursorOnRetryExhaustion(
+	meta metadata.TaikoProposalMetaData,
+) func() error {
+	return func() error {
+		if p.ctx == nil {
+			return fmt.Errorf("missing prover context")
+		}
+		if p.ctx.Err() != nil {
+			return nil
+		}
+
+		shastaMeta, ok := meta.(*metadata.TaikoProposalMetadataShasta)
+		if !ok || shastaMeta == nil || shastaMeta.GetEventData() == nil {
+			return fmt.Errorf("invalid proposal metadata")
+		}
+
+		proposalID := shastaMeta.GetProposalID()
+		if proposalID == nil || proposalID.Sign() <= 0 || !proposalID.IsUint64() {
+			return fmt.Errorf("invalid proposal ID")
+		}
+
+		l1Height := shastaMeta.GetRawBlockHeight()
+		if l1Height == nil || l1Height.Sign() <= 0 || !l1Height.IsUint64() {
+			return fmt.Errorf("invalid proposal L1 block height")
+		}
+
+		rollbackHeight := new(big.Int).Set(l1Height)
+		if !p.sharedState.RollbackProposalCursor(
+			p.ctx,
+			proposalID.Uint64()-1,
+			&types.Header{Number: rollbackHeight},
+		) {
+			return nil
+		}
+		log.Warn(
+			"Rolled back proposal cursor after retry exhaustion",
+			"proposalID", proposalID,
+			"l1Height", rollbackHeight,
+		)
+		return nil
+	}
 }
