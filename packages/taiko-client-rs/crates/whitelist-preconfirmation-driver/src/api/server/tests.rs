@@ -1,10 +1,15 @@
 use bytes::Bytes;
+use futures::StreamExt;
 use http_body_util::Full;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
-use tokio::sync::broadcast;
+use tokio::{
+    sync::{Mutex, Notify, broadcast, oneshot},
+    time::{Duration, timeout},
+};
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use super::{
     PRECONF_BLOCKS_BODY_LIMIT_BYTES, WhitelistApiServer, WhitelistApiServerConfig,
@@ -25,6 +30,64 @@ use alloy_primitives::{Address, B256, Bytes as RpcBytes};
 use async_trait::async_trait;
 
 struct MockApi;
+
+struct BlockingApi {
+    started: Mutex<Option<oneshot::Sender<()>>>,
+    release: Notify,
+}
+
+struct WebSocketApi {
+    notifications: broadcast::Sender<EndOfSequencingNotification>,
+}
+
+#[async_trait]
+impl WhitelistApi for WebSocketApi {
+    async fn build_preconf_block(
+        &self,
+        _request: BuildPreconfBlockRequest,
+    ) -> Result<BuildPreconfBlockResponse> {
+        unreachable!("websocket API only exercises notifications")
+    }
+
+    async fn get_status(&self) -> Result<ApiStatus> {
+        unreachable!("websocket API only exercises notifications")
+    }
+
+    fn is_sync_ready(&self) -> bool {
+        true
+    }
+
+    fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
+        self.notifications.subscribe()
+    }
+}
+
+#[async_trait]
+impl WhitelistApi for BlockingApi {
+    async fn build_preconf_block(
+        &self,
+        _request: BuildPreconfBlockRequest,
+    ) -> Result<BuildPreconfBlockResponse> {
+        if let Some(started) = self.started.lock().await.take() {
+            let _ = started.send(());
+        }
+        self.release.notified().await;
+        Ok(BuildPreconfBlockResponse { block_header: Default::default() })
+    }
+
+    async fn get_status(&self) -> Result<ApiStatus> {
+        unreachable!("blocking API only exercises preconfBlocks")
+    }
+
+    fn is_sync_ready(&self) -> bool {
+        true
+    }
+
+    fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
+        let (_tx, rx) = broadcast::channel(1);
+        rx
+    }
+}
 
 #[async_trait]
 impl WhitelistApi for MockApi {
@@ -127,12 +190,74 @@ async fn server_start_stop() {
     let config = test_config();
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
 
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
     assert_eq!(server.local_addr().ip().to_string(), "127.0.0.1");
     assert_ne!(server.local_addr().port(), 0);
     assert!(server.http_url().starts_with("http://127.0.0.1:"));
     assert!(server.ws_url().starts_with("ws://127.0.0.1:"));
     server.stop().await;
+}
+
+#[tokio::test]
+async fn timed_out_stop_retains_server_task() {
+    let (started_tx, started_rx) = oneshot::channel();
+    let api =
+        Arc::new(BlockingApi { started: Mutex::new(Some(started_tx)), release: Notify::new() });
+    let mut server =
+        WhitelistApiServer::start(test_config(), api).await.expect("server should start");
+    let request = tokio::spawn({
+        let url = format!("{}/preconfBlocks", server.http_url());
+        async move {
+            reqwest::Client::new()
+                .post(url)
+                .header(reqwest::header::CONTENT_TYPE, "application/json")
+                .body(sample_preconf_request())
+                .send()
+                .await
+        }
+    });
+    started_rx.await.expect("request should enter blocking handler");
+
+    server.request_shutdown();
+    assert!(timeout(Duration::from_millis(10), server.wait_stopped()).await.is_err());
+    server.abort().await;
+    assert!(server.joined);
+    assert!(timeout(Duration::from_millis(100), request).await.is_ok());
+}
+
+#[tokio::test]
+async fn abort_after_graceful_wait_is_safe() {
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let mut server =
+        WhitelistApiServer::start(test_config(), api).await.expect("server should start");
+
+    server.request_shutdown();
+    server.wait_stopped().await;
+    server.abort().await;
+
+    assert!(server.joined);
+}
+
+#[tokio::test]
+async fn graceful_stop_closes_and_waits_for_websocket() {
+    let (notifications, _) = broadcast::channel(1);
+    let api: Arc<dyn WhitelistApi> = Arc::new(WebSocketApi { notifications });
+    let mut server =
+        WhitelistApiServer::start(test_config(), api).await.expect("server should start");
+    let (mut websocket, _) =
+        connect_async(format!("{}/ws", server.ws_url())).await.expect("websocket should connect");
+
+    server.request_shutdown();
+    let message = timeout(Duration::from_millis(100), websocket.next())
+        .await
+        .expect("websocket should close during graceful shutdown");
+    assert!(
+        matches!(message, Some(Ok(Message::Close(_))) | None),
+        "unexpected websocket shutdown message: {message:?}"
+    );
+    timeout(Duration::from_millis(100), server.wait_stopped())
+        .await
+        .expect("server should wait for websocket shutdown");
 }
 
 #[test]
@@ -151,7 +276,7 @@ async fn cors_layer_allows_configured_origin() {
     };
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
 
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
         .header(reqwest::header::ORIGIN, "https://example.com")
@@ -179,7 +304,7 @@ async fn preconf_blocks_is_rejected_when_not_sync_ready() {
         ..test_config()
     };
     let api = SyncReadyApi { build_preconf_calls: build_preconf_calls.clone(), sync_ready: false };
-    let server =
+    let mut server =
         WhitelistApiServer::start(config, Arc::new(api)).await.expect("server should start");
 
     let response = reqwest::Client::new()
@@ -223,7 +348,7 @@ fn jwt_auth_rejects_missing_header() {
 
 #[tokio::test]
 async fn jwt_auth_is_required_when_secret_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .post(format!("{}/preconfBlocks", server.http_url()))
@@ -241,7 +366,7 @@ async fn jwt_auth_is_required_when_secret_configured() {
 async fn websocket_route_rejects_non_upgrade_requests() {
     let config = test_config();
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/ws", server.http_url()))
@@ -257,7 +382,7 @@ async fn websocket_route_rejects_non_upgrade_requests() {
 async fn preconf_blocks_enforces_body_limit() {
     let config = test_config();
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let oversized_body = vec![b'a'; PRECONF_BLOCKS_BODY_LIMIT_BYTES + 1];
     let response = reqwest::Client::new()
@@ -281,7 +406,7 @@ async fn preconf_blocks_enforces_body_limit() {
 async fn preconf_blocks_rejects_invalid_json() {
     let config = test_config();
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .post(format!("{}/preconfBlocks", server.http_url()))
@@ -306,7 +431,7 @@ async fn preconf_blocks_rejects_invalid_json() {
 async fn get_status_returns_can_shutdown_field_in_camel_case() {
     let config = test_config();
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
@@ -326,7 +451,7 @@ async fn get_status_returns_can_shutdown_field_in_camel_case() {
 
 #[tokio::test]
 async fn status_path_skips_jwt_when_secret_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
@@ -344,7 +469,7 @@ async fn status_path_skips_jwt_when_secret_configured() {
 
 #[tokio::test]
 async fn healthz_path_skips_jwt_when_secret_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/healthz", server.http_url()))
@@ -358,7 +483,7 @@ async fn healthz_path_skips_jwt_when_secret_configured() {
 
 #[tokio::test]
 async fn root_path_skips_jwt_when_secret_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/", server.http_url()))
@@ -372,7 +497,7 @@ async fn root_path_skips_jwt_when_secret_configured() {
 
 #[tokio::test]
 async fn preconf_blocks_still_requires_jwt_when_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .post(format!("{}/preconfBlocks", server.http_url()))
@@ -392,7 +517,7 @@ async fn preconf_blocks_still_requires_jwt_when_configured() {
 
 #[tokio::test]
 async fn ws_still_requires_jwt_when_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/ws", server.http_url()))
@@ -410,7 +535,7 @@ async fn ws_still_requires_jwt_when_configured() {
 
 #[tokio::test]
 async fn unknown_path_requires_jwt_when_secret_configured() {
-    let server = start_jwt_server().await;
+    let mut server = start_jwt_server().await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/this-route-does-not-exist", server.http_url()))
@@ -430,7 +555,7 @@ async fn unknown_path_requires_jwt_when_secret_configured() {
 async fn unknown_path_returns_not_found_when_no_jwt_secret() {
     let config = test_config();
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let mut server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/this-route-does-not-exist", server.http_url()))

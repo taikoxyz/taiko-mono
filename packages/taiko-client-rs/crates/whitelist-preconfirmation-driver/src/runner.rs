@@ -1,6 +1,6 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc, time::Duration};
+use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc, task::Poll, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
@@ -75,6 +75,14 @@ impl WhitelistPreconfirmationDriverRunner {
         );
 
         preconf_ingress_sync.wait_preconf_ingress_ready().await?;
+
+        // Poll once before exposing P2P or REST so Tokio installs both OS signal streams. The
+        // pinned future then retains any signal arriving during the remaining startup sequence.
+        let shutdown = shutdown_signal();
+        tokio::pin!(shutdown);
+        if poll_shutdown_once(shutdown.as_mut()).await {
+            return Ok(());
+        }
 
         let operator_poller = OperatorSetPoller::new(
             self.config.whitelist_address,
@@ -176,12 +184,6 @@ impl WhitelistPreconfirmationDriverRunner {
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
         let mut event_syncer_handle = preconf_ingress_sync.handle_mut();
 
-        // Cooperative shutdown for the steady-state loop; pinned once so a signal arriving
-        // between loop iterations is not lost. Signals arriving before the first poll keep
-        // their default disposition (immediate exit), acceptable while nothing is in flight.
-        let shutdown = shutdown_signal();
-        tokio::pin!(shutdown);
-
         loop {
             let iteration = async {
                 let outcome: Option<Result<()>> = tokio::select! {
@@ -235,7 +237,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     // already-consumed JoinHandle result and later teardown may re-poll it.
                     let cleanup = async {
                         let _ = command_tx.send(NetworkCommand::Shutdown).await;
-                        node_handle.abort();
+                        abort_and_wait(&mut node_handle).await;
                         stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
                     };
                     match complete_cleanup_or_timeout_on_shutdown(
@@ -250,8 +252,12 @@ impl WhitelistPreconfirmationDriverRunner {
                         ShutdownAwareCleanupOutcome::AfterSignal => return Ok(()),
                         ShutdownAwareCleanupOutcome::TimedOut => {
                             warn!("whitelist preconfirmation drain timed out; exiting anyway");
-                            node_handle.abort();
-                            event_syncer_handle.abort();
+                            abort_remaining_tasks(
+                                &mut rest_ws_server,
+                                &mut node_handle,
+                                event_syncer_handle,
+                            )
+                            .await;
                             return Ok(());
                         }
                     }
@@ -264,7 +270,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     // then ask the network to shut down and wait for queued commands to be
                     // consumed. One deadline bounds the whole sequence; abort only as fallback.
                     let teardown = async {
-                        if let Some(server) = rest_ws_server.take() {
+                        if let Some(server) = rest_ws_server.as_mut() {
                             server.stop().await;
                         }
                         request_network_shutdown(&command_tx, &mut node_handle).await;
@@ -277,14 +283,31 @@ impl WhitelistPreconfirmationDriverRunner {
                     .is_err()
                     {
                         warn!("whitelist preconfirmation drain timed out; exiting anyway");
-                        node_handle.abort();
+                        abort_remaining_tasks(
+                            &mut rest_ws_server,
+                            &mut node_handle,
+                            event_syncer_handle,
+                        )
+                        .await;
+                    } else {
+                        abort_and_wait(event_syncer_handle).await;
                     }
-                    event_syncer_handle.abort();
                     return Ok(());
                 }
             }
         }
     }
+}
+
+/// Poll a pinned shutdown future exactly once without consuming it when it remains pending.
+///
+/// Returns `true` when shutdown was already ready. A pending result leaves the same future ready
+/// for later steady-state polling after its signal handlers have been installed.
+async fn poll_shutdown_once<S>(mut shutdown: Pin<&mut S>) -> bool
+where
+    S: Future<Output = ()>,
+{
+    std::future::poll_fn(|cx| Poll::Ready(shutdown.as_mut().poll(cx).is_ready())).await
 }
 
 /// Result of running terminal cleanup while still observing the process shutdown signal.
@@ -376,25 +399,103 @@ async fn request_network_shutdown(
     let _ = node_handle.await;
 }
 
+/// Abort one task and wait until its cancellation has been observed.
+async fn abort_and_wait<T>(handle: &mut tokio::task::JoinHandle<T>) {
+    // A terminal select branch may already have consumed the handle result. Such a task is no
+    // longer live, and re-polling its completed handle would panic.
+    if handle.is_finished() {
+        return;
+    }
+    handle.abort();
+    let _ = handle.await;
+}
+
+/// Force-stop every owned component after the graceful shutdown deadline expires.
+async fn abort_remaining_tasks<T>(
+    rest_ws_server: &mut Option<WhitelistApiServer>,
+    node_handle: &mut tokio::task::JoinHandle<Result<()>>,
+    event_syncer_handle: &mut tokio::task::JoinHandle<T>,
+) {
+    if let Some(server) = rest_ws_server.as_mut() {
+        server.abort().await;
+    }
+    abort_and_wait(node_handle).await;
+    abort_and_wait(event_syncer_handle).await;
+}
+
 /// Abort sidecar tasks and stop the REST server during shutdown.
 async fn stop_sidecars<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
     rest_ws_server: &mut Option<WhitelistApiServer>,
 ) {
-    event_syncer_handle.abort();
-    if let Some(server) = rest_ws_server.take() {
+    abort_and_wait(event_syncer_handle).await;
+    if let Some(server) = rest_ws_server.as_mut() {
         server.stop().await;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::future::{pending, ready};
+    use std::{
+        future::{pending, poll_fn, ready},
+        sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        },
+        task::Poll,
+    };
 
     use alloy_primitives::B256;
     use tokio::sync::{mpsc, oneshot};
 
     use super::*;
+
+    struct DropSignal(Option<oneshot::Sender<()>>);
+
+    impl Drop for DropSignal {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn eager_shutdown_poll_installs_pending_handler() {
+        let polled = Arc::new(AtomicBool::new(false));
+        let mut shutdown = Box::pin(poll_fn({
+            let polled = Arc::clone(&polled);
+            move |_| {
+                polled.store(true, Ordering::SeqCst);
+                Poll::<()>::Pending
+            }
+        }));
+
+        assert!(!poll_shutdown_once(shutdown.as_mut()).await);
+        assert!(polled.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn eager_shutdown_poll_preserves_ready_signal() {
+        let mut shutdown = Box::pin(ready(()));
+
+        assert!(poll_shutdown_once(shutdown.as_mut()).await);
+    }
+
+    #[tokio::test]
+    async fn abort_and_wait_observes_task_cancellation() {
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        let mut handle = tokio::spawn(async move {
+            let _drop_signal = DropSignal(Some(dropped_tx));
+            pending::<()>().await;
+        });
+        tokio::task::yield_now().await;
+
+        abort_and_wait(&mut handle).await;
+
+        dropped_rx.await.expect("aborted task should drop before cleanup returns");
+        assert!(handle.is_finished());
+    }
 
     #[tokio::test]
     async fn shutdown_preempts_pending_steady_state_work() {

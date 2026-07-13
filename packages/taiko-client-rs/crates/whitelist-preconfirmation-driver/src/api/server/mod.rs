@@ -3,6 +3,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::{info, warn};
 
 use super::WhitelistApi;
@@ -30,6 +31,12 @@ struct AppState {
     api: Arc<dyn WhitelistApi>,
     /// Optional shared JWT validator; `None` disables auth checks.
     jwt_auth: Option<Arc<auth::JwtAuth>>,
+    /// Force-cancellation signal for REST handlers after the drain deadline expires.
+    force_shutdown: CancellationToken,
+    /// Graceful cancellation signal for active WebSocket sessions.
+    websocket_shutdown: CancellationToken,
+    /// Tracks upgraded WebSocket sessions independently spawned by Axum.
+    websocket_tasks: TaskTracker,
 }
 
 /// Configuration for the whitelist preconfirmation REST/WS server.
@@ -65,6 +72,14 @@ pub struct WhitelistApiServer {
     shutdown_tx: Option<oneshot::Sender<()>>,
     /// Background task running the axum server.
     task: JoinHandle<()>,
+    /// Whether the task result has already been consumed.
+    joined: bool,
+    /// Force-cancellation signal retained for timeout fallback.
+    force_shutdown: CancellationToken,
+    /// Graceful cancellation signal retained for timeout fallback.
+    websocket_shutdown: CancellationToken,
+    /// Tracks upgraded WebSocket sessions until they exit.
+    websocket_tasks: TaskTracker,
 }
 
 impl WhitelistApiServer {
@@ -73,12 +88,18 @@ impl WhitelistApiServer {
         config: WhitelistApiServerConfig,
         api: Arc<dyn WhitelistApi>,
     ) -> Result<Self> {
+        let force_shutdown = CancellationToken::new();
+        let websocket_shutdown = CancellationToken::new();
+        let websocket_tasks = TaskTracker::new();
         let state = AppState {
             api: Arc::clone(&api),
             jwt_auth: config
                 .jwt_secret
                 .as_ref()
                 .map(|secret| Arc::new(auth::JwtAuth::new(secret.as_slice()))),
+            force_shutdown: force_shutdown.clone(),
+            websocket_shutdown: websocket_shutdown.clone(),
+            websocket_tasks: websocket_tasks.clone(),
         };
         let app = router::build_router(state, &config.cors_origins);
 
@@ -96,14 +117,19 @@ impl WhitelistApiServer {
         })?;
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let websocket_shutdown_for_server = websocket_shutdown.clone();
+        let websocket_tasks_for_server = websocket_tasks.clone();
         let task = tokio::spawn(async move {
             let server = axum::serve(listener, app).with_graceful_shutdown(async move {
                 let _ = shutdown_rx.await;
+                websocket_shutdown_for_server.cancel();
             });
 
             if let Err(err) = server.await {
                 warn!(error = %err, "whitelist preconfirmation REST/WS server terminated with error");
             }
+            websocket_tasks_for_server.close();
+            websocket_tasks_for_server.wait().await;
         });
 
         info!(
@@ -115,7 +141,15 @@ impl WhitelistApiServer {
             "started whitelist preconfirmation REST/WS server"
         );
 
-        Ok(Self { addr, shutdown_tx: Some(shutdown_tx), task })
+        Ok(Self {
+            addr,
+            shutdown_tx: Some(shutdown_tx),
+            task,
+            joined: false,
+            force_shutdown,
+            websocket_shutdown,
+            websocket_tasks,
+        })
     }
 
     /// Return the bound socket address.
@@ -133,16 +167,48 @@ impl WhitelistApiServer {
         format!("ws://{}", self.addr)
     }
 
-    /// Stop the server gracefully.
-    pub async fn stop(mut self) {
+    /// Request graceful shutdown without relinquishing ownership of the server task.
+    pub fn request_shutdown(&mut self) {
         if let Some(shutdown_tx) = self.shutdown_tx.take() {
             let _ = shutdown_tx.send(());
         }
+    }
 
-        if let Err(err) = self.task.await {
+    /// Wait for the server task to stop after graceful shutdown has been requested.
+    pub async fn wait_stopped(&mut self) {
+        if self.joined {
+            return;
+        }
+        if let Err(err) = (&mut self.task).await {
             warn!(error = %err, "whitelist preconfirmation REST/WS server task join failed");
         }
+        self.joined = true;
 
         info!("whitelist preconfirmation REST/WS server stopped");
+    }
+
+    /// Abort the server task and wait until cancellation has completed.
+    pub async fn abort(&mut self) {
+        if self.joined {
+            return;
+        }
+        self.request_shutdown();
+        self.force_shutdown.cancel();
+        self.websocket_shutdown.cancel();
+        self.websocket_tasks.close();
+        self.websocket_tasks.wait().await;
+        self.task.abort();
+        if let Err(err) = (&mut self.task).await &&
+            !err.is_cancelled()
+        {
+            warn!(error = %err, "whitelist preconfirmation REST/WS server abort failed");
+        }
+        self.joined = true;
+    }
+
+    /// Stop the server gracefully.
+    pub async fn stop(&mut self) {
+        self.request_shutdown();
+        self.wait_stopped().await;
     }
 }

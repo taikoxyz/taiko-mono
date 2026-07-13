@@ -9,6 +9,32 @@ use tokio::sync::oneshot::error::RecvError;
 
 use crate::sync::{SyncError, error::EngineSubmissionError};
 
+/// RPC precheck phase that exhausted the total preconfirmation submission budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreconfPrecheckPhase {
+    /// Check whether the payload already materialized in local execution state.
+    Materialization,
+    /// Read the confirmed `head_l1_origin` boundary before enqueue.
+    HeadL1Origin,
+}
+
+impl PreconfPrecheckPhase {
+    /// Return the stable metric and log label for this phase.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Materialization => "materialization",
+            Self::HeadL1Origin => "head_l1_origin",
+        }
+    }
+}
+
+impl std::fmt::Display for PreconfPrecheckPhase {
+    /// Render the stable phase label.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// Convenient result alias for driver operations.
 pub type Result<T> = StdResult<T, DriverError>;
 
@@ -51,6 +77,15 @@ pub enum DriverError {
         #[source]
         /// Underlying engine submission error.
         source: EngineSubmissionError,
+    },
+
+    /// Timed out during an RPC precheck before enqueueing a preconfirmation payload.
+    #[error("preconfirmation {phase} precheck timed out after {waited:?}")]
+    PreconfPrecheckTimeout {
+        /// RPC precheck that exhausted the total submission budget.
+        phase: PreconfPrecheckPhase,
+        /// Total configured submission budget.
+        waited: Duration,
     },
 
     /// Timed out while enqueuing a preconfirmation payload.

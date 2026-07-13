@@ -9118,6 +9118,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "slab",
  "tokio",
@@ -9823,6 +9824,8 @@ dependencies = [
  "snap",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-tungstenite 0.24.0",
+ "tokio-util",
  "tower-http",
  "tracing",
 ]

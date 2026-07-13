@@ -3,6 +3,7 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures::StreamExt;
 use tokio::sync::broadcast;
+use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
 use crate::api::types::EndOfSequencingNotification;
@@ -11,9 +12,14 @@ use crate::api::types::EndOfSequencingNotification;
 pub(super) async fn serve_websocket_notifications(
     mut websocket: WebSocket,
     mut notifications: broadcast::Receiver<EndOfSequencingNotification>,
+    shutdown: CancellationToken,
 ) {
     loop {
         tokio::select! {
+            _ = shutdown.cancelled() => {
+                let _ = websocket.send(Message::Close(None)).await;
+                break;
+            }
             result = notifications.recv() => {
                 if !handle_notification(&mut websocket, result).await {
                     break;

@@ -39,7 +39,7 @@ use super::{
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
-    error::DriverError,
+    error::{DriverError, PreconfPrecheckPhase},
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
@@ -800,21 +800,20 @@ impl EventSyncer {
         }
 
         let block_number = payload.block_number();
-        // Shared handler for every phase that exhausts the budget before the response wait.
-        let enqueue_timeout = |phase: &'static str| {
-            DriverMetrics::preconf_enqueue_timeouts_total().inc();
+        let precheck_timeout = |phase: PreconfPrecheckPhase| {
+            DriverMetrics::inc_preconf_precheck_timeout(phase);
             error!(
                 block_number,
                 timeout_ms = timeout_duration.as_millis() as u64,
-                phase,
-                "preconfirmation submission timed out"
+                phase = phase.as_str(),
+                "preconfirmation RPC precheck timed out"
             );
-            DriverError::PreconfEnqueueTimeout { waited: timeout_duration }
+            DriverError::PreconfPrecheckTimeout { phase, waited: timeout_duration }
         };
 
         if timeout_at(deadline, preconfirmation_payload_is_materialized(&self.rpc, &payload))
             .await
-            .map_err(|_| enqueue_timeout("materialization pre-check"))??
+            .map_err(|_| precheck_timeout(PreconfPrecheckPhase::Materialization))??
         {
             debug!(
                 block_number,
@@ -828,7 +827,7 @@ impl EventSyncer {
         // the staleness check passes for any block_number >= 1.
         let head_l1_origin_block_id = timeout_at(deadline, self.rpc.head_l1_origin())
             .await
-            .map_err(|_| enqueue_timeout("head_l1_origin pre-check"))??
+            .map_err(|_| precheck_timeout(PreconfPrecheckPhase::HeadL1Origin))??
             .map_or(0, |origin| origin.block_id.to::<u64>());
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
             DriverMetrics::preconf_stale_dropped_total().inc();
@@ -852,7 +851,15 @@ impl EventSyncer {
         .await;
 
         match enqueue_result {
-            Err(_) => return Err(enqueue_timeout("enqueue")),
+            Err(_) => {
+                DriverMetrics::preconf_enqueue_timeouts_total().inc();
+                error!(
+                    block_number,
+                    timeout_ms = timeout_duration.as_millis() as u64,
+                    "preconfirmation enqueue timed out"
+                );
+                return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
+            }
             Ok(Err(err)) => {
                 DriverMetrics::preconf_enqueue_failures_total().inc();
                 error!(block_number, ?err, "preconfirmation enqueue failed");

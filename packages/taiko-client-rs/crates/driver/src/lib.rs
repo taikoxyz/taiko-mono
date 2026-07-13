@@ -30,6 +30,6 @@ pub mod sync;
 
 pub use config::DriverConfig;
 pub use driver::Driver;
-pub use error::DriverError;
+pub use error::{DriverError, PreconfPrecheckPhase};
 pub use production::PreconfPayload;
 pub use sync::{ConfirmedSyncSnapshot, SyncPipeline, SyncStage, event::EventSyncer};

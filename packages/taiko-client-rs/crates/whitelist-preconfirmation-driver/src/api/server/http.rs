@@ -106,6 +106,9 @@ pub(super) enum ApiHttpError {
     /// Explicit client error response with caller-provided message.
     #[error("{0}")]
     BadRequest(String),
+    /// Request processing was cancelled after the server drain deadline expired.
+    #[error("server is shutting down")]
+    ShuttingDown,
 }
 
 impl ApiHttpError {
@@ -116,6 +119,7 @@ impl ApiHttpError {
             Self::ReadBody(RequestBodyReadError::TooLarge { .. }) => StatusCode::PAYLOAD_TOO_LARGE,
             Self::ReadBody(_) | Self::ParseBody(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::ShuttingDown => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -129,6 +133,7 @@ impl ApiHttpError {
             Self::ReadBody(err) => format!("failed to read request body: {err}"),
             Self::ParseBody(err) => format!("failed to parse request body: {err}"),
             Self::BadRequest(message) => message.clone(),
+            Self::ShuttingDown => "server is shutting down".to_string(),
         }
     }
 }

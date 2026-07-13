@@ -27,6 +27,8 @@ serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-retry = "0.3.0"
 tokio-stream = "0.1"
+tokio-tungstenite = "0.24"
+tokio-util = { version = "0.7", features = ["rt"] }
 
 # cli
 clap = { version = "4", features = ["derive", "env"] }

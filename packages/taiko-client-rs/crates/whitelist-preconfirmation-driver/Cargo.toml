@@ -42,8 +42,10 @@ snap = { workspace = true }
 ssz = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
 reqwest = { workspace = true }
+tokio-tungstenite = { workspace = true }

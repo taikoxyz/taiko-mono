@@ -42,20 +42,23 @@ pub(super) async fn handle_preconf_blocks(
     request: Request,
 ) -> Result<Response, ApiHttpError> {
     let started_at = Instant::now();
-    let result = async {
-        if !state.api.is_sync_ready() {
-            return Err(ApiHttpError::BadRequest(
-                "event sync is not ready to serve preconfBlocks".to_string(),
-            ));
-        }
+    let result = tokio::select! {
+        result = async {
+            if !state.api.is_sync_ready() {
+                return Err(ApiHttpError::BadRequest(
+                    "event sync is not ready to serve preconfBlocks".to_string(),
+                ));
+            }
 
-        let body = read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await?;
-        let build_request: BuildPreconfBlockRequest = serde_json::from_slice(&body)?;
+            let body =
+                read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await?;
+            let build_request: BuildPreconfBlockRequest = serde_json::from_slice(&body)?;
 
-        let response = state.api.build_preconf_block(build_request).await?;
-        Ok(json_response(http::StatusCode::OK, &response))
-    }
-    .await;
+            let response = state.api.build_preconf_block(build_request).await?;
+            Ok(json_response(http::StatusCode::OK, &response))
+        } => result,
+        _ = state.force_shutdown.cancelled() => Err(ApiHttpError::ShuttingDown),
+    };
 
     WhitelistPreconfirmationDriverMetrics::record_rpc(
         "preconfBlocks",
@@ -82,9 +85,14 @@ pub(super) async fn handle_websocket_upgrade(
     };
 
     let notifications = state.api.subscribe_end_of_sequencing();
+    let shutdown = state.websocket_shutdown.clone();
+    // Register before returning the upgrade response so shutdown cannot observe an empty tracker
+    // while Axum still owns a callback that has not started running yet.
+    let task_token = state.websocket_tasks.token();
     websocket_upgrade
         .on_upgrade(move |socket| async move {
-            serve_websocket_notifications(socket, notifications).await;
+            let _task_token = task_token;
+            serve_websocket_notifications(socket, notifications, shutdown).await;
         })
         .into_response()
 }

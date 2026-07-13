@@ -232,6 +232,7 @@ fn classify_cached_driver_error(err: &driver::DriverError) -> CachedImportDispos
         driver::DriverError::EngineInvalidPayload(_) => CachedImportDisposition::Drop,
         driver::DriverError::EngineSyncing(_) |
         driver::DriverError::BlockNotFound(_) |
+        driver::DriverError::PreconfPrecheckTimeout { .. } |
         driver::DriverError::PreconfEnqueueTimeout { .. } |
         driver::DriverError::PreconfResponseTimeout { .. } => CachedImportDisposition::Defer,
         driver::DriverError::PreconfInjectionFailed { source, .. } => match source {

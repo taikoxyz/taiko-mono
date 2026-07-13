@@ -1,8 +1,10 @@
 //! Metrics exposed by the driver runtime.
 
 use once_cell::sync::Lazy;
-use prometheus::{Gauge, Histogram, IntCounter};
-use protocol::metrics::{DURATION_SECONDS_BUCKETS, counter, gauge, histogram};
+use prometheus::{Gauge, Histogram, IntCounter, IntCounterVec};
+use protocol::metrics::{DURATION_SECONDS_BUCKETS, counter, counter_vec, gauge, histogram};
+
+use crate::error::PreconfPrecheckPhase;
 
 /// Metric namespace for the driver.
 pub struct DriverMetrics;
@@ -103,6 +105,11 @@ impl DriverMetrics {
         &METRICS.preconf_queue_depth
     }
 
+    /// Increment the timeout counter for an RPC precheck phase.
+    pub(crate) fn inc_preconf_precheck_timeout(phase: PreconfPrecheckPhase) {
+        METRICS.preconf_precheck_timeouts_total.with_label_values(&[phase.as_str()]).inc();
+    }
+
     /// Return the preconfirmation enqueue timeout counter.
     pub(crate) fn preconf_enqueue_timeouts_total() -> &'static IntCounter {
         &METRICS.preconf_enqueue_timeouts_total
@@ -200,6 +207,8 @@ struct DriverMetricHandles {
     preconf_injection_duration_seconds: Histogram,
     /// Buffered preconfirmation jobs awaiting processing.
     preconf_queue_depth: Gauge,
+    /// Preconfirmation RPC precheck timeouts by phase.
+    preconf_precheck_timeouts_total: IntCounterVec,
     /// Preconfirmation enqueue timeouts.
     preconf_enqueue_timeouts_total: IntCounter,
     /// Preconfirmation enqueue failures.
@@ -300,6 +309,11 @@ impl DriverMetricHandles {
             preconf_queue_depth: gauge(
                 "driver_preconf_queue_depth",
                 "Buffered preconfirmation jobs awaiting processing",
+            ),
+            preconf_precheck_timeouts_total: counter_vec(
+                "driver_preconf_precheck_timeouts_total",
+                "Preconfirmation RPC prechecks that exhausted the total submission budget",
+                &["phase"],
             ),
             preconf_enqueue_timeouts_total: counter(
                 "driver_preconf_enqueue_timeouts_total",

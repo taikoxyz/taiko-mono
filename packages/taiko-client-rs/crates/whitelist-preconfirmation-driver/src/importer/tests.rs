@@ -180,6 +180,18 @@ fn defers_cached_import_errors_for_preconf_response_timeout() {
 }
 
 #[test]
+fn cached_import_defers_precheck_timeouts() {
+    for phase in
+        [driver::PreconfPrecheckPhase::Materialization, driver::PreconfPrecheckPhase::HeadL1Origin]
+    {
+        let err = WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfPrecheckTimeout { phase, waited: Duration::from_secs(12) },
+        );
+        assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
+    }
+}
+
+#[test]
 fn validate_payload_rejects_missing_transactions_list() {
     let envelope = sample_execution_payload_with_transactions(Vec::new());
     let anchor_address = sample_anchor_address();
