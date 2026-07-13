@@ -53,10 +53,10 @@ func (s *EventHandlerTestSuite) TestProposalReplayOnlyRedispatchesFailedProposal
 	})
 
 	s.NoError(handler.Handle(context.Background(), first, func() {}))
-	s.NoError(handler.Handle(context.Background(), second, func() {}))
 	firstRequest := <-proofCh
-	secondRequest := <-proofCh
 	s.Equal(first.GetProposalID(), firstRequest.Meta.GetProposalID())
+	s.NoError(handler.Handle(context.Background(), second, func() {}))
+	secondRequest := <-proofCh
 	s.Equal(second.GetProposalID(), secondRequest.Meta.GetProposalID())
 
 	s.True(shared.RollbackProposalCursor(
