@@ -499,13 +499,14 @@ impl EventSyncer {
             // The canonical block at the log's height differs: the emitting block was reorged
             // out, even if the provider still serves it by hash.
             Some(_) => Ok(true),
-            // A transiently lagging provider can return `None` for a height it has not yet
-            // reached. Only classify the log as orphaned once the head has caught up to or
-            // passed the log's block number.
-            None => {
-                let chain_head = self.rpc.l1_provider.get_block_number().await?;
-                Ok(chain_head >= log_block_number)
-            }
+            // The provider has no block at the log's height. On a consistent chain view this
+            // only means the height is beyond the provider's head (not yet observed), which is
+            // never a proof of orphaning — so retry rather than skip. A log whose emitting block
+            // was genuinely reorged out resurfaces as `Some(<different hash>)` once the canonical
+            // chain re-extends to this height. Treating `None` as orphaned here would let a
+            // lagging or load-balanced RPC view (height missing on one backend while another
+            // reports the head past it) permanently drop a canonical proposal.
+            None => Ok(false),
         }
     }
 
@@ -1743,38 +1744,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn orphaned_proposal_log_is_permanent_when_l1_block_is_missing() {
+    async fn proposal_log_is_retryable_when_block_missing_by_number() {
         let asserter = Asserter::new();
         let syncer = EventSyncer {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
+        // The provider has no block at the log's height. A missing height is never a proof of
+        // orphaning (only a `Some(<different hash>)` is), so it must stay retryable and never be
+        // skipped — otherwise a lagging or load-balanced RPC view could permanently drop a
+        // canonical proposal.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&1u64);
 
         let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
-            .await
-            .expect("block lookup should succeed");
-
-        assert!(is_orphaned);
-    }
-
-    #[tokio::test]
-    async fn proposal_log_is_retryable_when_chain_head_is_behind_missing_block() {
-        let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
-        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&0u64);
-
-        let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
         let is_orphaned = syncer
             .is_permanently_orphaned_proposal_log(
                 log.block_hash.expect("test log should include block hash"),
@@ -1858,8 +1840,9 @@ mod tests {
         let orphaned_tx_hash = B256::from([0x21; 32]);
         let later_tx_hash = B256::from([0x22; 32]);
         let asserter = Asserter::new();
-        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&2u64);
+        // The canonical block at the orphaned log's height carries a different hash, proving the
+        // emitting block was reorged out so the log is skipped.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0xEE; 32]))));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
@@ -2006,9 +1989,9 @@ mod tests {
         let asserter = Asserter::new();
         // First orphan recheck fails transiently; the fatal verdict must not abort yet.
         asserter.push_failure_msg("boom");
-        // Second recheck proves the source L1 block is gone and the head has passed it.
-        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&2u64);
+        // Second recheck proves the source L1 block was reorged out: the canonical block at the
+        // log's height carries a different hash, so the log is skipped instead of aborting.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0xEE; 32]))));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
