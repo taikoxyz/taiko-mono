@@ -167,9 +167,10 @@ func TestComposeProducerZkOnlyAggregateRequiresRisc0VerifierID(t *testing.T) {
 // raikoRequestRecorder records the proof requests a test raiko server receives and answers
 // each with the given per-proof-type proof hex string.
 type raikoRequestRecorder struct {
-	mu       sync.Mutex
-	requests []RaikoRequestProofBodyV4
-	proofs   map[ProofType]string
+	mu                sync.Mutex
+	requests          []RaikoRequestProofBodyV4
+	proofs            map[ProofType]string
+	responseProofType ProofType
 }
 
 func (r *raikoRequestRecorder) handler() http.HandlerFunc {
@@ -188,8 +189,12 @@ func (r *raikoRequestRecorder) handler() http.HandlerFunc {
 		r.requests = append(r.requests, body)
 		r.mu.Unlock()
 
+		responseProofType := body.ProofType
+		if r.responseProofType != "" {
+			responseProofType = r.responseProofType
+		}
 		_ = json.NewEncoder(w).Encode(&RaikoRequestProofBodyResponse{
-			ProofType: body.ProofType,
+			ProofType: responseProofType,
 			Data:      &RaikoProofData{Proof: r.proofs[body.ProofType]},
 		})
 	}
@@ -297,4 +302,80 @@ func TestComposeProducerZkOnlyAggregateRequestsBothZkAggregations(t *testing.T) 
 	require.True(t, opts.RethProofAggregationGenerated)
 	require.True(t, opts.Risc0CompanionProofAggregationGenerated)
 	require.False(t, opts.GethProofAggregationGenerated)
+}
+
+func TestComposeProducerZkOnlyRequestProofRejectsMismatchedCompanionType(t *testing.T) {
+	recorder := &raikoRequestRecorder{
+		proofs: map[ProofType]string{
+			ProofTypeZKSP1: "",
+			ProofTypeZKR0:  "0xff01",
+		},
+		responseProofType: ProofTypeZKSP1,
+	}
+	server := httptest.NewServer(recorder.handler())
+	defer server.Close()
+
+	producer := &ComposeProofProducer{
+		VerifierIDs: map[ProofType]uint8{
+			ProofTypeZKR0:  5,
+			ProofTypeZKSP1: 6,
+		},
+		ZkOnly:              true,
+		RaikoHostEndpoint:   server.URL,
+		RaikoRequestTimeout: time.Second,
+	}
+	opts := &ProposalProofRequestOptions{L2BlockNums: []*big.Int{common.Big1}}
+
+	_, err := producer.RequestProof(
+		context.Background(),
+		opts,
+		common.Big1,
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: common.Big1}, 0),
+		time.Now(),
+	)
+
+	require.ErrorContains(t, err, "requested risc0, got sp1")
+	require.False(t, opts.Risc0CompanionProofGenerated)
+}
+
+func TestComposeProducerZkOnlyAggregateRejectsMismatchedCompanionType(t *testing.T) {
+	recorder := &raikoRequestRecorder{
+		proofs: map[ProofType]string{
+			ProofTypeZKSP1: "0xaaaa",
+			ProofTypeZKR0:  "0xbbbb",
+		},
+		responseProofType: ProofTypeZKSP1,
+	}
+	server := httptest.NewServer(recorder.handler())
+	defer server.Close()
+
+	producer := &ComposeProofProducer{
+		VerifierIDs: map[ProofType]uint8{
+			ProofTypeZKR0:  5,
+			ProofTypeZKSP1: 6,
+		},
+		ZkOnly:              true,
+		RaikoHostEndpoint:   server.URL,
+		RaikoRequestTimeout: time.Second,
+	}
+	opts := &ProposalProofRequestOptions{L2BlockNums: []*big.Int{common.Big1}}
+
+	_, err := producer.Aggregate(
+		context.Background(),
+		[]*ProofResponse{
+			{
+				BatchID:   common.Big1,
+				ProofType: ProofTypeZKSP1,
+				Meta: metadata.NewTaikoProposalMetadataShasta(
+					&shastaBindings.ShastaInboxClientProposed{Id: common.Big1},
+					0,
+				),
+				Opts: opts,
+			},
+		},
+		time.Now(),
+	)
+
+	require.ErrorContains(t, err, "requested risc0, got sp1")
+	require.False(t, opts.Risc0CompanionProofAggregationGenerated)
 }

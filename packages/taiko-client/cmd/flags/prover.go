@@ -17,9 +17,9 @@ var (
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
 	}
 	RaikoHostEndpoint = &cli.StringFlag{
-		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service for post Shasta fork",
-		Required: true,
+		Name: "raiko.host",
+		Usage: "RPC endpoint of a Raiko host service for post Shasta fork " +
+			"(required unless --prover.zkOnlyProofs is set)",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}

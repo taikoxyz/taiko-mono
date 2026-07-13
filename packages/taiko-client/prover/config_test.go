@@ -120,12 +120,20 @@ func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
 	t.Run("uses flag value with the ZKVM raiko host", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(
 			t,
+			"--"+flags.RaikoHostEndpoint.Name, "",
 			"--"+flags.ZkOnlyProofs.Name,
 			"--"+flags.RaikoZKVMHostEndpoint.Name, "http://raiko.zkvm",
 		)
 
 		require.True(t, cfg.ZkOnlyProofs)
+		require.Empty(t, cfg.RaikoHostEndpoint)
 	})
+}
+
+func TestNewConfigFromCliContextRequiresRaikoHostOutsideZkOnlyMode(t *testing.T) {
+	err := runTestConfigFromCLI(t, "--"+flags.RaikoHostEndpoint.Name, "")
+
+	require.ErrorContains(t, err, "--"+flags.RaikoHostEndpoint.Name)
 }
 
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
@@ -203,6 +211,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 		},
 		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
 		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
+		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 		&cli.StringFlag{Name: flags.RaikoZKVMHostEndpoint.Name},
 	}
 
@@ -220,6 +229,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 		"--" + flags.TaikoAnchorAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000bb").Hex(),
 		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.JWTSecret.Name, jwtSecret,
+		"--" + flags.RaikoHostEndpoint.Name, "http://raiko.host",
 	}
 	args = append(args, extraArgs...)
 

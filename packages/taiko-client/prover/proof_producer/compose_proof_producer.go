@@ -415,9 +415,15 @@ func validateRaikoProofResponse(
 			err,
 		)
 	}
+	if output.ProofType != proofType {
+		return nil, fmt.Errorf(
+			"unexpected proof type from raiko: requested %s, got %s",
+			proofType,
+			output.ProofType,
+		)
+	}
 
 	if !alreadyGenerated {
-		proofType = output.ProofType
 		log.Info(
 			"Batch proof generated",
 			"isAggregation", isAggregation,
