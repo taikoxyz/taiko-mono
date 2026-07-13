@@ -3,13 +3,11 @@
 use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy::{
     consensus::{BlobTransactionSidecar, BlobTransactionSidecarVariant, SidecarBuilder},
-    eips::BlockNumberOrTag,
     network::TransactionBuilder4844,
     primitives::{
         Address, Bytes, U256,
         aliases::{U24, U48},
     },
-    providers::Provider,
     rpc::types::{TransactionInput, TransactionRequest},
 };
 use bindings::inbox::{IInbox::ProposeInput, LibBlobs::BlobReference};
@@ -96,43 +94,18 @@ impl ShastaProposalTransactionBuilder {
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
     ///
-    /// If `engine_params` is provided (engine mode), those parameters will be used directly.
-    /// Otherwise, the current L1 head, current timestamp, and latest canonical parent gas limit are
-    /// used.
+    /// The caller supplies the [`EngineBuildContext`] snapshot (L1 anchor, timestamp base, and
+    /// the L2 parent's gas limit) so that transaction selection and manifest construction always
+    /// describe the same chain state; the builder performs no chain reads of its own besides the
+    /// propose-input encoding.
     pub async fn build(
         &self,
         txs_lists: TransactionLists,
-        engine_params: Option<EngineBuildContext>,
+        ctx: EngineBuildContext,
     ) -> Result<BuiltProposalTx> {
-        // Use provided engine params or derive defaults.
-        let (anchor_block_number, timestamp, gas_limit) = match engine_params {
-            Some(params) => (
-                params.anchor_block_number,
-                params.timestamp,
-                manifest_gas_limit(params.parent_block_number, params.gas_limit),
-            ),
-            None => {
-                let latest_parent = self
-                    .rpc_provider
-                    .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Latest)
-                    .await?
-                    .ok_or(ProposerError::LatestBlockNotFound)?;
-                let gas_limit =
-                    manifest_gas_limit(latest_parent.number(), latest_parent.header.gas_limit);
-                // Anchor the manifest timestamps to the L1 head rather than the local wall
-                // clock: driver validation rejects any block timestamp above the proposal's L1
-                // inclusion timestamp and degrades the whole manifest to the default empty
-                // block, so a fast local clock would silently drop every proposed transaction.
-                let l1_head = self
-                    .rpc_provider
-                    .l1_provider
-                    .get_block_by_number(BlockNumberOrTag::Latest)
-                    .await?
-                    .ok_or(ProposerError::LatestBlockNotFound)?;
-                (l1_head.header.number, l1_head.header.timestamp, gas_limit)
-            }
-        };
+        let anchor_block_number = ctx.anchor_block_number;
+        let timestamp = ctx.timestamp;
+        let gas_limit = manifest_gas_limit(ctx.parent_block_number, ctx.gas_limit);
 
         // Proposer intentionally keeps the stricter Shasta cap. It is below the
         // Unzen derivation-source cap, so proposals that pass here are safe there.
@@ -151,7 +124,10 @@ impl ShastaProposalTransactionBuilder {
                 .map(|(index, txs)| {
                     // Driver validation requires strictly increasing block timestamps
                     // (parent + 1 lower bound), so stagger multi-block manifests by index
-                    // exactly like the Go proposer does.
+                    // exactly like the Go proposer does (`l1Head.Time + i`). Shared ceiling
+                    // with Go: blocks whose index exceeds the proposal's actual L1 inclusion
+                    // delay trip the driver's upper bound (timestamp <= inclusion timestamp),
+                    // which cannot be known at build time.
                     let block_timestamp = timestamp + index as u64;
                     info!(
                         block_index = index,
@@ -219,7 +195,7 @@ pub(crate) fn manifest_gas_limit(parent_block_number: u64, gas_limit: u64) -> u6
 mod tests {
     use super::{ShastaProposalTransactionBuilder, manifest_gas_limit};
     use alloy::{
-        consensus::{BlobTransactionSidecar, Header as ConsensusHeader, TxEnvelope},
+        consensus::BlobTransactionSidecar,
         eips::eip4844::Blob,
         network::TransactionBuilder4844,
         primitives::{Address, Bytes},
@@ -233,16 +209,11 @@ mod tests {
         transports::{TransportError, TransportFut},
     };
     use alloy_provider::ProviderBuilder;
-    use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
     use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
     use rpc::client::{Client, ShastaProtocolInstance};
-    use std::sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    };
 
-    use crate::transaction_builder::BuiltProposalTx;
+    use crate::{proposer::EngineBuildContext, transaction_builder::BuiltProposalTx};
 
     impl BuiltProposalTx {
         /// Build a proposal transaction from raw blobs for crate-local tests.
@@ -281,133 +252,23 @@ mod tests {
         );
     }
 
+    /// Minimal transport for builder tests: serves the propose-input `eth_call` and
+    /// `eth_chainId`. The builder performs no other chain reads — its inputs arrive via
+    /// [`EngineBuildContext`].
     #[derive(Clone, Debug)]
     struct ManifestTestTransport {
-        l1_block_number: u64,
         call_result: Bytes,
-        latest_block: Option<RpcBlock<TxEnvelope>>,
-        genesis_block: Option<RpcBlock<TxEnvelope>>,
-        requests: Arc<Mutex<Vec<String>>>,
-        saw_latest_block: Arc<AtomicBool>,
-        saw_genesis_block: Arc<AtomicBool>,
     }
 
     impl ManifestTestTransport {
-        fn l1(l1_block_number: u64, l1_timestamp: u64, call_result: Bytes) -> Self {
-            let l1_head = RpcBlock::<TxEnvelope> {
-                header: RpcHeader {
-                    hash: Default::default(),
-                    inner: ConsensusHeader {
-                        number: l1_block_number,
-                        timestamp: l1_timestamp,
-                        ..Default::default()
-                    },
-                    total_difficulty: None,
-                    size: None,
-                },
-                ..Default::default()
-            };
-            Self {
-                l1_block_number,
-                call_result,
-                latest_block: Some(l1_head),
-                genesis_block: None,
-                requests: Arc::new(Mutex::new(Vec::new())),
-                saw_latest_block: Arc::new(AtomicBool::new(false)),
-                saw_genesis_block: Arc::new(AtomicBool::new(false)),
-            }
-        }
-
-        fn l2(latest_block: RpcBlock<TxEnvelope>, genesis_block: RpcBlock<TxEnvelope>) -> Self {
-            Self {
-                l1_block_number: 0,
-                call_result: Bytes::new(),
-                latest_block: Some(latest_block),
-                genesis_block: Some(genesis_block),
-                requests: Arc::new(Mutex::new(Vec::new())),
-                saw_latest_block: Arc::new(AtomicBool::new(false)),
-                saw_genesis_block: Arc::new(AtomicBool::new(false)),
-            }
-        }
-
-        fn seen_latest_block_request(&self) -> bool {
-            self.saw_latest_block.load(Ordering::SeqCst)
-        }
-
-        fn seen_genesis_block_request(&self) -> bool {
-            self.saw_genesis_block.load(Ordering::SeqCst)
-        }
-
-        fn request_log(&self) -> Vec<String> {
-            self.requests.lock().expect("request log should not be poisoned").clone()
-        }
-
         fn handle_request(
             &self,
             request: SerializedRequest,
         ) -> Response<Box<serde_json::value::RawValue>> {
-            let method = request.method().to_string();
-            let params = request.params().map(|params| params.get().to_string());
-            self.requests
-                .lock()
-                .expect("request log should not be poisoned")
-                .push(format!("{method} {}", params.as_deref().unwrap_or("")));
-
-            match method.as_str() {
-                "eth_blockNumber" => success_u64(request.id().clone(), self.l1_block_number),
+            match request.method() {
                 "eth_call" => success_bytes(request.id().clone(), &self.call_result),
-                "eth_getBlockByNumber" => {
-                    self.handle_get_block_by_number(request.id().clone(), params.as_deref())
-                }
                 "eth_chainId" => success_u64(request.id().clone(), 1),
                 _ => success_null(request.id().clone()),
-            }
-        }
-
-        fn handle_get_block_by_number(
-            &self,
-            id: Id,
-            params: Option<&str>,
-        ) -> Response<Box<serde_json::value::RawValue>> {
-            let parsed_params: serde_json::Value = params
-                .and_then(|raw| serde_json::from_str(raw).ok())
-                .unwrap_or(serde_json::Value::Null);
-            let requested_block = parsed_params.as_array().and_then(|items| items.first());
-
-            match requested_block {
-                Some(serde_json::Value::String(tag)) if tag == "latest" => {
-                    self.saw_latest_block.store(true, Ordering::SeqCst);
-                    success_block(
-                        id,
-                        self.latest_block
-                            .as_ref()
-                            .expect("latest block fixture should be configured"),
-                    )
-                }
-                Some(serde_json::Value::String(tag))
-                    if tag == "0x0" || tag == "0x00" || tag == "0" =>
-                {
-                    self.saw_genesis_block.store(true, Ordering::SeqCst);
-                    success_block(
-                        id,
-                        self.genesis_block
-                            .as_ref()
-                            .expect("genesis block fixture should be configured"),
-                    )
-                }
-                Some(serde_json::Value::Number(number)) if number.as_u64() == Some(0) => {
-                    self.saw_genesis_block.store(true, Ordering::SeqCst);
-                    success_block(
-                        id,
-                        self.genesis_block
-                            .as_ref()
-                            .expect("genesis block fixture should be configured"),
-                    )
-                }
-                _ => success_block(
-                    id,
-                    self.latest_block.as_ref().expect("latest block fixture should be configured"),
-                ),
             }
         }
     }
@@ -461,20 +322,12 @@ mod tests {
         success_json(id, serde_json::to_string(value).expect("test response should serialize"))
     }
 
-    fn success_block(
-        id: Id,
-        value: &RpcBlock<TxEnvelope>,
-    ) -> Response<Box<serde_json::value::RawValue>> {
-        success_json(id, serde_json::to_string(value).expect("test response should serialize"))
-    }
-
-    fn test_rpc_client(
-        l1_transport: ManifestTestTransport,
-        l2_transport: ManifestTestTransport,
-    ) -> Client {
-        let l1_provider = ProviderBuilder::new().connect_client(RpcClient::new(l1_transport, true));
+    fn test_rpc_client(call_result: Bytes) -> Client {
+        let transport = ManifestTestTransport { call_result };
+        let l1_provider =
+            ProviderBuilder::new().connect_client(RpcClient::new(transport.clone(), true));
         let l2_provider =
-            ProviderBuilder::default().connect_client(RpcClient::new(l2_transport, true));
+            ProviderBuilder::default().connect_client(RpcClient::new(transport, true));
         let l2_auth_provider = l2_provider.clone();
         let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
         let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
@@ -494,113 +347,63 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_manifest_gas_limit_uses_latest_parent_block_in_non_engine_mode()
-    -> crate::error::Result<()> {
-        let latest_parent = RpcBlock::<TxEnvelope> {
-            header: RpcHeader {
-                hash: Default::default(),
-                inner: ConsensusHeader { number: 42, gas_limit: 46_000_000, ..Default::default() },
-                total_difficulty: None,
-                size: None,
-            },
-            ..Default::default()
-        };
-        let genesis_parent = RpcBlock::<TxEnvelope> {
-            header: RpcHeader {
-                hash: Default::default(),
-                inner: ConsensusHeader { number: 0, gas_limit: 47_000_000, ..Default::default() },
-                total_difficulty: None,
-                size: None,
-            },
-            ..Default::default()
-        };
+    async fn build_applies_anchor_gas_discount_from_context() -> crate::error::Result<()> {
         let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
-        let l1_transport = ManifestTestTransport::l1(1, 1_000, call_result);
-        let l2_transport = ManifestTestTransport::l2(latest_parent, genesis_parent);
-        let rpc_provider = test_rpc_client(l1_transport.clone(), l2_transport.clone());
-        let builder =
-            ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
+        let builder = ShastaProposalTransactionBuilder::new(
+            test_rpc_client(call_result),
+            Address::repeat_byte(0x11),
+        );
+        let ctx = EngineBuildContext {
+            anchor_block_number: 77,
+            parent_block_number: 42,
+            timestamp: 1_000,
+            gas_limit: 46_000_000,
+        };
 
-        let built_tx = builder.build(vec![vec![]], None).await?;
-        let manifest_payload =
-            BlobCoder::decode_blob(&built_tx.blobs()[0]).expect("manifest blob should decode");
-        let manifest = DerivationSourceManifest::decompress_and_decode(&manifest_payload, 0)
-            .expect("manifest should decode from blob sidecar");
+        let built_tx = builder.build(vec![vec![]], ctx).await?;
+        let manifest = decode_built_manifest(&built_tx);
 
         assert_eq!(manifest.blocks.len(), 1);
         assert_eq!(manifest.blocks[0].gas_limit, 45_000_000);
-        assert!(
-            l2_transport.seen_latest_block_request(),
-            "build should query eth_getBlockByNumber latest"
-        );
-        assert!(
-            !l2_transport.seen_genesis_block_request(),
-            "build should not query the genesis block in non-engine mode"
-        );
-        assert!(
-            l2_transport
-                .request_log()
-                .iter()
-                .any(|entry| entry.contains("eth_getBlockByNumber") && entry.contains("latest")),
-            "request log should include an eth_getBlockByNumber latest lookup"
-        );
+        assert_eq!(manifest.blocks[0].anchor_block_number, 77);
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn build_stamps_l1_head_timestamp_and_staggers_blocks_in_non_engine_mode()
-    -> crate::error::Result<()> {
-        let latest_parent = RpcBlock::<TxEnvelope> {
-            header: RpcHeader {
-                hash: Default::default(),
-                inner: ConsensusHeader { number: 42, gas_limit: 46_000_000, ..Default::default() },
-                total_difficulty: None,
-                size: None,
-            },
-            ..Default::default()
-        };
-        let genesis_parent = RpcBlock::<TxEnvelope> {
-            header: RpcHeader {
-                hash: Default::default(),
-                inner: ConsensusHeader { number: 0, gas_limit: 47_000_000, ..Default::default() },
-                total_difficulty: None,
-                size: None,
-            },
-            ..Default::default()
-        };
-        let l1_head_number = 77;
-        let l1_head_timestamp = 1_234_567;
+    async fn build_stamps_context_timestamp_and_staggers_blocks() -> crate::error::Result<()> {
         let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
-        let l1_transport =
-            ManifestTestTransport::l1(l1_head_number, l1_head_timestamp, call_result);
-        let l2_transport = ManifestTestTransport::l2(latest_parent, genesis_parent);
-        let rpc_provider = test_rpc_client(l1_transport.clone(), l2_transport.clone());
-        let builder =
-            ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
+        let builder = ShastaProposalTransactionBuilder::new(
+            test_rpc_client(call_result),
+            Address::repeat_byte(0x11),
+        );
+        let ctx = EngineBuildContext {
+            anchor_block_number: 77,
+            parent_block_number: 42,
+            timestamp: 1_234_567,
+            gas_limit: 46_000_000,
+        };
 
         // Two tx lists: driver validation requires strictly increasing timestamps across the
         // manifest blocks, so identical stamps would void the whole proposal.
-        let built_tx = builder.build(vec![vec![], vec![]], None).await?;
-        let manifest_payload =
-            BlobCoder::decode_blob(&built_tx.blobs()[0]).expect("manifest blob should decode");
-        let manifest = DerivationSourceManifest::decompress_and_decode(&manifest_payload, 0)
-            .expect("manifest should decode from blob sidecar");
+        let built_tx = builder.build(vec![vec![], vec![]], ctx).await?;
+        let manifest = decode_built_manifest(&built_tx);
 
         assert_eq!(manifest.blocks.len(), 2);
-        // The base timestamp comes from the L1 head (never above the proposal's L1 inclusion
-        // timestamp), not from the local wall clock.
-        assert_eq!(manifest.blocks[0].timestamp, l1_head_timestamp);
-        assert_eq!(manifest.blocks[1].timestamp, l1_head_timestamp + 1);
-        assert_eq!(manifest.blocks[0].anchor_block_number, l1_head_number);
-        assert!(
-            l1_transport
-                .request_log()
-                .iter()
-                .any(|entry| entry.contains("eth_getBlockByNumber") && entry.contains("latest")),
-            "builder should fetch the L1 head block instead of eth_blockNumber"
-        );
+        // The base timestamp comes from the caller's L1-head snapshot (never above the
+        // proposal's L1 inclusion timestamp), not from the local wall clock.
+        assert_eq!(manifest.blocks[0].timestamp, 1_234_567);
+        assert_eq!(manifest.blocks[1].timestamp, 1_234_568);
+        assert_eq!(manifest.blocks[0].anchor_block_number, 77);
 
         Ok(())
+    }
+
+    /// Decode the manifest back out of the built transaction's first blob.
+    fn decode_built_manifest(built_tx: &BuiltProposalTx) -> DerivationSourceManifest {
+        let manifest_payload =
+            BlobCoder::decode_blob(&built_tx.blobs()[0]).expect("manifest blob should decode");
+        DerivationSourceManifest::decompress_and_decode(&manifest_payload, 0)
+            .expect("manifest should decode from blob sidecar")
     }
 }
