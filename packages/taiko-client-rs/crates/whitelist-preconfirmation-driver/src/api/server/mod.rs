@@ -1,6 +1,6 @@
 //! REST/WS server for the whitelist preconfirmation driver.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -10,6 +10,13 @@ use super::WhitelistApi;
 use crate::{
     Result, codec::MAX_COMPRESSED_TX_LIST_BYTES, error::WhitelistPreconfirmationDriverError,
 };
+
+/// Grace period for tracked WebSocket sessions to observe shutdown and flush their close frames
+/// before teardown proceeds without them.
+///
+/// A peer that has stopped reading its socket cannot be preempted mid-`send().await`, so the wait
+/// for outstanding sessions must be bounded — a single stalled subscriber must not hang shutdown.
+const WEBSOCKET_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
 
 mod auth;
 mod handlers;
@@ -129,7 +136,12 @@ impl WhitelistApiServer {
                 warn!(error = %err, "whitelist preconfirmation REST/WS server terminated with error");
             }
             websocket_tasks_for_server.close();
-            websocket_tasks_for_server.wait().await;
+            if tokio::time::timeout(WEBSOCKET_DRAIN_TIMEOUT, websocket_tasks_for_server.wait())
+                .await
+                .is_err()
+            {
+                warn!("whitelist preconfirmation websocket drain timed out during shutdown");
+            }
         });
 
         info!(
@@ -196,7 +208,10 @@ impl WhitelistApiServer {
         self.force_shutdown.cancel();
         self.websocket_shutdown.cancel();
         self.websocket_tasks.close();
-        self.websocket_tasks.wait().await;
+        if tokio::time::timeout(WEBSOCKET_DRAIN_TIMEOUT, self.websocket_tasks.wait()).await.is_err()
+        {
+            warn!("whitelist preconfirmation websocket drain timed out during abort");
+        }
         self.task.abort();
         if let Err(err) = (&mut self.task).await &&
             !err.is_cancelled()

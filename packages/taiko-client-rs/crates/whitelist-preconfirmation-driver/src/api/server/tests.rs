@@ -12,7 +12,8 @@ use tokio::{
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use super::{
-    PRECONF_BLOCKS_BODY_LIMIT_BYTES, WhitelistApiServer, WhitelistApiServerConfig,
+    PRECONF_BLOCKS_BODY_LIMIT_BYTES, WEBSOCKET_DRAIN_TIMEOUT, WhitelistApiServer,
+    WhitelistApiServerConfig,
     auth::JwtAuth,
     http::{RequestBodyReadError, read_request_body},
 };
@@ -258,6 +259,24 @@ async fn graceful_stop_closes_and_waits_for_websocket() {
     timeout(Duration::from_millis(100), server.wait_stopped())
         .await
         .expect("server should wait for websocket shutdown");
+}
+
+#[tokio::test]
+async fn abort_bounds_wait_on_stuck_websocket_session() {
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let mut server =
+        WhitelistApiServer::start(test_config(), api).await.expect("server should start");
+
+    // Simulate a websocket session that never finishes: a peer stuck mid-`send().await` cannot be
+    // preempted at the shutdown `select!`, so its tracker token never drops and an unbounded
+    // `wait()` would block teardown forever.
+    let _stuck_session = server.websocket_tasks.token();
+
+    // The force-abort fallback must stay bounded instead of hanging on the stuck session.
+    timeout(WEBSOCKET_DRAIN_TIMEOUT * 3, server.abort())
+        .await
+        .expect("abort must not hang when a websocket session never completes");
+    assert!(server.joined);
 }
 
 #[test]
