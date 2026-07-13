@@ -379,7 +379,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	}
 
 	// Check if there are any invalid proposal proofs in the aggregation, and ignore them.
-	invalidProposalIDs, err := s.validateBatchProofs(ctx, batchProof)
+	invalidProposalIDs, lowestReorged, err := s.validateBatchProofs(ctx, batchProof)
 	if err != nil {
 		return fmt.Errorf("failed to validate proposal proofs: %w", err)
 	}
@@ -387,6 +387,14 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		// If there are invalid proposals in the aggregation, we ignore these proposals.
 		log.Warn("Invalid proposals in an aggregation, ignore these proposals", "proposalIDs", invalidProposalIDs)
 		proofBuffer.ClearItems(invalidProposalIDs...)
+		if lowestReorged != nil {
+			// Reorged proposals will be re-proposed under the same IDs by different L1 blocks, so
+			// the caller must roll the proposal scan cursors back to re-scan and re-prove them.
+			return &ReorgedProofsError{
+				LowestProposalID:   lowestReorged.BatchID.Uint64(),
+				LowestProposalMeta: lowestReorged.Meta,
+			}
+		}
 		return ErrInvalidProof
 	}
 	var (
@@ -526,21 +534,25 @@ func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType pr
 }
 
 // validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
-// returns the invalid proposal IDs.
+// returns the invalid proposal IDs and, when some of them were invalidated by an L1 reorg,
+// the dropped proposal proof with the smallest ID.
 func (s *ProofSubmitter) validateBatchProofs(
 	ctx context.Context,
 	batchProof *proofProducer.BatchProofs,
-) ([]uint64, error) {
-	var invalidProposalIDs []uint64
+) ([]uint64, *proofProducer.ProofResponse, error) {
+	var (
+		invalidProposalIDs []uint64
+		lowestReorged      *proofProducer.ProofResponse
+	)
 
 	if len(batchProof.ProofResponses) == 0 {
-		return nil, proofProducer.ErrInvalidLength
+		return nil, nil, proofProducer.ErrInvalidLength
 	}
 
 	// Fetch the latest verified proposal ID.
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get core state: %w", err)
+		return nil, nil, fmt.Errorf("failed to get core state: %w", err)
 	}
 	latestVerifiedID := coreState.LastFinalizedProposalId
 
@@ -548,28 +560,48 @@ func (s *ProofSubmitter) validateBatchProofs(
 	// if so, we skip this batch.
 	for _, proof := range batchProof.ProofResponses {
 		// Check if this proof is still needed to be submitted.
-		ok, err := s.ValidateProof(ctx, proof, latestVerifiedID)
+		valid, reorged, err := s.ValidateProof(ctx, proof, latestVerifiedID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		proposalID := proof.BatchID
-		if !ok {
-			log.Error("A valid proof for this proposal has already been submitted", "proposalID", proposalID)
-			invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
+		if valid {
 			continue
 		}
+		proposalID := proof.BatchID
+		if reorged {
+			log.Warn("Proposal reorged out of the canonical L1 chain, dropping its proof", "proposalID", proposalID)
+			if lowestReorged == nil || proposalID.Cmp(lowestReorged.BatchID) < 0 {
+				lowestReorged = proof
+			}
+		} else {
+			log.Error("A valid proof for this proposal has already been submitted", "proposalID", proposalID)
+		}
+		invalidProposalIDs = append(invalidProposalIDs, proposalID.Uint64())
 	}
-	return invalidProposalIDs, nil
+	return invalidProposalIDs, lowestReorged, nil
 }
 
 // ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
-// latest verified head is not ahead of this block proof.
+// latest verified head is not ahead of this block proof. The second return value reports whether an
+// invalid proof was invalidated by its source L1 block being reorged out of the canonical chain.
 func (s *ProofSubmitter) ValidateProof(
 	ctx context.Context,
 	proofResponse *proofProducer.ProofResponse,
 	latestVerifiedID *big.Int,
-) (bool, error) {
-	// 1. Check if the corresponding L1 block is still in the canonical chain.
+) (bool, bool, error) {
+	// 1. Check if the proposal is already finalized: its proof is no longer needed, no matter
+	// whether its source L1 block is still canonical, so this must be checked first to avoid
+	// classifying it as reorged and triggering an unnecessary cursor rollback.
+	if latestVerifiedID.Cmp(proofResponse.BatchID) >= 0 {
+		log.Info(
+			"Proposal is already finalized, skip current proof submission",
+			"proposalID", proofResponse.BatchID,
+			"latestVerifiedID", latestVerifiedID,
+		)
+		return false, false, nil
+	}
+
+	// 2. Check if the corresponding L1 block is still in the canonical chain.
 	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofResponse.Meta.GetRawBlockHeight())
 	if err != nil {
 		log.Warn(
@@ -578,7 +610,7 @@ func (s *ProofSubmitter) ValidateProof(
 			"l1Height", proofResponse.Meta.GetRawBlockHeight(),
 			"error", err,
 		)
-		return false, err
+		return false, false, err
 	}
 	if l1Header.Hash() != proofResponse.Opts.GetRawBlockHash() {
 		log.Warn(
@@ -588,19 +620,10 @@ func (s *ProofSubmitter) ValidateProof(
 			"l1HashOld", proofResponse.Opts.GetRawBlockHash(),
 			"l1HashNew", l1Header.Hash(),
 		)
-		return false, nil
+		return false, true, nil
 	}
 
-	if latestVerifiedID.Cmp(proofResponse.BatchID) >= 0 {
-		log.Info(
-			"Proposal is already finalized, skip current proof submission",
-			"proposalID", proofResponse.BatchID,
-			"latestVerifiedID", latestVerifiedID,
-		)
-		return false, nil
-	}
-
-	return true, nil
+	return true, false, nil
 }
 
 // WaitTransitionVerified waits until the given transition ID is verified on L1.

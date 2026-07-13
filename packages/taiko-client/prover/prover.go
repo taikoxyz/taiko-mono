@@ -2,6 +2,7 @@ package prover
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -314,6 +315,16 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		return err
 	}
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
+		var reorgedErr *proofSubmitter.ReorgedProofsError
+		if errors.As(err, &reorgedErr) {
+			log.Warn(
+				"Dropped proofs for reorged proposals in an aggregation, rolling back the proposal cursor",
+				"lowestReorgedProposalID", reorgedErr.LowestProposalID,
+				"proofType", batchProof.ProofType,
+				"error", err,
+			)
+			return p.rollbackProposalCursorForReorg(p.rpc, reorgedErr)
+		}
 		if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
 				"Detected proven proposals",
@@ -447,4 +458,89 @@ func (p *Prover) rollbackProposalCursorOnRetryExhaustion(
 		)
 		return nil
 	}
+}
+
+// reorgChecker is the subset of the RPC client used to resolve a canonical rollback anchor.
+type reorgChecker interface {
+	CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*rpc.ReorgCheckResult, error)
+}
+
+// rollbackProposalCursorForReorg rolls the proposal scan cursors back below the lowest proposal
+// whose aggregated proof was dropped because its source L1 block was reorged out of the canonical
+// chain, so that the periodic proposal re-scan re-dispatches the replacement proposal events.
+// Without the rollback, the already-advanced cursors would skip the re-proposed events forever.
+func (p *Prover) rollbackProposalCursorForReorg(
+	checker reorgChecker,
+	reorgedErr *proofSubmitter.ReorgedProofsError,
+) error {
+	if p.ctx == nil {
+		return fmt.Errorf("missing prover context")
+	}
+	if p.ctx.Err() != nil {
+		return nil
+	}
+
+	resetID, resetHeader, err := resolveReorgRollbackAnchor(p.ctx, checker, reorgedErr)
+	if err != nil {
+		return err
+	}
+
+	if !p.sharedState.RollbackProposalCursor(p.ctx, resetID, resetHeader) {
+		return nil
+	}
+	log.Warn(
+		"Rolled back proposal cursor after dropping proofs for reorged proposals",
+		"lowestReorgedProposalID", reorgedErr.LowestProposalID,
+		"resetProposalID", resetID,
+		"resetL1Height", resetHeader.Number,
+	)
+	return nil
+}
+
+// resolveReorgRollbackAnchor picks the cursor targets for a reorg rollback: preferably the newest
+// canonical proposal at or below the dropped proposal's parent, resolved through CheckL1Reorg,
+// whose answers are proven against canonical block hashes at height. This covers replacement
+// events landing at a lower L1 height than the stale event. When that data is unavailable, it
+// falls back to the stale event's block height, which only covers replacements landing at or
+// above that height.
+func resolveReorgRollbackAnchor(
+	ctx context.Context,
+	checker reorgChecker,
+	reorgedErr *proofSubmitter.ReorgedProofsError,
+) (uint64, *types.Header, error) {
+	if reorgedErr == nil || reorgedErr.LowestProposalID == 0 {
+		return 0, nil, fmt.Errorf("invalid reorged proposal ID")
+	}
+
+	result, err := checker.CheckL1Reorg(ctx, new(big.Int).SetUint64(reorgedErr.LowestProposalID-1))
+	if err == nil && result != nil && result.L1CurrentToReset != nil {
+		var resetID uint64
+		if result.LastHandledProposalIDToReset != nil && result.LastHandledProposalIDToReset.IsUint64() {
+			resetID = result.LastHandledProposalIDToReset.Uint64()
+		}
+		return resetID, result.L1CurrentToReset, nil
+	}
+	if err != nil {
+		log.Warn(
+			"Failed to resolve a canonical rollback anchor, falling back to the stale event block height",
+			"lowestReorgedProposalID", reorgedErr.LowestProposalID,
+			"error", err,
+		)
+	} else {
+		log.Warn(
+			"No canonical rollback anchor available, falling back to the stale event block height",
+			"lowestReorgedProposalID", reorgedErr.LowestProposalID,
+		)
+	}
+
+	shastaMeta, ok := reorgedErr.LowestProposalMeta.(*metadata.TaikoProposalMetadataShasta)
+	if !ok || shastaMeta == nil || shastaMeta.GetEventData() == nil {
+		return 0, nil, fmt.Errorf("invalid metadata for reorged proposal %d", reorgedErr.LowestProposalID)
+	}
+	l1Height := shastaMeta.GetRawBlockHeight()
+	if l1Height == nil || l1Height.Sign() <= 0 || !l1Height.IsUint64() {
+		return 0, nil, fmt.Errorf("invalid L1 block height for reorged proposal %d", reorgedErr.LowestProposalID)
+	}
+
+	return reorgedErr.LowestProposalID - 1, &types.Header{Number: new(big.Int).Set(l1Height)}, nil
 }
