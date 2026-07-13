@@ -23,7 +23,7 @@ use event_scanner::{EventFilter, Notification, ScannerError, ScannerMessage};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::{sleep, timeout},
+    time::{MissedTickBehavior, interval, sleep, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -62,6 +62,13 @@ enum ProposalLogResult {
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
 /// Timeout for best-effort `head_l1_origin` reset after an event-scanner reorg.
 const REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT: Duration = Duration::from_secs(12);
+/// Interval between confirmed-sync probe retries while preconfirmation ingress is closed.
+///
+/// Reopening must not depend on the next scanner item: the scanner filters empty log batches
+/// and emits `SwitchingToLive` once per generation, so a transiently failed probe on a quiet
+/// inbox would otherwise leave ingress closed until an unrelated proposal event arrives — which
+/// a closed ingress itself suppresses on a preconfirmation-driven chain.
+const CONFIRMED_SYNC_PROBE_RETRY_INTERVAL: Duration = Duration::from_secs(6);
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -507,8 +514,50 @@ impl EventSyncer {
         });
     }
 
+    /// Run one confirmed-sync probe and open preconfirmation ingress when it passes, spawning
+    /// the ingress consumer on first open.
+    ///
+    /// Must only be called from the event-loop task so gate transitions keep a single owner: an
+    /// open here is program-ordered with any later reconnect close performed by the same loop.
+    async fn try_open_preconf_ingress(
+        &self,
+        router: &Arc<AsyncMutex<ProductionRouter>>,
+        preconf_ingress_spawned: &mut bool,
+    ) {
+        let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
+        if let Err(err) = &confirmed_sync_probe {
+            DriverMetrics::event_confirmed_sync_probe_errors_total().inc();
+            warn!(?err, "confirmed-sync probe failed; keeping preconfirmation ingress closed");
+            return;
+        }
+        if !resolve_confirmed_sync_probe(confirmed_sync_probe) {
+            return;
+        }
+        let rx = self
+            .preconf_rx
+            .lock()
+            .expect("preconfirmation receiver lock should not be poisoned")
+            .take();
+        if let Some(rx) = rx {
+            self.spawn_preconf_ingress(
+                router.clone(),
+                rx,
+                self.rpc.clone(),
+                self.preconf_ingress_ready.clone(),
+            );
+            *preconf_ingress_spawned = true;
+        }
+        // The event loop is the sole owner of the ingress gate: opening it here rather than
+        // inside the freshly spawned consumer cannot race a reconnect close, which the same
+        // event-loop task performs in program order.
+        if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
+            info!("opened preconfirmation ingress after confirmed-sync probe");
+            self.preconf_ingress_notify.notify_waiters();
+        }
+    }
+
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
-    /// is no longer part of the provider's canonical chain.
+    /// is no longer part of the canonical chain, proven at a finalized height.
     #[instrument(skip(self), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(
         &self,
@@ -530,10 +579,26 @@ impl EventSyncer {
             return Ok(false);
         };
 
+        // A canonical row is only immutable once its height is finalized. The scanner and
+        // `l1_provider` are independent connections, so above the finalized height a mismatch
+        // can still be a transient view split (a load-balanced backend lagging or briefly
+        // following a losing fork) rather than proof that the log's block lost a reorg — and
+        // the scanner, having observed no reorg on its own view, would never re-serve a wrongly
+        // skipped log. Stay retryable until the height finalizes.
+        let finalized_block_number =
+            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block.map(|block| block.header.number),
+                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
+        if finalized_block_number.is_none_or(|finalized| finalized < block_number) {
+            return Ok(false);
+        }
+
         // By-hash resolvability proves nothing about canonicality in either direction: nodes
         // keep serving reorged-out blocks by hash, while lagging or mixed backends can
-        // transiently miss canonical ones. Compare against the canonical block at the height
-        // instead.
+        // transiently miss canonical ones. Compare against the finalized canonical block at the
+        // height instead.
         let canonical_block = self
             .rpc
             .l1_provider
@@ -541,8 +606,8 @@ impl EventSyncer {
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
-        // Only a proven canonical-hash mismatch classifies the log as permanently orphaned;
-        // unresolved canonical data stays retryable.
+        // Only a canonical-hash mismatch proven at a finalized height classifies the log as
+        // permanently orphaned; unresolved canonical data stays retryable.
         Ok(canonical_block.is_some_and(|canonical| canonical.header.hash != block_hash))
     }
 
@@ -1354,8 +1419,31 @@ impl SyncStage for EventSyncer {
             );
 
             let mut last_seen_l1_block_number = None;
+            // Retry ingress reopening on a timer as well as on stream items: on a quiet inbox
+            // the stream yields nothing (see `CONFIRMED_SYNC_PROBE_RETRY_INTERVAL`), so a
+            // transiently failed probe must not have to wait for the next proposal event.
+            let mut probe_retry = interval(CONFIRMED_SYNC_PROBE_RETRY_INTERVAL);
+            probe_retry.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-            while let Some(message) = stream.next().await {
+            loop {
+                let message = tokio::select! {
+                    message = stream.next() => {
+                        let Some(message) = message else {
+                            break;
+                        };
+                        message
+                    }
+                    _ = probe_retry.tick(), if should_probe_confirmed_sync(
+                        self.cfg.preconfirmation_enabled,
+                        preconf_ingress_spawned,
+                        self.preconf_ingress_ready.load(Ordering::Acquire),
+                        scanner_live,
+                    ) => {
+                        self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned)
+                            .await;
+                        continue;
+                    }
+                };
                 debug!(?message, "received inbox proposal message from event scanner");
                 match message {
                     Ok(ScannerMessage::Data(logs)) => {
@@ -1415,39 +1503,7 @@ impl SyncStage for EventSyncer {
                     self.preconf_ingress_ready.load(Ordering::Acquire),
                     scanner_live,
                 ) {
-                    let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
-                    if let Err(err) = &confirmed_sync_probe {
-                        DriverMetrics::event_confirmed_sync_probe_errors_total().inc();
-                        warn!(
-                            ?err,
-                            "confirmed-sync probe failed; keeping preconfirmation ingress closed"
-                        );
-                        continue;
-                    }
-                    let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                    if confirmed_sync_ready {
-                        let rx = self
-                            .preconf_rx
-                            .lock()
-                            .expect("preconfirmation receiver lock should not be poisoned")
-                            .take();
-                        if let Some(rx) = rx {
-                            self.spawn_preconf_ingress(
-                                router.clone(),
-                                rx,
-                                self.rpc.clone(),
-                                self.preconf_ingress_ready.clone(),
-                            );
-                            preconf_ingress_spawned = true;
-                        }
-                        // The event loop is the sole owner of the ingress gate: opening it here
-                        // rather than inside the freshly spawned consumer cannot race a
-                        // reconnect close, which this same task performs in program order.
-                        if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
-                            info!("opened preconfirmation ingress after confirmed-sync probe");
-                            self.preconf_ingress_notify.notify_waiters();
-                        }
-                    }
+                    self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
                 }
             }
 
@@ -1609,6 +1665,13 @@ mod tests {
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
+    }
+
+    /// Finalized-block response for the orphan check's finalized-height guard.
+    fn finalized_l1_block_at(number: u64) -> Option<RpcBlock<TxEnvelope>> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.number = number;
+        Some(block)
     }
 
     fn sample_event_log_with_block_hash(block_hash: B256) -> Log {
@@ -1842,9 +1905,11 @@ mod tests {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
-        // The reorged-out block is no longer served by hash and the canonical block at the log
-        // height carries a different hash, proving the source block left the canonical chain.
+        // The reorged-out block is no longer served by hash and the canonical block at the
+        // finalized log height carries a different hash, proving the source block left the
+        // canonical chain.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&finalized_l1_block_at(100));
         let mut canonical_block = RpcBlock::<TxEnvelope>::default();
         canonical_block.header.hash = B256::from([6u8; 32]);
         asserter.push_success(&Some(canonical_block));
@@ -1873,6 +1938,7 @@ mod tests {
         // the log height carries the same hash: the block is still canonical and the by-hash
         // miss was transient, so the log must stay retryable instead of being skipped.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&finalized_l1_block_at(100));
         let mut canonical_block = RpcBlock::<TxEnvelope>::default();
         canonical_block.header.hash = block_hash;
         asserter.push_success(&Some(canonical_block));
@@ -1899,6 +1965,7 @@ mod tests {
         // Neither the hash nor the canonical height resolves, so there is no proof of a reorg
         // and the log stays retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&finalized_l1_block_at(100));
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
         let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
@@ -1945,6 +2012,7 @@ mod tests {
         // The block resolves by hash and the canonical block at its height carries the same
         // hash, so the derivation failure came from downstream processing.
         asserter.push_success(&Some(stored_block.clone()));
+        asserter.push_success(&finalized_l1_block_at(100));
         asserter.push_success(&Some(stored_block));
 
         let log = sample_event_log_with_block_hash(block_hash);
@@ -1968,7 +2036,8 @@ mod tests {
         };
         // Nodes keep serving reorged-out blocks by hash, so the by-hash lookup succeeds...
         asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
-        // ...but the canonical block at the same height carries a different hash.
+        asserter.push_success(&finalized_l1_block_at(100));
+        // ...but the finalized canonical block at the same height carries a different hash.
         let mut canonical_block = RpcBlock::<TxEnvelope>::default();
         canonical_block.header.hash = B256::from([6u8; 32]);
         asserter.push_success(&Some(canonical_block));
@@ -1992,9 +2061,10 @@ mod tests {
             rpc: mock_client_with_l1_asserter(asserter.clone()),
             ..build_syncer().await
         };
-        // The block resolves by hash but the provider cannot resolve its height (pruned or
-        // lagging view), so the log stays retryable rather than being skipped.
+        // The block resolves by hash but the provider cannot resolve the canonical row at its
+        // height (pruned or lagging view), so the log stays retryable rather than being skipped.
         asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        asserter.push_success(&finalized_l1_block_at(100));
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
         let log = sample_event_log_with_block_hash(B256::from([7u8; 32]));
@@ -2007,6 +2077,103 @@ mod tests {
             .expect("block lookups should succeed");
 
         assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_mismatch_height_is_not_finalized() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // The hash misses, but the log height (1) is above the finalized height (0): the
+        // provider may be lagging the scanner or briefly following a losing fork, so a
+        // canonical mismatch read here proves nothing and the log must stay retryable. The
+        // canonical row is never fetched.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&finalized_l1_block_at(0));
+
+        let log = sample_event_log_with_block_hash(B256::from([10u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(asserter.read_q().is_empty(), "unfinalized height must short-circuit");
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_finalized_height_is_unavailable() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // Without a finalized height there is no immutable canonical row to compare against,
+        // so no mismatch can be proven and the log stays retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let log = sample_event_log_with_block_hash(B256::from([11u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_before_first_l1_finality() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // Fresh chains report "finalized block not found" until the first finalized epoch;
+        // treat it as "finality unavailable" rather than an error, keeping the log retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
+
+        let log = sample_event_log_with_block_hash(B256::from([12u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("pre-finality lookup should not error");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_reorg_check_is_transient_on_finalized_rpc_error() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_failure_msg("boom");
+
+        let log = sample_event_log_with_block_hash(B256::from([13u8; 32]));
+        let err = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect_err("finalized lookup failure should be surfaced");
+
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
     }
 
     #[test]
@@ -2045,6 +2212,7 @@ mod tests {
         let later_tx_hash = B256::from([0x22; 32]);
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&finalized_l1_block_at(100));
         let mut canonical_block = RpcBlock::<TxEnvelope>::default();
         canonical_block.header.hash = B256::from([0x66; 32]);
         asserter.push_success(&Some(canonical_block));
@@ -2457,6 +2625,58 @@ mod tests {
     fn confirmed_sync_probe_error_keeps_ingress_closed() {
         let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingCheckpointResumeHead));
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
+    }
+
+    #[tokio::test]
+    async fn try_open_preconf_ingress_keeps_gate_closed_on_probe_error() {
+        let l1_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(l1_asserter.clone()),
+            ..build_syncer().await
+        };
+        // The core-state read fails, so the probe errors and the gate must stay closed with the
+        // consumer unspawned; the timer-driven retry re-runs this probe on the next tick.
+        l1_asserter.push_failure_msg("boom");
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockBatchPath::new([])),
+            None,
+        )));
+        let mut preconf_ingress_spawned = false;
+
+        syncer.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
+
+        assert!(!preconf_ingress_spawned);
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+    }
+
+    #[tokio::test]
+    async fn try_open_preconf_ingress_opens_gate_and_spawns_consumer_when_probe_passes() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                Asserter::new(),
+            ),
+            ..build_syncer().await
+        };
+        // nextProposalId == 1 makes the confirmed-sync target 0, which is ready even with no
+        // head_l1_origin row yet, so a single passed probe must spawn the consumer and open the
+        // gate.
+        let core_state = sample_core_state(1);
+        l1_asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&core_state)));
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockBatchPath::new([])),
+            None,
+        )));
+        let mut preconf_ingress_spawned = false;
+
+        syncer.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
+
+        assert!(preconf_ingress_spawned);
+        assert!(syncer.preconf_ingress_ready.load(Ordering::Acquire));
     }
 
     #[tokio::test]
