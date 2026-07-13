@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
-use driver::PreconfPayload;
+use driver::{PreconfPayload, PreconfSubmissionOutcome};
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -169,27 +169,71 @@ impl WhitelistPreconfirmationImporter {
             return Ok(false);
         }
 
+        let expected_parent_hash = envelope.execution_payload.parent_hash;
         let driver_payload = driver_payload_from_envelope(envelope)?;
         let submit_start = Instant::now();
         let submit_result = self
             .event_syncer
-            .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
+            .submit_preconfirmation_payload(PreconfPayload::new(
+                driver_payload,
+                expected_parent_hash,
+            ))
             .await;
         WhitelistPreconfirmationDriverMetrics::observe_driver_submit(
             if submit_result.is_ok() { "success" } else { "failure" },
             submit_start.elapsed().as_secs_f64(),
         );
-        submit_result?;
-
-        info!(
-            block_number,
-            block_hash = %block_hash,
-            parent_hash = %parent_hash,
-            end_of_sequencing,
-            "inserted whitelist preconfirmation block"
-        );
-
-        self.state.record_inserted_block(block_number);
+        match submit_result? {
+            PreconfSubmissionOutcome::Inserted { block_hash: inserted_block_hash } => {
+                if inserted_block_hash == block_hash {
+                    info!(
+                        block_number,
+                        block_hash = %block_hash,
+                        parent_hash = %parent_hash,
+                        end_of_sequencing,
+                        "inserted whitelist preconfirmation block"
+                    );
+                } else {
+                    // The operator-signed hash does not match the block its own payload
+                    // produces; stop re-serving the inconsistent envelope to peers. The
+                    // produced block still advanced the local unsafe head, so it is recorded.
+                    warn!(
+                        block_number,
+                        envelope_block_hash = %block_hash,
+                        inserted_block_hash = %inserted_block_hash,
+                        "operator-signed envelope hash mismatches inserted block; purging envelope"
+                    );
+                    self.state.remove_recent(&block_hash).await;
+                }
+                self.state.record_inserted_block(block_number);
+            }
+            PreconfSubmissionOutcome::AlreadyMaterialized {
+                block_hash: materialized_block_hash,
+            } => {
+                if materialized_block_hash == block_hash {
+                    debug!(
+                        block_number,
+                        block_hash = %block_hash,
+                        "cached preconfirmation already materialized"
+                    );
+                } else {
+                    warn!(
+                        block_number,
+                        envelope_block_hash = %block_hash,
+                        materialized_block_hash = %materialized_block_hash,
+                        "operator-signed envelope hash mismatches materialized block; purging envelope"
+                    );
+                    self.state.remove_recent(&block_hash).await;
+                }
+            }
+            PreconfSubmissionOutcome::Stale => {
+                debug!(
+                    block_number,
+                    block_hash = %block_hash,
+                    "cached preconfirmation became stale"
+                );
+            }
+        }
 
         Ok(true)
     }
@@ -232,6 +276,7 @@ fn classify_cached_driver_error(err: &driver::DriverError) -> CachedImportDispos
         driver::DriverError::EngineInvalidPayload(_) => CachedImportDisposition::Drop,
         driver::DriverError::EngineSyncing(_) |
         driver::DriverError::BlockNotFound(_) |
+        driver::DriverError::PreconfParentMismatch { .. } |
         driver::DriverError::PreconfEnqueueTimeout { .. } |
         driver::DriverError::PreconfResponseTimeout { .. } => CachedImportDisposition::Defer,
         driver::DriverError::PreconfInjectionFailed { source, .. } => match source {
