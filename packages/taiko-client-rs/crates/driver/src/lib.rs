@@ -29,5 +29,5 @@ pub mod sync;
 pub use config::DriverConfig;
 pub use driver::Driver;
 pub use error::DriverError;
-pub use production::PreconfPayload;
+pub use production::{PreconfPayload, PreconfSubmissionOutcome};
 pub use sync::{ConfirmedSyncSnapshot, SyncPipeline, SyncStage, event::EventSyncer};

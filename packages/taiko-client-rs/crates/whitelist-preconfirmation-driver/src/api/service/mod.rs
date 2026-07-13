@@ -12,7 +12,7 @@ use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use async_trait::async_trait;
-use driver::{PreconfPayload, sync::event::EventSyncer};
+use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
 use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
