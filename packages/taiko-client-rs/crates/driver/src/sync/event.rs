@@ -57,6 +57,27 @@ enum ProposalLogResult {
     SkippedOrphaned,
 }
 
+/// Retry decision attached to a failed proposal-processing attempt.
+///
+/// The decision is made where the full context is available (error class plus the canonical
+/// proof of the source log), so the retry predicate never has to re-derive it: only `Abort`
+/// stops the retry loop.
+enum ProposalRetryError {
+    /// Deterministic failure on a proven-canonical log; retrying cannot change the outcome.
+    Abort(DriverError),
+    /// Transient or unproven failure; the attempt should be retried.
+    Retry(DriverError),
+}
+
+impl ProposalRetryError {
+    /// Unwrap the underlying driver error regardless of the retry decision.
+    fn into_inner(self) -> DriverError {
+        match self {
+            ProposalRetryError::Abort(err) | ProposalRetryError::Retry(err) => err,
+        }
+    }
+}
+
 /// Default timeout for preconfirmation payload submission.
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
@@ -214,16 +235,18 @@ fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
 
 /// Return whether a proposal-processing failure is a deterministic engine verdict.
 ///
-/// `INVALID` and other non-`VALID` payload statuses are the engine's judgement on the payload
-/// content itself: resubmitting the identical payload cannot change the answer, so retrying
-/// forever would stall event sync silently. Everything else (RPC transport failures, engine
-/// syncing, missing data) stays retryable.
+/// Only a newPayload `INVALID` qualifies: it is the engine's judgement on the payload content
+/// itself, so resubmitting the identical payload cannot change the answer and retrying forever
+/// would stall event sync silently. `ACCEPTED` is excluded because taiko-geth returns it while
+/// the parent state is temporarily unavailable, and forkchoice `INVALID` is excluded because it
+/// can reflect an unknown or unprocessable head rather than the payload content (the engine
+/// layer keeps both away from `InvalidBlock`). RPC transport failures, engine syncing, and
+/// missing data stay retryable.
 fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
     matches!(
         err,
         DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
-            EngineSubmissionError::InvalidBlock(..) |
-                EngineSubmissionError::UnexpectedPayloadStatus(..)
+            EngineSubmissionError::InvalidBlock(..)
         )))
     )
 }
@@ -538,6 +561,90 @@ impl EventSyncer {
         Ok(chain_head >= log_block_number)
     }
 
+    /// Prove that a proposal log's source block is canonical on L1.
+    ///
+    /// The proof compares the canonical block hash at the log's height against the log's block
+    /// hash. It deliberately avoids by-hash lookups, whose semantics diverge between node
+    /// families (geth keeps serving reorged-out blocks by hash while reth does not); the
+    /// by-number canonical view is the one both answer identically. Missing data — no log
+    /// height, or no canonical block at that height yet — leaves the proof unestablished.
+    #[instrument(skip(self), level = "debug")]
+    async fn is_proposal_log_proven_canonical(
+        &self,
+        block_hash: B256,
+        log_block_number: Option<u64>,
+    ) -> Result<bool, SyncError> {
+        let Some(log_block_number) = log_block_number else {
+            return Ok(false);
+        };
+
+        let canonical_block = self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Number(log_block_number))
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        Ok(canonical_block.is_some_and(|block| block.header.hash == block_hash))
+    }
+
+    /// Decide whether a failed attempt on a non-orphaned proposal log aborts or keeps retrying.
+    ///
+    /// Aborting requires both a deterministic engine verdict on the payload content and an
+    /// explicit canonical proof of the source log. The orphan recheck alone cannot stand in for
+    /// the proof: geth-like L1 nodes keep serving reorged-out blocks by hash, so a stale log can
+    /// pass the recheck while no longer being canonical. Unproven canonicality and proof
+    /// failures keep the attempt retryable.
+    async fn classify_proposal_processing_failure(
+        &self,
+        err: DriverError,
+        log: &Log,
+        block_hash: B256,
+    ) -> ProposalRetryError {
+        if !is_fatal_proposal_processing_error(&err) {
+            warn!(
+                ?err,
+                tx_hash = ?log.transaction_hash,
+                block_number = log.block_number,
+                "proposal derivation failed; retrying"
+            );
+            return ProposalRetryError::Retry(err);
+        }
+
+        match self.is_proposal_log_proven_canonical(block_hash, log.block_number).await {
+            Ok(true) => {
+                error!(
+                    ?err,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal derivation hit a deterministic engine verdict on a \
+                     proven-canonical log; aborting"
+                );
+                ProposalRetryError::Abort(err)
+            }
+            Ok(false) => {
+                warn!(
+                    ?err,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "deterministic engine verdict but source log is not proven canonical; \
+                     retrying"
+                );
+                ProposalRetryError::Retry(err)
+            }
+            Err(proof_err) => {
+                warn!(
+                    ?err,
+                    ?proof_err,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "deterministic engine verdict but the canonical proof errored; retrying"
+                );
+                ProposalRetryError::Retry(err)
+            }
+        }
+    }
+
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
     /// the stable post-reorg boundary. If the L2 EE's confirmed boundary is left ahead of the
     /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until
@@ -643,8 +750,8 @@ impl EventSyncer {
                 });
             };
 
-            // Retry proposal processing on transient errors; deterministic engine verdicts
-            // abort immediately once the source log is proven canonical.
+            // Retry proposal processing on transient errors; a deterministic engine verdict
+            // aborts only once the source log is proven canonical on L1.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
@@ -680,25 +787,9 @@ impl EventSyncer {
                                     );
                                     Ok(ProposalLogResult::SkippedOrphaned)
                                 }
-                                Ok(false) => {
-                                    if is_fatal_proposal_processing_error(&err) {
-                                        error!(
-                                            ?err,
-                                            tx_hash = ?log.transaction_hash,
-                                            block_number = log.block_number,
-                                            "proposal derivation hit a deterministic engine \
-                                             verdict on a canonical log; aborting"
-                                        );
-                                    } else {
-                                        warn!(
-                                            ?err,
-                                            tx_hash = ?log.transaction_hash,
-                                            block_number = log.block_number,
-                                            "proposal derivation failed; retrying"
-                                        );
-                                    }
-                                    Err(err)
-                                }
+                                Ok(false) => Err(syncer
+                                    .classify_proposal_processing_failure(err, &log, block_hash)
+                                    .await),
                                 Err(recheck_err) => {
                                     warn!(
                                         ?err,
@@ -711,15 +802,16 @@ impl EventSyncer {
                                     // original failure: a fatal verdict may only abort after
                                     // the log is proven canonical, never while orphanhood is
                                     // still unresolved.
-                                    Err(DriverError::Sync(recheck_err))
+                                    Err(ProposalRetryError::Retry(DriverError::Sync(recheck_err)))
                                 }
                             },
                         }
                     }
                 },
-                |err: &DriverError| !is_fatal_proposal_processing_error(err),
+                |err: &ProposalRetryError| matches!(err, ProposalRetryError::Retry(_)),
             )
             .await
+            .map_err(ProposalRetryError::into_inner)
             .map_err(|err| match err {
                 DriverError::Sync(sync_err) => sync_err,
                 DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
@@ -2020,18 +2112,32 @@ mod tests {
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
     }
 
+    /// Build an RPC block whose header hash matches the given hash, for canonical-proof stubs.
+    fn rpc_block_with_hash(hash: B256) -> RpcBlock<TxEnvelope> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = hash;
+        block
+    }
+
     #[test]
-    fn fatal_proposal_processing_errors_are_deterministic_engine_verdicts_only() {
+    fn fatal_proposal_processing_errors_are_newpayload_invalid_only() {
         assert!(is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
             DerivationError::Engine(EngineSubmissionError::InvalidBlock(1, "invalid".into()))
         ))));
-        assert!(is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+        // ACCEPTED is transient on taiko-geth (returned while parent state is unavailable) and
+        // forkchoice INVALID can reflect an unknown head; both must stay retryable.
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
             DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus(
                 1,
                 "ACCEPTED".into()
             ))
         ))));
-        // Transient shapes must stay retryable.
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus(
+                1,
+                "forkchoice INVALID: bad head".into()
+            ))
+        ))));
         assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
             DerivationError::Engine(EngineSubmissionError::EngineSyncing(1))
         ))));
@@ -2046,9 +2152,11 @@ mod tests {
         let fatal_block_hash = B256::from([0x71; 32]);
         let fatal_tx_hash = B256::from([0x81; 32]);
         let asserter = Asserter::new();
-        // Orphan recheck resolves the source block as still canonical, so the deterministic
-        // engine verdict must abort instead of retrying forever.
+        // Orphan recheck (by hash) still resolves the source block, so the log is not skipped.
         asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        // Canonical proof (by number) returns the log's own hash: the log is proven canonical,
+        // so the deterministic engine verdict must abort instead of retrying forever.
+        asserter.push_success(&Some(rpc_block_with_hash(fatal_block_hash)));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
@@ -2066,7 +2174,7 @@ mod tests {
 
         let err = result
             .expect("fatal verdict should abort immediately instead of exhausting the timeout")
-            .expect_err("fatal engine verdict on a canonical log should surface as an error");
+            .expect_err("fatal engine verdict on a proven-canonical log should surface an error");
         assert!(matches!(
             err,
             SyncError::Derivation(DerivationError::Engine(EngineSubmissionError::InvalidBlock(..)))
@@ -2074,7 +2182,45 @@ mod tests {
         assert_eq!(
             path.seen_tx_hashes(),
             vec![fatal_tx_hash],
-            "a deterministic engine verdict must not be retried"
+            "a deterministic engine verdict on a proven-canonical log must not be retried"
+        );
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_keeps_retrying_fatal_verdict_without_canonical_proof() {
+        let stale_block_hash = B256::from([0x72; 32]);
+        let stale_tx_hash = B256::from([0x82; 32]);
+        let asserter = Asserter::new();
+        // Two attempts' worth of responses. The by-hash recheck resolves the block (geth-like
+        // L1 nodes keep serving reorged-out blocks by hash), but the canonical block at the
+        // log's height carries a different hash — the proof fails, so the fatal verdict must
+        // keep retrying instead of terminating event sync on a possibly-reorged log.
+        for _ in 0..2 {
+            asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+            asserter.push_success(&Some(rpc_block_with_hash(B256::from([0x99; 32]))));
+        }
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockFatalBatchPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, stale_block_hash, stale_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "an unproven fatal verdict must keep retrying rather than abort the batch"
+        );
+        assert!(
+            path.seen_tx_hashes().len() >= 2,
+            "the proposal should be retried while canonicality stays unproven"
         );
     }
 
