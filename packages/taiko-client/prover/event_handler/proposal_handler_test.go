@@ -54,8 +54,10 @@ func (s *EventHandlerTestSuite) TestProposalReplayOnlyRedispatchesFailedProposal
 
 	s.NoError(handler.Handle(context.Background(), first, func() {}))
 	s.NoError(handler.Handle(context.Background(), second, func() {}))
-	s.NotNil(<-proofCh)
-	s.NotNil(<-proofCh)
+	firstRequest := <-proofCh
+	secondRequest := <-proofCh
+	s.Equal(first.GetProposalID(), firstRequest.Meta.GetProposalID())
+	s.Equal(second.GetProposalID(), secondRequest.Meta.GetProposalID())
 
 	s.True(shared.RollbackProposalCursor(
 		context.Background(),
@@ -64,9 +66,12 @@ func (s *EventHandlerTestSuite) TestProposalReplayOnlyRedispatchesFailedProposal
 	))
 	s.NoError(handler.Handle(context.Background(), first, func() {}))
 	s.NoError(handler.Handle(context.Background(), second, func() {}))
-	s.NotNil(<-proofCh)
+	replayRequest := <-proofCh
+	s.Equal(first.GetProposalID(), replayRequest.Meta.GetProposalID())
 	s.Never(func() bool { return len(proofCh) != 0 }, 100*time.Millisecond, 10*time.Millisecond)
 	s.Equal(second.GetProposalID().Uint64(), shared.GetLastHandledProposalID())
+	s.Equal(second.GetRawBlockHeight(), shared.GetL1Current().Number)
+	s.Equal(second.GetRawBlockHash(), shared.GetL1Current().Hash())
 }
 
 func TestProposalReplayProcessingDecision(t *testing.T) {
