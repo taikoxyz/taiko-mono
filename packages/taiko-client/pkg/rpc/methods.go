@@ -576,11 +576,29 @@ func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgC
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
 		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, proposalID)
 		if err != nil {
-			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
-			// its local database, we skip this check.
 			if err.Error() == ethereum.NotFound.Error() || err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
-				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "proposalID", proposalID)
-				return result, nil
+				// If no reorg has been detected yet, the L2 EE was just synced through P2P, and there is
+				// no L1Origin information recorded in its local database, so we skip this check.
+				if !result.IsReorged {
+					log.Info(
+						"L1Origin not found, the L2 execution engine has just synced from P2P network",
+						"proposalID", proposalID,
+					)
+					return result, nil
+				}
+
+				// A reorg was already detected at a newer proposal, so returning here without reset
+				// cursors would hand the caller an unusable result. Since this proposal's canonicality
+				// cannot be verified without its L1Origin, treat it as reorged as well and keep walking
+				// back until a verifiable proposal (or genesis) provides the reset cursors;
+				// over-rewinding is safe since re-derivation is idempotent.
+				log.Warn(
+					"L1Origin unavailable while walking back reorged proposals, continuing to the previous proposal",
+					"proposalID", proposalID,
+					"error", err,
+				)
+				proposalID = new(big.Int).Sub(proposalID, common.Big1)
+				continue
 			}
 
 			return nil, err
