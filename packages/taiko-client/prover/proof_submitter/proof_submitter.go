@@ -135,6 +135,28 @@ func (s *ProofSubmitter) startBackgroundWorkers(ctx context.Context) {
 	startCacheCleanUpAndFlush(ctx, s.rpc, s.proofCacheMaps, s.flushCacheNotify)
 }
 
+func isExpectedProofPollingError(err error) bool {
+	return errors.Is(err, proofProducer.ErrProofInProgress) ||
+		errors.Is(err, proofProducer.ErrRetry) ||
+		errors.Is(err, ErrProposalOutOfAllowedRange)
+}
+
+func retryProofPolling(ctx context.Context, interval time.Duration, op func() error) error {
+	return backoff.Retry(func() error {
+		if err := ctx.Err(); err != nil {
+			return backoff.Permanent(err)
+		}
+		err := op()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return backoff.Permanent(ctxErr)
+		}
+		if err == nil || isExpectedProofPollingError(err) {
+			return err
+		}
+		return backoff.Permanent(err)
+	}, backoff.WithContext(backoff.NewConstantBackOff(interval), ctx))
+}
+
 // RequestProof requests proof for the given Taiko batch.
 func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	proposalID := meta.GetProposalID()
@@ -197,7 +219,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 	)
 
 	// Send the generated proof.
-	if err := backoff.Retry(func() error {
+	if err := retryProofPolling(ctx, s.proofPollingInterval, func() error {
 		if ctx.Err() != nil {
 			log.Error("Failed to request proof, context is canceled", "proposalID", opts.ProposalID, "error", ctx.Err())
 			return nil
@@ -238,10 +260,8 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			return err
 		}
 		return s.handleProofResponse(meta, fromID, proofResponse)
-	}, backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx)); err != nil {
-		if !errors.Is(err, proofProducer.ErrProofInProgress) &&
-			!errors.Is(err, proofProducer.ErrRetry) &&
-			!errors.Is(err, ErrProposalOutOfAllowedRange) {
+	}); err != nil {
+		if !isExpectedProofPollingError(err) {
 			log.Error("Failed to request a proof", "proposalID", meta.Shasta().GetEventData().Id, "error", err)
 		} else {
 			log.Debug("Expected proof generation error", "error", err, "proposalID", meta.Shasta().GetEventData().Id)
