@@ -1674,6 +1674,27 @@ mod tests {
         Some(block)
     }
 
+    /// L1 block response carrying `block_hash`, used to stand in for by-hash and canonical reads.
+    fn l1_block_with_hash(block_hash: B256) -> Option<RpcBlock<TxEnvelope>> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = block_hash;
+        Some(block)
+    }
+
+    /// Build a syncer over `asserter` and run the orphan check, returning its raw result.
+    ///
+    /// Callers push the L1 provider responses onto `asserter` first (and keep a clone when the
+    /// test also asserts the drained queue), then assert on the returned result themselves.
+    async fn check_orphaned_proposal_log(
+        asserter: Asserter,
+        block_hash: B256,
+        log_block_number: Option<u64>,
+    ) -> Result<bool, SyncError> {
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        syncer.is_permanently_orphaned_proposal_log(block_hash, log_block_number).await
+    }
+
     fn sample_event_log_with_block_hash(block_hash: B256) -> Log {
         Log {
             inner: alloy::primitives::Log::empty(),
@@ -1901,25 +1922,14 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_orphaned_when_missing_by_hash_and_canonical_hash_differs() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // The reorged-out block is no longer served by hash and the canonical block at the
         // finalized log height carries a different hash, proving the source block left the
         // canonical chain.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&finalized_l1_block_at(100));
-        let mut canonical_block = RpcBlock::<TxEnvelope>::default();
-        canonical_block.header.hash = B256::from([6u8; 32]);
-        asserter.push_success(&Some(canonical_block));
+        asserter.push_success(&l1_block_with_hash(B256::from([6u8; 32])));
 
-        let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([1u8; 32]), Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -1929,26 +1939,15 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_missing_by_hash_but_still_canonical() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         let block_hash = B256::from([8u8; 32]);
         // A lagging or mixed RPC backend cannot resolve the hash, but the canonical block at
         // the log height carries the same hash: the block is still canonical and the by-hash
         // miss was transient, so the log must stay retryable instead of being skipped.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&finalized_l1_block_at(100));
-        let mut canonical_block = RpcBlock::<TxEnvelope>::default();
-        canonical_block.header.hash = block_hash;
-        asserter.push_success(&Some(canonical_block));
+        asserter.push_success(&l1_block_with_hash(block_hash));
 
-        let log = sample_event_log_with_block_hash(block_hash);
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -1958,22 +1957,13 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_missing_by_hash_and_height_unresolved() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // Neither the hash nor the canonical height resolves, so there is no proof of a reorg
         // and the log stays retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&finalized_l1_block_at(100));
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
-        let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([5u8; 32]), Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -1983,16 +1973,11 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_missing_by_hash_without_height() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // The hash is gone and the log carries no block number, so there is no canonical row
         // to compare against — without a proven mismatch the log must stay retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(B256::from([9u8; 32]), None)
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([9u8; 32]), None)
             .await
             .expect("block lookup should succeed");
 
@@ -2002,25 +1987,14 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_l1_block_is_still_canonical() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         let block_hash = B256::from([2u8; 32]);
-        let mut stored_block = RpcBlock::<TxEnvelope>::default();
-        stored_block.header.hash = block_hash;
         // The block resolves by hash and the canonical block at its height carries the same
         // hash, so the derivation failure came from downstream processing.
-        asserter.push_success(&Some(stored_block.clone()));
+        asserter.push_success(&l1_block_with_hash(block_hash));
         asserter.push_success(&finalized_l1_block_at(100));
-        asserter.push_success(&Some(stored_block));
+        asserter.push_success(&l1_block_with_hash(block_hash));
 
-        let log = sample_event_log_with_block_hash(block_hash);
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -2030,24 +2004,13 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_orphaned_when_stored_block_is_not_canonical() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // Nodes keep serving reorged-out blocks by hash, so the by-hash lookup succeeds...
         asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
         asserter.push_success(&finalized_l1_block_at(100));
         // ...but the finalized canonical block at the same height carries a different hash.
-        let mut canonical_block = RpcBlock::<TxEnvelope>::default();
-        canonical_block.header.hash = B256::from([6u8; 32]);
-        asserter.push_success(&Some(canonical_block));
+        asserter.push_success(&l1_block_with_hash(B256::from([6u8; 32])));
 
-        let log = sample_event_log_with_block_hash(B256::from([4u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([4u8; 32]), Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -2057,22 +2020,13 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_canonical_height_is_unresolved() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // The block resolves by hash but the provider cannot resolve the canonical row at its
         // height (pruned or lagging view), so the log stays retryable rather than being skipped.
         asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
         asserter.push_success(&finalized_l1_block_at(100));
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
-        let log = sample_event_log_with_block_hash(B256::from([7u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([7u8; 32]), Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -2082,10 +2036,6 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_mismatch_height_is_not_finalized() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // The hash misses, but the log height (1) is above the finalized height (0): the
         // provider may be lagging the scanner or briefly following a losing fork, so a
         // canonical mismatch read here proves nothing and the log must stay retryable. The
@@ -2093,14 +2043,10 @@ mod tests {
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&finalized_l1_block_at(0));
 
-        let log = sample_event_log_with_block_hash(B256::from([10u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
-            .await
-            .expect("block lookups should succeed");
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([10u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
 
         assert!(!is_orphaned);
         assert!(asserter.read_q().is_empty(), "unfinalized height must short-circuit");
@@ -2109,21 +2055,12 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_when_finalized_height_is_unavailable() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // Without a finalized height there is no immutable canonical row to compare against,
         // so no mismatch can be proven and the log stays retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
-        let log = sample_event_log_with_block_hash(B256::from([11u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([11u8; 32]), Some(1))
             .await
             .expect("block lookups should succeed");
 
@@ -2133,21 +2070,12 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_is_retryable_before_first_l1_finality() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         // Fresh chains report "finalized block not found" until the first finalized epoch;
         // treat it as "finality unavailable" rather than an error, keeping the log retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
 
-        let log = sample_event_log_with_block_hash(B256::from([12u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([12u8; 32]), Some(1))
             .await
             .expect("pre-finality lookup should not error");
 
@@ -2157,19 +2085,10 @@ mod tests {
     #[tokio::test]
     async fn proposal_log_reorg_check_is_transient_on_finalized_rpc_error() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_failure_msg("boom");
 
-        let log = sample_event_log_with_block_hash(B256::from([13u8; 32]));
-        let err = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let err = check_orphaned_proposal_log(asserter, B256::from([13u8; 32]), Some(1))
             .await
             .expect_err("finalized lookup failure should be surfaced");
 
@@ -2213,9 +2132,7 @@ mod tests {
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&finalized_l1_block_at(100));
-        let mut canonical_block = RpcBlock::<TxEnvelope>::default();
-        canonical_block.header.hash = B256::from([0x66; 32]);
-        asserter.push_success(&Some(canonical_block));
+        asserter.push_success(&l1_block_with_hash(B256::from([0x66; 32])));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
