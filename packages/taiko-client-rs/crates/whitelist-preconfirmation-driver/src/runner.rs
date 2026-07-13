@@ -90,6 +90,9 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .await?;
         let operator_set = operator_poller.shared_set();
+        // Detached intentionally: the operator-set refresh is read-only L1 polling with no
+        // in-flight state to drain, so shutdown lets it exit with the process instead of
+        // tracking its handle for teardown.
         tokio::spawn(operator_poller.run_refresh_loop());
 
         let network = WhitelistNetwork::spawn(
