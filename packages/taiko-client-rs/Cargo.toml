@@ -137,6 +137,12 @@ rand_chacha.opt-level = 3
 rand_xorshift.opt-level = 3
 unarray.opt-level = 3
 
+[profile.release]
+# Blob and manifest parsing perform arithmetic on attacker-controlled inputs; a silent wrap in
+# production could turn a "reject payload" outcome into a wrong offset. The client is I/O-bound,
+# so the runtime cost of keeping the checks is negligible.
+overflow-checks = true
+
 [profile.debug-fast]
 inherits = "release"
 debug = true
