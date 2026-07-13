@@ -26,22 +26,21 @@ use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, PayloadAttributesInput, build_payload_attributes,
     calculate_shasta_mix_hash,
     constants::{
-        MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES,
-        calculate_next_block_eip4396_base_fee_for_parent, min_base_fee_for_chain,
+        PROPOSAL_MAX_BLOB_BYTES, calculate_next_block_eip4396_base_fee_for_parent,
+        min_base_fee_for_chain,
     },
     encode_extra_data,
 };
 use rpc::{RpcClientError, client::Client};
 use serde_json::from_value;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::time::interval;
+use tokio::time::{MissedTickBehavior, interval};
 use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
     metrics::ProposerMetrics,
-    transaction_builder::ShastaProposalTransactionBuilder,
+    transaction_builder::{ShastaProposalTransactionBuilder, manifest_gas_limit},
     tx_manager_adapter::{build_tx_manager, proposal_candidate},
 };
 
@@ -140,6 +139,9 @@ impl Proposer {
     /// Start the proposer main loop.
     pub async fn start(&self) -> Result<()> {
         let mut interval = interval(self.cfg.propose_interval);
+        // A slow confirmation must not replay the missed ticks as an immediate burst afterwards:
+        // the inbox accepts at most one proposal per L1 block, so burst ticks only revert.
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut epoch = 0;
 
         loop {
@@ -292,15 +294,26 @@ impl Proposer {
 
     /// Fetch transaction pool content from the L2 execution engine.
     async fn fetch_pool_content(&self) -> Result<TransactionLists> {
-        let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
-            .map_err(|_| ProposerError::BaseFeeOverflow)?;
+        let parent = self
+            .rpc_provider
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .ok_or(ProposerError::LatestBlockNotFound)?;
+
+        let base_fee_u64 =
+            u64::try_from(self.calculate_next_shasta_block_base_fee_for_parent(&parent).await?)
+                .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
         let pool_content = self
             .rpc_provider
             .tx_pool_content_with_min_tip(rpc::TxPoolContentParams {
                 beneficiary: self.cfg.l2_suggested_fee_recipient,
                 base_fee: Some(base_fee_u64),
-                block_max_gas_limit: MIN_BLOCK_GAS_LIMIT,
+                // Fill up to the gas limit the manifest will actually declare (parent limit
+                // minus the anchor-gas discount) instead of the protocol minimum, which
+                // under-filled every list to 10M while blocks advertise ~45M.
+                block_max_gas_limit: manifest_gas_limit(parent.number(), parent.header.gas_limit),
                 max_bytes_per_tx_list: PROPOSAL_MAX_BLOB_BYTES as u64,
                 locals: vec![],
                 max_transactions_lists: 1,
@@ -325,19 +338,6 @@ impl Proposer {
             .collect::<Result<Vec<Vec<_>>>>()?;
 
         Ok(txs_lists)
-    }
-
-    /// Calculate the base fee for the next L2 block using EIP-4396 rules.
-    async fn calculate_next_shasta_block_base_fee(&self) -> Result<U256> {
-        // Get the latest block to calculate the next base fee.
-        let parent = self
-            .rpc_provider
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .ok_or(ProposerError::LatestBlockNotFound)?;
-
-        self.calculate_next_shasta_block_base_fee_for_parent(&parent).await
     }
 
     /// Calculate the base fee for the next L2 block from a specific parent snapshot.
@@ -410,7 +410,6 @@ impl Proposer {
         parent: &Block,
     ) -> Result<(TaikoPayloadAttributes, EngineBuildContext)> {
         let block_number = parent.number() + 1;
-        let timestamp = current_unix_timestamp();
 
         // Get basefee sharing percentage from inbox config.
         let inbox_config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
@@ -430,6 +429,10 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
         let anchor_block_number = l1_block.header.number;
+        // Stamp the payload with the L1 head timestamp instead of the local wall clock: the
+        // manifest timestamp must not exceed the proposal's L1 inclusion timestamp, or driver
+        // validation degrades the whole manifest to the default empty block.
+        let timestamp = l1_block.header.timestamp;
 
         // Build anchor transaction.
         let anchor_tx = self
@@ -647,11 +650,6 @@ fn forced_inclusion_is_permissionless(
     l1_timestamp > permissionless_timestamp
 }
 
-/// Returns the current UNIX timestamp in seconds.
-pub(crate) fn current_unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
-}
-
 /// Derive the next proposal id from the parent block header.
 ///
 /// Shasta stores the previous proposal id in the parent block extra data. On a fresh chain the
@@ -714,28 +712,16 @@ mod tests {
     };
     use base_tx_manager::TxManagerError;
 
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     use super::{
-        calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
-        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
-        record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
+        calculate_next_shasta_block_base_fee_from_parent, forced_inclusion_is_permissionless,
+        is_operational_loop_error, next_shasta_proposal_id, record_submission_attempt,
+        record_submission_receipt, should_increment_loop_failure_metric,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
         constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
     };
     use rpc::RpcClientError;
-
-    #[test]
-    fn current_unix_timestamp_tracks_system_time() {
-        let before = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-        let timestamp = current_unix_timestamp();
-        let after = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-
-        assert!(timestamp >= before);
-        assert!(timestamp <= after);
-    }
 
     #[test]
     fn submission_attempt_increments_sent_metric() {

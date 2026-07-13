@@ -23,7 +23,7 @@ use tracing::info;
 
 use crate::{
     error::{ProposerError, Result},
-    proposer::{EngineBuildContext, TransactionLists, current_unix_timestamp},
+    proposer::{EngineBuildContext, TransactionLists},
 };
 
 /// A proposer-owned proposal transaction prepared for adapter-backed submission.
@@ -120,11 +120,17 @@ impl ShastaProposalTransactionBuilder {
                     .ok_or(ProposerError::LatestBlockNotFound)?;
                 let gas_limit =
                     manifest_gas_limit(latest_parent.number(), latest_parent.header.gas_limit);
-                (
-                    self.rpc_provider.l1_provider.get_block_number().await?,
-                    current_unix_timestamp(),
-                    gas_limit,
-                )
+                // Anchor the manifest timestamps to the L1 head rather than the local wall
+                // clock: driver validation rejects any block timestamp above the proposal's L1
+                // inclusion timestamp and degrades the whole manifest to the default empty
+                // block, so a fast local clock would silently drop every proposed transaction.
+                let l1_head = self
+                    .rpc_provider
+                    .l1_provider
+                    .get_block_by_number(BlockNumberOrTag::Latest)
+                    .await?
+                    .ok_or(ProposerError::LatestBlockNotFound)?;
+                (l1_head.header.number, l1_head.header.timestamp, gas_limit)
             }
         };
 
@@ -143,17 +149,21 @@ impl ShastaProposalTransactionBuilder {
                 .iter()
                 .enumerate()
                 .map(|(index, txs)| {
+                    // Driver validation requires strictly increasing block timestamps
+                    // (parent + 1 lower bound), so stagger multi-block manifests by index
+                    // exactly like the Go proposer does.
+                    let block_timestamp = timestamp + index as u64;
                     info!(
                         block_index = index,
                         tx_count = txs.len(),
-                        timestamp,
+                        timestamp = block_timestamp,
                         anchor_block_number,
                         gas_limit,
                         coinbase = ?self.l2_suggested_fee_recipient,
                         "setting up derivation source manifest block"
                     );
                     BlockManifest {
-                        timestamp,
+                        timestamp: block_timestamp,
                         coinbase: self.l2_suggested_fee_recipient,
                         anchor_block_number,
                         gas_limit,
@@ -197,7 +207,7 @@ impl ShastaProposalTransactionBuilder {
 ///
 /// The genesis parent (block number 0) keeps its gas limit unchanged; all later parents apply the
 /// anchor-gas discount expected by the driver-side validation.
-fn manifest_gas_limit(parent_block_number: u64, gas_limit: u64) -> u64 {
+pub(crate) fn manifest_gas_limit(parent_block_number: u64, gas_limit: u64) -> u64 {
     if parent_block_number == 0 {
         gas_limit
     } else {
@@ -283,11 +293,24 @@ mod tests {
     }
 
     impl ManifestTestTransport {
-        fn l1(l1_block_number: u64, call_result: Bytes) -> Self {
+        fn l1(l1_block_number: u64, l1_timestamp: u64, call_result: Bytes) -> Self {
+            let l1_head = RpcBlock::<TxEnvelope> {
+                header: RpcHeader {
+                    hash: Default::default(),
+                    inner: ConsensusHeader {
+                        number: l1_block_number,
+                        timestamp: l1_timestamp,
+                        ..Default::default()
+                    },
+                    total_difficulty: None,
+                    size: None,
+                },
+                ..Default::default()
+            };
             Self {
                 l1_block_number,
                 call_result,
-                latest_block: None,
+                latest_block: Some(l1_head),
                 genesis_block: None,
                 requests: Arc::new(Mutex::new(Vec::new())),
                 saw_latest_block: Arc::new(AtomicBool::new(false)),
@@ -492,7 +515,7 @@ mod tests {
             ..Default::default()
         };
         let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
-        let l1_transport = ManifestTestTransport::l1(1, call_result);
+        let l1_transport = ManifestTestTransport::l1(1, 1_000, call_result);
         let l2_transport = ManifestTestTransport::l2(latest_parent, genesis_parent);
         let rpc_provider = test_rpc_client(l1_transport.clone(), l2_transport.clone());
         let builder =
@@ -520,6 +543,62 @@ mod tests {
                 .iter()
                 .any(|entry| entry.contains("eth_getBlockByNumber") && entry.contains("latest")),
             "request log should include an eth_getBlockByNumber latest lookup"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn build_stamps_l1_head_timestamp_and_staggers_blocks_in_non_engine_mode()
+    -> crate::error::Result<()> {
+        let latest_parent = RpcBlock::<TxEnvelope> {
+            header: RpcHeader {
+                hash: Default::default(),
+                inner: ConsensusHeader { number: 42, gas_limit: 46_000_000, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+        let genesis_parent = RpcBlock::<TxEnvelope> {
+            header: RpcHeader {
+                hash: Default::default(),
+                inner: ConsensusHeader { number: 0, gas_limit: 47_000_000, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+        let l1_head_number = 77;
+        let l1_head_timestamp = 1_234_567;
+        let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
+        let l1_transport =
+            ManifestTestTransport::l1(l1_head_number, l1_head_timestamp, call_result);
+        let l2_transport = ManifestTestTransport::l2(latest_parent, genesis_parent);
+        let rpc_provider = test_rpc_client(l1_transport.clone(), l2_transport.clone());
+        let builder =
+            ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
+
+        // Two tx lists: driver validation requires strictly increasing timestamps across the
+        // manifest blocks, so identical stamps would void the whole proposal.
+        let built_tx = builder.build(vec![vec![], vec![]], None).await?;
+        let manifest_payload =
+            BlobCoder::decode_blob(&built_tx.blobs()[0]).expect("manifest blob should decode");
+        let manifest = DerivationSourceManifest::decompress_and_decode(&manifest_payload, 0)
+            .expect("manifest should decode from blob sidecar");
+
+        assert_eq!(manifest.blocks.len(), 2);
+        // The base timestamp comes from the L1 head (never above the proposal's L1 inclusion
+        // timestamp), not from the local wall clock.
+        assert_eq!(manifest.blocks[0].timestamp, l1_head_timestamp);
+        assert_eq!(manifest.blocks[1].timestamp, l1_head_timestamp + 1);
+        assert_eq!(manifest.blocks[0].anchor_block_number, l1_head_number);
+        assert!(
+            l1_transport
+                .request_log()
+                .iter()
+                .any(|entry| entry.contains("eth_getBlockByNumber") && entry.contains("latest")),
+            "builder should fetch the L1 head block instead of eth_blockNumber"
         );
 
         Ok(())
