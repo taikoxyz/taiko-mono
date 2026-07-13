@@ -501,12 +501,11 @@ impl EventSyncer {
             Some(_) => Ok(true),
             // The provider has no block at the log's height. On a consistent chain view this
             // only means the height is beyond the provider's head (not yet observed), which is
-            // never a proof of orphaning — so retry rather than skip. A log whose emitting block
-            // was genuinely reorged out resurfaces as `Some(<different hash>)` once the canonical
-            // chain re-extends to this height. Treating `None` as orphaned here would let a
-            // lagging or load-balanced RPC view (height missing on one backend while another
-            // reports the head past it) permanently drop a canonical proposal.
-            None => Ok(false),
+            // never a proof of either canonicality or orphaning. Surface a typed transient error
+            // so a fatal processing verdict remains retryable until a later recheck resolves the
+            // block. A genuinely reorged-out log resurfaces as `Some(<different hash>)` once the
+            // canonical chain re-extends to this height.
+            None => Err(SyncError::CanonicalL1BlockUnavailable { number: log_block_number }),
         }
     }
 
@@ -1757,15 +1756,15 @@ mod tests {
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
 
         let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
-        let is_orphaned = syncer
+        let err = syncer
             .is_permanently_orphaned_proposal_log(
                 log.block_hash.expect("test log should include block hash"),
                 log.block_number,
             )
             .await
-            .expect("block lookup should succeed");
+            .expect_err("missing canonical height should remain inconclusive");
 
-        assert!(!is_orphaned);
+        assert!(matches!(err, SyncError::CanonicalL1BlockUnavailable { number: 1 }));
     }
 
     #[tokio::test]
@@ -2017,6 +2016,35 @@ mod tests {
             2,
             "the fatal verdict may only abort after a conclusive recheck"
         );
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_retries_invalid_block_while_canonical_height_is_missing() {
+        let asserter = Asserter::new();
+        // A missing canonical height is inconclusive and must keep INVALID retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        // A later recheck proves the source block was reorged out, so the log is skipped.
+        asserter.push_success(&Some(canonical_block_with_hash(B256::from([0xEE; 32]))));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockInvalidBlockPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, B256::from([0xb1; 32]), B256::from([0xc1; 32]))],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "a missing canonical height must not make an INVALID verdict abort event sync",
+        );
+        assert_eq!(path.attempts(), 2, "the inconclusive recheck must trigger another attempt");
     }
 
     #[test]

@@ -39,6 +39,13 @@ pub enum SyncError {
         number: u64,
     },
 
+    /// Event sync: canonical L1 block is temporarily unavailable during a proposal-log recheck.
+    #[error("canonical L1 block {number} unavailable while rechecking proposal log")]
+    CanonicalL1BlockUnavailable {
+        /// L1 block number whose canonical block is not currently visible.
+        number: u64,
+    },
+
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
     #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
     MissingAnchorTransaction {
