@@ -69,7 +69,7 @@ Primary Rust behavior anchors:
   - Stale check is applied before enqueue and again during ingress processing.
 - `crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs`
   - Whitelist importer cached payloads at or below confirmed boundary are dropped.
-- `crates/whitelist-preconfirmation-driver/src/importer/response.rs`
+- `crates/whitelist-preconfirmation-driver/src/importer/ingress.rs`
   - Whitelist importer unsafe-response serving excludes blocks at or below confirmed boundary.
 
 Required interpretation:
@@ -108,7 +108,7 @@ Primary Rust behavior anchors:
 - `crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs`
   - Detects parent mismatches and requests missing parent/ancestor payloads.
   - Imports only contiguous parent-valid payload chains.
-- `crates/whitelist-preconfirmation-driver/src/importer/response.rs`
+- `crates/whitelist-preconfirmation-driver/src/importer/ingress.rs`
   - Publishes unsafe block requests/responses used for ancestry recovery.
 - `crates/driver/src/sync/event.rs`
   - Final preconf submission passes through strict ingress/stale gating.

@@ -19,6 +19,18 @@ use thiserror::Error;
 /// Poll HTTP L1 providers frequently enough to keep the local harness responsive.
 const HTTP_SUBSCRIPTION_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
+/// Total per-request timeout for HTTP providers, mirroring the rpc crate's
+/// `DEFAULT_HTTP_TIMEOUT`. Without it a black-holed endpoint stalls every caller forever.
+const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
+
+/// Build a reqwest HTTP client with a bounded total request timeout.
+fn http_client_with_timeout() -> alloy::transports::http::reqwest::Client {
+    alloy::transports::http::reqwest::Client::builder()
+        .timeout(HTTP_REQUEST_TIMEOUT)
+        .build()
+        .expect("http client")
+}
+
 /// Convenience alias for the recommended filler stack with a wallet.
 pub type JoinedRecommendedFillersWithWallet =
     JoinFill<JoinedRecommendedFillers, WalletFiller<EthereumWallet>>;
@@ -80,7 +92,9 @@ impl SubscriptionSource {
         let builder = ProviderBuilder::new();
         let provider =
             match self {
-                SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
+                SubscriptionSource::Http(url) => {
+                    builder.connect_reqwest(http_client_with_timeout(), url.clone())
+                }
                 SubscriptionSource::Ws(url) => builder
                     .connect_ws(WsConnect::new(url.as_str()))
                     .await
@@ -104,7 +118,9 @@ impl SubscriptionSource {
         let builder = ProviderBuilder::new().wallet(wallet);
         let provider =
             match self {
-                SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
+                SubscriptionSource::Http(url) => {
+                    builder.connect_reqwest(http_client_with_timeout(), url.clone())
+                }
                 SubscriptionSource::Ws(url) => builder
                     .connect_ws(WsConnect::new(url.as_str()))
                     .await

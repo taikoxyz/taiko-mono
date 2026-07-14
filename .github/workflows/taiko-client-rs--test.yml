@@ -236,6 +236,10 @@ jobs:
         with:
           just-version: 1.5.0
 
+      - name: Check protocol feature isolation
+        working-directory: packages/taiko-client-rs
+        run: just check-features
+
       - uses: taiki-e/install-action@nextest
 
       - name: Checkout protocol for testing

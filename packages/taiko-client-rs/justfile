@@ -14,6 +14,10 @@ fmt-check:
   rustup toolchain install {{toolchain}} && \
   cargo +{{toolchain}} fmt --check
 
+check-features:
+  cargo check -p protocol --no-default-features --locked && \
+  cargo check -p protocol --locked
+
 clippy:
   cargo clippy --workspace --all-features --no-deps --exclude bindings --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items
 
