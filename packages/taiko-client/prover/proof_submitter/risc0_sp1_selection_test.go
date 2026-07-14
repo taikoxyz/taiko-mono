@@ -53,10 +53,8 @@ func (p *recordingProofProducer) Aggregate(
 }
 
 func TestRequestProposalProofUsesRisc0FirstWhenZKVMConfigured(t *testing.T) {
-	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
 	submitter := &ProofSubmitter{
-		baseLevelProofProducer:        base,
 		zkvmProofProducer:             risc0,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 	}
@@ -74,14 +72,11 @@ func TestRequestProposalProofUsesRisc0FirstWhenZKVMConfigured(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKR0, resp.ProofType)
 	require.Equal(t, 1, risc0.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKR0}, risc0.requestedTypes)
-	require.Zero(t, base.requests)
 }
 
 func TestRequestProposalProofUsesSameZKVMProducerForSP1Fallback(t *testing.T) {
-	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
 	submitter := &ProofSubmitter{
-		baseLevelProofProducer:        base,
 		zkvmProofProducer:             risc0,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 	}
@@ -99,14 +94,11 @@ func TestRequestProposalProofUsesSameZKVMProducerForSP1Fallback(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
 	require.Equal(t, 1, risc0.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
-	require.Zero(t, base.requests)
 }
 
 func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
-	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
 	submitter := &ProofSubmitter{
-		baseLevelProofProducer:        base,
 		zkvmProofProducer:             risc0,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 		forceSP1Proof:                 true,
@@ -125,14 +117,11 @@ func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
 	require.Equal(t, 1, risc0.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
-	require.Zero(t, base.requests)
 }
 
 func TestRequestProposalProofErrorsOnNilZKVMResponse(t *testing.T) {
-	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0, nilResponse: true}
 	submitter := &ProofSubmitter{
-		baseLevelProofProducer:        base,
 		zkvmProofProducer:             risc0,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 	}
@@ -149,13 +138,10 @@ func TestRequestProposalProofErrorsOnNilZKVMResponse(t *testing.T) {
 	require.ErrorContains(t, err, "nil proof response")
 	require.Nil(t, resp)
 	require.Equal(t, 1, risc0.requests)
-	require.Zero(t, base.requests)
 }
 
-func TestRequestProposalProofUsesBaseOnlyWhenZKVMDisabled(t *testing.T) {
-	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
+func TestRequestProposalProofRejectsMissingZKVMProducer(t *testing.T) {
 	submitter := &ProofSubmitter{
-		baseLevelProofProducer:        base,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 	}
 
@@ -168,7 +154,19 @@ func TestRequestProposalProofUsesBaseOnlyWhenZKVMDisabled(t *testing.T) {
 		big.NewInt(10),
 	)
 
-	require.NoError(t, err)
-	require.Equal(t, proofProducer.ProofTypeSgx, resp.ProofType)
-	require.Equal(t, 1, base.requests)
+	require.ErrorContains(t, err, "requires a ZKVM proof producer")
+	require.Nil(t, resp)
+}
+
+func TestAggregateProofsByTypeRejectsNonZKProofType(t *testing.T) {
+	submitter := &ProofSubmitter{
+		zkvmProofProducer: &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0},
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeSgx: proofProducer.NewProofBuffer(1),
+		},
+	}
+
+	err := submitter.AggregateProofsByType(context.Background(), proofProducer.ProofTypeSgx)
+
+	require.ErrorContains(t, err, "unknown proof type: sgx")
 }

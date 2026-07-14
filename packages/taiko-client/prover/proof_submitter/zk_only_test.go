@@ -14,11 +14,9 @@ import (
 )
 
 func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
-	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	zkvm := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
 	backlog := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
 	submitter := &ProofSubmitter{
-		baseLevelProofProducer:        base,
 		zkvmProofProducer:             zkvm,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 		zkOnlyProofs:                  true,
@@ -42,7 +40,6 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
 	require.Equal(t, 1, zkvm.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, zkvm.requestedTypes)
-	require.Zero(t, base.requests)
 	require.False(t, submitter.inSP1Fallback())
 	select {
 	case <-backlog.cleared:
@@ -53,10 +50,9 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 	require.Zero(t, backlog.statusCalls.Load())
 }
 
-func TestNewProofSubmitterZkOnlyRequiresZKVMProducer(t *testing.T) {
+func TestNewProofSubmitterRequiresZKVMProducer(t *testing.T) {
 	_, err := NewProofSubmitter(
 		context.Background(),
-		&recordingProofProducer{proofType: proofProducer.ProofTypeSgx},
 		nil,
 		nil,
 		nil,
@@ -71,8 +67,8 @@ func TestNewProofSubmitterZkOnlyRequiresZKVMProducer(t *testing.T) {
 		nil,
 		nil,
 		false,
-		true,
+		false,
 	)
 
-	require.ErrorContains(t, err, "ZK-only proof mode requires a ZKVM proof producer")
+	require.ErrorContains(t, err, "proof submitter requires a ZKVM proof producer")
 }

@@ -36,14 +36,12 @@ type Config struct {
 	RPCTimeout                    time.Duration
 	ProveBatchesGasLimit          uint64
 	RaikoHostEndpoint             string
-	RaikoZKVMHostEndpoint         string
 	RaikoApiKey                   string
 	RaikoRequestTimeout           time.Duration
 	LocalProposerAddresses        []common.Address
 	BlockConfirmations            uint64
 	TxmgrConfigs                  *txmgr.CLIConfig
 	PrivateTxmgrConfigs           *txmgr.CLIConfig
-	SGXProofBufferSize            uint64
 	ZKVMProofBufferSize           uint64
 	ForceBatchProvingInterval     time.Duration
 	ProofPollingInterval          time.Duration
@@ -87,15 +85,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	// Both Raiko endpoints are required CLI flags. Keep explicit validation here for
+	// The Raiko endpoint is a required CLI flag. Keep explicit validation here for
 	// callers that construct a CLI context without the application's flag validation.
 	raikoHostEndpoint := strings.TrimSpace(c.String(flags.RaikoHostEndpoint.Name))
 	if len(raikoHostEndpoint) == 0 {
 		return nil, fmt.Errorf("--%s is required", flags.RaikoHostEndpoint.Name)
-	}
-	raikoZKVMHostEndpoint := strings.TrimSpace(c.String(flags.RaikoZKVMHostEndpoint.Name))
-	if len(raikoZKVMHostEndpoint) == 0 {
-		return nil, fmt.Errorf("--%s is required", flags.RaikoZKVMHostEndpoint.Name)
 	}
 
 	zkOnlyProofs := c.Bool(flags.ZkOnlyProofs.Name)
@@ -121,7 +115,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		TaikoAnchorAddress:       common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		L1ProverPrivKey:          l1ProverPrivKey,
 		RaikoHostEndpoint:        raikoHostEndpoint,
-		RaikoZKVMHostEndpoint:    raikoZKVMHostEndpoint,
 		RaikoApiKey:              strings.TrimSpace(string(raikoApiKey)),
 		RaikoRequestTimeout:      c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingProposalID:       startingProposalID,
@@ -145,7 +138,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
-		SGXProofBufferSize:        c.Uint64(flags.SGXBatchSize.Name),
 		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),

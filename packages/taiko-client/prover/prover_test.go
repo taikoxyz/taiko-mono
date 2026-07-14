@@ -254,7 +254,6 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		RPCTimeout:               3 * time.Second,
 		BackOffRetryInterval:     3 * time.Second,
 		BackOffMaxRetries:        12,
-		SGXProofBufferSize:       1,
 		ZKVMProofBufferSize:      1,
 		BlockConfirmations:       0,
 	}, s.txmgr, s.txmgr))

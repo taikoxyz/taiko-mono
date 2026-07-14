@@ -19,15 +19,11 @@ import (
 // initProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
-		// ZKVM proof producers.
-		zkvmProducer producer.ProofProducer
-
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
 		// VerifierIDs
 		sgxGethVerifierID   uint8 = 1
-		sgxRethVerifierID   uint8 = 4
 		risc0RethVerifierID uint8 = 5
 		sp1RethVerifierID   uint8 = 6
 
@@ -59,19 +55,6 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		Dummy:               p.cfg.Dummy,
 	}
-	// Initialize the sgx proof producer.
-	proofTypes = append(proofTypes, producer.ProofTypeSgx)
-	sgxRethProducer := &producer.ComposeProofProducer{
-		SgxGethProducer: sgxGethProducer,
-		VerifierIDs: map[producer.ProofType]uint8{
-			producer.ProofTypeSgx: sgxRethVerifierID,
-		},
-		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		ProofType:           producer.ProofTypeSgx,
-		ApiKey:              p.cfg.RaikoApiKey,
-		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		Dummy:               p.cfg.Dummy,
-	}
 
 	// Initialize the zk verifiers and zkvm proof producers.
 	var zkVerifierIDs = make(map[producer.ProofType]uint8, proofSubmitter.MaxNumSupportedZkTypes)
@@ -80,17 +63,15 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 	proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
 	zkVerifierIDs[producer.ProofTypeZKSP1] = sp1RethVerifierID
 
-	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
-		zkvmProducer = &producer.ComposeProofProducer{
-			VerifierIDs:         zkVerifierIDs,
-			SgxGethProducer:     sgxGethProducer,
-			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-			ApiKey:              p.cfg.RaikoApiKey,
-			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			ProofType:           producer.ProofTypeZKR0,
-			ZkOnly:              p.cfg.ZkOnlyProofs,
-			Dummy:               p.cfg.Dummy,
-		}
+	zkvmProducer := &producer.ComposeProofProducer{
+		VerifierIDs:         zkVerifierIDs,
+		SgxGethProducer:     sgxGethProducer,
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		ApiKey:              p.cfg.RaikoApiKey,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		ProofType:           producer.ProofTypeZKR0,
+		ZkOnly:              p.cfg.ZkOnlyProofs,
+		Dummy:               p.cfg.Dummy,
 	}
 	// Init proof buffers.
 	var (
@@ -105,8 +86,6 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 	for _, proofType := range proofTypes {
 		cacheMaps[proofType] = cmap.New[*producer.ProofResponse]()
 		switch proofType {
-		case producer.ProofTypeOp, producer.ProofTypeSgx:
-			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
 		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
 		default:
@@ -116,7 +95,6 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 
 	if p.proofSubmitter, err = proofSubmitter.NewProofSubmitter(
 		p.ctx,
-		sgxRethProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
