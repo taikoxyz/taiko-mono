@@ -291,6 +291,7 @@ func (s *ProofSubmitter) requestProposalProof(
 	if s.zkOnlyProofs {
 		companionProofType = proofProducer.ProofTypeZKR0
 	}
+
 	proposalOpts := opts.ProposalOptions()
 	proposalOpts.ProofType = proofType
 	proposalOpts.CompanionProofType = companionProofType
