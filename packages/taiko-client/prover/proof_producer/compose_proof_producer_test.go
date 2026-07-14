@@ -25,10 +25,11 @@ func TestComposeProducerRequestProof(t *testing.T) {
 			SgxGethProducer:    &SgxGethProofProducer{Dummy: true},
 		}
 		blockID = common.Big32
+		opts    = &ProposalProofRequestOptions{}
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
-		&ProposalProofRequestOptions{},
+		opts,
 		blockID,
 		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: blockID}, 0),
 		time.Now(),
@@ -37,9 +38,11 @@ func TestComposeProducerRequestProof(t *testing.T) {
 
 	require.Equal(t, res.BatchID, blockID)
 	require.NotEmpty(t, res.Proof)
+	require.True(t, opts.CompanionProofGenerated)
 }
 
 func TestComposeProducerAggregateUsesItemProofType(t *testing.T) {
+	opts := &ProposalProofRequestOptions{}
 	producer := &ComposeProofProducer{
 		VerifierIDs: map[ProofType]uint8{
 			ProofTypeZKSP1: 6,
@@ -60,7 +63,7 @@ func TestComposeProducerAggregateUsesItemProofType(t *testing.T) {
 					&shastaBindings.ShastaInboxClientProposed{Id: common.Big1},
 					0,
 				),
-				Opts: &ProposalProofRequestOptions{},
+				Opts: opts,
 			},
 		},
 		time.Now(),
@@ -68,6 +71,7 @@ func TestComposeProducerAggregateUsesItemProofType(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, ProofTypeZKSP1, result.ProofType)
+	require.True(t, opts.CompanionProofAggregationGenerated)
 }
 
 // TestComposeProducerZkOnlyRequestProofDummy ensures the ZK-only path never touches the
@@ -248,8 +252,7 @@ func TestComposeProducerZkOnlyRequestProofRequestsBothZkProofs(t *testing.T) {
 		require.False(t, req.Aggregate)
 	}
 	require.True(t, opts.RethProofGenerated)
-	require.True(t, opts.Risc0CompanionProofGenerated)
-	require.False(t, opts.GethProofGenerated)
+	require.True(t, opts.CompanionProofGenerated)
 }
 
 func TestComposeProducerZkOnlyAggregateRequestsBothZkAggregations(t *testing.T) {
@@ -300,8 +303,7 @@ func TestComposeProducerZkOnlyAggregateRequestsBothZkAggregations(t *testing.T) 
 	require.Equal(t, uint8(5), result.CompanionVerifierID)
 	require.Equal(t, common.Hex2Bytes("bbbb"), result.CompanionBatchProof)
 	require.True(t, opts.RethProofAggregationGenerated)
-	require.True(t, opts.Risc0CompanionProofAggregationGenerated)
-	require.False(t, opts.GethProofAggregationGenerated)
+	require.True(t, opts.CompanionProofAggregationGenerated)
 }
 
 func TestComposeProducerZkOnlyRequestProofRejectsMismatchedCompanionType(t *testing.T) {
@@ -335,7 +337,7 @@ func TestComposeProducerZkOnlyRequestProofRejectsMismatchedCompanionType(t *test
 	)
 
 	require.ErrorContains(t, err, "requested risc0, got sp1")
-	require.False(t, opts.Risc0CompanionProofGenerated)
+	require.False(t, opts.CompanionProofGenerated)
 }
 
 func TestComposeProducerZkOnlyAggregateRejectsMismatchedCompanionType(t *testing.T) {
@@ -377,5 +379,5 @@ func TestComposeProducerZkOnlyAggregateRejectsMismatchedCompanionType(t *testing
 	)
 
 	require.ErrorContains(t, err, "requested risc0, got sp1")
-	require.False(t, opts.Risc0CompanionProofAggregationGenerated)
+	require.False(t, opts.CompanionProofAggregationGenerated)
 }

@@ -128,8 +128,8 @@ func (s *ComposeProofProducer) RequestProof(
 		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 			return err
 		} else {
-			// Note: we mark `GethProofGenerated` with true to record if it is the first time generated.
-			opts.ProposalOptions().GethProofGenerated = true
+			// Note: we mark `CompanionProofGenerated` with true to record if it is the first time generated.
+			opts.ProposalOptions().CompanionProofGenerated = true
 			return nil
 		}
 	})
@@ -206,8 +206,8 @@ func (s *ComposeProofProducer) Aggregate(
 		if err != nil {
 			return err
 		}
-		// Note: we mark `GethProofAggregationGenerated` in the first item with true.
-		items[0].Opts.ProposalOptions().GethProofAggregationGenerated = true
+		// Note: we mark `CompanionProofAggregationGenerated` in the first item with true.
+		items[0].Opts.ProposalOptions().CompanionProofAggregationGenerated = true
 		companionBatchProof = sgxGethBatchProofs.BatchProof
 		companionVerifierID = sgxGethBatchProofs.VerifierID
 		return nil
@@ -270,12 +270,12 @@ func (s *ComposeProofProducer) requestRisc0CompanionProof(
 		false,
 		ProofTypeZKR0,
 		requestAt,
-		opts.ProposalOptions().Risc0CompanionProofGenerated,
+		opts.ProposalOptions().CompanionProofGenerated,
 	); err != nil {
 		return err
 	}
-	// Note: we mark `Risc0CompanionProofGenerated` with true to record if it is the first time generated.
-	opts.ProposalOptions().Risc0CompanionProofGenerated = true
+	// Note: we mark `CompanionProofGenerated` with true to record if it is the first time generated.
+	opts.ProposalOptions().CompanionProofGenerated = true
 	return nil
 }
 
@@ -299,13 +299,13 @@ func (s *ComposeProofProducer) aggregateRisc0CompanionProofs(
 		true,
 		ProofTypeZKR0,
 		requestAt,
-		items[0].Opts.ProposalOptions().Risc0CompanionProofAggregationGenerated,
+		items[0].Opts.ProposalOptions().CompanionProofAggregationGenerated,
 	)
 	if err != nil {
 		return nil, err
 	}
-	// Note: we mark `Risc0CompanionProofAggregationGenerated` in the first item with true.
-	items[0].Opts.ProposalOptions().Risc0CompanionProofAggregationGenerated = true
+	// Note: we mark `CompanionProofAggregationGenerated` in the first item with true.
+	items[0].Opts.ProposalOptions().CompanionProofAggregationGenerated = true
 	return common.Hex2Bytes(resp.Data.Proof[2:]), nil
 }
 

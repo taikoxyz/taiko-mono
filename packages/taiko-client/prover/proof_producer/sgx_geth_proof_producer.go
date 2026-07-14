@@ -50,7 +50,7 @@ func (s *SgxGethProofProducer) RequestProof(
 		false,
 		ProofTypeSgxGeth,
 		requestAt,
-		opts.IsGethProofGenerated(),
+		opts.IsCompanionProofGenerated(),
 	)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (s *SgxGethProofProducer) Aggregate(
 		true,
 		ProofTypeSgxGeth,
 		requestAt,
-		items[0].Opts.IsGethProofAggregationGenerated(),
+		items[0].Opts.IsCompanionProofAggregationGenerated(),
 	)
 	if err != nil {
 		return nil, err
