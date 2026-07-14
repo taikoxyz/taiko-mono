@@ -63,15 +63,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
 	}
 
-	// The cli library no longer marks --l1.ws / --l2.ws as Required (the driver
-	// can fall back to HTTP polling), so we enforce the prover's requirement
-	// here. Placed after the private-key validation so existing error-precedence
-	// assertions in tests stay intact.
-	if c.String(flags.L1WSEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L1WSEndpoint.Name)
-	}
-	if c.String(flags.L2WSEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2WSEndpoint.Name)
+	// Enforce WS endpoints after the private-key validation, so existing
+	// error-precedence assertions in tests stay intact.
+	if err := flags.CheckWSEndpointsRequired(c, "prover"); err != nil {
+		return nil, err
 	}
 
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))

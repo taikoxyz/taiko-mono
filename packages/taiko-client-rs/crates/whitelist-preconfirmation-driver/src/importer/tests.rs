@@ -15,7 +15,8 @@ use crate::{
 };
 
 use super::{
-    cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
+    cache_import::{CachedImportDisposition, classify_cached_import_error},
+    ingress::is_stale_at_confirmed_tip,
     should_enable_preconf_imports,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
@@ -23,6 +24,14 @@ use super::{
 const TEST_CHAIN_ID: u64 = 167;
 const NON_GOLDEN_SIGNER_PRIVATE_KEY: &str =
     "0x0000000000000000000000000000000000000000000000000000000000000001";
+
+#[test]
+fn stale_envelope_requires_written_confirmed_tip() {
+    assert!(!is_stale_at_confirmed_tip(1, None));
+    assert!(is_stale_at_confirmed_tip(7, Some(7)));
+    assert!(is_stale_at_confirmed_tip(6, Some(7)));
+    assert!(!is_stale_at_confirmed_tip(8, Some(7)));
+}
 
 fn sample_execution_payload_with_transactions(
     transactions: Vec<Bytes>,
@@ -117,22 +126,30 @@ fn valid_anchor_tx_list(anchor_address: Address) -> Bytes {
 #[test]
 fn drops_cached_import_errors_for_invalid_payload() {
     let err = WhitelistPreconfirmationDriverError::InvalidPayload("bad payload".to_string());
-    assert!(should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop);
 }
 
 #[test]
 fn drops_cached_import_errors_for_invalid_signature() {
     let err = WhitelistPreconfirmationDriverError::InvalidSignature("bad signature".to_string());
-    assert!(should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop);
 }
 
 #[test]
 fn defers_cached_import_errors_for_engine_syncing_driver_error() {
     let err = WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(42));
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
+}
+
+#[test]
+fn defers_cached_import_errors_for_parent_mismatch() {
+    let err =
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfParentMismatch {
+            block_number: 42,
+            expected: B256::from([0x11; 32]),
+            actual: B256::from([0x22; 32]),
+        });
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
@@ -145,8 +162,7 @@ fn drops_cached_import_errors_for_invalid_block_driver_error() {
                 "invalid payload".to_string(),
             ),
         });
-    assert!(should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Drop);
 }
 
 #[test]
@@ -156,15 +172,13 @@ fn defers_cached_import_errors_for_missing_payload_id_driver_error() {
             block_number: 42,
             source: driver::sync::error::EngineSubmissionError::MissingPayloadId,
         });
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
 fn propagates_cached_import_errors_for_non_payload_failures() {
     let err = WhitelistPreconfirmationDriverError::MissingInsertedBlock(42);
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Propagate);
 }
 
 #[test]
@@ -173,8 +187,7 @@ fn defers_cached_import_errors_for_preconf_enqueue_timeout() {
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfEnqueueTimeout {
             waited: Duration::from_secs(1),
         });
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]
@@ -183,8 +196,7 @@ fn defers_cached_import_errors_for_preconf_response_timeout() {
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfResponseTimeout {
             waited: Duration::from_secs(12),
         });
-    assert!(!should_drop_cached_import_error(&err));
-    assert!(should_defer_cached_import_error(&err));
+    assert_eq!(classify_cached_import_error(&err), CachedImportDisposition::Defer);
 }
 
 #[test]

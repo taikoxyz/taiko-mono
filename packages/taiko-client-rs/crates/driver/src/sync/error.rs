@@ -100,10 +100,23 @@ pub enum EngineSubmissionError {
     /// Execution engine rejected the block payload.
     #[error("execution engine rejected block {0}: {1}")]
     InvalidBlock(u64, String),
+    /// Execution engine returned a status other than VALID for a canonical insert.
+    #[error("execution engine returned unexpected payload status for block {0}: {1}")]
+    UnexpectedPayloadStatus(u64, String),
     /// Engine did not return a payload identifier after forkchoice update.
     #[error("forkchoice update returned no payload id")]
     MissingPayloadId,
     /// Execution engine failed to return the inserted block via RPC.
     #[error("inserted block {0} not found via rpc provider")]
     MissingInsertedBlock(u64),
+    /// The canonical block read back after promotion does not match the submitted payload.
+    #[error("inserted block {block_number} hash mismatch: expected {expected}, got {actual}")]
+    InsertedBlockHashMismatch {
+        /// Number of the block that was submitted to the engine.
+        block_number: u64,
+        /// Block hash of the payload the engine was asked to insert.
+        expected: B256,
+        /// Block hash the provider returned at that height after promotion.
+        actual: B256,
+    },
 }

@@ -103,15 +103,29 @@ impl WhitelistApi for WhitelistApiService {
         // Insert the preconfirmation payload locally first to
         // obtain the canonical block hash before gossiping.
         let driver_payload =
-            self.build_driver_payload(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
-        self.event_syncer
-            .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
+            self.driver_payload_from_request(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
+        let submission_outcome = self
+            .event_syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(driver_payload, data.parent_hash))
             .await?;
+        let bound_block_hash = match submission_outcome {
+            PreconfSubmissionOutcome::Inserted { block_hash } |
+            PreconfSubmissionOutcome::AlreadyMaterialized { block_hash } => block_hash,
+            PreconfSubmissionOutcome::Stale => {
+                return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+                    "preconfirmation block {} is stale",
+                    data.block_number
+                )));
+            }
+        };
 
+        // Resolve the block by the hash bound to the submission outcome: a same-height sibling
+        // can become canonical between submission and this read, and a height lookup would then
+        // sign a hash that does not match the request's transactions.
         let inserted_block = self
             .rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(data.block_number))
+            .get_block_by_hash(bound_block_hash)
             .await
             .map_err(WhitelistPreconfirmationDriverError::provider)?
             .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(data.block_number))?;
@@ -145,7 +159,7 @@ impl WhitelistApi for WhitelistApiService {
                 FixedBytes::<65>::from(block_hash_signature),
             )
             .await?;
-        self.state.set_highest_unsafe(block_number).await;
+        self.state.record_inserted_block(block_number);
 
         let execution_payload = crate::payload::execution_payload_from_header(
             &inserted_block.header,

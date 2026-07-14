@@ -4,9 +4,7 @@ use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_primitives::{Address, B256, Bytes, FixedBytes, U256};
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
+use alloy_provider::{Provider, RootProvider};
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
@@ -15,16 +13,10 @@ use alloy_rpc_types_engine::{
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
 use protocol::shasta::{PayloadAttributesInput, build_payload_attributes};
-use rpc::{
-    client::{Client, ClientWithWallet},
-    error::RpcClientError,
-};
+use rpc::{client::Client, error::RpcClientError};
 use tracing::{info, warn};
 
 use crate::helper::{increase_l1_time, mine_l1_blocks};
-
-/// The RPC client type used in Shasta tests.
-pub type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
 /// Number of L1 blocks to mine to ensure preconfigured operator whitelist is active.
 const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
@@ -35,7 +27,7 @@ const L1_BLOCK_TIME_SECONDS: u64 = 12;
 ///
 /// Uses batch operations (single `evm_increaseTime` + single `anvil_mine`) instead of
 /// looping 64 times, reducing RPC calls from 128 to 2.
-pub async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
+pub async fn ensure_preconf_whitelist_active(client: &Client) -> Result<()> {
     let total_seconds = PRECONF_OPERATOR_ACTIVATION_BLOCKS as u64 * L1_BLOCK_TIME_SECONDS;
     increase_l1_time(client, total_seconds).await?;
     mine_l1_blocks(client, PRECONF_OPERATOR_ACTIVATION_BLOCKS).await?;
@@ -52,7 +44,7 @@ fn is_not_found_error(err: &RpcClientError) -> bool {
 }
 
 /// Reset the authenticated L1 RPC head.
-pub(crate) async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_head_l1_origin(client: &Client) -> Result<()> {
     // Choose the highest L2 block that actually has an L1 origin row, then repoint
     // `head_l1_origin` there. Hardcoding block 1 is brittle when tests reset chains to genesis
     // or run against nodes with sparse origin rows.
@@ -115,11 +107,13 @@ pub(crate) async fn create_snapshot(
 }
 
 fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
-    matches!(status, PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted)
+    // Canonical insertion requires strict VALID, matching production submission: ACCEPTED
+    // means the engine stored the block on a side chain without executing it.
+    matches!(status, PayloadStatusEnum::Valid)
 }
 
 /// Reset the L2 chain head to the base block (height 1) using the engine API.
-pub(crate) async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
     let head: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)
@@ -182,7 +176,7 @@ pub(crate) async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
 }
 
 async fn fork_to(
-    client: &RpcClient,
+    client: &Client,
     block: &RpcBlock<TxEnvelope>,
     l1_origin: &RpcL1Origin,
     parent_hash: B256,
@@ -301,16 +295,13 @@ async fn fork_to(
 }
 
 /// Fetch proposal hash from the inbox contract.
-pub async fn get_proposal_hash(client: &ClientWithWallet, proposal_id: U256) -> Result<B256> {
+pub async fn get_proposal_hash(client: &Client, proposal_id: U256) -> Result<B256> {
     let hash: FixedBytes<32> = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
     Ok(hash)
 }
 
 /// Ensures the latest L2 block contains an Anchor `anchorV4` call.
-pub async fn verify_anchor_block<P>(client: &Client<P>, anchor_address: Address) -> Result<()>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub async fn verify_anchor_block(client: &Client, anchor_address: Address) -> Result<()> {
     let latest_block: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)

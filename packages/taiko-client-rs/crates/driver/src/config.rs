@@ -18,8 +18,7 @@ pub struct DriverConfig {
     pub l2_checkpoint_url: Option<Url>,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
-    /// Enable preconfirmation handling (disabled by default).
-    /// NOTE: will be changed to be decided by flag in future.
+    /// Enable preconfirmation ingress handling.
     pub preconfirmation_enabled: bool,
 }
 
@@ -27,13 +26,15 @@ impl DriverConfig {
     /// Build a [`DriverConfig`] from raw parameters.
     ///
     /// The `client` argument bundles all RPC endpoints and contract metadata, while the remaining
-    /// parameters control retry behaviour and optional checkpointing resources.
+    /// parameters control retry behaviour, optional checkpointing resources, and whether the
+    /// preconfirmation ingress path is enabled.
     pub fn new(
         client: ClientConfig,
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
         blob_server_endpoint: Option<Url>,
+        preconfirmation_enabled: bool,
     ) -> Self {
         Self {
             client,
@@ -41,7 +42,7 @@ impl DriverConfig {
             l1_beacon_endpoint,
             l2_checkpoint_url,
             blob_server_endpoint,
-            preconfirmation_enabled: false,
+            preconfirmation_enabled,
         }
     }
 }

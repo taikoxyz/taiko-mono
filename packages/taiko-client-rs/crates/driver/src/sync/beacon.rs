@@ -45,29 +45,23 @@ struct FinalizedSyncTarget {
 }
 
 /// Drives the L2 execution engine toward the proof-finalized block recorded on L1.
-pub struct BeaconSyncer<P>
-where
-    P: Provider + Clone,
-{
+pub struct BeaconSyncer {
     /// Interval between beacon sync retries.
     retry_interval: Duration,
     /// RPC client used for L1 inbox reads and local engine calls.
-    rpc: Client<P>,
+    rpc: Client,
     /// Optional untrusted provider used to fetch catch-up block bodies.
     checkpoint: Option<RootProvider>,
     /// Shared resume head consumed by event sync after this stage completes.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
 }
 
-impl<P> BeaconSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl BeaconSyncer {
     /// Construct a new beacon syncer from the provided configuration and RPC client.
     #[instrument(skip(config, rpc))]
     pub fn new(
         config: &DriverConfig,
-        rpc: Client<P>,
+        rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Self {
         let checkpoint =
@@ -196,25 +190,8 @@ fn resolve_checkpoint_forkchoice_status(
     }
 }
 
-/// Convert a beacon-sync poll failure (L1 target read or checkpoint block fetch) into either a
-/// fatal startup error or a retryable error.
-///
-/// Before the polled endpoint has answered successfully, failures indicate a misconfigured or
-/// unreachable endpoint and must fail fast. After the first successful answer the same failures
-/// are transient, so the caller logs the returned error and retries on the next tick instead of
-/// aborting a potentially hours-long catch-up.
-fn resolve_checkpoint_poll_error(
-    seen_once: bool,
-    error: SyncError,
-) -> Result<SyncError, SyncError> {
-    if seen_once { Ok(error) } else { Err(error) }
-}
-
 #[async_trait::async_trait]
-impl<P> SyncStage for BeaconSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl SyncStage for BeaconSyncer {
     /// Run the beacon sync stage, steering the local execution engine toward the proof-finalized
     /// block recorded on L1 until the local canonical chain contains it.
     #[instrument(skip(self), name = "beacon_syncer_run")]
@@ -266,7 +243,7 @@ where
                     target
                 }
                 Err(err) => {
-                    let err = resolve_checkpoint_poll_error(target_seen_once, err)?;
+                    let err = super::retryable_after_first_success(target_seen_once, err)?;
                     warn!(error = %err, "failed to read finalized sync target from L1; retrying");
                     continue;
                 }
@@ -317,7 +294,7 @@ where
                         continue;
                     }
                     Err(err) => {
-                        let err = resolve_checkpoint_poll_error(
+                        let err = super::retryable_after_first_success(
                             checkpoint_seen_once,
                             SyncError::CheckpointQuery(RpcClientError::from(err)),
                         )?;
@@ -429,18 +406,5 @@ mod tests {
     #[test]
     fn checkpoint_forkchoice_rejects_accepted_as_unexpected() {
         assert!(resolve_checkpoint_forkchoice_status(&PayloadStatusEnum::Accepted, 7).is_err());
-    }
-
-    #[test]
-    fn checkpoint_poll_errors_fail_fast_only_before_first_success() {
-        let sample = || SyncError::CheckpointQuery(RpcClientError::Provider("unreachable".into()));
-        assert!(matches!(
-            resolve_checkpoint_poll_error(false, sample()),
-            Err(SyncError::CheckpointQuery(_))
-        ));
-        assert!(matches!(
-            resolve_checkpoint_poll_error(true, sample()),
-            Ok(SyncError::CheckpointQuery(_))
-        ));
     }
 }

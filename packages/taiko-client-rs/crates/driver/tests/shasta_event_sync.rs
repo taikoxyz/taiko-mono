@@ -7,7 +7,9 @@ use anyhow::{Context, Result, ensure};
 use driver::{
     Driver, DriverConfig, derivation::ShastaDerivationPipeline, sync::engine::PayloadApplier,
 };
-use proposer::transaction_builder::ShastaProposalTransactionBuilder;
+use proposer::{
+    proposer::EngineBuildContext, transaction_builder::ShastaProposalTransactionBuilder,
+};
 use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
@@ -17,8 +19,7 @@ use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 #[serial]
 #[test_log::test(tokio::test)]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
-    let proposer_client =
-        Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key).await?;
+    let proposer_client = Client::new(env.client_config.clone()).await?;
 
     let builder = ShastaProposalTransactionBuilder::new(
         proposer_client.clone(),
@@ -26,15 +27,21 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer_client).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     let sidecar = request.blob_sidecar();
 
     // Start beacon stub and inject the blob sidecar.
     let beacon_stub = BeaconStubServer::start().await?;
     let beacon_endpoint = beacon_stub.endpoint().clone();
 
-    let pending_tx =
-        proposer_client.l1_provider.send_transaction(request.to_transaction_request()).await?;
+    // Sends are signed by a test-local wallet provider; the `Client` itself is walletless.
+    let wallet_provider = env
+        .client_config
+        .l1_provider_source
+        .to_provider_with_wallet(env.l1_proposer_private_key)
+        .await?;
+    let pending_tx = wallet_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt =
         pending_tx.get_receipt().await.context("fetching proposal transaction receipt")?;
     ensure!(receipt.status(), "proposal transaction failed");
@@ -61,6 +68,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         beacon_endpoint.clone(),
         None,
         None,
+        false,
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();

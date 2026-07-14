@@ -26,33 +26,31 @@ use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, PayloadAttributesInput, build_payload_attributes,
     calculate_shasta_mix_hash,
     constants::{
-        MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES,
-        calculate_next_block_eip4396_base_fee_for_parent, min_base_fee_for_chain,
+        PROPOSAL_MAX_BLOB_BYTES, calculate_next_block_eip4396_base_fee_for_parent,
+        min_base_fee_for_chain,
     },
     encode_extra_data,
 };
-use rpc::{
-    RpcClientError,
-    client::{Client, ClientConfig, ClientWithWallet},
-};
+use rpc::{RpcClientError, client::Client};
 use serde_json::from_value;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::time::interval;
+use tokio::time::{MissedTickBehavior, interval};
 use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
     metrics::ProposerMetrics,
-    transaction_builder::ShastaProposalTransactionBuilder,
+    transaction_builder::{ShastaProposalTransactionBuilder, manifest_gas_limit},
     tx_manager_adapter::{build_tx_manager, proposal_candidate},
 };
 
 /// Type alias for batches of transaction lists fetched from the txpool.
 pub type TransactionLists = Vec<Vec<Transaction>>;
 
-/// Parameters captured from engine mode payload building.
-/// These ensure consistency between the anchor transaction and the block manifest.
+/// Chain-state snapshot a proposal is built against.
+/// Captured once per proposal attempt — from engine-mode payload building or from the
+/// proposer's own L1/L2 reads in pool mode — so transaction selection, the anchor transaction,
+/// and the block manifest all describe the same parent and L1 head.
 #[derive(Debug, Clone, Copy)]
 pub struct EngineBuildContext {
     /// The L1 block number used for the anchor transaction.
@@ -65,10 +63,41 @@ pub struct EngineBuildContext {
     pub gas_limit: u64,
 }
 
+impl EngineBuildContext {
+    /// Capture a build context, together with the L2 parent block it derives from, off the
+    /// current L1/L2 chain heads.
+    ///
+    /// The timestamp is taken from the L1 head rather than the local wall clock: driver
+    /// validation rejects any manifest block stamped above the proposal's L1 inclusion
+    /// timestamp, degrading the whole manifest to the default empty block.
+    pub async fn from_chain_heads(rpc: &Client) -> Result<(Self, Block)> {
+        let parent = rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .ok_or(ProposerError::LatestBlockNotFound)?;
+
+        let l1_head = rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .ok_or(ProposerError::LatestBlockNotFound)?;
+
+        let context = Self {
+            anchor_block_number: l1_head.header.number,
+            parent_block_number: parent.number(),
+            timestamp: l1_head.header.timestamp,
+            gas_limit: parent.header.gas_limit,
+        };
+
+        Ok((context, parent))
+    }
+}
+
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
-    /// RPC client bundle with signing wallet for L1 submission.
-    rpc_provider: ClientWithWallet,
+    /// RPC client bundle used for L1/L2 reads; L1 submission is signed by the tx-manager.
+    rpc_provider: Client,
     /// Builder that converts txpool content into proposal transactions.
     transaction_builder: ShastaProposalTransactionBuilder,
     /// Tx-manager responsible for proposal submission and retry handling.
@@ -85,34 +114,24 @@ pub struct Proposer {
 
 impl Proposer {
     /// Creates a new proposer instance.
-    #[instrument(skip(cfg), fields(inbox_address = ?cfg.inbox_address))]
+    #[instrument(skip(cfg), fields(inbox_address = ?cfg.client.inbox_address))]
     pub async fn new(cfg: ProposerConfigs) -> Result<Self> {
         info!(
-            inbox_address = ?cfg.inbox_address,
+            inbox_address = ?cfg.client.inbox_address,
             l2_suggested_fee_recipient = ?cfg.l2_suggested_fee_recipient,
             propose_interval = ?cfg.propose_interval,
             "initializing proposer"
         );
 
-        let rpc_provider = Client::new_with_wallet(
-            ClientConfig {
-                l1_provider_source: cfg.l1_provider_source.clone(),
-                l2_provider_url: cfg.l2_provider_url.clone(),
-                l2_auth_provider_url: cfg.l2_auth_provider_url.clone(),
-                jwt_secret: cfg.jwt_secret.clone(),
-                inbox_address: cfg.inbox_address,
-            },
-            cfg.l1_proposer_private_key,
-        )
-        .await?;
+        let rpc_provider = Client::new(cfg.client.clone()).await?;
 
         let transaction_builder = ShastaProposalTransactionBuilder::new(
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
-        // The RPC client wallet and tx-manager signer are both derived from the same
-        // proposer key, so all L1 proposal submissions must continue to flow through
-        // tx-manager to avoid splitting nonce management across two send paths.
+        // The RPC client carries no wallet; the tx-manager owns the proposer key, so all
+        // L1 proposal submissions flow through tx-manager and nonce management stays on a
+        // single send path.
         let tx_manager = build_tx_manager(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
         let l1_proposer_address = proposer_address_from_key(&cfg.l1_proposer_private_key)?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
@@ -121,6 +140,13 @@ impl Proposer {
 
         // Initialize anchor transaction constructor only for engine mode.
         let anchor_constructor = if cfg.use_engine_mode {
+            warn!(
+                "engine mode is enabled: on execution clients without deferred L1-origin \
+                 persistence (taikoxyz/alethia-reth#219), the build-only FCU preview persists \
+                 l1_origin, head_l1_origin, and batch_to_last_block rows for blocks that never \
+                 become canonical, leaving ghost rows every proposal cycle; verify the \
+                 connected node includes that fix before using engine mode in production"
+            );
             Some(
                 AnchorTxConstructor::new(
                     rpc_provider.l2_provider.clone(),
@@ -146,6 +172,9 @@ impl Proposer {
     /// Start the proposer main loop.
     pub async fn start(&self) -> Result<()> {
         let mut interval = interval(self.cfg.propose_interval);
+        // A slow confirmation must not replay the missed ticks as an immediate burst afterwards:
+        // the inbox accepts at most one proposal per L1 block, so burst ticks only revert.
+        interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut epoch = 0;
 
         loop {
@@ -202,13 +231,12 @@ impl Proposer {
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     pub async fn fetch_and_propose(&self) -> Result<TransactionReceipt> {
-        // Fetch transactions based on mode.
-        // Engine mode also returns the parameters used for the anchor transaction.
-        let (pool_content, engine_params) = if self.cfg.use_engine_mode {
-            let (txs, params) = self.fetch_payload_transactions().await?;
-            (txs, Some(params))
+        // Fetch transactions based on mode. Both modes capture the chain-state snapshot the
+        // transactions were selected against, so the manifest is built from the same snapshot.
+        let (pool_content, build_ctx) = if self.cfg.use_engine_mode {
+            self.fetch_payload_transactions().await?
         } else {
-            (self.fetch_pool_content().await?, None)
+            self.fetch_pool_content().await?
         };
 
         // Record number of transactions in the pool
@@ -218,11 +246,11 @@ impl Proposer {
             txs_lists = pool_content.len(),
             tx_count,
             engine_mode = self.cfg.use_engine_mode,
-            ?engine_params,
+            ?build_ctx,
             "fetched transaction pool content"
         );
 
-        let mut proposal_tx = self.transaction_builder.build(pool_content, engine_params).await?;
+        let mut proposal_tx = self.transaction_builder.build(pool_content, build_ctx).await?;
 
         // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
@@ -235,7 +263,7 @@ impl Proposer {
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
-    pub fn rpc_client(&self) -> ClientWithWallet {
+    pub fn rpc_client(&self) -> Client {
         self.rpc_provider.clone()
     }
 
@@ -296,17 +324,28 @@ impl Proposer {
         ))
     }
 
-    /// Fetch transaction pool content from the L2 execution engine.
-    async fn fetch_pool_content(&self) -> Result<TransactionLists> {
-        let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
-            .map_err(|_| ProposerError::BaseFeeOverflow)?;
+    /// Fetch transaction pool content from the L2 execution engine, together with the
+    /// chain-state snapshot the selection ran against.
+    async fn fetch_pool_content(&self) -> Result<(TransactionLists, EngineBuildContext)> {
+        let (build_ctx, parent) = EngineBuildContext::from_chain_heads(&self.rpc_provider).await?;
+
+        let base_fee_u64 =
+            u64::try_from(self.calculate_next_shasta_block_base_fee_for_parent(&parent).await?)
+                .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
         let pool_content = self
             .rpc_provider
             .tx_pool_content_with_min_tip(rpc::TxPoolContentParams {
                 beneficiary: self.cfg.l2_suggested_fee_recipient,
                 base_fee: Some(base_fee_u64),
-                block_max_gas_limit: MIN_BLOCK_GAS_LIMIT,
+                // Fill up to the gas limit the manifest will actually declare (parent limit
+                // minus the anchor-gas discount) instead of the protocol minimum, which
+                // under-filled every list to 10M while blocks advertise ~45M. Derived from the
+                // same snapshot the manifest is built against.
+                block_max_gas_limit: manifest_gas_limit(
+                    build_ctx.parent_block_number,
+                    build_ctx.gas_limit,
+                ),
                 max_bytes_per_tx_list: PROPOSAL_MAX_BLOB_BYTES as u64,
                 locals: vec![],
                 max_transactions_lists: 1,
@@ -330,20 +369,7 @@ impl Proposer {
             })
             .collect::<Result<Vec<Vec<_>>>>()?;
 
-        Ok(txs_lists)
-    }
-
-    /// Calculate the base fee for the next L2 block using EIP-4396 rules.
-    async fn calculate_next_shasta_block_base_fee(&self) -> Result<U256> {
-        // Get the latest block to calculate the next base fee.
-        let parent = self
-            .rpc_provider
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .ok_or(ProposerError::LatestBlockNotFound)?;
-
-        self.calculate_next_shasta_block_base_fee_for_parent(&parent).await
+        Ok((txs_lists, build_ctx))
     }
 
     /// Calculate the base fee for the next L2 block from a specific parent snapshot.
@@ -416,7 +442,6 @@ impl Proposer {
         parent: &Block,
     ) -> Result<(TaikoPayloadAttributes, EngineBuildContext)> {
         let block_number = parent.number() + 1;
-        let timestamp = current_unix_timestamp();
 
         // Get basefee sharing percentage from inbox config.
         let inbox_config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
@@ -436,6 +461,10 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
         let anchor_block_number = l1_block.header.number;
+        // Stamp the payload with the L1 head timestamp instead of the local wall clock: the
+        // manifest timestamp must not exceed the proposal's L1 inclusion timestamp, or driver
+        // validation degrades the whole manifest to the default empty block.
+        let timestamp = l1_block.header.timestamp;
 
         // Build anchor transaction.
         let anchor_tx = self
@@ -653,11 +682,6 @@ fn forced_inclusion_is_permissionless(
     l1_timestamp > permissionless_timestamp
 }
 
-/// Returns the current UNIX timestamp in seconds.
-pub(crate) fn current_unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
-}
-
 /// Derive the next proposal id from the parent block header.
 ///
 /// Shasta stores the previous proposal id in the parent block extra data. On a fresh chain the
@@ -720,28 +744,16 @@ mod tests {
     };
     use base_tx_manager::TxManagerError;
 
-    use std::time::{SystemTime, UNIX_EPOCH};
-
     use super::{
-        calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
-        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
-        record_submission_attempt, record_submission_receipt, should_increment_loop_failure_metric,
+        calculate_next_shasta_block_base_fee_from_parent, forced_inclusion_is_permissionless,
+        is_operational_loop_error, next_shasta_proposal_id, record_submission_attempt,
+        record_submission_receipt, should_increment_loop_failure_metric,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
         constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
     };
     use rpc::RpcClientError;
-
-    #[test]
-    fn current_unix_timestamp_tracks_system_time() {
-        let before = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-        let timestamp = current_unix_timestamp();
-        let after = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-
-        assert!(timestamp >= before);
-        assert!(timestamp <= after);
-    }
 
     #[test]
     fn submission_attempt_increments_sent_metric() {
@@ -763,8 +775,14 @@ mod tests {
         assert_eq!(ProposerMetrics::proposals_success().get(), before + 1);
     }
 
+    /// Serializes tests that snapshot and assert on the process-global proposal-failure
+    /// counter, which would otherwise race each other under the parallel test runner.
+    static PROPOSALS_FAILED_METRIC_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn reverted_submission_receipt_becomes_failed_proposal_error() {
+        let _metric_guard =
+            PROPOSALS_FAILED_METRIC_GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let receipt = receipt_with_status(false);
         let tx_hash = receipt.transaction_hash;
         let before = ProposerMetrics::proposals_failed().get();
@@ -838,6 +856,8 @@ mod tests {
 
     #[test]
     fn loop_failure_metric_not_double_counted_for_reverted_receipts() {
+        let _metric_guard =
+            PROPOSALS_FAILED_METRIC_GUARD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let before = ProposerMetrics::proposals_failed().get();
 
         let reverted_err =

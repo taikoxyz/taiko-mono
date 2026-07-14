@@ -12,12 +12,9 @@ use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use async_trait::async_trait;
-use driver::{PreconfPayload, sync::event::EventSyncer};
+use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
 use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
-use rpc::{
-    beacon::BeaconClient,
-    client::{Client, DefaultProvider},
-};
+use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
 
@@ -74,26 +71,12 @@ fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
     }
 }
 
-/// Report `head` whenever it is known; fall back to `tracked` when it is `None`.
-///
-/// The tracked value only moves on preconfirmation imports and local builds, so it can
-/// drift from the head in both directions: an L1 reorg rewinds the head below the
-/// counter, while canonical L1 derivation with no gossip traffic advances the head past
-/// it. Every canonical block was inserted by this driver, so the head is always an
-/// honest answer — and the Catalyst sidecar's sync gate requires the reported value to
-/// equal the execution head exactly before it starts (or resumes) preconfirming. A
-/// permanently lagging report would wedge the operator in a restart loop that only a
-/// driver restart clears.
-fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
-    head.unwrap_or(tracked)
-}
-
 /// Implements whitelist preconfirmation API business logic.
 pub(crate) struct WhitelistApiService {
     /// Event syncer for L1 origin lookups.
-    event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    event_syncer: Arc<EventSyncer>,
     /// RPC client for L1/L2 reads.
-    rpc: Client<DefaultProvider>,
+    rpc: Client,
     /// Chain ID for signature domain separation.
     chain_id: u64,
     /// Deterministic signer for block signing.
@@ -107,7 +90,7 @@ pub(crate) struct WhitelistApiService {
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
     /// build requests when this node's own P2P signer has been deregistered on-chain.
     operator_set: SharedOperatorSet,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     state: SharedPreconfState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
@@ -120,9 +103,9 @@ pub(crate) struct WhitelistApiService {
 /// Dependency bundle for constructing `WhitelistApiService`.
 pub(crate) struct WhitelistApiServiceParams {
     /// Shared event syncer used to read the current L1 origin.
-    pub(crate) event_syncer: Arc<EventSyncer<DefaultProvider>>,
+    pub(crate) event_syncer: Arc<EventSyncer>,
     /// L1/L2 RPC client.
-    pub(crate) rpc: Client<DefaultProvider>,
+    pub(crate) rpc: Client,
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
     /// Signer used for block signing operations.
@@ -131,7 +114,7 @@ pub(crate) struct WhitelistApiServiceParams {
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Shared operator set used to gate the build API on the node's own whitelist status.
     pub(crate) operator_set: SharedOperatorSet,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     pub(crate) state: SharedPreconfState,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,

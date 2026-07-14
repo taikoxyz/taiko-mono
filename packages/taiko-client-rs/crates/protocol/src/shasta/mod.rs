@@ -17,9 +17,8 @@ pub use blob_coder::BlobCoder;
 pub use constants::{
     set_devnet_unzen_override, unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain,
 };
-pub use error::{ForkConfigError, ForkConfigResult, ProtocolError, Result};
+pub use error::{ProtocolError, Result};
 pub use payload_helpers::{
-    PAYLOAD_ID_VERSION_V2, PayloadAttributesInput, build_payload_attributes,
-    build_payload_attributes_with_id, calculate_shasta_mix_hash, encode_extra_data,
-    encode_transactions, encode_tx_list, payload_id_to_bytes,
+    PayloadAttributesInput, build_payload_attributes, build_payload_attributes_with_id,
+    calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
 };
