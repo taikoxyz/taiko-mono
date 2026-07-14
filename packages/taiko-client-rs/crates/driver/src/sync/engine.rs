@@ -178,7 +178,7 @@ async fn apply_payload_internal<R: EnginePayloadRpc>(
         finalized_block_hash: B256::ZERO,
     };
     let fc_response = rpc.forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
-    ensure_valid_payload_status(
+    ensure_valid_forkchoice_status(
         payload.l1_origin.block_id.to::<u64>(),
         fc_response.payload_status.status,
     )?;
@@ -281,10 +281,13 @@ fn envelope_into_submission(
     (payload_input, sidecar, block_hash, block_number)
 }
 
-/// Map engine payload status into submission errors, accepting only VALID.
+/// Map `engine_newPayloadV2` status into submission errors, accepting only VALID.
 ///
 /// ACCEPTED means the engine stored the block on a side chain without executing it, so treating
-/// it as success would let the driver advance on a lineage the engine never validated.
+/// it as success would let the driver advance on a lineage the engine never validated. Only this
+/// mapping may produce [`EngineSubmissionError::InvalidBlock`]: a newPayload INVALID is the
+/// engine's deterministic verdict on the payload content itself, which downstream retry policies
+/// rely on when deciding to stop retrying.
 fn ensure_valid_payload_status(
     block_number: u64,
     status: PayloadStatusEnum,
@@ -298,6 +301,33 @@ fn ensure_valid_payload_status(
         PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
         PayloadStatusEnum::Invalid { validation_error } => {
             Err(EngineSubmissionError::InvalidBlock(block_number, validation_error))
+        }
+    }
+}
+
+/// Map `engine_forkchoiceUpdatedV2` status into submission errors, accepting only VALID.
+///
+/// Unlike [`ensure_valid_payload_status`], a non-VALID forkchoice status never maps to
+/// [`EngineSubmissionError::InvalidBlock`]: forkchoice INVALID reflects the engine's view of the
+/// referenced head (which can be unknown or temporarily unprocessable) rather than a
+/// deterministic verdict on the submitted payload's content, so callers must remain free to
+/// retry it.
+fn ensure_valid_forkchoice_status(
+    block_number: u64,
+    status: PayloadStatusEnum,
+) -> Result<(), EngineSubmissionError> {
+    match status {
+        PayloadStatusEnum::Valid => Ok(()),
+        PayloadStatusEnum::Syncing => Err(EngineSubmissionError::EngineSyncing(block_number)),
+        PayloadStatusEnum::Accepted => Err(EngineSubmissionError::UnexpectedPayloadStatus(
+            block_number,
+            "forkchoice ACCEPTED".to_string(),
+        )),
+        PayloadStatusEnum::Invalid { validation_error } => {
+            Err(EngineSubmissionError::UnexpectedPayloadStatus(
+                block_number,
+                format!("forkchoice INVALID: {validation_error}"),
+            ))
         }
     }
 }
@@ -357,7 +387,7 @@ async fn submit_payload_to_engine<R: EnginePayloadRpc>(
 
     let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
     let promotion = rpc.forkchoice_updated_v2(promoted_state, None).await?;
-    ensure_valid_payload_status(block_number, promotion.payload_status.status)?;
+    ensure_valid_forkchoice_status(block_number, promotion.payload_status.status)?;
 
     let block = fetch_block_by_number(rpc, block_number).await?;
     ensure_inserted_block_hash(block_number, block_hash, block.header.hash)?;
@@ -517,6 +547,34 @@ mod tests {
             err,
             EngineSubmissionError::InvalidBlock(7, ref reason) if reason == "bad block"
         ));
+    }
+
+    #[test]
+    fn forkchoice_invalid_status_never_maps_to_invalid_block() {
+        // Forkchoice INVALID can reflect an unknown or temporarily unprocessable head, so it
+        // must not be conflated with the engine's deterministic newPayload content verdict.
+        let err = ensure_valid_forkchoice_status(
+            7,
+            PayloadStatusEnum::Invalid { validation_error: "bad head".to_string() },
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            EngineSubmissionError::UnexpectedPayloadStatus(7, ref reason)
+                if reason == "forkchoice INVALID: bad head"
+        ));
+
+        let err = ensure_valid_forkchoice_status(7, PayloadStatusEnum::Accepted).unwrap_err();
+        assert!(matches!(
+            err,
+            EngineSubmissionError::UnexpectedPayloadStatus(7, ref reason)
+                if reason == "forkchoice ACCEPTED"
+        ));
+
+        let err = ensure_valid_forkchoice_status(7, PayloadStatusEnum::Syncing).unwrap_err();
+        assert!(matches!(err, EngineSubmissionError::EngineSyncing(7)));
+
+        assert!(ensure_valid_forkchoice_status(7, PayloadStatusEnum::Valid).is_ok());
     }
 
     /// Which engine RPC a scripted call hit, in production sequence order.
@@ -832,7 +890,8 @@ mod tests {
 
         assert!(matches!(
             err,
-            EngineSubmissionError::InvalidBlock(7, ref reason) if reason == "bad head"
+            EngineSubmissionError::UnexpectedPayloadStatus(7, ref reason)
+                if reason == "forkchoice INVALID: bad head"
         ));
         assert_eq!(
             engine.calls(),

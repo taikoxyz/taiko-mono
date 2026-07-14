@@ -14,7 +14,10 @@ use driver::{
     derivation::ShastaDerivationPipeline,
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
-use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
+use proposer::{
+    proposer::EngineBuildContext,
+    transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder},
+};
 use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
@@ -107,7 +110,8 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     // Build a proposal and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start event syncer before submitting the proposal.
@@ -169,7 +173,8 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
 
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     let driver_config = DriverConfig::new(
@@ -255,7 +260,8 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     // Build a proposal once and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     let driver_config = DriverConfig::new(

@@ -25,7 +25,7 @@ use tokio::{
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
     time::{MissedTickBehavior, interval, sleep, timeout},
 };
-use tokio_retry::{Retry, strategy::ExponentialBackoff};
+use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -33,10 +33,11 @@ use super::{
     FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
+    error::EngineSubmissionError,
 };
 use crate::{
     config::DriverConfig,
-    derivation::ShastaDerivationPipeline,
+    derivation::{DerivationError, ShastaDerivationPipeline},
     error::DriverError,
     metrics::DriverMetrics,
     production::{
@@ -54,6 +55,38 @@ enum ProposalLogResult {
     Processed(Vec<EngineBlockOutcome>),
     /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
     SkippedOrphaned,
+}
+
+/// Finalized-ancestry proof state for a proposal log's source L1 block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProposalLogCanonicality {
+    /// The log block hash matches the ancestor at its height on the finalized chain.
+    Canonical,
+    /// The finalized chain contains a different block hash at the log's height.
+    Orphaned,
+    /// Finality or ancestry data is insufficient to make a permanent decision.
+    Unproven,
+}
+
+/// Retry decision attached to a failed proposal-processing attempt.
+///
+/// The decision is made where the full context is available (error class plus the canonical
+/// proof of the source log), so the retry predicate never has to re-derive it: only `Abort`
+/// stops the retry loop.
+enum ProposalRetryError {
+    /// Deterministic failure on a proven-canonical log; retrying cannot change the outcome.
+    Abort(DriverError),
+    /// Transient or unproven failure; the attempt should be retried.
+    Retry(DriverError),
+}
+
+impl ProposalRetryError {
+    /// Unwrap the underlying driver error regardless of the retry decision.
+    fn into_inner(self) -> DriverError {
+        match self {
+            ProposalRetryError::Abort(err) | ProposalRetryError::Retry(err) => err,
+        }
+    }
 }
 
 /// Default timeout for preconfirmation payload submission.
@@ -225,9 +258,24 @@ fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
     block_number <= confirmed_tip
 }
 
-/// Return whether a scanner stream error breaks event continuity and requires dropping the
-/// subscription so the reconnect path can replay from a safe overlap.
+/// Return whether a proposal-processing failure is a deterministic engine verdict.
 ///
+/// Only a newPayload `INVALID` qualifies: it is the engine's judgement on the payload content
+/// itself, so resubmitting the identical payload cannot change the answer and retrying forever
+/// would stall event sync silently. `ACCEPTED` is excluded because taiko-geth returns it while
+/// the parent state is temporarily unavailable, and forkchoice `INVALID` is excluded because it
+/// can reflect an unknown or unprocessable head rather than the payload content (the engine
+/// layer keeps both away from `InvalidBlock`). RPC transport failures, engine syncing, and
+/// missing data stay retryable.
+fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
+    matches!(
+        err,
+        DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::InvalidBlock(..)
+        )))
+    )
+}
+
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
@@ -572,14 +620,17 @@ impl EventSyncer {
         drop(router.lock().await);
     }
 
-    /// Return whether a failed proposal log is permanently orphaned because its source L1 block
-    /// is proven not to be an ancestor of the finalized L1 block.
+    /// Resolve a proposal log's source block against finalized L1 ancestry.
+    ///
+    /// A permanent decision is returned only when finality has reached the log height and every
+    /// required content-addressed ancestry hop is available and height-consistent. Mutable head
+    /// views, missing data, and capped walks remain [`ProposalLogCanonicality::Unproven`].
     #[instrument(skip(self), level = "debug")]
-    async fn is_permanently_orphaned_proposal_log(
+    async fn proposal_log_canonicality(
         &self,
         block_hash: B256,
         log_block_number: Option<u64>,
-    ) -> Result<bool, SyncError> {
+    ) -> Result<ProposalLogCanonicality, SyncError> {
         let block = self
             .rpc
             .l1_provider
@@ -592,7 +643,7 @@ impl EventSyncer {
         // row to compare against, so no mismatch can be proven and the log stays retryable;
         // mined logs always carry a block number, making this fallback effectively unreachable.
         let Some(block_number) = block.map(|block| block.header.number).or(log_block_number) else {
-            return Ok(false);
+            return Ok(ProposalLogCanonicality::Unproven);
         };
 
         // A canonical row is only immutable once its height is finalized. Above the finalized
@@ -607,10 +658,10 @@ impl EventSyncer {
                 Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
             };
         let Some(finalized_block) = finalized_block else {
-            return Ok(false);
+            return Ok(ProposalLogCanonicality::Unproven);
         };
         if finalized_block.header.number < block_number {
-            return Ok(false);
+            return Ok(ProposalLogCanonicality::Unproven);
         }
 
         // The canonical hash at the log height is derived from the finalized block's own
@@ -626,7 +677,7 @@ impl EventSyncer {
                 finalized_block_number = finalized_block.header.number,
                 "orphan-proof ancestry walk exceeds cap; keeping proposal log retryable"
             );
-            return Ok(false);
+            return Ok(ProposalLogCanonicality::Unproven);
         }
         let mut cursor = finalized_block;
         while cursor.header.number > block_number.saturating_add(1) {
@@ -638,12 +689,12 @@ impl EventSyncer {
                 .await
                 .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
             let Some(parent) = parent else {
-                return Ok(false);
+                return Ok(ProposalLogCanonicality::Unproven);
             };
             // Content addressing fixes the parent's height on honest data; treat anything else
             // as unproven rather than risking a non-terminating walk.
             if parent.header.number != parent_number {
-                return Ok(false);
+                return Ok(ProposalLogCanonicality::Unproven);
             }
             cursor = parent;
         }
@@ -653,9 +704,58 @@ impl EventSyncer {
             cursor.header.parent_hash
         };
 
-        // Only a hash mismatch anchored into the finalized chain classifies the log as
-        // permanently orphaned.
-        Ok(canonical_hash_at_height != block_hash)
+        Ok(if canonical_hash_at_height == block_hash {
+            ProposalLogCanonicality::Canonical
+        } else {
+            ProposalLogCanonicality::Orphaned
+        })
+    }
+
+    /// Decide whether a failed attempt on a proposal log aborts or keeps retrying.
+    ///
+    /// Aborting requires both a deterministic engine verdict on the payload content and an
+    /// explicit finalized-ancestry proof of the source log. Unproven canonicality keeps the
+    /// attempt retryable so event-side reorg processing can eventually skip a losing-fork log.
+    fn classify_proposal_processing_failure(
+        &self,
+        err: DriverError,
+        log: &Log,
+        canonicality: ProposalLogCanonicality,
+    ) -> ProposalRetryError {
+        if !is_fatal_proposal_processing_error(&err) {
+            warn!(
+                ?err,
+                tx_hash = ?log.transaction_hash,
+                block_number = log.block_number,
+                "proposal derivation failed; retrying"
+            );
+            return ProposalRetryError::Retry(err);
+        }
+
+        match canonicality {
+            ProposalLogCanonicality::Canonical => {
+                error!(
+                    ?err,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal derivation hit a deterministic engine verdict on a \
+                     proven-canonical log; aborting"
+                );
+                ProposalRetryError::Abort(err)
+            }
+            ProposalLogCanonicality::Orphaned | ProposalLogCanonicality::Unproven => {
+                warn!(
+                    ?err,
+                    ?canonicality,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "deterministic engine verdict but finalized ancestry does not prove the \
+                     source log canonical; \
+                     retrying"
+                );
+                ProposalRetryError::Retry(err)
+            }
+        }
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
@@ -763,64 +863,67 @@ impl EventSyncer {
                 });
             };
 
-            // Retry proposal processing on transient errors.
+            // Retry proposal processing on transient errors; a deterministic engine verdict
+            // aborts only once the source log is proven canonical on L1.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
             let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            let processing = Retry::spawn(retry_strategy, move || {
-                let router = router.clone();
-                let log = proposal_log.clone();
-                async move {
-                    let router_call = {
-                        // Lock router so L1 proposals and preconf inputs cannot interleave.
-                        let router_guard = router.lock().await;
-                        router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
-                    };
+            let processing = RetryIf::spawn(
+                retry_strategy,
+                move || {
+                    let router = router.clone();
+                    let log = proposal_log.clone();
+                    async move {
+                        let router_call = {
+                            // Lock router so L1 proposals and preconf inputs cannot interleave.
+                            let router_guard = router.lock().await;
+                            router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
+                        };
 
-                    match router_call {
-                        Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
-                        Err(err) => match syncer
-                            .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
-                            .await
-                        {
-                            Ok(true) => {
-                                DriverMetrics::event_orphaned_proposal_logs_total().inc();
-                                warn!(
-                                    ?err,
-                                    block_number = log.block_number,
-                                    block_hash = ?block_hash,
-                                    transaction_hash = ?log.transaction_hash,
-                                    "skipping permanently orphaned proposal log",
-                                );
-                                Ok(ProposalLogResult::SkippedOrphaned)
-                            }
-                            Ok(false) => {
-                                warn!(
-                                    ?err,
-                                    tx_hash = ?log.transaction_hash,
-                                    block_number = log.block_number,
-                                    "proposal derivation failed; retrying"
-                                );
-                                Err(err)
-                            }
-                            Err(recheck_err) => {
-                                warn!(
-                                    ?err,
-                                    ?recheck_err,
-                                    tx_hash = ?log.transaction_hash,
-                                    block_number = log.block_number,
-                                    "proposal derivation failed and orphaned-log recheck errored; retrying"
-                                );
-                                Err(err)
-                            }
-                        },
+                        match router_call {
+                            Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
+                            Err(err) => match syncer
+                                .proposal_log_canonicality(block_hash, log.block_number)
+                                .await
+                            {
+                                Ok(ProposalLogCanonicality::Orphaned) => {
+                                    DriverMetrics::event_orphaned_proposal_logs_total().inc();
+                                    warn!(
+                                        ?err,
+                                        block_number = log.block_number,
+                                        block_hash = ?block_hash,
+                                        transaction_hash = ?log.transaction_hash,
+                                        "skipping permanently orphaned proposal log",
+                                    );
+                                    Ok(ProposalLogResult::SkippedOrphaned)
+                                }
+                                Ok(canonicality) => Err(syncer
+                                    .classify_proposal_processing_failure(err, &log, canonicality)),
+                                Err(recheck_err) => {
+                                    warn!(
+                                        ?err,
+                                        ?recheck_err,
+                                        tx_hash = ?log.transaction_hash,
+                                        block_number = log.block_number,
+                                        "proposal derivation failed and orphaned-log recheck errored; retrying"
+                                    );
+                                    // Surface the retryable recheck error instead of the
+                                    // original failure: a fatal verdict may only abort after
+                                    // the log is proven canonical, never while orphanhood is
+                                    // still unresolved.
+                                    Err(ProposalRetryError::Retry(DriverError::Sync(recheck_err)))
+                                }
+                            },
+                        }
                     }
-                }
-            })
+                },
+                |err: &ProposalRetryError| matches!(err, ProposalRetryError::Retry(_)),
+            )
             .await
+            .map_err(ProposalRetryError::into_inner)
             .map_err(|err| match err {
                 DriverError::Sync(sync_err) => sync_err,
                 DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
@@ -1731,7 +1834,10 @@ mod tests {
     ) -> Result<bool, SyncError> {
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        syncer.is_permanently_orphaned_proposal_log(block_hash, log_block_number).await
+        syncer
+            .proposal_log_canonicality(block_hash, log_block_number)
+            .await
+            .map(|canonicality| canonicality == ProposalLogCanonicality::Orphaned)
     }
 
     fn sample_event_log_with_block_hash(block_hash: B256) -> Log {
@@ -1929,6 +2035,45 @@ mod tests {
             Ok(vec![sample_engine_outcome(
                 log.block_number.expect("test proposal log should always include block number"),
             )])
+        }
+    }
+
+    /// Production path that always fails with a deterministic engine verdict.
+    #[derive(Clone)]
+    struct MockFatalBatchPath {
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockFatalBatchPath {
+        fn new() -> Self {
+            Self { seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())) }
+        }
+
+        fn seen_tx_hashes(&self) -> Vec<B256> {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockFatalBatchPath {
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock fatal batch path only supports L1 proposal logs");
+            };
+
+            let tx_hash =
+                log.transaction_hash.expect("test proposal log should always include tx hash");
+            self.seen_tx_hashes
+                .lock()
+                .expect("seen tx hashes mutex should not be poisoned")
+                .push(tx_hash);
+
+            Err(DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+                EngineSubmissionError::InvalidBlock(1, "mock invalid payload".to_string()),
+            ))))
         }
     }
 
@@ -2188,7 +2333,7 @@ mod tests {
 
         let log = sample_event_log_with_block_hash(B256::from([3u8; 32]));
         let err = syncer
-            .is_permanently_orphaned_proposal_log(
+            .proposal_log_canonicality(
                 log.block_hash.expect("test log should include block hash"),
                 log.block_number,
             )
@@ -2280,6 +2425,146 @@ mod tests {
             "recheck rpc errors should keep the log retryable until a later attempt succeeds",
         );
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
+    }
+
+    #[test]
+    fn fatal_proposal_processing_errors_are_newpayload_invalid_only() {
+        assert!(is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::InvalidBlock(1, "invalid".into()))
+        ))));
+        // ACCEPTED is transient on taiko-geth (returned while parent state is unavailable) and
+        // forkchoice INVALID can reflect an unknown head; both must stay retryable.
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus(
+                1,
+                "ACCEPTED".into()
+            ))
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus(
+                1,
+                "forkchoice INVALID: bad head".into()
+            ))
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::EngineSyncing(1))
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Rpc(
+            RpcClientError::Provider("boom".into())
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Other(anyhow!("boom"))));
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_aborts_without_retry_on_fatal_engine_verdict() {
+        let fatal_block_hash = B256::from([0x71; 32]);
+        let fatal_tx_hash = B256::from([0x81; 32]);
+        let asserter = Asserter::new();
+        // Finalized ancestry resolves the source block as canonical, so the deterministic engine
+        // verdict must abort instead of retrying forever.
+        asserter.push_success(&l1_block_at(1, fatal_block_hash, B256::ZERO));
+        asserter.push_success(&l1_block_at(1, fatal_block_hash, B256::ZERO));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockFatalBatchPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, fatal_block_hash, fatal_tx_hash)],
+            ),
+        )
+        .await;
+
+        let err = result
+            .expect("fatal verdict should abort immediately instead of exhausting the timeout")
+            .expect_err("fatal engine verdict on a proven-canonical log should surface an error");
+        assert!(matches!(
+            err,
+            SyncError::Derivation(DerivationError::Engine(EngineSubmissionError::InvalidBlock(..)))
+        ));
+        assert_eq!(
+            path.seen_tx_hashes(),
+            vec![fatal_tx_hash],
+            "a deterministic engine verdict on a proven-canonical log must not be retried"
+        );
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_keeps_retrying_fatal_verdict_without_canonical_proof() {
+        let stale_block_hash = B256::from([0x72; 32]);
+        let stale_tx_hash = B256::from([0x82; 32]);
+        let asserter = Asserter::new();
+        // Two attempts' worth of responses. The by-hash recheck resolves the block, but L1
+        // finality has not reached the log height, so canonicality remains unproven and the fatal
+        // verdict must keep retrying instead of terminating event sync on a possibly-reorged log.
+        for _ in 0..2 {
+            asserter.push_success(&l1_block_at(1, stale_block_hash, B256::ZERO));
+            asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
+        }
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockFatalBatchPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, stale_block_hash, stale_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "an unproven fatal verdict must keep retrying rather than abort the batch"
+        );
+        assert!(
+            path.seen_tx_hashes().len() >= 2,
+            "the proposal should be retried while canonicality stays unproven"
+        );
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_keeps_retrying_fatal_verdict_on_unfinalized_matching_view() {
+        let stale_block_hash = B256::from([0x73; 32]);
+        let stale_tx_hash = B256::from([0x83; 32]);
+        let asserter = Asserter::new();
+        // Two attempts' worth of responses. A lagging by-number backend still reports the log's
+        // block hash, but the finalized height has not reached the log. That mutable view cannot
+        // prove canonicality strongly enough to terminate event sync.
+        for _ in 0..2 {
+            asserter.push_success(&l1_block_at(1, stale_block_hash, B256::ZERO));
+            asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
+        }
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockFatalBatchPath::new();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, stale_block_hash, stale_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "a matching but unfinalized backend view must not abort the proposal batch"
+        );
+        assert!(
+            path.seen_tx_hashes().len() >= 2,
+            "the proposal should keep retrying until finalized ancestry proves canonicality"
+        );
     }
 
     #[tokio::test]

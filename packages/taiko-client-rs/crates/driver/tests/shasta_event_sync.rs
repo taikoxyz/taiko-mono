@@ -7,7 +7,9 @@ use anyhow::{Context, Result, ensure};
 use driver::{
     Driver, DriverConfig, derivation::ShastaDerivationPipeline, sync::engine::PayloadApplier,
 };
-use proposer::transaction_builder::ShastaProposalTransactionBuilder;
+use proposer::{
+    proposer::EngineBuildContext, transaction_builder::ShastaProposalTransactionBuilder,
+};
 use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
@@ -25,7 +27,8 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer_client).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     let sidecar = request.blob_sidecar();
 
     // Start beacon stub and inject the blob sidecar.
