@@ -276,9 +276,6 @@ fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
     )
 }
 
-/// Return whether a scanner stream error breaks event continuity and requires dropping the
-/// subscription so the reconnect path can replay from a safe overlap.
-///
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
