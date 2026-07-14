@@ -48,29 +48,28 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		}
 	}
 
-	sgxGethProducer := &producer.SgxGethProofProducer{
-		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		VerifierID:          sgxGethVerifierID,
-		ApiKey:              p.cfg.RaikoApiKey,
-		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		Dummy:               p.cfg.Dummy,
+	// Initialize the zk verifiers and zkvm proof producers.
+	verifierIDs := map[producer.ProofType]uint8{
+		producer.ProofTypeSgxGeth: sgxGethVerifierID,
+		producer.ProofTypeZKR0:    risc0RethVerifierID,
+		producer.ProofTypeZKSP1:   sp1RethVerifierID,
+	}
+	proofTypes = append(proofTypes, producer.ProofTypeZKR0, producer.ProofTypeZKSP1)
+
+	primaryProofType := producer.ProofTypeZKR0
+	companionProofType := producer.ProofTypeSgxGeth
+	if p.cfg.ZkOnlyProofs {
+		primaryProofType = producer.ProofTypeZKSP1
+		companionProofType = producer.ProofTypeZKR0
 	}
 
-	// Initialize the zk verifiers and zkvm proof producers.
-	var zkVerifierIDs = make(map[producer.ProofType]uint8, proofSubmitter.MaxNumSupportedZkTypes)
-	proofTypes = append(proofTypes, producer.ProofTypeZKR0)
-	zkVerifierIDs[producer.ProofTypeZKR0] = risc0RethVerifierID
-	proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
-	zkVerifierIDs[producer.ProofTypeZKSP1] = sp1RethVerifierID
-
 	zkvmProducer := &producer.ComposeProofProducer{
-		VerifierIDs:         zkVerifierIDs,
-		SgxGethProducer:     sgxGethProducer,
+		VerifierIDs:         verifierIDs,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		ApiKey:              p.cfg.RaikoApiKey,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		ProofType:           producer.ProofTypeZKR0,
-		ZkOnly:              p.cfg.ZkOnlyProofs,
+		PrimaryProofType:    primaryProofType,
+		CompanionProofType:  companionProofType,
 		Dummy:               p.cfg.Dummy,
 	}
 	// Init proof buffers.
