@@ -27,9 +27,10 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 	// The proposal is beyond the RISC0 distance, so the normal selection path would enter
 	// SP1 fallback and clear the RISC0 backlog. ZK-only mode must pin SP1 as the primary
 	// lane without running any fallback state or side effects.
+	opts := &proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(41)}
 	resp, err := submitter.requestProposalProof(
 		context.Background(),
-		&proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(41)},
+		opts,
 		big.NewInt(41),
 		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(41)}, 0),
 		time.Now(),
@@ -40,6 +41,7 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
 	require.Equal(t, 1, zkvm.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, zkvm.requestedTypes)
+	require.Equal(t, proofProducer.ProofTypeZKR0, opts.CompanionProofType)
 	require.False(t, submitter.inSP1Fallback())
 	select {
 	case <-backlog.cleared:

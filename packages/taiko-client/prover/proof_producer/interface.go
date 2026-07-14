@@ -26,6 +26,8 @@ type ProofRequestOptions interface {
 	ProposalOptions() *ProposalProofRequestOptions
 	GetProverAddress() common.Address
 	GetRawBlockHash() common.Hash
+	GetProofType() ProofType
+	GetCompanionProofType() ProofType
 	IsCompanionProofGenerated() bool
 	IsCompanionProofAggregationGenerated() bool
 	IsRethProofGenerated() bool
@@ -53,6 +55,7 @@ type ProposalProofRequestOptions struct {
 	RethProofGenerated                 bool
 	RethProofAggregationGenerated      bool
 	ProofType                          ProofType
+	CompanionProofType                 ProofType
 	L2BlockNums                        []*big.Int
 	DesignatedProver                   common.Address
 	Checkpoint                         *Checkpoint
@@ -72,6 +75,16 @@ func (s *ProposalProofRequestOptions) GetProverAddress() common.Address {
 // GetRawBlockHash implements the ProofRequestOptions interface.
 func (s *ProposalProofRequestOptions) GetRawBlockHash() common.Hash {
 	return s.EventL1Hash
+}
+
+// GetProofType implements the ProofRequestOptions interface.
+func (s *ProposalProofRequestOptions) GetProofType() ProofType {
+	return s.ProofType
+}
+
+// GetCompanionProofType implements the ProofRequestOptions interface.
+func (s *ProposalProofRequestOptions) GetCompanionProofType() ProofType {
+	return s.CompanionProofType
 }
 
 // IsCompanionProofGenerated implements the ProofRequestOptions interface.

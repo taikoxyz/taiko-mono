@@ -46,8 +46,6 @@ type ComposeProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	ApiKey              string // ApiKey provided by Raiko
-	PrimaryProofType    ProofType
-	CompanionProofType  ProofType
 	Dummy               bool
 	DummyProofProducer
 }
@@ -60,9 +58,12 @@ func (s *ComposeProofProducer) RequestProof(
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
 ) (*ProofResponse, error) {
-	requestProofType := s.PrimaryProofType
-	if opts.ProposalOptions().ProofType != "" {
-		requestProofType = opts.ProposalOptions().ProofType
+	requestProofType := opts.GetProofType()
+	if requestProofType == "" {
+		return nil, fmt.Errorf("primary proof type is required")
+	}
+	if opts.GetCompanionProofType() == "" {
+		return nil, fmt.Errorf("companion proof type is required")
 	}
 
 	log.Info(
@@ -145,6 +146,10 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil, ErrInvalidLength
 	}
 	proofType := items[0].ProofType
+	companionProofType := items[0].Opts.GetCompanionProofType()
+	if companionProofType == "" {
+		return nil, fmt.Errorf("companion proof type is required")
+	}
 	var (
 		verifierID uint8
 		verifier   common.Address
@@ -171,16 +176,23 @@ func (s *ComposeProofProducer) Aggregate(
 		metas               = make([]metadata.TaikoProposalMetaData, 0, len(items))
 		g                   = new(errgroup.Group)
 	)
-	if companionVerifierID, exist = s.VerifierIDs[s.CompanionProofType]; !exist {
-		return nil, fmt.Errorf("no verifier ID for the %s companion proof", s.CompanionProofType)
+	if companionVerifierID, exist = s.VerifierIDs[companionProofType]; !exist {
+		return nil, fmt.Errorf("no verifier ID for the %s companion proof", companionProofType)
 	}
 	for _, item := range items {
+		if item.Opts.GetCompanionProofType() != companionProofType {
+			return nil, fmt.Errorf(
+				"inconsistent companion proof type: expected %s, got %s",
+				companionProofType,
+				item.Opts.GetCompanionProofType(),
+			)
+		}
 		opts = append(opts, item.Opts)
 		metas = append(metas, item.Meta)
 		batchIDs = append(batchIDs, item.Meta.GetProposalID())
 	}
 	g.Go(func() error {
-		proof, err := s.aggregateCompanionProofs(ctx, opts, metas, items, requestAt)
+		proof, err := s.aggregateCompanionProofs(ctx, opts, metas, items, companionProofType, requestAt)
 		if err != nil {
 			return err
 		}
@@ -244,7 +256,7 @@ func (s *ComposeProofProducer) requestCompanionProof(
 		[]ProofRequestOptions{opts},
 		[]metadata.TaikoProposalMetaData{meta},
 		false,
-		s.CompanionProofType,
+		opts.GetCompanionProofType(),
 		requestAt,
 		opts.ProposalOptions().CompanionProofGenerated,
 	); err != nil {
@@ -259,10 +271,11 @@ func (s *ComposeProofProducer) aggregateCompanionProofs(
 	opts []ProofRequestOptions,
 	metas []metadata.TaikoProposalMetaData,
 	items []*ProofResponse,
+	companionProofType ProofType,
 	requestAt time.Time,
 ) ([]byte, error) {
 	if s.Dummy {
-		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.CompanionProofType)
+		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, companionProofType)
 		return resp.BatchProof, nil
 	}
 	resp, err := s.requestBatchProof(
@@ -270,7 +283,7 @@ func (s *ComposeProofProducer) aggregateCompanionProofs(
 		opts,
 		metas,
 		true,
-		s.CompanionProofType,
+		companionProofType,
 		requestAt,
 		items[0].Opts.ProposalOptions().CompanionProofAggregationGenerated,
 	)

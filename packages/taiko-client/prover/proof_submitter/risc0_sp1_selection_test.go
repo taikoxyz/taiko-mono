@@ -14,10 +14,11 @@ import (
 )
 
 type recordingProofProducer struct {
-	proofType      proofProducer.ProofType
-	requests       int
-	requestedTypes []proofProducer.ProofType
-	nilResponse    bool
+	proofType               proofProducer.ProofType
+	requests                int
+	requestedTypes          []proofProducer.ProofType
+	requestedCompanionTypes []proofProducer.ProofType
+	nilResponse             bool
 }
 
 func (p *recordingProofProducer) RequestProof(
@@ -33,6 +34,7 @@ func (p *recordingProofProducer) RequestProof(
 		requestedType = p.proofType
 	}
 	p.requestedTypes = append(p.requestedTypes, requestedType)
+	p.requestedCompanionTypes = append(p.requestedCompanionTypes, opts.GetCompanionProofType())
 	if p.nilResponse {
 		return nil, nil
 	}
@@ -72,6 +74,11 @@ func TestRequestProposalProofUsesRisc0FirstWhenZKVMConfigured(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKR0, resp.ProofType)
 	require.Equal(t, 1, risc0.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKR0}, risc0.requestedTypes)
+	require.Equal(
+		t,
+		[]proofProducer.ProofType{proofProducer.ProofTypeSgxGeth},
+		risc0.requestedCompanionTypes,
+	)
 }
 
 func TestRequestProposalProofUsesSameZKVMProducerForSP1Fallback(t *testing.T) {

@@ -56,20 +56,11 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 	}
 	proofTypes = append(proofTypes, producer.ProofTypeZKR0, producer.ProofTypeZKSP1)
 
-	primaryProofType := producer.ProofTypeZKR0
-	companionProofType := producer.ProofTypeSgxGeth
-	if p.cfg.ZkOnlyProofs {
-		primaryProofType = producer.ProofTypeZKSP1
-		companionProofType = producer.ProofTypeZKR0
-	}
-
 	zkvmProducer := &producer.ComposeProofProducer{
 		VerifierIDs:         verifierIDs,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		ApiKey:              p.cfg.RaikoApiKey,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		PrimaryProofType:    primaryProofType,
-		CompanionProofType:  companionProofType,
 		Dummy:               p.cfg.Dummy,
 	}
 	// Init proof buffers.

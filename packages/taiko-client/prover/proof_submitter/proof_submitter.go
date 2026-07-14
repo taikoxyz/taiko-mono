@@ -287,7 +287,13 @@ func (s *ProofSubmitter) requestProposalProof(
 	if !s.zkOnlyProofs {
 		proofType = s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
 	}
-	opts.ProposalOptions().ProofType = proofType
+	companionProofType := proofProducer.ProofTypeSgxGeth
+	if s.zkOnlyProofs {
+		companionProofType = proofProducer.ProofTypeZKR0
+	}
+	proposalOpts := opts.ProposalOptions()
+	proposalOpts.ProofType = proofType
+	proposalOpts.CompanionProofType = companionProofType
 
 	proofResponse, err := s.zkvmProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
 	if err != nil {
