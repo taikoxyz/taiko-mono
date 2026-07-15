@@ -1849,7 +1849,7 @@ dependencies = [
 
 [[package]]
 name = "bindings"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alloy",
  "serde",
@@ -2731,7 +2731,7 @@ dependencies = [
 
 [[package]]
 name = "driver"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -5974,7 +5974,7 @@ dependencies = [
 
 [[package]]
 name = "proposer"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -6033,7 +6033,7 @@ checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
 name = "protocol"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-consensus",
@@ -7815,7 +7815,7 @@ dependencies = [
 
 [[package]]
 name = "rpc"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alethia-reth-primitives",
  "alethia-reth-rpc-types",
@@ -8750,7 +8750,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "taiko-client"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alloy-consensus 1.8.3",
  "alloy-primitives",
@@ -8818,7 +8818,7 @@ dependencies = [
 
 [[package]]
 name = "test-harness"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -9784,7 +9784,7 @@ dependencies = [
 
 [[package]]
 name = "whitelist-preconfirmation-driver"
-version = "2.1.0"
+version = "2.2.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
