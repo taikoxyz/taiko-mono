@@ -1,5 +1,54 @@
 # Changelog
 
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.1.0...taiko-alethia-client-rs-v2.2.0) (2026-07-15)
+
+
+### Features
+
+* **taiko-client-rs:** keep proposer alive on tx reverts ([#21904](https://github.com/taikoxyz/taiko-mono/issues/21904)) ([4aba77b](https://github.com/taikoxyz/taiko-mono/commit/4aba77b1986cab33ee9d54aa77f78848cf892c47))
+* **taiko-client-rs:** log preconfirmation peer ticks ([#21880](https://github.com/taikoxyz/taiko-mono/issues/21880)) ([00465ea](https://github.com/taikoxyz/taiko-mono/commit/00465eaa148ff3890a0457068266747b28482ed9))
+* **taiko-client,taiko-client-rs:** restore forced inclusion propose inputs ([#21936](https://github.com/taikoxyz/taiko-mono/issues/21936)) ([2d7fd1a](https://github.com/taikoxyz/taiko-mono/commit/2d7fd1a3e76505652a6adee6d24278affa6ddd9c))
+
+
+### Bug Fixes
+
+* **taiko-client-rs:** avoid forced inclusions in propose input ([#21851](https://github.com/taikoxyz/taiko-mono/issues/21851)) ([61fec74](https://github.com/taikoxyz/taiko-mono/commit/61fec74e22e8fc0ae3df3d526babc6f84009f193))
+* **taiko-client-rs:** decode legacy transactions in preconfirmation tx-lists ([#21906](https://github.com/taikoxyz/taiko-mono/issues/21906)) ([033bd94](https://github.com/taikoxyz/taiko-mono/commit/033bd94be3d90617fc2a1dab00d49cfcd96348bb))
+* **taiko-client-rs:** degrade undecodable derivation source blob to default payload ([#21854](https://github.com/taikoxyz/taiko-mono/issues/21854)) ([eb3bc25](https://github.com/taikoxyz/taiko-mono/commit/eb3bc250f1eac1a7b93cba66ceb8baa4d8b34a85))
+* **taiko-client-rs:** enforce strict engine status checks in driver payload submission ([#21949](https://github.com/taikoxyz/taiko-mono/issues/21949)) ([a062a61](https://github.com/taikoxyz/taiko-mono/commit/a062a612fac35b5e83dedcc9367efd8ea0d48238))
+* **taiko-client-rs:** keep release lockfile current ([#21780](https://github.com/taikoxyz/taiko-mono/issues/21780)) ([c4786c2](https://github.com/taikoxyz/taiko-mono/commit/c4786c2bcd898c4674d8e1a8a4bfb26b95cdeb3e))
+* **taiko-client-rs:** prevent derivation panic on oversized manifest size field ([#21948](https://github.com/taikoxyz/taiko-mono/issues/21948)) ([f91132c](https://github.com/taikoxyz/taiko-mono/commit/f91132c4dcfa4f23f0a97192de465f6f3aef784c))
+* **taiko-client-rs:** recover from scanner lag and reorged-out proposal logs in event sync ([#21950](https://github.com/taikoxyz/taiko-mono/issues/21950)) ([9c19514](https://github.com/taikoxyz/taiko-mono/commit/9c19514686a80ba534ebafeba8143461e4f43e5f))
+* **taiko-client-rs:** report execution head in /status when unsafe counter lags it ([#21777](https://github.com/taikoxyz/taiko-mono/issues/21777)) ([e263a73](https://github.com/taikoxyz/taiko-mono/commit/e263a73597a9073fc3135c4d34e79c3a6bd12224))
+* **taiko-client-rs:** survive checkpoint sync handoff and harden the catch-up loop ([#21900](https://github.com/taikoxyz/taiko-mono/issues/21900)) ([52c3e77](https://github.com/taikoxyz/taiko-mono/commit/52c3e77ed34cdd0a674911ad54bf70f930acfded))
+* **taiko-client-rs:** taiko-geth wire compat, proposer manifest fixes, and bounded event-sync retries ([#21958](https://github.com/taikoxyz/taiko-mono/issues/21958)) ([4679d0d](https://github.com/taikoxyz/taiko-mono/commit/4679d0d3cb04f0c37b37cb1a8f1eb8cd443985b8))
+
+
+### Chores
+
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+* **taiko-client-rs:** bump execution client dependencies ([#21801](https://github.com/taikoxyz/taiko-mono/issues/21801)) ([48caa9e](https://github.com/taikoxyz/taiko-mono/commit/48caa9e385f52659deee6a85faeb1b04f81df48a))
+* **taiko-client-rs:** harden whitelist preconfirmation ingress ([#21943](https://github.com/taikoxyz/taiko-mono/issues/21943)) ([f1e84ae](https://github.com/taikoxyz/taiko-mono/commit/f1e84ae5d0cae84809895260104d74cb5f19f183))
+* **taiko-client-rs:** reject trailing bytes after manifest RLP ([#21911](https://github.com/taikoxyz/taiko-mono/issues/21911)) ([d23ec01](https://github.com/taikoxyz/taiko-mono/commit/d23ec013e4c28dd95abe98415c108797b2db8b40))
+* **taiko-client-rs:** simplify and harden the test harness ([#21914](https://github.com/taikoxyz/taiko-mono/issues/21914)) ([3f77845](https://github.com/taikoxyz/taiko-mono/commit/3f77845e9cfbea9b3dfb71e91fbea74c65278efa))
+* **taiko-client,taiko-client-rs:** bump execution client deps ([#21941](https://github.com/taikoxyz/taiko-mono/issues/21941)) ([3a99ab1](https://github.com/taikoxyz/taiko-mono/commit/3a99ab186f878a4b18c4b432740e8df8381adbe6))
+
+
+### Code Refactoring
+
+* **taiko-client-rs:** drop the `Client<P>` provider generic ([#21925](https://github.com/taikoxyz/taiko-mono/issues/21925)) ([77ede38](https://github.com/taikoxyz/taiko-mono/commit/77ede383fc790f63a6e10ee1963d5da913c98901))
+* **taiko-client-rs:** move permissionless preconfirmation to its own branch ([#21908](https://github.com/taikoxyz/taiko-mono/issues/21908)) ([37f8e27](https://github.com/taikoxyz/taiko-mono/commit/37f8e270a812953ba5c26abbe1736d8f53ee0b3d))
+* **taiko-client-rs:** simplify whitelist preconfirmation driver ([#21913](https://github.com/taikoxyz/taiko-mono/issues/21913)) ([081d91c](https://github.com/taikoxyz/taiko-mono/commit/081d91c975bd84cc407130038f12cd627b75425c))
+* **taiko-client-rs:** sweep quick-win cleanups across crates ([#21926](https://github.com/taikoxyz/taiko-mono/issues/21926)) ([fd8b35a](https://github.com/taikoxyz/taiko-mono/commit/fd8b35a3583155377ab63e24b19522e669c62f34))
+
+
+### Workflow
+
+* **taiko-client-rs:** enable signer recovery for net builds ([#21944](https://github.com/taikoxyz/taiko-mono/issues/21944)) ([2a752ad](https://github.com/taikoxyz/taiko-mono/commit/2a752addafd6bf4fc1a67443e82513ecaf484b2d))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.0.0...taiko-alethia-client-rs-v2.1.0) (2026-06-12)
 
 
