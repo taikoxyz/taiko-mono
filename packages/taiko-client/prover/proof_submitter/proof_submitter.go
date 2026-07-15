@@ -38,8 +38,7 @@ type SenderOptions struct {
 type ProofSubmitter struct {
 	rpc *rpc.Client
 	// Proof producers
-	baseLevelProofProducer proofProducer.ProofProducer
-	zkvmProofProducer      proofProducer.ProofProducer
+	zkvmProofProducer proofProducer.ProofProducer
 	// Channels
 	batchResultCh          chan *proofProducer.BatchProofs
 	batchAggregationNotify chan proofProducer.ProofType
@@ -59,6 +58,7 @@ type ProofSubmitter struct {
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
 	forceSP1Proof                 bool
+	zkOnlyProofs                  bool
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
 	risc0Backlog proofProducer.Risc0BacklogController
 	sp1Fallback  sp1Fallback
@@ -70,7 +70,6 @@ type ProofSubmitter struct {
 // NewProofSubmitter creates a new ProofSubmitter instance.
 func NewProofSubmitter(
 	ctx context.Context,
-	baseLevelProofProducer proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
 	batchAggregationNotify chan proofProducer.ProofType,
@@ -85,10 +84,13 @@ func NewProofSubmitter(
 	proposalWindowSize *big.Int,
 	maxRisc0ProofProposalDistance *big.Int,
 	forceSP1Proof bool,
+	zkOnlyProofs bool,
 ) (*ProofSubmitter, error) {
+	if zkvmProofProducer == nil {
+		return nil, fmt.Errorf("proof submitter requires a ZKVM proof producer")
+	}
 	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
-		baseLevelProofProducer: baseLevelProofProducer,
 		zkvmProofProducer:      zkvmProofProducer,
 		batchResultCh:          batchResultCh,
 		batchAggregationNotify: batchAggregationNotify,
@@ -109,14 +111,13 @@ func NewProofSubmitter(
 		proposalWindowSize:            proposalWindowSize,
 		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
 		forceSP1Proof:                 forceSP1Proof,
+		zkOnlyProofs:                  zkOnlyProofs,
 		ctx:                           ctx,
 	}
 
 	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a
 	// RISC0 producer is configured. This is a compile-time capability check, not a
-	// probe of the remote host: with no ZK endpoint set, zkvmProofProducer is nil
-	// and risc0Backlog stays nil, so decideZKProofType bypasses the drain/resume
-	// machine. When a ZK endpoint IS set but its host predates raiko2 #93, the
+	// probe of the remote host. When the Raiko host predates raiko2 #93, the
 	// control-plane calls return 404 and the machine degrades by design (see
 	// canResumeRisc0).
 	if risc0Backlog, ok := zkvmProofProducer.(proofProducer.Risc0BacklogController); ok {
@@ -275,18 +276,25 @@ func (s *ProofSubmitter) requestProposalProof(
 	lastFinalizedProposalID *big.Int,
 ) (*proofProducer.ProofResponse, error) {
 	if s.zkvmProofProducer == nil {
-		proofResponse, err := s.baseLevelProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to request base proof, error: %w", err)
-		}
-		if proofResponse == nil {
-			return nil, fmt.Errorf("received nil proof response from base proof producer")
-		}
-		return proofResponse, nil
+		return nil, fmt.Errorf("proof submitter requires a ZKVM proof producer")
 	}
 
-	proofType := s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
-	opts.ProposalOptions().ProofType = proofType
+	// In ZK-only mode every proposal needs both ZK proofs: SP1 is the primary lane and the
+	// producer requests RISC0 as the companion leg, so the RISC0/SP1 selection machine (and
+	// its backlog-clearing side effects, which would cancel RISC0 tasks this mode depends
+	// on) must not run.
+	proofType := proofProducer.ProofTypeZKSP1
+	if !s.zkOnlyProofs {
+		proofType = s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
+	}
+	companionProofType := proofProducer.ProofTypeSgxGeth
+	if s.zkOnlyProofs {
+		companionProofType = proofProducer.ProofTypeZKR0
+	}
+
+	proposalOpts := opts.ProposalOptions()
+	proposalOpts.ProofType = proofType
+	proposalOpts.CompanionProofType = companionProofType
 
 	proofResponse, err := s.zkvmProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
 	if err != nil {
@@ -464,17 +472,14 @@ func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType pr
 	if !exist {
 		return fmt.Errorf("failed to get expected proof type: %s", proofType)
 	}
-	var producer proofProducer.ProofProducer
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	switch proofType {
-	case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
-		producer = s.baseLevelProofProducer
 	case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
-		producer = s.zkvmProofProducer
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}
+	producer := s.zkvmProofProducer
 	if producer == nil {
 		return fmt.Errorf("proof producer is not configured for proof type %s", proofType)
 	}

@@ -35,15 +35,16 @@ type ProofResponse struct {
 
 // BatchProofs represents a response of a batch proof request.
 type BatchProofs struct {
-	ProofResponses       []*ProofResponse
-	BatchProof           []byte
-	BatchIDs             []*big.Int
-	ProofType            ProofType
-	Verifier             common.Address
-	VerifierID           uint8
-	SgxGethBatchProof    []byte
-	SgxGethProofVerifier common.Address
-	SgxGethVerifierID    uint8
+	ProofResponses []*ProofResponse
+	BatchProof     []byte
+	BatchIDs       []*big.Int
+	ProofType      ProofType
+	Verifier       common.Address
+	VerifierID     uint8
+	// The companion sub-proof submitted alongside BatchProof: the SGX_GETH proof by
+	// default, or the RISC0 proof in ZK-only mode.
+	CompanionBatchProof []byte
+	CompanionVerifierID uint8
 }
 
 // ProofProducer is an interface that contains all methods to generate a proof.

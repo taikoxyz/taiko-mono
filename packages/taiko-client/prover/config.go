@@ -36,14 +36,12 @@ type Config struct {
 	RPCTimeout                    time.Duration
 	ProveBatchesGasLimit          uint64
 	RaikoHostEndpoint             string
-	RaikoZKVMHostEndpoint         string
 	RaikoApiKey                   string
 	RaikoRequestTimeout           time.Duration
 	LocalProposerAddresses        []common.Address
 	BlockConfirmations            uint64
 	TxmgrConfigs                  *txmgr.CLIConfig
 	PrivateTxmgrConfigs           *txmgr.CLIConfig
-	SGXProofBufferSize            uint64
 	ZKVMProofBufferSize           uint64
 	ForceBatchProvingInterval     time.Duration
 	ProofPollingInterval          time.Duration
@@ -51,6 +49,7 @@ type Config struct {
 	ProposalWindowSize            uint64
 	MaxRisc0ProofProposalDistance uint64
 	ForceSP1Proof                 bool
+	ZkOnlyProofs                  bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -86,6 +85,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	// The Raiko endpoint is a required CLI flag. Keep explicit validation here for
+	// callers that construct a CLI context without the application's flag validation.
+	raikoHostEndpoint := strings.TrimSpace(c.String(flags.RaikoHostEndpoint.Name))
+	if len(raikoHostEndpoint) == 0 {
+		return nil, fmt.Errorf("--%s is required", flags.RaikoHostEndpoint.Name)
+	}
+
+	zkOnlyProofs := c.Bool(flags.ZkOnlyProofs.Name)
+
 	var localProposerAddresses []common.Address
 	for _, localProposerAddress := range c.StringSlice(flags.LocalProposerAddresses.Name) {
 		if !common.IsHexAddress(localProposerAddress) {
@@ -106,8 +114,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		InboxAddress:             common.HexToAddress(c.String(flags.InboxAddress.Name)),
 		TaikoAnchorAddress:       common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 		L1ProverPrivKey:          l1ProverPrivKey,
-		RaikoHostEndpoint:        c.String(flags.RaikoHostEndpoint.Name),
-		RaikoZKVMHostEndpoint:    c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoHostEndpoint:        raikoHostEndpoint,
 		RaikoApiKey:              strings.TrimSpace(string(raikoApiKey)),
 		RaikoRequestTimeout:      c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingProposalID:       startingProposalID,
@@ -120,6 +127,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			flags.MaxRisc0ProofProposalDistance.Name,
 		),
 		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
+		ZkOnlyProofs:           zkOnlyProofs,
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
 		LocalProposerAddresses: localProposerAddresses,
@@ -130,7 +138,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
-		SGXProofBufferSize:        c.Uint64(flags.SGXBatchSize.Name),
 		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
