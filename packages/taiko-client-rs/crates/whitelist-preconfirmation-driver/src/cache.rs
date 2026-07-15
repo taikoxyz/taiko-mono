@@ -87,6 +87,17 @@ impl SharedPreconfState {
         self.recent_envelopes.lock().await.get(hash).cloned()
     }
 
+    /// Remove a recent envelope that is no longer safe to serve.
+    pub(crate) async fn remove_recent(
+        &self,
+        hash: &B256,
+    ) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
+        let mut recent = self.recent_envelopes.lock().await;
+        let removed = recent.remove(hash);
+        WhitelistPreconfirmationDriverMetrics::set_cache_recent_count(recent.len());
+        removed
+    }
+
     /// Record a freshly observed L2 head and return it; when the head is `None` (a failed RPC
     /// read) return the most recently recorded value instead.
     ///
@@ -349,5 +360,15 @@ mod tests {
         state.record_end_of_sequencing(42, hash).await;
         assert_eq!(state.end_of_sequencing_for_epoch(42).await, Some(hash));
         assert_eq!(state.end_of_sequencing_for_epoch(43).await, None);
+    }
+
+    #[tokio::test]
+    async fn shared_state_removes_recent_envelopes() {
+        let state = SharedPreconfState::new(0);
+        let hash = B256::from([0x42u8; 32]);
+        state.insert_recent(Arc::new(sample_envelope(hash, 8))).await;
+
+        assert!(state.remove_recent(&hash).await.is_some());
+        assert!(state.get_recent(&hash).await.is_none());
     }
 }

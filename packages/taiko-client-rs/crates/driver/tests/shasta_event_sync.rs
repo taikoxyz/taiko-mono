@@ -12,7 +12,10 @@ use driver::{
     derivation::ShastaDerivationPipeline,
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
-use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
+use proposer::{
+    proposer::EngineBuildContext,
+    transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder},
+};
 use rpc::{
     blob::BlobDataSource,
     client::{Client, ClientConfig},
@@ -35,7 +38,8 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer_client).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     let sidecar = request.blob_sidecar();
 
     // Start beacon stub and inject the blob sidecar.
@@ -314,7 +318,8 @@ async fn l1_reorg_lowers_confirmed_boundary_and_recovers(env: &mut ShastaEnv) ->
     // pattern proven by proposer_driver_e2e.rs::multiple_proposals_event_sync.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![Vec::new()], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer).await?;
+    let request = builder.build(vec![Vec::new()], build_ctx).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start the event syncer (WS L1 subscription) before submitting any proposal.

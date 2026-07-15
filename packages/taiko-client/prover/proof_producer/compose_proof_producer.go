@@ -46,8 +46,6 @@ type ComposeProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	ApiKey              string // ApiKey provided by Raiko
-	SgxGethProducer     *SgxGethProofProducer
-	ProofType           ProofType
 	Dummy               bool
 	DummyProofProducer
 }
@@ -60,9 +58,12 @@ func (s *ComposeProofProducer) RequestProof(
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
 ) (*ProofResponse, error) {
-	requestProofType := s.ProofType
-	if opts.ProposalOptions().ProofType != "" {
-		requestProofType = opts.ProposalOptions().ProofType
+	requestProofType := opts.GetProofType()
+	if requestProofType == "" {
+		return nil, fmt.Errorf("primary proof type is required")
+	}
+	if opts.GetCompanionProofType() == "" {
+		return nil, fmt.Errorf("companion proof type is required")
 	}
 
 	log.Info(
@@ -114,13 +115,12 @@ func (s *ComposeProofProducer) RequestProof(
 	})
 
 	g.Go(func() error {
-		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
+		if err := s.requestCompanionProof(ctx, opts, meta, requestAt); err != nil {
 			return err
-		} else {
-			// Note: we mark `GethProofGenerated` with true to record if it is the first time generated.
-			opts.ProposalOptions().GethProofGenerated = true
-			return nil
 		}
+		// Note: we mark `CompanionProofGenerated` with true to record if it is the first time generated.
+		opts.ProposalOptions().CompanionProofGenerated = true
+		return nil
 	})
 
 	if err := g.Wait(); err != nil {
@@ -146,6 +146,10 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil, ErrInvalidLength
 	}
 	proofType := items[0].ProofType
+	companionProofType := items[0].Opts.GetCompanionProofType()
+	if companionProofType == "" {
+		return nil, fmt.Errorf("companion proof type is required")
+	}
 	var (
 		verifierID uint8
 		verifier   common.Address
@@ -164,27 +168,38 @@ func (s *ComposeProofProducer) Aggregate(
 		"time", time.Since(requestAt),
 	)
 	var (
-		sgxGethBatchProofs *BatchProofs
-		batchProofs        []byte
-		batchIDs           = make([]*big.Int, 0, len(items))
-		opts               = make([]ProofRequestOptions, 0, len(items))
-		metas              = make([]metadata.TaikoProposalMetaData, 0, len(items))
-		g                  = new(errgroup.Group)
-		err                error
+		companionBatchProof []byte
+		companionVerifierID uint8
+		batchProofs         []byte
+		batchIDs            = make([]*big.Int, 0, len(items))
+		opts                = make([]ProofRequestOptions, 0, len(items))
+		metas               = make([]metadata.TaikoProposalMetaData, 0, len(items))
+		g                   = new(errgroup.Group)
 	)
+	if companionVerifierID, exist = s.VerifierIDs[companionProofType]; !exist {
+		return nil, fmt.Errorf("no verifier ID for the %s companion proof", companionProofType)
+	}
 	for _, item := range items {
+		if item.Opts.GetCompanionProofType() != companionProofType {
+			return nil, fmt.Errorf(
+				"inconsistent companion proof type: expected %s, got %s",
+				companionProofType,
+				item.Opts.GetCompanionProofType(),
+			)
+		}
 		opts = append(opts, item.Opts)
 		metas = append(metas, item.Meta)
 		batchIDs = append(batchIDs, item.Meta.GetProposalID())
 	}
 	g.Go(func() error {
-		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
+		proof, err := s.aggregateCompanionProofs(ctx, opts, metas, items, companionProofType, requestAt)
+		if err != nil {
 			return err
-		} else {
-			// Note: we mark `GethProofAggregationGenerated` in the first item with true.
-			items[0].Opts.ProposalOptions().GethProofAggregationGenerated = true
-			return nil
 		}
+		// Note: we mark `CompanionProofAggregationGenerated` in the first item with true.
+		items[0].Opts.ProposalOptions().CompanionProofAggregationGenerated = true
+		companionBatchProof = proof
+		return nil
 	})
 	g.Go(func() error {
 		if s.Dummy {
@@ -214,16 +229,68 @@ func (s *ComposeProofProducer) Aggregate(
 	}
 
 	return &BatchProofs{
-		ProofResponses:       items,
-		BatchProof:           batchProofs,
-		BatchIDs:             batchIDs,
-		ProofType:            proofType,
-		Verifier:             verifier,
-		VerifierID:           verifierID,
-		SgxGethBatchProof:    sgxGethBatchProofs.BatchProof,
-		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
-		SgxGethVerifierID:    sgxGethBatchProofs.VerifierID,
+		ProofResponses:      items,
+		BatchProof:          batchProofs,
+		BatchIDs:            batchIDs,
+		ProofType:           proofType,
+		Verifier:            verifier,
+		VerifierID:          verifierID,
+		CompanionBatchProof: companionBatchProof,
+		CompanionVerifierID: companionVerifierID,
 	}, nil
+}
+
+// requestCompanionProof requests the configured companion proof for the given proposal.
+// Only its generation status matters here: the bytes submitted on-chain come from aggregation.
+func (s *ComposeProofProducer) requestCompanionProof(
+	ctx context.Context,
+	opts ProofRequestOptions,
+	meta metadata.TaikoProposalMetaData,
+	requestAt time.Time,
+) error {
+	if s.Dummy {
+		return nil
+	}
+	if _, err := s.requestBatchProof(
+		ctx,
+		[]ProofRequestOptions{opts},
+		[]metadata.TaikoProposalMetaData{meta},
+		false,
+		opts.GetCompanionProofType(),
+		requestAt,
+		opts.ProposalOptions().CompanionProofGenerated,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+// aggregateCompanionProofs aggregates the configured companion proofs of the given items.
+func (s *ComposeProofProducer) aggregateCompanionProofs(
+	ctx context.Context,
+	opts []ProofRequestOptions,
+	metas []metadata.TaikoProposalMetaData,
+	items []*ProofResponse,
+	companionProofType ProofType,
+	requestAt time.Time,
+) ([]byte, error) {
+	if s.Dummy {
+		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, companionProofType)
+		return resp.BatchProof, nil
+	}
+	resp, err := s.requestBatchProof(
+		ctx,
+		opts,
+		metas,
+		true,
+		companionProofType,
+		requestAt,
+		items[0].Opts.ProposalOptions().CompanionProofAggregationGenerated,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return common.Hex2Bytes(resp.Data.Proof[2:]), nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.
@@ -332,9 +399,15 @@ func validateRaikoProofResponse(
 			err,
 		)
 	}
+	if output.ProofType != proofType {
+		return nil, fmt.Errorf(
+			"unexpected proof type from raiko: requested %s, got %s",
+			proofType,
+			output.ProofType,
+		)
+	}
 
 	if !alreadyGenerated {
-		proofType = output.ProofType
 		log.Info(
 			"Batch proof generated",
 			"isAggregation", isAggregation,

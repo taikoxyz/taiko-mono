@@ -29,7 +29,10 @@ use driver::{
     production::PreconfPayload,
     sync::{SyncStage, event::EventSyncer},
 };
-use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
+use proposer::{
+    proposer::EngineBuildContext,
+    transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder},
+};
 use protocol::{
     codec::ZlibTxListCodec,
     shasta::{PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash},
@@ -226,7 +229,9 @@ async fn preconf_ingress_injects_block_smoke(env: &mut ShastaEnv) -> Result<()> 
         &txlist.raw_tx_bytes,
     )?;
 
-    event_syncer.submit_preconfirmation_payload(PreconfPayload::new(attrs)).await?;
+    event_syncer
+        .submit_preconfirmation_payload(PreconfPayload::new(attrs, parent.header.hash))
+        .await?;
 
     let block =
         wait_for_block(&env.client.l2_provider, block_number, Duration::from_secs(30)).await?;
@@ -400,7 +405,8 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
     // mixed txlist and inject its sidecar into the beacon stub.
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
-    let request = builder.build(vec![proposal_txs], None).await?;
+    let (build_ctx, _) = EngineBuildContext::from_chain_heads(&proposer).await?;
+    let request = builder.build(vec![proposal_txs], build_ctx).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start the node-0 driver/event-syncer (see `start_syncer`).
@@ -495,7 +501,9 @@ async fn preconf_and_l1_derivation_agree_on_block(env: &mut ShastaEnv) -> Result
         &raw,
     )?;
 
-    event_syncer_node1.submit_preconfirmation_payload(PreconfPayload::new(attrs)).await?;
+    event_syncer_node1
+        .submit_preconfirmation_payload(PreconfPayload::new(attrs, parent.header.hash))
+        .await?;
 
     let injected =
         wait_for_block(&node1_provider, derived.header.number, Duration::from_secs(30)).await?;
@@ -607,7 +615,9 @@ async fn preconf_payload_with_legacy_tx_is_injected(env: &mut ShastaEnv) -> Resu
         &txlist.raw_tx_bytes,
     )?;
 
-    event_syncer.submit_preconfirmation_payload(PreconfPayload::new(attrs)).await?;
+    event_syncer
+        .submit_preconfirmation_payload(PreconfPayload::new(attrs, parent.header.hash))
+        .await?;
 
     let block =
         wait_for_block(&env.client.l2_provider, block_number, Duration::from_secs(30)).await?;

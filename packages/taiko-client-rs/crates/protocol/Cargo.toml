@@ -10,6 +10,7 @@ default = ["net"]
 net = [
     "alloy/default",
     "alloy/signers",
+    "alloy-consensus/k256",
     "bindings",
     "tokio",
     "tokio-stream",

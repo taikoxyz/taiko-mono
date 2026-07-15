@@ -236,6 +236,10 @@ jobs:
         with:
           just-version: 1.5.0
 
+      - name: Check protocol feature isolation
+        working-directory: packages/taiko-client-rs
+        run: just check-features
+
       - uses: taiki-e/install-action@nextest
 
       - name: Run unit tests (no docker)
@@ -257,7 +261,7 @@ jobs:
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PROTOCOL_FORK_DIR }}
-          ref: taiko-alethia-protocol-v3.0.0
+          ref: main
 
       - name: Install pnpm dependencies for protocol taiko-mono for testing
         working-directory: ${{ env.PROTOCOL_FORK_DIR }}

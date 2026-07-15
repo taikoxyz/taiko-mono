@@ -112,6 +112,15 @@ where
                     }
                 };
 
+                let expected_parent_hash = preconf.expected_parent_hash();
+                if parent_hash != expected_parent_hash {
+                    return Err(DriverError::PreconfParentMismatch {
+                        block_number,
+                        expected: expected_parent_hash,
+                        actual: parent_hash,
+                    });
+                }
+
                 let outcome =
                     self.applier.apply_payload(payload, parent_hash, None).await.map_err(
                         |err| DriverError::PreconfInjectionFailed { block_number, source: err },
@@ -283,7 +292,8 @@ mod tests {
         let canonical = Arc::new(MockPath::new());
         let preconf = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
-        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0)));
+        let payload =
+            Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0), B256::ZERO));
 
         let outcomes = router
             .produce(ProductionInput::Preconfirmation(payload))
@@ -299,7 +309,8 @@ mod tests {
     async fn router_rejects_preconf_without_path() {
         let canonical = Arc::new(MockPath::new());
         let router = ProductionRouter::new(canonical.clone(), None);
-        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0)));
+        let payload =
+            Arc::new(PreconfPayload::new(crate::test_support::sample_payload(0), B256::ZERO));
 
         let err = router
             .produce(ProductionInput::Preconfirmation(payload))
@@ -315,7 +326,8 @@ mod tests {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(0, parent_hash);
         let path = PreconfirmationPath::new(applier.clone());
-        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(1)));
+        let payload =
+            Arc::new(PreconfPayload::new(crate::test_support::sample_payload(1), parent_hash));
 
         let outcomes = path
             .produce(ProductionInput::Preconfirmation(payload))
@@ -331,7 +343,8 @@ mod tests {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(1, parent_hash);
         let path = PreconfirmationPath::new(applier.clone());
-        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(2)));
+        let payload =
+            Arc::new(PreconfPayload::new(crate::test_support::sample_payload(2), parent_hash));
 
         let outcomes = path
             .produce(ProductionInput::Preconfirmation(payload))
@@ -351,10 +364,13 @@ mod tests {
         // lookup succeed so the path reaches `apply_payload` (which then rejects). The mock's
         // engine error carries a sentinel number (u64::MAX), distinct from the payload's 6, so
         // pinning `block_number: 6` proves the number came from the payload, not the engine error.
+        // The payload's expected parent hash is B256::ZERO to match the mock's default parent hash
+        // so the parent-hash check passes and the path reaches `apply_payload`.
         let applier =
             MockApplier { fail_invalid: true, expected_parent: 5, ..MockApplier::default() };
         let path = PreconfirmationPath::new(applier);
-        let payload = Arc::new(PreconfPayload::new(crate::test_support::sample_payload(6)));
+        let payload =
+            Arc::new(PreconfPayload::new(crate::test_support::sample_payload(6), B256::ZERO));
         let err = path
             .produce(ProductionInput::Preconfirmation(payload))
             .await
@@ -366,5 +382,27 @@ mod tests {
             matches!(err, DriverError::PreconfInjectionFailed { block_number: 6, .. }),
             "got {err:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn preconfirmation_path_rejects_unexpected_parent() {
+        let canonical_parent = B256::from([1u8; 32]);
+        let signed_parent = B256::from([2u8; 32]);
+        let applier = MockApplier::new(1, canonical_parent);
+        let path = PreconfirmationPath::new(applier.clone());
+        let payload =
+            Arc::new(PreconfPayload::new(crate::test_support::sample_payload(2), signed_parent));
+
+        let err = path
+            .produce(ProductionInput::Preconfirmation(payload))
+            .await
+            .expect_err("wrong-parent preconfirmation must fail");
+
+        assert!(matches!(
+            err,
+            DriverError::PreconfParentMismatch { block_number: 2, expected, actual }
+                if expected == signed_parent && actual == canonical_parent
+        ));
+        assert_eq!(applier.calls(), 0);
     }
 }

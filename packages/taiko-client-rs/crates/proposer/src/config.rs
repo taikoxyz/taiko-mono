@@ -22,6 +22,13 @@ pub struct ProposerConfigs {
     pub gas_limit: Option<u64>,
     /// Whether to use Engine API mode for payload building.
     /// When true, uses FCU + get_payload instead of tx_pool_content_with_min_tip.
+    ///
+    /// WARNING: requires an execution client that defers L1-origin persistence to canonical
+    /// promotion (taikoxyz/alethia-reth#219). On older alethia-reth nodes, the build-only FCU
+    /// preview persists `l1_origin`, `head_l1_origin`, and `batch_to_last_block` rows before
+    /// the previewed block is ever imported or canonicalized, so every proposal cycle leaves
+    /// ghost rows describing blocks that do not exist on the canonical chain (the preview is
+    /// never submitted via `newPayload`).
     pub use_engine_mode: bool,
     /// Interval between tx-manager resubmissions when a proposal transaction remains
     /// unconfirmed.

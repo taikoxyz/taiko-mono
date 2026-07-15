@@ -26,8 +26,10 @@ type ProofRequestOptions interface {
 	ProposalOptions() *ProposalProofRequestOptions
 	GetProverAddress() common.Address
 	GetRawBlockHash() common.Hash
-	IsGethProofGenerated() bool
-	IsGethProofAggregationGenerated() bool
+	GetProofType() ProofType
+	GetCompanionProofType() ProofType
+	IsCompanionProofGenerated() bool
+	IsCompanionProofAggregationGenerated() bool
 	IsRethProofGenerated() bool
 	IsRethProofAggregationGenerated() bool
 }
@@ -41,19 +43,23 @@ type Checkpoint struct {
 
 // ProposalProofRequestOptions contains all options that need to be passed to a backend proof producer service.
 type ProposalProofRequestOptions struct {
-	ProposalID                    *big.Int
-	Headers                       []*types.Header
-	ProverAddress                 common.Address
-	EventL1Hash                   common.Hash
-	GethProofGenerated            bool
-	GethProofAggregationGenerated bool
-	RethProofGenerated            bool
-	RethProofAggregationGenerated bool
-	ProofType                     ProofType
-	L2BlockNums                   []*big.Int
-	DesignatedProver              common.Address
-	Checkpoint                    *Checkpoint
-	LastAnchorBlockNumber         *big.Int
+	ProposalID    *big.Int
+	Headers       []*types.Header
+	ProverAddress common.Address
+	EventL1Hash   common.Hash
+	// CompanionProofGenerated and CompanionProofAggregationGenerated record whether the
+	// mode-specific companion proof has been generated: SGX_GETH in the default mode or
+	// RISC0 in ZK-only mode.
+	CompanionProofGenerated            bool
+	CompanionProofAggregationGenerated bool
+	RethProofGenerated                 bool
+	RethProofAggregationGenerated      bool
+	ProofType                          ProofType
+	CompanionProofType                 ProofType
+	L2BlockNums                        []*big.Int
+	DesignatedProver                   common.Address
+	Checkpoint                         *Checkpoint
+	LastAnchorBlockNumber              *big.Int
 }
 
 // ProposalOptions implements the ProofRequestOptions interface.
@@ -71,14 +77,24 @@ func (s *ProposalProofRequestOptions) GetRawBlockHash() common.Hash {
 	return s.EventL1Hash
 }
 
-// IsGethProofGenerated implements the ProofRequestOptions interface.
-func (s *ProposalProofRequestOptions) IsGethProofGenerated() bool {
-	return s.GethProofGenerated
+// GetProofType implements the ProofRequestOptions interface.
+func (s *ProposalProofRequestOptions) GetProofType() ProofType {
+	return s.ProofType
 }
 
-// IsGethProofAggregationGenerated implements the ProofRequestOptions interface.
-func (s *ProposalProofRequestOptions) IsGethProofAggregationGenerated() bool {
-	return s.GethProofAggregationGenerated
+// GetCompanionProofType implements the ProofRequestOptions interface.
+func (s *ProposalProofRequestOptions) GetCompanionProofType() ProofType {
+	return s.CompanionProofType
+}
+
+// IsCompanionProofGenerated implements the ProofRequestOptions interface.
+func (s *ProposalProofRequestOptions) IsCompanionProofGenerated() bool {
+	return s.CompanionProofGenerated
+}
+
+// IsCompanionProofAggregationGenerated implements the ProofRequestOptions interface.
+func (s *ProposalProofRequestOptions) IsCompanionProofAggregationGenerated() bool {
+	return s.CompanionProofAggregationGenerated
 }
 
 // IsRethProofGenerated implements the ProofRequestOptions interface.

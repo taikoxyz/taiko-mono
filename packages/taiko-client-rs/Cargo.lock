@@ -68,7 +68,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-chainspec"
 version = "1.2.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=6c4d19979ca632a169627c8463c7452c4b82214c#6c4d19979ca632a169627c8463c7452c4b82214c"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.0.4",
@@ -90,7 +90,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-consensus"
 version = "1.2.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=6c4d19979ca632a169627c8463c7452c4b82214c#6c4d19979ca632a169627c8463c7452c4b82214c"
 dependencies = [
  "alethia-reth-primitives",
  "alloy-consensus 2.0.4",
@@ -102,7 +102,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-primitives"
 version = "1.2.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=6c4d19979ca632a169627c8463c7452c4b82214c#6c4d19979ca632a169627c8463c7452c4b82214c"
 dependencies = [
  "alloy-consensus 2.0.4",
  "alloy-primitives",
@@ -126,7 +126,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-rpc-types"
 version = "1.2.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=6c4d19979ca632a169627c8463c7452c4b82214c#6c4d19979ca632a169627c8463c7452c4b82214c"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -3752,7 +3752,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "system-configuration",
  "tokio",
  "tower-layer",
@@ -6123,7 +6123,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -6161,7 +6161,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.60.2",
 ]
