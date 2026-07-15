@@ -29,5 +29,5 @@ paths = [
   '''packages/protocol/test/.*''',
   '''packages/nfts/(script|deployments|out)/.*''',
   '''packages/supplementary-contracts/script/.*''',
-  '''packages/relayer/(integration_test|watchdog|processor)/.*''',
+  '''packages/relayer/(integration_test|processor)/.*''',
 ]
