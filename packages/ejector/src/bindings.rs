@@ -60,21 +60,6 @@ sol! {
 
 sol! {
     #[sol(rpc)]
-    interface TaikoWrapper {
-        address public immutable preconfRouter;
-    }
-}
-
-sol! {
-    #[sol(rpc)]
-    interface PreconfRouter {
-        // Note: returns tuple with a single uint256 field
-        function getConfig() pure returns (uint256 handOverSlots);
-    }
-}
-
-sol! {
-    #[sol(rpc)]
     interface Anchor {
         struct BlockState {
             uint48 anchorBlockNumber;

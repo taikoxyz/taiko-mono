@@ -23,9 +23,9 @@ pub struct Config {
     #[arg(long, env = "PRIVATE_KEY")]
     pub private_key: String,
 
-    // address of the taiko wrapper contract
-    #[arg(long, env = "TAIKO_WRAPPER_ADDRESS")]
-    pub taiko_wrapper_address: String,
+    // Deprecated compatibility option. The TaikoWrapper is no longer queried.
+    #[arg(long = "taiko-wrapper-address", env = "TAIKO_WRAPPER_ADDRESS", hide = true)]
+    pub deprecated_taiko_wrapper_address: Option<String>,
 
     // beacon client base URL
     #[arg(long, env = "BEACON_URL", default_value = "http://localhost:5052")]
@@ -43,7 +43,7 @@ pub struct Config {
     #[arg(long, env = "MIN_OPERATORS", default_value_t = 3u64)]
     pub min_operators: u64,
 
-    // Deprecated compatibility option. The router is discovered from TaikoWrapper.
+    // Deprecated compatibility option. The PreconfRouter is no longer queried.
     #[arg(long = "preconf-router-address", env = "PRECONF_ROUTER_ADDRESS", hide = true)]
     pub deprecated_preconf_router_address: Option<String>,
 
@@ -85,8 +85,6 @@ mod tests {
             "10",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
             "--handover-slots",
@@ -107,18 +105,18 @@ mod tests {
         assert_eq!(config.eject_after_seconds, 10);
         assert_eq!(config.l2_http_url, "http://test-l2.com");
         assert_eq!(config.private_key, "0x1234");
-        assert_eq!(config.taiko_wrapper_address, "0x456");
         assert_eq!(config.beacon_url, "http://test-beacon.com");
         assert_eq!(config.handover_slots, 4);
         assert_eq!(config.server_port, 8081);
         assert_eq!(config.min_operators, 1);
         assert_eq!(config.min_reorg_depth_for_eject, 5);
         assert!(!config.enable_reorg_ejection);
+        assert!(config.deprecated_taiko_wrapper_address.is_none());
         assert!(config.deprecated_preconf_router_address.is_none());
     }
 
     #[test]
-    fn test_config_accepts_deprecated_preconf_router_address() {
+    fn test_config_accepts_deprecated_contract_addresses() {
         let config = Config::parse_from([
             "ejector",
             "--preconf-whitelist-address",
@@ -134,6 +132,7 @@ mod tests {
         ]);
 
         assert_eq!(config.deprecated_preconf_router_address.as_deref(), Some("0x789"));
+        assert_eq!(config.deprecated_taiko_wrapper_address.as_deref(), Some("0x456"));
     }
 
     #[test]
@@ -149,8 +148,6 @@ mod tests {
             "http://test-l2.com",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
             "--enable-reorg-ejection",
@@ -175,8 +172,6 @@ mod tests {
             "http://test-l2-rpc.com",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
         ]);
@@ -197,8 +192,6 @@ mod tests {
             "http://test-l2.com",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
             "--enable-reorg-ejection",

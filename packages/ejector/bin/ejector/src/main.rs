@@ -69,9 +69,6 @@ async fn main() -> Result<()> {
 
     info!("Whitelist Address: {:?}", whitelist_address);
 
-    let taiko_wrapper_address =
-        Address::from_str(&config.taiko_wrapper_address).expect("Invalid taiko wrapper address");
-
     let anchor_address = match &config.anchor_address {
         Some(addr) => Some(Address::from_str(addr).expect("Invalid anchor address")),
         None => {
@@ -106,7 +103,6 @@ async fn main() -> Result<()> {
         l1_http_url,
         l2_http_url,
         eject_after_seconds: config.eject_after_seconds,
-        taiko_wrapper_address,
         whitelist_address,
         handover_slots,
         anchor_address,
