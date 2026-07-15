@@ -23,10 +23,6 @@ pub struct Config {
     #[arg(long, env = "PRIVATE_KEY")]
     pub private_key: String,
 
-    // Deprecated compatibility option. The TaikoWrapper is no longer queried.
-    #[arg(long = "taiko-wrapper-address", env = "TAIKO_WRAPPER_ADDRESS", hide = true)]
-    pub deprecated_taiko_wrapper_address: Option<String>,
-
     // beacon client base URL
     #[arg(long, env = "BEACON_URL", default_value = "http://localhost:5052")]
     pub beacon_url: String,
@@ -42,10 +38,6 @@ pub struct Config {
     // minimum number of operators to keep in the whitelist
     #[arg(long, env = "MIN_OPERATORS", default_value_t = 3u64)]
     pub min_operators: u64,
-
-    // Deprecated compatibility option. The PreconfRouter is no longer queried.
-    #[arg(long = "preconf-router-address", env = "PRECONF_ROUTER_ADDRESS", hide = true)]
-    pub deprecated_preconf_router_address: Option<String>,
 
     // Address of L2 Anchor contract (for detecting re-anchoring).
     // Required when enable_reorg_ejection is true.
@@ -111,28 +103,6 @@ mod tests {
         assert_eq!(config.min_operators, 1);
         assert_eq!(config.min_reorg_depth_for_eject, 5);
         assert!(!config.enable_reorg_ejection);
-        assert!(config.deprecated_taiko_wrapper_address.is_none());
-        assert!(config.deprecated_preconf_router_address.is_none());
-    }
-
-    #[test]
-    fn test_config_accepts_deprecated_contract_addresses() {
-        let config = Config::parse_from([
-            "ejector",
-            "--preconf-whitelist-address",
-            "0x1123",
-            "--preconf-router-address",
-            "0x789",
-            "--private-key",
-            "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
-            "--enable-reorg-ejection",
-            "false",
-        ]);
-
-        assert_eq!(config.deprecated_preconf_router_address.as_deref(), Some("0x789"));
-        assert_eq!(config.deprecated_taiko_wrapper_address.as_deref(), Some("0x456"));
     }
 
     #[test]
