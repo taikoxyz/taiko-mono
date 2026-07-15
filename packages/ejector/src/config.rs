@@ -43,9 +43,9 @@ pub struct Config {
     #[arg(long, env = "MIN_OPERATORS", default_value_t = 3u64)]
     pub min_operators: u64,
 
-    // Address of preconfRouter
-    #[arg(long, env = "PRECONF_ROUTER_ADDRESS")]
-    pub preconf_router_address: String,
+    // Deprecated compatibility option. The router is discovered from TaikoWrapper.
+    #[arg(long = "preconf-router-address", env = "PRECONF_ROUTER_ADDRESS", hide = true)]
+    pub deprecated_preconf_router_address: Option<String>,
 
     // Address of L2 Anchor contract (for detecting re-anchoring).
     // Required when enable_reorg_ejection is true.
@@ -75,8 +75,6 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--anchor-address",
             "0xABC",
             "--l1-http-url",
@@ -104,7 +102,6 @@ mod tests {
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
-        assert_eq!(config.preconf_router_address, "0x789");
         assert_eq!(config.anchor_address, Some("0xABC".to_string()));
         assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
         assert_eq!(config.eject_after_seconds, 10);
@@ -117,6 +114,26 @@ mod tests {
         assert_eq!(config.min_operators, 1);
         assert_eq!(config.min_reorg_depth_for_eject, 5);
         assert!(!config.enable_reorg_ejection);
+        assert!(config.deprecated_preconf_router_address.is_none());
+    }
+
+    #[test]
+    fn test_config_accepts_deprecated_preconf_router_address() {
+        let config = Config::parse_from([
+            "ejector",
+            "--preconf-whitelist-address",
+            "0x1123",
+            "--preconf-router-address",
+            "0x789",
+            "--private-key",
+            "0x1234",
+            "--taiko-wrapper-address",
+            "0x456",
+            "--enable-reorg-ejection",
+            "false",
+        ]);
+
+        assert_eq!(config.deprecated_preconf_router_address.as_deref(), Some("0x789"));
     }
 
     #[test]
@@ -126,8 +143,6 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--l1-http-url",
             "http://test-l1-rpc.com",
             "--l2-http-url",
@@ -152,8 +167,6 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--anchor-address",
             "0xABC",
             "--l1-http-url",
@@ -178,8 +191,6 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--l1-http-url",
             "http://test-l1-rpc.com",
             "--l2-http-url",
