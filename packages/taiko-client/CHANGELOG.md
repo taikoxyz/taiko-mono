@@ -1,5 +1,44 @@
 # Changelog
 
+## [2.6.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.5.0...taiko-alethia-client-v2.6.0) (2026-07-15)
+
+
+### Features
+
+* **protocol:** use audited upstream automata code with DEBUG enclaves rejection ([#21827](https://github.com/taikoxyz/taiko-mono/issues/21827)) ([add6e28](https://github.com/taikoxyz/taiko-mono/commit/add6e2862343d3f71278b47da2093da6501ad03b))
+* **taiko-client,taiko-client-rs:** restore forced inclusion propose inputs ([#21936](https://github.com/taikoxyz/taiko-mono/issues/21936)) ([2d7fd1a](https://github.com/taikoxyz/taiko-mono/commit/2d7fd1a3e76505652a6adee6d24278affa6ddd9c))
+* **taiko-client:** add ZK-only RISC0 + SP1 proof mode ([#21959](https://github.com/taikoxyz/taiko-mono/issues/21959)) ([f92b4f1](https://github.com/taikoxyz/taiko-mono/commit/f92b4f13cfb0860db2236cadb0481c30ca853c21))
+* **taiko-client:** split dummy proof flags ([#21960](https://github.com/taikoxyz/taiko-mono/issues/21960)) ([04f8159](https://github.com/taikoxyz/taiko-mono/commit/04f8159ae3567dff895b0ecca1c9f01ee024d46d))
+
+
+### Bug Fixes
+
+* **taiko-client:** fallback RISC0 proofs to SP1 ([#21804](https://github.com/taikoxyz/taiko-mono/issues/21804)) ([485e214](https://github.com/taikoxyz/taiko-mono/commit/485e214bb5f7bdb5de7fa299eb8cbf45128f345e))
+* **taiko-client:** only postpone event sync while chain data is syncing ([#21896](https://github.com/taikoxyz/taiko-mono/issues/21896)) ([97abf8b](https://github.com/taikoxyz/taiko-mono/commit/97abf8b2ee0479a496c6301e509457d5bbc6cb44))
+* **taiko-client:** roll back proposal cursors so failed proposals are re-scanned ([#21951](https://github.com/taikoxyz/taiko-mono/issues/21951)) ([3e8b570](https://github.com/taikoxyz/taiko-mono/commit/3e8b570455624ab7fd263c52aabfe2651cdb0fc2))
+* **taiko-client:** wait for execution sync before events ([#21877](https://github.com/taikoxyz/taiko-mono/issues/21877)) ([035d817](https://github.com/taikoxyz/taiko-mono/commit/035d817bb62073a277dccbd4a49a3ca068fde217))
+
+
+### Chores
+
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+* **taiko-client:** harden driver restarts in the beacon-sync handover window ([#21899](https://github.com/taikoxyz/taiko-mono/issues/21899)) ([46a9957](https://github.com/taikoxyz/taiko-mono/commit/46a9957107018a60f1f8de3ed7394b98739ac245))
+* **taiko-client:** key forced-inclusion single-block rule on isForcedInclusion, not array position ([#21912](https://github.com/taikoxyz/taiko-mono/issues/21912)) ([6eed016](https://github.com/taikoxyz/taiko-mono/commit/6eed016d804faa537fe5e7e4809ab166325f6290))
+
+
+### Code Refactoring
+
+* **taiko-client:** quick-win cleanups (dead metrics, WS dedup, driver shutdown, utils split, blob logs) ([#21928](https://github.com/taikoxyz/taiko-mono/issues/21928)) ([a77b70f](https://github.com/taikoxyz/taiko-mono/commit/a77b70fa3aed19aa26b6b962ec512215ff191477))
+* **taiko-client:** remove --p2p.syncTimeout flag and out-of-sync fallback ([#21902](https://github.com/taikoxyz/taiko-mono/issues/21902)) ([bee3dec](https://github.com/taikoxyz/taiko-mono/commit/bee3dece784ec69f3ba85993ae0e93bd1c37a4dc))
+
+
+### Tests
+
+* **taiko-client:** send `numForcedInclusions=0` to match current Shasta Inbox ([#21929](https://github.com/taikoxyz/taiko-mono/issues/21929)) ([1e536f5](https://github.com/taikoxyz/taiko-mono/commit/1e536f581d08a0610ecd3862ff861263a438b4ba))
+
 ## [2.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.4.0...taiko-alethia-client-v2.5.0) (2026-06-30)
 
 

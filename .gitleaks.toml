@@ -1,0 +1,33 @@
+title = "taiko-mono gitleaks config"
+
+[extend]
+useDefault = true
+
+# Deliberately conservative. Every path below was manually sampled against the
+# full-history scan results before being added here — none contained a real
+# credential, only well-known local-devnet test keys and public contract
+# addresses/hashes. Anything not covered here stays flagged rather than risk
+# silencing a real finding.
+
+[[rules]]
+id = "known-anvil-hardhat-test-key"
+description = "Anvil/Hardhat's well-known default test account #0 private key, used throughout local devnet tooling. Public by design, holds no real funds."
+regex = '''ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'''
+
+[allowlist]
+description = "Test fixtures, deploy scripts, and deployment logs sampled and confirmed to contain only known test keys or public addresses/hashes, not real secrets"
+paths = [
+  '''(^|.*/)__mocks__/.*''',
+  '''(^|.*/)__fixtures__/.*''',
+  '''(^|.*/)tests?/mocks?/.*''',
+  '''.*\.test\.(ts|tsx|js)$''',
+  '''.*_test\.go$''',
+  '''packages/taiko-client/integration_test/.*''',
+  '''packages/taiko-client-rs/tests/.*''',
+  '''packages/protocol/script/.*''',
+  '''packages/protocol/deployments/.*''',
+  '''packages/protocol/test/.*''',
+  '''packages/nfts/(script|deployments|out)/.*''',
+  '''packages/supplementary-contracts/script/.*''',
+  '''packages/relayer/(integration_test|processor)/.*''',
+]
