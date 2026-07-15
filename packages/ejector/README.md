@@ -7,7 +7,7 @@ conditions are met.
 ## What it does
 
 - Polls the configured L2 HTTP endpoint and beacon node to track block progress.
-- Watches the preconfirmation whitelist and router contracts on L1.
+- Watches the preconfirmation whitelist on L1.
 - Ejects inactive or unsafe operators after `EJECT_AFTER_SECONDS`.
 - Optionally ejects operators after L2 reorgs that meet `MIN_REORG_DEPTH_FOR_EJECT`.
 - Exposes a health endpoint and Prometheus metrics on `SERVER_PORT`.
@@ -20,9 +20,7 @@ development, copy `.env.example` to `.env` and fill in the required values.
 Required values:
 
 - `PRECONF_WHITELIST_ADDRESS`: Address of the preconfirmation whitelist contract.
-- `PRECONF_ROUTER_ADDRESS`: Address of the preconfirmation router contract.
 - `PRIVATE_KEY`: Private key used to send L1 ejection transactions.
-- `TAIKO_WRAPPER_ADDRESS`: Address of the Taiko wrapper contract.
 
 Common optional values:
 
@@ -30,7 +28,8 @@ Common optional values:
 - `L2_HTTP_URL`: L2 HTTP RPC endpoint (default `http://localhost:8547`).
 - `BEACON_URL`: Beacon node endpoint (default `http://localhost:5052`).
 - `EJECT_AFTER_SECONDS`: Maximum time without L2 block progress before ejection (default `96`).
-- `HANDOVER_SLOTS`: Number of slots to allow for preconfirmation handover (default `4`).
+- `HANDOVER_SLOTS`: Number of slots to allow for preconfirmation handover and the sole source for
+  this setting (default `4`).
 - `SERVER_PORT`: Health and metrics server port (default `8080`).
 - `MIN_OPERATORS`: Minimum operators to keep in the whitelist (default `3`).
 - `ENABLE_REORG_EJECTION`: Enables reorg-triggered ejection (default `true`).
