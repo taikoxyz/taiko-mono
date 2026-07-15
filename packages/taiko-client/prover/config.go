@@ -45,7 +45,8 @@ type Config struct {
 	ZKVMProofBufferSize           uint64
 	ForceBatchProvingInterval     time.Duration
 	ProofPollingInterval          time.Duration
-	Dummy                         bool
+	PrimaryProofDummy             bool
+	CompanionProofDummy           bool
 	ProposalWindowSize            uint64
 	MaxRisc0ProofProposalDistance uint64
 	ForceSP1Proof                 bool
@@ -118,7 +119,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		RaikoApiKey:              strings.TrimSpace(string(raikoApiKey)),
 		RaikoRequestTimeout:      c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingProposalID:       startingProposalID,
-		Dummy:                    c.Bool(flags.Dummy.Name),
+		PrimaryProofDummy:        c.Bool(flags.PrimaryProofDummy.Name),
+		CompanionProofDummy:      c.Bool(flags.CompanionProofDummy.Name),
 		BackOffMaxRetries:        c.Uint64(flags.BackOffMaxRetries.Name),
 		BackOffRetryInterval:     c.Duration(flags.BackOffRetryInterval.Name),
 		ProveUnassignedProposals: c.Bool(flags.ProveUnassignedProposals.Name),

@@ -61,7 +61,8 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 		ApiKey:              p.cfg.RaikoApiKey,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		Dummy:               p.cfg.Dummy,
+		PrimaryProofDummy:   p.cfg.PrimaryProofDummy,
+		CompanionProofDummy: p.cfg.CompanionProofDummy,
 	}
 	// Init proof buffers.
 	var (
