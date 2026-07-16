@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Address } from 'viem';
 
-import { RelayerAPIService } from './RelayerAPIService';
+import { parseApiBigInt, RelayerAPIService } from './RelayerAPIService';
 
 function setupMocks() {
   vi.mock('axios');
@@ -82,5 +82,15 @@ describe('RelayerAPIService', () => {
     expect(result).toBeDefined();
     expect(result.txs).toBeInstanceOf(Array);
     expect(result.paginationInfo).toBeDefined();
+  });
+
+  test('parseApiBigInt parses large numeric message fee without Number.toString rounding', () => {
+    // Given
+    const exactFee = 33_011_093_383_701_312n;
+    const feeFromJsonNumber = Number(exactFee);
+
+    // When / Then
+    expect(feeFromJsonNumber.toString()).toEqual('33011093383701310');
+    expect(parseApiBigInt(feeFromJsonNumber)).toEqual(exactFee);
   });
 });

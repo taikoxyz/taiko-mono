@@ -28,6 +28,13 @@ import {
 
 const log = getLogger('RelayerAPIService');
 
+export function parseApiBigInt(value: unknown): bigint {
+  if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'string') {
+    return BigInt(value);
+  }
+  throw new TypeError('Invalid integer value from relayer API');
+}
+
 export class RelayerAPIService {
   constructor(baseUrl: string) {
     log('relayer service instantiated');
@@ -189,6 +196,7 @@ export class RelayerAPIService {
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
+      const messageFee = parseApiBigInt(tx.data.Message.Fee);
       const value = tx.data.Message.Value > 0n ? BigInt(tx.amount) : 0n;
 
       const transformedTx = {
@@ -205,7 +213,7 @@ export class RelayerAPIService {
         tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
-        processingFee: BigInt(tx.data.Message.Fee.toString()),
+        processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
         fee: tx.fee ? BigInt(tx.fee) : undefined,
         message: {
@@ -219,7 +227,7 @@ export class RelayerAPIService {
           value,
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          fee: BigInt(tx.data.Message.Fee.toString()),
+          fee: messageFee,
         },
       } satisfies BridgeTransaction;
 
