@@ -13,8 +13,9 @@ import "../governance/BuildProposal.sol";
 // ZkRequiredVerifier that composes the new SGX verifiers with those same reused ZK verifiers.
 contract Proposal0020 is BuildProposal {
     // ---------------------------------------------------------------
-    // New SGX stack (deployed 2026-07-16, mainnet block 25543404, by
-    // script/layer1/verifiers/deploy_sgx_swap.sh). All addresses verified on-chain.
+    // New SGX stack, deployed 2026-07-16 at mainnet block 25543404 by
+    // DeployAutomataDcapAttestation (profile layer1o) for the entrypoint and
+    // DeploySgxSwapProofStack (profile layer1) for the rest. All addresses verified on-chain.
     // ---------------------------------------------------------------
 
     // The Taiko-owned Automata DCAP entrypoint both new SGX verifiers attest through. Its

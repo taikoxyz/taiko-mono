@@ -80,7 +80,10 @@ asserted at deploy time by `DeploySgxSwapProofStack`.
 
 ## Deployed Addresses
 
-Deployed 2026-07-16 at mainnet block 25543404 by `script/layer1/verifiers/deploy_sgx_swap.sh`.
+Deployed 2026-07-16 at mainnet block 25543404, in two broadcasts:
+`DeployAutomataDcapAttestation` (profile `layer1o`, via_ir) for the entrypoint and its V3 quote
+verifier, then `DeploySgxSwapProofStack` (profile `layer1`) with `DCAP_ATTESTATION` set to the
+entrypoint for the rest.
 
 | Contract                                  | Address                                      |
 | ----------------------------------------- | -------------------------------------------- |
