@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Address } from 'viem';
 
-import { parseApiBigInt, RelayerAPIService } from './RelayerAPIService';
+import { parseApiBigInt, parseRelayerApiResponse, RelayerAPIService } from './RelayerAPIService';
 
 function setupMocks() {
   vi.mock('axios');
@@ -84,13 +84,37 @@ describe('RelayerAPIService', () => {
     expect(result.paginationInfo).toBeDefined();
   });
 
-  test('parseApiBigInt parses large numeric message fee without Number.toString rounding', () => {
+  test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
     // Given
-    const exactFee = 33_011_093_383_701_312n;
-    const feeFromJsonNumber = Number(exactFee);
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const params = { address: '0x123' as Address, chainID: 1, event: 'MessageSent' };
+    const exactFee = 9_007_199_254_740_993n;
+    const rawResponse = `{"page":1,"size":10,"total":100,"items":[{"data":{"Message":{"Fee":${exactFee}}}}]}`;
+    mockedAxios.get.mockResolvedValue({
+      data: rawResponse,
+      status: 200,
+    });
+
+    // When
+    const result = await relayerAPIService.getTransactionsFromAPI(params);
+
+    // Then
+    expect(result.items[0].data.Message.Fee).toEqual(exactFee.toString());
+  });
+
+  test('parseRelayerApiResponse preserves non-representable message fee digits', () => {
+    // Given
+    const exactFee = 9_007_199_254_740_993n;
+    const rawResponse = `{"items":[{"data":{"Message":{"Fee":${exactFee}}}}]}`;
 
     // When / Then
-    expect(feeFromJsonNumber.toString()).toEqual('33011093383701310');
-    expect(parseApiBigInt(feeFromJsonNumber)).toEqual(exactFee);
+    expect(JSON.parse(rawResponse).items[0].data.Message.Fee).toEqual(9_007_199_254_740_992);
+    expect(parseRelayerApiResponse(rawResponse).items[0].data.Message.Fee).toEqual(exactFee.toString());
+    expect(parseApiBigInt(parseRelayerApiResponse(rawResponse).items[0].data.Message.Fee)).toEqual(exactFee);
+  });
+
+  test('parseApiBigInt rejects unsafe numbers that were already rounded', () => {
+    expect(() => parseApiBigInt(9_007_199_254_740_992)).toThrow('Unsafe integer value from relayer API');
   });
 });

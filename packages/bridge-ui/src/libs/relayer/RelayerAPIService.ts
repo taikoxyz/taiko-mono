@@ -28,8 +28,22 @@ import {
 
 const log = getLogger('RelayerAPIService');
 
+export function preserveMessageFeePrecision(rawResponse: string): string {
+  return rawResponse.replace(/("Fee"\s*:\s*)(\d+)/g, '$1"$2"');
+}
+
+export function parseRelayerApiResponse(rawResponse: string): APIResponse {
+  return JSON.parse(preserveMessageFeePrecision(rawResponse));
+}
+
 export function parseApiBigInt(value: unknown): bigint {
-  if (typeof value === 'bigint' || typeof value === 'number' || typeof value === 'string') {
+  if (typeof value === 'bigint' || typeof value === 'string') {
+    return BigInt(value);
+  }
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) {
+      throw new TypeError('Unsafe integer value from relayer API');
+    }
     return BigInt(value);
   }
   throw new TypeError('Invalid integer value from relayer API');
@@ -123,16 +137,19 @@ export class RelayerAPIService {
     try {
       log('Fetching events from API with params', params);
 
-      const response = await axios.get<APIResponse>(requestURL, {
+      const response = await axios.get<APIResponse | string>(requestURL, {
         params,
         timeout: apiService.timeout,
+        transformResponse: [(data) => data],
       });
 
       if (!response || response.status >= 400) throw response;
 
-      log('Events form API', response.data);
+      const data = typeof response.data === 'string' ? parseRelayerApiResponse(response.data) : response.data;
 
-      return response.data;
+      log('Events form API', data);
+
+      return data;
     } catch (error) {
       console.error(error);
       throw new Error('could not fetch transactions from API', {
