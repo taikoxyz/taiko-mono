@@ -103,18 +103,47 @@ Superseded (no action targets them; orphaned once the Inbox points at the new ve
 > the stack was never completed and nothing references it. **It is not used by this proposal** and
 > can be ignored; the live addresses are the table above.
 
-## Open Item — the ATTRIBUTES pin
+## The ATTRIBUTES pin — Profile A
 
-`ENCLAVE_ATTRIBUTE_MASK` / `ENCLAVE_ATTRIBUTE_EXPECTED` in `Proposal0020.s.sol` are **not yet set**.
-They must come from the ATTRIBUTES field of a real raiko2 v0.6.0 SGX quote — **bytes `[96:112]` of
-the raw quote** (`HEADER_LENGTH` 48 + report-body offset 48). The mask must cover
-`0x32000000000000000000000000000000` (DEBUG | PROVISION_KEY | EINITTOKEN_KEY) and `expected` must
-clear those bits.
+```
+ENCLAVE_ATTRIBUTE_MASK     = 0xffffffffffffffff0000000000000000
+ENCLAVE_ATTRIBUTE_EXPECTED = 0x05000000000000000000000000000000   // INIT(0x01) | MODE64BIT(0x04)
+```
 
-While they are zero, `buildL1Actions` reverts with `AttributePolicyNotSet()`, so this proposal
-cannot produce executable action data — the pin cannot ship unset. Setting a pin later bumps the
-policy version and **revokes every instance registered under the previous pin**, so it must be
-correct on first execution.
+This is **Profile A — "strict FLAGS pin"** from
+[`enclave-attribute-policies.md`](../verifiers/enclave-attribute-policies.md): the documented default
+for both the Raiko SGX-reth and SGX-geth prover enclaves, and the exact pin exercised by
+`SgxVerifier.t.sol` (`STRICT_MASK` / `STRICT_EXPECTED`).
+
+The mask checks all 8 FLAGS bytes and leaves XFRM unchecked, so provers on hosts with different XSAVE
+configurations (XFRM `0x03` / `0x07` / `0xE7`) all satisfy one policy. The expected value requires
+`INIT | MODE64BIT` and forces **every** other FLAGS bit to zero — the forbidden floor plus `CET`
+(`0x40`), `KSS` (`0x80`), `AEX_NOTIFY` (`0x04` in byte 1) and all reserved bits.
+
+**Why FLAGS = `0x05` for both v0.6.0 enclaves** (the two use different TEE frameworks):
+
+| Enclave  | Framework                           | Evidence                                                                                                                                                                                                                         |
+| -------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SGX-reth | raiko2, **Gramine**                 | `docker/raiko2-sgx-prover.manifest.template` @ v0.6.0 sets `sgx.debug = false` and enables no KSS / CET / AEX-Notify. `sgx.edmm_enable` is templated, and EDMM sets no FLAGS bit — so both SGX-reth measurements share this pin. |
+| SGX-geth | gaiko2, **EGo v1.9** (Open Enclave) | `ego/enclave.json` sets `"debug": false`; EGo's schema exposes **no** knob for KSS / CET / AEX-Notify, so a stock `ego sign` cannot set them.                                                                                    |
+
+Verified by fork-simulating the proposal against mainnet: the pin is accepted on-chain
+(`EnclaveAttributePolicySet(..., mask, expected, version: 1)`), so it satisfies all four of
+`setEnclaveAttributePolicy`'s validity rules.
+
+> [!IMPORTANT]
+> **Reconcile against a real v0.6.0 quote before submission.** Re-pinning later bumps the policy
+> version and **revokes every instance registered under the previous pin**, so this must be correct on
+> first execution. Read `ATTRIBUTES` from bytes `[96:112]` of a raw quote (`raiko2-sgx-prover
+bootstrap` emits one; its JSON `quote` field is also persisted to the config dir on any running
+> prover). The **SGX-geth / EGo side has no on-chain precedent** to cross-check against — the live
+> verifiers `0x41e79EB4…` / `0x9D3C595B…` are the pre-#21827 `SgxVerifier` and carry no attribute
+> policy at all — so its quote is the one worth confirming.
+>
+> Note that neither project's build metadata exposes the attributes: raiko2's
+> `write-attestation-metadata.sh` keeps only `mr_enclave` / `mr_signer` / `isv_prod_id` / `isv_svn` /
+> `debug_enclave`, and gaiko2's keeps only `unique_id` / `signer_id` / `product_id` /
+> `security_version`. Use the raw `gramine-sgx-sigstruct-view` output or a quote instead.
 
 ## Post-Execution Steps (operational, not DAO actions)
 

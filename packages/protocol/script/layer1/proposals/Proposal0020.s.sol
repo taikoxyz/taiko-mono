@@ -77,18 +77,27 @@ contract Proposal0020 is BuildProposal {
     bytes32 public constant SGXRETH_EDMM_MR_ENCLAVE =
         0x041cadb0541bf8249c368482172d218608f3693975b65f74beb2ed6f0044f951;
 
-    // The per-MRENCLAVE ATTRIBUTES pin required by SecureSgxVerifier. The mask must cover the
-    // universally-forbidden bits (DEBUG | PROVISION_KEY | EINITTOKEN_KEY =
-    // 0x32000000000000000000000000000000) and `expected` must clear them.
+    // The per-MRENCLAVE ATTRIBUTES pin required by SecureSgxVerifier: "Profile A — strict FLAGS pin"
+    // from script/layer1/verifiers/enclave-attribute-policies.md, the documented default for both the
+    // Raiko SGX-reth and SGX-geth prover enclaves and the pin exercised by the test suite
+    // (SgxVerifier.t.sol STRICT_MASK / STRICT_EXPECTED).
     //
-    // TODO(before submission): set these from the ATTRIBUTES field of a real raiko2 v0.6.0 SGX
-    // quote — bytes [96:112] of the raw quote (HEADER_LENGTH 48 + report-body offset 48). While
-    // they remain zero, `buildL1Actions` reverts with `AttributePolicyNotSet`, so this proposal
-    // cannot produce executable action data with an unset pin. Note that changing a pin later bumps
-    // the policy version and revokes every instance registered under the previous one, so this must
-    // be correct on the first execution.
-    bytes16 public constant ENCLAVE_ATTRIBUTE_MASK = bytes16(0);
-    bytes16 public constant ENCLAVE_ATTRIBUTE_EXPECTED = bytes16(0);
+    // The mask checks all 8 FLAGS bytes and leaves XFRM (bytes 8-15) unchecked, so provers on hosts
+    // with different XSAVE configurations (XFRM 0x03 / 0x07 / 0xE7) all satisfy one policy. The
+    // expected value requires INIT(0x01) | MODE64BIT(0x04) and forces every other FLAGS bit to zero —
+    // the forbidden floor, CET(0x40), KSS(0x80), AEX_NOTIFY(0x04 in byte 1) and all reserved bits.
+    //
+    // Both v0.6.0 enclaves attest with FLAGS = 0x05: raiko2's Gramine manifest sets sgx.debug=false
+    // and enables no KSS/CET/AEX-Notify, and gaiko2 signs with EGo v1.9 (enclave.json "debug": false),
+    // whose schema exposes no knob for those bits. EDMM does not set a FLAGS bit, so both SGX-reth
+    // measurements share this pin.
+    //
+    // Re-pinning later bumps the policy version and revokes every instance registered under the old
+    // pin, so reconcile against a real v0.6.0 quote (ATTRIBUTES = bytes [96:112] of the raw quote)
+    // before submission — the SGX-geth/EGo side has no on-chain precedent to cross-check against.
+    bytes16 public constant ENCLAVE_ATTRIBUTE_MASK = bytes16(0xffffffffffffffff0000000000000000);
+    bytes16 public constant ENCLAVE_ATTRIBUTE_EXPECTED =
+        bytes16(0x05000000000000000000000000000000);
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         require(MAINNET_INBOX_NEW_IMPL != address(0), ImplementationNotDeployed());
