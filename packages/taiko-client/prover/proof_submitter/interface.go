@@ -17,7 +17,7 @@ var (
 
 const (
 	MaxNumSupportedZkTypes    = 2
-	MaxNumSupportedProofTypes = 3
+	MaxNumSupportedProofTypes = MaxNumSupportedZkTypes
 )
 
 // Submitter is the interface for submitting proofs of the L2 blocks.

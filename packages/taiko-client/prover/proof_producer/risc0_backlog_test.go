@@ -62,7 +62,7 @@ func (s *Risc0BacklogTestSuite) TestStatusCleanErrorsOnNon200() {
 }
 
 func (s *Risc0BacklogTestSuite) TestStatusCleanDummyShortCircuits() {
-	p := &ComposeProofProducer{Dummy: true}
+	p := &ComposeProofProducer{PrimaryProofDummy: true}
 	clean, err := p.StatusClean(s.T().Context())
 	s.NoError(err)
 	s.True(clean)
@@ -97,6 +97,6 @@ func (s *Risc0BacklogTestSuite) TestClearBacklogErrorsOnNon200() {
 }
 
 func (s *Risc0BacklogTestSuite) TestClearBacklogDummyShortCircuits() {
-	p := &ComposeProofProducer{Dummy: true}
+	p := &ComposeProofProducer{PrimaryProofDummy: true}
 	s.NoError(p.ClearBacklog(s.T().Context()))
 }
