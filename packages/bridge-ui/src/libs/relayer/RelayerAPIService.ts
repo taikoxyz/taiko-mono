@@ -28,12 +28,15 @@ import {
 
 const log = getLogger('RelayerAPIService');
 
-export function preserveMessageFeePrecision(rawResponse: string): string {
-  return rawResponse.replace(/("Fee"\s*:\s*)(\d+)/g, '$1"$2"');
+const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
+const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
+
+export function preserveMessageIntegerPrecision(rawResponse: string): string {
+  return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
 }
 
 export function parseRelayerApiResponse(rawResponse: string): APIResponse {
-  return JSON.parse(preserveMessageFeePrecision(rawResponse));
+  return JSON.parse(preserveMessageIntegerPrecision(rawResponse));
 }
 
 export function parseApiBigInt(value: unknown): bigint {
@@ -214,7 +217,10 @@ export class RelayerAPIService {
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
       const messageFee = parseApiBigInt(tx.data.Message.Fee);
-      const value = tx.data.Message.Value > 0n ? BigInt(tx.amount) : 0n;
+      const messageValue = parseApiBigInt(tx.data.Message.Value);
+      const messageId = parseApiBigInt(tx.data.Message.Id);
+      const srcChainId = parseApiBigInt(tx.data.Message.SrcChainId);
+      const destChainId = parseApiBigInt(tx.data.Message.DestChainId);
 
       const transformedTx = {
         status: tx.status,
@@ -224,8 +230,8 @@ export class RelayerAPIService {
         srcTxHash: tx.data.Raw.transactionHash,
         destTxHash: tx.processedTxHash,
         from: getAddress(tx.messageOwner),
-        srcChainId: tx.data.Message.SrcChainId,
-        destChainId: tx.data.Message.DestChainId,
+        srcChainId,
+        destChainId,
         msgHash: tx.msgHash,
         tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
@@ -234,16 +240,16 @@ export class RelayerAPIService {
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
         fee: tx.fee ? BigInt(tx.fee) : undefined,
         message: {
-          id: tx.data.Message.Id,
+          id: messageId,
           to: getAddress(tx.data.Message.To),
           destOwner: getAddress(tx.data.Message.DestOwner),
           data: data as Hex,
           srcOwner: getAddress(tx.data.Message.SrcOwner),
           from: getAddress(tx.data.Message.From),
           gasLimit: tx.data.Message.GasLimit,
-          value,
-          srcChainId: BigInt(tx.data.Message.SrcChainId),
-          destChainId: BigInt(tx.data.Message.DestChainId),
+          value: messageValue,
+          srcChainId,
+          destChainId,
           fee: messageFee,
         },
       } satisfies BridgeTransaction;
