@@ -3,10 +3,12 @@
 use std::time::Instant;
 
 use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
+use alloy_primitives::B256;
 use driver::{PreconfPayload, PreconfSubmissionOutcome};
 use tracing::{debug, info, warn};
 
 use crate::{
+    cache::{EnvelopeCache, PayloadEosTracker},
     codec::{WhitelistExecutionPayloadEnvelope, decompress_tx_list},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -30,6 +32,16 @@ fn driver_payload_from_envelope(
         envelope.is_forced_inclusion.unwrap_or(false),
         envelope.signature.unwrap_or([0u8; 65]),
     ))
+}
+
+/// Remove a terminal pending envelope and retire any unsent EOS notification provenance.
+pub(super) fn remove_terminal_cached_envelope(
+    cache: &mut EnvelopeCache,
+    payload_eos_tracker: &mut PayloadEosTracker,
+    hash: &B256,
+) {
+    payload_eos_tracker.discard(hash);
+    cache.remove(hash);
 }
 
 impl WhitelistPreconfirmationImporter {
@@ -68,7 +80,15 @@ impl WhitelistPreconfirmationImporter {
                         WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
                             "progressed",
                         );
-                        self.cache.remove(&hash);
+                        // Every `Ok(true)` outcome is terminal for this cache entry. A
+                        // matching insertion already consumed and notified its marker;
+                        // stale, already-materialized, and invalid outcomes must discard
+                        // theirs so they cannot evict provenance for live deferred EOS blocks.
+                        remove_terminal_cached_envelope(
+                            &mut self.cache,
+                            &mut self.payload_eos_tracker,
+                            &hash,
+                        );
                         progressed = true;
                     }
                     Ok(false) => {
@@ -94,7 +114,11 @@ impl WhitelistPreconfirmationImporter {
                                 error = %err,
                                 "dropping cached whitelist preconfirmation payload after invalid import"
                             );
-                            self.cache.remove(&hash);
+                            remove_terminal_cached_envelope(
+                                &mut self.cache,
+                                &mut self.payload_eos_tracker,
+                                &hash,
+                            );
                             progressed = true;
                         }
                         CachedImportDisposition::Propagate => {

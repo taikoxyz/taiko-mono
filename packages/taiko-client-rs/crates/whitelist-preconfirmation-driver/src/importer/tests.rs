@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
 use alloy_consensus::{
@@ -10,12 +10,15 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
 use crate::{
+    cache::{EnvelopeCache, PayloadEosTracker},
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope},
     error::WhitelistPreconfirmationDriverError,
 };
 
 use super::{
-    cache_import::{CachedImportDisposition, classify_cached_import_error},
+    cache_import::{
+        CachedImportDisposition, classify_cached_import_error, remove_terminal_cached_envelope,
+    },
     ingress::is_stale_at_confirmed_tip,
     should_enable_preconf_imports,
     validation::validate_execution_payload_for_preconf,
@@ -31,6 +34,29 @@ fn stale_envelope_requires_written_confirmed_tip() {
     assert!(is_stale_at_confirmed_tip(7, Some(7)));
     assert!(is_stale_at_confirmed_tip(6, Some(7)));
     assert!(!is_stale_at_confirmed_tip(8, Some(7)));
+}
+
+#[test]
+fn terminal_cache_removal_discards_eos_provenance() {
+    let pending = B256::from([0x01u8; 32]);
+    let terminal = B256::from([0x02u8; 32]);
+    let newer = B256::from([0x03u8; 32]);
+    let mut envelope = sample_execution_payload_with_transactions(Vec::new());
+    envelope.execution_payload.block_hash = terminal;
+
+    let mut cache = EnvelopeCache::with_capacity(2);
+    cache.insert(Arc::new(envelope));
+    let mut tracker = PayloadEosTracker::with_capacity(2);
+    tracker.mark(pending);
+    tracker.mark(terminal);
+
+    remove_terminal_cached_envelope(&mut cache, &mut tracker, &terminal);
+    tracker.mark(newer);
+
+    assert!(cache.get(&terminal).is_none());
+    assert!(tracker.take(&pending), "terminal cleanup must preserve pending provenance");
+    assert!(!tracker.take(&terminal));
+    assert!(tracker.take(&newer));
 }
 
 fn sample_execution_payload_with_transactions(

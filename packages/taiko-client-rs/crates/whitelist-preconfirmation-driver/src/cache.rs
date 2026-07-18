@@ -267,8 +267,8 @@ impl RequestThrottle {
 /// a later response-topic envelope — whose embedded signature covers only the
 /// block hash, leaving the EOS flag unauthenticated — could otherwise flip the
 /// flag in either direction (spoofing a handover, or suppressing a real one)
-/// before the block imports. Entries for blocks that never import age out by
-/// capacity.
+/// before the block imports. Terminally removed envelopes discard their marks;
+/// any remaining entries for blocks that never return age out by capacity.
 #[derive(Debug)]
 pub(crate) struct PayloadEosTracker {
     /// Marked hashes in insertion order, oldest first.
@@ -294,6 +294,11 @@ impl PayloadEosTracker {
     /// Consume the pending notification for a hash, returning whether one existed.
     pub(crate) fn take(&mut self, hash: &B256) -> bool {
         self.hashes.remove(hash).is_some()
+    }
+
+    /// Discard a terminal envelope's pending notification without sending it.
+    pub(crate) fn discard(&mut self, hash: &B256) {
+        self.hashes.remove(hash);
     }
 }
 
@@ -511,5 +516,22 @@ mod tests {
         assert!(!tracker.take(&hashes[0]), "oldest entry is evicted at capacity");
         assert!(tracker.take(&hashes[1]));
         assert!(tracker.take(&hashes[2]));
+    }
+
+    #[test]
+    fn payload_eos_tracker_discards_terminal_hash_without_evicting_pending_hash() {
+        let mut tracker = PayloadEosTracker::with_capacity(2);
+        let pending = B256::from([0x01u8; 32]);
+        let terminal = B256::from([0x02u8; 32]);
+        let newer = B256::from([0x03u8; 32]);
+
+        tracker.mark(pending);
+        tracker.mark(terminal);
+        tracker.discard(&terminal);
+        tracker.mark(newer);
+
+        assert!(tracker.take(&pending), "terminal cleanup must preserve pending provenance");
+        assert!(!tracker.take(&terminal));
+        assert!(tracker.take(&newer));
     }
 }
