@@ -18,8 +18,12 @@ check-features:
   cargo check -p protocol --no-default-features --locked && \
   cargo check -p protocol --locked
 
+# Two passes: doc lints apply to library code only, while the second pass lints
+# every target (unit/integration tests, test-harness included) so dead test
+# helpers and unused test deps can't accumulate unseen.
 clippy:
-  cargo clippy --workspace --all-features --no-deps --exclude bindings --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items
+  cargo clippy --workspace --all-features --no-deps --exclude bindings --exclude test-harness -- -D warnings -D missing_docs -D clippy::missing_docs_in_private_items && \
+  cargo clippy --workspace --all-targets --all-features --no-deps --exclude bindings -- -D warnings
 
 clippy-fix:
   cargo clippy --fix --workspace --all-features --no-deps --exclude bindings --allow-dirty --allow-staged -- -D warnings
@@ -29,6 +33,11 @@ udeps:
 
 test *ARGS:
   ./tests/entrypoint.sh "$@"
+
+# Unit tests only (everything outside `tests/` dirs): no docker env, no contract
+# deploy — sub-minute feedback. Extra args are forwarded to nextest.
+unit *ARGS:
+  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@"
 
 gen_bindings:
   ./script/gen_bindings.sh
