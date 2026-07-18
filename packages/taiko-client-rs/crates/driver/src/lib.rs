@@ -25,6 +25,9 @@ pub mod preconf_ingress_sync;
 pub mod production;
 /// Synchronization stages and event scanning.
 pub mod sync;
+/// Shared test-only fixtures and mocks for driver unit tests.
+#[cfg(test)]
+pub(crate) mod test_support;
 
 pub use config::DriverConfig;
 pub use driver::Driver;
