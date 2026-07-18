@@ -116,6 +116,15 @@ impl BeaconStubServer {
         Self::append_sidecar_data(&mut store.default, &sidecar);
     }
 
+    /// Append a blob sidecar to the defaults without discarding earlier ones. Use when
+    /// several proposals must stay fetchable at once: consumers hash-match against every
+    /// returned sidecar, and reconnect replay can re-fetch an earlier proposal's blob at
+    /// any point.
+    pub fn add_default_blob_sidecar(&self, sidecar: BlobTransactionSidecarVariant) {
+        let mut store = self.blob_sidecars.write().unwrap();
+        Self::append_sidecar_data(&mut store.default, &sidecar);
+    }
+
     fn append_sidecar_data(
         target: &mut Vec<BlobSidecarData>,
         sidecar: &BlobTransactionSidecarVariant,

@@ -10,7 +10,7 @@ use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Log;
 use alloy_sol_types::SolEvent;
-use anyhow::{Context, Result, anyhow, bail, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 use bindings::inbox::Inbox::Proposed;
 use driver::{
     DriverConfig,
@@ -109,7 +109,7 @@ async fn start_event_syncer(
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
-    let mut task = {
+    let task = {
         let syncer = syncer.clone();
         spawn(async move {
             if let Err(err) = syncer.run().await {
@@ -117,15 +117,30 @@ async fn start_event_syncer(
             }
         })
     };
+    // Guard the task from the moment of spawn: an early return below must abort the
+    // syncer, not detach it into a race with ShastaEnv teardown's snapshot revert.
+    let mut handle = SyncerHandle { syncer, task };
 
-    tokio::select! {
-        ready = tokio::time::timeout(SYNCER_READY_TIMEOUT, syncer.wait_preconf_ingress_ready()) => {
-            ready.context("timed out waiting for preconf ingress readiness")??;
+    let readiness: Result<()> = tokio::select! {
+        ready = tokio::time::timeout(
+            SYNCER_READY_TIMEOUT,
+            handle.syncer.wait_preconf_ingress_ready(),
+        ) => {
+            ready
+                .context("timed out waiting for preconf ingress readiness")
+                .and_then(|res| res.map_err(Into::into))
         }
-        _ = &mut task => bail!("event syncer exited before reaching readiness"),
+        _ = &mut handle.task => Err(anyhow!("event syncer exited before reaching readiness")),
+    };
+    if let Err(err) = readiness {
+        // Drop's abort cannot await cancellation, so do both explicitly: no in-flight
+        // engine or custom-table write may land after this function reports failure.
+        handle.task.abort();
+        let _ = (&mut handle.task).await;
+        return Err(err);
     }
 
-    Ok((SyncerHandle { syncer, task }, driver_client))
+    Ok((handle, driver_client))
 }
 
 /// Pre-submission snapshot of the batch row the NEXT proposal will map to.
@@ -384,8 +399,12 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     // request verbatim would fail manifest timestamp validation (parent timestamp
     // already equals the manifest's) and silently exercise the default-manifest
     // fallback path instead of a second real derivation.
+    //
+    // Append (rather than replace) the second sidecar: a scanner reconnect replays the
+    // reorg-unsafe window, and re-fetching proposal 1's blob must keep succeeding —
+    // consumers hash-match against every returned sidecar.
     let second_request = build_empty_proposal(env, &proposer).await?;
-    beacon_stub.set_default_blob_sidecar(second_request.blob_sidecar());
+    beacon_stub.add_default_blob_sidecar(second_request.blob_sidecar());
 
     let second_baseline = batch_row_baseline(&driver_client).await?;
     let (proposal_id_2, _) = submit_proposal(env, second_request).await?;
