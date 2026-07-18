@@ -731,6 +731,7 @@ fn should_increment_loop_failure_metric(err: &ProposerError) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{Address, B256, Bytes, U256},
@@ -822,36 +823,27 @@ mod tests {
     }
 
     #[test]
-    fn forced_inclusion_precheck_accepts_permissionless_window() {
-        assert!(forced_inclusion_is_permissionless(100, 151, 10, 5));
-    }
+    fn forced_inclusion_precheck_classifies_permissionless_windows() {
+        // (case, (oldest inclusion timestamp, l1 timestamp, delay, multiplier), expected).
+        let cases = [
+            ("l1 timestamp past the permissionless window", (100, 151, 10, 5), true),
+            ("l1 timestamp at the window boundary", (100, 150, 10, 5), false),
+            ("l1 timestamp before the window", (100, 149, 10, 5), false),
+            ("missing oldest-inclusion timestamp", (0, 1_000, 10, 5), false),
+        ];
 
-    #[test]
-    fn forced_inclusion_precheck_rejects_before_permissionless_window() {
-        assert!(!forced_inclusion_is_permissionless(100, 150, 10, 5));
-        assert!(!forced_inclusion_is_permissionless(100, 149, 10, 5));
-    }
-
-    #[test]
-    fn forced_inclusion_precheck_rejects_missing_timestamp() {
-        assert!(!forced_inclusion_is_permissionless(0, 1_000, 10, 5));
-    }
-
-    #[test]
-    fn tx_manager_operational_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Rpc(
-            "provider timed out".into(),
-        ))));
-        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::SendTimeout,)));
-        assert!(is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::MempoolDeadlineExpired,
-        )));
-        assert!(is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::ExecutionReverted,
-        )));
-        assert!(is_operational_loop_error(&ProposerError::ProposalTransactionReverted {
-            tx_hash: B256::repeat_byte(0x22),
-        }));
+        for (case, (oldest_timestamp, l1_timestamp, delay, multiplier), expected) in cases {
+            assert_eq!(
+                forced_inclusion_is_permissionless(
+                    oldest_timestamp,
+                    l1_timestamp,
+                    delay,
+                    multiplier
+                ),
+                expected,
+                "{case}"
+            );
+        }
     }
 
     #[test]
@@ -880,66 +872,108 @@ mod tests {
     }
 
     #[test]
-    fn precheck_transport_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_loop_error(&ProposerError::Rpc(TransportErrorKind::backend_gone())));
-        assert!(is_operational_loop_error(&ProposerError::Contract(
-            alloy::contract::Error::TransportError(TransportErrorKind::backend_gone()),
-        )));
-    }
+    fn loop_error_classification_matches_expected_retry_behavior() {
+        let error_payload = || -> ErrorPayload {
+            serde_json::from_str(
+                r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
+            )
+            .expect("valid JSON-RPC error payload")
+        };
+        let revert_contract_error =
+            alloy::contract::Error::TransportError(RpcError::ErrorResp(error_payload()));
+        assert!(revert_contract_error.as_revert_data().is_some());
 
-    #[test]
-    fn precheck_error_responses_still_exit_the_proposer_loop() {
-        let payload: ErrorPayload = serde_json::from_str(
-            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
-        )
-        .expect("valid JSON-RPC error payload");
-        let contract_error =
-            alloy::contract::Error::TransportError(RpcError::ErrorResp(payload.clone()));
+        // (case, error, expected `is_operational_loop_error` verdict).
+        let cases = [
+            (
+                "tx-manager rpc failure is retried",
+                ProposerError::TxManager(TxManagerError::Rpc("provider timed out".into())),
+                true,
+            ),
+            (
+                "tx-manager send timeout is retried",
+                ProposerError::TxManager(TxManagerError::SendTimeout),
+                true,
+            ),
+            (
+                "tx-manager mempool deadline expiry is retried",
+                ProposerError::TxManager(TxManagerError::MempoolDeadlineExpired),
+                true,
+            ),
+            (
+                "tx-manager execution revert is retried",
+                ProposerError::TxManager(TxManagerError::ExecutionReverted),
+                true,
+            ),
+            (
+                "reverted proposal receipt is retried",
+                ProposerError::ProposalTransactionReverted { tx_hash: B256::repeat_byte(0x22) },
+                true,
+            ),
+            (
+                "precheck transport failure is retried",
+                ProposerError::Rpc(TransportErrorKind::backend_gone()),
+                true,
+            ),
+            (
+                "precheck contract transport failure is retried",
+                ProposerError::Contract(alloy::contract::Error::TransportError(
+                    TransportErrorKind::backend_gone(),
+                )),
+                true,
+            ),
+            (
+                "rpc-client transport failure is retried",
+                ProposerError::from(RpcClientError::from(TransportErrorKind::backend_gone())),
+                true,
+            ),
+            (
+                "rpc error response exits the loop",
+                ProposerError::Rpc(RpcError::ErrorResp(error_payload())),
+                false,
+            ),
+            (
+                "contract revert response exits the loop",
+                ProposerError::Contract(revert_contract_error),
+                false,
+            ),
+            (
+                "rpc-client error response exits the loop",
+                ProposerError::from(RpcClientError::from(RpcError::ErrorResp(error_payload()))),
+                false,
+            ),
+            (
+                "local contract error exits the loop",
+                ProposerError::Contract(alloy::contract::Error::UnknownFunction(
+                    "getOperatorForCurrentEpoch".into(),
+                )),
+                false,
+            ),
+            (
+                "tx-manager nonce-too-low exits the loop",
+                ProposerError::TxManager(TxManagerError::NonceTooLow),
+                false,
+            ),
+            (
+                "tx-manager fee-limit breach exits the loop",
+                ProposerError::TxManager(TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 }),
+                false,
+            ),
+            (
+                "tx-manager signing failure exits the loop",
+                ProposerError::TxManager(TxManagerError::Sign("wallet rejected signing".into())),
+                false,
+            ),
+            (
+                "tx-manager invalid config exits the loop",
+                ProposerError::TxManager(TxManagerError::InvalidConfig("bad fee limit".into())),
+                false,
+            ),
+        ];
 
-        assert!(contract_error.as_revert_data().is_some());
-        assert!(!is_operational_loop_error(&ProposerError::Rpc(RpcError::ErrorResp(payload))));
-        assert!(!is_operational_loop_error(&ProposerError::Contract(contract_error)));
-    }
-
-    #[test]
-    fn rpc_client_transport_errors_keep_the_proposer_loop_running() {
-        let err = ProposerError::from(RpcClientError::from(TransportErrorKind::backend_gone()));
-
-        assert!(is_operational_loop_error(&err));
-    }
-
-    #[test]
-    fn rpc_client_error_responses_still_exit_the_proposer_loop() {
-        let payload: ErrorPayload = serde_json::from_str(
-            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
-        )
-        .expect("valid JSON-RPC error payload");
-        let err = ProposerError::from(RpcClientError::from(RpcError::ErrorResp(payload)));
-
-        assert!(!is_operational_loop_error(&err));
-    }
-
-    #[test]
-    fn precheck_local_contract_errors_still_exit_the_proposer_loop() {
-        assert!(!is_operational_loop_error(&ProposerError::Contract(
-            alloy::contract::Error::UnknownFunction("getOperatorForCurrentEpoch".into()),
-        )));
-    }
-
-    #[test]
-    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
-        assert!(!is_operational_loop_error(
-            &ProposerError::TxManager(TxManagerError::NonceTooLow,)
-        ));
-        assert!(!is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
-        )));
-        assert!(!is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Sign(
-            "wallet rejected signing".into(),
-        ))));
-        assert!(!is_operational_loop_error(&ProposerError::TxManager(
-            TxManagerError::InvalidConfig("bad fee limit".into()),
-        )));
+        for (case, err, expected) in cases {
+            assert_eq!(is_operational_loop_error(&err), expected, "{case}");
+        }
     }
 
     #[test]
@@ -1013,5 +1047,86 @@ mod tests {
             .expect("parent snapshot should determine the next base fee"),
             expected
         );
+    }
+
+    #[test]
+    fn base_fee_calculation_returns_initial_base_fee_for_genesis_parent() {
+        let genesis = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x11),
+                inner: ConsensusHeader { number: 0, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+
+        assert_eq!(
+            calculate_next_shasta_block_base_fee_from_parent(&genesis, None, 1_000_000_000)
+                .expect("genesis parent should not require a grandparent"),
+            U256::from(SHASTA_INITIAL_BASE_FEE)
+        );
+    }
+
+    #[test]
+    fn base_fee_calculation_errors_on_missing_grandparent() {
+        let parent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x22),
+                inner: ConsensusHeader {
+                    number: 2,
+                    timestamp: 112,
+                    gas_limit: 45_000_000,
+                    base_fee_per_gas: Some(2_000_000_000),
+                    ..Default::default()
+                },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+
+        assert!(matches!(
+            calculate_next_shasta_block_base_fee_from_parent(&parent, None, 1_000_000_000),
+            Err(ProposerError::ParentBlockNotFound(1))
+        ));
+    }
+
+    #[test]
+    fn base_fee_calculation_errors_on_parent_missing_base_fee() {
+        let grandparent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x11),
+                inner: ConsensusHeader { number: 1, timestamp: 100, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+        let parent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x22),
+                inner: ConsensusHeader {
+                    number: 2,
+                    parent_hash: grandparent.header.hash,
+                    timestamp: 112,
+                    gas_limit: 45_000_000,
+                    base_fee_per_gas: None,
+                    ..Default::default()
+                },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+
+        assert!(matches!(
+            calculate_next_shasta_block_base_fee_from_parent(
+                &parent,
+                Some(&grandparent),
+                1_000_000_000
+            ),
+            Err(ProposerError::MissingParentBaseFee { parent_block_number: 2 })
+        ));
     }
 }

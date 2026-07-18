@@ -156,16 +156,7 @@ impl ShastaProposalTransactionBuilder {
                 .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
         // Build the propose input.
-        let input = ProposeInput {
-            deadline: U48::ZERO,
-            blobReference: BlobReference {
-                blobStartIndex: 0,
-                numBlobs: sidecar.blobs.len() as u16,
-                offset: U24::ZERO,
-            },
-            // Include all forced inclusions in the source manifest.
-            numForcedInclusions: u16::MAX,
-        };
+        let input = build_propose_input(sidecar.blobs.len() as u16);
 
         // Build the proposer-owned transaction boundary.
         let encoded_input = self.rpc_provider.shasta.inbox.encodeProposeInput(input).call().await?;
@@ -176,6 +167,19 @@ impl ShastaProposalTransactionBuilder {
             propose_call.calldata().clone(),
             sidecar,
         ))
+    }
+}
+
+/// Build the `ProposeInput` for `inbox.propose(...)` describing the manifest blobs.
+///
+/// The proposal carries no deadline and references `num_blobs` sidecar blobs starting at blob
+/// index zero with no byte offset.
+fn build_propose_input(num_blobs: u16) -> ProposeInput {
+    ProposeInput {
+        deadline: U48::ZERO,
+        blobReference: BlobReference { blobStartIndex: 0, numBlobs: num_blobs, offset: U24::ZERO },
+        // Include all forced inclusions in the source manifest.
+        numForcedInclusions: u16::MAX,
     }
 }
 
@@ -193,12 +197,15 @@ pub(crate) fn manifest_gas_limit(parent_block_number: u64, gas_limit: u64) -> u6
 
 #[cfg(test)]
 mod tests {
-    use super::{ShastaProposalTransactionBuilder, manifest_gas_limit};
+    use super::{ShastaProposalTransactionBuilder, build_propose_input, manifest_gas_limit};
     use alloy::{
         consensus::BlobTransactionSidecar,
         eips::eip4844::Blob,
         network::TransactionBuilder4844,
-        primitives::{Address, Bytes},
+        primitives::{
+            Address, Bytes,
+            aliases::{U24, U48},
+        },
         rpc::{
             client::RpcClient,
             json_rpc::{
@@ -344,6 +351,18 @@ mod tests {
     #[test]
     fn manifest_gas_limit_keeps_genesis_parent_limit() {
         assert_eq!(manifest_gas_limit(0, 45_000_000), 45_000_000);
+    }
+
+    #[test]
+    fn propose_input_pins_deadline_blob_reference_and_forced_inclusions() {
+        let input = build_propose_input(3);
+
+        assert_eq!(input.deadline, U48::ZERO);
+        assert_eq!(input.blobReference.blobStartIndex, 0);
+        assert_eq!(input.blobReference.numBlobs, 3);
+        assert_eq!(input.blobReference.offset, U24::ZERO);
+        // The proposer opts into draining every queued forced inclusion.
+        assert_eq!(input.numForcedInclusions, u16::MAX);
     }
 
     #[tokio::test]
