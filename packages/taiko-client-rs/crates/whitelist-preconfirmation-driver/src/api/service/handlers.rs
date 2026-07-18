@@ -200,8 +200,8 @@ impl WhitelistApi for WhitelistApiService {
         .await?;
 
         // If end-of-sequencing, record the epoch marker. No `/ws` notification here:
-        // matching the Go client, subscribers are only notified when an EOS block
-        // arrives via P2P gossip (the builder already learns its own EOS block from
+        // matching the Go client, subscribers are only notified when a gossiped EOS
+        // block is imported (the builder already learns its own EOS block from
         // this endpoint's response). Incoming sequencers that missed the gossip
         // request it on the EOS request topic, which the importer serves from the
         // recent-envelope cache.

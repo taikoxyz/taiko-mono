@@ -72,13 +72,15 @@ impl SharedPreconfState {
         self.eos_notification_tx.subscribe()
     }
 
-    /// Notify `/ws` subscribers that the epoch's end-of-sequencing block was observed.
+    /// Notify `/ws` subscribers that an end-of-sequencing block has materialized.
     ///
+    /// `current_epoch` is the wall-clock epoch at push time (the Go client
+    /// re-reads `CurrentEpoch()` when pushing, ignoring the block's own epoch).
     /// A send error only means no subscriber is currently connected, which is normal.
-    pub(crate) fn notify_end_of_sequencing(&self, epoch: u64) {
+    pub(crate) fn notify_end_of_sequencing(&self, current_epoch: u64) {
         let _ = self
             .eos_notification_tx
-            .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true });
+            .send(EndOfSequencingNotification { current_epoch, end_of_sequencing: true });
     }
 
     /// Record an EOS hash for the given epoch with bounded cache size.

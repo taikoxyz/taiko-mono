@@ -245,35 +245,98 @@ fn jwt_auth_accepts_token_without_claims() {
     auth.validate_headers(&headers).expect("claimless token is accepted");
 }
 
+/// Current unix time in whole seconds, for minting test claims.
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_secs()
+}
+
 #[test]
 fn jwt_auth_rejects_expired_token() {
     let secret = b"test-secret";
     let auth = JwtAuth::new(secret);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock after epoch")
-        .as_secs();
+    let now = unix_now();
 
     let headers = bearer_headers(secret, &serde_json::json!({ "exp": now - 60 }));
     let err = auth.validate_headers(&headers).expect_err("expired token must fail");
-    assert!(err.contains("invalid bearer token"));
+    assert!(err.contains("token has expired"));
+
+    // golang-jwt requires `now < exp`, so a token expiring exactly now is
+    // already expired.
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": now }));
+    let err = auth.validate_headers(&headers).expect_err("exp == now must fail");
+    assert!(err.contains("token has expired"));
+
+    // Negative numeric dates parse like Go NumericDates, and are long expired.
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": -100 }));
+    let err = auth.validate_headers(&headers).expect_err("negative exp must fail");
+    assert!(err.contains("token has expired"));
 
     let headers = bearer_headers(secret, &serde_json::json!({ "exp": now + 600 }));
     auth.validate_headers(&headers).expect("unexpired token is accepted");
+
+    // Fractional numeric dates are valid per RFC 7519.
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": now as f64 + 600.5 }));
+    auth.validate_headers(&headers).expect("fractional exp is accepted");
 }
 
 #[test]
 fn jwt_auth_rejects_premature_token() {
     let secret = b"test-secret";
     let auth = JwtAuth::new(secret);
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("clock after epoch")
-        .as_secs();
+    let now = unix_now();
 
     let headers = bearer_headers(secret, &serde_json::json!({ "nbf": now + 600 }));
     let err = auth.validate_headers(&headers).expect_err("not-yet-valid token must fail");
-    assert!(err.contains("invalid bearer token"));
+    assert!(err.contains("token is not valid yet"));
+
+    let headers = bearer_headers(secret, &serde_json::json!({ "nbf": now - 60 }));
+    auth.validate_headers(&headers).expect("past nbf is accepted");
+}
+
+#[test]
+fn jwt_auth_rejects_malformed_temporal_claims() {
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+
+    for claims in [
+        serde_json::json!({ "exp": "soon" }),
+        serde_json::json!({ "exp": serde_json::Value::Null }),
+        serde_json::json!({ "nbf": true }),
+    ] {
+        let headers = bearer_headers(secret, &claims);
+        let err = auth
+            .validate_headers(&headers)
+            .expect_err("present-but-malformed temporal claim must fail");
+        assert!(err.contains("must be a numeric date"), "unexpected error: {err}");
+    }
+
+    // Composite claim values abort claim parsing inside jsonwebtoken itself,
+    // so they are refused at decode rather than by the manual check.
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": [1, 2] }));
+    let err = auth.validate_headers(&headers).expect_err("array exp must fail");
+    assert!(err.contains("invalid bearer token"), "unexpected error: {err}");
+
+    // Non-object claim payloads are refused at decode, like golang-jwt's
+    // MapClaims parse.
+    let headers = bearer_headers(secret, &serde_json::json!("not-an-object"));
+    let err = auth.validate_headers(&headers).expect_err("non-object claims must fail");
+    assert!(err.contains("invalid bearer token"), "unexpected error: {err}");
+}
+
+#[test]
+fn jwt_auth_ignores_audience_when_none_configured() {
+    // echo-jwt only checks `aud` when an expected audience is configured;
+    // jsonwebtoken's default would reject every token carrying the claim.
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+    let headers = bearer_headers(
+        secret,
+        &serde_json::json!({ "aud": "taiko-preconf", "exp": unix_now() + 600 }),
+    );
+    auth.validate_headers(&headers).expect("audience-bearing token is accepted");
 }
 
 #[tokio::test]

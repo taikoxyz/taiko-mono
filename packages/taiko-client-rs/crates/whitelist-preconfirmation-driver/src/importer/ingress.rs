@@ -104,14 +104,12 @@ impl WhitelistPreconfirmationImporter {
                 ingress_source,
                 "recording end-of-sequencing envelope for epoch"
             );
+            // Record the marker at admission (before import) so EOS catch-up
+            // requests can be served immediately. The `/ws` notification is
+            // deliberately NOT sent here: it fires only once the block has
+            // materialized, in `try_import_cached`, matching the Go client
+            // (which pushes only after `TryImportingPayload` succeeds).
             self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
-            // Notify `/ws` subscribers about EOS blocks observed on the payload
-            // topic, mirroring the Go client (`OnUnsafeL2Payload` is its only
-            // push site): the incoming sequencer learns the outgoing operator's
-            // end-of-sequencing block from gossip, not from its own build API.
-            if ingress_source == "payload" {
-                self.state.notify_end_of_sequencing(epoch);
-            }
         }
     }
 
@@ -172,13 +170,16 @@ impl WhitelistPreconfirmationImporter {
         hash: B256,
         mark_end_of_sequencing: bool,
     ) -> Result<Option<&'static str>> {
-        // Envelopes without an embedded signature are never servable: response
-        // receivers verify that signature against the block hash and reject its
-        // absence, so fall through to the L2 rebuild (which declines on a zero
-        // L1-origin signature, matching the Go client).
+        // Envelopes without a non-zero embedded signature are never servable:
+        // response receivers verify that signature against the block hash, so
+        // an absent or all-zero signature (which the wire format can carry) is
+        // rejected by every peer. Fall through to the L2 rebuild, which
+        // declines on a zero L1-origin signature — matching the Go client,
+        // which only ever serves from L2 state under the same zero check.
         let (envelope, source) = if let Some(envelope) =
-            self.state.get_recent(&hash).await.filter(|envelope| envelope.signature.is_some())
-        {
+            self.state.get_recent(&hash).await.filter(|envelope| {
+                envelope.signature.is_some_and(|signature| signature != [0u8; 65])
+            }) {
             (envelope, "cache_hit")
         } else if let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? {
             if mark_end_of_sequencing {

@@ -193,6 +193,17 @@ impl WhitelistPreconfirmationImporter {
                         end_of_sequencing,
                         "inserted whitelist preconfirmation block"
                     );
+                    // Notify `/ws` subscribers only once the end-of-sequencing
+                    // block has materialized, with the wall-clock epoch at push
+                    // time — both matching the Go client, whose only push site
+                    // runs after `TryImportingPayload` succeeds and re-reads
+                    // `CurrentEpoch()`. Deliberate superset of Go: this also
+                    // fires for deferred imports and response-topic envelopes
+                    // (Go's envelope cache drops the EOS flag, silently losing
+                    // those notifications).
+                    if end_of_sequencing {
+                        self.state.notify_end_of_sequencing(self.beacon_client.current_epoch());
+                    }
                 } else {
                     // The operator-signed hash does not match the block its own payload
                     // produces; stop re-serving the inconsistent envelope to peers. The

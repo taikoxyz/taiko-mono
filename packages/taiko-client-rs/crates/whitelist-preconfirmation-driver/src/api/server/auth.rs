@@ -22,13 +22,17 @@ impl JwtAuth {
     /// Build a validator from a shared secret.
     pub(super) fn new(secret: &[u8]) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
-        // Claims stay optional (no claim is required to be present), but `exp`
-        // and `nbf` are validated whenever present with zero leeway — matching
-        // the Go client's echo-jwt defaults, which refuse expired tokens.
+        // The library layer only verifies the signature; temporal claims are
+        // checked by `validate_temporal_claims` with golang-jwt v5 semantics
+        // (present-but-malformed rejected, `exp == now` already expired),
+        // because jsonwebtoken treats malformed claims as absent and keeps
+        // `exp == now` valid. `aud` is not validated: the Go client's echo-jwt
+        // defaults only check an audience when one is configured, while
+        // jsonwebtoken would reject every token carrying an `aud` claim.
         validation.required_spec_claims.clear();
-        validation.validate_exp = true;
-        validation.validate_nbf = true;
-        validation.leeway = 0;
+        validation.validate_exp = false;
+        validation.validate_nbf = false;
+        validation.validate_aud = false;
         Self { decoding_key: DecodingKey::from_secret(secret), validation }
     }
 
@@ -45,9 +49,51 @@ impl JwtAuth {
             .strip_prefix("Bearer ")
             .ok_or_else(|| "authorization header must use bearer token".to_string())?;
 
-        decode::<serde_json::Value>(token, &self.decoding_key, &self.validation)
+        let token_data = decode::<serde_json::Value>(token, &self.decoding_key, &self.validation)
             .map_err(|err| format!("invalid bearer token: {err}"))?;
-        Ok(())
+        validate_temporal_claims(&token_data.claims)
+    }
+}
+
+/// Validate `exp`/`nbf` with the Go client's golang-jwt v5 semantics: claims are
+/// optional, but a present claim must be a numeric date, a token is expired once
+/// `now >= exp`, and not yet valid while `now < nbf` (no leeway).
+fn validate_temporal_claims(claims: &serde_json::Value) -> std::result::Result<(), String> {
+    // Backstop only: jsonwebtoken's own claim parsing already rejects
+    // non-object payloads today. Kept so a library change cannot silently turn
+    // the temporal checks below into no-ops (Go's MapClaims also rejects).
+    if !claims.is_object() {
+        return Err("token claims must be a JSON object".to_string());
+    }
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|err| format!("system clock before unix epoch: {err}"))?
+        .as_secs_f64();
+
+    if let Some(exp) = numeric_date_claim(claims, "exp")? &&
+        now >= exp
+    {
+        return Err("token has expired".to_string());
+    }
+    if let Some(nbf) = numeric_date_claim(claims, "nbf")? &&
+        now < nbf
+    {
+        return Err("token is not valid yet".to_string());
+    }
+    Ok(())
+}
+
+/// Read an optional numeric-date claim, rejecting present-but-non-numeric values.
+fn numeric_date_claim(
+    claims: &serde_json::Value,
+    name: &str,
+) -> std::result::Result<Option<f64>, String> {
+    match claims.get(name) {
+        None => Ok(None),
+        Some(value) => {
+            value.as_f64().map(Some).ok_or_else(|| format!("claim {name} must be a numeric date"))
+        }
     }
 }
 
