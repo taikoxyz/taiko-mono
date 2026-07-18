@@ -85,6 +85,11 @@ fn validate_temporal_claims(claims: &serde_json::Value) -> std::result::Result<(
 }
 
 /// Read an optional numeric-date claim, rejecting present-but-non-numeric values.
+///
+/// A numeric value of zero is treated as an absent claim: golang-jwt v5's
+/// `MapClaims.parseNumericDate` returns nil for a zero float64 (a holdover
+/// from v4's struct zero-value semantics), so the Go client accepts `exp: 0`.
+/// `-0.0 == 0.0` on both sides, so negative zero follows the same rule.
 fn numeric_date_claim(
     claims: &serde_json::Value,
     name: &str,
@@ -92,7 +97,9 @@ fn numeric_date_claim(
     match claims.get(name) {
         None => Ok(None),
         Some(value) => {
-            value.as_f64().map(Some).ok_or_else(|| format!("claim {name} must be a numeric date"))
+            let seconds =
+                value.as_f64().ok_or_else(|| format!("claim {name} must be a numeric date"))?;
+            Ok((seconds != 0.0).then_some(seconds))
         }
     }
 }

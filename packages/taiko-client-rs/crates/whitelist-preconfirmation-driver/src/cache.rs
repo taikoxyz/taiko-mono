@@ -259,6 +259,44 @@ impl RequestThrottle {
     }
 }
 
+/// Bounded set of block hashes whose end-of-sequencing flag arrived on the
+/// wire-signed payload topic and still awaits its `/ws` notification.
+///
+/// The flag must be captured at admission rather than read from the pending
+/// envelope cache at import time: that cache overwrites same-hash entries, and
+/// a later response-topic envelope — whose embedded signature covers only the
+/// block hash, leaving the EOS flag unauthenticated — could otherwise flip the
+/// flag in either direction (spoofing a handover, or suppressing a real one)
+/// before the block imports. Entries for blocks that never import age out by
+/// capacity.
+#[derive(Debug)]
+pub(crate) struct PayloadEosTracker {
+    /// Marked hashes in insertion order, oldest first.
+    hashes: LinkedHashMap<B256, ()>,
+    /// Maximum number of hashes retained.
+    capacity: usize,
+}
+
+impl PayloadEosTracker {
+    /// Create a tracker retaining at most `capacity` pending hashes.
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        Self { hashes: LinkedHashMap::new(), capacity }
+    }
+
+    /// Record an operator-authenticated EOS block hash from the payload topic.
+    pub(crate) fn mark(&mut self, hash: B256) {
+        self.hashes.insert(hash, ());
+        while self.hashes.len() > self.capacity {
+            let _ = self.hashes.pop_front();
+        }
+    }
+
+    /// Consume the pending notification for a hash, returning whether one existed.
+    pub(crate) fn take(&mut self, hash: &B256) -> bool {
+        self.hashes.remove(hash).is_some()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -430,5 +468,48 @@ mod tests {
     #[test]
     fn notify_without_subscribers_is_a_no_op() {
         SharedPreconfState::new(0).notify_end_of_sequencing(7);
+    }
+
+    #[test]
+    fn payload_eos_tracker_takes_marked_hashes_once() {
+        let mut tracker = PayloadEosTracker::with_capacity(4);
+        let marked = B256::from([0x01u8; 32]);
+        let unmarked = B256::from([0x02u8; 32]);
+
+        tracker.mark(marked);
+
+        // A hash never marked by the payload topic (e.g. response-sourced EOS)
+        // has no pending notification.
+        assert!(!tracker.take(&unmarked));
+        assert!(tracker.take(&marked));
+        assert!(!tracker.take(&marked), "a notification is consumed exactly once");
+    }
+
+    #[test]
+    fn payload_eos_tracker_remark_is_idempotent() {
+        let mut tracker = PayloadEosTracker::with_capacity(4);
+        let hash = B256::from([0x03u8; 32]);
+
+        // Duplicate gossip deliveries of the same payload envelope re-mark the
+        // same hash; that must still yield a single pending notification.
+        tracker.mark(hash);
+        tracker.mark(hash);
+
+        assert!(tracker.take(&hash));
+        assert!(!tracker.take(&hash));
+    }
+
+    #[test]
+    fn payload_eos_tracker_evicts_oldest_beyond_capacity() {
+        let mut tracker = PayloadEosTracker::with_capacity(2);
+        let hashes: Vec<B256> = (1u8..=3).map(|byte| B256::from([byte; 32])).collect();
+
+        for hash in &hashes {
+            tracker.mark(*hash);
+        }
+
+        assert!(!tracker.take(&hashes[0]), "oldest entry is evicted at capacity");
+        assert!(tracker.take(&hashes[1]));
+        assert!(tracker.take(&hashes[2]));
     }
 }

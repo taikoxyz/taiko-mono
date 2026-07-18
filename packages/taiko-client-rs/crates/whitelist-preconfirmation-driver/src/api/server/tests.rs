@@ -274,6 +274,11 @@ fn jwt_auth_rejects_expired_token() {
     let err = auth.validate_headers(&headers).expect_err("negative exp must fail");
     assert!(err.contains("token has expired"));
 
+    // A numeric-date value of zero is an absent claim in golang-jwt v5
+    // (`MapClaims.parseNumericDate` returns nil for a zero float64).
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": 0 }));
+    auth.validate_headers(&headers).expect("zero exp is treated as absent");
+
     let headers = bearer_headers(secret, &serde_json::json!({ "exp": now + 600 }));
     auth.validate_headers(&headers).expect("unexpired token is accepted");
 
@@ -294,6 +299,10 @@ fn jwt_auth_rejects_premature_token() {
 
     let headers = bearer_headers(secret, &serde_json::json!({ "nbf": now - 60 }));
     auth.validate_headers(&headers).expect("past nbf is accepted");
+
+    // Zero follows the same absent-claim rule as `exp: 0`.
+    let headers = bearer_headers(secret, &serde_json::json!({ "nbf": 0 }));
+    auth.validate_headers(&headers).expect("zero nbf is treated as absent");
 }
 
 #[test]

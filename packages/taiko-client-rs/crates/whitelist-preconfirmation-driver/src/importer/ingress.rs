@@ -81,11 +81,21 @@ impl WhitelistPreconfirmationImporter {
 
     /// Record the envelope block hash for its beacon epoch when `end_of_sequencing` is set.
     async fn record_eos_epoch_if_marked(
-        &self,
+        &mut self,
         envelope: &WhitelistExecutionPayloadEnvelope,
         ingress_source: &'static str,
     ) {
         if !envelope.end_of_sequencing.unwrap_or(false) {
+            return;
+        }
+
+        // The EOS flag is only trusted from the payload topic, where the wire
+        // signature covers the whole SSZ envelope including the flag bytes. On
+        // the response topic the embedded signature covers only the block
+        // hash, so the flag is unauthenticated: any peer could set it on an
+        // otherwise-valid response. Ignoring it matches the Go client, which
+        // never ingests EOS state from responses.
+        if ingress_source != "payload" {
             return;
         }
 
@@ -106,10 +116,13 @@ impl WhitelistPreconfirmationImporter {
             );
             // Record the marker at admission (before import) so EOS catch-up
             // requests can be served immediately. The `/ws` notification is
-            // deliberately NOT sent here: it fires only once the block has
-            // materialized, in `try_import_cached`, matching the Go client
-            // (which pushes only after `TryImportingPayload` succeeds).
+            // deliberately NOT sent here: it fires once the block has
+            // materialized, in `try_import_cached`. The hash is remembered in
+            // the tracker rather than re-read from the pending cache at import
+            // time, because that cache overwrites same-hash entries — a later
+            // response envelope could otherwise rewrite the flag unauthenticated.
             self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
+            self.payload_eos_tracker.mark(envelope.execution_payload.block_hash);
         }
     }
 

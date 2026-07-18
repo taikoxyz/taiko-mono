@@ -10,7 +10,10 @@ use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use crate::{
-    cache::{EnvelopeCache, PENDING_ENVELOPE_CAPACITY, RequestThrottle, SharedPreconfState},
+    cache::{
+        EnvelopeCache, PENDING_ENVELOPE_CAPACITY, PayloadEosTracker, RequestThrottle,
+        SharedPreconfState,
+    },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
@@ -62,6 +65,8 @@ pub(crate) struct WhitelistPreconfirmationImporter {
     beacon_client: Arc<BeaconClient>,
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
+    /// Payload-topic EOS hashes with a `/ws` notification pending materialization.
+    payload_eos_tracker: PayloadEosTracker,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
     /// Command channel used to publish P2P requests/responses.
@@ -100,6 +105,7 @@ impl WhitelistPreconfirmationImporter {
             state,
             beacon_client,
             cache: EnvelopeCache::with_capacity(PENDING_ENVELOPE_CAPACITY),
+            payload_eos_tracker: PayloadEosTracker::with_capacity(PENDING_ENVELOPE_CAPACITY),
             request_throttle: RequestThrottle::default(),
             network_command_tx,
             sync_ready: false,

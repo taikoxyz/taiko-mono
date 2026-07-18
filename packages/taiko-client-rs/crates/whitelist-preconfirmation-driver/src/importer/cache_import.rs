@@ -197,11 +197,15 @@ impl WhitelistPreconfirmationImporter {
                     // block has materialized, with the wall-clock epoch at push
                     // time — both matching the Go client, whose only push site
                     // runs after `TryImportingPayload` succeeds and re-reads
-                    // `CurrentEpoch()`. Deliberate superset of Go: this also
-                    // fires for deferred imports and response-topic envelopes
-                    // (Go's envelope cache drops the EOS flag, silently losing
-                    // those notifications).
-                    if end_of_sequencing {
+                    // `CurrentEpoch()`. The tracker holds hashes whose EOS flag
+                    // arrived wire-signed on the payload topic; the flag on the
+                    // cached envelope is deliberately not consulted, since a
+                    // response-topic envelope (embedded signature covers only
+                    // the block hash) could have overwritten it in either
+                    // direction. Deliberate superset of Go in one respect only:
+                    // deferred payload-topic imports still notify, where Go's
+                    // envelope cache drops the EOS flag and loses them.
+                    if self.payload_eos_tracker.take(&block_hash) {
                         self.state.notify_end_of_sequencing(self.beacon_client.current_epoch());
                     }
                 } else {
