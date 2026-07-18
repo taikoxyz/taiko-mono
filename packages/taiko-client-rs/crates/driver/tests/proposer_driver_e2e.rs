@@ -4,7 +4,7 @@
 //! `tests/entrypoint.sh`; the nextest `l1-shared` group (and `#[serial]` under plain
 //! `cargo test`) serializes them because they mutate shared chain state.
 
-use std::{sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
@@ -25,7 +25,10 @@ use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
-use tokio::{spawn, task::JoinHandle};
+use tokio::{
+    spawn,
+    task::{JoinError, JoinHandle},
+};
 use tracing::{info, warn};
 
 /// Deadline for the event syncer to reach preconf-ingress readiness (scanner switched
@@ -79,17 +82,92 @@ async fn submit_proposal(env: &ShastaEnv, request: BuiltProposalTx) -> Result<(u
     Ok((proposal_id, proposal_log))
 }
 
-/// An event syncer running in a background task, aborted on drop so a failing test
-/// cannot leak a live syncer into `ShastaEnv` teardown, where it would race the L1
-/// snapshot revert and write reorg resets to the shared L2 node.
-struct SyncerHandle {
-    syncer: Arc<EventSyncer>,
-    task: JoinHandle<()>,
+/// Owns the event-sync task until its exit is observed or cancellation completes.
+struct SyncerTask {
+    handle: Option<JoinHandle<Result<()>>>,
 }
 
-impl Drop for SyncerHandle {
+impl SyncerTask {
+    /// Wraps a newly spawned event-sync task.
+    fn new(handle: JoinHandle<Result<()>>) -> Self {
+        Self { handle: Some(handle) }
+    }
+
+    /// Waits for the task to exit and consumes its output exactly once.
+    async fn wait_for_exit(&mut self, phase: &str) -> anyhow::Error {
+        let Some(handle) = self.handle.as_mut() else {
+            return anyhow!("event syncer exit was already observed {phase}");
+        };
+        let result = handle.await;
+        self.handle.take();
+        syncer_exit_error(result, phase)
+    }
+
+    /// Races an operation against unexpected event-sync task termination.
+    async fn race<T>(&mut self, operation: impl Future<Output = T>, phase: &str) -> Result<T> {
+        tokio::select! {
+            result = operation => Ok(result),
+            err = self.wait_for_exit(phase) => Err(err),
+        }
+    }
+
+    /// Cancels the task and waits until its future has been dropped.
+    async fn shutdown(mut self) -> Result<()> {
+        self.abort_and_wait().await
+    }
+
+    /// Cancels and joins the task without moving the owner.
+    async fn abort_and_wait(&mut self) -> Result<()> {
+        let Some(handle) = self.handle.take() else {
+            return Ok(());
+        };
+        handle.abort();
+        match handle.await {
+            Err(err) if err.is_cancelled() => Ok(()),
+            result => Err(syncer_exit_error(result, "during shutdown")),
+        }
+    }
+}
+
+impl Drop for SyncerTask {
+    /// Schedules cancellation as a fallback when explicit async shutdown is impossible.
     fn drop(&mut self) {
-        self.task.abort();
+        if let Some(handle) = &self.handle {
+            handle.abort();
+        }
+    }
+}
+
+/// Converts an unexpected event-sync task result into contextual test failure.
+fn syncer_exit_error(
+    result: std::result::Result<Result<()>, JoinError>,
+    phase: &str,
+) -> anyhow::Error {
+    match result {
+        Ok(Ok(())) => anyhow!("event syncer exited {phase}"),
+        Ok(Err(err)) => err.context(format!("event syncer exited {phase}")),
+        Err(err) => anyhow!("event syncer task failed {phase}: {err}"),
+    }
+}
+
+/// An event syncer whose task must be explicitly joined before `ShastaEnv` teardown.
+struct SyncerHandle {
+    syncer: Arc<EventSyncer>,
+    task: SyncerTask,
+}
+
+impl SyncerHandle {
+    /// Joins task cancellation before returning the test result.
+    async fn finish<T>(mut self, result: Result<T>) -> Result<T> {
+        let shutdown = self.task.abort_and_wait().await;
+        match (result, shutdown) {
+            (Ok(value), Ok(())) => Ok(value),
+            (Err(err), Ok(())) => Err(err),
+            (Ok(_), Err(err)) => Err(err),
+            (Err(err), Err(shutdown_err)) => {
+                Err(err.context(format!("event syncer shutdown also failed: {shutdown_err:#}")))
+            }
+        }
     }
 }
 
@@ -109,35 +187,39 @@ async fn start_event_syncer(
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
-    let task = {
+    let task: JoinHandle<Result<()>> = {
         let syncer = syncer.clone();
-        spawn(async move {
-            if let Err(err) = syncer.run().await {
-                warn!(?err, "event syncer exited");
-            }
-        })
+        spawn(async move { syncer.run().await.map_err(Into::into) })
     };
     // Guard the task from the moment of spawn: an early return below must abort the
     // syncer, not detach it into a race with ShastaEnv teardown's snapshot revert.
-    let mut handle = SyncerHandle { syncer, task };
+    let mut handle = SyncerHandle { syncer, task: SyncerTask::new(task) };
 
-    let readiness: Result<()> = tokio::select! {
-        ready = tokio::time::timeout(
-            SYNCER_READY_TIMEOUT,
-            handle.syncer.wait_preconf_ingress_ready(),
-        ) => {
-            ready
-                .context("timed out waiting for preconf ingress readiness")
-                .and_then(|res| res.map_err(Into::into))
-        }
-        _ = &mut handle.task => Err(anyhow!("event syncer exited before reaching readiness")),
-    };
+    let readiness_syncer = handle.syncer.clone();
+    let readiness = handle
+        .task
+        .race(
+            async move {
+                tokio::time::timeout(
+                    SYNCER_READY_TIMEOUT,
+                    readiness_syncer.wait_preconf_ingress_ready(),
+                )
+                .await
+                .context("timed out waiting for preconf ingress readiness")??;
+                Ok(())
+            },
+            "before reaching readiness",
+        )
+        .await
+        .and_then(|result| result);
     if let Err(err) = readiness {
-        // Drop's abort cannot await cancellation, so do both explicitly: no in-flight
-        // engine or custom-table write may land after this function reports failure.
-        handle.task.abort();
-        let _ = (&mut handle.task).await;
-        return Err(err);
+        let shutdown = handle.task.abort_and_wait().await;
+        return match shutdown {
+            Ok(()) => Err(err),
+            Err(shutdown_err) => {
+                Err(err.context(format!("event syncer shutdown also failed: {shutdown_err:#}")))
+            }
+        };
     }
 
     Ok((handle, driver_client))
@@ -231,7 +313,7 @@ async fn poll_proposal_processed(
 /// polling. Transient RPC errors (e.g. a dropped WS frame mid-poll) count against the
 /// deadline instead of failing the wait outright.
 async fn wait_for_proposal_processed(
-    event_syncer: &EventSyncer,
+    syncer: &mut SyncerHandle,
     driver_client: &Client,
     baseline: &BatchRowBaseline,
     l2_head_before: u64,
@@ -241,7 +323,15 @@ async fn wait_for_proposal_processed(
     let mut last_error = None;
 
     loop {
-        match poll_proposal_processed(event_syncer, driver_client, baseline, l2_head_before).await {
+        let event_syncer = syncer.syncer.clone();
+        let poll_result = syncer
+            .task
+            .race(
+                poll_proposal_processed(&event_syncer, driver_client, baseline, l2_head_before),
+                "while waiting for proposal processing",
+            )
+            .await?;
+        match poll_result {
             Ok(Some(l2_head)) => return Ok(l2_head),
             Ok(None) => {}
             Err(err) => {
@@ -256,7 +346,13 @@ async fn wait_for_proposal_processed(
                 baseline.proposal_id
             ));
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        syncer
+            .task
+            .race(
+                tokio::time::sleep(Duration::from_millis(100)),
+                "while waiting for proposal processing",
+            )
+            .await?;
     }
 }
 
@@ -273,33 +369,38 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.set_default_blob_sidecar(request.blob_sidecar());
 
     // Start the event syncer before submitting the proposal.
-    let (syncer, driver_client) = start_event_syncer(env, &beacon_stub).await?;
+    let (mut syncer, driver_client) = start_event_syncer(env, &beacon_stub).await?;
 
-    let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+    let result: Result<()> = async {
+        let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
-    let baseline = batch_row_baseline(&driver_client).await?;
-    let (proposal_id, _log) = submit_proposal(env, request).await?;
-    ensure!(proposal_id == baseline.proposal_id, "proposal id diverged from core state");
+        let baseline = batch_row_baseline(&driver_client).await?;
+        let (proposal_id, _log) = submit_proposal(env, request).await?;
+        ensure!(proposal_id == baseline.proposal_id, "proposal id diverged from core state");
 
-    let l2_head_after = wait_for_proposal_processed(
-        &syncer.syncer,
-        &driver_client,
-        &baseline,
-        l2_head_before,
-        PROPOSAL_PROCESSED_TIMEOUT,
-    )
-    .await?;
+        let l2_head_after = wait_for_proposal_processed(
+            &mut syncer,
+            &driver_client,
+            &baseline,
+            l2_head_before,
+            PROPOSAL_PROCESSED_TIMEOUT,
+        )
+        .await?;
 
-    verify_anchor_block(&driver_client, env.taiko_anchor_address)
-        .await
-        .context("verifying anchor block on L2")?;
+        verify_anchor_block(&driver_client, env.taiko_anchor_address)
+            .await
+            .context("verifying anchor block on L2")?;
 
-    ensure!(
-        l2_head_after >= l2_head_before,
-        "L2 head should not move backwards after proposal processing"
-    );
+        ensure!(
+            l2_head_after >= l2_head_before,
+            "L2 head should not move backwards after proposal processing"
+        );
 
-    Ok(())
+        Ok(())
+    }
+    .await;
+
+    syncer.finish(result).await
 }
 
 /// Tests the known-canonical fast path in the derivation pipeline.
@@ -314,57 +415,62 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let request = build_empty_proposal(env, &proposer).await?;
     beacon_stub.set_default_blob_sidecar(request.blob_sidecar());
 
-    let (syncer, driver_client) = start_event_syncer(env, &beacon_stub).await?;
+    let (mut syncer, driver_client) = start_event_syncer(env, &beacon_stub).await?;
 
-    let l2_head_before = driver_client.l2_provider.get_block_number().await?;
-    let baseline = batch_row_baseline(&driver_client).await?;
-    let (proposal_id, proposal_log) = submit_proposal(env, request).await?;
-    ensure!(proposal_id == baseline.proposal_id, "proposal id diverged from core state");
+    let result: Result<()> = async {
+        let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+        let baseline = batch_row_baseline(&driver_client).await?;
+        let (proposal_id, proposal_log) = submit_proposal(env, request).await?;
+        ensure!(proposal_id == baseline.proposal_id, "proposal id diverged from core state");
 
-    wait_for_proposal_processed(
-        &syncer.syncer,
-        &driver_client,
-        &baseline,
-        l2_head_before,
-        PROPOSAL_PROCESSED_TIMEOUT,
-    )
-    .await?;
-    // Capture the canonical block hash produced by the first processing.
-    let canonical_block = driver_client
-        .l2_provider
-        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
-        .await?
-        .ok_or_else(|| anyhow!("missing canonical block after proposal processing"))?;
-    let canonical_number = canonical_block.number();
-    info!(canonical_number, "captured canonical block after first processing");
-    let canonical_hash = canonical_block.hash();
+        wait_for_proposal_processed(
+            &mut syncer,
+            &driver_client,
+            &baseline,
+            l2_head_before,
+            PROPOSAL_PROCESSED_TIMEOUT,
+        )
+        .await?;
+        // Capture the canonical block hash produced by the first processing.
+        let canonical_block = driver_client
+            .l2_provider
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+            .await?
+            .ok_or_else(|| anyhow!("missing canonical block after proposal processing"))?;
+        let canonical_number = canonical_block.number();
+        info!(canonical_number, "captured canonical block after first processing");
+        let canonical_hash = canonical_block.hash();
 
-    // Re-process the same proposal via the derivation pipeline.
-    let blob_source =
-        Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
-    let pipeline =
-        ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
-    let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
-    let _outcomes = pipeline
-        .process_proposal(&proposal_log, applier)
-        .await
-        .context("re-processing proposal for known-canonical path")?;
-    let canonical_block_after = driver_client
-        .l2_provider
-        .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
-        .await?
-        .ok_or_else(|| anyhow!("missing canonical block after reprocess"))?;
+        // Re-process the same proposal via the derivation pipeline.
+        let blob_source =
+            Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
+        let pipeline =
+            ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
+        let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
+        let _outcomes = pipeline
+            .process_proposal(&proposal_log, applier)
+            .await
+            .context("re-processing proposal for known-canonical path")?;
+        let canonical_block_after = driver_client
+            .l2_provider
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)
+            .await?
+            .ok_or_else(|| anyhow!("missing canonical block after reprocess"))?;
 
-    ensure!(
-        canonical_block_after.number() == canonical_number,
-        "reprocessing should not change canonical head"
-    );
-    ensure!(
-        canonical_block_after.hash() == canonical_hash,
-        "canonical block hash should remain unchanged"
-    );
+        ensure!(
+            canonical_block_after.number() == canonical_number,
+            "reprocessing should not change canonical head"
+        );
+        ensure!(
+            canonical_block_after.hash() == canonical_hash,
+            "canonical block hash should remain unchanged"
+        );
 
-    Ok(())
+        Ok(())
+    }
+    .await;
+
+    syncer.finish(result).await
 }
 
 /// Tests processing multiple sequential proposals.
@@ -378,53 +484,64 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let first_request = build_empty_proposal(env, &proposer).await?;
     beacon_stub.set_default_blob_sidecar(first_request.blob_sidecar());
 
-    let (syncer, driver_client) = start_event_syncer(env, &beacon_stub).await?;
+    let (mut syncer, driver_client) = start_event_syncer(env, &beacon_stub).await?;
 
-    let l2_head_before = driver_client.l2_provider.get_block_number().await?;
+    let result: Result<()> = async {
+        let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
-    // Submit first proposal.
-    let first_baseline = batch_row_baseline(&driver_client).await?;
-    let (proposal_id_1, _) = submit_proposal(env, first_request).await?;
-    ensure!(proposal_id_1 == first_baseline.proposal_id, "proposal id diverged from core state");
-    let l2_head_after_first = wait_for_proposal_processed(
-        &syncer.syncer,
-        &driver_client,
-        &first_baseline,
-        l2_head_before,
-        PROPOSAL_PROCESSED_TIMEOUT,
-    )
-    .await?;
+        // Submit first proposal.
+        let first_baseline = batch_row_baseline(&driver_client).await?;
+        let (proposal_id_1, _) = submit_proposal(env, first_request).await?;
+        ensure!(
+            proposal_id_1 == first_baseline.proposal_id,
+            "proposal id diverged from core state"
+        );
+        let l2_head_after_first = wait_for_proposal_processed(
+            &mut syncer,
+            &driver_client,
+            &first_baseline,
+            l2_head_before,
+            PROPOSAL_PROCESSED_TIMEOUT,
+        )
+        .await?;
 
-    // Rebuild the second proposal from the advanced chain heads: reusing the first
-    // request verbatim would fail manifest timestamp validation (parent timestamp
-    // already equals the manifest's) and silently exercise the default-manifest
-    // fallback path instead of a second real derivation.
-    //
-    // Append (rather than replace) the second sidecar: a scanner reconnect replays the
-    // reorg-unsafe window, and re-fetching proposal 1's blob must keep succeeding —
-    // consumers hash-match against every returned sidecar.
-    let second_request = build_empty_proposal(env, &proposer).await?;
-    beacon_stub.add_default_blob_sidecar(second_request.blob_sidecar());
+        // Rebuild the second proposal from the advanced chain heads: reusing the first
+        // request verbatim would fail manifest timestamp validation (parent timestamp
+        // already equals the manifest's) and silently exercise the default-manifest
+        // fallback path instead of a second real derivation.
+        //
+        // Append (rather than replace) the second sidecar: a scanner reconnect replays the
+        // reorg-unsafe window, and re-fetching proposal 1's blob must keep succeeding —
+        // consumers hash-match against every returned sidecar.
+        let second_request = build_empty_proposal(env, &proposer).await?;
+        beacon_stub.add_default_blob_sidecar(second_request.blob_sidecar());
 
-    let second_baseline = batch_row_baseline(&driver_client).await?;
-    let (proposal_id_2, _) = submit_proposal(env, second_request).await?;
-    ensure!(proposal_id_2 == second_baseline.proposal_id, "proposal id diverged from core state");
-    let l2_head_after_second = wait_for_proposal_processed(
-        &syncer.syncer,
-        &driver_client,
-        &second_baseline,
-        l2_head_after_first,
-        PROPOSAL_PROCESSED_TIMEOUT,
-    )
-    .await?;
+        let second_baseline = batch_row_baseline(&driver_client).await?;
+        let (proposal_id_2, _) = submit_proposal(env, second_request).await?;
+        ensure!(
+            proposal_id_2 == second_baseline.proposal_id,
+            "proposal id diverged from core state"
+        );
+        let l2_head_after_second = wait_for_proposal_processed(
+            &mut syncer,
+            &driver_client,
+            &second_baseline,
+            l2_head_after_first,
+            PROPOSAL_PROCESSED_TIMEOUT,
+        )
+        .await?;
 
-    ensure!(proposal_id_2 > proposal_id_1, "expected sequential proposal ids");
-    ensure!(
-        l2_head_after_second > l2_head_after_first,
-        "L2 head should advance after second proposal"
-    );
+        ensure!(proposal_id_2 > proposal_id_1, "expected sequential proposal ids");
+        ensure!(
+            l2_head_after_second > l2_head_after_first,
+            "L2 head should advance after second proposal"
+        );
 
-    Ok(())
+        Ok(())
+    }
+    .await;
+
+    syncer.finish(result).await
 }
 
 /// Tests direct derivation-pipeline processing of a proposal whose blob is served for
@@ -483,4 +600,64 @@ async fn derivation_pipeline_processes_proposal_with_slot_targeted_blob(
         .context("verifying anchor block on L2")?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use std::future::pending;
+
+    use tokio::sync::oneshot;
+
+    use super::*;
+
+    struct DropSignal(Option<oneshot::Sender<()>>);
+
+    impl Drop for DropSignal {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    #[test_log::test(tokio::test)]
+    async fn observed_syncer_exit_can_be_shutdown_without_repolling() -> Result<()> {
+        let mut task = SyncerTask::new(spawn(async { Err(anyhow!("syncer failed")) }));
+
+        let err = task.wait_for_exit("before readiness").await;
+        ensure!(err.to_string().contains("before readiness"));
+        task.shutdown().await?;
+
+        Ok(())
+    }
+
+    #[test_log::test(tokio::test)]
+    async fn syncer_shutdown_waits_for_cancellation() -> Result<()> {
+        let (started_tx, started_rx) = oneshot::channel();
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        let task = spawn(async move {
+            let _drop_signal = DropSignal(Some(dropped_tx));
+            let _ = started_tx.send(());
+            pending::<()>().await;
+            Ok(())
+        });
+        let task = SyncerTask::new(task);
+
+        started_rx.await?;
+        task.shutdown().await?;
+        dropped_rx.await?;
+
+        Ok(())
+    }
+
+    #[test_log::test(tokio::test)]
+    async fn syncer_exit_wins_over_pending_operation() -> Result<()> {
+        let mut task = SyncerTask::new(spawn(async { Err(anyhow!("syncer failed")) }));
+
+        let err =
+            task.race(pending::<()>(), "while waiting for proposal processing").await.unwrap_err();
+        ensure!(err.to_string().contains("while waiting for proposal processing"));
+
+        Ok(())
+    }
 }
