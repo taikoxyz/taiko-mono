@@ -11,14 +11,17 @@ use std::{
 
 use alloy_primitives::B256;
 use hashlink::LinkedHashMap;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, broadcast};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope, metrics::WhitelistPreconfirmationDriverMetrics,
+    api::types::EndOfSequencingNotification, codec::WhitelistExecutionPayloadEnvelope,
+    metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
 /// Maximum number of recently validated envelopes retained for serving responses.
 const RECENT_ENVELOPE_CAPACITY: usize = 1024;
+/// Maximum number of pending EOS notifications retained for `/ws` subscribers.
+const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 /// Maximum number of pending envelopes retained while waiting for parents.
 pub(crate) const PENDING_ENVELOPE_CAPACITY: usize = 768;
 /// Maximum number of EOS cache entries retained.
@@ -43,18 +46,39 @@ pub(crate) struct SharedPreconfState {
     /// Most recent L2 head observed by `/status` or advanced by locally inserted blocks,
     /// reported as a fallback when the head is unreadable. Seeded with the head at startup.
     last_reported_l2_head: Arc<AtomicU64>,
+    /// Broadcast channel feeding `/ws` end-of-sequencing notifications; the importer
+    /// sends when an EOS block arrives via the payload topic, the API server subscribes.
+    eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
 impl SharedPreconfState {
     /// Create shared state seeded with the current L2 head block number.
     pub(crate) fn new(initial_l2_head: u64) -> Self {
+        let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())),
             recent_envelopes: Arc::new(Mutex::new(EnvelopeCache::with_capacity(
                 RECENT_ENVELOPE_CAPACITY,
             ))),
             last_reported_l2_head: Arc::new(AtomicU64::new(initial_l2_head)),
+            eos_notification_tx,
         }
+    }
+
+    /// Subscribe to end-of-sequencing `/ws` notifications.
+    pub(crate) fn subscribe_end_of_sequencing(
+        &self,
+    ) -> broadcast::Receiver<EndOfSequencingNotification> {
+        self.eos_notification_tx.subscribe()
+    }
+
+    /// Notify `/ws` subscribers that the epoch's end-of-sequencing block was observed.
+    ///
+    /// A send error only means no subscriber is currently connected, which is normal.
+    pub(crate) fn notify_end_of_sequencing(&self, epoch: u64) {
+        let _ = self
+            .eos_notification_tx
+            .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true });
     }
 
     /// Record an EOS hash for the given epoch with bounded cache size.
@@ -387,5 +411,22 @@ mod tests {
 
         assert!(state.remove_recent(&hash).await.is_some());
         assert!(state.get_recent(&hash).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn shared_state_notifies_eos_subscribers() {
+        let state = SharedPreconfState::new(0);
+        let mut subscriber = state.subscribe_end_of_sequencing();
+
+        state.notify_end_of_sequencing(42);
+
+        let notification = subscriber.recv().await.expect("notification delivered");
+        assert_eq!(notification.current_epoch, 42);
+        assert!(notification.end_of_sequencing);
+    }
+
+    #[test]
+    fn notify_without_subscribers_is_a_no_op() {
+        SharedPreconfState::new(0).notify_end_of_sequencing(7);
     }
 }

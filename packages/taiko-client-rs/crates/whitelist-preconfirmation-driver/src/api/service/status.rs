@@ -41,6 +41,6 @@ impl WhitelistApiService {
     pub(super) fn subscribe_end_of_sequencing_notifications(
         &self,
     ) -> broadcast::Receiver<EndOfSequencingNotification> {
-        self.eos_notification_tx.subscribe()
+        self.state.subscribe_end_of_sequencing()
     }
 }

@@ -22,10 +22,13 @@ impl JwtAuth {
     /// Build a validator from a shared secret.
     pub(super) fn new(secret: &[u8]) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
-        // Validate signatures while keeping claims like `exp` optional.
+        // Claims stay optional (no claim is required to be present), but `exp`
+        // and `nbf` are validated whenever present with zero leeway — matching
+        // the Go client's echo-jwt defaults, which refuse expired tokens.
         validation.required_spec_claims.clear();
-        validation.validate_exp = false;
-        validation.validate_nbf = false;
+        validation.validate_exp = true;
+        validation.validate_nbf = true;
+        validation.leeway = 0;
         Self { decoding_key: DecodingKey::from_secret(secret), validation }
     }
 

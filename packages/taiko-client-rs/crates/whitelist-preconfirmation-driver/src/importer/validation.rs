@@ -9,10 +9,7 @@ use protocol::{
 };
 
 use crate::{
-    codec::{
-        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
-        WhitelistExecutionPayloadEnvelope,
-    },
+    codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
     error::{Result, WhitelistPreconfirmationDriverError},
 };
 
@@ -89,17 +86,6 @@ pub(crate) fn validate_execution_payload_for_preconf(
     })?;
 
     Ok(())
-}
-
-/// Ensure unsafe payload envelopes carry an embedded signature for response-topic compatibility.
-pub(super) fn normalize_unsafe_payload_envelope(
-    mut envelope: WhitelistExecutionPayloadEnvelope,
-    wire_signature: [u8; 65],
-) -> WhitelistExecutionPayloadEnvelope {
-    if envelope.signature.is_none() {
-        envelope.signature = Some(wire_signature);
-    }
-    envelope
 }
 
 /// Reject envelopes whose `header_difficulty` presence contradicts the Unzen

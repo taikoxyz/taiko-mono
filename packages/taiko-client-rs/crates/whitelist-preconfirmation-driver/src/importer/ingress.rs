@@ -27,10 +27,7 @@ use crate::{
 
 use super::{
     WhitelistPreconfirmationImporter,
-    validation::{
-        normalize_unsafe_payload_envelope, validate_envelope_header_difficulty,
-        validate_execution_payload_for_preconf,
-    },
+    validation::{validate_envelope_header_difficulty, validate_execution_payload_for_preconf},
 };
 
 /// Return whether an envelope is at or below a written event-confirmed tip.
@@ -108,16 +105,29 @@ impl WhitelistPreconfirmationImporter {
                 "recording end-of-sequencing envelope for epoch"
             );
             self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
+            // Notify `/ws` subscribers about EOS blocks observed on the payload
+            // topic, mirroring the Go client (`OnUnsafeL2Payload` is its only
+            // push site): the incoming sequencer learns the outgoing operator's
+            // end-of-sequencing block from gossip, not from its own build API.
+            if ingress_source == "payload" {
+                self.state.notify_end_of_sequencing(epoch);
+            }
         }
     }
 
     /// Handle an incoming unsafe payload from the `preconfBlocks` topic.
+    ///
+    /// The wire signature is deliberately NOT copied into the envelope's embedded
+    /// signature slot when the latter is absent: the wire signature signs the SSZ
+    /// envelope bytes while the embedded slot is verified against the block hash
+    /// (a different domain), so a substituted signature would be persisted to the
+    /// L1 origin and served in responses every peer rejects. The Go client keeps
+    /// the slot empty and declines to serve such blocks; match that.
     pub(super) async fn handle_unsafe_payload(
         &mut self,
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
-        let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
-        self.validate_and_ingest(envelope, "payload").await
+        self.validate_and_ingest(payload.envelope, "payload").await
     }
 
     /// Handle an incoming unsafe response from the `responsePreconfBlocks` topic.
@@ -162,7 +172,13 @@ impl WhitelistPreconfirmationImporter {
         hash: B256,
         mark_end_of_sequencing: bool,
     ) -> Result<Option<&'static str>> {
-        let (envelope, source) = if let Some(envelope) = self.state.get_recent(&hash).await {
+        // Envelopes without an embedded signature are never servable: response
+        // receivers verify that signature against the block hash and reject its
+        // absence, so fall through to the L2 rebuild (which declines on a zero
+        // L1-origin signature, matching the Go client).
+        let (envelope, source) = if let Some(envelope) =
+            self.state.get_recent(&hash).await.filter(|envelope| envelope.signature.is_some())
+        {
             (envelope, "cache_hit")
         } else if let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? {
             if mark_end_of_sequencing {

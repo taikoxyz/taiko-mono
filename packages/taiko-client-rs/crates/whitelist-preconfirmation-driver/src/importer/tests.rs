@@ -18,7 +18,7 @@ use super::{
     cache_import::{CachedImportDisposition, classify_cached_import_error},
     ingress::is_stale_at_confirmed_tip,
     should_enable_preconf_imports,
-    validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
+    validation::validate_execution_payload_for_preconf,
 };
 
 const TEST_CHAIN_ID: u64 = 167;
@@ -59,14 +59,6 @@ fn sample_execution_payload_with_transactions(
         },
         signature: Some([0x22u8; 65]),
     }
-}
-
-fn sample_unsigned_execution_payload_with_transactions(
-    transactions: Vec<Bytes>,
-) -> WhitelistExecutionPayloadEnvelope {
-    let mut envelope = sample_execution_payload_with_transactions(transactions);
-    envelope.signature = None;
-    envelope
 }
 
 fn compress(data: &[u8]) -> Bytes {
@@ -508,26 +500,6 @@ fn validate_payload_rejects_anchor_with_wrong_method() {
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
             if msg.contains("invalid anchor transaction method")
     ));
-}
-
-#[test]
-fn normalizes_unsafe_payload_envelope_adds_missing_signature() {
-    let wire_signature = [0xabu8; 65];
-    let envelope = sample_unsigned_execution_payload_with_transactions(vec![compress(b"valid")]);
-    let normalized = normalize_unsafe_payload_envelope(envelope, wire_signature);
-
-    assert_eq!(normalized.signature, Some(wire_signature));
-}
-
-#[test]
-fn normalizes_unsafe_payload_envelope_keeps_existing_signature() {
-    let embedded = [0x11u8; 65];
-    let wire_signature = [0xabu8; 65];
-    let mut envelope = sample_execution_payload_with_transactions(vec![compress(b"valid")]);
-    envelope.signature = Some(embedded);
-    let normalized = normalize_unsafe_payload_envelope(envelope, wire_signature);
-
-    assert_eq!(normalized.signature, Some(embedded));
 }
 
 #[test]

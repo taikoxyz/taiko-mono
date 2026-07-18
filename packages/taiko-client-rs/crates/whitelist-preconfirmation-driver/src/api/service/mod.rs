@@ -41,9 +41,6 @@ mod status;
 #[cfg(test)]
 mod tests;
 
-/// Maximum number of pending EOS notifications retained for `/ws` subscribers.
-const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
-
 /// Number of L1 slots in the preconfer hand-over window. Doubled relative to
 /// the Go client's default `handover_slots = 4` because the Rust whitelist
 /// driver lacks lookahead-aware logic and must rely on a coarser time-based
@@ -92,8 +89,6 @@ pub(crate) struct WhitelistApiService {
     operator_set: SharedOperatorSet,
     /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     state: SharedPreconfState,
-    /// Broadcast channel for API `/ws` end-of-sequencing notifications.
-    eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
     /// Wall-clock instant of the most recent `build_preconf_block` invocation,
     /// regardless of the request's outcome. `None` until the first request
     /// arrives. Read by `/status` to compute `can_shutdown`.
@@ -134,7 +129,6 @@ impl WhitelistApiService {
             network_command_tx,
         }: WhitelistApiServiceParams,
     ) -> Self {
-        let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             event_syncer,
             rpc,
@@ -143,7 +137,6 @@ impl WhitelistApiService {
             beacon_client,
             operator_set,
             state,
-            eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
             last_preconf_request_at: Mutex::new(None),

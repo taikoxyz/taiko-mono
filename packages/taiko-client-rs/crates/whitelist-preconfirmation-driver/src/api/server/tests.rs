@@ -221,6 +221,61 @@ fn jwt_auth_rejects_missing_header() {
     assert!(err.contains("missing bearer authorization header"));
 }
 
+/// Build an `Authorization: Bearer <jwt>` header map for the given claims.
+fn bearer_headers(secret: &[u8], claims: &serde_json::Value) -> http::HeaderMap {
+    let token = jsonwebtoken::encode(
+        &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+        claims,
+        &jsonwebtoken::EncodingKey::from_secret(secret),
+    )
+    .expect("token should encode");
+    let mut headers = http::HeaderMap::new();
+    headers.insert(
+        http::header::AUTHORIZATION,
+        format!("Bearer {token}").parse().expect("valid header value"),
+    );
+    headers
+}
+
+#[test]
+fn jwt_auth_accepts_token_without_claims() {
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+    let headers = bearer_headers(secret, &serde_json::json!({}));
+    auth.validate_headers(&headers).expect("claimless token is accepted");
+}
+
+#[test]
+fn jwt_auth_rejects_expired_token() {
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_secs();
+
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": now - 60 }));
+    let err = auth.validate_headers(&headers).expect_err("expired token must fail");
+    assert!(err.contains("invalid bearer token"));
+
+    let headers = bearer_headers(secret, &serde_json::json!({ "exp": now + 600 }));
+    auth.validate_headers(&headers).expect("unexpired token is accepted");
+}
+
+#[test]
+fn jwt_auth_rejects_premature_token() {
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_secs();
+
+    let headers = bearer_headers(secret, &serde_json::json!({ "nbf": now + 600 }));
+    let err = auth.validate_headers(&headers).expect_err("not-yet-valid token must fail");
+    assert!(err.contains("invalid bearer token"));
+}
+
 #[tokio::test]
 async fn jwt_auth_is_required_when_secret_configured() {
     let server = start_jwt_server().await;

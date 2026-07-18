@@ -199,10 +199,12 @@ impl WhitelistApi for WhitelistApiService {
         )
         .await?;
 
-        // If end-of-sequencing, record the epoch marker and notify `/ws` subscribers. The
-        // envelope gossiped above already carries the EOS flag; incoming sequencers that
-        // missed it request it themselves on the EOS request topic, which the importer
-        // serves from the recent-envelope cache.
+        // If end-of-sequencing, record the epoch marker. No `/ws` notification here:
+        // matching the Go client, subscribers are only notified when an EOS block
+        // arrives via P2P gossip (the builder already learns its own EOS block from
+        // this endpoint's response). Incoming sequencers that missed the gossip
+        // request it on the EOS request topic, which the importer serves from the
+        // recent-envelope cache.
         if end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.timestamp_to_epoch(data.timestamp).map_err(|e| {
                 WhitelistPreconfirmationDriverError::InvalidPayload(format!(
@@ -211,16 +213,6 @@ impl WhitelistApi for WhitelistApiService {
                 ))
             })?;
             self.state.record_end_of_sequencing(epoch, block_hash).await;
-            if let Err(err) = self
-                .eos_notification_tx
-                .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true })
-            {
-                warn!(
-                    error = %err,
-                    current_epoch = epoch,
-                    "failed to deliver end-of-sequencing websocket notification"
-                );
-            }
         }
 
         crate::metrics::WhitelistPreconfirmationDriverMetrics::observe_build_preconf_block_duration(

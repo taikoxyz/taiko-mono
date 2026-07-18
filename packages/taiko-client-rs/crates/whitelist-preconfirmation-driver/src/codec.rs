@@ -15,8 +15,19 @@ const SIGNATURE_LEN: usize = 65;
 const ENVELOPE_HEADER_LEN: usize = 34;
 /// Maximum allowed size after snappy decompression, bounded by gossip limits.
 const MAX_DECOMPRESSED_GOSSIP_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
+/// Usable bytes of one EIP-4844 blob after field-element encoding, mirroring the
+/// Go client's `eth.MaxBlobDataSize`.
+const MAX_BLOB_DATA_SIZE: usize = (4 * 31 + 3) * 1024 - 4;
+/// Maximum number of blobs per blob-carrying transaction, mirroring the Go
+/// client's `eth.MaxBlobsPerBlobTx`.
+const MAX_BLOBS_PER_BLOB_TX: usize = 6;
 /// Maximum compressed tx-list size accepted from a preconfirmation payload.
-pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
+///
+/// Must equal the Go client's `eth.MaxBlobDataSize * eth.MaxBlobsPerBlobTx`
+/// cap (`server.go` `ValidateExecutionPayload`): a larger local cap would let
+/// this node import payloads every Go node rejects, splitting the preconf
+/// head on mixed fleets.
+pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = MAX_BLOB_DATA_SIZE * MAX_BLOBS_PER_BLOB_TX;
 /// Maximum decompressed tx-list size accepted from a preconfirmation payload.
 ///
 /// Aligned with the preconfirmation tx-list cap to prevent zlib bomb expansion
@@ -69,6 +80,16 @@ pub(crate) fn block_signing_hash(chain_id: u64, signing_payload: &[u8]) -> B256 
 
 /// Recover signer address from a signature and prehash.
 pub(crate) fn recover_signer(prehash: B256, signature: &[u8; SIGNATURE_LEN]) -> Result<Address> {
+    // Go peers (geth `crypto.SigToPub`) only accept recovery ids 0/1, while alloy
+    // would also normalize 27/28/35+; accepting those here would import messages
+    // every Go node rejects.
+    if signature[SIGNATURE_LEN - 1] > 1 {
+        return Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
+            "invalid recovery id: {}",
+            signature[SIGNATURE_LEN - 1]
+        )));
+    }
+
     let signature = Signature::from_raw_array(signature).map_err(|err| {
         WhitelistPreconfirmationDriverError::InvalidSignature(format!(
             "invalid signature bytes: {err}"
@@ -454,6 +475,39 @@ mod tests {
             err,
             WhitelistPreconfirmationDriverError::InvalidPayload(msg)
                 if msg.contains("too large after decompression")
+        ));
+    }
+
+    #[test]
+    fn compressed_tx_list_cap_matches_go_client() {
+        // Go: `eth.MaxBlobDataSize * eth.MaxBlobsPerBlobTx` = 130,044 * 6.
+        assert_eq!(MAX_COMPRESSED_TX_LIST_BYTES, 780_264);
+    }
+
+    #[test]
+    fn recover_signer_accepts_raw_recovery_ids_only() {
+        let signer = protocol::signer::FixedKSigner::new(
+            "0x0101010101010101010101010101010101010101010101010101010101010101",
+        )
+        .expect("valid private key");
+        let prehash = block_signing_hash(167_000, b"payload bytes");
+        let signed = signer.sign_with_predefined_k(prehash.as_ref()).expect("signing succeeds");
+
+        let mut signature = [0u8; SIGNATURE_LEN];
+        signature[..32].copy_from_slice(&signed.signature.r().to_be_bytes::<32>());
+        signature[32..64].copy_from_slice(&signed.signature.s().to_be_bytes::<32>());
+        signature[64] = signed.recovery_id;
+        recover_signer(prehash, &signature).expect("raw recovery id is accepted");
+
+        // The same signature with a legacy 27/28 v byte must be rejected: geth's
+        // `crypto.SigToPub` (used by Go peers) only accepts recovery ids 0/1.
+        signature[64] = signed.recovery_id + 27;
+        let err =
+            recover_signer(prehash, &signature).expect_err("legacy recovery id must be rejected");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidSignature(msg)
+                if msg.contains("invalid recovery id")
         ));
     }
 }
