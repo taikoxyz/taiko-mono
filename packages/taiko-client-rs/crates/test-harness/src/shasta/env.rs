@@ -2,9 +2,9 @@ use std::{env, path::PathBuf, str::FromStr, time::Instant};
 
 use crate::init_tracing;
 use alloy::transports::http::reqwest::Url as RpcUrl;
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, U256};
 use alloy_provider::RootProvider;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig, connect_provider_with_timeout},
@@ -13,32 +13,21 @@ use test_context::AsyncTestContext;
 use tracing::info;
 
 use super::helpers::{
-    create_snapshot, ensure_preconf_whitelist_active, reset_head_l1_origin, reset_to_base_block,
-    revert_snapshot,
+    create_snapshot, ensure_preconf_whitelist_active, get_proposal_hash, reset_head_l1_origin,
+    reset_to_base_block, revert_snapshot,
 };
 
 /// Environment configuration required to exercise Shasta fork integration tests against
 /// the Docker harness started by `tests/entrypoint.sh`.
 /// Holds resolved endpoints, credentials, and clients needed to drive Shasta integration flows.
 pub struct ShastaEnv {
-    pub l1_source: SubscriptionSource,
-    /// Primary L2 WebSocket endpoint.
-    pub l2_ws_0: RpcUrl,
-    /// Primary L2 Auth endpoint.
-    pub l2_auth_0: RpcUrl,
-    pub jwt_secret: PathBuf,
     pub inbox_address: Address,
     pub l2_suggested_fee_recipient: Address,
     pub l1_proposer_private_key: B256,
     pub taiko_anchor_address: Address,
     pub client_config: ClientConfig,
-    pub client: Client,
     cleanup_provider: RootProvider,
     snapshot_id: String,
-    /// Secondary L2 WebSocket endpoint for dual-driver E2E tests.
-    pub l2_ws_1: RpcUrl,
-    /// Secondary L2 Auth endpoint for dual-driver E2E tests.
-    pub l2_auth_1: RpcUrl,
 }
 
 impl ShastaEnv {
@@ -102,6 +91,18 @@ impl ShastaEnv {
         };
         let client = Client::new(client_config.clone()).await?;
 
+        // Teardown's `evm_revert` never runs when a test PROCESS is killed (hang timeout,
+        // OOM, Ctrl-C), which would bake that test's proposals into the shared L1 for the
+        // rest of the run and wedge every later test on unfetchable blobs. Fail fast with
+        // a restart hint instead of inheriting the orphaned state.
+        let leftover = get_proposal_hash(&client, U256::ONE).await?;
+        ensure!(
+            leftover == B256::ZERO,
+            "shared L1 already contains proposal 1 (hash {leftover}); an earlier test \
+             process died without reverting its snapshot — recreate the docker env \
+             (rerun `just test`)"
+        );
+
         // Reset both L2 nodes to a known base block before tests run.
         reset_to_base_block(&client).await?;
         reset_head_l1_origin(&client).await?;
@@ -119,25 +120,18 @@ impl ShastaEnv {
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
         let cleanup_provider = connect_provider_with_timeout(l1_source.url().clone()).await?;
-        let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
+        let snapshot_id = create_snapshot(&cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
         Ok(Self {
-            l1_source,
-            l2_ws_0: l2_ws_0_url,
-            l2_auth_0: l2_auth_0_url,
-            jwt_secret: jwt_secret_path,
             inbox_address,
             l2_suggested_fee_recipient,
             l1_proposer_private_key,
             taiko_anchor_address,
             client_config,
-            client,
             cleanup_provider,
             snapshot_id,
-            l2_ws_1,
-            l2_auth_1,
         })
     }
 
@@ -164,10 +158,12 @@ impl AsyncTestContext for ShastaEnv {
 #[cfg(test)]
 mod tests {
     use super::{ShastaEnv, SubscriptionSource};
-    use once_cell::sync::Lazy;
-    use std::{env, sync::Mutex};
+    use std::{
+        env,
+        sync::{LazyLock, Mutex},
+    };
 
-    static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
     struct EnvGuard {
         key: &'static str,

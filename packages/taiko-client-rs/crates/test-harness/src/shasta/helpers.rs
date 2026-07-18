@@ -96,14 +96,11 @@ pub(crate) async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) 
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
-pub(crate) async fn create_snapshot(
-    phase: &'static str,
-    provider: &RootProvider,
-) -> Result<String> {
+pub(crate) async fn create_snapshot(provider: &RootProvider) -> Result<String> {
     provider
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await
-        .with_context(|| format!("creating L1 snapshot during {phase}"))
+        .context("creating L1 snapshot")
 }
 
 fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
@@ -170,6 +167,17 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         new_head.header.number == 1,
         "failed to reset L2 head to block 1 (current {})",
         new_head.header.number
+    );
+    // The reset relies on the execution client rebuilding a byte-identical base block;
+    // stale custom-table rows (l1_origin) keep the ORIGINAL hash, so a divergent rebuild
+    // (e.g. a payload-construction change in a new alethia-reth image) would silently
+    // poison every later test. Fail loudly instead.
+    ensure!(
+        new_head.header.hash == block_one.header.hash,
+        "rebuilt base block hash {} != original {}; the L2 execution image no longer \
+         rebuilds block 1 byte-identically — recreate the docker env (rerun `just test`)",
+        new_head.header.hash,
+        block_one.header.hash
     );
 
     Ok(())
@@ -316,10 +324,9 @@ pub async fn verify_anchor_block(client: &Client, anchor_address: Address) -> Re
         .and_then(|txs| txs.first())
         .ok_or_else(|| anyhow::anyhow!("block missing anchor transaction"))?;
 
-    let selectors = [anchorV4Call::SELECTOR];
     ensure!(first_tx.input().len() >= 4, "anchor transaction input too short");
     ensure!(
-        selectors.iter().any(|sel| &first_tx.input()[..sel.len()] == sel.as_slice()),
+        first_tx.input()[..4] == anchorV4Call::SELECTOR,
         "first transaction is not calling an Anchor anchorV4 entrypoint"
     );
     ensure!(

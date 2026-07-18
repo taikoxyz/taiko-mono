@@ -90,8 +90,6 @@ impl BeaconStubServer {
 
     /// Stub seconds per slot (matches the value returned by `/eth/v1/config/spec`).
     pub const SECONDS_PER_SLOT: u64 = 12;
-    /// Stub slots per epoch (matches the value returned by `/eth/v1/config/spec`).
-    pub const SLOTS_PER_EPOCH: u64 = 32;
 
     pub fn endpoint(&self) -> &Url {
         &self.endpoint
@@ -109,10 +107,12 @@ impl BeaconStubServer {
         Self::append_sidecar_data(entry, &sidecar);
     }
 
-    /// Set default blob sidecars to return for ANY slot that has no specific sidecars.
-    /// Useful for tests that don't know the exact slot ahead of time.
+    /// Set the default blob sidecar returned for ANY slot that has no specific sidecars,
+    /// replacing any previously set default. Useful for tests that don't know the exact
+    /// slot ahead of time.
     pub fn set_default_blob_sidecar(&self, sidecar: BlobTransactionSidecarVariant) {
         let mut store = self.blob_sidecars.write().unwrap();
+        store.default.clear();
         Self::append_sidecar_data(&mut store.default, &sidecar);
     }
 
@@ -135,10 +135,20 @@ impl BeaconStubServer {
         }
     }
 
-    pub async fn shutdown(self) -> Result<()> {
+    pub async fn shutdown(mut self) -> Result<()> {
         self.shutdown.notify_waiters();
-        self.handle.await?;
+        // Await by reference: Drop still owns the handle and its abort is a no-op on
+        // the already-finished task.
+        (&mut self.handle).await?;
         Ok(())
+    }
+}
+
+impl Drop for BeaconStubServer {
+    /// Aborts the accept loop so tests that return early (failed `ensure!`, `?`) cannot
+    /// leak a listener that keeps serving stale sidecars while teardown runs.
+    fn drop(&mut self) {
+        self.handle.abort();
     }
 }
 
