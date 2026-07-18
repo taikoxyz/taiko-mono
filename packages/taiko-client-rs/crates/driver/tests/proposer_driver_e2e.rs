@@ -111,6 +111,21 @@ impl SyncerTask {
         }
     }
 
+    /// Races an operation against task termination and an absolute deadline.
+    async fn race_before_deadline<T>(
+        &mut self,
+        operation: impl Future<Output = T>,
+        deadline: tokio::time::Instant,
+        phase: &str,
+    ) -> Result<Option<T>> {
+        tokio::select! {
+            biased;
+            err = self.wait_for_exit(phase) => Err(err),
+            _ = tokio::time::sleep_until(deadline) => Ok(None),
+            result = operation => Ok(Some(result)),
+        }
+    }
+
     /// Cancels the task and waits until its future has been dropped.
     async fn shutdown(mut self) -> Result<()> {
         self.abort_and_wait().await
@@ -324,13 +339,17 @@ async fn wait_for_proposal_processed(
 
     loop {
         let event_syncer = syncer.syncer.clone();
-        let poll_result = syncer
+        let Some(poll_result) = syncer
             .task
-            .race(
+            .race_before_deadline(
                 poll_proposal_processed(&event_syncer, driver_client, baseline, l2_head_before),
+                deadline,
                 "while waiting for proposal processing",
             )
-            .await?;
+            .await?
+        else {
+            return Err(proposal_timeout_error(baseline.proposal_id, &last_error));
+        };
         match poll_result {
             Ok(Some(l2_head)) => return Ok(l2_head),
             Ok(None) => {}
@@ -340,20 +359,23 @@ async fn wait_for_proposal_processed(
             }
         }
 
-        if tokio::time::Instant::now() >= deadline {
-            return Err(anyhow!(
-                "timed out waiting for proposal {} (last error: {last_error:?})",
-                baseline.proposal_id
-            ));
-        }
-        syncer
+        let Some(()) = syncer
             .task
-            .race(
+            .race_before_deadline(
                 tokio::time::sleep(Duration::from_millis(100)),
+                deadline,
                 "while waiting for proposal processing",
             )
-            .await?;
+            .await?
+        else {
+            return Err(proposal_timeout_error(baseline.proposal_id, &last_error));
+        };
     }
+}
+
+/// Builds a timeout error that retains the most recent transient polling failure.
+fn proposal_timeout_error(proposal_id: u64, last_error: &Option<anyhow::Error>) -> anyhow::Error {
+    anyhow!("timed out waiting for proposal {proposal_id} (last error: {last_error:?})")
 }
 
 /// Tests the proposer -> driver event sync flow.
@@ -536,6 +558,15 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
             l2_head_after_second > l2_head_after_first,
             "L2 head should advance after second proposal"
         );
+        let second_block = driver_client
+            .l2_provider
+            .get_block_by_number(l2_head_after_second.into())
+            .await?
+            .context("missing block derived from the second proposal")?;
+        ensure!(
+            second_block.header.beneficiary == env.l2_suggested_fee_recipient,
+            "second block beneficiary must come from the submitted manifest"
+        );
 
         Ok(())
     }
@@ -593,6 +624,15 @@ async fn derivation_pipeline_processes_proposal_with_slot_targeted_blob(
     ensure!(
         l2_head_after >= max_outcome_block,
         "expected L2 head to include derived proposal blocks"
+    );
+    let derived_block = driver_client
+        .l2_provider
+        .get_block_by_number(max_outcome_block.into())
+        .await?
+        .context("missing block derived from slot-targeted blob")?;
+    ensure!(
+        derived_block.header.beneficiary == env.l2_suggested_fee_recipient,
+        "derived block beneficiary must come from the submitted manifest"
     );
 
     verify_anchor_block(&driver_client, env.taiko_anchor_address)
@@ -659,5 +699,27 @@ mod lifecycle_tests {
         ensure!(err.to_string().contains("while waiting for proposal processing"));
 
         Ok(())
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn syncer_operation_cannot_outlive_deadline() -> Result<()> {
+        let mut task = SyncerTask::new(spawn(async {
+            pending::<()>().await;
+            Ok(())
+        }));
+        let started_at = tokio::time::Instant::now();
+        let deadline = started_at + PROPOSAL_PROCESSED_TIMEOUT;
+
+        let result = task
+            .race_before_deadline(
+                pending::<()>(),
+                deadline,
+                "while waiting for proposal processing",
+            )
+            .await?;
+        ensure!(result.is_none(), "operation completed despite remaining pending");
+        ensure!(tokio::time::Instant::now() == deadline, "operation exceeded its deadline");
+
+        task.shutdown().await
     }
 }

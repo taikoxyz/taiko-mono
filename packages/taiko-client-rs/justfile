@@ -35,9 +35,12 @@ test *ARGS:
   ./tests/entrypoint.sh "$@"
 
 # Unit tests only (everything outside `tests/` dirs): no docker env, no contract
-# deploy — sub-minute feedback. Extra args are forwarded to nextest.
+# deploy — sub-minute feedback. The protocol pass also compiles and runs its tests
+# without default features so test-only feature leaks stay covered in CI.
+# Extra args are forwarded to nextest.
 unit *ARGS:
-  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@"
+  cargo nextest run --workspace --exclude bindings --all-features -E '!kind(test)' "$@" && \
+  cargo nextest run -p protocol --no-default-features "$@"
 
 gen_bindings:
   ./script/gen_bindings.sh
