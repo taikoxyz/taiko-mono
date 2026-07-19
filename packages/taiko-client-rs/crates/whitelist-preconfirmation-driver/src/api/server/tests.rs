@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 
 use super::{
     PRECONF_BLOCKS_BODY_LIMIT_BYTES, WhitelistApiServer, WhitelistApiServerConfig,
-    auth::JwtAuth,
+    auth::{JwtAuth, validate_temporal_claims_at},
     http::{RequestBodyReadError, read_request_body},
 };
 use crate::{
@@ -251,6 +251,22 @@ fn unix_now() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock after epoch")
         .as_secs()
+}
+
+#[test]
+fn jwt_auth_truncates_fractional_temporal_claims_to_seconds() {
+    let now = 1_000.1;
+    let fractional_boundary = 1_000.9;
+
+    // golang-jwt's default TimePrecision truncates NumericDates to seconds,
+    // so this becomes `exp == current second` and is already expired.
+    let err = validate_temporal_claims_at(&serde_json::json!({ "exp": fractional_boundary }), now)
+        .expect_err("fractional exp must be truncated");
+    assert!(err.contains("token has expired"), "unexpected error: {err}");
+
+    // The same truncation makes this `nbf == current second`, so it is valid.
+    validate_temporal_claims_at(&serde_json::json!({ "nbf": fractional_boundary }), now)
+        .expect("fractional nbf must be truncated");
 }
 
 #[test]

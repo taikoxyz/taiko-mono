@@ -35,6 +35,20 @@ pub(super) fn is_stale_at_confirmed_tip(block_number: u64, confirmed_tip: Option
     confirmed_tip.is_some_and(|tip| block_number <= tip)
 }
 
+/// Apply the trusted EOS-request marker to an envelope selected for response serving.
+pub(super) fn apply_response_eos_marker(
+    envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    mark_end_of_sequencing: bool,
+) -> Arc<WhitelistExecutionPayloadEnvelope> {
+    if !mark_end_of_sequencing || envelope.end_of_sequencing == Some(true) {
+        return envelope;
+    }
+
+    let mut marked = (*envelope).clone();
+    marked.end_of_sequencing = Some(true);
+    Arc::new(marked)
+}
+
 impl WhitelistPreconfirmationImporter {
     /// Cache a validated envelope and persist EOS epoch mapping when applicable.
     ///
@@ -176,8 +190,8 @@ impl WhitelistPreconfirmationImporter {
     /// publishing it on the response topic.
     ///
     /// Returns the source label of the served envelope, or `None` when the hash
-    /// is not servable. `mark_end_of_sequencing` tags envelopes rebuilt from L2
-    /// so EOS catch-up responses carry the marker.
+    /// is not servable. `mark_end_of_sequencing` tags the selected envelope so
+    /// EOS catch-up responses carry the marker regardless of cache provenance.
     pub(super) async fn serve_envelope_by_hash(
         &mut self,
         hash: B256,
@@ -194,14 +208,12 @@ impl WhitelistPreconfirmationImporter {
                 envelope.signature.is_some_and(|signature| signature != [0u8; 65])
             }) {
             (envelope, "cache_hit")
-        } else if let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? {
-            if mark_end_of_sequencing {
-                envelope.end_of_sequencing = Some(true);
-            }
+        } else if let Some(envelope) = self.build_response_envelope_from_l2(hash).await? {
             (Arc::new(envelope), "l2_hit")
         } else {
             return Ok(None);
         };
+        let envelope = apply_response_eos_marker(envelope, mark_end_of_sequencing);
 
         let confirmed_tip = self.head_l1_origin_block_id().await?;
         if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {

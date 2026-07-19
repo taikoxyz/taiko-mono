@@ -59,17 +59,24 @@ impl JwtAuth {
 /// optional, but a present claim must be a numeric date, a token is expired once
 /// `now >= exp`, and not yet valid while `now < nbf` (no leeway).
 fn validate_temporal_claims(claims: &serde_json::Value) -> std::result::Result<(), String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|err| format!("system clock before unix epoch: {err}"))?
+        .as_secs_f64();
+    validate_temporal_claims_at(claims, now)
+}
+
+/// Validate temporal claims against `now`, expressed as fractional Unix seconds.
+pub(super) fn validate_temporal_claims_at(
+    claims: &serde_json::Value,
+    now: f64,
+) -> std::result::Result<(), String> {
     // Backstop only: jsonwebtoken's own claim parsing already rejects
     // non-object payloads today. Kept so a library change cannot silently turn
     // the temporal checks below into no-ops (Go's MapClaims also rejects).
     if !claims.is_object() {
         return Err("token claims must be a JSON object".to_string());
     }
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|err| format!("system clock before unix epoch: {err}"))?
-        .as_secs_f64();
 
     if let Some(exp) = numeric_date_claim(claims, "exp")? &&
         now >= exp
@@ -84,7 +91,8 @@ fn validate_temporal_claims(claims: &serde_json::Value) -> std::result::Result<(
     Ok(())
 }
 
-/// Read an optional numeric-date claim, rejecting present-but-non-numeric values.
+/// Read an optional numeric-date claim at golang-jwt's default one-second
+/// precision, rejecting present-but-non-numeric values.
 ///
 /// A numeric value of zero is treated as an absent claim: golang-jwt v5's
 /// `MapClaims.parseNumericDate` returns nil for a zero float64 (a holdover
@@ -99,7 +107,7 @@ fn numeric_date_claim(
         Some(value) => {
             let seconds =
                 value.as_f64().ok_or_else(|| format!("claim {name} must be a numeric date"))?;
-            Ok((seconds != 0.0).then_some(seconds))
+            Ok((seconds != 0.0).then_some(seconds.floor()))
         }
     }
 }

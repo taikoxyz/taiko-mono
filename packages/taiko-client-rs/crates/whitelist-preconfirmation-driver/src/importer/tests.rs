@@ -19,7 +19,7 @@ use super::{
     cache_import::{
         CachedImportDisposition, classify_cached_import_error, remove_terminal_cached_envelope,
     },
-    ingress::is_stale_at_confirmed_tip,
+    ingress::{apply_response_eos_marker, is_stale_at_confirmed_tip},
     should_enable_preconf_imports,
     validation::validate_execution_payload_for_preconf,
 };
@@ -34,6 +34,16 @@ fn stale_envelope_requires_written_confirmed_tip() {
     assert!(is_stale_at_confirmed_tip(7, Some(7)));
     assert!(is_stale_at_confirmed_tip(6, Some(7)));
     assert!(!is_stale_at_confirmed_tip(8, Some(7)));
+}
+
+#[test]
+fn eos_catch_up_marker_overrides_cached_response_flag() {
+    let mut envelope = sample_execution_payload_with_transactions(Vec::new());
+    envelope.end_of_sequencing = Some(false);
+
+    let response = apply_response_eos_marker(Arc::new(envelope), true);
+
+    assert_eq!(response.end_of_sequencing, Some(true));
 }
 
 #[test]
