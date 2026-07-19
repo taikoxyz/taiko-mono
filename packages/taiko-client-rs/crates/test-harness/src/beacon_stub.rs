@@ -161,6 +161,7 @@ impl Drop for BeaconStubServer {
     }
 }
 
+/// Handle a single beacon API request against the sidecar store.
 fn handle_beacon_request(
     req: hyper::Request<hyper::body::Incoming>,
     store: &BlobSidecarStore,
@@ -214,4 +215,79 @@ fn handle_beacon_request(
         .header(CONTENT_TYPE, "application/json")
         .body(Full::new(HyperBytes::from(json)))
         .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_eips::eip4844::{Blob, BlobTransactionSidecar, Bytes48};
+    use http_body_util::{BodyExt, Empty};
+
+    use super::*;
+
+    fn sidecar_with_commitment(byte: u8) -> BlobTransactionSidecarVariant {
+        BlobTransactionSidecarVariant::Eip4844(BlobTransactionSidecar {
+            blobs: vec![Blob::repeat_byte(byte)],
+            commitments: vec![Bytes48::repeat_byte(byte)],
+            proofs: vec![Bytes48::repeat_byte(byte)],
+        })
+    }
+
+    /// Fetches the sidecars served for an arbitrary slot and returns their commitments.
+    async fn fetch_default_commitments(server: &BeaconStubServer) -> Vec<String> {
+        let endpoint = server.endpoint();
+        let addr = format!(
+            "{}:{}",
+            endpoint.host_str().expect("stub endpoint has a host"),
+            endpoint.port().expect("stub endpoint has a port")
+        );
+        let stream = tokio::net::TcpStream::connect(addr).await.expect("connect to stub");
+        let io = hyper_util::rt::TokioIo::new(stream);
+        let (mut sender, connection) =
+            hyper::client::conn::http1::handshake(io).await.expect("http1 handshake");
+        spawn(connection);
+
+        let request = hyper::Request::builder()
+            .uri("/eth/v1/beacon/blob_sidecars/0")
+            .header(hyper::header::HOST, "localhost")
+            .body(Empty::<HyperBytes>::new())
+            .expect("build request");
+        let response = sender.send_request(request).await.expect("send request");
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response.into_body().collect().await.expect("read body").to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body).expect("parse body");
+        json["data"]
+            .as_array()
+            .expect("data array")
+            .iter()
+            .map(|entry| entry["kzg_commitment"].as_str().expect("commitment").to_string())
+            .collect()
+    }
+
+    fn expected_commitment(byte: u8) -> String {
+        format!("0x{}", hex::encode([byte; 48]))
+    }
+
+    #[tokio::test]
+    async fn set_default_blob_sidecar_replaces_previous_default() {
+        let server = BeaconStubServer::start().await.expect("start stub");
+        server.set_default_blob_sidecar(sidecar_with_commitment(0xAA));
+        server.set_default_blob_sidecar(sidecar_with_commitment(0xBB));
+
+        let commitments = fetch_default_commitments(&server).await;
+
+        assert_eq!(commitments, vec![expected_commitment(0xBB)]);
+        server.shutdown().await.expect("shutdown stub");
+    }
+
+    #[tokio::test]
+    async fn add_default_blob_sidecar_accumulates() {
+        let server = BeaconStubServer::start().await.expect("start stub");
+        server.set_default_blob_sidecar(sidecar_with_commitment(0xAA));
+        server.add_default_blob_sidecar(sidecar_with_commitment(0xBB));
+
+        let commitments = fetch_default_commitments(&server).await;
+
+        assert_eq!(commitments, vec![expected_commitment(0xAA), expected_commitment(0xBB)]);
+        server.shutdown().await.expect("shutdown stub");
+    }
 }

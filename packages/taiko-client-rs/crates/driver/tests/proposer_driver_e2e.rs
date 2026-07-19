@@ -83,6 +83,13 @@ async fn submit_proposal(env: &ShastaEnv, request: BuiltProposalTx) -> Result<(u
 }
 
 /// Owns the event-sync task until its exit is observed or cancellation completes.
+///
+/// Joining here quiesces the CLIENT side only: an engine RPC the node has already
+/// accepted still completes server-side, and `EventSyncer` detaches its preconf-ingress
+/// consumer (bare `tokio::spawn`), which idles until its channel closes. Setup-time
+/// repairs (`reset_head_l1_origin`, the batch-row baseline, the L1 time ratchet) cover
+/// what such stragglers can write; full environment quiescence needs cooperative
+/// shutdown inside the production event syncer.
 struct SyncerTask {
     handle: Option<JoinHandle<Result<()>>>,
 }
