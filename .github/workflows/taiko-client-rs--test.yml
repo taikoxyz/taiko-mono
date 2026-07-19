@@ -219,7 +219,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: 9
+          version: 9.15.9
           run_install: false
 
       - name: Install Node.js
