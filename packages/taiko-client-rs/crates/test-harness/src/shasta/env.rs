@@ -13,8 +13,8 @@ use test_context::AsyncTestContext;
 use tracing::info;
 
 use super::helpers::{
-    create_snapshot, ensure_preconf_whitelist_active, get_proposal_hash, reset_head_l1_origin,
-    reset_to_base_block, revert_snapshot,
+    align_l1_time_past_l2_head, create_snapshot, ensure_preconf_whitelist_active,
+    get_proposal_hash, reset_head_l1_origin, reset_to_base_block, revert_snapshot,
 };
 
 /// Environment configuration required to exercise Shasta fork integration tests against
@@ -117,6 +117,10 @@ impl ShastaEnv {
         let secondary_client = Client::new(secondary_config).await?;
         reset_to_base_block(&secondary_client).await?;
         reset_head_l1_origin(&secondary_client).await?;
+
+        // Restore the real-chain invariant that L1 time is ahead of every persisted L2
+        // block BEFORE snapshotting, so the ratchet survives this test's revert.
+        align_l1_time_past_l2_head(&client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
         let cleanup_provider = connect_provider_with_timeout(l1_source.url().clone()).await?;

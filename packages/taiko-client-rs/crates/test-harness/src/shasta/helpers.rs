@@ -34,6 +34,40 @@ pub async fn ensure_preconf_whitelist_active(client: &Client) -> Result<()> {
     Ok(())
 }
 
+/// Advances L1 time past the current L2 head's timestamp.
+///
+/// Teardown's `evm_revert` rewinds L1 time, but derived L2 blocks persist across tests,
+/// so a fresh test can observe an L2 head stamped AHEAD of its own L1 timeline — a state
+/// impossible on a real chain. Anything that builds on that head with an L1-head-derived
+/// timestamp (the proposer's engine-mode FCU preview, manifest timestamp validation)
+/// then fails on `attributes.timestamp < parent.timestamp` by a second or two. Ratchet
+/// L1 time forward BEFORE the per-test snapshot so the fix survives teardown and L1 time
+/// stays monotonic across the whole run, mirroring the real chain.
+pub(crate) async fn align_l1_time_past_l2_head(client: &Client) -> Result<()> {
+    let l2_head = client
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest L2 block missing while aligning L1 time"))?;
+    let l1_head = client
+        .l1_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest L1 block missing while aligning L1 time"))?;
+
+    let l2_timestamp = l2_head.header.timestamp;
+    let l1_timestamp = l1_head.header.timestamp;
+    if l1_timestamp > l2_timestamp {
+        return Ok(());
+    }
+
+    let skip = l2_timestamp - l1_timestamp + 1;
+    info!(l1_timestamp, l2_timestamp, skip, "advancing L1 time past persisted L2 head");
+    increase_l1_time(client, skip).await?;
+    mine_l1_blocks(client, 1).await?;
+    Ok(())
+}
+
 /// Checks if the RPC error indicates a geth-style "not found" error.
 fn is_not_found_error(err: &RpcClientError) -> bool {
     match err {
