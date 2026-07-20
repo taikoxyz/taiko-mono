@@ -76,6 +76,11 @@ const DISCOVERED_PEER_REDIAL_THRESHOLD: u64 = 500;
 /// `p2p.redial.period` default.
 const DISCOVERED_PEER_DIAL_PERIOD: Duration = Duration::from_secs(60 * 60);
 
+/// Timeout for establishing and upgrading a single connection, matching op-node's
+/// `p2p.timeout.negotiation` default. Bounds how long a stalled peer can pin an
+/// in-flight dial slot before the failure event releases it.
+const CONNECTION_SETUP_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// Network event emitted by the whitelist preconfirmation gossipsub stack.
 #[derive(Debug)]
 pub(crate) enum NetworkEvent {
@@ -186,10 +191,10 @@ impl NetworkConfig {
     /// Validate peer watermarks and enabled discovery's advertised endpoints.
     ///
     /// Zero low tide disables discovery-driven dialing, but high tide must remain positive
-    /// and no lower than low tide. Enabled discovery rejects zero ports, unspecified or
-    /// multicast advertised IPs, and a listen/advertise IP-family mismatch: ENR
-    /// auto-update is disabled, so the local record would otherwise permanently advertise
-    /// an endpoint peers cannot reach.
+    /// and no lower than low tide. Enabled discovery rejects zero ports, non-unicast
+    /// advertised IPs (unspecified, multicast, or IPv4 broadcast), and a listen/advertise
+    /// IP-family mismatch: ENR auto-update is disabled, so the local record would
+    /// otherwise permanently advertise an endpoint peers cannot reach.
     pub fn validate(&self) -> Result<()> {
         if self.peers_hi == 0 {
             return Err(WhitelistPreconfirmationDriverError::p2p(
@@ -216,7 +221,10 @@ impl NetworkConfig {
                      enabled: it is published in the local node record",
                 ));
             }
-            if advertise.ip().is_unspecified() || advertise.ip().is_multicast() {
+            let advertise_ip = advertise.ip();
+            let is_broadcast =
+                matches!(advertise_ip, std::net::IpAddr::V4(ipv4) if ipv4.is_broadcast());
+            if advertise_ip.is_unspecified() || advertise_ip.is_multicast() || is_broadcast {
                 return Err(WhitelistPreconfirmationDriverError::p2p(
                     "--p2p.advertise.addr must be a routable unicast IP when discovery is \
                      enabled: it is published in the local node record",
@@ -339,7 +347,7 @@ impl WhitelistNetwork {
 
         let topics = Topics::new(chain_id);
         let behaviour = build_behaviour(&local_key, &topics)?;
-        let mut swarm = build_swarm(&local_key, peer_id, behaviour)?;
+        let mut swarm = build_swarm(&local_key, peer_id, behaviour, CONNECTION_SETUP_TIMEOUT)?;
         configure_listen_addr(&mut swarm, listen_addr)?;
 
         let bootnode_dial_addrs = classify_bootnodes(&bootnodes);
@@ -436,10 +444,16 @@ fn start_discovery(
 }
 
 /// Build a libp2p swarm with DNS-over-TCP transport, noise auth, and yamux multiplexing.
+///
+/// `setup_timeout` bounds the whole connection setup (DNS, TCP connect, Noise, Yamux) in
+/// both directions. Without it a peer that accepts TCP and then stalls during
+/// negotiation would keep the dial pending forever, pinning its in-flight slot in the
+/// low-tide budget.
 fn build_swarm(
     local_key: &identity::Keypair,
     peer_id: PeerId,
     behaviour: TaikoBehaviour,
+    setup_timeout: Duration,
 ) -> Result<Swarm<TaikoBehaviour>> {
     let noise_config =
         noise::Config::new(local_key).map_err(WhitelistPreconfirmationDriverError::p2p)?;
@@ -450,6 +464,7 @@ fn build_swarm(
         .upgrade(upgrade::Version::V1Lazy)
         .authenticate(noise_config)
         .multiplex(yamux::Config::default())
+        .timeout(setup_timeout)
         .boxed();
 
     Ok(Swarm::new(transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor()))
@@ -1478,6 +1493,19 @@ mod tests {
     }
 
     #[test]
+    fn network_config_validate_rejects_broadcast_advertise_ip_with_discovery() {
+        let cfg = NetworkConfig {
+            discovery_listen: Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 30304))),
+            advertise_addr: Some(SocketAddr::from((Ipv4Addr::BROADCAST, 4001))),
+            ..Default::default()
+        };
+
+        let err = cfg.validate().expect_err("limited-broadcast advertised IP must fail");
+
+        assert!(err.to_string().contains("routable unicast"));
+    }
+
+    #[test]
     fn network_config_validate_rejects_mismatched_discovery_ip_families() {
         let cfg = NetworkConfig {
             discovery_listen: Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30304))),
@@ -1733,6 +1761,48 @@ mod tests {
             ("unknown", false)
         );
         assert!(failing.is_empty());
+    }
+
+    /// A peer that accepts TCP but never negotiates must fail the dial within the
+    /// transport setup timeout, releasing its in-flight slot instead of pending forever.
+    #[tokio::test]
+    async fn outbound_dial_times_out_against_stalled_peer() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let stalled_addr = listener.local_addr().expect("listener has a local address");
+        // Accept connections and hold the sockets open without ever speaking a protocol.
+        let stall = tokio::spawn(async move {
+            let mut held = Vec::new();
+            loop {
+                let Ok((socket, _)) = listener.accept().await else { return };
+                held.push(socket);
+            }
+        });
+
+        let local_key = identity::Keypair::generate_secp256k1();
+        let peer_id = local_key.public().to_peer_id();
+        let topics = Topics::new(1);
+        let behaviour = build_behaviour(&local_key, &topics).expect("behaviour builds");
+        let mut swarm = build_swarm(&local_key, peer_id, behaviour, Duration::from_millis(250))
+            .expect("swarm builds");
+
+        let addr: Multiaddr =
+            format!("/ip4/127.0.0.1/tcp/{}", stalled_addr.port()).parse().expect("valid multiaddr");
+        swarm.dial(addr).expect("dial should start");
+
+        let error = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let libp2p::swarm::SwarmEvent::OutgoingConnectionError { error, .. } =
+                    swarm.select_next_some().await
+                {
+                    return error;
+                }
+            }
+        })
+        .await
+        .expect("stalled dial must fail within the setup timeout");
+
+        assert!(matches!(error, DialError::Transport(_)), "unexpected dial error: {error:?}");
+        stall.abort();
     }
 }
 
