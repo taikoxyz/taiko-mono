@@ -1,6 +1,7 @@
 //! Event sync logic.
 
 use std::{
+    collections::{HashSet, VecDeque},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -55,6 +56,79 @@ enum ProposalLogResult {
     Processed(Vec<EngineBlockOutcome>),
     /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
     SkippedOrphaned,
+}
+
+/// Stable identity of a proposal log that completed processing in this event-syncer run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ProcessedProposalLog {
+    /// L1 block containing the proposal log.
+    block_number: u64,
+    /// Hash of the L1 block containing the proposal log.
+    block_hash: B256,
+    /// Hash of the transaction that emitted the proposal log.
+    transaction_hash: B256,
+    /// Index of the proposal log within its L1 block.
+    log_index: u64,
+}
+
+impl ProcessedProposalLog {
+    /// Build an identity only when every field required for exact replay matching is present.
+    fn from_log(log: &Log) -> Option<Self> {
+        Some(Self {
+            block_number: log.block_number?,
+            block_hash: log.block_hash?,
+            transaction_hash: log.transaction_hash?,
+            log_index: log.log_index?,
+        })
+    }
+}
+
+/// Proposal logs processed successfully by the current event-syncer run.
+#[derive(Debug, Default)]
+struct ProcessedProposalLogCache {
+    /// Exact identities used to recognize reconnect replays.
+    entries: HashSet<ProcessedProposalLog>,
+    /// Insertion order used to bound memory without affecting correctness.
+    insertion_order: VecDeque<ProcessedProposalLog>,
+}
+
+/// Maximum number of successfully processed proposal logs retained for reconnect deduplication.
+///
+/// Eviction only causes an old log to be derived again; it never causes new log data to be
+/// skipped. The capacity comfortably covers the normal reorg-unsafe proposal window.
+const PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY: usize = 1024;
+
+impl ProcessedProposalLogCache {
+    /// Remove exact proposal-log replays while retaining new or incompletely identified logs.
+    fn retain_unprocessed(&self, logs: Vec<Log>) -> Vec<Log> {
+        logs.into_iter()
+            .filter(|log| {
+                ProcessedProposalLog::from_log(log)
+                    .is_none_or(|identity| !self.entries.contains(&identity))
+            })
+            .collect()
+    }
+
+    /// Record proposal logs only after their whole scanner batch completes successfully.
+    fn record_processed(&mut self, logs: &[Log]) {
+        for identity in logs.iter().filter_map(ProcessedProposalLog::from_log) {
+            if !self.entries.insert(identity) {
+                continue;
+            }
+            self.insertion_order.push_back(identity);
+            if self.entries.len() > PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY &&
+                let Some(oldest) = self.insertion_order.pop_front()
+            {
+                self.entries.remove(&oldest);
+            }
+        }
+    }
+
+    /// Forget processed logs above a reported common ancestor before replaying the new branch.
+    fn invalidate_after(&mut self, common_ancestor: u64) {
+        self.entries.retain(|identity| identity.block_number <= common_ancestor);
+        self.insertion_order.retain(|identity| identity.block_number <= common_ancestor);
+    }
 }
 
 /// Finalized-ancestry proof state for a proposal log's source L1 block.
@@ -1509,6 +1583,11 @@ impl SyncStage for EventSyncer {
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
         let mut scanner_started_once = false;
+        // Keep successful proposal identities across scanner generations. A reconnect rewinds
+        // to a safe overlap, but exact replayed logs do not need another blob fetch and full
+        // derivation. Changed log identities still take the normal reorg path (WLP-INV-004,
+        // WLP-INV-009).
+        let mut processed_proposal_logs = ProcessedProposalLogCache::default();
 
         loop {
             // Every reconnect re-enters historical sync with a fresh scanner, so the previous
@@ -1602,7 +1681,18 @@ impl SyncStage for EventSyncer {
                         }
                         DriverMetrics::event_scanner_batches_total().inc();
                         DriverMetrics::event_proposals_total().inc_by(logs.len() as u64);
+                        let received_log_count = logs.len();
+                        let logs = processed_proposal_logs.retain_unprocessed(logs);
+                        let replayed_log_count = received_log_count - logs.len();
+                        if replayed_log_count > 0 {
+                            info!(
+                                replayed_log_count,
+                                "skipping exact proposal log replays after scanner reconnect"
+                            );
+                        }
+                        let processed_logs = logs.clone();
                         self.process_log_batch(router.clone(), logs).await?;
+                        processed_proposal_logs.record_processed(&processed_logs);
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
@@ -1614,6 +1704,7 @@ impl SyncStage for EventSyncer {
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
+                                processed_proposal_logs.invalidate_after(common_ancestor);
                                 if timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
@@ -1885,6 +1976,48 @@ mod tests {
             log_index: Some(0),
             removed: false,
         }
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_skips_only_exact_reconnect_replay() {
+        let original = sample_proposed_log(1, B256::from([0x11; 32]), B256::from([0x21; 32]));
+        let replacement = sample_proposed_log(1, B256::from([0x12; 32]), B256::from([0x22; 32]));
+        let mut cache = ProcessedProposalLogCache::default();
+
+        cache.record_processed(std::slice::from_ref(&original));
+
+        assert!(cache.retain_unprocessed(vec![original]).is_empty());
+        assert_eq!(cache.retain_unprocessed(vec![replacement]).len(), 1);
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_invalidates_entries_above_reorg_ancestor() {
+        let ancestor_log = sample_proposed_log(10, B256::from([0x31; 32]), B256::from([0x41; 32]));
+        let reorged_log = sample_proposed_log(11, B256::from([0x32; 32]), B256::from([0x42; 32]));
+        let mut cache = ProcessedProposalLogCache::default();
+        cache.record_processed(&[ancestor_log.clone(), reorged_log.clone()]);
+
+        cache.invalidate_after(10);
+
+        assert!(cache.retain_unprocessed(vec![ancestor_log]).is_empty());
+        assert_eq!(cache.retain_unprocessed(vec![reorged_log]).len(), 1);
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_evicts_oldest_entry_at_capacity() {
+        let mut cache = ProcessedProposalLogCache::default();
+        let logs = (1..=PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY as u64 + 1)
+            .map(|id| {
+                sample_proposed_log(id, B256::from(U256::from(id)), B256::from(U256::from(id + 1)))
+            })
+            .collect::<Vec<_>>();
+
+        for log in &logs {
+            cache.record_processed(std::slice::from_ref(log));
+        }
+
+        assert_eq!(cache.retain_unprocessed(vec![logs[0].clone()]).len(), 1);
+        assert!(cache.retain_unprocessed(vec![logs.last().unwrap().clone()]).is_empty());
     }
 
     fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
