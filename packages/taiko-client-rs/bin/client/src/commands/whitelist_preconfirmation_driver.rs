@@ -19,6 +19,25 @@ use crate::{
     flags::{common::CommonArgs, driver::DriverArgs, preconfirmation::PreconfirmationArgs},
 };
 
+/// Validate the configured low- and high-tide peer counts.
+fn validate_peer_watermarks(peers_lo: usize, peers_hi: usize) -> Result<()> {
+    if peers_hi == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "--p2p.peers.hi must be greater than zero",
+        )
+        .into());
+    }
+    if peers_lo > peers_hi {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("--p2p.peers.lo ({peers_lo}) must not exceed --p2p.peers.hi ({peers_hi})"),
+        )
+        .into());
+    }
+    Ok(())
+}
+
 /// Command-line interface for running the whitelist preconfirmation driver.
 #[derive(Parser, Clone, Debug)]
 #[command(about = "Runs the whitelist preconfirmation driver with whitelist P2P protocol")]
@@ -71,16 +90,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
     /// Build P2P configuration from command-line arguments.
     fn build_p2p_config(&self) -> Result<NetworkConfig> {
-        if self.preconf_flags.p2p_peers_lo > self.preconf_flags.p2p_peers_hi {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "--p2p.peers.lo ({}) must not exceed --p2p.peers.hi ({})",
-                    self.preconf_flags.p2p_peers_lo, self.preconf_flags.p2p_peers_hi
-                ),
-            )
-            .into());
-        }
+        validate_peer_watermarks(self.preconf_flags.p2p_peers_lo, self.preconf_flags.p2p_peers_hi)?;
 
         let pre_dial_peers = self
             .preconf_flags
@@ -181,5 +191,21 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_zero_peer_high_tide() {
+        let err = validate_peer_watermarks(0, 0).expect_err("zero high tide must fail");
+        assert!(err.to_string().contains("--p2p.peers.hi must be greater than zero"));
+    }
+
+    #[test]
+    fn allows_zero_peer_low_tide() {
+        validate_peer_watermarks(0, 1).expect("zero low tide must remain valid");
     }
 }

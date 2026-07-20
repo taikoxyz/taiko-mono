@@ -32,6 +32,7 @@ use super::{
         classify_bootnodes, discovered_candidate, parse_discovery_bootnodes, spawn_discovery,
     },
     handler::GossipsubInboundState,
+    peer_manager::PeerWatermarks,
     topics::Topics,
 };
 use crate::{
@@ -281,7 +282,7 @@ impl WhitelistNetwork {
         );
 
         let topics = Topics::new(chain_id);
-        let behaviour = build_behaviour(&local_key, &topics, peers_hi)?;
+        let behaviour = build_behaviour(&local_key, &topics)?;
         let mut swarm = build_swarm(&local_key, peer_id, behaviour)?;
         configure_listen_addr(&mut swarm, listen_addr)?;
 
@@ -314,7 +315,9 @@ impl WhitelistNetwork {
                 peer_redialing: Some(DISCOVERED_PEER_REDIAL_THRESHOLD),
                 dial_period: DISCOVERED_PEER_DIAL_PERIOD,
             }),
+            peer_watermarks: PeerWatermarks::new(peers_hi),
             peers_lo,
+            peers_hi,
         };
 
         let handle = tokio::spawn(async move { runtime.run().await });
@@ -539,8 +542,12 @@ struct NetworkRuntime {
     discovery_rx: Option<mpsc::Receiver<discv5::Enr>>,
     /// Dial gate for discovered peers: redial thresholds and duplicate-dial suppression.
     gater: ConnectionGater,
+    /// Distinct-peer high-tide state, including configured-peer protection.
+    peer_watermarks: PeerWatermarks,
     /// Low-tide peer target: discovered peers are dialed while below this count.
     peers_lo: usize,
+    /// High-tide peer threshold used for pruning and status logs.
+    peers_hi: usize,
 }
 
 impl NetworkRuntime {
@@ -592,10 +599,10 @@ impl NetworkRuntime {
     /// Handle one discovered ENR: dial it while below the low-tide peer target.
     ///
     /// Mirrors kona-node's discovery-to-gossip wiring: the connection gate suppresses
-    /// duplicate dials and enforces redial thresholds, and the swarm's connection
-    /// limits cap the total at the high-tide bound. The low-tide guard matches
-    /// op-node's `connectGoal`: once enough peers are connected, discovered ENRs are
-    /// dropped (discovery keeps emitting fresh ones, so nothing is lost).
+    /// duplicate dials and enforces redial thresholds. The runtime prunes excess distinct
+    /// peers above high tide. The low-tide guard matches op-node's `connectGoal`: once
+    /// enough peers are connected, discovered ENRs are dropped (discovery keeps emitting
+    /// fresh ones, so nothing is lost).
     fn handle_discovered_enr(&mut self, enr: &discv5::Enr) {
         let connected = self.swarm.connected_peers().count();
         if connected >= self.peers_lo {
@@ -785,6 +792,7 @@ impl NetworkRuntime {
             connected_configured_addr_count = self.connected_configured_addrs.len(),
             discovery_enabled = self.discovery_rx.is_some(),
             peers_lo = self.peers_lo,
+            peers_hi = self.peers_hi,
             gossip_topic_peer_count = gossip_topic_peers,
             preconf_blocks_mesh_peers,
             request_mesh_peers,
@@ -808,11 +816,28 @@ impl NetworkRuntime {
                 debug!(%address, "whitelist preconfirmation network listening");
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
-                self.track_configured_connection(endpoint.get_remote_address());
+                let remote_addr = endpoint.get_remote_address();
+                if self.track_configured_connection(remote_addr) {
+                    self.peer_watermarks.protect(peer_id);
+                }
+                let connected = self.swarm.connected_peers().copied().collect::<Vec<_>>();
+                if let Some(peer_to_prune) = self.peer_watermarks.peer_to_prune(connected, peer_id)
+                {
+                    self.peer_watermarks.mark_disconnecting(peer_to_prune);
+                    if self.swarm.disconnect_peer_id(peer_to_prune).is_err() {
+                        self.peer_watermarks.disconnected(&peer_to_prune);
+                    } else {
+                        info!(
+                            %peer_to_prune,
+                            peers_hi = self.peers_hi,
+                            "pruning unprotected peer above high tide"
+                        );
+                    }
+                }
                 WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
                     self.swarm.connected_peers().count(),
                 );
-                debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer connected");
+                debug!(%peer_id, %remote_addr, "peer connected");
             }
             libp2p::swarm::SwarmEvent::ConnectionClosed {
                 peer_id,
@@ -824,6 +849,7 @@ impl NetworkRuntime {
                     self.connected_configured_addrs.remove(endpoint.get_remote_address());
                     // Allow the gate to redial this peer if discovery surfaces it again.
                     self.gater.remove_dial(&peer_id);
+                    self.peer_watermarks.disconnected(&peer_id);
                 }
                 WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
                     self.swarm.connected_peers().count(),
@@ -845,11 +871,13 @@ impl NetworkRuntime {
         Ok(())
     }
 
-    /// Track a newly connected configured address for duplicate-dial suppression.
-    fn track_configured_connection(&mut self, remote_addr: &Multiaddr) {
-        if self.configured_peer_addrs.iter().any(|peer| &peer.addr == remote_addr) {
+    /// Track a newly connected configured address and report whether it is configured.
+    fn track_configured_connection(&mut self, remote_addr: &Multiaddr) -> bool {
+        let configured = self.configured_peer_addrs.iter().any(|peer| &peer.addr == remote_addr);
+        if configured {
             self.connected_configured_addrs.insert(remote_addr.clone());
         }
+        configured
     }
 
     /// Handle one gossipsub event.

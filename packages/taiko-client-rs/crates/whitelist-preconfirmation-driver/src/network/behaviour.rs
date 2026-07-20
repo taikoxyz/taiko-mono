@@ -13,7 +13,7 @@ use crate::error::{Result, WhitelistPreconfirmationDriverError};
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "BehaviourEvent")]
 pub(crate) struct TaikoBehaviour {
-    /// Hard ceiling on established connections (the high-tide peer count).
+    /// Hard ceiling of one established connection per peer.
     pub(crate) connection_limits: connection_limits::Behaviour,
     /// Gossip transport for whitelist preconfirmation topics.
     pub(crate) gossipsub: gossipsub::Behaviour,
@@ -57,19 +57,14 @@ impl From<std::convert::Infallible> for BehaviourEvent {
 }
 
 /// Build the complete TaikoBehaviour with gossipsub subscribed to all topics.
-///
-/// `max_peers` caps established connections (inbound and outbound combined), acting as
-/// the high-tide bound of the peer-count band; excess connection attempts are denied.
 pub(crate) fn build_behaviour(
     local_key: &identity::Keypair,
     topics: &Topics,
-    max_peers: usize,
 ) -> Result<TaikoBehaviour> {
     let mut gossipsub = build_gossipsub()?;
     topics.subscribe(&mut gossipsub).map_err(WhitelistPreconfirmationDriverError::p2p)?;
 
-    let limits = ConnectionLimits::default()
-        .with_max_established(Some(u32::try_from(max_peers).unwrap_or(u32::MAX)));
+    let limits = ConnectionLimits::default().with_max_established_per_peer(Some(1));
 
     Ok(TaikoBehaviour {
         connection_limits: connection_limits::Behaviour::new(limits),
@@ -80,4 +75,62 @@ pub(crate) fn build_behaviour(
             local_key.public(),
         )),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use libp2p::{
+        Multiaddr, PeerId,
+        core::{ConnectedPoint, Endpoint},
+        swarm::{ConnectionId, NetworkBehaviour, behaviour},
+    };
+
+    use super::*;
+
+    #[test]
+    fn limits_established_connections_per_peer() {
+        let key = identity::Keypair::generate_secp256k1();
+        let topics = Topics::new(1);
+        let mut limits = build_behaviour(&key, &topics).expect("behaviour").connection_limits;
+        let peer = PeerId::random();
+        let local: Multiaddr = "/ip4/127.0.0.1/tcp/4001".parse().expect("local");
+        let remote: Multiaddr = "/ip4/127.0.0.1/tcp/4002".parse().expect("remote");
+        let endpoint = ConnectedPoint::Dialer {
+            address: remote.clone(),
+            role_override: Endpoint::Dialer,
+            port_use: libp2p::core::transport::PortUse::Reuse,
+        };
+        let first = ConnectionId::new_unchecked(1);
+        assert!(
+            limits
+                .handle_established_outbound_connection(
+                    first,
+                    peer,
+                    &remote,
+                    Endpoint::Dialer,
+                    libp2p::core::transport::PortUse::Reuse,
+                )
+                .is_ok()
+        );
+        limits.on_swarm_event(behaviour::FromSwarm::ConnectionEstablished(
+            behaviour::ConnectionEstablished {
+                peer_id: peer,
+                connection_id: first,
+                endpoint: &endpoint,
+                failed_addresses: &[],
+                other_established: 0,
+            },
+        ));
+        assert!(
+            limits
+                .handle_established_outbound_connection(
+                    ConnectionId::new_unchecked(2),
+                    peer,
+                    &local,
+                    Endpoint::Dialer,
+                    libp2p::core::transport::PortUse::Reuse,
+                )
+                .is_err()
+        );
+    }
 }

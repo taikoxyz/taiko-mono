@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use libp2p::PeerId;
 
+/// Tracks the distinct-peer high tide and peers exempt from pruning.
 #[derive(Debug)]
 pub(crate) struct PeerWatermarks {
     /// Maximum number of ordinary distinct peers retained by the runtime.
