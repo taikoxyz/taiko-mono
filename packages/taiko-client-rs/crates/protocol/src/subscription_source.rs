@@ -23,10 +23,33 @@ const HTTP_SUBSCRIPTION_POLL_INTERVAL: Duration = Duration::from_secs(1);
 /// `DEFAULT_HTTP_TIMEOUT`. Without it a black-holed endpoint stalls every caller forever.
 const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 
+/// Total per-request timeout for the event scanner's HTTP provider.
+///
+/// Deliberately above `HTTP_REQUEST_TIMEOUT`: geth blocks `eth_getLogs` while rendering the
+/// filtermaps log-index head (13-21s observed on Hoodi archive nodes), and a poll canceled by
+/// a tight client timeout kills the scanner generation — closing preconfirmation ingress for
+/// the whole reconnect-and-replay window. Waiting out a slow-but-alive answer is strictly
+/// cheaper than that.
+const SCANNER_HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Connect timeout for the event scanner's HTTP provider, keeping dead-endpoint detection
+/// fast despite the long total request timeout.
+const SCANNER_HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Build a reqwest HTTP client with a bounded total request timeout.
 fn http_client_with_timeout() -> alloy::transports::http::reqwest::Client {
     alloy::transports::http::reqwest::Client::builder()
         .timeout(HTTP_REQUEST_TIMEOUT)
+        .build()
+        .expect("http client")
+}
+
+/// Build the event scanner's reqwest HTTP client: tolerant of slow responses, quick to fail
+/// on unreachable endpoints.
+fn scanner_http_client_with_timeout() -> alloy::transports::http::reqwest::Client {
+    alloy::transports::http::reqwest::Client::builder()
+        .timeout(SCANNER_HTTP_REQUEST_TIMEOUT)
+        .connect_timeout(SCANNER_HTTP_CONNECT_TIMEOUT)
         .build()
         .expect("http client")
 }
@@ -145,7 +168,13 @@ impl SubscriptionSource {
     async fn to_scanner_provider(
         &self,
     ) -> Result<robust_provider::RobustProvider<Ethereum>, SubscriptionSourceError> {
-        let provider = self.to_provider().await?;
+        // HTTP scanning gets its own client with a longer total timeout (see
+        // `SCANNER_HTTP_REQUEST_TIMEOUT`); WebSocket sources reuse the shared path.
+        let provider = match self {
+            SubscriptionSource::Http(url) => ProviderBuilder::new()
+                .connect_reqwest(scanner_http_client_with_timeout(), url.clone()),
+            SubscriptionSource::Ws(_) => self.to_provider().await?,
+        };
         let builder = RobustProviderBuilder::new(provider);
         let builder = if self.is_http() {
             builder.allow_http_subscriptions(true).poll_interval(HTTP_SUBSCRIPTION_POLL_INTERVAL)

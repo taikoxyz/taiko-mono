@@ -326,6 +326,21 @@ fn resolve_reconnect_start_block(
         .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
 }
 
+/// Base delay before the first reconnect attempt after a failed scanner generation.
+const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
+
+/// Compute the scanner reconnect delay for the given consecutive-failure count.
+///
+/// Delays double from [`SCANNER_RECONNECT_BACKOFF_BASE`] per consecutive failed scanner
+/// generation and cap at the configured retry interval: a transient L1 hiccup (a single
+/// canceled poll) reconnects within a second instead of paying the full flat interval, while
+/// a persistent outage settles at the configured pace.
+fn scanner_reconnect_delay(retry_interval: Duration, consecutive_failures: u32) -> Duration {
+    // 2^6 = 64s already exceeds any realistic cap; bounding the shift avoids overflow.
+    let doublings = consecutive_failures.min(6);
+    SCANNER_RECONNECT_BACKOFF_BASE.saturating_mul(1u32 << doublings).min(retry_interval)
+}
+
 /// Return whether a preconfirmation target is at or below the confirmed tip.
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
@@ -1588,6 +1603,9 @@ impl SyncStage for EventSyncer {
         // derivation. Changed log identities still take the normal reorg path (WLP-INV-004,
         // WLP-INV-009).
         let mut processed_proposal_logs = ProcessedProposalLogCache::default();
+        // Consecutive failed scanner generations since the last live transition, driving the
+        // exponential reconnect backoff in `scanner_reconnect_delay`.
+        let mut consecutive_scanner_failures: u32 = 0;
 
         loop {
             // Every reconnect re-enters historical sync with a fresh scanner, so the previous
@@ -1607,13 +1625,18 @@ impl SyncStage for EventSyncer {
                     let err =
                         super::retryable_after_first_success(scanner_started_once, err.to_string())
                             .map_err(SyncError::EventScannerInit)?;
+                    let delay = scanner_reconnect_delay(
+                        self.cfg.retry_interval,
+                        consecutive_scanner_failures,
+                    );
+                    consecutive_scanner_failures = consecutive_scanner_failures.saturating_add(1);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
-                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        retry_after_secs = delay.as_secs_f64(),
                         "failed to initialize event scanner; retrying"
                     );
-                    sleep(self.cfg.retry_interval).await;
+                    sleep(delay).await;
                     continue;
                 }
             };
@@ -1630,13 +1653,18 @@ impl SyncStage for EventSyncer {
                     let err =
                         super::retryable_after_first_success(scanner_started_once, err.to_string())
                             .map_err(SyncError::EventScannerInit)?;
+                    let delay = scanner_reconnect_delay(
+                        self.cfg.retry_interval,
+                        consecutive_scanner_failures,
+                    );
+                    consecutive_scanner_failures = consecutive_scanner_failures.saturating_add(1);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
-                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        retry_after_secs = delay.as_secs_f64(),
                         "failed to start event scanner; retrying"
                     );
-                    sleep(self.cfg.retry_interval).await;
+                    sleep(delay).await;
                     continue;
                 }
             };
@@ -1702,6 +1730,9 @@ impl SyncStage for EventSyncer {
                                 // readiness must also pass before ingress
                                 // opens.
                                 scanner_live = true;
+                                // A completed replay proves the L1 endpoint healthy again, so
+                                // the next reconnect starts from the base backoff delay.
+                                consecutive_scanner_failures = 0;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
                                 processed_proposal_logs.invalidate_after(common_ancestor);
@@ -1777,12 +1808,15 @@ impl SyncStage for EventSyncer {
                     startup_anchor_block_number,
                 ));
             }
+            let delay =
+                scanner_reconnect_delay(self.cfg.retry_interval, consecutive_scanner_failures);
+            consecutive_scanner_failures = consecutive_scanner_failures.saturating_add(1);
             warn!(
                 start_tag = ?reconnect_start_tag,
-                retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                retry_after_secs = delay.as_secs_f64(),
                 "event scanner stream ended; reconnecting"
             );
-            sleep(self.cfg.retry_interval).await;
+            sleep(delay).await;
         }
     }
 }
@@ -2018,6 +2052,28 @@ mod tests {
 
         assert_eq!(cache.retain_unprocessed(vec![logs[0].clone()]).len(), 1);
         assert!(cache.retain_unprocessed(vec![logs.last().unwrap().clone()]).is_empty());
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_backs_off_exponentially_to_the_configured_cap() {
+        let cap = Duration::from_secs(12);
+        let delays: Vec<u64> =
+            (0..7).map(|failures| scanner_reconnect_delay(cap, failures).as_secs()).collect();
+        assert_eq!(delays, vec![1, 2, 4, 8, 12, 12, 12]);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_never_exceeds_a_small_configured_interval() {
+        let cap = Duration::from_secs(2);
+        assert_eq!(scanner_reconnect_delay(cap, 0), Duration::from_secs(1));
+        assert_eq!(scanner_reconnect_delay(cap, 5), cap);
+        assert_eq!(scanner_reconnect_delay(Duration::ZERO, 3), Duration::ZERO);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_saturates_on_large_failure_counts() {
+        let cap = Duration::from_secs(12);
+        assert_eq!(scanner_reconnect_delay(cap, u32::MAX), cap);
     }
 
     fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
