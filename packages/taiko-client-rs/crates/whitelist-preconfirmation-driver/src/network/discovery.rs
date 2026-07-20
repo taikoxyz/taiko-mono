@@ -195,7 +195,7 @@ fn discovery_signing_key(local_key: &identity::Keypair) -> Result<k256::ecdsa::S
 /// Returns `None` for the local node itself and for ENRs without a nonzero dialable TCP
 /// socket or secp256k1 key.
 pub(crate) fn discovered_candidate(enr: &discv5::Enr, local_peer_id: &PeerId) -> Option<Multiaddr> {
-    let addr = enr_to_multiaddr(enr).filter(has_nonzero_tcp_port)?;
+    let addr = enr_dialable_multiaddr(enr)?;
     let peer_id = addr.iter().find_map(|protocol| match protocol {
         Protocol::P2p(peer_id) => Some(peer_id),
         _ => None,
@@ -204,14 +204,37 @@ pub(crate) fn discovered_candidate(enr: &discv5::Enr, local_peer_id: &PeerId) ->
     (&peer_id != local_peer_id).then_some(addr)
 }
 
+/// Convert an ENR into an identity-pinned multiaddr using its first nonzero TCP socket.
+///
+/// [`enr_to_multiaddr`] selects the IPv4 socket even when its TCP port is zero, which
+/// would discard a dialable IPv6 endpoint on dual-stack records; fall back to a nonzero
+/// IPv6 socket in that case, keeping the peer id pinned by the record's key.
+fn enr_dialable_multiaddr(enr: &discv5::Enr) -> Option<Multiaddr> {
+    let pinned = enr_to_multiaddr(enr)?;
+    if has_nonzero_tcp_port(&pinned) {
+        return Some(pinned);
+    }
+
+    let peer_id = pinned.iter().find_map(|protocol| match protocol {
+        Protocol::P2p(peer_id) => Some(peer_id),
+        _ => None,
+    })?;
+    let socket = enr.tcp6_socket().filter(|socket| socket.port() != 0)?;
+
+    let mut addr = Multiaddr::from(*socket.ip());
+    addr.push(Protocol::Tcp(socket.port()));
+    addr.push(Protocol::P2p(peer_id));
+    Some(addr)
+}
+
 /// Extract a dialable, identity-pinned TCP multiaddr from an `enr:` bootnode entry.
 ///
-/// Delegates to [`enr_to_multiaddr`], which appends the libp2p peer id derived from the
-/// record's secp256k1 key so dials verify the remote identity. Records without a nonzero
-/// TCP port or secp256k1 key are rejected.
+/// Delegates to [`enr_dialable_multiaddr`], which appends the libp2p peer id derived
+/// from the record's secp256k1 key so dials verify the remote identity. Records without
+/// a nonzero TCP port or secp256k1 key are rejected.
 fn parse_enr_tcp_addr(value: &str) -> Option<Multiaddr> {
     let enr = value.parse::<discv5::Enr>().ok()?;
-    enr_to_multiaddr(&enr).filter(has_nonzero_tcp_port)
+    enr_dialable_multiaddr(&enr)
 }
 
 /// Parse an `enode://` URL into an identity-pinned multiaddr for direct dialing.
@@ -236,7 +259,7 @@ pub(crate) fn parse_enode_url(url: &str) -> Option<Multiaddr> {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
+    use std::net::{Ipv4Addr, Ipv6Addr};
 
     use super::*;
 
@@ -449,6 +472,36 @@ mod tests {
         let other = identity::Keypair::generate_secp256k1().public().to_peer_id();
 
         assert_eq!(discovered_candidate(&enr, &other), None, "tcp/0 records are undialable");
+    }
+
+    #[test]
+    fn enr_with_zero_ipv4_tcp_falls_back_to_ipv6_socket() {
+        let key = enr::k256::ecdsa::SigningKey::from_slice(&TEST_SECRET).expect("valid key");
+        let enr_str = enr::Enr::builder()
+            .ip4(Ipv4Addr::new(10, 0, 0, 9))
+            .tcp4(0)
+            .ip6(Ipv6Addr::LOCALHOST)
+            .tcp6(9222)
+            .build(&key)
+            .expect("valid enr")
+            .to_base64();
+        let expected =
+            format!("/ip6/::1/tcp/9222/p2p/{}", sample_libp2p_keypair().public().to_peer_id());
+
+        let dial_addrs = classify_bootnodes(std::slice::from_ref(&enr_str));
+        assert_eq!(
+            dial_addrs.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            vec![expected.clone()],
+            "dual-stack records with tcp4/0 must fall back to the IPv6 socket"
+        );
+
+        let enr = enr_str.parse::<discv5::Enr>().expect("valid enr");
+        let other = identity::Keypair::generate_secp256k1().public().to_peer_id();
+        assert_eq!(
+            discovered_candidate(&enr, &other).map(|addr| addr.to_string()),
+            Some(expected),
+            "discovered candidates must use the nonzero IPv6 socket"
+        );
     }
 
     /// Full startup smoke test: the service binds a loopback UDP socket and publishes a

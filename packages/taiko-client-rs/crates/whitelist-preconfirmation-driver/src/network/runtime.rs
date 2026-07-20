@@ -4,7 +4,7 @@
 //! runtime event loop, gossipsub event handling, and decode/metrics helpers.
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     net::SocketAddr,
     sync::Arc,
     time::{Duration, Instant},
@@ -13,8 +13,13 @@ use std::{
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
-    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity,
-    multiaddr::Protocol, noise, swarm::DialError, tcp, yamux,
+    Multiaddr, PeerId, Swarm, Transport,
+    core::upgrade,
+    dns, gossipsub, identity,
+    multiaddr::Protocol,
+    noise,
+    swarm::{ConnectionId, DialError, dial_opts::DialOpts},
+    tcp, yamux,
 };
 use tokio::{
     sync::mpsc,
@@ -181,9 +186,10 @@ impl NetworkConfig {
     /// Validate peer watermarks and enabled discovery's advertised endpoints.
     ///
     /// Zero low tide disables discovery-driven dialing, but high tide must remain positive
-    /// and no lower than low tide. Enabled discovery rejects UDP and advertised TCP port
-    /// zero because ENR auto-update is disabled and the local record would otherwise
-    /// advertise an undialable port permanently.
+    /// and no lower than low tide. Enabled discovery rejects zero ports, unspecified or
+    /// multicast advertised IPs, and a listen/advertise IP-family mismatch: ENR
+    /// auto-update is disabled, so the local record would otherwise permanently advertise
+    /// an endpoint peers cannot reach.
     pub fn validate(&self) -> Result<()> {
         if self.peers_hi == 0 {
             return Err(WhitelistPreconfirmationDriverError::p2p(
@@ -201,13 +207,27 @@ impl NetworkConfig {
                 "--p2p.discovery.addr UDP port must be greater than zero when discovery is enabled",
             ));
         }
-        if self.discovery_listen.is_some() &&
-            self.advertise_addr.is_some_and(|addr| addr.port() == 0)
+        if let Some(listen) = self.discovery_listen &&
+            let Some(advertise) = self.advertise_addr
         {
-            return Err(WhitelistPreconfirmationDriverError::p2p(
-                "--p2p.advertise.addr TCP port must be greater than zero when discovery is \
-                 enabled: it is published in the local node record",
-            ));
+            if advertise.port() == 0 {
+                return Err(WhitelistPreconfirmationDriverError::p2p(
+                    "--p2p.advertise.addr TCP port must be greater than zero when discovery is \
+                     enabled: it is published in the local node record",
+                ));
+            }
+            if advertise.ip().is_unspecified() || advertise.ip().is_multicast() {
+                return Err(WhitelistPreconfirmationDriverError::p2p(
+                    "--p2p.advertise.addr must be a routable unicast IP when discovery is \
+                     enabled: it is published in the local node record",
+                ));
+            }
+            if advertise.is_ipv4() != listen.is_ipv4() {
+                return Err(WhitelistPreconfirmationDriverError::p2p(
+                    "--p2p.advertise.addr and --p2p.discovery.addr must use the same IP family: \
+                     dual-stack discovery is not supported",
+                ));
+            }
         }
 
         Ok(())
@@ -356,6 +376,7 @@ impl WhitelistNetwork {
                 peer_redialing: Some(DISCOVERED_PEER_REDIAL_THRESHOLD),
                 dial_period: DISCOVERED_PEER_DIAL_PERIOD,
             }),
+            discovered_dials: HashMap::new(),
             peer_watermarks,
             peers_lo,
             peers_hi,
@@ -601,6 +622,10 @@ struct NetworkRuntime {
     discovery_rx: Option<mpsc::Receiver<discv5::Enr>>,
     /// Dial gate for discovered peers: redial thresholds and duplicate-dial suppression.
     gater: ConnectionGater,
+    /// In-flight discovered dials by connection id, so gate cleanup is scoped to the
+    /// dial that actually established or failed rather than keyed by peer id (configured
+    /// dials may target the same pinned peer concurrently).
+    discovered_dials: HashMap<ConnectionId, PeerId>,
     /// Distinct-peer high-tide state, including configured-peer protection.
     peer_watermarks: PeerWatermarks,
     /// Low-tide peer target: discovered peers are dialed while below this count.
@@ -698,10 +723,15 @@ impl NetworkRuntime {
         }
 
         self.gater.dialing(&addr);
-        match self.swarm.dial(addr.clone()) {
+        // Capture the connection id up front so this dial's establishment or failure can
+        // be matched back to the gate entry it opened.
+        let dial_opts = DialOpts::from(addr.clone());
+        let connection_id = dial_opts.connection_id();
+        match self.swarm.dial(dial_opts) {
             Ok(()) => {
                 debug!(%addr, %peer_id, "dialing discovered peer");
                 self.gater.dialed(&addr);
+                self.discovered_dials.insert(connection_id, peer_id);
                 WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("dialed");
                 WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt("discovered", "ok");
             }
@@ -880,8 +910,17 @@ impl NetworkRuntime {
             libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
                 debug!(%address, "whitelist preconfirmation network listening");
             }
-            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
-                self.handle_connection_established(peer_id, endpoint.get_remote_address());
+            libp2p::swarm::SwarmEvent::ConnectionEstablished {
+                peer_id,
+                connection_id,
+                endpoint,
+                ..
+            } => {
+                self.handle_connection_established(
+                    peer_id,
+                    connection_id,
+                    endpoint.get_remote_address(),
+                );
             }
             libp2p::swarm::SwarmEvent::ConnectionClosed {
                 peer_id,
@@ -891,8 +930,6 @@ impl NetworkRuntime {
             } => {
                 if num_established == 0 {
                     self.connected_configured_addrs.remove(endpoint.get_remote_address());
-                    // Allow the gate to redial this peer if discovery surfaces it again.
-                    self.gater.remove_dial(&peer_id);
                     self.peer_watermarks.disconnected(&peer_id);
                 }
                 WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
@@ -900,8 +937,13 @@ impl NetworkRuntime {
                 );
                 debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer disconnected");
             }
-            libp2p::swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                self.handle_outgoing_connection_error(peer_id, error);
+            libp2p::swarm::SwarmEvent::OutgoingConnectionError {
+                connection_id,
+                peer_id,
+                error,
+                ..
+            } => {
+                self.handle_outgoing_connection_error(connection_id, peer_id, error);
             }
             libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ignored) => {}
             other => {
@@ -914,11 +956,21 @@ impl NetworkRuntime {
     /// Handle a newly established connection: clear in-flight dial state, protect and
     /// track configured peers, prune unprotected peers above high tide, and refresh the
     /// connected-peer gauge.
-    fn handle_connection_established(&mut self, peer_id: PeerId, remote_addr: &Multiaddr) {
-        // The dial is no longer in flight: keep the gate's `current_dials` an accurate
-        // in-flight set for low-tide accounting. Redial suppression of connected peers is
-        // handled by the `is_connected` check before discovered dials.
-        self.gater.remove_dial(&peer_id);
+    fn handle_connection_established(
+        &mut self,
+        peer_id: PeerId,
+        connection_id: ConnectionId,
+        remote_addr: &Multiaddr,
+    ) {
+        // Scope gate cleanup to the discovered dial that produced this connection: an
+        // unrelated configured or inbound connection for the same peer must not clear a
+        // still-pending discovered dial's in-flight marker. This keeps `current_dials`
+        // an accurate in-flight set for low-tide accounting; redial suppression of
+        // connected peers is handled by the `is_connected` check before discovered
+        // dials.
+        if self.discovered_dials.remove(&connection_id).is_some() {
+            self.gater.remove_dial(&peer_id);
+        }
         let exact_configured_addr = self.track_configured_connection(remote_addr);
         if exact_configured_addr && self.failing_configured_addrs.remove(remote_addr) {
             info!(%peer_id, %remote_addr, "configured peer address recovered");
@@ -961,14 +1013,36 @@ impl NetworkRuntime {
     /// timeouts and refusals arrive later as `OutgoingConnectionError` events. Configured
     /// addresses warn only when transitioning into the failing state, which is cleared
     /// when that configured address establishes a connection again. A peer answering a
-    /// pinned address with the wrong identity gets the same edge-triggered warning: for
-    /// configured peers that is an operator-visible misconfiguration or endpoint
-    /// takeover, not routine churn.
-    fn handle_outgoing_connection_error(&mut self, peer_id: Option<PeerId>, error: DialError) {
-        // Clear the in-flight dial first so the gate can retry the peer later regardless
-        // of how the error is classified below.
-        if let Some(peer_id) = peer_id.as_ref() {
-            self.gater.remove_dial(peer_id);
+    /// pinned address with the wrong identity — or an address that resolves back to this
+    /// node — gets the same edge-triggered warning: for configured peers those are
+    /// operator-visible misconfigurations, not routine churn.
+    fn handle_outgoing_connection_error(
+        &mut self,
+        connection_id: ConnectionId,
+        peer_id: Option<PeerId>,
+        error: DialError,
+    ) {
+        // Scope gate cleanup to the discovered dial that actually failed: an unrelated
+        // configured dial failing for the same pinned peer must not clear a pending
+        // discovered dial's in-flight marker.
+        if let Some(discovered_peer) = self.discovered_dials.remove(&connection_id) {
+            self.gater.remove_dial(&discovered_peer);
+        }
+
+        if let DialError::LocalPeerId { address } = &error {
+            let (source, first_failure) = note_dial_failure(
+                &self.configured_peer_addrs,
+                &self.connected_configured_addrs,
+                &mut self.failing_configured_addrs,
+                address,
+            );
+            WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, "self_dial");
+            if first_failure {
+                warn!(%address, source, "configured address dials back to this node");
+            } else {
+                debug!(%address, source, "dial address resolves to this node");
+            }
+            return;
         }
 
         if let DialError::WrongPeerId { obtained, address } = &error {
@@ -1388,6 +1462,43 @@ mod tests {
         let err = cfg.validate().expect_err("enabled discovery with advertised TCP/0 must fail");
 
         assert!(err.to_string().contains("--p2p.advertise.addr"));
+    }
+
+    #[test]
+    fn network_config_validate_rejects_unspecified_advertise_ip_with_discovery() {
+        let cfg = NetworkConfig {
+            discovery_listen: Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 30304))),
+            advertise_addr: Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 4001))),
+            ..Default::default()
+        };
+
+        let err = cfg.validate().expect_err("unspecified advertised IP must fail");
+
+        assert!(err.to_string().contains("routable unicast"));
+    }
+
+    #[test]
+    fn network_config_validate_rejects_mismatched_discovery_ip_families() {
+        let cfg = NetworkConfig {
+            discovery_listen: Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30304))),
+            advertise_addr: Some(SocketAddr::from((Ipv6Addr::LOCALHOST, 4001))),
+            ..Default::default()
+        };
+
+        let err = cfg.validate().expect_err("mixed listen/advertise IP families must fail");
+
+        assert!(err.to_string().contains("same IP family"));
+    }
+
+    #[test]
+    fn network_config_validate_allows_matching_advertise_endpoint() {
+        let cfg = NetworkConfig {
+            discovery_listen: Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30304))),
+            advertise_addr: Some(SocketAddr::from(([203, 0, 113, 10], 4001))),
+            ..Default::default()
+        };
+
+        cfg.validate().expect("routable matching-family advertise endpoint must pass");
     }
 
     #[test]
