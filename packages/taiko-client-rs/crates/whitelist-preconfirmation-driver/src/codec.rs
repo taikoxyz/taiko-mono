@@ -80,9 +80,14 @@ pub(crate) fn block_signing_hash(chain_id: u64, signing_payload: &[u8]) -> B256 
 
 /// Recover signer address from a signature and prehash.
 pub(crate) fn recover_signer(prehash: B256, signature: &[u8; SIGNATURE_LEN]) -> Result<Address> {
-    // Go peers (geth `crypto.SigToPub`) only accept recovery ids 0/1, while alloy
-    // would also normalize 27/28/35+; accepting those here would import messages
-    // every Go node rejects.
+    // Decision-equivalent to Go peers (geth `crypto.SigToPub`), not
+    // mechanism-identical: geth rejects recovery ids >= 4 outright and attempts
+    // recovery for 2/3, but a 2/3 recovery only succeeds when r < p - n (~2^129
+    // of a ~2^256 space) and crafting such a signature that recovers to an
+    // *allowlisted* address is cryptographically unreachable — so geth also
+    // rejects every feasible v > 1 message. Alloy alone would additionally
+    // normalize 27/28/35+, which geth genuinely rejects, so the pre-check is
+    // required either way.
     if signature[SIGNATURE_LEN - 1] > 1 {
         return Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
             "invalid recovery id: {}",

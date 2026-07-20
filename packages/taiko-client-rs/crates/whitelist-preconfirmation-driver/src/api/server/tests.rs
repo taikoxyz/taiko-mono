@@ -221,14 +221,19 @@ fn jwt_auth_rejects_missing_header() {
     assert!(err.contains("missing bearer authorization header"));
 }
 
-/// Build an `Authorization: Bearer <jwt>` header map for the given claims.
-fn bearer_headers(secret: &[u8], claims: &serde_json::Value) -> http::HeaderMap {
-    let token = jsonwebtoken::encode(
+/// Encode a signed HS256 token for the given claims.
+fn signed_token(secret: &[u8], claims: &serde_json::Value) -> String {
+    jsonwebtoken::encode(
         &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
         claims,
         &jsonwebtoken::EncodingKey::from_secret(secret),
     )
-    .expect("token should encode");
+    .expect("token should encode")
+}
+
+/// Build an `Authorization: Bearer <jwt>` header map for the given claims.
+fn bearer_headers(secret: &[u8], claims: &serde_json::Value) -> http::HeaderMap {
+    let token = signed_token(secret, claims);
     let mut headers = http::HeaderMap::new();
     headers.insert(
         http::header::AUTHORIZATION,
@@ -243,6 +248,54 @@ fn jwt_auth_accepts_token_without_claims() {
     let auth = JwtAuth::new(secret);
     let headers = bearer_headers(secret, &serde_json::json!({}));
     auth.validate_headers(&headers).expect("claimless token is accepted");
+}
+
+#[test]
+fn jwt_auth_matches_bearer_scheme_case_insensitively() {
+    // echo-jwt extracts the token with `strings.EqualFold` on the `Bearer `
+    // prefix, so the Go server accepts any casing of the scheme.
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+    let token = signed_token(secret, &serde_json::json!({}));
+    for scheme in ["bearer", "BEARER", "BeArEr"] {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(
+            http::header::AUTHORIZATION,
+            format!("{scheme} {token}").parse().expect("valid header value"),
+        );
+        auth.validate_headers(&headers).expect("case-folded bearer scheme is accepted");
+    }
+}
+
+#[test]
+fn jwt_auth_tries_every_authorization_header_value() {
+    // echo-jwt collects candidates from every `Authorization` value and
+    // authorizes when any one of them validates.
+    let secret = b"test-secret";
+    let auth = JwtAuth::new(secret);
+    let mut headers = http::HeaderMap::new();
+    headers.append(http::header::AUTHORIZATION, "Bearer not-a-jwt".parse().expect("valid header"));
+    headers.append(
+        http::header::AUTHORIZATION,
+        format!("Bearer {}", signed_token(secret, &serde_json::json!({})))
+            .parse()
+            .expect("valid header value"),
+    );
+    auth.validate_headers(&headers).expect("any validating candidate authorizes the request");
+}
+
+#[test]
+fn jwt_auth_treats_non_bearer_headers_as_missing() {
+    // A present `Authorization` value with no extractable `Bearer ` candidate is
+    // a missing token in echo-jwt, and an empty remainder is not a candidate
+    // (`len(value) > len(prefix)`).
+    let auth = JwtAuth::new(b"test-secret");
+    for value in ["Basic abc123", "Bearer", "Bearer "] {
+        let mut headers = http::HeaderMap::new();
+        headers.insert(http::header::AUTHORIZATION, value.parse().expect("valid header value"));
+        let err = auth.validate_headers(&headers).expect_err("no bearer candidate must fail");
+        assert!(err.contains("missing bearer authorization header"), "unexpected error: {err}");
+    }
 }
 
 /// Current unix time in whole seconds, for minting test claims.

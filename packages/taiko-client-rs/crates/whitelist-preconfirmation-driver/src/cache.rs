@@ -98,6 +98,16 @@ impl SharedPreconfState {
         self.end_of_sequencing_by_epoch.lock().await.get(&epoch).copied()
     }
 
+    /// Whether any recorded per-epoch EOS marker points at this block hash.
+    ///
+    /// Markers are only recorded from authenticated sites (payload-topic
+    /// ingress and the local build path), so this is the trustworthy source for
+    /// an envelope's EOS flag — the Go server derives the flag for rebuilt
+    /// responses by scanning the same marker cache.
+    pub(crate) async fn is_end_of_sequencing_hash(&self, hash: &B256) -> bool {
+        self.end_of_sequencing_by_epoch.lock().await.values().any(|marked| marked == hash)
+    }
+
     /// Insert a validated envelope into the recent cache and refresh its gauge.
     pub(crate) async fn insert_recent(&self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let mut recent = self.recent_envelopes.lock().await;
@@ -446,6 +456,8 @@ mod tests {
         state.record_end_of_sequencing(42, hash).await;
         assert_eq!(state.end_of_sequencing_for_epoch(42).await, Some(hash));
         assert_eq!(state.end_of_sequencing_for_epoch(43).await, None);
+        assert!(state.is_end_of_sequencing_hash(&hash).await);
+        assert!(!state.is_end_of_sequencing_hash(&B256::from([0x78u8; 32])).await);
     }
 
     #[tokio::test]

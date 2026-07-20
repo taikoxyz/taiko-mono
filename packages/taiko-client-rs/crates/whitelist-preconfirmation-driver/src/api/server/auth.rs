@@ -36,19 +36,51 @@ impl JwtAuth {
         Self { decoding_key: DecodingKey::from_secret(secret), validation }
     }
 
-    /// Validate `Authorization: Bearer <jwt>`.
+    /// Validate `Authorization: Bearer <jwt>` headers.
+    ///
+    /// Mirrors the Go server's echo-jwt v4 extraction: every `Authorization`
+    /// value is considered (up to echo-jwt's extractor limit of 20), the
+    /// `Bearer ` scheme prefix is matched case-insensitively with a non-empty
+    /// remainder, and the request is authorized when any candidate token
+    /// validates. ASCII case folding is exact here because `to_str` only
+    /// admits visible-ASCII header values.
     pub(super) fn validate_headers(
         &self,
         headers: &http::HeaderMap,
     ) -> std::result::Result<(), String> {
-        let header = headers
-            .get(AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .ok_or_else(|| "missing bearer authorization header".to_string())?;
-        let token = header
-            .strip_prefix("Bearer ")
-            .ok_or_else(|| "authorization header must use bearer token".to_string())?;
+        const BEARER_PREFIX: &str = "Bearer ";
+        /// echo-jwt caps how many header values its extractor considers. This
+        /// counts candidates where echo-jwt counts header indices — divergent
+        /// only for requests carrying more than 20 `Authorization` values.
+        const EXTRACTOR_LIMIT: usize = 20;
 
+        let tokens = headers
+            .get_all(AUTHORIZATION)
+            .iter()
+            .filter_map(|value| value.to_str().ok())
+            .filter(|value| {
+                value.len() > BEARER_PREFIX.len() &&
+                    value[..BEARER_PREFIX.len()].eq_ignore_ascii_case(BEARER_PREFIX)
+            })
+            .map(|value| &value[BEARER_PREFIX.len()..])
+            .take(EXTRACTOR_LIMIT)
+            .collect::<Vec<_>>();
+        if tokens.is_empty() {
+            return Err("missing bearer authorization header".to_string());
+        }
+
+        let mut last_error = String::new();
+        for token in tokens {
+            match self.validate_token(token) {
+                Ok(()) => return Ok(()),
+                Err(err) => last_error = err,
+            }
+        }
+        Err(last_error)
+    }
+
+    /// Decode one candidate token and validate its temporal claims.
+    fn validate_token(&self, token: &str) -> std::result::Result<(), String> {
         let token_data = decode::<serde_json::Value>(token, &self.decoding_key, &self.validation)
             .map_err(|err| format!("invalid bearer token: {err}"))?;
         validate_temporal_claims(&token_data.claims)

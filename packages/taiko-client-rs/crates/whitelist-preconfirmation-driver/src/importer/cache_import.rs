@@ -44,6 +44,33 @@ pub(super) fn remove_terminal_cached_envelope(
     cache.remove(hash);
 }
 
+/// Whether a submission outcome consumes the pending payload-topic EOS
+/// notification for the envelope's operator-signed block hash.
+///
+/// Only an `Inserted` outcome whose produced hash matches the envelope hash
+/// notifies, and only when the flag arrived wire-signed on the payload topic
+/// (a tracker mark). The tracker is consulted instead of the cached envelope's
+/// own flag because the pending cache overwrites same-hash entries — a
+/// response-topic envelope, whose embedded signature covers only the block
+/// hash, could have flipped the flag unauthenticated in either direction.
+/// Hash-mismatched insertions are deliberately stricter than Go, whose push
+/// site never compares hashes: the operator-signed EOS block never
+/// materialized, so the notification is withheld and the mark left for
+/// terminal cleanup to discard. `AlreadyMaterialized` and `Stale` never notify
+/// (Go's push site is gated on a fresh insert). Deliberate superset of Go in
+/// one respect only: deferred payload-topic imports still notify, where Go's
+/// envelope cache drops the EOS flag and loses them.
+pub(super) fn eos_notification_due(
+    tracker: &mut PayloadEosTracker,
+    outcome: &PreconfSubmissionOutcome,
+    envelope_block_hash: B256,
+) -> bool {
+    matches!(
+        outcome,
+        PreconfSubmissionOutcome::Inserted { block_hash } if *block_hash == envelope_block_hash
+    ) && tracker.take(&envelope_block_hash)
+}
+
 impl WhitelistPreconfirmationImporter {
     /// Attempt to import cached envelopes if sync is ready.
     pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
@@ -119,6 +146,11 @@ impl WhitelistPreconfirmationImporter {
                                 &mut self.payload_eos_tracker,
                                 &hash,
                             );
+                            // Stop re-serving an envelope the driver rejected as
+                            // invalid, matching the hash-mismatch purge in
+                            // `try_import_cached` (Go only ever serves imported
+                            // blocks).
+                            self.state.remove_recent(&hash).await;
                             progressed = true;
                         }
                         CachedImportDisposition::Propagate => {
@@ -207,7 +239,16 @@ impl WhitelistPreconfirmationImporter {
             if submit_result.is_ok() { "success" } else { "failure" },
             submit_start.elapsed().as_secs_f64(),
         );
-        match submit_result? {
+        let outcome = submit_result?;
+        // Notify `/ws` subscribers only once the end-of-sequencing block has
+        // materialized, with the wall-clock epoch at push time — both matching
+        // the Go client, whose only push site runs after `TryImportingPayload`
+        // succeeds and re-reads `CurrentEpoch()`. See `eos_notification_due`
+        // for which outcomes qualify.
+        if eos_notification_due(&mut self.payload_eos_tracker, &outcome, block_hash) {
+            self.state.notify_end_of_sequencing(self.beacon_client.current_epoch());
+        }
+        match outcome {
             PreconfSubmissionOutcome::Inserted { block_hash: inserted_block_hash } => {
                 if inserted_block_hash == block_hash {
                     info!(
@@ -217,21 +258,6 @@ impl WhitelistPreconfirmationImporter {
                         end_of_sequencing,
                         "inserted whitelist preconfirmation block"
                     );
-                    // Notify `/ws` subscribers only once the end-of-sequencing
-                    // block has materialized, with the wall-clock epoch at push
-                    // time — both matching the Go client, whose only push site
-                    // runs after `TryImportingPayload` succeeds and re-reads
-                    // `CurrentEpoch()`. The tracker holds hashes whose EOS flag
-                    // arrived wire-signed on the payload topic; the flag on the
-                    // cached envelope is deliberately not consulted, since a
-                    // response-topic envelope (embedded signature covers only
-                    // the block hash) could have overwritten it in either
-                    // direction. Deliberate superset of Go in one respect only:
-                    // deferred payload-topic imports still notify, where Go's
-                    // envelope cache drops the EOS flag and loses them.
-                    if self.payload_eos_tracker.take(&block_hash) {
-                        self.state.notify_end_of_sequencing(self.beacon_client.current_epoch());
-                    }
                 } else {
                     // The operator-signed hash does not match the block its own payload
                     // produces; stop re-serving the inconsistent envelope to peers. The

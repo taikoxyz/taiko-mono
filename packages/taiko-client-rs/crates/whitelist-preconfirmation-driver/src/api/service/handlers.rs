@@ -206,13 +206,12 @@ impl WhitelistApi for WhitelistApiService {
         // request it on the EOS request topic, which the importer serves from the
         // recent-envelope cache.
         if end_of_sequencing.unwrap_or(false) {
-            let epoch = self.beacon_client.timestamp_to_epoch(data.timestamp).map_err(|e| {
-                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                    "failed to derive epoch from block timestamp {}: {e}",
-                    data.timestamp
-                ))
-            })?;
-            self.state.record_end_of_sequencing(epoch, block_hash).await;
+            // Key the marker by the wall-clock epoch at record time (Go's build
+            // path uses `CurrentEpoch()`), matching how the requesting operator
+            // looks the marker up at handover.
+            self.state
+                .record_end_of_sequencing(self.beacon_client.current_epoch(), block_hash)
+                .await;
         }
 
         crate::metrics::WhitelistPreconfirmationDriverMetrics::observe_build_preconf_block_duration(

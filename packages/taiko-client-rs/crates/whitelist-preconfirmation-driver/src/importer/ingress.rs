@@ -35,6 +35,36 @@ pub(super) fn is_stale_at_confirmed_tip(block_number: u64, confirmed_tip: Option
     confirmed_tip.is_some_and(|tip| block_number <= tip)
 }
 
+/// Which gossip topic an inbound envelope arrived on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum IngressSource {
+    /// `preconfBlocks` — the wire signature covers the whole SSZ envelope.
+    Payload,
+    /// `responsePreconfBlocks` — the embedded signature covers only the block hash.
+    Response,
+}
+
+impl IngressSource {
+    /// Static label used in logs and metrics.
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            Self::Payload => "payload",
+            Self::Response => "response",
+        }
+    }
+
+    /// Whether the envelope's EOS flag is operator-authenticated on this source.
+    ///
+    /// Only the payload topic signs the flag bytes (the wire signature covers
+    /// the whole SSZ envelope); on the response topic the embedded signature
+    /// covers only the block hash, so any peer could set the flag on an
+    /// otherwise-valid response. The Go client likewise never ingests EOS
+    /// state from responses.
+    pub(super) fn authenticates_eos_flag(self) -> bool {
+        matches!(self, Self::Payload)
+    }
+}
+
 /// Apply the trusted EOS-request marker to an envelope selected for response serving.
 pub(super) fn apply_response_eos_marker(
     envelope: Arc<WhitelistExecutionPayloadEnvelope>,
@@ -61,7 +91,7 @@ impl WhitelistPreconfirmationImporter {
     async fn ingest_validated_envelope(
         &mut self,
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
-        ingress_source: &'static str,
+        ingress_source: IngressSource,
     ) {
         let confirmed_tip = match self.head_l1_origin_block_id().await {
             Ok(tip) => tip,
@@ -69,7 +99,7 @@ impl WhitelistPreconfirmationImporter {
                 warn!(
                     block_number = envelope.execution_payload.block_number,
                     block_hash = %envelope.execution_payload.block_hash,
-                    ingress_source,
+                    ingress_source = ingress_source.label(),
                     error = %err,
                     "confirmed-tip lookup failed at admission; admitting envelope for deferred stale checks"
                 );
@@ -81,7 +111,7 @@ impl WhitelistPreconfirmationImporter {
                 block_number = envelope.execution_payload.block_number,
                 block_hash = %envelope.execution_payload.block_hash,
                 ?confirmed_tip,
-                ingress_source,
+                ingress_source = ingress_source.label(),
                 "ignoring stale whitelist preconfirmation envelope"
             );
             return;
@@ -93,51 +123,39 @@ impl WhitelistPreconfirmationImporter {
         self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
     }
 
-    /// Record the envelope block hash for its beacon epoch when `end_of_sequencing` is set.
+    /// Record the envelope block hash as this epoch's EOS marker when `end_of_sequencing`
+    /// is set and the source authenticates the flag.
     async fn record_eos_epoch_if_marked(
         &mut self,
         envelope: &WhitelistExecutionPayloadEnvelope,
-        ingress_source: &'static str,
+        ingress_source: IngressSource,
     ) {
-        if !envelope.end_of_sequencing.unwrap_or(false) {
+        if !envelope.end_of_sequencing.unwrap_or(false) || !ingress_source.authenticates_eos_flag()
+        {
             return;
         }
 
-        // The EOS flag is only trusted from the payload topic, where the wire
-        // signature covers the whole SSZ envelope including the flag bytes. On
-        // the response topic the embedded signature covers only the block
-        // hash, so the flag is unauthenticated: any peer could set it on an
-        // otherwise-valid response. Ignoring it matches the Go client, which
-        // never ingests EOS state from responses.
-        if ingress_source != "payload" {
-            return;
-        }
-
-        let timestamp = envelope.execution_payload.timestamp;
-        if let Ok(epoch) = self.beacon_client.timestamp_to_epoch(timestamp).inspect_err(|err| {
-            tracing::warn!(
-                timestamp,
-                ingress_source,
-                error = %err,
-                "failed to derive epoch from envelope timestamp for EOS recording"
-            );
-        }) {
-            debug!(
-                epoch,
-                hash = %envelope.execution_payload.block_hash,
-                ingress_source,
-                "recording end-of-sequencing envelope for epoch"
-            );
-            // Record the marker at admission (before import) so EOS catch-up
-            // requests can be served immediately. The `/ws` notification is
-            // deliberately NOT sent here: it fires once the block has
-            // materialized, in `try_import_cached`. The hash is remembered in
-            // the tracker rather than re-read from the pending cache at import
-            // time, because that cache overwrites same-hash entries — a later
-            // response envelope could otherwise rewrite the flag unauthenticated.
-            self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
-            self.payload_eos_tracker.mark(envelope.execution_payload.block_hash);
-        }
+        // Key the marker by the wall-clock epoch at record time, not the block
+        // timestamp's epoch: both Go record sites use `CurrentEpoch()`, and the
+        // requesting operator looks the marker up with its own wall-clock epoch
+        // at handover — timestamp keying would miss an EOS block delivered just
+        // across an epoch boundary.
+        let epoch = self.beacon_client.current_epoch();
+        debug!(
+            epoch,
+            hash = %envelope.execution_payload.block_hash,
+            ingress_source = ingress_source.label(),
+            "recording end-of-sequencing envelope for epoch"
+        );
+        // Record the marker at admission (before import) so EOS catch-up
+        // requests can be served immediately. The `/ws` notification is
+        // deliberately NOT sent here: it fires once the block has
+        // materialized, in `try_import_cached`. The hash is remembered in
+        // the tracker rather than re-read from the pending cache at import
+        // time, because that cache overwrites same-hash entries — a later
+        // response envelope could otherwise rewrite the flag unauthenticated.
+        self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
+        self.payload_eos_tracker.mark(envelope.execution_payload.block_hash);
     }
 
     /// Handle an incoming unsafe payload from the `preconfBlocks` topic.
@@ -152,7 +170,7 @@ impl WhitelistPreconfirmationImporter {
         &mut self,
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
-        self.validate_and_ingest(payload.envelope, "payload").await
+        self.validate_and_ingest(payload.envelope, IngressSource::Payload).await
     }
 
     /// Handle an incoming unsafe response from the `responsePreconfBlocks` topic.
@@ -160,7 +178,7 @@ impl WhitelistPreconfirmationImporter {
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
     ) -> Result<()> {
-        self.validate_and_ingest(envelope, "response").await
+        self.validate_and_ingest(envelope, IngressSource::Response).await
     }
 
     /// Run payload-level validation and ingest the envelope, tagged with its ingress source.
@@ -170,7 +188,7 @@ impl WhitelistPreconfirmationImporter {
     async fn validate_and_ingest(
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
-        ingress_source: &'static str,
+        ingress_source: IngressSource,
     ) -> Result<()> {
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
@@ -296,11 +314,12 @@ impl WhitelistPreconfirmationImporter {
             )
         })?;
 
-        let end_of_sequencing = self
-            .cache
-            .get(&hash)
-            .and_then(|envelope| envelope.end_of_sequencing)
-            .filter(|&enabled| enabled);
+        // Derive the flag from the per-epoch marker map — populated only from
+        // authenticated sites (payload-topic ingress, local builds) — the way
+        // the Go server scans its marker cache for rebuilt responses. The
+        // pending envelope cache is deliberately not consulted: a response-topic
+        // envelope could have planted an unauthenticated flag there.
+        let end_of_sequencing = self.state.is_end_of_sequencing_hash(&hash).await.then_some(true);
         let base_fee = block.header.base_fee_per_gas.ok_or_else(|| {
             WhitelistPreconfirmationDriverError::invalid_payload(format!(
                 "request-response block {} missing base fee",

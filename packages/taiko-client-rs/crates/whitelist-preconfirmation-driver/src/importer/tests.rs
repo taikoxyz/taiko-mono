@@ -17,9 +17,10 @@ use crate::{
 
 use super::{
     cache_import::{
-        CachedImportDisposition, classify_cached_import_error, remove_terminal_cached_envelope,
+        CachedImportDisposition, classify_cached_import_error, eos_notification_due,
+        remove_terminal_cached_envelope,
     },
-    ingress::{apply_response_eos_marker, is_stale_at_confirmed_tip},
+    ingress::{IngressSource, apply_response_eos_marker, is_stale_at_confirmed_tip},
     should_enable_preconf_imports,
     validation::validate_execution_payload_for_preconf,
 };
@@ -67,6 +68,70 @@ fn terminal_cache_removal_discards_eos_provenance() {
     assert!(tracker.take(&pending), "terminal cleanup must preserve pending provenance");
     assert!(!tracker.take(&terminal));
     assert!(tracker.take(&newer));
+}
+
+#[test]
+fn eos_flag_is_authenticated_only_on_the_payload_topic() {
+    // The wire signature on `preconfBlocks` covers the whole SSZ envelope
+    // including the flag bytes; the response topic's embedded signature covers
+    // only the block hash, leaving the flag attacker-controlled there.
+    assert!(IngressSource::Payload.authenticates_eos_flag());
+    assert!(!IngressSource::Response.authenticates_eos_flag());
+}
+
+#[test]
+fn eos_notification_fires_once_for_a_hash_matching_insert() {
+    let mut tracker = PayloadEosTracker::with_capacity(4);
+    let hash = B256::from([0x01u8; 32]);
+    tracker.mark(hash);
+    let outcome = driver::PreconfSubmissionOutcome::Inserted { block_hash: hash };
+
+    assert!(eos_notification_due(&mut tracker, &outcome, hash));
+    assert!(
+        !eos_notification_due(&mut tracker, &outcome, hash),
+        "a re-import of the same block must not notify twice"
+    );
+}
+
+#[test]
+fn eos_notification_never_fires_for_unmarked_hashes() {
+    // A hash never marked by the payload topic — e.g. a response-topic envelope
+    // whose unauthenticated flag claimed EOS — has no pending notification.
+    let mut tracker = PayloadEosTracker::with_capacity(4);
+    let hash = B256::from([0x02u8; 32]);
+    let outcome = driver::PreconfSubmissionOutcome::Inserted { block_hash: hash };
+
+    assert!(!eos_notification_due(&mut tracker, &outcome, hash));
+}
+
+#[test]
+fn eos_notification_withheld_on_hash_mismatched_insert_leaving_mark_for_cleanup() {
+    let mut tracker = PayloadEosTracker::with_capacity(4);
+    let envelope_hash = B256::from([0x03u8; 32]);
+    let produced_hash = B256::from([0x04u8; 32]);
+    tracker.mark(envelope_hash);
+    let outcome = driver::PreconfSubmissionOutcome::Inserted { block_hash: produced_hash };
+
+    // Stricter than Go (whose push site never compares hashes): the signed EOS
+    // block never materialized, so no notification fires.
+    assert!(!eos_notification_due(&mut tracker, &outcome, envelope_hash));
+    assert!(tracker.take(&envelope_hash), "the mark must survive for terminal cleanup to discard");
+}
+
+#[test]
+fn eos_notification_never_fires_for_already_materialized_or_stale_outcomes() {
+    let hash = B256::from([0x05u8; 32]);
+    for outcome in [
+        driver::PreconfSubmissionOutcome::AlreadyMaterialized { block_hash: hash },
+        driver::PreconfSubmissionOutcome::Stale,
+    ] {
+        let mut tracker = PayloadEosTracker::with_capacity(4);
+        tracker.mark(hash);
+        assert!(
+            !eos_notification_due(&mut tracker, &outcome, hash),
+            "only a fresh matching insert may notify (Go parity), got {outcome:?}"
+        );
+    }
 }
 
 fn sample_execution_payload_with_transactions(
