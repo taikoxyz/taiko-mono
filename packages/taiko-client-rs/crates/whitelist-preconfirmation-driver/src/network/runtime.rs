@@ -304,6 +304,7 @@ impl WhitelistNetwork {
             event_tx,
             command_rx,
             connected_configured_addrs: HashSet::new(),
+            failing_configured_addrs: HashSet::new(),
             configured_peer_addrs,
             peer_retry_interval: delayed_interval(CONFIGURED_PEER_RETRY_INTERVAL),
             peer_status_log_interval: delayed_interval(PEER_STATUS_LOG_INTERVAL),
@@ -525,6 +526,8 @@ struct NetworkRuntime {
     command_rx: mpsc::Receiver<NetworkCommand>,
     /// Connected configured addresses used to prevent duplicate direct dials.
     connected_configured_addrs: HashSet<Multiaddr>,
+    /// Configured addresses whose latest dial attempt failed, for edge-triggered logging.
+    failing_configured_addrs: HashSet<Multiaddr>,
     /// Configured static peer and bootnode addresses retried for connectivity.
     configured_peer_addrs: Vec<ConfiguredPeerAddr>,
     /// Periodic timer for retrying configured peer dials.
@@ -818,6 +821,9 @@ impl NetworkRuntime {
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                 let remote_addr = endpoint.get_remote_address();
                 if self.track_configured_connection(remote_addr) {
+                    if self.failing_configured_addrs.remove(remote_addr) {
+                        info!(%peer_id, %remote_addr, "configured peer address recovered");
+                    }
                     self.peer_watermarks.protect(peer_id);
                 }
                 let connected = self.swarm.connected_peers().copied().collect::<Vec<_>>();
@@ -857,11 +863,7 @@ impl NetworkRuntime {
                 debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer disconnected");
             }
             libp2p::swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                // Clear the in-flight dial so the gate can retry the peer later.
-                if let Some(peer_id) = peer_id.as_ref() {
-                    self.gater.remove_dial(peer_id);
-                }
-                debug!(?peer_id, %error, "outgoing connection attempt failed");
+                self.handle_outgoing_connection_error(peer_id, error);
             }
             libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ignored) => {}
             other => {
@@ -878,6 +880,53 @@ impl NetworkRuntime {
             self.connected_configured_addrs.insert(remote_addr.clone());
         }
         configured
+    }
+
+    /// Clear dial-gate state and surface asynchronous outgoing dial failures.
+    ///
+    /// `dial_addr` only observes errors `Swarm::dial` returns synchronously; connect
+    /// timeouts and refusals arrive later as `OutgoingConnectionError` events. Configured
+    /// addresses warn only when transitioning into the failing state, which is cleared
+    /// when that configured address establishes a connection again.
+    fn handle_outgoing_connection_error(&mut self, peer_id: Option<PeerId>, error: DialError) {
+        // Clear the in-flight dial first so the gate can retry the peer later regardless
+        // of how the error is classified below.
+        if let Some(peer_id) = peer_id.as_ref() {
+            self.gater.remove_dial(peer_id);
+        }
+
+        let DialError::Transport(failed) = &error else {
+            WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+                "unknown",
+                "connect_failed",
+            );
+            debug!(?peer_id, %error, "outgoing connection attempt failed");
+            return;
+        };
+
+        for (addr, transport_error) in failed {
+            let (source, first_failure) = note_dial_failure(
+                &self.configured_peer_addrs,
+                &mut self.failing_configured_addrs,
+                addr,
+            );
+            WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+                source,
+                "connect_failed",
+            );
+
+            if first_failure {
+                warn!(
+                    %addr,
+                    source,
+                    error = %transport_error,
+                    retry_interval = ?CONFIGURED_PEER_RETRY_INTERVAL,
+                    "configured peer dial failed; further failures logged at debug until it recovers"
+                );
+            } else {
+                debug!(%addr, source, error = %transport_error, "outgoing connection attempt failed");
+            }
+        }
     }
 
     /// Handle one gossipsub event.
@@ -1091,6 +1140,25 @@ fn format_peer_ids(peers: &[PeerId]) -> String {
     peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
 }
 
+/// Record one failed dial address against the failing-address set.
+///
+/// Returns the configured source label (`"unknown"` for unconfigured addresses) and
+/// whether this is the address's first failure since it last connected. Unconfigured
+/// addresses are not tracked and never report a first failure.
+fn note_dial_failure(
+    configured_peer_addrs: &[ConfiguredPeerAddr],
+    failing_configured_addrs: &mut HashSet<Multiaddr>,
+    addr: &Multiaddr,
+) -> (&'static str, bool) {
+    let source =
+        configured_peer_addrs.iter().find(|peer| &peer.addr == addr).map(|peer| peer.source);
+
+    match source {
+        Some(source) => (source, failing_configured_addrs.insert(addr.clone())),
+        None => ("unknown", false),
+    }
+}
+
 /// Receive one discovered ENR, pending forever when discovery is disabled.
 ///
 /// Keeping the disabled branch pending lets the runtime `select!` poll this arm
@@ -1256,6 +1324,29 @@ mod tests {
         let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
 
         assert_eq!(advertised_enode_url(&local_key, listen_addr, None), None);
+    }
+
+    #[test]
+    fn note_dial_failure_reports_first_failure_only_until_recovery() {
+        let addr: Multiaddr = "/ip4/10.0.0.1/tcp/4001".parse().expect("valid multiaddr");
+        let configured = vec![ConfiguredPeerAddr { addr: addr.clone(), source: "bootnode" }];
+        let mut failing = HashSet::new();
+        assert_eq!(note_dial_failure(&configured, &mut failing, &addr), ("bootnode", true));
+        assert_eq!(note_dial_failure(&configured, &mut failing, &addr), ("bootnode", false));
+        failing.remove(&addr);
+        assert_eq!(note_dial_failure(&configured, &mut failing, &addr), ("bootnode", true));
+    }
+
+    #[test]
+    fn note_dial_failure_ignores_unconfigured_addresses() {
+        let configured = vec![ConfiguredPeerAddr {
+            addr: "/ip4/10.0.0.1/tcp/4001".parse().expect("valid multiaddr"),
+            source: "static peer",
+        }];
+        let mut failing = HashSet::new();
+        let unknown: Multiaddr = "/ip4/10.0.0.2/tcp/4001".parse().expect("valid multiaddr");
+        assert_eq!(note_dial_failure(&configured, &mut failing, &unknown), ("unknown", false));
+        assert!(failing.is_empty());
     }
 }
 
