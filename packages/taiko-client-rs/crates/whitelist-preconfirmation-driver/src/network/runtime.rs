@@ -881,37 +881,7 @@ impl NetworkRuntime {
                 debug!(%address, "whitelist preconfirmation network listening");
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
-                // The dial is no longer in flight: keep the gate's `current_dials` an
-                // accurate in-flight set for low-tide accounting. Redial suppression of
-                // connected peers is handled by the `is_connected` check before
-                // discovered dials.
-                self.gater.remove_dial(&peer_id);
-                let remote_addr = endpoint.get_remote_address();
-                let exact_configured_addr = self.track_configured_connection(remote_addr);
-                if exact_configured_addr && self.failing_configured_addrs.remove(remote_addr) {
-                    info!(%peer_id, %remote_addr, "configured peer address recovered");
-                }
-                if exact_configured_addr || self.configured_peer_ids.contains(&peer_id) {
-                    self.peer_watermarks.protect(peer_id);
-                }
-                let connected = self.swarm.connected_peers().copied().collect::<Vec<_>>();
-                if let Some(peer_to_prune) = self.peer_watermarks.peer_to_prune(connected, peer_id)
-                {
-                    self.peer_watermarks.mark_disconnecting(peer_to_prune);
-                    if self.swarm.disconnect_peer_id(peer_to_prune).is_err() {
-                        self.peer_watermarks.disconnected(&peer_to_prune);
-                    } else {
-                        info!(
-                            %peer_to_prune,
-                            peers_hi = self.peers_hi,
-                            "pruning unprotected peer above high tide"
-                        );
-                    }
-                }
-                WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
-                    self.swarm.connected_peers().count(),
-                );
-                debug!(%peer_id, %remote_addr, "peer connected");
+                self.handle_connection_established(peer_id, endpoint.get_remote_address());
             }
             libp2p::swarm::SwarmEvent::ConnectionClosed {
                 peer_id,
@@ -939,6 +909,41 @@ impl NetworkRuntime {
             }
         }
         Ok(())
+    }
+
+    /// Handle a newly established connection: clear in-flight dial state, protect and
+    /// track configured peers, prune unprotected peers above high tide, and refresh the
+    /// connected-peer gauge.
+    fn handle_connection_established(&mut self, peer_id: PeerId, remote_addr: &Multiaddr) {
+        // The dial is no longer in flight: keep the gate's `current_dials` an accurate
+        // in-flight set for low-tide accounting. Redial suppression of connected peers is
+        // handled by the `is_connected` check before discovered dials.
+        self.gater.remove_dial(&peer_id);
+        let exact_configured_addr = self.track_configured_connection(remote_addr);
+        if exact_configured_addr && self.failing_configured_addrs.remove(remote_addr) {
+            info!(%peer_id, %remote_addr, "configured peer address recovered");
+        }
+        if exact_configured_addr || self.configured_peer_ids.contains(&peer_id) {
+            self.peer_watermarks.protect(peer_id);
+        }
+        if let Some(peer_to_prune) =
+            self.peer_watermarks.peer_to_prune(self.swarm.connected_peers().copied(), peer_id)
+        {
+            self.peer_watermarks.mark_disconnecting(peer_to_prune);
+            if self.swarm.disconnect_peer_id(peer_to_prune).is_err() {
+                self.peer_watermarks.disconnected(&peer_to_prune);
+            } else {
+                info!(
+                    %peer_to_prune,
+                    peers_hi = self.peers_hi,
+                    "pruning unprotected peer above high tide"
+                );
+            }
+        }
+        WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
+            self.swarm.connected_peers().count(),
+        );
+        debug!(%peer_id, %remote_addr, "peer connected");
     }
 
     /// Track a newly connected configured address and report whether it is configured.

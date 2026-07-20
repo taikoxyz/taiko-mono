@@ -197,7 +197,7 @@ fn discovery_signing_key(local_key: &identity::Keypair) -> Result<k256::ecdsa::S
 pub(crate) fn discovered_candidate(enr: &discv5::Enr, local_peer_id: &PeerId) -> Option<Multiaddr> {
     let addr = enr_to_multiaddr(enr).filter(has_nonzero_tcp_port)?;
     let peer_id = addr.iter().find_map(|protocol| match protocol {
-        libp2p::multiaddr::Protocol::P2p(peer_id) => Some(peer_id),
+        Protocol::P2p(peer_id) => Some(peer_id),
         _ => None,
     })?;
 
@@ -349,11 +349,7 @@ mod tests {
 
     #[test]
     fn tcp_zero_enode_is_retained_only_for_discovery() {
-        let secp_key =
-            sample_libp2p_keypair().try_into_secp256k1().expect("secp256k1 test keypair");
-        let pubkey_hex =
-            alloy_primitives::hex::encode(&secp_key.public().to_bytes_uncompressed()[1..]);
-        let enode = format!("enode://{pubkey_hex}@10.0.1.5:0?discport=30304");
+        let enode = format!("enode://{}@10.0.1.5:0?discport=30304", sample_pubkey_hex());
 
         assert!(
             classify_bootnodes(std::slice::from_ref(&enode)).is_empty(),
@@ -377,11 +373,7 @@ mod tests {
     #[test]
     fn parse_discovery_bootnodes_keeps_enr_and_enode_entries() {
         // The enode pubkey must be a real curve point for the libp2p peer-id conversion.
-        let secp_key =
-            sample_libp2p_keypair().try_into_secp256k1().expect("secp256k1 test keypair");
-        let pubkey_hex =
-            alloy_primitives::hex::encode(&secp_key.public().to_bytes_uncompressed()[1..]);
-        let enode = format!("enode://{pubkey_hex}@10.0.1.5:4001?discport=30304");
+        let enode = format!("enode://{}@10.0.1.5:4001?discport=30304", sample_pubkey_hex());
         let bootnodes = vec![
             sample_enr(Ipv4Addr::new(10, 0, 0, 9), Some(9222)),
             enode,
