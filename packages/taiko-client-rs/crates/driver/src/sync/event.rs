@@ -336,9 +336,16 @@ const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
 /// canceled poll) reconnects within a second instead of paying the full flat interval, while
 /// a persistent outage settles at the configured pace.
 fn scanner_reconnect_delay(retry_interval: Duration, consecutive_failures: u32) -> Duration {
-    // 2^6 = 64s already exceeds any realistic cap; bounding the shift avoids overflow.
-    let doublings = consecutive_failures.min(6);
-    SCANNER_RECONNECT_BACKOFF_BASE.saturating_mul(1u32 << doublings).min(retry_interval)
+    let mut delay = SCANNER_RECONNECT_BACKOFF_BASE.min(retry_interval);
+    // A `Duration` can hold at most `u64::MAX` whole seconds, so 64 saturating doublings cover
+    // every representable cap without allowing an unbounded loop for a saturated failure count.
+    for _ in 0..consecutive_failures.min(u64::BITS) {
+        delay = delay.saturating_mul(2).min(retry_interval);
+        if delay == retry_interval {
+            break;
+        }
+    }
+    delay
 }
 
 /// Return whether a preconfirmation target is at or below the confirmed tip.
@@ -2074,6 +2081,13 @@ mod tests {
     fn scanner_reconnect_delay_saturates_on_large_failure_counts() {
         let cap = Duration::from_secs(12);
         assert_eq!(scanner_reconnect_delay(cap, u32::MAX), cap);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_reaches_a_configured_cap_above_sixty_four_seconds() {
+        let cap = Duration::from_secs(120);
+        assert_eq!(scanner_reconnect_delay(cap, 6), Duration::from_secs(64));
+        assert_eq!(scanner_reconnect_delay(cap, 7), cap);
     }
 
     fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
