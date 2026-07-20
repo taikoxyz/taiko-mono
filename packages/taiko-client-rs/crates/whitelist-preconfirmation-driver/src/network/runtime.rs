@@ -59,8 +59,8 @@ const PEER_STATUS_LOG_INTERVAL: Duration = Duration::from_secs(60);
 /// dialed while the connection count is below this target.
 pub const DEFAULT_PEERS_LO: usize = 20;
 
-/// Default high-tide peer count, matching op-node's `p2p.peers.hi`: established
-/// connections are capped at this bound.
+/// Default high-tide peer count, matching op-node's `p2p.peers.hi`: unprotected
+/// distinct peers are softly pruned above this threshold.
 pub const DEFAULT_PEERS_HI: usize = 30;
 
 /// Maximum dials per discovered address within one dial period, matching kona-node's
@@ -147,8 +147,8 @@ pub struct NetworkConfig {
     pub listen_addr: SocketAddr,
     /// Optional externally dialable TCP address advertised in the local enode URL.
     pub advertise_addr: Option<SocketAddr>,
-    /// Bootnodes as ENR, enode URL, or multiaddr strings; all are dialed directly, and
-    /// ENR/enode entries additionally seed discv5 discovery.
+    /// Bootnodes as ENR, enode URL, or multiaddr strings; dialable TCP entries are dialed
+    /// directly, and ENR/enode entries additionally seed discv5 discovery.
     pub bootnodes: Vec<String>,
     /// Static peers to dial on startup.
     pub pre_dial_peers: Vec<Multiaddr>,
@@ -158,7 +158,7 @@ pub struct NetworkConfig {
     pub discovery_listen: Option<SocketAddr>,
     /// Low-tide peer count: discovered candidates are dialed while below this target.
     pub peers_lo: usize,
-    /// High-tide peer count: non-configured peers are pruned above this threshold.
+    /// Soft pruning threshold for unprotected distinct peers; configured peers may exceed it.
     pub peers_hi: usize,
 }
 
@@ -178,6 +178,32 @@ impl Default for NetworkConfig {
 }
 
 impl NetworkConfig {
+    /// Validate peer watermarks and enabled discovery's advertised UDP endpoint.
+    ///
+    /// Zero low tide disables discovery-driven dialing, but high tide must remain positive
+    /// and no lower than low tide. Enabled discovery rejects UDP port zero because ENR
+    /// auto-update is disabled and would otherwise advertise that undialable port permanently.
+    pub fn validate(&self) -> Result<()> {
+        if self.peers_hi == 0 {
+            return Err(WhitelistPreconfirmationDriverError::p2p(
+                "--p2p.peers.hi must be greater than zero",
+            ));
+        }
+        if self.peers_lo > self.peers_hi {
+            return Err(WhitelistPreconfirmationDriverError::p2p(format!(
+                "--p2p.peers.lo ({}) must not exceed --p2p.peers.hi ({})",
+                self.peers_lo, self.peers_hi
+            )));
+        }
+        if self.discovery_listen.is_some_and(|addr| addr.port() == 0) {
+            return Err(WhitelistPreconfirmationDriverError::p2p(
+                "--p2p.discovery.addr UDP port must be greater than zero when discovery is enabled",
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Parse an optional raw secp256k1 private key for the local P2P network identity.
     pub fn parse_preconfirmation_p2p_priv_raw(
         raw_key: Option<&str>,
@@ -259,6 +285,7 @@ impl WhitelistNetwork {
         cfg: NetworkConfig,
         operator_set: SharedOperatorSet,
     ) -> Result<Self> {
+        cfg.validate()?;
         let local_key = cfg.local_key();
         let NetworkConfig {
             listen_addr,
@@ -289,6 +316,9 @@ impl WhitelistNetwork {
         let bootnode_dial_addrs = classify_bootnodes(&bootnodes);
         let configured_peer_addrs =
             dial_initial_peers(&mut swarm, pre_dial_peers, bootnode_dial_addrs);
+        let configured_peer_ids = configured_peer_ids(&configured_peer_addrs);
+        let peer_watermarks =
+            PeerWatermarks::with_protected(peers_hi, configured_peer_ids.iter().copied());
 
         let (discovery_handle, discovery_rx) =
             start_discovery(&local_key, chain_id, discovery_listen, advertise_addr, &bootnodes);
@@ -306,6 +336,7 @@ impl WhitelistNetwork {
             connected_configured_addrs: HashSet::new(),
             failing_configured_addrs: HashSet::new(),
             configured_peer_addrs,
+            configured_peer_ids,
             peer_retry_interval: delayed_interval(CONFIGURED_PEER_RETRY_INTERVAL),
             peer_status_log_interval: delayed_interval(PEER_STATUS_LOG_INTERVAL),
             inbound_validation_state,
@@ -316,7 +347,7 @@ impl WhitelistNetwork {
                 peer_redialing: Some(DISCOVERED_PEER_REDIAL_THRESHOLD),
                 dial_period: DISCOVERED_PEER_DIAL_PERIOD,
             }),
-            peer_watermarks: PeerWatermarks::new(peers_hi),
+            peer_watermarks,
             peers_lo,
             peers_hi,
         };
@@ -418,12 +449,15 @@ fn delayed_interval(period: Duration) -> Interval {
 
 /// Extract the terminal peer id from a libp2p multiaddr when present.
 fn peer_id_from_addr(addr: &Multiaddr) -> Option<PeerId> {
-    addr.iter()
-        .filter_map(|protocol| match protocol {
-            Protocol::P2p(peer_id) => Some(peer_id),
-            _ => None,
-        })
-        .last()
+    match addr.iter().last() {
+        Some(Protocol::P2p(peer_id)) => Some(peer_id),
+        _ => None,
+    }
+}
+
+/// Collect configured peer identities pinned by terminal `/p2p/<PeerId>` components.
+fn configured_peer_ids(configured_peer_addrs: &[ConfiguredPeerAddr]) -> HashSet<PeerId> {
+    configured_peer_addrs.iter().filter_map(|peer| peer_id_from_addr(&peer.addr)).collect()
 }
 
 /// Dial a configured peer address unless it is already connected by peer id.
@@ -530,6 +564,8 @@ struct NetworkRuntime {
     failing_configured_addrs: HashSet<Multiaddr>,
     /// Configured static peer and bootnode addresses retried for connectivity.
     configured_peer_addrs: Vec<ConfiguredPeerAddr>,
+    /// Configured identities known before connection events from terminal `/p2p` components.
+    configured_peer_ids: HashSet<PeerId>,
     /// Periodic timer for retrying configured peer dials.
     peer_retry_interval: Interval,
     /// Periodic timer for logging peer connectivity status.
@@ -820,10 +856,11 @@ impl NetworkRuntime {
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                 let remote_addr = endpoint.get_remote_address();
-                if self.track_configured_connection(remote_addr) {
-                    if self.failing_configured_addrs.remove(remote_addr) {
-                        info!(%peer_id, %remote_addr, "configured peer address recovered");
-                    }
+                let exact_configured_addr = self.track_configured_connection(remote_addr);
+                if exact_configured_addr && self.failing_configured_addrs.remove(remote_addr) {
+                    info!(%peer_id, %remote_addr, "configured peer address recovered");
+                }
+                if exact_configured_addr || self.configured_peer_ids.contains(&peer_id) {
                     self.peer_watermarks.protect(peer_id);
                 }
                 let connected = self.swarm.connected_peers().copied().collect::<Vec<_>>();
@@ -907,6 +944,7 @@ impl NetworkRuntime {
         for (addr, transport_error) in failed {
             let (source, first_failure) = note_dial_failure(
                 &self.configured_peer_addrs,
+                &self.connected_configured_addrs,
                 &mut self.failing_configured_addrs,
                 addr,
             );
@@ -1144,9 +1182,10 @@ fn format_peer_ids(peers: &[PeerId]) -> String {
 ///
 /// Returns the configured source label (`"unknown"` for unconfigured addresses) and
 /// whether this is the address's first failure since it last connected. Unconfigured
-/// addresses are not tracked and never report a first failure.
+/// and currently connected addresses are not tracked and never report a first failure.
 fn note_dial_failure(
     configured_peer_addrs: &[ConfiguredPeerAddr],
+    connected_configured_addrs: &HashSet<Multiaddr>,
     failing_configured_addrs: &mut HashSet<Multiaddr>,
     addr: &Multiaddr,
 ) -> (&'static str, bool) {
@@ -1154,6 +1193,10 @@ fn note_dial_failure(
         configured_peer_addrs.iter().find(|peer| &peer.addr == addr).map(|peer| peer.source);
 
     match source {
+        Some(source) if connected_configured_addrs.contains(addr) => {
+            failing_configured_addrs.remove(addr);
+            (source, false)
+        }
         Some(source) => (source, failing_configured_addrs.insert(addr.clone())),
         None => ("unknown", false),
     }
@@ -1198,6 +1241,76 @@ mod tests {
             Multiaddr::empty().with(Protocol::Ip4(Ipv4Addr::LOCALHOST)).with(Protocol::Tcp(30303));
 
         assert_eq!(peer_id_from_addr(&addr), None);
+    }
+
+    #[test]
+    fn peer_id_from_addr_ignores_non_terminal_peer_id() {
+        let relay_peer = PeerId::random();
+        let addr = Multiaddr::empty()
+            .with(Protocol::Ip4(Ipv4Addr::LOCALHOST))
+            .with(Protocol::Tcp(30303))
+            .with(Protocol::P2p(relay_peer))
+            .with(Protocol::P2pCircuit);
+
+        assert_eq!(peer_id_from_addr(&addr), None);
+    }
+
+    #[test]
+    fn configured_peer_identity_is_protected_before_exact_address_connects() {
+        let configured_peer = PeerId::random();
+        let unprotected_peer = PeerId::random();
+        let configured = vec![ConfiguredPeerAddr {
+            addr: Multiaddr::empty()
+                .with(Protocol::Ip4(Ipv4Addr::LOCALHOST))
+                .with(Protocol::Tcp(30303))
+                .with(Protocol::P2p(configured_peer)),
+            source: "static peer",
+        }];
+        let configured_ids = configured_peer_ids(&configured);
+        let manager = PeerWatermarks::with_protected(1, configured_ids.iter().copied());
+
+        assert_eq!(
+            manager.peer_to_prune([unprotected_peer, configured_peer], configured_peer),
+            Some(unprotected_peer),
+            "configured identity must displace an unprotected peer before its exact address connects"
+        );
+    }
+
+    #[test]
+    fn network_config_validate_rejects_zero_peer_high_tide() {
+        let cfg = NetworkConfig { peers_lo: 0, peers_hi: 0, ..Default::default() };
+
+        let err = cfg.validate().expect_err("zero high tide must fail");
+
+        assert!(err.to_string().contains("--p2p.peers.hi must be greater than zero"));
+    }
+
+    #[test]
+    fn network_config_validate_rejects_low_tide_above_high_tide() {
+        let cfg = NetworkConfig { peers_lo: 2, peers_hi: 1, ..Default::default() };
+
+        let err = cfg.validate().expect_err("low tide above high tide must fail");
+
+        assert!(err.to_string().contains("--p2p.peers.lo (2)"));
+    }
+
+    #[test]
+    fn network_config_validate_allows_zero_peer_low_tide() {
+        let cfg = NetworkConfig { peers_lo: 0, peers_hi: 1, ..Default::default() };
+
+        cfg.validate().expect("zero low tide must remain valid");
+    }
+
+    #[test]
+    fn network_config_validate_rejects_zero_discovery_udp_port() {
+        let cfg = NetworkConfig {
+            discovery_listen: Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))),
+            ..Default::default()
+        };
+
+        let err = cfg.validate().expect_err("enabled discovery with UDP/0 must fail");
+
+        assert!(err.to_string().contains("--p2p.discovery.addr"));
     }
 
     #[test]
@@ -1268,6 +1381,22 @@ mod tests {
     }
 
     #[test]
+    fn spawn_rejects_invalid_config_before_runtime_setup() {
+        let cfg = NetworkConfig {
+            listen_addr: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+            peers_lo: 0,
+            peers_hi: 0,
+            ..Default::default()
+        };
+        let operator_set = Arc::new(arc_swap::ArcSwap::from_pointee(HashSet::new()));
+
+        match WhitelistNetwork::spawn(1, cfg, operator_set) {
+            Err(err) => assert!(err.to_string().contains("--p2p.peers.hi")),
+            Ok(_) => panic!("invalid public config must fail before spawning the runtime"),
+        }
+    }
+
+    #[test]
     fn advertised_enode_url_uses_secp256k1_public_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
         let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
@@ -1330,11 +1459,42 @@ mod tests {
     fn note_dial_failure_reports_first_failure_only_until_recovery() {
         let addr: Multiaddr = "/ip4/10.0.0.1/tcp/4001".parse().expect("valid multiaddr");
         let configured = vec![ConfiguredPeerAddr { addr: addr.clone(), source: "bootnode" }];
+        let connected = HashSet::new();
         let mut failing = HashSet::new();
-        assert_eq!(note_dial_failure(&configured, &mut failing, &addr), ("bootnode", true));
-        assert_eq!(note_dial_failure(&configured, &mut failing, &addr), ("bootnode", false));
+        assert_eq!(
+            note_dial_failure(&configured, &connected, &mut failing, &addr),
+            ("bootnode", true)
+        );
+        assert_eq!(
+            note_dial_failure(&configured, &connected, &mut failing, &addr),
+            ("bootnode", false)
+        );
         failing.remove(&addr);
-        assert_eq!(note_dial_failure(&configured, &mut failing, &addr), ("bootnode", true));
+        assert_eq!(
+            note_dial_failure(&configured, &connected, &mut failing, &addr),
+            ("bootnode", true)
+        );
+    }
+
+    #[test]
+    fn note_dial_failure_ignores_stale_failure_after_success() {
+        let addr: Multiaddr = "/ip4/10.0.0.1/tcp/4001".parse().expect("valid multiaddr");
+        let configured = vec![ConfiguredPeerAddr { addr: addr.clone(), source: "bootnode" }];
+        let mut connected = HashSet::new();
+        let mut failing = HashSet::new();
+
+        assert_eq!(
+            note_dial_failure(&configured, &connected, &mut failing, &addr),
+            ("bootnode", true)
+        );
+        failing.remove(&addr);
+        connected.insert(addr.clone());
+
+        assert_eq!(
+            note_dial_failure(&configured, &connected, &mut failing, &addr),
+            ("bootnode", false)
+        );
+        assert!(failing.is_empty(), "stale failure must not reopen the address outage");
     }
 
     #[test]
@@ -1343,9 +1503,13 @@ mod tests {
             addr: "/ip4/10.0.0.1/tcp/4001".parse().expect("valid multiaddr"),
             source: "static peer",
         }];
+        let connected = HashSet::new();
         let mut failing = HashSet::new();
         let unknown: Multiaddr = "/ip4/10.0.0.2/tcp/4001".parse().expect("valid multiaddr");
-        assert_eq!(note_dial_failure(&configured, &mut failing, &unknown), ("unknown", false));
+        assert_eq!(
+            note_dial_failure(&configured, &connected, &mut failing, &unknown),
+            ("unknown", false)
+        );
         assert!(failing.is_empty());
     }
 }

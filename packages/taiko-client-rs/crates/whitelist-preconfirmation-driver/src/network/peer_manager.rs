@@ -21,6 +21,13 @@ impl PeerWatermarks {
         Self { high, protected: HashSet::new(), pending_disconnects: HashSet::new() }
     }
 
+    /// Create watermark state with peer identities protected before any connection events.
+    pub(crate) fn with_protected(high: usize, protected: impl IntoIterator<Item = PeerId>) -> Self {
+        let mut watermarks = Self::new(high);
+        watermarks.protected.extend(protected);
+        watermarks
+    }
+
     /// Mark a configured peer as protected across future reconnects.
     pub(crate) fn protect(&mut self, peer_id: PeerId) {
         self.protected.insert(peer_id);

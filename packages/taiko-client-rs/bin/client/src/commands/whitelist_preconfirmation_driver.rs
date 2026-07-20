@@ -19,25 +19,6 @@ use crate::{
     flags::{common::CommonArgs, driver::DriverArgs, preconfirmation::PreconfirmationArgs},
 };
 
-/// Validate the configured low- and high-tide peer counts.
-fn validate_peer_watermarks(peers_lo: usize, peers_hi: usize) -> Result<()> {
-    if peers_hi == 0 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "--p2p.peers.hi must be greater than zero",
-        )
-        .into());
-    }
-    if peers_lo > peers_hi {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("--p2p.peers.lo ({peers_lo}) must not exceed --p2p.peers.hi ({peers_hi})"),
-        )
-        .into());
-    }
-    Ok(())
-}
-
 /// Command-line interface for running the whitelist preconfirmation driver.
 #[derive(Parser, Clone, Debug)]
 #[command(about = "Runs the whitelist preconfirmation driver with whitelist P2P protocol")]
@@ -90,8 +71,6 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
     /// Build P2P configuration from command-line arguments.
     fn build_p2p_config(&self) -> Result<NetworkConfig> {
-        validate_peer_watermarks(self.preconf_flags.p2p_peers_lo, self.preconf_flags.p2p_peers_hi)?;
-
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -104,7 +83,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
         let discovery_listen = (!self.preconf_flags.p2p_disable_discovery)
             .then_some(self.preconf_flags.p2p_discovery_addr);
 
-        Ok(NetworkConfig {
+        let config = NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             advertise_addr: self.preconf_flags.p2p_advertise_addr,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
@@ -115,7 +94,9 @@ impl WhitelistPreconfirmationDriverSubCommand {
             discovery_listen,
             peers_lo: self.preconf_flags.p2p_peers_lo,
             peers_hi: self.preconf_flags.p2p_peers_hi,
-        })
+        };
+        config.validate()?;
+        Ok(config)
     }
 
     /// Resolve the whitelist RPC listen address.
@@ -200,12 +181,15 @@ mod tests {
 
     #[test]
     fn rejects_zero_peer_high_tide() {
-        let err = validate_peer_watermarks(0, 0).expect_err("zero high tide must fail");
+        let config = NetworkConfig { peers_lo: 0, peers_hi: 0, ..Default::default() };
+        let err = config.validate().expect_err("zero high tide must fail");
         assert!(err.to_string().contains("--p2p.peers.hi must be greater than zero"));
     }
 
     #[test]
     fn allows_zero_peer_low_tide() {
-        validate_peer_watermarks(0, 1).expect("zero low tide must remain valid");
+        NetworkConfig { peers_lo: 0, peers_hi: 1, ..Default::default() }
+            .validate()
+            .expect("zero low tide must remain valid");
     }
 }

@@ -19,7 +19,8 @@ pub struct PreconfirmationArgs {
     )]
     pub p2p_discovery_addr: SocketAddr,
 
-    /// Comma-separated list of bootnodes (ENR, enode URL, or multiaddr), dialed directly.
+    /// Comma-separated bootnodes (ENR, enode URL, or multiaddr): dialable entries with a
+    /// nonzero TCP port are direct peers, while ENR/enode entries also seed discovery.
     #[clap(long = "p2p.bootnodes", env = "P2P_BOOTNODES", value_delimiter = ',')]
     pub p2p_bootnodes: Vec<String>,
 
@@ -42,7 +43,7 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.peers.lo", env = "P2P_PEERS_LO", default_value = "20")]
     pub p2p_peers_lo: usize,
 
-    /// High-tide peer count: established connections are capped at this bound.
+    /// Soft pruning threshold for unprotected distinct peers; configured peers may exceed it.
     #[clap(long = "p2p.peers.hi", env = "P2P_PEERS_HI", default_value = "30")]
     pub p2p_peers_hi: usize,
 }

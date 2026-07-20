@@ -1,8 +1,9 @@
 //! Bootnode parsing and discv5 peer discovery for the whitelist preconfirmation network.
 //!
-//! Every configured bootnode — ENR, `enode://` URL, or raw multiaddr — resolves to a
-//! TCP multiaddr that the network runtime dials directly and retries alongside static
-//! peers. In addition, ENR and enode entries seed a [`kona_disc`] discv5 service that
+//! Every dialable configured bootnode — ENR, `enode://` URL, or raw multiaddr — resolves
+//! to a TCP multiaddr that the network runtime dials directly and retries alongside static
+//! peers. ENR and enode entries also seed a [`kona_disc`] discv5 service, even when their
+//! TCP port is zero and therefore unsuitable for direct dialing. The discovery service
 //! mirrors the Go client's op-node discovery: the local node advertises a signed ENR
 //! (IP, TCP, UDP, and the `"opstack"` chain-id entry) and randomly walks the DHT for
 //! peers carrying a matching chain-id entry. Discovered peers are converted into
@@ -14,7 +15,7 @@ use std::net::SocketAddr;
 use discv5::enr::k256;
 use kona_disc::{Discv5Driver, Discv5Handler, LocalNode};
 use kona_peers::{BootNode, BootNodes, NodeRecord, enr_to_multiaddr};
-use libp2p::{Multiaddr, PeerId, identity};
+use libp2p::{Multiaddr, PeerId, identity, multiaddr::Protocol};
 use tokio::sync::mpsc;
 use tracing::warn;
 
@@ -46,13 +47,17 @@ pub(crate) fn classify_bootnodes(bootnodes: &[String]) -> Vec<Multiaddr> {
         if value.starts_with("enode://") {
             match parse_enode_url(value) {
                 Some(addr) => dial_addrs.push(addr),
-                None => warn!(bootnode = %value, "failed to parse enode:// URL"),
+                None => warn!(
+                    bootnode = %value,
+                    "invalid enode:// URL or no dialable nonzero TCP address"
+                ),
             }
             continue;
         }
 
         match value.parse::<Multiaddr>() {
-            Ok(addr) => dial_addrs.push(addr),
+            Ok(addr) if has_nonzero_tcp_port(&addr) => dial_addrs.push(addr),
+            Ok(_) => warn!(bootnode = %value, "bootnode has no dialable nonzero TCP port"),
             Err(err) => {
                 warn!(
                     bootnode = %value,
@@ -64,6 +69,11 @@ pub(crate) fn classify_bootnodes(bootnodes: &[String]) -> Vec<Multiaddr> {
     }
 
     dial_addrs
+}
+
+/// Report whether a multiaddr contains a nonzero TCP port suitable for direct dialing.
+fn has_nonzero_tcp_port(addr: &Multiaddr) -> bool {
+    addr.iter().any(|protocol| matches!(protocol, Protocol::Tcp(port) if port != 0))
 }
 
 /// Parse bootnode entries into discv5 bootstrap nodes.
@@ -198,11 +208,16 @@ pub(crate) fn discovered_candidate(enr: &discv5::Enr, local_peer_id: &PeerId) ->
 fn parse_enr_tcp_addr(value: &str) -> Option<Multiaddr> {
     let enr = value.parse::<enr::Enr<enr::k256::ecdsa::SigningKey>>().ok()?;
 
-    if let (Some(ip), Some(tcp_port)) = (enr.ip4(), enr.tcp4()) {
+    if let (Some(ip), Some(tcp_port)) = (enr.ip4(), enr.tcp4()) &&
+        tcp_port != 0
+    {
         return format!("/ip4/{ip}/tcp/{tcp_port}").parse().ok();
     }
 
     let (ip, tcp_port) = (enr.ip6()?, enr.tcp6()?);
+    if tcp_port == 0 {
+        return None;
+    }
     format!("/ip6/{ip}/tcp/{tcp_port}").parse().ok()
 }
 
@@ -216,6 +231,9 @@ pub(crate) fn parse_enode_url(url: &str) -> Option<Multiaddr> {
     let (_, host_part) = rest.split_once('@')?;
     let host_port = host_part.split('?').next()?;
     let sock: SocketAddr = host_port.parse().ok()?;
+    if sock.port() == 0 {
+        return None;
+    }
     let scheme = if sock.ip().is_ipv4() { "ip4" } else { "ip6" };
     format!("/{scheme}/{}/tcp/{}", sock.ip(), sock.port()).parse().ok()
 }
@@ -288,6 +306,40 @@ mod tests {
     fn classify_bootnodes_skips_enr_without_tcp_address() {
         let dial_addrs = classify_bootnodes(&[sample_enr(Ipv4Addr::new(10, 0, 0, 9), None)]);
         assert!(dial_addrs.is_empty());
+    }
+
+    #[test]
+    fn classify_bootnodes_skips_enr_with_zero_tcp_port() {
+        let dial_addrs = classify_bootnodes(&[sample_enr(Ipv4Addr::new(10, 0, 0, 9), Some(0))]);
+        assert!(dial_addrs.is_empty());
+    }
+
+    #[test]
+    fn classify_bootnodes_skips_raw_multiaddr_with_zero_tcp_port() {
+        let dial_addrs = classify_bootnodes(&["/ip4/10.0.0.9/tcp/0".to_string()]);
+        assert!(dial_addrs.is_empty());
+    }
+
+    #[test]
+    fn tcp_zero_enode_is_retained_only_for_discovery() {
+        let secp_key =
+            sample_libp2p_keypair().try_into_secp256k1().expect("secp256k1 test keypair");
+        let pubkey_hex =
+            alloy_primitives::hex::encode(&secp_key.public().to_bytes_uncompressed()[1..]);
+        let enode = format!("enode://{pubkey_hex}@10.0.1.5:0?discport=30304");
+
+        assert!(
+            classify_bootnodes(std::slice::from_ref(&enode)).is_empty(),
+            "TCP/0 must not become a direct dial target"
+        );
+
+        let nodes = parse_discovery_bootnodes(&[enode]);
+        let [BootNode::Enode(addr)] = nodes.0.as_slice() else {
+            panic!("TCP/0 enode must remain a discovery bootnode");
+        };
+        let addr = addr.to_string();
+        assert!(addr.contains("/udp/30304/"), "discport must survive: {addr}");
+        assert!(addr.contains("/tcp/0/"), "original TCP port must survive discovery: {addr}");
     }
 
     #[test]
@@ -376,7 +428,10 @@ mod tests {
     #[tokio::test]
     async fn spawn_discovery_publishes_chain_tagged_local_enr() {
         let key = sample_libp2p_keypair();
-        let listen: SocketAddr = "127.0.0.1:0".parse().expect("valid socket");
+        let reserved = std::net::UdpSocket::bind("127.0.0.1:0").expect("reserve loopback port");
+        let listen = reserved.local_addr().expect("reserved socket has a local address");
+        assert_ne!(listen.port(), 0, "smoke test must configure an explicit UDP port");
+        drop(reserved);
         let advertise: SocketAddr = "127.0.0.1:4001".parse().expect("valid socket");
         let chain_id = 167_012u64;
 
@@ -395,6 +450,7 @@ mod tests {
         );
         assert_eq!(enr.ip4(), Some(Ipv4Addr::new(127, 0, 0, 1)));
         assert_eq!(enr.tcp4(), Some(4001));
+        assert_eq!(enr.udp4(), Some(listen.port()));
         assert_eq!(
             discovered_candidate(
                 &enr,
