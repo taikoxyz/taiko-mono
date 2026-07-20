@@ -178,11 +178,12 @@ impl Default for NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Validate peer watermarks and enabled discovery's advertised UDP endpoint.
+    /// Validate peer watermarks and enabled discovery's advertised endpoints.
     ///
     /// Zero low tide disables discovery-driven dialing, but high tide must remain positive
-    /// and no lower than low tide. Enabled discovery rejects UDP port zero because ENR
-    /// auto-update is disabled and would otherwise advertise that undialable port permanently.
+    /// and no lower than low tide. Enabled discovery rejects UDP and advertised TCP port
+    /// zero because ENR auto-update is disabled and the local record would otherwise
+    /// advertise an undialable port permanently.
     pub fn validate(&self) -> Result<()> {
         if self.peers_hi == 0 {
             return Err(WhitelistPreconfirmationDriverError::p2p(
@@ -198,6 +199,14 @@ impl NetworkConfig {
         if self.discovery_listen.is_some_and(|addr| addr.port() == 0) {
             return Err(WhitelistPreconfirmationDriverError::p2p(
                 "--p2p.discovery.addr UDP port must be greater than zero when discovery is enabled",
+            ));
+        }
+        if self.discovery_listen.is_some() &&
+            self.advertise_addr.is_some_and(|addr| addr.port() == 0)
+        {
+            return Err(WhitelistPreconfirmationDriverError::p2p(
+                "--p2p.advertise.addr TCP port must be greater than zero when discovery is \
+                 enabled: it is published in the local node record",
             ));
         }
 
@@ -460,6 +469,17 @@ fn configured_peer_ids(configured_peer_addrs: &[ConfiguredPeerAddr]) -> HashSet<
     configured_peer_addrs.iter().filter_map(|peer| peer_id_from_addr(&peer.addr)).collect()
 }
 
+/// Resolve the configured source label for a pinned peer identity, if any.
+fn configured_source_for_peer_id(
+    configured_peer_addrs: &[ConfiguredPeerAddr],
+    peer_id: &PeerId,
+) -> Option<&'static str> {
+    configured_peer_addrs
+        .iter()
+        .find(|peer| peer_id_from_addr(&peer.addr).as_ref() == Some(peer_id))
+        .map(|peer| peer.source)
+}
+
 /// Dial a configured peer address unless it is already connected by peer id.
 fn dial_configured_peer(
     swarm: &mut Swarm<TaikoBehaviour>,
@@ -643,8 +663,14 @@ impl NetworkRuntime {
     /// enough peers are connected, discovered ENRs are dropped (discovery keeps emitting
     /// fresh ones, so nothing is lost).
     fn handle_discovered_enr(&mut self, enr: &discv5::Enr) {
-        let connected = self.swarm.connected_peers().count();
-        if connected >= self.peers_lo {
+        // Count in-flight discovered dials alongside established connections so an ENR
+        // burst cannot schedule far past the low tide before handshakes settle. Only
+        // discovered dials pass through the gate, so `current_dials` is exactly that
+        // in-flight set (established and failed dials are removed as their events
+        // arrive).
+        let connected_or_dialing =
+            self.swarm.connected_peers().count() + self.gater.current_dials.len();
+        if connected_or_dialing >= self.peers_lo {
             WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("at_target");
             return;
         }
@@ -855,6 +881,11 @@ impl NetworkRuntime {
                 debug!(%address, "whitelist preconfirmation network listening");
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                // The dial is no longer in flight: keep the gate's `current_dials` an
+                // accurate in-flight set for low-tide accounting. Redial suppression of
+                // connected peers is handled by the `is_connected` check before
+                // discovered dials.
+                self.gater.remove_dial(&peer_id);
                 let remote_addr = endpoint.get_remote_address();
                 let exact_configured_addr = self.track_configured_connection(remote_addr);
                 if exact_configured_addr && self.failing_configured_addrs.remove(remote_addr) {
@@ -924,7 +955,10 @@ impl NetworkRuntime {
     /// `dial_addr` only observes errors `Swarm::dial` returns synchronously; connect
     /// timeouts and refusals arrive later as `OutgoingConnectionError` events. Configured
     /// addresses warn only when transitioning into the failing state, which is cleared
-    /// when that configured address establishes a connection again.
+    /// when that configured address establishes a connection again. A peer answering a
+    /// pinned address with the wrong identity gets the same edge-triggered warning: for
+    /// configured peers that is an operator-visible misconfiguration or endpoint
+    /// takeover, not routine churn.
     fn handle_outgoing_connection_error(&mut self, peer_id: Option<PeerId>, error: DialError) {
         // Clear the in-flight dial first so the gate can retry the peer later regardless
         // of how the error is classified below.
@@ -932,12 +966,37 @@ impl NetworkRuntime {
             self.gater.remove_dial(peer_id);
         }
 
-        let DialError::Transport(failed) = &error else {
+        if let DialError::WrongPeerId { obtained, address } = &error {
+            let (source, first_failure) = note_dial_failure(
+                &self.configured_peer_addrs,
+                &self.connected_configured_addrs,
+                &mut self.failing_configured_addrs,
+                address,
+            );
             WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
-                "unknown",
+                source,
+                "wrong_peer_id",
+            );
+            if first_failure {
+                warn!(%address, source, %obtained, "dialed peer presented an unexpected identity");
+            } else {
+                debug!(%address, source, %obtained, "dialed peer presented an unexpected identity");
+            }
+            return;
+        }
+
+        let DialError::Transport(failed) = &error else {
+            let source = peer_id
+                .as_ref()
+                .and_then(|peer_id| {
+                    configured_source_for_peer_id(&self.configured_peer_addrs, peer_id)
+                })
+                .unwrap_or("unknown");
+            WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+                source,
                 "connect_failed",
             );
-            debug!(?peer_id, %error, "outgoing connection attempt failed");
+            debug!(?peer_id, source, %error, "outgoing connection attempt failed");
             return;
         };
 
@@ -1311,6 +1370,53 @@ mod tests {
         let err = cfg.validate().expect_err("enabled discovery with UDP/0 must fail");
 
         assert!(err.to_string().contains("--p2p.discovery.addr"));
+    }
+
+    #[test]
+    fn network_config_validate_rejects_zero_advertise_tcp_port_with_discovery() {
+        let cfg = NetworkConfig {
+            discovery_listen: Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 30304))),
+            advertise_addr: Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))),
+            ..Default::default()
+        };
+
+        let err = cfg.validate().expect_err("enabled discovery with advertised TCP/0 must fail");
+
+        assert!(err.to_string().contains("--p2p.advertise.addr"));
+    }
+
+    #[test]
+    fn network_config_validate_allows_zero_advertise_tcp_port_without_discovery() {
+        let cfg = NetworkConfig {
+            discovery_listen: None,
+            advertise_addr: Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))),
+            ..Default::default()
+        };
+
+        cfg.validate().expect("advertised TCP/0 without discovery only affects log output");
+    }
+
+    #[test]
+    fn configured_source_for_peer_id_resolves_only_pinned_identities() {
+        let pinned_peer = PeerId::random();
+        let configured = vec![
+            ConfiguredPeerAddr {
+                addr: Multiaddr::empty()
+                    .with(Protocol::Ip4(Ipv4Addr::LOCALHOST))
+                    .with(Protocol::Tcp(4001))
+                    .with(Protocol::P2p(pinned_peer)),
+                source: "bootnode",
+            },
+            ConfiguredPeerAddr {
+                addr: Multiaddr::empty()
+                    .with(Protocol::Ip4(Ipv4Addr::LOCALHOST))
+                    .with(Protocol::Tcp(4002)),
+                source: "static peer",
+            },
+        ];
+
+        assert_eq!(configured_source_for_peer_id(&configured, &pinned_peer), Some("bootnode"));
+        assert_eq!(configured_source_for_peer_id(&configured, &PeerId::random()), None);
     }
 
     #[test]

@@ -2,7 +2,10 @@
 //!
 //! Every dialable configured bootnode — ENR, `enode://` URL, or raw multiaddr — resolves
 //! to a TCP multiaddr that the network runtime dials directly and retries alongside static
-//! peers. ENR and enode entries also seed a [`kona_disc`] discv5 service, even when their
+//! peers. ENR and enode entries carry a node identity, so their dial addresses pin the
+//! derived libp2p peer id: dials verify the remote identity and the runtime protects the
+//! configured identity before its first connection. ENR and enode entries also seed a
+//! [`kona_disc`] discv5 service, even when their
 //! TCP port is zero and therefore unsuitable for direct dialing. The discovery service
 //! mirrors the Go client's op-node discovery: the local node advertises a signed ENR
 //! (IP, TCP, UDP, and the `"opstack"` chain-id entry) and randomly walks the DHT for
@@ -14,7 +17,7 @@ use std::net::SocketAddr;
 
 use discv5::enr::k256;
 use kona_disc::{Discv5Driver, Discv5Handler, LocalNode};
-use kona_peers::{BootNode, BootNodes, NodeRecord, enr_to_multiaddr};
+use kona_peers::{BootNode, BootNodes, NodeRecord, enr_to_multiaddr, local_id_to_p2p_id};
 use libp2p::{Multiaddr, PeerId, identity, multiaddr::Protocol};
 use tokio::sync::mpsc;
 use tracing::warn;
@@ -49,7 +52,7 @@ pub(crate) fn classify_bootnodes(bootnodes: &[String]) -> Vec<Multiaddr> {
                 Some(addr) => dial_addrs.push(addr),
                 None => warn!(
                     bootnode = %value,
-                    "invalid enode:// URL or no dialable nonzero TCP address"
+                    "invalid enode:// URL, pubkey, or no dialable nonzero TCP address"
                 ),
             }
             continue;
@@ -189,10 +192,10 @@ fn discovery_signing_key(local_key: &identity::Keypair) -> Result<k256::ecdsa::S
 
 /// Convert a discovered ENR into a peer-id-pinned dialable TCP multiaddr.
 ///
-/// Returns `None` for the local node itself and for ENRs without a dialable TCP socket
-/// or secp256k1 key.
+/// Returns `None` for the local node itself and for ENRs without a nonzero dialable TCP
+/// socket or secp256k1 key.
 pub(crate) fn discovered_candidate(enr: &discv5::Enr, local_peer_id: &PeerId) -> Option<Multiaddr> {
-    let addr = enr_to_multiaddr(enr)?;
+    let addr = enr_to_multiaddr(enr).filter(has_nonzero_tcp_port)?;
     let peer_id = addr.iter().find_map(|protocol| match protocol {
         libp2p::multiaddr::Protocol::P2p(peer_id) => Some(peer_id),
         _ => None,
@@ -201,41 +204,34 @@ pub(crate) fn discovered_candidate(enr: &discv5::Enr, local_peer_id: &PeerId) ->
     (&peer_id != local_peer_id).then_some(addr)
 }
 
-/// Extract a dialable TCP multiaddr from an `enr:` bootnode entry.
+/// Extract a dialable, identity-pinned TCP multiaddr from an `enr:` bootnode entry.
 ///
-/// The ENR signature scheme is Ethereum's standard v4 (secp256k1). Only the IP and TCP
-/// port are used; UDP discovery fields are ignored.
+/// Delegates to [`enr_to_multiaddr`], which appends the libp2p peer id derived from the
+/// record's secp256k1 key so dials verify the remote identity. Records without a nonzero
+/// TCP port or secp256k1 key are rejected.
 fn parse_enr_tcp_addr(value: &str) -> Option<Multiaddr> {
-    let enr = value.parse::<enr::Enr<enr::k256::ecdsa::SigningKey>>().ok()?;
-
-    if let (Some(ip), Some(tcp_port)) = (enr.ip4(), enr.tcp4()) &&
-        tcp_port != 0
-    {
-        return format!("/ip4/{ip}/tcp/{tcp_port}").parse().ok();
-    }
-
-    let (ip, tcp_port) = (enr.ip6()?, enr.tcp6()?);
-    if tcp_port == 0 {
-        return None;
-    }
-    format!("/ip6/{ip}/tcp/{tcp_port}").parse().ok()
+    let enr = value.parse::<discv5::Enr>().ok()?;
+    enr_to_multiaddr(&enr).filter(has_nonzero_tcp_port)
 }
 
-/// Parse an `enode://` URL into a multiaddr for direct dialing.
+/// Parse an `enode://` URL into an identity-pinned multiaddr for direct dialing.
 ///
 /// Accepts `enode://<hex-pubkey>@<ip>:<tcp-port>[?discport=<udp>]` and returns
-/// `/ip4/{ip}/tcp/{port}` (or `/ip6/…`). The pubkey and optional discport query
-/// are intentionally ignored — we only need the TCP dial address.
+/// `/ip4/{ip}/tcp/{port}/p2p/{peer_id}` (or `/ip6/…`), deriving the libp2p peer id from
+/// the enode pubkey so dials verify the remote identity and the runtime can protect it
+/// before its first connection. URLs with an invalid pubkey or zero TCP port are
+/// rejected.
 pub(crate) fn parse_enode_url(url: &str) -> Option<Multiaddr> {
-    let rest = url.strip_prefix("enode://")?;
-    let (_, host_part) = rest.split_once('@')?;
-    let host_port = host_part.split('?').next()?;
-    let sock: SocketAddr = host_port.parse().ok()?;
-    if sock.port() == 0 {
+    let record = url.parse::<NodeRecord>().ok()?;
+    if record.tcp_port == 0 {
         return None;
     }
-    let scheme = if sock.ip().is_ipv4() { "ip4" } else { "ip6" };
-    format!("/{scheme}/{}/tcp/{}", sock.ip(), sock.port()).parse().ok()
+    let peer_id = local_id_to_p2p_id(record.id).ok()?;
+
+    let mut addr = Multiaddr::from(record.address);
+    addr.push(Protocol::Tcp(record.tcp_port));
+    addr.push(Protocol::P2p(peer_id));
+    Some(addr)
 }
 
 #[cfg(test)]
@@ -265,24 +261,50 @@ mod tests {
         identity::Keypair::from(identity::secp256k1::Keypair::from(secret))
     }
 
+    /// The uncompressed secp256k1 pubkey hex (no `04` prefix) for [`TEST_SECRET`].
+    fn sample_pubkey_hex() -> String {
+        let secp_key =
+            sample_libp2p_keypair().try_into_secp256k1().expect("secp256k1 test keypair");
+        alloy_primitives::hex::encode(&secp_key.public().to_bytes_uncompressed()[1..])
+    }
+
     #[test]
-    fn parse_enode_url_valid_ipv4() {
-        let url = "enode://a3f84d16471e6d8a0dc1e2d62f7a9c5b3e4f5678901234567890abcdef123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567@10.0.1.5:30303?discport=30304";
-        let addr = parse_enode_url(url).expect("should parse valid enode URL");
-        assert_eq!(addr.to_string(), "/ip4/10.0.1.5/tcp/30303");
+    fn parse_enode_url_pins_peer_id_from_pubkey() {
+        let url = format!("enode://{}@10.0.1.5:30303?discport=30304", sample_pubkey_hex());
+        let addr = parse_enode_url(&url).expect("should parse valid enode URL");
+        assert_eq!(
+            addr.to_string(),
+            format!(
+                "/ip4/10.0.1.5/tcp/30303/p2p/{}",
+                sample_libp2p_keypair().public().to_peer_id()
+            )
+        );
     }
 
     #[test]
     fn parse_enode_url_valid_ipv4_no_query() {
-        let url = "enode://abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890@192.168.1.1:30303";
-        let addr = parse_enode_url(url).expect("should parse enode URL without query");
-        assert_eq!(addr.to_string(), "/ip4/192.168.1.1/tcp/30303");
+        let url = format!("enode://{}@192.168.1.1:30303", sample_pubkey_hex());
+        let addr = parse_enode_url(&url).expect("should parse enode URL without query");
+        assert!(addr.to_string().starts_with("/ip4/192.168.1.1/tcp/30303/p2p/"));
     }
 
     #[test]
-    fn classify_bootnodes_resolves_all_entry_kinds_to_dial_addrs() {
+    fn parse_enode_url_rejects_invalid_pubkey() {
+        assert_eq!(
+            parse_enode_url(
+                "enode://a3f84d16471e6d8a0dc1e2d62f7a9c5b3e4f5678901234567890abcdef123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567@10.0.1.5:30303"
+            ),
+            None,
+            "a pubkey that is not a curve point must not become a dial target"
+        );
+    }
+
+    #[test]
+    fn classify_bootnodes_resolves_all_entry_kinds_to_pinned_dial_addrs() {
+        let sample_peer = sample_libp2p_keypair().public().to_peer_id();
         let bootnodes = vec![
             sample_enr(Ipv4Addr::new(10, 0, 0, 9), Some(9222)),
+            format!("enode://{}@10.0.0.1:30303", sample_pubkey_hex()),
             "enode://key@10.0.0.1:30303".to_string(),
             "/ip4/1.2.3.4/tcp/9000".to_string(),
             "".to_string(),
@@ -295,10 +317,15 @@ mod tests {
         assert_eq!(
             dial_addrs,
             vec![
-                "/ip4/10.0.0.9/tcp/9222".parse::<Multiaddr>().expect("valid multiaddr"),
-                "/ip4/10.0.0.1/tcp/30303".parse().expect("valid multiaddr"),
+                format!("/ip4/10.0.0.9/tcp/9222/p2p/{sample_peer}")
+                    .parse::<Multiaddr>()
+                    .expect("valid multiaddr"),
+                format!("/ip4/10.0.0.1/tcp/30303/p2p/{sample_peer}")
+                    .parse()
+                    .expect("valid multiaddr"),
                 "/ip4/1.2.3.4/tcp/9000".parse().expect("valid multiaddr"),
-            ]
+            ],
+            "ENR/enode entries pin identities; the bogus-pubkey enode is dropped"
         );
     }
 
@@ -420,6 +447,16 @@ mod tests {
         let other = identity::Keypair::generate_secp256k1().public().to_peer_id();
 
         assert_eq!(discovered_candidate(&enr, &other), None);
+    }
+
+    #[test]
+    fn discovered_candidate_rejects_zero_tcp_port() {
+        let enr = sample_enr(Ipv4Addr::new(10, 0, 0, 9), Some(0))
+            .parse::<discv5::Enr>()
+            .expect("valid enr");
+        let other = identity::Keypair::generate_secp256k1().public().to_peer_id();
+
+        assert_eq!(discovered_candidate(&enr, &other), None, "tcp/0 records are undialable");
     }
 
     /// Full startup smoke test: the service binds a loopback UDP socket and publishes a
