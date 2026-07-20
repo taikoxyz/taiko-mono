@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
 use protocol::shasta::set_devnet_unzen_override;
-use tracing::{debug, warn};
+use tracing::warn;
 use whitelist_preconfirmation_driver::{
     NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
     WhitelistPreconfirmationDriverRunner,
@@ -71,16 +71,16 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
     /// Build P2P configuration from command-line arguments.
     fn build_p2p_config(&self) -> Result<NetworkConfig> {
-        if self.preconf_flags.p2p_disable_discovery {
-            warn!(
-                "--p2p.disable-discovery is deprecated and ignored: discv5 discovery has been \
-                 removed and bootnodes are dialed directly"
-            );
+        if self.preconf_flags.p2p_peers_lo > self.preconf_flags.p2p_peers_hi {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "--p2p.peers.lo ({}) must not exceed --p2p.peers.hi ({})",
+                    self.preconf_flags.p2p_peers_lo, self.preconf_flags.p2p_peers_hi
+                ),
+            )
+            .into());
         }
-        debug!(
-            discovery_addr = %self.preconf_flags.p2p_discovery_addr,
-            "ignoring deprecated --p2p.discovery.addr; discv5 discovery has been removed"
-        );
 
         let pre_dial_peers = self
             .preconf_flags
@@ -91,6 +91,9 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
+        let discovery_listen = (!self.preconf_flags.p2p_disable_discovery)
+            .then_some(self.preconf_flags.p2p_discovery_addr);
+
         Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             advertise_addr: self.preconf_flags.p2p_advertise_addr,
@@ -99,6 +102,9 @@ impl WhitelistPreconfirmationDriverSubCommand {
             preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(
                 self.preconfirmation_p2p_priv_raw.as_deref(),
             )?,
+            discovery_listen,
+            peers_lo: self.preconf_flags.p2p_peers_lo,
+            peers_hi: self.preconf_flags.p2p_peers_hi,
         })
     }
 

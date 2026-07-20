@@ -23,9 +23,14 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
+use kona_disc::Discv5Handler;
+use kona_gossip::{ConnectionGate, ConnectionGater, GaterConfig};
+
 use super::{
     behaviour::{BehaviourEvent, TaikoBehaviour, build_behaviour},
-    discovery::classify_bootnodes,
+    discovery::{
+        classify_bootnodes, discovered_candidate, parse_discovery_bootnodes, spawn_discovery,
+    },
     handler::GossipsubInboundState,
     topics::Topics,
 };
@@ -48,6 +53,22 @@ const SECP256K1_PRIVATE_KEY_LEN: usize = 32;
 
 /// Interval for logging current preconfirmation peer connectivity.
 const PEER_STATUS_LOG_INTERVAL: Duration = Duration::from_secs(60);
+
+/// Default low-tide peer count, matching op-node's `p2p.peers.lo`: discovered peers are
+/// dialed while the connection count is below this target.
+pub const DEFAULT_PEERS_LO: usize = 20;
+
+/// Default high-tide peer count, matching op-node's `p2p.peers.hi`: established
+/// connections are capped at this bound.
+pub const DEFAULT_PEERS_HI: usize = 30;
+
+/// Maximum dials per discovered address within one dial period, matching kona-node's
+/// `p2p.redial` default.
+const DISCOVERED_PEER_REDIAL_THRESHOLD: u64 = 500;
+
+/// Window after which a discovered address's dial count resets, matching kona-node's
+/// `p2p.redial.period` default.
+const DISCOVERED_PEER_DIAL_PERIOD: Duration = Duration::from_secs(60 * 60);
 
 /// Network event emitted by the whitelist preconfirmation gossipsub stack.
 #[derive(Debug)]
@@ -125,12 +146,19 @@ pub struct NetworkConfig {
     pub listen_addr: SocketAddr,
     /// Optional externally dialable TCP address advertised in the local enode URL.
     pub advertise_addr: Option<SocketAddr>,
-    /// Bootnodes as ENR, enode URL, or multiaddr strings; all are dialed directly.
+    /// Bootnodes as ENR, enode URL, or multiaddr strings; all are dialed directly, and
+    /// ENR/enode entries additionally seed discv5 discovery.
     pub bootnodes: Vec<String>,
     /// Static peers to dial on startup.
     pub pre_dial_peers: Vec<Multiaddr>,
     /// Optional parsed secp256k1 keypair for the local P2P network identity.
     pub preconfirmation_p2p_key: Option<identity::Keypair>,
+    /// UDP listen address for discv5 peer discovery; `None` disables discovery.
+    pub discovery_listen: Option<SocketAddr>,
+    /// Low-tide peer count: discovered candidates are dialed while below this target.
+    pub peers_lo: usize,
+    /// High-tide peer count: non-configured peers are pruned above this threshold.
+    pub peers_hi: usize,
 }
 
 impl Default for NetworkConfig {
@@ -141,6 +169,9 @@ impl Default for NetworkConfig {
             bootnodes: Vec::new(),
             pre_dial_peers: Vec::new(),
             preconfirmation_p2p_key: None,
+            discovery_listen: None,
+            peers_lo: DEFAULT_PEERS_LO,
+            peers_hi: DEFAULT_PEERS_HI,
         }
     }
 }
@@ -154,8 +185,12 @@ impl NetworkConfig {
     }
 
     /// Build the local libp2p identity key, falling back to an ephemeral key.
+    ///
+    /// The fallback is secp256k1 so the identity can double as the discv5 ENR signing
+    /// key: Go peers derive the libp2p peer id from the ENR key when dialing, so
+    /// discovery only works when both are the same key.
     fn local_key(&self) -> identity::Keypair {
-        self.preconfirmation_p2p_key.clone().unwrap_or_else(identity::Keypair::generate_ed25519)
+        self.preconfirmation_p2p_key.clone().unwrap_or_else(identity::Keypair::generate_secp256k1)
     }
 }
 
@@ -230,6 +265,9 @@ impl WhitelistNetwork {
             bootnodes,
             pre_dial_peers,
             preconfirmation_p2p_key: _,
+            discovery_listen,
+            peers_lo,
+            peers_hi,
         } = cfg;
 
         let peer_id = local_key.public().to_peer_id();
@@ -243,13 +281,16 @@ impl WhitelistNetwork {
         );
 
         let topics = Topics::new(chain_id);
-        let behaviour = build_behaviour(&local_key, &topics)?;
+        let behaviour = build_behaviour(&local_key, &topics, peers_hi)?;
         let mut swarm = build_swarm(&local_key, peer_id, behaviour)?;
         configure_listen_addr(&mut swarm, listen_addr)?;
 
-        let bootnode_dial_addrs = classify_bootnodes(bootnodes);
+        let bootnode_dial_addrs = classify_bootnodes(&bootnodes);
         let configured_peer_addrs =
             dial_initial_peers(&mut swarm, pre_dial_peers, bootnode_dial_addrs);
+
+        let (discovery_handle, discovery_rx) =
+            start_discovery(&local_key, chain_id, discovery_listen, advertise_addr, &bootnodes);
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, command_rx) = mpsc::channel(512);
@@ -267,11 +308,65 @@ impl WhitelistNetwork {
             peer_status_log_interval: delayed_interval(PEER_STATUS_LOG_INTERVAL),
             inbound_validation_state,
             peer_id_for_events: peer_id,
+            _discovery_handle: discovery_handle,
+            discovery_rx,
+            gater: ConnectionGater::new(GaterConfig {
+                peer_redialing: Some(DISCOVERED_PEER_REDIAL_THRESHOLD),
+                dial_period: DISCOVERED_PEER_DIAL_PERIOD,
+            }),
+            peers_lo,
         };
 
         let handle = tokio::spawn(async move { runtime.run().await });
 
         Ok(Self { peer_id, event_rx, command_tx, handle })
+    }
+}
+
+/// Start discv5 discovery when it is enabled and advertisable.
+///
+/// Discovery needs a dialable advertised endpoint for the local ENR; without
+/// `--p2p.advertise.addr` the node would publish an undialable record, so discovery is
+/// skipped with a warning. Failures to start are downgraded to warnings as well: the
+/// configured-peer backbone keeps the node connected without discovery.
+fn start_discovery(
+    local_key: &identity::Keypair,
+    chain_id: u64,
+    discovery_listen: Option<SocketAddr>,
+    advertise_addr: Option<SocketAddr>,
+    bootnodes: &[String],
+) -> (Option<Discv5Handler>, Option<mpsc::Receiver<discv5::Enr>>) {
+    let Some(listen) = discovery_listen else {
+        return (None, None);
+    };
+    let Some(advertise) = advertise_addr else {
+        warn!(
+            "discv5 discovery requires --p2p.advertise.addr for a dialable node record; \
+             discovery disabled"
+        );
+        return (None, None);
+    };
+
+    match spawn_discovery(
+        local_key,
+        chain_id,
+        listen,
+        advertise,
+        parse_discovery_bootnodes(bootnodes),
+    ) {
+        Ok((handle, rx)) => {
+            info!(
+                %listen,
+                %advertise,
+                chain_id,
+                "discv5 peer discovery started"
+            );
+            (Some(handle), Some(rx))
+        }
+        Err(err) => {
+            warn!(error = %err, "failed to start discv5 discovery; continuing without it");
+            (None, None)
+        }
     }
 }
 
@@ -437,6 +532,15 @@ struct NetworkRuntime {
     inbound_validation_state: GossipsubInboundState,
     /// Local peer id used to ignore self-propagated gossip.
     peer_id_for_events: PeerId,
+    /// Keeps the discv5 service task alive; dropping the handle would close its request
+    /// channel and make the driver loop spin on a closed receiver.
+    _discovery_handle: Option<Discv5Handler>,
+    /// Stream of chain-validated discovered ENRs; `None` when discovery is disabled.
+    discovery_rx: Option<mpsc::Receiver<discv5::Enr>>,
+    /// Dial gate for discovered peers: redial thresholds and duplicate-dial suppression.
+    gater: ConnectionGater,
+    /// Low-tide peer target: discovered peers are dialed while below this count.
+    peers_lo: usize,
 }
 
 impl NetworkRuntime {
@@ -468,9 +572,74 @@ impl NetworkRuntime {
                 self.log_peer_status();
                 Ok(true)
             }
+            maybe_enr = recv_discovered(&mut self.discovery_rx) => {
+                match maybe_enr {
+                    Some(enr) => self.handle_discovered_enr(&enr),
+                    None => {
+                        warn!("discv5 discovery stream closed; continuing with configured peers only");
+                        self.discovery_rx = None;
+                    }
+                }
+                Ok(true)
+            }
             event = self.swarm.select_next_some() => {
                 self.handle_swarm_event(event).await?;
                 Ok(true)
+            }
+        }
+    }
+
+    /// Handle one discovered ENR: dial it while below the low-tide peer target.
+    ///
+    /// Mirrors kona-node's discovery-to-gossip wiring: the connection gate suppresses
+    /// duplicate dials and enforces redial thresholds, and the swarm's connection
+    /// limits cap the total at the high-tide bound. The low-tide guard matches
+    /// op-node's `connectGoal`: once enough peers are connected, discovered ENRs are
+    /// dropped (discovery keeps emitting fresh ones, so nothing is lost).
+    fn handle_discovered_enr(&mut self, enr: &discv5::Enr) {
+        let connected = self.swarm.connected_peers().count();
+        if connected >= self.peers_lo {
+            WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("at_target");
+            return;
+        }
+
+        let Some(addr) = discovered_candidate(enr, &self.peer_id_for_events) else {
+            WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("undialable");
+            return;
+        };
+
+        let Some(peer_id) = ConnectionGater::peer_id_from_addr(&addr) else {
+            WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("undialable");
+            return;
+        };
+        if self.swarm.is_connected(&peer_id) {
+            WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate(
+                "already_connected",
+            );
+            return;
+        }
+
+        if let Err(dial_error) = self.gater.can_dial(&addr) {
+            debug!(%addr, ?dial_error, "connection gate rejected discovered peer");
+            WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("gated");
+            return;
+        }
+
+        self.gater.dialing(&addr);
+        match self.swarm.dial(addr.clone()) {
+            Ok(()) => {
+                debug!(%addr, %peer_id, "dialing discovered peer");
+                self.gater.dialed(&addr);
+                WhitelistPreconfirmationDriverMetrics::inc_network_discovered_candidate("dialed");
+                WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt("discovered", "ok");
+            }
+            Err(err) => {
+                debug!(%addr, error = %err, "failed to dial discovered peer");
+                self.gater.remove_dial(&peer_id);
+                WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+                    "discovered",
+                    "failed",
+                );
             }
         }
     }
@@ -607,11 +776,15 @@ impl NetworkRuntime {
             behaviour.gossipsub.mesh_peers(&self.topics.eos_request.hash()).count();
         let gossip_topic_peers = behaviour.gossipsub.all_peers().count();
 
+        WhitelistPreconfirmationDriverMetrics::set_network_peer_count(connected_peers.len());
+
         info!(
             connected_peer_count = connected_peers.len(),
             connected_peers = %format_peer_ids(&connected_peers),
             configured_peer_count = self.configured_peer_addrs.len(),
             connected_configured_addr_count = self.connected_configured_addrs.len(),
+            discovery_enabled = self.discovery_rx.is_some(),
+            peers_lo = self.peers_lo,
             gossip_topic_peer_count = gossip_topic_peers,
             preconf_blocks_mesh_peers,
             request_mesh_peers,
@@ -636,6 +809,9 @@ impl NetworkRuntime {
             }
             libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                 self.track_configured_connection(endpoint.get_remote_address());
+                WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
+                    self.swarm.connected_peers().count(),
+                );
                 debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer connected");
             }
             libp2p::swarm::SwarmEvent::ConnectionClosed {
@@ -646,8 +822,20 @@ impl NetworkRuntime {
             } => {
                 if num_established == 0 {
                     self.connected_configured_addrs.remove(endpoint.get_remote_address());
+                    // Allow the gate to redial this peer if discovery surfaces it again.
+                    self.gater.remove_dial(&peer_id);
                 }
+                WhitelistPreconfirmationDriverMetrics::set_network_peer_count(
+                    self.swarm.connected_peers().count(),
+                );
                 debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer disconnected");
+            }
+            libp2p::swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                // Clear the in-flight dial so the gate can retry the peer later.
+                if let Some(peer_id) = peer_id.as_ref() {
+                    self.gater.remove_dial(peer_id);
+                }
+                debug!(?peer_id, %error, "outgoing connection attempt failed");
             }
             libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ignored) => {}
             other => {
@@ -873,6 +1061,17 @@ impl NetworkRuntime {
 /// Format peer ids into a compact comma-separated log value.
 fn format_peer_ids(peers: &[PeerId]) -> String {
     peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
+}
+
+/// Receive one discovered ENR, pending forever when discovery is disabled.
+///
+/// Keeping the disabled branch pending lets the runtime `select!` poll this arm
+/// unconditionally without waking on a closed or absent channel.
+async fn recv_discovered(rx: &mut Option<mpsc::Receiver<discv5::Enr>>) -> Option<discv5::Enr> {
+    match rx {
+        Some(rx) => rx.recv().await,
+        None => std::future::pending().await,
+    }
 }
 
 #[cfg(test)]
