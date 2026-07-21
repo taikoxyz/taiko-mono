@@ -7,12 +7,14 @@ use url::Url;
 /// Driver-specific CLI arguments.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct DriverArgs {
-    /// Interval in seconds between retry attempts when sync operations fail.
+    /// Maximum interval in seconds between retry attempts when sync operations fail; the
+    /// event scanner reconnect backs off exponentially from one second up to this cap.
     #[clap(
         long = "driver.retryInterval",
         env = "DRIVER_RETRY_INTERVAL",
         default_value = "12",
-        help = "Interval in seconds between retry attempts when sync operations fail"
+        help = "Maximum interval in seconds between retry attempts when sync operations fail; \
+                the event scanner reconnect backs off exponentially from one second up to this cap"
     )]
     retry_interval_seconds: u64,
     /// HTTP endpoint of the L1 beacon node.

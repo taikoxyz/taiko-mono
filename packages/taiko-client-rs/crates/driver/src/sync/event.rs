@@ -1,6 +1,7 @@
 //! Event sync logic.
 
 use std::{
+    collections::{HashSet, VecDeque},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -55,6 +56,79 @@ enum ProposalLogResult {
     Processed(Vec<EngineBlockOutcome>),
     /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
     SkippedOrphaned,
+}
+
+/// Stable identity of a proposal log that completed processing in this event-syncer run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ProcessedProposalLog {
+    /// L1 block containing the proposal log.
+    block_number: u64,
+    /// Hash of the L1 block containing the proposal log.
+    block_hash: B256,
+    /// Hash of the transaction that emitted the proposal log.
+    transaction_hash: B256,
+    /// Index of the proposal log within its L1 block.
+    log_index: u64,
+}
+
+impl ProcessedProposalLog {
+    /// Build an identity only when every field required for exact replay matching is present.
+    fn from_log(log: &Log) -> Option<Self> {
+        Some(Self {
+            block_number: log.block_number?,
+            block_hash: log.block_hash?,
+            transaction_hash: log.transaction_hash?,
+            log_index: log.log_index?,
+        })
+    }
+}
+
+/// Proposal logs processed successfully by the current event-syncer run.
+#[derive(Debug, Default)]
+struct ProcessedProposalLogCache {
+    /// Exact identities used to recognize reconnect replays.
+    entries: HashSet<ProcessedProposalLog>,
+    /// Insertion order used to bound memory without affecting correctness.
+    insertion_order: VecDeque<ProcessedProposalLog>,
+}
+
+/// Maximum number of successfully processed proposal logs retained for reconnect deduplication.
+///
+/// Eviction only causes an old log to be derived again; it never causes new log data to be
+/// skipped. The capacity comfortably covers the normal reorg-unsafe proposal window.
+const PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY: usize = 1024;
+
+impl ProcessedProposalLogCache {
+    /// Remove exact proposal-log replays while retaining new or incompletely identified logs.
+    fn retain_unprocessed(&self, logs: Vec<Log>) -> Vec<Log> {
+        logs.into_iter()
+            .filter(|log| {
+                ProcessedProposalLog::from_log(log)
+                    .is_none_or(|identity| !self.entries.contains(&identity))
+            })
+            .collect()
+    }
+
+    /// Record proposal logs only after their whole scanner batch completes successfully.
+    fn record_processed(&mut self, logs: &[Log]) {
+        for identity in logs.iter().filter_map(ProcessedProposalLog::from_log) {
+            if !self.entries.insert(identity) {
+                continue;
+            }
+            self.insertion_order.push_back(identity);
+            if self.entries.len() > PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY &&
+                let Some(oldest) = self.insertion_order.pop_front()
+            {
+                self.entries.remove(&oldest);
+            }
+        }
+    }
+
+    /// Forget processed logs above a reported common ancestor before replaying the new branch.
+    fn invalidate_after(&mut self, common_ancestor: u64) {
+        self.entries.retain(|identity| identity.block_number <= common_ancestor);
+        self.insertion_order.retain(|identity| identity.block_number <= common_ancestor);
+    }
 }
 
 /// Finalized-ancestry proof state for a proposal log's source L1 block.
@@ -250,6 +324,68 @@ fn resolve_reconnect_start_block(
     let overlap_start_block_number = last_seen_l1_block_number.saturating_sub(1);
     finalized_l1_block_number
         .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
+}
+
+/// Base delay before the first reconnect attempt after a failed scanner generation.
+const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
+
+/// Compute the scanner reconnect delay for the given consecutive-failure count.
+///
+/// Delays double from [`SCANNER_RECONNECT_BACKOFF_BASE`] per consecutive failed scanner
+/// generation and cap at the configured retry interval: a transient L1 hiccup (a single
+/// canceled poll) reconnects within a second instead of paying the full flat interval, while
+/// a persistent outage settles at the configured pace.
+fn scanner_reconnect_delay(retry_interval: Duration, consecutive_failures: u32) -> Duration {
+    let mut delay = SCANNER_RECONNECT_BACKOFF_BASE.min(retry_interval);
+    // A `Duration` can hold at most `u64::MAX` whole seconds, so 64 saturating doublings cover
+    // every representable cap without allowing an unbounded loop for a saturated failure count.
+    for _ in 0..consecutive_failures.min(u64::BITS) {
+        delay = delay.saturating_mul(2).min(retry_interval);
+        if delay == retry_interval {
+            break;
+        }
+    }
+    delay
+}
+
+/// Reconnect backoff state retained across event-scanner generations.
+#[derive(Debug, Default)]
+struct ScannerReconnectState {
+    /// Consecutive generations that failed before processing successful live activity.
+    consecutive_failures: u32,
+    /// Whether the current generation has transitioned from replay into live scanning.
+    generation_live: bool,
+}
+
+impl ScannerReconnectState {
+    /// Start a new scanner generation in replay mode without discarding prior failures.
+    fn begin_generation(&mut self) {
+        self.generation_live = false;
+    }
+
+    /// Record the scanner's transition from historical replay into live scanning.
+    fn mark_switching_to_live(&mut self) {
+        self.generation_live = true;
+    }
+
+    /// Return whether the current scanner generation has transitioned into live scanning.
+    fn is_live(&self) -> bool {
+        self.generation_live
+    }
+
+    /// Reset accumulated failures after a scanner batch succeeds during live scanning.
+    fn mark_successful_batch(&mut self) {
+        if self.generation_live {
+            self.consecutive_failures = 0;
+        }
+    }
+
+    /// Record a failed generation and return the delay before its reconnect attempt.
+    fn next_delay(&mut self, retry_interval: Duration) -> Duration {
+        let delay = scanner_reconnect_delay(retry_interval, self.consecutive_failures);
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        delay
+    }
 }
 
 /// Return whether a preconfirmation target is at or below the confirmed tip.
@@ -1509,13 +1645,22 @@ impl SyncStage for EventSyncer {
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
         let mut scanner_started_once = false;
+        // Keep successful proposal identities across scanner generations. A reconnect rewinds
+        // to a safe overlap, but exact replayed logs do not need another blob fetch and full
+        // derivation. Changed log identities still take the normal reorg path (WLP-INV-004,
+        // WLP-INV-009).
+        let mut processed_proposal_logs = ProcessedProposalLogCache::default();
+        // Retain reconnect failures until a generation processes successful live activity. Merely
+        // receiving `SwitchingToLive` is insufficient because event-scanner emits it before the
+        // first live `eth_getLogs` request.
+        let mut scanner_reconnect_state = ScannerReconnectState::default();
 
         loop {
             // Every reconnect re-enters historical sync with a fresh scanner, so the previous
             // generation's live state must not leak forward: (re)opening ingress requires a
             // fresh `SwitchingToLive` from the scanner actually streaming plus a passed
             // confirmed-sync probe (WLP-INV-002).
-            let mut scanner_live = false;
+            scanner_reconnect_state.begin_generation();
             let mut scanner = match self
                 .cfg
                 .client
@@ -1528,13 +1673,14 @@ impl SyncStage for EventSyncer {
                     let err =
                         super::retryable_after_first_success(scanner_started_once, err.to_string())
                             .map_err(SyncError::EventScannerInit)?;
+                    let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
-                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        retry_after_secs = delay.as_secs_f64(),
                         "failed to initialize event scanner; retrying"
                     );
-                    sleep(self.cfg.retry_interval).await;
+                    sleep(delay).await;
                     continue;
                 }
             };
@@ -1551,13 +1697,14 @@ impl SyncStage for EventSyncer {
                     let err =
                         super::retryable_after_first_success(scanner_started_once, err.to_string())
                             .map_err(SyncError::EventScannerInit)?;
+                    let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
-                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        retry_after_secs = delay.as_secs_f64(),
                         "failed to start event scanner; retrying"
                     );
-                    sleep(self.cfg.retry_interval).await;
+                    sleep(delay).await;
                     continue;
                 }
             };
@@ -1587,7 +1734,7 @@ impl SyncStage for EventSyncer {
                         self.cfg.preconfirmation_enabled,
                         preconf_ingress_spawned,
                         self.preconf_ingress_ready.load(Ordering::Acquire),
-                        scanner_live,
+                        scanner_reconnect_state.is_live(),
                     ) => {
                         self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned)
                             .await;
@@ -1602,7 +1749,19 @@ impl SyncStage for EventSyncer {
                         }
                         DriverMetrics::event_scanner_batches_total().inc();
                         DriverMetrics::event_proposals_total().inc_by(logs.len() as u64);
+                        let received_log_count = logs.len();
+                        let logs = processed_proposal_logs.retain_unprocessed(logs);
+                        let replayed_log_count = received_log_count - logs.len();
+                        if replayed_log_count > 0 {
+                            info!(
+                                replayed_log_count,
+                                "skipping exact proposal log replays after scanner reconnect"
+                            );
+                        }
+                        let processed_logs = logs.clone();
                         self.process_log_batch(router.clone(), logs).await?;
+                        processed_proposal_logs.record_processed(&processed_logs);
+                        scanner_reconnect_state.mark_successful_batch();
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
@@ -1611,9 +1770,10 @@ impl SyncStage for EventSyncer {
                                 // Scanner live is necessary but not sufficient: confirmed-sync
                                 // readiness must also pass before ingress
                                 // opens.
-                                scanner_live = true;
+                                scanner_reconnect_state.mark_switching_to_live();
                             }
                             Notification::ReorgDetected { common_ancestor } => {
+                                processed_proposal_logs.invalidate_after(common_ancestor);
                                 if timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
@@ -1657,7 +1817,7 @@ impl SyncStage for EventSyncer {
                     self.cfg.preconfirmation_enabled,
                     preconf_ingress_spawned,
                     self.preconf_ingress_ready.load(Ordering::Acquire),
-                    scanner_live,
+                    scanner_reconnect_state.is_live(),
                 ) {
                     self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
                 }
@@ -1686,12 +1846,13 @@ impl SyncStage for EventSyncer {
                     startup_anchor_block_number,
                 ));
             }
+            let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
             warn!(
                 start_tag = ?reconnect_start_tag,
-                retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                retry_after_secs = delay.as_secs_f64(),
                 "event scanner stream ended; reconnecting"
             );
-            sleep(self.cfg.retry_interval).await;
+            sleep(delay).await;
         }
     }
 }
@@ -1816,6 +1977,111 @@ mod tests {
             log_index: Some(0),
             removed: false,
         }
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_skips_only_exact_reconnect_replay() {
+        let original = sample_proposed_log(1, B256::from([0x11; 32]), B256::from([0x21; 32]));
+        let replacement = sample_proposed_log(1, B256::from([0x12; 32]), B256::from([0x22; 32]));
+        let mut cache = ProcessedProposalLogCache::default();
+
+        cache.record_processed(std::slice::from_ref(&original));
+
+        assert!(cache.retain_unprocessed(vec![original]).is_empty());
+        assert_eq!(cache.retain_unprocessed(vec![replacement]).len(), 1);
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_invalidates_entries_above_reorg_ancestor() {
+        let ancestor_log = sample_proposed_log(10, B256::from([0x31; 32]), B256::from([0x41; 32]));
+        let reorged_log = sample_proposed_log(11, B256::from([0x32; 32]), B256::from([0x42; 32]));
+        let mut cache = ProcessedProposalLogCache::default();
+        cache.record_processed(&[ancestor_log.clone(), reorged_log.clone()]);
+
+        cache.invalidate_after(10);
+
+        assert!(cache.retain_unprocessed(vec![ancestor_log]).is_empty());
+        assert_eq!(cache.retain_unprocessed(vec![reorged_log]).len(), 1);
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_evicts_oldest_entry_at_capacity() {
+        let mut cache = ProcessedProposalLogCache::default();
+        let logs = (1..=PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY as u64 + 1)
+            .map(|id| {
+                sample_proposed_log(id, B256::from(U256::from(id)), B256::from(U256::from(id + 1)))
+            })
+            .collect::<Vec<_>>();
+
+        for log in &logs {
+            cache.record_processed(std::slice::from_ref(log));
+        }
+
+        assert_eq!(cache.retain_unprocessed(vec![logs[0].clone()]).len(), 1);
+        assert!(cache.retain_unprocessed(vec![logs.last().unwrap().clone()]).is_empty());
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_backs_off_exponentially_to_the_configured_cap() {
+        let cap = Duration::from_secs(12);
+        let delays: Vec<u64> =
+            (0..7).map(|failures| scanner_reconnect_delay(cap, failures).as_secs()).collect();
+        assert_eq!(delays, vec![1, 2, 4, 8, 12, 12, 12]);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_never_exceeds_a_small_configured_interval() {
+        let cap = Duration::from_secs(2);
+        assert_eq!(scanner_reconnect_delay(cap, 0), Duration::from_secs(1));
+        assert_eq!(scanner_reconnect_delay(cap, 5), cap);
+        assert_eq!(scanner_reconnect_delay(Duration::ZERO, 3), Duration::ZERO);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_saturates_on_large_failure_counts() {
+        let cap = Duration::from_secs(12);
+        assert_eq!(scanner_reconnect_delay(cap, u32::MAX), cap);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_reaches_a_configured_cap_above_sixty_four_seconds() {
+        let cap = Duration::from_secs(120);
+        assert_eq!(scanner_reconnect_delay(cap, 6), Duration::from_secs(64));
+        assert_eq!(scanner_reconnect_delay(cap, 7), cap);
+    }
+
+    #[test]
+    fn scanner_reconnect_backoff_keeps_escalating_without_successful_live_activity() {
+        let cap = Duration::from_secs(12);
+        let mut state = ScannerReconnectState::default();
+
+        let delays = (0..5)
+            .map(|_| {
+                state.begin_generation();
+                state.mark_successful_batch();
+                state.mark_switching_to_live();
+                state.next_delay(cap).as_secs()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(delays, vec![1, 2, 4, 8, 12]);
+    }
+
+    #[test]
+    fn scanner_reconnect_backoff_resets_after_successful_live_activity() {
+        let cap = Duration::from_secs(12);
+        let mut state = ScannerReconnectState::default();
+
+        state.begin_generation();
+        assert_eq!(state.next_delay(cap), Duration::from_secs(1));
+        state.begin_generation();
+        assert_eq!(state.next_delay(cap), Duration::from_secs(2));
+
+        state.begin_generation();
+        state.mark_switching_to_live();
+        state.mark_successful_batch();
+
+        assert_eq!(state.next_delay(cap), Duration::from_secs(1));
     }
 
     fn sample_core_state(next_proposal_id: u64) -> CoreState {
