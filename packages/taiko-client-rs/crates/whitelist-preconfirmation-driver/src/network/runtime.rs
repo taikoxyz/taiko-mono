@@ -875,6 +875,65 @@ fn format_peer_ids(peers: &[PeerId]) -> String {
     peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
 }
 
+/// Convert a gossipsub message acceptance decision into a metrics label.
+fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
+    match acceptance {
+        gossipsub::MessageAcceptance::Accept => "accepted",
+        gossipsub::MessageAcceptance::Ignore => "ignored",
+        gossipsub::MessageAcceptance::Reject => "rejected",
+    }
+}
+
+/// Emit an entry log for an inbound gossip envelope.
+fn log_inbound_envelope(
+    from: PeerId,
+    envelope: &WhitelistExecutionPayloadEnvelope,
+    message: &'static str,
+) {
+    let execution_payload = &envelope.execution_payload;
+    info!(
+        peer = %from,
+        block_id = execution_payload.block_number,
+        block_hash = %execution_payload.block_hash,
+        coinbase = %execution_payload.fee_recipient,
+        timestamp = execution_payload.timestamp,
+        gas_limit = execution_payload.gas_limit,
+        gas_used = execution_payload.gas_used,
+        base_fee_per_gas = %execution_payload.base_fee_per_gas,
+        extra_data = %alloy_primitives::hex::encode(&execution_payload.extra_data),
+        parent_hash = %execution_payload.parent_hash,
+        end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false),
+        is_forced_inclusion = envelope.is_forced_inclusion.unwrap_or(false),
+        "{message}"
+    );
+}
+
+/// Forward one decoded event to the importer with backpressure.
+pub(super) async fn forward_event(
+    event_tx: &mpsc::Sender<NetworkEvent>,
+    event: NetworkEvent,
+) -> Result<()> {
+    event_tx.send(event).await.map_err(|err| {
+        WhitelistPreconfirmationDriverMetrics::inc_network_forward_failure();
+        warn!(error = %err, "whitelist preconfirmation event channel closed");
+        WhitelistPreconfirmationDriverError::p2p(format!(
+            "whitelist preconfirmation event channel closed: {err}"
+        ))
+    })
+}
+
+/// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
+pub(super) fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
+    let bytes: [u8; 8] = payload.try_into().ok()?;
+    Some(u64::from_be_bytes(bytes))
+}
+
+/// Decode a 32-byte request hash payload exactly (non-padded path).
+pub(super) fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
+    let bytes: [u8; 32] = payload.try_into().ok()?;
+    Some(B256::from(bytes))
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr};
@@ -1030,63 +1089,4 @@ mod tests {
 
         assert_eq!(advertised_enode_url(&local_key, listen_addr, None), None);
     }
-}
-
-/// Convert a gossipsub message acceptance decision into a metrics label.
-fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
-    match acceptance {
-        gossipsub::MessageAcceptance::Accept => "accepted",
-        gossipsub::MessageAcceptance::Ignore => "ignored",
-        gossipsub::MessageAcceptance::Reject => "rejected",
-    }
-}
-
-/// Emit an entry log for an inbound gossip envelope.
-fn log_inbound_envelope(
-    from: PeerId,
-    envelope: &WhitelistExecutionPayloadEnvelope,
-    message: &'static str,
-) {
-    let execution_payload = &envelope.execution_payload;
-    info!(
-        peer = %from,
-        block_id = execution_payload.block_number,
-        block_hash = %execution_payload.block_hash,
-        coinbase = %execution_payload.fee_recipient,
-        timestamp = execution_payload.timestamp,
-        gas_limit = execution_payload.gas_limit,
-        gas_used = execution_payload.gas_used,
-        base_fee_per_gas = %execution_payload.base_fee_per_gas,
-        extra_data = %alloy_primitives::hex::encode(&execution_payload.extra_data),
-        parent_hash = %execution_payload.parent_hash,
-        end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false),
-        is_forced_inclusion = envelope.is_forced_inclusion.unwrap_or(false),
-        "{message}"
-    );
-}
-
-/// Forward one decoded event to the importer with backpressure.
-pub(super) async fn forward_event(
-    event_tx: &mpsc::Sender<NetworkEvent>,
-    event: NetworkEvent,
-) -> Result<()> {
-    event_tx.send(event).await.map_err(|err| {
-        WhitelistPreconfirmationDriverMetrics::inc_network_forward_failure();
-        warn!(error = %err, "whitelist preconfirmation event channel closed");
-        WhitelistPreconfirmationDriverError::p2p(format!(
-            "whitelist preconfirmation event channel closed: {err}"
-        ))
-    })
-}
-
-/// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
-pub(super) fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
-    let bytes: [u8; 8] = payload.try_into().ok()?;
-    Some(u64::from_be_bytes(bytes))
-}
-
-/// Decode a 32-byte request hash payload exactly (non-padded path).
-pub(super) fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
-    let bytes: [u8; 32] = payload.try_into().ok()?;
-    Some(B256::from(bytes))
 }

@@ -4,9 +4,13 @@ nextest-version = "0.9.104"
 
 [[profile.default.overrides]]
 # All integration test binaries (targets from any `tests/` dir) are serialized
-# to avoid shared L1/L2 state races.
+# to avoid shared L1/L2 state races. A wedged test would otherwise stall the
+# whole serialized lane until the CI job timeout, so terminate it after 4 slow
+# periods (240s); `ShastaEnv::setup` fails fast on the leaked chain state a
+# killed test leaves behind (its teardown snapshot revert never runs).
 filter = 'kind(test)'
 test-group = "l1-shared"
+slow-timeout = { period = "60s", terminate-after = 4 }
 
 [test-groups.l1-shared]
 max-threads = 1

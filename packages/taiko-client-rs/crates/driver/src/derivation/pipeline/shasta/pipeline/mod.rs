@@ -585,22 +585,14 @@ mod tests {
     use alloy::{
         consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559},
         eips::eip2930::AccessList,
-        primitives::{
-            Address, B256, Bytes, FixedBytes, TxKind,
-            aliases::{U24, U48},
-        },
+        primitives::{Address, B256, Bytes, FixedBytes, TxKind, aliases::U48},
         rpc::types::eth::BlockTransactions,
         sol_types::SolCall,
     };
-    use alloy_provider::ProviderBuilder;
     use alloy_transport::mock::Asserter;
     use bindings::{
-        anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint},
-        inbox::{
-            IInbox,
-            Inbox::{InboxInstance, getCoreStateCall},
-            LibBlobs::BlobSlice,
-        },
+        anchor::ICheckpointStore::Checkpoint,
+        inbox::{IInbox, Inbox::getCoreStateCall},
     };
     use protocol::{
         FixedKSigner,
@@ -610,24 +602,11 @@ mod tests {
             manifest::{BlockManifest, DerivationSourceManifest},
         },
     };
-    use rpc::{
-        blob::BlobDataSource,
-        client::{Client, ShastaProtocolInstance},
-    };
+    use rpc::blob::BlobDataSource;
 
-    fn sample_derivation_source(
-        blob_hashes: Vec<FixedBytes<32>>,
-        is_forced: bool,
-    ) -> DerivationSource {
-        DerivationSource {
-            isForcedInclusion: is_forced,
-            blobSlice: BlobSlice {
-                blobHashes: blob_hashes,
-                offset: U24::from(0u32),
-                timestamp: U48::from(0u64),
-            },
-        }
-    }
+    use crate::test_support::{
+        mock_client_with_asserters, mock_client_with_l1_asserter, sample_derivation_source,
+    };
 
     fn sample_event_context() -> ProposedEventContext {
         ProposedEventContext {
@@ -643,29 +622,6 @@ mod tests {
             l1_block_hash: B256::from([6u8; 32]),
             l1_timestamp: 7,
         }
-    }
-
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client {
-        mock_client_with_asserters(l1_asserter, Asserter::new(), Asserter::new(), Address::ZERO)
-    }
-
-    fn mock_client_with_asserters(
-        l1_asserter: Asserter,
-        l2_asserter: Asserter,
-        l2_auth_asserter: Asserter,
-        anchor_address: Address,
-    ) -> Client {
-        let l1_provider = ProviderBuilder::new().connect_mocked_client(l1_asserter);
-        let l2_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
-        let l2_auth_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(l2_auth_asserter);
-        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
-        let anchor = AnchorInstance::new(anchor_address, l2_auth_provider.clone());
-        let shasta = ShastaProtocolInstance { inbox, anchor };
-
-        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     fn sign_test_anchor_tx(anchor_address: Address, input: Bytes) -> TxEnvelope {

@@ -145,7 +145,9 @@ mod tests {
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_maps_preconfirmation_disabled_error() {
         let ready = async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) };
-        let mut handle = tokio::spawn(async { Ok::<(), DriverError>(()) });
+        // The event syncer task must never resolve: a completed handle would race the ready
+        // branch inside the select and make the winning arm scheduling-dependent.
+        let mut handle = tokio::spawn(pending::<EventSyncResult>());
 
         let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
 
