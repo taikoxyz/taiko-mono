@@ -175,54 +175,16 @@ mod tests {
     use crate::{
         production::{PreconfPayload, ProductionRouter},
         sync::error::EngineSubmissionError,
+        test_support::{MockProductionPath, sample_payload},
     };
-    use alethia_reth_primitives::payload::attributes::{
-        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-    };
+    use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
     use alloy::rpc::types::Log;
     use alloy_consensus::TxEnvelope;
-    use alloy_primitives::{Address, B256, Bytes, U256};
+    use alloy_primitives::B256;
     use alloy_rpc_types::eth::Block as RpcBlock;
     use alloy_rpc_types_engine::PayloadId;
-    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
-
-    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
-        let payload_attributes = EthPayloadAttributes {
-            timestamp: 0,
-            prev_randao: B256::ZERO,
-            suggested_fee_recipient: Address::ZERO,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: Address::ZERO,
-            gas_limit: 0,
-            timestamp: U256::ZERO,
-            mix_hash: B256::ZERO,
-            tx_list: Some(Bytes::new()),
-            extra_data: Bytes::new(),
-        };
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: None,
-            l1_block_hash: None,
-            build_payload_args_id: [0u8; 8],
-            is_forced_inclusion: false,
-            signature: [0u8; 65],
-        };
-
-        TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::ZERO,
-            block_metadata,
-            l1_origin,
-            anchor_transaction: None,
-        }
-    }
 
     #[derive(Clone, Default)]
     struct MockApplier {
@@ -267,38 +229,10 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
-    struct MockPath {
-        calls: Arc<Mutex<u64>>,
-    }
-
-    impl MockPath {
-        fn new() -> Self {
-            Self { calls: Arc::new(Mutex::new(0)) }
-        }
-        fn calls(&self) -> u64 {
-            *self.calls.lock().unwrap()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockPath {
-        async fn produce(
-            &self,
-            _input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let mut guard = self.calls.lock().unwrap();
-            *guard += 1;
-            let block: RpcBlock<TxEnvelope> = RpcBlock::<TxEnvelope>::default();
-            let payload_id = PayloadId::new([0u8; 8]);
-            Ok(vec![EngineBlockOutcome { block, payload_id }])
-        }
-    }
-
     #[test]
     fn router_routes_l1_to_canonical() {
-        let canonical = Arc::new(MockPath::new());
-        let preconf = Arc::new(MockPath::new());
+        let canonical = Arc::new(MockProductionPath::default());
+        let preconf = Arc::new(MockProductionPath::default());
         let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
         let log = Log::default();
 
@@ -314,8 +248,8 @@ mod tests {
 
     #[test]
     fn router_routes_preconf_to_preconf_path() {
-        let canonical = Arc::new(MockPath::new());
-        let preconf = Arc::new(MockPath::new());
+        let canonical = Arc::new(MockProductionPath::default());
+        let preconf = Arc::new(MockProductionPath::default());
         let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
         let payload = Arc::new(PreconfPayload::new(sample_payload(0), B256::ZERO));
 
@@ -331,7 +265,7 @@ mod tests {
 
     #[test]
     fn router_rejects_preconf_without_path() {
-        let canonical = Arc::new(MockPath::new());
+        let canonical = Arc::new(MockProductionPath::default());
         let router = ProductionRouter::new(canonical.clone(), None);
         let payload = Arc::new(PreconfPayload::new(sample_payload(0), B256::ZERO));
 

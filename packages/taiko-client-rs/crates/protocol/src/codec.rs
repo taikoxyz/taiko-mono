@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn txlist_codec_roundtrip_placeholder() {
+    fn txlist_codec_decodes_empty_transaction_list() {
         let rlp_payload = vec![0xC0];
         let compressed = compress_payload(&rlp_payload);
 

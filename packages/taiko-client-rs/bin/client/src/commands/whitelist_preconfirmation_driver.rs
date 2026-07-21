@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
 use protocol::shasta::set_devnet_unzen_override;
-use tracing::{debug, warn};
+use tracing::warn;
 use whitelist_preconfirmation_driver::{
     NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
     WhitelistPreconfirmationDriverRunner,
@@ -71,17 +71,6 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
     /// Build P2P configuration from command-line arguments.
     fn build_p2p_config(&self) -> Result<NetworkConfig> {
-        if self.preconf_flags.p2p_disable_discovery {
-            warn!(
-                "--p2p.disable-discovery is deprecated and ignored: discv5 discovery has been \
-                 removed and bootnodes are dialed directly"
-            );
-        }
-        debug!(
-            discovery_addr = %self.preconf_flags.p2p_discovery_addr,
-            "ignoring deprecated --p2p.discovery.addr; discv5 discovery has been removed"
-        );
-
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -91,7 +80,10 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
-        Ok(NetworkConfig {
+        let discovery_listen = (!self.preconf_flags.p2p_disable_discovery)
+            .then_some(self.preconf_flags.p2p_discovery_addr);
+
+        let config = NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             advertise_addr: self.preconf_flags.p2p_advertise_addr,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
@@ -99,7 +91,12 @@ impl WhitelistPreconfirmationDriverSubCommand {
             preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(
                 self.preconfirmation_p2p_priv_raw.as_deref(),
             )?,
-        })
+            discovery_listen,
+            peers_lo: self.preconf_flags.p2p_peers_lo,
+            peers_hi: self.preconf_flags.p2p_peers_hi,
+        };
+        config.validate()?;
+        Ok(config)
     }
 
     /// Resolve the whitelist RPC listen address.
@@ -175,5 +172,24 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_zero_peer_high_tide() {
+        let config = NetworkConfig { peers_lo: 0, peers_hi: 0, ..Default::default() };
+        let err = config.validate().expect_err("zero high tide must fail");
+        assert!(err.to_string().contains("--p2p.peers.hi must be greater than zero"));
+    }
+
+    #[test]
+    fn allows_zero_peer_low_tide() {
+        NetworkConfig { peers_lo: 0, peers_hi: 1, ..Default::default() }
+            .validate()
+            .expect("zero low tide must remain valid");
     }
 }

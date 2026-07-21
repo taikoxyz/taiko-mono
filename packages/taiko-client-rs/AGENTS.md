@@ -14,7 +14,7 @@
 - `cargo build --workspace` (add `--release` for production binaries).
 - `just fmt` installs toolchain `nightly-2025-09-27`, runs `cargo +nightly fmt`, then `cargo sort --workspace --grouped`. Use `just fmt-check` for CI parity.
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
-- `just clippy` maps to `cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings`; reserve `just clippy-fix` for mechanical cleanups.
+- `just clippy` runs two passes: library targets with doc lints, then `--all-targets` (tests and test-harness included) with `-D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
 - After every code change run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean.
 - Before declaring work complete, run the full verification sequence `just fmt && just clippy-fix && just test` and require it to finish without warnings or errors.
@@ -41,7 +41,8 @@
 
 ## Testing Guidelines
 
-- Always run tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
+- Always run integration tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
+- `just unit` runs only the unit tests (everything outside `tests/` dirs) with no docker stack or contract deploy — use it for fast iteration.
 - To scope to a single Rust crate, set `TEST_CRATE=<crate-name>` when invoking `just test`; leaving it unset runs the full workspace (default).
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`) and capture container logs for any failing integration case.
 - Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy-fix && just test` pass with clean output.

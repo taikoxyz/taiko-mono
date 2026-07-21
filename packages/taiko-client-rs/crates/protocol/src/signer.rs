@@ -160,7 +160,7 @@ impl FixedKSigner {
     }
 }
 
-#[cfg(all(test, feature = "net"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use k256::Scalar;

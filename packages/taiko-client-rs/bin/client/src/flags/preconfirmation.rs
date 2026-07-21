@@ -11,17 +11,16 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.listen", env = "P2P_LISTEN", default_value = "0.0.0.0:9000")]
     pub p2p_listen: SocketAddr,
 
-    /// Deprecated and ignored: discv5 discovery has been removed. Bootnodes are
-    /// dialed directly instead. Kept so existing deployment manifests keep parsing.
+    /// UDP listen address for discv5 peer discovery.
     #[clap(
         long = "p2p.discovery.addr",
         env = "P2P_DISCOVERY_ADDR",
-        default_value = "0.0.0.0:9001",
-        hide = true
+        default_value = "0.0.0.0:9001"
     )]
     pub p2p_discovery_addr: SocketAddr,
 
-    /// Comma-separated list of bootnodes (ENR, enode URL, or multiaddr), dialed directly.
+    /// Comma-separated bootnodes (ENR, enode URL, or multiaddr): dialable entries with a
+    /// nonzero TCP port are direct peers, while ENR/enode entries also seed discovery.
     #[clap(long = "p2p.bootnodes", env = "P2P_BOOTNODES", value_delimiter = ',')]
     pub p2p_bootnodes: Vec<String>,
 
@@ -29,19 +28,24 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.static-peers", env = "P2P_STATIC_PEERS", value_delimiter = ',')]
     pub p2p_static_peers: Vec<String>,
 
-    /// Deprecated and ignored: discv5 discovery has been removed. Kept so existing
-    /// deployment manifests keep parsing.
-    #[clap(
-        long = "p2p.disable-discovery",
-        env = "P2P_DISABLE_DISCOVERY",
-        default_value = "false",
-        hide = true
-    )]
+    /// Disable discv5 peer discovery; only configured bootnodes and static peers are
+    /// dialed.
+    #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
     pub p2p_disable_discovery: bool,
 
-    /// Externally dialable TCP address advertised in the local P2P node record.
+    /// Externally dialable TCP address advertised in the local P2P node record. Also
+    /// required for discv5 discovery: it is the address published in the local ENR.
     #[clap(long = "p2p.advertise.addr", env = "P2P_ADVERTISE_ADDR")]
     pub p2p_advertise_addr: Option<SocketAddr>,
+
+    /// Low-tide peer count: discovered peers are dialed while the connection count is
+    /// below this target.
+    #[clap(long = "p2p.peers.lo", env = "P2P_PEERS_LO", default_value = "20")]
+    pub p2p_peers_lo: usize,
+
+    /// Soft pruning threshold for unprotected distinct peers; configured peers may exceed it.
+    #[clap(long = "p2p.peers.hi", env = "P2P_PEERS_HI", default_value = "30")]
+    pub p2p_peers_hi: usize,
 }
 
 #[cfg(test)]
@@ -51,9 +55,23 @@ mod tests {
     use clap::Parser;
 
     use super::PreconfirmationArgs;
+    use crate::flags::test_env::{ENV_LOCK, EnvGuard};
+
+    fn clear_p2p_env() -> [EnvGuard; 6] {
+        [
+            EnvGuard::unset("P2P_LISTEN"),
+            EnvGuard::unset("P2P_DISCOVERY_ADDR"),
+            EnvGuard::unset("P2P_BOOTNODES"),
+            EnvGuard::unset("P2P_STATIC_PEERS"),
+            EnvGuard::unset("P2P_DISABLE_DISCOVERY"),
+            EnvGuard::unset("P2P_ADVERTISE_ADDR"),
+        ]
+    }
 
     #[test]
     fn parses_p2p_advertise_addr() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_p2p_env();
         let args = PreconfirmationArgs::try_parse_from([
             "test",
             "--p2p.advertise.addr",

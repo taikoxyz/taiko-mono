@@ -372,19 +372,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn display_blob_sidecar() {
-        let sidecar = BlobTransactionSidecar {
-            blobs: vec![Blob::ZERO],
-            commitments: Vec::new(),
-            proofs: Vec::new(),
-        };
-
-        assert_eq!(sidecar.blobs.len(), 1);
-        assert!(sidecar.commitments.is_empty());
-        assert!(sidecar.proofs.is_empty());
-    }
-
     #[tokio::test]
     async fn blob_server_rejects_blob_bytes_that_do_not_match_commitment_metadata() {
         let zero_sidecar = sidecar_for_blob(Blob::ZERO);

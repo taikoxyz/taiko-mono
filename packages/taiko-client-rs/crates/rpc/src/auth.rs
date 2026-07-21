@@ -295,24 +295,14 @@ where
 mod tests {
     use super::*;
     use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
+    use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
 
-    #[test]
-    fn ignorable_origin_errors_cover_all_engine_lookup_miss_messages() {
-        assert!(is_ignorable_origin_error("not found"));
-        assert!(is_ignorable_origin_error(
-            "proposal last block uncertain: BatchToLastBlockID missing and no newer proposal observed"
-        ));
-        assert!(is_ignorable_origin_error(
-            "proposal last block lookback exceeded: BatchToLastBlockID missing and lookback limit reached"
-        ));
-        assert!(!is_ignorable_origin_error("connection refused"));
-    }
-
-    #[test]
-    fn engine_new_payload_v2_value_preserves_header_difficulty() {
-        let payload = ExecutionPayloadInputV2 {
+    /// Build the execution payload input shared by the `engine_new_payload_v2_value` tests,
+    /// parameterized on the only field that varies between them.
+    fn payload_input(withdrawals: Option<Vec<Withdrawal>>) -> ExecutionPayloadInputV2 {
+        ExecutionPayloadInputV2 {
             execution_payload: ExecutionPayloadV1 {
                 parent_hash: B256::from(U256::from(10u64)),
                 fee_recipient: Address::from([1u8; 20]),
@@ -329,8 +319,25 @@ mod tests {
                 block_hash: B256::from(U256::from(42u64)),
                 transactions: vec![],
             },
-            withdrawals: None,
-        };
+            withdrawals,
+        }
+    }
+
+    #[test]
+    fn ignorable_origin_errors_cover_all_engine_lookup_miss_messages() {
+        assert!(is_ignorable_origin_error("not found"));
+        assert!(is_ignorable_origin_error(
+            "proposal last block uncertain: BatchToLastBlockID missing and no newer proposal observed"
+        ));
+        assert!(is_ignorable_origin_error(
+            "proposal last block lookback exceeded: BatchToLastBlockID missing and lookback limit reached"
+        ));
+        assert!(!is_ignorable_origin_error("connection refused"));
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_preserves_header_difficulty() {
+        let payload = payload_input(None);
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::from([0x11; 32]),
@@ -363,25 +370,7 @@ mod tests {
 
     #[test]
     fn engine_new_payload_v2_value_rejects_header_difficulty_beyond_u64() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: None,
-        };
+        let payload = payload_input(None);
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::ZERO,
@@ -397,25 +386,7 @@ mod tests {
 
     #[test]
     fn engine_new_payload_v2_value_omits_header_difficulty_when_absent() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: None,
-        };
+        let payload = payload_input(None);
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::ZERO,
@@ -432,25 +403,7 @@ mod tests {
 
     #[test]
     fn engine_new_payload_v2_value_preserves_withdrawals_when_present() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: Some(vec![]),
-        };
+        let payload = payload_input(Some(vec![]));
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::ZERO,

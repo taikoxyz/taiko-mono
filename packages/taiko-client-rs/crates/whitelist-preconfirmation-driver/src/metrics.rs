@@ -25,6 +25,10 @@ struct Metrics {
     network_outbound_publish: IntCounterVec,
     /// Dial attempts by source and result.
     network_dial_attempts: IntCounterVec,
+    /// Discovered peer candidates by handling result.
+    network_discovered_candidates: IntCounterVec,
+    /// Currently connected peer count.
+    network_peer_count: Gauge,
     /// Failures forwarding network events to the importer.
     network_forward_failures: IntCounter,
     /// Importer event handling outcomes by event type and result.
@@ -69,6 +73,15 @@ impl Metrics {
                 "whitelist_preconf_driver_network_dial_attempts_total",
                 "Dial attempts by source and result",
                 &["source", "result"],
+            ),
+            network_discovered_candidates: counter_vec(
+                "whitelist_preconf_driver_network_discovered_candidates_total",
+                "Discovered peer candidates by handling result",
+                &["result"],
+            ),
+            network_peer_count: gauge(
+                "whitelist_preconf_driver_network_peer_count",
+                "Currently connected peer count",
             ),
             network_forward_failures: counter(
                 "whitelist_preconf_driver_network_forward_failures_total",
@@ -158,6 +171,16 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Increment a network dial attempt counter.
     pub(crate) fn inc_network_dial_attempt(source: &str, result: &str) {
         METRICS.network_dial_attempts.with_label_values(&[source, result]).inc();
+    }
+
+    /// Increment a discovered-candidate counter.
+    pub(crate) fn inc_network_discovered_candidate(result: &str) {
+        METRICS.network_discovered_candidates.with_label_values(&[result]).inc();
+    }
+
+    /// Set the connected peer count gauge.
+    pub(crate) fn set_network_peer_count(count: usize) {
+        METRICS.network_peer_count.set(count as f64);
     }
 
     /// Increment the network forward failure counter.

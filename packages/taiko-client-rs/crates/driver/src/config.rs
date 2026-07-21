@@ -10,7 +10,9 @@ use rpc::client::ClientConfig;
 pub struct DriverConfig {
     /// Underlying RPC client configuration shared with other components.
     pub client: ClientConfig,
-    /// Interval between retry attempts when sync operations fail.
+    /// Maximum interval between retry attempts when sync operations fail; the event scanner
+    /// reconnect backs off exponentially from one second up to this cap, while beacon-sync
+    /// polling uses it as a flat interval.
     pub retry_interval: Duration,
     /// L1 beacon endpoint used for lookahead / slot metadata.
     pub l1_beacon_endpoint: Url,

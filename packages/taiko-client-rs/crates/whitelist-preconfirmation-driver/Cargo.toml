@@ -20,6 +20,7 @@ async-trait = { workspace = true }
 axum = { workspace = true }
 bindings = { path = "../bindings" }
 bytes = { workspace = true }
+discv5 = { workspace = true }
 driver = { path = "../driver" }
 enr = { workspace = true }
 flate2 = { workspace = true }
@@ -29,7 +30,9 @@ http = { workspace = true }
 http-body = { workspace = true }
 http-body-util = { workspace = true }
 jsonwebtoken = { workspace = true }
+kona-disc = { workspace = true }
 kona-gossip = { workspace = true }
+kona-peers = { workspace = true }
 libp2p = { workspace = true }
 once_cell = { workspace = true }
 prometheus = { workspace = true }

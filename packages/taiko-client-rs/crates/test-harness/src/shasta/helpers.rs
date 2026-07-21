@@ -34,6 +34,40 @@ pub async fn ensure_preconf_whitelist_active(client: &Client) -> Result<()> {
     Ok(())
 }
 
+/// Advances L1 time past the current L2 head's timestamp.
+///
+/// Teardown's `evm_revert` rewinds L1 time, but derived L2 blocks persist across tests,
+/// so a fresh test can observe an L2 head stamped AHEAD of its own L1 timeline — a state
+/// impossible on a real chain. Anything that builds on that head with an L1-head-derived
+/// timestamp (the proposer's engine-mode FCU preview, manifest timestamp validation)
+/// then fails on `attributes.timestamp < parent.timestamp` by a second or two. Ratchet
+/// L1 time forward BEFORE the per-test snapshot so the fix survives teardown and L1 time
+/// stays monotonic across the whole run, mirroring the real chain.
+pub(crate) async fn align_l1_time_past_l2_head(client: &Client) -> Result<()> {
+    let l2_head = client
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest L2 block missing while aligning L1 time"))?;
+    let l1_head = client
+        .l1_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest L1 block missing while aligning L1 time"))?;
+
+    let l2_timestamp = l2_head.header.timestamp;
+    let l1_timestamp = l1_head.header.timestamp;
+    if l1_timestamp > l2_timestamp {
+        return Ok(());
+    }
+
+    let skip = l2_timestamp - l1_timestamp + 1;
+    info!(l1_timestamp, l2_timestamp, skip, "advancing L1 time past persisted L2 head");
+    increase_l1_time(client, skip).await?;
+    mine_l1_blocks(client, 1).await?;
+    Ok(())
+}
+
 /// Checks if the RPC error indicates a geth-style "not found" error.
 fn is_not_found_error(err: &RpcClientError) -> bool {
     match err {
@@ -96,14 +130,11 @@ pub(crate) async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) 
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
-pub(crate) async fn create_snapshot(
-    phase: &'static str,
-    provider: &RootProvider,
-) -> Result<String> {
+pub(crate) async fn create_snapshot(provider: &RootProvider) -> Result<String> {
     provider
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await
-        .with_context(|| format!("creating L1 snapshot during {phase}"))
+        .context("creating L1 snapshot")
 }
 
 fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
@@ -170,6 +201,17 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         new_head.header.number == 1,
         "failed to reset L2 head to block 1 (current {})",
         new_head.header.number
+    );
+    // The reset relies on the execution client rebuilding a byte-identical base block;
+    // stale custom-table rows (l1_origin) keep the ORIGINAL hash, so a divergent rebuild
+    // (e.g. a payload-construction change in a new alethia-reth image) would silently
+    // poison every later test. Fail loudly instead.
+    ensure!(
+        new_head.header.hash == block_one.header.hash,
+        "rebuilt base block hash {} != original {}; the L2 execution image no longer \
+         rebuilds block 1 byte-identically — recreate the docker env (rerun `just test`)",
+        new_head.header.hash,
+        block_one.header.hash
     );
 
     Ok(())
@@ -316,10 +358,9 @@ pub async fn verify_anchor_block(client: &Client, anchor_address: Address) -> Re
         .and_then(|txs| txs.first())
         .ok_or_else(|| anyhow::anyhow!("block missing anchor transaction"))?;
 
-    let selectors = [anchorV4Call::SELECTOR];
     ensure!(first_tx.input().len() >= 4, "anchor transaction input too short");
     ensure!(
-        selectors.iter().any(|sel| &first_tx.input()[..sel.len()] == sel.as_slice()),
+        first_tx.input()[..4] == anchorV4Call::SELECTOR,
         "first transaction is not calling an Anchor anchorV4 entrypoint"
     );
     ensure!(
