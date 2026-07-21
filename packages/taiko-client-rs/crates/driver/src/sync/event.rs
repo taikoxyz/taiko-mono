@@ -348,6 +348,46 @@ fn scanner_reconnect_delay(retry_interval: Duration, consecutive_failures: u32) 
     delay
 }
 
+/// Reconnect backoff state retained across event-scanner generations.
+#[derive(Debug, Default)]
+struct ScannerReconnectState {
+    /// Consecutive generations that failed before processing successful live activity.
+    consecutive_failures: u32,
+    /// Whether the current generation has transitioned from replay into live scanning.
+    generation_live: bool,
+}
+
+impl ScannerReconnectState {
+    /// Start a new scanner generation in replay mode without discarding prior failures.
+    fn begin_generation(&mut self) {
+        self.generation_live = false;
+    }
+
+    /// Record the scanner's transition from historical replay into live scanning.
+    fn mark_switching_to_live(&mut self) {
+        self.generation_live = true;
+    }
+
+    /// Return whether the current scanner generation has transitioned into live scanning.
+    fn is_live(&self) -> bool {
+        self.generation_live
+    }
+
+    /// Reset accumulated failures after a scanner batch succeeds during live scanning.
+    fn mark_successful_batch(&mut self) {
+        if self.generation_live {
+            self.consecutive_failures = 0;
+        }
+    }
+
+    /// Record a failed generation and return the delay before its reconnect attempt.
+    fn next_delay(&mut self, retry_interval: Duration) -> Duration {
+        let delay = scanner_reconnect_delay(retry_interval, self.consecutive_failures);
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        delay
+    }
+}
+
 /// Return whether a preconfirmation target is at or below the confirmed tip.
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
@@ -1610,16 +1650,17 @@ impl SyncStage for EventSyncer {
         // derivation. Changed log identities still take the normal reorg path (WLP-INV-004,
         // WLP-INV-009).
         let mut processed_proposal_logs = ProcessedProposalLogCache::default();
-        // Consecutive failed scanner generations since the last live transition, driving the
-        // exponential reconnect backoff in `scanner_reconnect_delay`.
-        let mut consecutive_scanner_failures: u32 = 0;
+        // Retain reconnect failures until a generation processes successful live activity. Merely
+        // receiving `SwitchingToLive` is insufficient because event-scanner emits it before the
+        // first live `eth_getLogs` request.
+        let mut scanner_reconnect_state = ScannerReconnectState::default();
 
         loop {
             // Every reconnect re-enters historical sync with a fresh scanner, so the previous
             // generation's live state must not leak forward: (re)opening ingress requires a
             // fresh `SwitchingToLive` from the scanner actually streaming plus a passed
             // confirmed-sync probe (WLP-INV-002).
-            let mut scanner_live = false;
+            scanner_reconnect_state.begin_generation();
             let mut scanner = match self
                 .cfg
                 .client
@@ -1632,11 +1673,7 @@ impl SyncStage for EventSyncer {
                     let err =
                         super::retryable_after_first_success(scanner_started_once, err.to_string())
                             .map_err(SyncError::EventScannerInit)?;
-                    let delay = scanner_reconnect_delay(
-                        self.cfg.retry_interval,
-                        consecutive_scanner_failures,
-                    );
-                    consecutive_scanner_failures = consecutive_scanner_failures.saturating_add(1);
+                    let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
@@ -1660,11 +1697,7 @@ impl SyncStage for EventSyncer {
                     let err =
                         super::retryable_after_first_success(scanner_started_once, err.to_string())
                             .map_err(SyncError::EventScannerInit)?;
-                    let delay = scanner_reconnect_delay(
-                        self.cfg.retry_interval,
-                        consecutive_scanner_failures,
-                    );
-                    consecutive_scanner_failures = consecutive_scanner_failures.saturating_add(1);
+                    let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
@@ -1701,7 +1734,7 @@ impl SyncStage for EventSyncer {
                         self.cfg.preconfirmation_enabled,
                         preconf_ingress_spawned,
                         self.preconf_ingress_ready.load(Ordering::Acquire),
-                        scanner_live,
+                        scanner_reconnect_state.is_live(),
                     ) => {
                         self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned)
                             .await;
@@ -1728,6 +1761,7 @@ impl SyncStage for EventSyncer {
                         let processed_logs = logs.clone();
                         self.process_log_batch(router.clone(), logs).await?;
                         processed_proposal_logs.record_processed(&processed_logs);
+                        scanner_reconnect_state.mark_successful_batch();
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
@@ -1736,10 +1770,7 @@ impl SyncStage for EventSyncer {
                                 // Scanner live is necessary but not sufficient: confirmed-sync
                                 // readiness must also pass before ingress
                                 // opens.
-                                scanner_live = true;
-                                // A completed replay proves the L1 endpoint healthy again, so
-                                // the next reconnect starts from the base backoff delay.
-                                consecutive_scanner_failures = 0;
+                                scanner_reconnect_state.mark_switching_to_live();
                             }
                             Notification::ReorgDetected { common_ancestor } => {
                                 processed_proposal_logs.invalidate_after(common_ancestor);
@@ -1786,7 +1817,7 @@ impl SyncStage for EventSyncer {
                     self.cfg.preconfirmation_enabled,
                     preconf_ingress_spawned,
                     self.preconf_ingress_ready.load(Ordering::Acquire),
-                    scanner_live,
+                    scanner_reconnect_state.is_live(),
                 ) {
                     self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
                 }
@@ -1815,9 +1846,7 @@ impl SyncStage for EventSyncer {
                     startup_anchor_block_number,
                 ));
             }
-            let delay =
-                scanner_reconnect_delay(self.cfg.retry_interval, consecutive_scanner_failures);
-            consecutive_scanner_failures = consecutive_scanner_failures.saturating_add(1);
+            let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
             warn!(
                 start_tag = ?reconnect_start_tag,
                 retry_after_secs = delay.as_secs_f64(),
@@ -2019,6 +2048,40 @@ mod tests {
         let cap = Duration::from_secs(120);
         assert_eq!(scanner_reconnect_delay(cap, 6), Duration::from_secs(64));
         assert_eq!(scanner_reconnect_delay(cap, 7), cap);
+    }
+
+    #[test]
+    fn scanner_reconnect_backoff_keeps_escalating_without_successful_live_activity() {
+        let cap = Duration::from_secs(12);
+        let mut state = ScannerReconnectState::default();
+
+        let delays = (0..5)
+            .map(|_| {
+                state.begin_generation();
+                state.mark_successful_batch();
+                state.mark_switching_to_live();
+                state.next_delay(cap).as_secs()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(delays, vec![1, 2, 4, 8, 12]);
+    }
+
+    #[test]
+    fn scanner_reconnect_backoff_resets_after_successful_live_activity() {
+        let cap = Duration::from_secs(12);
+        let mut state = ScannerReconnectState::default();
+
+        state.begin_generation();
+        assert_eq!(state.next_delay(cap), Duration::from_secs(1));
+        state.begin_generation();
+        assert_eq!(state.next_delay(cap), Duration::from_secs(2));
+
+        state.begin_generation();
+        state.mark_switching_to_live();
+        state.mark_successful_batch();
+
+        assert_eq!(state.next_delay(cap), Duration::from_secs(1));
     }
 
     fn sample_core_state(next_proposal_id: u64) -> CoreState {
