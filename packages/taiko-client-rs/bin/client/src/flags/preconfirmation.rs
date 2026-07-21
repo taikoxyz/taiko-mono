@@ -55,9 +55,23 @@ mod tests {
     use clap::Parser;
 
     use super::PreconfirmationArgs;
+    use crate::flags::test_env::{ENV_LOCK, EnvGuard};
+
+    fn clear_p2p_env() -> [EnvGuard; 6] {
+        [
+            EnvGuard::unset("P2P_LISTEN"),
+            EnvGuard::unset("P2P_DISCOVERY_ADDR"),
+            EnvGuard::unset("P2P_BOOTNODES"),
+            EnvGuard::unset("P2P_STATIC_PEERS"),
+            EnvGuard::unset("P2P_DISABLE_DISCOVERY"),
+            EnvGuard::unset("P2P_ADVERTISE_ADDR"),
+        ]
+    }
 
     #[test]
     fn parses_p2p_advertise_addr() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_p2p_env();
         let args = PreconfirmationArgs::try_parse_from([
             "test",
             "--p2p.advertise.addr",

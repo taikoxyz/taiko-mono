@@ -5,34 +5,18 @@
 //! ## Core Utilities
 //! - [`ShastaEnv`]: Test environment with L1/L2 providers and contract addresses.
 //! - [`BeaconStubServer`]: A stub beacon server for tests.
-//!
-//! ## Block Utilities
-//! - [`blocks::fetch_block_by_number`]: Fetches a block with full transactions.
-//! - [`blocks::wait_for_block`]: Polls until a block appears.
-//! - [`blocks::wait_for_block_or_loop_error`]: Waits for block with event loop monitoring.
-//!
-//! ## Transaction Utilities
-//! - [`transactions::TransferPayload`]: A signed transfer for assertions.
-//! - [`transactions::compute_next_block_base_fee`]: Calculates EIP-4396 base fee.
-//! - [`transactions::build_preconf_txlist`]: Builds anchor + transfers in one call.
 
 use std::sync::OnceLock;
 
 use tracing_subscriber::EnvFilter;
 
 mod beacon_stub;
-pub mod blocks;
 mod helper;
 pub mod shasta;
-pub mod transactions;
 
 pub use beacon_stub::BeaconStubServer;
-pub use blocks::{fetch_block_by_number, wait_for_block, wait_for_block_or_loop_error};
 pub use helper::mine_l1_block;
 pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
-pub use transactions::{
-    PreconfTxList, TransferPayload, build_preconf_txlist, compute_next_block_base_fee,
-};
 
 /// Initialise tracing for tests using a single global subscriber.
 ///

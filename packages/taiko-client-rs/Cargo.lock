@@ -8820,7 +8820,6 @@ dependencies = [
 name = "test-harness"
 version = "2.2.0"
 dependencies = [
- "alethia-reth-consensus",
  "alethia-reth-primitives",
  "alloy",
  "alloy-consensus 1.8.3",
@@ -8830,15 +8829,11 @@ dependencies = [
  "alloy-rlp",
  "alloy-rpc-types 1.8.3",
  "alloy-rpc-types-engine 1.8.3",
- "alloy-rpc-types-engine 2.0.4",
- "alloy-signer",
- "alloy-signer-local",
  "anyhow",
  "bindings",
  "http-body-util",
  "hyper",
  "hyper-util",
- "once_cell",
  "protocol",
  "rpc",
  "serde",
