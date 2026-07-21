@@ -46,5 +46,7 @@ serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
-tokio = { workspace = true }
+# `test-util` enables paused-time (`start_paused`) unit tests; the workspace default is `full`,
+# which does not include it.
+tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber = { workspace = true }

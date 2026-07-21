@@ -1831,86 +1831,28 @@ impl SyncStage for EventSyncer {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::HashSet,
         path::PathBuf,
         sync::{Arc as StdArc, Mutex},
         time::Duration,
     };
 
     use super::*;
-    use alethia_reth_primitives::payload::attributes::{
-        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-    };
+    use alethia_reth_primitives::payload::attributes::RpcL1Origin;
     use alloy::{
-        primitives::{
-            Address, B256, Bytes, FixedBytes, U256,
-            aliases::{U24, U48},
-        },
+        primitives::{Address, B256, Bytes, FixedBytes, U256, aliases::U48},
         transports::http::reqwest::Url,
     };
-    use alloy_provider::ProviderBuilder;
-    use alloy_rpc_types_engine::PayloadId;
-    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
-    use async_trait::async_trait;
-    use bindings::{
-        anchor::Anchor::AnchorInstance,
-        inbox::{
-            IInbox::{CoreState, DerivationSource},
-            Inbox::{InboxInstance, getCoreStateCall},
-            LibBlobs::BlobSlice,
-        },
-    };
-    use rpc::{
-        SubscriptionSource,
-        blob::BlobDataSource,
-        client::{Client, ClientConfig, ShastaProtocolInstance},
-    };
+    use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
+    use rpc::{SubscriptionSource, blob::BlobDataSource, client::ClientConfig};
 
     use crate::{
-        production::{BlockProductionPath, ProductionInput, ProductionRouter},
-        sync::engine::EngineBlockOutcome,
+        production::{BlockProductionPath, ProductionRouter},
+        test_support::{
+            MockProductionPath, mock_client_with_asserters, mock_client_with_l1_asserter,
+            sample_derivation_source, sample_payload,
+        },
     };
-
-    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
-        let payload_attributes = EthPayloadAttributes {
-            timestamp: 0,
-            prev_randao: B256::ZERO,
-            suggested_fee_recipient: Address::ZERO,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: Address::ZERO,
-            gas_limit: 0,
-            timestamp: U256::ZERO,
-            mix_hash: B256::ZERO,
-            tx_list: Some(Bytes::new()),
-            extra_data: Bytes::new(),
-        };
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: None,
-            l1_block_hash: None,
-            build_payload_args_id: [0u8; 8],
-            is_forced_inclusion: false,
-            signature: [0u8; 65],
-        };
-
-        TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::ZERO,
-            block_metadata,
-            l1_origin,
-            anchor_transaction: None,
-        }
-    }
-
-    fn mock_client() -> Client {
-        mock_client_with_l1_asserter(Asserter::new())
-    }
 
     async fn build_syncer() -> EventSyncer {
         let client_config = ClientConfig {
@@ -1935,7 +1877,7 @@ mod tests {
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
         EventSyncer {
-            rpc: mock_client(),
+            rpc: mock_client_with_l1_asserter(Asserter::new()),
             cfg,
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
@@ -1985,17 +1927,6 @@ mod tests {
         }
     }
 
-    fn sample_derivation_source() -> DerivationSource {
-        DerivationSource {
-            isForcedInclusion: false,
-            blobSlice: BlobSlice {
-                blobHashes: vec![FixedBytes::ZERO],
-                offset: U24::ZERO,
-                timestamp: U48::ZERO,
-            },
-        }
-    }
-
     fn sample_proposed_log(proposal_id: u64, block_hash: B256, transaction_hash: B256) -> Log {
         let proposed = Proposed {
             id: U48::from(proposal_id),
@@ -2003,7 +1934,7 @@ mod tests {
             parentProposalHash: FixedBytes::from([proposal_id as u8; 32]),
             endOfSubmissionWindowTimestamp: U48::from(1u64),
             basefeeSharingPctg: 0,
-            sources: vec![sample_derivation_source()],
+            sources: vec![sample_derivation_source(vec![FixedBytes::ZERO], false)],
         };
 
         Log {
@@ -2090,13 +2021,6 @@ mod tests {
         assert_eq!(scanner_reconnect_delay(cap, 7), cap);
     }
 
-    fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
-        let mut block = RpcBlock::<TxEnvelope>::default();
-        block.header.number = block_number;
-        block.header.hash = B256::from([block_number as u8; 32]);
-        EngineBlockOutcome { block, payload_id: PayloadId::new([block_number as u8; 8]) }
-    }
-
     fn sample_core_state(next_proposal_id: u64) -> CoreState {
         CoreState {
             nextProposalId: U48::from(next_proposal_id),
@@ -2106,204 +2030,6 @@ mod tests {
             lastCheckpointTimestamp: U48::ZERO,
             lastFinalizedBlockHash: FixedBytes::ZERO,
         }
-    }
-
-    #[derive(Clone, Default)]
-    struct MockPreconfPath {
-        produced_blocks: StdArc<Mutex<Vec<u64>>>,
-    }
-
-    impl MockPreconfPath {
-        fn produced_blocks(&self) -> Vec<u64> {
-            self.produced_blocks
-                .lock()
-                .expect("produced blocks mutex should not be poisoned")
-                .clone()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockPreconfPath {
-        async fn produce(
-            &self,
-            input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let ProductionInput::Preconfirmation(payload) = input else {
-                panic!("mock preconfirmation path only supports preconfirmation inputs");
-            };
-
-            let block_number = payload.block_number();
-            self.produced_blocks
-                .lock()
-                .expect("produced blocks mutex should not be poisoned")
-                .push(block_number);
-
-            Ok(vec![sample_engine_outcome(block_number)])
-        }
-    }
-
-    #[derive(Clone)]
-    struct MockBatchPath {
-        orphaned_tx_hashes: StdArc<HashSet<B256>>,
-        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
-    }
-
-    impl MockBatchPath {
-        fn new(orphaned_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
-            Self {
-                orphaned_tx_hashes: StdArc::new(orphaned_tx_hashes.into_iter().collect()),
-                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
-            }
-        }
-
-        fn seen_tx_hashes(&self) -> Vec<B256> {
-            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockBatchPath {
-        async fn produce(
-            &self,
-            input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let ProductionInput::L1ProposalLog(log) = input else {
-                panic!("mock batch path only supports L1 proposal logs");
-            };
-
-            let tx_hash =
-                log.transaction_hash.expect("test proposal log should always include tx hash");
-            self.seen_tx_hashes
-                .lock()
-                .expect("seen tx hashes mutex should not be poisoned")
-                .push(tx_hash);
-
-            if self.orphaned_tx_hashes.contains(&tx_hash) {
-                return Err(DriverError::Other(anyhow!("mock orphaned proposal failure")));
-            }
-
-            Ok(vec![sample_engine_outcome(
-                log.block_number.expect("test proposal log should always include block number"),
-            )])
-        }
-    }
-
-    #[derive(Clone)]
-    struct MockRetryBatchPath {
-        fail_once_tx_hashes: StdArc<Mutex<HashSet<B256>>>,
-        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
-    }
-
-    impl MockRetryBatchPath {
-        fn new(fail_once_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
-            Self {
-                fail_once_tx_hashes: StdArc::new(Mutex::new(
-                    fail_once_tx_hashes.into_iter().collect(),
-                )),
-                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
-            }
-        }
-
-        fn seen_tx_hashes(&self) -> Vec<B256> {
-            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockRetryBatchPath {
-        async fn produce(
-            &self,
-            input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let ProductionInput::L1ProposalLog(log) = input else {
-                panic!("mock retry batch path only supports L1 proposal logs");
-            };
-
-            let tx_hash =
-                log.transaction_hash.expect("test proposal log should always include tx hash");
-            self.seen_tx_hashes
-                .lock()
-                .expect("seen tx hashes mutex should not be poisoned")
-                .push(tx_hash);
-
-            if self
-                .fail_once_tx_hashes
-                .lock()
-                .expect("fail-once tx hashes mutex should not be poisoned")
-                .remove(&tx_hash)
-            {
-                return Err(DriverError::Other(anyhow!("mock retryable proposal failure")));
-            }
-
-            Ok(vec![sample_engine_outcome(
-                log.block_number.expect("test proposal log should always include block number"),
-            )])
-        }
-    }
-
-    /// Production path that always fails with a deterministic engine verdict.
-    #[derive(Clone)]
-    struct MockFatalBatchPath {
-        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
-    }
-
-    impl MockFatalBatchPath {
-        fn new() -> Self {
-            Self { seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())) }
-        }
-
-        fn seen_tx_hashes(&self) -> Vec<B256> {
-            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockFatalBatchPath {
-        async fn produce(
-            &self,
-            input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let ProductionInput::L1ProposalLog(log) = input else {
-                panic!("mock fatal batch path only supports L1 proposal logs");
-            };
-
-            let tx_hash =
-                log.transaction_hash.expect("test proposal log should always include tx hash");
-            self.seen_tx_hashes
-                .lock()
-                .expect("seen tx hashes mutex should not be poisoned")
-                .push(tx_hash);
-
-            Err(DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
-                EngineSubmissionError::InvalidBlock(1, "mock invalid payload".to_string()),
-            ))))
-        }
-    }
-
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client {
-        mock_client_with_asserters(l1_asserter, Asserter::new())
-    }
-
-    fn mock_client_with_asserters(l1_asserter: Asserter, l2_auth_asserter: Asserter) -> Client {
-        mock_client_with_all_asserters(l1_asserter, Asserter::new(), l2_auth_asserter)
-    }
-
-    fn mock_client_with_all_asserters(
-        l1_asserter: Asserter,
-        l2_asserter: Asserter,
-        l2_auth_asserter: Asserter,
-    ) -> Client {
-        let l1_provider = ProviderBuilder::new().connect_mocked_client(l1_asserter);
-        let l2_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
-        let l2_auth_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(l2_auth_asserter);
-        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
-        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
-        let shasta = ShastaProtocolInstance { inbox, anchor };
-
-        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     #[tokio::test]
@@ -2465,6 +2191,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn proposal_log_is_retryable_without_ancestor_fetch_at_one_over_cap_distance() {
+        let asserter = Asserter::new();
+        // Log height 1 vs finalized height cap + 2 puts the walk distance at exactly cap + 1,
+        // the smallest beyond-cap distance: the guard must trip before any ancestor hop.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(
+            MAX_ORPHAN_PROOF_ANCESTRY_WALK + 2,
+            B256::from([0xf1u8; 32]),
+            B256::from([0xf0u8; 32]),
+        ));
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([8u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(asserter.read_q().is_empty(), "one-over-cap distance must not fetch ancestors");
+    }
+
+    #[tokio::test]
+    async fn proposal_log_ancestry_walk_starts_at_exact_cap_distance() {
+        let asserter = Asserter::new();
+        // Log height 1 vs finalized height cap + 1 puts the walk distance at exactly the cap,
+        // the largest in-cap distance: the walk must start, and its first (missing) ancestor
+        // hop leaves the log retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(
+            MAX_ORPHAN_PROOF_ANCESTRY_WALK + 1,
+            B256::from([0xf1u8; 32]),
+            B256::from([0xf0u8; 32]),
+        ));
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([8u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(
+            asserter.read_q().is_empty(),
+            "exact-cap distance must fetch the first ancestor hop"
+        );
+    }
+
+    #[tokio::test]
     async fn proposal_log_is_retryable_when_mismatch_height_is_not_finalized() {
         let asserter = Asserter::new();
         // The hash misses and the finalized height (0) has not reached the log height (1): the
@@ -2546,7 +2319,7 @@ mod tests {
         assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_skips_orphaned_proposal_log_and_continues_batch() {
         let orphaned_block_hash = B256::from([0x11; 32]);
         let orphaned_tx_hash = B256::from([0x21; 32]);
@@ -2557,7 +2330,7 @@ mod tests {
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockBatchPath::new([orphaned_tx_hash]);
+        let path = MockProductionPath::failing_for([orphaned_tx_hash]);
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
@@ -2585,7 +2358,7 @@ mod tests {
             rpc: mock_client_with_l1_asserter(Asserter::new()),
             ..build_syncer().await
         };
-        let path = MockBatchPath::new([]);
+        let path = MockProductionPath::default();
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
         let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
         log.block_hash = None;
@@ -2602,7 +2375,7 @@ mod tests {
         assert!(path.seen_tx_hashes().is_empty());
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_retries_when_orphan_recheck_errors() {
         let retry_block_hash = B256::from([0x51; 32]);
         let retry_tx_hash = B256::from([0x61; 32]);
@@ -2611,7 +2384,7 @@ mod tests {
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockRetryBatchPath::new([retry_tx_hash]);
+        let path = MockProductionPath::failing_once_for([retry_tx_hash]);
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
@@ -2658,7 +2431,7 @@ mod tests {
         assert!(!is_fatal_proposal_processing_error(&DriverError::Other(anyhow!("boom"))));
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_aborts_without_retry_on_fatal_engine_verdict() {
         let fatal_block_hash = B256::from([0x71; 32]);
         let fatal_tx_hash = B256::from([0x81; 32]);
@@ -2670,7 +2443,7 @@ mod tests {
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockFatalBatchPath::new();
+        let path = MockProductionPath::fatal();
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
@@ -2696,14 +2469,16 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_keeps_retrying_fatal_verdict_without_canonical_proof() {
         let stale_block_hash = B256::from([0x72; 32]);
         let stale_tx_hash = B256::from([0x82; 32]);
         let asserter = Asserter::new();
-        // Two attempts' worth of responses. The by-hash recheck resolves the block, but L1
-        // finality has not reached the log height, so canonicality remains unproven and the fatal
-        // verdict must keep retrying instead of terminating event sync on a possibly-reorged log.
+        // Two attempts' worth of responses. The by-hash recheck resolves the block with the
+        // log's own hash — the matching view a lagging backend would report — but L1 finality
+        // has not reached the log height, and a mutable view below finality cannot prove
+        // canonicality strongly enough to terminate event sync: the fatal verdict must keep
+        // retrying instead of aborting on a possibly-reorged log.
         for _ in 0..2 {
             asserter.push_success(&l1_block_at(1, stale_block_hash, B256::ZERO));
             asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
@@ -2711,7 +2486,7 @@ mod tests {
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockFatalBatchPath::new();
+        let path = MockProductionPath::fatal();
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
@@ -2734,43 +2509,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn process_log_batch_keeps_retrying_fatal_verdict_on_unfinalized_matching_view() {
-        let stale_block_hash = B256::from([0x73; 32]);
-        let stale_tx_hash = B256::from([0x83; 32]);
-        let asserter = Asserter::new();
-        // Two attempts' worth of responses. A lagging by-number backend still reports the log's
-        // block hash, but the finalized height has not reached the log. That mutable view cannot
-        // prove canonicality strongly enough to terminate event sync.
-        for _ in 0..2 {
-            asserter.push_success(&l1_block_at(1, stale_block_hash, B256::ZERO));
-            asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
-        }
-
-        let syncer =
-            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockFatalBatchPath::new();
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
-
-        let result = timeout(
-            Duration::from_millis(250),
-            syncer.process_log_batch(
-                router,
-                vec![sample_proposed_log(1, stale_block_hash, stale_tx_hash)],
-            ),
-        )
-        .await;
-
-        assert!(
-            result.is_err(),
-            "a matching but unfinalized backend view must not abort the proposal batch"
-        );
-        assert!(
-            path.seen_tx_hashes().len() >= 2,
-            "the proposal should keep retrying until finalized ancestry proves canonicality"
-        );
-    }
-
-    #[tokio::test]
     async fn preconf_submit_rejected_before_first_event_sync_gate() {
         let syncer = build_syncer().await;
         let payload = PreconfPayload::new(sample_payload(1), B256::ZERO);
@@ -2788,13 +2526,18 @@ mod tests {
     /// loop does in production.
     async fn spawn_test_preconf_ingress(
         l2_asserter: Asserter,
-        path: MockPreconfPath,
+        path: MockProductionPath,
         ready_flag: Arc<AtomicBool>,
     ) -> PreconfSender {
-        let rpc = mock_client_with_all_asserters(Asserter::new(), l2_asserter, Asserter::new());
+        let rpc = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter,
+            Asserter::new(),
+            Address::ZERO,
+        );
         let syncer = EventSyncer { rpc: rpc.clone(), ..build_syncer().await };
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
-            Arc::new(MockBatchPath::new([])),
+            Arc::new(MockProductionPath::default()),
             Some(Arc::new(path) as Arc<dyn BlockProductionPath + Send + Sync>),
         )));
         let (tx, rx) = mpsc::channel(4);
@@ -2832,7 +2575,7 @@ mod tests {
         // gate rejects the job before reading the boundary.
         l2_asserter.push_success(&Option::<RpcL1Origin>::None);
 
-        let path = MockPreconfPath::default();
+        let path = MockProductionPath::default();
         let ready_flag = Arc::new(AtomicBool::new(false));
         let tx = spawn_test_preconf_ingress(l2_asserter, path.clone(), ready_flag.clone()).await;
 
@@ -2853,7 +2596,7 @@ mod tests {
         // Confirmed boundary unwritten: genesis boundary 0, so block 1 is not stale.
         l2_asserter.push_success(&Option::<RpcL1Origin>::None);
 
-        let path = MockPreconfPath::default();
+        let path = MockProductionPath::default();
         let ready_flag = Arc::new(AtomicBool::new(false));
         let tx = spawn_test_preconf_ingress(l2_asserter, path.clone(), ready_flag.clone()).await;
 
@@ -2868,8 +2611,12 @@ mod tests {
     #[tokio::test]
     async fn materialized_preconfirmation_requires_expected_parent() {
         let l2_asserter = Asserter::new();
-        let client =
-            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
         let mut attributes = sample_payload(2);
         attributes.l1_origin.build_payload_args_id = [0x11; 8];
         let origin = attributes.l1_origin.clone();
@@ -2900,8 +2647,12 @@ mod tests {
     #[tokio::test]
     async fn materialized_preconfirmation_returns_observed_block_hash() {
         let l2_asserter = Asserter::new();
-        let client =
-            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
         let mut attributes = sample_payload(2);
         attributes.l1_origin.build_payload_args_id = [0x11; 8];
         let origin = attributes.l1_origin.clone();
@@ -2934,8 +2685,12 @@ mod tests {
     #[tokio::test]
     async fn stale_materialized_preconfirmation_reports_stale() {
         let l2_asserter = Asserter::new();
-        let client =
-            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
         let syncer = EventSyncer { rpc: client, ..build_syncer().await };
         syncer.preconf_ingress_ready.store(true, Ordering::Release);
 
@@ -2978,8 +2733,12 @@ mod tests {
     #[tokio::test]
     async fn queued_preconfirmation_reports_stale_after_confirmed_tip_advances() {
         let l2_asserter = Asserter::new();
-        let client =
-            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
         let syncer = EventSyncer { rpc: client.clone(), ..build_syncer().await };
         let rx = syncer
             .preconf_rx
@@ -2987,7 +2746,7 @@ mod tests {
             .expect("preconfirmation receiver mutex should not be poisoned")
             .take()
             .expect("preconfirmation receiver should be available");
-        let path = MockBatchPath::new([]);
+        let path = MockProductionPath::default();
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
             Arc::new(path.clone()),
             Some(Arc::new(path)),
@@ -3019,8 +2778,12 @@ mod tests {
     #[tokio::test]
     async fn queued_preconfirmation_binds_inserted_outcome_to_produced_block() {
         let l2_asserter = Asserter::new();
-        let client =
-            mock_client_with_all_asserters(Asserter::new(), l2_asserter.clone(), Asserter::new());
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
         let syncer = EventSyncer { rpc: client.clone(), ..build_syncer().await };
         let rx = syncer
             .preconf_rx
@@ -3029,8 +2792,8 @@ mod tests {
             .take()
             .expect("preconfirmation receiver should be available");
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
-            Arc::new(MockBatchPath::new([])),
-            Some(Arc::new(MockPreconfPath::default())),
+            Arc::new(MockProductionPath::default()),
+            Some(Arc::new(MockProductionPath::default())),
         )));
         syncer.spawn_preconf_ingress(router, rx, client, Arc::clone(&syncer.preconf_ingress_ready));
         // The event loop owns the gate in production; open it directly here since this test
@@ -3051,37 +2814,12 @@ mod tests {
             .await
             .expect("inserted payload should return a terminal outcome");
 
-        // `MockPreconfPath` replies with `sample_engine_outcome(1)`, whose block hash is below.
+        // The preconfirmation `MockProductionPath` replies with `sample_engine_outcome(1)`,
+        // whose block hash is below.
         assert_eq!(
             outcome,
             PreconfSubmissionOutcome::Inserted { block_hash: B256::from([1u8; 32]) }
         );
-    }
-
-    #[test]
-    fn confirmed_sync_ready_when_target_is_zero() {
-        assert!(ConfirmedSyncSnapshot::new(0, None, None).is_ready());
-    }
-
-    #[test]
-    fn confirmed_sync_ready_requires_head_l1_origin_for_nonzero_target() {
-        assert!(!ConfirmedSyncSnapshot::new(7, Some(11), None).is_ready());
-    }
-
-    #[test]
-    fn confirmed_sync_ready_requires_target_batch_mapping_for_nonzero_target() {
-        assert!(!ConfirmedSyncSnapshot::new(7, None, Some(11)).is_ready());
-    }
-
-    #[test]
-    fn confirmed_sync_ready_is_false_when_head_is_behind_target_block() {
-        assert!(!ConfirmedSyncSnapshot::new(7, Some(12), Some(11)).is_ready());
-    }
-
-    #[test]
-    fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
-        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
-        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
     }
 
     #[test]
@@ -3116,7 +2854,7 @@ mod tests {
         // consumer unspawned; the timer-driven retry re-runs this probe on the next tick.
         l1_asserter.push_failure_msg("boom");
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
-            Arc::new(MockBatchPath::new([])),
+            Arc::new(MockProductionPath::default()),
             None,
         )));
         let mut preconf_ingress_spawned = false;
@@ -3132,10 +2870,11 @@ mod tests {
         let l1_asserter = Asserter::new();
         let l2_asserter = Asserter::new();
         let syncer = EventSyncer {
-            rpc: mock_client_with_all_asserters(
+            rpc: mock_client_with_asserters(
                 l1_asserter.clone(),
                 l2_asserter.clone(),
                 Asserter::new(),
+                Address::ZERO,
             ),
             ..build_syncer().await
         };
@@ -3146,7 +2885,7 @@ mod tests {
         l1_asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&core_state)));
         l2_asserter.push_success(&Option::<RpcL1Origin>::None);
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
-            Arc::new(MockBatchPath::new([])),
+            Arc::new(MockProductionPath::default()),
             None,
         )));
         let mut preconf_ingress_spawned = false;
@@ -3157,11 +2896,11 @@ mod tests {
         assert!(syncer.preconf_ingress_ready.load(Ordering::Acquire));
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn close_preconf_ingress_stores_closed_before_router_barrier() {
         let syncer = build_syncer().await;
         let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
-            Arc::new(MockBatchPath::new([])),
+            Arc::new(MockProductionPath::default()),
             None,
         )));
         syncer.preconf_ingress_ready.store(true, Ordering::Release);
@@ -3187,7 +2926,12 @@ mod tests {
         let l1_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
         let syncer = EventSyncer {
-            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            rpc: mock_client_with_asserters(
+                l1_asserter.clone(),
+                Asserter::new(),
+                l2_auth_asserter.clone(),
+                Address::ZERO,
+            ),
             ..build_syncer().await
         };
 
@@ -3208,7 +2952,12 @@ mod tests {
         let l1_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
         let syncer = EventSyncer {
-            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            rpc: mock_client_with_asserters(
+                l1_asserter.clone(),
+                Asserter::new(),
+                l2_auth_asserter.clone(),
+                Address::ZERO,
+            ),
             ..build_syncer().await
         };
 
@@ -3266,15 +3015,6 @@ mod tests {
         let resolved = resolve_resume_head_block_number(false, None, Some(64), None)
             .expect("missing rpc block number should fall back to local origin");
         assert_eq!(resolved, (64, "local head_l1_origin"));
-    }
-
-    #[test]
-    fn preconfirmation_submit_timeout_defaults_to_12_seconds() {
-        assert_eq!(
-            PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
-            Duration::from_secs(12),
-            "preconfirmation submit timeout should default to 12 seconds"
-        );
     }
 
     // -- resolve_target_with_optional_finalization tests --

@@ -430,4 +430,49 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("payload too short for compressed data"));
     }
+
+    #[test]
+    fn test_decode_manifest_payload_nonzero_offset() {
+        // Production callers pass a U24 blob offset; the header and compressed slice must be
+        // read relative to it.
+        let manifest = manifest_with_gas_limit(55_555);
+        let payload = manifest.encode_and_compress().unwrap();
+
+        let offset = 7usize;
+        let mut padded = vec![0xAA; offset];
+        padded.extend_from_slice(&payload);
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&padded, offset)
+            .expect("manifest decoding should not return a hard error");
+        let baseline = DerivationSourceManifest::decompress_and_decode(&payload, 0)
+            .expect("manifest decoding should not return a hard error");
+
+        assert_eq!(decoded.blocks.len(), baseline.blocks.len());
+        assert_eq!(decoded.blocks[0].gas_limit, 55_555);
+        assert_eq!(decoded.blocks[0].gas_limit, baseline.blocks[0].gas_limit);
+    }
+
+    #[test]
+    fn test_derivation_manifest_empty_blocks_decodes_as_empty() {
+        // Pins current behavior on a cross-client parity surface: an empty `blocks` list
+        // decodes as-is instead of degrading to the default single-block manifest.
+        let manifest = DerivationSourceManifest { blocks: vec![] };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert!(decoded.blocks.is_empty());
+    }
+
+    #[test]
+    fn test_derivation_manifest_default_max_blocks_boundary() {
+        // Exactly DERIVATION_SOURCE_MAX_BLOCKS blocks must decode on the default (non-Unzen)
+        // path; one block more falls back (covered by `test_derivation_manifest_too_many_blocks`).
+        let blocks: Vec<BlockManifest> =
+            (0..DERIVATION_SOURCE_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+        let manifest = DerivationSourceManifest { blocks };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), DERIVATION_SOURCE_MAX_BLOCKS);
+    }
 }

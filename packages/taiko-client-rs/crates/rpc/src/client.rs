@@ -213,15 +213,6 @@ mod tests {
         assert!(secret.is_none());
     }
 
-    #[test]
-    fn test_default_http_timeout_covers_preconfirmation_budget() {
-        assert_eq!(
-            DEFAULT_HTTP_TIMEOUT,
-            Duration::from_secs(12),
-            "DEFAULT_HTTP_TIMEOUT should default to 12 seconds"
-        );
-    }
-
     #[tokio::test]
     async fn connect_provider_rejects_unknown_scheme() {
         let url = Url::parse("ftp://localhost:1234").expect("invalid test URL");

@@ -107,13 +107,100 @@ jobs:
         working-directory: packages/taiko-client-rs
         run: just clippy
 
+  # Unit tests need no docker stack or contract deploy — fast fail-first signal
+  # while the full integration job below brings up its environment.
+  unit:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    name: Unit Tests
+    runs-on: [arc-runner-set]
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1 && command -v llvm-config > /dev/null 2>&1; then
+            cc --version
+            echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential pkg-config clang libclang-dev llvm-dev
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+
+      - name: Install mold
+        shell: bash
+        run: |
+          set -euxo pipefail
+          MOLD_VERSION=2.40.4
+          ARCH="$(uname -m)"
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          curl -fsSL "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz" \
+            | $SUDO tar -C /usr/local --strip-components=1 --no-overwrite-dir -xzf -
+
+          if [ "$(readlink -f /usr/bin/ld)" != /usr/local/bin/mold ]; then
+            $SUDO ln -sf /usr/local/bin/mold /usr/bin/ld
+          fi
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: "taiko-client-rs"
+          # The Tests job is the sole saver of this shared key.
+          save-if: "false"
+          workspaces: |
+            packages/taiko-client-rs -> target
+
+      # The protocol crate's subscription-source unit test spawns a local anvil.
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Run unit tests
+        working-directory: packages/taiko-client-rs
+        run: just unit
+
   test:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: [arc-runner-set]
     timeout-minutes: 50
-    env:
-      PROTOCOL_FORK_DIR: protocol-taiko-mono
 
     steps:
       - uses: actions/checkout@v6
@@ -227,9 +314,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            ${{ env.PROTOCOL_FORK_DIR }}/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup just
         uses: extractions/setup-just@v3
@@ -242,19 +327,33 @@ jobs:
 
       - uses: taiki-e/install-action@nextest
 
-      - name: Checkout protocol for testing
-        uses: actions/checkout@v6
-        with:
-          repository: taikoxyz/taiko-mono
-          path: ${{ env.PROTOCOL_FORK_DIR }}
-          ref: main
-
-      - name: Install pnpm dependencies for protocol taiko-mono for testing
-        working-directory: ${{ env.PROTOCOL_FORK_DIR }}
-        run: cd ./packages/protocol && pnpm install
+      # Deploy the PR's own protocol contracts: a second checkout pinned to `main`
+      # would test different contracts on every re-run and never exercise a PR
+      # that changes protocol and client together.
+      - name: Install pnpm dependencies for protocol
+        working-directory: packages/protocol
+        run: pnpm install
 
       - name: Run tests
         working-directory: packages/taiko-client-rs
         env:
-          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
+          PROTOCOL_DIR: ${{ github.workspace }}/packages/protocol
         run: just test
+
+      # The entrypoint's EXIT trap can be skipped on job cancellation/timeout;
+      # leaked fixed-name containers would fail the next run on this runner. A real
+      # `down` failure must fail the job loudly instead of leaving that poison behind.
+      - name: Tear down docker compose stack
+        if: always()
+        working-directory: packages/taiko-client-rs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if docker compose version > /dev/null 2>&1; then
+            docker compose -f tests/docker/docker-compose.test.yaml down -v --remove-orphans
+          elif command -v docker-compose > /dev/null 2>&1; then
+            docker-compose -f tests/docker/docker-compose.test.yaml down -v --remove-orphans
+          else
+            echo "ERROR: no docker compose implementation available for teardown"
+            exit 1
+          fi

@@ -271,15 +271,12 @@ mod tests {
         let proof = scanner.start().await.expect("scanner should start");
         let mut stream = subscription.stream(&proof);
 
-        let message = timeout(Duration::from_secs(5), async {
-            loop {
-                if let Some(message) = stream.next().await {
-                    return message;
-                }
-            }
-        })
-        .await
-        .expect("timed out waiting for scanner live notification");
+        // 15s of headroom for loaded CI hosts: the test spawns a real anvil with a 1s block
+        // time. A single `next()` await also avoids busy-spinning if the stream terminates.
+        let message = timeout(Duration::from_secs(15), stream.next())
+            .await
+            .expect("timed out waiting for scanner live notification")
+            .expect("scanner stream ended before emitting a notification");
 
         assert!(matches!(message, Ok(Message::Notification(Notification::SwitchingToLive))));
     }
