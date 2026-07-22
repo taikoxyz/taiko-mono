@@ -883,6 +883,9 @@ reconciliation is in progress and may adjust some Medium/Low severities. Each fi
   there. It <i>can</i> finalize wherever a gaiko2 proof stands without such a co-prover.</p>
   <p><b>Fix.</b> Call <code>db.Error()</code> after execution (or compute the root via <code>db.Commit</code>, which checks it) in
   both <code>GethRunner.Execute</code> and <code>processUnzenReplayBlock</code>, matching <code>manifestWitnessStateError</code>.</p>
+  <p class="kv"><b>Remediation status:</b> already being fixed — gaiko2 <a href="https://github.com/taikoxyz/gaiko2/pull/46">PR&nbsp;#46</a>
+  ("surface witness state errors in the replay path", the in-repo kimi-k3 audit's finding&nbsp;1) adds exactly these
+  <code>db.Error()</code> checks in <code>GethRunner.Execute</code> with a regression test. This audit did not open a duplicate.</p>
   </div>
 </div>
 
@@ -904,6 +907,8 @@ reconciliation is in progress and may adjust some Medium/Low severities. Each fi
   <p><b>Latent, not live.</b> Genesis-activated chains are unaffected (<code>parent.ts + 1 &gt; fork_ts</code> makes the clamp a
   no-op), which is why it hasn't fired — it triggers the first time Shasta is scheduled at a future timestamp.</p>
   <p><b>Fix.</b> Add the fork-time floor to <code>ComputeTimestampLowerBound</code> and pass it at both call sites.</p>
+  <p class="kv"><b>Remediation status:</b> a fix adding the fork-time floor to the Go driver is being opened as a separate pull
+  request citing this report (the Rust driver and both provers already have it).</p>
   </div>
 </div>
 
@@ -930,7 +935,7 @@ reconciliation is in progress and may adjust some Medium/Low severities. Each fi
   <code>id ≤ MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET (7)</code>, because <code>Anchor._blockState.anchorBlockNumber</code> is not yet
   reliable during bootstrap. raiko2's guest reads the parent anchor <i>only</i> from that storage slot (plus a host cross-check);
   gaiko2 trusts the host value. So for mainnet <code>id ≤ 7</code> raiko2's storage-derived anchor can differ from the driver's
-  tx-derived one → the <code>host == verified</code> cross-check fails or mis-derives → those proposals unprovable by raiko2. A
+  tx-derived one → the <code>host == verified</code> cross-check fails or yields a wrong anchor → those proposals unprovable by raiko2. A
   one-time mainnet-launch determinism gap worth confirming against the migration state. <b>Fix:</b> give the guest the same
   <code>id ≤ 7</code> tx-based recovery, or guarantee the bootstrap storage matches.</p>
   </div>
