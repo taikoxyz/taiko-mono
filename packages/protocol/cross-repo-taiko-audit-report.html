@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Taiko Shasta — Cross-Repo Data Verification Audit</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#1a1d24; --muted:#5b6472; --line:#e2e6ee;
+    --accent:#2563eb; --accent2:#7c3aed;
+    --l1:#0f766e; --l1bg:#d7f2ee;
+    --prop:#1d4ed8; --propbg:#dde7ff;
+    --blk:#7c3aed; --blkbg:#ece0ff;
+    --chk:#b45309; --chkbg:#ffedd5;
+    --ok:#15803d; --okbg:#dcfce7;
+    --warn:#b45309; --warnbg:#fef3c7;
+    --high:#b91c1c; --highbg:#fee2e2;
+    --info:#3730a3; --infobg:#e0e7ff;
+    --code:#0b1020; --codeink:#e6edf3;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --muted:#9aa4b2; --line:#273040;
+      --accent:#60a5fa; --accent2:#a78bfa;
+      --l1:#5eead4; --l1bg:#0c2e2a;
+      --prop:#93b4ff; --propbg:#111f3d;
+      --blk:#c4b5fd; --blkbg:#241a3d;
+      --chk:#fbbf24; --chkbg:#33270c;
+      --ok:#4ade80; --okbg:#0e2a17;
+      --warn:#fbbf24; --warnbg:#332708;
+      --high:#f87171; --highbg:#3a1414;
+      --info:#a5b4fc; --infobg:#1a1f3d;
+      --code:#0b1020; --codeink:#e6edf3;
+      --shadow:0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 22px 96px}
+  header.hero{
+    background:linear-gradient(135deg,rgba(37,99,235,.10),rgba(124,58,237,.10));
+    border:1px solid var(--line);border-radius:16px;padding:30px 28px;margin-bottom:26px;box-shadow:var(--shadow);
+  }
+  .kicker{font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 8px}
+  h1{font-size:30px;line-height:1.18;margin:0 0 10px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:15.5px;margin:0 0 18px;max-width:80ch}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;font-size:12.5px}
+  .meta .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 11px;color:var(--muted)}
+  .meta .pill b{color:var(--ink);font-weight:600}
+  h2{font-size:22px;margin:44px 0 12px;letter-spacing:-.01em;padding-top:8px}
+  h3{font-size:17px;margin:26px 0 8px}
+  h4{font-size:14.5px;margin:18px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  p{margin:10px 0}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:"SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;
+    background:rgba(124,58,237,.10);padding:1.5px 5px;border-radius:5px;color:var(--ink);word-break:break-word}
+  @media (prefers-color-scheme: dark){ code{background:rgba(167,139,250,.14)} }
+  pre{background:var(--code);color:var(--codeink);border-radius:10px;padding:14px 16px;overflow-x:auto;
+    font-family:"SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.7px;line-height:1.55;border:1px solid #1f2937}
+  pre .c{color:#7d8aa0}
+  pre .k{color:#79c0ff}
+  pre .s{color:#7ee787}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0;box-shadow:var(--shadow)}
+  .grid{display:grid;gap:14px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:20px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 16px;box-shadow:var(--shadow)}
+  .stat .n{font-size:27px;font-weight:750;letter-spacing:-.02em;line-height:1}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .stat.good .n{color:var(--ok)} .stat.acc .n{color:var(--accent)} .stat.acc2 .n{color:var(--accent2)} .stat.warnc .n{color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:13.4px;margin:8px 0}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;margin:14px 0}
+  .scroll table{margin:0}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:rgba(37,99,235,.06);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;position:sticky;top:0}
+  @media (prefers-color-scheme: dark){ th{background:rgba(96,165,250,.08)} }
+  tr:last-child td{border-bottom:none}
+  td code{font-size:.86em}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;letter-spacing:.02em}
+  .t-l1{background:var(--l1bg);color:var(--l1)}
+  .t-prop{background:var(--propbg);color:var(--prop)}
+  .t-blk{background:var(--blkbg);color:var(--blk)}
+  .t-chk{background:var(--chkbg);color:var(--chk)}
+  .t-ok{background:var(--okbg);color:var(--ok)}
+  .callout{border-left:4px solid var(--accent);background:rgba(37,99,235,.06);border-radius:0 10px 10px 0;padding:12px 16px;margin:14px 0}
+  .callout.ok{border-color:var(--ok);background:var(--okbg)}
+  .callout.warn{border-color:var(--warn);background:var(--warnbg)}
+  .callout.high{border-color:var(--high);background:var(--highbg)}
+  .callout.info{border-color:var(--info);background:var(--infobg)}
+  .callout p{margin:5px 0}
+  .sev{font-weight:750;font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
+  .sev.pos{background:var(--okbg);color:var(--ok)}
+  .sev.info{background:var(--infobg);color:var(--info)}
+  .sev.low{background:var(--warnbg);color:var(--warn)}
+  .sev.med{background:var(--warnbg);color:var(--warn)}
+  .sev.high{background:var(--highbg);color:var(--high)}
+  .finding{border:1px solid var(--line);border-radius:12px;padding:0;margin:14px 0;overflow:hidden;box-shadow:var(--shadow)}
+  .finding .fh{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:13px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .finding .fh .id{font-weight:750;font-size:14px}
+  .finding .fh .ti{font-weight:600;flex:1;min-width:200px}
+  .finding .fb{padding:14px 18px;background:var(--panel)}
+  .finding .fb p:first-child{margin-top:0}
+  .finding .fb p:last-child{margin-bottom:0}
+  .kv{font-size:12.5px;color:var(--muted)}
+  .kv b{color:var(--ink)}
+  ol.toc{list-style:none;counter-reset:toc;padding:0;margin:14px 0;columns:2;column-gap:26px}
+  ol.toc li{counter-increment:toc;margin:5px 0;break-inside:avoid}
+  ol.toc li a::before{content:counter(toc) ".";color:var(--accent);font-weight:700;margin-right:8px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12.5px;margin:6px 0 2px;color:var(--muted)}
+  .legend .li{display:flex;align-items:center;gap:6px}
+  .legend .sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.15)}
+  figure{margin:16px 0}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;text-align:center}
+  .svgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:8px}
+  hr{border:none;border-top:1px solid var(--line);margin:34px 0}
+  .foot{color:var(--muted);font-size:12.5px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px}
+  .anchor{scroll-margin-top:16px}
+  ul.tight{margin:8px 0;padding-left:22px}
+  ul.tight li{margin:4px 0}
+  .mono{font-family:"SF Mono",ui-monospace,monospace;font-size:12.5px}
+  .num{font-variant-numeric:tabular-nums}
+  @media (max-width:640px){ ol.toc{columns:1} h1{font-size:25px} .wrap{padding:20px 14px 70px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">Cross-Repository Protocol Design &amp; Implementation Audit</p>
+  <h1>Taiko&nbsp;Shasta — Proposal &amp; Block Data: Complete Verification-Chain Audit</h1>
+  <p class="sub">A field-by-field trace of every piece of data in a Taiko <b>Proposal</b> and every derived <b>L2 block</b>,
+  showing how each is proved — directly or transitively — against state managed by the protocol contracts on
+  Ethereum&nbsp;L1, and a formal argument that the verification graph is acyclic (no circular dependency).</p>
+  <div class="meta">
+    <span class="pill"><b>Scope:</b>&nbsp;taiko-mono · raiko2 · gaiko2</span>
+    <span class="pill"><b>Fork:</b>&nbsp;Shasta (post-Unzen)</span>
+    <span class="pill"><b>taiko-mono</b>&nbsp;9ef35dd</span>
+    <span class="pill"><b>raiko2</b>&nbsp;cb3a5f2</span>
+    <span class="pill"><b>gaiko2</b>&nbsp;5a7718b</span>
+    <span class="pill"><b>Date:</b>&nbsp;2026-07-22</span>
+  </div>
+</header>
+
+<!-- ============ VERDICT / STATS ============ -->
+<div class="grid cards">
+  <div class="stat good"><div class="n">0</div><div class="l">Circular dependencies found</div></div>
+  <div class="stat acc"><div class="n">7</div><div class="l">L1 trust roots (bedrock)</div></div>
+  <div class="stat acc2"><div class="n">70+</div><div class="l">Distinct data fields traced</div></div>
+  <div class="stat good"><div class="n">3</div><div class="l">Independent impls in lock-step</div></div>
+  <div class="stat warnc"><div class="n">8</div><div class="l">Observations / findings</div></div>
+</div>
+
+<div class="callout ok">
+  <p><b>Headline result.</b> Every piece of proposal-level and block-level data reduces — through a finite, strictly
+  backward-looking chain of cryptographic checks — to one of seven L1 trust roots: the <b>proposal-hash ring buffer</b>,
+  <b>CoreState.lastFinalizedBlockHash</b>, the rest of <b>CoreState</b>, EIP-4844 <b>blob versioned hashes</b>,
+  <b>origin block hashes</b>, the immutable <b>verifier registry</b> (chain id + verifier address + trusted image ids /
+  SGX instances), and the <b>soundness of the proving system</b> itself. The verification graph is a DAG that terminates at
+  these roots; no datum is verified against a value that (directly or indirectly) depends on it.</p>
+</div>
+
+<h2 class="anchor" id="toc">Contents</h2>
+<ol class="toc">
+  <li><a href="#method">Scope &amp; methodology</a></li>
+  <li><a href="#roots">The seven L1 trust roots</a></li>
+  <li><a href="#lifecycle">Propose &rarr; derive &rarr; prove &rarr; finalize lifecycle</a></li>
+  <li><a href="#inv-proposal">Data inventory: Proposal &amp; DerivationSource</a></li>
+  <li><a href="#inv-manifest">Data inventory: Manifest (blob-encoded)</a></li>
+  <li><a href="#inv-block">Data inventory: derived L2 block &amp; header</a></li>
+  <li><a href="#inv-anchor">Data inventory: anchor transaction</a></li>
+  <li><a href="#inv-commit">Data inventory: Commitment / Transition / CoreState</a></li>
+  <li><a href="#derivation">Block-derivation rules</a></li>
+  <li><a href="#proofchain">The two-layer proof &amp; L1 binding</a></li>
+  <li><a href="#graph">Verification-dependency graph</a></li>
+  <li><a href="#circular">Circular-dependency analysis (DAG proof)</a></li>
+  <li><a href="#consistency">Cross-repo consistency matrix</a></li>
+  <li><a href="#findings">Findings &amp; observations</a></li>
+  <li><a href="#refs">Key references</a></li>
+</ol>
+
+<!-- ============ 1. METHODOLOGY ============ -->
+<h2 class="anchor" id="method">1 · Scope &amp; methodology</h2>
+<p>Three repositories jointly define and verify Taiko's Shasta rollup. This audit reads all three at the commits above and
+treats them as one system:</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Repo</th><th>Role</th><th>Language</th><th>What it owns in the trust chain</th></tr></thead>
+<tbody>
+<tr><td><b>taiko-mono</b><br><span class="kv">/packages/protocol</span></td><td>L1 &amp; L2 smart contracts + the derivation spec</td><td>Solidity</td>
+  <td><code>Inbox</code> (propose/prove/finalize, ring buffer, CoreState, bonds), verifiers (<code>SGX</code>/<code>RISC0</code>/<code>SP1</code>/compose), <code>Anchor</code>, <code>SignalService</code>, and <code>docs/Derivation.md</code>.</td></tr>
+<tr><td><b>taiko-mono</b><br><span class="kv">/packages/taiko-client(-rs)</span></td><td>Node / driver — the reference deriver</td><td>Go + Rust</td>
+  <td>Converts a <code>Proposed</code> event into L2 blocks (blob&rarr;manifest&rarr;blocks), builds the anchor tx, inserts via the engine API.</td></tr>
+<tr><td><b>raiko2</b></td><td>ZK prover (RISC0 &amp; SP1 guests)</td><td>Rust</td>
+  <td>Re-derives &amp; re-executes each proposal statelessly inside a zkVM; aggregates into one validity proof matching the L1 <code>Commitment</code>.</td></tr>
+<tr><td><b>gaiko2</b></td><td>TEE prover (Intel SGX via EGo)</td><td>Go</td>
+  <td>Independently re-derives, re-executes, and signs the same commitment inside an SGX enclave; attested key registered on L1.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Method</h4>
+<ul class="tight">
+  <li><b>Enumerate</b> every field of every struct on the propose and prove paths (contracts are the source of truth).</li>
+  <li><b>For each field</b>, identify its origin, how the driver computes it, and — the core question — <b>what it is verified against</b> inside the prover, terminating at an L1-managed value.</li>
+  <li><b>Model</b> the "verified-against" relation as a directed graph and prove it is acyclic and grounded at L1.</li>
+  <li>Claims about <code>raiko2</code>'s guest bindings and the L1 contracts were read first-hand; the <code>gaiko2</code> internals
+  were mapped both by reading and against the repo's own in-progress audit (<code>gaiko2/docs/audits/</code>) — items sourced
+  from that document are labelled and carry an explicit confidence note.</li>
+</ul>
+
+<div class="callout info">
+  <p><b>Two structural facts that govern everything below.</b></p>
+  <p><b>(a)</b> The on-chain <code>Proposal</code> struct is stored only as a <b>hash</b> in a ring buffer; its full contents live
+  off-chain (in the <code>Proposed</code> event + L1 block context + blobs). Whoever reconstructs a proposal must reproduce a
+  struct whose keccak matches the ring-buffer slot — that single equality authenticates <i>all</i> proposal fields at once.</p>
+  <p><b>(b)</b> The <code>Proposed</code> event deliberately omits <code>timestamp</code>, <code>originBlockNumber</code>, and
+  <code>originBlockHash</code>. The deriver reconstructs them from the L1 block that emitted the log (<code>timestamp</code> = that
+  block's time; <code>originBlockNumber</code> = emitting block − 1; <code>originBlockHash</code> = that parent's hash). They are
+  re-checked because they are part of the hashed <code>Proposal</code>.</p>
+</div>
+
+<!-- ============ 2. ROOTS ============ -->
+<h2 class="anchor" id="roots">2 · The seven L1 trust roots</h2>
+<p>These are the only values the whole construction is allowed to <i>assume</i>. Everything else must chain to one of them.
+All are managed by the protocol contracts on Ethereum (or are a stated cryptographic assumption).</p>
+<div class="scroll">
+<table>
+<thead><tr><th>#</th><th>Root</th><th>Where it lives on L1</th><th>Written by</th></tr></thead>
+<tbody>
+<tr><td><span class="tag t-l1">R1</span></td><td><b>Proposal-hash ring buffer</b><br><code>_proposalHashes[id % ringBufferSize]</code> = <code>keccak256(abi.encode(Proposal))</code></td>
+  <td><code>Inbox.sol:136,286,559</code></td><td><code>propose()</code> at proposal time</td></tr>
+<tr><td><span class="tag t-l1">R2</span></td><td><b>Last finalized L2 block hash</b><br><code>CoreState.lastFinalizedBlockHash</code></td>
+  <td><code>Inbox.sol:96,378</code></td><td><code>prove()</code> / <code>activate()</code></td></tr>
+<tr><td><span class="tag t-l1">R3</span></td><td><b>Rest of CoreState</b> — <code>nextProposalId</code>, <code>lastFinalizedProposalId</code>, <code>lastFinalized/CheckpointTimestamp</code>, <code>lastProposalBlockId</code></td>
+  <td><code>Inbox.sol:83-97</code></td><td><code>propose()</code> / <code>prove()</code></td></tr>
+<tr><td><span class="tag t-l1">R4</span></td><td><b>EIP-4844 blob versioned hashes</b> — captured via the <code>blobhash()</code> opcode and stored inside the proposal's <code>BlobSlice.blobHashes</code> (&rarr; folded into R1)</td>
+  <td><code>LibBlobs.sol:44-48</code></td><td><code>propose()</code> / <code>saveForcedInclusion()</code></td></tr>
+<tr><td><span class="tag t-l1">R5</span></td><td><b>Origin block hash</b> — <code>originBlockHash = blockhash(block.number-1)</code>, stored in the proposal (&rarr; folded into R1)</td>
+  <td><code>Inbox.sol:610-618</code></td><td><code>propose()</code></td></tr>
+<tr><td><span class="tag t-l1">R6</span></td><td><b>Immutable verifier registry</b> — verifier contract address, <code>taikoChainId</code>, trusted RISC0 <code>imageId</code> / SP1 <code>vkey</code>, and attested SGX instance addresses</td>
+  <td><code>Risc0Verifier.sol</code>, <code>SP1Verifier.sol</code>, <code>SgxVerifier.sol</code></td><td>Owner / DAO controller; SGX via DCAP attestation</td></tr>
+<tr><td><span class="tag t-l1">R7</span></td><td><b>Soundness of the proving system</b> — the ZK proof system and the SGX TEE/attestation are assumed sound (a cryptographic/hardware assumption, not a checkable value)</td>
+  <td>— (assumption)</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+<p class="kv">R4 and R5 are not separate storage slots — they are values captured by L1 opcodes at propose time and <i>embedded into the
+Proposal</i>, so they are ultimately anchored by R1. They are called out separately because they are the bridge from "raw
+off-chain bytes" (blobs, L1 headers) to on-chain commitments.</p>
+
+<!-- ============ 3. LIFECYCLE ============ -->
+<h2 class="anchor" id="lifecycle">3 · Propose &rarr; derive &rarr; prove &rarr; finalize</h2>
+<div class="panel">
+<pre><span class="c">┌─ L1 (Ethereum) ──────────────────────────────────────────────────────────────┐</span>
+ propose(lookahead, data)                              prove(data, proof)
+   • dequeue ≤10 forced inclusions (FIFO), append      • decode Commitment
+     proposer source last                              • <span class="k">require lastProposalHash == _proposalHashes[lastId]</span>   → R1
+   • blobHashes = blobhash(i)         → <span class="k">R4</span>            • <span class="k">require lastFinalizedBlockHash == firstProposalParentBlockHash</span> → R2
+   • originBlockHash = blockhash(n-1) → <span class="k">R5</span>            • saveCheckpoint(endBlockNumber,endStateRoot,lastBlockHash)
+   • Proposal = {id,ts,proposer,parent,origin,…,src}   • CoreState.lastFinalized* ← commitment              → R2,R3
+   • <span class="k">_proposalHashes[id] = keccak(Proposal)</span> → <span class="k">R1</span>      • verifyProof(age, <span class="k">hashCommitment(commitment)</span>, proof) → R6,R7
+   • emit Proposed(id,proposer,parent,eos,pctg,sources)
+<span class="c">└────────────────────────────────────────────────────────────────────────────────┘</span>
+        │  Proposed event + blobs                              ▲  Commitment + validity proof
+        ▼                                                      │
+<span class="c">┌─ Node / driver (taiko-client) ─────────┐   ┌─ Provers (raiko2 ZK / gaiko2 TEE) ──────┐</span>
+   reconstruct full Proposal, hash-check      re-derive blocks from (Proposal,blobs) the
+   blob → manifest (v0x1|size|zlib|RLP)       <span class="k">same way</span>; re-execute statelessly against
+   manifest → L2 blocks (timestamp/gas/       parent state (MPT witness); bind the result
+   anchor/coinbase/basefee rules)             into a per-proposal sub-proof, then aggregate
+   build anchorV4 tx (golden touch, fixed-k)  into one Commitment whose hash the L1 verifier
+   insert via engine API; set head            reproduces.
+<span class="c">└─────────────────────────────────────────┘   └─────────────────────────────────────────┘</span></pre>
+</div>
+<p>The driver and the two provers implement the <b>same derivation function</b> <code>D(Proposal, blobs, parentState) &rarr; blocks</code>.
+The driver <i>produces</i> the canonical chain; the provers <i>re-derive and re-execute</i> it and attest that the result is
+exactly what the rules dictate. L1 then checks the attested commitment against R1/R2 and the proof against R6/R7.</p>
+
+<!-- ============ 4. PROPOSAL INVENTORY ============ -->
+<h2 class="anchor" id="inv-proposal">4 · Data inventory — Proposal &amp; DerivationSource</h2>
+<p><span class="tag t-prop">PROPOSAL-LEVEL</span> Struct <code>IInbox.Proposal</code> (<code>IInbox.sol:60-79</code>). The whole struct is
+authenticated by one equality — <code>hash_proposal(Proposal) == R1</code> — verified in every prover
+(<code>raiko2 guest-common/src/lib.rs:852</code>; <code>gaiko2 guestinput_carry.go:112</code>).</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>Origin</th><th>How verified &rarr; root</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td>uint48</td><td><code>Proposed.id</code></td><td>∈ <code>hash_proposal</code>; aggregation also checks ids are sequential &amp; ∈ uint48 → <span class="tag t-l1">R1</span></td></tr>
+<tr><td><code>timestamp</code></td><td>uint48</td><td>L1 block time of the emitting log (not in event)</td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span>; also bound into the sub-proof transition</td></tr>
+<tr><td><code>endOfSubmissionWindowTimestamp</code></td><td>uint48</td><td><code>Proposed.eos</code></td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span> (used only by preconf handover; not a block field)</td></tr>
+<tr><td><code>proposer</code></td><td>address</td><td><code>Proposed.proposer</code> (= <code>msg.sender</code> at propose)</td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span>; also the <code>Transition.proposer</code> checked equal</td></tr>
+<tr><td><code>parentProposalHash</code></td><td>bytes32</td><td><code>Proposed.parentProposalHash</code> (= <code>getProposalHash(id-1)</code> on L1)</td><td>∈ <code>hash_proposal</code>; aggregation checks <code>prev.hash == next.parentProposalHash</code> → chains to <span class="tag t-l1">R1</span></td></tr>
+<tr><td><code>originBlockNumber</code></td><td>uint48</td><td>emitting L1 block − 1 (not in event)</td><td>∈ <code>hash_proposal</code>; bounds anchorBlockNumber; matched to the L1 ancestor-header chain → <span class="tag t-l1">R1</span>,<span class="tag t-l1">R5</span></td></tr>
+<tr><td><code>originBlockHash</code></td><td>bytes32</td><td><code>blockhash(n-1)</code> at propose (not in event)</td><td>∈ <code>hash_proposal</code>; the L1 ancestor-header chain's <b>tip must equal this</b> → <span class="tag t-l1">R1</span>,<span class="tag t-l1">R5</span></td></tr>
+<tr><td><code>basefeeSharingPctg</code></td><td>uint8</td><td><code>Proposed.basefeeSharingPctg</code> (immutable config)</td><td>∈ <code>hash_proposal</code>; also re-encoded into block <code>extraData</code> and checked → <span class="tag t-l1">R1</span></td></tr>
+<tr><td><code>sources[]</code></td><td>DerivationSource[]</td><td><code>Proposed.sources</code></td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span> (see below)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><span class="tag t-prop">SOURCE-LEVEL</span> Struct <code>IInbox.DerivationSource</code> (<code>IInbox.sol:52-57</code>) and
+<code>LibBlobs.BlobSlice</code> (<code>LibBlobs.sol:21-28</code>). Each source is either a forced inclusion (queued via
+<code>saveForcedInclusion</code>) or the proposer's own source (appended last).</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Field</th><th>Type</th><th>How verified &rarr; root</th></tr></thead>
+<tbody>
+<tr><td><code>isForcedInclusion</code></td><td>bool</td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span>; selects the derivation branch (forced sources inherit parent anchor, must have exactly 1 block)</td></tr>
+<tr><td><code>blobSlice.blobHashes[]</code></td><td>bytes32[]</td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span>. The raw blob bytes are additionally bound: <code>KZG(blob) → versionedHash == blobHashes[i]</code> (<span class="tag t-l1">R4</span> semantics) in <code>raiko2 blob.rs:117</code> / <code>gaiko2 blob_validate.go:75</code></td></tr>
+<tr><td><code>blobSlice.offset</code></td><td>uint24</td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span>; the byte offset the manifest decoder reads from</td></tr>
+<tr><td><code>blobSlice.timestamp</code></td><td>uint48</td><td>∈ <code>hash_proposal</code> → <span class="tag t-l1">R1</span>; used for the forced-inclusion delay gate</td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout ok"><p><b>Blob data-availability is fully proved.</b> The versioned hash is a keccak/SHA of the KZG commitment; the guest
+recomputes it from the actual blob bytes it derives from and requires equality with the on-chain <code>blobHashes</code> — which
+are themselves inside the ring-buffer proposal hash. A proposer cannot feed the prover blob bytes different from those committed
+on L1.</p></div>
+
+<!-- ============ 5. MANIFEST INVENTORY ============ -->
+<h2 class="anchor" id="inv-manifest">5 · Data inventory — Manifest (decoded from blobs)</h2>
+<p><span class="tag t-blk">DERIVED FROM DA</span> The blob bytes decode into a <code>ProposalManifest</code> of
+<code>DerivationSourceManifest</code>s, each holding <code>BlockManifest</code>s. Encoding:
+<code>[32B version=0x1][32B size][zlib(RLP(manifest))]</code> at <code>blobSlice.offset</code>. This is a <b>pure, deterministic
+function of the blob bytes</b>, which are bound to R4/R1 — so the manifest needs no separate anchor; the prover simply re-runs
+the decode and rejects/degrades identically to the driver.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Field (BlockManifest)</th><th>Type</th><th>Verification</th></tr></thead>
+<tbody>
+<tr><td><code>timestamp</code></td><td>uint48/u64</td><td>Decoded from DA, then <b>clamped</b> (§9); out-of-range ⇒ whole source degrades to default. Final value re-checked into the L2 header.</td></tr>
+<tr><td><code>coinbase</code></td><td>address</td><td>Decoded from DA; for forced/default sources <b>overwritten</b> with <code>proposal.proposer</code>. Re-checked as block <code>beneficiary</code>.</td></tr>
+<tr><td><code>anchorBlockNumber</code></td><td>uint48/u64</td><td>Decoded from DA (0 ⇒ inherit parent); <b>validated</b> monotonic &amp; within <code>[origin−MAX_OFFSET, origin]</code> (§9); binds the anchor tx checkpoint number.</td></tr>
+<tr><td><code>gasLimit</code></td><td>uint48/u64</td><td>Decoded from DA; <b>validated</b> ±200 ppm of parent, clamped <code>[10M,45M]</code>; <code>+1,000,000</code> anchor budget added; re-checked as block <code>gasLimit</code>.</td></tr>
+<tr><td><code>transactions[]</code></td><td>SignedTx[] (RLP <code>TxEnvelope</code>)</td><td>Decoded from DA; the guest re-executes them and requires the produced block (tx set, roots) to match the canonical block byte-for-byte.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="kv"><b>Invalid-data policy (all three impls identical):</b> version mismatch, bad size/offset, zlib/RLP failure, trailing bytes,
+forced source with ≠1 block, or block count over the per-source cap (192 pre-Unzen / 768 Unzen) &rarr; the source is replaced by
+the <b>default manifest</b> (one anchor-only block). This is a deterministic function of authenticated bytes, so provers and driver
+agree. See <a href="#F7">Observation F7</a>.</p>
+
+<!-- ============ 6. BLOCK INVENTORY ============ -->
+<h2 class="anchor" id="inv-block">6 · Data inventory — derived L2 block &amp; header</h2>
+<p><span class="tag t-blk">BLOCK-LEVEL</span> Each derived block's header. The prover reconstructs the block from
+(anchor tx + manifest txs + derived env), executes it statelessly against the parent state, and requires
+<code>generated.header == canonical.header</code> (<code>raiko2 lib.rs:688-719</code>), which forces every field below to be exactly
+the derivation-rule value.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Header field</th><th>Determined by</th><th>How verified &rarr; root</th></tr></thead>
+<tbody>
+<tr><td><code>parentHash</code></td><td>previous block hash</td><td>Block <i>i&gt;0</i>: equals block <i>i-1</i>'s validated hash. Block 0: equals <code>carry.parentBlockHash</code> = <code>Commitment.firstProposalParentBlockHash</code> = <span class="tag t-l1">R2</span></td></tr>
+<tr><td><code>number</code></td><td><code>parent.number + 1</code></td><td>re-derived; consensus check ties to parent header (chained to <span class="tag t-l1">R2</span>)</td></tr>
+<tr><td><code>timestamp</code></td><td>manifest, clamped (§9)</td><td>re-derived from parent-ts &amp; proposal-ts (∈ <span class="tag t-l1">R1</span>); header must match</td></tr>
+<tr><td><code>gasLimit</code></td><td>manifest gas + 1,000,000</td><td>re-derived within ±200 ppm of parent; header must match</td></tr>
+<tr><td><code>beneficiary</code> (coinbase)</td><td>manifest / proposer</td><td>re-derived; header must match</td></tr>
+<tr><td><code>extraData</code></td><td><code>basefeeSharingPctg ‖ proposalId(6B BE)</code> (7 bytes)</td><td><code>encode_extra_data(pctg,id)</code>; both inputs ∈ <span class="tag t-l1">R1</span></td></tr>
+<tr><td><code>mixHash</code> / prevRandao</td><td><code>keccak(abi.encode(parentMixHash, number))</code></td><td>re-derived; recursion bottoms out at parent header (chained to <span class="tag t-l1">R2</span>)</td></tr>
+<tr><td><code>baseFeePerGas</code></td><td>EIP-4396 from parent &amp; grandparent times; genesis ⇒ <code>INITIAL_BASE_FEE</code>; clamped <code>[min,1 gwei]</code></td><td>re-derived; enforced by consensus validation + header match</td></tr>
+<tr><td><code>difficulty</code></td><td>0 pre-Unzen; engine value at Unzen</td><td>re-derived; header match</td></tr>
+<tr><td><code>stateRoot</code></td><td><b>post-execution</b> output</td><td>Guest executes txs against parent state (MPT witness proven vs parent <code>state_root</code> ∈ parent header ∈ <span class="tag t-l1">R2</span>) and recomputes the root; must equal header. Also bound into <code>Commitment.endStateRoot</code> for the last block.</td></tr>
+<tr><td><code>transactionsRoot</code>,&nbsp;<code>receiptsRoot</code>,&nbsp;<code>logsBloom</code>,&nbsp;<code>gasUsed</code></td><td>post-execution outputs</td><td>produced by stateless execution; consensus/post-state validation enforces them (chained to <span class="tag t-l1">R2</span> via parent state)</td></tr>
+<tr><td><code>ommersHash</code>,&nbsp;<code>withdrawalsRoot</code></td><td>empty (fixed)</td><td>re-derived constants; header match</td></tr>
+<tr><td><b>block hash</b></td><td>keccak of the header</td><td>recomputed (<code>hash_slow</code>), used as next block's parent &amp; (last block) <code>Commitment</code> / <code>Transition.blockHash</code> → <span class="tag t-l1">R1</span>,<span class="tag t-l1">R2</span> at prove</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout ok"><p><b>The execution-integrity linchpin.</b> The parent header supplies the pre-state root used to materialize the MPT
+witness and to read parent anchor/checkpoint state. A forged <code>state_root</code> would break soundness — so raiko2
+<b>recomputes</b> each full ancestor header's hash on deserialize and <i>discards the host-supplied hash</i>
+(<code>primitives/src/stateless.rs:132-136</code>: <code>let _host_hash = value.hash; Self::from_header(value.header)</code>),
+then requires that recomputed hash to equal the child's <code>parent_hash</code>. Compact (hash-only) headers are rejected on the
+proposal path. Result: fixing the parent hash to R2 fixes the parent <code>state_root</code> too — it cannot be forged
+independently. gaiko2 enforces the same via <code>l2_state.go:32</code> (binds the parent header to <code>carry.ParentBlockHash</code>)
+and <code>replay.go:511</code>.</p></div>
+
+<!-- ============ 7. ANCHOR INVENTORY ============ -->
+<h2 class="anchor" id="inv-anchor">7 · Data inventory — anchor transaction (<code>anchorV4</code>)</h2>
+<p><span class="tag t-blk">SYSTEM TX</span> Every derived block's first transaction is a golden-touch call to
+<code>Anchor.anchorV4(Checkpoint{blockNumber,blockHash,stateRoot})</code> (<code>Anchor.sol:124</code>). It is how L1 state is synced
+into L2. The provers validate its shape and — crucially — its L1 payload.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Element</th><th>Value</th><th>How verified &rarr; root</th></tr></thead>
+<tbody>
+<tr><td>selector</td><td><code>anchorV4</code> (<code>0x523e6854</code>)</td><td>must prefix calldata; ABI-decoded with canonical uint48 padding</td></tr>
+<tr><td>sender</td><td>golden touch <code>0x0000…B4Ec</code></td><td>recovered signer must equal it; execution rejects any other sender (<code>Anchor.onlyValidSender</code>)</td></tr>
+<tr><td>signature</td><td>deterministic fixed-<i>k</i> (k∈{1,2})</td><td>gaiko2 re-signs with the same fixed k and requires an identical tx hash (blocks block-hash malleability)</td></tr>
+<tr><td>nonce</td><td>golden-touch nonce at parent</td><td>must equal the pre-state account nonce read from the parent state (∈ <span class="tag t-l1">R2</span>)</td></tr>
+<tr><td>gas limit</td><td>exactly 1,000,000</td><td>consensus check; matches <code>ANCHOR_GAS_LIMIT</code></td></tr>
+<tr><td>fees</td><td><code>maxFee = baseFee</code>, <code>maxPriority = 0</code></td><td>checked against the derived block base fee</td></tr>
+<tr><td><code>checkpoint.blockNumber</code></td><td>the block's <code>anchorBlockNumber</code></td><td>must equal the derived manifest anchor number (§6, §9)</td></tr>
+<tr><td><code>checkpoint.blockHash</code></td><td>L1 block hash at that number</td><td><b>matched against the <code>l1_ancestor_headers</code> chain</b> whose tip = <code>originBlockHash</code> ∈ <span class="tag t-l1">R1</span>,<span class="tag t-l1">R5</span></td></tr>
+<tr><td><code>checkpoint.stateRoot</code></td><td>L1 state root at that number</td><td>same L1 ancestor-header match → <span class="tag t-l1">R1</span>,<span class="tag t-l1">R5</span></td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout ok"><p><b>Anchor L1-data is proof-enforced, not merely "node-enforced."</b> <code>Derivation.md</code> says the node ensures
+<code>anchorBlockHash</code>/<code>anchorStateRoot</code> reflect real L1 state. Both provers actually enforce it: they require a
+<i>contiguous</i> chain of L1 headers (each parent-linked, hashes recomputed) whose final block equals the proposal's
+<code>originBlockHash</code>/<code>Number</code>, and match every anchored checkpoint against a header in that chain. Forced-inclusion
+and "stalled anchor" cases are matched instead against the parent L2 <code>CheckpointStore</code> value read by MPT proof. See
+<a href="#F6">Observation F6</a>.</p></div>
+
+<!-- ============ 8. COMMITMENT INVENTORY ============ -->
+<h2 class="anchor" id="inv-commit">8 · Data inventory — Commitment / Transition / CoreState / Checkpoint</h2>
+<p><span class="tag t-prop">PROVE INPUT</span> Struct <code>IInbox.Commitment</code> (<code>IInbox.sol:122-138</code>). The prover does
+<b>not</b> accept the commitment as trusted input — the guest <i>reconstructs</i> it from the per-proposal carry data and its
+continuity checks (<code>raiko2 instance.rs:130-158</code>; <code>gaiko2 hash.go:120</code>).</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Field</th><th>Source (rebuilt by guest)</th><th>How verified &rarr; root</th></tr></thead>
+<tbody>
+<tr><td><code>firstProposalId</code></td><td>first carry's id</td><td>L1: <code>firstProposalId ≤ lastFinalizedProposalId+1</code> (<span class="tag t-l1">R3</span>); bound in <code>hashCommitment</code></td></tr>
+<tr><td><code>firstProposalParentBlockHash</code></td><td>first carry's <code>parentBlockHash</code> = first block's parent hash</td><td>L1: <code>== lastFinalizedBlockHash</code> → <span class="tag t-l1">R2</span></td></tr>
+<tr><td><code>lastProposalHash</code></td><td>last carry's proposal hash</td><td>L1: <code>== getProposalHash(lastId)</code> → <span class="tag t-l1">R1</span></td></tr>
+<tr><td><code>actualProver</code></td><td>constant across carries</td><td>bound in <code>hashCommitment</code>; drives liveness-bond credit; the proof itself fixes it (see §10)</td></tr>
+<tr><td><code>endBlockNumber</code></td><td>last carry checkpoint number</td><td>= last derived block number; ∈ <code>hashCommitment</code>; saved as checkpoint</td></tr>
+<tr><td><code>endStateRoot</code></td><td>last carry checkpoint state root</td><td>= last block's post-exec state root (chained to <span class="tag t-l1">R2</span>); ∈ <code>hashCommitment</code></td></tr>
+<tr><td><code>transitions[]</code></td><td>one <code>{proposer,timestamp,blockHash}</code> per proposal</td><td>each block hash chains to the next carry's parent (continuity); ∈ <code>hashCommitment</code></td></tr>
+</tbody>
+</table>
+</div>
+<p class="kv"><b>Aggregation continuity</b> (<code>instance.rs:69-127</code>, <code>aggregate_validate.go:104</code>): sequential
+proposal ids; <code>prev.proposalHash == next.parentProposalHash</code>; <code>prev.checkpoint.blockHash == next.parentBlockHash</code>;
+constant <code>chainId</code>, <code>verifier</code>, <code>actualProver</code>; all uint48 fields range-checked. This is what lets a
+<i>single</i> ring-buffer entry (R1, on the last proposal) plus a <i>single</i> R2 value (on the first block's parent) authenticate an
+entire multi-proposal batch.</p>
+
+<p><span class="tag t-l1">L1 OUTPUTS</span> <code>CoreState</code> (R2/R3) and the <code>Checkpoint</code> saved to
+<code>SignalService</code> are <b>outputs</b> of <code>prove()</code>, computed from the verified commitment. They are consumed by
+<i>future</i> derivation (the next batch's R2, and the L1&rarr;L2 checkpoint the anchor syncs) — never by the proof that produced
+them. This forward-only flow is the backbone of the acyclicity argument (§12).</p>
+
+<!-- ============ 9. DERIVATION RULES ============ -->
+<h2 class="anchor" id="derivation">9 · Block-derivation rules</h2>
+<p>The exact rules that turn a manifest + parent context into block metadata. Identical in <code>Derivation.md</code>, the Go/Rust
+driver, and both provers. Any block whose fields violate these is either rejected (consensus) or the whole source degrades to the
+default manifest.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Field</th><th>Rule</th><th>On violation</th></tr></thead>
+<tbody>
+<tr><td><code>timestamp</code></td><td><code>lower ≤ ts ≤ proposal.timestamp</code>, where <code>lower = max(parent.ts+1, proposal.ts − TIMESTAMP_MAX_OFFSET, SHASTA_FORK_TIME)</code></td><td>source &rarr; default manifest</td></tr>
+<tr><td><code>anchorBlockNumber</code></td><td><code>parent.anchor ≤ n ≤ origin</code> and <code>n ≥ origin − MAX_ANCHOR_OFFSET</code>; a <b>normal</b> source must strictly advance the anchor</td><td>source &rarr; default manifest (forced sources may stall)</td></tr>
+<tr><td><code>gasLimit</code></td><td><code>lower ≤ g ≤ upper</code> where <code>upper = min(parent·(1e6+200)/1e6, 45M)</code>, <code>lower = min(max(parent·(1e6−200)/1e6, 10M), upper)</code>; then <code>+1,000,000</code></td><td>source &rarr; default manifest</td></tr>
+<tr><td><code>coinbase</code></td><td>forced/default &rarr; <code>proposal.proposer</code>; normal &rarr; manifest value</td><td>—</td></tr>
+<tr><td><code>timestamp/difficulty/number</code></td><td><code>number=parent+1</code>; <code>difficulty=keccak(abi.encode(parentMixHash,number))</code></td><td>—</td></tr>
+<tr><td><code>baseFee</code></td><td>EIP-4396 (parent &amp; grandparent block times), clamped to <code>[chainMin, 1 gwei]</code>; genesis &rarr; <code>0.025 gwei</code></td><td>consensus reject</td></tr>
+</tbody>
+</table>
+</div>
+<h4>Governing constants (identical across all impls)</h4>
+<div class="scroll">
+<table>
+<thead><tr><th>Constant</th><th>Value (non-mainnet / mainnet)</th></tr></thead>
+<tbody>
+<tr><td>DERIVATION_SOURCE_MAX_BLOCKS (pre-Unzen / Unzen)</td><td class="num">192 / 768</td></tr>
+<tr><td>MAX_ANCHOR_OFFSET</td><td class="num">128 / 512</td></tr>
+<tr><td>TIMESTAMP_MAX_OFFSET</td><td class="num">1536 s (12×128) / 6144 s (12×512)</td></tr>
+<tr><td>BLOCK_GAS_LIMIT_MAX_CHANGE / denominator</td><td class="num">200 / 1,000,000 (±0.02%)</td></tr>
+<tr><td>MIN / MAX block gas limit</td><td class="num">10,000,000 / 45,000,000</td></tr>
+<tr><td>ANCHOR_GAS_LIMIT (reserved + tx gas)</td><td class="num">1,000,000</td></tr>
+<tr><td>SHASTA_PAYLOAD_VERSION / blob bytes</td><td class="num">0x1 / 131,072</td></tr>
+<tr><td>MAX_FORCED_INCLUSIONS_PER_PROPOSAL</td><td class="num">10</td></tr>
+<tr><td>MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET</td><td class="num">7 (bootstrap; see F5)</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ============ 10. PROOF CHAIN ============ -->
+<h2 class="anchor" id="proofchain">10 · The two-layer proof &amp; its L1 binding</h2>
+<h3>Layer A — per-proposal sub-proof</h3>
+<p>For one proposal, the guest (<code>prove_shasta_proposal</code>, <code>raiko2 lib.rs:1000</code>) verifies, in order:</p>
+<ul class="tight">
+  <li>blob KZG &rarr; versioned hash == <code>blobSlice.blobHashes</code> (<span class="tag t-l1">R4</span>);</li>
+  <li><code>hash_proposal(proposal) == carry.proposalHash</code> and <code>carry.parentProposalHash == proposal.parentProposalHash</code>;</li>
+  <li>re-derive blocks (§9) from proposal + blobs + parent context (parent anchor/checkpoint read by MPT vs parent state root);</li>
+  <li>stateless-execute each block; <code>generated block == canonical block</code>; chain block hashes;</li>
+  <li>bind <code>carry.parentBlockHash == firstBlock.parentHash</code> and <code>carry.checkpoint.{number,hash,stateRoot} == lastBlock.*</code>;</li>
+  <li>match every anchor checkpoint to the L1 ancestor-header chain ending at <code>originBlockHash</code>.</li>
+</ul>
+<p>Public output = <code>hash_shasta_subproof_input(carry)</code> = <code>keccak(VERIFY_PROOF, chainId, verifier, hash_transition_input(carry))</code>,
+where the transition-input hash binds <b>all</b> continuity-critical fields (proposal id/hash/parent, parent block hash, prover,
+transition, end checkpoint).</p>
+
+<h3>Layer B — aggregation &rarr; L1 commitment</h3>
+<p>The aggregation guest (<code>aggregate_shasta_zk_with_verifier</code>, <code>lib.rs:1058</code>) verifies each sub-proof
+(RISC0 receipt / SP1 <code>verify_sp1_proof</code>), requires each sub-proof's journal to equal
+<code>hash_shasta_subproof_input(carry_i)</code>, rebuilds the <code>Commitment</code> from the carries with the continuity checks,
+and outputs:</p>
+<pre><span class="k">shasta_zk_aggregation_output</span>(image_id,
+    <span class="k">hash_public_input</span>( <span class="k">hash_commitment</span>(commitment), chainId, verifier, prover ))</pre>
+<p>The Rust <code>hash_commitment</code> reproduces Solidity <code>LibHashOptimized.hashCommitment</code> word-for-word
+(<code>libhash/shasta.rs:69-106</code> vs <code>LibHashOptimized.sol:32-84</code>), and <code>hash_public_input</code> reproduces
+<code>LibPublicInput.hashPublicInputs</code>. gaiko2's Go encoders (<code>hash.go</code>) do the same.</p>
+
+<h3>L1 <code>prove()</code> — the closing checks</h3>
+<pre><span class="c">// Inbox.prove (Inbox.sol:321-398)</span>
+require(state.lastFinalizedBlockHash == expectedParentHash);       <span class="c">// → R2</span>
+require(commitment.lastProposalHash == getProposalHash(lastId));   <span class="c">// → R1</span>
+_signalService.saveCheckpoint(endBlockNumber,endStateRoot,lastHash);
+_coreState.lastFinalized* = commitment.*;                          <span class="c">// → R2,R3 (for next batch)</span>
+_proofVerifier.verifyProof(age, <span class="k">hashCommitment(commitment)</span>, proof); <span class="c">// → R6,R7</span></pre>
+<p>The verifier reproduces the same public input from <code>hashCommitment(commitment)</code>, its own address, and
+<code>taikoChainId</code> (all <span class="tag t-l1">R6</span>), and checks the ZK proof / SGX signature against it. Because the
+verifier address and chain id are baked into the public input, a proof made for a different verifier or chain simply fails to
+reproduce — the binding is self-enforcing.</p>
+<div class="callout"><p><b>Defence-in-depth verifier policy.</b> Mainnet finalization runs through a <i>composite</i> verifier requiring two
+sub-proofs. The post-Unzen <code>ZkRequiredVerifier</code> structurally mandates that the second is always a ZK proof
+(<code>SGX+ZK</code> or <code>ZK+ZK</code>) — no TEE-only pair can finalize. See <a href="#F1">Finding F1</a> for the deprecated
+<code>MainnetVerifier</code> it replaces.</p></div>
+
+<!-- ============ 11. GRAPH ============ -->
+<h2 class="anchor" id="graph">11 · Verification-dependency graph</h2>
+<p>Every arrow reads "<b>is verified against</b>". Data flows downward until it rests on the L1 bedrock (green). There is no
+upward arrow — the graph is a DAG grounded at L1.</p>
+<div class="legend">
+  <span class="li"><span class="sw" style="background:var(--propbg);border-color:var(--prop)"></span>Proposal / DA data</span>
+  <span class="li"><span class="sw" style="background:var(--blkbg);border-color:var(--blk)"></span>Derived block / execution</span>
+  <span class="li"><span class="sw" style="background:var(--chkbg);border-color:var(--chk)"></span>Prover check (guest)</span>
+  <span class="li"><span class="sw" style="background:var(--l1bg);border-color:var(--l1)"></span>L1 trust root (bedrock)</span>
+</div>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 980 640" width="980" role="img" aria-label="Verification dependency graph reducing all proposal and block data to seven L1 trust roots" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#8a94a6"/>
+    </marker>
+    <style>
+      .box{stroke-width:1.5;rx:9}
+      .lp{fill:#111f3d;stroke:#3b6bd6}
+      .lb{fill:#241a3d;stroke:#7c3aed}
+      .lc{fill:#33270c;stroke:#b45309}
+      .lr{fill:#0c2e2a;stroke:#0f766e}
+      .t{fill:#e6edf3;font-size:12.5px;font-weight:600}
+      .ts{fill:#aab3c2;font-size:10.5px}
+      .tr{fill:#d7f2ee;font-size:12.5px;font-weight:700}
+      .edge{stroke:#8a94a6;stroke-width:1.4;fill:none;opacity:.85}
+      @media (prefers-color-scheme:light){
+        .lp{fill:#dde7ff;stroke:#1d4ed8}.lb{fill:#ece0ff;stroke:#7c3aed}
+        .lc{fill:#ffedd5;stroke:#b45309}.lr{fill:#d7f2ee;stroke:#0f766e}
+        .t{fill:#12203f}.ts{fill:#5b6472}.tr{fill:#0f3d38}
+        .edge{stroke:#9aa4b2}
+      }
+    </style>
+  </defs>
+
+  <!-- Row 1: raw off-chain data -->
+  <g>
+    <rect class="box lp" x="30"  y="24" width="200" height="52" rx="9"/>
+    <text class="t"  x="130" y="46" text-anchor="middle">Blob bytes (DA)</text>
+    <text class="ts" x="130" y="63" text-anchor="middle">manifest, tx lists</text>
+
+    <rect class="box lb" x="270" y="24" width="210" height="52" rx="9"/>
+    <text class="t"  x="375" y="46" text-anchor="middle">Derived L2 blocks</text>
+    <text class="ts" x="375" y="63" text-anchor="middle">headers, state, tx roots</text>
+
+    <rect class="box lb" x="520" y="24" width="200" height="52" rx="9"/>
+    <text class="t"  x="620" y="46" text-anchor="middle">anchorV4 checkpoint</text>
+    <text class="ts" x="620" y="63" text-anchor="middle">L1 blockNo/hash/root</text>
+
+    <rect class="box lp" x="758" y="24" width="192" height="52" rx="9"/>
+    <text class="t"  x="854" y="46" text-anchor="middle">Proposal fields</text>
+    <text class="ts" x="854" y="63" text-anchor="middle">id, origin, proposer…</text>
+  </g>
+
+  <!-- Row 2: guest checks -->
+  <g>
+    <rect class="box lc" x="30"  y="150" width="200" height="52" rx="9"/>
+    <text class="t"  x="130" y="172" text-anchor="middle">KZG → versioned hash</text>
+    <text class="ts" x="130" y="189" text-anchor="middle">blob.rs / blob_validate.go</text>
+
+    <rect class="box lc" x="270" y="150" width="210" height="52" rx="9"/>
+    <text class="t"  x="375" y="172" text-anchor="middle">re-derive + re-execute</text>
+    <text class="ts" x="375" y="189" text-anchor="middle">stateless, header match</text>
+
+    <rect class="box lc" x="520" y="150" width="200" height="52" rx="9"/>
+    <text class="t"  x="620" y="172" text-anchor="middle">L1 ancestor-header chain</text>
+    <text class="ts" x="620" y="189" text-anchor="middle">tip == originBlockHash</text>
+
+    <rect class="box lc" x="758" y="150" width="192" height="52" rx="9"/>
+    <text class="t"  x="854" y="172" text-anchor="middle">hash_proposal ==</text>
+    <text class="ts" x="854" y="189" text-anchor="middle">ring-buffer slot</text>
+  </g>
+
+  <!-- Row 3: parent binding + aggregation -->
+  <g>
+    <rect class="box lc" x="150" y="280" width="270" height="52" rx="9"/>
+    <text class="t"  x="285" y="302" text-anchor="middle">parent header hash recomputed</text>
+    <text class="ts" x="285" y="319" text-anchor="middle">== child.parentHash (state_root bound)</text>
+
+    <rect class="box lc" x="470" y="280" width="330" height="52" rx="9"/>
+    <text class="t"  x="635" y="302" text-anchor="middle">aggregation: rebuild Commitment + continuity</text>
+    <text class="ts" x="635" y="319" text-anchor="middle">seq ids · proposalHash chain · blockHash chain</text>
+  </g>
+
+  <!-- Row 4: L1 prove closing checks -->
+  <g>
+    <rect class="box lc" x="300" y="404" width="380" height="52" rx="9"/>
+    <text class="t"  x="490" y="426" text-anchor="middle">Inbox.prove + verifyProof(hashCommitment)</text>
+    <text class="ts" x="490" y="443" text-anchor="middle">lastProposalHash∈R1 · parent∈R2 · proof∈R6,R7</text>
+  </g>
+
+  <!-- Bedrock -->
+  <rect class="box lr" x="30" y="520" width="920" height="96" rx="12"/>
+  <text class="tr" x="490" y="546" text-anchor="middle">L1 TRUST ROOTS (Ethereum) — bedrock, no outgoing dependency</text>
+  <g font-size="11.5px">
+    <text class="tr" x="70"  y="576">R1 ring buffer</text>
+    <text class="tr" x="210" y="576">R2 lastFinalizedBlockHash</text>
+    <text class="tr" x="420" y="576">R3 CoreState</text>
+    <text class="tr" x="545" y="576">R4 blob hashes</text>
+    <text class="tr" x="690" y="576">R5 origin hash</text>
+    <text class="tr" x="820" y="576">R6 verifier reg.</text>
+    <text class="tr" x="70"  y="600">R7 proving-system soundness (ZK / SGX attestation)</text>
+  </g>
+
+  <!-- edges row1 -> row2 -->
+  <path class="edge" d="M130,76 L130,150" marker-end="url(#ar)"/>
+  <path class="edge" d="M375,76 L375,150" marker-end="url(#ar)"/>
+  <path class="edge" d="M620,76 L620,150" marker-end="url(#ar)"/>
+  <path class="edge" d="M854,76 L854,150" marker-end="url(#ar)"/>
+
+  <!-- edges row2 -> row3 / roots -->
+  <path class="edge" d="M130,202 C130,240 260,250 285,280" marker-end="url(#ar)"/>
+  <path class="edge" d="M375,202 L330,280" marker-end="url(#ar)"/>
+  <path class="edge" d="M620,202 C620,240 660,250 660,280" marker-end="url(#ar)"/>
+  <!-- proposal check straight to R1 -->
+  <path class="edge" d="M854,202 C854,360 880,470 760,520" marker-end="url(#ar)"/>
+
+  <!-- row3 parent binding -> R2 -->
+  <path class="edge" d="M285,332 C285,420 300,470 300,520" marker-end="url(#ar)"/>
+  <!-- aggregation -> prove -->
+  <path class="edge" d="M635,332 C635,360 560,380 520,404" marker-end="url(#ar)"/>
+  <!-- prove -> roots -->
+  <path class="edge" d="M430,456 L300,520" marker-end="url(#ar)"/>
+  <path class="edge" d="M490,456 L490,520" marker-end="url(#ar)"/>
+  <path class="edge" d="M560,456 L720,520" marker-end="url(#ar)"/>
+</svg>
+</div>
+<figcaption>Reduction of proposal &amp; block data to the seven L1 roots. Every path terminates in the green bedrock; no arrow points back up.</figcaption>
+</figure>
+
+<!-- ============ 12. CIRCULAR ============ -->
+<h2 class="anchor" id="circular">12 · Circular-dependency analysis</h2>
+<p>Let the nodes be the data items and the directed edges be "A is verified against B". A circular dependency exists iff this
+graph has a cycle. We claim it is a <b>DAG grounded at R1–R7</b>. The argument has two parts.</p>
+
+<h3>12.1 · Temporal grounding (the batch chain is backward-only)</h3>
+<p>A proof for batch&nbsp;<i>N</i> consumes only values that were on L1 <b>before</b> the proof was submitted and that do
+<b>not</b> depend on the proof's own output:</p>
+<ul class="tight">
+  <li>proposal data &rarr; R1/R4/R5, written at <b>propose</b> time (strictly earlier than prove);</li>
+  <li>the batch's parent state &rarr; R2 (<code>lastFinalizedBlockHash</code>), finalized by batch <i>N−1</i>'s proof (strictly earlier);</li>
+  <li>verifier config &rarr; R6, set by governance (independent of any single proof).</li>
+</ul>
+<p>The proof's <i>outputs</i> — the new <code>lastFinalizedBlockHash</code>, checkpoint, and CoreState — become roots for batch
+<i>N+1</i>. Ordering nodes by <code>(batch index, propose-before-prove)</code> makes every edge point to a strictly earlier item.
+A strict order cannot contain a cycle. Base case: <code>activate()</code> seeds R2 with the last Pacaya block hash
+(<code>LibInboxSetup.activate</code>), independent of any Shasta proof.</p>
+
+<h3>12.2 · Each candidate cycle is explicitly broken</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>Candidate cycle</th><th>Why it does <i>not</i> close</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td><b>block hash ↔ state root</b> ("hash needs root, root needs execution, execution needs hash")</td>
+  <td>A block's own state root is an <i>output</i>; execution consumes the <i>parent</i>'s state root — a distinct, earlier block. No self-reference.</td>
+  <td><code>validation.rs:360</code> post-state check; parent via <code>determine_pre_state_root</code></td></tr>
+<tr><td><b>parent header ↔ parent state root</b> (forge a header with a fake <code>state_root</code>)</td>
+  <td>Full ancestor header hashes are <b>recomputed</b> and the host hash discarded; the recomputed hash must equal the child <code>parent_hash</code> which chains to R2. Fixing the hash fixes the header bytes, incl. <code>state_root</code>.</td>
+  <td><code>stateless.rs:132-136</code> (<code>_host_hash</code> dropped); <code>compute_ancestor_hashes_for_child:510</code></td></tr>
+<tr><td><b>L1 data in L2 ↔ L1 state</b> (anchor checkpoint verified against L2)</td>
+  <td>Anchored L1 hash/root is matched against an L1 header chain whose tip is the proposal's <code>originBlockHash</code> ∈ R1/R5 — an L1 value, never an L2-derived one.</td>
+  <td><code>validate_l1_anchor_linkage:133-294</code></td></tr>
+<tr><td><b>proposal ↔ parent proposal</b> (the hash chain)</td>
+  <td>Finite, strictly-decreasing id chain anchored at the top by the last proposal's ring-buffer entry (R1). Each link is a field already inside an authenticated struct.</td>
+  <td><code>instance.rs:107-110</code>; L1 <code>Inbox.sol:349</code></td></tr>
+<tr><td><b>Commitment ↔ proof</b> ("the proof verifies the commitment; the commitment is the proof's input")</td>
+  <td>Not a data cycle: the circuit <i>computes</i> the commitment from R1/R2/R4-anchored inputs and commits its hash as output (R7). L1 independently re-checks <code>lastProposalHash∈R1</code> and <code>parent∈R2</code>. The proof does not verify itself.</td>
+  <td><code>Inbox.sol:346-398</code></td></tr>
+<tr><td><b>parent anchor number ↔ current anchor</b></td>
+  <td>Parent anchor number is read from L2 <code>Anchor._blockState</code> by MPT proof against the parent state root (∈ R2), plus an optional host hint that must equal the proven value. Current anchor is validated relative to that fixed parent value.</td>
+  <td><code>verified_parent_anchor_block_number:372-400</code></td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout ok"><p><b>Conclusion.</b> No cycle survives. Every proposal-level and block-level datum is verified — directly or through a finite
+backward chain — against R1–R7, all of which are L1-managed state or a stated cryptographic assumption. The requirement
+"each piece of data must be verified against the data managed by the protocol contracts on L1" is satisfied, with no
+circular dependency.</p></div>
+
+<!-- ============ 13. CONSISTENCY ============ -->
+<h2 class="anchor" id="consistency">13 · Cross-repo consistency matrix</h2>
+<p>The three implementations must agree bit-for-bit or a valid proof could fail to finalize (liveness) — or worse, a wrong block
+could be accepted by one but not caught by another. Verified equal:</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Element</th><th>L1 (Solidity)</th><th>raiko2 (Rust ZK)</th><th>gaiko2 (Go SGX)</th><th>driver (Go/Rust)</th></tr></thead>
+<tbody>
+<tr><td><code>hash_proposal</code></td><td><code>keccak(abi.encode)</code></td><td class="mono">✓ shasta.rs:108</td><td class="mono">✓ guestinput_carry.go:557</td><td class="mono">✓ (implicit)</td></tr>
+<tr><td><code>hashCommitment</code> layout</td><td><code>LibHashOptimized:32</code></td><td class="mono">✓ shasta.rs:69</td><td class="mono">✓ hash.go:146</td><td class="mono">n/a</td></tr>
+<tr><td><code>hashPublicInputs</code></td><td><code>LibPublicInput:18</code></td><td class="mono">✓ shasta.rs:178</td><td class="mono">✓ hash.go:84</td><td class="mono">n/a</td></tr>
+<tr><td>derivation constants (§9)</td><td><code>Derivation.md</code></td><td class="mono">✓ constants.rs</td><td class="mono">✓ manifest_validate.go</td><td class="mono">✓ manifest.go / constants.rs</td></tr>
+<tr><td><code>extraData</code> = pctg‖id(6B)</td><td>spec</td><td class="mono">✓ payload_helpers.rs:41</td><td class="mono">✓ :1188</td><td class="mono">✓ input.go:166</td></tr>
+<tr><td>anchor tx shape (golden touch, fixed-k, 1M gas)</td><td><code>Anchor.sol</code></td><td class="mono">✓ lib.rs:546</td><td class="mono">✓ manifest_validate.go:974</td><td class="mono">✓ anchor.rs:102</td></tr>
+<tr><td>invalid-manifest &rarr; default</td><td>spec</td><td class="mono">✓ derivation.rs</td><td class="mono">✓ manifest_validate.go:357</td><td class="mono">✓ source_fetcher.go</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ============ 14. FINDINGS ============ -->
+<h2 class="anchor" id="findings">14 · Findings &amp; observations</h2>
+<p>The core design is sound and complete (§12). The items below are security context, prover-implementation notes, and edges to
+watch. Severity reflects impact <i>if</i> the caveat conditions hold; confidence states how much was verified first-hand here.</p>
+
+<div class="finding" id="F0">
+  <div class="fh"><span class="id">F0</span><span class="ti">Complete data coverage, no circular dependency</span><span class="sev pos">Positive</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High — linchpin bindings (parent-header hash recompute, ancestor-chain anchoring, ring-buffer &amp; R2 checks) read first-hand in raiko2 + L1 contracts.</p>
+  <p>Every field enumerated in §4–§8 reduces to R1–R7. The verification graph is an acyclic, L1-grounded DAG. This is the headline result and the answer to the audit's central question.</p></div>
+</div>
+
+<div class="finding" id="F1">
+  <div class="fh"><span class="id">F1</span><span class="ti">Deprecated <code>MainnetVerifier</code> still live — accepts a zero-ZK (SGX+SGX) pair</span><span class="sev med">Context · Being remediated</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High (both contracts read). <b>Repo:</b> taiko-mono.</p>
+  <p>The currently-live mainnet verifier (<code>MainnetVerifier</code>, <code>0x7180…</code>) accepts <code>SGX_GETH + SGX_RETH</code> with
+  <i>no</i> ZK proof — the exact combination behind the June-2026 forged-proof incident. Its contract header marks it DEPRECATED. The
+  replacement <code>ZkRequiredVerifier</code> (<code>0x7284…</code>, Proposal-0019 / Unzen) structurally requires ≥1 ZK proof per batch.
+  Because <code>Inbox._proofVerifier</code> is <b>immutable</b>, cutting over requires an Inbox upgrade (the mechanism Proposal-0019
+  uses).</p>
+  <p><b>Note:</b> This concerns the strength of root R7, not the data-verification graph. Until the Unzen inbox is the active one,
+  finalization safety rests on the SGX registry (R6) alone for TEE-only pairs. Recommend confirming the cutover has executed on the
+  target network before relying on the ZK mandate.</p></div>
+</div>
+
+<div class="finding" id="F2">
+  <div class="fh"><span class="id">F2</span><span class="ti">gaiko2 native mode ships a published key = golden-touch key; unauthenticated prove endpoints</span><span class="sev high">High (config-dependent)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> Medium-High on the structural facts (subagent code read + gaiko2's own in-repo audit <code>docs/audits/</code>); <b>not</b> line-verified first-hand in this pass. <b>Repo:</b> gaiko2.</p>
+  <p>gaiko2's "native" proving mode uses a hard-coded, publicly-known private key (the same golden-touch key used to sign anchors),
+  with instance id <code>0xDEADC0DE</code>, and the <code>/prove/shasta*</code> HTTP endpoints are unauthenticated; the aggregate
+  endpoint executes no blocks. If a native/mock instance address is ever <i>registered on-chain</i> in the <code>SgxVerifier</code>, it
+  becomes a proof-forgery oracle for the SGX leg.</p>
+  <p><b>Mitigations already in place:</b> mainnet SGX registration is gated by DCAP attestation and an owner allowlist (a mock instance
+  cannot self-register), and — post-Unzen — the ZK mandate (F1) means an SGX forgery alone cannot finalize. <b>Recommend:</b> assert in
+  deploy tooling that no native/mock instance id is ever registered on a production verifier, and require auth on any
+  internet-exposed prove endpoint.</p></div>
+</div>
+
+<div class="finding" id="F3">
+  <div class="fh"><span class="id">F3</span><span class="ti">gaiko2 block-replay path does not check <code>db.Error()</code> for missing witness nodes</span><span class="sev med">Medium (prover soundness)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> Medium — reported by gaiko2's in-repo audit and the mapping pass; not independently line-verified here. <b>Repo:</b> gaiko2.</p>
+  <p>In the stateless block-replay path (<code>GethRunner.Execute</code>), a missing trie node in the witness may read as an empty
+  slot rather than erroring — a potential state-divergence soundness gap. The MPT-read helpers used for anchor/checkpoint state
+  (<code>l2_state.go</code>, <code>manifest_tx_filter.go</code>) <i>do</i> check <code>db.Error()</code>; the execution DB should do
+  the same for parity with raiko2's sparse trie (which fails closed on missing nodes). <b>Recommend:</b> add the
+  <code>db.Error()</code> check to the replay executor and a regression test that a withheld node fails the proof.</p></div>
+</div>
+
+<div class="finding" id="F5">
+  <div class="fh"><span class="id">F5</span><span class="ti">Mainnet bootstrap: parent anchor read from the parent's anchor calldata (proposals id ≤ 7)</span><span class="sev low">Low (bounded)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High (constant + driver logic confirmed; raiko2 has the <code>should_bypass_stalled_anchor_linkage</code> analog).</p>
+  <p>For the first <code>MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET = 7</code> mainnet proposals, the parent anchor block number is
+  recovered from the parent block's <code>anchorV4/anchorV3</code> calldata instead of from <code>Anchor._blockState</code>. The calldata
+  is part of an already-authenticated L2 block, so the value stays bound; the exception is bounded to genesis bootstrap. No action
+  required beyond awareness that this special path exists and should not be generalized.</p></div>
+</div>
+
+<div class="finding" id="F6">
+  <div class="fh"><span class="id">F6</span><span class="ti">Anchor L1-data is stronger than the spec implies — it is proof-enforced</span><span class="sev pos">Positive (clarification)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High (both provers read).</p>
+  <p><code>Derivation.md</code> states the node "enforces" that <code>anchorBlockHash</code>/<code>anchorStateRoot</code> reflect L1 state,
+  which could read as an unproved trust assumption. In fact both provers cryptographically bind these to a contiguous L1
+  header chain terminating at <code>originBlockHash</code> (∈ R1/R5). <b>Recommend:</b> update the spec wording to say
+  "proved," to avoid a future reader treating it as out-of-protocol trust.</p></div>
+</div>
+
+<div class="finding" id="F7">
+  <div class="fh"><span class="id">F7</span><span class="ti">"Degrade to default manifest" accepts adversarial bytes then neutralizes them</span><span class="sev low">Low (by design)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High (all three impls read/consistent).</p>
+  <p>Malformed blob/manifest content does not fail the proof — the source degrades to a single anchor-only block. This is a
+  deliberate censorship-resistance property (a bad source can't invalidate a good forced inclusion) and is identical across driver
+  and both provers. Soundness rests on the default always being the conservative outcome (empty block, inherited metadata).
+  <b>Recommend:</b> keep the differential tests that assert driver/prover agreement on every degrade trigger; a divergence here is
+  the most likely place a real bug would hide.</p></div>
+</div>
+
+<div class="finding" id="F8">
+  <div class="fh"><span class="id">F8</span><span class="ti">Proof-age plumbed to verifiers but unused; sub-proof digest has no Inbox/nonce domain</span><span class="sev low">Low (observation)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High for proof-age (L1 read); Medium for gaiko2 digest (subagent read).</p>
+  <p>(a) <code>_proposalAge</code> is computed in <code>Inbox.prove</code> and forwarded to every verifier, but no shipped verifier
+  consumes it — it is a forward hook for "prover-killer" handling. (b) The per-proposal signed digest is domain-separated by
+  <code>VERIFY_PROOF</code> + <code>chainId</code> + <code>verifier</code> but not by the Inbox address; cross-deployment replay
+  separation therefore rests on the verifier address being unique per deployment (it is, and it is bound into the public input).
+  Neither is a vulnerability today; both are worth a comment so a future refactor doesn't weaken them.</p></div>
+</div>
+
+<!-- ============ 15. REFERENCES ============ -->
+<h2 class="anchor" id="refs">15 · Key references</h2>
+<div class="scroll">
+<table>
+<thead><tr><th>Topic</th><th>File : line</th></tr></thead>
+<tbody>
+<tr><td>Proposal / Commitment / Transition structs</td><td><code>taiko-mono · packages/protocol/contracts/layer1/core/iface/IInbox.sol:52-156</code></td></tr>
+<tr><td>propose / prove / ring buffer / CoreState</td><td><code>…/layer1/core/impl/Inbox.sol:270-400,559-628</code></td></tr>
+<tr><td>Proposal &amp; Commitment hashing (L1)</td><td><code>…/layer1/core/libs/LibHashOptimized.sol:24-84</code></td></tr>
+<tr><td>Blob slice / versioned hash capture</td><td><code>…/layer1/core/libs/LibBlobs.sol:21-55</code></td></tr>
+<tr><td>Verifier public input</td><td><code>…/layer1/verifiers/LibPublicInput.sol:18-52</code></td></tr>
+<tr><td>SGX / RISC0 / SP1 / compose verifiers</td><td><code>…/layer1/verifiers/{SgxVerifier,Risc0Verifier,SP1Verifier,compose/*}.sol</code></td></tr>
+<tr><td>Anchor (anchorV4) &amp; checkpoint store</td><td><code>…/layer2/core/Anchor.sol:124-186</code>; <code>…/shared/signal/SignalService.sol:174</code></td></tr>
+<tr><td>Derivation specification</td><td><code>…/packages/protocol/docs/Derivation.md</code></td></tr>
+<tr><td>ZK guest: derive + execute + bind</td><td><code>raiko2 · crates/guest-common/src/lib.rs:427-1034</code></td></tr>
+<tr><td>Commitment reconstruction + continuity</td><td><code>raiko2 · crates/primitives-shasta/src/instance.rs:69-187</code></td></tr>
+<tr><td>Parent-header hash recompute (linchpin)</td><td><code>raiko2 · crates/primitives/src/stateless.rs:132-136</code></td></tr>
+<tr><td>Blob KZG verification</td><td><code>raiko2 · crates/primitives-shasta/src/blob.rs:30-128</code></td></tr>
+<tr><td>Hashing parity (Rust ↔ Solidity)</td><td><code>raiko2 · crates/protocol-shasta/src/libhash/shasta.rs:69-192</code></td></tr>
+<tr><td>TEE prove / aggregate / anchor validate</td><td><code>gaiko2 · internal/prover/{replay,aggregate}.go</code>; <code>internal/protocol/manifest_validate.go:79-1160</code></td></tr>
+<tr><td>gaiko2 hashing parity + attestation</td><td><code>gaiko2 · internal/protocol/hash.go</code>; <code>ego/*</code></td></tr>
+<tr><td>Driver derivation (reference)</td><td><code>taiko-mono · packages/taiko-client(-rs)/… source_fetcher / payload / anchor</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout info">
+  <p><b>How to read a claim's strength.</b> Items about the L1 contracts and raiko2's guest were read directly at the commits
+  above and are High confidence. Items about gaiko2 internals (F2, F3, parts of F8) combine a code-mapping pass with gaiko2's own
+  in-repo audit and are flagged Medium; they should be confirmed line-by-line before being actioned or dismissed. Nothing in this
+  report changes protocol code.</p>
+</div>
+
+<p class="foot">Cross-repository protocol design &amp; implementation audit of Taiko Shasta — proposal &amp; block data verification
+completeness and circular-dependency analysis. Generated 2026-07-22 against taiko-mono&nbsp;<code>9ef35dd</code>,
+raiko2&nbsp;<code>cb3a5f2</code>, gaiko2&nbsp;<code>5a7718b</code>. This document is an engineering analysis, not a guarantee; the
+listed cryptographic and hardware assumptions (R7) are out of its scope.</p>
+
+</div>
+</body>
+</html>
