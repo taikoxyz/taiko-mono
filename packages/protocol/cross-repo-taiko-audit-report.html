@@ -883,9 +883,10 @@ reconciliation is in progress and may adjust some Medium/Low severities. Each fi
   there. It <i>can</i> finalize wherever a gaiko2 proof stands without such a co-prover.</p>
   <p><b>Fix.</b> Call <code>db.Error()</code> after execution (or compute the root via <code>db.Commit</code>, which checks it) in
   both <code>GethRunner.Execute</code> and <code>processUnzenReplayBlock</code>, matching <code>manifestWitnessStateError</code>.</p>
-  <p class="kv"><b>Remediation status:</b> already being fixed — gaiko2 <a href="https://github.com/taikoxyz/gaiko2/pull/46">PR&nbsp;#46</a>
-  ("surface witness state errors in the replay path", the in-repo kimi-k3 audit's finding&nbsp;1) adds exactly these
-  <code>db.Error()</code> checks in <code>GethRunner.Execute</code> with a regression test. This audit did not open a duplicate.</p>
+  <p class="kv"><b>Remediation status:</b> already fixed — gaiko2 <a href="https://github.com/taikoxyz/gaiko2/pull/45">PR&nbsp;#45</a>
+  (merged) landed the <code>statedb.Error()</code> replay guard; the dedicated <a href="https://github.com/taikoxyz/gaiko2/pull/46">#46</a>
+  was closed as a duplicate, and <a href="https://github.com/taikoxyz/gaiko2/pull/48">#48</a> refines the zk-gas / witness-error
+  precedence on top. This audit did not open a duplicate.</p>
   </div>
 </div>
 
