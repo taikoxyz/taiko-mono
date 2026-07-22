@@ -243,8 +243,8 @@ All are managed by the protocol contracts on Ethereum (or are a stated cryptogra
   <td><code>LibBlobs.sol:44-48</code></td><td><code>propose()</code> / <code>saveForcedInclusion()</code></td></tr>
 <tr><td><span class="tag t-l1">R5</span></td><td><b>Origin block hash</b> — <code>originBlockHash = blockhash(block.number-1)</code>, stored in the proposal (&rarr; folded into R1)</td>
   <td><code>Inbox.sol:610-618</code></td><td><code>propose()</code></td></tr>
-<tr><td><span class="tag t-l1">R6</span></td><td><b>Immutable verifier registry</b> — verifier contract address, <code>taikoChainId</code>, trusted RISC0 <code>imageId</code> / SP1 <code>vkey</code>, and attested SGX instance addresses</td>
-  <td><code>Risc0Verifier.sol</code>, <code>SP1Verifier.sol</code>, <code>SgxVerifier.sol</code></td><td>Owner / DAO controller; SGX via DCAP attestation</td></tr>
+<tr><td><span class="tag t-l1">R6</span></td><td><b>Verifier trust root</b> — two distinct parts: <b>immutable wiring</b> (verifier contract address, <code>taikoChainId</code>, and <code>Inbox._proofVerifier</code> itself) and <b>governance-mutable allowlists</b> (trusted RISC0 <code>imageId</code> via <code>setImageIdTrusted</code>, SP1 <code>vkey</code> via <code>setProgramTrusted</code>, and the SGX instance registry + MRENCLAVE/MRSIGNER policies). Changing an allowlist changes which proofs L1 accepts — see <a href="#F9">F9</a>.</td>
+  <td><code>Risc0Verifier.sol</code>, <code>SP1Verifier.sol</code>, <code>SgxVerifier.sol</code></td><td>Immutable: constructor. Allowlists: owner / DAO controller; SGX via DCAP attestation</td></tr>
 <tr><td><span class="tag t-l1">R7</span></td><td><b>Soundness of the proving system</b> — the ZK proof system and the SGX TEE/attestation are assumed sound (a cryptographic/hardware assumption, not a checkable value)</td>
   <td>— (assumption)</td><td>—</td></tr>
 </tbody>
@@ -253,6 +253,11 @@ All are managed by the protocol contracts on Ethereum (or are a stated cryptogra
 <p class="kv">R4 and R5 are not separate storage slots — they are values captured by L1 opcodes at propose time and <i>embedded into the
 Proposal</i>, so they are ultimately anchored by R1. They are called out separately because they are the bridge from "raw
 off-chain bytes" (blobs, L1 headers) to on-chain commitments.</p>
+<p class="kv"><b>On R6's mutability (a governance trust assumption).</b> Only the verifier <i>wiring</i> is immutable. The <i>trusted
+sets</i> R6 depends on — RISC0 image ids, SP1 program keys, and the SGX instance / MRENCLAVE / MRSIGNER allowlists — are on-chain
+state the verifier owners (the DAO controller, plus DCAP-gated registration for SGX) can change, and a change alters which proofs
+L1 will finalize. The §12 DAG treats these as L1-managed roots; their <i>integrity</i> is a governance trust assumption, tracked as
+<a href="#F9">Observation F9</a>.</p>
 
 <!-- ============ 3. LIFECYCLE ============ -->
 <h2 class="anchor" id="lifecycle">3 · Propose &rarr; derive &rarr; prove &rarr; finalize</h2>
@@ -369,6 +374,7 @@ the derivation-rule value.</p>
 <tr><td><code>stateRoot</code></td><td><b>post-execution</b> output</td><td>Guest executes txs against parent state (MPT witness proven vs parent <code>state_root</code> ∈ parent header ∈ <span class="tag t-l1">R2</span>) and recomputes the root; must equal header. Also bound into <code>Commitment.endStateRoot</code> for the last block.</td></tr>
 <tr><td><code>transactionsRoot</code>,&nbsp;<code>receiptsRoot</code>,&nbsp;<code>logsBloom</code>,&nbsp;<code>gasUsed</code></td><td>post-execution outputs</td><td>produced by stateless execution; consensus/post-state validation enforces them (chained to <span class="tag t-l1">R2</span> via parent state)</td></tr>
 <tr><td><code>ommersHash</code>,&nbsp;<code>withdrawalsRoot</code></td><td>empty (fixed)</td><td>re-derived constants; header match</td></tr>
+<tr><td><code>parentBeaconBlockRoot</code>,&nbsp;<code>requestsHash</code>,&nbsp;<code>blobGasUsed</code>,&nbsp;<code>excessBlobGas</code>,&nbsp;<code>nonce</code></td><td>fixed constants (fork-gated)</td><td>Post-Unzen (the report's scope) each block must have <code>parentBeaconBlockRoot = 0x0…0</code>, <code>requestsHash = EmptyRequestsHash</code> (EIP-7685), <code>blobGasUsed = excessBlobGas = 0</code>, and <code>nonce = 0</code>; pre-Unzen the beacon root / requests hash must be <i>absent</i>. Enforced by the driver's Unzen-aware canonical-block check (<code>common.go:386-407</code>) and by header/consensus validation in both provers — chained to <span class="tag t-l1">R2</span> via the header / block-hash equality.</td></tr>
 <tr><td><b>block hash</b></td><td>keccak of the header</td><td>recomputed (<code>hash_slow</code>), used as next block's parent &amp; (last block) <code>Commitment</code> / <code>Transition.blockHash</code> → <span class="tag t-l1">R1</span>,<span class="tag t-l1">R2</span> at prove</td></tr>
 </tbody>
 </table>
@@ -802,6 +808,20 @@ watch. Severity reflects impact <i>if</i> the caveat conditions hold; confidence
   <code>VERIFY_PROOF</code> + <code>chainId</code> + <code>verifier</code> but not by the Inbox address; cross-deployment replay
   separation therefore rests on the verifier address being unique per deployment (it is, and it is bound into the public input).
   Neither is a vulnerability today; both are worth a comment so a future refactor doesn't weaken them.</p></div>
+</div>
+
+<div class="finding" id="F9">
+  <div class="fh"><span class="id">F9</span><span class="ti">R6 is not uniformly immutable — trusted sets are governance-mutable</span><span class="sev low">Low (trust-assumption clarification)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High (owner setters read first-hand). <b>Repo:</b> taiko-mono. <b>Raised by:</b> automated PR review, confirmed.</p>
+  <p>The verifier trust root R6 has two layers. <b>Immutable:</b> the verifier contract addresses, <code>taikoChainId</code>, and
+  <code>Inbox._proofVerifier</code>. <b>Governance-mutable:</b> the trusted RISC0 image ids (<code>Risc0Verifier.setImageIdTrusted</code>,
+  onlyOwner), SP1 program keys (<code>SP1Verifier.setProgramTrusted</code>, onlyOwner), and the SGX instance registry + MRENCLAVE/MRSIGNER
+  allowlists (<code>addInstances</code> / <code>deleteInstances</code> / <code>setMrEnclave</code> / <code>setMrSigner</code> /
+  <code>registerInstance</code>). A change to these sets changes which proofs L1 accepts.</p>
+  <p>This does not create a cycle — the sets are L1 state, written by governance independently of any single proof — but it <i>is</i>
+  a governance trust assumption: the soundness of R6 rests on the owner / DAO controller (and, for SGX, DCAP attestation) admitting
+  only correct programs and enclaves. <b>Recommend:</b> the report, and any downstream threat model, treat R6's allowlists as
+  governance-controlled state rather than fixed constants.</p></div>
 </div>
 
 <!-- ============ 15. REFERENCES ============ -->
