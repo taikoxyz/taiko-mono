@@ -153,7 +153,7 @@
   <div class="stat acc"><div class="n">7</div><div class="l">L1 trust roots (bedrock)</div></div>
   <div class="stat acc2"><div class="n">70+</div><div class="l">Distinct data fields traced</div></div>
   <div class="stat good"><div class="n">3</div><div class="l">Independent impls in lock-step</div></div>
-  <div class="stat warnc"><div class="n">8</div><div class="l">Observations / findings</div></div>
+  <div class="stat"><div class="n" style="color:var(--high)">1</div><div class="l">Critical bug found (§15)</div></div>
 </div>
 
 <div class="callout ok">
@@ -163,6 +163,15 @@
   <b>origin block hashes</b>, the immutable <b>verifier registry</b> (chain id + verifier address + trusted image ids /
   SGX instances), and the <b>soundness of the proving system</b> itself. The verification graph is a DAG that terminates at
   these roots; no datum is verified against a value that (directly or indirectly) depends on it.</p>
+</div>
+
+<div class="callout warn">
+  <p><b>But the adversarial pass found real bugs.</b> A second, bug-hunting pass (<a href="#deepdive">§15</a>) targeted the
+  <i>implementations</i>, not the design. It surfaced a <b>Critical</b> witness-soundness break in the gaiko2 (TEE) prover
+  (<a href="#D1">D1</a> — execution over unauthenticated pre-state), a <b>High</b> consensus-split in the Go driver
+  (<a href="#D2">D2</a> — a missing fork-time floor), and several Medium/Low issues. These are prover/driver implementation
+  defects, not design cycles: the L1 contracts and the raiko2 ZK guest held up under the same tracing. "Sound design" does not
+  imply "bug-free stack" — see §15.</p>
 </div>
 
 <h2 class="anchor" id="toc">Contents</h2>
@@ -181,6 +190,7 @@
   <li><a href="#circular">Circular-dependency analysis (DAG proof)</a></li>
   <li><a href="#consistency">Cross-repo consistency matrix</a></li>
   <li><a href="#findings">Findings &amp; observations</a></li>
+  <li><a href="#deepdive">Adversarial deep-dive (bug hunt)</a></li>
   <li><a href="#refs">Key references</a></li>
 </ol>
 
@@ -763,13 +773,12 @@ watch. Severity reflects impact <i>if</i> the caveat conditions hold; confidence
 </div>
 
 <div class="finding" id="F3">
-  <div class="fh"><span class="id">F3</span><span class="ti">gaiko2 block-replay path does not check <code>db.Error()</code> for missing witness nodes</span><span class="sev med">Medium (prover soundness)</span></div>
-  <div class="fb"><p class="kv"><b>Confidence:</b> Medium — reported by gaiko2's in-repo audit and the mapping pass; not independently line-verified here. <b>Repo:</b> gaiko2.</p>
-  <p>In the stateless block-replay path (<code>GethRunner.Execute</code>), a missing trie node in the witness may read as an empty
-  slot rather than erroring — a potential state-divergence soundness gap. The MPT-read helpers used for anchor/checkpoint state
-  (<code>l2_state.go</code>, <code>manifest_tx_filter.go</code>) <i>do</i> check <code>db.Error()</code>; the execution DB should do
-  the same for parity with raiko2's sparse trie (which fails closed on missing nodes). <b>Recommend:</b> add the
-  <code>db.Error()</code> check to the replay executor and a regression test that a withheld node fails the proof.</p></div>
+  <div class="fh"><span class="id">F3</span><span class="ti">gaiko2 block-replay path does not check <code>db.Error()</code> for missing witness nodes</span><span class="sev high">Confirmed &amp; elevated → see D1 (Critical)</span></div>
+  <div class="fb"><p class="kv"><b>Confidence:</b> High — this lead was verified first-hand in the deep-dive. <b>Repo:</b> gaiko2.</p>
+  <p>The medium-confidence lead recorded here has been confirmed and elevated to a <b>Critical</b> finding: <code>GethRunner.Execute</code>
+  computes the state root via <code>IntermediateRoot</code> without ever checking <code>db.Error()</code>, so a withheld witness node
+  reads as empty/0 and can finalize a wrong state root, while the sibling paths (<code>l2_state.go</code>, <code>manifest_tx_filter.go</code>)
+  and raiko2's sparse trie all fail closed. Full exploit chain, scope, and fix are in <a href="#D1">finding D1 (§15)</a>.</p></div>
 </div>
 
 <div class="finding" id="F5">
@@ -824,8 +833,174 @@ watch. Severity reflects impact <i>if</i> the caveat conditions hold; confidence
   governance-controlled state rather than fixed constants.</p></div>
 </div>
 
-<!-- ============ 15. REFERENCES ============ -->
-<h2 class="anchor" id="refs">15 · Key references</h2>
+<!-- ============ 15. DEEP DIVE ============ -->
+<h2 class="anchor" id="deepdive">15 · Adversarial deep-dive — concrete bug hunt</h2>
+<p>Sections 1–13 prove the <i>design</i> is acyclic and L1-grounded. This section reports a second, <b>adversarial</b> pass whose
+goal was the opposite: to break it. Eight bug surfaces were each swept by an independent hunter tasked to produce a concrete
+failing scenario, and — in a parallel workflow — every candidate was put through three independent verifiers (refute / reproduce /
+cross-impl), keeping only those a majority confirmed against real code. <b>The pass found real implementation bugs.</b> The L1
+contracts and the raiko2 ZK guest held up; the defects live in the <b>gaiko2 (TEE) prover</b> and the <b>Go driver</b>, headlined
+by a gaiko2 witness-soundness break. Per the repository owner's direction, findings are documented in full, including exploit
+chains.</p>
+<div class="grid cards">
+  <div class="stat" style="--x:1"><div class="n" style="color:var(--high)">1</div><div class="l">Critical (gaiko2)</div></div>
+  <div class="stat"><div class="n" style="color:var(--warn)">1</div><div class="l">High (driver)</div></div>
+  <div class="stat"><div class="n" style="color:var(--warn)">4</div><div class="l">Medium</div></div>
+  <div class="stat"><div class="n" style="color:var(--muted)">13</div><div class="l">Low / informational</div></div>
+</div>
+<div class="callout warn"><p><b>Verification status.</b> The two most severe findings (D1, D2) were re-verified first-hand against the source
+while writing this. The remaining findings are reported by the single-shot hunters; the parallel 3-vote workflow's independent
+reconciliation is in progress and may adjust some Medium/Low severities. Each finding below carries an explicit confidence note.</p></div>
+
+<div class="finding" id="D1">
+  <div class="fh"><span class="id">D1</span><span class="ti">gaiko2 executes over unauthenticated pre-state — <code>GethRunner.Execute</code> never checks <code>statedb.Error()</code></span><span class="sev high">Critical (gaiko2)</span></div>
+  <div class="fb">
+  <p class="kv"><b>Repo:</b> gaiko2 · <code>internal/prover/replay.go:51-88</code> (and the Unzen twin <code>processUnzenReplayBlock</code>, <code>:105-212</code>). <b>Class:</b> soundness. <b>Confidence:</b> High — both sides read first-hand.</p>
+  <p><b>The bug.</b> The authoritative state-root path builds a <code>state.StateDB</code> over the witness hash-DB, executes, then
+  returns <code>db.IntermediateRoot(...)</code> (line 82) — with <b>no</b> <code>db.Error()</code> or <code>db.Commit()</code> anywhere.
+  go-ethereum swallows a missing trie node into a <i>deferred</i> error and returns a default value (account treated as
+  non-existent; storage slot reads <code>0</code>); <code>IntermediateRoot</code> never consults that deferred error — only
+  <code>Commit</code> does, and it is never called. <code>ValidateState(block, db, res, true)</code> returns early in stateless
+  mode before its own root/error check.</p>
+  <p><b>Exploit.</b> A malicious prover supplies a witness that <i>omits</i> node <code>B</code> (holding victim account <code>X</code>
+  or a gating storage slot) while keeping its parent branch <code>A</code>, which still references <code>hash(B)</code>. During
+  execution the descent to <code>X</code> hits the missing <code>B</code> → the read returns empty/0 with the error set-and-ignored.
+  Because <code>X</code>'s subtree is only <i>read</i>, <code>A</code>'s <code>hash(B)</code> reference is unchanged, so
+  <code>IntermediateRoot</code> recomputes a root that is self-consistent with a crafted header — while execution used fabricated
+  pre-state. Any path where "reads as 0/empty" benefits the attacker (a bypassed replay-protection / nonce / allowance /
+  <code>processed[id]</code> slot, a zeroed oracle/config, a balance-gated payout) mints or steals; the attacker's own mutations
+  <i>are</i> materialized in the root. <code>Prove</code> only checks <code>result.StateRoot == block.Root()</code> against the
+  attacker's own header — nothing catches it.</p>
+  <p><b>Why it's a forgotten check, not by design.</b> The two sibling witness-read paths defend against exactly this:
+  <code>l2_state.go:65-69</code> calls <code>db.Error()</code> right after <code>db.GetState</code> with a comment — <i>"Surface that
+  error explicitly so an incomplete or corrupt witness cannot masquerade as a legitimately empty storage slot"</i> — and
+  <code>manifest_tx_filter.go</code> re-checks it after every transaction. raiko2's sparse trie fails closed
+  (<code>TrieWitnessError</code>) on any unresolved node.</p>
+  <p><b>Scope &amp; severity.</b> A rollup soundness break in gaiko2's state-root producer — a release-blocker for gaiko2 as a
+  standalone / SGX-only / SGX+SGX prover. It is <b>mitigated on a composite verifier that mandates a fail-closed ZK co-prover</b>
+  (post-Unzen <code>ZkRequiredVerifier</code>): the <code>ComposeVerifier</code> requires both sub-proofs over the <i>same</i>
+  commitment hash, and raiko2 (fail-closed) will not produce a ZK proof of the forged commitment — so the forgery cannot finalize
+  there. It <i>can</i> finalize wherever a gaiko2 proof stands without such a co-prover.</p>
+  <p><b>Fix.</b> Call <code>db.Error()</code> after execution (or compute the root via <code>db.Commit</code>, which checks it) in
+  both <code>GethRunner.Execute</code> and <code>processUnzenReplayBlock</code>, matching <code>manifestWitnessStateError</code>.</p>
+  </div>
+</div>
+
+<div class="finding" id="D2">
+  <div class="fh"><span class="id">D2</span><span class="ti">Go driver omits <code>SHASTA_FORK_TIME</code> from the block-timestamp lower bound</span><span class="sev med">High (consensus split at fork activation)</span></div>
+  <div class="fb">
+  <p class="kv"><b>Repo:</b> taiko-client (Go driver) · <code>driver/chain_syncer/event/derivation/source_fetcher.go:317-332</code>. <b>Class:</b> liveness / consensus. <b>Confidence:</b> High — verified first-hand.</p>
+  <p><b>The bug.</b> <code>ComputeTimestampLowerBound</code> computes <code>max(parent.ts + 1, proposal.ts − TIMESTAMP_MAX_OFFSET)</code>
+  — it has no <code>SHASTA_FORK_TIME</code> floor (its own doc comment claims "the maximum of three constraints" but implements two).
+  The spec (<code>Derivation.md:223</code>) and the other three implementations include it: Rust driver
+  <code>validation.rs:141</code>, raiko2 guest <code>derivation.rs:435</code>, gaiko2 guest <code>manifest_validate.go:456</code>.</p>
+  <p><b>Scenario.</b> Shasta activates at a non-genesis timestamp <code>T</code> (the normal rollout). Parent (last pre-fork block)
+  <code>ts = T−2</code>; the first Shasta proposal lands at <code>ts = T+20</code> (Hoodi offset 1536). Go lower bound =
+  <code>max(T−1, T+20−1536) = T−1</code>; the others = <code>max(…, T) = T</code>. A proposer sets the first block's timestamp to
+  <code>T−1</code>: the Go driver accepts and builds it, while the Rust driver and both provers reject it
+  (<code>ts &lt; lowerBound</code>) and collapse the source to the default manifest. Result — Go-driver nodes build a block that
+  Rust-driver nodes reject and that neither prover can prove: a driver/driver partition and an unprovable chain, precisely at fork
+  activation.</p>
+  <p><b>Latent, not live.</b> Genesis-activated chains are unaffected (<code>parent.ts + 1 &gt; fork_ts</code> makes the clamp a
+  no-op), which is why it hasn't fired — it triggers the first time Shasta is scheduled at a future timestamp.</p>
+  <p><b>Fix.</b> Add the fork-time floor to <code>ComputeTimestampLowerBound</code> and pass it at both call sites.</p>
+  </div>
+</div>
+
+<div class="finding" id="D3">
+  <div class="fh"><span class="id">D3</span><span class="ti">gaiko2 skips the anchor excessive-lag window for forced-inclusion sources</span><span class="sev med">Medium</span></div>
+  <div class="fb">
+  <p class="kv"><b>Repo:</b> gaiko2 · <code>internal/protocol/manifest_validate.go:521-528</code>. <b>Class:</b> liveness / prover split. <b>Confidence:</b> Medium (hunter-reported; workflow reconciliation pending).</p>
+  <p>The forced-inclusion anchor branch only checks <code>anchor == parentAnchor</code> and returns true; it never applies the
+  origin-window check (<code>anchor &lt; origin − MAX_ANCHOR_OFFSET</code>) that the drivers and raiko2 apply to <i>every</i> block.
+  <b>Scenario:</b> a catch-up proposal <code>[forced (1 block, user txs), normal (advances anchor)]</code> with a stale parent anchor
+  <code>A</code> where <code>origin − A &gt; MAX_ANCHOR_OFFSET</code>. Drivers + raiko2 default the forced source (drop the user txs →
+  empty block); gaiko2 keeps them (non-empty block), then rejects the canonical empty block on the tx-root check → the proposal is
+  <b>unprovable by gaiko2 while raiko2 proves it</b> (prover/prover and prover/driver split). The spec (<code>Derivation.md:236</code>)
+  only exempts forced inclusions from the <i>strict-advance</i> penalty and is silent on the window — that ambiguity produced the
+  split. <b>Fix:</b> apply the excessive-lag window to forced anchors too (and pin the spec so all four impls agree).</p>
+  </div>
+</div>
+
+<div class="finding" id="D4">
+  <div class="fh"><span class="id">D4</span><span class="ti">Mainnet bootstrap (proposal id ≤ 7): parent-anchor source diverges between driver and raiko2</span><span class="sev med">Medium</span></div>
+  <div class="fb">
+  <p class="kv"><b>Repos:</b> taiko-client + raiko2 · driver <code>syncer.go:302-308</code>; guest <code>guest-common/src/lib.rs:372-400</code>. <b>Class:</b> liveness (one-time). <b>Confidence:</b> Medium (hunter-reported).</p>
+  <p>Both drivers recover the parent anchor from the parent block's <code>anchorV4/anchorV3</code> calldata for mainnet proposals
+  <code>id ≤ MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET (7)</code>, because <code>Anchor._blockState.anchorBlockNumber</code> is not yet
+  reliable during bootstrap. raiko2's guest reads the parent anchor <i>only</i> from that storage slot (plus a host cross-check);
+  gaiko2 trusts the host value. So for mainnet <code>id ≤ 7</code> raiko2's storage-derived anchor can differ from the driver's
+  tx-derived one → the <code>host == verified</code> cross-check fails or mis-derives → those proposals unprovable by raiko2. A
+  one-time mainnet-launch determinism gap worth confirming against the migration state. <b>Fix:</b> give the guest the same
+  <code>id ≤ 7</code> tx-based recovery, or guarantee the bootstrap storage matches.</p>
+  </div>
+</div>
+
+<div class="finding" id="D5">
+  <div class="fh"><span class="id">D5</span><span class="ti">L1 forced-inclusion censorship guarantee is unenforced on-chain; escape-hatch config is dead code</span><span class="sev med">Medium</span></div>
+  <div class="fb">
+  <p class="kv"><b>Repo:</b> taiko-mono · <code>Inbox.sol:602-607</code>; unused <code>permissionlessInclusionMultiplier</code>/<code>permissionlessProvingDelay</code> (<code>:121,99</code>); <code>LibForcedInclusion.isOldestForcedInclusionDue</code> (never called). <b>Class:</b> censorship-resistance. <b>Confidence:</b> Medium (hunter-reported).</p>
+  <p>Forced inclusions are the system's censorship-resistance primitive, but their only consumer — <code>propose</code> — is fully
+  gated by the permissioned <code>_proposerChecker.checkProposer</code> ("Permissionless proposing is temporarily disabled"). The
+  config carries all the scaffolding for a "proposing/proving becomes permissionless once an inclusion is too old" escape hatch
+  (<code>permissionlessInclusionMultiplier</code>, mainnet 160 ≈ 25.6 h), and <code>isOldestForcedInclusionDue</code> exists — but
+  none of it is wired into <code>propose</code>/<code>prove</code>, and <code>checkProposer</code> is never given the inclusion age.
+  If the permissioned set colludes or is unavailable, a due forced inclusion is never processed and its paid fee is locked (no
+  cancel/refund path in <code>saveForcedInclusion</code>) — the guarantee the mechanism exists to provide silently does not hold;
+  it rests on the social expectation of the current whitelist phase. <b>Fix:</b> wire the permissionless escape hatch and add a
+  refund path.</p>
+  </div>
+</div>
+
+<div class="finding" id="D6">
+  <div class="fh"><span class="id">D6</span><span class="ti">Unbounded zlib output — manifest decompression-bomb DoS of the zkVM guest</span><span class="sev med">Medium</span></div>
+  <div class="fb">
+  <p class="kv"><b>Repos:</b> all impls · raiko2 <code>manifest.rs:179</code>, gaiko2 <code>manifest_validate.go:387</code>, Go <code>utils/compress.go:69</code>. <b>Class:</b> DoS / liveness. <b>Confidence:</b> Medium (hunter-reported).</p>
+  <p>Every implementation decompresses the manifest to completion (<code>read_to_end</code> / <code>io.ReadAll</code>) <i>before</i>
+  the block-count cap (192/768) is applied; only the <i>compressed</i> slice is bounded (≤ one blob). A source whose payload is
+  DEFLATE of a long zero-run (~1032:1 ceiling) expands ~130 KB → ~130 MB (single blob) or ~800 MB (multi-blob) in a single
+  allocation, OOM-ing the memory-constrained guest. It is <b>consistent across impls</b> (a DoS, not a state divergence) and gated by
+  L1 blob cost — hence Medium. <b>Fix:</b> a bounded reader capped at <code>max_blocks × max_block_rlp_size</code>.</p>
+  </div>
+</div>
+
+<h3>Lower-severity &amp; informational</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>ID</th><th>Finding</th><th>Sev</th><th>Where</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>D7</td><td>gaiko2 <code>BLOCKHASH</code> fails-open for withheld ancestor headers</td><td>Low</td><td>gaiko2 <code>replay.go:669-722</code></td><td>Same fail-open class as D1, bounded to the ≤256 <code>BLOCKHASH</code> window; raiko2 fails closed.</td></tr>
+<tr><td>D8</td><td>Reverted anchor not rejected on gaiko2's raw replay path</td><td>Low</td><td>gaiko2 <code>replay.go</code></td><td>Parity gap; caught in the guest-validated flow and on both raiko2 paths.</td></tr>
+<tr><td>D9</td><td>Non-saturating <code>origin − first</code> in stalled-anchor bypass</td><td>Low</td><td>gaiko2 <code>manifest_validate.go:1445</code></td><td>Underflow needs an L1 reorg regressing the origin; raiko2 saturates. Near-unreachable.</td></tr>
+<tr><td>D10</td><td>raiko2 hashes sub-proof <code>proposal_id</code> as full u64 (no uint48 guard)</td><td>Low</td><td>raiko2 <code>libhash/shasta.rs:43</code></td><td>Benign — aggregation guards uint48 in both impls, so an out-of-range id can never finalize.</td></tr>
+<tr><td>D11</td><td>Dead-code <code>derivation.rs</code> with real ABI bugs</td><td>Low</td><td>raiko2 <code>libhash/derivation.rs</code></td><td>No caller / no Solidity counterpart; wrong empty-array and bool encodings if ever wired. Recommend delete.</td></tr>
+<tr><td>D12</td><td>Driver beacon path doesn't KZG-verify blob bytes vs commitment</td><td>Low</td><td>taiko-client <code>blob_datasource.go:163</code></td><td>Only <code>commitment→versioned-hash</code> is checked; a bad beacon yields an unprovable chain (local liveness). Add <code>VerifyBlobProof</code>.</td></tr>
+<tr><td>D13</td><td>Empty-blob-hash source: strictness asymmetry (raiko2 rejects inline, gaiko2 continues)</td><td>Low</td><td>raiko2 <code>blob.rs:58</code> / gaiko2 <code>blob_validate.go:49</code></td><td>raiko2's inline-decode path is currently unreachable; latent divergence if ordering changes.</td></tr>
+<tr><td>D14</td><td>CEI order in <code>_dequeueAndProcessForcedInclusions</code>; <code>saveForcedInclusion</code> not <code>nonReentrant</code></td><td>Low</td><td>taiko-mono <code>Inbox.sol:710,431</code></td><td>Not profitable — a reentrant caller only overpays its own fee; no protocol fund loss. Defense-in-depth.</td></tr>
+<tr><td>D15</td><td><code>init2</code> finalizes owner-supplied <code>(id, blockHash)</code> with no consistency check</td><td>Low</td><td>taiko-mono <code>Inbox.sol:217-244</code></td><td>Grants nothing beyond existing UUPS upgrade authority (<code>onlyOwner</code> + <code>reinitializer(2)</code>). Centralization note.</td></tr>
+<tr><td>D16</td><td><code>init3</code> permanently locks voided forced-inclusion fees</td><td>Low</td><td>taiko-mono <code>Inbox.sol:253-258</code></td><td>Owner-gated incident recovery; real user-fund lock with no recovery route.</td></tr>
+<tr><td>D17</td><td><code>proposalAge</code> overstated vs the liveness "provable-since" basis</td><td>Low</td><td>taiko-mono <code>Inbox.sol:336</code></td><td>Nil impact today (all verifiers ignore age); latent if age-based tiering is ever enabled.</td></tr>
+<tr><td>D18</td><td><code>activate()</code> can reset core state within the 2 h window</td><td>Low</td><td>taiko-mono <code>Inbox.sol:188-201</code></td><td>Owner-only, bounded to 2 h from genesis; orphaned slots cleanly overwritten. Note only.</td></tr>
+<tr><td>D19</td><td><code>SignalService.saveCheckpoint</code> has no monotonicity / write-once guard</td><td>Low</td><td>taiko-mono <code>SignalService.sol:174-184</code></td><td>Safe today (both callers guard order); a future syncer / re-prove path could swap a fresh root for a stale one. Enforce in-function.</td></tr>
+<tr><td>I1</td><td>Manifest version word not fully validated (high 32 bits ignored)</td><td>Info</td><td>all impls</td><td><b>Identical</b> across all three — spec-looseness, not a divergence.</td></tr>
+<tr><td>I2</td><td>SignalService pause freezes all inbound cross-chain verification</td><td>Info</td><td>taiko-mono <code>SignalService.sol:121,201</code></td><td>Owner or immutable pauser can halt bridge consumption. Standard centralization trade-off.</td></tr>
+<tr><td>I3</td><td><code>Anchor.l1ChainId</code> stored/validated but never read; gaiko2 <code>witness.accounts</code> pinned but unused</td><td>Info</td><td>Anchor.sol:50 / gaiko2 guestinput.go:127</td><td>Vestigial fields — confirm no off-chain consumer, else remove to avoid confusion.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Verified clean under adversarial tracing</h3>
+<ul class="tight">
+  <li><b>Hash / ABI parity</b> — the forgery surface: alloy (raiko2) and go-ethereum (gaiko2) encoders produce <i>bit-identical</i> hashes on the exact structs (incl. 0/1/N blob-hash and multi-source edges), the hand-laid commitment buffer equals canonical <code>abi.encode</code>, and public-input ordering matches Solidity — checked with executable oracles.</li>
+  <li><b>Blob KZG binding &amp; decode</b> — versioned-hash formula identical; provers derive from exactly the KZG-verified bytes; blob/commitment/proof/hash counts enforced; and the trailing-byte RLP handling <b>agrees</b> (Go <code>rlp.DecodeBytes</code> and Rust <code>decode_exact</code> both reject) — the divergence this pass specifically hunted is absent.</li>
+  <li><b>Aggregation &amp; proof-carry continuity</b> — every carry field is bound into a verified sub-proof journal; ids sequence, proposal-hash and block-hash chains, and chain-id/verifier/prover equality all enforced on both prover paths.</li>
+  <li><b>L1 Inbox</b> — prove bounds/offset, ring-buffer capacity &amp; stale-hash safety, parent-hash anchoring, liveness-bond victim/split, fee accounting, and reinitializer versioning all verified correct.</li>
+  <li><b>Anchor + SignalService</b> — the 255-entry ancestors ring buffer is correct across bootstrap and the 256-block boundary; the signal merkle proof is not forgeable (account/slot/root all bound); checkpoint gating holds.</li>
+  <li><b>raiko2 stateless path</b> — fail-closed on every missing-witness-node path (sparse trie aborts), parent-header hash recomputed, post-state-root checked on every execution path.</li>
+</ul>
+
+<!-- ============ 16. REFERENCES ============ -->
+<h2 class="anchor" id="refs">16 · Key references</h2>
 <div class="scroll">
 <table>
 <thead><tr><th>Topic</th><th>File : line</th></tr></thead>
