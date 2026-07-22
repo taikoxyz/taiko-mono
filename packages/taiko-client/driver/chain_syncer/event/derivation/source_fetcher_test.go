@@ -542,3 +542,40 @@ func (s *DerivationSourceFetcherTestSuite) TestComputeTimestampLowerBoundByChain
 	s.Equal(proposalTimestamp-manifest.TimestampMaxOffsetByChainID(params.TaikoMainnetNetworkID), mainnetLowerBound)
 	s.Less(mainnetLowerBound, hoodiLowerBound)
 }
+
+// TestComputeTimestampLowerBoundShastaForkFloor is the regression test for audit finding D2: the
+// timestamp lower bound must include the Shasta fork-time floor so the driver agrees with the
+// derivation spec and the Rust driver / raiko / gaiko provers at a non-genesis fork activation.
+func (s *DerivationSourceFetcherTestSuite) TestComputeTimestampLowerBoundShastaForkFloor() {
+	// Hoodi activates Shasta at a non-genesis timestamp T.
+	chainID := params.TaikoHoodiNetworkID
+	forkTime := manifest.ShastaForkTimeByChainID(chainID)
+	offset := manifest.TimestampMaxOffsetByChainID(chainID)
+
+	// Precondition: the fork time sits well above the max offset, so the scenario below (both
+	// non-fork constraints falling strictly under the fork time) is meaningful.
+	s.Greater(forkTime, offset)
+
+	// parent.ts = T-2, proposal.ts = T+20: a parent just before the fork and a proposal shortly
+	// after. Both non-fork constraints (parent+1 and proposal-OFFSET) land strictly below T.
+	parentTimestamp := forkTime - 2
+	proposalTimestamp := forkTime + 20
+	s.Less(parentTimestamp+1, forkTime)        // parent+1 == T-1 < T
+	s.Less(proposalTimestamp-offset, forkTime) // proposal-OFFSET < T
+
+	lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, chainID)
+
+	// The fork-time floor raises the bound to exactly T (not T-1, the buggy pre-fix result).
+	s.Equal(forkTime, lowerBound)
+	s.NotEqual(parentTimestamp+1, lowerBound)
+
+	// Genesis-activated chains (Shasta fork time == 0) are unaffected: the floor is a no-op and the
+	// bound remains max(parent+1, proposal-TIMESTAMP_MAX_OFFSET).
+	devnetID := params.TaikoInternalNetworkID
+	s.Zero(manifest.ShastaForkTimeByChainID(devnetID))
+
+	devnetParent := uint64(100)
+	devnetProposal := uint64(10_000)
+	expectedDevnetBound := max(devnetParent+1, devnetProposal-manifest.TimestampMaxOffsetByChainID(devnetID))
+	s.Equal(expectedDevnetBound, ComputeTimestampLowerBound(devnetParent, devnetProposal, devnetID))
+}
