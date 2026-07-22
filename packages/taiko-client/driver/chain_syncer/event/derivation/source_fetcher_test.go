@@ -168,7 +168,10 @@ func shastaMetaWithTimestamp(timestamp uint64) *metadata.TaikoProposalMetadataSh
 
 func (s *DerivationSourceFetcherTestSuite) TestValidateMetadataTimestamp() {
 	chainID := params.TaikoHoodiNetworkID
-	parentTime := uint64(1_000)
+	// Use post-fork timestamps (expressed relative to the chain's Shasta fork time) so the derivation
+	// lower bound is set by the parent/offset terms rather than being raised to the Shasta fork-time
+	// floor added to ComputeTimestampLowerBound.
+	parentTime := manifest.ShastaForkTimeByChainID(chainID) + 1_000
 	proposalTimestamp := parentTime + manifest.TimestampMaxOffsetByChainID(chainID) + 100
 	proposal := &shastaBindings.ShastaInboxClientProposed{}
 
@@ -311,7 +314,10 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 func (s *DerivationSourceFetcherTestSuite) TestApplyInheritedMetadata() {
 	chainID := params.TaikoHoodiNetworkID
-	parentTime := 1_000 + manifest.TimestampMaxOffsetByChainID(chainID)
+	// Use a post-fork parent time (relative to the chain's Shasta fork time) so the inherited block
+	// timestamps are driven by the parent+1 / proposal-offset terms and not clamped up to the Shasta
+	// fork-time floor added to ComputeTimestampLowerBound.
+	parentTime := manifest.ShastaForkTimeByChainID(chainID) + 1_000 + manifest.TimestampMaxOffsetByChainID(chainID)
 	parentHeader := &types.Header{
 		Number:   big.NewInt(1),
 		GasLimit: 30_000_000,
@@ -471,7 +477,10 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 }
 
 func (s *DerivationSourceFetcherTestSuite) TestValidateMetadata() {
-	parentTime := uint64(1_000)
+	// The metadata is validated against Hoodi (see rpcClient.L2.ChainID below), whose Shasta fork
+	// activates at a non-genesis timestamp. Anchor the block timestamps at/above that fork time so the
+	// derivation lower bound is not raised to the Shasta fork-time floor in ComputeTimestampLowerBound.
+	parentTime := manifest.ShastaForkTimeByChainID(params.TaikoHoodiNetworkID) + 1_000
 	parentHeader := &types.Header{
 		Number:   big.NewInt(0),
 		GasLimit: 30_000_000,
@@ -528,8 +537,18 @@ func (s *DerivationSourceFetcherTestSuite) TestValidateMetadata() {
 }
 
 func (s *DerivationSourceFetcherTestSuite) TestComputeTimestampLowerBoundByChainID() {
+	// Both Hoodi and Mainnet activate Shasta at a non-genesis fork time, so ComputeTimestampLowerBound
+	// floors its result at that fork time. Pick a proposal timestamp comfortably above both networks'
+	// fork times (the larger fork time, plus the larger, mainnet, offset, plus a margin) so that on
+	// both chains the proposal-offset term still dominates the floor. That preserves the intended
+	// comparison: mainnet's larger TIMESTAMP_MAX_OFFSET yields the smaller lower bound. Values are
+	// expressed relative to the fork times so the test stays correct if the fork schedule changes.
+	mainnetForkTime := manifest.ShastaForkTimeByChainID(params.TaikoMainnetNetworkID)
+	hoodiForkTime := manifest.ShastaForkTimeByChainID(params.TaikoHoodiNetworkID)
+
 	parentTimestamp := uint64(100)
-	proposalTimestamp := uint64(10_000)
+	proposalTimestamp := max(mainnetForkTime, hoodiForkTime) +
+		manifest.TimestampMaxOffsetByChainID(params.TaikoMainnetNetworkID) + 10_000
 
 	hoodiLowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, params.TaikoHoodiNetworkID)
 	mainnetLowerBound := ComputeTimestampLowerBound(
@@ -541,4 +560,7 @@ func (s *DerivationSourceFetcherTestSuite) TestComputeTimestampLowerBoundByChain
 	s.Equal(proposalTimestamp-manifest.TimestampMaxOffsetByChainID(params.TaikoHoodiNetworkID), hoodiLowerBound)
 	s.Equal(proposalTimestamp-manifest.TimestampMaxOffsetByChainID(params.TaikoMainnetNetworkID), mainnetLowerBound)
 	s.Less(mainnetLowerBound, hoodiLowerBound)
+	// Sanity: both lower bounds are set by the offset term, i.e. they clear the fork-time floor.
+	s.Greater(hoodiLowerBound, hoodiForkTime)
+	s.Greater(mainnetLowerBound, mainnetForkTime)
 }
