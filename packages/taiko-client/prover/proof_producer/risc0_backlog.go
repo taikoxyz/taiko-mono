@@ -34,7 +34,7 @@ type raikoProverProofTypeRequest struct {
 
 // ClearBacklog implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
-	if s.PrimaryProofDummy {
+	if s.Dummy {
 		return nil
 	}
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
@@ -55,7 +55,7 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 
 // StatusClean implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
-	if s.PrimaryProofDummy {
+	if s.Dummy {
 		return true, nil
 	}
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)

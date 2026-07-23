@@ -99,19 +99,12 @@ var (
 		EnvVars:  []string{"PROVER_ZK_ONLY_PROOFS"},
 	}
 	// Special flags for testing.
-	PrimaryProofDummy = &cli.BoolFlag{
-		Name:     "prover.primaryProofDummy",
-		Usage:    "Produce dummy primary proofs, testing purposes only",
+	Dummy = &cli.BoolFlag{
+		Name:     "prover.dummy",
+		Usage:    "Produce dummy proofs, testing purposes only",
 		Value:    false,
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_PRIMARY_PROOF_DUMMY"},
-	}
-	CompanionProofDummy = &cli.BoolFlag{
-		Name:     "prover.companionProofDummy",
-		Usage:    "Produce dummy companion proofs, testing purposes only",
-		Value:    false,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_COMPANION_PROOF_DUMMY"},
+		EnvVars:  []string{"PROVER_DUMMY"},
 	}
 	ProofPollingInterval = &cli.DurationFlag{
 		Name:     "prover.proofPollingInterval",
@@ -164,8 +157,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoApiKeyPath,
 	L1ProverPrivKey,
 	StartingProposalID,
-	PrimaryProofDummy,
-	CompanionProofDummy,
+	Dummy,
 	ProveUnassignedProposals,
 	ProofPollingInterval,
 	LocalProposerAddresses,

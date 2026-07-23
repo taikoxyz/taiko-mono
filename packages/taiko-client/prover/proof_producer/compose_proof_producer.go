@@ -46,8 +46,7 @@ type ComposeProofProducer struct {
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
 	ApiKey              string // ApiKey provided by Raiko
-	PrimaryProofDummy   bool
-	CompanionProofDummy bool
+	Dummy               bool
 	DummyProofProducer
 }
 
@@ -72,8 +71,7 @@ func (s *ComposeProofProducer) RequestProof(
 		"proposalID", proposalID,
 		"proofType", requestProofType,
 		"time", time.Since(requestAt),
-		"primaryProofDummy", s.PrimaryProofDummy,
-		"companionProofDummy", s.CompanionProofDummy,
+		"dummy", s.Dummy,
 	)
 
 	var (
@@ -84,7 +82,7 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	g.Go(func() error {
-		if s.PrimaryProofDummy {
+		if s.Dummy {
 			proofType = requestProofType
 			if resp, err := s.DummyProofProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 				return err
@@ -204,7 +202,7 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil
 	})
 	g.Go(func() error {
-		if s.PrimaryProofDummy {
+		if s.Dummy {
 			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, proofType)
 			batchProofs = resp.BatchProof
 		} else {
@@ -250,7 +248,7 @@ func (s *ComposeProofProducer) requestCompanionProof(
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
 ) error {
-	if s.CompanionProofDummy {
+	if s.Dummy {
 		return nil
 	}
 	if _, err := s.requestBatchProof(
@@ -276,7 +274,7 @@ func (s *ComposeProofProducer) aggregateCompanionProofs(
 	companionProofType ProofType,
 	requestAt time.Time,
 ) ([]byte, error) {
-	if s.CompanionProofDummy {
+	if s.Dummy {
 		resp, _ := s.DummyProofProducer.RequestBatchProofs(items, companionProofType)
 		return resp.BatchProof, nil
 	}
