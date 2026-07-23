@@ -15,7 +15,7 @@ jobs:
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -46,7 +46,7 @@ jobs:
           sed -i "s/{{ TAIKO_GETH_VERSION }}/${{ env.TAIKO_GETH_VERSION }}/g" packages/fork-diff/fork.yaml
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
