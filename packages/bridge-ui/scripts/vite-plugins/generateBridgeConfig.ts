@@ -8,6 +8,7 @@ import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../../src/
 import { decodeBase64ToJson } from '../utils/decodeBase64ToJson';
 import { formatSourceFile } from '../utils/formatSourceFile';
 import { PluginLogger } from '../utils/PluginLogger';
+import { toTsLiteral } from '../utils/toTsLiteral';
 import { validateJsonAgainstSchema } from '../utils/validateJson';
 
 dotenv.config();
@@ -135,29 +136,4 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
   return sourceFile;
 }
 
-const _formatObjectToTsLiteral = (obj: RoutingMap): string => {
-  const formatValue = (value: string | number | boolean | null | object): string => {
-    if (typeof value === 'string') {
-      return `"${value}"`;
-    }
-    if (typeof value === 'object') {
-      return JSON.stringify(value);
-    }
-    return String(value);
-  };
-
-  const entries = Object.entries(obj);
-  const formattedEntries = entries.map(([key, value]) => {
-    const innerEntries = Object.entries(value);
-    const innerFormattedEntries = innerEntries.map(([innerKey, innerValue]) => {
-      const innerInnerEntries = Object.entries(innerValue);
-      const innerInnerFormattedEntries = innerInnerEntries.map(
-        ([innerInnerKey, innerInnerValue]) => `${innerInnerKey}: ${formatValue(innerInnerValue)}`,
-      );
-      return `${innerKey}: {${innerInnerFormattedEntries.join(', ')}}`;
-    });
-    return `${key}: {${innerFormattedEntries.join(', ')}}`;
-  });
-
-  return `{${formattedEntries.join(', ')}}`;
-};
+export const _formatObjectToTsLiteral = (obj: RoutingMap): string => toTsLiteral(obj);
