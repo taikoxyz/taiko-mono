@@ -67,6 +67,22 @@ contract TestSignalService is CommonTest {
         assertEq(stored.stateRoot, checkpoint.stateRoot);
     }
 
+    function test_saveCheckpoint_RevertWhen_CheckpointAlreadyExists() public {
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
+        });
+
+        vm.startPrank(AUTHORIZED_SYNCER);
+        signalService.saveCheckpoint(checkpoint);
+
+        vm.expectRevert(SignalService.SS_CHECKPOINT_ALREADY_EXISTS.selector);
+        signalService.saveCheckpoint(
+            ICheckpointStore.Checkpoint({
+                blockNumber: 1, blockHash: bytes32(uint256(3)), stateRoot: bytes32(uint256(4))
+            })
+        );
+    }
+
     function test_saveCheckpoint_RevertWhen_CheckpointFieldInvalid() public {
         ICheckpointStore.Checkpoint memory badStateRoot = ICheckpointStore.Checkpoint({
             blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(0)

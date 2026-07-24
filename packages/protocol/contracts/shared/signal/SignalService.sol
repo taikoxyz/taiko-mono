@@ -175,6 +175,9 @@ contract SignalService is EssentialContract, ISignalService {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
+        if (_checkpoints[_checkpoint.blockNumber].blockHash != bytes32(0)) {
+            revert SS_CHECKPOINT_ALREADY_EXISTS();
+        }
 
         _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
             blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
@@ -301,6 +304,7 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     error SS_CHECKPOINT_NOT_FOUND();
+    error SS_CHECKPOINT_ALREADY_EXISTS();
     error SS_EMPTY_PROOF();
     error SS_INVALID_BLOCK_ID();
     error SS_INVALID_CHECKPOINT();
