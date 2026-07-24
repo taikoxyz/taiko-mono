@@ -27,6 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/proposalapi"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -48,6 +49,7 @@ type Driver struct {
 	rpc                *rpc.Client
 	l2ChainSyncer      *chainSyncer.L2ChainSyncer
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
+	proposalAPIServer  *proposalapi.Server
 	state              *state.State
 	protocolConfig     config.ProtocolConfigs
 
@@ -175,6 +177,16 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.l2ChainSyncer.SetPreconfBlockServer(d.preconfBlockServer)
 	}
 
+	if cfg.ProposalAPIEnabled {
+		source, err := proposalapi.NewRPCSource(d.rpc)
+		if err != nil {
+			return fmt.Errorf("failed to create proposal API source: %w", err)
+		}
+		if d.proposalAPIServer, err = proposalapi.New(cfg.ProposalAPIAddr, source); err != nil {
+			return fmt.Errorf("failed to create proposal API server: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -201,6 +213,17 @@ func (d *Driver) Start() error {
 		go func() {
 			defer d.wg.Done()
 			d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
+		}()
+	}
+	if d.proposalAPIServer != nil {
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			log.Info("Starting local proposal API", "addr", d.ProposalAPIAddr)
+			if err := d.proposalAPIServer.Start(); err != nil {
+				log.Error("Failed to start local proposal API", "error", err)
+				d.cancel()
+			}
 		}()
 	}
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
@@ -245,6 +268,11 @@ func (d *Driver) Close(_ context.Context) {
 		defer cancel()
 		if err := d.preconfBlockServer.Shutdown(shutdownCtx); err != nil {
 			log.Error("Failed to shutdown preconfirmation block server", "error", err)
+		}
+	}
+	if d.proposalAPIServer != nil {
+		if err := d.proposalAPIServer.Shutdown(d.ctx); err != nil {
+			log.Error("Failed to shutdown local proposal API", "error", err)
 		}
 	}
 	d.wg.Wait()

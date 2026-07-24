@@ -55,6 +55,20 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONFIRMATION_HANDOVER_SKIP_SLOTS"},
 	}
+	ProposalAPIEnabled = &cli.BoolFlag{
+		Name:     "proposalApi.enabled",
+		Usage:    "Enable the local-only Shasta proposal metadata API for co-located TDX provers",
+		Value:    false,
+		Category: driverCategory,
+		EnvVars:  []string{"PROPOSAL_API_ENABLED"},
+	}
+	ProposalAPIAddr = &cli.StringFlag{
+		Name:     "proposalApi.addr",
+		Usage:    "Loopback listen address for the local-only Shasta proposal metadata API",
+		Value:    "127.0.0.1:9876",
+		Category: driverCategory,
+		EnvVars:  []string{"PROPOSAL_API_ADDR"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -71,4 +85,6 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
 	PreconfHandoverSkipSlots,
+	ProposalAPIEnabled,
+	ProposalAPIAddr,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

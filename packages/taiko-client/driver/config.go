@@ -18,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/proposalapi"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -46,6 +47,8 @@ type Config struct {
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
 	PreconfBlockServerCORSOrigins string
+	ProposalAPIEnabled            bool
+	ProposalAPIAddr               string
 	HandoverSkipSlots             uint64
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
@@ -97,6 +100,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 	if c.Uint64(flags.PreconfBlockServerPort.Name) > 0 && len(preconfBlockServerJWTSecret) == 0 {
 		return nil, errors.New("preconfirmation.jwtSecret is required when preconfirmation.serverPort is enabled")
+	}
+	if c.Bool(flags.ProposalAPIEnabled.Name) {
+		if err := proposalapi.ValidateLoopbackAddress(c.String(flags.ProposalAPIAddr.Name)); err != nil {
+			return nil, fmt.Errorf("invalid proposal API address: %w", err)
+		}
 	}
 
 	// Resolve L1 / L2 endpoints (WS preferred, HTTP fallback).
@@ -169,6 +177,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
+		ProposalAPIEnabled:            c.Bool(flags.ProposalAPIEnabled.Name),
+		ProposalAPIAddr:               c.String(flags.ProposalAPIAddr.Name),
 		HandoverSkipSlots:             c.Uint64(flags.PreconfHandoverSkipSlots.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
