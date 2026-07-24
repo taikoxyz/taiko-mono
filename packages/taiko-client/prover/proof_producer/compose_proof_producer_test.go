@@ -78,6 +78,41 @@ func TestComposeProducerAggregateUsesItemProofType(t *testing.T) {
 	require.True(t, opts.CompanionProofAggregationGenerated)
 }
 
+func TestComposeProducerAggregateUsesSGXRethVerifierID(t *testing.T) {
+	producer := &ComposeProofProducer{
+		VerifierIDs: map[ProofType]uint8{
+			ProofTypeSgxGeth: 1,
+			ProofTypeSgx:     4,
+		},
+		Dummy:              true,
+		DummyProofProducer: DummyProofProducer{},
+	}
+
+	result, err := producer.Aggregate(
+		context.Background(),
+		[]*ProofResponse{
+			{
+				BatchID:   common.Big1,
+				ProofType: ProofTypeSgx,
+				Meta: metadata.NewTaikoProposalMetadataShasta(
+					&shastaBindings.ShastaInboxClientProposed{Id: common.Big1},
+					0,
+				),
+				Opts: &ProposalProofRequestOptions{
+					ProofType:          ProofTypeSgx,
+					CompanionProofType: ProofTypeSgxGeth,
+				},
+			},
+		},
+		time.Now(),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, ProofTypeSgx, result.ProofType)
+	require.Equal(t, uint8(4), result.VerifierID)
+	require.Equal(t, uint8(1), result.CompanionVerifierID)
+}
+
 func TestComposeProducerAggregateRejectsInconsistentCompanionProofTypes(t *testing.T) {
 	producer := &ComposeProofProducer{
 		VerifierIDs: map[ProofType]uint8{
@@ -255,6 +290,38 @@ func (r *raikoRequestRecorder) requestedTypes() map[ProofType]int {
 		types[req.ProofType]++
 	}
 	return types
+}
+
+func TestComposeProducerRequestProofRequestsSGXRethAndSgxGethCompanion(t *testing.T) {
+	recorder := &raikoRequestRecorder{proofs: map[ProofType]string{
+		ProofTypeSgx:     "0xaaaa",
+		ProofTypeSgxGeth: "0xbbbb",
+	}}
+	server := httptest.NewServer(recorder.handler())
+	defer server.Close()
+
+	producer := &ComposeProofProducer{
+		RaikoHostEndpoint:   server.URL,
+		RaikoRequestTimeout: time.Second,
+	}
+	opts := &ProposalProofRequestOptions{
+		ProofType:          ProofTypeSgx,
+		CompanionProofType: ProofTypeSgxGeth,
+		L2BlockNums:        []*big.Int{common.Big1},
+	}
+
+	result, err := producer.RequestProof(
+		context.Background(),
+		opts,
+		common.Big1,
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: common.Big1}, 0),
+		time.Now(),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, ProofTypeSgx, result.ProofType)
+	require.Equal(t, common.Hex2Bytes("aaaa"), result.Proof)
+	require.Equal(t, map[ProofType]int{ProofTypeSgx: 1, ProofTypeSgxGeth: 1}, recorder.requestedTypes())
 }
 
 func TestComposeProducerRequestProofRequestsPrimaryAndSgxGethCompanion(t *testing.T) {

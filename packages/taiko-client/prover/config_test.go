@@ -101,6 +101,20 @@ func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
 	})
 }
 
+func TestNewConfigFromCliContextForceSGXProof(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ForceSGXProof)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSGXProof.Name)
+
+		require.True(t, cfg.ForceSGXProof)
+	})
+}
+
 func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
@@ -211,6 +225,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 			Value:   flags.MaxRisc0ProofProposalDistance.Value,
 		},
 		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
+		&cli.BoolFlag{Name: flags.ForceSGXProof.Name},
 		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}
