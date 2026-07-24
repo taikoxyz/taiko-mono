@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.2...relayer-v0.14.0) (2026-07-24)
+
+
+### Features
+
+* **relayer:** add blacklist messagehash functionality ([#21891](https://github.com/taikoxyz/taiko-mono/issues/21891)) ([0853eef](https://github.com/taikoxyz/taiko-mono/commit/0853eeff97e9b626fe2d86dfb1a048990b589325))
+* **relayer:** watchdog alerts on unsent messages without pausing ([#21888](https://github.com/taikoxyz/taiko-mono/issues/21888)) ([668d57a](https://github.com/taikoxyz/taiko-mono/commit/668d57a54503275fee75ef5df6b5ad07a2366b30))
+
+
+### Bug Fixes
+
+* **relayer:** crash on RabbitMQ subscription retry exhaustion instead of zombieing ([#21731](https://github.com/taikoxyz/taiko-mono/issues/21731)) ([7a685cc](https://github.com/taikoxyz/taiko-mono/commit/7a685cc5f1e7ddf4f8e4484061a527ac9858a21a))
+* **relayer:** floor profitability estimate tip at MinTipCap ([#21897](https://github.com/taikoxyz/taiko-mono/issues/21897)) ([4d756f0](https://github.com/taikoxyz/taiko-mono/commit/4d756f0c018cc816b2db9c7dc3c8e25ff5be3172))
+
+
+### Chores
+
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+
+
+### Code Refactoring
+
+* **relayer:** remove watchdog, detect forged messages in the indexer ([#21890](https://github.com/taikoxyz/taiko-mono/issues/21890)) ([904585c](https://github.com/taikoxyz/taiko-mono/commit/904585cedafdb026d60f12bcd75f6348afdafdb0))
+* **taiko-client-rs:** share fallback whitelist timeline across resolver clones, drop dead code ([#21774](https://github.com/taikoxyz/taiko-mono/issues/21774)) ([8219429](https://github.com/taikoxyz/taiko-mono/commit/8219429f2572ef65e8463e679a9897a28a227a06))
+
 ## [0.13.2](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.1...relayer-v0.13.2) (2026-05-18)
 
 
