@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-07-24)
+
+
+### Features
+
+* **taiko-client-rs:** harden event scanner against transient L1 stalls ([#21969](https://github.com/taikoxyz/taiko-mono/issues/21969)) ([9ef35dd](https://github.com/taikoxyz/taiko-mono/commit/9ef35dd36a7de9092ac5ceeedac092145456f20f))
+* **taiko-client-rs:** optimize discv5 discovery + 20–30 peer management for the whitelist driver ([#21971](https://github.com/taikoxyz/taiko-mono/issues/21971)) ([c1d4b3c](https://github.com/taikoxyz/taiko-mono/commit/c1d4b3cf909ecb4b5d721048172aab0188392ebf))
+
+
+### Chores
+
+* **taiko-client-rs:** expose FixedKSigner without the net feature ([#21981](https://github.com/taikoxyz/taiko-mono/issues/21981)) ([fbe6716](https://github.com/taikoxyz/taiko-mono/commit/fbe6716c43c833b1bd9dfa80c784f67ed44df273))
+
+
+### Tests
+
+* **taiko-client-rs:** stabilize the e2e lane and harden the test suite ([#21967](https://github.com/taikoxyz/taiko-mono/issues/21967)) ([abbc29d](https://github.com/taikoxyz/taiko-mono/commit/abbc29d0e9a521481fe259fa47713b0b03ad3501))
+
 ## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.1.0...taiko-alethia-client-rs-v2.2.0) (2026-07-15)
 
 
