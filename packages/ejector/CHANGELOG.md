@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.7.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.7.0...ejector-v0.7.1) (2026-07-24)
+
+
+### Chores
+
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+* **taiko-client-rs,ejector:** bump event-scanner to `v1.1.1` ([#21737](https://github.com/taikoxyz/taiko-mono/issues/21737)) ([729a43e](https://github.com/taikoxyz/taiko-mono/commit/729a43e0e0e22958c295bd7fbbb30cdde6b3ce06))
+
+
+### Documentation
+
+* **ejector:** add package README ([#21872](https://github.com/taikoxyz/taiko-mono/issues/21872)) ([f18da26](https://github.com/taikoxyz/taiko-mono/commit/f18da2619fdeb333b6dfa18ace962c2b2f3887ee))
+
+
+### Code Refactoring
+
+* **ejector:** remove router and wrapper dependencies ([#21962](https://github.com/taikoxyz/taiko-mono/issues/21962)) ([43847ec](https://github.com/taikoxyz/taiko-mono/commit/43847ecc60c7e17e382525ad8f6cb165e9a87770))
+
 ## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.1...ejector-v0.7.0) (2026-05-06)
 
 
