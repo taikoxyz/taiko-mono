@@ -49,6 +49,7 @@ type Config struct {
 	ProposalWindowSize            uint64
 	MaxRisc0ProofProposalDistance uint64
 	ForceSP1Proof                 bool
+	ForceSGXProof                 bool
 	ZkOnlyProofs                  bool
 }
 
@@ -127,6 +128,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			flags.MaxRisc0ProofProposalDistance.Name,
 		),
 		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
+		ForceSGXProof:          c.Bool(flags.ForceSGXProof.Name),
 		ZkOnlyProofs:           zkOnlyProofs,
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),

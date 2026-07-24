@@ -58,6 +58,7 @@ type ProofSubmitter struct {
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
 	forceSP1Proof                 bool
+	forceSGXProof                 bool
 	zkOnlyProofs                  bool
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
 	risc0Backlog proofProducer.Risc0BacklogController
@@ -84,6 +85,7 @@ func NewProofSubmitter(
 	proposalWindowSize *big.Int,
 	maxRisc0ProofProposalDistance *big.Int,
 	forceSP1Proof bool,
+	forceSGXProof bool,
 	zkOnlyProofs bool,
 ) (*ProofSubmitter, error) {
 	if zkvmProofProducer == nil {
@@ -111,6 +113,7 @@ func NewProofSubmitter(
 		proposalWindowSize:            proposalWindowSize,
 		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
 		forceSP1Proof:                 forceSP1Proof,
+		forceSGXProof:                 forceSGXProof,
 		zkOnlyProofs:                  zkOnlyProofs,
 		ctx:                           ctx,
 	}
@@ -284,7 +287,9 @@ func (s *ProofSubmitter) requestProposalProof(
 	// its backlog-clearing side effects, which would cancel RISC0 tasks this mode depends
 	// on) must not run.
 	proofType := proofProducer.ProofTypeZKSP1
-	if !s.zkOnlyProofs {
+	if s.forceSGXProof && !s.zkOnlyProofs {
+		proofType = proofProducer.ProofTypeSgx
+	} else if !s.zkOnlyProofs {
 		proofType = s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
 	}
 	companionProofType := proofProducer.ProofTypeSgxGeth
@@ -475,7 +480,7 @@ func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType pr
 	// nolint:exhaustive
 	// We deliberately handle only known proof types and catch others in default case
 	switch proofType {
-	case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
+	case proofProducer.ProofTypeSgx, proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}
