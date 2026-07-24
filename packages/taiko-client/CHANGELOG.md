@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.6.0...taiko-alethia-client-v2.7.0) (2026-07-24)
+
+
+### Features
+
+* **taiko-client:** add forced SGX proof mode ([#21988](https://github.com/taikoxyz/taiko-mono/issues/21988)) ([8156e25](https://github.com/taikoxyz/taiko-mono/commit/8156e25b4eb4a8bcaed1fb9878aac895426cf90e))
+* **taiko-client:** revert split dummy proof flags ([#21984](https://github.com/taikoxyz/taiko-mono/issues/21984)) ([27f052d](https://github.com/taikoxyz/taiko-mono/commit/27f052d5ae7053a773cdb8bce0634242d49105f2))
+
+
+### Bug Fixes
+
+* **taiko-client:** add Shasta fork-time floor to derivation timestamp lower bound (audit D2) ([#21980](https://github.com/taikoxyz/taiko-mono/issues/21980)) ([261ac20](https://github.com/taikoxyz/taiko-mono/commit/261ac2015f2c34993028faad88b928389f68c0f5))
+
 ## [2.6.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.5.0...taiko-alethia-client-v2.6.0) (2026-07-15)
 
 
