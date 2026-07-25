@@ -45,6 +45,17 @@ pub enum DriverError {
         actual: B256,
     },
 
+    /// A local block builder tried to replace an existing canonical block at the same height.
+    #[error(
+        "preconfirmation block {block_number} conflicts with existing canonical block {existing_hash}"
+    )]
+    PreconfCanonicalConflict {
+        /// L2 block number targeted by the preconfirmation.
+        block_number: u64,
+        /// Hash of the canonical block already materialized at that height.
+        existing_hash: B256,
+    },
+
     /// Block not found on remote node.
     #[error("remote node missing block {0}")]
     BlockNotFound(u64),

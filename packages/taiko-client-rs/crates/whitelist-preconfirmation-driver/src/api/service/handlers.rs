@@ -54,18 +54,14 @@ fn log_build_preconf_block_entry(
     );
 }
 
-#[async_trait]
-impl WhitelistApi for WhitelistApiService {
-    /// Build, sign, publish, and return a preconfirmation block.
-    async fn build_preconf_block(
+impl WhitelistApiService {
+    /// Execute the serialized local build, signature persistence, cache, and gossip workflow.
+    async fn build_preconf_block_inner(
         &self,
         request: BuildPreconfBlockRequest,
+        _build_guard: OwnedMutexGuard<()>,
     ) -> Result<BuildPreconfBlockResponse> {
         let started_at = Instant::now();
-        // Record receipt before any validation so even rejected requests
-        // mark this pod as the active preconfer for shutdown purposes.
-        self.mark_preconf_request_received().await;
-
         let BuildPreconfBlockRequest { executable_data, end_of_sequencing, is_forced_inclusion } =
             request;
         let Some(data) = executable_data else {
@@ -74,8 +70,6 @@ impl WhitelistApi for WhitelistApiService {
             ));
         };
         log_build_preconf_block_entry(&data, end_of_sequencing, is_forced_inclusion);
-
-        let _build_guard = self.build_preconf_lock.lock().await;
 
         // Guard against building on a genuinely syncing node, but tolerate the false-
         // positive that taiko-geth emits on genesis chains (currentBlock == highestBlock
@@ -106,7 +100,10 @@ impl WhitelistApi for WhitelistApiService {
             self.driver_payload_from_request(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
         let submission_outcome = self
             .event_syncer
-            .submit_preconfirmation_payload(PreconfPayload::new(driver_payload, data.parent_hash))
+            .submit_canonical_preconfirmation_payload(PreconfPayload::new(
+                driver_payload,
+                data.parent_hash,
+            ))
             .await?;
         let bound_block_hash = match submission_outcome {
             PreconfSubmissionOutcome::Inserted { block_hash } |
@@ -122,26 +119,36 @@ impl WhitelistApi for WhitelistApiService {
         // Resolve the block by the hash bound to the submission outcome: a same-height sibling
         // can become canonical between submission and this read, and a height lookup would then
         // sign a hash that does not match the request's transactions.
-        let inserted_block = self
-            .rpc
-            .l2_provider
-            .get_block_by_hash(bound_block_hash)
-            .await
-            .map_err(WhitelistPreconfirmationDriverError::provider)?
-            .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(data.block_number))?;
+        let inserted_block = retry_post_insert_step(
+            data.block_number,
+            "read_and_validate_inserted_block",
+            || async {
+                let inserted_block = self
+                    .rpc
+                    .l2_provider
+                    .get_block_by_hash(bound_block_hash)
+                    .await
+                    .map_err(WhitelistPreconfirmationDriverError::provider)?
+                    .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(
+                        data.block_number,
+                    ))?;
 
-        if inserted_block.header.parent_hash != data.parent_hash {
-            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "inserted block parent hash mismatch at block {}: expected {}, got {}",
-                data.block_number, data.parent_hash, inserted_block.header.parent_hash
-            )));
-        }
-        if inserted_block.header.number != data.block_number {
-            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "inserted block number mismatch: expected {}, got {}",
-                data.block_number, inserted_block.header.number
-            )));
-        }
+                if inserted_block.header.parent_hash != data.parent_hash {
+                    return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                        "inserted block parent hash mismatch at block {}: expected {}, got {}",
+                        data.block_number, data.parent_hash, inserted_block.header.parent_hash
+                    )));
+                }
+                if inserted_block.header.number != data.block_number {
+                    return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                        "inserted block number mismatch: expected {}, got {}",
+                        data.block_number, inserted_block.header.number
+                    )));
+                }
+                Ok(inserted_block)
+            },
+        )
+        .await;
 
         let block_hash = inserted_block.header.hash;
         let block_number = inserted_block.header.number;
@@ -149,16 +156,22 @@ impl WhitelistApi for WhitelistApiService {
         let base_fee_per_gas =
             inserted_block.header.base_fee_per_gas.unwrap_or(data.base_fee_per_gas);
         let block_hash_signature =
-            self.sign_digest(block_signing_hash(self.chain_id, block_hash.as_slice()))?;
+            retry_post_insert_step(block_number, "sign_inserted_block", || async {
+                self.sign_digest(block_signing_hash(self.chain_id, block_hash.as_slice()))
+            })
+            .await;
 
         // Persist per-block signature before gossip so RPC readers can immediately resolve
         // canonical origin signatures for the inserted block.
-        self.rpc
-            .set_l1_origin_signature(
-                U256::from(block_number),
-                FixedBytes::<65>::from(block_hash_signature),
-            )
-            .await?;
+        retry_post_insert_step(block_number, "persist_l1_origin_signature", || async {
+            self.rpc
+                .set_l1_origin_signature(
+                    U256::from(block_number),
+                    FixedBytes::<65>::from(block_hash_signature),
+                )
+                .await
+        })
+        .await;
         self.state.record_inserted_block(block_number);
 
         let execution_payload = crate::payload::execution_payload_from_header(
@@ -228,6 +241,28 @@ impl WhitelistApi for WhitelistApiService {
         );
 
         Ok(BuildPreconfBlockResponse { block_header })
+    }
+}
+
+#[async_trait]
+impl WhitelistApi for WhitelistApiService {
+    /// Build, sign, publish, and return a preconfirmation block.
+    async fn build_preconf_block(
+        &self,
+        request: BuildPreconfBlockRequest,
+    ) -> Result<BuildPreconfBlockResponse> {
+        // Record receipt before any validation so even rejected requests
+        // mark this pod as the active preconfer for shutdown purposes.
+        self.mark_preconf_request_received().await;
+
+        let service = self.clone();
+        run_serialized_drop_resistant_build(
+            Arc::clone(&self.build_preconf_lock),
+            move |build_guard| async move {
+                service.build_preconf_block_inner(request, build_guard).await
+            },
+        )
+        .await
     }
 
     /// Return runtime status for the whitelist preconfirmation driver.

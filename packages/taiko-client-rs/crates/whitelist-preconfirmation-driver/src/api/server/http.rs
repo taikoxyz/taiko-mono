@@ -44,6 +44,9 @@ fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCod
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             StatusCode::BAD_REQUEST
         }
+        WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfCanonicalConflict { .. },
+        ) => StatusCode::CONFLICT,
         // The Go preconfirmation server maps block-insertion failures to 500. Keep parent
         // mismatches and other production-path failures in this catch-all for REST parity.
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -155,5 +158,24 @@ impl IntoResponse for ApiHttpError {
         }
 
         error_response(status, message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_primitives::B256;
+
+    use super::*;
+
+    #[test]
+    fn canonical_preconfirmation_conflict_maps_to_http_conflict() {
+        let err = WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfCanonicalConflict {
+                block_number: 42,
+                existing_hash: B256::from([0x44; 32]),
+            },
+        );
+
+        assert_eq!(map_rest_error_status(&err), StatusCode::CONFLICT);
     }
 }

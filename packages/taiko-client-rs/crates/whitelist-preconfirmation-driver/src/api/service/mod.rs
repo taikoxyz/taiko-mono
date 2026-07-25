@@ -1,6 +1,8 @@
 //! Whitelist preconfirmation API service implementation.
 
 use std::{
+    fmt::Display,
+    future::Future,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -15,8 +17,11 @@ use async_trait::async_trait;
 use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
 use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, broadcast, mpsc};
-use tracing::{debug, warn};
+use tokio::{
+    sync::{Mutex, OwnedMutexGuard, broadcast, mpsc, oneshot},
+    time::sleep,
+};
+use tracing::{debug, error, warn};
 
 use crate::{
     api::{
@@ -72,6 +77,7 @@ fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
 }
 
 /// Implements whitelist preconfirmation API business logic.
+#[derive(Clone)]
 pub(crate) struct WhitelistApiService {
     /// Event syncer for L1 origin lookups.
     event_syncer: Arc<EventSyncer>,
@@ -86,7 +92,7 @@ pub(crate) struct WhitelistApiService {
     /// Channel to publish messages to the P2P network.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
-    build_preconf_lock: Mutex<()>,
+    build_preconf_lock: Arc<Mutex<()>>,
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
     /// build requests when this node's own P2P signer has been deregistered on-chain.
     operator_set: SharedOperatorSet,
@@ -97,7 +103,7 @@ pub(crate) struct WhitelistApiService {
     /// Wall-clock instant of the most recent `build_preconf_block` invocation,
     /// regardless of the request's outcome. `None` until the first request
     /// arrives. Read by `/status` to compute `can_shutdown`.
-    last_preconf_request_at: Mutex<Option<Instant>>,
+    last_preconf_request_at: Arc<Mutex<Option<Instant>>>,
 }
 
 /// Dependency bundle for constructing `WhitelistApiService`.
@@ -145,8 +151,8 @@ impl WhitelistApiService {
             state,
             eos_notification_tx,
             network_command_tx,
-            build_preconf_lock: Mutex::new(()),
-            last_preconf_request_at: Mutex::new(None),
+            build_preconf_lock: Arc::new(Mutex::new(())),
+            last_preconf_request_at: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -158,8 +164,95 @@ impl WhitelistApiService {
     }
 
     /// Returns `true` when no `build_preconf_block` request has been received
-    /// within the last `SHUTDOWN_BLOCK_WINDOW`.
+    /// within the last `SHUTDOWN_BLOCK_WINDOW` and no serialized build is active.
     pub(super) async fn compute_can_shutdown(&self) -> bool {
-        can_shutdown_for(*self.last_preconf_request_at.lock().await)
+        can_shutdown_for(*self.last_preconf_request_at.lock().await) &&
+            self.build_preconf_lock.try_lock().is_ok()
+    }
+}
+
+/// Run a local build workflow in a service-owned task that survives requester cancellation.
+///
+/// The detached task owns the entire build, signature persistence, cache, and gossip sequence.
+/// Dropping the caller only closes the response channel; it cannot leave an engine-inserted block
+/// without the metadata and envelope needed for peer recovery.
+async fn run_drop_resistant_build<T>(
+    build: impl Future<Output = Result<T>> + Send + 'static,
+) -> Result<T>
+where
+    T: Send + 'static,
+{
+    let (result_tx, result_rx) = oneshot::channel();
+    tokio::spawn(async move {
+        let result = build.await;
+        if let Err(orphaned_result) = result_tx.send(result) {
+            match orphaned_result {
+                Ok(_) => debug!("local preconfirmation build completed after requester dropped"),
+                Err(err) => error!(
+                    error = %err,
+                    "local preconfirmation build failed after requester dropped"
+                ),
+            }
+        }
+    });
+
+    result_rx.await.map_err(|_| {
+        WhitelistPreconfirmationDriverError::NodeTaskFailed(
+            "local preconfirmation build task exited without a result".to_string(),
+        )
+    })?
+}
+
+/// Wait for the shared build lock while caller cancellation is still allowed, then detach.
+///
+/// A requester dropped while waiting for the lock never creates a background build. Once the
+/// owned guard is acquired, the complete workflow becomes drop-resistant and retains the guard
+/// until it reaches a terminal result.
+async fn run_serialized_drop_resistant_build<T, F, Fut>(
+    build_lock: Arc<Mutex<()>>,
+    build: F,
+) -> Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce(OwnedMutexGuard<()>) -> Fut + Send,
+    Fut: Future<Output = Result<T>> + Send + 'static,
+{
+    let build_guard = build_lock.lock_owned().await;
+    run_drop_resistant_build(build(build_guard)).await
+}
+
+/// Retry one post-insertion finalization step until local recovery metadata is durable.
+///
+/// Once the engine has accepted a block, returning a transient error would strand a canonical
+/// block without the signature/cache state peers need to recover it. Retrying under the serialized
+/// build guard fails closed: no same-height retry can race the unfinished finalization.
+async fn retry_post_insert_step<T, E, F, Fut>(
+    block_number: u64,
+    step: &'static str,
+    mut operation: F,
+) -> T
+where
+    E: Display,
+    F: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<T, E>>,
+{
+    const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
+
+    let mut retry_delay = Duration::from_secs(1);
+    loop {
+        match operation().await {
+            Ok(value) => return value,
+            Err(err) => {
+                error!(
+                    block_number,
+                    step,
+                    error = %err,
+                    retry_delay_ms = retry_delay.as_millis() as u64,
+                    "post-insertion preconfirmation finalization failed; retrying"
+                );
+                sleep(retry_delay).await;
+                retry_delay = retry_delay.saturating_mul(2).min(MAX_RETRY_DELAY);
+            }
+        }
     }
 }
