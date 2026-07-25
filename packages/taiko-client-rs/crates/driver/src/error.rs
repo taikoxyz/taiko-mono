@@ -56,6 +56,13 @@ pub enum DriverError {
         existing_hash: B256,
     },
 
+    /// Block production was halted after an uncertain local preconfirmation finalization.
+    #[error("block production halted: {reason}")]
+    ProductionHalted {
+        /// Failure that forced production to stop until the process is restarted.
+        reason: String,
+    },
+
     /// Block not found on remote node.
     #[error("remote node missing block {0}")]
     BlockNotFound(u64),

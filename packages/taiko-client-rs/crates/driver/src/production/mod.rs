@@ -109,6 +109,8 @@ pub struct ProductionRouter {
     canonical: Arc<dyn BlockProductionPath + Send + Sync>,
     /// Path injecting preconfirmation payloads, present when preconfirmation is enabled.
     preconf: Option<Arc<dyn BlockProductionPath + Send + Sync>>,
+    /// Fail-closed latch set when local finalization can no longer safely release serialization.
+    halted_reason: Option<String>,
 }
 
 impl ProductionRouter {
@@ -117,7 +119,12 @@ impl ProductionRouter {
         canonical: Arc<dyn BlockProductionPath + Send + Sync>,
         preconf: Option<Arc<dyn BlockProductionPath + Send + Sync>>,
     ) -> Self {
-        Self { canonical, preconf }
+        Self { canonical, preconf, halted_reason: None }
+    }
+
+    /// Stop every production path after an uncertain local preconfirmation finalization.
+    pub(crate) fn halt(&mut self, reason: String) {
+        self.halted_reason.get_or_insert(reason);
     }
 
     /// Route input to the matching path based on the variant.
@@ -125,6 +132,9 @@ impl ProductionRouter {
         &self,
         input: ProductionInput,
     ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+        if let Some(reason) = &self.halted_reason {
+            return Err(DriverError::ProductionHalted { reason: reason.clone() })
+        }
         match &input {
             ProductionInput::L1ProposalLog(_) => self.canonical.produce(input).await,
             ProductionInput::Preconfirmation(_) => match &self.preconf {

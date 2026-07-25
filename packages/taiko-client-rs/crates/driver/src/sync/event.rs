@@ -23,7 +23,7 @@ use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, Notification, ScannerError, ScannerMessage};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
+    sync::{Mutex as AsyncMutex, Notify, OwnedMutexGuard, mpsc, oneshot},
     time::{MissedTickBehavior, interval, sleep, timeout},
 };
 use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
@@ -458,7 +458,7 @@ pub struct PreconfJob {
     /// The preconfirmation payload to be processed.
     payload: Arc<PreconfPayload>,
     /// Oneshot channel to send the processing result back to the caller.
-    respond_to: oneshot::Sender<Result<PreconfSubmissionOutcome, DriverError>>,
+    respond_to: oneshot::Sender<Result<PreconfJobResponse, DriverError>>,
     /// Lifecycle shared with the submitter so a queued job can be abandoned without racing
     /// an engine injection that has already started.
     lifecycle: Arc<PreconfJobLifecycle>,
@@ -473,6 +473,60 @@ enum PreconfSubmissionPolicy {
     BranchCapable,
     /// Require the target height to be empty before a local block builder injects the payload.
     CanonicalExtensionOnly,
+}
+
+/// Result delivered by the serialized ingress loop to a preconfirmation submitter.
+enum PreconfJobResponse {
+    /// Terminal result for a branch-capable import after the router lock has been released.
+    Branch(PreconfSubmissionOutcome),
+    /// Local-builder result that retains the router lock through signature persistence.
+    Canonical(CanonicalPreconfSubmission),
+}
+
+impl PreconfJobResponse {
+    /// Extract a branch-capable outcome and reject an impossible policy mismatch.
+    fn into_branch(self) -> Result<PreconfSubmissionOutcome, DriverError> {
+        match self {
+            Self::Branch(outcome) => Ok(outcome),
+            Self::Canonical(_) => Err(DriverError::Other(anyhow!(
+                "canonical response returned for branch-capable preconfirmation"
+            ))),
+        }
+    }
+
+    /// Extract a canonical submission guard and reject an impossible policy mismatch.
+    fn into_canonical(self) -> Result<CanonicalPreconfSubmission, DriverError> {
+        match self {
+            Self::Canonical(submission) => Ok(submission),
+            Self::Branch(_) => Err(DriverError::Other(anyhow!(
+                "branch response returned for canonical preconfirmation"
+            ))),
+        }
+    }
+}
+
+/// Local preconfirmation result that keeps all block-production paths serialized until finalized.
+///
+/// The held router guard prevents event derivation or branch-capable imports from replacing the
+/// submitted block between hash-bound validation and `set_l1_origin_signature`. Callers should
+/// retain this value until the signature is durably written, then drop it to reopen production.
+pub struct CanonicalPreconfSubmission {
+    /// Exact terminal outcome observed inside the serialized production path.
+    outcome: PreconfSubmissionOutcome,
+    /// Router guard retained across the caller's hash-bound finalization steps.
+    _router_guard: OwnedMutexGuard<ProductionRouter>,
+}
+
+impl CanonicalPreconfSubmission {
+    /// Return the exact submission outcome while retaining the finalization guard.
+    pub const fn outcome(&self) -> PreconfSubmissionOutcome {
+        self.outcome
+    }
+
+    /// Halt all production before releasing the finalization guard.
+    pub fn halt(mut self, reason: impl Into<String>) {
+        self._router_guard.halt(reason.into());
+    }
 }
 
 /// Atomic lifecycle state for one queued preconfirmation job.
@@ -513,6 +567,11 @@ impl PreconfJobLifecycle {
             .is_ok()
     }
 
+    /// Return whether the submitter abandoned this job before engine production started.
+    fn is_abandoned(&self) -> bool {
+        self.state.load(Ordering::Acquire) == PreconfJobState::Abandoned as u8
+    }
+
     /// Commit a queued job to engine production unless its submitter already abandoned it.
     fn start_processing(&self) -> bool {
         self.state
@@ -545,10 +604,32 @@ impl Drop for PreconfSubmissionGuard {
 }
 
 impl PreconfJob {
-    /// Complete this job and best-effort deliver its terminal result to the submitter.
-    fn respond(self, result: Result<PreconfSubmissionOutcome, DriverError>) {
+    /// Complete this job and best-effort deliver an error to the submitter.
+    fn respond_error(self, error: DriverError) {
         self.lifecycle.complete();
-        let _ = self.respond_to.send(result);
+        let _ = self.respond_to.send(Err(error));
+    }
+
+    /// Deliver a successful outcome, retaining the router guard only for local finalization.
+    fn respond_outcome(
+        self,
+        outcome: PreconfSubmissionOutcome,
+        router_guard: OwnedMutexGuard<ProductionRouter>,
+    ) {
+        self.lifecycle.complete();
+        let response = match self.policy {
+            PreconfSubmissionPolicy::BranchCapable => {
+                drop(router_guard);
+                PreconfJobResponse::Branch(outcome)
+            }
+            PreconfSubmissionPolicy::CanonicalExtensionOnly => {
+                PreconfJobResponse::Canonical(CanonicalPreconfSubmission {
+                    outcome,
+                    _router_guard: router_guard,
+                })
+            }
+        };
+        let _ = self.respond_to.send(Ok(response));
     }
 }
 
@@ -618,6 +699,52 @@ async fn materialized_preconfirmation_block_hash(
     Ok(matches_base_fee.then_some(header.hash))
 }
 
+/// Return whether an engine submission error may have happened after the engine mutated state.
+fn preconf_error_may_have_materialized(err: &DriverError) -> bool {
+    matches!(
+        err,
+        DriverError::PreconfInjectionFailed {
+            source: EngineSubmissionError::Rpc(_) |
+                EngineSubmissionError::Provider(_) |
+                EngineSubmissionError::MissingInsertedBlock(_) |
+                EngineSubmissionError::InsertedBlockHashMismatch { .. },
+            ..
+        }
+    )
+}
+
+/// Reconcile an uncertain engine submission while production remains serialized.
+async fn reconcile_uncertain_canonical_preconfirmation(
+    rpc: &Client,
+    payload: &PreconfPayload,
+) -> Option<B256> {
+    const MAX_ATTEMPTS: usize = 6;
+    const INITIAL_DELAY: Duration = Duration::from_millis(100);
+    const MAX_DELAY: Duration = Duration::from_secs(1);
+
+    let mut retry_delay = INITIAL_DELAY;
+    for attempt in 1..=MAX_ATTEMPTS {
+        match materialized_preconfirmation_block_hash(rpc, payload).await {
+            Ok(Some(block_hash)) => return Some(block_hash),
+            Ok(None) => debug!(
+                block_number = payload.block_number(),
+                attempt, "uncertain preconfirmation is not yet visible during reconciliation"
+            ),
+            Err(err) => warn!(
+                block_number = payload.block_number(),
+                attempt,
+                ?err,
+                "failed to read uncertain preconfirmation during reconciliation"
+            ),
+        }
+        if attempt < MAX_ATTEMPTS {
+            sleep(retry_delay).await;
+            retry_delay = retry_delay.saturating_mul(2).min(MAX_DELAY);
+        }
+    }
+    None
+}
+
 impl EventSyncer {
     /// Build the production router with the enabled paths.
     fn build_router(
@@ -660,9 +787,26 @@ impl EventSyncer {
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
                 DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                if job.lifecycle.is_abandoned() {
+                    debug!(
+                        block_number = job.payload.block_number(),
+                        "skipping abandoned preconfirmation before waiting for the router"
+                    );
+                    continue;
+                }
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
-                let router_guard = router.lock().await;
+                let mut router_guard = Arc::clone(&router).lock_owned().await;
+                // A submitter may time out while this job waits behind a long proposal. Avoid
+                // running any RPC safety probes for work that can no longer enter the engine.
+                if job.lifecycle.is_abandoned() {
+                    debug!(
+                        block_number,
+                        "skipping abandoned preconfirmation after acquiring the router"
+                    );
+                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                    continue;
+                }
                 // Re-check ingress readiness under the router lock: the event loop closes the
                 // gate when the scanner drops into a replay window, and jobs that were already
                 // queued (or raced past the submit-side readiness check) must not inject
@@ -673,7 +817,7 @@ impl EventSyncer {
                         block_number,
                         "rejecting queued preconfirmation payload while ingress is closed"
                     );
-                    job.respond(Err(DriverError::PreconfIngressNotReady));
+                    job.respond_error(DriverError::PreconfIngressNotReady);
                     DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
                 }
@@ -687,7 +831,7 @@ impl EventSyncer {
                     Ok(None) => 0,
                     Err(err) => {
                         error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
-                        job.respond(Err(DriverError::Rpc(err)));
+                        job.respond_error(DriverError::Rpc(err));
                         DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
@@ -700,7 +844,7 @@ impl EventSyncer {
                         head_l1_origin_block_id,
                         "dropping stale preconfirmation payload in ingress loop"
                     );
-                    job.respond(Ok(PreconfSubmissionOutcome::Stale));
+                    job.respond_outcome(PreconfSubmissionOutcome::Stale, router_guard);
                     DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
                 }
@@ -715,9 +859,10 @@ impl EventSyncer {
                             %block_hash,
                             "preconfirmation payload is already materialized"
                         );
-                        job.respond(Ok(PreconfSubmissionOutcome::AlreadyMaterialized {
-                            block_hash,
-                        }));
+                        job.respond_outcome(
+                            PreconfSubmissionOutcome::AlreadyMaterialized { block_hash },
+                            router_guard,
+                        );
                         DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
@@ -727,7 +872,7 @@ impl EventSyncer {
                             ?err,
                             block_number, "failed to check preconfirmation materialization state"
                         );
-                        job.respond(Err(err));
+                        job.respond_error(err);
                         DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
@@ -747,7 +892,7 @@ impl EventSyncer {
                                 block_number,
                                 "failed to check canonical preconfirmation target height"
                             );
-                            job.respond(Err(err));
+                            job.respond_error(err);
                             DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                             continue;
                         }
@@ -759,10 +904,10 @@ impl EventSyncer {
                             %existing_hash,
                             "rejecting local preconfirmation that would replace a canonical block"
                         );
-                        job.respond(Err(DriverError::PreconfCanonicalConflict {
+                        job.respond_error(DriverError::PreconfCanonicalConflict {
                             block_number,
                             existing_hash,
-                        }));
+                        });
                         DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
@@ -801,7 +946,10 @@ impl EventSyncer {
                                 "preconfirmation payload injected"
                             );
                             // Return the produced block identity to the original sender.
-                            job.respond(Ok(PreconfSubmissionOutcome::Inserted { block_hash }));
+                            job.respond_outcome(
+                                PreconfSubmissionOutcome::Inserted { block_hash },
+                                router_guard,
+                            );
                         }
                         // The preconfirmation path always yields exactly one outcome; treat an
                         // empty result as a missing block rather than fabricating an identity.
@@ -811,7 +959,7 @@ impl EventSyncer {
                                 block_number,
                                 duration_secs, "preconfirmation injection returned no block"
                             );
-                            job.respond(Err(DriverError::BlockNotFound(block_number)));
+                            job.respond_error(DriverError::BlockNotFound(block_number));
                         }
                     },
                     Err(err) => {
@@ -823,8 +971,36 @@ impl EventSyncer {
                             duration_secs,
                             "preconfirmation processing failed"
                         );
-                        // Surface the error to the original sender.
-                        job.respond(Err(err));
+                        if job.policy == PreconfSubmissionPolicy::CanonicalExtensionOnly &&
+                            preconf_error_may_have_materialized(&err)
+                        {
+                            if let Some(block_hash) = reconcile_uncertain_canonical_preconfirmation(
+                                &rpc,
+                                job.payload.as_ref(),
+                            )
+                            .await
+                            {
+                                warn!(
+                                    block_number,
+                                    %block_hash,
+                                    "recovered canonical preconfirmation after uncertain engine response"
+                                );
+                                job.respond_outcome(
+                                    PreconfSubmissionOutcome::AlreadyMaterialized { block_hash },
+                                    router_guard,
+                                );
+                            } else {
+                                let reason = format!(
+                                    "could not reconcile canonical preconfirmation block {block_number} after engine error: {err}"
+                                );
+                                router_guard.halt(reason.clone());
+                                job.respond_error(DriverError::ProductionHalted { reason });
+                            }
+                        } else {
+                            // Errors that prove no uncertain canonical mutation occurred can be
+                            // returned without poisoning the production router.
+                            job.respond_error(err);
+                        }
                     }
                 }
                 DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
@@ -1337,7 +1513,8 @@ impl EventSyncer {
             PreconfSubmissionPolicy::BranchCapable,
             PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
         )
-        .await
+        .await?
+        .into_branch()
     }
 
     /// Submit a branch-capable preconfirmation payload with an enqueue + response timeout.
@@ -1351,20 +1528,22 @@ impl EventSyncer {
             PreconfSubmissionPolicy::BranchCapable,
             timeout_duration,
         )
-        .await
+        .await?
+        .into_branch()
     }
 
     /// Submit a locally built preconfirmation without replacing a canonical same-height block.
     pub async fn submit_canonical_preconfirmation_payload(
         &self,
         payload: PreconfPayload,
-    ) -> Result<PreconfSubmissionOutcome, DriverError> {
+    ) -> Result<CanonicalPreconfSubmission, DriverError> {
         self.submit_preconfirmation_payload_with_policy_and_timeout(
             payload,
             PreconfSubmissionPolicy::CanonicalExtensionOnly,
             PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
         )
-        .await
+        .await?
+        .into_canonical()
     }
 
     /// Submit a preconfirmation using the requested branch policy and response deadline.
@@ -1373,7 +1552,7 @@ impl EventSyncer {
         payload: PreconfPayload,
         policy: PreconfSubmissionPolicy,
         timeout_duration: Duration,
-    ) -> Result<PreconfSubmissionOutcome, DriverError> {
+    ) -> Result<PreconfJobResponse, DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
 
         // Reject early if strict ingress gating is not satisfied yet.
@@ -1384,8 +1563,11 @@ impl EventSyncer {
         // Best-effort duplicate fast path outside the serialized loop: the returned outcome
         // carries the exact hash this check observed, so it stays self-consistent even if a
         // sibling becomes canonical afterwards.
-        let materialized_block_hash =
-            materialized_preconfirmation_block_hash(&self.rpc, &payload).await?;
+        let materialized_block_hash = if policy == PreconfSubmissionPolicy::BranchCapable {
+            materialized_preconfirmation_block_hash(&self.rpc, &payload).await?
+        } else {
+            None
+        };
         if let Some(block_hash) = materialized_block_hash {
             debug!(
                 block_number = payload.block_number(),
@@ -1402,17 +1584,21 @@ impl EventSyncer {
             Some(origin) => origin.block_id.to::<u64>(),
             None => 0,
         };
-        if is_stale_preconf(block_number, head_l1_origin_block_id) {
+        if is_stale_preconf(block_number, head_l1_origin_block_id) &&
+            policy == PreconfSubmissionPolicy::BranchCapable
+        {
             DriverMetrics::preconf_stale_dropped_total().inc();
             DriverMetrics::preconf_stale_dropped_before_enqueue_total().inc();
             warn!(
                 block_number,
                 head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
             );
-            return Ok(PreconfSubmissionOutcome::Stale);
+            return Ok(PreconfJobResponse::Branch(PreconfSubmissionOutcome::Stale));
         }
         if let Some(block_hash) = materialized_block_hash {
-            return Ok(PreconfSubmissionOutcome::AlreadyMaterialized { block_hash });
+            return Ok(PreconfJobResponse::Branch(PreconfSubmissionOutcome::AlreadyMaterialized {
+                block_hash,
+            }));
         }
 
         debug!(block_number, "submitting preconfirmation payload to queue");
@@ -1496,7 +1682,7 @@ impl EventSyncer {
 
         drop(submission_guard);
 
-        debug!(block_number, ?outcome, "preconfirmation payload processed successfully");
+        debug!(block_number, "preconfirmation payload processed successfully");
         Ok(outcome)
     }
 
@@ -2075,6 +2261,9 @@ mod tests {
         },
     };
 
+    /// Shared record of preconfirmation identities observed by a controllable path.
+    type SeenPreconfIdentities = StdArc<Mutex<Vec<(u64, u64, [u8; 8])>>>;
+
     /// Production path that exposes deterministic entry and release points to race tests.
     #[derive(Clone)]
     struct ControllablePreconfPath {
@@ -2083,7 +2272,7 @@ mod tests {
         /// Blocks `produce` until the test permits it to complete.
         release: StdArc<tokio::sync::Semaphore>,
         /// Payload identities observed by the production path.
-        seen: StdArc<Mutex<Vec<(u64, u64, [u8; 8])>>>,
+        seen: SeenPreconfIdentities,
     }
 
     impl ControllablePreconfPath {
@@ -2120,6 +2309,25 @@ mod tests {
             self.entered.add_permits(1);
             self.release.acquire().await.expect("release semaphore should remain open").forget();
             Ok(vec![sample_engine_outcome(payload.block_number())])
+        }
+    }
+
+    /// Production path that models an RPC failure after the engine may have mutated state.
+    struct UncertainPreconfPath;
+
+    #[async_trait]
+    impl BlockProductionPath for UncertainPreconfPath {
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::Preconfirmation(payload) = input else {
+                return Err(anyhow!("expected preconfirmation input").into());
+            };
+            Err(DriverError::PreconfInjectionFailed {
+                block_number: payload.block_number(),
+                source: EngineSubmissionError::Provider("mock response lost".to_string()),
+            })
         }
     }
 
@@ -2926,7 +3134,8 @@ mod tests {
         timeout(Duration::from_secs(1), response)
             .await
             .expect("ingress loop should answer the queued job")
-            .expect("ingress loop should not drop the response channel")
+            .expect("ingress loop should not drop the response channel")?
+            .into_branch()
     }
 
     #[tokio::test]
@@ -2974,9 +3183,9 @@ mod tests {
     #[test_log::test(tokio::test(start_paused = true))]
     async fn timed_out_queued_preconf_is_abandoned_before_injection() {
         let l2_asserter = Asserter::new();
-        // Two submissions each perform a materialization + boundary read before enqueue, then
-        // the ingress loop repeats the boundary + materialization checks under the router lock.
-        for _ in 0..8 {
+        // Both submissions perform materialization + boundary reads before enqueue. The abandoned
+        // first job must consume no ingress RPCs; only the retry repeats the two locked checks.
+        for _ in 0..6 {
             l2_asserter.push_success(&Option::<RpcL1Origin>::None);
         }
         let path = MockProductionPath::default();
@@ -2993,7 +3202,7 @@ mod tests {
                 )
                 .await
         });
-        wait_for_rpc_queue_len(&l2_asserter, 6).await;
+        wait_for_rpc_queue_len(&l2_asserter, 4).await;
         tokio::time::advance(Duration::from_secs(13)).await;
         tokio::task::yield_now().await;
         assert!(matches!(
@@ -3010,7 +3219,7 @@ mod tests {
                 )
                 .await
         });
-        wait_for_rpc_queue_len(&l2_asserter, 4).await;
+        wait_for_rpc_queue_len(&l2_asserter, 2).await;
         drop(proposal_guard);
 
         assert!(matches!(
@@ -3018,6 +3227,10 @@ mod tests {
             Ok(PreconfSubmissionOutcome::Inserted { .. })
         ));
         assert_eq!(path.produced_blocks(), vec![1]);
+        assert!(
+            l2_asserter.read_q().is_empty(),
+            "the abandoned job must not consume ingress RPC responses"
+        );
     }
 
     #[test_log::test(tokio::test(start_paused = true))]
@@ -3055,9 +3268,102 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn canonical_preconfirmation_rejects_same_height_sibling() {
+    async fn canonical_preconf_submission_holds_router_until_caller_finishes_finalization() {
         let l2_asserter = Asserter::new();
         for _ in 0..4 {
+            l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        }
+        let path = MockProductionPath::default();
+        let (syncer, router) =
+            spawn_submission_test_ingress(l2_asserter, StdArc::new(path.clone())).await;
+
+        let submission = syncer
+            .submit_canonical_preconfirmation_payload(identified_preconf_payload(1, 100, 0xaa))
+            .await
+            .expect("canonical submission should be inserted");
+        assert!(matches!(submission.outcome(), PreconfSubmissionOutcome::Inserted { .. }));
+        assert!(
+            router.try_lock().is_err(),
+            "event and branch production must remain blocked until signature persistence"
+        );
+
+        drop(submission);
+        assert!(router.try_lock().is_ok(), "dropping the submission must reopen production");
+        assert_eq!(path.produced_blocks(), vec![1]);
+    }
+
+    #[tokio::test]
+    async fn canonical_preconf_reconciles_materialized_block_after_uncertain_engine_error() {
+        let l2_asserter = Asserter::new();
+        for _ in 0..4 {
+            l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        }
+
+        let payload = identified_preconf_payload(1, 100, 0xaa);
+        let origin = payload.payload().l1_origin.clone();
+        let observed_block_hash = B256::from([0x66; 32]);
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = observed_block_hash;
+        block.header.parent_hash = payload.expected_parent_hash();
+        block.header.number = payload.block_number();
+        block.header.beneficiary = payload.payload().payload_attributes.suggested_fee_recipient;
+        block.header.mix_hash = payload.payload().payload_attributes.prev_randao;
+        block.header.gas_limit = payload.payload().block_metadata.gas_limit;
+        block.header.timestamp = payload.payload().payload_attributes.timestamp;
+        block.header.extra_data = payload.payload().block_metadata.extra_data.clone();
+        block.header.base_fee_per_gas = Some(0);
+        l2_asserter.push_success(&Some(origin));
+        l2_asserter.push_success(&Some(block));
+
+        let (syncer, router) =
+            spawn_submission_test_ingress(l2_asserter, StdArc::new(UncertainPreconfPath)).await;
+        let submission = syncer
+            .submit_canonical_preconfirmation_payload(payload)
+            .await
+            .expect("uncertain engine response should reconcile the materialized block");
+
+        assert_eq!(
+            submission.outcome(),
+            PreconfSubmissionOutcome::AlreadyMaterialized { block_hash: observed_block_hash }
+        );
+        assert!(router.try_lock().is_err(), "reconciled submission must retain the router lease");
+    }
+
+    #[tokio::test]
+    async fn fatal_canonical_finalization_halts_all_production_before_releasing_router() {
+        let l2_asserter = Asserter::new();
+        for _ in 0..4 {
+            l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        }
+        let path = MockProductionPath::default();
+        let (syncer, router) =
+            spawn_submission_test_ingress(l2_asserter, StdArc::new(path.clone())).await;
+        let submission = syncer
+            .submit_canonical_preconfirmation_payload(identified_preconf_payload(1, 100, 0xaa))
+            .await
+            .expect("canonical submission should be inserted");
+
+        submission.halt("mock finalization failure");
+        let result = router
+            .lock()
+            .await
+            .produce(ProductionInput::Preconfirmation(StdArc::new(identified_preconf_payload(
+                2, 112, 0xbb,
+            ))))
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(DriverError::ProductionHalted { reason })
+                if reason == "mock finalization failure"
+        ));
+        assert_eq!(path.produced_blocks(), vec![1]);
+    }
+
+    #[tokio::test]
+    async fn canonical_preconfirmation_rejects_same_height_sibling() {
+        let l2_asserter = Asserter::new();
+        for _ in 0..3 {
             l2_asserter.push_success(&Option::<RpcL1Origin>::None);
         }
         let existing_hash = B256::from([0x44; 32]);
@@ -3070,11 +3376,7 @@ mod tests {
         let (syncer, _) =
             spawn_submission_test_ingress(l2_asserter, StdArc::new(path.clone())).await;
         let result = syncer
-            .submit_preconfirmation_payload_with_policy_and_timeout(
-                identified_preconf_payload(1, 112, 0xbb),
-                PreconfSubmissionPolicy::CanonicalExtensionOnly,
-                Duration::from_secs(1),
-            )
+            .submit_canonical_preconfirmation_payload(identified_preconf_payload(1, 112, 0xbb))
             .await;
 
         assert!(matches!(

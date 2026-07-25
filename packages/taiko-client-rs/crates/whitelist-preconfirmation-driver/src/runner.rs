@@ -11,7 +11,7 @@ use driver::{
 };
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::{
     Result,
@@ -114,9 +114,11 @@ impl WhitelistPreconfirmationDriverRunner {
             .header
             .number;
         let state = SharedPreconfState::new(initial_l2_head);
+        let (fatal_build_tx, mut fatal_build_rx) = tokio::sync::mpsc::unbounded_channel();
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
+        let mut api_service = None;
         let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
@@ -134,6 +136,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 operator_set: operator_set.clone(),
                 state: state.clone(),
                 network_command_tx: network.command_tx.clone(),
+                fatal_build_tx,
             }));
             let server_config = WhitelistApiServerConfig {
                 listen_addr,
@@ -141,6 +144,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 cors_origins: self.config.rpc_cors_origins.clone(),
             };
             let server = WhitelistApiServer::start(server_config, handler.clone()).await?;
+            api_service = Some(handler);
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -174,7 +178,11 @@ impl WhitelistPreconfirmationDriverRunner {
         loop {
             tokio::select! {
                 result = &mut node_handle => {
-                    stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                    stop_sidecars(
+                        event_syncer_handle,
+                        &mut rest_ws_server,
+                        api_service.as_deref(),
+                    ).await;
                     return match result {
                         Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                             "whitelist preconfirmation network exited unexpectedly".to_string(),
@@ -186,14 +194,33 @@ impl WhitelistPreconfirmationDriverRunner {
                     };
                 }
                 result = &mut event_syncer_handle => {
+                    stop_sidecars(
+                        event_syncer_handle,
+                        &mut rest_ws_server,
+                        api_service.as_deref(),
+                    ).await;
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
-                    stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
                     return map_event_syncer_exit(result).map_err(Into::into);
+                }
+                Some(reason) = fatal_build_rx.recv() => {
+                    error!(%reason, "fatal local preconfirmation finalization failure");
+                    stop_sidecars(
+                        event_syncer_handle,
+                        &mut rest_ws_server,
+                        api_service.as_deref(),
+                    ).await;
+                    let _ = command_tx.send(NetworkCommand::Shutdown).await;
+                    node_handle.abort();
+                    return Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(reason));
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
-                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                        stop_sidecars(
+                            event_syncer_handle,
+                            &mut rest_ws_server,
+                            api_service.as_deref(),
+                        ).await;
                         return Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                             "whitelist preconfirmation event channel closed".to_string(),
                         ));
@@ -219,13 +246,17 @@ impl WhitelistPreconfirmationDriverRunner {
     }
 }
 
-/// Abort sidecar tasks and stop the REST server during shutdown.
+/// Stop accepting API requests, drain accepted builds, then abort event-sync sidecars.
 async fn stop_sidecars<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
     rest_ws_server: &mut Option<WhitelistApiServer>,
+    api_service: Option<&WhitelistApiService>,
 ) {
-    event_syncer_handle.abort();
     if let Some(server) = rest_ws_server.take() {
         server.stop().await;
     }
+    if let Some(service) = api_service {
+        service.wait_for_active_build().await;
+    }
+    event_syncer_handle.abort();
 }

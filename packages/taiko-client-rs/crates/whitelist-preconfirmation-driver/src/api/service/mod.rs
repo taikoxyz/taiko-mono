@@ -14,11 +14,14 @@ use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use async_trait::async_trait;
-use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
+use driver::{
+    PreconfPayload, PreconfSubmissionOutcome,
+    sync::event::{CanonicalPreconfSubmission, EventSyncer},
+};
 use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::{
-    sync::{Mutex, OwnedMutexGuard, broadcast, mpsc, oneshot},
+    sync::{Mutex, broadcast, mpsc, oneshot},
     time::sleep,
 };
 use tracing::{debug, error, warn};
@@ -91,6 +94,8 @@ pub(crate) struct WhitelistApiService {
     beacon_client: Arc<BeaconClient>,
     /// Channel to publish messages to the P2P network.
     network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Notifies the runner when an inserted block cannot be finalized safely.
+    fatal_build_tx: mpsc::UnboundedSender<String>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Arc<Mutex<()>>,
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
@@ -124,6 +129,8 @@ pub(crate) struct WhitelistApiServiceParams {
     pub(crate) state: SharedPreconfState,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Runner notification channel for fail-closed local build failures.
+    pub(crate) fatal_build_tx: mpsc::UnboundedSender<String>,
 }
 
 impl WhitelistApiService {
@@ -138,6 +145,7 @@ impl WhitelistApiService {
             operator_set,
             state,
             network_command_tx,
+            fatal_build_tx,
         }: WhitelistApiServiceParams,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
@@ -151,6 +159,7 @@ impl WhitelistApiService {
             state,
             eos_notification_tx,
             network_command_tx,
+            fatal_build_tx,
             build_preconf_lock: Arc::new(Mutex::new(())),
             last_preconf_request_at: Arc::new(Mutex::new(None)),
         }
@@ -168,6 +177,18 @@ impl WhitelistApiService {
     pub(super) async fn compute_can_shutdown(&self) -> bool {
         can_shutdown_for(*self.last_preconf_request_at.lock().await) &&
             self.build_preconf_lock.try_lock().is_ok()
+    }
+
+    /// Wait until every serialized local build accepted before shutdown has finished.
+    pub(crate) async fn wait_for_active_build(&self) {
+        wait_for_serialized_build(Arc::clone(&self.build_preconf_lock)).await;
+    }
+
+    /// Ask the runner to restart after halting production on an unsafe finalization failure.
+    fn report_fatal_build_failure(&self, reason: String) {
+        if self.fatal_build_tx.send(reason.clone()).is_err() {
+            error!(%reason, "failed to notify runner about fatal local build failure");
+        }
     }
 }
 
@@ -214,14 +235,24 @@ async fn run_serialized_drop_resistant_build<T, F, Fut>(
 ) -> Result<T>
 where
     T: Send + 'static,
-    F: FnOnce(OwnedMutexGuard<()>) -> Fut + Send,
+    F: FnOnce() -> Fut + Send + 'static,
     Fut: Future<Output = Result<T>> + Send + 'static,
 {
     let build_guard = build_lock.lock_owned().await;
-    run_drop_resistant_build(build(build_guard)).await
+    run_drop_resistant_build(async move {
+        let result = build().await;
+        drop(build_guard);
+        result
+    })
+    .await
 }
 
-/// Retry one post-insertion finalization step until local recovery metadata is durable.
+/// Join the serialized build lane without cancelling a detached in-flight finalization task.
+async fn wait_for_serialized_build(build_lock: Arc<Mutex<()>>) {
+    drop(build_lock.lock_owned().await);
+}
+
+/// Retry one post-insertion finalization step for a bounded recovery window.
 ///
 /// Once the engine has accepted a block, returning a transient error would strand a canonical
 /// block without the signature/cache state peers need to recover it. Retrying under the serialized
@@ -229,30 +260,66 @@ where
 async fn retry_post_insert_step<T, E, F, Fut>(
     block_number: u64,
     step: &'static str,
-    mut operation: F,
-) -> T
+    operation: F,
+) -> std::result::Result<T, E>
 where
     E: Display,
     F: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<T, E>>,
 {
-    const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
+    retry_post_insert_step_with_backoff(
+        block_number,
+        step,
+        Duration::from_secs(1),
+        Duration::from_secs(30),
+        6,
+        operation,
+    )
+    .await
+}
 
-    let mut retry_delay = Duration::from_secs(1);
-    loop {
+/// Retry a post-insertion step using caller-provided exponential-backoff bounds.
+async fn retry_post_insert_step_with_backoff<T, E, F, Fut>(
+    block_number: u64,
+    step: &'static str,
+    initial_retry_delay: Duration,
+    max_retry_delay: Duration,
+    max_attempts: usize,
+    mut operation: F,
+) -> std::result::Result<T, E>
+where
+    E: Display,
+    F: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<T, E>>,
+{
+    let mut retry_delay = initial_retry_delay;
+    assert!(max_attempts > 0, "post-insert retry requires at least one attempt");
+    for attempt in 1..=max_attempts {
         match operation().await {
-            Ok(value) => return value,
+            Ok(value) => return Ok(value),
             Err(err) => {
+                if attempt == max_attempts {
+                    error!(
+                        block_number,
+                        step,
+                        error = %err,
+                        attempt,
+                        "post-insertion preconfirmation finalization exhausted retries"
+                    );
+                    return Err(err)
+                }
                 error!(
                     block_number,
                     step,
                     error = %err,
+                    attempt,
                     retry_delay_ms = retry_delay.as_millis() as u64,
                     "post-insertion preconfirmation finalization failed; retrying"
                 );
                 sleep(retry_delay).await;
-                retry_delay = retry_delay.saturating_mul(2).min(MAX_RETRY_DELAY);
+                retry_delay = retry_delay.saturating_mul(2).min(max_retry_delay);
             }
         }
     }
+    unreachable!("positive retry attempt count must return from loop")
 }

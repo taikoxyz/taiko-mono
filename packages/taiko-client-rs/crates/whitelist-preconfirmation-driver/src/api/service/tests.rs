@@ -11,8 +11,8 @@ use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
     api::service::{
-        SHUTDOWN_BLOCK_WINDOW, can_shutdown_for, retry_post_insert_step,
-        run_serialized_drop_resistant_build,
+        SHUTDOWN_BLOCK_WINDOW, can_shutdown_for, retry_post_insert_step_with_backoff,
+        run_serialized_drop_resistant_build, wait_for_serialized_build,
     },
     cache::SharedPreconfState,
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
@@ -30,8 +30,8 @@ async fn drop_resistant_build_continues_after_requester_is_aborted() {
     let build_release = Arc::clone(&release);
     let build_completed = Arc::clone(&completed);
     let requester = tokio::spawn(run_serialized_drop_resistant_build(
-        build_lock,
-        move |_build_guard| async move {
+        Arc::clone(&build_lock),
+        move || async move {
             build_entered.add_permits(1);
             build_release.acquire().await.expect("release semaphore should remain open").forget();
             build_completed.add_permits(1);
@@ -43,12 +43,19 @@ async fn drop_resistant_build_continues_after_requester_is_aborted() {
     requester.abort();
     assert!(requester.await.expect_err("requester task should be cancelled").is_cancelled());
 
+    let mut drain = Box::pin(wait_for_serialized_build(Arc::clone(&build_lock)));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), &mut drain).await.is_err(),
+        "shutdown drain must wait for detached finalization"
+    );
+
     release.add_permits(1);
     tokio::time::timeout(Duration::from_secs(1), completed.acquire())
         .await
         .expect("detached build should finish after requester cancellation")
         .expect("completion semaphore should remain open")
         .forget();
+    drain.await;
 }
 
 #[tokio::test]
@@ -56,46 +63,89 @@ async fn build_waiting_for_serialization_lock_is_cancelled_with_requester() {
     let build_lock = Arc::new(tokio::sync::Mutex::new(()));
     let held_guard = Arc::clone(&build_lock).lock_owned().await;
     let started = Arc::new(AtomicBool::new(false));
+    let waiting = Arc::new(tokio::sync::Semaphore::new(0));
     let build_started = Arc::clone(&started);
+    let requester_waiting = Arc::clone(&waiting);
+    let requester_lock = Arc::clone(&build_lock);
 
-    let requester = tokio::spawn(run_serialized_drop_resistant_build(
-        build_lock,
-        move |_build_guard| async move {
+    let requester = tokio::spawn(async move {
+        requester_waiting.add_permits(1);
+        run_serialized_drop_resistant_build(requester_lock, move || async move {
             build_started.store(true, Ordering::Release);
             Ok::<_, WhitelistPreconfirmationDriverError>(())
-        },
-    ));
-    tokio::task::yield_now().await;
+        })
+        .await
+    });
+    waiting.acquire().await.expect("waiter semaphore should remain open").forget();
     requester.abort();
     assert!(requester.await.expect_err("requester task should be cancelled").is_cancelled());
 
     drop(held_guard);
-    tokio::task::yield_now().await;
+    drop(build_lock.lock().await);
     assert!(!started.load(Ordering::Acquire), "cancelled lock waiter must not detach a build");
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn post_insert_finalization_retries_transient_failures() {
     let attempts = Arc::new(AtomicUsize::new(0));
     let operation_attempts = Arc::clone(&attempts);
-    let finalization = tokio::spawn(retry_post_insert_step(42, "test_step", move || {
-        let operation_attempts = Arc::clone(&operation_attempts);
-        async move {
-            let attempt = operation_attempts.fetch_add(1, Ordering::AcqRel);
-            if attempt < 2 { Err("transient failure") } else { Ok(0x2au64) }
-        }
-    }));
+    let finalization = tokio::spawn(retry_post_insert_step_with_backoff(
+        42,
+        "test_step",
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+        4,
+        move || {
+            let operation_attempts = Arc::clone(&operation_attempts);
+            async move {
+                let attempt = operation_attempts.fetch_add(1, Ordering::AcqRel);
+                if attempt < 3 { Err("transient failure") } else { Ok(0x2au64) }
+            }
+        },
+    ));
 
     tokio::task::yield_now().await;
     assert_eq!(attempts.load(Ordering::Acquire), 1);
 
-    assert_eq!(
-        tokio::time::timeout(Duration::from_secs(4), finalization)
-            .await
-            .expect("retry task should finish after two transient failures")
-            .expect("retry task should not panic"),
-        0x2a
-    );
+    tokio::time::advance(Duration::from_millis(999)).await;
+    tokio::task::yield_now().await;
+    assert_eq!(attempts.load(Ordering::Acquire), 1);
+    tokio::time::advance(Duration::from_millis(1)).await;
+    tokio::task::yield_now().await;
+    assert_eq!(attempts.load(Ordering::Acquire), 2);
+
+    tokio::time::advance(Duration::from_secs(2)).await;
+    tokio::task::yield_now().await;
+    assert_eq!(attempts.load(Ordering::Acquire), 3);
+
+    tokio::time::advance(Duration::from_secs(2)).await;
+
+    assert_eq!(finalization.await.expect("retry task should not panic"), Ok(0x2a));
+    assert_eq!(attempts.load(Ordering::Acquire), 4);
+}
+
+#[tokio::test(start_paused = true)]
+async fn post_insert_finalization_stops_after_retry_budget() {
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let operation_attempts = Arc::clone(&attempts);
+    let finalization = tokio::spawn(retry_post_insert_step_with_backoff(
+        42,
+        "test_step",
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+        3,
+        move || {
+            let operation_attempts = Arc::clone(&operation_attempts);
+            async move {
+                operation_attempts.fetch_add(1, Ordering::AcqRel);
+                Err::<(), _>("permanent failure")
+            }
+        },
+    ));
+
+    tokio::task::yield_now().await;
+    tokio::time::advance(Duration::from_secs(3)).await;
+    assert_eq!(finalization.await.expect("retry task should not panic"), Err("permanent failure"));
     assert_eq!(attempts.load(Ordering::Acquire), 3);
 }
 
