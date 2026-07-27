@@ -166,7 +166,7 @@ impl ProposalRetryError {
 /// Default timeout for preconfirmation payload submission.
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
-const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(24);
 /// Timeout for best-effort `head_l1_origin` reset after an event-scanner reorg.
 const REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT: Duration = Duration::from_secs(12);
 /// Interval between confirmed-sync probe retries while preconfirmation ingress is closed.
@@ -2581,6 +2581,43 @@ mod tests {
             .expect_err("expected ingress not ready error");
 
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn default_preconfirmation_submission_waits_24_seconds_for_response() {
+        let l2_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter.clone(),
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+        // Materialization lookup misses, then the empty confirmed head keeps block 1 non-stale.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+
+        let submission = syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(sample_payload(1), B256::ZERO));
+        tokio::pin!(submission);
+
+        assert!(
+            timeout(Duration::from_secs(23), submission.as_mut()).await.is_err(),
+            "the default response wait must remain active through 23 seconds"
+        );
+        let err = timeout(Duration::from_secs(2), submission.as_mut())
+            .await
+            .expect("the default response wait should finish at 24 seconds")
+            .expect_err("an unconsumed queued job should time out");
+
+        assert!(matches!(
+            err,
+            DriverError::PreconfResponseTimeout { waited }
+                if waited == Duration::from_secs(24)
+        ));
     }
 
     /// Spawn the ingress loop with mock production paths, returning its job sender.
