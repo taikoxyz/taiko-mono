@@ -4,8 +4,12 @@ use alloy_primitives::{Address, Signature as AlloySignature, U256, hex};
 use k256::{
     AffinePoint, FieldBytes, ProjectivePoint, Scalar,
     elliptic_curve::{
-        bigint::U256 as ScalarModulus, ff::PrimeField, ops::Reduce, point::AffineCoordinates,
-        scalar::IsHigh, sec1::ToEncodedPoint,
+        bigint::U256 as ScalarModulus,
+        ff::PrimeField,
+        ops::{MulByGenerator, Reduce},
+        point::AffineCoordinates,
+        scalar::IsHigh,
+        sec1::ToEncodedPoint,
     },
 };
 use thiserror::Error;
@@ -108,7 +112,7 @@ impl FixedKSigner {
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
         // Calculate k * G in affine coordinates.
-        let k_point: AffinePoint = (ProjectivePoint::GENERATOR * k).to_affine();
+        let k_point: AffinePoint = ProjectivePoint::mul_by_generator(&k).to_affine();
         let x_bytes = k_point.x();
         let y_is_odd = bool::from(k_point.y_is_odd());
 
@@ -154,7 +158,7 @@ impl FixedKSigner {
 
     /// Derive the Ethereum address corresponding to the given private key scalar.
     fn derive_address(scalar: &Scalar) -> Address {
-        let public_key = (ProjectivePoint::GENERATOR * scalar).to_affine();
+        let public_key = ProjectivePoint::mul_by_generator(scalar).to_affine();
         let encoded = public_key.to_encoded_point(false);
         Address::from_raw_public_key(&encoded.as_bytes()[1..])
     }
