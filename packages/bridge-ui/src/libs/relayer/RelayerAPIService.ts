@@ -1,12 +1,20 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import { type Address, getAddress, type Hash, type Hex, numberToHex, type TransactionReceipt } from 'viem';
+import {
+  type Address,
+  decodeEventLog,
+  getAddress,
+  type Hash,
+  type Hex,
+  numberToHex,
+  type TransactionReceipt,
+} from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
-import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
+import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -30,6 +38,7 @@ const log = getLogger('RelayerAPIService');
 
 const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
 const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
+type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
 
 export function preserveMessageIntegerPrecision(rawResponse: string): string {
   return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
@@ -109,6 +118,63 @@ export class RelayerAPIService {
       if (satisfiesAllConditions) filteredItems.push(item);
     }
     return filteredItems;
+  }
+
+  private static _getBridgeMessageFromReceipt({
+    receipt,
+    srcChainId,
+    destChainId,
+    userAddress,
+  }: {
+    receipt: TransactionReceipt;
+    srcChainId: number;
+    destChainId: number;
+    userAddress: Address;
+  }) {
+    const bridgeAddress = routingContractsMap[srcChainId]?.[destChainId]?.bridgeAddress;
+
+    if (!bridgeAddress) return;
+
+    for (const receiptLog of receipt.logs) {
+      if (receiptLog.address.toLowerCase() !== bridgeAddress.toLowerCase()) continue;
+
+      try {
+        const decodedLog = decodeEventLog({
+          abi: bridgeAbi,
+          data: receiptLog.data,
+          topics: receiptLog.topics,
+        });
+
+        if (decodedLog.eventName !== 'MessageSent') continue;
+
+        const { msgHash, message } = decodedLog.args as {
+          msgHash?: Hash;
+          message?: DecodedBridgeMessage;
+        };
+
+        if (!msgHash || !message) continue;
+
+        const gasLimit = Number(message.gasLimit);
+        if (!Number.isSafeInteger(gasLimit)) {
+          log('Decoded bridge message has unsafe gas limit', {
+            gasLimit: message.gasLimit,
+            txHash: receipt.transactionHash,
+          });
+          continue;
+        }
+
+        const normalizedMessage: Message = { ...message, gasLimit };
+        const user = getAddress(userAddress);
+        const senderMatch = getAddress(normalizedMessage.srcOwner) === user;
+        const receiverMatch = getAddress(normalizedMessage.destOwner) === user;
+
+        if (senderMatch || receiverMatch) {
+          return { msgHash, message: normalizedMessage };
+        }
+      } catch (error) {
+        log('Error decoding bridge receipt log', { error, txHash: receipt.transactionHash });
+      }
+    }
   }
 
   private static async _getBridgeMessageStatus({
@@ -265,7 +331,7 @@ export class RelayerAPIService {
 
       if (!senderMatch && !receiverMatch) return;
 
-      const { destChainId, srcChainId, srcTxHash, msgHash } = bridgeTx;
+      const { destChainId, srcChainId, srcTxHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
@@ -276,17 +342,35 @@ export class RelayerAPIService {
         log('Transaction not mined yet', { srcTxHash, srcChainId });
       }
 
-      bridgeTx.receipt = receipt as TransactionReceipt;
-
-      // Populate blockNumber from receipt if not provided by the relayer API
-      if (!bridgeTx.blockNumber && receipt) {
+      if (receipt) {
+        bridgeTx.receipt = receipt as TransactionReceipt;
         bridgeTx.blockNumber = numberToHex(receipt.blockNumber);
+
+        const receiptMessage = RelayerAPIService._getBridgeMessageFromReceipt({
+          receipt,
+          srcChainId: Number(srcChainId),
+          destChainId: Number(destChainId),
+          userAddress: address,
+        });
+
+        if (receiptMessage) {
+          if (bridgeTx.msgHash !== receiptMessage.msgHash) {
+            log('Relayer transaction data differs from receipt log', {
+              srcTxHash,
+              relayerMsgHash: bridgeTx.msgHash,
+              receiptMsgHash: receiptMessage.msgHash,
+            });
+          }
+
+          bridgeTx.msgHash = receiptMessage.msgHash;
+          bridgeTx.message = receiptMessage.message;
+        }
       }
 
-      if (!msgHash) return; //todo: handle this case
+      if (!bridgeTx.msgHash) return; //todo: handle this case
 
       const msgStatus = await RelayerAPIService._getBridgeMessageStatus({
-        msgHash,
+        msgHash: bridgeTx.msgHash,
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
       });
