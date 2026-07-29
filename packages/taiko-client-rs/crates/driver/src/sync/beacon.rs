@@ -132,6 +132,8 @@ impl BeaconSyncer {
             // the sealed block's header difficulty explicitly in the Taiko sidecar.
             header_difficulty: Some(header_difficulty),
             taiko_block: Some(true),
+            block_access_list: None,
+            slot_number: None,
         };
 
         let payload_status = self.rpc.engine_new_payload_v2(&payload_input, &sidecar).await?;
