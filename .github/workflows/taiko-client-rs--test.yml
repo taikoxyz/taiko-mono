@@ -74,8 +74,14 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.95.0
+          components: clippy
+
+      - name: Install Rust nightly toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
           toolchain: nightly-2025-09-27
-          components: clippy, rustfmt
+          components: rustfmt
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -169,7 +175,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2025-09-27
+          toolchain: 1.95.0
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -288,8 +294,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2025-09-27
-          components: clippy, rustfmt
+          toolchain: 1.95.0
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
