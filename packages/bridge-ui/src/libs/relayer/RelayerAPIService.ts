@@ -125,15 +125,20 @@ export class RelayerAPIService {
     srcChainId,
     destChainId,
     userAddress,
+    currentMsgHash,
   }: {
     receipt: TransactionReceipt;
     srcChainId: number;
     destChainId: number;
     userAddress: Address;
+    currentMsgHash: Hash;
   }) {
     const bridgeAddress = routingContractsMap[srcChainId]?.[destChainId]?.bridgeAddress;
 
     if (!bridgeAddress) return;
+
+    const user = getAddress(userAddress);
+    const candidates: { msgHash: Hash; message: Message }[] = [];
 
     for (const receiptLog of receipt.logs) {
       if (receiptLog.address.toLowerCase() !== bridgeAddress.toLowerCase()) continue;
@@ -164,16 +169,27 @@ export class RelayerAPIService {
         }
 
         const normalizedMessage: Message = { ...message, gasLimit };
-        const user = getAddress(userAddress);
         const senderMatch = getAddress(normalizedMessage.srcOwner) === user;
         const receiverMatch = getAddress(normalizedMessage.destOwner) === user;
 
         if (senderMatch || receiverMatch) {
-          return { msgHash, message: normalizedMessage };
+          candidates.push({ msgHash, message: normalizedMessage });
         }
       } catch (error) {
         log('Error decoding bridge receipt log', { error, txHash: receipt.transactionHash });
       }
+    }
+
+    const exactMatch = candidates.find((candidate) => candidate.msgHash.toLowerCase() === currentMsgHash.toLowerCase());
+    if (exactMatch) return exactMatch;
+
+    if (candidates.length === 1) return candidates[0];
+
+    if (candidates.length > 1) {
+      log('Multiple bridge receipt messages matched user without matching relayer msgHash', {
+        txHash: receipt.transactionHash,
+        currentMsgHash,
+      });
     }
   }
 
@@ -342,8 +358,9 @@ export class RelayerAPIService {
         log('Transaction not mined yet', { srcTxHash, srcChainId });
       }
 
+      bridgeTx.receipt = receipt as TransactionReceipt;
+
       if (receipt) {
-        bridgeTx.receipt = receipt as TransactionReceipt;
         bridgeTx.blockNumber = numberToHex(receipt.blockNumber);
 
         const receiptMessage = RelayerAPIService._getBridgeMessageFromReceipt({
@@ -351,6 +368,7 @@ export class RelayerAPIService {
           srcChainId: Number(srcChainId),
           destChainId: Number(destChainId),
           userAddress: address,
+          currentMsgHash: bridgeTx.msgHash,
         });
 
         if (receiptMessage) {
@@ -364,6 +382,9 @@ export class RelayerAPIService {
 
           bridgeTx.msgHash = receiptMessage.msgHash;
           bridgeTx.message = receiptMessage.message;
+          bridgeTx.processingFee = receiptMessage.message.fee;
+          bridgeTx.srcChainId = receiptMessage.message.srcChainId;
+          bridgeTx.destChainId = receiptMessage.message.destChainId;
         }
       }
 
@@ -371,12 +392,13 @@ export class RelayerAPIService {
 
       const msgStatus = await RelayerAPIService._getBridgeMessageStatus({
         msgHash: bridgeTx.msgHash,
-        srcChainId: Number(srcChainId),
-        destChainId: Number(destChainId),
+        srcChainId: Number(bridgeTx.srcChainId),
+        destChainId: Number(bridgeTx.destChainId),
       });
 
       // Update the status
       bridgeTx.msgStatus = msgStatus;
+      bridgeTx.status = msgStatus;
 
       return bridgeTx;
     });

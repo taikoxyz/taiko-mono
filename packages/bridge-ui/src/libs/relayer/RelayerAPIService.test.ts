@@ -1,6 +1,8 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
-import type { Address, Hash, Hex } from 'viem';
+import { type Address, encodeAbiParameters, type Hash, type Hex } from 'viem';
+
+import { MessageStatus } from '$libs/bridge';
 
 import { parseApiBigInt, parseRelayerApiResponse, RelayerAPIService } from './RelayerAPIService';
 
@@ -8,7 +10,10 @@ const USER_ADDRESS = '0xD23D1e189ecFAb978c8573e7708Ed603cAaa1f47';
 const SRC_TX_HASH = '0xc7fbc098585169900af9ea77ac9972a10c128ce0f76abdfadbf3a611ebc1307b';
 const GOOD_MSG_HASH = '0x144e93c8e2bb7d5cef8baea0c11a88cd8d1771d63905b4c9574e54ac57756273';
 const BAD_MSG_HASH = '0x8165263c4ab44098b8e0a4a44204163ac766a14adb97a9087df98489ba53d110';
+const OTHER_MSG_HASH = '0x2b7a9133f2e79adbd61f1f4e7a100cc2fb91d77db708da22e95b5cbb9f6a3111';
 const TAIKO_BRIDGE_ADDRESS = '0x1670000000000000000000000000000000000001';
+const DEST_CHAIN_TWO_BRIDGE_ADDRESS = '0x2000000000000000000000000000000000000002';
+const MESSAGE_SENT_EVENT_TOPIC = '0xe33fd33b4f45b95b1c196242240c5b5233129d724b578f95b66ce8d8aae93517';
 
 vi.mock('axios');
 vi.mock('@wagmi/core', async (importOriginal) => {
@@ -27,7 +32,7 @@ vi.mock('$libs/chain', async (importOriginal) => {
   const actual = await importOriginal<typeof import('$libs/chain')>();
   return {
     ...actual,
-    isSupportedChain: (chainId: number) => [1, 167000].includes(chainId),
+    isSupportedChain: (chainId: number) => [1, 2, 167000].includes(chainId),
   };
 });
 vi.mock('$bridgeConfig', () => ({
@@ -35,8 +40,14 @@ vi.mock('$bridgeConfig', () => ({
     1: {
       167000: { bridgeAddress: '0xd60247c6848b7ca29eddf63aa924e53db6ddd8ec' },
     },
+    2: {
+      167000: { bridgeAddress: '0x2000000000000000000000000000000000000002' },
+    },
     167000: {
       1: {
+        bridgeAddress: '0x1670000000000000000000000000000000000001',
+      },
+      2: {
         bridgeAddress: '0x1670000000000000000000000000000000000001',
       },
     },
@@ -114,6 +125,7 @@ describe('RelayerAPIService', () => {
       messageId: '6271',
       msgHash: BAD_MSG_HASH,
       blockNumber: '0x7ba91a',
+      fee: '1',
     });
     const goodRelayerItem = createRelayerItem({
       id: 1553882,
@@ -136,7 +148,7 @@ describe('RelayerAPIService', () => {
       },
       status: 200,
     });
-    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog({ fee: 0n }));
     mockedReadContract.mockResolvedValue(0);
 
     // When
@@ -148,7 +160,110 @@ describe('RelayerAPIService', () => {
     expect(result.txs[0].message?.id).toEqual(6268n);
     expect(result.txs[0].message?.gasLimit).toEqual(806657);
     expect(typeof result.txs[0].message?.gasLimit).toEqual('number');
+    expect(result.txs[0].processingFee).toEqual(0n);
     expect(result.txs[0].blockNumber).toEqual('0x7baa21');
+    expect(mockedReadContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        args: [GOOD_MSG_HASH],
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress syncs canonical status to the relayer status field', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa21',
+      status: MessageStatus.DONE,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgStatus).toEqual(MessageStatus.NEW);
+    expect(result.txs[0].status).toEqual(MessageStatus.NEW);
+  });
+
+  test('getAllBridgeTransactionByAddress routes status lookup using receipt message chain IDs', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa21',
+      destChainId: '1',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLog({
+        msgHash: GOOD_MSG_HASH,
+        destChainId: 2n,
+      }),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].srcChainId).toEqual(167000n);
+    expect(result.txs[0].destChainId).toEqual(2n);
+    expect(result.txs[0].message?.destChainId).toEqual(2n);
+    expect(mockedReadContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        address: DEST_CHAIN_TWO_BRIDGE_ADDRESS,
+        chainId: 2,
+        args: [GOOD_MSG_HASH],
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress keeps an exact msgHash match when receipt has multiple user messages', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa21',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLogs([
+        { msgHash: OTHER_MSG_HASH, id: 9999n, logIndex: 1 },
+        { msgHash: GOOD_MSG_HASH, id: 6268n, logIndex: 2 },
+      ]),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgHash).toEqual(GOOD_MSG_HASH);
+    expect(result.txs[0].message?.id).toEqual(6268n);
     expect(mockedReadContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -222,11 +337,19 @@ function createRelayerItem({
   messageId,
   msgHash,
   blockNumber,
+  fee = '467106403297320',
+  status = MessageStatus.NEW,
+  srcChainId = '167000',
+  destChainId = '1',
 }: {
   id: number;
   messageId: string;
   msgHash: Hash;
   blockNumber: Hex;
+  fee?: string;
+  status?: MessageStatus;
+  srcChainId?: string;
+  destChainId?: string;
 }) {
   return {
     id,
@@ -234,12 +357,12 @@ function createRelayerItem({
     data: {
       Message: {
         Id: messageId,
-        Fee: '467106403297320',
+        Fee: fee,
         GasLimit: 806657,
         From: USER_ADDRESS,
-        SrcChainId: '167000',
+        SrcChainId: srcChainId,
         SrcOwner: USER_ADDRESS,
-        DestChainId: '1',
+        DestChainId: destChainId,
         DestOwner: USER_ADDRESS,
         To: USER_ADDRESS,
         RefundTo: USER_ADDRESS,
@@ -254,7 +377,7 @@ function createRelayerItem({
         blockNumber,
       },
     },
-    status: 0,
+    status,
     eventType: 0,
     chainID: 167000,
     canonicalTokenAddress: '0x0000000000000000000000000000000000000000',
@@ -273,23 +396,46 @@ function createRelayerItem({
   };
 }
 
-function createReceiptWithMessageSentLog(): Awaited<ReturnType<typeof getTransactionReceipt>> {
+function createApiResponse(items: ReturnType<typeof createRelayerItem>[]) {
+  return {
+    data: {
+      page: 1,
+      size: 10,
+      total: items.length,
+      total_pages: 1,
+      max_page: 1,
+      first: true,
+      last: true,
+      visible: items.length,
+      items,
+    },
+    status: 200,
+  };
+}
+
+function createReceiptWithMessageSentLog(
+  messageLog: Partial<MessageSentLogInput> = {},
+): Awaited<ReturnType<typeof getTransactionReceipt>> {
+  return createReceiptWithMessageSentLogs([{ msgHash: GOOD_MSG_HASH, ...messageLog }]);
+}
+
+type MessageSentLogInput = {
+  msgHash: Hash;
+  id: bigint;
+  fee: bigint;
+  gasLimit: number;
+  srcChainId: bigint;
+  destChainId: bigint;
+  logIndex: number;
+};
+
+function createReceiptWithMessageSentLogs(
+  messageLogs: Partial<MessageSentLogInput>[],
+): Awaited<ReturnType<typeof getTransactionReceipt>> {
   return {
     status: 'success',
     cumulativeGasUsed: 210721n,
-    logs: [
-      {
-        address: TAIKO_BRIDGE_ADDRESS,
-        blockHash: '0xb88411608e875be7e5f9cdcde5f80d749e6c23c27ffa2ab5c598c760050c02a2',
-        blockNumber: 8104481n,
-        logIndex: 1,
-        transactionHash: SRC_TX_HASH,
-        transactionIndex: 1,
-        removed: false,
-        topics: ['0xe33fd33b4f45b95b1c196242240c5b5233129d724b578f95b66ce8d8aae93517', GOOD_MSG_HASH],
-        data: '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000187c0000000000000000000000000000000000000000000000000001a8d4af3da82800000000000000000000000000000000000000000000000000000000000c4f01000000000000000000000000d23d1e189ecfab978c8573e7708ed603caaa1f470000000000000000000000000000000000000000000000000000000000028c58000000000000000000000000d23d1e189ecfab978c8573e7708ed603caaa1f470000000000000000000000000000000000000000000000000000000000000001000000000000000000000000d23d1e189ecfab978c8573e7708ed603caaa1f47000000000000000000000000d23d1e189ecfab978c8573e7708ed603caaa1f47000000000000000000000000000000000000000000000000029140851372800000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000',
-      },
-    ],
+    logs: messageLogs.map(createMessageSentLog),
     logsBloom: '0x0',
     type: 'eip1559',
     transactionHash: SRC_TX_HASH,
@@ -303,4 +449,64 @@ function createReceiptWithMessageSentLog(): Awaited<ReturnType<typeof getTransac
     contractAddress: null,
     chainId: 167000,
   } as unknown as Awaited<ReturnType<typeof getTransactionReceipt>>;
+}
+
+function createMessageSentLog(messageLog: Partial<MessageSentLogInput>) {
+  const {
+    msgHash = GOOD_MSG_HASH,
+    id = 6268n,
+    fee = 467_106_403_297_320n,
+    gasLimit = 806657,
+    srcChainId = 167000n,
+    destChainId = 1n,
+    logIndex = 1,
+  } = messageLog;
+
+  const encodedData = encodeAbiParameters(
+    [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'uint64' },
+          { name: 'fee', type: 'uint64' },
+          { name: 'gasLimit', type: 'uint32' },
+          { name: 'from', type: 'address' },
+          { name: 'srcChainId', type: 'uint64' },
+          { name: 'srcOwner', type: 'address' },
+          { name: 'destChainId', type: 'uint64' },
+          { name: 'destOwner', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'data', type: 'bytes' },
+        ],
+      },
+    ],
+    [
+      {
+        id,
+        fee,
+        gasLimit,
+        from: USER_ADDRESS,
+        srcChainId,
+        srcOwner: USER_ADDRESS,
+        destChainId,
+        destOwner: USER_ADDRESS,
+        to: USER_ADDRESS,
+        value: 185_000_000_000_000_000n,
+        data: '0x',
+      },
+    ],
+  );
+
+  return {
+    address: TAIKO_BRIDGE_ADDRESS,
+    blockHash: '0xb88411608e875be7e5f9cdcde5f80d749e6c23c27ffa2ab5c598c760050c02a2',
+    blockNumber: 8104481n,
+    logIndex,
+    transactionHash: SRC_TX_HASH,
+    transactionIndex: 1,
+    removed: false,
+    topics: [MESSAGE_SENT_EVENT_TOPIC, msgHash],
+    data: encodedData,
+  };
 }
