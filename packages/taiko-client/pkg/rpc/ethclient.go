@@ -16,7 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/gorilla/websocket"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
@@ -79,6 +81,7 @@ type EthClient struct {
 	timeout time.Duration
 	rpcURL  string
 	isHTTP  bool
+	wsConn  *wsConnectionTracker
 }
 
 // NewEthClient creates a new EthClient instance.
@@ -93,7 +96,18 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		Transport: NewRateLimitedTransport(http.DefaultTransport, RateLimitMaxRetries),
 	}
 
-	client, err := rpc.DialOptions(ctx, url, rpc.WithHTTPClient(httpClient))
+	var (
+		wsConn  *wsConnectionTracker
+		options = []rpc.ClientOption{rpc.WithHTTPClient(httpClient)}
+	)
+	if !isHTTPEndpoint(url) {
+		wsConn = new(wsConnectionTracker)
+		dialer := *websocket.DefaultDialer
+		dialer.NetDialContext = wsConn.dialContext
+		options = append(options, rpc.WithWebsocketDialer(dialer))
+	}
+
+	client, err := rpc.DialOptions(ctx, url, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +127,18 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		timeout:    timeoutVal,
 		rpcURL:     url,
 		isHTTP:     isHTTPEndpoint(url),
+		wsConn:     wsConn,
 	}, nil
+}
+
+func (c *EthClient) recordRPCMetrics(method string, start time.Time, err error) {
+	recordRPCMetrics(method, c.rpcURL, start, err)
+	if !errors.Is(err, context.DeadlineExceeded) || c.wsConn == nil {
+		return
+	}
+	if c.wsConn.closeIfOpenBefore(start) {
+		log.Warn("Closed unresponsive WebSocket RPC connection", "error", err)
+	}
 }
 
 func (c *EthClient) EthClient() *ethclient.Client {
@@ -129,7 +154,7 @@ func (c *EthClient) IsHTTP() bool { return c.isHTTP }
 func (c *EthClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	start := time.Now()
 	err := c.Client.CallContext(ctx, result, method, args...)
-	recordRPCMetrics(method, c.rpcURL, start, err)
+	c.recordRPCMetrics(method, start, err)
 	return err
 }
 
@@ -139,7 +164,7 @@ func (c *EthClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	err := c.Client.BatchCallContext(ctx, b)
 
 	// Record metrics for batch call overall
-	recordRPCMetrics("batch_call", c.rpcURL, start, err)
+	c.recordRPCMetrics("batch_call", start, err)
 
 	// Count individual batch elements
 	for _, elem := range b {
@@ -168,7 +193,7 @@ func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.B
 	defer cancel()
 
 	result, err := c.ethClient.BlockByHash(ctxWithTimeout, hash)
-	recordRPCMetrics("eth_getBlockByHash", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBlockByHash", start, err)
 	return result, err
 }
 
@@ -212,7 +237,7 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 	defer cancel()
 
 	result, err := c.ethClient.BlockByNumber(ctxWithTimeout, number)
-	recordRPCMetrics("eth_getBlockByNumber", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBlockByNumber", start, err)
 	return result, err
 }
 
@@ -223,7 +248,7 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	defer cancel()
 
 	result, err := c.ethClient.BlockNumber(ctxWithTimeout)
-	recordRPCMetrics("eth_blockNumber", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_blockNumber", start, err)
 	return result, err
 }
 
@@ -234,7 +259,7 @@ func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
 	defer cancel()
 
 	result, err := c.ethClient.PeerCount(ctxWithTimeout)
-	recordRPCMetrics("net_peerCount", c.rpcURL, start, err)
+	c.recordRPCMetrics("net_peerCount", start, err)
 	return result, err
 }
 
@@ -245,7 +270,7 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	defer cancel()
 
 	result, err := c.ethClient.HeaderByHash(ctxWithTimeout, hash)
-	recordRPCMetrics("eth_getBlockByHash", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBlockByHash", start, err)
 	return result, err
 }
 
@@ -257,7 +282,7 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	defer cancel()
 
 	result, err := c.ethClient.HeaderByNumber(ctxWithTimeout, number)
-	recordRPCMetrics("eth_getBlockByNumber", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBlockByNumber", start, err)
 	return result, err
 }
 
@@ -314,7 +339,7 @@ func (c *EthClient) TransactionByHash(
 	defer cancel()
 
 	tx, isPending, err = c.ethClient.TransactionByHash(ctxWithTimeout, hash)
-	recordRPCMetrics("eth_getTransactionByHash", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getTransactionByHash", start, err)
 	return tx, isPending, err
 }
 
@@ -335,7 +360,7 @@ func (c *EthClient) TransactionSender(
 	defer cancel()
 
 	result, err := c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
-	recordRPCMetrics("eth_getTransactionByBlockHashAndIndex", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getTransactionByBlockHashAndIndex", start, err)
 	return result, err
 }
 
@@ -346,7 +371,7 @@ func (c *EthClient) TransactionCount(ctx context.Context, blockHash common.Hash)
 	defer cancel()
 
 	result, err := c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
-	recordRPCMetrics("eth_getBlockTransactionCountByHash", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBlockTransactionCountByHash", start, err)
 	return result, err
 }
 
@@ -361,7 +386,7 @@ func (c *EthClient) TransactionInBlock(
 	defer cancel()
 
 	result, err := c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
-	recordRPCMetrics("eth_getTransactionByBlockHashAndIndex", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getTransactionByBlockHashAndIndex", start, err)
 	return result, err
 }
 
@@ -373,7 +398,7 @@ func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, e
 	defer cancel()
 
 	result, err := c.ethClient.SyncProgress(ctxWithTimeout)
-	recordRPCMetrics("eth_syncing", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_syncing", start, err)
 	return result, err
 }
 
@@ -384,7 +409,7 @@ func (c *EthClient) NetworkID(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	result, err := c.ethClient.NetworkID(ctxWithTimeout)
-	recordRPCMetrics("net_version", c.rpcURL, start, err)
+	c.recordRPCMetrics("net_version", start, err)
 	return result, err
 }
 
@@ -400,7 +425,7 @@ func (c *EthClient) BalanceAt(
 	defer cancel()
 
 	result, err := c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
-	recordRPCMetrics("eth_getBalance", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBalance", start, err)
 	return result, err
 }
 
@@ -417,7 +442,7 @@ func (c *EthClient) StorageAt(
 	defer cancel()
 
 	result, err := c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
-	recordRPCMetrics("eth_getStorageAt", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getStorageAt", start, err)
 	return result, err
 }
 
@@ -433,7 +458,7 @@ func (c *EthClient) CodeAt(
 	defer cancel()
 
 	result, err := c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
-	recordRPCMetrics("eth_getCode", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getCode", start, err)
 	return result, err
 }
 
@@ -449,7 +474,7 @@ func (c *EthClient) NonceAt(
 	defer cancel()
 
 	result, err := c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
-	recordRPCMetrics("eth_getTransactionCount", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getTransactionCount", start, err)
 	return result, err
 }
 
@@ -460,7 +485,7 @@ func (c *EthClient) PendingBalanceAt(ctx context.Context, account common.Address
 	defer cancel()
 
 	result, err := c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
-	recordRPCMetrics("eth_getBalance", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBalance", start, err)
 	return result, err
 }
 
@@ -475,7 +500,7 @@ func (c *EthClient) PendingStorageAt(
 	defer cancel()
 
 	result, err := c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
-	recordRPCMetrics("eth_getStorageAt", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getStorageAt", start, err)
 	return result, err
 }
 
@@ -486,7 +511,7 @@ func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) (
 	defer cancel()
 
 	result, err := c.ethClient.PendingCodeAt(ctxWithTimeout, account)
-	recordRPCMetrics("eth_getCode", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getCode", start, err)
 	return result, err
 }
 
@@ -498,7 +523,7 @@ func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) 
 	defer cancel()
 
 	result, err := c.ethClient.PendingNonceAt(ctxWithTimeout, account)
-	recordRPCMetrics("eth_getTransactionCount", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getTransactionCount", start, err)
 	return result, err
 }
 
@@ -509,7 +534,7 @@ func (c *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) {
 	defer cancel()
 
 	result, err := c.ethClient.PendingTransactionCount(ctxWithTimeout)
-	recordRPCMetrics("eth_getBlockTransactionCountByNumber", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_getBlockTransactionCountByNumber", start, err)
 	return result, err
 }
 
@@ -529,7 +554,7 @@ func (c *EthClient) CallContract(
 	defer cancel()
 
 	result, err := c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
-	recordRPCMetrics("eth_call", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_call", start, err)
 	return result, err
 }
 
@@ -545,7 +570,7 @@ func (c *EthClient) CallContractAtHash(
 	defer cancel()
 
 	result, err := c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
-	recordRPCMetrics("eth_call", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_call", start, err)
 	return result, err
 }
 
@@ -557,7 +582,7 @@ func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMs
 	defer cancel()
 
 	result, err := c.ethClient.PendingCallContract(ctxWithTimeout, msg)
-	recordRPCMetrics("eth_call", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_call", start, err)
 	return result, err
 }
 
@@ -569,7 +594,7 @@ func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	result, err := c.ethClient.SuggestGasPrice(ctxWithTimeout)
-	recordRPCMetrics("eth_gasPrice", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_gasPrice", start, err)
 	return result, err
 }
 
@@ -581,7 +606,7 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	result, err := c.ethClient.SuggestGasTipCap(ctxWithTimeout)
-	recordRPCMetrics("eth_maxPriorityFeePerGas", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_maxPriorityFeePerGas", start, err)
 	return result, err
 }
 
@@ -597,7 +622,7 @@ func (c *EthClient) FeeHistory(
 	defer cancel()
 
 	result, err := c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
-	recordRPCMetrics("eth_feeHistory", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_feeHistory", start, err)
 	return result, err
 }
 
@@ -611,7 +636,7 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 	defer cancel()
 
 	result, err := c.ethClient.EstimateGas(ctxWithTimeout, msg)
-	recordRPCMetrics("eth_estimateGas", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_estimateGas", start, err)
 	return result, err
 }
 
@@ -625,7 +650,7 @@ func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	defer cancel()
 
 	err := c.ethClient.SendTransaction(ctxWithTimeout, tx)
-	recordRPCMetrics("eth_sendRawTransaction", c.rpcURL, start, err)
+	c.recordRPCMetrics("eth_sendRawTransaction", start, err)
 	return err
 }
 
