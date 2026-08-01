@@ -47,7 +47,7 @@ jobs:
       # No checkout / setup-node: github-script runs on the runner's Node and
       # the diff is fetched via the API, so a repo checkout is unnecessary.
       - name: Run OpenRouter Code Review
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           OPENROUTER_DEFAULT_MODEL: ${{ vars.OPENROUTER_DEFAULT_MODEL }}

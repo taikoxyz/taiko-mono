@@ -28,10 +28,10 @@ jobs:
     env:
       CGO_ENABLED: 1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -101,10 +101,10 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Checkout protocol for testing
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PROTOCOL_FORK_DIR }}
@@ -117,7 +117,7 @@ jobs:
         uses: docker/setup-compose-action@v2
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -173,7 +173,7 @@ jobs:
         run: make test
 
       - name: Codecov.io
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: packages/taiko-client/coverage.out
           flags: taiko-client
