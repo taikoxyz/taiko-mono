@@ -8,6 +8,7 @@ import { parseApiBigInt, parseRelayerApiResponse, RelayerAPIService } from './Re
 
 const USER_ADDRESS = '0xD23D1e189ecFAb978c8573e7708Ed603cAaa1f47';
 const SRC_TX_HASH = '0xc7fbc098585169900af9ea77ac9972a10c128ce0f76abdfadbf3a611ebc1307b';
+const SECOND_SRC_TX_HASH = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const GOOD_MSG_HASH = '0x144e93c8e2bb7d5cef8baea0c11a88cd8d1771d63905b4c9574e54ac57756273';
 const BAD_MSG_HASH = '0x8165263c4ab44098b8e0a4a44204163ac766a14adb97a9087df98489ba53d110';
 const OTHER_MSG_HASH = '0x2b7a9133f2e79adbd61f1f4e7a100cc2fb91d77db708da22e95b5cbb9f6a3111';
@@ -272,6 +273,71 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  test('getAllBridgeTransactionByAddress recovers a missing relayer msgHash from a sole receipt message', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa21',
+    });
+    relayerItem.msgHash = undefined as unknown as Hash;
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgHash).toEqual(GOOD_MSG_HASH);
+    expect(mockedReadContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        args: [GOOD_MSG_HASH],
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress excludes an unsupported canonical route without dropping valid records', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    const unsupportedRelayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa21',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553883,
+      messageId: '6269',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa22',
+      srcTxHash: SECOND_SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([unsupportedRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt
+      .mockResolvedValueOnce(createReceiptWithMessageSentLog({ msgHash: OTHER_MSG_HASH, destChainId: 999n }))
+      .mockResolvedValueOnce(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].srcTxHash).toEqual(SECOND_SRC_TX_HASH);
+    expect(mockedReadContract).toHaveBeenCalledTimes(1);
+  });
+
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
     // Given
     const baseUrl = 'http://example.com';
@@ -341,6 +407,7 @@ function createRelayerItem({
   status = MessageStatus.NEW,
   srcChainId = '167000',
   destChainId = '1',
+  srcTxHash = SRC_TX_HASH,
 }: {
   id: number;
   messageId: string;
@@ -350,6 +417,7 @@ function createRelayerItem({
   status?: MessageStatus;
   srcChainId?: string;
   destChainId?: string;
+  srcTxHash?: Hash;
 }) {
   return {
     id,
@@ -372,7 +440,7 @@ function createRelayerItem({
       },
       Raw: {
         address: TAIKO_BRIDGE_ADDRESS,
-        transactionHash: SRC_TX_HASH,
+        transactionHash: srcTxHash,
         transactionIndex: '0x1',
         blockNumber,
       },

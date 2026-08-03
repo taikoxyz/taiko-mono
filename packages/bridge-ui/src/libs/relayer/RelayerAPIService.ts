@@ -131,7 +131,7 @@ export class RelayerAPIService {
     srcChainId: number;
     destChainId: number;
     userAddress: Address;
-    currentMsgHash: Hash;
+    currentMsgHash?: Hash;
   }) {
     const bridgeAddress = routingContractsMap[srcChainId]?.[destChainId]?.bridgeAddress;
 
@@ -180,7 +180,9 @@ export class RelayerAPIService {
       }
     }
 
-    const exactMatch = candidates.find((candidate) => candidate.msgHash.toLowerCase() === currentMsgHash.toLowerCase());
+    const exactMatch = currentMsgHash
+      ? candidates.find((candidate) => candidate.msgHash.toLowerCase() === currentMsgHash.toLowerCase())
+      : undefined;
     if (exactMatch) return exactMatch;
 
     if (candidates.length === 1) return candidates[0];
@@ -202,7 +204,12 @@ export class RelayerAPIService {
     srcChainId: number;
     destChainId: number;
   }) {
-    const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)];
+    const bridgeAddress = routingContractsMap[Number(destChainId)]?.[Number(srcChainId)]?.bridgeAddress;
+
+    if (!bridgeAddress) {
+      log('No bridge route configured for message status', { msgHash, srcChainId, destChainId });
+      return;
+    }
 
     const result = await readContract(config, {
       address: bridgeAddress,
@@ -395,6 +402,8 @@ export class RelayerAPIService {
         srcChainId: Number(bridgeTx.srcChainId),
         destChainId: Number(bridgeTx.destChainId),
       });
+
+      if (msgStatus === undefined) return;
 
       // Update the status
       bridgeTx.msgStatus = msgStatus;
