@@ -92,7 +92,9 @@ export class RelayerAPIService {
       }
 
       const { DestChainId: destChainId, SrcChainId: srcChainId } = Message;
-      const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
+      // The relayer can return rows for routes this UI is not configured for. Index defensively so a
+      // single unknown pair cannot throw and take the whole transaction list down with it.
+      const bridgeAddress = routingContractsMap[Number(srcChainId)]?.[Number(destChainId)]?.bridgeAddress;
       const { transactionHash, address } = Raw;
 
       // Check all conditions
@@ -120,18 +122,28 @@ export class RelayerAPIService {
     return filteredItems;
   }
 
+  /**
+   * Recovers the authoritative (msgHash, message) pair for a bridge transaction by decoding the
+   * `MessageSent` logs of its source receipt. The relayer can pair a msgHash with a message body from a
+   * different transaction; the pair inside a single log is consistent by construction, so the receipt wins.
+   *
+   * Returns undefined when the route is unknown, when no log belongs to the user, or when several do and
+   * none can be tied back to the relayer row — in all three cases the caller keeps the relayer's own values.
+   */
   private static _getBridgeMessageFromReceipt({
     receipt,
     srcChainId,
     destChainId,
     userAddress,
     currentMsgHash,
+    currentMessageId,
   }: {
     receipt: TransactionReceipt;
     srcChainId: number;
     destChainId: number;
     userAddress: Address;
     currentMsgHash?: Hash;
+    currentMessageId?: bigint;
   }) {
     const bridgeAddress = routingContractsMap[srcChainId]?.[destChainId]?.bridgeAddress;
 
@@ -159,6 +171,8 @@ export class RelayerAPIService {
 
         if (!msgHash || !message) continue;
 
+        // `gasLimit` is uint32 today, which viem decodes as a number, so this guard is inert. It is kept so a
+        // future widening of the ABI field surfaces as a skipped log rather than a silently truncated value.
         const gasLimit = Number(message.gasLimit);
         if (!Number.isSafeInteger(gasLimit)) {
           log('Decoded bridge message has unsafe gas limit', {
@@ -188,9 +202,19 @@ export class RelayerAPIService {
     if (candidates.length === 1) return candidates[0];
 
     if (candidates.length > 1) {
-      log('Multiple bridge receipt messages matched user without matching relayer msgHash', {
+      // The msgHash tied us to nothing, so fall back to the message id as a secondary key. It is only usable
+      // when it singles out one log; anything else stays ambiguous.
+      const idMatches =
+        currentMessageId === undefined
+          ? []
+          : candidates.filter((candidate) => candidate.message.id === currentMessageId);
+
+      if (idMatches.length === 1) return idMatches[0];
+
+      console.warn('Multiple bridge receipt messages matched user without matching relayer msgHash', {
         txHash: receipt.transactionHash,
         currentMsgHash,
+        currentMessageId,
       });
     }
   }
@@ -207,7 +231,9 @@ export class RelayerAPIService {
     const bridgeAddress = routingContractsMap[Number(destChainId)]?.[Number(srcChainId)]?.bridgeAddress;
 
     if (!bridgeAddress) {
-      log('No bridge route configured for message status', { msgHash, srcChainId, destChainId });
+      // The caller drops the transaction when this returns undefined, so warn rather than debug-log: a route
+      // that silently disappears from the config would otherwise erase transactions with no trace.
+      console.warn('No bridge route configured for message status', { msgHash, srcChainId, destChainId });
       return;
     }
 
@@ -376,11 +402,16 @@ export class RelayerAPIService {
           destChainId: Number(destChainId),
           userAddress: address,
           currentMsgHash: bridgeTx.msgHash,
+          currentMessageId: bridgeTx.message?.id,
         });
 
         if (receiptMessage) {
-          if (bridgeTx.msgHash !== receiptMessage.msgHash) {
-            log('Relayer transaction data differs from receipt log', {
+          const msgHashChanged = bridgeTx.msgHash !== receiptMessage.msgHash;
+
+          if (msgHashChanged) {
+            // This is the signal that the relayer paired a msgHash with a foreign message body. Warn rather
+            // than debug-log so the rate of this corruption is observable in production.
+            console.warn('Relayer transaction data differs from receipt log', {
               srcTxHash,
               relayerMsgHash: bridgeTx.msgHash,
               receiptMsgHash: receiptMessage.msgHash,
@@ -392,6 +423,21 @@ export class RelayerAPIService {
           bridgeTx.processingFee = receiptMessage.message.fee;
           bridgeTx.srcChainId = receiptMessage.message.srcChainId;
           bridgeTx.destChainId = receiptMessage.message.destChainId;
+
+          if (msgHashChanged) {
+            // The row we started from described a different message, so everything keyed to the old msgHash
+            // is about that other message and cannot be trusted here. Drop it and let the on-chain status
+            // read below repopulate what matters.
+            bridgeTx.destTxHash = undefined;
+            bridgeTx.claimedBy = undefined;
+            bridgeTx.fee = undefined;
+
+            // ETH transfers carry their amount on the message itself. ERC20/NFT amounts live in the encoded
+            // calldata, so those rows keep the relayer's token metadata and may still render a stale amount.
+            if (bridgeTx.tokenType === TokenType.ETH) {
+              bridgeTx.amount = receiptMessage.message.value;
+            }
+          }
         }
       }
 

@@ -242,9 +242,12 @@ describe('RelayerAPIService', () => {
     const baseUrl = 'http://example.com';
     const relayerAPIService = new RelayerAPIService(baseUrl);
     const paginationParams = { page: 1, size: 10 };
+    // The row carries the right msgHash but a body copied from the other log, so the returned id can only
+    // be 6268 if the receipt was decoded — and only the msgHash can pick the right log, since the row's id
+    // points at OTHER_MSG_HASH.
     const relayerItem = createRelayerItem({
       id: 1553882,
-      messageId: '6268',
+      messageId: '9999',
       msgHash: GOOD_MSG_HASH,
       blockNumber: '0x7baa21',
     });
@@ -338,6 +341,137 @@ describe('RelayerAPIService', () => {
     expect(mockedReadContract).toHaveBeenCalledTimes(1);
   });
 
+  test('getAllBridgeTransactionByAddress skips a relayer row declaring an unconfigured route', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    // No routingContractsMap entry exists for 167000 -> 424242. Indexing it must not throw, because a single
+    // unknown route would otherwise reject the whole request and wipe every relayer transaction.
+    const unconfiguredRelayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa21',
+      destChainId: '424242',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553883,
+      messageId: '6269',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa22',
+      srcTxHash: SECOND_SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([unconfiguredRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].srcTxHash).toEqual(SECOND_SRC_TX_HASH);
+  });
+
+  test('getAllBridgeTransactionByAddress clears claim metadata inherited from the mismatched relayer row', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    // claimedBy/processedTxHash/fee/amount all describe the message BAD_MSG_HASH belongs to, not the one
+    // this transaction actually sent.
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6271',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91a',
+      claimedBy: '0x00000000000000000000000000000000000000dE',
+      processedTxHash: OTHER_MSG_HASH,
+      relayerFee: '12345',
+      amount: '999',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgHash).toEqual(GOOD_MSG_HASH);
+    expect(result.txs[0].claimedBy).toBeUndefined();
+    expect(result.txs[0].destTxHash).toBeUndefined();
+    expect(result.txs[0].fee).toBeUndefined();
+    // ETH transfers carry their amount on the message, so it can be corrected from the receipt.
+    expect(result.txs[0].amount).toEqual(185_000_000_000_000_000n);
+  });
+
+  test('getAllBridgeTransactionByAddress disambiguates multiple receipt messages by relayer message id', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa21',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLogs([
+        { msgHash: OTHER_MSG_HASH, id: 9999n, logIndex: 1 },
+        { msgHash: GOOD_MSG_HASH, id: 6268n, logIndex: 2 },
+      ]),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgHash).toEqual(GOOD_MSG_HASH);
+    expect(result.txs[0].message?.id).toEqual(6268n);
+  });
+
+  test('getAllBridgeTransactionByAddress keeps relayer data when multiple receipt messages stay ambiguous', async () => {
+    // Given
+    const baseUrl = 'http://example.com';
+    const relayerAPIService = new RelayerAPIService(baseUrl);
+    const paginationParams = { page: 1, size: 10 };
+    // Neither the msgHash nor the id ties this row to one of the two logs, so there is nothing safe to
+    // adopt and the relayer's own values must survive untouched.
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '7777',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa21',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLogs([
+        { msgHash: OTHER_MSG_HASH, id: 9999n, logIndex: 1 },
+        { msgHash: GOOD_MSG_HASH, id: 6268n, logIndex: 2 },
+      ]),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgHash).toEqual(BAD_MSG_HASH);
+    expect(result.txs[0].message?.id).toEqual(7777n);
+  });
+
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
     // Given
     const baseUrl = 'http://example.com';
@@ -408,6 +542,10 @@ function createRelayerItem({
   srcChainId = '167000',
   destChainId = '1',
   srcTxHash = SRC_TX_HASH,
+  amount = '185000000000000000',
+  claimedBy = '',
+  processedTxHash = undefined,
+  relayerFee = '0',
 }: {
   id: number;
   messageId: string;
@@ -418,6 +556,10 @@ function createRelayerItem({
   srcChainId?: string;
   destChainId?: string;
   srcTxHash?: Hash;
+  amount?: string;
+  claimedBy?: string;
+  processedTxHash?: Hash;
+  relayerFee?: string;
 }) {
   return {
     id,
@@ -452,13 +594,13 @@ function createRelayerItem({
     canonicalTokenSymbol: 'ETH',
     canonicalTokenName: 'Ether',
     canonicalTokenDecimals: 18,
-    amount: '185000000000000000',
+    amount,
     msgHash,
     messageOwner: USER_ADDRESS,
     event: 'MessageSent',
-    claimedBy: '',
-    processedTxHash: undefined,
-    fee: '0',
+    claimedBy,
+    processedTxHash,
+    fee: relayerFee,
     isProfitable: false,
     isProfitableEvaluatedAt: '',
   };
