@@ -465,9 +465,13 @@ func (p *Processor) sendProcessMessageCall(
 			"srcTxHash", event.Raw.TxHash.Hex(),
 			"actualCost", cost,
 			"estimatedMaxCost", estimatedMaxCost,
+			"processingFee", event.Message.Fee,
 		)
 
-		if cost > estimatedMaxCost {
+		// Compare against the fee the relayer actually receives, not the
+		// pre-send estimate: a cost above the estimate (e.g. after tx manager
+		// fee bumps) is still profitable as long as the fee covers it.
+		if cost > event.Message.Fee {
 			relayer.UnprofitableMessageAfterTransacting.Inc()
 		} else {
 			relayer.ProfitableMessageAfterTransacting.Inc()

@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -49,6 +51,99 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		}, []byte{})
 
 	assert.Equal(t, err, errUnprocessable)
+}
+
+// receiptTxManager is a mock.TxManager whose Send returns a fixed receipt,
+// letting tests control the actual on-chain cost of a processed message.
+type receiptTxManager struct {
+	mock.TxManager
+	receipt *types.Receipt
+}
+
+func (t *receiptTxManager) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
+	return t.receipt, nil
+}
+
+func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
+	newEvent := func(fee uint64) *bridge.BridgeMessageSent {
+		return &bridge.BridgeMessageSent{
+			MsgHash: mock.SuccessMsgHash,
+			Message: bridge.IBridgeMessage{
+				Id:          1,
+				From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				DestChainId: mock.MockChainID.Uint64(),
+				SrcChainId:  mock.MockChainID.Uint64(),
+				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+				Value:       big.NewInt(0),
+				Fee:         fee,
+				GasLimit:    100000,
+				Data:        []byte{},
+			},
+			Raw: types.Log{
+				Address: relayer.ZeroAddress,
+				Topics: []common.Hash{
+					relayer.ZeroHash,
+				},
+				Data: []byte{0xff},
+			},
+		}
+	}
+
+	tests := []struct {
+		name              string
+		fee               uint64
+		gasUsed           uint64
+		effectiveGasPrice int64
+		wantProfitable    bool
+	}{
+		{
+			// The actual cost exceeds the pre-send estimate (the mocks
+			// estimate ~a few hundred wei), but the message fee still covers
+			// it: the relayer earned money, so the message is profitable.
+			name:              "fee covers actual cost",
+			fee:               100_000_000,
+			gasUsed:           1000,
+			effectiveGasPrice: 1000,
+			wantProfitable:    true,
+		},
+		{
+			name:              "actual cost exceeds fee",
+			fee:               100_000_000,
+			gasUsed:           1000,
+			effectiveGasPrice: 1_000_000,
+			wantProfitable:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestProcessor(true)
+			p.txmgr = &receiptTxManager{receipt: &types.Receipt{
+				Status:            types.ReceiptStatusSuccessful,
+				GasUsed:           tt.gasUsed,
+				EffectiveGasPrice: big.NewInt(tt.effectiveGasPrice),
+			}}
+
+			profBefore := testutil.ToFloat64(relayer.ProfitableMessageAfterTransacting)
+			unprofBefore := testutil.ToFloat64(relayer.UnprofitableMessageAfterTransacting)
+
+			_, err := p.sendProcessMessageCall(context.Background(), 1, newEvent(tt.fee), []byte{})
+			assert.Nil(t, err)
+
+			profDelta := testutil.ToFloat64(relayer.ProfitableMessageAfterTransacting) - profBefore
+			unprofDelta := testutil.ToFloat64(relayer.UnprofitableMessageAfterTransacting) - unprofBefore
+
+			if tt.wantProfitable {
+				assert.Equal(t, float64(1), profDelta)
+				assert.Equal(t, float64(0), unprofDelta)
+			} else {
+				assert.Equal(t, float64(0), profDelta)
+				assert.Equal(t, float64(1), unprofDelta)
+			}
+		})
+	}
 }
 
 func TestGetBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
