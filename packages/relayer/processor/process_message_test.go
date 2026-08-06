@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
@@ -64,6 +65,27 @@ func (t *receiptTxManager) Send(ctx context.Context, candidate txmgr.TxCandidate
 	return t.receipt, nil
 }
 
+func messageProcessedLog(
+	t *testing.T,
+	message bridge.IBridgeMessage,
+	stats bridge.BridgeProcessingStats,
+) *types.Log {
+	t.Helper()
+
+	bridgeABI, err := bridge.BridgeMetaData.GetAbi()
+	require.NoError(t, err)
+
+	messageProcessed := bridgeABI.Events["MessageProcessed"]
+	data, err := messageProcessed.Inputs.NonIndexed().Pack(message, stats)
+	require.NoError(t, err)
+
+	return &types.Log{
+		Address: common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+		Topics:  []common.Hash{messageProcessed.ID, common.Hash(mock.SuccessMsgHash)},
+		Data:    data,
+	}
+}
+
 func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
 	newEvent := func(fee uint64) *bridge.BridgeMessageSent {
 		return &bridge.BridgeMessageSent{
@@ -94,43 +116,74 @@ func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
 	tests := []struct {
 		name              string
 		fee               uint64
+		baseFee           int64
+		gasUsedInFeeCalc  uint32
 		gasUsed           uint64
 		effectiveGasPrice int64
 		wantProfitable    bool
 	}{
 		{
-			// The actual cost exceeds the pre-send estimate (the mocks
-			// estimate ~a few hundred wei), but the message fee still covers
-			// it: the relayer earned money, so the message is profitable.
-			name:              "fee covers actual cost",
-			fee:               100_000_000,
-			gasUsed:           1000,
-			effectiveGasPrice: 1000,
+			// The actual cost exceeds the pre-send estimate, but the Bridge's
+			// 1_500_000 wei relayer payout covers it.
+			name:              "relayer fee covers actual cost",
+			fee:               200_000_000,
+			baseFee:           1_000,
+			gasUsedInFeeCalc:  1_000,
+			gasUsed:           1_500,
+			effectiveGasPrice: 1_000,
 			wantProfitable:    true,
 		},
 		{
-			name:              "actual cost exceeds fee",
+			// The Bridge pays (maxFee + baseFee) / 2 =
+			// (1_000_000 + 100_000) / 2 = 550_000 wei. That is less than
+			// the 1_000_000 wei transaction cost even though the fee cap covers it.
+			name:              "fee cap covers actual cost but relayer fee does not",
 			fee:               100_000_000,
-			gasUsed:           1000,
-			effectiveGasPrice: 1_000_000,
+			baseFee:           100,
+			gasUsedInFeeCalc:  1_000,
+			gasUsed:           1_000,
+			effectiveGasPrice: 1_000,
+			wantProfitable:    false,
+		},
+		{
+			// The transaction cost is larger than uint64. It must remain
+			// unprofitable instead of wrapping below the relayer fee.
+			name:              "actual cost exceeds uint64",
+			fee:               ^uint64(0),
+			baseFee:           1,
+			gasUsedInFeeCalc:  ^uint32(0),
+			gasUsed:           ^uint64(0),
+			effectiveGasPrice: 2,
 			wantProfitable:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := newTestProcessor(true)
-			p.txmgr = &receiptTxManager{receipt: &types.Receipt{
+			event := newEvent(tt.fee)
+			receipt := &types.Receipt{
 				Status:            types.ReceiptStatusSuccessful,
 				GasUsed:           tt.gasUsed,
 				EffectiveGasPrice: big.NewInt(tt.effectiveGasPrice),
-			}}
+				BlockNumber:       big.NewInt(1),
+			}
+			receipt.Logs = []*types.Log{messageProcessedLog(t, event.Message, bridge.BridgeProcessingStats{
+				GasUsedInFeeCalc:   tt.gasUsedInFeeCalc,
+				ProcessedByRelayer: true,
+			})}
+
+			p := newTestProcessor(true)
+			p.destEthClient = &blockByNumberEthClient{
+				EthClient: &mock.EthClient{},
+				block:     processorBlockWithBaseFee(big.NewInt(tt.baseFee)),
+			}
+			p.txmgr = &receiptTxManager{receipt: receipt}
 
 			profBefore := testutil.ToFloat64(relayer.ProfitableMessageAfterTransacting)
 			unprofBefore := testutil.ToFloat64(relayer.UnprofitableMessageAfterTransacting)
 
-			_, err := p.sendProcessMessageCall(context.Background(), 1, newEvent(tt.fee), []byte{})
-			assert.Nil(t, err)
+			_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+			require.NoError(t, err)
 
 			profDelta := testutil.ToFloat64(relayer.ProfitableMessageAfterTransacting) - profBefore
 			unprofDelta := testutil.ToFloat64(relayer.UnprofitableMessageAfterTransacting) - unprofBefore
