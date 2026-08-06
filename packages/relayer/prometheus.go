@@ -122,6 +122,10 @@ var (
 		Name: "unprofitable_message_after_transacting_ops_total",
 		Help: "The total number of processed events that ended up unprofitable",
 	})
+	AfterTransactingProfitabilityEvaluationErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "after_transacting_profitability_evaluation_errors_ops_total",
+		Help: "The total number of errors evaluating profitability after transacting",
+	})
 	MessageSentEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_after_retry_error_count",
 		Help: "The total number of errors logged for MessageSent events after retries",

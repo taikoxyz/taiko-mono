@@ -85,86 +85,97 @@ func messageProcessedLog(
 		Data:    data,
 	}
 }
+func newProcessMessageEvent(fee uint64) *bridge.BridgeMessageSent {
+	return &bridge.BridgeMessageSent{
+		MsgHash: mock.SuccessMsgHash,
+		Message: bridge.IBridgeMessage{
+			Id:          1,
+			From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+			DestChainId: mock.MockChainID.Uint64(),
+			SrcChainId:  mock.MockChainID.Uint64(),
+			SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+			DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+			To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+			Value:       big.NewInt(0),
+			Fee:         fee,
+			GasLimit:    100000,
+			Data:        []byte{},
+		},
+		Raw: types.Log{
+			Address: relayer.ZeroAddress,
+			Topics: []common.Hash{
+				relayer.ZeroHash,
+			},
+			Data: []byte{0xff},
+		},
+	}
+}
 
 func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
-	newEvent := func(fee uint64) *bridge.BridgeMessageSent {
-		return &bridge.BridgeMessageSent{
-			MsgHash: mock.SuccessMsgHash,
-			Message: bridge.IBridgeMessage{
-				Id:          1,
-				From:        common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-				DestChainId: mock.MockChainID.Uint64(),
-				SrcChainId:  mock.MockChainID.Uint64(),
-				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-				DestOwner:   common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-				To:          common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
-				Value:       big.NewInt(0),
-				Fee:         fee,
-				GasLimit:    100000,
-				Data:        []byte{},
-			},
-			Raw: types.Log{
-				Address: relayer.ZeroAddress,
-				Topics: []common.Hash{
-					relayer.ZeroHash,
-				},
-				Data: []byte{0xff},
-			},
-		}
-	}
-
 	tests := []struct {
-		name              string
-		fee               uint64
-		baseFee           int64
-		gasUsedInFeeCalc  uint32
-		gasUsed           uint64
-		effectiveGasPrice int64
-		wantProfitable    bool
+		name                  string
+		fee                   uint64
+		latestBaseFee         int64
+		canonicalBlockBaseFee int64
+		receiptBlockBaseFee   int64
+		gasUsedInFeeCalc      uint32
+		gasUsed               uint64
+		effectiveGasPrice     int64
+		wantProfitable        bool
 	}{
 		{
 			// The actual cost exceeds the pre-send estimate, but the Bridge's
 			// 1_500_000 wei relayer payout covers it.
-			name:              "relayer fee covers actual cost",
-			fee:               200_000_000,
-			baseFee:           1_000,
-			gasUsedInFeeCalc:  1_000,
-			gasUsed:           1_500,
-			effectiveGasPrice: 1_000,
-			wantProfitable:    true,
+			name:                  "relayer fee covers actual cost",
+			fee:                   200_000_000,
+			latestBaseFee:         1_000,
+			canonicalBlockBaseFee: 1_000,
+			receiptBlockBaseFee:   1_000,
+			gasUsedInFeeCalc:      1_000,
+			gasUsed:               1_500,
+			effectiveGasPrice:     1_000,
+			wantProfitable:        true,
 		},
 		{
 			// The Bridge pays (maxFee + baseFee) / 2 =
 			// (1_000_000 + 100_000) / 2 = 550_000 wei. That is less than
 			// the 1_000_000 wei transaction cost even though the fee cap covers it.
-			name:              "fee cap covers actual cost but relayer fee does not",
-			fee:               100_000_000,
-			baseFee:           100,
-			gasUsedInFeeCalc:  1_000,
-			gasUsed:           1_000,
-			effectiveGasPrice: 1_000,
-			wantProfitable:    false,
+			// The canonical block at the same number has a different base fee,
+			// modeling a reorg between receipt retrieval and profitability evaluation.
+			name:                  "fee cap covers actual cost but relayer fee does not",
+			fee:                   100_000_000,
+			latestBaseFee:         100,
+			canonicalBlockBaseFee: 1_000,
+			receiptBlockBaseFee:   100,
+			gasUsedInFeeCalc:      1_000,
+			gasUsed:               1_000,
+			effectiveGasPrice:     1_000,
+			wantProfitable:        false,
 		},
 		{
 			// The transaction cost is larger than uint64. It must remain
 			// unprofitable instead of wrapping below the relayer fee.
-			name:              "actual cost exceeds uint64",
-			fee:               ^uint64(0),
-			baseFee:           1,
-			gasUsedInFeeCalc:  ^uint32(0),
-			gasUsed:           ^uint64(0),
-			effectiveGasPrice: 2,
-			wantProfitable:    false,
+			name:                  "actual cost exceeds uint64",
+			fee:                   ^uint64(0),
+			latestBaseFee:         1,
+			canonicalBlockBaseFee: 1,
+			receiptBlockBaseFee:   1,
+			gasUsedInFeeCalc:      ^uint32(0),
+			gasUsed:               ^uint64(0),
+			effectiveGasPrice:     2,
+			wantProfitable:        false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := newEvent(tt.fee)
+			event := newProcessMessageEvent(tt.fee)
+			receiptBlockHash := common.HexToHash("0x1234")
 			receipt := &types.Receipt{
 				Status:            types.ReceiptStatusSuccessful,
 				GasUsed:           tt.gasUsed,
 				EffectiveGasPrice: big.NewInt(tt.effectiveGasPrice),
+				BlockHash:         receiptBlockHash,
 				BlockNumber:       big.NewInt(1),
 			}
 			receipt.Logs = []*types.Log{messageProcessedLog(t, event.Message, bridge.BridgeProcessingStats{
@@ -173,9 +184,18 @@ func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
 			})}
 
 			p := newTestProcessor(true)
-			p.destEthClient = &blockByNumberEthClient{
-				EthClient: &mock.EthClient{},
-				block:     processorBlockWithBaseFee(big.NewInt(tt.baseFee)),
+			p.destEthClient = &profitabilityEthClient{
+				EthClient:        &mock.EthClient{},
+				receiptBlockHash: receiptBlockHash,
+				latestBlock: processorBlockWithBaseFee(
+					big.NewInt(tt.latestBaseFee),
+				),
+				canonicalBlock: processorBlockWithBaseFee(
+					big.NewInt(tt.canonicalBlockBaseFee),
+				),
+				receiptBlockHeader: processorHeaderWithBaseFee(
+					big.NewInt(tt.receiptBlockBaseFee),
+				),
 			}
 			p.txmgr = &receiptTxManager{receipt: receipt}
 
@@ -195,6 +215,45 @@ func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
 				assert.Equal(t, float64(0), profDelta)
 				assert.Equal(t, float64(1), unprofDelta)
 			}
+		})
+	}
+}
+
+func Test_sendProcessMessageCall_afterTransactingProfitabilityEvaluationErrors(t *testing.T) {
+	tests := []struct {
+		name              string
+		effectiveGasPrice *big.Int
+	}{
+		{
+			name: "missing effective gas price",
+		},
+		{
+			name:              "missing MessageProcessed event",
+			effectiveGasPrice: big.NewInt(1),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestProcessor(true)
+			p.txmgr = &receiptTxManager{receipt: &types.Receipt{
+				Status:            types.ReceiptStatusSuccessful,
+				GasUsed:           1,
+				EffectiveGasPrice: tt.effectiveGasPrice,
+			}}
+
+			before := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
+
+			_, err := p.sendProcessMessageCall(
+				context.Background(),
+				1,
+				newProcessMessageEvent(100_000_000),
+				[]byte{},
+			)
+			require.NoError(t, err)
+
+			after := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
+			assert.Equal(t, float64(1), after-before)
 		})
 	}
 }
@@ -394,13 +453,41 @@ type blockByNumberEthClient struct {
 	block *types.Block
 }
 
+type profitabilityEthClient struct {
+	*mock.EthClient
+	latestBlock        *types.Block
+	canonicalBlock     *types.Block
+	receiptBlockHash   common.Hash
+	receiptBlockHeader *types.Header
+}
+
+func (c *profitabilityEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	if number == nil {
+		return c.latestBlock, nil
+	}
+
+	return c.canonicalBlock, nil
+}
+
+func (c *profitabilityEthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	if hash != c.receiptBlockHash {
+		return nil, errors.New("unexpected receipt block hash")
+	}
+
+	return c.receiptBlockHeader, nil
+}
+
 func (c *blockByNumberEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	return c.block, nil
 }
 
 func processorBlockWithBaseFee(baseFee *big.Int) *types.Block {
+	return types.NewBlockWithHeader(processorHeaderWithBaseFee(baseFee))
+}
+
+func processorHeaderWithBaseFee(baseFee *big.Int) *types.Header {
 	header := *mock.Header
 	header.BaseFee = baseFee
 
-	return types.NewBlockWithHeader(&header)
+	return &header
 }

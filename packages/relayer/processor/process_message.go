@@ -462,6 +462,7 @@ func (p *Processor) sendProcessMessageCall(
 
 	if p.profitableOnly {
 		if receipt.EffectiveGasPrice == nil {
+			relayer.AfterTransactingProfitabilityEvaluationErrors.Inc()
 			slog.Warn("missing effective gas price; skipping after-transacting profitability",
 				"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
 				"srcTxHash", event.Raw.TxHash.Hex(),
@@ -471,6 +472,7 @@ func (p *Processor) sendProcessMessageCall(
 
 			relayerFee, err := p.relayerFeeFromReceipt(ctx, receipt, event)
 			if err != nil {
+				relayer.AfterTransactingProfitabilityEvaluationErrors.Inc()
 				slog.Warn("failed to determine relayer fee; skipping after-transacting profitability",
 					"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
 					"srcTxHash", event.Raw.TxHash.Hex(),
@@ -551,16 +553,12 @@ func (p *Processor) relayerFeeFromReceipt(
 		return new(big.Int).SetUint64(event.Message.Fee), nil
 	}
 
-	if receipt.BlockNumber == nil {
-		return nil, errors.New("receipt block number is missing")
-	}
-
-	minedBlock, err := p.destEthClient.BlockByNumber(ctx, receipt.BlockNumber)
+	minedHeader, err := p.destEthClient.HeaderByHash(ctx, receipt.BlockHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "get mined block")
+		return nil, errors.Wrap(err, "get mined block header")
 	}
 
-	if minedBlock == nil || minedBlock.BaseFee() == nil {
+	if minedHeader == nil || minedHeader.BaseFee == nil {
 		return nil, errors.New("mined block base fee is missing")
 	}
 
@@ -577,7 +575,7 @@ func (p *Processor) relayerFeeFromReceipt(
 
 	maxFee := new(big.Int).Mul(gasCharged, new(big.Int).SetUint64(event.Message.Fee))
 	maxFee.Div(maxFee, new(big.Int).SetUint64(uint64(event.Message.GasLimit)))
-	baseFee := new(big.Int).Mul(gasCharged, minedBlock.BaseFee())
+	baseFee := new(big.Int).Mul(gasCharged, minedHeader.BaseFee)
 
 	var paidFee *big.Int
 	if baseFee.Cmp(maxFee) >= 0 {
