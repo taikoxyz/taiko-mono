@@ -258,6 +258,53 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilityEvaluationErrors(t
 	}
 }
 
+func Test_sendProcessMessageCall_afterTransactingProfitabilitySkipsNilReceiptLogs(t *testing.T) {
+	p := newTestProcessor(true)
+	p.txmgr = &receiptTxManager{receipt: &types.Receipt{
+		Status:            types.ReceiptStatusSuccessful,
+		GasUsed:           1,
+		EffectiveGasPrice: big.NewInt(1),
+		Logs:              []*types.Log{nil},
+	}}
+
+	before := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
+
+	_, err := p.sendProcessMessageCall(
+		context.Background(),
+		1,
+		newProcessMessageEvent(100_000_000),
+		[]byte{},
+	)
+	require.NoError(t, err)
+
+	after := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
+	assert.Equal(t, float64(1), after-before)
+}
+
+func Test_relayerFeeFromReceipt_timesOutHeaderLookup(t *testing.T) {
+	event := newProcessMessageEvent(100_000_000)
+	receipt := &types.Receipt{
+		BlockHash: common.HexToHash("0x1234"),
+		Logs: []*types.Log{messageProcessedLog(t, event.Message, bridge.BridgeProcessingStats{
+			GasUsedInFeeCalc:   1,
+			ProcessedByRelayer: true,
+		})},
+	}
+
+	p := newTestProcessor(true)
+	p.ethClientTimeout = 10 * time.Millisecond
+	p.destEthClient = &blockingHeaderEthClient{EthClient: &mock.EthClient{}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	watchdog := time.AfterFunc(250*time.Millisecond, cancel)
+	defer watchdog.Stop()
+
+	_, err := p.relayerFeeFromReceipt(ctx, receipt, event)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
 func TestGetBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
 	p := newTestProcessor(false)
 	p.taikoL2 = &taikol2.TaikoL2{}
@@ -459,6 +506,16 @@ type profitabilityEthClient struct {
 	canonicalBlock     *types.Block
 	receiptBlockHash   common.Hash
 	receiptBlockHeader *types.Header
+}
+
+type blockingHeaderEthClient struct {
+	*mock.EthClient
+}
+
+func (c *blockingHeaderEthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	<-ctx.Done()
+
+	return nil, ctx.Err()
 }
 
 func (c *profitabilityEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {

@@ -519,7 +519,7 @@ func (p *Processor) relayerFeeFromReceipt(
 	var stats *bridge.BridgeProcessingStats
 
 	for _, receiptLog := range receipt.Logs {
-		if receiptLog.Address != p.cfg.DestBridgeAddress || len(receiptLog.Topics) < 2 ||
+		if receiptLog == nil || receiptLog.Address != p.cfg.DestBridgeAddress || len(receiptLog.Topics) < 2 ||
 			receiptLog.Topics[0] != messageProcessed.ID || receiptLog.Topics[1] != common.Hash(event.MsgHash) {
 			continue
 		}
@@ -552,6 +552,9 @@ func (p *Processor) relayerFeeFromReceipt(
 	if !stats.ProcessedByRelayer {
 		return new(big.Int).SetUint64(event.Message.Fee), nil
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+	defer cancel()
 
 	minedHeader, err := p.destEthClient.HeaderByHash(ctx, receipt.BlockHash)
 	if err != nil {
@@ -630,7 +633,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	m := make(map[string]interface{})
 
 	for _, log := range receipt.Logs {
-		if len(log.Topics) == 0 {
+		if log == nil || len(log.Topics) == 0 {
 			continue
 		}
 
