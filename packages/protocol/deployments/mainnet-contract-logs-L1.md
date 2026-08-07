@@ -283,7 +283,7 @@
 - impl : `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xff70e373b4ff4f0f4a5fdd7b1709d6d3be74ea21426fa05e315d90adb81637a8`
-  - reused (unchanged) by the Proposal0017 recovery MainnetVerifier `0x71808449…` — its `risc0RethVerifier()` returns this address. Until Unzen executed (Aug 3, 2026), that verifier's set was SGX-geth + SGX-reth + SP1 + RISC0, but because it also accepted `SGX_GETH + SGX_RETH` (zero ZK), RISC0 was optional in practice.
+  - reused (unchanged) by the Proposal0017 recovery MainnetVerifier `0x71808449…` — its `risc0RethVerifier()` returns this address. The active recovery verifier set is SGX-geth + SGX-reth + SP1 + RISC0.
   - rotated the trusted image IDs to raiko2 v0.6.0 on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen). Post-Unzen the active verifier is `ZkRequiredVerifier` `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`, which requires at least one ZK proof per batch, so RISC0 participates in three of its five accepted combinations.
     - untrusted (raiko2 v0.5.1): proposal `0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b`, aggregation `0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef`
     - trusted (raiko2 v0.6.0): proposal `0x5a818b4c7dc80e9ba85d55492c20c263c67238724e3982f76d15a158e501210b`, aggregation `0x9cfcc1b34a98853c3c5873a4d456726e528246f7f03a4ea35f27c2543aa6e7f0`
