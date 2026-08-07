@@ -41,7 +41,6 @@ func resolveEndpoints(ws, http string) (string, error) {
 type Config struct {
 	*rpc.ClientConfig
 	P2PSync                       bool
-	P2PSyncTimeout                time.Duration
 	RetryInterval                 time.Duration
 	BlobServerEndpoint            *url.URL
 	PreconfBlockServerPort        uint64
@@ -166,7 +165,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ClientConfig:                  clientConfig,
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
 		P2PSync:                       p2pSync,
-		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
 		BlobServerEndpoint:            blobServerEndpoint,
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,

@@ -7,12 +7,14 @@ use url::Url;
 /// Driver-specific CLI arguments.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct DriverArgs {
-    /// Interval in seconds between retry attempts when sync operations fail.
+    /// Maximum interval in seconds between retry attempts when sync operations fail; the
+    /// event scanner reconnect backs off exponentially from one second up to this cap.
     #[clap(
         long = "driver.retryInterval",
         env = "DRIVER_RETRY_INTERVAL",
         default_value = "12",
-        help = "Interval in seconds between retry attempts when sync operations fail"
+        help = "Maximum interval in seconds between retry attempts when sync operations fail; \
+                the event scanner reconnect backs off exponentially from one second up to this cap"
     )]
     retry_interval_seconds: u64,
     /// HTTP endpoint of the L1 beacon node.
@@ -23,11 +25,13 @@ pub struct DriverArgs {
         help = "HTTP endpoint of the L1 beacon node"
     )]
     pub l1_beacon_endpoint: Url,
-    /// Optional HTTP endpoint of a checkpointed L2 execution engine.
+    /// Optional HTTP endpoint of an L2 execution engine used as an untrusted block-body source
+    /// for checkpoint catch-up; the sync target itself is read from the L1 inbox.
     #[clap(
         long = "l2.checkpoint",
         env = "L2_CHECKPOINT",
-        help = "Optional HTTP endpoint of a checkpointed L2 execution engine"
+        help = "Optional HTTP endpoint of an L2 execution engine used as an untrusted \
+                block-body source for checkpoint catch-up"
     )]
     pub l2_checkpoint_endpoint: Option<Url>,
     /// Optional HTTP endpoint of a blob server to use as fallback.

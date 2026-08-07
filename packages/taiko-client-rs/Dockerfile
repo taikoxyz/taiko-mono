@@ -8,7 +8,6 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 COPY packages/taiko-client-rs packages/taiko-client-rs
-COPY packages/preconfirmation-p2p packages/preconfirmation-p2p
 
 WORKDIR /app/packages/taiko-client-rs
 

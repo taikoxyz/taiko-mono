@@ -23,10 +23,6 @@ pub struct Config {
     #[arg(long, env = "PRIVATE_KEY")]
     pub private_key: String,
 
-    // address of the taiko wrapper contract
-    #[arg(long, env = "TAIKO_WRAPPER_ADDRESS")]
-    pub taiko_wrapper_address: String,
-
     // beacon client base URL
     #[arg(long, env = "BEACON_URL", default_value = "http://localhost:5052")]
     pub beacon_url: String,
@@ -42,10 +38,6 @@ pub struct Config {
     // minimum number of operators to keep in the whitelist
     #[arg(long, env = "MIN_OPERATORS", default_value_t = 3u64)]
     pub min_operators: u64,
-
-    // Address of preconfRouter
-    #[arg(long, env = "PRECONF_ROUTER_ADDRESS")]
-    pub preconf_router_address: String,
 
     // Address of L2 Anchor contract (for detecting re-anchoring).
     // Required when enable_reorg_ejection is true.
@@ -75,8 +67,6 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--anchor-address",
             "0xABC",
             "--l1-http-url",
@@ -87,8 +77,6 @@ mod tests {
             "10",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
             "--handover-slots",
@@ -104,13 +92,11 @@ mod tests {
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
-        assert_eq!(config.preconf_router_address, "0x789");
         assert_eq!(config.anchor_address, Some("0xABC".to_string()));
         assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
         assert_eq!(config.eject_after_seconds, 10);
         assert_eq!(config.l2_http_url, "http://test-l2.com");
         assert_eq!(config.private_key, "0x1234");
-        assert_eq!(config.taiko_wrapper_address, "0x456");
         assert_eq!(config.beacon_url, "http://test-beacon.com");
         assert_eq!(config.handover_slots, 4);
         assert_eq!(config.server_port, 8081);
@@ -126,16 +112,12 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--l1-http-url",
             "http://test-l1-rpc.com",
             "--l2-http-url",
             "http://test-l2.com",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
             "--enable-reorg-ejection",
@@ -152,8 +134,6 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--anchor-address",
             "0xABC",
             "--l1-http-url",
@@ -162,8 +142,6 @@ mod tests {
             "http://test-l2-rpc.com",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
         ]);
@@ -178,16 +156,12 @@ mod tests {
             "ejector",
             "--preconf-whitelist-address",
             "0x1123",
-            "--preconf-router-address",
-            "0x789",
             "--l1-http-url",
             "http://test-l1-rpc.com",
             "--l2-http-url",
             "http://test-l2.com",
             "--private-key",
             "0x1234",
-            "--taiko-wrapper-address",
-            "0x456",
             "--beacon-url",
             "http://test-beacon.com",
             "--enable-reorg-ejection",

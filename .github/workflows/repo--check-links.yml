@@ -1,9 +1,20 @@
 name: Check links
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/README.md"
   push:
     paths:
       - "**/README.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-links-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-links:
@@ -12,6 +23,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Check links
         uses: lycheeverse/lychee-action@v2

@@ -79,7 +79,31 @@ contract InboxWhitelistProverTest is InboxTestBase {
         );
     }
 
-    function test_prove_succeedsWhen_CallerIsNotWhitelistedProverAndProposalIsTooOld() public {
+    // Permissionless proving is disabled when a non-empty prover whitelist is configured.
+    // function test_prove_succeedsWhen_CallerIsNotWhitelistedProverAndProposalIsTooOld() public {
+    //     ProposedEvent memory p1 = _proposeOne();
+    //     uint48 p1Timestamp = uint48(block.timestamp);
+
+    //     vm.warp(uint256(p1Timestamp) + config.permissionlessProvingDelay + 1);
+
+    //     IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+    //     transitions[0] = IInbox.Transition({
+    //         proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
+    //     });
+
+    //     IInbox.ProveInput memory input = _buildInputWithProver(
+    //         p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, prover
+    //     );
+
+    //     bytes memory encodedInput = codec.encodeProveInput(input);
+    //     vm.prank(prover);
+    //     inbox.prove(encodedInput, bytes("proof"));
+
+    //     IInbox.CoreState memory state = inbox.getCoreState();
+    //     assertEq(state.lastFinalizedProposalId, p1.id, "finalized id");
+    // }
+
+    function test_prove_RevertWhen_NonWhitelistedProverAfterPermissionlessProvingDelay() public {
         ProposedEvent memory p1 = _proposeOne();
         uint48 p1Timestamp = uint48(block.timestamp);
 
@@ -95,11 +119,9 @@ contract InboxWhitelistProverTest is InboxTestBase {
         );
 
         bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.ProverNotWhitelisted.selector);
         vm.prank(prover);
         inbox.prove(encodedInput, bytes("proof"));
-
-        IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.lastFinalizedProposalId, p1.id, "finalized id");
     }
 
     function test_prove_RevertWhen_CallerIsNotWhitelistedProverAndProposalTooYoung() public {

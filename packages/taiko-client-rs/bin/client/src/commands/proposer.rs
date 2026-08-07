@@ -8,7 +8,7 @@ use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Prop
 use protocol::shasta::set_devnet_unzen_override;
 
 use crate::{
-    commands::Subcommand,
+    commands::{Subcommand, build_client_config},
     flags::{common::CommonArgs, proposer::ProposerArgs},
 };
 
@@ -30,14 +30,8 @@ pub struct ProposerSubCommand {
 impl ProposerSubCommand {
     /// Build proposer configuration from command-line arguments.
     fn build_config(&self) -> Result<ProposerConfigs> {
-        let l1_provider_source = self.common_flags.l1_provider_source()?;
-
         Ok(ProposerConfigs {
-            l1_provider_source,
-            l2_provider_url: self.common_flags.l2_http_endpoint.clone(),
-            l2_auth_provider_url: self.common_flags.l2_auth_endpoint.clone(),
-            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
-            inbox_address: self.common_flags.shasta_inbox_address,
+            client: build_client_config(&self.common_flags)?,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,

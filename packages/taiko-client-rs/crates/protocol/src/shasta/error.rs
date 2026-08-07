@@ -9,10 +9,6 @@ pub type Result<T> = StdResult<T, ProtocolError>;
 /// Error types for Shasta protocol operations
 #[derive(Debug, Error)]
 pub enum ProtocolError {
-    /// IO error during encoding/decoding
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
     /// Compression error
     #[error("compression error: {0}")]
     Compression(String),

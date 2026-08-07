@@ -28,8 +28,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # taiko
 driver = { path = "../../crates/driver" }
-preconfirmation-driver = { path = "../../crates/preconfirmation-driver" }
-preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 proposer = { path = "../../crates/proposer" }
 protocol = { path = "../../crates/protocol" }
 rpc = { path = "../../crates/rpc" }

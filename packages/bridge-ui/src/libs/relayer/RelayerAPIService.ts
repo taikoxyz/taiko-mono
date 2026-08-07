@@ -28,6 +28,30 @@ import {
 
 const log = getLogger('RelayerAPIService');
 
+const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
+const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
+
+export function preserveMessageIntegerPrecision(rawResponse: string): string {
+  return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
+}
+
+export function parseRelayerApiResponse(rawResponse: string): APIResponse {
+  return JSON.parse(preserveMessageIntegerPrecision(rawResponse));
+}
+
+export function parseApiBigInt(value: unknown): bigint {
+  if (typeof value === 'bigint' || typeof value === 'string') {
+    return BigInt(value);
+  }
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) {
+      throw new TypeError('Unsafe integer value from relayer API');
+    }
+    return BigInt(value);
+  }
+  throw new TypeError('Invalid integer value from relayer API');
+}
+
 export class RelayerAPIService {
   constructor(baseUrl: string) {
     log('relayer service instantiated');
@@ -116,16 +140,19 @@ export class RelayerAPIService {
     try {
       log('Fetching events from API with params', params);
 
-      const response = await axios.get<APIResponse>(requestURL, {
+      const response = await axios.get<APIResponse | string>(requestURL, {
         params,
         timeout: apiService.timeout,
+        transformResponse: [(data) => data],
       });
 
       if (!response || response.status >= 400) throw response;
 
-      log('Events form API', response.data);
+      const data = typeof response.data === 'string' ? parseRelayerApiResponse(response.data) : response.data;
 
-      return response.data;
+      log('Events form API', data);
+
+      return data;
     } catch (error) {
       console.error(error);
       throw new Error('could not fetch transactions from API', {
@@ -189,7 +216,11 @@ export class RelayerAPIService {
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
-      const value = tx.data.Message.Value > 0n ? BigInt(tx.amount) : 0n;
+      const messageFee = parseApiBigInt(tx.data.Message.Fee);
+      const messageValue = parseApiBigInt(tx.data.Message.Value);
+      const messageId = parseApiBigInt(tx.data.Message.Id);
+      const srcChainId = parseApiBigInt(tx.data.Message.SrcChainId);
+      const destChainId = parseApiBigInt(tx.data.Message.DestChainId);
 
       const transformedTx = {
         status: tx.status,
@@ -199,27 +230,27 @@ export class RelayerAPIService {
         srcTxHash: tx.data.Raw.transactionHash,
         destTxHash: tx.processedTxHash,
         from: getAddress(tx.messageOwner),
-        srcChainId: tx.data.Message.SrcChainId,
-        destChainId: tx.data.Message.DestChainId,
+        srcChainId,
+        destChainId,
         msgHash: tx.msgHash,
         tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
-        processingFee: BigInt(tx.data.Message.Fee.toString()),
+        processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
         fee: tx.fee ? BigInt(tx.fee) : undefined,
         message: {
-          id: tx.data.Message.Id,
+          id: messageId,
           to: getAddress(tx.data.Message.To),
           destOwner: getAddress(tx.data.Message.DestOwner),
           data: data as Hex,
           srcOwner: getAddress(tx.data.Message.SrcOwner),
           from: getAddress(tx.data.Message.From),
           gasLimit: tx.data.Message.GasLimit,
-          value,
-          srcChainId: BigInt(tx.data.Message.SrcChainId),
-          destChainId: BigInt(tx.data.Message.DestChainId),
-          fee: BigInt(tx.data.Message.Fee.toString()),
+          value: messageValue,
+          srcChainId,
+          destChainId,
+          fee: messageFee,
         },
       } satisfies BridgeTransaction;
 

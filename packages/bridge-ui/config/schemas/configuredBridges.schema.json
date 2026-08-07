@@ -31,6 +31,10 @@
               "signalServiceAddress": {
                 "type": "string"
               },
+              "quotaManagerAddress": {
+                "type": "string",
+                "description": "Optional QuotaManager address for the destination route"
+              },
               "anchorForkRouter": {
                 "type": "string",
                 "description": "Anchor address for checkpoint sync (L2 only)"

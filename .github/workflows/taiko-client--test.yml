@@ -85,6 +85,7 @@ jobs:
     timeout-minutes: 30
     env:
       CGO_ENABLED: 1
+      PROTOCOL_FORK_DIR: protocol-taiko-mono
 
     strategy:
       fail-fast: false
@@ -101,6 +102,13 @@ jobs:
           access_token: ${{ github.token }}
 
       - uses: actions/checkout@v6
+
+      - name: Checkout protocol for testing
+        uses: actions/checkout@v6
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.PROTOCOL_FORK_DIR }}
+          ref: main
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -155,12 +163,13 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install pnpm dependencies for protocol
-        run: cd ./packages/protocol && pnpm install
+        run: cd ./${{ env.PROTOCOL_FORK_DIR }}/packages/protocol && pnpm install
 
       - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
+          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
         run: make test
 
       - name: Codecov.io

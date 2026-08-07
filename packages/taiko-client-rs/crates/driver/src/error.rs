@@ -2,6 +2,7 @@
 
 use std::{result::Result as StdResult, time::Duration};
 
+use alloy::primitives::B256;
 use anyhow::Error as AnyhowError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
@@ -30,6 +31,19 @@ pub enum DriverError {
     /// Preconfirmation ingress loop has not started yet.
     #[error("preconfirmation ingress loop is not ready")]
     PreconfIngressNotReady,
+
+    /// Canonical parent changed after the preconfirmation was authenticated.
+    #[error(
+        "preconfirmation parent mismatch for block {block_number}: expected {expected}, got {actual}"
+    )]
+    PreconfParentMismatch {
+        /// L2 block number targeted by the preconfirmation.
+        block_number: u64,
+        /// Parent hash authenticated by the preconfirmation sender.
+        expected: B256,
+        /// Parent hash currently canonical in the execution engine.
+        actual: B256,
+    },
 
     /// Block not found on remote node.
     #[error("remote node missing block {0}")]

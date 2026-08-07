@@ -25,12 +25,9 @@ fn request_execution_payload(data: &ExecutableData, prev_randao: B256) -> Execut
     }
 }
 
-impl<P> WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistApiService {
     /// Build driver payload attributes from the requested executable data.
-    pub(super) fn build_driver_payload(
+    pub(super) fn driver_payload_from_request(
         &self,
         data: &ExecutableData,
         is_forced_inclusion: Option<bool>,

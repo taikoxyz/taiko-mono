@@ -28,19 +28,16 @@ mod tests;
 
 pub(crate) use validation::validate_execution_payload_for_preconf;
 /// Dependency bundle for constructing [`WhitelistPreconfirmationImporter`].
-pub(crate) struct WhitelistPreconfirmationImporterParams<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) struct WhitelistPreconfirmationImporterParams {
     /// Event syncer used to submit validated preconfirmation payloads.
-    pub(crate) event_syncer: Arc<EventSyncer<P>>,
+    pub(crate) event_syncer: Arc<EventSyncer>,
     /// RPC client used for L1/L2 reads and head-origin updates.
-    pub(crate) rpc: Client<P>,
+    pub(crate) rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     pub(crate) state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     pub(crate) beacon_client: Arc<BeaconClient>,
@@ -52,17 +49,14 @@ where
 /// enforced once, at gossip acceptance time in
 /// [`crate::network`]'s inbound validation state, before events reach this
 /// importer. The importer performs payload-level validation only.
-pub(crate) struct WhitelistPreconfirmationImporter<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) struct WhitelistPreconfirmationImporter {
     /// Event syncer used to submit validated preconfirmation payloads.
-    event_syncer: Arc<EventSyncer<P>>,
+    event_syncer: Arc<EventSyncer>,
     /// RPC client used for L1/L2 reads and head-origin updates.
-    rpc: Client<P>,
+    rpc: Client,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
-    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
     state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     beacon_client: Arc<BeaconClient>,
@@ -74,16 +68,21 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
+    /// Latched once the head L1 origin row has been observed. The row is put-only and never
+    /// cleared: locally `set_head_l1_origin` only ever writes another real block id (a reorg
+    /// reset lowers it or skips the write), and the pinned alethia-reth EE persists it as an
+    /// unconditional put at a fixed key with no unwind/prune path. So once observed it can
+    /// never revert to absent, and readiness derived from it is permanent and needs no
+    /// further RPC re-checks (WLP-INV-002/003). Re-confirm this put-only guarantee if the
+    /// alethia-reth pin is bumped.
+    head_origin_written: bool,
     /// Shasta anchor contract address used to validate the first transaction.
     anchor_address: Address,
 }
 
-impl<P> WhitelistPreconfirmationImporter<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistPreconfirmationImporter {
     /// Build an importer.
-    pub(crate) fn new(params: WhitelistPreconfirmationImporterParams<P>) -> Self {
+    pub(crate) fn new(params: WhitelistPreconfirmationImporterParams) -> Self {
         let WhitelistPreconfirmationImporterParams {
             event_syncer,
             rpc,
@@ -104,6 +103,7 @@ where
             request_throttle: RequestThrottle::default(),
             network_command_tx,
             sync_ready: false,
+            head_origin_written: false,
             anchor_address,
         };
         importer.update_pending_cache_gauge();
@@ -175,6 +175,13 @@ where
 
     /// Handle an incoming end-of-sequencing request by serving the recorded
     /// envelope for the epoch from the recent cache or an L2 rebuild.
+    ///
+    /// This node only ever *serves* EOS requests; it never publishes one. In the Go client
+    /// the request is published from the incoming sequencer's handover loop
+    /// (`driver.go` `cacheLookaheadLoop` / `checkHandover`) when it has not seen the epoch's
+    /// EOS block. Here Catalyst owns handover and supplies the build `parent_hash`
+    /// explicitly, so this driver has no handover loop and never needs to request EOS blocks
+    /// — it only answers peers that do. Reintroduce a publish path if that ownership changes.
     async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
         let served = match self.state.end_of_sequencing_for_epoch(epoch).await {
             Some(hash) => self.serve_envelope_by_hash(hash, true).await?.is_some(),
@@ -193,8 +200,17 @@ where
     /// when no real proposal exists yet (`nextProposalId == 1`). Core state is read lazily,
     /// only while the origin pointer is absent. During beacon-sync custom-table gaps
     /// (`nextProposalId > 1`, origin unwritten) this stays fail-closed (WLP-INV-002).
+    ///
+    /// Once the origin pointer has been observed the gate is latched open without further
+    /// RPCs: the row is never deleted, so recomputing it cannot change the outcome. Only
+    /// the genesis window keeps re-checking on every call.
     pub(super) async fn refresh_sync_ready(&mut self) -> Result<()> {
+        if self.head_origin_written {
+            return Ok(());
+        }
+
         let head_written = self.head_l1_origin_block_id().await?.is_some();
+        self.head_origin_written = head_written;
         let next_proposal_id =
             if head_written { None } else { Some(self.next_proposal_id().await?) };
         let ready = should_enable_preconf_imports(head_written, next_proposal_id);

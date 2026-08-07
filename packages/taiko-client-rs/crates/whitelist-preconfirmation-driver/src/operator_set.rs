@@ -7,10 +7,10 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use alloy_primitives::{Address, U256};
-use alloy_provider::Provider;
 use arc_swap::ArcSwap;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use futures::future::try_join_all;
+use rpc::client::DefaultProvider;
 use tokio::time::sleep;
 use tracing::{info, warn};
 
@@ -28,22 +28,22 @@ pub(crate) type SharedOperatorSet = Arc<ArcSwap<HashSet<Address>>>;
 
 /// Periodically polls the `PreconfWhitelist` contract and publishes an
 /// up-to-date snapshot of all registered sequencer addresses.
-pub(crate) struct OperatorSetPoller<P> {
+pub(crate) struct OperatorSetPoller {
     /// Contract binding used for on-chain reads.
-    whitelist: PreconfWhitelistInstance<P>,
+    whitelist: PreconfWhitelistInstance<DefaultProvider>,
     /// Shared handle that readers use to access the latest operator set.
     operator_set: SharedOperatorSet,
 }
 
-impl<P> OperatorSetPoller<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl OperatorSetPoller {
     /// Bootstrap the poller by reading the full operator roster from L1.
     ///
     /// The initial set is published into `operator_set` before this
     /// constructor returns so that callers can start validating immediately.
-    pub(crate) async fn new(whitelist_address: Address, l1_provider: P) -> Result<Self> {
+    pub(crate) async fn new(
+        whitelist_address: Address,
+        l1_provider: DefaultProvider,
+    ) -> Result<Self> {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, l1_provider);
         let initial = Self::fetch_all_operators_from(&whitelist).await?;
 
@@ -109,7 +109,7 @@ where
     /// from 2N+1 to 3 regardless of operator count.
     /// Zero-address sequencers are silently excluded.
     async fn fetch_all_operators_from(
-        whitelist: &PreconfWhitelistInstance<P>,
+        whitelist: &PreconfWhitelistInstance<DefaultProvider>,
     ) -> Result<HashSet<Address>> {
         let count: u8 = whitelist.operatorCount().call().await.map_err(|err| {
             WhitelistPreconfirmationDriverMetrics::inc_whitelist_lookup_failure();

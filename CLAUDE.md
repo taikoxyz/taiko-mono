@@ -23,7 +23,6 @@ packages/
 ├── taiko-client-rs/    # Rust client implementation
 ├── relayer/            # Bridge message relayer (Go)
 ├── eventindexer/       # Event indexing service (Go)
-├── urcindexer-rs/      # URC indexer (Rust)
 ├── bridge-ui/          # Bridge frontend (SvelteKit)
 └── [other packages]    # UIs, NFTs, monitoring, tools
 ```

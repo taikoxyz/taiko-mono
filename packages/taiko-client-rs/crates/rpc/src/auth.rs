@@ -56,8 +56,13 @@ struct EngineNewPayloadV2Request<'a> {
     /// Withdrawals root hash tracked by the Taiko sidecar.
     withdrawals_hash: B256,
     /// Optional hash-relevant header difficulty restored for Unzen blocks.
+    ///
+    /// Serialized as a decimal JSON number: taiko-geth deserializes this field as a bare
+    /// `*big.Int`, which rejects the quoted hex encoding alloy uses for `U256`, while
+    /// alethia-reth's `U256` accepts numbers and hex strings alike. The value carries the
+    /// block's zk gas, which is bounded well below `u64::MAX` by the node-side schedule.
     #[serde(skip_serializing_if = "Option::is_none")]
-    header_difficulty: Option<U256>,
+    header_difficulty: Option<u64>,
     /// Optional marker flag indicating that the payload is Taiko-specific.
     #[serde(skip_serializing_if = "Option::is_none")]
     taiko_block: Option<bool>,
@@ -68,17 +73,29 @@ fn engine_new_payload_v2_value(
     payload: &ExecutionPayloadInputV2,
     sidecar: &TaikoExecutionDataSidecar,
 ) -> Result<Value> {
+    let header_difficulty = sidecar
+        .header_difficulty
+        .map(|difficulty| {
+            u64::try_from(difficulty).map_err(|_| {
+                RpcClientError::Other(anyhow!(
+                    "header difficulty {difficulty} exceeds the u64 range supported by the \
+                     engine_newPayloadV2 wire encoding"
+                ))
+            })
+        })
+        .transpose()?;
+
     serde_json::to_value(EngineNewPayloadV2Request {
         payload,
         tx_hash: sidecar.tx_hash,
         withdrawals_hash: sidecar.withdrawals_hash.unwrap_or_default(),
-        header_difficulty: sidecar.header_difficulty,
+        header_difficulty,
         taiko_block: sidecar.taiko_block,
     })
     .map_err(|err| RpcClientError::Other(anyhow!(err)))
 }
 
-impl<P: Provider + Clone> Client<P> {
+impl Client {
     /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
     /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
     pub(crate) async fn request_l1_origin<Params: RpcSend>(
@@ -256,8 +273,13 @@ impl<P: Provider + Clone> Client<P> {
 }
 
 /// Checks whether the underlying RPC error message represents a "not found" or ignorable response.
+///
+/// Covers all three "no usable mapping" responses emitted by the execution engine's batch
+/// lookup: missing entry, uncertain match at head, and backward-scan lookback exhaustion.
 fn is_ignorable_origin_error(message: &str) -> bool {
-    message.contains("not found") || message.contains("proposal last block uncertain")
+    message.contains("not found") ||
+        message.contains("proposal last block uncertain") ||
+        message.contains("proposal last block lookback exceeded")
 }
 
 /// Converts an RPC error into an optional origin, mapping ignorable errors to `Ok(None)`.
@@ -273,12 +295,14 @@ where
 mod tests {
     use super::*;
     use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
+    use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
 
-    #[test]
-    fn engine_new_payload_v2_value_preserves_header_difficulty() {
-        let payload = ExecutionPayloadInputV2 {
+    /// Build the execution payload input shared by the `engine_new_payload_v2_value` tests,
+    /// parameterized on the only field that varies between them.
+    fn payload_input(withdrawals: Option<Vec<Withdrawal>>) -> ExecutionPayloadInputV2 {
+        ExecutionPayloadInputV2 {
             execution_payload: ExecutionPayloadV1 {
                 parent_hash: B256::from(U256::from(10u64)),
                 fee_recipient: Address::from([1u8; 20]),
@@ -295,8 +319,25 @@ mod tests {
                 block_hash: B256::from(U256::from(42u64)),
                 transactions: vec![],
             },
-            withdrawals: None,
-        };
+            withdrawals,
+        }
+    }
+
+    #[test]
+    fn ignorable_origin_errors_cover_all_engine_lookup_miss_messages() {
+        assert!(is_ignorable_origin_error("not found"));
+        assert!(is_ignorable_origin_error(
+            "proposal last block uncertain: BatchToLastBlockID missing and no newer proposal observed"
+        ));
+        assert!(is_ignorable_origin_error(
+            "proposal last block lookback exceeded: BatchToLastBlockID missing and lookback limit reached"
+        ));
+        assert!(!is_ignorable_origin_error("connection refused"));
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_preserves_header_difficulty() {
+        let payload = payload_input(None);
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::from([0x11; 32]),
@@ -308,7 +349,13 @@ mod tests {
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
         let obj = value.as_object().expect("payload should serialize to a JSON object");
 
-        assert_eq!(obj.get("headerDifficulty"), Some(&serde_json::json!("0x7")));
+        // taiko-geth unmarshals `headerDifficulty` into a bare `*big.Int`, which only accepts
+        // decimal JSON numbers — a quoted hex string fails the whole newPayload request there.
+        assert_eq!(obj.get("headerDifficulty"), Some(&serde_json::json!(7)));
+        assert!(
+            obj.get("headerDifficulty").is_some_and(serde_json::Value::is_u64),
+            "headerDifficulty must serialize as a JSON number, not a string"
+        );
         assert_eq!(
             obj.get("txHash"),
             Some(&serde_json::json!(format!("{:#066x}", sidecar.tx_hash)))
@@ -322,26 +369,24 @@ mod tests {
     }
 
     #[test]
-    fn engine_new_payload_v2_value_omits_header_difficulty_when_absent() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: None,
+    fn engine_new_payload_v2_value_rejects_header_difficulty_beyond_u64() {
+        let payload = payload_input(None);
+
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: B256::ZERO,
+            withdrawals_hash: None,
+            header_difficulty: Some(U256::from(u64::MAX) + U256::from(1u64)),
+            taiko_block: Some(true),
         };
+
+        let err = engine_new_payload_v2_value(&payload, &sidecar)
+            .expect_err("difficulty beyond u64 has no lossless wire encoding and must error");
+        assert!(err.to_string().contains("exceeds the u64 range"));
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_omits_header_difficulty_when_absent() {
+        let payload = payload_input(None);
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::ZERO,
@@ -358,25 +403,7 @@ mod tests {
 
     #[test]
     fn engine_new_payload_v2_value_preserves_withdrawals_when_present() {
-        let payload = ExecutionPayloadInputV2 {
-            execution_payload: ExecutionPayloadV1 {
-                parent_hash: B256::from(U256::from(10u64)),
-                fee_recipient: Address::from([1u8; 20]),
-                state_root: B256::from(U256::from(2u64)),
-                receipts_root: B256::from(U256::from(3u64)),
-                logs_bloom: Default::default(),
-                prev_randao: B256::from(U256::from(4u64)),
-                block_number: 7,
-                gas_limit: 30_000_000,
-                gas_used: 0,
-                timestamp: 123,
-                extra_data: Bytes::new(),
-                base_fee_per_gas: U256::from(1u64),
-                block_hash: B256::from(U256::from(42u64)),
-                transactions: vec![],
-            },
-            withdrawals: Some(vec![]),
-        };
+        let payload = payload_input(Some(vec![]));
 
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: B256::ZERO,

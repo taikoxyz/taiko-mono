@@ -84,11 +84,6 @@ var (
 	ProposerProposedTxListsCounter = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_proposed_txLists"})
 	ProposerProposedTxsCounter     = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_proposed_txs"})
 	ProposerPoolContentFetchTime   = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_pool_content_fetch_time"})
-	ProposerEstimatedCostCalldata  = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_estimated_cost_calldata"})
-	ProposerEstimatedCostBlob      = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_estimated_cost_blob"})
-	ProposerProposeByCalldata      = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_propose_by_calldata"})
-	ProposerProposeByBlob          = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_propose_by_blob"})
-	ProposerCostEstimationError    = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_cost_estimation_error"})
 
 	// Prover
 	ProverLatestVerifiedIDGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_latestVerified_id"})
@@ -96,8 +91,8 @@ var (
 	ProverQueuedProofCounter         = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_queued"})
 	ProverSentProofCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_sent"})
 	ProverProofsAssigned             = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_assigned"})
-	ProverZKBacklogModeGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_zk_backlog_sgx_mode"})
-	ProverZKBacklogClearCounter      = factory.NewCounter(prometheus.CounterOpts{Name: "prover_zk_backlog_clear"})
+	ProverRisc0BacklogSP1ModeGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_risc0_backlog_sp1_mode"})
+	ProverRisc0BacklogClearCounter   = factory.NewCounter(prometheus.CounterOpts{Name: "prover_risc0_backlog_clear"})
 	ProverReceivedProposedBlockGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proposed_received"})
 	ProverReceivedProvenBlockGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_received"})
 	ProverSubmissionAcceptedCounter  = factory.NewCounter(prometheus.CounterOpts{

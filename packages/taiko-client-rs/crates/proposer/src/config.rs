@@ -1,28 +1,17 @@
 //! Configuration types for the proposer.
 
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
-use alloy::{
-    primitives::{Address, B256, utils::Unit},
-    transports::http::reqwest::Url,
-};
+use alloy::primitives::{Address, B256, utils::Unit};
 use base_tx_manager::{ConfigError, TxManagerConfig};
-use rpc::SubscriptionSource;
+use rpc::client::ClientConfig;
 
 /// Configuration for the proposer.
 #[derive(Debug, Clone)]
 pub struct ProposerConfigs {
-    /// L1 provider connection source (HTTP or WebSocket) for monitoring and submitting
-    /// transactions.
-    pub l1_provider_source: SubscriptionSource,
-    /// L2 provider URL for fetching execution data.
-    pub l2_provider_url: Url,
-    /// L2 authenticated provider URL for accessing the execution engine's privileged APIs.
-    pub l2_auth_provider_url: Url,
-    /// Path to the JWT secret file for authenticating with the L2 execution engine.
-    pub jwt_secret: PathBuf,
-    /// Address of the Shasta inbox contract on L1 where proposals are submitted.
-    pub inbox_address: Address,
+    /// RPC connection contract (L1 source, L2 endpoints, JWT secret, inbox address) shared
+    /// with the client, mirroring how `DriverConfig` embeds it.
+    pub client: ClientConfig,
     /// Address to receive L2 block transaction fees in proposed blocks.
     pub l2_suggested_fee_recipient: Address,
     /// Time interval between consecutive proposal attempts.
@@ -33,6 +22,13 @@ pub struct ProposerConfigs {
     pub gas_limit: Option<u64>,
     /// Whether to use Engine API mode for payload building.
     /// When true, uses FCU + get_payload instead of tx_pool_content_with_min_tip.
+    ///
+    /// WARNING: requires an execution client that defers L1-origin persistence to canonical
+    /// promotion (taikoxyz/alethia-reth#219). On older alethia-reth nodes, the build-only FCU
+    /// preview persists `l1_origin`, `head_l1_origin`, and `batch_to_last_block` rows before
+    /// the previewed block is ever imported or canonicalized, so every proposal cycle leaves
+    /// ghost rows describing blocks that do not exist on the canonical chain (the preview is
+    /// never submitted via `newPayload`).
     pub use_engine_mode: bool,
     /// Interval between tx-manager resubmissions when a proposal transaction remains
     /// unconfirmed.

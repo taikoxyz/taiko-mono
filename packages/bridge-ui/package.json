@@ -1,6 +1,6 @@
 {
   "name": "bridge-ui",
-  "version": "2.17.0",
+  "version": "2.17.1",
   "private": true,
   "scripts": {
     "dev": "vite dev",
@@ -44,6 +44,7 @@
     "jsdom": "^24.0.0",
     "lokijs": "^1.5.12",
     "postcss": "^8.4.38",
+    "postcss-import": "15.1.0",
     "prettier": "^3.6.2",
     "prettier-plugin-svelte": "^3.2.3",
     "svelte": "^4.2.15",

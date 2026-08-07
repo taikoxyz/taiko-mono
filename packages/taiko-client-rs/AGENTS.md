@@ -3,7 +3,6 @@
 ## Project Structure & Module Organization
 
 - `bin/client/` hosts the CLI entry point; keep orchestration light and delegate protocol logic to the crates.
-- `crates/preconfirmation-driver/` contains the preconfirmation driver with P2P client integration, gossip handlers, and sync flows.
 - `crates/protocol`, `crates/proposer`, `crates/driver`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
 - `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src`.
 - The entire `bindings` crate is auto-generated; do not modify any files there manually.
@@ -15,7 +14,7 @@
 - `cargo build --workspace` (add `--release` for production binaries).
 - `just fmt` installs toolchain `nightly-2025-09-27`, runs `cargo +nightly fmt`, then `cargo sort --workspace --grouped`. Use `just fmt-check` for CI parity.
 - Always use `just fmt` (never call `cargo fmt` directly) so the nightly toolchain and `cargo sort` stay in sync with CI.
-- `just clippy` maps to `cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings`; reserve `just clippy-fix` for mechanical cleanups.
+- `just clippy` runs two passes: library targets with doc lints, then `--all-targets` (tests and test-harness included) with `-D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
 - After every code change run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean.
 - Before declaring work complete, run the full verification sequence `just fmt && just clippy-fix && just test` and require it to finish without warnings or errors.
@@ -42,7 +41,8 @@
 
 ## Testing Guidelines
 
-- Always run tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
+- Always run integration tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
+- `just unit` runs only the unit tests (everything outside `tests/` dirs) with no docker stack or contract deploy — use it for fast iteration.
 - To scope to a single Rust crate, set `TEST_CRATE=<crate-name>` when invoking `just test`; leaving it unset runs the full workspace (default).
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`) and capture container logs for any failing integration case.
 - Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy-fix && just test` pass with clean output.
@@ -51,12 +51,11 @@
 
 - Build event scanners from the subscription source provider conversion path and explicitly connect them to the derived provider; avoid transport-specific helper paths removed upstream.
 - When syncing from a specific block/tag or from latest events, explicitly configure the start mode first, then connect the scanner to the provider from the subscription source.
-- Lookahead preconfirmation is split into `client`, `resolver`, and `scanner`; use the standard resolver path for common chains and the custom-genesis resolver path for custom or unknown chains.
 - Solidity contracts for the bindings live in `../protocol` (relative to `crates/bindings`); consult them to mirror on-chain logic.
 
 ## Preconfirmation and Event-Sync Guardrails
 
-- Scope: these guardrails apply across `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, `crates/proposer`, and `crates/rpc`.
+- Scope: these guardrails apply across `crates/driver`, `crates/whitelist-preconfirmation-driver`, `crates/proposer`, and `crates/rpc`.
 - Before touching preconfirmation, event-sync, proposer or related custom-table behavior (features, fixes, or P2P-related updates), read these canonical docs first:
   - `docs/agents/whitelist-preconfirmation-invariants.md`: canonical invariant catalog (`WLP-INV-001..010`).
   - `docs/agents/event-scan-reorg-and-preconf-flow.md`: operational flow and sequence documentation.

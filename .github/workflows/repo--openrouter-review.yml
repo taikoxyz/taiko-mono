@@ -157,7 +157,7 @@ jobs:
             Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
             - Smart contracts (Solidity/Foundry) in packages/protocol
             - Go services (taiko-client, relayer, eventindexer)
-            - Rust services (taiko-client-rs, urcindexer-rs)
+            - Rust services (taiko-client-rs)
             - Frontend apps (SvelteKit, TypeScript)
 
             Provide a CONCISE code review in the following format. Skip sections that don't apply:

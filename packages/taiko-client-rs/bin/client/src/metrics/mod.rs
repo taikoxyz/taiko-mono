@@ -97,7 +97,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn metrics_route_returns_preconfirmation_net_and_reth_facade_collectors() {
+    async fn metrics_route_returns_metrics_facade_collectors() {
         let router = router();
 
         metrics::counter!("p2p_reqresp_success", "kind" => "head", "direction" => "outbound")

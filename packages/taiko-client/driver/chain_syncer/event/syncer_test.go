@@ -42,7 +42,7 @@ func (s *EventSyncerTestSuite) SetupTest() {
 		context.Background(),
 		s.RPCClient,
 		state2,
-		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
+		beaconsync.NewSyncProgressTracker(s.RPCClient.L2),
 		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)

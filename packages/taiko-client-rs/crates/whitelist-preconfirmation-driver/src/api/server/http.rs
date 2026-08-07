@@ -44,6 +44,8 @@ fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCod
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             StatusCode::BAD_REQUEST
         }
+        // The Go preconfirmation server maps block-insertion failures to 500. Keep parent
+        // mismatches and other production-path failures in this catch-all for REST parity.
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }

@@ -20,7 +20,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 type ClientTestSuite struct {
@@ -33,7 +32,7 @@ type ClientTestSuite struct {
 }
 
 func (s *ClientTestSuite) SetupTest() {
-	utils.LoadEnv()
+	LoadEnv()
 	// Default logger
 	ver, err := strconv.Atoi(os.Getenv("VERBOSITY"))
 	s.Nil(err)

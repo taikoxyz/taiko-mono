@@ -4,7 +4,14 @@ pragma solidity ^0.8.26;
 import "../verifiers/compose/ComposeVerifier.sol";
 
 /// @title MainnetVerifier
-/// @notice SGX-GETH + (SGX-RETH or RISC0 or SP1), or SGX-RETH + (RISC0 or SP1) verifier
+/// @notice SGX-GETH or SGX-RETH + (the other SGX or RISC0 or SP1) verifier
+/// @dev DEPRECATED after the Unzen upgrade (Proposal0019): replaced by `ZkRequiredVerifier`,
+/// which mandates at least one ZK proof per batch — this contract still accepts the
+/// SGX-GETH + SGX-RETH (zero ZK) combination that finalized the June 2026 forged proofs.
+/// Do not wire into new deployments. Kept in-repo while the live instance
+/// (0x71808449A6217898d602c1a392D95b931Ac5d878) remains the active mainnet verifier, so it
+/// stays rebuildable/verifiable and available as a rollback path; remove in the post-Unzen
+/// cleanup once Proposal0019 has executed.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetVerifier is ComposeVerifier {
     /// @notice Creates a new MainnetVerifier instance
@@ -29,9 +36,9 @@ contract MainnetVerifier is ComposeVerifier {
     { }
 
     /// @notice Check if the provided verifiers are sufficient
-    /// @dev Requires exactly 2 verifiers in ascending verifier ID order:
+    /// @dev Requires exactly 2 verifiers:
     /// SGX-GETH + (SGX-RETH or RISC0 or SP1), or
-    /// SGX-RETH + (RISC0 or SP1)
+    /// SGX-RETH + (SGX-GETH or RISC0 or SP1)
     function areVerifiersSufficient(address[] memory _verifiers)
         internal
         view
@@ -46,7 +53,8 @@ contract MainnetVerifier is ComposeVerifier {
         }
 
         if (_verifiers[0] == sgxRethVerifier) {
-            return _verifiers[1] == risc0RethVerifier || _verifiers[1] == sp1RethVerifier;
+            return _verifiers[1] == sgxGethVerifier || _verifiers[1] == risc0RethVerifier
+                || _verifiers[1] == sp1RethVerifier;
         }
 
         return false;

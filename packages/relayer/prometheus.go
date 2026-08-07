@@ -98,14 +98,6 @@ var (
 		Name: "bridge_message_not_sent_opt_total",
 		Help: "The total number of times a bridge message has not been sent but has been processed",
 	})
-	BridgePaused = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "bridge_paused_ops_total",
-		Help: "The total number of times the bridge has been paused",
-	})
-	BridgePausedErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "bridge_paused_errors_ops_total",
-		Help: "The total number of times the bridge has encountered an error while attempting to have been paused",
-	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "events_processed_retriable_status_ops_total",
 		Help: "The total number of processed events that ended up in Retriable status",
@@ -129,6 +121,10 @@ var (
 	UnprofitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "unprofitable_message_after_transacting_ops_total",
 		Help: "The total number of processed events that ended up unprofitable",
+	})
+	AfterTransactingProfitabilityEvaluationErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "after_transacting_profitability_evaluation_errors_ops_total",
+		Help: "The total number of errors evaluating profitability after transacting",
 	})
 	MessageSentEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_after_retry_error_count",

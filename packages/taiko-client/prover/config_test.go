@@ -30,7 +30,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
-		&cli.StringFlag{Name: flags.RaikoZKVMHostEndpoint.Name},
 		&cli.StringFlag{Name: flags.RaikoApiKeyPath.Name},
 		&cli.DurationFlag{Name: flags.RaikoRequestTimeout.Name},
 	}
@@ -44,7 +43,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		s.Equal(inbox.String(), c.InboxAddress.String())
 		s.Equal(taikoAnchor.String(), c.TaikoAnchorAddress.String())
 		s.Equal("http://raiko.host", c.RaikoHostEndpoint)
-		s.Equal("http://raiko.zkvm", c.RaikoZKVMHostEndpoint)
 		s.Equal("secret-key", c.RaikoApiKey)
 		s.Equal(7*time.Second, c.RaikoRequestTimeout)
 
@@ -64,24 +62,93 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.RaikoHostEndpoint.Name, "http://raiko.host",
-		"--" + flags.RaikoZKVMHostEndpoint.Name, "http://raiko.zkvm",
 		"--" + flags.RaikoApiKeyPath.Name, tempAPIKey,
 		"--" + flags.RaikoRequestTimeout.Name, "7s",
 	}))
 }
 
-func TestNewConfigFromCliContextMaxZKProofProposalDistance(t *testing.T) {
+func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
 
-		require.Equal(t, uint64(30), cfg.MaxZKProofProposalDistance)
+		require.Equal(t, uint64(30), cfg.MaxRisc0ProofProposalDistance)
 	})
 
 	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.MaxZKProofProposalDistance.Name, "12")
+		cfg := newTestConfigFromCLI(t, "--"+flags.MaxRisc0ProofProposalDistance.Name, "12")
 
-		require.Equal(t, uint64(12), cfg.MaxZKProofProposalDistance)
+		require.Equal(t, uint64(12), cfg.MaxRisc0ProofProposalDistance)
 	})
+
+	t.Run("rejects removed legacy flag", func(t *testing.T) {
+		err := runTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
+
+		require.ErrorContains(t, err, "flag provided but not defined")
+	})
+}
+
+func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ForceSP1Proof)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSP1Proof.Name)
+
+		require.True(t, cfg.ForceSP1Proof)
+	})
+}
+
+func TestNewConfigFromCliContextForceSGXProof(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ForceSGXProof)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSGXProof.Name)
+
+		require.True(t, cfg.ForceSGXProof)
+	})
+}
+
+func TestNewConfigFromCliContextZkOnlyProofs(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ZkOnlyProofs)
+	})
+
+	t.Run("uses flag value with the shared raiko host", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(
+			t,
+			"--"+flags.ZkOnlyProofs.Name,
+		)
+
+		require.True(t, cfg.ZkOnlyProofs)
+		require.Equal(t, "http://raiko.host", cfg.RaikoHostEndpoint)
+	})
+}
+
+func TestNewConfigFromCliContextRequiresRaikoHost(t *testing.T) {
+	err := runTestConfigFromCLI(t, "--"+flags.RaikoHostEndpoint.Name, "")
+
+	require.ErrorContains(t, err, "--"+flags.RaikoHostEndpoint.Name)
+}
+
+func TestNewConfigFromCliContextRejectsRemovedRaikoZKVMHost(t *testing.T) {
+	err := runTestConfigFromCLI(t, "--raiko.host.zkvm", "http://raiko.zkvm")
+
+	require.ErrorContains(t, err, "flag provided but not defined")
+}
+
+func TestNewConfigFromCliContextRejectsRemovedSGXBatchSize(t *testing.T) {
+	err := runTestConfigFromCLI(t, "--prover.sgx.batchSize", "2")
+
+	require.ErrorContains(t, err, "flag provided but not defined")
 }
 
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
@@ -119,6 +186,21 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 	t.Helper()
 
+	var cfg *Config
+	require.NoError(t, runTestConfigFromCLIWithConfig(t, &cfg, extraArgs...))
+	return cfg
+}
+
+func runTestConfigFromCLI(t *testing.T, extraArgs ...string) error {
+	t.Helper()
+
+	var cfg *Config
+	return runTestConfigFromCLIWithConfig(t, &cfg, extraArgs...)
+}
+
+func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...string) error {
+	t.Helper()
+
 	jwtSecret := t.TempDir() + "/jwt-secret.txt"
 	require.NoError(
 		t,
@@ -137,27 +219,34 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
-		&cli.Uint64Flag{Name: flags.MaxZKProofProposalDistance.Name, Value: flags.MaxZKProofProposalDistance.Value},
+		&cli.Uint64Flag{
+			Name:    flags.MaxRisc0ProofProposalDistance.Name,
+			Aliases: flags.MaxRisc0ProofProposalDistance.Aliases,
+			Value:   flags.MaxRisc0ProofProposalDistance.Value,
+		},
+		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
+		&cli.BoolFlag{Name: flags.ForceSGXProof.Name},
+		&cli.BoolFlag{Name: flags.ZkOnlyProofs.Name},
+		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}
 
-	var cfg *Config
 	app.Action = func(ctx *cli.Context) error {
 		var err error
-		cfg, err = NewConfigFromCliContext(ctx)
+		*cfg, err = NewConfigFromCliContext(ctx)
 		return err
 	}
 
 	args := []string{
-		"TestNewConfigFromCliContextMaxZKProofProposalDistance",
+		"TestNewConfigFromCliContextMaxRisc0ProofProposalDistance",
 		"--" + flags.L1WSEndpoint.Name, "http://localhost:8545",
 		"--" + flags.L2WSEndpoint.Name, "http://localhost:9545",
 		"--" + flags.InboxAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000aa").Hex(),
 		"--" + flags.TaikoAnchorAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000bb").Hex(),
 		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.JWTSecret.Name, jwtSecret,
+		"--" + flags.RaikoHostEndpoint.Name, "http://raiko.host",
 	}
 	args = append(args, extraArgs...)
 
-	require.NoError(t, app.Run(args))
-	return cfg
+	return app.Run(args)
 }

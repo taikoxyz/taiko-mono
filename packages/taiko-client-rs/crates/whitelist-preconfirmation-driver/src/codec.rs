@@ -175,11 +175,6 @@ pub(crate) fn encode_unsafe_payload_message(
     })
 }
 
-/// Encode a message for the `requestEndOfSequencingPreconfBlocks` topic.
-pub(crate) fn encode_eos_request_message(epoch: u64) -> Vec<u8> {
-    epoch.to_be_bytes().to_vec()
-}
-
 /// Encode a message for the `requestPreconfBlocks` topic.
 pub(crate) fn encode_unsafe_request_message(hash: B256) -> Vec<u8> {
     hash.to_vec()
@@ -444,16 +439,6 @@ mod tests {
             envelope.execution_payload.block_number
         );
         assert_eq!(decoded_envelope.signature, envelope.signature);
-    }
-
-    #[test]
-    fn encode_eos_request_message_produces_big_endian_bytes() {
-        let epoch = 0x0102030405060708u64;
-        let encoded = encode_eos_request_message(epoch);
-        assert_eq!(encoded, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
-
-        let zero = encode_eos_request_message(0);
-        assert_eq!(zero, vec![0u8; 8]);
     }
 
     #[test]

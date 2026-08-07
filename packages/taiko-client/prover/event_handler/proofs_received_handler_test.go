@@ -56,7 +56,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.Nil(err)
 	s.Nil(testState.ResetL1Current(context.Background(), common.Big0))
 
-	tracker := beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 30*time.Second)
+	tracker := beaconsync.NewSyncProgressTracker(s.RPCClient.L2)
 	s.eventSyncer, err = event.NewSyncer(
 		context.Background(),
 		s.RPCClient,

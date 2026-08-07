@@ -8,7 +8,6 @@ var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
 	processorCategory = "PROCESSOR"
-	watchdogCategory  = "WATCHDOG"
 	bridgeCategory    = "BRIDGE"
 	txmgrCategory     = "TX_MANAGER"
 )

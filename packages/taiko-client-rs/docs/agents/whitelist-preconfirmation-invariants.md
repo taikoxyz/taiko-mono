@@ -6,7 +6,7 @@ The `WLP` invariant prefix is kept for continuity, but scope is broader than whi
 
 ## Scope
 
-- These invariants apply across `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
+- These invariants apply across `crates/driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
 - Some anchors reference whitelist-specific importer paths, but boundary, gating, and custom-table assumptions are shared cross-crate.
 
 ## Agent Contract

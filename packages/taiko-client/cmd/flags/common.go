@@ -1,6 +1,7 @@
 package flags
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -181,4 +182,19 @@ func MergeFlags(groups ...[]cli.Flag) []cli.Flag {
 		merged = append(merged, group...)
 	}
 	return merged
+}
+
+// CheckWSEndpointsRequired returns an error if either the L1 or L2 WS endpoint
+// flag is empty. The cli library no longer marks --l1.ws / --l2.ws as Required
+// (the driver can fall back to HTTP polling), so components that need WS — the
+// proposer and prover — enforce it here. component names the caller for the
+// error message (e.g. "proposer").
+func CheckWSEndpointsRequired(c *cli.Context, component string) error {
+	if c.String(L1WSEndpoint.Name) == "" {
+		return fmt.Errorf("flag --%s is required for the %s", L1WSEndpoint.Name, component)
+	}
+	if c.String(L2WSEndpoint.Name) == "" {
+		return fmt.Errorf("flag --%s is required for the %s", L2WSEndpoint.Name, component)
+	}
+	return nil
 }

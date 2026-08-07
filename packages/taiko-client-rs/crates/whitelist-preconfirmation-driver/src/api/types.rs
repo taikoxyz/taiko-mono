@@ -51,6 +51,7 @@ pub struct BuildPreconfBlockResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ApiStatus {
     /// Highest unsafe payload block ID tracked by this node.
+    #[serde(rename = "highestUnsafeL2PayloadBlockID")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (zero hash when unknown).
     pub end_of_sequencing_block_hash: String,
@@ -112,11 +113,12 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&status).unwrap())
                 .expect("status should serialize as JSON");
         assert_eq!(
-            json["highestUnsafeL2PayloadBlockId"]
+            json["highestUnsafeL2PayloadBlockID"]
                 .as_u64()
-                .expect("missing highest unsafe block id"),
+                .expect("missing highest unsafe block ID"),
             1
         );
+        assert!(json.get("highestUnsafeL2PayloadBlockId").is_none());
         assert!(
             json["endOfSequencingBlockHash"].as_str().expect("missing EOS hash").starts_with("0x")
         );

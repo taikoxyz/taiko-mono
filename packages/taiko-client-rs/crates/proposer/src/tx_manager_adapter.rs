@@ -200,11 +200,13 @@ mod tests {
 
     fn proposer_config_for_tx_manager_mapping() -> ProposerConfigs {
         ProposerConfigs {
-            l1_provider_source: SubscriptionSource::try_from("http://localhost:8545").unwrap(),
-            l2_provider_url: Url::parse("http://localhost:9545").unwrap(),
-            l2_auth_provider_url: Url::parse("http://localhost:9551").unwrap(),
-            jwt_secret: PathBuf::from("/tmp/jwt.secret"),
-            inbox_address: Address::repeat_byte(0x11),
+            client: rpc::client::ClientConfig {
+                l1_provider_source: SubscriptionSource::try_from("http://localhost:8545").unwrap(),
+                l2_provider_url: Url::parse("http://localhost:9545").unwrap(),
+                l2_auth_provider_url: Url::parse("http://localhost:9551").unwrap(),
+                jwt_secret: PathBuf::from("/tmp/jwt.secret"),
+                inbox_address: Address::repeat_byte(0x11),
+            },
             l2_suggested_fee_recipient: Address::repeat_byte(0x22),
             propose_interval: Duration::from_secs(12),
             l1_proposer_private_key: alloy::primitives::B256::repeat_byte(0x33),
