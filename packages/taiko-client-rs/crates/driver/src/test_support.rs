@@ -136,6 +136,10 @@ pub(crate) enum MockProductionBehavior {
     FailOnceFor(Mutex<HashSet<B256>>),
     /// Always fail with a deterministic engine verdict.
     Fatal,
+    /// Always fail with [`DerivationError::BlockUnavailable`] for the given transaction hashes.
+    UnavailableFor(HashSet<B256>, u64),
+    /// Fail with [`DerivationError::BlockUnavailable`] once per transaction hash, then succeed.
+    UnavailableOnceFor(Mutex<HashSet<B256>>, u64),
 }
 
 /// Configurable [`BlockProductionPath`] mock recording every input it produces.
@@ -171,6 +175,28 @@ impl MockProductionPath {
     /// Mock that always fails proposal logs with a deterministic engine verdict.
     pub(crate) fn fatal() -> Self {
         Self::with_behavior(MockProductionBehavior::Fatal)
+    }
+
+    /// Mock that always fails the given proposal logs with `BlockUnavailable(missing_block)`.
+    pub(crate) fn unavailable_for(
+        tx_hashes: impl IntoIterator<Item = B256>,
+        missing_block: u64,
+    ) -> Self {
+        Self::with_behavior(MockProductionBehavior::UnavailableFor(
+            tx_hashes.into_iter().collect(),
+            missing_block,
+        ))
+    }
+
+    /// Mock that fails each given proposal log once with `BlockUnavailable(missing_block)`.
+    pub(crate) fn unavailable_once_for(
+        tx_hashes: impl IntoIterator<Item = B256>,
+        missing_block: u64,
+    ) -> Self {
+        Self::with_behavior(MockProductionBehavior::UnavailableOnceFor(
+            Mutex::new(tx_hashes.into_iter().collect()),
+            missing_block,
+        ))
     }
 
     /// Mock with the given proposal-log behavior and fresh recording state.
@@ -249,6 +275,26 @@ impl BlockProductionPath for MockProductionPath {
                                 "mock invalid payload".to_string(),
                             )),
                         )));
+                    }
+                    MockProductionBehavior::UnavailableFor(tx_hashes, missing_block) => {
+                        if log.transaction_hash.is_some_and(|tx_hash| tx_hashes.contains(&tx_hash))
+                        {
+                            return Err(DriverError::Sync(SyncError::Derivation(
+                                DerivationError::BlockUnavailable(*missing_block),
+                            )));
+                        }
+                    }
+                    MockProductionBehavior::UnavailableOnceFor(tx_hashes, missing_block) => {
+                        if let Some(tx_hash) = log.transaction_hash &&
+                            tx_hashes
+                                .lock()
+                                .expect("unavailable-once tx hashes mutex should not be poisoned")
+                                .remove(&tx_hash)
+                        {
+                            return Err(DriverError::Sync(SyncError::Derivation(
+                                DerivationError::BlockUnavailable(*missing_block),
+                            )));
+                        }
                     }
                 }
 

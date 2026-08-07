@@ -63,6 +63,11 @@ impl DriverMetrics {
         &METRICS.event_orphaned_proposal_logs_total
     }
 
+    /// Return the execution-rewind abort counter.
+    pub(crate) fn event_execution_rewind_aborts_total() -> &'static IntCounter {
+        &METRICS.event_execution_rewind_aborts_total
+    }
+
     /// Return the derived event block counter.
     pub(crate) fn event_derived_blocks_total() -> &'static IntCounter {
         &METRICS.event_derived_blocks_total
@@ -184,6 +189,8 @@ struct DriverMetricHandles {
     event_proposals_skipped_total: IntCounter,
     /// Orphaned proposal logs skipped after L1 reorg detection.
     event_orphaned_proposal_logs_total: IntCounter,
+    /// Event sync aborts triggered by an execution-engine rewind below derived state.
+    event_execution_rewind_aborts_total: IntCounter,
     /// Derived or confirmed L2 blocks per proposal.
     event_derived_blocks_total: IntCounter,
     /// Proposals resolved entirely via canonical chain detection.
@@ -267,6 +274,10 @@ impl DriverMetricHandles {
             event_orphaned_proposal_logs_total: counter(
                 "driver_event_orphaned_proposal_logs_total",
                 "Proposal logs skipped because their source L1 block was reorged away",
+            ),
+            event_execution_rewind_aborts_total: counter(
+                "driver_event_execution_rewind_aborts_total",
+                "Event sync aborts after the execution engine rewound below derived state",
             ),
             event_derived_blocks_total: counter(
                 "driver_event_derived_blocks_total",

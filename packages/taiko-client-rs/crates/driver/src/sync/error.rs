@@ -39,6 +39,21 @@ pub enum SyncError {
         number: u64,
     },
 
+    /// Event sync: the execution engine's canonical head sits below a block derivation already
+    /// produced, so the missing parent can never reappear through retries — event derivation is
+    /// the only producer of that range and it is stuck behind this proposal (post-crash rewind).
+    #[error(
+        "execution engine rewound below derived state: derivation needs block {missing_block} but \
+         the execution head is {execution_head}; aborting event sync so the restart re-resolves a \
+         safe resume head"
+    )]
+    ExecutionEngineRewound {
+        /// Block number derivation failed to load from the execution engine.
+        missing_block: u64,
+        /// Execution engine canonical head observed while that block was missing.
+        execution_head: u64,
+    },
+
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
     #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
     MissingAnchorTransaction {

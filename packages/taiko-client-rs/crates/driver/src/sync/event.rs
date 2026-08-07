@@ -4,7 +4,7 @@ use std::{
     collections::{HashSet, VecDeque},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -162,6 +162,26 @@ impl ProposalRetryError {
         }
     }
 }
+
+/// Verdict from probing a `BlockUnavailable` failure against the execution engine's live head.
+enum ExecutionRewindVerdict {
+    /// The above-head streak reached [`EXECUTION_REWIND_ABORT_THRESHOLD`]: abort event sync.
+    Abort {
+        /// Block number derivation failed to load from the execution engine.
+        missing_block: u64,
+        /// Execution engine canonical head observed while that block was missing.
+        execution_head: u64,
+    },
+    /// Above-head observation below the threshold: retry without further classification.
+    Observed,
+}
+
+/// Consecutive above-head `BlockUnavailable` observations required before event sync aborts.
+///
+/// A short streak filters head-probe races around an in-flight insert; a genuine post-crash
+/// rewind holds the condition indefinitely, so a few consecutive observations are enough to
+/// conclude the missing parent cannot reappear on its own.
+const EXECUTION_REWIND_ABORT_THRESHOLD: u32 = 3;
 
 /// Default timeout for preconfirmation payload submission.
 ///
@@ -894,6 +914,70 @@ impl EventSyncer {
         }
     }
 
+    /// Probe a proposal-processing failure for an execution-engine rewind below derived state.
+    ///
+    /// Applies only to [`DerivationError::BlockUnavailable`] failures. When the missing block
+    /// sits strictly ABOVE the execution engine's live head, the engine has rewound (post-crash)
+    /// below state derivation already produced — retrying can never heal it, because event
+    /// derivation itself is the only producer of that range and it is stuck behind this
+    /// proposal. After [`EXECUTION_REWIND_ABORT_THRESHOLD`] consecutive observations the
+    /// verdict escalates to an abort so the driver restarts and re-resolves a safe resume head
+    /// (checkpoint-synced, or the minimum of the head and `head_l1_origin`).
+    ///
+    /// Returns `None` when the ordinary retry/canonicality classification should stay in
+    /// charge: the failure is not `BlockUnavailable`, the block exists at or below the head
+    /// (streak resets), or the head probe itself failed (missing evidence must not abort).
+    async fn probe_execution_rewind(
+        &self,
+        err: &DriverError,
+        rewind_streak: &AtomicU32,
+    ) -> Option<ExecutionRewindVerdict> {
+        let DriverError::Sync(SyncError::Derivation(DerivationError::BlockUnavailable(
+            missing_block,
+        ))) = err
+        else {
+            return None;
+        };
+        let missing_block = *missing_block;
+
+        let execution_head = match self.rpc.l2_provider.get_block_number().await {
+            Ok(head) => head,
+            Err(probe_err) => {
+                warn!(
+                    missing_block,
+                    %probe_err,
+                    "failed to probe the execution head after BlockUnavailable; retrying"
+                );
+                return None;
+            }
+        };
+        if missing_block <= execution_head {
+            rewind_streak.store(0, Ordering::Relaxed);
+            return None;
+        }
+
+        let streak = rewind_streak.fetch_add(1, Ordering::Relaxed) + 1;
+        if streak >= EXECUTION_REWIND_ABORT_THRESHOLD {
+            error!(
+                missing_block,
+                execution_head,
+                streak,
+                "derivation needs a block above the execution head; aborting event sync so a \
+                 restart re-resolves the resume head"
+            );
+            Some(ExecutionRewindVerdict::Abort { missing_block, execution_head })
+        } else {
+            warn!(
+                missing_block,
+                execution_head,
+                streak,
+                "derivation needs a block above the execution head; execution engine may have \
+                 rewound"
+            );
+            Some(ExecutionRewindVerdict::Observed)
+        }
+    }
+
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
     /// the stable post-reorg boundary. If the L2 EE's confirmed boundary is left ahead of the
     /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until
@@ -1007,11 +1091,15 @@ impl EventSyncer {
             let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
+            // Consecutive above-head `BlockUnavailable` observations for THIS log; a fresh log
+            // starts a fresh streak.
+            let rewind_streak = Arc::new(AtomicU32::new(0));
             let processing = RetryIf::spawn(
                 retry_strategy,
                 move || {
                     let router = router.clone();
                     let log = proposal_log.clone();
+                    let rewind_streak = rewind_streak.clone();
                     async move {
                         let router_call = {
                             // Lock router so L1 proposals and preconf inputs cannot interleave.
@@ -1021,38 +1109,68 @@ impl EventSyncer {
 
                         match router_call {
                             Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
-                            Err(err) => match syncer
-                                .proposal_log_canonicality(block_hash, log.block_number)
-                                .await
-                            {
-                                Ok(ProposalLogCanonicality::Orphaned) => {
-                                    DriverMetrics::event_orphaned_proposal_logs_total().inc();
-                                    warn!(
-                                        ?err,
-                                        block_number = log.block_number,
-                                        block_hash = ?block_hash,
-                                        transaction_hash = ?log.transaction_hash,
-                                        "skipping permanently orphaned proposal log",
-                                    );
-                                    Ok(ProposalLogResult::SkippedOrphaned)
+                            Err(err) => {
+                                // A rewound execution engine can never satisfy this retry on
+                                // its own (derivation is the sole producer of the missing
+                                // range), so the rewind probe runs before any L1-side
+                                // classification.
+                                match syncer.probe_execution_rewind(&err, &rewind_streak).await {
+                                    Some(ExecutionRewindVerdict::Abort {
+                                        missing_block,
+                                        execution_head,
+                                    }) => {
+                                        DriverMetrics::event_execution_rewind_aborts_total().inc();
+                                        return Err(ProposalRetryError::Abort(DriverError::Sync(
+                                            SyncError::ExecutionEngineRewound {
+                                                missing_block,
+                                                execution_head,
+                                            },
+                                        )));
+                                    }
+                                    Some(ExecutionRewindVerdict::Observed) => {
+                                        return Err(ProposalRetryError::Retry(err));
+                                    }
+                                    None => {}
                                 }
-                                Ok(canonicality) => Err(syncer
-                                    .classify_proposal_processing_failure(err, &log, canonicality)),
-                                Err(recheck_err) => {
-                                    warn!(
-                                        ?err,
-                                        ?recheck_err,
-                                        tx_hash = ?log.transaction_hash,
-                                        block_number = log.block_number,
-                                        "proposal derivation failed and orphaned-log recheck errored; retrying"
-                                    );
-                                    // Surface the retryable recheck error instead of the
-                                    // original failure: a fatal verdict may only abort after
-                                    // the log is proven canonical, never while orphanhood is
-                                    // still unresolved.
-                                    Err(ProposalRetryError::Retry(DriverError::Sync(recheck_err)))
+                                match syncer
+                                    .proposal_log_canonicality(block_hash, log.block_number)
+                                    .await
+                                {
+                                    Ok(ProposalLogCanonicality::Orphaned) => {
+                                        DriverMetrics::event_orphaned_proposal_logs_total().inc();
+                                        warn!(
+                                            ?err,
+                                            block_number = log.block_number,
+                                            block_hash = ?block_hash,
+                                            transaction_hash = ?log.transaction_hash,
+                                            "skipping permanently orphaned proposal log",
+                                        );
+                                        Ok(ProposalLogResult::SkippedOrphaned)
+                                    }
+                                    Ok(canonicality) => Err(syncer
+                                        .classify_proposal_processing_failure(
+                                            err,
+                                            &log,
+                                            canonicality,
+                                        )),
+                                    Err(recheck_err) => {
+                                        warn!(
+                                            ?err,
+                                            ?recheck_err,
+                                            tx_hash = ?log.transaction_hash,
+                                            block_number = log.block_number,
+                                            "proposal derivation failed and orphaned-log recheck errored; retrying"
+                                        );
+                                        // Surface the retryable recheck error instead of the
+                                        // original failure: a fatal verdict may only abort
+                                        // after the log is proven canonical, never while
+                                        // orphanhood is still unresolved.
+                                        Err(ProposalRetryError::Retry(DriverError::Sync(
+                                            recheck_err,
+                                        )))
+                                    }
                                 }
-                            },
+                            }
                         }
                     }
                 },
@@ -1868,7 +1986,7 @@ mod tests {
     use super::*;
     use alethia_reth_primitives::payload::attributes::RpcL1Origin;
     use alloy::{
-        primitives::{Address, B256, Bytes, FixedBytes, U256, aliases::U48},
+        primitives::{Address, B256, Bytes, FixedBytes, U64, U256, aliases::U48},
         transports::http::reqwest::Url,
     };
     use alloy_transport::mock::Asserter;
@@ -2530,6 +2648,112 @@ mod tests {
             vec![fatal_tx_hash],
             "a deterministic engine verdict on a proven-canonical log must not be retried"
         );
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_aborts_after_persistent_block_unavailable_above_execution_head() {
+        let block_hash = B256::from([0x73; 32]);
+        let tx_hash = B256::from([0x83; 32]);
+        let l2_asserter = Asserter::new();
+        // One execution-head probe per failed attempt; three consecutive above-head
+        // observations prove a rewind and must abort instead of retrying forever.
+        for _ in 0..3 {
+            l2_asserter.push_success(&U64::from(40u64));
+        }
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter,
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        let path = MockProductionPath::unavailable_for([tx_hash], 100);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_secs(120),
+            syncer.process_log_batch(router, vec![sample_proposed_log(1, block_hash, tx_hash)]),
+        )
+        .await
+        .expect("a persistent rewind must abort the batch instead of retrying forever");
+
+        let err = result
+            .expect_err("BlockUnavailable persistently above the execution head should abort");
+        assert!(
+            matches!(
+                err,
+                SyncError::ExecutionEngineRewound { missing_block: 100, execution_head: 40 }
+            ),
+            "unexpected error: {err:?}"
+        );
+        assert_eq!(path.calls(), 3, "abort must fire at the consecutive-rewind threshold");
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_keeps_retrying_block_unavailable_at_or_below_execution_head() {
+        let block_hash = B256::from([0x74; 32]);
+        let tx_hash = B256::from([0x84; 32]);
+        let l2_asserter = Asserter::new();
+        // Execution head at the missing block: the parent exists, so this is not a rewind and
+        // the ordinary retry path must stay in charge.
+        l2_asserter.push_success(&U64::from(100u64));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter,
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        let path = MockProductionPath::unavailable_once_for([tx_hash], 100);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_secs(120),
+            syncer.process_log_batch(router, vec![sample_proposed_log(1, block_hash, tx_hash)]),
+        )
+        .await
+        .expect("the retry loop should finish once production succeeds");
+
+        assert!(result.is_ok(), "at-or-below-head unavailability stays retryable: {result:?}");
+        assert_eq!(path.calls(), 2, "one failed attempt, then the retry succeeds");
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_keeps_retrying_when_execution_head_probe_fails() {
+        let block_hash = B256::from([0x75; 32]);
+        let tx_hash = B256::from([0x85; 32]);
+        let l2_asserter = Asserter::new();
+        // A failing head probe proves nothing about a rewind; the ordinary retry path must
+        // stay in charge rather than aborting on missing evidence.
+        l2_asserter.push_failure_msg("execution head probe unavailable");
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter,
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        let path = MockProductionPath::unavailable_once_for([tx_hash], 100);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_secs(120),
+            syncer.process_log_batch(router, vec![sample_proposed_log(1, block_hash, tx_hash)]),
+        )
+        .await
+        .expect("the retry loop should finish once production succeeds");
+
+        assert!(result.is_ok(), "an unprovable rewind stays retryable: {result:?}");
+        assert_eq!(path.calls(), 2, "one failed attempt, then the retry succeeds");
     }
 
     #[test_log::test(tokio::test(start_paused = true))]
