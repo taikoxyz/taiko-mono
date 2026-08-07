@@ -221,14 +221,12 @@
   - Unzen implementation deployed on Jul 10, 2026 @commit`907827890` @tx`0xa02d9efd2c2543727e801516d9c3184b2b2da0050ab948f3cb85bdefc5c1749e`
   - upgraded to `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen). Forced inclusions re-enabled: `saveForcedInclusion` no longer reverts, the `numForcedInclusions == 0` proposer restriction is removed, and the `UnprocessedForcedInclusionIsDue` due-check is restored (proposers must process up to 10 due inclusions once the oldest is older than `forcedInclusionDelay` = 576s). The proof verifier immutable moves from `MainnetVerifier` `0x71808449A6217898d602c1a392D95b931Ac5d878` to `ZkRequiredVerifier` `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`; read the live value with `getConfig().proofVerifier`.
   - called `init3()` in the same bundle @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen) — voids the stale forced inclusion queue entry (head=2, tail=3) queued during the June 2026 incident, whose blob has aged out of the blob retention window and can no longer be derived. The entry's 0.001 ETH fee stays in the Inbox; there is no on-chain refund path.
-  - note: Unzen does **not** restore permissionless proposing or permissionless proving-by-age. Both remain disabled from the June 2026 incident response.
 
 #### automata_dcap_attestation
 
 - proxy: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
 - impl: `0x5f73f0AdC7dAA6134Fe751C4a78d524f9384e0B5`
 - owner : `controller.taiko.eth`
-- note: the SGX-reth attester. `sgx_verifier_reth` `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` checks quotes against this proxy's MRENCLAVE and MRSIGNER allowlists. Read them with `trustedUserMrEnclave(bytes32)` and `trustedUserMrSigner(bytes32)`.
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0xEE8FC1dbb8D345f5bF35dFb939C6f9EdC5fCDAFc` to `0xde1b1FBe7D721af4A56651272ef91A59B7303323` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
@@ -248,7 +246,6 @@
 - proxy : `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261`
 - impl : `0x5e46443bd131eB6d4c6Fb4849bAD29af9596dd72`
 - owner : `controller.taiko.eth`
-- note: the SGX-geth attester. `sgx_verifier_geth` `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` checks quotes against this proxy's MRENCLAVE and MRSIGNER allowlists. Read them with `trustedUserMrEnclave(bytes32)` and `trustedUserMrSigner(bytes32)`.
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x7486b942c054eb6641ea701f0835d23fa606accad0e96051791da26c56a10771`
   - rotated the trusted MRENCLAVE to raiko2 v0.6.0 on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen). The trusted MRSIGNER allowlist is unchanged.
@@ -271,7 +268,6 @@
   - upgraded to `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` on Jun 25, 2026 @commit`b73608696` @tx`0xbf692bdeb84725573c8d2fc6589e6db53db7477403900c7c24f559d769d5c6b1` (Proposal0017)
   - deleted instance ID `0` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen) — removed the sole registered instance, signer `0x933AD1DFAfc0D76577E7D5756dA7a659A5A038b9`, registered Jun 29, 2026 by `admin.taiko.eth` (the `registerInstance` registrar) during the Proposal0017 recovery, not by the Proposal0017 bundle itself.
   - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`, attesting the non-EDMM MRENCLAVE, registered by `admin.taiko.eth` in the same Safe batch as the SGX-geth instance, ~3 minutes after the Proposal0019 execution. Valid immediately (`INSTANCE_VALIDITY_DELAY` = 0), expires Aug 3, 2027 (`INSTANCE_EXPIRY` = 1 year). Deleted ID `0` is not reused; `nextInstanceId` is now `2`.
-  - note: between the deletion and the re-registration (12:46–12:49 UTC on Aug 3, 2026) this verifier held zero registered instances; proving remained available throughout via the `RISC0 + SP1` combination.
 
 ### sgx_verifier_geth
 
@@ -281,7 +277,6 @@
   - upgraded to `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` on Jun 25, 2026 @commit`b73608696` @tx`0xfa680d3a56248a3e3802f7f1f93b63c55a19ed1330281e5c6143738c849ef31c` (Proposal0017)
   - deleted instance ID `0` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen) — removed the sole registered instance, signer `0xb815Ce7030466e4c35dd72038fA94D3f396468FE`, registered Jun 29, 2026 by `admin.taiko.eth` (the `registerInstance` registrar) during the Proposal0017 recovery, not by the Proposal0017 bundle itself.
   - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`, registered by `admin.taiko.eth` in the same Safe batch as the SGX-reth instance, ~3 minutes after the Proposal0019 execution. Valid immediately (`INSTANCE_VALIDITY_DELAY` = 0), expires Aug 3, 2027 (`INSTANCE_EXPIRY` = 1 year). Deleted ID `0` is not reused; `nextInstanceId` is now `2`.
-  - note: between the deletion and the re-registration (12:46–12:49 UTC on Aug 3, 2026) this verifier held zero registered instances; proving remained available throughout via the `RISC0 + SP1` combination.
 
 ### risc0_verifier
 
@@ -308,7 +303,6 @@
 ### mainnet_verifier
 
 - impl : `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`
-- note: the Inbox's active proof verifier. It is an immutable baked into the Inbox implementation, not a proxy — each change is a fresh verifier deploy plus an Inbox upgrade. Read the live value with `getConfig().proofVerifier` on the inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`.
 - sub-verifier addresses (unchanged since Proposal0017; Proposal0019 rotates their trusted image IDs, program vkeys and MRENCLAVEs and deletes both SGX instances — see the sections above):
   - sgx_geth: `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee`
   - sgx_reth: `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8`
@@ -318,8 +312,6 @@
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x18e0a43926b02144951bc6f0c233667f9f40651a3b86e9b575c09768f9670d13`
   - upgraded to `0x71808449A6217898d602c1a392D95b931Ac5d878` on Jun 27, 2026 @commit`462920aae` @tx`0x6f26b1ee9c0965df9dc4ec14bd5721fa6f2041e17e18bd87f7a7d04eebc0dcd9` (Proposal0017)
   - `ZkRequiredVerifier` `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec` deployed on Jul 10, 2026 @commit`907827890` @tx`0x7b1befce6cbfc73793151fe233ec917003a45c66ffe07506bf8c305b626bbe64`
-  - became the Inbox's proof verifier on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen), superseding `MainnetVerifier` `0x71808449A6217898d602c1a392D95b931Ac5d878`, which is no longer the Inbox's proof verifier. The retired Inbox implementation `0x64523f2580f4E7038a121D55b220a9C12C1E8f01` still holds it as an immutable, so it stays reachable as a rollback target. The contract type changed from `MainnetVerifier` to `ZkRequiredVerifier`; the four sub-verifiers are unchanged.
-  - accepted proof combinations after Unzen — exactly two sub-proofs, in one of `SGX_GETH + RISC0`, `SGX_GETH + SP1`, `SGX_RETH + RISC0`, `SGX_RETH + SP1`, `RISC0 + SP1`. Every accepted pair contains at least one ZK proof. The superseded `MainnetVerifier` accepted a different five: it took `SGX_GETH + SGX_RETH` — two TEE attestations and zero ZK — and did **not** accept `RISC0 + SP1`. The all-ZK pair is therefore new in Unzen — it is what kept proving available during the ~3-minute window on Aug 3, 2026 between the SGX instance deletion and the v0.6.0 re-registration, when both SGX verifiers held zero instances.
 
 ### preconf_whitelist
 
