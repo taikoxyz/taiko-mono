@@ -219,8 +219,8 @@
   - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
   - upgraded to `0x64523f2580f4E7038a121D55b220a9C12C1E8f01` on Jun 29, 2026 @commit`462920aae` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
   - Unzen implementation deployed on Jul 10, 2026 @commit`907827890` @tx`0xa02d9efd2c2543727e801516d9c3184b2b2da0050ab948f3cb85bdefc5c1749e`
-  - upgraded to `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen). Forced inclusions re-enabled: `saveForcedInclusion` no longer reverts, the `numForcedInclusions == 0` proposer restriction is removed, and the `UnprocessedForcedInclusionIsDue` due-check is restored (proposers must process up to 10 due inclusions once the oldest is older than `forcedInclusionDelay` = 576s). The proof verifier immutable moves from `MainnetVerifier` `0x71808449A6217898d602c1a392D95b931Ac5d878` to `ZkRequiredVerifier` `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec`; read the live value with `getConfig().proofVerifier`.
-  - called `init3()` in the same bundle @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen) — voids the stale forced inclusion queue entry (head=2, tail=3) queued during the June 2026 incident, whose blob has aged out of the blob retention window and can no longer be derived. The entry's 0.001 ETH fee stays in the Inbox; there is no on-chain refund path.
+  - upgraded to `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen)
+  - called `init3()` in the same bundle @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7`
 
 #### automata_dcap_attestation
 
@@ -267,7 +267,7 @@
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x5f76012a42f150330fd01824ce6b6c55f9695b2fb2dd3a25f6b9a1a82e90d437`
   - upgraded to `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` on Jun 25, 2026 @commit`b73608696` @tx`0xbf692bdeb84725573c8d2fc6589e6db53db7477403900c7c24f559d769d5c6b1` (Proposal0017)
   - deleted instance ID `0` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen) — removed the sole registered instance, signer `0x933AD1DFAfc0D76577E7D5756dA7a659A5A038b9`, registered Jun 29, 2026 by `admin.taiko.eth` (the `registerInstance` registrar) during the Proposal0017 recovery, not by the Proposal0017 bundle itself.
-  - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`, attesting the non-EDMM MRENCLAVE, registered by `admin.taiko.eth` in the same Safe batch as the SGX-geth instance, ~3 minutes after the Proposal0019 execution. Valid immediately (`INSTANCE_VALIDITY_DELAY` = 0), expires Aug 3, 2027 (`INSTANCE_EXPIRY` = 1 year). Deleted ID `0` is not reused; `nextInstanceId` is now `2`.
+  - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`, attesting the non-EDMM MRENCLAVE.
 
 ### sgx_verifier_geth
 
@@ -276,7 +276,7 @@
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8e1982ca9273a77d9d39fedf0c17620f28469da9b79a1e6df0bd002f8a25a5fd`
   - upgraded to `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` on Jun 25, 2026 @commit`b73608696` @tx`0xfa680d3a56248a3e3802f7f1f93b63c55a19ed1330281e5c6143738c849ef31c` (Proposal0017)
   - deleted instance ID `0` on Aug 3, 2026 @commit`907827890` @tx`0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7` (Proposal0019 — Unzen) — removed the sole registered instance, signer `0xb815Ce7030466e4c35dd72038fA94D3f396468FE`, registered Jun 29, 2026 by `admin.taiko.eth` (the `registerInstance` registrar) during the Proposal0017 recovery, not by the Proposal0017 bundle itself.
-  - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`, registered by `admin.taiko.eth` in the same Safe batch as the SGX-reth instance, ~3 minutes after the Proposal0019 execution. Valid immediately (`INSTANCE_VALIDITY_DELAY` = 0), expires Aug 3, 2027 (`INSTANCE_EXPIRY` = 1 year). Deleted ID `0` is not reused; `nextInstanceId` is now `2`.
+  - registered the raiko2 v0.6.0 replacement instance on Aug 3, 2026 @tx`0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67` — instance ID `1`, signer `0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`.
 
 ### risc0_verifier
 
