@@ -11,9 +11,9 @@ It executes **56 L1 actions** and **no L2 actions**:
 3. Upgrade `ERC20Vault`.
 4. Call `Bridge.init3(bytes32[])` to disable the three remaining attacker retriable messages.
 5. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`. The new `MainnetVerifier` is
-wired to new `SGXGETH`, `SGXRETH` and `SP1` verifiers and reuses the existing `RISC0` verifier.
-`SGXGETH` and `SGXRETH` verifiers were updated to fix the bug that allowed DEBUG mode instances to be registered and further harden the contract.
-`SP1` verifier was re-deployed without code changes to make proposal 31(https://dao.taiko.xyz/plugins/community-proposals/#/proposals/31) a No-op when it becomes finally executable, and avoid having now stale image ids enabled.
+   wired to new `SGXGETH`, `SGXRETH` and `SP1` verifiers and reuses the existing `RISC0` verifier.
+   `SGXGETH` and `SGXRETH` verifiers were updated to fix the bug that allowed DEBUG mode instances to be registered and further harden the contract.
+   `SP1` verifier was re-deployed without code changes to make proposal 31(https://dao.taiko.xyz/plugins/community-proposals/#/proposals/31) a No-op when it becomes finally executable, and avoid having now stale image ids enabled.
 6. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
 7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
@@ -31,8 +31,29 @@ were deployed by `DeployMainnetInboxWithNewSP1Verifier.s.sol` (chain 1, commit `
 verifier, and reuses the existing RISC0 verifier. See [Deployed Addresses](#deployed-addresses).
 
 raiko2 v0.5.1 RISC0 and SP1 IDs are encoded below. New SGX-geth and SGX-reth
-MRENCLAVE values are encoded below; instance registration remains a separate follow-up transaction
-through the new SGX verifiers' registrar.
+MRENCLAVE values are encoded below; instance registration was left to a separate follow-up
+transaction through the new SGX verifiers' registrar (since completed — see
+[Execution Status](#execution-status)).
+
+## Execution Status
+
+All 56 L1 actions executed on mainnet on 2026-06-29 as DAO proposal `34`:
+[`0xae7122…d981f7`](https://etherscan.io/tx/0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7).
+
+The SGX instance registration follow-up executed on 2026-08-03: the registrar (`admin.taiko.eth`
+Safe `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`) registered one instance on each new SGX
+verifier, both at instance id `1` — SGX-geth instance
+`0x38652b8e4cDF1BE4F86bAeBB145db1269e758479`, SGX-reth instance
+`0xcad44B58dc58c825b107F8C772C3D2aedd9f2153`:
+[`0x47d156…d2ab67`](https://etherscan.io/tx/0x47d1568c2a3577b1f7204144ed98940c87363f61c68b476ed70eccec28d2ab67).
+
+The registration ran minutes after [Proposal0019](./Proposal0019.md) executed
+([`0x64875b…140ea7`](https://etherscan.io/tx/0x64875b5b84b41b520551854696c0ce408fb3e0aa2ede604cc95a5919b6140ea7)),
+which was a prerequisite: the registered quotes carry the raiko2 v0.6.0 MRENCLAVE measurements
+that Proposal0019 trusts on the shared attesters. Proposal0019 also untrusted the raiko
+`1.16.1-hotfix-5` MRENCLAVE values this proposal introduced (see
+[New SGX MRENCLAVE Values](#new-sgx-mrenclave-values)) and deleted the interim instance id `0`
+from both new SGX verifiers, so the instances registered here are the live ones.
 
 ## Action Order
 
