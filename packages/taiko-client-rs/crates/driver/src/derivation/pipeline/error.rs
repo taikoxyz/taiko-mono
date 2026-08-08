@@ -25,6 +25,12 @@ pub enum DerivationError {
     /// The required L2 block has not been produced yet.
     #[error("l2 block {0} not yet available")]
     BlockUnavailable(u64),
+    /// The proposal's L1 source block is missing from the L1 provider's current view.
+    ///
+    /// Kept distinct from [`Self::BlockUnavailable`] (an L2 number) so retry classification can
+    /// never confuse a lagging L1 backend with an L2 execution-engine rewind.
+    #[error("l1 source block {0} not available from the l1 provider")]
+    SourceBlockUnavailable(u64),
     /// Failure decoding the L1 proposal event payload.
     #[error(transparent)]
     ProposalDecode(#[from] SolTypeError),

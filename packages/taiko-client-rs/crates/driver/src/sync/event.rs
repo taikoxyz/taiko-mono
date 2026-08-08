@@ -4,7 +4,7 @@ use std::{
     collections::{HashSet, VecDeque},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -182,6 +182,38 @@ enum ExecutionRewindVerdict {
 /// rewind holds the condition indefinitely, so a few consecutive observations are enough to
 /// conclude the missing parent cannot reappear on its own.
 const EXECUTION_REWIND_ABORT_THRESHOLD: u32 = 3;
+
+/// Identity-keyed streak of above-head `BlockUnavailable` observations.
+///
+/// Escalation requires the SAME missing block to stay above the execution head across
+/// conclusive probes: a different missing block restarts the count (derivation progressed, so
+/// earlier evidence is stale). Inconclusive attempts (failed head probe, unrelated errors)
+/// deliberately leave the streak untouched instead of resetting it — a genuine rewind
+/// interleaved with a flaky probe must still escalate.
+#[derive(Default)]
+struct RewindStreak {
+    /// Missing block the current streak is counting.
+    missing_block: u64,
+    /// Conclusive above-head observations of `missing_block` so far.
+    count: u32,
+}
+
+impl RewindStreak {
+    /// Record an above-head observation of `missing_block`, returning the updated count.
+    fn observe(&mut self, missing_block: u64) -> u32 {
+        if self.missing_block != missing_block {
+            self.missing_block = missing_block;
+            self.count = 0;
+        }
+        self.count += 1;
+        self.count
+    }
+
+    /// Clear the streak after evidence that the missing block exists at or below the head.
+    fn clear(&mut self) {
+        self.count = 0;
+    }
+}
 
 /// Default timeout for preconfirmation payload submission.
 ///
@@ -916,21 +948,28 @@ impl EventSyncer {
 
     /// Probe a proposal-processing failure for an execution-engine rewind below derived state.
     ///
-    /// Applies only to [`DerivationError::BlockUnavailable`] failures. When the missing block
-    /// sits strictly ABOVE the execution engine's live head, the engine has rewound (post-crash)
-    /// below state derivation already produced — retrying can never heal it, because event
-    /// derivation itself is the only producer of that range and it is stuck behind this
-    /// proposal. After [`EXECUTION_REWIND_ABORT_THRESHOLD`] consecutive observations the
-    /// verdict escalates to an abort so the driver restarts and re-resolves a safe resume head
+    /// Applies only to [`DerivationError::BlockUnavailable`] failures, which by contract carry
+    /// an L2 block number — a missing L1 source block surfaces as
+    /// [`DerivationError::SourceBlockUnavailable`] precisely so a lagging L1 backend can never
+    /// masquerade as a rewind here. When the missing L2 block sits strictly ABOVE the execution
+    /// engine's live head, the engine has rewound (post-crash) below state derivation already
+    /// produced — retrying can never heal it, because event derivation itself is the only
+    /// producer of that range and it is stuck behind this proposal. After
+    /// [`EXECUTION_REWIND_ABORT_THRESHOLD`] consecutive same-block observations the verdict
+    /// escalates to an abort so the driver restarts and re-resolves a safe resume head
     /// (checkpoint-synced, or the minimum of the head and `head_l1_origin`).
     ///
-    /// Returns `None` when the ordinary retry/canonicality classification should stay in
-    /// charge: the failure is not `BlockUnavailable`, the block exists at or below the head
-    /// (streak resets), or the head probe itself failed (missing evidence must not abort).
+    /// The caller settles orphanhood BEFORE this probe, so a finalized-orphaned log is skipped
+    /// and never accumulates rewind evidence.
+    ///
+    /// Returns `None` when the ordinary retry classification should stay in charge: the failure
+    /// is not `BlockUnavailable`, the block exists at or below the head (streak clears), or the
+    /// head probe itself failed (missing evidence must not abort, and deliberately leaves the
+    /// streak intact so a flaky probe cannot indefinitely postpone escape from a real rewind).
     async fn probe_execution_rewind(
         &self,
         err: &DriverError,
-        rewind_streak: &AtomicU32,
+        rewind_streak: &Mutex<RewindStreak>,
     ) -> Option<ExecutionRewindVerdict> {
         let DriverError::Sync(SyncError::Derivation(DerivationError::BlockUnavailable(
             missing_block,
@@ -952,11 +991,14 @@ impl EventSyncer {
             }
         };
         if missing_block <= execution_head {
-            rewind_streak.store(0, Ordering::Relaxed);
+            rewind_streak.lock().expect("rewind streak mutex should not be poisoned").clear();
             return None;
         }
 
-        let streak = rewind_streak.fetch_add(1, Ordering::Relaxed) + 1;
+        let streak = rewind_streak
+            .lock()
+            .expect("rewind streak mutex should not be poisoned")
+            .observe(missing_block);
         if streak >= EXECUTION_REWIND_ABORT_THRESHOLD {
             error!(
                 missing_block,
@@ -1091,9 +1133,9 @@ impl EventSyncer {
             let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            // Consecutive above-head `BlockUnavailable` observations for THIS log; a fresh log
-            // starts a fresh streak.
-            let rewind_streak = Arc::new(AtomicU32::new(0));
+            // Above-head `BlockUnavailable` observations for THIS log, keyed by the missing
+            // block; a fresh log starts a fresh streak.
+            let rewind_streak = Arc::new(Mutex::new(RewindStreak::default()));
             let processing = RetryIf::spawn(
                 retry_strategy,
                 move || {
@@ -1110,28 +1152,6 @@ impl EventSyncer {
                         match router_call {
                             Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
                             Err(err) => {
-                                // A rewound execution engine can never satisfy this retry on
-                                // its own (derivation is the sole producer of the missing
-                                // range), so the rewind probe runs before any L1-side
-                                // classification.
-                                match syncer.probe_execution_rewind(&err, &rewind_streak).await {
-                                    Some(ExecutionRewindVerdict::Abort {
-                                        missing_block,
-                                        execution_head,
-                                    }) => {
-                                        DriverMetrics::event_execution_rewind_aborts_total().inc();
-                                        return Err(ProposalRetryError::Abort(DriverError::Sync(
-                                            SyncError::ExecutionEngineRewound {
-                                                missing_block,
-                                                execution_head,
-                                            },
-                                        )));
-                                    }
-                                    Some(ExecutionRewindVerdict::Observed) => {
-                                        return Err(ProposalRetryError::Retry(err));
-                                    }
-                                    None => {}
-                                }
                                 match syncer
                                     .proposal_log_canonicality(block_hash, log.block_number)
                                     .await
@@ -1147,12 +1167,40 @@ impl EventSyncer {
                                         );
                                         Ok(ProposalLogResult::SkippedOrphaned)
                                     }
-                                    Ok(canonicality) => Err(syncer
-                                        .classify_proposal_processing_failure(
-                                            err,
-                                            &log,
-                                            canonicality,
-                                        )),
+                                    Ok(canonicality) => {
+                                        // Orphanhood is settled, so rewind evidence may now
+                                        // accumulate: a rewound execution engine can never
+                                        // satisfy this retry on its own — derivation is the
+                                        // sole producer of the missing range.
+                                        match syncer
+                                            .probe_execution_rewind(&err, &rewind_streak)
+                                            .await
+                                        {
+                                            Some(ExecutionRewindVerdict::Abort {
+                                                missing_block,
+                                                execution_head,
+                                            }) => {
+                                                DriverMetrics::event_execution_rewind_aborts_total(
+                                                )
+                                                .inc();
+                                                Err(ProposalRetryError::Abort(DriverError::Sync(
+                                                    SyncError::ExecutionEngineRewound {
+                                                        missing_block,
+                                                        execution_head,
+                                                    },
+                                                )))
+                                            }
+                                            Some(ExecutionRewindVerdict::Observed) => {
+                                                Err(ProposalRetryError::Retry(err))
+                                            }
+                                            None => Err(syncer
+                                                .classify_proposal_processing_failure(
+                                                    err,
+                                                    &log,
+                                                    canonicality,
+                                                )),
+                                        }
+                                    }
                                     Err(recheck_err) => {
                                         warn!(
                                             ?err,
@@ -2654,16 +2702,20 @@ mod tests {
     async fn process_log_batch_aborts_after_persistent_block_unavailable_above_execution_head() {
         let block_hash = B256::from([0x73; 32]);
         let tx_hash = B256::from([0x83; 32]);
+        let l1_asserter = Asserter::new();
         let l2_asserter = Asserter::new();
-        // One execution-head probe per failed attempt; three consecutive above-head
+        // Each failed attempt settles canonicality first (Unproven: finality below the log
+        // height), then probes the execution head once; three consecutive above-head
         // observations prove a rewind and must abort instead of retrying forever.
         for _ in 0..3 {
+            l1_asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+            l1_asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
             l2_asserter.push_success(&U64::from(40u64));
         }
 
         let syncer = EventSyncer {
             rpc: mock_client_with_asserters(
-                Asserter::new(),
+                l1_asserter,
                 l2_asserter,
                 Asserter::new(),
                 Address::ZERO,
@@ -2696,6 +2748,10 @@ mod tests {
     async fn process_log_batch_keeps_retrying_block_unavailable_at_or_below_execution_head() {
         let block_hash = B256::from([0x74; 32]);
         let tx_hash = B256::from([0x84; 32]);
+        let l1_asserter = Asserter::new();
+        // The failed attempt settles canonicality first (Unproven), then probes the head.
+        l1_asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+        l1_asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
         let l2_asserter = Asserter::new();
         // Execution head at the missing block: the parent exists, so this is not a rewind and
         // the ordinary retry path must stay in charge.
@@ -2703,7 +2759,7 @@ mod tests {
 
         let syncer = EventSyncer {
             rpc: mock_client_with_asserters(
-                Asserter::new(),
+                l1_asserter,
                 l2_asserter,
                 Asserter::new(),
                 Address::ZERO,
@@ -2728,6 +2784,10 @@ mod tests {
     async fn process_log_batch_keeps_retrying_when_execution_head_probe_fails() {
         let block_hash = B256::from([0x75; 32]);
         let tx_hash = B256::from([0x85; 32]);
+        let l1_asserter = Asserter::new();
+        // The failed attempt settles canonicality first (Unproven), then probes the head.
+        l1_asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+        l1_asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
         let l2_asserter = Asserter::new();
         // A failing head probe proves nothing about a rewind; the ordinary retry path must
         // stay in charge rather than aborting on missing evidence.
@@ -2735,7 +2795,7 @@ mod tests {
 
         let syncer = EventSyncer {
             rpc: mock_client_with_asserters(
-                Asserter::new(),
+                l1_asserter,
                 l2_asserter,
                 Asserter::new(),
                 Address::ZERO,
@@ -2754,6 +2814,99 @@ mod tests {
 
         assert!(result.is_ok(), "an unprovable rewind stays retryable: {result:?}");
         assert_eq!(path.calls(), 2, "one failed attempt, then the retry succeeds");
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_skips_finalized_orphan_before_rewind_escalation() {
+        let orphaned_block_hash = B256::from([0x76; 32]);
+        let tx_hash = B256::from([0x86; 32]);
+        let l1_asserter = Asserter::new();
+        // By-hash lookup misses (the log's source block is gone) and finalized ancestry proves
+        // a different canonical hash at the log height: a finalized orphan. It must be skipped
+        // even though derivation reports its parent above the execution head — orphanhood
+        // settles first, rewind evidence never accumulates.
+        l1_asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        l1_asserter.push_success(&l1_block_at(1, B256::from([0x66; 32]), B256::ZERO));
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&U64::from(40u64));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                l1_asserter,
+                l2_asserter,
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        let path = MockProductionPath::unavailable_for([tx_hash], 100);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_secs(120),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, orphaned_block_hash, tx_hash)],
+            ),
+        )
+        .await
+        .expect("the orphan skip should finish the batch");
+
+        assert!(matches!(result, Ok(())), "finalized orphan should be skipped: {result:?}");
+        assert_eq!(
+            path.calls(),
+            1,
+            "a finalized orphan must be skipped on first classification, not escalated"
+        );
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_never_escalates_missing_l1_source_blocks() {
+        let block_hash = B256::from([0x77; 32]);
+        let tx_hash = B256::from([0x87; 32]);
+        // The proposal's L1 source height sits far above the L2 head, as on young L2 chains.
+        // A lagging L1 backend must stay retryable — never terminate the driver.
+        let l2_asserter = Asserter::new();
+        for _ in 0..4 {
+            l2_asserter.push_success(&U64::from(40u64));
+        }
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter,
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        let path = MockProductionPath::source_unavailable_for([tx_hash], 3_369_822);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_secs(90),
+            syncer.process_log_batch(router, vec![sample_proposed_log(1, block_hash, tx_hash)]),
+        )
+        .await;
+
+        assert!(result.is_err(), "missing L1 source blocks must keep retrying, not abort");
+        assert!(
+            path.calls() > 3,
+            "retries must continue past the rewind threshold, saw {}",
+            path.calls()
+        );
+    }
+
+    #[test]
+    fn rewind_streak_counts_only_consecutive_matching_blocks() {
+        let mut streak = RewindStreak::default();
+        assert_eq!(streak.observe(100), 1);
+        assert_eq!(streak.observe(100), 2);
+        // Derivation progressed to a different missing parent: stale evidence restarts.
+        assert_eq!(streak.observe(101), 1);
+        assert_eq!(streak.observe(101), 2);
+        streak.clear();
+        assert_eq!(streak.observe(101), 1);
     }
 
     #[test_log::test(tokio::test(start_paused = true))]

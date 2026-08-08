@@ -348,7 +348,7 @@ impl ShastaDerivationPipeline {
             .l1_provider
             .get_block_by_hash(l1_block_hash)
             .await?
-            .ok_or(DerivationError::BlockUnavailable(l1_block_number))?;
+            .ok_or(DerivationError::SourceBlockUnavailable(l1_block_number))?;
 
         let l1_timestamp = l1_block.header.timestamp;
 

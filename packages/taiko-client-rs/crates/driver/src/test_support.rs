@@ -140,6 +140,9 @@ pub(crate) enum MockProductionBehavior {
     UnavailableFor(HashSet<B256>, u64),
     /// Fail with [`DerivationError::BlockUnavailable`] once per transaction hash, then succeed.
     UnavailableOnceFor(Mutex<HashSet<B256>>, u64),
+    /// Always fail the given transaction hashes the way `decode_log_to_event_context` fails
+    /// when the proposal's L1 source block is missing from the L1 provider view.
+    SourceUnavailableFor(HashSet<B256>, u64),
 }
 
 /// Configurable [`BlockProductionPath`] mock recording every input it produces.
@@ -196,6 +199,17 @@ impl MockProductionPath {
         Self::with_behavior(MockProductionBehavior::UnavailableOnceFor(
             Mutex::new(tx_hashes.into_iter().collect()),
             missing_block,
+        ))
+    }
+
+    /// Mock that always fails the given proposal logs the way a missing L1 source block does.
+    pub(crate) fn source_unavailable_for(
+        tx_hashes: impl IntoIterator<Item = B256>,
+        l1_block_number: u64,
+    ) -> Self {
+        Self::with_behavior(MockProductionBehavior::SourceUnavailableFor(
+            tx_hashes.into_iter().collect(),
+            l1_block_number,
         ))
     }
 
@@ -293,6 +307,16 @@ impl BlockProductionPath for MockProductionPath {
                         {
                             return Err(DriverError::Sync(SyncError::Derivation(
                                 DerivationError::BlockUnavailable(*missing_block),
+                            )));
+                        }
+                    }
+                    MockProductionBehavior::SourceUnavailableFor(tx_hashes, l1_block_number) => {
+                        if log.transaction_hash.is_some_and(|tx_hash| tx_hashes.contains(&tx_hash))
+                        {
+                            // Mirrors `decode_log_to_event_context` when the L1 provider's view
+                            // is missing the proposal's source block.
+                            return Err(DriverError::Sync(SyncError::Derivation(
+                                DerivationError::SourceBlockUnavailable(*l1_block_number),
                             )));
                         }
                     }
