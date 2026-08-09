@@ -189,7 +189,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
                     stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
-                    return map_event_syncer_exit(result).map_err(Into::into);
+                    return map_runner_event_syncer_exit(result);
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
@@ -219,6 +219,13 @@ impl WhitelistPreconfirmationDriverRunner {
     }
 }
 
+/// Convert event syncer task termination into the whitelist runner's error type.
+fn map_runner_event_syncer_exit(
+    result: driver::preconf_ingress_sync::EventSyncJoinResult,
+) -> Result<()> {
+    map_event_syncer_exit(result).map_err(Into::into)
+}
+
 /// Abort sidecar tasks and stop the REST server during shutdown.
 async fn stop_sidecars<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
@@ -227,5 +234,31 @@ async fn stop_sidecars<T>(
     event_syncer_handle.abort();
     if let Some(server) = rest_ws_server.take() {
         server.stop().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn execution_rewind_exit_propagates_as_sync_error() {
+        let err = map_runner_event_syncer_exit(Ok(Err(driver::DriverError::Sync(
+            driver::sync::SyncError::ExecutionEngineRewound {
+                missing_block: 100,
+                execution_head: 40,
+            },
+        ))))
+        .expect_err("execution rewind must stop the whitelist runner");
+
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::Sync(
+                driver::sync::SyncError::ExecutionEngineRewound {
+                    missing_block: 100,
+                    execution_head: 40,
+                }
+            )
+        ));
     }
 }

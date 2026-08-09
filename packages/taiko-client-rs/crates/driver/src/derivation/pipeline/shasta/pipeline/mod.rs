@@ -871,6 +871,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn decode_log_reports_missing_l1_source_block() {
+        let l1_asserter = Asserter::new();
+        l1_asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&TAIKO_MAINNET_CHAIN_ID);
+        let anchor_address = Address::ZERO;
+        let client =
+            mock_client_with_asserters(l1_asserter, l2_asserter, Asserter::new(), anchor_address);
+        let blob_source = Arc::new(
+            BlobDataSource::new(None, None, true)
+                .await
+                .expect("blob data source should initialise"),
+        );
+        let anchor_constructor =
+            AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address)
+                .await
+                .expect("anchor constructor should initialise");
+        let pipeline = ShastaDerivationPipeline {
+            rpc: client,
+            anchor_constructor,
+            derivation_source_manifest_fetcher: ShastaSourceManifestFetcher::new(blob_source),
+            shasta_fork_timestamp: 0,
+            min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            chain_id: TAIKO_MAINNET_CHAIN_ID,
+            initial_proposal_id: U256::ZERO,
+        };
+        let l1_block_hash = B256::from([0x61; 32]);
+        let log = Log {
+            inner: alloy::primitives::Log::new_from_event_unchecked(
+                Address::ZERO,
+                sample_event_context().event,
+            )
+            .reserialize(),
+            block_hash: Some(l1_block_hash),
+            block_number: Some(10),
+            block_timestamp: None,
+            transaction_hash: Some(B256::from([0x71; 32])),
+            transaction_index: Some(0),
+            log_index: Some(0),
+            removed: false,
+        };
+
+        let err = pipeline
+            .decode_log_to_event_context(&log)
+            .await
+            .expect_err("missing source block should fail event decoding");
+
+        assert!(matches!(err, DerivationError::SourceBlockUnavailable(10)));
+    }
+
+    #[tokio::test]
     async fn finalized_proposal_id_at_block_returns_some_on_success() {
         let asserter = Asserter::new();
         let client = mock_client_with_l1_asserter(asserter.clone());

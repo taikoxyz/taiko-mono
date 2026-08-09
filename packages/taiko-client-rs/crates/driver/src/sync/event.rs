@@ -188,8 +188,7 @@ const EXECUTION_REWIND_ABORT_THRESHOLD: u32 = 3;
 /// Escalation requires the SAME missing block to stay above the execution head across
 /// conclusive probes: a different missing block restarts the count (derivation progressed, so
 /// earlier evidence is stale). Inconclusive attempts (failed head probe, unrelated errors)
-/// deliberately leave the streak untouched instead of resetting it — a genuine rewind
-/// interleaved with a flaky probe must still escalate.
+/// clear the streak so escalation always rests on consecutive complete observations.
 #[derive(Default)]
 struct RewindStreak {
     /// Missing block the current streak is counting.
@@ -209,7 +208,7 @@ impl RewindStreak {
         self.count
     }
 
-    /// Clear the streak after evidence that the missing block exists at or below the head.
+    /// Clear the streak after an attempt fails to provide matching above-head evidence.
     fn clear(&mut self) {
         self.count = 0;
     }
@@ -963,9 +962,9 @@ impl EventSyncer {
     /// and never accumulates rewind evidence.
     ///
     /// Returns `None` when the ordinary retry classification should stay in charge: the failure
-    /// is not `BlockUnavailable`, the block exists at or below the head (streak clears), or the
-    /// head probe itself failed (missing evidence must not abort, and deliberately leaves the
-    /// streak intact so a flaky probe cannot indefinitely postpone escape from a real rewind).
+    /// is not `BlockUnavailable`, the block exists at or below the head, or the head probe itself
+    /// failed. Every such inconclusive attempt clears the streak so only consecutive complete
+    /// observations can trigger an abort.
     async fn probe_execution_rewind(
         &self,
         err: &DriverError,
@@ -975,6 +974,7 @@ impl EventSyncer {
             missing_block,
         ))) = err
         else {
+            rewind_streak.lock().expect("rewind streak mutex should not be poisoned").clear();
             return None;
         };
         let missing_block = *missing_block;
@@ -982,6 +982,7 @@ impl EventSyncer {
         let execution_head = match self.rpc.l2_provider.get_block_number().await {
             Ok(head) => head,
             Err(probe_err) => {
+                rewind_streak.lock().expect("rewind streak mutex should not be poisoned").clear();
                 warn!(
                     missing_block,
                     %probe_err,
@@ -1202,6 +1203,10 @@ impl EventSyncer {
                                         }
                                     }
                                     Err(recheck_err) => {
+                                        rewind_streak
+                                            .lock()
+                                            .expect("rewind streak mutex should not be poisoned")
+                                            .clear();
                                         warn!(
                                             ?err,
                                             ?recheck_err,
@@ -2817,6 +2822,52 @@ mod tests {
     }
 
     #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_resets_rewind_streak_after_failed_head_probe() {
+        let block_hash = B256::from([0x78; 32]);
+        let tx_hash = B256::from([0x88; 32]);
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        // Every attempt proves the source log is not a finalized orphan before probing the
+        // execution head. The failed third probe must invalidate the first two observations.
+        for _ in 0..6 {
+            l1_asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+            l1_asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
+        }
+        l2_asserter.push_success(&U64::from(40u64));
+        l2_asserter.push_success(&U64::from(40u64));
+        l2_asserter.push_failure_msg("execution head probe unavailable");
+        for _ in 0..3 {
+            l2_asserter.push_success(&U64::from(40u64));
+        }
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                l1_asserter,
+                l2_asserter,
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        let path = MockProductionPath::unavailable_for([tx_hash], 100);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let err = timeout(
+            Duration::from_secs(120),
+            syncer.process_log_batch(router, vec![sample_proposed_log(1, block_hash, tx_hash)]),
+        )
+        .await
+        .expect("a renewed three-observation streak must eventually abort")
+        .expect_err("persistent above-head unavailability should abort after the renewed streak");
+
+        assert!(matches!(
+            err,
+            SyncError::ExecutionEngineRewound { missing_block: 100, execution_head: 40 }
+        ));
+        assert_eq!(path.calls(), 6, "the failed probe must reset the first two observations");
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_skips_finalized_orphan_before_rewind_escalation() {
         let orphaned_block_hash = B256::from([0x76; 32]);
         let tx_hash = B256::from([0x86; 32]);
@@ -2866,14 +2917,18 @@ mod tests {
         let tx_hash = B256::from([0x87; 32]);
         // The proposal's L1 source height sits far above the L2 head, as on young L2 chains.
         // A lagging L1 backend must stay retryable — never terminate the driver.
+        let l1_asserter = Asserter::new();
         let l2_asserter = Asserter::new();
         for _ in 0..4 {
+            // Settle canonicality as Unproven so each attempt reaches rewind classification.
+            l1_asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+            l1_asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
             l2_asserter.push_success(&U64::from(40u64));
         }
 
         let syncer = EventSyncer {
             rpc: mock_client_with_asserters(
-                Asserter::new(),
+                l1_asserter,
                 l2_asserter,
                 Asserter::new(),
                 Address::ZERO,
