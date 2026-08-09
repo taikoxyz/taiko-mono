@@ -1,8 +1,10 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
-import { type Address, encodeAbiParameters, type Hash, type Hex } from 'viem';
+import { type Address, encodeAbiParameters, encodeFunctionData, type Hash, type Hex } from 'viem';
 
+import { erc20VaultAbi, erc721VaultAbi, erc1155VaultAbi } from '$abi';
 import { MessageStatus } from '$libs/bridge';
+import { TokenType } from '$libs/token';
 
 import { parseApiBigInt, parseRelayerApiResponse, RelayerAPIService } from './RelayerAPIService';
 
@@ -14,6 +16,12 @@ const BAD_MSG_HASH = '0x8165263c4ab44098b8e0a4a44204163ac766a14adb97a9087df98489
 const OTHER_MSG_HASH = '0x2b7a9133f2e79adbd61f1f4e7a100cc2fb91d77db708da22e95b5cbb9f6a3111';
 const TAIKO_BRIDGE_ADDRESS = '0x1670000000000000000000000000000000000001';
 const DEST_CHAIN_TWO_BRIDGE_ADDRESS = '0x2000000000000000000000000000000000000002';
+const DEST_ERC20_VAULT_ADDRESS = '0x1000000000000000000000000000000000000020';
+const DEST_ERC721_VAULT_ADDRESS = '0x1000000000000000000000000000000000000721';
+const DEST_ERC1155_VAULT_ADDRESS = '0x1000000000000000000000000000000000001155';
+const CANONICAL_ERC20_ADDRESS = '0x00000000000000000000000000000000000000C1';
+const CANONICAL_ERC721_ADDRESS = '0x0000000000000000000000000000000000000721';
+const CANONICAL_ERC1155_ADDRESS = '0x0000000000000000000000000000000000001155';
 const MESSAGE_SENT_EVENT_TOPIC = '0xe33fd33b4f45b95b1c196242240c5b5233129d724b578f95b66ce8d8aae93517';
 
 vi.mock('axios');
@@ -39,7 +47,12 @@ vi.mock('$libs/chain', async (importOriginal) => {
 vi.mock('$bridgeConfig', () => ({
   routingContractsMap: {
     1: {
-      167000: { bridgeAddress: '0xd60247c6848b7ca29eddf63aa924e53db6ddd8ec' },
+      167000: {
+        bridgeAddress: '0xd60247c6848b7ca29eddf63aa924e53db6ddd8ec',
+        erc20VaultAddress: '0x1000000000000000000000000000000000000020',
+        erc721VaultAddress: '0x1000000000000000000000000000000000000721',
+        erc1155VaultAddress: '0x1000000000000000000000000000000000001155',
+      },
     },
     2: {
       167000: { bridgeAddress: '0x2000000000000000000000000000000000000002' },
@@ -250,6 +263,7 @@ describe('RelayerAPIService', () => {
       messageId: '9999',
       msgHash: GOOD_MSG_HASH,
       blockNumber: '0x7baa21',
+      amount: '999',
     });
 
     mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
@@ -268,6 +282,7 @@ describe('RelayerAPIService', () => {
     expect(result.txs).toHaveLength(1);
     expect(result.txs[0].msgHash).toEqual(GOOD_MSG_HASH);
     expect(result.txs[0].message?.id).toEqual(6268n);
+    expect(result.txs[0].amount).toEqual(185_000_000_000_000_000n);
     expect(mockedReadContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -375,6 +390,38 @@ describe('RelayerAPIService', () => {
     expect(result.txs[0].srcTxHash).toEqual(SECOND_SRC_TX_HASH);
   });
 
+  test('getAllBridgeTransactionByAddress does not let an invalid duplicate hide a valid row', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const unconfiguredRelayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa21',
+      destChainId: '424242',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553883,
+      messageId: '6268',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa22',
+      // Both API rows point at the same source transaction. The invalid row must not consume this hash.
+      srcTxHash: SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([unconfiguredRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].msgHash).toEqual(GOOD_MSG_HASH);
+  });
+
   test('getAllBridgeTransactionByAddress clears claim metadata inherited from the mismatched relayer row', async () => {
     // Given
     const baseUrl = 'http://example.com';
@@ -410,6 +457,223 @@ describe('RelayerAPIService', () => {
     expect(result.txs[0].amount).toEqual(185_000_000_000_000_000n);
   });
 
+  test('getAllBridgeTransactionByAddress preserves claim metadata for case-equivalent msgHashes', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const uppercaseMsgHash = `0x${GOOD_MSG_HASH.slice(2).toUpperCase()}` as Hash;
+    const claimedBy = '0x00000000000000000000000000000000000000DE';
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6268',
+      msgHash: uppercaseMsgHash,
+      blockNumber: '0x7baa21',
+      claimedBy,
+      processedTxHash: OTHER_MSG_HASH,
+      relayerFee: '12345',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        claimedBy,
+        destTxHash: OTHER_MSG_HASH,
+        fee: 12_345n,
+        msgHash: GOOD_MSG_HASH,
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress refreshes ERC20 metadata from the receipt message', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6271',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91a',
+      eventType: 0,
+      amount: '999',
+      canonicalTokenAddress: '0x00000000000000000000000000000000000000b0',
+      canonicalTokenSymbol: 'STALE',
+      canonicalTokenDecimals: 18,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLog({
+        data: createERC20MessageData({
+          canonicalTokenAddress: CANONICAL_ERC20_ADDRESS,
+          decimals: 6,
+          symbol: 'USDC',
+          amount: 123_456n,
+        }),
+        to: DEST_ERC20_VAULT_ADDRESS,
+        value: 0n,
+      }),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: 123_456n,
+        canonicalTokenAddress: CANONICAL_ERC20_ADDRESS,
+        decimals: 6,
+        symbol: 'USDC',
+        tokenType: TokenType.ERC20,
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress refreshes ERC721 metadata from the receipt message', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6271',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91a',
+      eventType: 0,
+      amount: '999',
+      canonicalTokenAddress: '0x00000000000000000000000000000000000000b0',
+      canonicalTokenSymbol: 'STALE',
+      canonicalTokenDecimals: 18,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLog({
+        data: createERC721MessageData({
+          canonicalTokenAddress: CANONICAL_ERC721_ADDRESS,
+          symbol: 'TAIKO-NFT',
+          tokenIds: [42n, 43n],
+        }),
+        to: DEST_ERC721_VAULT_ADDRESS,
+        value: 0n,
+      }),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: 1n,
+        canonicalTokenAddress: CANONICAL_ERC721_ADDRESS,
+        decimals: undefined,
+        symbol: 'TAIKO-NFT',
+        tokenType: TokenType.ERC721,
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress refreshes ERC1155 metadata from the receipt message', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6271',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91a',
+      eventType: 0,
+      amount: '999',
+      canonicalTokenAddress: '0x00000000000000000000000000000000000000b0',
+      canonicalTokenSymbol: 'STALE',
+      canonicalTokenDecimals: 18,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLog({
+        data: createERC1155MessageData({
+          canonicalTokenAddress: CANONICAL_ERC1155_ADDRESS,
+          symbol: 'TAIKO-ITEM',
+          tokenIds: [42n, 43n],
+          amounts: [2n, 3n],
+        }),
+        to: DEST_ERC1155_VAULT_ADDRESS,
+        value: 0n,
+      }),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: 5n,
+        canonicalTokenAddress: CANONICAL_ERC1155_ADDRESS,
+        decimals: undefined,
+        symbol: 'TAIKO-ITEM',
+        tokenType: TokenType.ERC1155,
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress clears stale token metadata for a non-vault receipt message', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553882,
+      messageId: '6271',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91a',
+      eventType: 1,
+      amount: '999',
+      canonicalTokenAddress: CANONICAL_ERC20_ADDRESS,
+      canonicalTokenSymbol: 'STALE',
+      canonicalTokenDecimals: 6,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLog({
+        data: '0x12345678',
+        to: USER_ADDRESS,
+        value: 42n,
+      }),
+    );
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: 42n,
+        canonicalTokenAddress: undefined,
+        decimals: 18,
+        symbol: 'ETH',
+        tokenType: TokenType.ETH,
+      }),
+    );
+  });
+
   test('getAllBridgeTransactionByAddress disambiguates multiple receipt messages by relayer message id', async () => {
     // Given
     const baseUrl = 'http://example.com';
@@ -440,13 +704,14 @@ describe('RelayerAPIService', () => {
     expect(result.txs[0].message?.id).toEqual(6268n);
   });
 
-  test('getAllBridgeTransactionByAddress keeps relayer data when multiple receipt messages stay ambiguous', async () => {
+  test('getAllBridgeTransactionByAddress excludes relayer data when multiple receipt messages stay ambiguous', async () => {
     // Given
     const baseUrl = 'http://example.com';
     const relayerAPIService = new RelayerAPIService(baseUrl);
     const paginationParams = { page: 1, size: 10 };
     // Neither the msgHash nor the id ties this row to one of the two logs, so there is nothing safe to
-    // adopt and the relayer's own values must survive untouched.
+    // adopt. The relayer's hash is absent from the receipt, so keeping it would expose an unrelated message
+    // to status checks and claim actions.
     const relayerItem = createRelayerItem({
       id: 1553882,
       messageId: '7777',
@@ -467,9 +732,8 @@ describe('RelayerAPIService', () => {
     const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
 
     // Then
-    expect(result.txs).toHaveLength(1);
-    expect(result.txs[0].msgHash).toEqual(BAD_MSG_HASH);
-    expect(result.txs[0].message?.id).toEqual(7777n);
+    expect(result.txs).toHaveLength(0);
+    expect(mockedReadContract).not.toHaveBeenCalled();
   });
 
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
@@ -546,6 +810,10 @@ function createRelayerItem({
   claimedBy = '',
   processedTxHash = undefined,
   relayerFee = '0',
+  eventType = 0,
+  canonicalTokenAddress = '0x0000000000000000000000000000000000000000',
+  canonicalTokenSymbol = 'ETH',
+  canonicalTokenDecimals = 18,
 }: {
   id: number;
   messageId: string;
@@ -560,6 +828,10 @@ function createRelayerItem({
   claimedBy?: string;
   processedTxHash?: Hash;
   relayerFee?: string;
+  eventType?: number;
+  canonicalTokenAddress?: Address;
+  canonicalTokenSymbol?: string;
+  canonicalTokenDecimals?: number;
 }) {
   return {
     id,
@@ -588,12 +860,12 @@ function createRelayerItem({
       },
     },
     status,
-    eventType: 0,
+    eventType,
     chainID: 167000,
-    canonicalTokenAddress: '0x0000000000000000000000000000000000000000',
-    canonicalTokenSymbol: 'ETH',
+    canonicalTokenAddress,
+    canonicalTokenSymbol,
     canonicalTokenName: 'Ether',
-    canonicalTokenDecimals: 18,
+    canonicalTokenDecimals,
     amount,
     msgHash,
     messageOwner: USER_ADDRESS,
@@ -637,6 +909,9 @@ type MessageSentLogInput = {
   srcChainId: bigint;
   destChainId: bigint;
   logIndex: number;
+  to: Address;
+  value: bigint;
+  data: Hex;
 };
 
 function createReceiptWithMessageSentLogs(
@@ -670,6 +945,9 @@ function createMessageSentLog(messageLog: Partial<MessageSentLogInput>) {
     srcChainId = 167000n,
     destChainId = 1n,
     logIndex = 1,
+    to = USER_ADDRESS,
+    value = 185_000_000_000_000_000n,
+    data = '0x',
   } = messageLog;
 
   const encodedData = encodeAbiParameters(
@@ -701,9 +979,9 @@ function createMessageSentLog(messageLog: Partial<MessageSentLogInput>) {
         srcOwner: USER_ADDRESS,
         destChainId,
         destOwner: USER_ADDRESS,
-        to: USER_ADDRESS,
-        value: 185_000_000_000_000_000n,
-        data: '0x',
+        to,
+        value,
+        data,
       },
     ],
   );
@@ -719,4 +997,144 @@ function createMessageSentLog(messageLog: Partial<MessageSentLogInput>) {
     topics: [MESSAGE_SENT_EVENT_TOPIC, msgHash],
     data: encodedData,
   };
+}
+
+function createERC20MessageData({
+  canonicalTokenAddress,
+  decimals,
+  symbol,
+  amount,
+}: {
+  canonicalTokenAddress: Address;
+  decimals: number;
+  symbol: string;
+  amount: bigint;
+}) {
+  const invocationData = encodeAbiParameters(
+    [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'chainId', type: 'uint64' },
+          { name: 'addr', type: 'address' },
+          { name: 'decimals', type: 'uint8' },
+          { name: 'symbol', type: 'string' },
+          { name: 'name', type: 'string' },
+        ],
+      },
+      { type: 'address' },
+      { type: 'address' },
+      { type: 'uint256' },
+    ],
+    [
+      {
+        chainId: 167000n,
+        addr: canonicalTokenAddress,
+        decimals,
+        symbol,
+        name: `${symbol} Token`,
+      },
+      USER_ADDRESS,
+      USER_ADDRESS,
+      amount,
+    ],
+  );
+
+  return encodeFunctionData({
+    abi: erc20VaultAbi,
+    functionName: 'onMessageInvocation',
+    args: [invocationData],
+  });
+}
+
+function createERC721MessageData({
+  canonicalTokenAddress,
+  symbol,
+  tokenIds,
+}: {
+  canonicalTokenAddress: Address;
+  symbol: string;
+  tokenIds: bigint[];
+}) {
+  const invocationData = encodeAbiParameters(
+    [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'chainId', type: 'uint64' },
+          { name: 'addr', type: 'address' },
+          { name: 'symbol', type: 'string' },
+          { name: 'name', type: 'string' },
+        ],
+      },
+      { type: 'address' },
+      { type: 'address' },
+      { type: 'uint256[]' },
+    ],
+    [
+      {
+        chainId: 167000n,
+        addr: canonicalTokenAddress,
+        symbol,
+        name: `${symbol} Collection`,
+      },
+      USER_ADDRESS,
+      USER_ADDRESS,
+      tokenIds,
+    ],
+  );
+
+  return encodeFunctionData({
+    abi: erc721VaultAbi,
+    functionName: 'onMessageInvocation',
+    args: [invocationData],
+  });
+}
+
+function createERC1155MessageData({
+  canonicalTokenAddress,
+  symbol,
+  tokenIds,
+  amounts,
+}: {
+  canonicalTokenAddress: Address;
+  symbol: string;
+  tokenIds: bigint[];
+  amounts: bigint[];
+}) {
+  const invocationData = encodeAbiParameters(
+    [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'chainId', type: 'uint64' },
+          { name: 'addr', type: 'address' },
+          { name: 'symbol', type: 'string' },
+          { name: 'name', type: 'string' },
+        ],
+      },
+      { type: 'address' },
+      { type: 'address' },
+      { type: 'uint256[]' },
+      { type: 'uint256[]' },
+    ],
+    [
+      {
+        chainId: 167000n,
+        addr: canonicalTokenAddress,
+        symbol,
+        name: `${symbol} Collection`,
+      },
+      USER_ADDRESS,
+      USER_ADDRESS,
+      tokenIds,
+      amounts,
+    ],
+  );
+
+  return encodeFunctionData({
+    abi: erc1155VaultAbi,
+    functionName: 'onMessageInvocation',
+    args: [invocationData],
+  });
 }

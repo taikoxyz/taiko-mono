@@ -3,7 +3,9 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 import {
   type Address,
+  decodeAbiParameters,
   decodeEventLog,
+  decodeFunctionData,
   getAddress,
   type Hash,
   type Hex,
@@ -39,6 +41,70 @@ const log = getLogger('RelayerAPIService');
 const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
 const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
 type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
+type BridgeTransactionAssetDetails = {
+  amount: bigint;
+  tokenType: TokenType;
+  canonicalTokenAddress?: Address;
+  symbol: string;
+  decimals?: number;
+};
+
+const onMessageInvocationAbi = [
+  {
+    type: 'function',
+    name: 'onMessageInvocation',
+    inputs: [{ name: 'data', type: 'bytes' }],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+] as const;
+
+const erc20InvocationParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'chainId', type: 'uint64' },
+      { name: 'addr', type: 'address' },
+      { name: 'decimals', type: 'uint8' },
+      { name: 'symbol', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+  },
+  { type: 'address' },
+  { type: 'address' },
+  { type: 'uint256' },
+] as const;
+
+const erc721InvocationParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'chainId', type: 'uint64' },
+      { name: 'addr', type: 'address' },
+      { name: 'symbol', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+  },
+  { type: 'address' },
+  { type: 'address' },
+  { type: 'uint256[]' },
+] as const;
+
+const erc1155InvocationParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'chainId', type: 'uint64' },
+      { name: 'addr', type: 'address' },
+      { name: 'symbol', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+  },
+  { type: 'address' },
+  { type: 'address' },
+  { type: 'uint256[]' },
+  { type: 'uint256[]' },
+] as const;
 
 export function preserveMessageIntegerPrecision(rawResponse: string): string {
   return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
@@ -104,9 +170,6 @@ export class RelayerAPIService {
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
       const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
 
-      // If the transaction hash is unique, add it to the set for future checks
-      if (isUniqueHash) uniqueHashes.add(transactionHash);
-
       // All these conditions must be true
       const satisfiesAllConditions = [
         isTransactionHashPresent,
@@ -116,8 +179,11 @@ export class RelayerAPIService {
         areChainsSupported,
       ].every(Boolean);
 
-      // If all conditions are satisfied, add the item to the filtered list
-      if (satisfiesAllConditions) filteredItems.push(item);
+      // Invalid rows must not consume the hash and hide a later valid duplicate.
+      if (satisfiesAllConditions) {
+        uniqueHashes.add(transactionHash);
+        filteredItems.push(item);
+      }
     }
     return filteredItems;
   }
@@ -127,8 +193,8 @@ export class RelayerAPIService {
    * `MessageSent` logs of its source receipt. The relayer can pair a msgHash with a message body from a
    * different transaction; the pair inside a single log is consistent by construction, so the receipt wins.
    *
-   * Returns undefined when the route is unknown, when no log belongs to the user, or when several do and
-   * none can be tied back to the relayer row — in all three cases the caller keeps the relayer's own values.
+   * Returns undefined when the route is unknown or no log belongs to the user. Returns null when several
+   * logs belong to the user and none can be tied back to the relayer row, because that row is unsafe to use.
    */
   private static _getBridgeMessageFromReceipt({
     receipt,
@@ -216,7 +282,77 @@ export class RelayerAPIService {
         currentMsgHash,
         currentMessageId,
       });
+      return null;
     }
+  }
+
+  private static _getAssetDetailsFromMessage(message: Message): BridgeTransactionAssetDetails {
+    const fallbackDetails: BridgeTransactionAssetDetails = {
+      amount: message.value,
+      tokenType: TokenType.ETH,
+      canonicalTokenAddress: undefined,
+      symbol: 'ETH',
+      decimals: 18,
+    };
+
+    if (message.data === '0x') return fallbackDetails;
+
+    const destinationRoute = routingContractsMap[Number(message.destChainId)]?.[Number(message.srcChainId)];
+    if (!destinationRoute) return fallbackDetails;
+
+    try {
+      const decodedInvocation = decodeFunctionData({
+        abi: onMessageInvocationAbi,
+        data: message.data,
+      });
+      const invocationData = decodedInvocation.args[0];
+
+      if (
+        destinationRoute.erc20VaultAddress &&
+        message.to.toLowerCase() === destinationRoute.erc20VaultAddress.toLowerCase()
+      ) {
+        const [canonicalToken, , , amount] = decodeAbiParameters(erc20InvocationParameters, invocationData);
+        return {
+          amount,
+          tokenType: TokenType.ERC20,
+          canonicalTokenAddress: canonicalToken.addr,
+          symbol: canonicalToken.symbol,
+          decimals: canonicalToken.decimals,
+        };
+      }
+
+      if (
+        destinationRoute.erc721VaultAddress &&
+        message.to.toLowerCase() === destinationRoute.erc721VaultAddress.toLowerCase()
+      ) {
+        const [canonicalToken] = decodeAbiParameters(erc721InvocationParameters, invocationData);
+        return {
+          amount: 1n,
+          tokenType: TokenType.ERC721,
+          canonicalTokenAddress: canonicalToken.addr,
+          symbol: canonicalToken.symbol,
+          decimals: undefined,
+        };
+      }
+
+      if (
+        destinationRoute.erc1155VaultAddress &&
+        message.to.toLowerCase() === destinationRoute.erc1155VaultAddress.toLowerCase()
+      ) {
+        const [canonicalToken, , , , amounts] = decodeAbiParameters(erc1155InvocationParameters, invocationData);
+        return {
+          amount: amounts.reduce((total, amount) => total + amount, 0n),
+          tokenType: TokenType.ERC1155,
+          canonicalTokenAddress: canonicalToken.addr,
+          symbol: canonicalToken.symbol,
+          decimals: undefined,
+        };
+      }
+    } catch (error) {
+      log('Error decoding bridge message asset details', { error, messageId: message.id });
+    }
+
+    return fallbackDetails;
   }
 
   private static async _getBridgeMessageStatus({
@@ -405,8 +541,12 @@ export class RelayerAPIService {
           currentMessageId: bridgeTx.message?.id,
         });
 
+        // A successful receipt with several user messages disproves the relayer pair without identifying a
+        // safe replacement. Do not expose that unrelated pair to status checks or claim actions.
+        if (receiptMessage === null) return;
+
         if (receiptMessage) {
-          const msgHashChanged = bridgeTx.msgHash !== receiptMessage.msgHash;
+          const msgHashChanged = bridgeTx.msgHash?.toLowerCase() !== receiptMessage.msgHash.toLowerCase();
 
           if (msgHashChanged) {
             // This is the signal that the relayer paired a msgHash with a foreign message body. Warn rather
@@ -424,6 +564,8 @@ export class RelayerAPIService {
           bridgeTx.srcChainId = receiptMessage.message.srcChainId;
           bridgeTx.destChainId = receiptMessage.message.destChainId;
 
+          Object.assign(bridgeTx, RelayerAPIService._getAssetDetailsFromMessage(receiptMessage.message));
+
           if (msgHashChanged) {
             // The row we started from described a different message, so everything keyed to the old msgHash
             // is about that other message and cannot be trusted here. Drop it and let the on-chain status
@@ -431,12 +573,6 @@ export class RelayerAPIService {
             bridgeTx.destTxHash = undefined;
             bridgeTx.claimedBy = undefined;
             bridgeTx.fee = undefined;
-
-            // ETH transfers carry their amount on the message itself. ERC20/NFT amounts live in the encoded
-            // calldata, so those rows keep the relayer's token metadata and may still render a stale amount.
-            if (bridgeTx.tokenType === TokenType.ETH) {
-              bridgeTx.amount = receiptMessage.message.value;
-            }
           }
         }
       }
