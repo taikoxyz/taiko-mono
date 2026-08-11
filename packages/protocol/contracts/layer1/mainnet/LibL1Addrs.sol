@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 library LibL1Addrs {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
     address public constant DAO_SIGNER_LIST = 0x0F95E6968EC1B28c794CF1aD99609431de5179c2;
+    address public constant DAO_ENCRYPTION_REGISTRY = 0x2eFDb93a3B87b930E553d504db67Ee41c69C42d1;
     address public constant DAO_STANDARD_MULTISIG = 0xD7dA1C25E915438720692bC55eb3a7170cA90321;
     address public constant DAO_EMERGENCY_MULTISIG = 0x2AffADEb2ef5e1F2a7F58964ee191F1e88317ECd;
     address public constant DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a;
