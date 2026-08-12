@@ -41,11 +41,26 @@ pub struct DriverArgs {
         help = "Optional HTTP endpoint of a blob server to fallback when beacon sidecars are unavailable"
     )]
     pub blob_server_endpoint: Option<Url>,
+    /// Timeout in seconds for blob fetches from the L1 beacon node or the blob server.
+    #[clap(
+        long = "blob.fetchTimeout",
+        env = "BLOB_FETCH_TIMEOUT",
+        default_value = "120",
+        help = "Timeout in seconds for blob fetches from the L1 beacon node or the blob server; \
+                PeerDAS beacon nodes may reconstruct blobs from data columns on request, which \
+                takes multiple seconds per blob in the slot"
+    )]
+    blob_fetch_timeout_seconds: u64,
 }
 
 impl DriverArgs {
     /// Retry interval as a [`Duration`].
     pub fn retry_interval(&self) -> Duration {
         Duration::from_secs(self.retry_interval_seconds)
+    }
+
+    /// Blob fetch timeout as a [`Duration`].
+    pub fn blob_fetch_timeout(&self) -> Duration {
+        Duration::from_secs(self.blob_fetch_timeout_seconds)
     }
 }

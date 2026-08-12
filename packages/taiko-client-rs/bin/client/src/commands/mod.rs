@@ -40,6 +40,7 @@ pub fn build_driver_config(
         driver.l1_beacon_endpoint.clone(),
         driver.l2_checkpoint_endpoint.clone(),
         driver.blob_server_endpoint.clone(),
+        driver.blob_fetch_timeout(),
         preconfirmation_enabled,
     ))
 }

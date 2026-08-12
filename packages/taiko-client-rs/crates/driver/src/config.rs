@@ -20,6 +20,10 @@ pub struct DriverConfig {
     pub l2_checkpoint_url: Option<Url>,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
+    /// Timeout for blob fetches from the beacon node or the blob server; PeerDAS beacon nodes
+    /// may reconstruct blobs from data columns on request, which takes multiple seconds per
+    /// blob in the slot.
+    pub blob_fetch_timeout: Duration,
     /// Enable preconfirmation ingress handling.
     pub preconfirmation_enabled: bool,
 }
@@ -28,14 +32,15 @@ impl DriverConfig {
     /// Build a [`DriverConfig`] from raw parameters.
     ///
     /// The `client` argument bundles all RPC endpoints and contract metadata, while the remaining
-    /// parameters control retry behaviour, optional checkpointing resources, and whether the
-    /// preconfirmation ingress path is enabled.
+    /// parameters control retry behaviour, optional checkpointing resources, blob fetch timing,
+    /// and whether the preconfirmation ingress path is enabled.
     pub fn new(
         client: ClientConfig,
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
         blob_server_endpoint: Option<Url>,
+        blob_fetch_timeout: Duration,
         preconfirmation_enabled: bool,
     ) -> Self {
         Self {
@@ -44,6 +49,7 @@ impl DriverConfig {
             l1_beacon_endpoint,
             l2_checkpoint_url,
             blob_server_endpoint,
+            blob_fetch_timeout,
             preconfirmation_enabled,
         }
     }

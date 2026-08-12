@@ -834,7 +834,7 @@ mod tests {
             anchor_address,
         );
         let blob_source = Arc::new(
-            BlobDataSource::new(None, None, true)
+            BlobDataSource::new(None, None, true, None)
                 .await
                 .expect("blob data source should initialise"),
         );

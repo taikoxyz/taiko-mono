@@ -10,7 +10,7 @@ use driver::{
     preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
 };
 use protocol::signer::FixedKSigner;
-use rpc::beacon::BeaconClient;
+use rpc::{beacon::BeaconClient, client::DEFAULT_HTTP_TIMEOUT};
 use tracing::{info, warn};
 
 use crate::{
@@ -84,14 +84,19 @@ impl WhitelistPreconfirmationDriverRunner {
             self.config.p2p_config.clone(),
             operator_set.clone(),
         )?;
+        // Slot/epoch metadata queries only — the short default HTTP timeout is appropriate
+        // here, unlike blob fetches which use the configured blob fetch timeout.
         let beacon_client = Arc::new(
-            BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
-                |err| {
-                    WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
-                        "failed to initialize beacon client: {err}"
-                    ))
-                },
-            )?,
+            BeaconClient::new(
+                self.config.driver_config.l1_beacon_endpoint.clone(),
+                DEFAULT_HTTP_TIMEOUT,
+            )
+            .await
+            .map_err(|err| {
+                WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
+                    "failed to initialize beacon client: {err}"
+                ))
+            })?,
         );
         info!(
             peer_id = %network.peer_id,

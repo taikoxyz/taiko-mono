@@ -1,6 +1,6 @@
 //! Utilities for fetching blob sidecars from beacon or blob servers.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use alloy::primitives::{B256, hex};
 use alloy_eips::eip4844::{
@@ -15,10 +15,14 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::{
-    beacon::{BeaconClient, BeaconSidecar},
-    client::DEFAULT_HTTP_TIMEOUT,
-};
+use crate::beacon::{BeaconClient, BeaconSidecar};
+
+/// Default timeout for blob fetches from the beacon node or a blob server.
+///
+/// Deliberately much larger than [`DEFAULT_HTTP_TIMEOUT`](crate::client::DEFAULT_HTTP_TIMEOUT):
+/// PeerDAS beacon nodes (e.g. lighthouse `--semi-supernode`) reconstruct blobs from data columns
+/// on request, which has been measured at multiple seconds per blob in the requested slot.
+pub const DEFAULT_BLOB_FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
@@ -41,6 +45,10 @@ pub enum BlobDataError {
 }
 
 /// Wire format for a blob sidecar response returned by a blob server.
+///
+/// Servers such as the Taiko blob storage service inline the blob payload in `data`, while
+/// blobscan's `/blobs/{hash}` route omits it (returning `dataStorageReferences` instead) and
+/// serves the payload from the dedicated `/blobs/{hash}/data` route.
 #[derive(Debug, Deserialize)]
 struct BlobServerResponse {
     /// Versioned hash reported by the blob server.
@@ -52,8 +60,9 @@ struct BlobServerResponse {
     /// Optional hex-encoded KZG proof.
     #[serde(rename = "proof", alias = "kzg_proof")]
     proof: Option<String>,
-    /// Hex-encoded blob payload.
-    data: String,
+    /// Hex-encoded blob payload; absent on blobscan-style responses.
+    #[serde(default)]
+    data: Option<String>,
 }
 
 /// A data source capable of fetching blob sidecars from a public HTTP endpoint.
@@ -63,30 +72,37 @@ pub struct BlobDataSource {
     beacon: Option<Arc<BeaconClient>>,
     /// Optional fallback blob-server endpoint.
     blob_server_endpoint: Option<Url>,
+    /// Timeout applied to beacon and blob-server blob fetches.
+    fetch_timeout: Duration,
     /// Lazily constructed HTTP client for blob-server requests.
     client: OnceCell<HttpClient>,
 }
 
 impl BlobDataSource {
     /// Create a new [`BlobDataSource`] targeting the given endpoint.
+    ///
+    /// `fetch_timeout` bounds every blob fetch against the beacon node and the blob server;
+    /// [`DEFAULT_BLOB_FETCH_TIMEOUT`] is used when unset.
     pub async fn new(
         beacon_endpoint: Option<Url>,
         blob_server_endpoint: Option<Url>,
         disable_beacon: bool,
+        fetch_timeout: Option<Duration>,
     ) -> Result<Self, BlobDataError> {
+        let fetch_timeout = fetch_timeout.unwrap_or(DEFAULT_BLOB_FETCH_TIMEOUT);
         let beacon = if let (Some(endpoint), false) = (beacon_endpoint, disable_beacon) {
-            Some(Arc::new(BeaconClient::new(endpoint).await?))
+            Some(Arc::new(BeaconClient::new(endpoint, fetch_timeout).await?))
         } else {
             None
         };
-        Ok(Self { beacon, blob_server_endpoint, client: OnceCell::new() })
+        Ok(Self { beacon, blob_server_endpoint, fetch_timeout, client: OnceCell::new() })
     }
 
     /// Access the HTTP client used for blob fetches.
     fn http_client(&self) -> Result<&HttpClient, BlobDataError> {
         self.client.get_or_try_init(|| {
             HttpClient::builder()
-                .timeout(DEFAULT_HTTP_TIMEOUT)
+                .timeout(self.fetch_timeout)
                 .build()
                 .map_err(|err| BlobDataError::Other(err.into()))
         })
@@ -176,7 +192,13 @@ impl BlobDataSource {
             let payload: BlobServerResponse =
                 response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
-            let blob = parse_blob(&payload.data)?;
+            // Blobscan-style responses carry only metadata and storage references; the blob
+            // payload itself lives behind the dedicated `/blobs/{hash}/data` route.
+            let blob_hex = match payload.data.as_deref() {
+                Some(data) if !data.is_empty() => data.to_owned(),
+                _ => self.fetch_blob_data(&client, endpoint, hash).await?,
+            };
+            let blob = parse_blob(&blob_hex)?;
             let commitment = compute_blob_commitment(&blob)?;
             let proof =
                 payload.proof.as_deref().map(parse_bytes48).transpose()?.unwrap_or_default();
@@ -221,6 +243,42 @@ impl BlobDataSource {
         }
 
         Ok(blobs)
+    }
+
+    /// Fetch the hex-encoded blob payload from a blob server's `/blobs/{hash}/data` route.
+    ///
+    /// Blobscan serves the payload as a JSON-encoded string (`"0x…"`); a bare hex body is
+    /// accepted as well for other blob-server implementations.
+    async fn fetch_blob_data(
+        &self,
+        client: &HttpClient,
+        endpoint: &Url,
+        hash: &B256,
+    ) -> Result<String, BlobDataError> {
+        let url = endpoint
+            .join(&format!("/blobs/{hash}/data"))
+            .map_err(|err| BlobDataError::Other(err.into()))?;
+        debug!(hash = ?hash, url = url.as_str(), "requesting blob payload from data endpoint");
+
+        let response = client
+            .get(url)
+            .header("accept", "application/json")
+            .send()
+            .await
+            .map_err(|err| BlobDataError::Other(err.into()))?;
+
+        if !response.status().is_success() {
+            warn!(
+                status = response.status().as_u16(),
+                hash = ?hash,
+                "blob server data endpoint returned error status"
+            );
+            return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
+        }
+
+        let body = response.text().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let trimmed = body.trim();
+        Ok(serde_json::from_str::<String>(trimmed).unwrap_or_else(|_| trimmed.to_owned()))
     }
 
     /// Match requested blob hashes to fetched beacon sidecars in order.
@@ -315,7 +373,17 @@ mod tests {
     }
 
     impl TestBlobServer {
+        /// Serve `body` with HTTP 200 for every request path.
         async fn start(body: String) -> Self {
+            Self::start_with_routes(vec![], Some(body)).await
+        }
+
+        /// Serve exact-path `routes` with HTTP 200; unmatched paths fall back to `catch_all`
+        /// when provided and to HTTP 404 otherwise.
+        async fn start_with_routes(
+            routes: Vec<(String, String)>,
+            catch_all: Option<String>,
+        ) -> Self {
             let listener = TcpListener::bind("127.0.0.1:0")
                 .await
                 .expect("test server should bind an ephemeral port");
@@ -325,7 +393,8 @@ mod tests {
 
             let shutdown = Arc::new(Notify::new());
             let cancel = shutdown.clone();
-            let body = Arc::new(body);
+            let routes = Arc::new(routes);
+            let catch_all = Arc::new(catch_all);
 
             let handle = spawn(async move {
                 loop {
@@ -333,18 +402,30 @@ mod tests {
                         _ = cancel.notified() => break,
                         accept_result = listener.accept() => {
                             let Ok((stream, _)) = accept_result else { continue };
-                            let body = body.clone();
+                            let routes = routes.clone();
+                            let catch_all = catch_all.clone();
                             spawn(async move {
                                 let io = hyper_util::rt::TokioIo::new(stream);
-                                let service = service_fn(move |_| {
-                                    let body = body.clone();
+                                let service = service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                                    let routes = routes.clone();
+                                    let catch_all = catch_all.clone();
                                     async move {
+                                        let path = req.uri().path().to_owned();
+                                        let matched = routes
+                                            .iter()
+                                            .find(|(route, _)| *route == path)
+                                            .map(|(_, body)| body.clone())
+                                            .or_else(|| catch_all.as_ref().clone());
+                                        let (status, body) = match matched {
+                                            Some(body) => (StatusCode::OK, body),
+                                            None => (StatusCode::NOT_FOUND, String::new()),
+                                        };
                                         Ok::<_, hyper::Error>(
                                             hyper::Response::builder()
-                                                .status(StatusCode::OK)
+                                                .status(status)
                                                 .header(CONTENT_TYPE, "application/json")
                                                 .body(Full::new(HyperBytes::from(
-                                                    body.as_bytes().to_vec(),
+                                                    body.into_bytes(),
                                                 )))
                                                 .expect("test response should build"),
                                         )
@@ -379,7 +460,7 @@ mod tests {
         let zero_hash = versioned_hash_from_commitment(&zero_commitment);
         let body = blob_server_body(&Blob::repeat_byte(0x11), &zero_commitment, zero_hash);
         let server = TestBlobServer::start(body).await;
-        let source = BlobDataSource::new(None, Some(server.endpoint()), true)
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
             .await
             .expect("blob source should be constructed");
 
@@ -397,7 +478,7 @@ mod tests {
         let wrong_commitment = Bytes48::repeat_byte(0x42);
         let body = blob_server_body(&Blob::ZERO, &wrong_commitment, zero_hash);
         let server = TestBlobServer::start(body).await;
-        let source = BlobDataSource::new(None, Some(server.endpoint()), true)
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
             .await
             .expect("blob source should be constructed");
 
@@ -410,6 +491,115 @@ mod tests {
         assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
         assert_eq!(sidecars[0].commitments, vec![zero_sidecar.commitments[0]]);
         assert_eq!(sidecars[0].proofs, vec![Bytes48::default()]);
+    }
+
+    #[tokio::test]
+    async fn blob_server_without_inline_data_falls_back_to_data_endpoint() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        let server = TestBlobServer::start_with_routes(
+            vec![
+                (
+                    format!("/blobs/{zero_hash}"),
+                    blobscan_metadata_body(&zero_commitment, zero_hash),
+                ),
+                (format!("/blobs/{zero_hash}/data"), quoted_hex_body(&Blob::ZERO)),
+            ],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let sidecars = source
+            .get_blobs(0, &[zero_hash])
+            .await
+            .expect("blobscan-style response without inline data should resolve via /data");
+
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
+        assert_eq!(sidecars[0].commitments, vec![zero_commitment]);
+    }
+
+    #[tokio::test]
+    async fn blob_server_data_endpoint_accepts_raw_hex_body() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        let server = TestBlobServer::start_with_routes(
+            vec![
+                (
+                    format!("/blobs/{zero_hash}"),
+                    blobscan_metadata_body(&zero_commitment, zero_hash),
+                ),
+                (
+                    format!("/blobs/{zero_hash}/data"),
+                    format!("0x{}", hex::encode(Blob::ZERO.as_slice())),
+                ),
+            ],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let sidecars =
+            source.get_blobs(0, &[zero_hash]).await.expect("raw hex /data body should be accepted");
+
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
+    }
+
+    #[tokio::test]
+    async fn blob_server_data_endpoint_blob_mismatch_is_rejected() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        let server = TestBlobServer::start_with_routes(
+            vec![
+                (
+                    format!("/blobs/{zero_hash}"),
+                    blobscan_metadata_body(&zero_commitment, zero_hash),
+                ),
+                (format!("/blobs/{zero_hash}/data"), quoted_hex_body(&Blob::repeat_byte(0x11))),
+            ],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let result = source.get_blobs(0, &[zero_hash]).await;
+        assert!(
+            matches!(result, Err(BlobDataError::Parse(_))),
+            "expected parse error for /data blob that does not match the requested hash, got {result:?}",
+        );
+    }
+
+    /// Blobscan-style `/blobs/{hash}` metadata body: commitment and hash metadata but no
+    /// inline `data` field, only storage references.
+    fn blobscan_metadata_body(commitment: &Bytes48, versioned_hash: B256) -> String {
+        serde_json::json!({
+            "versionedHash": versioned_hash.to_string(),
+            "commitment": format!("0x{}", hex::encode(commitment.as_slice())),
+            "proof": format!("0x{}", hex::encode([0u8; 48])),
+            "usageSize": 66573,
+            "size": 131072,
+            "dataStorageReferences": [
+                {"storage": "google", "url": "https://example.invalid/blob.bin"},
+                {"storage": "postgres", "url": "http://localhost:3001/blobs/0x00/data"},
+            ],
+        })
+        .to_string()
+    }
+
+    /// JSON string body (`"0x…"`) as served by blobscan's `/blobs/{hash}/data` endpoint.
+    fn quoted_hex_body(blob: &Blob) -> String {
+        serde_json::json!(format!("0x{}", hex::encode(blob.as_slice()))).to_string()
     }
 
     fn sidecar_for_blob(blob: Blob) -> BlobTransactionSidecar {

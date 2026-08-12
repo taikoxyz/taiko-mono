@@ -329,6 +329,15 @@ fn resolve_reconnect_start_block(
 /// Base delay before the first reconnect attempt after a failed scanner generation.
 const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
 
+/// Maximum attempts to resolve the finalized reconnect anchor before falling back to the
+/// startup anchor.
+///
+/// A scanner interruption is usually caused by a transient L1 RPC outage, so the finalized
+/// lookup issued right after it tends to fail for the same reason. Falling back to the startup
+/// anchor on the first failure amplifies a brief hiccup into a replay of the entire span since
+/// process start; retrying with the scanner reconnect backoff rides out short outages first.
+const FINALIZED_RECONNECT_ANCHOR_MAX_ATTEMPTS: u32 = 10;
+
 /// Compute the scanner reconnect delay for the given consecutive-failure count.
 ///
 /// Delays double from [`SCANNER_RECONNECT_BACKOFF_BASE`] per consecutive failed scanner
@@ -1107,6 +1116,7 @@ impl EventSyncer {
                 Some(cfg.l1_beacon_endpoint.clone()),
                 cfg.blob_server_endpoint.clone(),
                 false,
+                Some(cfg.blob_fetch_timeout),
             )
             .await
             .map_err(|err| SyncError::Other(err.into()))?,
@@ -1392,6 +1402,41 @@ impl EventSyncer {
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
         Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
+    }
+
+    /// Resolve the finalized L1 snapshot used as the reconnect anchor, retrying transient RPC
+    /// failures before giving up.
+    ///
+    /// Returns `None` when the chain has no finalized block yet, or when every attempt failed —
+    /// the caller then falls back to the startup anchor. A missing-finality result
+    /// (`Ok(None)` from [`Self::try_finalized_l1_snapshot`]) is returned immediately without
+    /// retrying: that is an authoritative answer from a healthy RPC, not a failure.
+    async fn resolve_finalized_reconnect_anchor(&self) -> Option<FinalizedL1Snapshot> {
+        let mut attempt = 0u32;
+        loop {
+            match self.try_finalized_l1_snapshot().await {
+                Ok(snapshot) => return snapshot,
+                Err(err) => {
+                    attempt += 1;
+                    if attempt >= FINALIZED_RECONNECT_ANCHOR_MAX_ATTEMPTS {
+                        warn!(
+                            ?err,
+                            attempts = attempt,
+                            "failed to resolve finalized reconnect anchor after retries"
+                        );
+                        return None;
+                    }
+                    let delay = scanner_reconnect_delay(self.cfg.retry_interval, attempt - 1);
+                    warn!(
+                        ?err,
+                        attempt,
+                        delay_secs = delay.as_secs_f64(),
+                        "failed to resolve finalized reconnect anchor; retrying"
+                    );
+                    sleep(delay).await;
+                }
+            }
+        }
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -1828,18 +1873,16 @@ impl SyncStage for EventSyncer {
             self.close_preconf_ingress(&router).await;
 
             if let Some(block_number) = last_seen_l1_block_number {
-                let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
-                {
-                    Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
-                    Err(err) => {
-                        warn!(
-                            ?err,
-                            fallback_start_block = startup_anchor_block_number,
-                            "failed to resolve finalized reconnect anchor; rewinding to startup anchor"
-                        );
-                        None
-                    }
-                };
+                let reconnect_finalized_block_number = self
+                    .resolve_finalized_reconnect_anchor()
+                    .await
+                    .map(|snapshot| snapshot.block_number);
+                if reconnect_finalized_block_number.is_none() {
+                    warn!(
+                        fallback_start_block = startup_anchor_block_number,
+                        "finalized reconnect anchor unavailable; rewinding to startup anchor"
+                    );
+                }
                 reconnect_start_tag = BlockNumberOrTag::Number(resolve_reconnect_start_block(
                     block_number,
                     reconnect_finalized_block_number,
@@ -1873,7 +1916,11 @@ mod tests {
     };
     use alloy_transport::mock::Asserter;
     use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
-    use rpc::{SubscriptionSource, blob::BlobDataSource, client::ClientConfig};
+    use rpc::{
+        SubscriptionSource,
+        blob::{BlobDataSource, DEFAULT_BLOB_FETCH_TIMEOUT},
+        client::ClientConfig,
+    };
 
     use crate::{
         production::{BlockProductionPath, ProductionRouter},
@@ -1899,12 +1946,14 @@ mod tests {
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
             None,
+            DEFAULT_BLOB_FETCH_TIMEOUT,
             true,
         );
 
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
-        let blob_source =
-            BlobDataSource::new(None, None, true).await.expect("blob data source should build");
+        let blob_source = BlobDataSource::new(None, None, true, None)
+            .await
+            .expect("blob data source should build");
         EventSyncer {
             rpc: mock_client_with_l1_asserter(Asserter::new()),
             cfg,
@@ -2093,6 +2142,64 @@ mod tests {
             lastCheckpointTimestamp: U48::ZERO,
             lastFinalizedBlockHash: FixedBytes::ZERO,
         }
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_reconnect_anchor_retries_transient_rpc_failures() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // Two transient RPC failures (the same outage that killed the scanner), then a finalized
+        // block plus inbox core state once the RPC recovers.
+        asserter.push_failure_msg("connection refused");
+        asserter.push_failure_msg("connection refused");
+        asserter.push_success(&l1_block_at(90, B256::from([1u8; 32]), B256::ZERO));
+        asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(
+            &sample_core_state(7),
+        )));
+
+        let anchor = syncer.resolve_finalized_reconnect_anchor().await;
+
+        assert_eq!(anchor.map(|snapshot| snapshot.block_number), Some(90));
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_reconnect_anchor_gives_up_after_max_attempts() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        for _ in 0..FINALIZED_RECONNECT_ANCHOR_MAX_ATTEMPTS {
+            asserter.push_failure_msg("connection refused");
+        }
+
+        assert!(syncer.resolve_finalized_reconnect_anchor().await.is_none());
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_reconnect_anchor_missing_finality_short_circuits() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        // Fresh-chain "no finalized yet" is authoritative and must not retry: queue a null
+        // response followed by a would-be success; the second call consuming that success proves
+        // the first call stopped after the null.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(90, B256::from([1u8; 32]), B256::ZERO));
+        asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(
+            &sample_core_state(7),
+        )));
+
+        assert!(syncer.resolve_finalized_reconnect_anchor().await.is_none());
+        assert_eq!(
+            syncer.resolve_finalized_reconnect_anchor().await.map(|snapshot| snapshot.block_number),
+            Some(90)
+        );
     }
 
     #[tokio::test]

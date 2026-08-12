@@ -4,7 +4,7 @@
 //! falls back to the blob server if the beacon call fails. This module provides the same
 //! functionality so the Rust driver mirrors the Go behaviour.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use alloy_eips::eip4844::Bytes48;
 use reqwest::Client as HttpClient;
@@ -12,10 +12,7 @@ use serde::Deserialize;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::{
-    blob::{BlobDataError, parse_blob, parse_bytes48},
-    client::DEFAULT_HTTP_TIMEOUT,
-};
+use crate::blob::{BlobDataError, parse_blob, parse_bytes48};
 
 /// JSON payload returned by `/eth/v1/beacon/genesis`.
 #[derive(Debug, Deserialize)]
@@ -139,10 +136,13 @@ impl BeaconClient {
     /// The Go client follows the same pattern: it reads `/eth/v1/beacon/genesis` to determine
     /// the genesis timestamp and `/eth/v1/config/spec` to fetch `SECONDS_PER_SLOT`. Those values
     /// allow proposal timestamps to be converted into the correct beacon slot.
-    pub async fn new(endpoint: Url) -> Result<Self, BlobDataError> {
+    ///
+    /// `timeout` bounds every request issued by this client; blob-sidecar callers should size it
+    /// for PeerDAS nodes that reconstruct blobs from data columns on request.
+    pub async fn new(endpoint: Url, timeout: Duration) -> Result<Self, BlobDataError> {
         let http = HttpClient::builder()
             .no_proxy()
-            .timeout(DEFAULT_HTTP_TIMEOUT)
+            .timeout(timeout)
             .build()
             .map_err(|err| BlobDataError::Other(err.into()))?;
 

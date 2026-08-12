@@ -21,7 +21,10 @@ use proposer::{
     proposer::EngineBuildContext,
     transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder},
 };
-use rpc::{blob::BlobDataSource, client::Client};
+use rpc::{
+    blob::{BlobDataSource, DEFAULT_BLOB_FETCH_TIMEOUT},
+    client::Client,
+};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
@@ -205,6 +208,7 @@ async fn start_event_syncer(
         beacon_stub.endpoint().clone(),
         None,
         None,
+        DEFAULT_BLOB_FETCH_TIMEOUT,
         true,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
@@ -472,7 +476,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
 
         // Re-process the same proposal via the derivation pipeline.
         let blob_source =
-            Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false).await?);
+            Arc::new(BlobDataSource::new(Some(beacon_endpoint.clone()), None, false, None).await?);
         let pipeline =
             ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
         let applier: &(dyn PayloadApplier + Send + Sync) = &driver_client;
@@ -611,8 +615,9 @@ async fn derivation_pipeline_processes_proposal_with_slot_targeted_blob(
     beacon_stub.add_blob_sidecar(slot, sidecar);
 
     let driver_client = Client::new(env.client_config.clone()).await?;
-    let blob_source =
-        Arc::new(BlobDataSource::new(Some(beacon_stub.endpoint().clone()), None, false).await?);
+    let blob_source = Arc::new(
+        BlobDataSource::new(Some(beacon_stub.endpoint().clone()), None, false, None).await?,
+    );
     let pipeline =
         ShastaDerivationPipeline::new(driver_client.clone(), blob_source, U256::ZERO).await?;
 
