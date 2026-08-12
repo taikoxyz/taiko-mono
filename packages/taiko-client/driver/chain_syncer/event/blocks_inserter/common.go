@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
 
@@ -253,11 +254,6 @@ func isKnownCanonicalProposal(
 				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 			}
 
-			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
-			if err != nil {
-				return fmt.Errorf("failed to RLP encode tx list: %w", err)
-			}
-
 			var known bool
 			if headers[i], known, err = isKnownCanonicalBlock(
 				ctx,
@@ -266,7 +262,7 @@ func isKnownCanonicalProposal(
 					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
 					Parent:                          parentHeader,
 				},
-				b,
+				append(types.Transactions{anchorTx}, createExecutionPayloadsMetaData.Txs...),
 				anchorTx,
 			); err != nil {
 				return err
@@ -294,7 +290,7 @@ func isKnownCanonicalBlock(
 	ctx context.Context,
 	cli *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
-	txListBytes []byte,
+	txs types.Transactions,
 	anchorTx *types.Transaction,
 ) (*types.Header, bool, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
@@ -317,26 +313,12 @@ func isKnownCanonicalBlock(
 		return nil, false, nil
 	}
 
-	var (
-		txListHash = crypto.Keccak256Hash(txListBytes[:])
-		args       = &miner.BuildPayloadArgs{
-			Parent:       meta.Parent.Hash(),
-			Timestamp:    meta.Timestamp,
-			FeeRecipient: meta.SuggestedFeeRecipient,
-			Random:       meta.MixHash,
-			Withdrawals:  make([]*types.Withdrawal, 0),
-			Version:      engine.PayloadV2,
-			TxListHash:   &txListHash,
-			Extra:        meta.ExtraData,
-		}
-		id = args.Id()
-	)
-
 	log.Info(
 		"Check if block is known in canonical chain",
 		"blockID", blockID,
 		"blockHash", block.Hash(),
-		"args", args,
+		"parentHash", meta.Parent.Hash(),
+		"timestamp", meta.Timestamp,
 	)
 
 	l1Origin, err := cli.L2.L1OriginByID(ctx, blockID)
@@ -434,18 +416,18 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("withdrawals mismatch: %d != 0", block.Withdrawals().Len()))
 		return nil, false, nil
 	}
-	// If the payload ID matches, it means this block is already in the canonical chain.
-	if l1Origin.BuildPayloadArgsID != [8]byte{} && !bytes.Equal(l1Origin.BuildPayloadArgsID[:], id[:]) {
+	// If the transactions root matches, this block with exactly the derived transactions is
+	// already in the canonical chain.
+	// NOTE: the `BuildPayloadArgsID` recorded in L1Origin is deliberately NOT compared here:
+	// the preconfirmation insertion path derives its ID from the tx-list bytes exactly as
+	// gossiped over P2P, while a re-derivation recomputes it from a local re-encoding of the
+	// same transactions, so the two IDs differ even for identical blocks. Comparing them made
+	// this check fail for every already preconfirmed proposal, forcing a redundant re-insertion.
+	if !txListMatchesBlock(block, txs) {
 		logUnknown(fmt.Sprintf(
-			"payload ID mismatch: l1Origin payload id: %s, current payload id %s, parentHash: %s, "+
-				"timestamp: %d, suggestedFeeRecipient: %s, difficulty: %s, txListHash: %s",
-			engine.PayloadID(l1Origin.BuildPayloadArgsID),
-			id,
-			meta.Parent.Hash().Hex(),
-			meta.Timestamp,
-			meta.SuggestedFeeRecipient.Hex(),
-			meta.MixHash.Hex(),
-			txListHash.Hex(),
+			"transactions root mismatch: block txs root %s does not match the derived tx list (%d txs)",
+			block.TxHash().Hex(),
+			len(txs),
 		))
 		return nil, false, nil
 	}
@@ -810,4 +792,12 @@ func IsBasedOnCanonicalChain(
 	}
 
 	return false, nil
+}
+
+// txListMatchesBlock checks whether the given block contains exactly the given transactions,
+// by comparing the block's transactions root against the root derived from the given list.
+// Unlike the `BuildPayloadArgs` ID recorded in L1Origin, this comparison does not depend on
+// the byte-level serialization of the tx list used by whichever path inserted the block.
+func txListMatchesBlock(block *types.Block, txs types.Transactions) bool {
+	return block.TxHash() == types.DeriveSha(txs, trie.NewStackTrie(nil))
 }

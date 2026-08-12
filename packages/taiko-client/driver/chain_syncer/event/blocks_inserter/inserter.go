@@ -144,6 +144,13 @@ func (i *Shasta) InsertBlocksWithManifest(
 		lastPayloadData *engine.ExecutableData
 	)
 
+	// Record the current canonical head before inserting any block, to determine afterwards
+	// whether inserting this proposal actually reorged the previously known canonical chain.
+	previousHead, err := i.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		log.Warn("Failed to fetch the current L2 head before inserting proposal blocks", "error", err)
+	}
+
 	for j := range sourcePayload.BlockPayloads {
 		log.Debug(
 			"Parent block",
@@ -271,8 +278,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))
 	}
 
-	// Mark the last seen proposal as not preconfirmed and send it to the channel.
-	latestSeenProposal.PreconfChainReorged = true
+	// Only mark the last seen proposal as having reorged the preconfirmation chain when the
+	// pre-insertion canonical head was actually replaced: re-inserting already known blocks
+	// (e.g. re-deriving an already preconfirmed proposal whose canonical-chain check failed)
+	// must not roll back `highestUnsafeL2PayloadBlockID`, otherwise an operator that has
+	// already sequenced past this proposal refuses to produce new blocks until it is ejected.
+	latestSeenProposal.PreconfChainReorged = isChainReorged(ctx, i.rpc.L2.HeaderByNumber, previousHead)
 	go i.sendLatestSeenProposal(latestSeenProposal)
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil
@@ -340,4 +351,25 @@ func (i *Shasta) insertPreconfBlockFromEnvelope(
 	envelope *preconf.Envelope,
 ) (*types.Header, error) {
 	return InsertPreconfBlockFromEnvelope(ctx, i.rpc, envelope)
+}
+
+// isChainReorged checks whether the previously observed canonical head was reorged out
+// of the canonical chain. When no baseline head is available or the canonical chain cannot
+// be inspected, it conservatively reports a reorg, matching the historical behavior of
+// always resetting the highest preconfirmation payload after a proposal insertion.
+func isChainReorged(
+	ctx context.Context,
+	headerByNumber func(context.Context, *big.Int) (*types.Header, error),
+	previousHead *types.Header,
+) bool {
+	if previousHead == nil {
+		return true
+	}
+
+	current, err := headerByNumber(ctx, previousHead.Number)
+	if err != nil || current == nil {
+		return true
+	}
+
+	return current.Hash() != previousHead.Hash()
 }
