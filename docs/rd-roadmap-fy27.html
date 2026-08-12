@@ -1,0 +1,808 @@
+<title>Taiko FY27 R&D Roadmap</title>
+<style>
+  :root {
+    --page: #faf7f9;
+    --surface: #ffffff;
+    --ink: #1c1319;
+    --ink-2: #5a4a53;
+    --muted: #8d7d86;
+    --hairline: #eadfe5;
+    --hairline-strong: #dccdd5;
+    --accent: #c01372;
+    --accent-vivid: #e81899;
+    --wash: #faeaf3;
+    --wash-strong: #f6d9e9;
+    --good: #0ca30c;
+    --good-text: #006300;
+    --bad: #d03b3b;
+    --warn: #8a6100;
+    --mark: #c01372;
+    --mark-dim: #b3a6ac;
+    --grid: #eadfe5;
+    --axis: #c9b9c1;
+    --code-bg: #f4ecf1;
+    --shadow: 0 1px 2px rgba(28,19,25,.05), 0 4px 16px rgba(28,19,25,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #120d10;
+      --surface: #1b1519;
+      --ink: #f5eef2;
+      --ink-2: #c9bac2;
+      --muted: #93838c;
+      --hairline: #332a30;
+      --hairline-strong: #453a41;
+      --accent: #ee6fb4;
+      --accent-vivid: #f26db3;
+      --wash: #2a1c24;
+      --wash-strong: #3a2530;
+      --good: #0ca30c;
+      --good-text: #4cc24c;
+      --bad: #e66767;
+      --warn: #d9a93f;
+      --mark: #d55181;
+      --mark-dim: #514850;
+      --grid: #2c242a;
+      --axis: #4a3f46;
+      --code-bg: #241c21;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #120d10;
+    --surface: #1b1519;
+    --ink: #f5eef2;
+    --ink-2: #c9bac2;
+    --muted: #93838c;
+    --hairline: #332a30;
+    --hairline-strong: #453a41;
+    --accent: #ee6fb4;
+    --accent-vivid: #f26db3;
+    --wash: #2a1c24;
+    --wash-strong: #3a2530;
+    --good: #0ca30c;
+    --good-text: #4cc24c;
+    --bad: #e66767;
+    --warn: #d9a93f;
+    --mark: #d55181;
+    --mark-dim: #514850;
+    --grid: #2c242a;
+    --axis: #4a3f46;
+    --code-bg: #241c21;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "kern";
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 28px 96px; }
+  .prose { max-width: 74ch; }
+  p { margin: 0 0 1em; color: var(--ink-2); }
+  p strong, li strong { color: var(--ink); font-weight: 650; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--wash-strong); }
+  h1, h2, h3, h4 { color: var(--ink); text-wrap: balance; margin: 0; }
+  ul { margin: 0 0 1em; padding-left: 1.2em; color: var(--ink-2); }
+  li { margin: .35em 0; }
+  li::marker { color: var(--accent); }
+
+  .mono, .eyebrow, .tag, .tick { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 10px;
+  }
+  .eyebrow .idx { color: var(--muted); }
+
+  /* ---------- masthead ---------- */
+  header.mast { padding: 64px 0 40px; border-bottom: 2px solid var(--ink); margin-bottom: 48px; }
+  .mast-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 34px; }
+  .mast-brand { font-weight: 800; letter-spacing: .01em; font-size: 15px; }
+  .mast-brand .drum { color: var(--accent-vivid); }
+  .mast-meta { font-size: 12px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  h1.title {
+    font-size: clamp(38px, 6vw, 62px); line-height: 1.02; font-weight: 800; letter-spacing: -0.025em;
+  }
+  h1 .accent { color: var(--accent-vivid); }
+  .subtitle { margin-top: 18px; font-size: 18px; color: var(--ink-2); max-width: 62ch; }
+  .mast-tags { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--hairline-strong);
+    color: var(--ink-2); background: var(--surface);
+  }
+  .chip.hot { background: var(--wash); border-color: var(--wash-strong); color: var(--accent); font-weight: 600; }
+
+  /* ---------- sections ---------- */
+  section { margin: 60px 0 0; }
+  h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 16px; }
+  h3 { font-size: 19px; font-weight: 700; margin: 28px 0 10px; }
+  .rule { border: 0; border-top: 1px solid var(--hairline); margin: 56px 0 0; }
+
+  /* ---------- stat tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 26px 0 8px; }
+  .tile {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px;
+    padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .tile .k { font-size: 12px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .tile .v { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; margin-top: 2px; }
+  .tile .d { font-size: 12.5px; margin-top: 2px; color: var(--muted); }
+  .tile .d.down { color: var(--bad); }
+  .tile .d.up { color: var(--good-text); }
+  .tile.big .v { font-size: 34px; }
+  .tile .v .unit { font-size: 15px; font-weight: 600; color: var(--muted); }
+
+  /* ---------- figure / charts ---------- */
+  figure { margin: 30px 0; background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 20px 22px 14px; box-shadow: var(--shadow); }
+  figcaption { font-size: 14px; color: var(--ink); font-weight: 650; margin-bottom: 2px; }
+  .fig-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+  .scrollbox { overflow-x: auto; }
+
+  .barlist { display: grid; gap: 7px; min-width: 520px; }
+  .barrow { display: grid; grid-template-columns: 118px 1fr 74px; align-items: center; gap: 10px; font-size: 13px; }
+  .barrow .n { color: var(--ink-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .barrow .track { position: relative; height: 16px; }
+  .barrow .bar { position: absolute; inset: 0 auto 0 0; border-radius: 0 4px 4px 0; background: var(--mark-dim); min-width: 2px; }
+  .barrow.me .n { color: var(--accent); font-weight: 700; }
+  .barrow.me .bar { background: var(--mark); }
+  .barrow .val { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .barrow.me .val { color: var(--accent); font-weight: 700; }
+  .bar-note { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+  .bar-note b { color: var(--accent); }
+
+  svg text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; fill: var(--muted); }
+  svg .lbl { fill: var(--ink-2); font-weight: 600; }
+  svg .lbl-acc { fill: var(--accent); font-weight: 700; }
+  svg .gridline { stroke: var(--grid); stroke-width: 1; }
+  svg .axisline { stroke: var(--axis); stroke-width: 1; }
+  svg .series { stroke: var(--mark); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+  svg .pt { fill: var(--mark); stroke: var(--surface); stroke-width: 2; }
+  svg .halt { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 3 3; }
+  svg .halt-lbl { fill: var(--bad); }
+
+  details.tbl { margin-top: 10px; font-size: 13px; }
+  details.tbl summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  details.tbl table { margin-top: 8px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 650; }
+  td { color: var(--ink-2); }
+  td b, td strong { color: var(--ink); }
+  tr:last-child td { border-bottom: 0; }
+  .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+  /* ---------- callouts / truths ---------- */
+  .truth { border-left: 3px solid var(--accent-vivid); padding: 4px 0 4px 20px; margin: 30px 0; }
+  .truth h3 { margin: 0 0 8px; font-size: 20px; }
+  .truth h3 .no { color: var(--accent); font-family: ui-monospace, Menlo, monospace; font-size: 15px; margin-right: 10px; }
+  .callout {
+    background: var(--wash); border: 1px solid var(--wash-strong); border-radius: 10px;
+    padding: 16px 20px; margin: 24px 0; color: var(--ink-2);
+  }
+  .callout .h { color: var(--accent); font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  blockquote {
+    margin: 26px 0; padding: 0 0 0 20px; border-left: 3px solid var(--hairline-strong);
+    color: var(--ink); font-size: 19px; line-height: 1.5; font-style: italic; max-width: 60ch;
+  }
+  blockquote .who { display: block; margin-top: 8px; font-size: 13px; font-style: normal; color: var(--muted); }
+
+  /* ---------- thesis ---------- */
+  .thesis {
+    background: var(--surface); border: 1px solid var(--hairline); border-left: 4px solid var(--accent-vivid);
+    border-radius: 12px; padding: 30px 34px; margin: 28px 0; box-shadow: var(--shadow);
+  }
+  .thesis .big { font-size: clamp(21px, 2.6vw, 27px); font-weight: 750; letter-spacing: -0.015em; line-height: 1.35; color: var(--ink); margin-bottom: 14px; }
+  .thesis .big em { color: var(--accent); font-style: normal; }
+
+  .stopdo { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 22px 0; }
+  .sd { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 16px 18px; }
+  .sd .h { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; }
+  .sd.stop .h { color: var(--bad); }
+  .sd.keep .h { color: var(--good-text); }
+  .sd ul { margin: 0; padding-left: 1.1em; font-size: 14px; }
+
+  /* ---------- pillars ---------- */
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 26px 0; }
+  .pillar { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow); }
+  .pillar .pid { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: .08em; }
+  .pillar h3 { margin: 6px 0 8px; font-size: 18px; }
+  .pillar p { font-size: 14px; margin-bottom: 8px; }
+  .pillar ul { font-size: 13.5px; margin: 0; }
+
+  /* ---------- gantt ---------- */
+  .gantt { min-width: 720px; display: grid; grid-template-columns: 132px repeat(8, 1fr); gap: 6px 0; align-items: stretch; }
+  .g-head { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 0 0 8px 8px; border-bottom: 1px solid var(--hairline-strong); }
+  .g-lane { font-size: 12.5px; font-weight: 650; color: var(--ink-2); padding: 9px 10px 0 0; text-align: right; line-height: 1.3; }
+  .g-lane .sub { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .g-bar {
+    margin: 4px 3px; padding: 5px 9px; border-radius: 5px; font-size: 11.5px; line-height: 1.3;
+    background: var(--wash); border: 1px solid var(--wash-strong); color: var(--ink); font-weight: 550;
+    display: flex; align-items: center; min-height: 34px;
+  }
+  .g-bar.solid { background: var(--mark); border-color: var(--mark); color: #ffffff; }
+  .g-bar.l1 { background: var(--code-bg); border: 1px dashed var(--hairline-strong); color: var(--ink-2); font-style: italic; }
+  .g-note { grid-column: 2 / -1; font-size: 11.5px; color: var(--muted); padding: 2px 3px 10px; }
+
+  /* ---------- quarters ---------- */
+  .quarter { background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; padding: 26px 28px; margin: 22px 0; box-shadow: var(--shadow); }
+  .q-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; border-bottom: 1px solid var(--hairline); padding-bottom: 14px; margin-bottom: 6px; }
+  .q-head .q { font-family: ui-monospace, Menlo, monospace; font-weight: 700; color: var(--accent); font-size: 14px; letter-spacing: .06em; }
+  .q-head h3 { margin: 0; font-size: 21px; }
+  .q-head .when { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .q-theme { font-size: 14.5px; color: var(--ink-2); margin: 12px 0 6px; max-width: 80ch; }
+  .q-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 4px 26px; margin-top: 10px; }
+  .q-col h4 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+  .q-col ul { font-size: 13.5px; padding-left: 1.05em; }
+  .q-col li { margin: .45em 0; }
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em; border-radius: 4px;
+    padding: 1px 6px; margin-right: 6px; vertical-align: 1px; text-transform: uppercase;
+  }
+  .tag.ship { background: var(--wash-strong); color: var(--accent); }
+  .tag.gate { background: var(--code-bg); color: var(--ink-2); border: 1px solid var(--hairline-strong); }
+  .exit { margin-top: 18px; padding: 12px 16px; background: var(--code-bg); border-radius: 8px; font-size: 13px; color: var(--ink-2); }
+  .exit b { color: var(--ink); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin-right: 8px; }
+
+  /* ---------- risk ---------- */
+  .risklist { display: grid; gap: 12px; margin: 24px 0; }
+  .risk { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 14px 18px; display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 4px 22px; font-size: 14px; }
+  .risk .r { font-weight: 650; color: var(--ink); }
+  .risk .m { color: var(--ink-2); }
+  .risk .m b { color: var(--accent); font-weight: 650; }
+  @media (max-width: 640px) { .risk { grid-template-columns: 1fr; } }
+
+  /* ---------- footer ---------- */
+  footer { margin-top: 72px; padding-top: 24px; border-top: 2px solid var(--ink); font-size: 12.5px; color: var(--muted); }
+  footer p { color: var(--muted); margin-bottom: .5em; }
+
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 50; background: var(--ink); color: var(--page);
+    font: 12px/1.45 ui-monospace, Menlo, monospace; padding: 6px 10px; border-radius: 6px; max-width: 260px;
+    opacity: 0; transition: opacity .12s;
+  }
+  @media (prefers-reduced-motion: reduce) { .tooltip { transition: none; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="mast-top">
+    <div class="mast-brand"><span class="drum">●</span> TAIKO LABS &nbsp;<span style="color:var(--muted); font-weight:400">/ Office of the CEO</span></div>
+    <div class="mast-meta">Internal · Draft for exec &amp; board review · August 12, 2026</div>
+  </div>
+  <h1 class="title">Real-time Ethereum.<br><span class="accent">The 12-month R&amp;D roadmap.</span></h1>
+  <p class="subtitle">September 2026 → August 2027. What we build at the chain, protocol, and application level — grounded in where the market actually is, not where we wish it were.</p>
+  <div class="mast-tags">
+    <span class="chip hot">Thesis: the L2 that <i>is</i> Ethereum</span>
+    <span class="chip">Shasta ✓ Apr 2026</span>
+    <span class="chip">Unzen ✓ Aug 3, 2026</span>
+    <span class="chip">Preconfs live · 2s</span>
+    <span class="chip">100% ZK coverage</span>
+  </div>
+</header>
+
+<!-- ================================================================ -->
+<section id="state">
+  <p class="eyebrow"><span class="idx">01 —</span> State of the union</p>
+  <h2>We won the protocol. We have not yet won a business.</h2>
+  <div class="prose">
+    <p>Credit where due: over the last twelve months this team shipped the most credible based-rollup stack in production. <strong>Shasta</strong> (mainnet April 2026) rewrote the protocol ground-up — 22× cheaper proposing, 8× cheaper proving, guardian provers deleted, ETH bonds and forced inclusion built in. <strong>Preconfirmations</strong> have run on mainnet since August 2025 at ~2-second confirmation. We hit <strong>100% ZK coverage</strong> of mainnet blocks in December 2025. And when the June bridge exploit hit — a leaked SGX signing key in a public repo plus a debug-attestation gap, $1.7M drained — we halted, recapitalized 1:1, recovered in ten days with no user losses, and shipped the <strong>Unzen</strong> hardfork through the DAO in five weeks. Unzen makes at least one ZK proof mandatory on every finalized batch. The two-TEE combination that finalized forged proofs can never finalize again.</p>
+    <p>That is the good half of the truth. Here is the other half:</p>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">Daily transactions</div><div class="v">47K</div><div class="d down">−99% vs Nov ’24 peak</div></div>
+    <div class="tile"><div class="k">Daily fee revenue</div><div class="v">$118</div><div class="d down">≈ $43K / year</div></div>
+    <div class="tile"><div class="k">Value secured (L2Beat)</div><div class="v">$10.7M</div><div class="d down">peak ~$380M · rank #17</div></div>
+    <div class="tile"><div class="k">TAIKO</div><div class="v">~$0.07</div><div class="d down">−98% ATH · ~$14M mcap</div></div>
+    <div class="tile"><div class="k">L2Beat stage</div><div class="v">Stage 0</div><div class="d down">permissionless paths still off</div></div>
+    <div class="tile"><div class="k">Preconf latency</div><div class="v">~2<span class="unit">s</span></div><div class="d">whitelist · 3 gateways</div></div>
+  </div>
+
+  <figure>
+    <figcaption>Taiko Alethia daily transactions</figcaption>
+    <div class="fig-sub">Log scale. The 2024–25 curve was the Trailblazers points program; what remains is organic. Source: L2Beat activity, Aug 12, 2026.</div>
+    <div class="scrollbox">
+      <svg viewBox="0 0 760 300" width="100%" style="min-width:640px" role="img" aria-label="Line chart of Taiko daily transactions from November 2024 to August 2026, falling from 5 million to 47 thousand">
+        <line class="gridline" x1="56" x2="664" y1="234.2" y2="234.2"/><text x="52" y="237" text-anchor="end">30K</text>
+        <line class="gridline" x1="56" x2="664" y1="189.3" y2="189.3"/><text x="52" y="192" text-anchor="end">100K</text>
+        <line class="gridline" x1="56" x2="664" y1="148.4" y2="148.4"/><text x="52" y="151" text-anchor="end">300K</text>
+        <line class="gridline" x1="56" x2="664" y1="103.5" y2="103.5"/><text x="52" y="106" text-anchor="end">1M</text>
+        <line class="gridline" x1="56" x2="664" y1="62.6" y2="62.6"/><text x="52" y="65" text-anchor="end">3M</text>
+        <line class="axisline" x1="56" x2="664" y1="264" y2="264"/>
+        <line class="halt" x1="611.9" x2="611.9" y1="40" y2="264"/>
+        <text class="halt-lbl" x="606" y="34" text-anchor="middle">8-day halt</text>
+        <polyline class="series" points="56.0,43.5 258.7,85.7 345.5,125.4 432.4,231.8 490.3,242.5 548.2,234.2 664.0,217.4"/>
+        <circle class="pt has-tip" data-tip="Nov 2024 — 5.0M tx/day (points-program peak)" cx="56" cy="43.5" r="4"/>
+        <circle class="pt has-tip" data-tip="Jun 2025 — 1.61M tx/day" cx="258.7" cy="85.7" r="4"/>
+        <circle class="pt has-tip" data-tip="Sep 2025 — 555K tx/day (points ending)" cx="345.5" cy="125.4" r="4"/>
+        <circle class="pt has-tip" data-tip="Dec 2025 — 32K tx/day" cx="432.4" cy="231.8" r="4"/>
+        <circle class="pt has-tip" data-tip="Feb 2026 — 24K tx/day" cx="490.3" cy="242.5" r="4"/>
+        <circle class="pt has-tip" data-tip="Apr 2026 — 30K tx/day (Shasta live)" cx="548.2" cy="234.2" r="4"/>
+        <circle class="pt has-tip" data-tip="Aug 2026 — 47K tx/day" cx="664" cy="217.4" r="4"/>
+        <text class="lbl" x="70" y="40">5.0M · points era</text>
+        <text class="lbl-acc" x="672" y="221">47K</text>
+        <text x="56" y="282">Nov ’24</text>
+        <text x="345" y="282" text-anchor="middle">Sep ’25</text>
+        <text x="664" y="282" text-anchor="end">Aug ’26</text>
+      </svg>
+    </div>
+    <details class="tbl"><summary>Data table</summary>
+      <table><thead><tr><th>Month</th><th>Tx / day</th></tr></thead><tbody>
+        <tr><td>Nov 2024 (peak)</td><td class="num">5,000,000</td></tr>
+        <tr><td>Jun 2025</td><td class="num">1,610,000</td></tr>
+        <tr><td>Sep 2025</td><td class="num">555,000</td></tr>
+        <tr><td>Dec 2025</td><td class="num">32,000</td></tr>
+        <tr><td>Feb 2026</td><td class="num">24,000</td></tr>
+        <tr><td>Apr 2026</td><td class="num">30,000</td></tr>
+        <tr><td>Jun 2026</td><td class="num">0 (network halt)</td></tr>
+        <tr><td>Aug 2026</td><td class="num">47,000</td></tr>
+      </tbody></table>
+    </details>
+  </figure>
+
+  <div class="prose">
+    <p>DeFi TVL on the chain is <strong>$230K</strong> — no protocol above $50K. Our fee revenue would not cover one engineer. And there is a credibility gap we created ourselves: two permissionless properties disabled during the June incident — <strong>permissionless fallback proposing and permissionless proving-by-age — remain switched off</strong>, with no public date to restore them. For a chain whose entire identity is "based and permissionless," our marketing is currently ahead of our mainnet. That ends this quarter.</p>
+    <p>One more fact worth internalizing, because it inverts our old assumptions: after Shasta and Fusaka, our entire variable cost — L1 data at the EIP-7918 blob floor plus dual ZK proving — is roughly <strong>$10–40 per day</strong> at today's load, and would be only ~2–6% of revenue even at 100 TPS. Cost is solved. <strong>Demand and value capture are the whole problem.</strong></p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="market">
+  <p class="eyebrow"><span class="idx">02 —</span> The market we actually face</p>
+  <h2>Four hard truths, one open window</h2>
+
+  <div class="truth">
+    <h3><span class="no">T1</span>Generic L2 scaling is over as a category.</h3>
+    <div class="prose">
+      <p>Fusaka (Dec 2025) took blobs to target&nbsp;14 / max&nbsp;21 — running at 20–30% utilization — and L1 gas to 60M, heading "toward and beyond 100M." Post-Fusaka, every major L2 charges under a cent, and <strong>all L2s combined now earn less in daily fees than Ethereum L1 itself</strong> (~$221K/day). ENS cancelled Namechain in February and moved ENSv2 back to L1 because registrations got 99% cheaper — the first announced L2 killed by L1 scaling, and it was <em>our</em> stack's flagship deal. Vitalik said it plainly in February:</p>
+      <blockquote>"You are not scaling Ethereum." <span class="who">— Vitalik Buterin, Feb 2026, declaring the rollup-centric roadmap over; the EF's March guidance tells L2s to pursue synchronous composability with L1 instead.</span></blockquote>
+    </div>
+    <figure>
+      <figcaption>L2 value secured — the field has consolidated</figcaption>
+      <div class="fig-sub">$M, linear scale, L2Beat Aug 12, 2026. Base + Arbitrum hold ~78% of all L2 value. The linear scale is the point.</div>
+      <div class="scrollbox"><div class="barlist" role="img" aria-label="Bar chart of L2 total value secured, Base 11.75 billion dollars down to Taiko at 10.7 million dollars">
+        <div class="barrow has-tip" data-tip="Base — $11.75B · Stage 1 · Coinbase distribution"><span class="n">Base</span><span class="track"><span class="bar" style="width:100%"></span></span><span class="val">11,750</span></div>
+        <div class="barrow has-tip" data-tip="Arbitrum One — $10.2B · Stage 1 · Robinhood Chain rent-payer"><span class="n">Arbitrum One</span><span class="track"><span class="bar" style="width:86.8%"></span></span><span class="val">10,200</span></div>
+        <div class="barrow has-tip" data-tip="OP Mainnet — $1.41B · Stage 1"><span class="n">OP Mainnet</span><span class="track"><span class="bar" style="width:12%"></span></span><span class="val">1,410</span></div>
+        <div class="barrow has-tip" data-tip="Mantle — $1.22B · Stage 0"><span class="n">Mantle</span><span class="track"><span class="bar" style="width:10.4%"></span></span><span class="val">1,220</span></div>
+        <div class="barrow has-tip" data-tip="Lighter — $894M · app-specific ZK perp chain"><span class="n">Lighter</span><span class="track"><span class="bar" style="width:7.6%"></span></span><span class="val">894</span></div>
+        <div class="barrow has-tip" data-tip="Starknet — $359M · Stage 1"><span class="n">Starknet</span><span class="track"><span class="bar" style="width:3.1%"></span></span><span class="val">359</span></div>
+        <div class="barrow has-tip" data-tip="Linea — $344M · pivoting to institutions + type-1 zkEVM"><span class="n">Linea</span><span class="track"><span class="bar" style="width:2.9%"></span></span><span class="val">344</span></div>
+        <div class="barrow has-tip" data-tip="ZKsync Era — $197M · Matter Labs pivoted to Prividium"><span class="n">ZKsync Era</span><span class="track"><span class="bar" style="width:1.7%"></span></span><span class="val">197</span></div>
+        <div class="barrow me has-tip" data-tip="Taiko Alethia — $10.7M · rank ~#17 · Stage 0"><span class="n">Taiko Alethia</span><span class="track"><span class="bar" style="width:0.09%"></span></span><span class="val">10.7</span></div>
+      </div></div>
+      <div class="bar-note">The mid-tail is being hollowed out from both sides — Base/Arbitrum above, Solana/Hyperliquid outside. Scroll dissolved its security council; ZKsync Lite shut down; Eclipse cut 65% of staff; Aave is withdrawing from mid-tier L2s. <b>“Another general-purpose L2” is an existential position, and it is currently ours.</b></div>
+    </figure>
+  </div>
+
+  <div class="truth">
+    <h3><span class="no">T2</span>Our differentiators are being commoditized — on schedule.</h3>
+    <div class="prose">
+      <p><strong>“Based” is no longer only ours:</strong> RISE launched mainnet in May 2026 with based sequencing and a first-party perp DEX, and is already #2 among all L2s by activity. <strong>“Type-1” is no longer only ours:</strong> Linea — with ConsenSys capital and a SWIFT pilot — is executing a type-1 transition. And <strong>Ethereum-equivalent ZK proving is now a commodity:</strong> the EF declared real-time proving achieved in December; anyone can prove a mainnet block in ~12 seconds on a $100K GPU cluster.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile big"><div class="k">Cost to prove an Ethereum block</div><div class="v">$1.69 → $0.005</div><div class="d">Jan 2025 → Aug 2026 · ~300× collapse (ethproofs)</div></div>
+      <div class="tile big"><div class="k">Time to prove a block</div><div class="v">16 min → ~12<span class="unit">s</span></div><div class="d">99% of blocks &lt;10s on 16× RTX 5090</div></div>
+      <div class="tile big"><div class="k">EF zkVM security bar, end-2026</div><div class="v">128-bit · ≤300<span class="unit">KB</span></div><div class="d">soundcalc scoring mandatory · multi-zkVM k-of-n</div></div>
+    </div>
+    <div class="prose">
+      <p>The honest conclusion: equivalence and proving speed are table stakes. What is <em>not</em> commoditized: L1 sequencing with live preconfirmations at mainnet scale (only us), a ZK-mandatory multiproof that survived a real incident (only us), and a credible path to the first Stage-2, operator-less rollup (open to us first).</p>
+    </div>
+  </div>
+
+  <div class="truth">
+    <h3><span class="no">T3</span>Demand follows apps and distribution — never infrastructure.</h3>
+    <div class="prose">
+      <p>2026's activity leaders are all app-led or distribution-led: Lighter (perp chain), RISE (first-party RISEx), Robinhood Chain (19.6M tx/day, brokerage distribution), Base (Coinbase). Revenue concentrates in four verticals: <strong>perps</strong> ($1T/month, structurally lost to sub-100ms chains — we concede it), <strong>prediction markets</strong> ($111B in Q2, +1,764% YoY — and Polymarket is publicly leaving Polygon with no chain chosen), <strong>RWA/tokenized equities</strong> ($33.5B, +184% YoY, ~60% on Ethereum), and <strong>stablecoin settlement</strong> ($307B supply; Stripe's Tempo and Circle's Arc attacking with fiat distribution). Meanwhile every incentive-led launch — Blast (−97% TVL), Monad, our own Trailblazers era — decayed on the same curve. <strong>We will not run another points program.</strong> The winning sequence, demonstrated by RISE and MegaETH: secure one flagship app, prove organic volume gated, then scale.</p>
+    </div>
+  </div>
+
+  <div class="truth">
+    <h3><span class="no">T4</span>Macro: capital demands revenue, not narrative.</h3>
+    <div class="prose">
+      <p>BTC ~$65K (−49% from the October 2025 peak), ETH ~$1,900, and AI absorbing ~80% of global venture capital. The crypto stories that still get funded are the ones with cash flows: stablecoins, RWA, and — with CLARITY facing a September Senate vote — regulated market infrastructure. Chains earn an order of magnitude less than apps (Solana, the best chain business, ~$27M/month; Tether earns that in 36 hours). Two consequences for us: our economics must capture sequencing value we currently leak to gateways, and our token's ~2%/month unlock schedule into a $14M float is a board-level problem no R&D mechanism can outrun.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="h">The open window</div>
+    <p>Ethereum is reorganizing around exactly what we already are. The EF's L1-zkEVM program (EIP-8025) will have validators verify ZK proofs of Ethereum-equivalent execution — our proof stack, enshrined. ePBS ships in Glamsterdam (~Q4 2026); FOCIL follows in Hegotá — both strengthen based sequencing. Native rollups (the EXECUTE precompile) reached proof-of-concept in March; <strong>a type-1, based, ZK-mandatory rollup is the closest thing to a native rollup that exists today.</strong> And the demand side for synchronous L1↔L2 composability has organized itself into the Ethereum Economic Zone — Aave, CoW Swap, Safe, Flashbots, Titan, Beaver, Monerium, xStocks — with pilots starting now. That alliance is either our springboard or our replacement. The next four quarters decide which.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="thesis">
+  <p class="eyebrow"><span class="idx">03 —</span> Thesis</p>
+  <h2>Stop competing as an L2. Become real-time Ethereum.</h2>
+
+  <div class="thesis">
+    <div class="big">In twelve months, Taiko is <em>the execution layer that is Ethereum</em>: sequenced by L1, proven in real time, synchronously composable with L1 state, and the first rollup to reach Stage&nbsp;2 — with no operator anyone must trust.</div>
+    <p>Every deliverable below serves one of four claims, each verifiable by outsiders: <strong>trust</strong> (Stage 2, ZK-first multiproof), <strong>speed</strong> (sub-second preconfs, ~1-slot ZK finality), <strong>unity</strong> (synchronous composability with L1 — Gwyneth, shipped incrementally), and <strong>economics</strong> (sequencing value captured, publicly dashboarded). We are not selling blockspace. We are selling Ethereum, faster.</p>
+  </div>
+
+  <div class="stopdo">
+    <div class="sd stop">
+      <div class="h">We explicitly stop / concede</div>
+      <ul>
+        <li>Sub-100ms CLOB perps — Lighter, RISEx, MegaETH own that latency class. We settle and collateralize; we don't match orders.</li>
+        <li>Points-driven growth. Dead playbook; we have the scar tissue.</li>
+        <li>TEE as a security pillar — SGX demoted to optional auxiliary, never sufficient, on a path to retirement.</li>
+        <li>Gwyneth as a separate moonshot — its capabilities ship incrementally on Alethia, or inside EEZ pilots.</li>
+        <li>The "ENS ecosystem" narrative — Namechain is cancelled. We keep ENS <em>resolution</em> on Taiko via L1-reads instead.</li>
+        <li>Leading RWA sales with "no sequencer = regulatory advantage" — no legal evidence exists yet. We sell credible neutrality to crypto-native issuers and keep the regulatory claim in reserve for post-CLARITY.</li>
+      </ul>
+    </div>
+    <div class="sd keep">
+      <div class="h">We double down on</div>
+      <ul>
+        <li>Based sequencing + preconfirmations — the only L2 architecture that gets <em>stronger</em> every time L1 improves.</li>
+        <li>ZK-first multiproof aligned with the EF's L1-zkEVM standards — our proof stack becomes literally the L1 proof stack.</li>
+        <li>The Stage-2 arc — the one headline no distribution-rich competitor can copy quickly.</li>
+        <li>Synchronous composability (Gwyneth line) — the capability the EF, EEZ, and solver ecosystem are all asking for.</li>
+        <li>Stack productization with Nethermind/Surge — managed offering, transparent license, shared audits.</li>
+        <li>Rust client as the strategic client; AI-augmented engineering and audit pipelines as a formal capability.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="pillars">
+  <p class="eyebrow"><span class="idx">04 —</span> Program structure</p>
+  <h2>Four pillars</h2>
+  <div class="pillars">
+    <div class="pillar">
+      <div class="pid">P0 · PROVABLE TRUST</div>
+      <h3>From incident to first Stage-2 rollup</h3>
+      <p>Finish the arc the exploit interrupted. Restore everything we switched off — hardened — then remove ourselves from the trust equation entirely.</p>
+      <ul>
+        <li>Permissionless proposing &amp; bonded permissionless proving restored (bond machinery is built; it's parked at zero)</li>
+        <li>ZK-first: 2-of-N multi-zkVM, third zkVM lane, SGX auxiliary-only</li>
+        <li>EF zkVM-standards alignment: soundcalc, 128-bit, ≤300KB proofs</li>
+        <li>L2Beat Stage 1 → Stage 2; security program as standing function</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pid">P1 · REAL-TIME UX</div>
+      <h3>Sub-second preconfs, ~1-slot finality</h3>
+      <p>The one UX metric that matters. Preconfs get faster and permissionless; ZK finality collapses from hours to slots.</p>
+      <ul>
+        <li>Sub-1s preconfs GA, then 200–400ms via streaming/frags</li>
+        <li>Permissionless preconf registry (URC-style), bonded + slashable</li>
+        <li>Real-time proving: batch proofs ≤ ~12s; withdrawals in minutes</li>
+        <li>Glamsterdam/ePBS readiness on both clients; Rust client to parity</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pid">P2 · SYNCHRONOUS COMPOSABILITY</div>
+      <h3>Gwyneth, productized</h3>
+      <p>The EF told L2s to do exactly this. We ship it in increments that each stand alone — and we decide fast whether EEZ is our vehicle or our rival.</p>
+      <ul>
+        <li>Synchronous L1 reads on Alethia (L1SLOAD-class) — ENS resolves natively</li>
+        <li>ULTRA TX: atomic L1+L2 bundles with a named builder (Titan/Beaver)</li>
+        <li>EEZ join/shape decision in Q4; Gwyneth public testnet by Q3 ’27</li>
+        <li>Native-rollup readiness: EXECUTE-compatible STF, EIP-8025 alignment</li>
+      </ul>
+    </div>
+    <div class="pillar">
+      <div class="pid">P3 · DEMAND &amp; ECONOMICS</div>
+      <h3>Anchor apps, stack product, captured value</h3>
+      <p>No more generic ecosystem spend. Land named anchors, productize the stack, and stop leaking sequencing value.</p>
+      <ul>
+        <li>Anchor verticals: prediction markets (Polymarket is shopping), RWA/tokenized-equity settlement, sync-liquidity DeFi (Aave V4 spoke / Morpho)</li>
+        <li>"Based markets" primitive — stake-gated builder markets settling against L1 collateral (our HIP-3 answer)</li>
+        <li>Preconf fee-split spec + public gateway revenue dashboard → sequencing auction with protocol take</li>
+        <li>Taiko Stack managed offering with transparent license; token work: bonds utility now, vesting restructure at board level</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="roadmap">
+  <p class="eyebrow"><span class="idx">05 —</span> The roadmap</p>
+  <h2>Quarter by quarter</h2>
+
+  <figure>
+    <figcaption>Program timeline, Sep 2026 – Aug 2027</figcaption>
+    <div class="fig-sub">Solid = mainnet ship. Tinted = build/testnet. Dashed = external L1 dependency (timing not ours). Fork codenames illustrative, following the volcano alphabet after Unzen.</div>
+    <div class="scrollbox">
+      <div class="gantt">
+        <div class="g-head" style="grid-column:1"></div>
+        <div class="g-head" style="grid-column:2/4">Q4 2026</div>
+        <div class="g-head" style="grid-column:4/6">Q1 2027</div>
+        <div class="g-head" style="grid-column:6/8">Q2 2027</div>
+        <div class="g-head" style="grid-column:8/10">Q3 2027</div>
+
+        <div class="g-lane" style="grid-column:1">Ethereum L1<span class="sub">context</span></div>
+        <div class="g-bar l1" style="grid-column:2/4">Glamsterdam (ePBS + BALs) ~Q4</div>
+        <div class="g-bar l1" style="grid-column:4/8">EF zkVM 128-bit era · BPO3/4 window</div>
+        <div class="g-bar l1" style="grid-column:8/10">Hegotá spec (FOCIL)</div>
+
+        <div class="g-lane" style="grid-column:1">P0 · Trust<span class="sub">chain level</span></div>
+        <div class="g-bar solid" style="grid-column:2/4">“Vesuvius” fork: permissionless restored + bonds</div>
+        <div class="g-bar solid" style="grid-column:4/6">Stage 1 ✓</div>
+        <div class="g-bar" style="grid-column:6/8">3rd zkVM lane · SGX → auxiliary</div>
+        <div class="g-bar solid" style="grid-column:8/10">Stage 2 submission</div>
+
+        <div class="g-lane" style="grid-column:1">P1 · Real-time<span class="sub">chain level</span></div>
+        <div class="g-bar" style="grid-column:2/4">ePBS readiness · RTP shadow lab</div>
+        <div class="g-bar solid" style="grid-column:4/6">Sub-1s preconfs GA</div>
+        <div class="g-bar solid" style="grid-column:6/8">“Yasur” fork: real-time proving mainnet</div>
+        <div class="g-bar" style="grid-column:8/10">200–400ms preconfs · permissionless set</div>
+
+        <div class="g-lane" style="grid-column:1">P2 · Sync comp.<span class="sub">protocol level</span></div>
+        <div class="g-bar" style="grid-column:2/4">L1-read spec + devnet · EEZ decision</div>
+        <div class="g-bar" style="grid-column:4/6">Sync L1 reads on testnet</div>
+        <div class="g-bar" style="grid-column:6/8">ULTRA TX atomic demo w/ named builder</div>
+        <div class="g-bar solid" style="grid-column:8/10">Gwyneth public testnet</div>
+
+        <div class="g-lane" style="grid-column:1">P3 · Demand<span class="sub">app / econ</span></div>
+        <div class="g-bar" style="grid-column:2/4">Fee-split spec + revenue dashboard</div>
+        <div class="g-bar" style="grid-column:4/6">Anchor #1 signed · USDC/CCTP + stable gas</div>
+        <div class="g-bar solid" style="grid-column:6/8">Sequencing auction live · Stack GA</div>
+        <div class="g-bar solid" style="grid-column:8/10">Based markets live · 2–3 anchors</div>
+        <div class="g-note">Every solid bar has a DAO proposal, audit window, and comms moment attached. Nothing ships dark.</div>
+      </div>
+    </div>
+  </figure>
+
+  <!-- ---------------- Q4 2026 ---------------- -->
+  <div class="quarter">
+    <div class="q-head"><span class="q">Q4 2026</span><h3>Restore, harden, prepare</h3><span class="when">Sep – Dec 2026</span></div>
+    <p class="q-theme">Close the gap between what we claim and what runs on mainnet. Exit the quarter with nothing about Taiko permissioned that wasn't permissioned before June — now with the economics turned on — and both clients proven against the ePBS world before Glamsterdam reaches mainnet.</p>
+    <div class="q-cols">
+      <div class="q-col">
+        <h4>Chain level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>“Vesuvius” hardfork (DAO proposal by Nov):</strong> restore permissionless fallback proposing and bonded permissionless proving — with incident-informed safeguards: registration delays, rate limits, monitoring circuit-breakers, and <code class="mono">minBond / livenessBond &gt; 0</code>. The bond ledger and 50/50 slashing already live in Shasta; we turn them on.</li>
+          <li><span class="tag ship">Ship</span>Bridge quotas removed on a published schedule; independent post-incident security review published in full.</li>
+          <li><span class="tag ship">Ship</span>Glamsterdam readiness: Go + Rust clients validated against Gloas/ePBS devnets; proposing and preconf pipeline re-certified for partial-block production. This is the single most important external dependency of the year.</li>
+          <li><span class="tag gate">Decide</span>Third zkVM lane selection (OpenVM / Zisk / Airbender) against EF criteria: soundcalc score, RISC-V ACT compliance, audited FV claims.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Protocol level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>Preconf fee-split reference spec</strong> — user tip → gateway margin → L1 proposer reward → protocol take — plus a public gateway revenue dashboard. Nobody in the based ecosystem has shipped this; we set the standard and create the auditable revenue base every later economics decision needs.</li>
+          <li><span class="tag ship">Ship</span>Synchronous L1-read (L1SLOAD-class) spec + devnet — the thin end of Gwyneth.</li>
+          <li><span class="tag ship">Ship</span>Whitepaper v3 + docs refresh. The README still says "contestable rollup"; the whitepaper predates Shasta. Cheap, overdue, credibility-critical.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Ecosystem &amp; economics</h4>
+        <ul>
+          <li><span class="tag gate">Decide</span><strong>EEZ: join and shape, or race.</strong> Default position: join — offer Alethia as the live based execution venue for EEZ pilots (Aave, CoW, Safe, Monerium, xStocks are the exact anchor list we want anyway). Being absent while it ships pilots is the largest strategic risk to Gwyneth.</li>
+          <li><span class="tag gate">Decide</span>Formalize the Nethermind/Surge relationship: co-develop and upstream their RealTimeInbox + single-zkVM work into taiko-mono; shared audit artifacts. Surge drifting into a divergent competitor is preventable now, not later.</li>
+          <li>Anchor BD opens: Polymarket-class appchain pitch (full blockspace control, Ethereum settlement, 2s→sub-1s preconfs) delivered while their chain search is live; RWA settlement conversations via Avalon + EEZ members.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="exit"><b>Exit criteria</b> Permissionless proposing + proving live on mainnet with bonds ≠ 0 · both clients ePBS-certified · fee-split spec and dashboard public · EEZ and Nethermind decisions made and announced.</div>
+  </div>
+
+  <!-- ---------------- Q1 2027 ---------------- -->
+  <div class="quarter">
+    <div class="q-head"><span class="q">Q1 2027</span><h3>Stage 1, sub-second</h3><span class="when">Jan – Mar 2027</span></div>
+    <p class="q-theme">The quarter of externally verifiable badges: L2Beat confirms Stage 1, users feel sub-second confirmation, and the first Gwyneth capability runs on a public testnet.</p>
+    <div class="q-cols">
+      <div class="q-col">
+        <h4>Chain level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>L2Beat Stage 1 confirmed.</strong> With Vesuvius live, we submit and clear review. Six chains sit at Stage 1; none is based, none is ZK-mandatory. We arrive with both.</li>
+          <li><span class="tag ship">Ship</span><strong>Sub-1s preconfirmations GA</strong> on mainnet (P50 ≤ 800ms), leaning on EIP-7917 deterministic lookahead; permissionless preconf registry (URC-style) with bonded, slashable operators on testnet — the contracts are greenfield, the hooks (IProposerChecker, submission windows, lookahead) were designed for this.</li>
+          <li><span class="tag ship">Ship</span>Real-time proving pilot: shadow-prove every Alethia batch in ≤12s off-mainnet; raiko dual-sources from Succinct Prover Network + Boundless with self-hosted GPU fallback for liveness.</li>
+          <li><span class="tag gate">Decide</span>Rust client: production parity for driver/proposer; commit to Rust prover build or a deliberate Rust-sequencing/Go-proving split.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Protocol level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>Synchronous L1 reads live on public testnet</strong> — showcase: ENS names resolving natively on Taiko, keystore wallets reading L1 guardians, oracles reading L1 state. The Namechain salvage, done right.</li>
+          <li><span class="tag ship">Ship</span>"Based markets" primitive spec: stake-gated, fee-sharing deployment of markets/app-slots that settle against L1 collateral — the based-rollup answer to HIP-3/MarketCore that no centrally-sequenced chain can copy.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Ecosystem &amp; economics</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span>Gateway whitelist terms renegotiated to include a revenue share (benchmarks exist: AEP 10% net; Superchain 2.5% gross / 15% profit); Timeboost-style sequencing auction design finalized for the permissionless era.</li>
+          <li><span class="tag gate">Land</span><strong>Anchor app #1 committed</strong> — priority order: prediction-market venue, tokenized-equity/RWA settlement, sync-liquidity DeFi.</li>
+          <li><span class="tag ship">Ship</span>Payments substrate: native USDC/CCTP, stablecoin-denominated gas / fee abstraction, x402 agent-payments support (cheap option, not a strategy).</li>
+        </ul>
+      </div>
+    </div>
+    <div class="exit"><b>Exit criteria</b> Stage 1 badge public · preconf P50 &lt; 1s measured by a third party · one anchor app signed · shadow proofs ≤ 12s at P90.</div>
+  </div>
+
+  <!-- ---------------- Q2 2027 ---------------- -->
+  <div class="quarter">
+    <div class="q-head"><span class="q">Q2 2027</span><h3>Real-time finality</h3><span class="when">Apr – Jun 2027</span></div>
+    <p class="q-theme">The headline quarter: ZK finality collapses from hours to slots on mainnet, the atomic L1+L2 demo goes public with a named builder, and the stack becomes a product with a price.</p>
+    <div class="q-cols">
+      <div class="q-col">
+        <h4>Chain level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>“Yasur” hardfork: real-time proving on mainnet.</strong> Typical batch reaches ZK finality within ~2 L1 slots; withdrawals under 15 minutes; the 4-hour proving window becomes a fallback, not the norm. Optimistic giants structurally cannot follow — this is our fast-withdrawal, fast-interop moat.</li>
+          <li><span class="tag ship">Ship</span>Third zkVM lane live → 2-of-N multi-zkVM policy; <strong>SGX demoted to optional auxiliary</strong>, never load-bearing. Proof-policy changes ride the compose-verifier playbook we've now executed twice under fire.</li>
+          <li><span class="tag ship">Ship</span>Permissionless preconfs phase 1 on mainnet: opt-in bonded operators beyond the whitelist; preconf latency pushed toward 200–400ms via streaming/frags, with a public third-party latency dashboard.</li>
+          <li>Glamsterdam mainnet transition executed clean (whenever it lands — we've been devnet-ready since Q4).</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Protocol level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>ULTRA TX public demo:</strong> one atomic bundle touching L1 and Taiko in the same slot, built with a named L1 builder (Titan or Beaver — both EEZ members and required counterparties regardless). Builder integration, not proving speed, is the real gate — which is why BD on this started in Q4.</li>
+          <li><span class="tag ship">Ship</span>Sync-liquidity DeFi proof-of-concept with EEZ partners: an Aave-V4-spoke or Morpho market accessing L1 hub liquidity without leaving Taiko.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Ecosystem &amp; economics</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>Sequencing auction live; protocol fee switch on.</strong> Sequencing rights are bid for, proceeds split per the published spec, all of it on the public dashboard. From this point Taiko has a real, auditable revenue line.</li>
+          <li><span class="tag ship">Ship</span><strong>Taiko Stack managed offering GA:</strong> SLA'd ops, security patching, compliance tooling, 6–12 week launch, transparent standard license. A bare open-source template closed zero deals in 2026; OP Enterprise defined the table stakes — we match them with the only based, Stage-2-track stack on the market.</li>
+          <li><span class="tag gate">Land</span>Anchor app #1 live on mainnet; anchor #2 in integration.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="exit"><b>Exit criteria</b> P50 time-to-ZK-finality ≤ 2 slots on mainnet · atomic L1+L2 bundle demonstrated publicly · sequencing revenue accruing on-dashboard · first stack customer in contract.</div>
+  </div>
+
+  <!-- ---------------- Q3 2027 ---------------- -->
+  <div class="quarter">
+    <div class="q-head"><span class="q">Q3 2027</span><h3>Stage 2, and the proof of the thesis</h3><span class="when">Jul – Sep 2027</span></div>
+    <p class="q-theme">The close of the arc: the first Stage-2 rollup — and the only based one — with Gwyneth public, markets deploying permissionlessly, and a revenue line the token can eventually be tied to honestly.</p>
+    <div class="q-cols">
+      <div class="q-col">
+        <h4>Chain level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>Stage 2 submission to L2Beat:</strong> permissionless proposing, proving, and preconfs; exit windows honored; security-council powers reduced to queued-with-exit-window upgrades; 2-of-N multi-zkVM. Headline: <em>the first Stage-2 rollup, and the only one nobody operates.</em></li>
+          <li><span class="tag ship">Ship</span>Native-rollup readiness: EXECUTE-compatible state-transition experiment + EIP-8025 witness/guest-program alignment. Public stance: first in line to become a native rollup — retiring our own proving trust surface the day L1 offers it.</li>
+          <li>Hegotá/FOCIL spec participation (inclusion-list mechanics interact directly with based sequencing rights); gigagas capability benchmark published on the Rust client — a qualifier, not a marketing lead.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Protocol level</h4>
+        <ul>
+          <li><span class="tag ship">Ship</span><strong>Gwyneth public testnet:</strong> multiple Ethereum-equivalent instances, synchronously composable with each other and with L1 — or, if the Q4 EEZ decision went that way, Gwyneth capabilities graduated into EEZ pilots with Alethia as the live venue. Either way: public, dated, demo-able.</li>
+          <li><span class="tag ship">Ship</span>"Based markets" primitive live with the first 2–3 externally deployed markets.</li>
+        </ul>
+      </div>
+      <div class="q-col">
+        <h4>Ecosystem &amp; economics</h4>
+        <ul>
+          <li><span class="tag gate">Land</span>2–3 anchor apps live in total across prediction/RWA/sync-DeFi; second stack deployment in pipeline.</li>
+          <li><span class="tag ship">Ship</span><strong>Token blueprint, sequenced honestly:</strong> TAIKO utility now = gateway/prover permissioning bonds and fee discounts (ETH stays the base collateral — the market has spoken); a forward accrual formula tied to real sequencing revenue announced only once the dashboard shows it; vesting restructure (Worldcoin/Story precedent) executed at board level, timed with the Stage-2 comms moment.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="exit"><b>Exit criteria</b> Stage 2 filed (badge or audit-pending) · Gwyneth testnet public · ≥ $1M annualized sequencing revenue run-rate on the dashboard · 2–3 anchors live.</div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="deps">
+  <p class="eyebrow"><span class="idx">06 —</span> External dependencies</p>
+  <h2>The L1 upgrade map, and what each unlocks for us</h2>
+  <div class="scrollbox">
+  <table>
+    <thead><tr><th style="min-width:170px">L1 change</th><th style="min-width:110px">Timing</th><th>What it does</th><th>Our action</th></tr></thead>
+    <tbody>
+      <tr><td><b>EIP-7917</b> proposer lookahead</td><td class="num">Live (Fusaka)</td><td>Deterministic epoch-ahead proposer schedule — built for based preconfs</td><td>Foundation for the permissionless preconf registry (Q1 ’27)</td></tr>
+      <tr><td><b>Glamsterdam</b> — ePBS (7732) + BALs (7928)</td><td class="num">~Q4 2026<br>(slipping)</td><td>Restructures L1 block production into partial blocks; extends in-slot proving window to ~6–9s; enables later blob increases</td><td>Devnet certification in Q4 ’26 <em>before</em> mainnet; single most important external event of the year for our proposing/preconf pipeline</td></tr>
+      <tr><td><b>BPO3/4</b> blob increases</td><td class="num">Post-Glamsterdam</td><td>More DA headroom (currently target 14 / max 21 at 20–30% util.)</td><td>No plan depends on it — we have ~10× headroom at current demand</td></tr>
+      <tr><td><b>EF L1-zkEVM / EIP-8025</b></td><td class="num">2026–27 program</td><td>Validators verify ZK proofs of Ethereum-equivalent execution; 128-bit / ≤300KB zkVM bar by end-2026</td><td>Align raiko + guest programs with eth-act standards and soundcalc now — as a type-1 chain we inherit the entire L1 toolchain for free</td></tr>
+      <tr><td><b>Hegotá</b> — FOCIL (7805)</td><td class="num">2027</td><td>Protocol-level inclusion lists — censorship resistance that composes with based sequencing</td><td>Active spec participation from Q3 ’27; interacts with our sequencing rights and preconf commitments</td></tr>
+      <tr><td><b>Native rollups</b> — EXECUTE (8079)</td><td class="num">Research / PoC</td><td>L1-verified rollup execution — "governance-free, execution-risk-free" rollups</td><td>EXECUTE-compatible STF experiment (Q3 ’27); public first-in-line posture; treat mainnet timing as speculative</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="kpis">
+  <p class="eyebrow"><span class="idx">07 —</span> Scoreboard</p>
+  <h2>What must be true in August 2027</h2>
+  <div class="scrollbox">
+  <table>
+    <thead><tr><th>Metric</th><th>Today (Aug 2026)</th><th>Target (Aug 2027)</th><th>Pillar</th></tr></thead>
+    <tbody>
+      <tr><td><b>Preconf latency, P50</b></td><td class="num">~2s (whitelist)</td><td class="num">≤ 400ms, permissionless set phase 1</td><td>P1</td></tr>
+      <tr><td><b>Time to ZK finality</b></td><td class="num">hours (4h window)</td><td class="num">≤ 2 L1 slots typical · withdrawals &lt; 15 min</td><td>P1</td></tr>
+      <tr><td><b>L2Beat stage</b></td><td class="num">Stage 0, permissionless paths disabled</td><td class="num">Stage 2 filed — first based rollup there</td><td>P0</td></tr>
+      <tr><td><b>Proof policy</b></td><td class="num">≥1 ZK of 2 (SGX still co-equal)</td><td class="num">2-of-N multi-zkVM · SGX auxiliary-only · EF-standards aligned</td><td>P0</td></tr>
+      <tr><td><b>Sync composability</b></td><td class="num">none shipped</td><td class="num">L1 reads live · atomic L1+L2 demo · Gwyneth testnet public</td><td>P2</td></tr>
+      <tr><td><b>Sequencing value captured</b></td><td class="num">$0 (100% leaks to gateways)</td><td class="num">auction + fee split live · ≥ $1M annualized, public dashboard</td><td>P3</td></tr>
+      <tr><td><b>Anchor apps &gt; $1M/day volume</b></td><td class="num">0</td><td class="num">2–3 live</td><td>P3</td></tr>
+      <tr><td><b>Stack deployments (commercial)</b></td><td class="num">0 (Surge testnets)</td><td class="num">≥ 1 production chain under the managed offering</td><td>P3</td></tr>
+      <tr><td><b>Daily transactions</b></td><td class="num">~47K</td><td class="num">500K+ — app-led, no points</td><td>P3</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="font-size:13px; color:var(--muted); max-width:74ch">Honesty note: the last two rows are demand outcomes we influence but don't control. Every other row is an engineering deliverable we fully control, which is why the roadmap is weighted toward them.</p>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="risks">
+  <p class="eyebrow"><span class="idx">08 —</span> Risks &amp; kill criteria</p>
+  <h2>What breaks this plan, and what we do then</h2>
+  <div class="risklist">
+    <div class="risk"><div class="r">Another security incident</div><div class="m">Existential — this is why P0 is pillar <i>zero</i>. Every permissionless re-enable ships with registration delays, rate limits, and circuit breakers; verifier-registration paths and key custody are treated as bridge-critical; secret-scanning CI (already live) plus annual external audits per zkVM guest program. The June response playbook — halt, recapitalize, DAO fork — stays rehearsed.</div></div>
+    <div class="risk"><div class="r">Glamsterdam slips into 2027</div><div class="m">Likely, partially. All FY27 plans assume 12s slots and current blob limits; ePBS work is devnet-gated, not date-gated. Real-time proving and sub-second preconfs do not depend on Glamsterdam. <b>No milestone above waits on an L1 fork date.</b></div></div>
+    <div class="risk"><div class="r">EEZ ships sync composability without us</div><div class="m">The Q4 decision gate exists precisely for this: default is join-and-shape, offering the only live based mainnet as their execution venue. If we're locked out, we adopt a Zisk-compatible proving lane for interop and race on the one asset they lack — a production chain. Kill criterion: if by Q2 ’27 EEZ pilots run on a competing venue and our ULTRA TX demo has no named builder, Gwyneth-as-a-network folds into Alethia features.</div></div>
+    <div class="risk"><div class="r">No anchor app by mid-2027</div><div class="m">Shift the BD budget entirely to the based-markets primitive (permissionless deployment converts BD into protocol design) and stack deals. Explicit non-response: another points program.</div></div>
+    <div class="risk"><div class="r">Token unlocks overwhelm everything</div><div class="m">~2.08%/month unlocks into a ~$14M float statistically swamps any mechanism-level accrual. This is a board/investor problem, not an R&D one: vesting restructure (Worldcoin 3→5yr, Story deferral precedents), unlock-to-OTC conversion, timed with Stage-2 comms. R&D's job is to make the revenue line real enough that the token has something honest to accrue.</div></div>
+    <div class="risk"><div class="r">Team concentration</div><div class="m">Four engineers produced ~85% of recent commits. Mitigation: hire against P0/P1 critical paths, formalize the AI-augmented engineering and audit pipeline that already co-authors much of our output, and keep the Nethermind relationship warm as surge capacity in both directions.</div></div>
+    <div class="risk"><div class="r">Narrative capture by RISE / Linea</div><div class="m">They market faster than we do; they cannot ship our milestones. The counter is cadence: Stage 1 in Q1, real-time finality in Q2, Stage 2 in Q3 — each externally verified, each a press moment. We stop announcing intentions and start announcing verifications.</div></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================================================================ -->
+<section id="appendix">
+  <p class="eyebrow"><span class="idx">09 —</span> Appendix</p>
+  <h2>Method &amp; sources</h2>
+  <div class="prose">
+    <p>This roadmap was drafted August 12, 2026, from a multi-track research sweep (Ethereum core roadmap, L2 competitive landscape, alt-L1s, macro/regulatory, ZK proving frontier, Taiko public state, and a code-level audit of taiko-mono) plus three targeted follow-ups on app-level opportunity, based-rollup value capture, and the stack-licensing market. All market figures are as of that date unless noted.</p>
+    <p><strong>Primary sources:</strong> L2Beat, growthepie, DefiLlama, ethproofs.org, EF blog (Fusaka/Glamsterdam/zkEVM security posts), EIP specs (7732, 7805, 7917, 7918, 8025, 8079), taiko-mono repo (Shasta <span class="mono">Derivation.md</span>, <span class="mono">Proposal0017/0019</span>, mainnet deployment logs, gas reports), OpenZeppelin Shasta audits, and dated press for competitor events.</p>
+    <p><strong>Reconciled facts:</strong> Unzen executed on mainnet Aug 3, 2026 per in-repo deployment logs (some press says Aug 6). TAIKO traded $0.058–0.077 across August sources; we use ~$0.07 / ~$14M unlocked mcap. Glamsterdam timing uses the devnet-based Q4 2026 estimate over more optimistic press. Cost-floor figures ($10–40/day now; ~$350–900/day at 100 TPS) are internal estimates from EIP-7918 arithmetic, ethproofs pricing, and repo gas reports — inputs documented, error bars real.</p>
+    <p style="color:var(--muted); font-size:13px">Prepared by the office of the CEO with AI research assistance. A draft for discussion — numbers are checkable, opinions are mine, and the volcano names are negotiable.</p>
+  </div>
+</section>
+
+<footer>
+  <p><b style="color:var(--ink)">TAIKO LABS</b> · R&amp;D Roadmap FY27 · September 2026 – August 2027 · Internal draft v1 · August 12, 2026</p>
+  <p>Based rollup · Type-1 zkEVM · Ethereum-equivalent, Ethereum-sequenced, Ethereum-secured.</p>
+</footer>
+
+</div>
+
+<div class="tooltip" id="tip" role="status" aria-hidden="true"></div>
+<script>
+  (function () {
+    var tip = document.getElementById('tip');
+    var els = document.querySelectorAll('.has-tip');
+    function show(e) {
+      var t = e.currentTarget.getAttribute('data-tip');
+      if (!t) return;
+      tip.textContent = t;
+      tip.style.opacity = '1';
+      move(e);
+    }
+    function move(e) {
+      var x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 10);
+      var y = Math.min(e.clientY + 14, window.innerHeight - tip.offsetHeight - 10);
+      tip.style.left = x + 'px';
+      tip.style.top = y + 'px';
+    }
+    function hide() { tip.style.opacity = '0'; }
+    els.forEach(function (el) {
+      el.addEventListener('mouseenter', show);
+      el.addEventListener('mousemove', move);
+      el.addEventListener('mouseleave', hide);
+    });
+  })();
+</script>
