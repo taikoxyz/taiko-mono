@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -86,5 +87,48 @@ func TestTxListMatchesBlockRejectsMissingTx(t *testing.T) {
 
 	if txListMatchesBlock(block, txs[:len(txs)-1]) {
 		t.Fatalf("expected a truncated tx list to not match the block")
+	}
+}
+
+// TestKnownBlockContentAcceptsMatchingPayloadIDWhenSealerDroppedTxs pins the
+// derivation-inserted case: the sealer dropped transactions from the manifest list while
+// sealing, so the block's transactions root cannot match the pre-sealing list, but the
+// recorded BuildPayloadArgs ID (computed from the same pre-sealing list at insertion time)
+// equals the recomputed one and must be accepted.
+func TestKnownBlockContentAcceptsMatchingPayloadIDWhenSealerDroppedTxs(t *testing.T) {
+	manifestTxs := testTxList(t)
+	sealedBlock := testBlockWithTxs(t, manifestTxs[:len(manifestTxs)-1])
+
+	id := engine.PayloadID{0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}
+	if !knownBlockContent(sealedBlock, manifestTxs, [8]byte(id), id) {
+		t.Fatalf("expected a matching recorded payload ID to prove the block known despite dropped txs")
+	}
+}
+
+func TestKnownBlockContentRejectsZeroStoredIDWhenTxRootDiffers(t *testing.T) {
+	manifestTxs := testTxList(t)
+	sealedBlock := testBlockWithTxs(t, manifestTxs[:len(manifestTxs)-1])
+
+	if knownBlockContent(sealedBlock, manifestTxs, [8]byte{}, engine.PayloadID{0x02, 0x01}) {
+		t.Fatalf("expected a zero recorded payload ID to not prove anything when the tx root differs")
+	}
+}
+
+func TestKnownBlockContentRejectsMismatchedPayloadIDWhenTxRootDiffers(t *testing.T) {
+	manifestTxs := testTxList(t)
+	sealedBlock := testBlockWithTxs(t, manifestTxs[:len(manifestTxs)-1])
+
+	stored := [8]byte{0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00}
+	if knownBlockContent(sealedBlock, manifestTxs, stored, engine.PayloadID{0x02, 0x01}) {
+		t.Fatalf("expected a mismatched recorded payload ID to not prove the block known")
+	}
+}
+
+func TestKnownBlockContentAcceptsExactTxListRegardlessOfPayloadID(t *testing.T) {
+	txs := testTxList(t)
+	block := testBlockWithTxs(t, txs)
+
+	if !knownBlockContent(block, txs, [8]byte{}, engine.PayloadID{0x02, 0x01}) {
+		t.Fatalf("expected an exact transactions root match to prove the block known on its own")
 	}
 }

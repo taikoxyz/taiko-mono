@@ -416,18 +416,33 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("withdrawals mismatch: %d != 0", block.Withdrawals().Len()))
 		return nil, false, nil
 	}
-	// If the transactions root matches, this block with exactly the derived transactions is
-	// already in the canonical chain.
-	// NOTE: the `BuildPayloadArgsID` recorded in L1Origin is deliberately NOT compared here:
-	// the preconfirmation insertion path derives its ID from the tx-list bytes exactly as
-	// gossiped over P2P, while a re-derivation recomputes it from a local re-encoding of the
-	// same transactions, so the two IDs differ even for identical blocks. Comparing them made
-	// this check fail for every already preconfirmed proposal, forcing a redundant re-insertion.
-	if !txListMatchesBlock(block, txs) {
+	// Rebuild the `BuildPayloadArgs` ID exactly as `createPayloadAndSetHead` records it for
+	// derivation-inserted blocks, then accept the block when either content proof holds
+	// (see `knownBlockContent`).
+	txListBytes, err := rlp.EncodeToBytes(txs)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to RLP encode tx list for block %d: %w", blockID, err)
+	}
+	var (
+		txListHash = crypto.Keccak256Hash(txListBytes)
+		args       = &miner.BuildPayloadArgs{
+			Parent:       meta.Parent.Hash(),
+			Timestamp:    meta.Timestamp,
+			FeeRecipient: meta.SuggestedFeeRecipient,
+			Random:       meta.MixHash,
+			Withdrawals:  make([]*types.Withdrawal, 0),
+			Version:      engine.PayloadV2,
+			TxListHash:   &txListHash,
+			Extra:        meta.ExtraData,
+		}
+	)
+	if !knownBlockContent(block, txs, l1Origin.BuildPayloadArgsID, args.Id()) {
 		logUnknown(fmt.Sprintf(
-			"transactions root mismatch: block txs root %s does not match the derived tx list (%d txs)",
+			"block content mismatch: txs root %s vs derived tx list (%d txs), stored payload ID %s, recomputed payload ID %s",
 			block.TxHash().Hex(),
 			len(txs),
+			engine.PayloadID(l1Origin.BuildPayloadArgsID),
+			args.Id(),
 		))
 		return nil, false, nil
 	}
@@ -800,4 +815,28 @@ func IsBasedOnCanonicalChain(
 // the byte-level serialization of the tx list used by whichever path inserted the block.
 func txListMatchesBlock(block *types.Block, txs types.Transactions) bool {
 	return block.TxHash() == types.DeriveSha(txs, trie.NewStackTrie(nil))
+}
+
+// knownBlockContent checks whether the canonical block's content is proven to match the
+// derived proposal block, accepting either of two proofs:
+//   - the block's transactions root equals the one derived from the given tx list, which is
+//     serialization-independent and covers preconfirmation-inserted blocks, whose recorded
+//     `BuildPayloadArgs` ID hashes the gossiped tx-list bytes rather than a local re-encoding;
+//   - the recorded `BuildPayloadArgs` ID equals the one recomputed from the derived tx list,
+//     which covers derivation-inserted blocks whose sealer dropped or truncated transactions
+//     while sealing, so their transactions root cannot match the pre-sealing manifest list.
+//
+// A zero recorded ID (e.g. L1Origins backfilled for beacon-synced blocks) proves nothing and
+// must pass the transactions-root comparison.
+func knownBlockContent(
+	block *types.Block,
+	txs types.Transactions,
+	storedID [8]byte,
+	recomputedID engine.PayloadID,
+) bool {
+	if txListMatchesBlock(block, txs) {
+		return true
+	}
+
+	return storedID != [8]byte{} && bytes.Equal(storedID[:], recomputedID[:])
 }
