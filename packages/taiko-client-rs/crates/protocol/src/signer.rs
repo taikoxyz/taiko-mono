@@ -6,6 +6,7 @@ use k256::{
     elliptic_curve::{
         bigint::U256 as ScalarModulus,
         ff::PrimeField,
+        group::prime::PrimeCurveAffine,
         ops::{MulByGenerator, Reduce},
         point::AffineCoordinates,
         scalar::IsHigh,
@@ -95,8 +96,10 @@ impl FixedKSigner {
         &self,
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
+        // For k = 1, kG is the generator and k^-1 is one, so skip the generic
+        // scalar multiplication and inversion path.
         if let Ok(signature) =
-            self.sign_with_k_components(AffinePoint::GENERATOR, Scalar::ONE, hash)
+            self.sign_with_k_components(AffinePoint::generator(), Scalar::ONE, hash)
         {
             debug!(candidate = ?Scalar::ONE, "generated signature with fixed k");
             return Ok(signature);
@@ -126,6 +129,8 @@ impl FixedKSigner {
     }
 
     /// Finish signing from the affine nonce point and inverse nonce scalar.
+    ///
+    /// `k_point` and `kinv` must be derived from the same non-zero nonce scalar.
     fn sign_with_k_components(
         &self,
         k_point: AffinePoint,
