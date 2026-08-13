@@ -209,6 +209,20 @@ contract Proposal0020 is BuildDirectProposal {
             );
         }
 
+        // Action 6 effect: every account still enumerated by the registry is a listed
+        // signer, i.e. the removed members were pruned (their appointerOf/agent mappings
+        // persist, as documented in Proposal0020.md).
+        address[] memory registered = abi.decode(
+            readRaw(L1.DAO_ENCRYPTION_REGISTRY, abi.encodeWithSignature("getRegisteredAccounts()")),
+            (address[])
+        );
+        for (uint256 i; i < registered.length; ++i) {
+            check(
+                readBool(L1.DAO_SIGNER_LIST, "isListed(address)", registered[i]),
+                "unlisted account still registered"
+            );
+        }
+
         // The invariant behind the mandatory rotation: once listed, SC_GUSTAVO_GONZALEZ must
         // not be any seat's appointed agent.
         check(

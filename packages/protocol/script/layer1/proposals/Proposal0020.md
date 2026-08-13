@@ -62,7 +62,9 @@ and committed as `Proposal0020.action.md`.
 Action 6 removes the delisted members from the registry's account enumeration only; their
 `appointerOf`/agent mappings persist. This is harmless — an unlisted appointer can never
 resolve for approvals — but their former agent addresses stay reserved and cannot be
-appointed by other seats.
+appointed by other seats. See `removeUnused()` in
+[EncryptionRegistry.sol](https://github.com/taikoxyz/dao-contracts/blob/main/src/EncryptionRegistry.sol);
+the dryrun's `checkPostState` asserts the pruning.
 
 Member addresses (from the on-chain SignerList census, cross-checked against
 `security-council-profiles.json` in `taikoxyz/dao-ui-mono`):

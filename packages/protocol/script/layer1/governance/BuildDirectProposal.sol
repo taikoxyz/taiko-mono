@@ -33,10 +33,6 @@ abstract contract BuildDirectProposal is Script {
         bytes data;
     }
 
-    error MissingEnv(string name);
-    error CheckFailed(string what);
-    error InvalidMode(string mode);
-
     function run() external {
         string memory mode = vm.envString("MODE");
         if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
@@ -259,9 +255,17 @@ abstract contract BuildDirectProposal is Script {
         return "?";
     }
 
-    function readRaw(address _target, bytes memory _data) private view returns (bytes memory) {
+    function readRaw(address _target, bytes memory _data) internal view returns (bytes memory) {
         (bool ok, bytes memory ret) = _target.staticcall(_data);
         check(ok, "staticcall reverted");
         return ret;
     }
+
+    // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    error MissingEnv(string name);
+    error CheckFailed(string what);
+    error InvalidMode(string mode);
 }
