@@ -21,7 +21,7 @@ Enabling them natively gives Taiko:
 - **Price-independent data availability**: a fee lane whose floor and ceiling Taiko controls, insulated from L1 blob-fee spikes.
 - **Preconfirmation-speed availability**: blob data usable by consumers in ~2s, vs 12s L1 slots plus batch cadence.
 - **A DA product for L3s and data-heavy applications** (rollups settling on Taiko, coprocessor inputs, orderbook/game state, preconfirmation metadata) inside Taiko's own trust envelope — today such users must pay L2 execution gas for calldata (which then also lands in Taiko's L1 blobs) or leave the trust zone for an external DA committee.
-- **Completed Osaka equivalence**: post-Unzen, the blob transaction is the single Osaka feature Taiko rejects. No production L2 accepts type-3 transactions today; Taiko would be the first.
+- **Completed equivalence**: post-Unzen, the blob transaction — introduced in Cancun, still current through Osaka — is the only piece of mainnet's transaction/EVM surface Taiko rejects. No production L2 accepts type-3 transactions today; Taiko would be the first.
 
 ### Non-goals
 
@@ -59,7 +59,7 @@ Consequence: unlike L1 — where `is_data_available()` gates block import in for
 | `BLOB_RETENTION_SECONDS_DEFAULT` | `7_776_000` | 90 days; default node configuration, MUST be ≥ `BLOB_RETENTION_SECONDS_MIN` for serving nodes |
 | `MAX_BLOB_TXS_PER_ACCOUNT_POOL` | `16` | blobpool per-account cap (upstream geth default) |
 
-Versioned-hash version byte remains `0x01` (`0x01 ‖ sha256(kzg_commitment)[1:]`); KZG parameters (BLS12-381, the EF ceremony trusted setup) are unchanged from L1. **Sidecars use the Osaka cell-proof format end-to-end** (`BlobSidecarVersion1`: blob ‖ commitment ‖ 128 cell proofs; ≈6 KiB of proofs per blob, <5% overhead): it is the format the post-Fusaka blobpool stores, the only format `engine_getBlobsV2` serves (taiko-geth `eth/catalyst/api.go:746`, which also returns null if any requested hash is unavailable), and the wrapper current wallets/SDKs already produce for L1. Mandating the older single-proof wrapper would strand transactions at the §6 hand-off; using cell proofs from day one also makes the §7.3 sampling upgrade format-free.
+Versioned-hash version byte remains `0x01` (`0x01 ‖ sha256(kzg_commitment)[1:]`); KZG parameters (BLS12-381, the EF ceremony trusted setup) are unchanged from L1. **Sidecars use the Osaka-era cell-proof format end-to-end** (`BlobSidecarVersion1` — geth's *type* constant for the cell-proof form, not to be confused with engine *method* numbering, where `getBlobsV1` serves the older V0 single-proof sidecars: blob ‖ commitment ‖ 128 cell proofs; ≈6 KiB of proofs per blob, <5% overhead): it is the format the post-Fusaka blobpool stores, the only format `engine_getBlobsV2` serves (taiko-geth `eth/catalyst/api.go:746`, which also returns null if any requested hash is unavailable), and the wrapper current wallets/SDKs already produce for L1. Mandating the older single-proof wrapper would strand transactions at the §6 hand-off; using cell proofs from day one also makes the §7.3 sampling upgrade format-free.
 
 ## 4. Consensus rules (provable, fork-gated on `IsV7`)
 
@@ -104,7 +104,7 @@ blob_base_fee = fake_exponential(MIN_BLOB_BASE_FEE, excess_blob_gas, BLOB_BASE_F
 ```
 
 - `excess_blob_gas` accumulates `parent.excessBlobGas + parent.blobGasUsed − TARGET_BLOB_GAS_PER_BLOCK`, floored at 0.
-- **Reserve floor — exactly EIP-7918's mechanism as deployed on L1 in Fusaka (mainnet, Dec 3 2025)**, enforced through the excess update, never as a `max()` clamp on the fee. The constants above are the deployed L1 values. Normatively:
+- **Reserve floor — exactly EIP-7918's mechanism as deployed on L1 in Fusaka (mainnet, Dec 3 2025)**, enforced through the excess update, never as a `max()` clamp on the fee. `BLOB_BASE_COST = 8192` and the mechanism itself are the deployed L1 values; `BLOB_BASE_FEE_UPDATE_FRACTION = 2_225_331` is deliberately **Taiko-specific** — derived as `(MAX − TARGET) × GAS_PER_BLOB / ln(1.125) = 262_144 / 0.1178` so that Taiko's smaller max−target delta reproduces L1's ≈12.5% per-full-block growth; copying an L1 fraction (post-BPO2: `11_684_671`) here would be wrong, and vice versa. Normatively:
 
   ```python
   def calc_excess_blob_gas(parent):
@@ -115,7 +115,7 @@ blob_base_fee = fake_exponential(MIN_BLOB_BASE_FEE, excess_blob_gas, BLOB_BASE_F
       return max(0, parent.excess_blob_gas + parent.blob_gas_used - TARGET_BLOB_GAS_PER_BLOCK)
   ```
 
-  At zero or sub-target demand below the floor, the price **holds** instead of decaying toward 1 wei — EIP-7918's intended behavior, not an omission; above the floor the standard update applies unchanged. With Taiko's small execution base fee this floor is intentionally low — the product is *cheap*; spam protection comes from the exponential lane and the per-block cap (§12.2), not the floor.
+  Below the floor the price never decays: it **holds** at exactly zero usage and rises gently with any nonzero usage (scaled by `(MAX − TARGET)/MAX`) — EIP-7918's intended behavior, not an omission; above the floor the standard update applies unchanged. With Taiko's small execution base fee this floor is intentionally low — the product is *cheap*; spam protection comes from the exponential lane and the per-block cap (§12.2), not the floor.
 - `BLOB_BASE_FEE_UPDATE_FRACTION = 2_225_331` gives ≈ ×1.125 per fully-utilized block — the same per-block max growth as L1. Taiko blocks are ~6× more frequent than L1 slots, so in wall-clock the market reacts ~6× faster; this is deliberate (faster spam shutdown, §12.2).
 - **Fee routing — launch with the L1 burn.** At V7, blob fees keep stock EIP-4844 semantics: debited in `buyGas`, credited to no one. This keeps the launch state-transition delta at exactly "standard Osaka blob rules", with no bespoke credit path to build in geth/reth or mirror in the prover — which is what makes §9's near-zero-prover-delta claim true. Routing a share of blob fees to serving operators (e.g. along `basefeeSharingPctg`, compensating the §7.1 obligation) is a real incentive question, but it is a self-contained follow-up fork (§15.5), not a launch requirement; nothing else in this design depends on it.
 
