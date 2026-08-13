@@ -3,12 +3,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+use alloy_signer_local::PrivateKeySigner;
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
     api::service::{
         HAND_OVER_WINDOW_SLOTS, SHUTDOWN_BLOCK_WINDOW, SHUTDOWN_IMMINENCE_MARGIN_SLOTS,
-        can_shutdown_for,
+        WhitelistApiService, can_shutdown_for,
     },
     cache::SharedPreconfState,
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
@@ -26,6 +27,17 @@ const IMMINENCE_BAND_START: u64 =
 /// A slot comfortably outside the imminence band, so activity-focused tests
 /// exercise only the request-recency rule.
 const MID_EPOCH_SLOT: u64 = 2;
+
+#[test]
+fn whitelist_service_uses_standard_signer() {
+    fn assert_standard_signer(_: &PrivateKeySigner) {}
+
+    fn check_service_signer(service: &WhitelistApiService) {
+        assert_standard_signer(&service.signer);
+    }
+
+    let _ = check_service_signer as fn(&WhitelistApiService);
+}
 
 fn compress(payload: &[u8]) -> Vec<u8> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
