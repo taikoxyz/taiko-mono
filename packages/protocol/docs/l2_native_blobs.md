@@ -33,7 +33,7 @@ Enabling them natively gives Taiko:
 
 > **Execution state never depends on blob bodies — only on `blobVersionedHashes` carried inside transaction envelopes.**
 
-This is EIP-4844's own design and it transfers verbatim to L2:
+This is [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)'s own design and it transfers verbatim to L2:
 
 1. A type-3 transaction's canonical RLP encoding (the form that enters txlists and therefore L1 blobs via the proposal manifest) contains the versioned hashes but **no sidecar**. Today's manifest encoding of a type-3 transaction is already correct.
 2. The state transition function reads only the hashes (`BLOBHASH`, intrinsic blob-gas accounting). Two nodes with the same txlist compute identical state whether or not either ever saw a blob body.
@@ -53,13 +53,13 @@ Consequence: unlike L1 — where `is_data_available()` gates block import in for
 | `TARGET_BLOB_GAS_PER_BLOCK` | `131_072` | `TARGET_BLOBS_PER_BLOCK × GAS_PER_BLOB` |
 | `MAX_BLOB_GAS_PER_BLOCK` | `393_216` | `MAX_BLOBS_PER_BLOCK × GAS_PER_BLOB` |
 | `MIN_BLOB_BASE_FEE` | `1` wei | absolute floor |
-| `BLOB_BASE_FEE_UPDATE_FRACTION` | `2_225_331` | ≈ +12.5% per full block at sustained max, mirroring L1's per-block max growth rate (§5) |
+| `BLOB_BASE_FEE_UPDATE_FRACTION` | `2_225_331` | realized ×1.12502 per full block at sustained max (rounded-ln derivation, §5), mirroring L1's ≈×1.125 per-block max growth rate |
 | `BLOB_BASE_COST` | `8_192` | EIP-7918-style reserve-floor coupling to the execution base fee (§5) |
 | **`BLOB_RETENTION_SECONDS_MIN`** | **`6_291_456`** | **≈ 72.8 days = 4 × Ethereum's `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` (4096 epochs × 384 s). Design requirement: at least 4× L1's retention window.** |
 | `BLOB_RETENTION_SECONDS_DEFAULT` | `7_776_000` | 90 days; default node configuration, MUST be ≥ `BLOB_RETENTION_SECONDS_MIN` for serving nodes |
 | `MAX_BLOB_TXS_PER_ACCOUNT_POOL` | `16` | blobpool per-account cap (upstream geth default) |
 
-Versioned-hash version byte remains `0x01` (`0x01 ‖ sha256(kzg_commitment)[1:]`); KZG parameters (BLS12-381, the EF ceremony trusted setup) are unchanged from L1. **Sidecars use the Osaka-era cell-proof format end-to-end** (Fusaka is the L1 network upgrade; Osaka is its execution-layer fork name — the same fork, used interchangeably below) — `BlobSidecarVersion1` in geth's type nomenclature: `blob ‖ commitment ‖ 128 cell proofs`, ≈6 KiB of proofs per blob (<5% overhead). Engine *method* numbering differs from the type constants: `getBlobsV1` serves the older single-proof `BlobSidecarVersion0`, while `getBlobsV2`/`V3` serve `Version1`: it is the format the post-Fusaka blobpool stores, the only format `engine_getBlobsV2` serves (taiko-geth `eth/catalyst/api.go:746`, which also returns null if any requested hash is unavailable), and the wrapper current wallets/SDKs already produce for L1. Mandating the older single-proof wrapper would strand transactions at the §6 hand-off; using cell proofs from day one also makes the §7.3 sampling upgrade format-free.
+Versioned-hash version byte remains `0x01` (`0x01 ‖ sha256(kzg_commitment)[1:]`); KZG parameters (BLS12-381, the EF ceremony trusted setup) are unchanged from L1. **Sidecars use the Osaka-era cell-proof format end-to-end** (Fusaka is the L1 network upgrade; Osaka is its execution-layer fork name — the same fork, used interchangeably below) — `BlobSidecarVersion1` in geth's type nomenclature: `blob ‖ commitment ‖ 128 cell proofs`, ≈6 KiB of proofs per blob (<5% overhead). Engine *method* numbering differs from the type constants: `getBlobsV1` serves the older single-proof `BlobSidecarVersion0`, while `getBlobsV2`/`V3` serve `Version1`: it is the format [EIP-7594](https://eips.ethereum.org/EIPS/eip-7594) introduced, the one the post-Fusaka blobpool stores, and the only format `engine_getBlobsV2` serves (taiko-geth `eth/catalyst/api.go:746`, which also returns null if any requested hash is unavailable), and the wrapper current wallets/SDKs already produce for L1. Mandating the older single-proof wrapper would strand transactions at the §6 hand-off; using cell proofs from day one also makes the §7.3 sampling upgrade format-free.
 
 ## 4. Consensus rules (provable, fork-gated on `IsV7`)
 
@@ -104,7 +104,7 @@ blob_base_fee = fake_exponential(MIN_BLOB_BASE_FEE, excess_blob_gas, BLOB_BASE_F
 ```
 
 - `excess_blob_gas` accumulates `parent.excessBlobGas + parent.blobGasUsed − TARGET_BLOB_GAS_PER_BLOCK`, floored at 0.
-- **Reserve floor — exactly EIP-7918's mechanism as deployed on L1 in Fusaka (mainnet, Dec 3 2025)**, enforced through the excess update, never as a `max()` clamp on the fee — an **anti-decay floor on the price path, not an instantaneous lower bound**: the current price can sit below it until usage accumulates excess (§4.2). `BLOB_BASE_COST = 8192` and the mechanism itself are the deployed L1 values; `BLOB_BASE_FEE_UPDATE_FRACTION = 2_225_331` is deliberately **Taiko-specific** — derived as `⌊(MAX − TARGET) × GAS_PER_BLOB / 0.1178⌋` with `ln(1.125) ≈ 0.117783` rounded to four decimals (L1's own fractions are likewise nearby integers rather than exact roundings), giving a realized max growth of ≈ ×1.12502 per full block; copying an L1 fraction (post-BPO2: `11_684_671`) here would be wrong, and vice versa. Normatively:
+- **Reserve floor — exactly [EIP-7918](https://eips.ethereum.org/EIPS/eip-7918)'s mechanism as deployed on L1 in Fusaka (mainnet, Dec 3 2025)**, enforced through the excess update, never as a `max()` clamp on the fee — an **anti-decay floor on the price path, not an instantaneous lower bound**: the current price can sit below it until usage accumulates excess (§4.2). `BLOB_BASE_COST = 8192` and the mechanism itself are the deployed L1 values; `BLOB_BASE_FEE_UPDATE_FRACTION = 2_225_331` is deliberately **Taiko-specific** — derived as `⌊(MAX − TARGET) × GAS_PER_BLOB / 0.1178⌋` with `ln(1.125) ≈ 0.117783` rounded to four decimals (L1's own fractions are likewise nearby integers rather than exact roundings), giving a realized max growth of ≈ ×1.12502 per full block; copying an L1 fraction (post-BPO2: `11_684_671`) here would be wrong, and vice versa. Normatively:
 
   ```python
   def calc_excess_blob_gas(parent):
@@ -189,7 +189,7 @@ An opt-in node profile that replicates received blobs into IPFS. It is a **repli
 #### 7.4.1 Content addressing and the index
 
 - **One blob = one IPFS raw block.** `BLOB_BYTES = 131_072` is well within IPFS block-size limits (Bitswap's ~1 MiB ceiling; 256 KiB is only the default file-chunking target), so each blob is stored as a single `raw`-codec block with no chunking; its CID is `CIDv1(raw, sha2-256(blob))`. Content addressing is deterministic: every node storing the same blob produces the same CID.
-- **Bodies and commitments only — cell proofs are deliberately not archived.** Proofs are derivable from the blob (`compute_cells_and_kzg_proofs`), so archiving them would be redundant data. Archived blobs are verified by commitment re-derivation (cheap). Reconstructing a full `BlobSidecarVersion1` from archive — needed only to re-inject into pool/preconf pipelines, which never consume from IPFS — costs one cell-proof computation per blob: bounded, off the serving path, and acceptable for the archival tier this profile is.
+- **Bodies and commitments only — cell proofs are deliberately not archived.** Proofs are derivable from the blob (`compute_cells_and_kzg_proofs`), so archiving them would be redundant data. Archived blobs are verified by commitment re-derivation (cheap). Reconstructing a full `BlobSidecarVersion1` from archive — needed only to re-inject into pool/preconf pipelines, which never consume from IPFS — costs one `compute_cells_and_kzg_proofs` invocation per blob, which produces all 128 cell proofs: bounded, off the serving path, and acceptable for the archival tier this profile is.
 - **The versioned hash cannot be a CID.** `versionedHash = 0x01 ‖ sha256(kzg_commitment)[1:]` commits to the KZG commitment, not to `sha256(blob)`, so a `versionedHash → CID` index is unavoidable. The index is an **untrusted hint**: retrieval is doubly self-verifying — IPFS checks the bytes against the CID, and the consumer re-derives the KZG commitment and checks it against the versioned hash (the same code path used against untrusted L1 blob servers, `packages/taiko-client/pkg/rpc/blob_datasource.go:210-218`). Any gateway, any pinner, zero added trust.
 - **Bundles, not per-blob pins.** At target throughput (~43k blobs/day) per-blob pinning would announce ~43k new CIDs/day to the DHT — Kubo's known reprovide scaling cliff. Blobs are therefore grouped into deterministic **bundles**:
 
@@ -272,7 +272,7 @@ The taiko-reth migration (in progress) inherits all of the above from upstream r
 | --- | --- | --- |
 | Preconf envelope | Add `blobSidecars` behind a bumped envelope/codec version (Go + Rust): V7-aware nodes accept both forms until the fork timestamp, after which sidecar-less envelopes containing type-3 txs are invalid; clients upgrade ahead of the fork via the normal preconf rollout path; validation per §6.3 | `packages/taiko-client/driver/preconf_blocks/server.go:923-962`; `packages/taiko-client-rs/crates/whitelist-preconfirmation-driver/src/importer/{ingress,validation}.rs`, `codec.rs` |
 | Import | Relax the `== 0` pins on blob header fields at the fork gate; verify against computed values | `packages/taiko-client/driver/chain_syncer/event/blocks_inserter/common.go:378-407` |
-| Sidecar store | New component: persist / prune / serve / backfill per §7.2, gated by `--taiko.blobs.serve` and `--taiko.blobs.retention` (serve defaults on only where §7.2 obliges it); reuses the KZG re-derivation code | new; validation code from `packages/taiko-client/pkg/rpc/blob_datasource.go:173-218` |
+| Sidecar store | New component: persist / prune / serve / backfill per §7.2, gated by `--taiko.blobs.serve` and `--taiko.blobs.retention` (serve defaults: **on** for preconfer deployments — obligated — and for public RPC provider profiles — recommended; **off** for all other full nodes); reuses the KZG re-derivation code | new; validation code from `packages/taiko-client/pkg/rpc/blob_datasource.go:173-218` |
 | Proposer | No structural change (canonical RLP already excludes sidecars). Manifest schema/docs gain the two type-3 fields (§4.3.2) | `packages/taiko-client/bindings/manifest/manifest.go`; Derivation.md |
 | Prover (raiko) | No body proving. STF gains Osaka blob-gas validity rules — inherited from revm/reth. zk-gas already priced (§4.4) | raiko STF config |
 | L1 contracts | **None required.** Optional later: availability-attestation/bond registry (§15) | — |
@@ -340,7 +340,7 @@ This design intentionally makes Taiko a superset of Osaka behavior gated on a Ta
 | 1 | Spec review (this document), parameter sign-off (`TARGET/MAX`, retention default, update fraction) | protocol + client teams |
 | 2 | Devnet: taiko-reth + Rust driver implementation; `--taiko.devnet-v7-time 0`; Nethermind chainspec flip; bandwidth/storage soak at max utilization | internal devnet |
 | 3 | Hoodi testnet fork; explorer + blob-indexer integration; IPFS archival profile pilot (§7.4); L3 pilot (an OP-stack or Taiko-stack L3 posting via L2 blobs) | Hoodi |
-| 4 | Mainnet V7 activation; preconfer serving obligations added to operator agreements | governance |
+| 4 | Mainnet V7 activation; preconfer serving obligations added to operator agreements; explicit sign-off that committee-grade custody with governance-grade enforcement is acceptable for a user-facing DA product (§7.1, §15.5) | governance |
 | 5+ | Sampling upgrade (§7.3); forced-inclusion hybrid (§15); RIP submission for cross-rollup standardization of L2 blob semantics | later forks |
 
 ## 14. Alternatives considered
