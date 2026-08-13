@@ -10,11 +10,11 @@ import "../governance/BuildDirectProposal.sol";
 // To dryrun the proposal on an L1 fork: `SENDER=<a member or agent> P=0020 pnpm proposal:dryrun:l1`
 contract Proposal0020 is BuildDirectProposal {
     // All seat addresses live in LibL1Addrs ("Security Council seats" section): the new
-    // independent seat L1.GUSTAVO_GONZALEZ (EOA); the removed L1.CHAINBOUND, L1.HALBORN,
-    // L1.DREW_VAN_DER_WERFF, L1.TONI_WAHRSTATTER, L1.GATTACA; and the retained
-    // L1.TAIKO_LABS, L1.L2BEAT, L1.ARAGON, L1.NETHERMIND (dryrun assertions only).
+    // independent seat L1.SC_GUSTAVO_GONZALEZ (EOA); the removed L1.SC_CHAINBOUND, L1.SC_HALBORN,
+    // L1.SC_DREW_VAN_DER_WERFF, L1.SC_TONI_WAHRSTATTER, L1.SC_GATTACA; and the retained
+    // L1.SC_TAIKO_LABS, L1.SC_L2BEAT, L1.SC_ARAGON, L1.SC_NETHERMIND (dryrun assertions only).
     //
-    // IMPORTANT: GUSTAVO_GONZALEZ is currently the encryption agent appointed by the
+    // IMPORTANT: SC_GUSTAVO_GONZALEZ is currently the encryption agent appointed by the
     // Taiko Labs seat. Before this proposal EXECUTES, Taiko Labs must appoint a
     // replacement agent (EncryptionRegistry.appointAgent from the Taiko Labs Safe). If it
     // is still appointed at execution time, the Taiko Labs seat is left without a valid
@@ -40,14 +40,14 @@ contract Proposal0020 is BuildDirectProposal {
     /// its final size (minApprovals is checked against the then-current list length).
     function buildDaoActions() internal pure override returns (Action[] memory actions_) {
         address[] memory toAdd = new address[](1);
-        toAdd[0] = L1.GUSTAVO_GONZALEZ;
+        toAdd[0] = L1.SC_GUSTAVO_GONZALEZ;
 
         address[] memory toRemove = new address[](5);
-        toRemove[0] = L1.CHAINBOUND;
-        toRemove[1] = L1.HALBORN;
-        toRemove[2] = L1.DREW_VAN_DER_WERFF;
-        toRemove[3] = L1.TONI_WAHRSTATTER;
-        toRemove[4] = L1.GATTACA;
+        toRemove[0] = L1.SC_CHAINBOUND;
+        toRemove[1] = L1.SC_HALBORN;
+        toRemove[2] = L1.SC_DREW_VAN_DER_WERFF;
+        toRemove[3] = L1.SC_TONI_WAHRSTATTER;
+        toRemove[4] = L1.SC_GATTACA;
 
         actions_ = new Action[](6);
         actions_[0] = Action({
@@ -140,15 +140,15 @@ contract Proposal0020 is BuildDirectProposal {
         );
 
         address[9] memory current = [
-            L1.TAIKO_LABS,
-            L1.L2BEAT,
-            L1.ARAGON,
-            L1.NETHERMIND,
-            L1.CHAINBOUND,
-            L1.HALBORN,
-            L1.DREW_VAN_DER_WERFF,
-            L1.TONI_WAHRSTATTER,
-            L1.GATTACA
+            L1.SC_TAIKO_LABS,
+            L1.SC_L2BEAT,
+            L1.SC_ARAGON,
+            L1.SC_NETHERMIND,
+            L1.SC_CHAINBOUND,
+            L1.SC_HALBORN,
+            L1.SC_DREW_VAN_DER_WERFF,
+            L1.SC_TONI_WAHRSTATTER,
+            L1.SC_GATTACA
         ];
         for (uint256 i; i < current.length; ++i) {
             check(
@@ -157,20 +157,20 @@ contract Proposal0020 is BuildDirectProposal {
             );
         }
         check(
-            !readBool(L1.DAO_SIGNER_LIST, "isListed(address)", L1.GUSTAVO_GONZALEZ),
+            !readBool(L1.DAO_SIGNER_LIST, "isListed(address)", L1.SC_GUSTAVO_GONZALEZ),
             "new member already listed"
         );
     }
 
-    /// @dev Models the mandatory out-of-band step: Taiko Labs releases GUSTAVO_GONZALEZ
+    /// @dev Models the mandatory out-of-band step: Taiko Labs releases SC_GUSTAVO_GONZALEZ
     /// as its encryption agent before the DAO executes the actions (the real rotation
     /// appoints a replacement agent instead of un-appointing).
     function simulatePreExecution() internal override {
         address appointer =
-            readAddr(L1.DAO_ENCRYPTION_REGISTRY, "appointerOf(address)", L1.GUSTAVO_GONZALEZ);
+            readAddr(L1.DAO_ENCRYPTION_REGISTRY, "appointerOf(address)", L1.SC_GUSTAVO_GONZALEZ);
         if (appointer != address(0)) {
             console2.log(
-                "simulating agent rotation: releasing GUSTAVO_GONZALEZ, appointer:", appointer
+                "simulating agent rotation: releasing SC_GUSTAVO_GONZALEZ, appointer:", appointer
             );
             vm.prank(appointer);
             (bool ok,) = L1.DAO_ENCRYPTION_REGISTRY
@@ -182,16 +182,22 @@ contract Proposal0020 is BuildDirectProposal {
     function checkPostState() internal view override {
         check(readUint(L1.DAO_SIGNER_LIST, "addresslistLength()") == 5, "expected 5 members");
 
-        address[5] memory listed =
-            [L1.TAIKO_LABS, L1.L2BEAT, L1.ARAGON, L1.NETHERMIND, L1.GUSTAVO_GONZALEZ];
+        address[5] memory listed = [
+            L1.SC_TAIKO_LABS, L1.SC_L2BEAT, L1.SC_ARAGON, L1.SC_NETHERMIND, L1.SC_GUSTAVO_GONZALEZ
+        ];
         for (uint256 i; i < listed.length; ++i) {
             check(
                 readBool(L1.DAO_SIGNER_LIST, "isListed(address)", listed[i]),
                 "retained/new member not listed"
             );
         }
-        address[5] memory removed =
-            [L1.CHAINBOUND, L1.HALBORN, L1.DREW_VAN_DER_WERFF, L1.TONI_WAHRSTATTER, L1.GATTACA];
+        address[5] memory removed = [
+            L1.SC_CHAINBOUND,
+            L1.SC_HALBORN,
+            L1.SC_DREW_VAN_DER_WERFF,
+            L1.SC_TONI_WAHRSTATTER,
+            L1.SC_GATTACA
+        ];
         for (uint256 i; i < removed.length; ++i) {
             check(
                 !readBool(L1.DAO_SIGNER_LIST, "isListed(address)", removed[i]),
@@ -199,12 +205,12 @@ contract Proposal0020 is BuildDirectProposal {
             );
         }
 
-        // The invariant behind the mandatory rotation: once listed, GUSTAVO_GONZALEZ must
+        // The invariant behind the mandatory rotation: once listed, SC_GUSTAVO_GONZALEZ must
         // not be any seat's appointed agent.
         check(
-            readAddr(L1.DAO_ENCRYPTION_REGISTRY, "appointerOf(address)", L1.GUSTAVO_GONZALEZ)
+            readAddr(L1.DAO_ENCRYPTION_REGISTRY, "appointerOf(address)", L1.SC_GUSTAVO_GONZALEZ)
                 == address(0),
-            "GUSTAVO_GONZALEZ still appointed as an agent; Taiko Labs must rotate before execution"
+            "SC_GUSTAVO_GONZALEZ still an appointed agent; Taiko Labs must rotate before execution"
         );
 
         (address encryptionRegistry, uint16 minSignerListLength) = readSignerListSettings();
