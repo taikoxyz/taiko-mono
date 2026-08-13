@@ -264,6 +264,7 @@ abstract contract BuildDirectProposal is Script {
         returns (bytes memory)
     {
         (bool ok, bytes memory ret) = _target.staticcall(_data);
+        logIfReverted(ok, ret);
         check(ok, "staticcall reverted");
         return ret;
     }
