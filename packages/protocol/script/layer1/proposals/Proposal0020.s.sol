@@ -35,9 +35,10 @@ contract Proposal0020 is BuildDirectProposal {
     uint32 public constant DESTINATION_PROPOSAL_DURATION = 864_000; // 10-day veto period
     uint32 public constant PROPOSAL_EXPIRATION_PERIOD = 1_209_600; // 14 days
 
-    /// @dev Order is mandatory: the minSignerListLength floor (currently 8) must drop
-    /// before removeSigners, and the threshold updates must come after the list reaches
-    /// its final size (minApprovals is checked against the then-current list length).
+    /// @dev Contract-enforced ordering: the minSignerListLength floor (currently 8) must
+    /// drop before removeSigners, or action 3 reverts. Placing the threshold updates
+    /// after the list reaches its final size is defensive: the new minApprovals (3, 4)
+    /// satisfy the `<= addresslistLength()` check at every intermediate size.
     function buildDaoActions() internal pure override returns (Action[] memory actions_) {
         address[] memory toAdd = new address[](1);
         toAdd[0] = L1.SC_GUSTAVO_GONZALEZ;
@@ -92,7 +93,9 @@ contract Proposal0020 is BuildDirectProposal {
                 PROPOSAL_EXPIRATION_PERIOD
             )
         });
-        // Housekeeping: prunes the removed members' EncryptionRegistry entries.
+        // Housekeeping: prunes unlisted accounts from the EncryptionRegistry's account
+        // enumeration. Their appointerOf/agent mappings persist; harmless, as an unlisted
+        // appointer can never resolve for approvals.
         actions_[5] = Action({
             to: L1.DAO_ENCRYPTION_REGISTRY,
             value: 0,
@@ -160,6 +163,7 @@ contract Proposal0020 is BuildDirectProposal {
             !readBool(L1.DAO_SIGNER_LIST, "isListed(address)", L1.SC_GUSTAVO_GONZALEZ),
             "new member already listed"
         );
+        check(L1.SC_GUSTAVO_GONZALEZ.code.length == 0, "new member is not an EOA");
     }
 
     /// @dev Models the mandatory out-of-band step: Taiko Labs releases SC_GUSTAVO_GONZALEZ

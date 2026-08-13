@@ -42,9 +42,10 @@ settings change and the 2025-06-02 / 2026-01-19 membership changes all executed 
 from the DAO). `allowFailureMap` is fixed to 0 by the multisig, so any reverting action
 aborts execution.
 
-Ordering is mandatory: Action 1 must precede Action 3 (`removeSigners` reverts if the list
-would drop below `minSignerListLength`, currently 8), and Actions 4–5 must follow Action 3
-(`minApprovals ≤ addresslistLength()` is checked against the then-current list).
+Ordering: the contract-enforced dependency is Action 1 before Action 3 (`removeSigners`
+reverts if the list would drop below `minSignerListLength`, currently 8). Actions 4–5 are
+placed after Action 3 defensively: `minApprovals ≤ addresslistLength()` is checked against
+the then-current list, which the new thresholds (3, 4) satisfy at every intermediate size.
 
 | #   | Target                                                          | Call                                                              |
 | --- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -57,6 +58,11 @@ would drop below `minSignerListLength`, currently 8), and Actions 4–5 must fol
 
 The exact per-action calldata is produced by `Proposal0020.s.sol` (`P=0020 pnpm proposal`)
 and committed as `Proposal0020.action.md`.
+
+Action 6 removes the delisted members from the registry's account enumeration only; their
+`appointerOf`/agent mappings persist. This is harmless — an unlisted appointer can never
+resolve for approvals — but their former agent addresses stay reserved and cannot be
+appointed by other seats.
 
 Member addresses (from the on-chain SignerList census, cross-checked against
 `security-council-profiles.json` in `taikoxyz/dao-ui-mono`):
@@ -91,8 +97,9 @@ Member addresses (from the on-chain SignerList census, cross-checked against
 1. The new member EOA registers its encryption key via dao.taiko.xyz
    (`setOwnPublicKey`, only possible once listed); until then the seat can approve
    emergency proposals but cannot decrypt them.
-2. Taiko Labs' replacement agent registers its key the same way (rotation wiped the
-   stored key).
+2. Taiko Labs' replacement agent registers a new key for the seat via dao.taiko.xyz
+   (`setPublicKey`, callable only by the appointed agent — an agent is not listed, so
+   `setOwnPublicKey` does not apply; the rotation wiped the stored key).
 3. Update `security-council-profiles.json` in `taikoxyz/dao-ui-mono`; record execution in
    `deployments/mainnet-contract-logs-L1.md`.
 
@@ -120,7 +127,7 @@ SENDER=0x<member-or-agent> P=0020 pnpm proposal:dryrun:l1
 # 5. Submit, then confirm what landed on-chain matches this repo before approving —
 #    compare each stored action against Proposal0020.action.md (approvers should too):
 cast call 0xD7dA1C25E915438720692bC55eb3a7170cA90321 \
-  "getProposal(uint256)(bool,(uint16,uint64,uint64),bytes,(address,uint256,bytes)[],address)" \
+  "getProposal(uint256)(bool,uint16,(uint16,uint64,uint64),bytes,(address,uint256,bytes)[],address)" \
   <PROPOSAL_ID> --rpc-url <ETHEREUM_RPC>
 ```
 

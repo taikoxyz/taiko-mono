@@ -35,6 +35,7 @@ abstract contract BuildDirectProposal is Script {
 
     error MissingEnv(string name);
     error CheckFailed(string what);
+    error InvalidMode(string mode);
 
     function run() external {
         string memory mode = vm.envString("MODE");
@@ -44,6 +45,7 @@ abstract contract BuildDirectProposal is Script {
             dryrunL1();
         } else {
             console2.log("Error: Invalid mode. Must be one of: print, l1dryrun");
+            revert InvalidMode(mode);
         }
     }
 
@@ -76,7 +78,10 @@ abstract contract BuildDirectProposal is Script {
             vm.toString(L1.DAO_STANDARD_MULTISIG),
             "`.\nThe UI pins the metadata and assembles `createProposal`; paste each action",
             " below into the\nUI's custom-action (calldata) form, in order. After creation,",
-            " run the `verify` mode\nagainst the new proposal id before approving.\n\n",
+            " compare the actions\nstored on-chain against this file before approving (the",
+            " `getProposal` command in\nProposal",
+            _proposalId,
+            ".md).\n\n",
             "- Destination plugin (set by the UI): `",
             vm.toString(L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN),
             "`\n"
