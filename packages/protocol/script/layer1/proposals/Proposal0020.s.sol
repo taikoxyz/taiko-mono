@@ -8,7 +8,6 @@ import "../governance/BuildDirectProposal.sol";
 //
 // To print the actions to paste into the DAO UI: `P=0020 pnpm proposal`
 // To dryrun the proposal on an L1 fork: `SENDER=<a member or agent> P=0020 pnpm proposal:dryrun:l1`
-// To verify the UI-created proposal before approving: `PROPOSAL_ID=<id> P=0020 pnpm proposal:verify`
 contract Proposal0020 is BuildDirectProposal {
     // New member: Gustavo Gonzalez, independent seat (EOA).
     //

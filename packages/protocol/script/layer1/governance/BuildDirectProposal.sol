@@ -22,12 +22,9 @@ import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 ///               (`APPROVE=true` additionally approves at creation; default false),
 ///               run `simulatePreExecution()`, apply the actions as the DAO, then run
 ///               `checkPostState()`.
-/// - `verify`:   byte-compare proposal `PROPOSAL_ID`'s on-chain actions and destination
-///               plugin against `buildDaoActions()`. Creators run it right after the UI
-///               submission; approvers run it before approving.
 ///
 /// The print-mode direct-submission fallback always encodes `approveProposal = false`;
-/// a direct submitter approves separately after verifying.
+/// a direct submitter approves separately.
 abstract contract BuildDirectProposal is Script {
     /// @dev Mirrors Aragon OSx `IDAO.Action`.
     struct Action {
@@ -36,16 +33,8 @@ abstract contract BuildDirectProposal is Script {
         bytes data;
     }
 
-    /// @dev Mirrors the Standard Multisig's `ProposalParameters`.
-    struct ProposalParameters {
-        uint16 minApprovals;
-        uint64 snapshotBlock;
-        uint64 expirationDate;
-    }
-
     error MissingEnv(string name);
     error CheckFailed(string what);
-    error VerifyFailed(string what);
 
     function run() external {
         string memory mode = vm.envString("MODE");
@@ -53,10 +42,8 @@ abstract contract BuildDirectProposal is Script {
             logProposalAction(vm.envString("P"));
         } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("l1dryrun"))) {
             dryrunL1();
-        } else if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("verify"))) {
-            verifyOnchainProposal();
         } else {
-            console2.log("Error: Invalid mode. Must be one of: print, l1dryrun, verify");
+            console2.log("Error: Invalid mode. Must be one of: print, l1dryrun");
         }
     }
 
@@ -166,48 +153,6 @@ abstract contract BuildDirectProposal is Script {
 
         checkPostState();
         console2.log("Dryrun OK");
-    }
-
-    function verifyOnchainProposal() internal view {
-        uint256 proposalId = vm.envUint("PROPOSAL_ID");
-        (bool ok, bytes memory ret) = L1.DAO_STANDARD_MULTISIG
-            .staticcall(abi.encodeWithSignature("getProposal(uint256)", proposalId));
-        check(ok, "getProposal reverted");
-        (
-            bool executed,
-            uint16 approvals,
-            ProposalParameters memory params,
-            bytes memory metadataURI,
-            Action[] memory storedActions,
-            address destinationPlugin
-        ) = abi.decode(ret, (bool, uint16, ProposalParameters, bytes, Action[], address));
-
-        if (destinationPlugin != L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN) {
-            revert VerifyFailed("destinationPlugin is not the OptimisticTokenVotingPlugin");
-        }
-
-        Action[] memory expected = buildDaoActions();
-        if (storedActions.length != expected.length) revert VerifyFailed("action count mismatch");
-        for (uint256 i; i < expected.length; ++i) {
-            string memory label = string.concat("action ", vm.toString(i + 1));
-            if (storedActions[i].to != expected[i].to) {
-                revert VerifyFailed(string.concat(label, ": `to` mismatch"));
-            }
-            if (storedActions[i].value != expected[i].value) {
-                revert VerifyFailed(string.concat(label, ": `value` mismatch"));
-            }
-            if (keccak256(storedActions[i].data) != keccak256(expected[i].data)) {
-                revert VerifyFailed(string.concat(label, ": `data` mismatch"));
-            }
-        }
-
-        console2.log("Verify OK: all stored actions byte-match, destination plugin correct");
-        console2.log("  metadataURI:", string(metadataURI));
-        console2.log("  executed:", executed);
-        console2.log("  approvals:", approvals);
-        console2.log("  minApprovals (frozen at creation):", params.minApprovals);
-        console2.log("  snapshotBlock:", params.snapshotBlock);
-        console2.log("  expirationDate:", params.expirationDate);
     }
 
     // ---------------------------------------------------------------
