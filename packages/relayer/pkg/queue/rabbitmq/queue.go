@@ -325,6 +325,14 @@ func (r *RabbitMQ) Nack(ctx context.Context, msg queue.Message, requeue bool) er
 	return nil
 }
 
+func logNotifyClose(msg string, err *amqp.Error) {
+	if err != nil {
+		slog.Error(msg, "err", err.Error())
+	} else {
+		slog.Error(msg)
+	}
+}
+
 // Notify should be called by publishers who wish to be notified of subscription errors.
 func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 	wg.Add(1)
@@ -342,11 +350,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return nil
 		case err := <-r.connErrCh:
-			if err != nil {
-				slog.Error("rabbitmq notify close connection", "err", err.Error())
-			} else {
-				slog.Error("rabbitmq notify close connection")
-			}
+			logNotifyClose("rabbitmq notify close connection", err)
 
 			relayer.QueueConnectionNotifyClosed.Inc()
 
@@ -359,11 +363,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			if err != nil {
-				slog.Error("rabbitmq notify close channel", "err", err.Error())
-			} else {
-				slog.Error("rabbitmq notify close channel")
-			}
+			logNotifyClose("rabbitmq notify close channel", err)
 
 			relayer.QueueChannelNotifyClosed.Inc()
 
@@ -447,11 +447,11 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 			return nil
 		case err := <-r.connErrCh:
-			slog.Error("rabbitmq notify close connection", "err", err.Error())
+			logNotifyClose("rabbitmq notify close connection", err)
 
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			slog.Error("rabbitmq notify close channel", "err", err.Error())
+			logNotifyClose("rabbitmq notify close channel", err)
 
 			return queue.ErrClosed
 		case d, ok := <-msgs:
