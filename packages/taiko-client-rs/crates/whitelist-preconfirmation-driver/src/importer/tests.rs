@@ -7,6 +7,8 @@ use alloy_consensus::{
 use alloy_eips::{Encodable2718, eip2930::AccessList};
 use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
+use alloy_signer::SignerSync;
+use alloy_signer_local::PrivateKeySigner;
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
 use crate::{
@@ -113,6 +115,29 @@ fn signed_anchor_tx_bytes(
 
     let envelope =
         TxEnvelope::new_unhashed(EthereumTypedTransaction::Eip1559(tx), signature.signature);
+    envelope.encoded_2718().to_vec()
+}
+
+fn standard_signed_anchor_tx_bytes(
+    signer: &PrivateKeySigner,
+    chain_id: u64,
+    anchor_address: Address,
+    selector: [u8; 4],
+) -> Vec<u8> {
+    let tx = TxEip1559 {
+        chain_id,
+        nonce: 0,
+        max_fee_per_gas: 1_000_000_000,
+        max_priority_fee_per_gas: 0,
+        gas_limit: 210_000,
+        to: alloy_primitives::TxKind::Call(anchor_address),
+        value: U256::ZERO,
+        access_list: AccessList::default(),
+        input: Bytes::from(selector.to_vec()),
+    };
+
+    let signature = signer.sign_hash_sync(&tx.signature_hash()).expect("sign anchor transaction");
+    let envelope = TxEnvelope::new_unhashed(EthereumTypedTransaction::Eip1559(tx), signature);
     envelope.encoded_2718().to_vec()
 }
 
@@ -470,9 +495,14 @@ fn validate_payload_rejects_anchor_with_wrong_recipient() {
 #[test]
 fn validate_payload_rejects_anchor_with_wrong_sender() {
     let anchor_address = sample_anchor_address();
-    let signer = FixedKSigner::new(NON_GOLDEN_SIGNER_PRIVATE_KEY).expect("non-golden signer key");
-    let tx_bytes =
-        signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, *ANCHOR_V4_SELECTOR);
+    let signer =
+        NON_GOLDEN_SIGNER_PRIVATE_KEY.parse::<PrivateKeySigner>().expect("non-golden signer key");
+    let tx_bytes = standard_signed_anchor_tx_bytes(
+        &signer,
+        TEST_CHAIN_ID,
+        anchor_address,
+        *ANCHOR_V4_SELECTOR,
+    );
     let envelope =
         sample_execution_payload_with_transactions(vec![encode_compressed_tx_list(vec![tx_bytes])]);
 
