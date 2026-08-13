@@ -6,11 +6,26 @@ use std::{
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
-    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for},
+    api::service::{
+        HAND_OVER_WINDOW_SLOTS, SHUTDOWN_BLOCK_WINDOW, SHUTDOWN_IMMINENCE_MARGIN_SLOTS,
+        can_shutdown_for,
+    },
     cache::SharedPreconfState,
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
 };
+
+/// Mainnet slots-per-epoch used by the shutdown tests.
+const SLOTS_PER_EPOCH: u64 = 32;
+
+/// First slot of the epoch at which the imminence guard starts refusing
+/// shutdown: the hand-over boundary minus the imminence margin.
+const IMMINENCE_BAND_START: u64 =
+    SLOTS_PER_EPOCH - HAND_OVER_WINDOW_SLOTS - SHUTDOWN_IMMINENCE_MARGIN_SLOTS;
+
+/// A slot comfortably outside the imminence band, so activity-focused tests
+/// exercise only the request-recency rule.
+const MID_EPOCH_SLOT: u64 = 2;
 
 fn compress(payload: &[u8]) -> Vec<u8> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -52,12 +67,12 @@ fn decompress_tx_list_accepts_non_empty_payload_within_limits() {
 
 #[test]
 fn can_shutdown_returns_true_when_no_request_received() {
-    assert!(can_shutdown_for(None));
+    assert!(can_shutdown_for(None, MID_EPOCH_SLOT, SLOTS_PER_EPOCH));
 }
 
 #[test]
 fn can_shutdown_returns_false_for_request_just_now() {
-    assert!(!can_shutdown_for(Some(Instant::now())));
+    assert!(!can_shutdown_for(Some(Instant::now()), MID_EPOCH_SLOT, SLOTS_PER_EPOCH));
 }
 
 #[test]
@@ -65,7 +80,7 @@ fn can_shutdown_returns_true_after_full_window_has_elapsed() {
     let well_past = Instant::now()
         .checked_sub(SHUTDOWN_BLOCK_WINDOW + Duration::from_secs(1))
         .expect("test platform must support subtracting from Instant::now");
-    assert!(can_shutdown_for(Some(well_past)));
+    assert!(can_shutdown_for(Some(well_past), MID_EPOCH_SLOT, SLOTS_PER_EPOCH));
 }
 
 #[test]
@@ -73,7 +88,27 @@ fn can_shutdown_returns_false_just_before_window_boundary() {
     let almost = Instant::now()
         .checked_sub(SHUTDOWN_BLOCK_WINDOW - Duration::from_secs(1))
         .expect("test platform must support subtracting from Instant::now");
-    assert!(!can_shutdown_for(Some(almost)));
+    assert!(!can_shutdown_for(Some(almost), MID_EPOCH_SLOT, SLOTS_PER_EPOCH));
+}
+
+#[test]
+fn can_shutdown_allows_just_before_imminence_band() {
+    assert!(can_shutdown_for(None, IMMINENCE_BAND_START - 1, SLOTS_PER_EPOCH));
+}
+
+#[test]
+fn can_shutdown_blocks_at_imminence_band_start() {
+    assert!(!can_shutdown_for(None, IMMINENCE_BAND_START, SLOTS_PER_EPOCH));
+}
+
+#[test]
+fn can_shutdown_blocks_through_epoch_tail() {
+    assert!(!can_shutdown_for(None, SLOTS_PER_EPOCH - 1, SLOTS_PER_EPOCH));
+}
+
+#[test]
+fn can_shutdown_allows_at_epoch_start() {
+    assert!(can_shutdown_for(None, 0, SLOTS_PER_EPOCH));
 }
 
 #[test]

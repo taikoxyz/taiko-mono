@@ -18,7 +18,7 @@ A Rust implementation of the Taiko Alethia protocol client, designed as an alter
 
 ## Prerequisites
 
-- Rust toolchain (1.88 or later)
+- Rust toolchain (1.95 or later)
 - Docker (for running tests)
 - Just (for simplified commands)
 

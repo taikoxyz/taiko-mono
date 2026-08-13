@@ -45,6 +45,7 @@ pub(crate) fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
         withdrawals: Some(Vec::new()),
         parent_beacon_block_root: None,
         slot_number: None,
+        target_gas_limit: None,
     };
     let block_metadata = TaikoBlockMetadata {
         beneficiary: Address::ZERO,

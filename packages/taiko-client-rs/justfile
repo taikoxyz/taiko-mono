@@ -3,16 +3,17 @@
 # `just test -E 'test(some_name)'` reaches nextest as two intact args).
 set positional-arguments := true
 
-toolchain := "nightly-2025-09-27"
+fmt_toolchain := "nightly-2025-09-27"
+udeps_toolchain := "nightly-2026-07-29"
 
 fmt:
-  rustup toolchain install {{toolchain}} && \
-  cargo +{{toolchain}} fmt && \
+  rustup toolchain install {{fmt_toolchain}} && \
+  cargo +{{fmt_toolchain}} fmt && \
   cargo sort --workspace --grouped
 
 fmt-check:
-  rustup toolchain install {{toolchain}} && \
-  cargo +{{toolchain}} fmt --check
+  rustup toolchain install {{fmt_toolchain}} && \
+  cargo +{{fmt_toolchain}} fmt --check
 
 check-features:
   cargo check -p protocol --no-default-features --locked && \
@@ -29,7 +30,8 @@ clippy-fix:
   cargo clippy --fix --workspace --all-features --no-deps --exclude bindings --allow-dirty --allow-staged -- -D warnings
 
 udeps:
-  cargo +{{toolchain}} udeps --all-targets
+  rustup toolchain install {{udeps_toolchain}} --profile minimal && \
+  cargo +{{udeps_toolchain}} udeps --all-targets
 
 test *ARGS:
   ./tests/entrypoint.sh "$@"

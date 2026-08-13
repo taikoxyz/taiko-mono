@@ -124,6 +124,7 @@ pub fn build_payload_attributes(input: PayloadAttributesInput) -> TaikoPayloadAt
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root,
             slot_number: None,
+            target_gas_limit: None,
         },
         base_fee_per_gas,
         block_metadata: TaikoBlockMetadata {
