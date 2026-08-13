@@ -255,7 +255,14 @@ abstract contract BuildDirectProposal is Script {
         return "?";
     }
 
-    function readRaw(address _target, bytes memory _data) internal view returns (bytes memory) {
+    function readRaw(
+        address _target,
+        bytes memory _data
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         (bool ok, bytes memory ret) = _target.staticcall(_data);
         check(ok, "staticcall reverted");
         return ret;
