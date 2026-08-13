@@ -1,12 +1,22 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import { type Address, getAddress, type Hash, type Hex, numberToHex, type TransactionReceipt } from 'viem';
+import {
+  type Address,
+  decodeAbiParameters,
+  decodeEventLog,
+  decodeFunctionData,
+  getAddress,
+  type Hash,
+  type Hex,
+  numberToHex,
+  type TransactionReceipt,
+} from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
-import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
+import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -30,6 +40,71 @@ const log = getLogger('RelayerAPIService');
 
 const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
 const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
+type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
+type BridgeTransactionAssetDetails = {
+  amount: bigint;
+  tokenType: TokenType;
+  canonicalTokenAddress?: Address;
+  symbol: string;
+  decimals?: number;
+};
+
+const onMessageInvocationAbi = [
+  {
+    type: 'function',
+    name: 'onMessageInvocation',
+    inputs: [{ name: 'data', type: 'bytes' }],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+] as const;
+
+const erc20InvocationParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'chainId', type: 'uint64' },
+      { name: 'addr', type: 'address' },
+      { name: 'decimals', type: 'uint8' },
+      { name: 'symbol', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+  },
+  { type: 'address' },
+  { type: 'address' },
+  { type: 'uint256' },
+] as const;
+
+const erc721InvocationParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'chainId', type: 'uint64' },
+      { name: 'addr', type: 'address' },
+      { name: 'symbol', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+  },
+  { type: 'address' },
+  { type: 'address' },
+  { type: 'uint256[]' },
+] as const;
+
+const erc1155InvocationParameters = [
+  {
+    type: 'tuple',
+    components: [
+      { name: 'chainId', type: 'uint64' },
+      { name: 'addr', type: 'address' },
+      { name: 'symbol', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+  },
+  { type: 'address' },
+  { type: 'address' },
+  { type: 'uint256[]' },
+  { type: 'uint256[]' },
+] as const;
 
 export function preserveMessageIntegerPrecision(rawResponse: string): string {
   return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
@@ -83,7 +158,9 @@ export class RelayerAPIService {
       }
 
       const { DestChainId: destChainId, SrcChainId: srcChainId } = Message;
-      const { bridgeAddress } = routingContractsMap[Number(srcChainId)][Number(destChainId)];
+      // The relayer can return rows for routes this UI is not configured for. Index defensively so a
+      // single unknown pair cannot throw and take the whole transaction list down with it.
+      const bridgeAddress = routingContractsMap[Number(srcChainId)]?.[Number(destChainId)]?.bridgeAddress;
       const { transactionHash, address } = Raw;
 
       // Check all conditions
@@ -92,9 +169,6 @@ export class RelayerAPIService {
       const isUniqueHash = !uniqueHashes.has(transactionHash);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
       const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
-
-      // If the transaction hash is unique, add it to the set for future checks
-      if (isUniqueHash) uniqueHashes.add(transactionHash);
 
       // All these conditions must be true
       const satisfiesAllConditions = [
@@ -105,10 +179,180 @@ export class RelayerAPIService {
         areChainsSupported,
       ].every(Boolean);
 
-      // If all conditions are satisfied, add the item to the filtered list
-      if (satisfiesAllConditions) filteredItems.push(item);
+      // Invalid rows must not consume the hash and hide a later valid duplicate.
+      if (satisfiesAllConditions) {
+        uniqueHashes.add(transactionHash);
+        filteredItems.push(item);
+      }
     }
     return filteredItems;
+  }
+
+  /**
+   * Recovers the authoritative (msgHash, message) pair for a bridge transaction by decoding the
+   * `MessageSent` logs of its source receipt. The relayer can pair a msgHash with a message body from a
+   * different transaction; the pair inside a single log is consistent by construction, so the receipt wins.
+   *
+   * Returns undefined when the route is unknown or no log belongs to the user. Returns null when several
+   * logs belong to the user and none can be tied back to the relayer row, because that row is unsafe to use.
+   */
+  private static _getBridgeMessageFromReceipt({
+    receipt,
+    srcChainId,
+    destChainId,
+    userAddress,
+    currentMsgHash,
+    currentMessageId,
+  }: {
+    receipt: TransactionReceipt;
+    srcChainId: number;
+    destChainId: number;
+    userAddress: Address;
+    currentMsgHash?: Hash;
+    currentMessageId?: bigint;
+  }) {
+    const bridgeAddress = routingContractsMap[srcChainId]?.[destChainId]?.bridgeAddress;
+
+    if (!bridgeAddress) return;
+
+    const user = getAddress(userAddress);
+    const candidates: { msgHash: Hash; message: Message }[] = [];
+
+    for (const receiptLog of receipt.logs) {
+      if (receiptLog.address.toLowerCase() !== bridgeAddress.toLowerCase()) continue;
+
+      try {
+        const decodedLog = decodeEventLog({
+          abi: bridgeAbi,
+          data: receiptLog.data,
+          topics: receiptLog.topics,
+        });
+
+        if (decodedLog.eventName !== 'MessageSent') continue;
+
+        const { msgHash, message } = decodedLog.args as {
+          msgHash?: Hash;
+          message?: DecodedBridgeMessage;
+        };
+
+        if (!msgHash || !message) continue;
+
+        // `gasLimit` is uint32 today, which viem decodes as a number, so this guard is inert. It is kept so a
+        // future widening of the ABI field surfaces as a skipped log rather than a silently truncated value.
+        const gasLimit = Number(message.gasLimit);
+        if (!Number.isSafeInteger(gasLimit)) {
+          log('Decoded bridge message has unsafe gas limit', {
+            gasLimit: message.gasLimit,
+            txHash: receipt.transactionHash,
+          });
+          continue;
+        }
+
+        const normalizedMessage: Message = { ...message, gasLimit };
+        const senderMatch = getAddress(normalizedMessage.srcOwner) === user;
+        const receiverMatch = getAddress(normalizedMessage.destOwner) === user;
+
+        if (senderMatch || receiverMatch) {
+          candidates.push({ msgHash, message: normalizedMessage });
+        }
+      } catch (error) {
+        log('Error decoding bridge receipt log', { error, txHash: receipt.transactionHash });
+      }
+    }
+
+    const exactMatch = currentMsgHash
+      ? candidates.find((candidate) => candidate.msgHash.toLowerCase() === currentMsgHash.toLowerCase())
+      : undefined;
+    if (exactMatch) return exactMatch;
+
+    if (candidates.length === 1) return candidates[0];
+
+    if (candidates.length > 1) {
+      // The msgHash tied us to nothing, so fall back to the message id as a secondary key. It is only usable
+      // when it singles out one log; anything else stays ambiguous.
+      const idMatches =
+        currentMessageId === undefined
+          ? []
+          : candidates.filter((candidate) => candidate.message.id === currentMessageId);
+
+      if (idMatches.length === 1) return idMatches[0];
+
+      console.warn('Multiple bridge receipt messages matched user without matching relayer msgHash', {
+        txHash: receipt.transactionHash,
+        currentMsgHash,
+        currentMessageId,
+      });
+      return null;
+    }
+  }
+
+  private static _getAssetDetailsFromMessage(message: Message): BridgeTransactionAssetDetails {
+    const fallbackDetails: BridgeTransactionAssetDetails = {
+      amount: message.value,
+      tokenType: TokenType.ETH,
+      canonicalTokenAddress: undefined,
+      symbol: 'ETH',
+      decimals: 18,
+    };
+
+    if (message.data === '0x') return fallbackDetails;
+
+    const destinationRoute = routingContractsMap[Number(message.destChainId)]?.[Number(message.srcChainId)];
+    if (!destinationRoute) return fallbackDetails;
+
+    try {
+      const decodedInvocation = decodeFunctionData({
+        abi: onMessageInvocationAbi,
+        data: message.data,
+      });
+      const invocationData = decodedInvocation.args[0];
+
+      if (
+        destinationRoute.erc20VaultAddress &&
+        message.to.toLowerCase() === destinationRoute.erc20VaultAddress.toLowerCase()
+      ) {
+        const [canonicalToken, , , amount] = decodeAbiParameters(erc20InvocationParameters, invocationData);
+        return {
+          amount,
+          tokenType: TokenType.ERC20,
+          canonicalTokenAddress: canonicalToken.addr,
+          symbol: canonicalToken.symbol,
+          decimals: canonicalToken.decimals,
+        };
+      }
+
+      if (
+        destinationRoute.erc721VaultAddress &&
+        message.to.toLowerCase() === destinationRoute.erc721VaultAddress.toLowerCase()
+      ) {
+        const [canonicalToken] = decodeAbiParameters(erc721InvocationParameters, invocationData);
+        return {
+          amount: 1n,
+          tokenType: TokenType.ERC721,
+          canonicalTokenAddress: canonicalToken.addr,
+          symbol: canonicalToken.symbol,
+          decimals: undefined,
+        };
+      }
+
+      if (
+        destinationRoute.erc1155VaultAddress &&
+        message.to.toLowerCase() === destinationRoute.erc1155VaultAddress.toLowerCase()
+      ) {
+        const [canonicalToken, , , , amounts] = decodeAbiParameters(erc1155InvocationParameters, invocationData);
+        return {
+          amount: amounts.reduce((total, amount) => total + amount, 0n),
+          tokenType: TokenType.ERC1155,
+          canonicalTokenAddress: canonicalToken.addr,
+          symbol: canonicalToken.symbol,
+          decimals: undefined,
+        };
+      }
+    } catch (error) {
+      log('Error decoding bridge message asset details', { error, messageId: message.id });
+    }
+
+    return fallbackDetails;
   }
 
   private static async _getBridgeMessageStatus({
@@ -120,7 +364,14 @@ export class RelayerAPIService {
     srcChainId: number;
     destChainId: number;
   }) {
-    const { bridgeAddress } = routingContractsMap[Number(destChainId)][Number(srcChainId)];
+    const bridgeAddress = routingContractsMap[Number(destChainId)]?.[Number(srcChainId)]?.bridgeAddress;
+
+    if (!bridgeAddress) {
+      // The caller drops the transaction when this returns undefined, so warn rather than debug-log: a route
+      // that silently disappears from the config would otherwise erase transactions with no trace.
+      console.warn('No bridge route configured for message status', { msgHash, srcChainId, destChainId });
+      return;
+    }
 
     const result = await readContract(config, {
       address: bridgeAddress,
@@ -265,7 +516,7 @@ export class RelayerAPIService {
 
       if (!senderMatch && !receiverMatch) return;
 
-      const { destChainId, srcChainId, srcTxHash, msgHash } = bridgeTx;
+      const { destChainId, srcChainId, srcTxHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
@@ -278,21 +529,67 @@ export class RelayerAPIService {
 
       bridgeTx.receipt = receipt as TransactionReceipt;
 
-      // Populate blockNumber from receipt if not provided by the relayer API
-      if (!bridgeTx.blockNumber && receipt) {
+      if (receipt) {
         bridgeTx.blockNumber = numberToHex(receipt.blockNumber);
+
+        const receiptMessage = RelayerAPIService._getBridgeMessageFromReceipt({
+          receipt,
+          srcChainId: Number(srcChainId),
+          destChainId: Number(destChainId),
+          userAddress: address,
+          currentMsgHash: bridgeTx.msgHash,
+          currentMessageId: bridgeTx.message?.id,
+        });
+
+        // A successful receipt with several user messages disproves the relayer pair without identifying a
+        // safe replacement. Do not expose that unrelated pair to status checks or claim actions.
+        if (receiptMessage === null) return;
+
+        if (receiptMessage) {
+          const msgHashChanged = bridgeTx.msgHash?.toLowerCase() !== receiptMessage.msgHash.toLowerCase();
+
+          if (msgHashChanged) {
+            // This is the signal that the relayer paired a msgHash with a foreign message body. Warn rather
+            // than debug-log so the rate of this corruption is observable in production.
+            console.warn('Relayer transaction data differs from receipt log', {
+              srcTxHash,
+              relayerMsgHash: bridgeTx.msgHash,
+              receiptMsgHash: receiptMessage.msgHash,
+            });
+          }
+
+          bridgeTx.msgHash = receiptMessage.msgHash;
+          bridgeTx.message = receiptMessage.message;
+          bridgeTx.processingFee = receiptMessage.message.fee;
+          bridgeTx.srcChainId = receiptMessage.message.srcChainId;
+          bridgeTx.destChainId = receiptMessage.message.destChainId;
+
+          Object.assign(bridgeTx, RelayerAPIService._getAssetDetailsFromMessage(receiptMessage.message));
+
+          if (msgHashChanged) {
+            // The row we started from described a different message, so everything keyed to the old msgHash
+            // is about that other message and cannot be trusted here. Drop it and let the on-chain status
+            // read below repopulate what matters.
+            bridgeTx.destTxHash = undefined;
+            bridgeTx.claimedBy = undefined;
+            bridgeTx.fee = undefined;
+          }
+        }
       }
 
-      if (!msgHash) return; //todo: handle this case
+      if (!bridgeTx.msgHash) return; //todo: handle this case
 
       const msgStatus = await RelayerAPIService._getBridgeMessageStatus({
-        msgHash,
-        srcChainId: Number(srcChainId),
-        destChainId: Number(destChainId),
+        msgHash: bridgeTx.msgHash,
+        srcChainId: Number(bridgeTx.srcChainId),
+        destChainId: Number(bridgeTx.destChainId),
       });
+
+      if (msgStatus === undefined) return;
 
       // Update the status
       bridgeTx.msgStatus = msgStatus;
+      bridgeTx.status = msgStatus;
 
       return bridgeTx;
     });
