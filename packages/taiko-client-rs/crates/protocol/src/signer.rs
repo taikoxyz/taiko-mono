@@ -46,7 +46,7 @@ pub enum FixedKSignerError {
     SigningFailed,
 }
 
-/// Deterministic secp256k1 signer.
+/// Deterministic secp256k1 signer for golden-touch anchor transactions.
 #[derive(Debug, Clone)]
 pub struct FixedKSigner {
     /// Secp256k1 private scalar used for fixed-k signing.
@@ -58,7 +58,7 @@ pub struct FixedKSigner {
 impl FixedKSigner {
     /// Instantiate a signer from a hex-encoded private key (with or without `0x`).
     #[instrument(skip(private_key_hex))]
-    pub fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
+    fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
         let trimmed = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
         let bytes = hex::decode_to_array::<_, 32>(trimmed)
             .map_err(|_| FixedKSignerError::InvalidPrivateKey)?;

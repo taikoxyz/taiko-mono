@@ -10140,6 +10140,8 @@ dependencies = [
  "alloy-rpc-types 1.8.3",
  "alloy-rpc-types-engine 1.8.3",
  "alloy-rpc-types-engine 2.2.0",
+ "alloy-signer",
+ "alloy-signer-local",
  "arc-swap",
  "async-trait",
  "axum",
