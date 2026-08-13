@@ -1132,7 +1132,7 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			s.recordLatestSeenProposal(proposal)
+			s.recordLatestSeenProposal(ctx, proposal)
 		case <-ticker.C:
 			s.monitorLatestProposalOnChain(ctx)
 		}
@@ -1216,7 +1216,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 		return
 	}
 
-	s.recordLatestSeenProposal(&encoding.LastSeenProposal{
+	s.recordLatestSeenProposal(ctx, &encoding.LastSeenProposal{
 		TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(
 			&shastaBindings.ShastaInboxClientProposed{
 				Id:                             recordedProposal.Id,
@@ -1235,8 +1235,22 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 	})
 }
 
+// reconciledHighestUnsafe returns the highest unsafe L2 payload block ID to report after the
+// preconfirmation chain was reorged by inserting a proposal: the live execution head when it
+// can be read, otherwise the current value. Execution engines differ in whether re-inserting
+// proposal blocks moves the head (taiko-geth rewinds to the proposal tip, while alethia-reth
+// keeps its head), and the Catalyst sync gate only opens when the reported value equals the
+// execution head exactly, so the live head is always the honest answer.
+func reconciledHighestUnsafe(head *types.Header, current uint64) uint64 {
+	if head == nil {
+		return current
+	}
+
+	return head.Number.Uint64()
+}
+
 // recordLatestSeenProposal records the latest seen proposal.
-func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
+func (s *PreconfBlockAPIServer) recordLatestSeenProposal(ctx context.Context, proposal *encoding.LastSeenProposal) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1252,11 +1266,24 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
 	}
 
-	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
+	// If the latest seen proposal reorged the preconfirmation chain, reconcile the highest
+	// unsafe L2 payload block ID with the live execution head instead of the proposal tip:
+	// whether inserting the proposal moved the head is engine-specific, and consumers compare
+	// this value against the execution head exactly (see `reconciledHighestUnsafe`). Keeping
+	// the current value on a failed head read means a transient RPC failure can never roll
+	// the marker back on its own.
 	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
+		head, err := s.rpc.L2.HeaderByNumber(ctx, nil)
+		if err != nil {
+			log.Warn(
+				"Failed to fetch the L2 head while reconciling the highest unsafe L2 payload block ID",
+				"proposalId", proposal.Shasta().GetEventData().Id,
+				"error", err,
+			)
+		}
+		s.highestUnsafeL2PayloadBlockID = reconciledHighestUnsafe(head, s.highestUnsafeL2PayloadBlockID)
 		log.Info(
-			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
+			"Latest seen proposal reorged the preconfirmation chain, reconciled the highest unsafe L2 payload block ID",
 			"proposalId", proposal.Shasta().GetEventData().Id,
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
