@@ -11,9 +11,11 @@ use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
+use alloy_signer::SignerSync;
+use alloy_signer_local::PrivateKeySigner;
 use async_trait::async_trait;
 use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
-use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
+use protocol::shasta::calculate_shasta_mix_hash;
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
@@ -101,8 +103,8 @@ pub(crate) struct WhitelistApiService {
     rpc: Client,
     /// Chain ID for signature domain separation.
     chain_id: u64,
-    /// Deterministic signer for block signing.
-    signer: FixedKSigner,
+    /// Standard secp256k1 signer for block signing.
+    signer: PrivateKeySigner,
     /// Beacon client used to derive current epoch values for EOS requests.
     beacon_client: Arc<BeaconClient>,
     /// Channel to publish messages to the P2P network.
@@ -131,7 +133,7 @@ pub(crate) struct WhitelistApiServiceParams {
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
     /// Signer used for block signing operations.
-    pub(crate) signer: FixedKSigner,
+    pub(crate) signer: PrivateKeySigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Shared operator set used to gate the build API on the node's own whitelist status.
