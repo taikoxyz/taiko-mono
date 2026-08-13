@@ -13,7 +13,7 @@ library LibL1Addrs {
     address public constant DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN =
         0x989E348275b659d36f8751ea1c10D146211650BE;
 
-    // Security Council seats (members of DAO_SIGNER_LIST)
+    // Security Council seat addresses (DAO_SIGNER_LIST membership before/after Proposal0020)
     // Seats retained by Proposal0020
     address public constant SC_TAIKO_LABS = 0xb47fE76aC588101BFBdA9E68F66433bA51E8029a;
     address public constant SC_L2BEAT = 0xf1cF63589A1e012F9124182c9eAa36B5333e5f06;
