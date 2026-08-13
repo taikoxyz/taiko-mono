@@ -111,7 +111,7 @@ blob_base_fee = fake_exponential(MIN_BLOB_BASE_FEE, excess_blob_gas, BLOB_BASE_F
       # reserve condition: blob base fee below the execution-linked floor (≈ baseFee/16)
       if BLOB_BASE_COST * parent.base_fee_per_gas > GAS_PER_BLOB * fake_exponential(MIN_BLOB_BASE_FEE, parent.excess_blob_gas, BLOB_BASE_FEE_UPDATE_FRACTION):
           # below the floor the excess never decays; it grows with usage, scaled by (MAX−TARGET)/MAX
-          return parent.excess_blob_gas + parent.blob_gas_used * (MAX_BLOB_GAS_PER_BLOCK - TARGET_BLOB_GAS_PER_BLOCK) // MAX_BLOB_GAS_PER_BLOCK
+          return parent.excess_blob_gas + (parent.blob_gas_used * (MAX_BLOB_GAS_PER_BLOCK - TARGET_BLOB_GAS_PER_BLOCK)) // MAX_BLOB_GAS_PER_BLOCK
       return max(0, parent.excess_blob_gas + parent.blob_gas_used - TARGET_BLOB_GAS_PER_BLOCK)
   ```
 
@@ -301,7 +301,7 @@ This table MUST appear in user-facing docs:
 
 ### 12.1 Withholding grief
 
-A malicious preconfer could include a type-3 tx and withhold the body. Bounded impact: the chain is unaffected (§2); the buyer paid blob fees for nothing. Mitigations: preconf P2P refuses sidecar-less envelopes (so withholding requires the preconfer to also fork its preconf announcements — detectable by other operators); monitoring probes against the serving API; governance ejection/slashing. Residual risk equals the committee honesty assumption and is documented (§11).
+A malicious preconfer could include a type-3 tx and withhold the body. Bounded impact: the chain is unaffected (§2); the buyer paid blob fees for nothing. Mitigations: preconf P2P refuses sidecar-less envelopes (so withholding requires the preconfer to also fork its preconf announcements — detectable by other operators); monitoring probes against the serving API; governance ejection/slashing. Residual risk equals the committee honesty assumption and is documented (§11). Stated at its sharpest: a coordinated or sequential failure of the small bonded operator set can permanently lose bodies inside the retention window, with no EVM-visible consequence, no protocol-native recourse, and no refund for buyers — this is precisely the failure mode the phase-4 governance sign-off (§13) must explicitly accept before mainnet.
 
 ### 12.2 Storage/bandwidth DoS
 
