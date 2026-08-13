@@ -114,9 +114,9 @@ P=0020 pnpm proposal
 #    execution, post-state asserts:
 SENDER=0x<member-or-agent> P=0020 pnpm proposal:dryrun:l1
 # 3. Review Proposal0020.action.md; have a second member re-run + diff
-# 4. In the DAO UI: new standard proposal; fill title/summary/description/resources from
-#    Proposal0020.metadata.json; add the six actions via the custom-action (calldata) form,
-#    in order (the UI decodes each pasted calldata against the verified ABI — eyeball it)
+# 4. In the DAO UI: new standard proposal; fill the fields from "DAO UI fields" below;
+#    add the six actions via the custom-action (calldata) form, in order (the UI decodes
+#    each pasted calldata against the verified ABI — eyeball it)
 # 5. Submit, then confirm what landed on-chain matches this repo before approving —
 #    compare each stored action against Proposal0020.action.md (approvers should too):
 cast call 0xD7dA1C25E915438720692bC55eb3a7170cA90321 \
@@ -126,6 +126,25 @@ cast call 0xD7dA1C25E915438720692bC55eb3a7170cA90321 \
 
 Direct-submission fallback (bypassing the UI): pre-pin the metadata yourself and pass
 `METADATA_URI=ipfs://<CID>` to the `print` mode to get the full `createProposal` calldata.
+
+### DAO UI fields
+
+The UI pins these verbatim to IPFS as the proposal metadata — this is what the Security
+Council and, during the veto window, TAIKO holders read. Paste them exactly:
+
+- **Title:** Security Council Revamp: 9 to 5 Members, New Thresholds
+- **Summary:** Restructures the Security Council to 5 members (Taiko Labs, L2BEAT, Aragon,
+  Nethermind, Gustavo Gonzalez), sets the standard proposal threshold to 3/5 and the
+  emergency proposal threshold to 4/5.
+- **Description:** Removes Chainbound, Halborn, Drew Van der Werff, Toni Wahrstätter and
+  Gattaca; retains Taiko Labs, L2BEAT, Aragon and Nethermind; adds Gustavo Gonzalez as an
+  independent member (seat `0xAC5898b0FFFd23F4Ef09F0E50Fa1bC4896eF7163`). Lowers the
+  SignerList `minSignerListLength` from 8 to 4, the standard multisig `minApprovals` from
+  5 to 3, and the emergency multisig `minApprovals` from 7 to 4. All other settings (the
+  10-day veto duration and 14-day proposal expiration) are unchanged. Full technical
+  specification, including the exact actions and their mandatory ordering:
+  https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/script/layer1/proposals/Proposal0020.md
+- **Resources:** the forum discussion link, plus the specification URL above.
 
 ## Verification
 
