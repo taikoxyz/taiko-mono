@@ -276,7 +276,7 @@
 <header class="mast">
   <div class="mast-top">
     <div class="mast-brand"><span class="drum">●</span> TAIKO LABS &nbsp;<span style="color:var(--muted); font-weight:400">/ Office of the CEO</span></div>
-    <div class="mast-meta">Internal · Draft for exec &amp; board review · August 12, 2026</div>
+    <div class="mast-meta">Internal · Draft v2 for exec &amp; board review · August 13, 2026</div>
   </div>
   <h1 class="title">Real-time Ethereum.<br><span class="accent">The 12-month R&amp;D roadmap.</span></h1>
   <p class="subtitle">September 2026 → August 2027. What we build at the chain, protocol, and application level — grounded in where the market actually is, not where we wish it were.</p>
@@ -417,7 +417,7 @@
 
   <div class="callout">
     <div class="h">The open window</div>
-    <p>Ethereum is reorganizing around exactly what we already are. The EF's L1-zkEVM program (EIP-8025) will have validators verify ZK proofs of Ethereum-equivalent execution — our proof stack, enshrined. ePBS ships in Glamsterdam (~Q4 2026); FOCIL follows in Hegotá — both strengthen based sequencing. Native rollups (the EXECUTE precompile) reached proof-of-concept in March; <strong>a type-1, based, ZK-mandatory rollup is the closest thing to a native rollup that exists today.</strong> And the demand side for synchronous L1↔L2 composability has organized itself into the Ethereum Economic Zone — Aave, CoW Swap, Safe, Flashbots, Titan, Beaver, Monerium, xStocks — with pilots starting now. That alliance is either our springboard or our replacement. The next four quarters decide which.</p>
+    <p>Ethereum is reorganizing around exactly what we already are. The EF's L1-zkEVM program (EIP-8025) will have validators verify ZK proofs of Ethereum-equivalent execution — our proof stack, enshrined. ePBS ships in Glamsterdam (~Q4 2026); FOCIL follows in Hegotá — both strengthen based sequencing. Native rollups (the EXECUTE precompile) reached proof-of-concept in March; <strong>a type-1, based, ZK-mandatory rollup is the closest thing to a native rollup that exists today.</strong> And the demand side for synchronous L1↔L2 composability has organized itself into the Ethereum Economic Zone — Aave, CoW Swap, Safe, Flashbots, Titan, Beaver, Monerium, xStocks — with pilots starting now. On that last one we take a deliberate position: the demand is real, but the technology is unproven, and it is not ours to de-risk this cycle. We watch it, we stay compatible with it, and we compete on what is live today — L1 sequencing, real-time proofs, and the Stage-2 trust arc.</p>
   </div>
 </section>
 
@@ -429,8 +429,8 @@
   <h2>Stop competing as an L2. Become real-time Ethereum.</h2>
 
   <div class="thesis">
-    <div class="big">In twelve months, Taiko is <em>the execution layer that is Ethereum</em>: sequenced by L1, proven in real time, synchronously composable with L1 state, and the first rollup to reach Stage&nbsp;2 — with no operator anyone must trust.</div>
-    <p>Every deliverable below serves one of four claims, each verifiable by outsiders: <strong>trust</strong> (Stage 2, ZK-first multiproof), <strong>speed</strong> (sub-second preconfs, ~1-slot ZK finality), <strong>unity</strong> (synchronous composability with L1 — Gwyneth, shipped incrementally), and <strong>economics</strong> (sequencing value captured, publicly dashboarded). We are not selling blockspace. We are selling Ethereum, faster.</p>
+    <div class="big">In twelve months, Taiko is <em>the execution layer that is Ethereum</em>: sequenced by L1, proven in real time, and the first rollup to reach Stage&nbsp;2 — with no operator anyone must trust.</div>
+    <p>Every deliverable below serves one of four claims, each verifiable by outsiders: <strong>trust</strong> (Stage 2, ZK-first multiproof), <strong>speed</strong> (sub-second preconfs, ~1-slot ZK finality), <strong>capacity</strong> (a production-complete Rust client and proven gigagas headroom), and <strong>economics</strong> (sequencing value captured, publicly dashboarded). Proven technology only — nothing on this roadmap depends on a primitive that hasn't run in production somewhere. We are not selling blockspace. We are selling Ethereum, faster.</p>
   </div>
 
   <div class="stopdo">
@@ -440,8 +440,8 @@
         <li>Sub-100ms CLOB perps — Lighter, RISEx, MegaETH own that latency class. We settle and collateralize; we don't match orders.</li>
         <li>Points-driven growth. Dead playbook; we have the scar tissue.</li>
         <li>TEE as a security pillar — SGX demoted to optional auxiliary, never sufficient, on a path to retirement.</li>
-        <li>Gwyneth as a separate moonshot — its capabilities ship incrementally on Alethia, or inside EEZ pilots.</li>
-        <li>The "ENS ecosystem" narrative — Namechain is cancelled. We keep ENS <em>resolution</em> on Taiko via L1-reads instead.</li>
+        <li><strong>Gwyneth and synchronous composability — out of scope entirely.</strong> The demand signal (EF guidance, EEZ) is real, but the technology is unproven and no live network has implemented the booster model. We commit nothing to it this cycle and revisit only when someone proves the primitive in production.</li>
+        <li>The "ENS ecosystem" narrative — Namechain is cancelled.</li>
         <li>Leading RWA sales with "no sequencer = regulatory advantage" — no legal evidence exists yet. We sell credible neutrality to crypto-native issuers and keep the regulatory claim in reserve for post-CLARITY.</li>
       </ul>
     </div>
@@ -451,7 +451,7 @@
         <li>Based sequencing + preconfirmations — the only L2 architecture that gets <em>stronger</em> every time L1 improves.</li>
         <li>ZK-first multiproof aligned with the EF's L1-zkEVM standards — our proof stack becomes literally the L1 proof stack.</li>
         <li>The Stage-2 arc — the one headline no distribution-rich competitor can copy quickly.</li>
-        <li>Synchronous composability (Gwyneth line) — the capability the EF, EEZ, and solver ecosystem are all asking for.</li>
+        <li>Client &amp; throughput engineering — the Rust client as the production client, proving cost/latency budgets, and DA efficiency that compounds forever at the EIP-7918 floor.</li>
         <li>Stack productization with Nethermind/Surge — managed offering, transparent license, shared audits.</li>
         <li>Rust client as the strategic client; AI-augmented engineering and audit pipelines as a formal capability.</li>
       </ul>
@@ -485,18 +485,18 @@
         <li>Sub-1s preconfs GA, then 200–400ms via streaming/frags</li>
         <li>Permissionless preconf registry (URC-style), bonded + slashable</li>
         <li>Real-time proving: batch proofs ≤ ~12s; withdrawals in minutes</li>
-        <li>Glamsterdam/ePBS readiness on both clients; Rust client to parity</li>
+        <li>Glamsterdam/ePBS readiness certified on both clients before the fork lands</li>
       </ul>
     </div>
     <div class="pillar">
-      <div class="pid">P2 · SYNCHRONOUS COMPOSABILITY</div>
-      <h3>Gwyneth, productized</h3>
-      <p>The EF told L2s to do exactly this. We ship it in increments that each stand alone — and we decide fast whether EEZ is our vehicle or our rival.</p>
+      <div class="pid">P2 · CLIENTS &amp; PERFORMANCE</div>
+      <h3>The Rust client era</h3>
+      <p>Proven engineering only. The strategic client reaches production across the full stack, and throughput and DA efficiency stay permanently ahead of anything an anchor app can throw at us.</p>
       <ul>
-        <li>Synchronous L1 reads on Alethia (L1SLOAD-class) — ENS resolves natively</li>
-        <li>ULTRA TX: atomic L1+L2 bundles with a named builder (Titan/Beaver)</li>
-        <li>EEZ join/shape decision in Q4; Gwyneth public testnet by Q3 ’27</li>
-        <li>Native-rollup readiness: EXECUTE-compatible STF, EIP-8025 alignment</li>
+        <li>Rust driver/proposer to production parity, then GA as the default operator client</li>
+        <li>Proving path completed: Rust prover, or a deliberate Rust-sequencing / Go-proving split — decided, shipped, documented</li>
+        <li>DA efficiency: batch compression &amp; blob packing (permanent ROI at the EIP-7918 fee floor)</li>
+        <li>Gigagas capability benchmark published — a qualifier, not a marketing lead</li>
       </ul>
     </div>
     <div class="pillar">
@@ -504,7 +504,7 @@
       <h3>Anchor apps, stack product, captured value</h3>
       <p>No more generic ecosystem spend. Land named anchors, productize the stack, and stop leaking sequencing value.</p>
       <ul>
-        <li>Anchor verticals: prediction markets (Polymarket is shopping), RWA/tokenized-equity settlement, sync-liquidity DeFi (Aave V4 spoke / Morpho)</li>
+        <li>Anchor verticals: prediction markets (Polymarket is shopping), RWA/tokenized-equity settlement, DeFi money markets (Aave V4 spoke / Morpho) sold on real-time finality and fast exits</li>
         <li>"Based markets" primitive — stake-gated builder markets settling against L1 collateral (our HIP-3 answer)</li>
         <li>Preconf fee-split spec + public gateway revenue dashboard → sequencing auction with protocol take</li>
         <li>Taiko Stack managed offering with transparent license; token work: bonds utility now, vesting restructure at board level</li>
@@ -548,11 +548,11 @@
         <div class="g-bar solid" style="grid-column:6/8">“Yasur” fork: real-time proving mainnet</div>
         <div class="g-bar" style="grid-column:8/10">200–400ms preconfs · permissionless set</div>
 
-        <div class="g-lane" style="grid-column:1">P2 · Sync comp.<span class="sub">protocol level</span></div>
-        <div class="g-bar" style="grid-column:2/4">L1-read spec + devnet · EEZ decision</div>
-        <div class="g-bar" style="grid-column:4/6">Sync L1 reads on testnet</div>
-        <div class="g-bar" style="grid-column:6/8">ULTRA TX atomic demo w/ named builder</div>
-        <div class="g-bar solid" style="grid-column:8/10">Gwyneth public testnet</div>
+        <div class="g-lane" style="grid-column:1">P2 · Clients &amp; perf<span class="sub">protocol level</span></div>
+        <div class="g-bar" style="grid-column:2/4">Rust hardening · prover decision · DA audit</div>
+        <div class="g-bar solid" style="grid-column:4/6">Rust driver/proposer GA</div>
+        <div class="g-bar solid" style="grid-column:6/8">Gigagas benchmark · DA compression live</div>
+        <div class="g-bar solid" style="grid-column:8/10">Rust proving path complete</div>
 
         <div class="g-lane" style="grid-column:1">P3 · Demand<span class="sub">app / econ</span></div>
         <div class="g-bar" style="grid-column:2/4">Fee-split spec + revenue dashboard</div>
@@ -576,32 +576,33 @@
           <li><span class="tag ship">Ship</span>Bridge quotas removed on a published schedule; independent post-incident security review published in full.</li>
           <li><span class="tag ship">Ship</span>Glamsterdam readiness: Go + Rust clients validated against Gloas/ePBS devnets; proposing and preconf pipeline re-certified for partial-block production. This is the single most important external dependency of the year.</li>
           <li><span class="tag gate">Decide</span>Third zkVM lane selection (OpenVM / Zisk / Airbender) against EF criteria: soundcalc score, RISC-V ACT compliance, audited FV claims.</li>
+          <li><span class="tag gate">Decide</span>Rust client: prover build-vs-split decision, plus the production-hardening plan that takes driver/proposer to GA in Q1.</li>
         </ul>
       </div>
       <div class="q-col">
         <h4>Protocol level</h4>
         <ul>
           <li><span class="tag ship">Ship</span><strong>Preconf fee-split reference spec</strong> — user tip → gateway margin → L1 proposer reward → protocol take — plus a public gateway revenue dashboard. Nobody in the based ecosystem has shipped this; we set the standard and create the auditable revenue base every later economics decision needs.</li>
-          <li><span class="tag ship">Ship</span>Synchronous L1-read (L1SLOAD-class) spec + devnet — the thin end of Gwyneth.</li>
+          <li><span class="tag ship">Ship</span>DA efficiency audit: batch compression and blob-packing review with shipping targets — the EIP-7918 floor makes every byte saved a permanent saving, at any scale.</li>
           <li><span class="tag ship">Ship</span>Whitepaper v3 + docs refresh. The README still says "contestable rollup"; the whitepaper predates Shasta. Cheap, overdue, credibility-critical.</li>
         </ul>
       </div>
       <div class="q-col">
         <h4>Ecosystem &amp; economics</h4>
         <ul>
-          <li><span class="tag gate">Decide</span><strong>EEZ: join and shape, or race.</strong> Default position: join — offer Alethia as the live based execution venue for EEZ pilots (Aave, CoW, Safe, Monerium, xStocks are the exact anchor list we want anyway). Being absent while it ships pilots is the largest strategic risk to Gwyneth.</li>
-          <li><span class="tag gate">Decide</span>Formalize the Nethermind/Surge relationship: co-develop and upstream their RealTimeInbox + single-zkVM work into taiko-mono; shared audit artifacts. Surge drifting into a divergent competitor is preventable now, not later.</li>
+          <li><span class="tag gate">Decide</span>Formalize the Nethermind/Surge relationship: co-develop and upstream their RealTimeInbox + real-time proving work into taiko-mono; shared audit artifacts. Surge drifting into a divergent competitor is preventable now, not later.</li>
+          <li>EEZ posture set: observe and stay standards-compatible, <strong>no build commitment</strong> — synchronous composability is out of scope this cycle as unproven technology. The EEZ member list still doubles as our anchor-app call sheet.</li>
           <li>Anchor BD opens: Polymarket-class appchain pitch (full blockspace control, Ethereum settlement, 2s→sub-1s preconfs) delivered while their chain search is live; RWA settlement conversations via Avalon + EEZ members.</li>
         </ul>
       </div>
     </div>
-    <div class="exit"><b>Exit criteria</b> Permissionless proposing + proving live on mainnet with bonds ≠ 0 · both clients ePBS-certified · fee-split spec and dashboard public · EEZ and Nethermind decisions made and announced.</div>
+    <div class="exit"><b>Exit criteria</b> Permissionless proposing + proving live on mainnet with bonds ≠ 0 · both clients ePBS-certified · fee-split spec and dashboard public · Nethermind agreement and Rust prover decision made and announced.</div>
   </div>
 
   <!-- ---------------- Q1 2027 ---------------- -->
   <div class="quarter">
     <div class="q-head"><span class="q">Q1 2027</span><h3>Stage 1, sub-second</h3><span class="when">Jan – Mar 2027</span></div>
-    <p class="q-theme">The quarter of externally verifiable badges: L2Beat confirms Stage 1, users feel sub-second confirmation, and the first Gwyneth capability runs on a public testnet.</p>
+    <p class="q-theme">The quarter of externally verifiable badges: L2Beat confirms Stage 1, users feel sub-second confirmation, and the Rust client becomes the default operator client.</p>
     <div class="q-cols">
       <div class="q-col">
         <h4>Chain level</h4>
@@ -609,13 +610,12 @@
           <li><span class="tag ship">Ship</span><strong>L2Beat Stage 1 confirmed.</strong> With Vesuvius live, we submit and clear review. Six chains sit at Stage 1; none is based, none is ZK-mandatory. We arrive with both.</li>
           <li><span class="tag ship">Ship</span><strong>Sub-1s preconfirmations GA</strong> on mainnet (P50 ≤ 800ms), leaning on EIP-7917 deterministic lookahead; permissionless preconf registry (URC-style) with bonded, slashable operators on testnet — the contracts are greenfield, the hooks (IProposerChecker, submission windows, lookahead) were designed for this.</li>
           <li><span class="tag ship">Ship</span>Real-time proving pilot: shadow-prove every Alethia batch in ≤12s off-mainnet; raiko dual-sources from Succinct Prover Network + Boundless with self-hosted GPU fallback for liveness.</li>
-          <li><span class="tag gate">Decide</span>Rust client: production parity for driver/proposer; commit to Rust prover build or a deliberate Rust-sequencing/Go-proving split.</li>
         </ul>
       </div>
       <div class="q-col">
         <h4>Protocol level</h4>
         <ul>
-          <li><span class="tag ship">Ship</span><strong>Synchronous L1 reads live on public testnet</strong> — showcase: ENS names resolving natively on Taiko, keystore wallets reading L1 guardians, oracles reading L1 state. The Namechain salvage, done right.</li>
+          <li><span class="tag ship">Ship</span><strong>Rust client GA for driver/proposer</strong> — production parity, documented as the default operator client, with the Go client as the reference/proving path per the Q4 decision.</li>
           <li><span class="tag ship">Ship</span>"Based markets" primitive spec: stake-gated, fee-sharing deployment of markets/app-slots that settle against L1 collateral — the based-rollup answer to HIP-3/MarketCore that no centrally-sequenced chain can copy.</li>
         </ul>
       </div>
@@ -623,18 +623,18 @@
         <h4>Ecosystem &amp; economics</h4>
         <ul>
           <li><span class="tag ship">Ship</span>Gateway whitelist terms renegotiated to include a revenue share (benchmarks exist: AEP 10% net; Superchain 2.5% gross / 15% profit); Timeboost-style sequencing auction design finalized for the permissionless era.</li>
-          <li><span class="tag gate">Land</span><strong>Anchor app #1 committed</strong> — priority order: prediction-market venue, tokenized-equity/RWA settlement, sync-liquidity DeFi.</li>
+          <li><span class="tag gate">Land</span><strong>Anchor app #1 committed</strong> — priority order: prediction-market venue, tokenized-equity/RWA settlement, DeFi money markets.</li>
           <li><span class="tag ship">Ship</span>Payments substrate: native USDC/CCTP, stablecoin-denominated gas / fee abstraction, x402 agent-payments support (cheap option, not a strategy).</li>
         </ul>
       </div>
     </div>
-    <div class="exit"><b>Exit criteria</b> Stage 1 badge public · preconf P50 &lt; 1s measured by a third party · one anchor app signed · shadow proofs ≤ 12s at P90.</div>
+    <div class="exit"><b>Exit criteria</b> Stage 1 badge public · preconf P50 &lt; 1s measured by a third party · one anchor app signed · shadow proofs ≤ 12s at P90 · Rust client GA.</div>
   </div>
 
   <!-- ---------------- Q2 2027 ---------------- -->
   <div class="quarter">
     <div class="q-head"><span class="q">Q2 2027</span><h3>Real-time finality</h3><span class="when">Apr – Jun 2027</span></div>
-    <p class="q-theme">The headline quarter: ZK finality collapses from hours to slots on mainnet, the atomic L1+L2 demo goes public with a named builder, and the stack becomes a product with a price.</p>
+    <p class="q-theme">The headline quarter: ZK finality collapses from hours to slots on mainnet, throughput headroom gets proven in public, and the stack becomes a product with a price.</p>
     <div class="q-cols">
       <div class="q-col">
         <h4>Chain level</h4>
@@ -648,8 +648,8 @@
       <div class="q-col">
         <h4>Protocol level</h4>
         <ul>
-          <li><span class="tag ship">Ship</span><strong>ULTRA TX public demo:</strong> one atomic bundle touching L1 and Taiko in the same slot, built with a named L1 builder (Titan or Beaver — both EEZ members and required counterparties regardless). Builder integration, not proving speed, is the real gate — which is why BD on this started in Q4.</li>
-          <li><span class="tag ship">Ship</span>Sync-liquidity DeFi proof-of-concept with EEZ partners: an Aave-V4-spoke or Morpho market accessing L1 hub liquidity without leaving Taiko.</li>
+          <li><span class="tag ship">Ship</span><strong>Gigagas capability benchmark published</strong> on the Rust client — reproducible methodology, third-party verifiable, framed as headroom for anchor apps rather than a marketing number.</li>
+          <li><span class="tag ship">Ship</span>DA efficiency shipped: batch compression and blob-packing upgrades from the Q4 audit — permanent per-byte savings at the EIP-7918 floor, compounding with any future volume.</li>
         </ul>
       </div>
       <div class="q-col">
@@ -661,26 +661,26 @@
         </ul>
       </div>
     </div>
-    <div class="exit"><b>Exit criteria</b> P50 time-to-ZK-finality ≤ 2 slots on mainnet · atomic L1+L2 bundle demonstrated publicly · sequencing revenue accruing on-dashboard · first stack customer in contract.</div>
+    <div class="exit"><b>Exit criteria</b> P50 time-to-ZK-finality ≤ 2 slots on mainnet · gigagas benchmark published · sequencing revenue accruing on-dashboard · first stack customer in contract.</div>
   </div>
 
   <!-- ---------------- Q3 2027 ---------------- -->
   <div class="quarter">
     <div class="q-head"><span class="q">Q3 2027</span><h3>Stage 2, and the proof of the thesis</h3><span class="when">Jul – Sep 2027</span></div>
-    <p class="q-theme">The close of the arc: the first Stage-2 rollup — and the only based one — with Gwyneth public, markets deploying permissionlessly, and a revenue line the token can eventually be tied to honestly.</p>
+    <p class="q-theme">The close of the arc: the first Stage-2 rollup — and the only based one — with the strategic client complete, markets deploying permissionlessly, and a revenue line the token can eventually be tied to honestly.</p>
     <div class="q-cols">
       <div class="q-col">
         <h4>Chain level</h4>
         <ul>
           <li><span class="tag ship">Ship</span><strong>Stage 2 submission to L2Beat:</strong> permissionless proposing, proving, and preconfs; exit windows honored; security-council powers reduced to queued-with-exit-window upgrades; 2-of-N multi-zkVM. Headline: <em>the first Stage-2 rollup, and the only one nobody operates.</em></li>
-          <li><span class="tag ship">Ship</span>Native-rollup readiness: EXECUTE-compatible state-transition experiment + EIP-8025 witness/guest-program alignment. Public stance: first in line to become a native rollup — retiring our own proving trust surface the day L1 offers it.</li>
-          <li>Hegotá/FOCIL spec participation (inclusion-list mechanics interact directly with based sequencing rights); gigagas capability benchmark published on the Rust client — a qualifier, not a marketing lead.</li>
+          <li>Native-rollup optionality, kept cheap: EIP-8025 witness/guest-program alignment continues (it is our proof stack anyway) plus a small EXECUTE feasibility study — spec participation only, <strong>no build commitment</strong> until the primitive is proven on L1.</li>
+          <li>Hegotá/FOCIL spec participation — inclusion-list mechanics interact directly with based sequencing rights.</li>
         </ul>
       </div>
       <div class="q-col">
         <h4>Protocol level</h4>
         <ul>
-          <li><span class="tag ship">Ship</span><strong>Gwyneth public testnet:</strong> multiple Ethereum-equivalent instances, synchronously composable with each other and with L1 — or, if the Q4 EEZ decision went that way, Gwyneth capabilities graduated into EEZ pilots with Alethia as the live venue. Either way: public, dated, demo-able.</li>
+          <li><span class="tag ship">Ship</span><strong>Rust proving path complete:</strong> the Rust prover live, or the deliberate Rust-sequencing / Go-proving split shipped and documented — either way, the strategic client story is finished, not half-told.</li>
           <li><span class="tag ship">Ship</span>"Based markets" primitive live with the first 2–3 externally deployed markets.</li>
         </ul>
       </div>
@@ -692,7 +692,7 @@
         </ul>
       </div>
     </div>
-    <div class="exit"><b>Exit criteria</b> Stage 2 filed (badge or audit-pending) · Gwyneth testnet public · ≥ $1M annualized sequencing revenue run-rate on the dashboard · 2–3 anchors live.</div>
+    <div class="exit"><b>Exit criteria</b> Stage 2 filed (badge or audit-pending) · strategic client complete · ≥ $1M annualized sequencing revenue run-rate on the dashboard · 2–3 anchors live.</div>
   </div>
 </section>
 
@@ -711,7 +711,7 @@
       <tr><td><b>BPO3/4</b> blob increases</td><td class="num">Post-Glamsterdam</td><td>More DA headroom (currently target 14 / max 21 at 20–30% util.)</td><td>No plan depends on it — we have ~10× headroom at current demand</td></tr>
       <tr><td><b>EF L1-zkEVM / EIP-8025</b></td><td class="num">2026–27 program</td><td>Validators verify ZK proofs of Ethereum-equivalent execution; 128-bit / ≤300KB zkVM bar by end-2026</td><td>Align raiko + guest programs with eth-act standards and soundcalc now — as a type-1 chain we inherit the entire L1 toolchain for free</td></tr>
       <tr><td><b>Hegotá</b> — FOCIL (7805)</td><td class="num">2027</td><td>Protocol-level inclusion lists — censorship resistance that composes with based sequencing</td><td>Active spec participation from Q3 ’27; interacts with our sequencing rights and preconf commitments</td></tr>
-      <tr><td><b>Native rollups</b> — EXECUTE (8079)</td><td class="num">Research / PoC</td><td>L1-verified rollup execution — "governance-free, execution-risk-free" rollups</td><td>EXECUTE-compatible STF experiment (Q3 ’27); public first-in-line posture; treat mainnet timing as speculative</td></tr>
+      <tr><td><b>Native rollups</b> — EXECUTE (8079)</td><td class="num">Research / PoC</td><td>L1-verified rollup execution — "governance-free, execution-risk-free" rollups</td><td>Feasibility study + spec participation only (Q3 ’27); no build commitment while the primitive is unproven — same discipline we applied to Gwyneth</td></tr>
     </tbody>
   </table>
   </div>
@@ -731,7 +731,7 @@
       <tr><td><b>Time to ZK finality</b></td><td class="num">hours (4h window)</td><td class="num">≤ 2 L1 slots typical · withdrawals &lt; 15 min</td><td>P1</td></tr>
       <tr><td><b>L2Beat stage</b></td><td class="num">Stage 0, permissionless paths disabled</td><td class="num">Stage 2 filed — first based rollup there</td><td>P0</td></tr>
       <tr><td><b>Proof policy</b></td><td class="num">≥1 ZK of 2 (SGX still co-equal)</td><td class="num">2-of-N multi-zkVM · SGX auxiliary-only · EF-standards aligned</td><td>P0</td></tr>
-      <tr><td><b>Sync composability</b></td><td class="num">none shipped</td><td class="num">L1 reads live · atomic L1+L2 demo · Gwyneth testnet public</td><td>P2</td></tr>
+      <tr><td><b>Strategic client (Rust)</b></td><td class="num">driver + proposer maturing · no prover</td><td class="num">production-complete incl. proving path · gigagas benchmark public</td><td>P2</td></tr>
       <tr><td><b>Sequencing value captured</b></td><td class="num">$0 (100% leaks to gateways)</td><td class="num">auction + fee split live · ≥ $1M annualized, public dashboard</td><td>P3</td></tr>
       <tr><td><b>Anchor apps &gt; $1M/day volume</b></td><td class="num">0</td><td class="num">2–3 live</td><td>P3</td></tr>
       <tr><td><b>Stack deployments (commercial)</b></td><td class="num">0 (Surge testnets)</td><td class="num">≥ 1 production chain under the managed offering</td><td>P3</td></tr>
@@ -751,7 +751,7 @@
   <div class="risklist">
     <div class="risk"><div class="r">Another security incident</div><div class="m">Existential — this is why P0 is pillar <i>zero</i>. Every permissionless re-enable ships with registration delays, rate limits, and circuit breakers; verifier-registration paths and key custody are treated as bridge-critical; secret-scanning CI (already live) plus annual external audits per zkVM guest program. The June response playbook — halt, recapitalize, DAO fork — stays rehearsed.</div></div>
     <div class="risk"><div class="r">Glamsterdam slips into 2027</div><div class="m">Likely, partially. All FY27 plans assume 12s slots and current blob limits; ePBS work is devnet-gated, not date-gated. Real-time proving and sub-second preconfs do not depend on Glamsterdam. <b>No milestone above waits on an L1 fork date.</b></div></div>
-    <div class="risk"><div class="r">EEZ ships sync composability without us</div><div class="m">The Q4 decision gate exists precisely for this: default is join-and-shape, offering the only live based mainnet as their execution venue. If we're locked out, we adopt a Zisk-compatible proving lane for interop and race on the one asset they lack — a production chain. Kill criterion: if by Q2 ’27 EEZ pilots run on a competing venue and our ULTRA TX demo has no named builder, Gwyneth-as-a-network folds into Alethia features.</div></div>
+    <div class="risk"><div class="r">Synchronous composability proves out elsewhere (EEZ / native rollups)</div><div class="m">We deliberately sat this cycle out — Gwyneth is out of scope as unproven technology, by decision. Nothing in P0/P1/P3 depends on it, and our EF-aligned proof stack keeps us compatible with whatever wins. Re-entry criterion for FY28 planning: <b>a production deployment with real users demonstrating same-slot L1+L2 value</b> — then we adopt a de-risked design rather than pioneer an unproven one.</div></div>
     <div class="risk"><div class="r">No anchor app by mid-2027</div><div class="m">Shift the BD budget entirely to the based-markets primitive (permissionless deployment converts BD into protocol design) and stack deals. Explicit non-response: another points program.</div></div>
     <div class="risk"><div class="r">Token unlocks overwhelm everything</div><div class="m">~2.08%/month unlocks into a ~$14M float statistically swamps any mechanism-level accrual. This is a board/investor problem, not an R&D one: vesting restructure (Worldcoin 3→5yr, Story deferral precedents), unlock-to-OTC conversion, timed with Stage-2 comms. R&D's job is to make the revenue line real enough that the token has something honest to accrue.</div></div>
     <div class="risk"><div class="r">Team concentration</div><div class="m">Four engineers produced ~85% of recent commits. Mitigation: hire against P0/P1 critical paths, formalize the AI-augmented engineering and audit pipeline that already co-authors much of our output, and keep the Nethermind relationship warm as surge capacity in both directions.</div></div>
@@ -769,12 +769,13 @@
     <p>This roadmap was drafted August 12, 2026, from a multi-track research sweep (Ethereum core roadmap, L2 competitive landscape, alt-L1s, macro/regulatory, ZK proving frontier, Taiko public state, and a code-level audit of taiko-mono) plus three targeted follow-ups on app-level opportunity, based-rollup value capture, and the stack-licensing market. All market figures are as of that date unless noted.</p>
     <p><strong>Primary sources:</strong> L2Beat, growthepie, DefiLlama, ethproofs.org, EF blog (Fusaka/Glamsterdam/zkEVM security posts), EIP specs (7732, 7805, 7917, 7918, 8025, 8079), taiko-mono repo (Shasta <span class="mono">Derivation.md</span>, <span class="mono">Proposal0017/0019</span>, mainnet deployment logs, gas reports), OpenZeppelin Shasta audits, and dated press for competitor events.</p>
     <p><strong>Reconciled facts:</strong> Unzen executed on mainnet Aug 3, 2026 per in-repo deployment logs (some press says Aug 6). TAIKO traded $0.058–0.077 across August sources; we use ~$0.07 / ~$14M unlocked mcap. Glamsterdam timing uses the devnet-based Q4 2026 estimate over more optimistic press. Cost-floor figures ($10–40/day now; ~$350–900/day at 100 TPS) are internal estimates from EIP-7918 arithmetic, ethproofs pricing, and repo gas reports — inputs documented, error bars real.</p>
+    <p><strong>Revision v2 (Aug 13, 2026):</strong> Gwyneth and all synchronous-composability milestones removed from scope by CEO decision — the technology is unproven and no live network has implemented it. Freed capacity reallocated to pillar P2, "Clients &amp; performance" (Rust client to production-complete, DA efficiency, gigagas benchmark). EEZ and native rollups are tracked as market context with explicit re-entry criteria, not built against.</p>
     <p style="color:var(--muted); font-size:13px">Prepared by the office of the CEO with AI research assistance. A draft for discussion — numbers are checkable, opinions are mine, and the volcano names are negotiable.</p>
   </div>
 </section>
 
 <footer>
-  <p><b style="color:var(--ink)">TAIKO LABS</b> · R&amp;D Roadmap FY27 · September 2026 – August 2027 · Internal draft v1 · August 12, 2026</p>
+  <p><b style="color:var(--ink)">TAIKO LABS</b> · R&amp;D Roadmap FY27 · September 2026 – August 2027 · Internal draft v2 · August 13, 2026</p>
   <p>Based rollup · Type-1 zkEVM · Ethereum-equivalent, Ethereum-sequenced, Ethereum-secured.</p>
 </footer>
 
