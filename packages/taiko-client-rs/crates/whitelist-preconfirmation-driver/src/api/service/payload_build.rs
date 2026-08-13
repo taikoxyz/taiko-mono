@@ -46,16 +46,12 @@ impl WhitelistApiService {
 
     /// Build a 65-byte signature from a digest.
     pub(super) fn sign_digest(&self, digest: B256) -> Result<[u8; 65]> {
-        let sig_result = self
+        let signature = self
             .signer
-            .sign_with_predefined_k(digest.as_ref())
+            .sign_hash_sync(&digest)
             .map_err(|e| WhitelistPreconfirmationDriverError::Signing(e.to_string()))?;
 
-        let mut sig_bytes = [0u8; 65];
-        sig_bytes[..32].copy_from_slice(&sig_result.signature.r().to_be_bytes::<32>());
-        sig_bytes[32..64].copy_from_slice(&sig_result.signature.s().to_be_bytes::<32>());
-        sig_bytes[64] = sig_result.recovery_id;
-        Ok(sig_bytes)
+        Ok(signature.as_rsy())
     }
 
     /// Derive the mix-hash / prev-randao from the parent block.
