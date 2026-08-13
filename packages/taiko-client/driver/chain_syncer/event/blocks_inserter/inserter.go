@@ -144,11 +144,17 @@ func (i *Shasta) InsertBlocksWithManifest(
 		lastPayloadData *engine.ExecutableData
 	)
 
-	// Record the current canonical head before inserting any block, to determine afterwards
+	// Record the canonical header at the highest height this proposal overlaps
+	// (min(current head, proposal tip)) before inserting any block, to determine afterwards
 	// whether inserting this proposal actually reorged the previously known canonical chain.
-	previousHead, err := i.rpc.L2.HeaderByNumber(ctx, nil)
-	if err != nil {
-		log.Warn("Failed to fetch the current L2 head before inserting proposal blocks", "error", err)
+	proposalTip := new(big.Int).Add(parent.Number, new(big.Int).SetUint64(uint64(len(sourcePayload.BlockPayloads))))
+	reorgBaseline := reorgDetectionBaseline(ctx, i.rpc.L2.HeaderByNumber, proposalTip)
+	if reorgBaseline == nil {
+		log.Warn(
+			"Failed to capture the reorg detection baseline header before inserting proposal blocks",
+			"proposalID", meta.GetEventData().Id,
+			"proposalTip", proposalTip,
+		)
 	}
 
 	for j := range sourcePayload.BlockPayloads {
@@ -279,11 +285,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 	}
 
 	// Only mark the last seen proposal as having reorged the preconfirmation chain when the
-	// pre-insertion canonical head was actually replaced: re-inserting already known blocks
-	// (e.g. re-deriving an already preconfirmed proposal whose canonical-chain check failed)
-	// must not roll back `highestUnsafeL2PayloadBlockID`, otherwise an operator that has
-	// already sequenced past this proposal refuses to produce new blocks until it is ejected.
-	latestSeenProposal.PreconfChainReorged = isChainReorged(ctx, i.rpc.L2.HeaderByNumber, previousHead)
+	// pre-insertion canonical block at the overlap height was actually replaced: re-inserting
+	// already known blocks (e.g. re-deriving an already preconfirmed proposal whose
+	// canonical-chain check failed) must not roll back `highestUnsafeL2PayloadBlockID`,
+	// otherwise an operator that has already sequenced past this proposal refuses to produce
+	// new blocks until it is ejected.
+	latestSeenProposal.PreconfChainReorged = isChainReorged(ctx, i.rpc.L2.HeaderByNumber, reorgBaseline)
 	go i.sendLatestSeenProposal(latestSeenProposal)
 
 	return new(big.Int).SetUint64(latestSeenProposal.LastBlockID), nil
@@ -353,23 +360,51 @@ func (i *Shasta) insertPreconfBlockFromEnvelope(
 	return InsertPreconfBlockFromEnvelope(ctx, i.rpc, envelope)
 }
 
-// isChainReorged checks whether the previously observed canonical head was reorged out
-// of the canonical chain. When no baseline head is available or the canonical chain cannot
-// be inspected, it conservatively reports a reorg, matching the historical behavior of
-// always resetting the highest preconfirmation payload after a proposal insertion.
+// reorgDetectionBaseline returns the canonical header at the highest height the proposal
+// being inserted overlaps with the current canonical chain: the current head when it is at
+// or below the proposal tip, otherwise the canonical header at the proposal tip height.
+// Blocks above the proposal tip cannot be replaced by inserting this proposal — on some
+// execution engines the insertion merely rewinds the head and drops their canonical
+// markers — so the overlap height is the highest one whose hash equality proves the
+// previously known prefix survived (each block hash commits to its parent).
+// It returns nil when the canonical chain cannot be inspected.
+func reorgDetectionBaseline(
+	ctx context.Context,
+	headerByNumber func(context.Context, *big.Int) (*types.Header, error),
+	proposalTip *big.Int,
+) *types.Header {
+	head, err := headerByNumber(ctx, nil)
+	if err != nil || head == nil {
+		return nil
+	}
+	if head.Number.Cmp(proposalTip) <= 0 {
+		return head
+	}
+
+	overlap, err := headerByNumber(ctx, proposalTip)
+	if err != nil || overlap == nil {
+		return nil
+	}
+	return overlap
+}
+
+// isChainReorged checks whether the previously observed canonical baseline header was
+// reorged out of the canonical chain. When no baseline is available or the canonical chain
+// cannot be inspected, it conservatively reports a reorg, matching the historical behavior
+// of always resetting the highest preconfirmation payload after a proposal insertion.
 func isChainReorged(
 	ctx context.Context,
 	headerByNumber func(context.Context, *big.Int) (*types.Header, error),
-	previousHead *types.Header,
+	baseline *types.Header,
 ) bool {
-	if previousHead == nil {
+	if baseline == nil {
 		return true
 	}
 
-	current, err := headerByNumber(ctx, previousHead.Number)
+	current, err := headerByNumber(ctx, baseline.Number)
 	if err != nil || current == nil {
 		return true
 	}
 
-	return current.Hash() != previousHead.Hash()
+	return current.Hash() != baseline.Hash()
 }
