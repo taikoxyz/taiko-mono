@@ -47,7 +47,7 @@ Consequence: unlike L1 — where `is_data_available()` gates block import in for
 | --- | --- | --- |
 | `BLOB_BYTES` | `131_072` | 4096 field elements × 32 bytes, unchanged from EIP-4844 |
 | `GAS_PER_BLOB` | `131_072` | unchanged from EIP-4844 |
-| `TARGET_BLOBS_PER_BLOCK` | `1` | launch value; tunable per fork (§13) |
+| `TARGET_BLOBS_PER_BLOCK` | `1` | launch value; sign-off in §13 phase 1, trade-offs in §15.2 |
 | `MAX_BLOBS_PER_BLOCK` | `3` | launch value; tunable per fork |
 | `MAX_BLOBS_PER_TX` | `2` | strictly below `MAX_BLOBS_PER_BLOCK` so a single transaction cannot monopolize a block's blob lane (mirrors L1, where the EIP-7594 per-tx cap of 6 sits below the post-BPO2 per-block max of 21) |
 | `TARGET_BLOB_GAS_PER_BLOCK` | `131_072` | `TARGET_BLOBS_PER_BLOCK × GAS_PER_BLOB` |
@@ -89,7 +89,7 @@ The driver's current "must be zero" assertions (`packages/taiko-client/driver/ch
 1. Block import and derivation from L1 MUST NOT require blob bodies (§2). There is **no availability precondition** anywhere in the derivation pipeline.
 2. The manifest `SignedTransaction` schema ([Derivation.md](./Derivation.md)) is extended with the type-3 fields `maxFeePerBlobGas` and `blobVersionedHashes`. This extends Derivation.md's typed field table only — on the wire, manifests carry canonical RLP envelopes (no sidecar), which already encode these fields, so no encoding change occurs (§2). Txlist byte accounting (`maxBytesPerTxList`) is unchanged: bodies never count, so a blob transaction costs L1 DA only its ~small envelope.
 3. **Type-3 transactions are not force-includable at launch.** A type-3 transaction inside a forced-inclusion source is skipped **individually** at derivation/sealing — like any other per-transaction validity failure — leaving the source's remaining transactions untouched. This is not a new semantic: today's sealer already drops prohibited or invalid transactions one at a time, never source-fatally, including type-3 specifically (`taiko-geth/miner/taiko_worker.go:277-281`), so V7 carries existing behavior forward, and the skip is part of the proven state transition — provers replay the same deterministic selection rule; source-level default-manifest replacement stays reserved for framing/decode failures (Derivation.md). The narrow blast radius matters: one prohibited transaction never censors an otherwise-valid forced source. Rationale for the restriction itself: forced inclusion exists for censorship resistance, which for blob bodies would require L1-posted data (design A); guaranteeing it is deferred (§15). It MUST be documented prominently to users: if all preconfers censor blob transactions, there is no forced path for them. Derivation.md MUST be updated at V7 to state this per-transaction rule explicitly.
-4. Blocks derived without preconfirmation (L1-only sync) execute type-3 transactions normally using the envelope hashes; the local sidecar store records a gap for later backfill (§7.2). This includes adversarial proposals that bypassed preconf validation entirely: sidecar-less type-3 envelopes execute normally — availability suffers, derivation never does.
+4. Blocks derived without preconfirmation (L1-only sync) execute type-3 transactions normally using the envelope hashes; the local sidecar store records a gap for later backfill (§7.2). This includes adversarial proposals that bypassed preconf validation entirely: sidecar-less type-3 envelopes execute normally — availability suffers, derivation never does (abuse of this tolerance is analyzed in §12.5).
 
 ### 4.4 zk-gas
 
@@ -159,7 +159,7 @@ Worst-case added preconf bandwidth: `MAX_BLOBS_PER_BLOCK × BLOB_BYTES = 384 KiB
 
 ### 7.1 Guarantee tier at launch: bonded-operator custody
 
-The availability guarantee is: **a preconfer MUST NOT include a type-3 transaction whose sidecars it does not possess, and MUST retain and serve every sidecar it includes for at least `BLOB_RETENTION_SECONDS_MIN`.** Because preconf P2P validation (§6.3) refuses envelopes without sidecars, every honest node that preconf-imported the block also holds the bodies — custody is the natural by-product of validation.
+The availability guarantee is: **a preconfer MUST NOT include a type-3 transaction whose sidecars it does not possess, and MUST retain and serve every sidecar it includes for at least `BLOB_RETENTION_SECONDS_MIN`.** Because preconf P2P validation (§6.3) refuses envelopes without sidecars, every honest node that preconf-imported the block also holds the bodies — custody is the natural by-product of validation. At launch every non-forced transaction enters through this path; there is no sidecar-less user route (§12.5).
 
 Today's preconfer set — Nethermind, Chainbound and Gattaca at the time of writing; the on-chain preconfirmation whitelist (`contracts/layer1/preconf/`) is the source of truth and MUST be re-checked at spec freeze — whitelisted and bonded, is the guarantee's anchor: withholding or refusal to serve within the window is attributable operator misbehavior, subject to the same governance/ejection/slashing framework as other preconfirmation faults. This is deliberately a **committee-grade DA guarantee** — the same trust class as Arbitrum AnyTrust, and stronger than several shipping alternatives (Base Appchains commit batch data to S3). It MUST be documented as such; it is not L1 consensus DA.
 
@@ -318,7 +318,15 @@ Unzen's zk-gas meter can truncate a block mid-list. Truncation semantics for typ
 
 With no forced-inclusion path for type-3 (§4.3.3), a censoring preconfer set can exclude blob txs entirely. Users retain the trivial fallback that exists today: posting data as calldata (censorship-resistant via forced inclusion, at calldata prices). Accepting this asymmetry at launch is a documented trade-off; §15 sketches the design-A hybrid that would close it.
 
-### 12.5 Equivalence drift
+### 12.5 Fake-hash (sidecar-less) inclusion
+
+A type-3 envelope is consensus-valid with *any* 32-byte hashes carrying the `0x01` version byte — nothing in the STF requires a body to exist (§2, deliberately). A proposer could therefore include envelopes whose hashes correspond to no blob anywhere: blob gas is consumed, `excessBlobGas` rises, and no body is ever held — spam without the bandwidth/storage cost §12.2 assumes, and a buyer of such a transaction receives no availability.
+
+Launch containment: block production is not permissionless. Every non-forced transaction enters through the bonded preconfer whitelist, whose §6.3 validation refuses sidecar-less type-3 envelopes, and forced inclusion excludes type-3 entirely (§4.3.3). A sidecar-less type-3 transaction in a canonical block therefore implies a misbehaving bonded operator — the same attributable, slashable fault class as §12.1 withholding — and the attacker pays the very lane price they are pumping, which §5's exponential market makes increasingly expensive to sustain. §4.3.4's tolerance of sidecar-less envelopes is defense-in-depth for derivation, not a user-reachable path.
+
+Before proposing becomes permissionless, this vector MUST be re-closed — e.g. by making type-3 validity conditional on preconf-path provenance, or by requiring availability attestations at inclusion time (§15.4). Treat that as a hard precondition for removing the proposer whitelist.
+
+### 12.6 Equivalence drift
 
 This design intentionally makes Taiko a superset of Osaka behavior gated on a Taiko fork, with one semantic difference (availability tier) that cannot be observed by the EVM. Contracts written against L1 blob semantics (e.g. proof-of-equivalence verifiers using `0x0A`) behave identically.
 
