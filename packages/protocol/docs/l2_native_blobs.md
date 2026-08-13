@@ -163,11 +163,78 @@ Data withholding is not generally attributable on-chain (a node claiming "I aske
   - `GET /blobs/{versionedHash}` → `{ blob, kzg_commitment, kzg_proof }` (existing blob-server shape, `packages/taiko-client/pkg/rpc/blob_datasource.go:243`)
   - `GET /taiko/v1/blob_sidecars/{l2BlockNumber}` → all sidecars for a block (bulk sync/backfill)
 - **Backfill.** A node that imported blocks from L1 derivation without bodies (preconf outage, fresh sync inside the window) SHOULD backfill its store from serving peers via the bulk endpoint. Gaps beyond the window are expected and harmless.
-- **Archival.** The existing blob-indexer service (built for Fusaka L1 cell-proof serving, #20446) is extended to archive L2 blobs beyond the window; third-party archival (Blobscan-style indexers, EthStorage) is complementary and permissionless — anyone can archive, since bodies are public and hash-committed.
+- **Archival.** The existing blob-indexer service (built for Fusaka L1 cell-proof serving, #20446) is extended to archive L2 blobs beyond the window; third-party archival (Blobscan-style indexers, EthStorage) is complementary and permissionless — anyone can archive, since bodies are public and hash-committed. The **IPFS archival profile (§7.4)** standardizes this: deterministic content-addressed bundles that independent archivers converge on bit-for-bit.
 
 ### 7.3 Upgrade path: custody-and-sampling
 
 When the operator set decentralizes and demand justifies it, the guarantee can graduate to PeerDAS-style sampling: erasure-extend blobs, distribute column sidecars with cell proofs across node custody groups, and replace full-download validation with sampling. The cell/column machinery is battle-tested upstream since Fusaka. This phase changes §6.3's wrapper to the cell-proof format and is out of scope for V7.
+
+### 7.4 IPFS archival profile (optional)
+
+An opt-in node profile that replicates received blobs into IPFS. It is a **replication and archival layer, not part of the §7.1 guarantee**: the HTTP serving API (§7.2) remains the primary retrieval path, the bonded-operator obligation remains the availability anchor, and a node running this profile makes no additional protocol promises. What IPFS adds is permissionless, self-verifying, deduplicated distribution — an L3 can pin exactly its own history, community archivers can mirror the chain's blobs without permission, and post-window retrieval gains a second network.
+
+#### 7.4.1 Content addressing and the index
+
+- **One blob = one IPFS raw block.** `BLOB_BYTES = 131_072` is below IPFS's 256 KiB chunk limit, so each blob is stored as a single `raw`-codec block; its CID is `CIDv1(raw, sha2-256(blob))`. Content addressing is deterministic: every node storing the same blob produces the same CID.
+- **The versioned hash cannot be a CID.** `versionedHash = 0x01 ‖ sha256(kzg_commitment)[1:]` commits to the KZG commitment, not to `sha256(blob)`, so a `versionedHash → CID` index is unavoidable. The index is an **untrusted hint**: retrieval is doubly self-verifying — IPFS checks the bytes against the CID, and the consumer re-derives the KZG commitment and checks it against the versioned hash (the same code path used against untrusted L1 blob servers, `packages/taiko-client/pkg/rpc/blob_datasource.go:210-218`). Any gateway, any pinner, zero added trust.
+- **Bundles, not per-blob pins.** At target throughput (~43k blobs/day) per-blob pinning would announce ~43k new CIDs/day to the DHT — Kubo's known reprovide scaling cliff. Blobs are therefore grouped into deterministic **bundles**:
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `IPFS_BUNDLE_BLOCKS` | `1000` L2 blocks | ≈ 33 min at 2s cadence; ≤ `3000` blobs ≈ ≤ 384 MiB per bundle |
+| Bundle boundary | `blockNumber / IPFS_BUNDLE_BLOCKS` | fixed ranges, so independent archivers produce **identical bundles and identical root CIDs** |
+| Bundle root | dag-cbor node | `{version, chainId, blockRange:[start,end], index:[{versionedHash, commitment, blobCID(link)}...], prev: bytes}` |
+| Index ordering | `(blockNumber, txIndex, blobIndex)` ascending | canonical dag-cbor encoding ⇒ deterministic root CID |
+| `prev` field | previous bundle root CID **encoded as plain bytes, not an IPLD link** | forms an authenticated log of bundles without recursive pins traversing all history |
+| Export format | CAR v1 | one CAR per bundle; also the native input format for Filecoin deals and cold storage |
+
+- Bundles are sealed only from the **L1-derived canonical chain**, never from preconf-only state: blobs whose blocks are reorged out before L1 derivation are dropped (and their interim pins removed) at sealing time.
+- Convergence is a feature: because bundle roots are deterministic, anyone can cross-check an archiver by comparing one 32-byte CID; a mismatch identifies faulty or dishonest archives immediately.
+- **Announcement.** Only bundle roots receive DHT/IPNI provider records (Kubo `Reprovider.Strategy = "roots"`); individual blob CIDs are not announced. Fetching one blob over IPFS means: obtain the bundle root (from a serving node's `GET /taiko/v1/blob_bundles?range=…`, an indexer, or the DHT) → read the index → Bitswap the single raw leaf from a peer holding the bundle. Latency is accordingly worse than the HTTP API — acceptable for archival, wrong for the hot path.
+
+#### 7.4.2 Kubo sidecar with pin-on-receipt
+
+Reference deployment: a Kubo daemon co-located with the Taiko node (same pod / compose service), reached over its local RPC API. The driver's sidecar store gains an asynchronous IPFS worker; **no IPFS operation ever sits on the block-import, preconf-validation, or serving path.**
+
+```mermaid
+sequenceDiagram
+    participant V as Preconf validation (§6.3)
+    participant S as Sidecar store
+    participant W as IPFS worker (async queue)
+    participant K as Kubo (localhost RPC)
+
+    V->>S: persist validated sidecar
+    S-->>W: enqueue {versionedHash, commitment, blob}
+    W->>K: block/put (raw, sha2-256) → blobCID
+    W->>K: pin/add --type=direct blobCID   (interim pin)
+    Note over W: on bundle boundary, once range is L1-derived canonical
+    W->>W: build index, drop reorged blobs
+    W->>K: dag/put bundle root (dag-cbor)
+    W->>K: pin/add --type=recursive rootCID
+    W->>K: pin/rm interim direct pins
+    W->>K: routing/provide rootCID
+    Note over W,K: after pinDuration: pin/rm root, repo gc
+```
+
+Node configuration (all under an off-by-default flag group):
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `--taiko.blobs.ipfs.enabled` | `false` | master switch |
+| `--taiko.blobs.ipfs.api` | `http://127.0.0.1:5001` | Kubo RPC endpoint (MUST NOT be publicly exposed; localhost or unix socket only) |
+| `--taiko.blobs.ipfs.pinDuration` | `7_776_000 s` (90 d, = `BLOB_RETENTION_SECONDS_DEFAULT`) | `0` = pin permanently (archival nodes) |
+| `--taiko.blobs.ipfs.bundleBlocks` | `1000` | bundle boundary; changing it forfeits convergence with default-config archivers |
+| `--taiko.blobs.ipfs.fetch` | `false` | adds IPFS (bundle root → leaf) as a last-resort source in the §7.2 backfill chain, after HTTP serving peers |
+
+Operational rules:
+
+1. **Never block, never lose silently.** The worker is a bounded queue with retry; if Kubo is down the queue drains on recovery, and overflow drops oldest entries with a warning metric (`taiko_ipfs_queue_dropped_total`). The canonical sidecar store is unaffected either way.
+2. **Idempotent by construction.** `block/put` of identical bytes yields the same CID; re-processing after a crash is harmless.
+3. **Kubo profile.** Recommended config: `Reprovider.Strategy="roots"`, accelerated DHT client, connection-manager limits sized for a server, `Datastore.StorageMax` ≥ pinned-window volume (~500 GiB at full target, §12.2 math) — expect ~2× disk versus the sidecar store alone, since the Kubo blockstore duplicates the bytes (see §15.7 for the filestore-dedup question).
+4. **Unpinning.** Roots older than `pinDuration` are unpinned and garbage-collected on Kubo's schedule; the sidecar store's own §7.2 retention is independent.
+5. **Metrics.** Queue depth, put/pin failure counters, bundle seal lag (blocks behind canonical head), Kubo repo size.
+
+Interfaces touched: the profile is entirely additive to §9's sidecar store (one new worker + two HTTP endpoints: `GET /taiko/v1/blob_bundles?range=…` listing sealed roots, and inclusion of `blobCID`/bundle root in the existing `GET /blobs/{versionedHash}` response metadata). No consensus rule, no manifest field, and no contract references IPFS in any way.
 
 ## 8. Execution-client changes
 
@@ -245,7 +312,7 @@ This design intentionally makes Taiko a superset of Osaka behavior gated on a Ta
 | 0 (now) | Hygiene: pool-reject type-3 pre-V7 (§8 row 2); update stale docs (docs.taiko.xyz FAQ still describes a Shanghai EVM); reopen #19832 referencing this spec | — |
 | 1 | Spec review (this document), parameter sign-off (`TARGET/MAX`, retention default, update fraction) | protocol + client teams |
 | 2 | Devnet: taiko-reth + Rust driver implementation; `--taiko.devnet-v7-time 0`; Nethermind chainspec flip; bandwidth/storage soak at max utilization | internal devnet |
-| 3 | Hoodi testnet fork; explorer + blob-indexer integration; L3 pilot (an OP-stack or Taiko-stack L3 posting via L2 blobs) | Hoodi |
+| 3 | Hoodi testnet fork; explorer + blob-indexer integration; IPFS archival profile pilot (§7.4); L3 pilot (an OP-stack or Taiko-stack L3 posting via L2 blobs) | Hoodi |
 | 4 | Mainnet V7 activation; preconfer serving obligations added to operator agreements | governance |
 | 5+ | Sampling upgrade (§7.3); forced-inclusion hybrid (§15); RIP submission for cross-rollup standardization of L2 blob semantics | later forks |
 
@@ -263,6 +330,7 @@ This design intentionally makes Taiko a superset of Osaka behavior gated on a Ta
 4. Protocol-native availability attestations/bonds (k-of-n signed custody receipts recorded cheaply on L1) vs. governance-grade enforcement — needed before permissionless preconfers.
 5. Should blob-fee coinbase share be split among *all* serving nodes rather than the including preconfer (serving is network-wide, inclusion is individual)?
 6. RIP submission timing: standardize before or after mainnet ship.
+7. IPFS profile (§7.4): accept ~2× disk from a duplicated Kubo blockstore (simple, robust) or pursue filestore/`--nocopy` dedup against the sidecar store (fragile historically)? And should sealed bundle CARs feed an incentivized persistence tier (Filecoin deals consume CARs natively; EthStorage as an alternative)?
 
 ## Appendix A — retention arithmetic
 
