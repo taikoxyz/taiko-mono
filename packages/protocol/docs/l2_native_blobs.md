@@ -6,6 +6,7 @@ This document specifies **ephemeral native blob support** for Taiko Alethia: acc
 - **Target**: the next hard fork after Unzen (placeholder `V7` throughout; fork gate `IsV7(timestamp)`)
 - **Depends on**: Unzen (Cancun+Prague+Osaka EVM on L2, zk-gas metering), Shasta derivation
 - **Related**: [#19832 — Explore L2 blob support](https://github.com/taikoxyz/taiko-mono/issues/19832), [Derivation.md](./Derivation.md), [zk_gas_spec.md](./zk_gas_spec.md)
+- **Code references**: `file:line` citations refer to taiko-mono `8843a78` and the taiko-geth revision pinned by `packages/taiko-client/go.mod` (`v1.18.1-0.20260715122422-ca164c06e00c`); re-verify before implementation
 
 The key words MUST, MUST NOT, SHOULD, and MAY are to be interpreted as described in RFC 2119.
 
@@ -48,7 +49,7 @@ Consequence: unlike L1 — where `is_data_available()` gates block import in for
 | `GAS_PER_BLOB` | `131_072` | unchanged from EIP-4844 |
 | `TARGET_BLOBS_PER_BLOCK` | `1` | launch value; tunable per fork (§13) |
 | `MAX_BLOBS_PER_BLOCK` | `3` | launch value; tunable per fork |
-| `MAX_BLOBS_PER_TX` | `3` | equals `MAX_BLOBS_PER_BLOCK` |
+| `MAX_BLOBS_PER_TX` | `2` | strictly below `MAX_BLOBS_PER_BLOCK` so a single transaction cannot monopolize a block's blob lane (mirrors L1, where 6 < 21) |
 | `TARGET_BLOB_GAS_PER_BLOCK` | `131_072` | `TARGET_BLOBS_PER_BLOCK × GAS_PER_BLOB` |
 | `MAX_BLOB_GAS_PER_BLOCK` | `393_216` | `MAX_BLOBS_PER_BLOCK × GAS_PER_BLOB` |
 | `MIN_BLOB_BASE_FEE` | `1` wei | absolute floor |
@@ -87,7 +88,7 @@ The driver's current "must be zero" assertions (`packages/taiko-client/driver/ch
 
 1. Block import and derivation from L1 MUST NOT require blob bodies (§2). There is **no availability precondition** anywhere in the derivation pipeline.
 2. The manifest `SignedTransaction` schema ([Derivation.md](./Derivation.md)) is extended with the type-3 fields `maxFeePerBlobGas` and `blobVersionedHashes` (canonical RLP envelope — no sidecar). Txlist byte accounting (`maxBytesPerTxList`) is unchanged: bodies never count, so a blob transaction costs L1 DA only its ~small envelope.
-3. **Forced-inclusion sources MUST NOT contain type-3 transactions at launch.** A forced-inclusion manifest containing one is treated like any other invalid source content (replaced by the default source manifest, per Derivation.md's per-source isolation). Rationale: forced inclusion exists for censorship resistance, which for blob bodies would require L1-posted data (design A); guaranteeing it is deferred (§15). This restriction MUST be documented prominently to users: if all preconfers censor blob transactions, there is no forced path for them.
+3. **Type-3 transactions are not force-includable at launch.** A type-3 transaction inside a forced-inclusion source is skipped **individually** at derivation/sealing — like any other per-transaction validity failure — leaving the source's remaining transactions untouched; source-level default-manifest replacement stays reserved for framing/decode failures (Derivation.md). The narrow blast radius matters: one prohibited transaction never censors an otherwise-valid forced source. Rationale for the restriction itself: forced inclusion exists for censorship resistance, which for blob bodies would require L1-posted data (design A); guaranteeing it is deferred (§15). It MUST be documented prominently to users: if all preconfers censor blob transactions, there is no forced path for them.
 4. Blocks derived without preconfirmation (L1-only sync) execute type-3 transactions normally using the envelope hashes; the local sidecar store records a gap for later backfill (§7.2).
 
 ### 4.4 zk-gas
@@ -103,7 +104,18 @@ blob_base_fee = fake_exponential(MIN_BLOB_BASE_FEE, excess_blob_gas, BLOB_BASE_F
 ```
 
 - `excess_blob_gas` accumulates `parent.excessBlobGas + parent.blobGasUsed − TARGET_BLOB_GAS_PER_BLOCK`, floored at 0.
-- **Reserve floor (EIP-7918-style)**: when `BLOB_BASE_COST × block.baseFee > GAS_PER_BLOB × blob_base_fee` (i.e. blob base fee < execution base fee / 16), the excess update switches to `+ blobGasUsed × (MAX − TARGET) / MAX`, so the blob fee cannot decay to economic irrelevance relative to execution gas. With Taiko's small execution base fee this floor is intentionally low — the product is *cheap*; spam protection comes from the exponential lane and the per-block cap (§12.2), not the floor.
+- **Reserve floor — exactly EIP-7918's mechanism**, enforced through the excess update, never as a `max()` clamp on the fee. Normatively:
+
+  ```python
+  def calc_excess_blob_gas(parent):
+      # reserve condition: blob base fee below the execution-linked floor (≈ baseFee/16)
+      if BLOB_BASE_COST * parent.base_fee_per_gas > GAS_PER_BLOB * blob_base_fee(parent):
+          # below the floor the excess never decays; it grows with usage, scaled by (MAX−TARGET)/MAX
+          return parent.excess_blob_gas + parent.blob_gas_used * (MAX_BLOB_GAS_PER_BLOCK - TARGET_BLOB_GAS_PER_BLOCK) // MAX_BLOB_GAS_PER_BLOCK
+      return max(0, parent.excess_blob_gas + parent.blob_gas_used - TARGET_BLOB_GAS_PER_BLOCK)
+  ```
+
+  At zero or sub-target demand below the floor, the price **holds** instead of decaying toward 1 wei — EIP-7918's intended behavior, not an omission; above the floor the standard update applies unchanged. With Taiko's small execution base fee this floor is intentionally low — the product is *cheap*; spam protection comes from the exponential lane and the per-block cap (§12.2), not the floor.
 - `BLOB_BASE_FEE_UPDATE_FRACTION = 2_225_331` gives ≈ ×1.125 per fully-utilized block — the same per-block max growth as L1. Taiko blocks are ~6× more frequent than L1 slots, so in wall-clock the market reacts ~6× faster; this is deliberate (faster spam shutdown, §12.2).
 - **Fee routing**: blob fees follow the same `basefeeSharingPctg` split as the execution base fee (share to coinbase, remainder per protocol treasury rules), compensating the proposer/preconfer for the storage-and-serving obligation (§7.1). **This is an explicit state-transition change, not a config default**: under stock EIP-4844 semantics the blob fee is debited in `buyGas` and credited to no one (burned), and Taiko's existing sharing logic credits only `gasUsed × baseFee` — so geth/reth MUST add a `blobGasUsed × blobBaseFee` credit alongside the execution-basefee split, mirrored in the prover STF (§8, §9). Launching with the L1 burn behavior instead is the reviewed fallback (§15.5).
 
@@ -137,7 +149,7 @@ Steps in prose:
 
 1. **Submission.** Users submit wrapped blob transactions to any Taiko RPC — the standard EIP-4844 network wrapper that `eth_sendRawTransaction` accepts on L1 mainnet today, in its post-Osaka cell-proof (V1) form (§3), so existing libraries need no changes beyond the RPC URL. The execution client's blobpool validates commitments/proofs against versioned hashes and holds the sidecars (upstream geth/reth machinery, already present).
 2. **Selection.** The sealer includes type-3 envelopes like any transaction (removing the current skip at `taiko-geth/miner/taiko_worker.go:277-281`), subject to §4 limits. After building a payload, the driver pulls sidecars for the included hashes from the local pool via `engine_getBlobsV2` (already implemented upstream in taiko-geth). `getBlobsV2` is all-or-nothing — null if any requested hash is unavailable — so on a null response the builder MUST NOT publish the envelope: it identifies the gaps (via `engine_getBlobsV3` partial responses or per-hash pool queries), rebuilds the payload without the affected type-3 transactions, and retries. A builder can never legitimately publish an envelope it cannot fully equip with sidecars (§6.3).
-3. **Preconf propagation.** The preconfirmation envelope gains a `blobSidecars` field. Receiving nodes MUST verify, for each type-3 transaction, that sidecars are present, ordered, that `versioned_hash(commitment) == tx.blobVersionedHashes[i]` — the exact check the driver already runs against L1 blob servers (`packages/taiko-client/pkg/rpc/blob_datasource.go:210-218`) — and that the blob matches its commitment, either by re-deriving the commitment from the blob (the driver's existing path) or by batch-verifying the sidecar's cell proofs (cheaper; the check L1 pools run on ingress). An envelope failing this MUST NOT be propagated or imported as a preconfirmed block. This extends `ValidateExecutionPayload` (`packages/taiko-client/driver/preconf_blocks/server.go:923-962`) and the Rust ingress validation.
+3. **Preconf propagation.** The preconfirmation envelope gains a `blobSidecars` field. Receiving nodes MUST verify, for each type-3 transaction, that sidecars are present, ordered, that `versioned_hash(commitment) == tx.blobVersionedHashes[i]` — the exact check the driver already runs against L1 blob servers (`packages/taiko-client/pkg/rpc/blob_datasource.go:210-218`) — and that the blob **bytes** are bound to that commitment: either re-derive the commitment from the blob (the driver's existing path), or compute the 128 cells **from the received blob** and batch-verify the sidecar's proofs against the commitment at those cells' indices (the L1 pool-ingress check). Verifying supplied cells without recomputing them from the blob binds nothing and MUST NOT be accepted. An envelope failing this MUST NOT be propagated or imported as a preconfirmed block. This extends `ValidateExecutionPayload` (`packages/taiko-client/driver/preconf_blocks/server.go:923-962`) and the Rust ingress validation.
 4. **Persistence & serving.** Nodes persist validated sidecars to a local store and serve them (§7.2) for at least the retention window, then prune.
 5. **L1 proposal.** Unchanged. The manifest carries canonical envelopes; **no inbox, wrapper, or forced-inclusion contract changes are required**.
 
@@ -149,7 +161,7 @@ Worst-case added preconf bandwidth: `MAX_BLOBS_PER_BLOCK × BLOB_BYTES = 384 KiB
 
 The availability guarantee is: **a preconfer MUST NOT include a type-3 transaction whose sidecars it does not possess, and MUST retain and serve every sidecar it includes for at least `BLOB_RETENTION_SECONDS_MIN`.** Because preconf P2P validation (§6.3) refuses envelopes without sidecars, every honest node that preconf-imported the block also holds the bodies — custody is the natural by-product of validation.
 
-Today's preconfer set (Nethermind, Chainbound, Gattaca — whitelisted on-chain and bonded) is the guarantee's anchor: withholding or refusal to serve within the window is attributable operator misbehavior, subject to the same governance/ejection/slashing framework as other preconfirmation faults. This is deliberately a **committee-grade DA guarantee** — the same trust class as Arbitrum AnyTrust, and stronger than several shipping alternatives (Base Appchains commit batch data to S3). It MUST be documented as such; it is not L1 consensus DA.
+Today's preconfer set — Nethermind, Chainbound and Gattaca at the time of writing; verify the live on-chain whitelist at spec freeze — whitelisted and bonded, is the guarantee's anchor: withholding or refusal to serve within the window is attributable operator misbehavior, subject to the same governance/ejection/slashing framework as other preconfirmation faults. This is deliberately a **committee-grade DA guarantee** — the same trust class as Arbitrum AnyTrust, and stronger than several shipping alternatives (Base Appchains commit batch data to S3). It MUST be documented as such; it is not L1 consensus DA.
 
 Data withholding is not generally attributable on-chain (a node claiming "I asked and got nothing" cannot prove the negative). Launch accepts governance-grade evidence (signed requests, monitoring probes by other operators); a protocol-native challenge is out of scope (§15).
 
@@ -160,8 +172,8 @@ Data withholding is not generally attributable on-chain (a node claiming "I aske
   - **Serving nodes** (preconfers MUST; public RPC providers SHOULD): retain ≥ the minimum window (default config 90 days) and expose the serving API.
   - **Other full nodes MAY prune at any time** — bodies are never needed for derivation (§2). Retention is a service role, not a validity requirement.
 - **Serving API** (mirrors the interface the driver already consumes from L1 blob servers, so client code is reused):
-  - `GET /blobs/{versionedHash}` → `{ versionedHash, commitment, data }` — byte-for-byte the schema the existing client parser accepts (`BlobServerResponse`, `packages/taiko-client/pkg/rpc/blob_datasource.go:41-44`), so today's fetch/backfill code works unchanged. Additive optional fields: `proofs` (the 128 cell proofs) and, under the IPFS profile, `blobCID`/`bundleRoot` (§7.4); consumers MUST ignore unknown fields.
-  - `GET /taiko/v1/blob_sidecars/{l2BlockNumber}` → all sidecars for a block (bulk sync/backfill)
+  - `GET /blobs/{versionedHash}` → `{ versionedHash, commitment, data }` — byte-for-byte the schema the existing client parser accepts (`BlobServerResponse`, `packages/taiko-client/pkg/rpc/blob_datasource.go:41-44`), so today's fetch/backfill code works unchanged. Additive optional fields: `proofs` (the 128 cell proofs) and, under the IPFS profile, `blobCID`/`bundleRoot` (§7.4); consumers MUST ignore unknown fields. Exact types: `versionedHash` 0x-prefixed 32-byte hex; `commitment` 0x-prefixed 48-byte hex; `data` 0x-prefixed 131,072-byte hex; `proofs` exactly 128 0x-prefixed 48-byte hex strings; `blobCID`/`bundleRoot` CIDv1 strings.
+  - `GET /taiko/v1/blob_sidecars/{l2BlockNumber}` → `{ "data": [ <objects with the same schema as above> ] }`, mirroring the beacon `blob_sidecars` envelope shape (bulk sync/backfill)
 - **Backfill.** A node that imported blocks from L1 derivation without bodies (preconf outage, fresh sync inside the window) SHOULD backfill its store from serving peers via the bulk endpoint. Gaps beyond the window are expected and harmless.
 - **Archival.** The existing blob-indexer service (built for Fusaka L1 cell-proof serving, #20446) is extended to archive L2 blobs beyond the window; third-party archival (Blobscan-style indexers, EthStorage) is complementary and permissionless — anyone can archive, since bodies are public and hash-committed. The **IPFS archival profile (§7.4)** standardizes this: deterministic content-addressed bundles that independent archivers converge on bit-for-bit.
 
@@ -187,6 +199,7 @@ An opt-in node profile that replicates received blobs into IPFS. It is a **repli
 | Bundle root | dag-cbor node | `{version, chainId, blockRange:[start,end], index:[{versionedHash, commitment, blobCID(link)}...], prev: bytes}` |
 | Index ordering | `(blockNumber, txIndex, blobIndex)` ascending | canonical dag-cbor encoding ⇒ deterministic root CID |
 | `prev` field | previous bundle root CID **encoded as plain bytes, not an IPLD link** | forms an authenticated log of bundles without recursive pins traversing all history |
+| Encoding | IPLD **DAG-CBOR** | the codec spec already mandates deterministic encoding (definite lengths, minimal integer widths, sorted map keys, no floats, links as CBOR tag 42). Additionally normative here: the root is a map with exactly the keys listed above; `index` is an array (not a map) in the stated sort order; `versionedHash`/`commitment` are fixed-length byte strings (32/48); `blobCID` entries are tag-42 links; `prev` is a plain byte string. Reference test vectors MUST ship with the implementation — convergence is only as strong as this row |
 | Export format | CAR v1 | one CAR per bundle; also the native input format for Filecoin deals and cold storage |
 
 - Bundles are sealed only when their entire block range derives from a **finalized L1 origin** (beacon-chain finality — a signal the derivation pipeline already tracks), never from preconf-only or merely-proposed state. Finality is what upgrades "same inputs" into a deterministic, reorg-proof cut, so independent archivers sealing at different times still produce bit-identical bundles; blobs that were preconfirmed but never make the finalized-derived chain are simply never sealed.
@@ -230,7 +243,7 @@ Operational rules:
 
 1. **Never block, never lose silently.** The worker is a bounded queue with retry; if Kubo is down the queue drains on recovery, and overflow drops oldest entries with a warning metric (`taiko_ipfs_queue_dropped_total`). The canonical sidecar store is unaffected either way.
 2. **Idempotent by construction.** `block/put` of identical bytes yields the same CID; a crash anywhere between put and seal is repaired by re-putting from the canonical sidecar store.
-3. **Kubo profile.** Recommended config: `Reprovider.Strategy="roots"` with auto-GC left disabled (Kubo's default — unpinned blob blocks must survive until sealing, and GC runs only as rule 4's explicit sweep), accelerated DHT client, connection-manager limits sized for a server, `Datastore.StorageMax` ≥ pinned-window volume (≈510 GB at full target, §12.2 math) — expect ~2× disk versus the sidecar store alone, since the Kubo blockstore duplicates the bytes (see §15.7 for the filestore-dedup question). Because individual blobs are never pin roots, nothing per-blob is ever announced — only sealed bundle roots.
+3. **Kubo profile.** Recommended config: `Reprovider.Strategy="roots"` (a standard Kubo strategy from its `all | pinned | roots | mfs | pinned+mfs | flat` set; the reference deployment MUST pin a Kubo version and CI-check this config against it) with auto-GC left disabled (Kubo's default — unpinned blob blocks must survive until sealing, and GC runs only as rule 4's explicit sweep), accelerated DHT client, connection-manager limits sized for a server, `Datastore.StorageMax` ≥ pinned-window volume (≈510 GB at full target, §12.2 math) — expect ~2× disk versus the sidecar store alone, since the Kubo blockstore duplicates the bytes (see §15.7 for the filestore-dedup question). Because individual blobs are never pin roots, nothing per-blob is ever announced — only sealed bundle roots.
 4. **Unpinning.** Roots older than `pinDuration` are unpinned, then an explicit `repo gc` sweep reclaims space; the sidecar store's own §7.2 retention is independent.
 5. **Metrics.** Queue depth, put/pin failure counters, bundle seal lag (blocks behind canonical head), Kubo repo size.
 
@@ -326,7 +339,7 @@ This design intentionally makes Taiko a superset of Osaka behavior gated on a Ta
 ## 15. Open questions
 
 1. Fork name and timestamp for `V7`; whether Nethermind ships it simultaneously (devnet chainspec suggests yes).
-2. Launch parameters: is `TARGET 1 / MAX 3` right? A single L3 posting one blob per ~2 blocks consumes half the target; raising to 2/4 doubles the §12.2 storage bound.
+2. Launch parameters: is `TARGET 1 / MAX 3` right? A single L3 posting one blob per ~2 blocks consumes half the target; raising to 2/4 doubles the §12.2 storage bound. Likewise `MAX_BLOBS_PER_TX = 2` vs `3`.
 3. Forced-inclusion hybrid: per-transaction design-A (body carried in the forced-inclusion L1 blob + equivalence proof) to close §12.4 — worth the prover complexity?
 4. Protocol-native availability attestations/bonds (k-of-n signed custody receipts recorded cheaply on L1) vs. governance-grade enforcement — needed before permissionless preconfers.
 5. Should blob-fee coinbase share be split among *all* serving nodes rather than the including preconfer (serving is network-wide, inclusion is individual)? Or launch with the L1 burn (no credit at all, §5) and defer routing entirely?
