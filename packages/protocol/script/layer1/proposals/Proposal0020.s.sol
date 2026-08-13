@@ -219,7 +219,7 @@ contract Proposal0020 is BuildDirectProposal {
         for (uint256 i; i < registered.length; ++i) {
             check(
                 readBool(L1.DAO_SIGNER_LIST, "isListed(address)", registered[i]),
-                "unlisted account still registered"
+                string.concat("unlisted account still registered: ", vm.toString(registered[i]))
             );
         }
 
