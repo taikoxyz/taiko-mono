@@ -67,7 +67,7 @@ Versioned-hash version byte remains `0x01` (`0x01 ‖ sha256(kzg_commitment)[1:]
 A type-3 transaction is valid in a V7+ block iff it satisfies Osaka rules verbatim:
 
 1. `to != nil`; `len(blobVersionedHashes) ∈ [1, MAX_BLOBS_PER_TX]`; every hash has version byte `0x01`.
-2. `maxFeePerBlobGas ≥ block.blobBaseFee` and the sender can cover `blobGasUsed × maxFeePerBlobGas` in the balance check, alongside execution gas.
+2. `maxFeePerBlobGas ≥ block.blobBaseFee`, and the sender's balance check covers `blobGasUsed × maxFeePerBlobGas` alongside execution gas; the amount actually debited is `blobGasUsed × blobBaseFee` (the prevailing §5 lane price), per EIP-4844.
 3. Blob gas used by the block ≤ `MAX_BLOB_GAS_PER_BLOCK`.
 4. The **anchor transaction is never type-3** (unchanged anchor validation).
 5. Type-3 transactions in blocks with `timestamp < V7_TIME` remain invalid (current behavior).
@@ -120,7 +120,7 @@ sequenceDiagram
     participant S as Sidecar store (per node)
     participant L1 as L1 Shasta inbox
 
-    U->>EL: eth_sendRawTransaction (wrapped: tx + blobs + commitments + proofs)
+    U->>EL: eth_sendRawTransaction (EIP-4844 network wrapper: tx + blobs + commitments + cell proofs)
     EL->>EL: pool validation (hash↔commitment↔proof)
     P->>EL: txPoolContentWithMinTip
     P->>EL: engine_getBlobsV2(versionedHashes)
@@ -135,8 +135,8 @@ sequenceDiagram
 
 Steps in prose:
 
-1. **Submission.** Users submit wrapped blob transactions to any Taiko RPC. The execution client's blobpool validates commitments/proofs against versioned hashes and holds the sidecars (upstream geth/reth machinery, already present).
-2. **Selection.** The sealer includes type-3 envelopes like any transaction (removing the current skip at `taiko-geth/miner/taiko_worker.go:277-281`), subject to §4 limits. After building a payload, the driver pulls sidecars for the included hashes from the local pool via `engine_getBlobsV2` (already implemented upstream in taiko-geth).
+1. **Submission.** Users submit wrapped blob transactions to any Taiko RPC — the standard EIP-4844 network wrapper that `eth_sendRawTransaction` accepts on L1 mainnet today, in its post-Osaka cell-proof (V1) form (§3), so existing libraries need no changes beyond the RPC URL. The execution client's blobpool validates commitments/proofs against versioned hashes and holds the sidecars (upstream geth/reth machinery, already present).
+2. **Selection.** The sealer includes type-3 envelopes like any transaction (removing the current skip at `taiko-geth/miner/taiko_worker.go:277-281`), subject to §4 limits. After building a payload, the driver pulls sidecars for the included hashes from the local pool via `engine_getBlobsV2` (already implemented upstream in taiko-geth). `getBlobsV2` is all-or-nothing — null if any requested hash is unavailable — so on a null response the builder MUST NOT publish the envelope: it identifies the gaps (via `engine_getBlobsV3` partial responses or per-hash pool queries), rebuilds the payload without the affected type-3 transactions, and retries. A builder can never legitimately publish an envelope it cannot fully equip with sidecars (§6.3).
 3. **Preconf propagation.** The preconfirmation envelope gains a `blobSidecars` field. Receiving nodes MUST verify, for each type-3 transaction, that sidecars are present, ordered, that `versioned_hash(commitment) == tx.blobVersionedHashes[i]` — the exact check the driver already runs against L1 blob servers (`packages/taiko-client/pkg/rpc/blob_datasource.go:210-218`) — and that the blob matches its commitment, either by re-deriving the commitment from the blob (the driver's existing path) or by batch-verifying the sidecar's cell proofs (cheaper; the check L1 pools run on ingress). An envelope failing this MUST NOT be propagated or imported as a preconfirmed block. This extends `ValidateExecutionPayload` (`packages/taiko-client/driver/preconf_blocks/server.go:923-962`) and the Rust ingress validation.
 4. **Persistence & serving.** Nodes persist validated sidecars to a local store and serve them (§7.2) for at least the retention window, then prune.
 5. **L1 proposal.** Unchanged. The manifest carries canonical envelopes; **no inbox, wrapper, or forced-inclusion contract changes are required**.
@@ -167,7 +167,7 @@ Data withholding is not generally attributable on-chain (a node claiming "I aske
 
 ### 7.3 Upgrade path: custody-and-sampling
 
-When the operator set decentralizes and demand justifies it, the guarantee can graduate to PeerDAS-style sampling: erasure-extend blobs, distribute column sidecars with cell proofs across node custody groups, and replace full-download validation with sampling. The cell/column machinery is battle-tested upstream since Fusaka. This phase changes §6.3's wrapper to the cell-proof format and is out of scope for V7.
+When the operator set decentralizes and demand justifies it, the guarantee can graduate to PeerDAS-style sampling: erasure-extend blobs, distribute column sidecars with cell proofs across node custody groups, and replace full-download validation with sampling. The cell/column machinery is battle-tested upstream since Fusaka. This phase is out of scope for V7 — and because V7 already uses the cell-proof sidecar format (§3), no wire-format change is needed when it arrives.
 
 ### 7.4 IPFS archival profile (optional)
 
@@ -183,12 +183,13 @@ An opt-in node profile that replicates received blobs into IPFS. It is a **repli
 | --- | --- | --- |
 | `IPFS_BUNDLE_BLOCKS` | `1000` L2 blocks | ≈ 33 min at 2s cadence; ≤ `3000` blobs ≈ ≤ 384 MiB per bundle |
 | Bundle boundary | `blockNumber / IPFS_BUNDLE_BLOCKS` | fixed ranges, so independent archivers produce **identical bundles and identical root CIDs** |
+| Sealing rule | range fully derived from a **finalized** L1 origin | deterministic and reorg-proof — the precondition for root-CID convergence |
 | Bundle root | dag-cbor node | `{version, chainId, blockRange:[start,end], index:[{versionedHash, commitment, blobCID(link)}...], prev: bytes}` |
 | Index ordering | `(blockNumber, txIndex, blobIndex)` ascending | canonical dag-cbor encoding ⇒ deterministic root CID |
 | `prev` field | previous bundle root CID **encoded as plain bytes, not an IPLD link** | forms an authenticated log of bundles without recursive pins traversing all history |
 | Export format | CAR v1 | one CAR per bundle; also the native input format for Filecoin deals and cold storage |
 
-- Bundles are sealed only from the **L1-derived canonical chain**, never from preconf-only state: blobs whose blocks are reorged out before L1 derivation are dropped (and their interim pins removed) at sealing time.
+- Bundles are sealed only when their entire block range derives from a **finalized L1 origin** (beacon-chain finality — a signal the derivation pipeline already tracks), never from preconf-only or merely-proposed state. Finality is what upgrades "same inputs" into a deterministic, reorg-proof cut, so independent archivers sealing at different times still produce bit-identical bundles; blobs that were preconfirmed but never make the finalized-derived chain are simply never sealed.
 - Convergence is a feature: because bundle roots are deterministic, anyone can cross-check an archiver by comparing one 32-byte CID; a mismatch identifies faulty or dishonest archives immediately.
 - **Announcement.** Only bundle roots receive DHT/IPNI provider records (Kubo `Reprovider.Strategy = "roots"`); individual blob CIDs are not announced. Fetching one blob over IPFS means: obtain the bundle root (from a serving node's `GET /taiko/v1/blob_bundles?range=…`, an indexer, or the DHT) → read the index → Bitswap the single raw leaf from a peer holding the bundle. Latency is accordingly worse than the HTTP API — acceptable for archival, wrong for the hot path.
 
@@ -206,12 +207,11 @@ sequenceDiagram
     V->>S: persist validated sidecar
     S-->>W: enqueue {versionedHash, commitment, blob}
     W->>K: block/put (raw, sha2-256) → blobCID
-    W->>K: pin/add --type=direct blobCID   (interim pin)
-    Note over W: on bundle boundary, once range is L1-derived canonical
-    W->>W: build index, drop reorged blobs
+    Note over W,K: no interim pin — auto-GC stays disabled, blocks persist until sealed
+    Note over W: on bundle boundary, once the range's L1 origin is finalized
+    W->>W: build index from the finalized-derived chain
     W->>K: dag/put bundle root (dag-cbor)
     W->>K: pin/add --type=recursive rootCID
-    W->>K: pin/rm interim direct pins
     W->>K: routing/provide rootCID
     Note over W,K: after pinDuration: pin/rm root, repo gc
 ```
@@ -229,9 +229,9 @@ Node configuration (all under an off-by-default flag group):
 Operational rules:
 
 1. **Never block, never lose silently.** The worker is a bounded queue with retry; if Kubo is down the queue drains on recovery, and overflow drops oldest entries with a warning metric (`taiko_ipfs_queue_dropped_total`). The canonical sidecar store is unaffected either way.
-2. **Idempotent by construction.** `block/put` of identical bytes yields the same CID; re-processing after a crash is harmless.
-3. **Kubo profile.** Recommended config: `Reprovider.Strategy="roots"`, accelerated DHT client, connection-manager limits sized for a server, `Datastore.StorageMax` ≥ pinned-window volume (~500 GiB at full target, §12.2 math) — expect ~2× disk versus the sidecar store alone, since the Kubo blockstore duplicates the bytes (see §15.7 for the filestore-dedup question).
-4. **Unpinning.** Roots older than `pinDuration` are unpinned and garbage-collected on Kubo's schedule; the sidecar store's own §7.2 retention is independent.
+2. **Idempotent by construction.** `block/put` of identical bytes yields the same CID; a crash anywhere between put and seal is repaired by re-putting from the canonical sidecar store.
+3. **Kubo profile.** Recommended config: `Reprovider.Strategy="roots"` with auto-GC left disabled (Kubo's default — unpinned blob blocks must survive until sealing, and GC runs only as rule 4's explicit sweep), accelerated DHT client, connection-manager limits sized for a server, `Datastore.StorageMax` ≥ pinned-window volume (≈510 GB at full target, §12.2 math) — expect ~2× disk versus the sidecar store alone, since the Kubo blockstore duplicates the bytes (see §15.7 for the filestore-dedup question). Because individual blobs are never pin roots, nothing per-blob is ever announced — only sealed bundle roots.
+4. **Unpinning.** Roots older than `pinDuration` are unpinned, then an explicit `repo gc` sweep reclaims space; the sidecar store's own §7.2 retention is independent.
 5. **Metrics.** Queue depth, put/pin failure counters, bundle seal lag (blocks behind canonical head), Kubo repo size.
 
 Interfaces touched: the profile is entirely additive to §9's sidecar store (one new worker + two HTTP endpoints: `GET /taiko/v1/blob_bundles?range=…` listing sealed roots, and inclusion of `blobCID`/bundle root in the existing `GET /blobs/{versionedHash}` response metadata). No consensus rule, no manifest field, and no contract references IPFS in any way.
@@ -242,7 +242,7 @@ Interfaces touched: the profile is entirely additive to §9's sidecar store (one
 | --- | --- | --- |
 | Sealer | Remove the type-3 skip, gated on `IsV7`; enforce §4 caps during selection. A type-3 tx's canonical envelope counts toward `maxBytesPerTxList` exactly like any other tx — only sidecar bodies are excluded (§4.3.2) — and it additionally charges blob gas | `taiko-geth/miner/taiko_worker.go:277-281`, `commitL2Transactions` |
 | Pool (pre-V7 hygiene) | **Immediately** (independent of this design): reject type-3 at the pool while `!IsV7`. Post-Unzen the blobpool is Cancun-active and `Pending()` is called without `OnlyPlainTxs` (`taiko_worker.go:74-79, 377`), so a blob tx can today enter a proposed txlist only to be dropped by every sealer — the proposer pays L1 DA for dead bytes | `taiko-geth/core/txpool/validation.go` (taiko gate) |
-| Pool (V7) | Enable blobpool acceptance; per-account cap `MAX_BLOB_TXS_PER_ACCOUNT_POOL`; accept single-proof wrapper | upstream blobpool, config |
+| Pool (V7) | Enable blobpool acceptance; per-account cap `MAX_BLOB_TXS_PER_ACCOUNT_POOL`; accept the cell-proof (`BlobSidecarVersion1`) wrapper per §3 | upstream blobpool, config |
 | Fee market | Activate the §3/§5 schedule via `TaikoChainConfig.BlobScheduleConfig` (the field already exists, currently carrying inert L1 defaults — replace with Taiko entries keyed to V7); implement the §5 blob-fee credit in the state transition, with raiko STF parity | `taiko-geth/params/taiko_config.go:81-87`; state processor |
 | Headers | Real `blobGasUsed`/`excessBlobGas` computation post-fork | upstream + fork gate |
 | APIs | `txPoolContentWithMinTip` unchanged (envelopes only); `engine_getBlobsV2` already present and becomes the sidecar hand-off to the driver | `taiko-geth/eth/catalyst` |
@@ -288,9 +288,10 @@ A malicious preconfer could include a type-3 tx and withhold the body. Bounded i
 
 ### 12.2 Storage/bandwidth DoS
 
-- Hard ingest ceiling: `MAX_BLOBS_PER_BLOCK × BLOB_BYTES / 2 s = 192 KiB/s ≈ 16.6 GB/day`, i.e. ≤ ~1.21 TB over the minimum window — the mathematical bound, not the expected state.
+- Hard ingest ceiling: `MAX_BLOBS_PER_BLOCK × BLOB_BYTES / 2 s = 192 KiB/s ≈ 17.0 GB/day`, i.e. ≤ ≈1.24 TB over the minimum window — the mathematical bound, not the expected state.
 - Sustained-max is self-extinguishing: each fully-utilized block adds `(MAX−TARGET) × GAS_PER_BLOB = 262_144` to `excess_blob_gas`, multiplying the price by ≈ 1.125; ~195 consecutive full blocks (≈ 6.5 minutes) multiply it by 10¹⁰. The exponential lane, not the floor, is the anti-spam mechanism — same as L1, reacting ~6× faster in wall-clock.
-- Steady state at 100% of target: `TARGET_BLOBS_PER_BLOCK × BLOB_BYTES / 2 s = 64 KiB/s ≈ 5.5 GB/day` → ≈ 403 GB per 72.8-day window (≈ 497 GB at the 90-day default). Serving nodes SHOULD provision ≥ 1 TB for the blob store; non-serving nodes carry nothing.
+- Steady state at 100% of target: `TARGET_BLOBS_PER_BLOCK × BLOB_BYTES / 2 s = 64 KiB/s ≈ 5.7 GB/day` → ≈ 412 GB per 72.8-day window (≈ 510 GB at the 90-day default). Serving nodes SHOULD provision ≥ 1 TB for the blob store; non-serving nodes carry nothing.
+- Local storage pressure MUST degrade only the blob store (shed data beyond the window oldest-first, alert via metrics); it MUST NOT cause a node to reject, delay, or fail import of otherwise-valid blocks or preconf envelopes.
 - Per-account pool caps and the standard blobpool eviction rules bound mempool exposure.
 
 ### 12.3 Interaction with zk-gas block truncation
@@ -309,7 +310,7 @@ This design intentionally makes Taiko a superset of Osaka behavior gated on a Ta
 
 | Phase | Content | Gate |
 | --- | --- | --- |
-| 0 (now) | Hygiene: pool-reject type-3 pre-V7 (§8 row 2); update stale docs (docs.taiko.xyz FAQ still describes a Shanghai EVM); reopen #19832 referencing this spec | — |
+| 0 (now) | Hygiene: pool-reject type-3 pre-V7 (§8 row 2, tracked in [#22015](https://github.com/taikoxyz/taiko-mono/issues/22015)); update stale docs (docs.taiko.xyz FAQ still describes a Shanghai EVM); reopen #19832 referencing this spec | — |
 | 1 | Spec review (this document), parameter sign-off (`TARGET/MAX`, retention default, update fraction) | protocol + client teams |
 | 2 | Devnet: taiko-reth + Rust driver implementation; `--taiko.devnet-v7-time 0`; Nethermind chainspec flip; bandwidth/storage soak at max utilization | internal devnet |
 | 3 | Hoodi testnet fork; explorer + blob-indexer integration; IPFS archival profile pilot (§7.4); L3 pilot (an OP-stack or Taiko-stack L3 posting via L2 blobs) | Hoodi |
