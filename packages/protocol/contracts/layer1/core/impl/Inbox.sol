@@ -74,6 +74,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
+    /// @dev Gas limit for the (gas-isolated) proposer checker call.
+    uint32 internal immutable _proposerCheckerGasLimit;
+
     /// @notice The prover whitelist contract (address(0) means no whitelist)
     IProverWhitelist internal immutable _proverWhitelist;
 
@@ -155,6 +158,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
+        _proposerCheckerGasLimit = _config.proposerCheckerGasLimit;
         _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
         _signalService = ISignalService(_config.signalService);
         _bondToken = IERC20(_config.bondToken);
@@ -529,6 +533,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         config_ = Config({
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
+            proposerCheckerGasLimit: _proposerCheckerGasLimit,
             proverWhitelist: address(_proverWhitelist),
             signalService: address(_signalService),
             bondToken: address(_bondToken),
@@ -592,19 +597,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
             );
 
+            // Proposal authorization runs BEFORE forced inclusions are consumed, so the escape
+            // hatch can observe the stale inclusion it is gated on. Normally the proposer
+            // checker decides. The call is gas-isolated (bounded gas + try/catch) so a buggy
+            // checker can never halt the rollup; if it reverts, permissionless proposing is
+            // allowed only while the escape hatch is open (oldest forced inclusion overdue
+            // beyond forcedInclusionDelay * permissionlessInclusionMultiplier). kimi-k3 I-01.
+            uint48 endOfSubmissionWindowTimestamp;
+            try _proposerChecker.checkProposer{ gas: _proposerCheckerGasLimit }(
+                msg.sender, _lookahead
+            ) returns (
+                uint48 windowEnd_
+            ) {
+                endOfSubmissionWindowTimestamp = windowEnd_;
+            } catch {
+                require(_isPermissionlessInclusionAllowed(), PermissionlessProposingNotAllowed());
+                endOfSubmissionWindowTimestamp = uint48(block.timestamp);
+            }
+            if (_minBond > 0) {
+                // Only if there is a minimum bond set, execute this check
+                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
+            }
+
             ConsumptionResult memory result =
                 _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
-
-            // Permissionless proposing is temporarily disabled.
-            uint48 endOfSubmissionWindowTimestamp =
-                _proposerChecker.checkProposer(msg.sender, _lookahead);
-            if (_minBond > 0) {
-                // Only if there is a minimum bond set, execute this check
-                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
-            }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
@@ -620,6 +639,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 sources: result.sources
             });
         }
+    }
+
+    /// @dev Returns true when permissionless proposing is allowed: the oldest queued forced
+    ///      inclusion is overdue beyond forcedInclusionDelay * permissionlessInclusionMultiplier.
+    /// @dev This is the escape hatch that guarantees proposal liveness even if the proposer
+    ///      checker reverts (kimi-k3 finding I-01; PR #22012 E-4).
+    /// @return allowed_ True if permissionless proposing is currently allowed.
+    function _isPermissionlessInclusionAllowed() private view returns (bool allowed_) {
+        return _forcedInclusionStorage.isPermissionlessInclusionAllowed(
+            _forcedInclusionDelay, _permissionlessInclusionMultiplier
+        );
     }
 
     /// @dev Stores a proposal hash in the ring buffer
@@ -829,4 +859,5 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error ParentBlockHashMismatch();
     error ProverNotWhitelisted();
     error UnprocessedForcedInclusionIsDue();
+    error PermissionlessProposingNotAllowed();
 }

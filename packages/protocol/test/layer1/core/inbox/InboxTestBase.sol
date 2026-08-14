@@ -93,7 +93,8 @@ abstract contract InboxTestBase is CommonTest {
             forcedInclusionDelay: 384 seconds,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
-            permissionlessInclusionMultiplier: 5
+            permissionlessInclusionMultiplier: 5,
+            proposerCheckerGasLimit: 3_000_000
         });
     }
 

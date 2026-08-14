@@ -293,9 +293,9 @@ contract InboxProposeTest is InboxTestBase {
         assertEq(tail, 12, "tail");
     }
 
-    function test_propose_RevertWhen_NonProposerEvenIfForcedInclusionTooOld() public {
-        // Permissionless proposing remains disabled: even when the oldest forced inclusion is
-        // overdue beyond the permissionless multiplier, only authorized proposers may propose.
+    function test_propose_allowsPermissionlessWhenCheckerRevertsAndForcedInclusionOverdue() public {
+        // When the checker reverts, permissionless proposing is allowed while the escape hatch
+        // is open (oldest forced inclusion overdue beyond the permissionless multiplier).
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -307,14 +307,57 @@ contract InboxProposeTest is InboxTestBase {
 
         uint256 waitTime = uint256(config.forcedInclusionDelay)
             * uint256(config.permissionlessInclusionMultiplier);
+        // NOTE: vm.roll also advances block.timestamp (blockNumber * 12) in this Foundry
+        // version, so the warp must come AFTER the roll.
+        vm.roll(block.number + 1);
         vm.warp(block.timestamp + waitTime + 1);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+        input.numForcedInclusions = 1;
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.prank(David);
+        inbox.propose(bytes(""), encodedInput);
+
+        // The overdue forced inclusion was consumed.
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 1);
+        assertEq(tail, 1);
+    }
+
+    function test_propose_RevertWhen_checkerRevertsAndForcedInclusionNotOverdue() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
+        _saveForcedInclusion(forcedRef);
+
+        // Overdue by the ordinary delay but NOT beyond the permissionless multiplier.
+        vm.warp(block.timestamp + uint256(config.forcedInclusionDelay) + 1);
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
 
         bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert();
+        vm.expectRevert(Inbox.PermissionlessProposingNotAllowed.selector);
+        vm.prank(David);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
+    function test_propose_RevertWhen_checkerRevertsAndNoForcedInclusions() public {
+        _setBlobHashes(3);
+        _proposeAndDecode(_defaultProposeInput());
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1 days);
+
+        IInbox.ProposeInput memory input = _defaultProposeInput();
+
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert(Inbox.PermissionlessProposingNotAllowed.selector);
         vm.prank(David);
         inbox.propose(bytes(""), encodedInput);
     }
@@ -477,8 +520,7 @@ contract InboxProposeTest is InboxTestBase {
     }
 
     function test_propose_RevertWhen_PermissionlessCallerHasNoBond() public {
-        // Permissionless proposing remains disabled: an unauthorized caller reverts on the
-        // proposer check regardless of how overdue the oldest forced inclusion is.
+        // An unauthorized caller reverts unless the permissionless escape hatch is open.
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);

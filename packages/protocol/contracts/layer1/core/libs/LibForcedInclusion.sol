@@ -169,6 +169,32 @@ library LibForcedInclusion {
         }
     }
 
+    /// @dev Returns true when permissionless proposing is allowed: the oldest forced inclusion
+    ///      is overdue beyond _forcedInclusionDelay * _multiplier.
+    /// @param $ Storage reference.
+    /// @param _forcedInclusionDelay Delay in seconds before an inclusion is due.
+    /// @param _multiplier Multiplier defining the permissionless escape hatch.
+    /// @return True if permissionless proposing is currently allowed.
+    function isPermissionlessInclusionAllowed(
+        Storage storage $,
+        uint16 _forcedInclusionDelay,
+        uint8 _multiplier
+    )
+        internal
+        view
+        returns (bool)
+    {
+        unchecked {
+            (uint48 head, uint48 tail) = ($.head, $.tail);
+            if (head == tail) return false;
+
+            uint256 timestamp = $.queue[head].blobSlice.timestamp;
+            if (timestamp == 0) return false;
+
+            return block.timestamp >= timestamp + uint256(_forcedInclusionDelay) * _multiplier;
+        }
+    }
+
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------

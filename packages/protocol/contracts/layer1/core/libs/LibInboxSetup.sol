@@ -42,6 +42,7 @@ library LibInboxSetup {
             _config.permissionlessInclusionMultiplier > 1,
             PermissionlessInclusionMultiplierTooSmall()
         );
+        require(_config.proposerCheckerGasLimit > 0, ProposerCheckerGasLimitZero());
     }
 
     /// @dev Validates activation and computes the initial state for inbox activation.
@@ -102,6 +103,7 @@ library LibInboxSetup {
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
+    error ProposerCheckerGasLimitZero();
     error ProvingWindowZero();
     error RingBufferSizeTooSmall();
     error SignalServiceZero();

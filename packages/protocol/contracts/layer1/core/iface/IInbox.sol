@@ -46,6 +46,9 @@ interface IInbox {
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
+        /// @notice The gas limit for the proposer checker call. If the checker reverts (or runs
+        /// out of this gas), permissionless proposing is allowed while the escape hatch is open.
+        uint32 proposerCheckerGasLimit;
     }
 
     /// @notice Represents a source of derivation data within a Proposal
