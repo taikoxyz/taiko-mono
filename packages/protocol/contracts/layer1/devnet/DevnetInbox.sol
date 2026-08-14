@@ -46,7 +46,8 @@ contract DevnetInbox is Inbox {
                 forcedInclusionDelay: 0 seconds, // Devnet: immediate forced inclusion for faster testing
                 forcedInclusionFeeInGwei: 1_000_000,
                 forcedInclusionFeeDoubleThreshold: 50,
-                permissionlessInclusionMultiplier: 160
+                permissionlessInclusionMultiplier: 160,
+                proposerCheckerGasLimit: 3_000_000
             }))
     { }
 

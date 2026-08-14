@@ -50,7 +50,8 @@ contract MainnetInbox is Inbox {
                 forcedInclusionFeeInGwei: 1_000_000, // 0.001 ETH base fee.
                 forcedInclusionFeeDoubleThreshold: 50, // fee doubles at 50 pending
                 // 160 * 576s = 92_160s (~25.6 hours).
-                permissionlessInclusionMultiplier: 160
+                permissionlessInclusionMultiplier: 160,
+                proposerCheckerGasLimit: 3_000_000
             }))
     { }
 
