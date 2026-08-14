@@ -111,8 +111,18 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Refute window before a stall slash settles, in seconds.
     uint48 private immutable _refuteWindow;
 
-    /// @dev EIP-712 domain separator for SignedBlock data.
-    bytes32 private immutable _domainSeparator;
+    /// @dev EIP-712 domain typehash for SignedBlock data.
+    /// @dev The domain separator is computed dynamically in the verify path so that proxied
+    ///      deployments sign over the proxy address, not the implementation address.
+    bytes32 internal constant _DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
+
+    /// @dev EIP-712 domain name hash for SignedBlock data.
+    bytes32 internal constant _DOMAIN_NAME_HASH = keccak256("TAIKO_PRECONF_BLOCK");
+
+    /// @dev EIP-712 domain version hash for SignedBlock data.
+    bytes32 internal constant _DOMAIN_VERSION_HASH = keccak256("1");
 
     // ---------------------------------------------------------------
     // State Variables
@@ -165,6 +175,9 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @dev Timestamp of the last accepted winner proposal.
     uint48 internal _lastWinnerProposalAt;
+
+    /// @dev Monotonic bid placement sequence, for deterministic tie-breaking.
+    uint48 internal _bidSeq;
 
     /// @dev Total TAIKO locked from slashes, in gwei.
     uint128 internal _totalSlashedAmount;
@@ -229,7 +242,8 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         require(_movingAverageMultiplierValue > 0, ZeroValue());
         require(_movingAverageWindowSeconds > 0, ZeroValue());
         require(
-            _stallGraceSeconds > 0 && _backupGraceSeconds > 0 && _fallbackGraceSeconds > 0, ZeroValue()
+            _stallGraceSeconds > 0 && _backupGraceSeconds > 0 && _fallbackGraceSeconds > 0,
+            ZeroValue()
         );
         require(_refuteWindowSeconds > 0, ZeroValue());
 
@@ -253,18 +267,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             _ejectionThreshold = ejectionThreshold;
             _requiredBond = ejectionThreshold * 2;
         }
-
-        _domainSeparator = keccak256(
-            abi.encode(
-                keccak256(
-                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-                ),
-                keccak256("TAIKO_PRECONF_BLOCK"),
-                keccak256("1"),
-                block.chainid,
-                address(this)
-            )
-        );
     }
 
     // ---------------------------------------------------------------
@@ -318,6 +320,9 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         info.placedEpoch = currentEpoch;
         info.withdrawEffectiveEpoch = 0;
         info.joinedAt = uint48(block.timestamp);
+        unchecked {
+            info.placedSeq = ++_bidSeq;
+        }
         _signers[msg.sender] = _signer;
 
         emit BidPlaced(msg.sender, _amountInGwei, _signer);
@@ -365,7 +370,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @inheritdoc IProposerAuction
     function depositBond(uint128 _amount) external nonReentrant {
-        bondToken.safeTransferFrom(msg.sender, address(this), uint256(_amount));
+        bondToken.safeTransferFrom(msg.sender, address(this), uint256(_amount) * 1 gwei);
         _bonds[msg.sender].balance += _amount;
         emit BondDeposited(msg.sender, _amount);
     }
@@ -381,7 +386,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         require(info.balance >= _amount, InsufficientBond());
 
         info.balance -= _amount;
-        bondToken.safeTransfer(msg.sender, uint256(_amount));
+        bondToken.safeTransfer(msg.sender, uint256(_amount) * 1 gwei);
 
         emit BondWithdrawn(msg.sender, _amount);
     }
@@ -618,18 +623,18 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     function getProvisionalWinner() external view returns (address winner_, bool isFinal_) {
         uint32 currentEpoch = _currentEpochIndex();
         uint128 topAmount;
-        uint48 topJoinedAt;
+        uint48 topPlacedSeq;
         for (uint256 i; i < _ranked.length; ++i) {
             address bidder = _ranked[i];
             IProposerAuction.BidInfo memory info = _bids[bidder];
             if (info.amountInGwei == 0) continue;
             if (
                 winner_ == address(0) || info.amountInGwei > topAmount
-                    || (info.amountInGwei == topAmount && info.joinedAt < topJoinedAt)
+                    || (info.amountInGwei == topAmount && info.placedSeq < topPlacedSeq)
             ) {
                 winner_ = bidder;
                 topAmount = info.amountInGwei;
-                topJoinedAt = info.joinedAt;
+                topPlacedSeq = info.placedSeq;
             }
         }
         if (winner_ != address(0)) {
@@ -782,11 +787,10 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         for (uint256 i; i < count; ++i) {
             address candidate = candidates[i];
             IProposerAuction.BidInfo memory info = _bids[candidate];
-            if (winner_ == address(0) || _outranks(info, candidate, _bids[winner_], winner_)) {
+            if (winner_ == address(0) || _outranks(info, _bids[winner_])) {
                 backup_ = winner_;
                 winner_ = candidate;
-            } else if (backup_ == address(0) || _outranks(info, candidate, _bids[backup_], backup_))
-            {
+            } else if (backup_ == address(0) || _outranks(info, _bids[backup_])) {
                 backup_ = candidate;
             }
         }
@@ -821,11 +825,10 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         for (uint256 i; i < count; ++i) {
             address candidate = candidates[i];
             IProposerAuction.BidInfo memory info = _bids[candidate];
-            if (winner_ == address(0) || _outranks(info, candidate, _bids[winner_], winner_)) {
+            if (winner_ == address(0) || _outranks(info, _bids[winner_])) {
                 backup_ = winner_;
                 winner_ = candidate;
-            } else if (backup_ == address(0) || _outranks(info, candidate, _bids[backup_], backup_))
-            {
+            } else if (backup_ == address(0) || _outranks(info, _bids[backup_])) {
                 backup_ = candidate;
             }
         }
@@ -850,7 +853,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             if (
                 topHolder_ == address(0) || info.amountInGwei > topAmount_
                     || (info.amountInGwei == topAmount_
-                        && info.joinedAt < _bids[topHolder_].joinedAt)
+                        && info.placedSeq < _bids[topHolder_].placedSeq)
             ) {
                 topAmount_ = info.amountInGwei;
                 topHolder_ = bidder;
@@ -994,29 +997,38 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         return _bonds[_account].balance >= _amount;
     }
 
-    /// @dev Rank comparison: higher amount wins; ties break by earlier joinedAt.
+    /// @dev Rank comparison: higher amount wins; ties break by earlier placement (placedSeq).
     function _outranks(
         IProposerAuction.BidInfo memory _a,
-        address,
-        IProposerAuction.BidInfo memory _b,
-        address
+        IProposerAuction.BidInfo memory _b
     )
         internal
         pure
         returns (bool outranks_)
     {
         return _a.amountInGwei > _b.amountInGwei
-            || (_a.amountInGwei == _b.amountInGwei && _a.joinedAt < _b.joinedAt);
+            || (_a.amountInGwei == _b.amountInGwei && _a.placedSeq < _b.placedSeq);
     }
 
     /// @dev Recovers the signer of a SignedBlock (EIP-712).
+    /// @dev The domain separator binds block.chainid and address(this) and is computed at verify
+    ///      time so that proxied deployments sign over the proxy address, not the implementation.
     function _recoverBlockSigner(SignedBlock calldata _block)
         internal
         view
         returns (address signer_)
     {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                _DOMAIN_TYPEHASH,
+                _DOMAIN_NAME_HASH,
+                _DOMAIN_VERSION_HASH,
+                block.chainid,
+                address(this)
+            )
+        );
         bytes32 structHash = _hashBlockData(_block);
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", _domainSeparator, structHash));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         signer_ = ecrecover(digest, _block.v, _block.r, _block.s);
         require(signer_ != address(0), InvalidSignature());
     }

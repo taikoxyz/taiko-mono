@@ -113,7 +113,9 @@ interface IProposerAuction is IProposerChecker {
     /// @param effectiveEpoch Epoch from which the bid counts (placedEpoch + TRANSITION_LEAD_EPOCHS).
     /// @param expiresAtEpoch Epoch after which the bid lapses (exclusive).
     /// @param withdrawEffectiveEpoch Epoch from which a quitted bid stops counting (0 = not quitting).
-    /// @param joinedAt Timestamp of the most recent bid, for tie-breaking.
+    /// @param joinedAt Timestamp of the most recent bid.
+    /// @param placedSeq Monotonic placement sequence, for deterministic tie-breaking
+    ///        (earlier placement wins ties).
     struct BidInfo {
         uint128 amountInGwei;
         uint32 placedEpoch;
@@ -121,6 +123,7 @@ interface IProposerAuction is IProposerChecker {
         uint32 expiresAtEpoch;
         uint32 withdrawEffectiveEpoch;
         uint48 joinedAt;
+        uint48 placedSeq;
     }
 
     /// @notice A bond account.

@@ -34,7 +34,8 @@ pragma solidity ^0.8.26;
 //   _nextBackup                    | address                                            | Slot: 263  | Offset: 0    | Bytes: 20  
 //   _lastProposalAt                | uint48                                             | Slot: 263  | Offset: 20   | Bytes: 6   
 //   _lastWinnerProposalAt          | uint48                                             | Slot: 263  | Offset: 26   | Bytes: 6   
-//   _totalSlashedAmount            | uint128                                            | Slot: 264  | Offset: 0    | Bytes: 16  
+//   _bidSeq                        | uint48                                             | Slot: 264  | Offset: 0    | Bytes: 6   
+//   _totalSlashedAmount            | uint128                                            | Slot: 264  | Offset: 6    | Bytes: 16  
 //   _proceeds                      | uint256                                            | Slot: 265  | Offset: 0    | Bytes: 32  
 //   _movingAverageBid              | uint128                                            | Slot: 266  | Offset: 0    | Bytes: 16  
 //   _lastAvgUpdate                 | uint48                                             | Slot: 266  | Offset: 16   | Bytes: 6   
