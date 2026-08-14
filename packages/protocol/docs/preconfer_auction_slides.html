@@ -432,6 +432,226 @@
   </section>
 
   <!-- 17. Recap -->
+  <!-- ================= Round 4: design review resolutions ================= -->
+
+  <section class="slide title-slide">
+    <div class="kicker">Round 4 review — the shift</div>
+    <h1>Robust against a stalling winner,<br>not yet a rational one</h1>
+    <p class="subtitle">
+      The pending-update + promote-don't-recompute redesign closed the <i>honest vs. offline</i>
+      failure modes. A fresh adversarial pass found the <i>rational-actor</i> modes: places where an
+      economically motivated participant — incumbent, backup, sybil challenger, or the winner
+      itself — profits from an edge the offline framing never considered.
+    </p>
+    <p class="subtitle" style="margin-top:12px">
+      The lesson: a liveness mechanism has to be analyzed through the lens of
+      <b>“what does each participant maximize?”</b> — not just “what does the honest path do?”
+      The next slides walk through each question and the reasoning behind the fix.
+    </p>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · Economics</div>
+    <h2>Q1 + Q19 — the floor is a one-way ratchet</h2>
+    <div class="card">
+      <h4>Q1 · What could go wrong?</h4>
+      <p>The reserve floor is <code>max(initialFloor, multiplier × EMA)</code>, and the EMA is only
+      updated when a winner is charged. So the moment the list empties (a demand collapse, or a whale
+      who overbids then quits), the floor freezes above everyone's willingness to pay — the auction
+      can never clear without a proxy upgrade. Worse, with <code>multiplier = 2</code> the floor
+      converges to <b>2× the incumbent's own rate</b>, so the real entry bar is +100%, not the +5%
+      increment §4.8 advertises.</p>
+    </div>
+    <div class="card">
+      <h4>Q19 · What could go wrong?</h4>
+      <p>With an empty list, holding just <code>ejectionThreshold</code> (half the bond needed to bid)
+      and racing first-come at <b>zero fee</b> strictly dominates bidding — a tacit-collusion
+      equilibrium needing no coordination, and it's <b>absorbing</b> because the floor never decays.</p>
+    </div>
+    <div class="card">
+      <h4>What I chose, and why</h4>
+      <p><span class="ok">Decay</span> the EMA on every unassigned epoch so the floor relaxes toward
+      <code>initialFloor</code> (never below). <span class="ok">Bound</span> the floor by the 5%
+      increment bar when an incumbent exists. <span class="ok">Price</span> the unassigned instant
+      rung at the floor, once per epoch.</p>
+      <p class="dim">Why: a reserve price with no downward force cannot clear a market. The template I
+      borrowed — <code>ProverAuction</code> — adapts price in the <i>entry-attracting</i> direction on
+      vacancy (fee <i>doubling</i>). An ascending auction needs the mirror: a <i>decaying</i> reserve.
+      And a free early-access option that strictly dominates the paid one is an arbitrage — price it
+      so that bidding (same price, guaranteed exclusivity) weakly dominates racing.</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · Liveness</div>
+    <h2>Q2 · Q7 · Q8 · Q12 — boundaries &amp; the drained winner</h2>
+    <div class="card">
+      <h4>Q2 · the ladder re-closed at every boundary</h4>
+      <p>Absence re-anchored to <code>epochStart</code> each epoch, so a <i>continuously</i> stalled
+      winner forced the backup to re-wait <code>stallGrace</code> every epoch (~87%/75%/50% duty).
+      <span class="ok">Fix:</span> carry the winner-absence clock across a boundary when the winner is
+      unchanged — a continuous outage is not N independent per-epoch outages.</p>
+    </div>
+    <div class="card">
+      <h4>Q7 · a self-drained winner becomes an unslashable franchise</h4>
+      <p>Promotion checked ETH but never bond, so a dead-but-funded winner kept winning; unsettled
+      escrows drained the bond to zero, after which slashing no-ops.
+      <span class="ok">Fix:</span> promote and <code>renew()</code> require bond ≥ ejection threshold.</p>
+    </div>
+    <div class="card">
+      <h4>Q8 · nobody was paid to call <code>settleStallSlash</code></h4>
+      <p>The reward went to the challenger regardless of caller, so nothing incentivized the one tx
+      that ends an attack — recovery depended on altruism.
+      <span class="ok">Fix:</span> pay a settle bounty to <code>msg.sender</code> out of the locked share.</p>
+    </div>
+    <div class="card">
+      <h4>Q12 · an inheriting backup could be slashed in the tx that promoted them</h4>
+      <p>The fresh-compute path promoted the backup and fired the escrow in the same call (the clock
+      ran from before their assignment), and one poke could mass-lapse the whole backup pool.
+      <span class="ok">Fix:</span> an inherited winner's clock starts at assignment; only the winner is
+      charged/lapsed.</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · State machine</div>
+    <h2>Q4 · Q5 · Q11 · Q17 — finality &amp; backfill</h2>
+    <div class="card">
+      <h4>Q5 · backfill computed the past from the present list</h4>
+      <p>Catch-up purged entries against <i>today's</i> epoch before each backfilled snapshot —
+      recording the wrong winner, charging the wrong party, and un-slashing the real faulter.
+      <span class="ok">Fix:</span> purge is re-anchored to <code>_assignedEpoch</code> (an entry is only
+      removed once its last active epoch is recorded) and runs <i>after</i> the backfill loop.</p>
+    </div>
+    <div class="card">
+      <h4>Q4 · the first proposal after a quiet epoch sealed it forever</h4>
+      <p>A single-epoch snapshot let the cursor jump past a quiet epoch, voiding its S1 evidence and
+      forgiving its fee. <span class="ok">Fix:</span> <code>checkProposer</code> runs the bounded,
+      resumable catch-up, so the boundary proposal records skipped epochs.</p>
+    </div>
+    <div class="card">
+      <h4>Q17 · a lossy 32-epoch skip lost outage epochs permanently</h4>
+      <p>Any halt &gt; 32 epochs made the older epochs unrecoverable — exactly when a winner can sign
+      equivocating preconfs with impunity. <span class="ok">Fix:</span> resumable — process up to 32
+      epochs from <code>_assignedEpoch + 1</code>, never skipping.</p>
+    </div>
+    <div class="card">
+      <h4>Q11 · <code>withdrawEth</code> was defeated in the pre-snapshot window</h4>
+      <p>The next-winner reservation only held when the cache was current; lazy snapshots left a
+      stale-cache window at every epoch start. <span class="ok">Fix:</span> <code>withdrawEth</code>
+      forces a bounded catch-up first. <i>Any guard predicated on the cache being current must first
+      bring the cache current.</i></p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · Slashing</div>
+    <h2>Q6 · Q9 · Q13 — punishing the right party</h2>
+    <div class="card">
+      <h4>Q6 · expiry was the one exit with zero delay</h4>
+      <p>An operator could serve to expiry, equivocate in the final epoch, and withdraw the whole bond
+      instantly — collapsing the S1 evidence window to seconds.
+      <span class="ok">Fix:</span> every exit routes through the withdrawal clock (<code>_everListed</code>
+      + purge-via-lapse). An evidence window is only as long as the collateral remains.</p>
+    </div>
+    <div class="card">
+      <h4>Q9 · the backup profited from causing stalls it couldn't be blamed for</h4>
+      <p>Rank #2's only revenue is winner failures: DDoS the winner ~2 min, propose as challenger,
+      collect 50% of the bond plus fee-free sequencing. <span class="ok">Fix:</span> the escrow records
+      whether the challenger was the designated backup, and that reward is <b>burned</b> — a party
+      whose only revenue is your failure must not also collect the slash. Third-party watchers keep
+      the reward.</p>
+    </div>
+    <div class="card">
+      <h4>Q13 · <code>escrowGrace</code> was a de-facto heartbeat mandate</h4>
+      <p>Any gap over 96 s let the first fallback proposer fire an <i>unrefutable</i> escrow, even for
+      an honest batcher in a low-demand period. <span class="ok">Decision:</span> document the cadence
+      budget — it's a <i>liveness</i> threshold, and the heartbeat cost is an explicit price of the
+      franchise (constructor-tunable). Weakening the precise gap-disproof to absorb races would
+      sacrifice reorg-safety.</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · Integration</div>
+    <h2>Q3 · Q10 — S1 evidence must match reality</h2>
+    <div class="card">
+      <h4>Q3 · the epoch-window rule outlawed the shipped handover</h4>
+      <p>The preconf driver reserves the last 8 slots (96 s) of each epoch for the <i>incoming</i>
+      operator, whose blocks carry timestamps still inside the outgoing epoch. The strict window made
+      each handover block slashable — ejecting an honest winner before their first official slot.
+      <span class="ok">Fix:</span> add a <code>HANDOVER_MARGIN</code> (default 96 s) so blocks tagged
+      epoch E+1 are legal from <code>epochStart(E+1) − margin</code>. S1 must match the deployed
+      convention, or it punishes the honest.</p>
+    </div>
+    <div class="card">
+      <h4>Q10 · the predicates missed the fault S1 was sold on</h4>
+      <p>Equivocation demanded identical <code>parentHash</code>, so a single fabricated-parentHash
+      double-spend satisfied no predicate; the promised <code>gasLimit</code> check was absent.
+      <span class="ok">Fix:</span> add a per-epoch <code>seqNo</code> and key equivocation on
+      <code>(epoch, seqNo)</code> — the winner signs exactly one block per slot, so a fabricated block
+      is provably a second signature once the canonical block exists. The half-promised gasLimit check
+      is removed from the doc (prover/V1 scope). <i>Key equivocation on something the winner can't
+      choose — the slot index — not on attacker-chosen fields.</i></p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · Entry economics</div>
+    <h2>Q14 · Q15 · Q16 · Q18 — permissionless in practice</h2>
+    <div class="card">
+      <h4>Q14 · a full list had no eviction path</h4>
+      <p>16 renewing operators could close the auction at any price forever.
+      <span class="ok">Fix:</span> a new bid that beats rank 16 by 5% evicts it (rank 16 is never
+      winner/backup, so finality is untouched). Permissionless ≠ “join once the list drains”.</p>
+    </div>
+    <div class="card">
+      <h4>Q15 · the “bonded operator” rung was a same-block flash-bond</h4>
+      <p><code>depositBond → propose → withdrawBond</code> was atomic. <span class="ok">Fix:</span>
+      passing the rung via the bond defers that bond's withdrawal (the <code>ProverAuction
+      .checkBondDeferWithdrawal</code> precedent). Collateral you can withdraw in the same block you
+      use it isn't collateral.</p>
+    </div>
+    <div class="card">
+      <h4>Q16 · rung-3 fee “must not be skipped” — but it's free</h4>
+      <p><span class="ok">Decision:</span> keep rung 3 free as the liveness floor (taxing it taxes the
+      exact fallback the design exists to guarantee). The DoS is bounded by 1-proposal/block + a
+      3-day ring buffer + the proving drain. The unassigned-mode fee (Q19) already prices the
+      <i>privileged</i> early rung.</p>
+    </div>
+    <div class="card">
+      <h4>Q18 · the bidder is a hot key that also custodies bond/ETH/exit rights</h4>
+      <p><span class="ok">Decision:</span> operators bid through a smart-contract wallet (cold custody,
+      authorizes a rotatable hot proposer). A native cold/hot split is deferred — it's an operator-
+      architecture concern, not a protocol-invariant hole.</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">Round 4 · Comparative</div>
+    <h2>C1 · C2 · C3 — the three design forks</h2>
+    <div class="card">
+      <h4>C1 · keep <code>tenureMax</code> + cheap <code>renew()</code>?</h4>
+      <p>Yes. After per-epoch charging lapses non-payers and slashing ejects the dead, expiry's only
+      remaining job is <b>dead-bidder cleanup</b> (periodic re-confirmation + freeing stale bond
+      slots) — not price discovery. The renewal-deadline grief is bounded: the sniper still posts
+      <code>requiredBond</code> and clears the floor.</p>
+    </div>
+    <div class="card">
+      <h4>C2 · first-price or second-price?</h4>
+      <p>Keep <b>first-price</b>. Downward re-bids drift proceeds toward the runner-up (winner shades
+      down to just above it), but the 5% increment bounds the drift, and first-price is simpler and
+      matches <code>ProverAuction</code>'s fee undercutting. Second-price needs the runner-up's bid to
+      be <i>credible</i> (payable if promoted) — revisit later.</p>
+    </div>
+    <div class="card">
+      <h4>C3 · winner-take-all or top-K rotation?</h4>
+      <p>Ship <b>winner-take-all (K=1)</b>. Exclusivity <i>is</i> the product, and the backup ladder
+      already keeps the runner-up warm. Top-K rotation (the <code>ProverAuction</code> pooled model)
+      dilutes per-epoch MEV capture; keep it as a documented <code>topK</code> upgrade path.</p>
+    </div>
+  </section>
+
   <section class="slide title-slide">
     <div class="kicker">Recap</div>
     <h2>One-pager</h2>
@@ -464,7 +684,7 @@
 <div class="nav">
   <button class="btn" id="prev">← Prev</button>
   <button class="btn" id="next">Next →</button>
-  <span class="counter" id="counter">1 / 17</span>
+  <span class="counter" id="counter">1 / 25</span>
   <div class="dots" id="dots"></div>
   <span class="hint">← → keys · click dots to jump</span>
 </div>
