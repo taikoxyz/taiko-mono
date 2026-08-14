@@ -87,22 +87,32 @@ updates:
           - "*"
 
   # ---------------------------------------------------------------------------
-  # npm / pnpm — only actively maintained workspace members are listed. The
-  # dormant ones (nfts, snaefell-ui, taikoon-ui, ui-lib, supplementary-contracts)
-  # have had no commits in over six months; version-bump PRs against them have no
-  # reviewer. Note this does NOT stop security PRs on those packages — security
-  # updates work off the dependency graph, not off `directories`. Suppress those
-  # by dismissing the alerts in the Security tab, or by retiring the packages.
+  # npm / pnpm — a single root entry is all that is needed. Dependabot's npm
+  # fetcher reads pnpm-workspace.yaml and glob-expands `packages/*` itself, so
+  # `directory: "/"` already pulls in every member manifest; listing members
+  # explicitly is redundant. See dependabot-core npm_and_yarn/file_fetcher.rb:
+  # fetch_files -> pnpm_files -> fetch_pnpm_workspace_package_jsons.
+  #
+  # `exclude-paths` is how members are actually dropped — it is checked inside
+  # fetch_package_json_if_present, the same helper the pnpm workspace expansion
+  # calls. The five packages below have had no commits in over six months, so
+  # version-bump PRs against them have no reviewer.
+  #
+  # Two caveats worth keeping in mind:
+  #   - `exclude-paths` is version-updates only. It does NOT stop security PRs
+  #     on these packages: security updates work off the dependency graph. Those
+  #     have to be dismissed in the Security tab, or the packages retired.
+  #   - Patterns are relative to `directory`, and a bare directory name prefix-
+  #     matches everything beneath it, so `packages/nfts` covers its manifest.
   # ---------------------------------------------------------------------------
   - package-ecosystem: "npm"
-    directories:
-      - "/"
-      - "/packages/bridge-ui"
-      - "/packages/protocol"
-      - "/packages/relayer"
-      - "/packages/eventindexer"
-      - "/packages/taiko-client"
-      - "/packages/fork-diff"
+    directory: "/"
+    exclude-paths:
+      - "packages/nfts"
+      - "packages/snaefell-ui"
+      - "packages/taikoon-ui"
+      - "packages/ui-lib"
+      - "packages/supplementary-contracts"
     schedule:
       interval: "monthly"
       day: "saturday"
