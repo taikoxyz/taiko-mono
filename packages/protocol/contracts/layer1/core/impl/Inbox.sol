@@ -604,9 +604,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // allowed only while the escape hatch is open (oldest forced inclusion overdue
             // beyond forcedInclusionDelay * permissionlessInclusionMultiplier). kimi-k3 I-01.
             uint48 endOfSubmissionWindowTimestamp;
-            try _proposerChecker.checkProposer{ gas: _proposerCheckerGasLimit }(
-                msg.sender, _lookahead
-            ) returns (
+            try _proposerChecker.checkProposer{
+                gas: _proposerCheckerGasLimit
+            }(msg.sender, _lookahead) returns (
                 uint48 windowEnd_
             ) {
                 endOfSubmissionWindowTimestamp = windowEnd_;
