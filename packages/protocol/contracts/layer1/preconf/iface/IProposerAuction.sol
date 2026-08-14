@@ -163,6 +163,8 @@ interface IProposerAuction is IProposerChecker {
     /// @param gapStart Start of the recorded proposal gap.
     /// @param escrowedAt Timestamp when the escrow was created.
     /// @param challenger The fallback proposer who triggered the escrow.
+    /// @param challengerIsBackup Whether the challenger was the designated backup at escrow time
+    ///        (the backup's reward is burned to avoid paying the stall's direct beneficiary).
     /// @param settled Whether the escrow is settled or refuted.
     struct StallEscrow {
         address winner;
@@ -170,14 +172,18 @@ interface IProposerAuction is IProposerChecker {
         uint48 gapStart;
         uint48 escrowedAt;
         address challenger;
+        bool challengerIsBackup;
         bool settled;
     }
 
     /// @notice A winner-signed L2 block header, used as S1 dispute evidence.
-    /// @dev The signature is EIP-712 over (epoch, blockNumber, parentHash, timestamp, coinbase,
-    ///      gasLimit, txRoot) with the domain of this contract.
+    /// @dev The signature is EIP-712 over (epoch, seqNo, blockNumber, parentHash, timestamp,
+    ///      coinbase, gasLimit, txRoot) with the domain of this contract. `seqNo` is the
+    ///      per-epoch monotonic slot/block index: the winner signs at most one block per
+    ///      (epoch, seqNo), which is what makes equivocation provable without consensus state.
     struct SignedBlock {
         uint32 epoch;
+        uint64 seqNo;
         uint64 blockNumber;
         bytes32 parentHash;
         uint48 timestamp;
@@ -187,6 +193,50 @@ interface IProposerAuction is IProposerChecker {
         uint8 v;
         bytes32 r;
         bytes32 s;
+    }
+
+    /// @notice Immutable auction configuration, bundled into a struct to keep the constructor
+    ///         stack footprint small (the contract is deployed via a proxy, so the config is
+    ///         passed once and copied to immutables).
+    /// @param inbox The Inbox address (only caller of checkProposer).
+    /// @param bondToken The TAIKO token used for bonds.
+    /// @param livenessBondAmount Slash amount per fault, in gwei.
+    /// @param bondMultiplier Multiplier for livenessBond to derive bond thresholds.
+    /// @param rewardBps Challenger reward share in basis points (<= 5000).
+    /// @param settleBountyBps Settle-caller bounty share of the locked remainder (<= 5000).
+    /// @param bondWithdrawalDelay Delay before a bond withdrawal becomes possible, in seconds.
+    /// @param tenureMaxEpochs Maximum tenure of a standing bid, in epochs.
+    /// @param initialFloorInGwei Initial reserve floor, in gwei.
+    /// @param movingAverageMultiplier Multiplier for the moving average to derive the floor.
+    /// @param movingAverageWindow Moving-average window, in seconds.
+    /// @param stallGrace Silence tolerated before the ladder opens, in seconds.
+    /// @param escrowGrace Winner absence tolerated before a stall slash is escrowed, in seconds.
+    /// @param backupGrace Backup rung extra grace, in seconds.
+    /// @param fallbackGrace Bonded-operator rung extra grace, in seconds.
+    /// @param refuteWindow Refute window before a stall slash settles, in seconds.
+    /// @param handoverMargin Timestamp margin before epoch start during which the incoming
+    ///        operator's handover blocks are legal (matches the client's handoverSkipSlots).
+    /// @param floorDecayBps Basis points of the reserve EMA retained per unassigned epoch
+    ///        (decays the floor toward initialFloor when the list is empty).
+    struct Config {
+        address inbox;
+        address bondToken;
+        uint96 livenessBondAmount;
+        uint16 bondMultiplier;
+        uint16 rewardBps;
+        uint16 settleBountyBps;
+        uint48 bondWithdrawalDelay;
+        uint32 tenureMaxEpochs;
+        uint128 initialFloorInGwei;
+        uint8 movingAverageMultiplier;
+        uint48 movingAverageWindow;
+        uint48 stallGrace;
+        uint48 escrowGrace;
+        uint48 backupGrace;
+        uint48 fallbackGrace;
+        uint48 refuteWindow;
+        uint48 handoverMargin;
+        uint16 floorDecayBps;
     }
 
     // ---------------------------------------------------------------
@@ -323,6 +373,16 @@ interface IProposerAuction is IProposerChecker {
 
     /// @notice Returns the current reserve floor in gwei.
     function getReserveFloor() external view returns (uint128 floorInGwei_);
+
+    /// @notice Returns the handover margin (seconds before epoch start during which the incoming
+    ///         operator's handover blocks are legal S1 evidence).
+    function getHandoverMargin() external view returns (uint48 handoverMargin_);
+
+    /// @notice Returns the settle-caller bounty share in basis points.
+    function getSettleBountyBps() external view returns (uint16 settleBountyBps_);
+
+    /// @notice Returns the reserve-floor decay (basis points retained per unassigned epoch).
+    function getFloorDecayBps() external view returns (uint16 floorDecayBps_);
 
     /// @notice Returns the pending stall slash for an epoch.
     function getPendingStallSlash(uint32 _epoch) external view returns (StallEscrow memory escrow_);

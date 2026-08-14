@@ -41,4 +41,6 @@ pragma solidity ^0.8.26;
 //   _movingAverageBid              | uint128                                            | Slot: 267  | Offset: 0    | Bytes: 16  
 //   _lastAvgUpdate                 | uint48                                             | Slot: 267  | Offset: 16   | Bytes: 6   
 //   _contractCreationTime          | uint48                                             | Slot: 267  | Offset: 22   | Bytes: 6   
-//   __gap                          | uint256[30]                                        | Slot: 268  | Offset: 0    | Bytes: 960 
+//   _lastUnassignedFeeEpoch        | uint32                                             | Slot: 267  | Offset: 28   | Bytes: 4   
+//   _everListed                    | mapping(address => bool)                           | Slot: 268  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[29]                                        | Slot: 269  | Offset: 0    | Bytes: 928 

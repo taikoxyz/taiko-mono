@@ -22,6 +22,7 @@ contract TestProposerAuction is CommonTest {
     uint96 internal constant LIVENESS_BOND = 100; // gwei
     uint16 internal constant BOND_MULTIPLIER = 2;
     uint16 internal constant REWARD_BPS = 5000; // 50%
+    uint16 internal constant SETTLE_BOUNTY_BPS = 500; // 5%
     uint48 internal constant BOND_WITHDRAWAL_DELAY = 1 days;
     uint32 internal constant TENURE_MAX_EPOCHS = 10;
     uint128 internal constant INITIAL_FLOOR = 10; // gwei
@@ -32,13 +33,15 @@ contract TestProposerAuction is CommonTest {
     uint48 internal constant BACKUP_GRACE = uint48(4 * SLOT);
     uint48 internal constant FALLBACK_GRACE = uint48(8 * SLOT);
     uint48 internal constant REFUTE_WINDOW = uint48(EPOCH);
+    uint48 internal constant HANDOVER_MARGIN = uint48(8 * SLOT);
+    uint16 internal constant FLOOR_DECAY_BPS = 7000;
 
     uint256 internal constant ALICE_KEY = 0xA11CE;
     uint256 internal constant BOB_KEY = 0xB0B;
     uint256 internal constant CAROL_KEY = 0xC0C;
 
     bytes32 internal constant BLOCK_TYPEHASH = keccak256(
-        "SignedBlockData(uint32 epoch,uint64 blockNumber,bytes32 parentHash,uint48 timestamp,address coinbase,uint48 gasLimit,bytes32 txRoot)"
+        "SignedBlockData(uint32 epoch,uint64 seqNo,uint64 blockNumber,bytes32 parentHash,uint48 timestamp,address coinbase,uint48 gasLimit,bytes32 txRoot)"
     );
     bytes32 internal constant DOMAIN_TYPEHASH = keccak256(
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -54,28 +57,33 @@ contract TestProposerAuction is CommonTest {
         auction = ProposerAuction(
             deploy({
                 name: "proposer_auction",
-                impl: address(
-                    new ProposerAuction(
-                        address(inbox),
-                        address(bondToken),
-                        LIVENESS_BOND,
-                        BOND_MULTIPLIER,
-                        REWARD_BPS,
-                        BOND_WITHDRAWAL_DELAY,
-                        TENURE_MAX_EPOCHS,
-                        INITIAL_FLOOR,
-                        AVG_MULTIPLIER,
-                        AVG_WINDOW,
-                        STALL_GRACE,
-                        ESCROW_GRACE,
-                        BACKUP_GRACE,
-                        FALLBACK_GRACE,
-                        REFUTE_WINDOW
-                    )
-                ),
+                impl: address(new ProposerAuction(_defaultConfig())),
                 data: abi.encodeCall(ProposerAuction.init, (Alice))
             })
         );
+    }
+
+    function _defaultConfig() internal view returns (IProposerAuction.Config memory) {
+        return IProposerAuction.Config({
+            inbox: address(inbox),
+            bondToken: address(bondToken),
+            livenessBondAmount: LIVENESS_BOND,
+            bondMultiplier: BOND_MULTIPLIER,
+            rewardBps: REWARD_BPS,
+            settleBountyBps: SETTLE_BOUNTY_BPS,
+            bondWithdrawalDelay: BOND_WITHDRAWAL_DELAY,
+            tenureMaxEpochs: TENURE_MAX_EPOCHS,
+            initialFloorInGwei: INITIAL_FLOOR,
+            movingAverageMultiplier: AVG_MULTIPLIER,
+            movingAverageWindow: AVG_WINDOW,
+            stallGrace: STALL_GRACE,
+            escrowGrace: ESCROW_GRACE,
+            backupGrace: BACKUP_GRACE,
+            fallbackGrace: FALLBACK_GRACE,
+            refuteWindow: REFUTE_WINDOW,
+            handoverMargin: HANDOVER_MARGIN,
+            floorDecayBps: FLOOR_DECAY_BPS
+        });
     }
 
     // ---------------------------------------------------------------
@@ -180,6 +188,7 @@ contract TestProposerAuction is CommonTest {
             abi.encode(
                 BLOCK_TYPEHASH,
                 _block.epoch,
+                _block.seqNo,
                 _block.blockNumber,
                 _block.parentHash,
                 _block.timestamp,
@@ -193,6 +202,7 @@ contract TestProposerAuction is CommonTest {
     function _signedBlock(
         uint256 _key,
         uint32 _epoch,
+        uint64 _seqNo,
         uint64 _blockNumber,
         bytes32 _parentHash,
         uint48 _timestamp,
@@ -204,6 +214,7 @@ contract TestProposerAuction is CommonTest {
     {
         IProposerAuction.SignedBlock memory b = IProposerAuction.SignedBlock({
             epoch: _epoch,
+            seqNo: _seqNo,
             blockNumber: _blockNumber,
             parentHash: _parentHash,
             timestamp: _timestamp,
@@ -323,7 +334,7 @@ contract TestProposerAuction is CommonTest {
         assertEq(auction.getPendingUpdate(Alice).effectiveEpoch, 0, "pending consumed");
     }
 
-    function test_bid_RevertWhen_listFull() public {
+    function test_bid_evictsLowestWhenFull() public {
         warpToEpoch(1000);
         for (uint256 i; i < 16; ++i) {
             address bidder = makeAddr(string.concat("bidder", vm.toString(i)));
@@ -334,8 +345,22 @@ contract TestProposerAuction is CommonTest {
         address extra = makeAddr("extra");
         _depositBond(extra, requiredBond());
         vm.prank(extra);
-        vm.expectRevert(ProposerAuction.ListFull.selector);
-        auction.bid(200, extra);
+        auction.bid(200, extra); // Q14: evicts the lowest (100) since 200 >= 100 * 1.05
+        assertEq(auction.getBidderCount(), 16, "lowest evicted, new entrant added");
+    }
+
+    function test_bid_RevertWhen_fullListAndBelowEvictionIncrement() public {
+        warpToEpoch(1000);
+        for (uint256 i; i < 16; ++i) {
+            address bidder = makeAddr(string.concat("bidder", vm.toString(i)));
+            _bidder(bidder, 100, bidder);
+        }
+
+        address extra = makeAddr("extra");
+        _depositBond(extra, requiredBond());
+        vm.prank(extra);
+        vm.expectRevert(ProposerAuction.IncrementTooSmall.selector);
+        auction.bid(104, extra); // below 100 * 1.05
     }
 
     // ---------------------------------------------------------------
@@ -647,6 +672,7 @@ contract TestProposerAuction is CommonTest {
         assertEq(escrow.amount, LIVENESS_BOND);
         assertEq(escrow.gapStart, uint48(epochStart(1000)));
         assertEq(escrow.challenger, Bob);
+        assertTrue(escrow.challengerIsBackup, "the backup is the direct beneficiary");
         assertFalse(escrow.settled);
         assertEq(
             auction.getBondInfo(Alice).balance, requiredBond() - LIVENESS_BOND, "bond escrowed"
@@ -713,15 +739,17 @@ contract TestProposerAuction is CommonTest {
     function test_checkProposer_unassignedEpochBondedFirstThenAnyone() public {
         warpToEpoch(1000);
         _depositBond(Carol, ejectionThreshold());
+        _depositEth(Carol, INITIAL_FLOOR * 1 gwei); // Q19: the unassigned-mode fee
 
         vm.prank(address(inbox));
         vm.expectRevert(IProposerChecker.InvalidProposer.selector);
         auction.checkProposer(David, ""); // unbonded before the grace
 
-        _checkProposer(Carol); // bonded operators may propose from the epoch start
+        _checkProposer(Carol); // bonded operators may propose from the epoch start (pay the fee)
+        assertEq(auction.getProceeds(), INITIAL_FLOOR * 1 gwei, "unassigned fee charged once");
 
         vm.warp(epochStart(1000) + STALL_GRACE + 1);
-        _checkProposer(David); // anyone after the grace
+        _checkProposer(David); // anyone after the grace (free liveness floor)
     }
 
     function test_checkProposer_oneEscrowPerEpoch() public {
@@ -772,24 +800,38 @@ contract TestProposerAuction is CommonTest {
         escrowedAt_ = uint48(block.timestamp);
     }
 
-    function test_settleStallSlash_afterWindowRewardsChallengerAndLocksRemainder() public {
+    function test_settleStallSlash_backupChallengerRewardBurnedAndSettlerBountied() public {
         _setupEscrowedStall(1000);
         vm.warp(epochStart(1000) + ESCROW_GRACE + 1 + REFUTE_WINDOW);
 
         uint128 challengerBefore = auction.getBondInfo(Bob).balance;
-        uint128 lockedBefore = auction.getTotalSlashedAmount();
+        uint128 bounty = uint128(uint256(LIVENESS_BOND) * SETTLE_BOUNTY_BPS / 10_000);
 
+        // Q9: the designated backup's reward is burned; Q8: a settle bounty goes to the caller.
         vm.expectEmit(true, true, true, true);
-        emit IProposerAuction.StallSettled(1000, Alice, LIVENESS_BOND, Bob, LIVENESS_BOND / 2);
+        emit IProposerAuction.StallSettled(1000, Alice, LIVENESS_BOND, Bob, 0);
+        auction.settleStallSlash(1000);
+
+        assertEq(auction.getBondInfo(Bob).balance, challengerBefore, "backup reward burned");
+        assertEq(auction.getBondInfo(address(this)).balance, bounty, "settle bounty to caller");
+        assertEq(auction.getTotalSlashedAmount(), LIVENESS_BOND - bounty, "rest locked");
+    }
+
+    function test_settleStallSlash_nonBackupChallengerGetsReward() public {
+        _setupServingWinner(1000);
+        _depositBond(Carol, ejectionThreshold());
+        vm.warp(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1);
+        _checkProposer(Carol); // rung 2: a non-backup bonded operator is the challenger
+        vm.warp(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1 + REFUTE_WINDOW);
+
+        uint128 reward = uint128(uint256(LIVENESS_BOND) * REWARD_BPS / 10_000);
+        uint128 bounty = uint128(uint256(LIVENESS_BOND - reward) * SETTLE_BOUNTY_BPS / 10_000);
         auction.settleStallSlash(1000);
 
         assertEq(
-            auction.getBondInfo(Bob).balance, challengerBefore + LIVENESS_BOND / 2, "50% reward"
+            auction.getBondInfo(Carol).balance, ejectionThreshold() + reward, "watchdog reward"
         );
-        assertEq(auction.getTotalSlashedAmount(), lockedBefore + LIVENESS_BOND / 2, "50% locked");
-        assertEq(
-            auction.getBondInfo(Alice).balance, requiredBond() - LIVENESS_BOND, "winner debited"
-        );
+        assertEq(auction.getTotalSlashedAmount(), LIVENESS_BOND - reward - bounty);
     }
 
     function test_settleStallSlash_RevertWhen_windowNotPassed() public {
@@ -921,6 +963,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
             bytes32(uint256(0xabc))
@@ -943,6 +986,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + 50),
             bytes32(uint256(0xabc))
@@ -959,6 +1003,7 @@ contract TestProposerAuction is CommonTest {
             CAROL_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
             bytes32(uint256(0xabc))
@@ -973,6 +1018,7 @@ contract TestProposerAuction is CommonTest {
         IProposerAuction.SignedBlock memory bad = _signedBlock(
             ALICE_KEY,
             uint32(1000),
+            5,
             5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
@@ -990,6 +1036,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + 10),
             bytes32(uint256(0xa))
@@ -997,6 +1044,7 @@ contract TestProposerAuction is CommonTest {
         IProposerAuction.SignedBlock memory b = _signedBlock(
             ALICE_KEY,
             uint32(1000),
+            5,
             5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + 20),
@@ -1014,6 +1062,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + 10),
             bytes32(uint256(0xa))
@@ -1023,12 +1072,13 @@ contract TestProposerAuction is CommonTest {
         auction.slashEquivocation(1000, a, a);
     }
 
-    function test_slashEquivocation_RevertWhen_differentBlockNumber() public {
+    function test_slashEquivocation_RevertWhen_differentSeqNo() public {
         _setupS1Epoch(1000);
 
         IProposerAuction.SignedBlock memory a = _signedBlock(
             ALICE_KEY,
             uint32(1000),
+            5,
             5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + 10),
@@ -1038,11 +1088,13 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             6,
+            6,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + 20),
             bytes32(uint256(0xb))
         );
 
+        // Q10: equivocation is now keyed on (epoch, seqNo); different seqNo is not equivocation.
         vm.expectRevert(ProposerAuction.NoViolation.selector);
         auction.slashEquivocation(1000, a, b);
     }
@@ -1053,6 +1105,7 @@ contract TestProposerAuction is CommonTest {
         IProposerAuction.SignedBlock memory bad = _signedBlock(
             ALICE_KEY,
             uint32(1000),
+            5,
             5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
@@ -1079,6 +1132,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
             bytes32(uint256(0x1))
@@ -1091,6 +1145,7 @@ contract TestProposerAuction is CommonTest {
         IProposerAuction.SignedBlock memory bad2 = _signedBlock(
             ALICE_KEY,
             uint32(1000),
+            9,
             9,
             bytes32(uint256(2)),
             uint48(epochStart(1000) + EPOCH + 11),
@@ -1275,6 +1330,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
             bytes32(uint256(0xabc))
@@ -1286,6 +1342,7 @@ contract TestProposerAuction is CommonTest {
         IProposerAuction.SignedBlock memory badNew = _signedBlock(
             BOB_KEY,
             uint32(1000),
+            6,
             6,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 11),
@@ -1308,6 +1365,7 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1002),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1002) + EPOCH + 10),
             bytes32(uint256(0xabc))
@@ -1318,45 +1376,17 @@ contract TestProposerAuction is CommonTest {
     }
 
     function test_constructor_RevertWhen_rewardBpsAboveHalf() public {
+        IProposerAuction.Config memory config = _defaultConfig();
+        config.rewardBps = 5001;
         vm.expectRevert(ProposerAuction.InvalidBps.selector);
-        new ProposerAuction(
-            address(inbox),
-            address(bondToken),
-            LIVENESS_BOND,
-            BOND_MULTIPLIER,
-            5001,
-            BOND_WITHDRAWAL_DELAY,
-            TENURE_MAX_EPOCHS,
-            INITIAL_FLOOR,
-            AVG_MULTIPLIER,
-            AVG_WINDOW,
-            STALL_GRACE,
-            ESCROW_GRACE,
-            BACKUP_GRACE,
-            FALLBACK_GRACE,
-            REFUTE_WINDOW
-        );
+        new ProposerAuction(config);
     }
 
     function test_constructor_RevertWhen_escrowGraceBelowStallGrace() public {
+        IProposerAuction.Config memory config = _defaultConfig();
+        config.escrowGrace = STALL_GRACE - 1;
         vm.expectRevert(ProposerAuction.InvalidEscrowGrace.selector);
-        new ProposerAuction(
-            address(inbox),
-            address(bondToken),
-            LIVENESS_BOND,
-            BOND_MULTIPLIER,
-            REWARD_BPS,
-            BOND_WITHDRAWAL_DELAY,
-            TENURE_MAX_EPOCHS,
-            INITIAL_FLOOR,
-            AVG_MULTIPLIER,
-            AVG_WINDOW,
-            STALL_GRACE,
-            STALL_GRACE - 1,
-            BACKUP_GRACE,
-            FALLBACK_GRACE,
-            REFUTE_WINDOW
-        );
+        new ProposerAuction(config);
     }
 
     function test_slash_RevertWhen_noBondLeft() public {
@@ -1372,11 +1402,135 @@ contract TestProposerAuction is CommonTest {
             ALICE_KEY,
             uint32(1000),
             5,
+            5,
             bytes32(uint256(1)),
             uint48(epochStart(1000) + EPOCH + 10),
             bytes32(uint256(0xabc))
         );
         vm.expectRevert(ProposerAuction.NoBondToSlash.selector);
         auction.slashInvalidBlock(1000, bad);
+    }
+
+    // ---------------------------------------------------------------
+    // Round-4 regressions
+    // ---------------------------------------------------------------
+
+    function test_reserveFloor_decaysDuringUnassignedEpochs() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 3 * 1000 * 1 gwei);
+
+        warpToEpoch(1002);
+        _checkProposer(Alice); // charge 1000 => EMA = 1000, floor = 1000
+        assertEq(auction.getReserveFloor(), 1000);
+
+        vm.prank(Alice);
+        auction.quit(); // effective 1004: Alice serves 1002/1003, then unassigned
+
+        warpToEpoch(1003);
+        _checkProposer(Alice); // still serving 1003
+
+        warpToEpoch(1004);
+        auction.snapshot(); // 1004 unassigned: one decay step (Q1)
+        assertEq(
+            auction.getReserveFloor(),
+            uint128(uint256(1000) * FLOOR_DECAY_BPS / 10_000),
+            "one decay step"
+        );
+    }
+
+    function test_checkProposer_ladderDoesNotRecloseAtBoundary() public {
+        _setupServingWinner(1000);
+        _depositEth(Alice, 1000 * 1 gwei); // fund one more epoch
+
+        vm.warp(epochStart(1000) + 10);
+        _checkProposer(Alice); // _lastWinnerProposalAt = epochStart(1000) + 10
+
+        vm.warp(epochStart(1000) + STALL_GRACE + 11);
+        _checkProposer(Bob); // ladder opens mid-epoch (absence > stallGrace)
+
+        // Q2: crossing the boundary with an unchanged (stalled) winner must not re-close the
+        // ladder — the backup proposes immediately, without re-waiting stallGrace.
+        warpToEpoch(1001);
+        _checkProposer(Bob);
+    }
+
+    function test_withdrawBond_expiredBidderStartsWithdrawalClock() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+
+        warpToEpoch(1013); // past Alice's expiry (1012)
+        uint128 bondAmount = requiredBond();
+        vm.prank(Alice);
+        vm.expectRevert(ProposerAuction.WithdrawalDelayNotPassed.selector);
+        auction.withdrawBond(bondAmount); // Q6: expiry alone is not a delay-free exit
+
+        // Purging lapses the expired bid and starts the withdrawal clock; she still must wait.
+        auction.purgeInactive();
+        assertGt(auction.getBondInfo(Alice).withdrawableAt, 0, "clock started by purge");
+        vm.prank(Alice);
+        vm.expectRevert(ProposerAuction.WithdrawalDelayNotPassed.selector);
+        auction.withdrawBond(bondAmount);
+    }
+
+    function test_slashEquivocation_fabricatedParentHashSameSeqNo() public {
+        _setupS1Epoch(1000);
+
+        // Q10: same (epoch, seqNo) but different blockNumber/parentHash/content — a fabricated
+        // parentHash double-spend is a second signature for the same slot, regardless of parent.
+        IProposerAuction.SignedBlock memory a = _signedBlock(
+            ALICE_KEY,
+            uint32(1000),
+            5,
+            5,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) + 10),
+            bytes32(uint256(0xa))
+        );
+        IProposerAuction.SignedBlock memory b = _signedBlock(
+            ALICE_KEY,
+            uint32(1000),
+            5,
+            999,
+            bytes32(uint256(0xdead)),
+            uint48(epochStart(1000) + 20),
+            bytes32(uint256(0xb))
+        );
+
+        auction.slashEquivocation(1000, a, b); // slashes (no revert)
+        assertEq(auction.getBondInfo(Alice).balance, requiredBond() - LIVENESS_BOND);
+    }
+
+    function test_slashInvalidBlock_handoverMarginAllowsIncomingOperator() public {
+        _setupS1Epoch(1000);
+
+        // Q3: an incoming operator's handover block sits in the last HANDOVER_MARGIN seconds of
+        // the outgoing epoch; it must not be slashable.
+        IProposerAuction.SignedBlock memory handover = _signedBlock(
+            ALICE_KEY,
+            uint32(1000),
+            5,
+            5,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) - HANDOVER_MARGIN / 2),
+            bytes32(uint256(0xabc))
+        );
+        vm.expectRevert(ProposerAuction.NoViolation.selector);
+        auction.slashInvalidBlock(1000, handover);
+    }
+
+    function test_checkProposer_bondUsedDefersWithdrawal() public {
+        _setupServingWinner(1000);
+        _depositBond(Carol, ejectionThreshold());
+        assertEq(auction.getBondInfo(Carol).withdrawableAt, 0);
+
+        vm.warp(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1);
+        _checkProposer(Carol); // rung 2 via the bond
+
+        // Q15: using the bond to pass the rung starts its withdrawal clock.
+        assertEq(
+            auction.getBondInfo(Carol).withdrawableAt,
+            uint48(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1) + BOND_WITHDRAWAL_DELAY
+        );
     }
 }
