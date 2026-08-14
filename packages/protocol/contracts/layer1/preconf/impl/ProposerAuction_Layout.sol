@@ -30,17 +30,15 @@ pragma solidity ^0.8.26;
 //   _slashedBefore                 | mapping(bytes32 => bool)                           | Slot: 260  | Offset: 0    | Bytes: 32  
 //   _assignedEpoch                 | uint32                                             | Slot: 261  | Offset: 0    | Bytes: 4   
 //   _currentWinner                 | address                                            | Slot: 261  | Offset: 4    | Bytes: 20  
+//   _bidSeq                        | uint48                                             | Slot: 261  | Offset: 24   | Bytes: 6   
 //   _currentBackup                 | address                                            | Slot: 262  | Offset: 0    | Bytes: 20  
+//   _lastAvgUpdate                 | uint48                                             | Slot: 262  | Offset: 20   | Bytes: 6   
+//   _lastUnassignedFeeEpoch        | uint32                                             | Slot: 262  | Offset: 26   | Bytes: 4   
 //   _nextWinner                    | address                                            | Slot: 263  | Offset: 0    | Bytes: 20  
 //   _nextBackup                    | address                                            | Slot: 264  | Offset: 0    | Bytes: 20  
-//   _lastProposalAt                | uint48                                             | Slot: 264  | Offset: 20   | Bytes: 6   
-//   _lastWinnerProposalAt          | uint48                                             | Slot: 264  | Offset: 26   | Bytes: 6   
-//   _bidSeq                        | uint48                                             | Slot: 265  | Offset: 0    | Bytes: 6   
-//   _totalSlashedAmount            | uint128                                            | Slot: 265  | Offset: 6    | Bytes: 16  
+//   _lastWinnerProposalAt          | uint48                                             | Slot: 264  | Offset: 20   | Bytes: 6   
+//   _totalSlashedAmount            | uint128                                            | Slot: 265  | Offset: 0    | Bytes: 16  
+//   _movingAverageBid              | uint128                                            | Slot: 265  | Offset: 16   | Bytes: 16  
 //   _proceeds                      | uint256                                            | Slot: 266  | Offset: 0    | Bytes: 32  
-//   _movingAverageBid              | uint128                                            | Slot: 267  | Offset: 0    | Bytes: 16  
-//   _lastAvgUpdate                 | uint48                                             | Slot: 267  | Offset: 16   | Bytes: 6   
-//   _contractCreationTime          | uint48                                             | Slot: 267  | Offset: 22   | Bytes: 6   
-//   _lastUnassignedFeeEpoch        | uint32                                             | Slot: 267  | Offset: 28   | Bytes: 4   
-//   _everListed                    | mapping(address => bool)                           | Slot: 268  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[29]                                        | Slot: 269  | Offset: 0    | Bytes: 928 
+//   _everListed                    | mapping(address => bool)                           | Slot: 267  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[30]                                        | Slot: 268  | Offset: 0    | Bytes: 960 

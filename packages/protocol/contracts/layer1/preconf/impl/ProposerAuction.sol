@@ -184,8 +184,17 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Cached current-epoch assignment (final).
     address internal _currentWinner;
 
+    /// @dev Monotonic bid placement sequence, for deterministic tie-breaking.
+    uint48 internal _bidSeq;
+
     /// @dev Cached current-epoch backup (final).
     address internal _currentBackup;
+
+    /// @dev Timestamp of the last moving-average update.
+    uint48 internal _lastAvgUpdate;
+
+    /// @dev Last epoch for which the unassigned-mode fee was charged (once per unassigned epoch).
+    uint32 internal _lastUnassignedFeeEpoch;
 
     /// @dev Cached next-epoch assignment (final modulo payment at the boundary).
     address internal _nextWinner;
@@ -193,37 +202,22 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Cached next-epoch backup (final modulo payment at the boundary).
     address internal _nextBackup;
 
-    /// @dev Timestamp of the last accepted proposal (tx-atomic with the propose call).
-    uint48 internal _lastProposalAt;
-
-    /// @dev Timestamp of the last accepted winner proposal.
+    /// @dev Timestamp of the last accepted winner proposal (the winner-absence clock).
     uint48 internal _lastWinnerProposalAt;
-
-    /// @dev Monotonic bid placement sequence, for deterministic tie-breaking.
-    uint48 internal _bidSeq;
 
     /// @dev Total TAIKO locked from slashes, in gwei.
     uint128 internal _totalSlashedAmount;
 
-    /// @dev Accumulated ETH auction proceeds.
-    uint256 internal _proceeds;
-
     /// @dev Moving average of charged bid amounts, in gwei.
     uint128 internal _movingAverageBid;
 
-    /// @dev Timestamp of the last moving-average update.
-    uint48 internal _lastAvgUpdate;
-
-    /// @dev Contract creation time, for the moving-average seed.
-    uint48 internal _contractCreationTime;
-
-    /// @dev Last epoch for which the unassigned-mode fee was charged (once per unassigned epoch).
-    uint32 internal _lastUnassignedFeeEpoch;
+    /// @dev Accumulated ETH auction proceeds.
+    uint256 internal _proceeds;
 
     /// @dev Whether an account has ever held a standing bid (gates the delay-free bond exit).
     mapping(address account => bool everListed) internal _everListed;
 
-    uint256[29] private __gap;
+    uint256[30] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -292,7 +286,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @param _owner The owner of this contract.
     function init(address _owner) external initializer {
         __Essential_init(_owner);
-        _contractCreationTime = uint48(block.timestamp);
         // Sentinel so the first real unassigned epoch still charges the unassigned-mode fee.
         _lastUnassignedFeeEpoch = type(uint32).max;
     }
@@ -543,7 +536,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
         // Rung 0: the winner may always propose during their epoch.
         if (winner != address(0) && _proposer == winner) {
-            _lastProposalAt = uint48(block.timestamp);
             _lastWinnerProposalAt = uint48(block.timestamp);
             return epochEnd;
         }
@@ -587,7 +579,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         if (winner != address(0) && absence > _escrowGrace) {
             _escrowStallSlash(currentEpoch, winner, absenceBase, _proposer);
         }
-        _lastProposalAt = uint48(block.timestamp);
         return epochEnd;
     }
 
@@ -626,13 +617,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @inheritdoc IProposerAuction
-    function refuteStall(
-        uint32 _epoch,
-        IInbox.Proposal calldata _proposal
-    )
-        external
-        nonReentrant
-    {
+    function refuteStall(uint32 _epoch, IInbox.Proposal calldata _proposal) external nonReentrant {
         IProposerAuction.StallEscrow storage escrow = _stallEscrows[_epoch];
         require(escrow.escrowedAt != 0 && !escrow.settled, NoPendingStallSlash());
         require(msg.sender == escrow.winner, NotWinner());
@@ -657,13 +642,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Evidence window: the per-epoch winner/signer records persist forever, but slashing
     ///      is economically effective only while the winner's bond remains (bond withdrawal is
     ///      only possible after quit + the withdrawal delay).
-    function slashInvalidBlock(
-        uint32 _epoch,
-        SignedBlock calldata _block
-    )
-        external
-        nonReentrant
-    {
+    function slashInvalidBlock(uint32 _epoch, SignedBlock calldata _block) external nonReentrant {
         address winner = _epochWinners[_epoch];
         require(winner != address(0), NoWinnerForEpoch());
         require(_block.epoch == _epoch, InvalidSignature());
@@ -1312,14 +1291,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @dev Returns whether an account holds at least the given bond amount.
-    function _hasBondAtLeast(
-        address _account,
-        uint128 _amount
-    )
-        internal
-        view
-        returns (bool ok_)
-    {
+    function _hasBondAtLeast(address _account, uint128 _amount) internal view returns (bool ok_) {
         return _bonds[_account].balance >= _amount;
     }
 
