@@ -10,7 +10,7 @@
 
 1. **The URC-based permissionless design is blocked** on three fronts (detailed in PR #22012): the URC contract is not production-ready (2 High + 3 Medium findings, frozen repo, unaudited-at-HEAD, zero production deployments), and the design's *consensus-layer dependencies* (beacon validator lookahead, hard-coded slot anatomy, RLP header parsing, proposer commitments) are exactly the parts Ethereum is about to reshape (ePBS, FOCIL, shorter slots, eventually Orbit SSF/SSLE).
 2. **Taiko does not need the consensus layer for permissionless preconfirmation.** Taiko already has all the primitives that matter: (a) *based, permissionless inclusion* — any L1 proposer can include a Taiko proposal; (b) *forced inclusion* — users can force their txs into the next proposal; (c) *TAIKO bonds with liveness slashing* (prover liveness bonds, `LibBonds.settleLivenessBond`); and (d) an in-repo auction pattern to copy (`ProverAuction` on the `multi-prover-auction` worktree).
-3. **Proposed design ("Preconfer Auction"):** an L1 contract auctions the **exclusive right to propose/preconfirm during one L1 epoch (32 slots, 384 s)** for the epoch two epochs ahead. Bids are in **ETH** (sealed-bid first-price with commit-reveal); the winner must additionally post a **TAIKO liveness bond** and is **slashed on liveness faults** (stall without proposing). If the winner stalls, a **ladder of backups** takes over automatically — first the bonded runner-up, then any bonded operator, then *anyone* (permissionless fallback), with forced inclusion as the final guarantee. All liveness faults are provable from **L1 state only** (a checker-maintained `lastProposalAt` timestamp written atomically with each proposal, plus a 1-epoch refute window before stall slashes settle) — no beacon lookahead, no consensus structures.
+3. **Proposed design ("Preconfer Auction"):** an L1 contract runs a **perpetual standing-bid auction** for the exclusive right to propose/preconfirm: the top ETH bid is the winner **until outbid, quit, or expiry**, with control changes quantized to epoch boundaries (32 slots, 384 s) behind a short bid-freeze, and the bonded runner-up inheriting automatically (empty list → total permissionless mode). The winner must additionally post a **TAIKO liveness bond** and is **slashed on liveness faults** (stall without proposing). If the winner stalls, a **ladder of backups** takes over automatically — first the bonded runner-up, then any bonded operator, then *anyone* (permissionless fallback), with forced inclusion as the final guarantee. All liveness faults are provable from **L1 state only** (a checker-maintained `lastProposalAt` timestamp written atomically with each proposal, plus a 1-epoch refute window before stall slashes settle) — no beacon lookahead, no consensus structures.
 4. **The chain's liveness never depends on the auction winner.** It inherits Ethereum's liveness, exactly as based sequencing does today. The auction only determines *who gets the privileged, profitable right to sequence first*; the fallback ladder guarantees someone else can always step in.
 5. **Migration is incremental** and reuses the deployed `PreconfWhitelist` as a bootstrap: enforce the existing (but unenforced) permissionless escape hatch → deploy the auction in shadow mode → switch `proposerChecker` → open bidding to everyone.
 
@@ -21,7 +21,7 @@
 From the product brief:
 
 - **Permissionless:** anyone (not a permissioned set) must be able to become the preconfer/proposer. No governance whitelist as the long-term mechanism.
-- **Auction-based rights:** ETH stakers/holders auction the right to be the preconfer/proposer **at the correct granularity** (this report argues: one L1 epoch, with intra-epoch resale possible later).
+- **Auction-based rights:** ETH stakers/holders auction the right to be the preconfer/proposer **at the correct granularity** (this report argues: a **perpetual auction** — incumbent keeps the right until outbid, quit, or expiry — with control changes quantized to epoch boundaries, and intra-epoch resale possible later).
 - **TAIKO staking for liveness:** participants must place TAIKO stake; **liveness faults must be slashable**.
 - **Liveness #1:** if the current preconfer/proposer goes offline, another party must be able to serve as backup automatically. Efficiency (MEV capture, ordering quality) is secondary to the chain never stalling.
 - **No consensus-layer dependence:** the design must not depend on knowing future L1 proposers (lookahead), on proposer commitments, or on the current block anatomy, because ePBS/FOCIL/SSF are coming.
@@ -161,22 +161,25 @@ From a fresh clone of [eth-fabric/urc](https://github.com/eth-fabric/urc) at `13
 
 ### 4.3 The auction
 
-**What is auctioned:** the right to be the *sole* proposer/preconfer for **one L1 epoch** (32 slots, 384 s) — epoch `N+2`, auctioned during epoch `N` (2-epoch lead, matching the existing `RANDOMNESS_DELAY = 2` pattern and `OPERATOR_CHANGE_DELAY = 2`; gives the winner ~12.8 min to boot the preconf service and users time to discover the new winner). The right includes: exclusive `checkProposer` passage during the window, sequencing revenue (L2 basefee share, priority tips), and the preconf franchise.
+**What is auctioned:** the ongoing right to be the *sole* proposer/preconfer. Rather than a discrete auction per epoch (13,500/yr, forced rebidding, boundary churn), the auction is **perpetual**: a ranked list of standing bids lives on-chain; the **top bid is the winner** and the **second is the runner-up**. Tenure lasts until one of four events: (1) **outbid**, (2) **voluntary quit**, (3) **expiry**, or (4) **slashing/ejection**. The right includes exclusive `checkProposer` passage during tenure, sequencing revenue (L2 basefee share, priority tips), and the preconf franchise.
 
-**Why epoch granularity ("the correct granularity"):**
+**Why perpetual, with control changes quantized to epoch boundaries (the "correct granularity"):**
 
-- **Per-slot auctions (12 s):** maximum MEV granularity, but ~7,200 auctions/day, per-slot bid-sniping MEV, and preconfers cannot amortize infrastructure; slot-level revenue is noisy. Matches nothing in the current stack.
-- **Per-epoch (384 s):** one auction per 6.4 min ≈ 13,500/yr, fits the existing epoch-based infrastructure (whitelist rotation, client code, `SECONDS_IN_EPOCH`), gives the winner a stable franchise to attract flow and offer useful preconf UX, and averages slot-level MEV variance into the bid — the execution-tickets rationale. **This is the recommendation.**
-- **Multi-epoch/day:** lowest overhead but weakens competition, lengthens a bad winner's tenure (and the fallback tail), and concentrates censorship power. Rejected for v1.
+- **Per-slot auctions (12 s):** maximum MEV granularity but ~7,200 auctions/day, per-slot bid-sniping MEV, no infrastructure amortization. Rejected.
+- **Per-epoch auctions (384 s):** fresh price discovery, but ~13,500 auctions/yr of pure overhead and forced rebidding churn — the earlier draft of this report; **too short and too frequent**, per the product brief.
+- **Perpetual standing-bid (this recommendation):** near-zero overhead in steady state (a tx only when someone actually wants to displace), automatic succession via the ranked list (no re-auction when a winner leaves), continuous price discovery (outbid anytime), and expiry as the safety valve. This is also the pattern Taiko already ships — `ProverAuction` is a standing pool where members join/leave/undercut anytime.
+- **Control changes are quantized to epoch boundaries:** bids are continuous, but the **winner for epoch E+1 is fixed by the snapshot at `freeze(E) = end(E) − BID_FREEZE slots`** (`BID_FREEZE = 4` ≈ 48 s). Displacement, quit, and expiry all take effect at the next epoch boundary, never mid-epoch. Why: (a) handover stability for preconf UX — promises remain epoch-bounded (§4.6), and the outgoing winner serves until the boundary, so in-flight promises complete inside their tenure; (b) the new winner has from bid-time to the boundary (≥ the freeze window) to boot, on top of the L1 `STALL_GRACE`; (c) it matches the existing epoch-based client/infra and `endOfSubmissionWindowTimestamp` semantics; (d) the freeze window contains boundary races. **This is the recommendation.**
 - **Intra-epoch resale (extension):** the winner may later transfer/sell individual slots on-chain (execution-ticket-style resale), recovering per-slot granularity without per-slot auctions. Deferred to Phase 4.
 
-**Bid asset:** ETH (per the brief; wrapped ETH acceptable). **Why ETH and not TAIKO:** sequencing revenue is ETH-denominated (basefee share + tips), so ETH bids are a natural, currency-risk-free payment; keeping the *stake* in TAIKO keeps token utility while separating "pay for the right" from "bond for behavior".
+**Standing-bid mechanics:**
 
-**Format (recommended): sealed-bid first-price with commit-reveal.** This matches the MEV-Boost/ePBS consensus (first-price maximizes revenue and is the least collusion-prone open format) and commit-reveal removes bid sniping/front-running; cost = two txs per bidder per epoch, which at 6.4-min cadence is acceptable. The **simpler v1 alternative** is an *ascending auction with minimum increment* (`bid ≥ topBid × (1 + minIncrementBps)`, `minIncrementBps = 500` mirroring `ProverAuction.minFeeReductionBps`) plus a **bid freeze** one slot before auction close — one tx per bid, slightly exposed to boundary MEV; upgrade to commit-reveal if sniping proves material.
-
-- **Bid lifecycle (commit-reveal):** bids for epoch `N+2`: commit phase until epoch `N` end − 2 slots; reveal phase for the last 2 slots; highest revealed valid bid wins; losing bids refunded on reveal.
-- **Runner-up = designated backup:** the second-highest valid bid is recorded and bonded (see §4.5).
-- **Reserve price:** dynamic floor = `max(initialFloor, movingAverageMultiplier × EMA(winning bids))` (the `ProverAuction` moving-average pattern). If no bid ≥ reserve, the epoch is *unassigned*: open to any bonded operator, first-come (see §4.5).
+- **List:** up to `MAX_LIST_SIZE` (16, mirroring `ProverAuction`'s pool cap) entries, ordered by bid amount; each entry records bidder, ETH amount, and `joinedAt`. **Every listed bidder must hold the required TAIKO bond** (bond locked while their bid stands) — so the ranked list doubles as the bonded backup pool, and succession never depends on an unbonded runner-up.
+- **Outbid:** a new bid must exceed the current top by ≥ `minIncrementBps` (5%, mirroring `ProverAuction.minFeeReductionBps`); the bidder must hold the bond at bid time. Bids landing before `freeze(E)` change the winner for E+1; bids after the freeze affect E+2. The displaced winner keeps the current epoch (their bids for past epochs are already spent/settled) and may re-bid anytime.
+- **Quit:** the winner (or any listed bidder) withdraws their standing bid; effective at the next boundary. A quitting winner must keep serving until the boundary — quitting and then going dark before handover is a stall (slash), so clean handover is the only cheap exit.
+- **Expiry:** each winning bid lapses after `tenureMax` (e.g., 1 day = 225 epochs, configurable). On lapse the entry is removed, the list re-ranks (the runner-up inherits at the next boundary), and the former winner may immediately re-bid at ≥ max(their previous bid, current reserve floor). Expiry's job is dead-bidder cleanup and re-confirmation; repricing pressure comes from the reserve floor + outbidding.
+- **Unassigned state (no bidders at all):** if the list is empty at the freeze, the epoch is *unassigned*: any bonded operator may propose first-come, then **anyone** — i.e., the protocol falls back to **total permissionless mode** (rung 2 → 3, §4.5) until a bid arrives and wins the next boundary. Chain liveness is unaffected, because liveness never depends on the auction.
+- **Reserve price:** dynamic floor = `max(initialFloor, movingAverageMultiplier × EMA(winning bids))` (the `ProverAuction` moving-average pattern); bids below the floor do not enter the list.
+- **Bid asset:** ETH (per the brief; wrapped ETH acceptable). **Why ETH and not TAIKO:** sequencing revenue is ETH-denominated (basefee share + tips), so ETH bids are a natural, currency-risk-free payment; keeping the *stake* in TAIKO keeps token utility while separating "pay for the right" from "bond for behavior". (Standing bids are public — sealed commit-reveal doesn't apply to a perpetual list; the freeze window + min increment + bond requirement are the anti-sniping/anti-churn tools instead.)
 - **Proceeds:** to the protocol treasury, earmarked for **prover rewards / L2 cost subsidy** (the tokenomics doc's stated equilibrium: proposer fees vs prover rewards; forfeited bonds already go to treasury). Alternative splits (burn %, public-goods funding) are listed as open questions (§8).
 
 ### 4.4 TAIKO liveness stake & slashing
@@ -233,7 +236,7 @@ For epoch `E` with winner `W` (top bid) and runner-up `R` (second bid):
 - **Rung 2 (any bonded operator):** first-come.
 - **Rung 3 (anyone):** permissionless — identical to today's based inclusion. The checker returns a short windowEnd so the Inbox records it and the next rung can follow.
 - **Rung 4 (forced inclusion):** unchanged; also, *enforce the existing `permissionlessInclusionMultiplier` escape hatch* so that even a buggy checker cannot permanently block proposing (fixes kimi-k3 I-01 / PR #22012 E-4).
-- **Unassigned epochs** (no bid ≥ reserve): skip straight to rung 2 (any bonded operator, first-come), then rung 3.
+- **Unassigned periods** (no standing bids at the freeze): skip straight to rung 2 (any bonded operator, first-come), then rung 3 — total permissionless mode until a bid wins the next boundary. This is exactly the no-bidder fallback; chain liveness is unaffected.
 
 The Inbox change needed (a hard requirement — `checkProposer` is unconditional today in `_buildProposal`, the interface mandates revert-for-invalid, and `_permissionlessInclusionMultiplier` is stored but never read): (a) wrap `checkProposer` in a bounded-gas `try/catch` (a revert in the callee rolls back the checker's writes too, so the catch path is state-clean) so a buggy checker cannot halt the rollup — PR #22012 finding E-3; (b) on catch, apply rung-3 rules **from Inbox state**: accept the proposal only if the oldest forced inclusion is overdue beyond `forcedInclusionDelay × permissionlessInclusionMultiplier` — finally wiring the escape hatch the knob was designed for (kimi-k3 I-01 / E-4) — or if a minimum no-proposal time has elapsed; (c) otherwise everything lives in the checker, so the hot path stays one external call plus the try/catch overhead.
 
@@ -268,11 +271,11 @@ The only remaining consensus touchpoints are `block.timestamp`/`blockhash` (stab
 ### 4.8 MEV & incentive analysis
 
 - **Internalization:** the bid is a market price for the epoch's expected sequencing revenue (L2 basefee share — mainnet `basefeeSharingPctg = 75` — plus priority tips plus L2 MEV). Competition drives bids toward expected value minus operating cost minus risk premium — the same mechanism as PBS, at the rollup layer, without trusted relays.
-- **Auction-level MEV:** bounded by commit-reveal (or the freeze window in the simple variant); residual = front-running other bidders' reveal txs, mitigated by the reveal-phase design.
+- **Auction-level MEV:** bounded by the `BID_FREEZE` window and the 5% min increment; residual = copying/front-running a bid tx to win the next boundary — mitigated by the freeze (late bids affect E+2, not E+1) and by the fact that displacing a winner costs a bonded commitment to actually serve (or be slashed).
 - **Winner-side MEV:** full L2 MEV + tips within its epoch (the franchise being sold); cross-domain L1 MEV (timing `propose` vs the L1 proposer) unchanged from today.
 - **Last-look / multi-block MEV** (the main hazard of window auctions per the execution-tickets literature): mitigated by (a) the auction price internalizing it, (b) promise commitments + slashing for misbehavior, and (c) short windows with frequent re-auction.
 - **Censorship economics:** refusing a tx either violates a promise (slash + compensation) or delays it to rung 2/3 (someone else includes it, winner loses the fee). **Bond sizing is the binding constraint** (adversarial-review finding): if `livenessBond × bondMultiplier <` the value of censoring/MEV-gaming an epoch, winning-and-misbehaving becomes profitable — a pay-to-censor channel. Rule of thumb: total slashable bond ≥ `k ×` expected epoch sequencing revenue (k ≥ 2), re-priced by governance as volumes grow.
-- **Collusion/cartel risk:** per-epoch re-auction + reserve floor + open fallback + bond requirement keep the barrier to entry low; a cartel that suppresses bids is broken by any outsider bidding +1 increment.
+- **Collusion/cartel risk:** outbid-anytime (min increment 5%) + reserve floor + expiry + open fallback + bond requirement keep the barrier low; a cartel that suppresses bids is broken by any outsider bidding +1 increment.
 - **No built-in yield:** the TAIKO bond earns nothing — consistent with the tokenomics principle ("No Built-In PoS Reward"); operators profit from sequencing, not staking.
 
 ### 4.9 Gas & cost model
@@ -285,10 +288,10 @@ The only remaining consensus touchpoints are `block.timestamp`/`blockhash` (stab
 
 | Parameter | Value | Rationale |
 |---|---|---|
-| Auction granularity | 1 epoch (32 slots) | §4.3 |
-| Auction lead | 2 epochs | matches existing operator-change delay; boot time for preconf service |
-| Auction format | sealed-bid first-price, commit-reveal (v1 alt: ascending + 1-slot freeze) | §4.3 |
-| Min bid increment (alt format) | 5% | mirrors `ProverAuction.minFeeReductionBps` |
+| Auction | perpetual standing-bid list (≤ 16, all bonded); control quantized to epoch boundaries | §4.3 |
+| Bid freeze | `BID_FREEZE` = 4 slots before each epoch end | winner for E+1 fixed ≥ 48 s ahead; boot time + boundary-race protection |
+| Min bid increment | 5% | mirrors `ProverAuction.minFeeReductionBps` |
+| Tenure expiry | `tenureMax` (e.g., 1 day = 225 epochs), configurable | dead-bidder cleanup + re-confirmation |
 | Reserve floor | `max(initialFloor, 2 × EMA(winning bids))` | `ProverAuction` moving-average pattern |
 | Required TAIKO bond | `livenessBond × bondMultiplier × 2` | mirrors `ProverAuction` |
 | `STALL_GRACE` / `BACKUP_GRACE` / `FALLBACK_GRACE` | 4 / 4 / 8 slots | ≈48 s/48 s/96 s: sub-epoch failover, tolerant to L1 congestion |
@@ -327,7 +330,7 @@ The only remaining consensus touchpoints are `block.timestamp`/`blockhash` (stab
 
 | Option | Liveness | Permissionless | Preconf UX | Consensus dependence | MEV capture | Complexity / time-to-ship |
 |---|---|---|---|---|---|---|
-| **A. Preconfer Auction (this proposal)** | Strong (ladder + forced inclusion + escape hatch) | Yes (open bids, anyone with bond) | Good (per-epoch franchise; promises survive failover) | None (L1-state-only faults) | Internalized via auction | Medium; mostly new checker+auction contracts on existing infra |
+| **A. Preconfer Auction (this proposal)** | Strong (ladder + forced inclusion + escape hatch) | Yes (open standing bids, anyone with bond) | Good (perpetual franchise, epoch-bounded promises; survive failover) | None (L1-state-only faults) | Internalized via standing-bid auction | Medium; mostly new checker+auction contracts on existing infra |
 | B. Parked URC/lookahead design | Good (fallback + slashers) but depends on opt-in coverage | Yes (opt-in) | Best-case (slot-level promises) | **High** (lookahead, headers, BLS, commitments) | Slot-level via lookahead | Already built, but blocked (URC not production-ready; ePBS reshapes commitments); would be first/only URC deployment |
 | C. Status quo (`PreconfWhitelist`) | Weak (offline operator stalls the epoch) | No (permissioned) | Good (dedicated operator) | Low (beacon-root randomness only) | Operator-captured | Deployed |
 | D. Consensus-native preconf (wait for ePBS + Constraints API + FOCIL) | Strong | Yes | Best-case | **Total** (it *is* the consensus layer) | Enshrined | Parts land H2 2026 (ePBS) / late 2026 (FOCIL), but the enforcement spec (Constraints API) is unproven; full stack realistically 2027+ |
@@ -344,7 +347,7 @@ The only remaining consensus touchpoints are `block.timestamp`/`blockhash` (stab
 - **Phase 1 — Shadow (testnet):** deploy `PreconferAuction` + `PreconfStaking` + `PreconfCommitments` on Hoodi; checker accepts whitelist operators as the fallback rung; run auctions with play money; fuzz the stall/slash state machine; audit.
 - **Phase 2 — Transition (mainnet):** switch `proposerChecker` to the auction checker with `PreconfWhitelist` as rung-1 backup; existing operators bid like everyone else; keep rung 3 (anyone) live from day one.
 - **Phase 3 — Permissionless:** drop the whitelist dependency entirely; enable promise-slash v1; wire proving-layer enforcement (v2) when ready.
-- **Phase 4 — Optional futures:** intra-epoch slot resale; FOCIL IL coexistence spec; ePBS proposer-commitment upgrades; commit-reveal refinement.
+- **Phase 4 — Optional futures:** intra-epoch slot resale; FOCIL IL coexistence spec; ePBS proposer-commitment upgrades; sealed-bid extension if boundary sniping proves material.
 
 **Sunset of URC:** keep `permissionless-preconf` parked; the URC adoption gates from PR #22012 (signing-domain merge, Audit 3, schema decision, ePBS certification) become *optional* — the Preconfer Auction does not block on them.
 
@@ -354,7 +357,7 @@ The only remaining consensus touchpoints are `block.timestamp`/`blockhash` (stab
 
 1. **Auction proceeds destination** (treasury → prover subsidy vs burn vs split) — needs tokenomics/governance sign-off.
 2. **Bond sizing in TAIKO** — absolute `livenessBond`/multiplier values (economic security analysis vs circulating supply). Consider sizing the bond against an ETH-denominated target (governance re-pricing) to hedge TAIKO price risk.
-3. **Auction format** — commit-reveal (recommended) vs ascending+freeze; validate against bid-sniping MEV on Hoodi.
+3. **Auction parameters** — `BID_FREEZE`, `tenureMax`, `MAX_LIST_SIZE`, and displacement/sniping behavior; validate against bid-sniping MEV on Hoodi.
 4. **`STALL_GRACE` values** — latency budget for the winner's propose loop; validate against worst-case L1 congestion; plus the refute-window duration (1 epoch proposed).
 5. **Preconf promise compensation cap and dispute-bond requirements** (v1).
 6. **Whether `checkProposer` should return per-rung windowEnds** or the Inbox should own the ladder — checker-owned ladder plus Inbox-side catch/escape-hatch is now the recommendation (adversarial review); the exact catch-path condition (forced-inclusion-overdue vs no-proposal-time) needs a decision.
@@ -367,7 +370,7 @@ The only remaining consensus touchpoints are `block.timestamp`/`blockhash` (stab
 
 ### 8.1 Liveness fault catalogue (checker state machine)
 
-- `assign(E+2) ← topBid at freeze`; `backup(E+2) ← secondBid`; `unassigned` if below reserve.
+- Perpetual list of bonded standing bids (≤ 16). `assign(E+1) ← top of list at freeze(E) = end(E) − BID_FREEZE slots`; `backup(E+1) ← second`; `unassigned` if the list is empty. Transitions: outbid → boundary handover; quit → boundary handover (must serve until then); expiry (`tenureMax`) → entry lapse + re-rank; slash/eject → immediate rung-1 takeover.
 - At `propose` in epoch E: resolve rung by (`block.timestamp`, stall evidence from the checker's `lastProposalAt` record, sender ∈ {winner, backup, bonded set, anyone}).
 - Slash transitions: winner-stall → escrow+digest → settle after refute window (reward to challenger); promise-break → dispute window → slash+compensate; eject when bond < threshold.
 - Every slash: per-fault digest, one-shot, no global window, EIP-712 domains, withdrawal delays.
