@@ -2,8 +2,9 @@
 
 Created via the Taiko DAO UI on the Standard Multisig `0xD7dA1C25E915438720692bC55eb3a7170cA90321`.
 The UI pins the metadata and assembles `createProposal`; paste each action below into the
-UI's custom-action (calldata) form, in order. After creation, run the `verify` mode
-against the new proposal id before approving.
+UI's custom-action (calldata) form, in order. After creation, compare the actions
+stored on-chain against this file before approving (the `getProposal` command in
+Proposal0020.md).
 
 - Destination plugin (set by the UI): `0x989E348275b659d36f8751ea1c10D146211650BE`
 

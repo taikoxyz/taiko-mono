@@ -33,9 +33,6 @@ abstract contract BuildDirectProposal is Script {
         bytes data;
     }
 
-    error MissingEnv(string name);
-    error CheckFailed(string what);
-
     function run() external {
         string memory mode = vm.envString("MODE");
         if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
@@ -44,6 +41,7 @@ abstract contract BuildDirectProposal is Script {
             dryrunL1();
         } else {
             console2.log("Error: Invalid mode. Must be one of: print, l1dryrun");
+            revert InvalidMode(mode);
         }
     }
 
@@ -76,7 +74,10 @@ abstract contract BuildDirectProposal is Script {
             vm.toString(L1.DAO_STANDARD_MULTISIG),
             "`.\nThe UI pins the metadata and assembles `createProposal`; paste each action",
             " below into the\nUI's custom-action (calldata) form, in order. After creation,",
-            " run the `verify` mode\nagainst the new proposal id before approving.\n\n",
+            " compare the actions\nstored on-chain against this file before approving (the",
+            " `getProposal` command in\nProposal",
+            _proposalId,
+            ".md).\n\n",
             "- Destination plugin (set by the UI): `",
             vm.toString(L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN),
             "`\n"
@@ -254,9 +255,25 @@ abstract contract BuildDirectProposal is Script {
         return "?";
     }
 
-    function readRaw(address _target, bytes memory _data) private view returns (bytes memory) {
+    function readRaw(
+        address _target,
+        bytes memory _data
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         (bool ok, bytes memory ret) = _target.staticcall(_data);
+        logIfReverted(ok, ret);
         check(ok, "staticcall reverted");
         return ret;
     }
+
+    // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    error MissingEnv(string name);
+    error CheckFailed(string what);
+    error InvalidMode(string mode);
 }
