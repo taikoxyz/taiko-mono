@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preconfer Auction — Design &amp; Slashing Walkthrough</title>
+<style>
+  :root {
+    --bg: #101014;
+    --panel: #1a1a22;
+    --panel2: #22222d;
+    --text: #e8e8f0;
+    --dim: #9a9ab0;
+    --accent: #e81899;
+    --accent2: #ff5cb5;
+    --green: #4ade80;
+    --yellow: #facc15;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --mono: "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+  }
+  .deck { position: relative; height: 100vh; width: 100vw; }
+  .slide {
+    position: absolute; inset: 0;
+    padding: 56px 72px 88px;
+    display: none;
+    flex-direction: column;
+    animation: fade 0.35s ease;
+    overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+  @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .kicker {
+    color: var(--accent2); text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 13px; font-weight: 700; margin-bottom: 10px;
+  }
+  h1 { font-size: 46px; line-height: 1.15; margin-bottom: 18px; font-weight: 800; }
+  h2 { font-size: 34px; line-height: 1.2; margin-bottom: 18px; font-weight: 800; }
+  h3 { font-size: 19px; margin: 18px 0 8px; font-weight: 700; color: var(--accent2); }
+  p, li { font-size: 17px; line-height: 1.55; color: var(--text); }
+  ul { padding-left: 22px; margin: 6px 0 12px; }
+  li { margin-bottom: 7px; }
+  .dim { color: var(--dim); }
+  code {
+    font-family: var(--mono); font-size: 14px;
+    background: var(--panel2); padding: 2px 7px; border-radius: 6px; color: var(--accent2);
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 10px; }
+  .card {
+    background: var(--panel); border: 1px solid #2c2c3a; border-radius: 14px;
+    padding: 18px 20px; margin: 8px 0;
+  }
+  .card h4 { font-size: 16px; margin-bottom: 8px; color: var(--accent2); }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 700; border-radius: 999px;
+    padding: 3px 11px; margin-right: 6px; letter-spacing: 0.04em;
+  }
+  .tag.green { background: rgba(74,222,128,.15); color: var(--green); border: 1px solid rgba(74,222,128,.4); }
+  .tag.red { background: rgba(248,113,113,.15); color: var(--red); border: 1px solid rgba(248,113,113,.4); }
+  .tag.yellow { background: rgba(250,204,21,.12); color: var(--yellow); border: 1px solid rgba(250,204,21,.4); }
+  .tag.blue { background: rgba(96,165,250,.15); color: var(--blue); border: 1px solid rgba(96,165,250,.4); }
+  .tag.pink { background: rgba(232,24,153,.15); color: var(--accent2); border: 1px solid rgba(232,24,153,.4); }
+
+  /* Timeline / ladder diagrams */
+  .tl { display: flex; align-items: stretch; gap: 0; margin: 16px 0; }
+  .tl .seg { flex: 1; min-height: 74px; display: flex; flex-direction: column; justify-content: center; padding: 10px 12px; border-right: 2px solid var(--bg); }
+  .tl .seg:first-child { border-radius: 12px 0 0 12px; }
+  .tl .seg:last-child { border-radius: 0 12px 12px 0; border-right: none; }
+  .seg .t { font-weight: 800; font-size: 15px; }
+  .seg .s { font-size: 13px; color: var(--dim); margin-top: 4px; line-height: 1.4; }
+  .seg.win { background: rgba(232,24,153,.18); border-color: rgba(232,24,153,.3); }
+  .seg.bk { background: rgba(96,165,250,.14); }
+  .seg.any { background: rgba(74,222,128,.12); }
+  .seg.off { background: rgba(248,113,113,.13); }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+  .flow .step {
+    background: var(--panel2); border: 1px solid #33334a; border-radius: 10px;
+    padding: 12px 14px; font-size: 15px; line-height: 1.45; max-width: 260px;
+  }
+  .flow .step b { color: var(--accent2); }
+  .arrow { color: var(--dim); align-self: center; font-size: 20px; }
+
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #2c2c3a; vertical-align: top; }
+  th { color: var(--accent2); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  td code { font-size: 13px; }
+
+  .equation {
+    font-family: var(--mono); font-size: 16px; background: var(--panel2);
+    border: 1px dashed #3a3a4e; border-radius: 10px; padding: 12px 16px; margin: 10px 0;
+    color: var(--yellow);
+  }
+  .big { font-size: 22px; font-weight: 800; color: var(--accent2); }
+  .callout {
+    border-left: 4px solid var(--accent); background: rgba(232,24,153,.08);
+    padding: 12px 16px; border-radius: 0 10px 10px 0; margin: 12px 0; font-size: 16px;
+  }
+  .ok { color: var(--green); font-weight: 700; }
+  .no { color: var(--red); font-weight: 700; }
+
+  /* Footer nav */
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 56px;
+    display: flex; align-items: center; gap: 14px; padding: 0 28px;
+    background: rgba(16,16,20,.92); border-top: 1px solid #262632; z-index: 10;
+  }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #3a3a4a; cursor: pointer; border: none; }
+  .dot.on { background: var(--accent2); }
+  .counter { font-family: var(--mono); color: var(--dim); font-size: 13px; min-width: 60px; }
+  .btn {
+    background: var(--panel2); color: var(--text); border: 1px solid #33334a;
+    border-radius: 8px; padding: 7px 16px; cursor: pointer; font-size: 14px; font-weight: 600;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .hint { margin-left: auto; color: var(--dim); font-size: 13px; }
+  .title-slide { justify-content: center; }
+  .title-slide h1 { font-size: 58px; }
+  .subtitle { font-size: 20px; color: var(--dim); margin-top: 8px; max-width: 780px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1. Title -->
+  <section class="slide title-slide active">
+    <div class="kicker">Taiko · Preconfer Auction · Design Walkthrough</div>
+    <h1>The Preconfer Auction</h1>
+    <div class="subtitle">
+      How Taiko becomes permissionless: a perpetual auction of
+      <b style="color:var(--accent2)">preconfer / proposer rights</b> on L1,
+      with <b style="color:var(--accent2)">TAIKO bonds</b> that are slashed on liveness faults,
+      and a fallback ladder so the chain <b style="color:var(--green)">never stalls</b>.
+    </div>
+    <div class="subtitle dim" style="margin-top:18px">
+      Companion to <code>packages/protocol/docs/auction_based_permissionless_preconf.md</code> —
+      use ← → arrow keys, buttons, or the dots below.
+    </div>
+  </section>
+
+  <!-- 2. Problem -->
+  <section class="slide">
+    <div class="kicker">Step 0 · Why we need this</div>
+    <h2>The problem</h2>
+    <div class="grid2">
+      <div class="card">
+        <h4>Today: permissioned preconf</h4>
+        <p>The <code>PreconfWhitelist</code> picks one operator per epoch (beacon-root randomness).
+        If that operator goes offline, <b>nobody else can propose for the rest of the epoch</b> —
+        a 6.4-minute stall, with no slashing.</p>
+      </div>
+      <div class="card">
+        <h4>Permissionless path is blocked</h4>
+        <p>The URC/lookahead design (PR #22012) depends on Ethereum's consensus layer —
+        validator lookahead, proposer commitments, block anatomy. ePBS, FOCIL and SSLE
+        break those assumptions, and the URC itself is not production-ready.</p>
+      </div>
+    </div>
+    <div class="callout">
+      <b>Goal:</b> permissionless preconfirmation with <span class="ok">liveness as the #1 priority</span>,
+      built only on primitives Ethereum cannot take away: L1 inclusion, EVM state, and bonded collateral.
+    </div>
+  </section>
+
+  <!-- 3. Big idea -->
+  <section class="slide">
+    <div class="kicker">Step 1 · The big idea</div>
+    <h2>A perpetual standing-bid auction</h2>
+    <p>A ranked list of <b>standing bids</b> lives on L1. No repeated auctions, no keeper, no churn:</p>
+    <div class="tl">
+      <div class="seg win"><div class="t">#1 bid → WINNER</div><div class="s">Exclusive right to propose &amp; preconfirm each epoch until outbid, quit, expiry, or slashing</div></div>
+      <div class="seg bk"><div class="t">#2 bid → BACKUP</div><div class="s">Bonded hot standby; inherits automatically if the winner leaves</div></div>
+      <div class="seg any"><div class="t">… → ranked list</div><div class="s">Up to 16 bonded bidders, ranked by amount, ties by placement order</div></div>
+      <div class="seg off"><div class="t">EMPTY LIST</div><div class="s">Total permissionless mode: bonded operators first, then anyone</div></div>
+    </div>
+    <ul>
+      <li><b>Bids are ETH</b> — a <i>per-epoch rate</i> paid from a prepaid balance (the market price of one epoch's sequencing revenue).</li>
+      <li><b>Every listed bidder stakes TAIKO</b> — the slashable liveness bond. No yield; it is collateral, not a PoS reward.</li>
+      <li>The auction sells a <b>privilege, not a necessity</b>: chain liveness never depends on the winner.</li>
+    </ul>
+  </section>
+
+  <!-- 4. Time model -->
+  <section class="slide">
+    <div class="kicker">Step 2 · The time model</div>
+    <h2>Epochs &amp; the 2-epoch lead</h2>
+    <div class="equation">1 epoch = 32 slots = 384 s &nbsp;·&nbsp; every transition takes effect <b>2 epochs</b> after placement</div>
+    <p>Every change — bid, outbid, re-bid, renewal, signer rotation, quit — gets
+    <code>effectiveEpoch = placedEpoch + 2</code>. Consequences:</p>
+    <ul>
+      <li><span class="tag pink">FINALITY</span> During epoch E, the assignments for <b>E and E+1 are always final</b> — nothing placed now can alter them. No boundary races.</li>
+      <li><span class="tag blue">HANDOVER</span> A new or displaced winner gets <b>≥ 1 epoch (384 s) of notice</b> to boot their preconf service.</li>
+      <li><span class="tag yellow">PENDING</span> Changes to an existing entry are <i>pending updates</i> materialized with the same lead — a re-bid can't forfeit an epoch you already won, a renewal can't resurrect an expired bid into a finalized epoch, a signer rotation can't rewrite slashing evidence.</li>
+    </ul>
+    <div class="tl">
+      <div class="seg win"><div class="t">epoch E−2</div><div class="s">you place your bid</div></div>
+      <div class="seg bk"><div class="t">epoch E−1</div><div class="s">assignment for E is computed &amp; fixed</div></div>
+      <div class="seg any"><div class="t">epoch E</div><div class="s">you serve (your per-epoch fee is charged lazily)</div></div>
+    </div>
+  </section>
+
+  <!-- 5. Actors -->
+  <section class="slide">
+    <div class="kicker">Step 3 · Actors &amp; assets</div>
+    <h2>Who does what</h2>
+    <table>
+      <tr><th>Actor</th><th>Puts up</th><th>Gets / must do</th></tr>
+      <tr><td><b>Bidder / winner</b></td><td>ETH per-epoch rate (prepaid) + TAIKO bond ≥ <code>livenessBond × bondMultiplier × 2</code></td><td>Exclusive propose + preconf rights; must keep proposing, else slashed</td></tr>
+      <tr><td><b>Backup</b> (runner-up)</td><td>Same bond; listed = hot-standby duty</td><td>Inherits at boundaries; proposes during winner outages; collects slash rewards</td></tr>
+      <tr><td><b>Challenger</b></td><td>Gas + evidence</td><td>50% of slashes they prove (rewardBps ≤ 50%)</td></tr>
+      <tr><td><b>Inbox</b> (L1)</td><td>—</td><td>Only caller of <code>checkProposer</code>; gas-isolates the call; escape hatch on failure</td></tr>
+      <tr><td><b>Anyone</b></td><td>Nothing</td><td>Rung-3 proposing; forced inclusion; permissionless <code>snapshot()</code> poke</td></tr>
+    </table>
+    <p class="dim">Bond bookkeeping lives in the auction contract's own escrow-style ledger
+    (not the permissive <code>LibBonds</code> ledger), with a 1-week withdrawal delay and
+    ejection below the threshold.</p>
+  </section>
+
+  <!-- 6. Join -->
+  <section class="slide">
+    <div class="kicker">Step 4 · Joining</div>
+    <h2>Bond + bid</h2>
+    <div class="flow">
+      <div class="step"><b>1. Deposit TAIKO</b><br><code>depositBond(amount)</code> ≥ required bond</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>2. Deposit ETH</b><br><code>depositEth()</code> prepays per-epoch fees</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>3. Bid</b><br><code>bid(amountInGwei, signer)</code> ≥ reserve floor</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>4. Serve</b><br>effective 2 epochs later; one fee charged per epoch served</div>
+    </div>
+    <ul>
+      <li><span class="tag yellow">OUTBID</span> To displace the current top, bid ≥ top × 1.05 (5% minimum increment). Lower bids enter the list normally.</li>
+      <li><span class="tag blue">RENEW</span> <code>renew()</code> extends expiry by <code>tenureMax</code> — cheap, no increment, no re-ranking; applies with the 2-epoch lead.</li>
+      <li><span class="tag green">QUIT</span> <code>quit()</code> — effective 2 epochs later; you must keep serving until then (going dark early = stall slash). Quit wins over pending changes.</li>
+      <li><span class="tag red">EXIT GUARD</span> The fixed next-epoch winner cannot withdraw the ETH reserved for the epoch they already won.</li>
+    </ul>
+    <p class="dim">Reserve floor = max(initialFloor, moving-average of charged bids × multiplier) — self-bids can't game it because only <i>charged</i> amounts feed the average.</p>
+  </section>
+
+  <!-- 7. Assignment -->
+  <section class="slide">
+    <div class="kicker">Step 5 · Assignment &amp; payment</div>
+    <h2>Promote, don't recompute</h2>
+    <div class="flow">
+      <div class="step"><b>snapshot(E)</b> runs lazily — first proposal of the epoch (or anyone calls <code>snapshot()</code>)</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Promote</b> the cached next assignment (computed last epoch) — never recomputed, so it can't be changed retroactively</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Charge</b> the winner one bid amount of ETH from their prepaid balance (unpayable → lapsed, backup inherits)</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Record</b> the epoch's winner + signer (S1 evidence), then compute next epoch's assignment</div>
+    </div>
+    <ul>
+      <li><span class="tag pink">O(1) HOT PATH</span> <code>checkProposer</code> does a constant number of SLOADs + one SSTORE — the whitelist's beacon-root scan disappears entirely.</li>
+      <li><span class="tag green">FINALITY</span> Re-bids, renewals and signer rotations only materialize for future epochs — an epoch you won is yours.</li>
+      <li><span class="tag yellow">BACKFILL</span> A permissionless <code>snapshot()</code> poke backfills up to 32 missed epochs, so even zero-proposal epochs get winners recorded and fees charged (S1 disputes keep working).</li>
+    </ul>
+  </section>
+
+  <!-- 8. Propose -->
+  <section class="slide">
+    <div class="kicker">Step 6 · Serving an epoch</div>
+    <h2>Propose &amp; preconfirm</h2>
+    <ul>
+      <li>The winner proposes <b>one Taiko proposal per L1 block</b> via the normal based path — the Inbox asks the auction <code>checkProposer(proposer, lookahead)</code>, which returns the window end.</li>
+      <li>The winner's sequencer signs <b>preconfirmations</b> (EIP-712, secp256k1) over each built block's header — for p2p authenticity, failover, and S1 disputes. Signatures are <b>not</b> a validity input; the ZK prover still enforces block properties.</li>
+      <li>Each winner proposal writes <code>lastWinnerProposalAt = block.timestamp</code> <b>atomically with the proposal tx</b> — a revert or reorg rolls the clock back with the block. The clock always describes the canonical chain.</li>
+    </ul>
+    <div class="equation">absence = block.timestamp − max(epochStart, lastWinnerProposalAt)</div>
+    <p class="dim">Promises are epoch-bounded: the winner owns the current epoch outright, so in-flight promises complete even if they get displaced afterwards.</p>
+  </section>
+
+  <!-- 9. Ladder -->
+  <section class="slide">
+    <div class="kicker">Step 7 · Liveness first</div>
+    <h2>The fallback ladder</h2>
+    <p>Rungs gate on <b>winner absence</b> — backup proposals do <i>not</i> reset the clock, so backups run at full cadence during an outage:</p>
+    <div class="tl">
+      <div class="seg win"><div class="t">Rung 0 · WINNER</div><div class="s">Always allowed in their epoch. One proposal reclaims exclusivity.</div></div>
+      <div class="seg bk"><div class="t">Rung 1 · BACKUP</div><div class="s">Opens after absence &gt; STALL_GRACE (e.g. 48 s). Full cadence.</div></div>
+      <div class="seg any"><div class="t">Rung 2 · BONDED</div><div class="s">Any operator with a bond ≥ ejection threshold, after + BACKUP_GRACE.</div></div>
+      <div class="seg any"><div class="t">Rung 3 · ANYONE</div><div class="s">After + FALLBACK_GRACE: pure based proposing.</div></div>
+    </div>
+    <ul>
+      <li><span class="tag red">ACCIDENT-SAFE</span> The ladder opens at <code>STALL_GRACE</code>, but the <b>slash escrow only fires after <code>ESCROW_GRACE ≥ STALL_GRACE</code></b> — a 4-slot L1 inclusion delay or a shallow reorg lets backups serve without ever slashing an honest winner.</li>
+      <li><span class="tag blue">UNAssigned</span> Empty list → bonded operators may propose from epoch start, anyone after the grace. Liveness never depends on the auction.</li>
+      <li><span class="tag yellow">PRICED, NOT PROVED</span> A winner posting empty blocks (heartbeat censorship) keeps the clock alive but earns no fees; broken promises are individually slashable (P1/P2).</li>
+    </ul>
+  </section>
+
+  <!-- 10. Stall fault -->
+  <section class="slide">
+    <div class="kicker">Step 8 · The liveness fault</div>
+    <h2>Recording the stall gap</h2>
+    <p>When a fallback proposer's proposal is accepted while <code>absence &gt; ESCROW_GRACE</code>, the auction atomically:</p>
+    <div class="flow">
+      <div class="step"><b>1. Debit</b> <code>min(livenessBond, winner's bond)</code> from the winner into contract custody</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>2. Record the fault</b> — winner, amount, challenger, and the <b>gap</b> <code>[gapStart, escrowedAt]</code></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>3. Accept the proposal</b> — liveness is never blocked by the slashing machinery</div>
+    </div>
+    <div class="callout">
+      One escrow per epoch (later fallback proposals don't double-debit), and the slash is
+      <b>not final yet</b> — a 1-epoch refute window follows.
+    </div>
+    <p class="dim">gapStart = the absence clock's base = max(epochStart, lastWinnerProposalAt) — the exact moment the silence began.</p>
+  </section>
+
+  <!-- 11. Refute -->
+  <section class="slide">
+    <div class="kicker">Step 9 · Punishment must be disprovable</div>
+    <h2>The refute window</h2>
+    <p>To escape the slash, the winner must <b>disprove the recorded gap itself</b> via <code>refuteStall(epoch, proposal)</code>:</p>
+    <div class="equation">proposer == winner &nbsp;&amp;&amp;&nbsp; timestamp ∈ (gapStart, escrowedAt] &nbsp;&amp;&amp;&nbsp; hash(proposal) == Inbox.getProposalHash(id)</div>
+    <div class="grid2">
+      <div class="card">
+        <h4><span class="ok">Can refute</span> — reorged winner</h4>
+        <p>Their block was reorged out but re-included inside the gap → the canonical preimage exists → escrow released.</p>
+      </div>
+      <div class="card">
+        <h4><span class="no">Cannot refute</span> — silent or strategic</h4>
+        <p>A silent winner has no canonical block in the gap. A <b>strategic staller's</b> wake-up proposal lands <i>after</i> the gap — it does not disprove the recorded silence, closing the "stall 48 s, propose once, never pay" loophole.</p>
+      </div>
+    </div>
+    <p class="dim">Merely proposing again does <b>not</b> release the escrow — only the gap-disproof does. The evidence is plain L1 state: no beacon lookahead, no header parsing.</p>
+  </section>
+
+  <!-- 12. Settle -->
+  <section class="slide">
+    <div class="kicker">Step 10 · Settlement</div>
+    <h2>Settle &amp; eject</h2>
+    <p>After <code>escrowedAt + REFUTE_WINDOW</code> (1 epoch), anyone calls <code>settleStallSlash(epoch)</code>:</p>
+    <div class="flow">
+      <div class="step"><b>One-shot digest</b><br>same fault can never settle twice</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Split</b><br><code>rewardBps</code> (≤ 50%) to the challenger who actually proposed; remainder locked forever</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Eject</b><br>bond below <code>livenessBond × bondMultiplier</code> → bid removed, withdrawal delay starts, backup inherits at the next boundary</div>
+    </div>
+    <div class="callout">
+      <b>Why ≤ 50%?</b> Above half, a winner could self-slash through a sybil challenger and profit — stalling would be free.
+      The cap keeps every liveness fault a net loss.
+    </div>
+  </section>
+
+  <!-- 13. S1 -->
+  <section class="slide">
+    <div class="kicker">Step 11 · Safety faults</div>
+    <h2>S1: operator-signed blocks</h2>
+    <p>Every block the winner builds is signed (EIP-712 over the header, domain bound to the <i>proxy</i> address). Two cheap, provable disputes:</p>
+    <div class="grid2">
+      <div class="card">
+        <h4>Invalid block</h4>
+        <p>Timestamp outside the epoch window (or other self-evident property). <code>slashInvalidBlock</code>: recover the signer, match the <b>per-epoch recorded signer</b>, check the property → full slash.</p>
+      </div>
+      <div class="card">
+        <h4>Equivocation</h4>
+        <p>Two different signed blocks for the same <code>(blockNumber, parentHash)</code>. <code>slashEquivocation</code>: both signatures recover to the winner's recorded signer → full slash.</p>
+      </div>
+    </div>
+    <ul>
+      <li><span class="tag green">ROTATION-PROOF</span> The epoch's signer is recorded <b>before</b> any pending rotation materializes — you can't escape an epoch's liability by rotating keys.</li>
+      <li><span class="tag yellow">WINDOW</span> Records persist forever, but slashing is economically effective while the winner's bond remains (quit + withdrawal delay). Unbonded winner → <code>NoBondToSlash</code>, the one-shot digest is not burned.</li>
+      <li><span class="tag blue">SCOPE</span> Only properties provable from the signed payload + epoch context; everything the ZK prover checks stays on the proving path.</li>
+    </ul>
+  </section>
+
+  <!-- 14. Catalogue -->
+  <section class="slide">
+    <div class="kicker">Step 12 · The full fault catalogue</div>
+    <h2>Every fault, one table</h2>
+    <table>
+      <tr><th>Fault</th><th>Type</th><th>Evidence</th><th>Slash</th></tr>
+      <tr><td><b>L1</b> Stall (offline winner)</td><td>liveness</td><td>winner-absence clock + recorded gap</td><td>livenessBond; escrow → refute window → 50/50 settle</td></tr>
+      <tr><td><b>L2</b> Window violation</td><td>—</td><td>checker state</td><td>none (proposal rejected)</td></tr>
+      <tr><td><b>P1</b> Broken preconf promise</td><td>liveness-ish</td><td>signed promise + promise root; v1 dispute window</td><td>≤ min(promiseValue, livenessBond); user compensated first</td></tr>
+      <tr><td><b>P2</b> Promise equivocation</td><td>safety</td><td>two conflicting SignedCommitments</td><td>full livenessBond, one-shot</td></tr>
+      <tr><td><b>S1</b> Signed invalid block / block equivocation</td><td>safety</td><td>EIP-712 block signature(s) vs recorded signer</td><td>full livenessBond, one-shot</td></tr>
+      <tr><td><b>V1</b> Unprovable proposal</td><td>existing pipeline</td><td>proposal fails to finalize</td><td>existing proposer liveness-bond flow</td></tr>
+    </table>
+    <p class="dim">All faults use per-fault digests (one-shot), no global self-triggerable slash window, EIP-712 domains, bounded slasher set — the URC post-mortem lessons, applied by construction.</p>
+  </section>
+
+  <!-- 15. Escape hatch -->
+  <section class="slide">
+    <div class="kicker">Step 13 · The last line of defense</div>
+    <h2>Inbox escape hatch</h2>
+    <p>Even a buggy checker must not halt the chain. The Inbox now:</p>
+    <div class="flow">
+      <div class="step"><b>Gas-isolates</b> the checker: <code>try checkProposer{ gas: 3_000_000 }</code> — bounded, catchable</div>
+      <div class="arrow">→</div>
+      <div class="step"><b>On revert</b>, allows permissionless proposing <b>while the escape hatch is open</b>: oldest forced inclusion overdue beyond <code>forcedInclusionDelay × permissionlessInclusionMultiplier</code></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Otherwise</b> rejects with <code>PermissionlessProposingNotAllowed</code></div>
+    </div>
+    <div class="callout">
+      The authorization runs <b>before</b> forced inclusions are consumed, so the hatch observes the very
+      stale inclusion it is gated on. Beyond the auction: forced inclusion + based proposing remain the
+      censorship floor — the chain inherits Ethereum's liveness end-to-end.
+    </div>
+  </section>
+
+  <!-- 16. Parameters -->
+  <section class="slide">
+    <div class="kicker">Step 14 · Knobs</div>
+    <h2>Parameters at a glance</h2>
+    <table>
+      <tr><th>Parameter</th><th>Value</th><th>Purpose</th></tr>
+      <tr><td>Epoch / transition lead</td><td>384 s / 2 epochs</td><td>current + next always final; ≥1-epoch handover notice</td></tr>
+      <tr><td>List / min increment / tenure</td><td>≤16 / 5% / <code>tenureMax</code> (e.g. 1 day)</td><td>bonded pool; anti-churn; expiry + cheap renewal</td></tr>
+      <tr><td>Bond / ejection</td><td><code>livenessBond × mult × 2</code> / <code>× mult</code></td><td>slashable collateral; three-strike ejection</td></tr>
+      <tr><td>STALL / BACKUP / FALLBACK grace</td><td>48 / 48 / 96 s</td><td>ladder timing</td></tr>
+      <tr><td>ESCROW_GRACE</td><td>≥ STALL_GRACE (e.g. 96 s)</td><td>accidents serve, only absence is slashed</td></tr>
+      <tr><td>Refute window / reward / cap</td><td>1 epoch / 50% / ≤ 50%</td><td>gap-disprovable punishment; no free self-slash</td></tr>
+      <tr><td>Bond withdrawal delay / backfill</td><td>1 week / 32 epochs</td><td>no slash-and-exit; S1 records for silent epochs</td></tr>
+    </table>
+    <p class="dim">Worked example: bond 400 TAIKO, livenessBond 100, reward 50%.
+    Winner stalls → after 96 s of absence the backup proposes and 100 is escrowed; a reorged winner refutes with
+    their re-included block; otherwise, after one epoch, the backup gets 50 and 50 is locked.</p>
+  </section>
+
+  <!-- 17. Recap -->
+  <section class="slide title-slide">
+    <div class="kicker">Recap</div>
+    <h2>One-pager</h2>
+    <div class="grid2" style="max-width:1000px">
+      <div class="card">
+        <h4>Permissionless</h4>
+        <p>Anyone with a bond can bid; the top bid serves, the runner-up stands by, an empty list means anyone can propose.</p>
+      </div>
+      <div class="card">
+        <h4>Liveness first</h4>
+        <p>Winner-absence ladder at full cadence; slash escrow decoupled from the ladder; forced inclusion + Inbox escape hatch as the floor.</p>
+      </div>
+      <div class="card">
+        <h4>Fair punishment</h4>
+        <p>Every fault is provable from L1 state; stall slashes are gap-disprovable for one epoch; reward capped at 50%; one-shot digests; ejection, not death-spirals.</p>
+      </div>
+      <div class="card">
+        <h4>Consensus-independent</h4>
+        <p>No lookahead, no proposer commitments, no header parsing — safe through ePBS, FOCIL, and SSLE. FOCIL inclusion lists compose as a bonus.</p>
+      </div>
+    </div>
+    <div class="subtitle dim" style="margin-top:16px">
+      Implemented in <code>packages/protocol/contracts/layer1/preconf/</code> — PR #22019 ·
+      design: <code>packages/protocol/docs/auction_based_permissionless_preconf.md</code>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button class="btn" id="prev">← Prev</button>
+  <button class="btn" id="next">Next →</button>
+  <span class="counter" id="counter">1 / 17</span>
+  <div class="dots" id="dots"></div>
+  <span class="hint">← → keys · click dots to jump</span>
+</div>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var dotsBox = document.getElementById('dots');
+  var counter = document.getElementById('counter');
+  var current = 0;
+
+  slides.forEach(function (_, i) {
+    var d = document.createElement('button');
+    d.className = 'dot';
+    d.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    d.addEventListener('click', function () { go(i); });
+    dotsBox.appendChild(d);
+  });
+
+  function go(i) {
+    if (i < 0) i = 0;
+    if (i > slides.length - 1) i = slides.length - 1;
+    slides[current].classList.remove('active');
+    current = i;
+    slides[current].classList.add('active');
+    var dots = dotsBox.children;
+    for (var j = 0; j < dots.length; j++) dots[j].classList.toggle('on', j === current);
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+    slides[current].scrollTop = 0;
+  }
+
+  document.getElementById('next').addEventListener('click', function () { go(current + 1); });
+  document.getElementById('prev').addEventListener('click', function () { go(current - 1); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(current + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(current - 1); }
+    if (e.key === 'Home') { e.preventDefault(); go(0); }
+    if (e.key === 'End') { e.preventDefault(); go(slides.length - 1); }
+  });
+  go(0);
+})();
+</script>
+</body>
+</html>
