@@ -1,17 +1,28 @@
 # Dependabot configuration for automated dependency updates.
 # This file is the single source of truth and overrides any GitHub repo settings.
 #
-# Key features:
-# - Monthly updates scheduled for Saturday 04:20 ET
-# - Dependencies are grouped by ecosystem to minimize PR noise
-# - Each group has designated reviewers and single PR limit
-# - To ignore updates for a dependency, add to ecosystem's ignore field (and open
-#   a GitHub issue if needed for tracking):
+# Two independent update streams reach this repo:
+#
+#   1. Version updates  — driven entirely by this file. Honour `schedule`,
+#      `open-pull-requests-limit`, `directories` and `groups`.
+#   2. Security updates — driven by Dependabot alerts (Settings -> Code security).
+#      They ignore `open-pull-requests-limit` entirely and, unless a group is
+#      explicitly marked `applies-to: security-updates`, they ignore `groups`
+#      too. That is why every ecosystem below declares BOTH a version-update
+#      group and a security-update group: without the latter, a batch of alerts
+#      lands as one PR per package.
+#
+# To ignore updates for a dependency, add to the ecosystem's ignore field (and
+# open a GitHub issue if needed for tracking):
 #   ignore:
 #     - dependency-name: "golang.org/x/crypto"  # skip all crypto updates
 
 version: 2
 updates:
+  # ---------------------------------------------------------------------------
+  # Go — one root module (github.com/taikoxyz/taiko-mono) covers taiko-client,
+  # relayer, eventindexer and the shared packages.
+  # ---------------------------------------------------------------------------
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -19,12 +30,20 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 3
     groups:
       go-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      go-security:
+        applies-to: security-updates
         patterns:
           - "*"
 
+  # ---------------------------------------------------------------------------
+  # GitHub Actions
+  # ---------------------------------------------------------------------------
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -32,21 +51,76 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 3
     groups:
       github-actions-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
 
-  - package-ecosystem: "npm"
-    directory: "/"
+  # ---------------------------------------------------------------------------
+  # Rust — previously absent, so taiko-client-rs and ejector received version
+  # updates from nobody and only ever saw security PRs.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "cargo"
+    directories:
+      - "/packages/taiko-client-rs"
+      - "/packages/ejector"
     schedule:
       interval: "monthly"
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 3
     groups:
-      npm-updates:
+      cargo-updates:
+        applies-to: version-updates
         patterns:
           - "*"
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # ---------------------------------------------------------------------------
+  # npm / pnpm — only actively maintained workspace members are listed. The
+  # dormant ones (nfts, snaefell-ui, taikoon-ui, ui-lib, supplementary-contracts)
+  # have had no commits in over six months; version-bump PRs against them have no
+  # reviewer. Note this does NOT stop security PRs on those packages — security
+  # updates work off the dependency graph, not off `directories`. Suppress those
+  # by dismissing the alerts in the Security tab, or by retiring the packages.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/packages/bridge-ui"
+      - "/packages/protocol"
+      - "/packages/relayer"
+      - "/packages/eventindexer"
+      - "/packages/taiko-client"
+      - "/packages/fork-diff"
+    schedule:
+      interval: "monthly"
+      day: "saturday"
+      time: "04:20"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    groups:
+      npm-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    ignore:
+      # Majors are handled by hand. Left to Dependabot they rot: svelte 4->5,
+      # eslint 8->9, vite 5->6 and vitest 1->3 all sat open for months before
+      # being closed unmerged.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
