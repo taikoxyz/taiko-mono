@@ -20,24 +20,25 @@ pragma solidity ^0.8.26;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   _ranked                        | address[]                                          | Slot: 251  | Offset: 0    | Bytes: 32  
 //   _bids                          | mapping(address => struct IProposerAuction.BidInfo) | Slot: 252  | Offset: 0    | Bytes: 32  
-//   _signers                       | mapping(address => address)                        | Slot: 253  | Offset: 0    | Bytes: 32  
-//   _bonds                         | mapping(address => struct IProposerAuction.BondInfo) | Slot: 254  | Offset: 0    | Bytes: 32  
-//   _ethBalances                   | mapping(address => uint256)                        | Slot: 255  | Offset: 0    | Bytes: 32  
-//   _stallEscrows                  | mapping(uint32 => struct IProposerAuction.StallEscrow) | Slot: 256  | Offset: 0    | Bytes: 32  
-//   _epochWinners                  | mapping(uint32 => address)                         | Slot: 257  | Offset: 0    | Bytes: 32  
-//   _epochSigners                  | mapping(uint32 => address)                         | Slot: 258  | Offset: 0    | Bytes: 32  
-//   _slashedBefore                 | mapping(bytes32 => bool)                           | Slot: 259  | Offset: 0    | Bytes: 32  
-//   _assignedEpoch                 | uint32                                             | Slot: 260  | Offset: 0    | Bytes: 4   
-//   _currentWinner                 | address                                            | Slot: 260  | Offset: 4    | Bytes: 20  
-//   _currentBackup                 | address                                            | Slot: 261  | Offset: 0    | Bytes: 20  
-//   _nextWinner                    | address                                            | Slot: 262  | Offset: 0    | Bytes: 20  
-//   _nextBackup                    | address                                            | Slot: 263  | Offset: 0    | Bytes: 20  
-//   _lastProposalAt                | uint48                                             | Slot: 263  | Offset: 20   | Bytes: 6   
-//   _lastWinnerProposalAt          | uint48                                             | Slot: 263  | Offset: 26   | Bytes: 6   
-//   _bidSeq                        | uint48                                             | Slot: 264  | Offset: 0    | Bytes: 6   
-//   _totalSlashedAmount            | uint128                                            | Slot: 264  | Offset: 6    | Bytes: 16  
-//   _proceeds                      | uint256                                            | Slot: 265  | Offset: 0    | Bytes: 32  
-//   _movingAverageBid              | uint128                                            | Slot: 266  | Offset: 0    | Bytes: 16  
-//   _lastAvgUpdate                 | uint48                                             | Slot: 266  | Offset: 16   | Bytes: 6   
-//   _contractCreationTime          | uint48                                             | Slot: 266  | Offset: 22   | Bytes: 6   
-//   __gap                          | uint256[30]                                        | Slot: 267  | Offset: 0    | Bytes: 960 
+//   _pendingUpdates                | mapping(address => struct IProposerAuction.PendingUpdate) | Slot: 253  | Offset: 0    | Bytes: 32  
+//   _signers                       | mapping(address => address)                        | Slot: 254  | Offset: 0    | Bytes: 32  
+//   _bonds                         | mapping(address => struct IProposerAuction.BondInfo) | Slot: 255  | Offset: 0    | Bytes: 32  
+//   _ethBalances                   | mapping(address => uint256)                        | Slot: 256  | Offset: 0    | Bytes: 32  
+//   _stallEscrows                  | mapping(uint32 => struct IProposerAuction.StallEscrow) | Slot: 257  | Offset: 0    | Bytes: 32  
+//   _epochWinners                  | mapping(uint32 => address)                         | Slot: 258  | Offset: 0    | Bytes: 32  
+//   _epochSigners                  | mapping(uint32 => address)                         | Slot: 259  | Offset: 0    | Bytes: 32  
+//   _slashedBefore                 | mapping(bytes32 => bool)                           | Slot: 260  | Offset: 0    | Bytes: 32  
+//   _assignedEpoch                 | uint32                                             | Slot: 261  | Offset: 0    | Bytes: 4   
+//   _currentWinner                 | address                                            | Slot: 261  | Offset: 4    | Bytes: 20  
+//   _currentBackup                 | address                                            | Slot: 262  | Offset: 0    | Bytes: 20  
+//   _nextWinner                    | address                                            | Slot: 263  | Offset: 0    | Bytes: 20  
+//   _nextBackup                    | address                                            | Slot: 264  | Offset: 0    | Bytes: 20  
+//   _lastProposalAt                | uint48                                             | Slot: 264  | Offset: 20   | Bytes: 6   
+//   _lastWinnerProposalAt          | uint48                                             | Slot: 264  | Offset: 26   | Bytes: 6   
+//   _bidSeq                        | uint48                                             | Slot: 265  | Offset: 0    | Bytes: 6   
+//   _totalSlashedAmount            | uint128                                            | Slot: 265  | Offset: 6    | Bytes: 16  
+//   _proceeds                      | uint256                                            | Slot: 266  | Offset: 0    | Bytes: 32  
+//   _movingAverageBid              | uint128                                            | Slot: 267  | Offset: 0    | Bytes: 16  
+//   _lastAvgUpdate                 | uint48                                             | Slot: 267  | Offset: 16   | Bytes: 6   
+//   _contractCreationTime          | uint48                                             | Slot: 267  | Offset: 22   | Bytes: 6   
+//   __gap                          | uint256[30]                                        | Slot: 268  | Offset: 0    | Bytes: 960 

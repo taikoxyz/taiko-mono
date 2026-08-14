@@ -126,6 +126,21 @@ interface IProposerAuction is IProposerChecker {
         uint48 placedSeq;
     }
 
+    /// @notice A pending change to an existing standing bid.
+    /// @dev Pending changes take effect TRANSITION_LEAD_EPOCHS epochs after placement, so they
+    ///      can never alter already-finalized current/next epoch assignments. amountInGwei == 0
+    ///      marks an expiry-only renewal (signer is unused).
+    /// @param amountInGwei New per-epoch bid amount in gwei (0 = expiry-only renewal).
+    /// @param signer New block-signing address (unused for renewals).
+    /// @param effectiveEpoch Epoch from which the change applies.
+    /// @param expiresAtEpoch New expiry epoch (exclusive).
+    struct PendingUpdate {
+        uint128 amountInGwei;
+        address signer;
+        uint32 effectiveEpoch;
+        uint32 expiresAtEpoch;
+    }
+
     /// @notice A bond account.
     /// @param balance TAIKO balance in gwei.
     /// @param withdrawableAt Timestamp after which the bond may be withdrawn (0 = not requested).
@@ -199,6 +214,16 @@ interface IProposerAuction is IProposerChecker {
     /// @notice Removes lapsed (expired, withdrawn, or ejected) entries from the list.
     /// @return removed_ The number of entries removed.
     function purgeInactive() external returns (uint256 removed_);
+
+    /// @notice Catches up missed epoch snapshots (bounded backfill) and records the epoch
+    ///         assignments, winners' signers, and per-epoch fee charges.
+    /// @dev Permissionless: anyone can call this so that S1 dispute records exist even for
+    ///      epochs in which nobody proposed. Backfill is capped at MAX_BACKFILL_EPOCHS.
+    function snapshot() external;
+
+    /// @notice Returns the pending update for a bidder, if any.
+    /// @return update_ The pending update (effectiveEpoch == 0 if none).
+    function getPendingUpdate(address _bidder) external view returns (PendingUpdate memory update_);
 
     // ---------------------------------------------------------------
     // Bonds (TAIKO)

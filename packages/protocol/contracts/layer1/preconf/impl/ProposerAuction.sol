@@ -45,6 +45,9 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @notice Epochs between a transition being placed and taking effect.
     uint32 public constant TRANSITION_LEAD_EPOCHS = 2;
 
+    /// @notice Maximum number of epochs backfilled by snapshot().
+    uint32 public constant MAX_BACKFILL_EPOCHS = 32;
+
     /// @notice Fault type: stall (liveness fault).
     uint8 internal constant _FAULT_STALL = 1;
 
@@ -102,6 +105,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Silence tolerated before the fallback ladder opens, in seconds.
     uint48 private immutable _stallGrace;
 
+    /// @dev Winner absence tolerated before a stall slash is escrowed, in seconds.
+    /// @dev Decoupled from the ladder-open threshold so that transient accidents (L1 inclusion
+    ///      delays, shallow reorgs) let backups serve without slashing an honest winner.
+    uint48 private immutable _escrowGrace;
+
     /// @dev Extra silence tolerated for the designated backup rung, in seconds.
     uint48 private immutable _backupGrace;
 
@@ -133,6 +141,10 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @dev Bid info per bidder.
     mapping(address bidder => IProposerAuction.BidInfo info) internal _bids;
+
+    /// @dev Pending changes (re-bids, renewals, signer rotations) applied with the
+    ///      TRANSITION_LEAD_EPOCHS delay, so finalized assignments cannot be altered.
+    mapping(address bidder => IProposerAuction.PendingUpdate update) internal _pendingUpdates;
 
     /// @dev Registered block signer per bidder (persists after lapse for historical disputes).
     mapping(address bidder => address signer) internal _signers;
@@ -212,6 +224,8 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @param _movingAverageMultiplierValue Multiplier for the moving average to derive the floor.
     /// @param _movingAverageWindowSeconds Moving-average window, in seconds.
     /// @param _stallGraceSeconds Silence tolerated before the ladder opens, in seconds.
+    /// @param _escrowGraceSeconds Winner absence tolerated before a stall slash is escrowed
+    ///        (>= _stallGraceSeconds), in seconds.
     /// @param _backupGraceSeconds Backup rung extra grace, in seconds.
     /// @param _fallbackGraceSeconds Bonded-operator rung extra grace, in seconds.
     /// @param _refuteWindowSeconds Refute window before a stall slash settles, in seconds.
@@ -227,6 +241,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         uint8 _movingAverageMultiplierValue,
         uint48 _movingAverageWindowSeconds,
         uint48 _stallGraceSeconds,
+        uint48 _escrowGraceSeconds,
         uint48 _backupGraceSeconds,
         uint48 _fallbackGraceSeconds,
         uint48 _refuteWindowSeconds
@@ -235,7 +250,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         require(_bondToken != address(0), ZeroAddress());
         require(_livenessBondAmount > 0, ZeroValue());
         require(_bondMultiplierValue > 0 && _bondMultiplierValue <= 100, InvalidBondMultiplier());
-        require(_rewardBpsValue <= 10_000, InvalidBps());
+        require(_rewardBpsValue <= 5000, InvalidBps()); // <= 50%: a self-slash must never be free
         require(_bondWithdrawalDelaySeconds > 0, ZeroValue());
         require(_tenureMaxEpochsValue > 0, ZeroValue());
         require(_initialFloorInGweiValue > 0, ZeroValue());
@@ -245,6 +260,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             _stallGraceSeconds > 0 && _backupGraceSeconds > 0 && _fallbackGraceSeconds > 0,
             ZeroValue()
         );
+        require(_escrowGraceSeconds >= _stallGraceSeconds, InvalidEscrowGrace());
         require(_refuteWindowSeconds > 0, ZeroValue());
 
         inbox = _inbox;
@@ -258,6 +274,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         _movingAverageMultiplier = _movingAverageMultiplierValue;
         _movingAverageWindow = _movingAverageWindowSeconds;
         _stallGrace = _stallGraceSeconds;
+        _escrowGrace = _escrowGraceSeconds;
         _backupGrace = _backupGraceSeconds;
         _fallbackGrace = _fallbackGraceSeconds;
         _refuteWindow = _refuteWindowSeconds;
@@ -305,25 +322,37 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
         IProposerAuction.BidInfo storage info = _bids[msg.sender];
         if (info.amountInGwei == 0) {
+            // New entry: its live fields already take effect TRANSITION_LEAD_EPOCHS later.
             _purgeInactiveInternal();
             require(_ranked.length < MAX_LIST_SIZE, ListFull());
             _ranked.push(msg.sender);
             info = _bids[msg.sender];
-        }
 
-        unchecked {
-            // Safe: _tenureMaxEpochs <= type(uint32).max - TRANSITION_LEAD_EPOCHS.
-            info.effectiveEpoch = currentEpoch + TRANSITION_LEAD_EPOCHS;
-            info.expiresAtEpoch = info.effectiveEpoch + _tenureMaxEpochs;
+            unchecked {
+                // Safe: _tenureMaxEpochs <= type(uint32).max - TRANSITION_LEAD_EPOCHS.
+                info.effectiveEpoch = currentEpoch + TRANSITION_LEAD_EPOCHS;
+                info.expiresAtEpoch = info.effectiveEpoch + _tenureMaxEpochs;
+            }
+            info.amountInGwei = _amountInGwei;
+            info.placedEpoch = currentEpoch;
+            info.joinedAt = uint48(block.timestamp);
+            unchecked {
+                info.placedSeq = ++_bidSeq;
+            }
+            _signers[msg.sender] = _signer;
+        } else {
+            // Existing entry: record a pending change so that already-finalized assignments
+            // (current and next epoch) are never altered by re-bids or signer rotations.
+            unchecked {
+                uint32 effectiveEpoch = currentEpoch + TRANSITION_LEAD_EPOCHS;
+                _pendingUpdates[msg.sender] = IProposerAuction.PendingUpdate({
+                    amountInGwei: _amountInGwei,
+                    signer: _signer,
+                    effectiveEpoch: effectiveEpoch,
+                    expiresAtEpoch: effectiveEpoch + _tenureMaxEpochs
+                });
+            }
         }
-        info.amountInGwei = _amountInGwei;
-        info.placedEpoch = currentEpoch;
-        info.withdrawEffectiveEpoch = 0;
-        info.joinedAt = uint48(block.timestamp);
-        unchecked {
-            info.placedSeq = ++_bidSeq;
-        }
-        _signers[msg.sender] = _signer;
 
         emit BidPlaced(msg.sender, _amountInGwei, _signer);
     }
@@ -334,11 +363,18 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         require(info.amountInGwei != 0, NotListed());
         require(info.withdrawEffectiveEpoch == 0, AlreadyQuitting());
 
-        uint32 currentEpoch = _currentEpochIndex();
-        uint32 base = info.expiresAtEpoch > currentEpoch ? info.expiresAtEpoch : currentEpoch;
-        info.expiresAtEpoch = base + _tenureMaxEpochs;
+        // Renewals are pending too: they must never resurrect an expiring entry into the
+        // already-finalized next epoch. The new expiry applies from the pending effective epoch.
+        IProposerAuction.PendingUpdate storage pending = _pendingUpdates[msg.sender];
+        unchecked {
+            uint32 effectiveEpoch = _currentEpochIndex() + TRANSITION_LEAD_EPOCHS;
+            pending.effectiveEpoch = effectiveEpoch;
+            pending.expiresAtEpoch = effectiveEpoch + _tenureMaxEpochs;
+        }
+        // If a pending re-bid exists, its amount/signer are kept; otherwise this stays an
+        // expiry-only renewal (amountInGwei remains 0).
 
-        emit BidRenewed(msg.sender, info.expiresAtEpoch);
+        emit BidRenewed(msg.sender, pending.expiresAtEpoch);
     }
 
     /// @inheritdoc IProposerAuction
@@ -351,6 +387,9 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             info.withdrawEffectiveEpoch = _currentEpochIndex() + TRANSITION_LEAD_EPOCHS;
         }
 
+        // Quitting wins over any pending re-bid/renewal.
+        delete _pendingUpdates[msg.sender];
+
         IProposerAuction.BondInfo storage bond = _bonds[msg.sender];
         if (bond.withdrawableAt == 0) {
             bond.withdrawableAt = uint48(block.timestamp) + _bondWithdrawalDelay;
@@ -362,6 +401,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @inheritdoc IProposerAuction
     function purgeInactive() external returns (uint256 removed_) {
         removed_ = _purgeInactiveInternal();
+    }
+
+    /// @inheritdoc IProposerAuction
+    function snapshot() external nonReentrant {
+        _catchUpSnapshots(MAX_BACKFILL_EPOCHS);
     }
 
     // ---------------------------------------------------------------
@@ -403,7 +447,14 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @inheritdoc IProposerAuction
     function withdrawEth(uint256 _amount) external nonReentrant {
-        require(_ethBalances[msg.sender] >= _amount, InsufficientEth());
+        uint256 available = _ethBalances[msg.sender];
+        // The fixed next-epoch winner must keep enough ETH to pay the epoch they already won;
+        // otherwise draining prepaid ETH would be a fast exit that bypasses the quit notice.
+        if (_assignedEpoch == _currentEpochIndex() && _nextWinner == msg.sender) {
+            uint256 reserved = uint256(_bids[msg.sender].amountInGwei) * 1 gwei;
+            available = available > reserved ? available - reserved : 0;
+        }
+        require(available >= _amount, InsufficientEth());
 
         _ethBalances[msg.sender] -= _amount;
         (bool success,) = msg.sender.call{ value: _amount }("");
@@ -447,8 +498,8 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         uint48 epochStart = LibPreconfUtils.getEpochTimestamp();
         uint48 epochEnd = uint48(uint256(epochStart) + LibPreconfConstants.SECONDS_IN_EPOCH);
 
-        uint48 base = _lastProposalAt < epochStart ? epochStart : _lastProposalAt;
-        uint48 elapsed = uint48(block.timestamp) - base;
+        uint48 absenceBase = _lastWinnerProposalAt < epochStart ? epochStart : _lastWinnerProposalAt;
+        uint48 absence = uint48(block.timestamp) - absenceBase;
 
         address winner = _currentWinner;
 
@@ -462,14 +513,14 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         bool allowed;
         if (winner == address(0)) {
             // Unassigned: any bonded operator may propose first-come; anyone after the grace.
-            allowed = elapsed > _stallGrace || _hasBondAtLeast(_proposer, _ejectionThreshold);
-        } else if (elapsed > _stallGrace) {
+            allowed = absence > _stallGrace || _hasBondAtLeast(_proposer, _ejectionThreshold);
+        } else if (absence > _stallGrace) {
             uint48 graceSum1 = _stallGrace + _backupGrace;
             uint48 graceSum2 = graceSum1 + _fallbackGrace;
-            if (elapsed <= graceSum1) {
+            if (absence <= graceSum1) {
                 // Rung 1: the designated backup only.
                 allowed = _proposer == _currentBackup;
-            } else if (elapsed <= graceSum2) {
+            } else if (absence <= graceSum2) {
                 // Rung 2: the backup or any bonded operator.
                 allowed = (_currentBackup != address(0) && _proposer == _currentBackup)
                     || _hasBondAtLeast(_proposer, _ejectionThreshold);
@@ -480,7 +531,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         }
         if (!allowed) revert InvalidProposer();
 
-        if (winner != address(0)) _escrowStallSlash(currentEpoch, winner, base, _proposer);
+        // Slash escrow fires only after the (larger) escrow grace, so transient accidents let
+        // backups serve without slashing an honest winner.
+        if (winner != address(0) && absence > _escrowGrace) {
+            _escrowStallSlash(currentEpoch, winner, absenceBase, _proposer);
+        }
         _lastProposalAt = uint48(block.timestamp);
         return epochEnd;
     }
@@ -532,6 +587,9 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @inheritdoc IProposerAuction
+    /// @dev Evidence window: the per-epoch winner/signer records persist forever, but slashing
+    ///      is economically effective only while the winner's bond remains (bond withdrawal is
+    ///      only possible after quit + the withdrawal delay).
     function slashInvalidBlock(uint32 _epoch, SignedBlock calldata _block) external nonReentrant {
         address winner = _epochWinners[_epoch];
         require(winner != address(0), NoWinnerForEpoch());
@@ -560,6 +618,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @inheritdoc IProposerAuction
+    /// @dev Evidence window: see slashInvalidBlock.
     function slashEquivocation(
         uint32 _epoch,
         SignedBlock calldata _a,
@@ -656,6 +715,15 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @inheritdoc IProposerAuction
+    function getPendingUpdate(address _bidder)
+        external
+        view
+        returns (IProposerAuction.PendingUpdate memory update_)
+    {
+        return _pendingUpdates[_bidder];
+    }
+
+    /// @inheritdoc IProposerAuction
     function getBondInfo(address _account)
         external
         view
@@ -724,28 +792,117 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Computes and caches the current and next epoch assignments, charging the winner's
-    ///      per-epoch fee lazily. Called once per epoch.
+    /// @dev Computes and caches the current and next epoch assignments. The current epoch is
+    ///      PROMOTED from the cached next assignment whenever the previous snapshot ran, so
+    ///      finalized assignments can never be recomputed away by later transitions; the next
+    ///      epoch is computed once here and stays final for the whole epoch. The winner's
+    ///      per-epoch fee is charged lazily at promotion — no keeper transactions.
     /// @param _epoch The epoch to assign.
     function _snapshot(uint32 _epoch) internal {
         _purgeInactiveInternal();
 
-        (address winner_, address backup_, uint128 chargedInGwei) = _computeAssignment(_epoch, true);
-        (address nextWinner_, address nextBackup_,) = _computeAssignment(_epoch + 1, false);
+        address winner_ = _nextWinner;
+        address backup_ = _nextBackup;
+        uint128 chargedInGwei;
+        bool promoted = false;
 
-        _assignedEpoch = _epoch;
-        _currentWinner = winner_;
-        _currentBackup = backup_;
-        _nextWinner = nextWinner_;
-        _nextBackup = nextBackup_;
-
-        if (winner_ != address(0)) {
-            _epochWinners[_epoch] = winner_;
-            _epochSigners[_epoch] = _signers[winner_];
-            _updateMovingAverage(_bids[winner_].amountInGwei);
+        if (_assignedEpoch == _epoch - 1) {
+            // Normal path: promote the assignment fixed at the previous snapshot.
+            if (winner_ == address(0)) {
+                promoted = true;
+            } else if (_bids[winner_].amountInGwei != 0 && _tryCharge(winner_)) {
+                chargedInGwei = _bids[winner_].amountInGwei;
+                promoted = true;
+            } else {
+                // Ejected since the prediction or unable to pay: fall through to a fresh
+                // compute so the backup inherits immediately.
+                if (_bids[winner_].amountInGwei != 0) _lapseBid(winner_);
+            }
+            if (promoted) {
+                _currentWinner = winner_;
+                _currentBackup = backup_;
+            }
         }
 
-        emit EpochAssigned(_epoch, winner_, backup_, chargedInGwei);
+        if (!promoted) {
+            // Boot/catch-up path: state relevant to _epoch is immutable (transitions placed now
+            // take effect >= _epoch + 2), so computing fresh is equivalent to the fixed value.
+            _materializePending(_epoch);
+            (_currentWinner, _currentBackup, chargedInGwei) = _computeAssignment(_epoch, true);
+        }
+
+        _assignedEpoch = _epoch;
+
+        // Record the epoch's winner/signer BEFORE materializing pending changes that affect the
+        // NEXT epoch: the signer slashable for this epoch is the one that was live when the
+        // assignment was fixed, never a rotation that materializes later.
+        if (_currentWinner != address(0)) {
+            _epochWinners[_epoch] = _currentWinner;
+            _epochSigners[_epoch] = _signers[_currentWinner];
+            _updateMovingAverage(_bids[_currentWinner].amountInGwei);
+        }
+
+        // Materialize changes that may affect the next epoch, then compute it (final for the
+        // rest of the current epoch).
+        _materializePending(_epoch + 1);
+        (_nextWinner, _nextBackup,) = _computeAssignment(_epoch + 1, false);
+
+        emit EpochAssigned(_epoch, _currentWinner, _currentBackup, chargedInGwei);
+    }
+
+    /// @dev Charges the winner's per-epoch fee if payable.
+    /// @param _winner The winner to charge.
+    /// @return charged_ True if the fee was charged.
+    function _tryCharge(address _winner) internal returns (bool charged_) {
+        uint256 feeWei = uint256(_bids[_winner].amountInGwei) * 1 gwei;
+        if (_ethBalances[_winner] < feeWei) return false;
+        _ethBalances[_winner] -= feeWei;
+        _proceeds += feeWei;
+        return true;
+    }
+
+    /// @dev Applies pending changes (re-bids, renewals, signer rotations) that take effect by
+    ///      _throughEpoch. Entries removed meanwhile drop their pending changes.
+    /// @param _throughEpoch The latest effective epoch to materialize.
+    function _materializePending(uint32 _throughEpoch) internal {
+        for (uint256 i; i < _ranked.length; ++i) {
+            address bidder = _ranked[i];
+            IProposerAuction.PendingUpdate memory pending = _pendingUpdates[bidder];
+            if (pending.effectiveEpoch == 0 || pending.effectiveEpoch > _throughEpoch) continue;
+            delete _pendingUpdates[bidder];
+
+            IProposerAuction.BidInfo storage info = _bids[bidder];
+            if (info.amountInGwei == 0) continue; // purged or ejected meanwhile
+
+            if (pending.amountInGwei != 0) {
+                info.amountInGwei = pending.amountInGwei;
+                info.effectiveEpoch = pending.effectiveEpoch;
+                info.expiresAtEpoch = pending.expiresAtEpoch;
+                info.withdrawEffectiveEpoch = 0; // a re-bid revokes a quit
+                info.joinedAt = uint48(block.timestamp);
+                unchecked {
+                    info.placedSeq = ++_bidSeq;
+                }
+                _signers[bidder] = pending.signer;
+            } else {
+                info.expiresAtEpoch = pending.expiresAtEpoch;
+            }
+        }
+    }
+
+    /// @dev Catches up missed snapshots up to _maxSteps epochs back, so epoch records and fee
+    ///      charges exist even for epochs in which nobody proposed.
+    /// @param _maxSteps The maximum number of epochs to backfill.
+    function _catchUpSnapshots(uint32 _maxSteps) internal {
+        uint32 currentEpoch = _currentEpochIndex();
+        if (_assignedEpoch >= currentEpoch) return;
+        uint32 start = _assignedEpoch + 1;
+        if (currentEpoch - start >= _maxSteps) {
+            start = currentEpoch - _maxSteps + 1;
+        }
+        for (uint32 e = start; e <= currentEpoch; ++e) {
+            _snapshot(e);
+        }
     }
 
     /// @dev Ranks active entries for an epoch and optionally charges the winner's per-epoch fee.
@@ -906,12 +1063,15 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     )
         internal
     {
+        uint128 amount =
+            uint128(LibMath.min(uint256(_livenessBond), uint256(_bonds[_winner].balance)));
+        // Never burn the one-shot digest on an unbonded (already-exited) winner.
+        require(amount > 0, NoBondToSlash());
+
         bytes32 digest = keccak256(abi.encode(_epoch, _faultType, _winner, _evidence));
         require(!_slashedBefore[digest], AlreadySlashed());
         _slashedBefore[digest] = true;
 
-        uint128 amount =
-            uint128(LibMath.min(uint256(_livenessBond), uint256(_bonds[_winner].balance)));
         uint128 reward = uint128(uint256(amount) * _rewardBps / 10_000);
 
         _bonds[_winner].balance -= amount;
@@ -974,6 +1134,13 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             IProposerAuction.BidInfo memory info = _bids[bidder];
             bool inactive = info.amountInGwei == 0 || info.expiresAtEpoch <= currentEpoch
                 || (info.withdrawEffectiveEpoch != 0 && info.withdrawEffectiveEpoch <= currentEpoch);
+            // A pending change materializing by the next epoch keeps the entry alive.
+            if (inactive) {
+                uint32 pendingEffective = _pendingUpdates[bidder].effectiveEpoch;
+                if (pendingEffective != 0 && pendingEffective <= currentEpoch + 1) {
+                    inactive = false;
+                }
+            }
             if (!inactive) continue;
             _removeBidder(bidder);
             ++removed_;
@@ -1100,6 +1267,8 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     error InvalidSigner();
     error InvalidBondMultiplier();
     error InvalidBps();
+    error InvalidEscrowGrace();
+    error NoBondToSlash();
     error InvalidSignature();
     error InvalidRefutation();
     error NoViolation();

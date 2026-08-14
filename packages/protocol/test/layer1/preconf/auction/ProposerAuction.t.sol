@@ -28,6 +28,7 @@ contract TestProposerAuction is CommonTest {
     uint8 internal constant AVG_MULTIPLIER = 1;
     uint48 internal constant AVG_WINDOW = uint48(4 * EPOCH);
     uint48 internal constant STALL_GRACE = uint48(4 * SLOT);
+    uint48 internal constant ESCROW_GRACE = uint48(2 * STALL_GRACE);
     uint48 internal constant BACKUP_GRACE = uint48(4 * SLOT);
     uint48 internal constant FALLBACK_GRACE = uint48(8 * SLOT);
     uint48 internal constant REFUTE_WINDOW = uint48(EPOCH);
@@ -66,6 +67,7 @@ contract TestProposerAuction is CommonTest {
                         AVG_MULTIPLIER,
                         AVG_WINDOW,
                         STALL_GRACE,
+                        ESCROW_GRACE,
                         BACKUP_GRACE,
                         FALLBACK_GRACE,
                         REFUTE_WINDOW
@@ -296,17 +298,29 @@ contract TestProposerAuction is CommonTest {
         assertTrue(isFinal);
     }
 
-    function test_bid_updatesOwnBidAndSigner() public {
+    function test_bid_updatesOwnBidAsPendingChange() public {
         warpToEpoch(1000);
         _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
 
         vm.prank(Alice);
         auction.bid(1200, vm.addr(BOB_KEY));
 
+        // Live entry untouched until the pending change materializes.
         (IProposerAuction.BidInfo memory info, address signer) = auction.getBidderInfo(Alice);
+        assertEq(info.amountInGwei, 1000);
+        assertEq(signer, vm.addr(ALICE_KEY));
+        IProposerAuction.PendingUpdate memory pending = auction.getPendingUpdate(Alice);
+        assertEq(pending.amountInGwei, 1200);
+        assertEq(pending.signer, vm.addr(BOB_KEY));
+        assertEq(pending.effectiveEpoch, 1002);
+
+        _depositEth(Alice, 2000 * 1 gwei); // cover the new 1200 rate
+        vm.warp(epochStart(1002));
+        auction.snapshot();
+        (info, signer) = auction.getBidderInfo(Alice);
         assertEq(info.amountInGwei, 1200);
         assertEq(signer, vm.addr(BOB_KEY));
-        assertEq(auction.getBidderCount(), 1);
+        assertEq(auction.getPendingUpdate(Alice).effectiveEpoch, 0, "pending consumed");
     }
 
     function test_bid_RevertWhen_listFull() public {
@@ -328,23 +342,29 @@ contract TestProposerAuction is CommonTest {
     // renew() / quit()
     // ---------------------------------------------------------------
 
-    function test_renew_extendsExpiryWithoutIncrement() public {
+    function test_renew_extendsExpiryAsPendingChange() public {
         warpToEpoch(1000);
         _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 100_000 * 1 gwei); // cover catch-up charges
         uint32 initialExpiry = 1002 + TENURE_MAX_EPOCHS;
 
         vm.warp(epochStart(1005));
         vm.prank(Alice);
         auction.renew();
 
+        // Pending until it takes effect: live fields untouched, expiry-only pending recorded.
         (IProposerAuction.BidInfo memory info,) = auction.getBidderInfo(Alice);
-        assertEq(
-            info.expiresAtEpoch,
-            1002 + TENURE_MAX_EPOCHS + TENURE_MAX_EPOCHS,
-            "renew extends from the current expiry"
-        );
+        assertEq(info.expiresAtEpoch, initialExpiry, "live expiry untouched");
+        IProposerAuction.PendingUpdate memory pending = auction.getPendingUpdate(Alice);
+        assertEq(pending.effectiveEpoch, 1007);
+        assertEq(pending.expiresAtEpoch, 1007 + TENURE_MAX_EPOCHS);
+        assertEq(pending.amountInGwei, 0, "expiry-only renewal");
+
+        vm.warp(epochStart(1007));
+        auction.snapshot();
+        (info,) = auction.getBidderInfo(Alice);
+        assertEq(info.expiresAtEpoch, 1007 + TENURE_MAX_EPOCHS);
         assertGt(info.expiresAtEpoch, initialExpiry);
-        assertEq(info.amountInGwei, 1000, "renew does not change the amount");
     }
 
     function test_renew_RevertWhen_notListed() public {
@@ -386,7 +406,7 @@ contract TestProposerAuction is CommonTest {
         auction.quit();
     }
 
-    function test_quit_thenBidAgainRevives() public {
+    function test_quit_thenBidAgainRevivesPending() public {
         warpToEpoch(1000);
         _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
         vm.prank(Alice);
@@ -395,10 +415,15 @@ contract TestProposerAuction is CommonTest {
         vm.prank(Alice);
         auction.bid(1000, vm.addr(ALICE_KEY));
 
+        // The quit remains in effect for current/next epochs; the re-bid applies later.
         (IProposerAuction.BidInfo memory info,) = auction.getBidderInfo(Alice);
-        assertEq(info.withdrawEffectiveEpoch, 0);
-        IProposerAuction.BondInfo memory bond = auction.getBondInfo(Alice);
-        assertEq(bond.withdrawableAt, 0, "re-bid cancels the pending bond withdrawal");
+        assertEq(info.withdrawEffectiveEpoch, 1002, "quit still effective");
+        assertEq(auction.getPendingUpdate(Alice).effectiveEpoch, 1002, "re-bid is pending");
+
+        vm.warp(epochStart(1002));
+        auction.snapshot();
+        (info,) = auction.getBidderInfo(Alice);
+        assertEq(info.withdrawEffectiveEpoch, 0, "re-bid revokes the quit when it materializes");
     }
 
     // ---------------------------------------------------------------
@@ -488,11 +513,14 @@ contract TestProposerAuction is CommonTest {
     function test_assignment_renewKeepsWinnerPastOriginalExpiry() public {
         warpToEpoch(1000);
         _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
-        _depositEth(Alice, 3000 * 1 gwei);
+        _depositEth(Alice, 100_000 * 1 gwei); // cover catch-up charges
 
         vm.warp(epochStart(1005));
         vm.prank(Alice);
-        auction.renew();
+        auction.renew(); // pending, effective 1007
+
+        vm.warp(epochStart(1007));
+        auction.snapshot(); // materialize the renewal
 
         warpToEpoch(1002 + TENURE_MAX_EPOCHS);
         IProposerAuction.Assignment memory current = auction.getAssignmentForCurrentEpoch();
@@ -593,9 +621,20 @@ contract TestProposerAuction is CommonTest {
         auction.checkProposer(Bob, "");
     }
 
-    function test_checkProposer_backupProposesAfterStallGraceAndEscrows() public {
+    function test_checkProposer_backupProposesAfterStallGrace_noEscrowYet() public {
         _setupServingWinner(1000);
         vm.warp(epochStart(1000) + STALL_GRACE + 1);
+
+        _checkProposer(Bob); // liveness fires immediately...
+
+        IProposerAuction.StallEscrow memory escrow = auction.getPendingStallSlash(1000);
+        assertEq(escrow.escrowedAt, 0, "no escrow before the escrow grace");
+        assertEq(auction.getBondInfo(Alice).balance, requiredBond(), "bond untouched");
+    }
+
+    function test_checkProposer_escrowFiresOnlyAfterEscrowGrace() public {
+        _setupServingWinner(1000);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1);
 
         vm.expectEmit(true, true, true, true);
         emit IProposerAuction.StallEscrowed(
@@ -612,6 +651,33 @@ contract TestProposerAuction is CommonTest {
         assertEq(
             auction.getBondInfo(Alice).balance, requiredBond() - LIVENESS_BOND, "bond escrowed"
         );
+    }
+
+    function test_checkProposer_backupProposesAtFullCadenceDuringOutage() public {
+        _setupServingWinner(1000);
+        vm.warp(epochStart(1000) + STALL_GRACE + 1);
+        _checkProposer(Bob);
+
+        vm.warp(epochStart(1000) + STALL_GRACE + 13);
+        _checkProposer(Bob); // backup proposals do not reset the winner-absence clock
+        assertEq(auction.getPendingStallSlash(1000).escrowedAt, 0);
+    }
+
+    function test_checkProposer_winnerReclaimsExclusivityByProposingOnce() public {
+        _setupServingWinner(1000);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1);
+        _checkProposer(Bob); // ladder open, escrow fires
+
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 11);
+        _checkProposer(Alice); // winner proposes once: exclusivity restored
+
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 21);
+        vm.prank(address(inbox));
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        auction.checkProposer(Bob, "");
+
+        // Merely proposing again does not release the escrow.
+        assertFalse(auction.getPendingStallSlash(1000).settled);
     }
 
     function test_checkProposer_anyBondedOperatorAfterBackupGrace() public {
@@ -672,10 +738,10 @@ contract TestProposerAuction is CommonTest {
 
     function test_checkProposer_winnerCanComeBackAfterStall_butEscrowSurvives() public {
         _setupServingWinner(1000);
-        vm.warp(epochStart(1000) + STALL_GRACE + 1);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1);
         _checkProposer(Bob); // escrows
 
-        vm.warp(epochStart(1000) + STALL_GRACE + 10);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 10);
         _checkProposer(Alice); // winner comes back
 
         IProposerAuction.StallEscrow memory escrow = auction.getPendingStallSlash(1000);
@@ -701,14 +767,14 @@ contract TestProposerAuction is CommonTest {
 
     function _setupEscrowedStall(uint256 _epoch) internal returns (uint48 escrowedAt_) {
         _setupServingWinner(_epoch);
-        vm.warp(epochStart(_epoch) + STALL_GRACE + 1);
+        vm.warp(epochStart(_epoch) + ESCROW_GRACE + 1);
         _checkProposer(Bob);
         escrowedAt_ = uint48(block.timestamp);
     }
 
     function test_settleStallSlash_afterWindowRewardsChallengerAndLocksRemainder() public {
         _setupEscrowedStall(1000);
-        vm.warp(epochStart(1000) + STALL_GRACE + 1 + REFUTE_WINDOW);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1 + REFUTE_WINDOW);
 
         uint128 challengerBefore = auction.getBondInfo(Bob).balance;
         uint128 lockedBefore = auction.getTotalSlashedAmount();
@@ -728,7 +794,7 @@ contract TestProposerAuction is CommonTest {
 
     function test_settleStallSlash_RevertWhen_windowNotPassed() public {
         _setupEscrowedStall(1000);
-        vm.warp(epochStart(1000) + STALL_GRACE + 1 + REFUTE_WINDOW - 1);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1 + REFUTE_WINDOW - 1);
         vm.expectRevert(ProposerAuction.RefuteWindowNotPassed.selector);
         auction.settleStallSlash(1000);
     }
@@ -1002,9 +1068,9 @@ contract TestProposerAuction is CommonTest {
         _setupS1Epoch(1000);
 
         // 1) Stall escrow + settle: 400 -> 300.
-        vm.warp(epochStart(1000) + STALL_GRACE + 1);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1);
         _checkProposer(Bob);
-        vm.warp(epochStart(1000) + STALL_GRACE + 1 + REFUTE_WINDOW);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1 + REFUTE_WINDOW);
         auction.settleStallSlash(1000);
         assertEq(auction.getBondInfo(Alice).balance, 300);
 
@@ -1103,5 +1169,214 @@ contract TestProposerAuction is CommonTest {
         vm.prank(Alice);
         auction.withdrawProceeds(Alice, proceedsBefore);
         assertEq(auction.getProceeds(), 0);
+    }
+
+    // ---------------------------------------------------------------
+    // Review-round-2 fixes: pending transitions & finality
+    // ---------------------------------------------------------------
+
+    function test_rebid_doesNotForfeitAlreadyWonEpoch() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 3000 * 1 gwei);
+        warpToEpoch(1001);
+
+        vm.prank(Alice);
+        auction.bid(1200, vm.addr(ALICE_KEY)); // pending, effective 1003
+
+        warpToEpoch(1002);
+        _checkProposer(Alice);
+        assertEq(auction.getProceeds(), 1000 * 1 gwei, "epoch 1002 charged at the old rate");
+
+        warpToEpoch(1003);
+        _checkProposer(Alice);
+        assertEq(auction.getProceeds(), 1000 * 1 gwei + 1200 * 1 gwei, "epoch 1003 at the new rate");
+    }
+
+    function test_renew_doesNotResurrectIntoFinalizedEpoch() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 100_000 * 1 gwei); // cover catch-up charges
+        // Expiry: 1012.
+
+        vm.warp(epochStart(1011));
+        vm.prank(Alice);
+        auction.renew(); // pending, effective 1013
+        auction.snapshot(); // fixes the next (1012) assignment without the renewal
+
+        warpToEpoch(1012);
+        IProposerAuction.Assignment memory current = auction.getAssignmentForCurrentEpoch();
+        assertEq(current.winner, address(0), "renewal cannot resurrect the finalized epoch");
+
+        warpToEpoch(1013);
+        auction.snapshot();
+        current = auction.getAssignmentForCurrentEpoch();
+        assertEq(current.winner, Alice, "renewal applies from its effective epoch");
+    }
+
+    function test_pendingRenewal_survivesPurge() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 100_000 * 1 gwei); // cover catch-up charges
+
+        vm.warp(epochStart(1011));
+        vm.prank(Alice);
+        auction.renew(); // pending effective 1013
+
+        warpToEpoch(1012);
+        assertEq(auction.purgeInactive(), 0, "pending renewal keeps the entry alive");
+        auction.snapshot();
+        IProposerAuction.Assignment memory next = auction.getAssignmentForNextEpoch();
+        assertEq(next.winner, Alice, "renewed entry serves the next epoch");
+    }
+
+    function test_quit_clearsPendingRebid() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        vm.prank(Alice);
+        auction.bid(1200, vm.addr(BOB_KEY)); // pending
+        assertEq(auction.getPendingUpdate(Alice).effectiveEpoch, 1002);
+
+        vm.prank(Alice);
+        auction.quit();
+        assertEq(auction.getPendingUpdate(Alice).effectiveEpoch, 0, "quit wins over pending");
+    }
+
+    function test_withdrawEth_fixedNextWinnerCannotDrainWonEpochFee() public {
+        warpToEpoch(1000);
+        // _setupWinner funds exactly one epoch of fees: nothing withdrawable while fixed as next.
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        warpToEpoch(1001);
+        auction.snapshot(); // fixes Alice as the next (1002) winner
+
+        vm.prank(Alice);
+        vm.expectRevert(ProposerAuction.InsufficientEth.selector);
+        auction.withdrawEth(1); // the full balance is reserved for the won epoch
+
+        _depositEth(Alice, 500 * 1 gwei);
+        vm.prank(Alice);
+        auction.withdrawEth(500 * 1 gwei); // only the surplus is withdrawable
+        assertEq(auction.getEthBalance(Alice), 1000 * 1 gwei);
+    }
+
+    // ---------------------------------------------------------------
+    // Review-round-2 fixes: slashing
+    // ---------------------------------------------------------------
+
+    function test_signerRotation_pendingOldSignerRemainsSlashableForCurrentEpoch() public {
+        _setupServingWinner(1000); // signer ALICE_KEY, serves epoch 1000
+        warpToEpoch(999);
+        vm.prank(Alice);
+        auction.bid(1000, vm.addr(BOB_KEY)); // pending signer rotation, effective 1001
+        warpToEpoch(1000);
+        _checkProposer(Alice); // snapshot records the signer for 1000 before the rotation
+
+        IProposerAuction.SignedBlock memory badOld = _signedBlock(
+            ALICE_KEY,
+            uint32(1000),
+            5,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) + EPOCH + 10),
+            bytes32(uint256(0xabc))
+        );
+        vm.prank(David);
+        auction.slashInvalidBlock(1000, badOld); // the old signer is still slashable
+        assertEq(auction.getBondInfo(Alice).balance, requiredBond() - LIVENESS_BOND);
+
+        IProposerAuction.SignedBlock memory badNew = _signedBlock(
+            BOB_KEY,
+            uint32(1000),
+            6,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) + EPOCH + 11),
+            bytes32(uint256(0xabd))
+        );
+        vm.expectRevert(ProposerAuction.InvalidSignature.selector);
+        auction.slashInvalidBlock(1000, badNew); // new signer not yet effective for 1000
+    }
+
+    function test_snapshot_pokeRecordsWinnerWithoutProposals() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 1000 * 1 gwei);
+        warpToEpoch(1002); // nobody proposes in 1002
+
+        auction.snapshot();
+        assertEq(auction.getProceeds(), 1000 * 1 gwei, "fee charged by the poke");
+
+        IProposerAuction.SignedBlock memory bad = _signedBlock(
+            ALICE_KEY,
+            uint32(1002),
+            5,
+            bytes32(uint256(1)),
+            uint48(epochStart(1002) + EPOCH + 10),
+            bytes32(uint256(0xabc))
+        );
+        vm.prank(David);
+        auction.slashInvalidBlock(1002, bad);
+        assertEq(auction.getBondInfo(Alice).balance, requiredBond() - LIVENESS_BOND);
+    }
+
+    function test_constructor_RevertWhen_rewardBpsAboveHalf() public {
+        vm.expectRevert(ProposerAuction.InvalidBps.selector);
+        new ProposerAuction(
+            address(inbox),
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            5001,
+            BOND_WITHDRAWAL_DELAY,
+            TENURE_MAX_EPOCHS,
+            INITIAL_FLOOR,
+            AVG_MULTIPLIER,
+            AVG_WINDOW,
+            STALL_GRACE,
+            ESCROW_GRACE,
+            BACKUP_GRACE,
+            FALLBACK_GRACE,
+            REFUTE_WINDOW
+        );
+    }
+
+    function test_constructor_RevertWhen_escrowGraceBelowStallGrace() public {
+        vm.expectRevert(ProposerAuction.InvalidEscrowGrace.selector);
+        new ProposerAuction(
+            address(inbox),
+            address(bondToken),
+            LIVENESS_BOND,
+            BOND_MULTIPLIER,
+            REWARD_BPS,
+            BOND_WITHDRAWAL_DELAY,
+            TENURE_MAX_EPOCHS,
+            INITIAL_FLOOR,
+            AVG_MULTIPLIER,
+            AVG_WINDOW,
+            STALL_GRACE,
+            STALL_GRACE - 1,
+            BACKUP_GRACE,
+            FALLBACK_GRACE,
+            REFUTE_WINDOW
+        );
+    }
+
+    function test_slash_RevertWhen_noBondLeft() public {
+        _setupS1Epoch(1000);
+        vm.prank(Alice);
+        auction.quit();
+        vm.warp(block.timestamp + BOND_WITHDRAWAL_DELAY);
+        uint128 bondAmount = requiredBond();
+        vm.prank(Alice);
+        auction.withdrawBond(bondAmount);
+
+        IProposerAuction.SignedBlock memory bad = _signedBlock(
+            ALICE_KEY,
+            uint32(1000),
+            5,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) + EPOCH + 10),
+            bytes32(uint256(0xabc))
+        );
+        vm.expectRevert(ProposerAuction.NoBondToSlash.selector);
+        auction.slashInvalidBlock(1000, bad);
     }
 }
