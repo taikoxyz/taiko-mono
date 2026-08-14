@@ -617,7 +617,13 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @inheritdoc IProposerAuction
-    function refuteStall(uint32 _epoch, IInbox.Proposal calldata _proposal) external nonReentrant {
+    function refuteStall(
+        uint32 _epoch,
+        IInbox.Proposal calldata _proposal
+    )
+        external
+        nonReentrant
+    {
         IProposerAuction.StallEscrow storage escrow = _stallEscrows[_epoch];
         require(escrow.escrowedAt != 0 && !escrow.settled, NoPendingStallSlash());
         require(msg.sender == escrow.winner, NotWinner());
@@ -642,7 +648,13 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Evidence window: the per-epoch winner/signer records persist forever, but slashing
     ///      is economically effective only while the winner's bond remains (bond withdrawal is
     ///      only possible after quit + the withdrawal delay).
-    function slashInvalidBlock(uint32 _epoch, SignedBlock calldata _block) external nonReentrant {
+    function slashInvalidBlock(
+        uint32 _epoch,
+        SignedBlock calldata _block
+    )
+        external
+        nonReentrant
+    {
         address winner = _epochWinners[_epoch];
         require(winner != address(0), NoWinnerForEpoch());
         require(_block.epoch == _epoch, InvalidSignature());
@@ -1291,7 +1303,14 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @dev Returns whether an account holds at least the given bond amount.
-    function _hasBondAtLeast(address _account, uint128 _amount) internal view returns (bool ok_) {
+    function _hasBondAtLeast(
+        address _account,
+        uint128 _amount
+    )
+        internal
+        view
+        returns (bool ok_)
+    {
         return _bonds[_account].balance >= _amount;
     }
 
