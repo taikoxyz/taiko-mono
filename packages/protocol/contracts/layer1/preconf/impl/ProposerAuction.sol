@@ -59,7 +59,8 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @dev EIP-712 type hash for SignedBlock data.
     bytes32 internal constant _BLOCK_TYPEHASH = keccak256(
-        "SignedBlockData(uint32 epoch,uint64 blockNumber,bytes32 parentHash,uint48 timestamp,address coinbase,uint48 gasLimit,bytes32 txRoot)"
+        "SignedBlockData(uint32 epoch,uint64 blockNumber,bytes32 parentHash,uint48 timestamp,"
+        "address coinbase,uint48 gasLimit,bytes32 txRoot)"
     );
 
     // ---------------------------------------------------------------

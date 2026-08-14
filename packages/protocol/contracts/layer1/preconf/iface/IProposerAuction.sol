@@ -112,7 +112,7 @@ interface IProposerAuction is IProposerChecker {
     /// @param placedEpoch Epoch in which the bid was placed.
     /// @param effectiveEpoch Epoch from which the bid counts (placedEpoch + TRANSITION_LEAD_EPOCHS).
     /// @param expiresAtEpoch Epoch after which the bid lapses (exclusive).
-    /// @param withdrawEffectiveEpoch Epoch from which a quitted bid stops counting (0 = not quitting).
+    /// @param withdrawEffectiveEpoch Epoch from which a quitting bid stops counting (0 = not quitting).
     /// @param joinedAt Timestamp of the most recent bid.
     /// @param placedSeq Monotonic placement sequence, for deterministic tie-breaking
     ///        (earlier placement wins ties).
