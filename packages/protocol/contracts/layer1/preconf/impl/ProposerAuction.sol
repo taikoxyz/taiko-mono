@@ -766,6 +766,14 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         // With no handover there is nothing to hand over, so the early window is withheld and the
         // early-tagged block becomes a plain invalid-block fault. An unrecorded predecessor
         // (address(0)) is treated as a handover, so a missing record never causes a false slash.
+        //
+        // Note the predicate keys on who was ASSIGNED the previous epoch, not on who actually
+        // proposed in it. An operator holding both E-1 and E gets no margin even if it was
+        // silent through E-1 and a backup served — and that is correct, not an oversight: it
+        // still owns E-1, so blocks it signs inside E-1's window belong under the E-1 tag, and
+        // it needs no early E window to resume. The margin exists only for an operator that
+        // does NOT own the outgoing epoch. Client rule: tag a block with the epoch you are the
+        // assigned winner of; only the incoming winner of E may sign into E's early window.
         uint256 legalStart = epochStart;
         if (_epoch == 0 || _epochWinners[_epoch - 1] != winner) {
             legalStart -= uint256(_handoverMargin);
