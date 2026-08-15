@@ -20,8 +20,9 @@ contract TestProposerAuction is CommonTest {
     uint256 internal constant EPOCH = SLOT * 32;
 
     /// @dev The proposerCheckerGasLimit configured in MainnetInbox/DevnetInbox. checkProposer
-    ///      must complete a worst-case catch-up within this budget (see the R5-F10 invariant
-    ///      test); if it cannot, the fail-open stale-cache branch becomes routine.
+    ///      must complete a full HOT_PATH_BACKFILL_EPOCHS window over a full list within this
+    ///      budget (see the R5-F10 invariant test); if it cannot, the fail-open stale-cache
+    ///      branch becomes routine.
     uint256 internal constant DEPLOYED_CHECKER_GAS_LIMIT = 3_000_000;
 
     uint96 internal constant LIVENESS_BOND = 100; // gwei
@@ -1849,14 +1850,16 @@ contract TestProposerAuction is CommonTest {
 
     /// @dev R5-F10 invariant: the fail-open stale-cache branch in checkProposer is only a rare
     ///      liveness valve if the deployed proposerCheckerGasLimit actually covers a worst-case
-    ///      catch-up. Drives the deepest bounded backlog (MAX_BACKFILL_EPOCHS) over a FULL list
-    ///      at the deployed 3M limit and asserts the branch was NOT taken.
+    ///      catch-up. Builds a backlog DEEPER than the hot-path cap (MAX_BACKFILL_EPOCHS worth of
+    ///      idle epochs) over a FULL list, so checkProposer must process a complete
+    ///      HOT_PATH_BACKFILL_EPOCHS window — its worst case — at the deployed 3M limit, and
+    ///      asserts the fail-open branch was NOT taken.
     ///
     ///      The assertion is indirect but exact: an unbonded stranger is authorized ONLY by the
     ///      fail-open branch. If the catch-up landed the cache on the live epoch, Alice is the
     ///      winner with ~zero absence, so the stranger is rejected. A revert therefore proves the
-    ///      backlog fit; a success (or an out-of-gas) proves it did not.
-    ///      Re-run if MAX_BACKFILL_EPOCHS, MAX_LIST_SIZE, or the configured gas limit change.
+    ///      window fit; a success (or an out-of-gas) proves it did not.
+    ///      Re-run if HOT_PATH_BACKFILL_EPOCHS, MAX_LIST_SIZE, or the configured gas limit change.
     function test_R5_checkProposer_deepBacklogFitsDeployedGasLimit() public {
         // The shared fixture's tenure (10 epochs) is shorter than the backlog under test, which
         // would expire every bid and make the snapshots artificially cheap. Redeploy with a
