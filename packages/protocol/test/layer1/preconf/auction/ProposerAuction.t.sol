@@ -588,6 +588,9 @@ contract TestProposerAuction is CommonTest {
     function test_purgeInactive_removesExpiredAndWithdrawn() public {
         warpToEpoch(1000);
         _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        // Fund Alice through her whole tenure: the catch-up charges one fee per epoch served, so
+        // an under-funded winner would be lapsed for non-payment before reaching their expiry.
+        _depositEth(Alice, uint256(1000) * 1 gwei * TENURE_MAX_EPOCHS);
         _bidder(Bob, 1000, vm.addr(BOB_KEY));
 
         vm.warp(epochStart(1001));
@@ -1532,5 +1535,272 @@ contract TestProposerAuction is CommonTest {
             auction.getBondInfo(Carol).withdrawableAt,
             uint48(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1) + BOND_WITHDRAWAL_DELAY
         );
+    }
+
+    // ---------------------------------------------------------------
+    // Round-5 adversarial review regressions
+    // ---------------------------------------------------------------
+
+    /// @dev R5-F1: a chain-wide quiet period (nobody proposes at all) must not be charged to the
+    ///      winner as absence. Before the fix the carried clock made the first post-gap proposal
+    ///      escrow the winner's bond over a gap they could not refute.
+    function test_R5_outageRecovery_doesNotEscrowHonestWinner() public {
+        _setupServingWinner(1000);
+
+        // The winner serves epoch 1000 normally.
+        vm.warp(epochStart(1000) + 10);
+        _checkProposer(Alice);
+
+        // A chain-wide outage: no proposals at all for several epochs.
+        _depositEth(Alice, uint256(1000) * 1 gwei * 12);
+        warpToEpoch(1006);
+
+        // The backup front-runs the winner's first post-recovery proposal, past the ladder-open
+        // grace but still inside the (larger) escrow grace measured from THIS epoch's start.
+        // With the pre-fix carried clock the absence would span the whole outage and escrow here.
+        vm.warp(epochStart(1006) + STALL_GRACE + 1);
+        _checkProposer(Bob);
+
+        assertEq(
+            auction.getPendingStallSlash(1006).escrowedAt,
+            0,
+            "no escrow may fire on the first proposal after a backfilled gap"
+        );
+        assertEq(auction.getBondInfo(Alice).balance, requiredBond(), "winner bond untouched");
+
+        // The winner is still slashable if they stay silent past the fresh grace.
+        vm.warp(epochStart(1006) + ESCROW_GRACE + 1);
+        _checkProposer(Bob);
+        assertEq(
+            auction.getPendingStallSlash(1006).winner,
+            Alice,
+            "a genuine in-epoch stall still escrows after recovery"
+        );
+    }
+
+    /// @dev R5-F1 companion: a *continuous* outage, where fallback proposals keep arriving every
+    ///      epoch, must still escrow — the Q2 clock carry is preserved for the witnessed case.
+    function test_R5_continuousOutage_stillEscrowsStallingWinner() public {
+        _setupServingWinner(1000);
+        vm.warp(epochStart(1000) + ESCROW_GRACE + 1);
+        _checkProposer(Bob);
+
+        assertEq(
+            auction.getPendingStallSlash(1000).winner, Alice, "a witnessed stall still escrows"
+        );
+    }
+
+    /// @dev R5-F2: a new bid must never evict an address holding a finalized assignment, even
+    ///      when that address is the cheapest entry on a full list.
+    function test_R5_eviction_cannotRemoveActiveWinner() public {
+        // Alice wins from epoch 1000 at the lowest rate on the list.
+        warpToEpoch(998);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, uint256(1000) * 1 gwei * 20);
+        warpToEpoch(1000);
+        _checkProposer(Alice); // fix the assignment cache on Alice
+
+        assertEq(auction.getAssignmentForCurrentEpoch().winner, Alice);
+
+        // Fill the list with higher, not-yet-effective bids.
+        for (uint256 i; i < 15; ++i) {
+            address filler = makeAddr(string.concat("filler", vm.toString(i)));
+            _bidder(filler, 2000, filler);
+        }
+        assertEq(auction.getBidderCount(), 16);
+
+        // A new entrant clears Alice's raw amount by the increment but must not evict her.
+        address newcomer = makeAddr("newcomer");
+        _depositBond(newcomer, requiredBond());
+        vm.prank(newcomer);
+        auction.bid(2100, newcomer);
+
+        assertEq(
+            auction.getAssignmentForCurrentEpoch().winner,
+            Alice,
+            "the reigning winner survives the eviction"
+        );
+        (IProposerAuction.BidInfo memory aliceInfo,) = auction.getBidderInfo(Alice);
+        assertGt(aliceInfo.amountInGwei, 0, "Alice is still listed");
+    }
+
+    /// @dev R5-F4: the settle bounty is a watchdog fee. Neither the slashed winner nor a backup
+    ///      challenger (whose reward Q9 burns) may collect it by self-settling.
+    function test_R5_settleBounty_deniedToSlashedWinnerAndBackupChallenger() public {
+        uint48 escrowedAt = _setupEscrowedStall(1000);
+        vm.warp(escrowedAt + REFUTE_WINDOW);
+
+        uint128 backupBefore = auction.getBondInfo(Bob).balance;
+        uint128 winnerBefore = auction.getBondInfo(Alice).balance;
+
+        // Bob is the designated backup and the recorded challenger: self-settling pays him nothing.
+        vm.prank(Bob);
+        auction.settleStallSlash(1000);
+
+        assertEq(auction.getBondInfo(Bob).balance, backupBefore, "backup gets no bounty");
+        assertEq(auction.getBondInfo(Alice).balance, winnerBefore, "winner gets no refund");
+        assertEq(
+            auction.getTotalSlashedAmount(), LIVENESS_BOND, "the whole slash stays locked/burned"
+        );
+    }
+
+    /// @dev R5-F4 companion: the slashed winner cannot claw back a bounty either.
+    function test_R5_settleBounty_deniedToSlashedWinner() public {
+        _setupServingWinner(1000);
+        _depositBond(Carol, ejectionThreshold());
+        vm.warp(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1);
+        _checkProposer(Carol); // non-backup challenger
+        vm.warp(block.timestamp + REFUTE_WINDOW);
+
+        uint128 winnerBefore = auction.getBondInfo(Alice).balance;
+        vm.prank(Alice);
+        auction.settleStallSlash(1000);
+
+        assertEq(auction.getBondInfo(Alice).balance, winnerBefore, "no self-refund via the bounty");
+    }
+
+    /// @dev R5-F5: the increment cap must never drag the reserve floor below initialFloor, and an
+    ///      incumbent must not be able to self-lower below their own live rate.
+    function test_R5_reserveFloor_neverBelowInitialFloorAndSelfLowerBounded() public {
+        warpToEpoch(998);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, uint256(1000) * 1 gwei * 10);
+        warpToEpoch(1000);
+        _checkProposer(Alice);
+
+        // A self re-bid below the incumbent's own live rate is rejected.
+        vm.prank(Alice);
+        vm.expectRevert(ProposerAuction.BidBelowReserve.selector);
+        auction.bid(1, vm.addr(ALICE_KEY));
+
+        // Re-bidding at the same rate (a signer rotation) is still allowed.
+        vm.prank(Alice);
+        auction.bid(1000, vm.addr(CAROL_KEY));
+
+        assertGe(auction.getReserveFloor(), INITIAL_FLOOR, "floor never sinks below initialFloor");
+    }
+
+    /// @dev R5-F6: one equivocation is slashable exactly once, in either argument order.
+    function test_R5_equivocation_cannotBeSlashedTwiceByReorderingEvidence() public {
+        _setupServingWinner(1000);
+        vm.warp(epochStart(1000) + 10);
+        _checkProposer(Alice);
+
+        IProposerAuction.SignedBlock memory a = _signedBlock(
+            ALICE_KEY,
+            1000,
+            7,
+            100,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) + 10),
+            bytes32("A")
+        );
+        IProposerAuction.SignedBlock memory b = _signedBlock(
+            ALICE_KEY,
+            1000,
+            7,
+            100,
+            bytes32(uint256(1)),
+            uint48(epochStart(1000) + 10),
+            bytes32("B")
+        );
+
+        auction.slashEquivocation(1000, a, b);
+        uint128 afterFirst = auction.getBondInfo(Alice).balance;
+
+        vm.expectRevert(ProposerAuction.AlreadySlashed.selector);
+        auction.slashEquivocation(1000, b, a);
+
+        assertEq(auction.getBondInfo(Alice).balance, afterFirst, "no second burn for one fault");
+    }
+
+    /// @dev R5-F7: the handover margin is only granted for a genuine handover. An operator that
+    ///      won both adjacent epochs cannot hold two legal epoch tags at once.
+    function test_R5_handoverMargin_withheldWhenSameOperatorHoldsBothEpochs() public {
+        _setupServingWinner(1000);
+        vm.warp(epochStart(1000) + 10);
+        _checkProposer(Alice); // records epoch 1000 -> Alice
+
+        _depositEth(Alice, uint256(1000) * 1 gwei * 4);
+        warpToEpoch(1001);
+        vm.warp(epochStart(1001) + 10);
+        _checkProposer(Alice); // records epoch 1001 -> Alice as well
+
+        // A block tagged 1001 inside the pre-epoch handover window is NOT legal here: Alice held
+        // 1000 too, so there was no handover to justify the early window.
+        IProposerAuction.SignedBlock memory early = _signedBlock(
+            ALICE_KEY,
+            1001,
+            0,
+            200,
+            bytes32(uint256(2)),
+            uint48(epochStart(1001) - 10),
+            bytes32("X")
+        );
+        auction.slashInvalidBlock(1001, early);
+
+        assertEq(
+            auction.getBondInfo(Alice).balance,
+            requiredBond() - LIVENESS_BOND,
+            "the overlap-tagged block is slashable when there was no handover"
+        );
+    }
+
+    /// @dev R5-F9: a pending update must not survive its entry's removal and clobber a later bid.
+    ///      quit() clears its own pending, so the orphan is reached through a removal path that
+    ///      does not — here, lapsing for non-payment.
+    function test_R5_pendingUpdate_clearedOnRemoval() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY)); // funded for exactly one epoch
+        warpToEpoch(1002);
+        auction.snapshot(); // Alice wins 1002 and spends her only prepaid epoch
+
+        // Alice queues a pending re-bid, then runs out of ETH and is lapsed (not via quit()).
+        vm.prank(Alice);
+        auction.bid(2000, vm.addr(BOB_KEY));
+        assertGt(auction.getPendingUpdate(Alice).effectiveEpoch, 0, "pending re-bid queued");
+
+        warpToEpoch(1003);
+        auction.snapshot();
+        (IProposerAuction.BidInfo memory gone,) = auction.getBidderInfo(Alice);
+        assertEq(gone.amountInGwei, 0, "Alice was lapsed for non-payment");
+        assertEq(
+            auction.getPendingUpdate(Alice).effectiveEpoch, 0, "the pending update is cleared too"
+        );
+
+        // A fresh entry must not be retroactively activated by the stale pending update.
+        warpToEpoch(1005);
+        vm.prank(Alice);
+        auction.bid(500, vm.addr(CAROL_KEY));
+        _depositEth(Alice, uint256(500) * 1 gwei * 5); // funded, so any lapse is the pending bug
+        warpToEpoch(1007);
+        auction.snapshot();
+
+        (IProposerAuction.BidInfo memory info,) = auction.getBidderInfo(Alice);
+        assertEq(info.amountInGwei, 500, "the stale pending must not clobber the fresh bid");
+        assertEq(info.effectiveEpoch, 1007, "the fresh bid keeps its own 2-epoch lead");
+    }
+
+    /// @dev R5-F3: with a backlog deeper than the backfill window, the cache is fast-forwarded to
+    ///      the live epoch (and the skip reported) rather than left stale for authorization.
+    function test_R5_deepBacklog_landsCacheOnCurrentEpochAndReportsSkip() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, uint256(1000) * 1 gwei * 4);
+        warpToEpoch(1002);
+        _checkProposer(Alice);
+
+        // A very deep gap: far more epochs than MAX_BACKFILL_EPOCHS.
+        warpToEpoch(1300);
+        auction.snapshot();
+
+        // The cache is current, so the ladder authorizes against a live assignment.
+        assertEq(
+            auction.getAssignmentForCurrentEpoch().winner,
+            auction.getAssignmentForNextEpoch().winner,
+            "cache resolved without reverting"
+        );
+        vm.warp(epochStart(1300) + 10);
+        _checkProposer(Alice); // does not revert: authorization is not stale
     }
 }

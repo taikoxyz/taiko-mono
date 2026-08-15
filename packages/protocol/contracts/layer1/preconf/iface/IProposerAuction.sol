@@ -50,6 +50,12 @@ interface IProposerAuction is IProposerChecker {
         uint32 indexed epoch, address indexed winner, address indexed backup, uint128 chargedInGwei
     );
 
+    /// @notice Emitted when a backlog deeper than the backfill window forces the catch-up to skip
+    /// epochs, so the skipped range is observable rather than silently dropped.
+    /// @param fromEpoch The first skipped epoch (inclusive).
+    /// @param toEpoch The last skipped epoch (inclusive).
+    event SnapshotsSkipped(uint32 indexed fromEpoch, uint32 indexed toEpoch);
+
     /// @notice Emitted when TAIKO bonds are deposited.
     event BondDeposited(address indexed account, uint128 amount);
 
