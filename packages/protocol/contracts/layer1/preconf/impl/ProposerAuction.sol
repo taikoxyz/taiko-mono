@@ -48,6 +48,17 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @notice Maximum number of epochs backfilled by snapshot().
     uint32 public constant MAX_BACKFILL_EPOCHS = 32;
 
+    /// @notice Maximum number of epochs backfilled on the proposing hot path.
+    /// @dev checkProposer runs inside the Inbox's gas-isolated call, so its catch-up must fit
+    ///      inside `proposerCheckerGasLimit` over a full list. MAX_BACKFILL_EPOCHS does not: the
+    ///      loop yields on the gas reserve, leaves the cache behind the live epoch, and drops
+    ///      into the fail-open branch — which skips the exclusive window and the priced
+    ///      unassigned rung. Because the backfill window is anchored at the CURRENT epoch, a
+    ///      smaller cap still lands the cache live; it only records fewer of the skipped epochs,
+    ///      and `snapshot()` (bounded by MAX_BACKFILL_EPOCHS) recovers the rest permissionlessly.
+    ///      Pinned by test_R5_checkProposer_deepBacklogFitsDeployedGasLimit.
+    uint32 public constant HOT_PATH_BACKFILL_EPOCHS = 8;
+
     /// @dev Gas kept in reserve before starting another backfill step, so a catch-up can never
     ///      exhaust the Inbox's gas-isolated proposer-checker budget (R5-F10). Sized above the
     ///      worst-case cost of one _snapshot over a full MAX_LIST_SIZE list plus the trailing
@@ -561,7 +572,10 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         uint32 currentEpoch = _currentEpochIndex();
         // Q4: bounded resumable catch-up instead of a single-epoch snapshot, so a quiet epoch
         // is never sealed (and its S1 evidence voided) by its first successor proposal.
-        _catchUpSnapshots(MAX_BACKFILL_EPOCHS);
+        // R5-F21: bounded by HOT_PATH_BACKFILL_EPOCHS, not MAX_BACKFILL_EPOCHS — the Inbox caps
+        // this call's gas, and a 32-epoch catch-up over a full list exceeds that budget, which
+        // would leave the cache stale and hand the proposal to the fail-open branch below.
+        _catchUpSnapshots(HOT_PATH_BACKFILL_EPOCHS);
 
         uint48 epochStart = LibPreconfUtils.getEpochTimestamp();
         uint48 epochEnd = uint48(uint256(epochStart) + LibPreconfConstants.SECONDS_IN_EPOCH);
@@ -572,6 +586,15 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         // would slash an operator for an epoch they were never assigned. Fall back to
         // permissionless proposing — never authorize or slash from a stale assignment — so the
         // chain keeps moving while successive proposals grind the backlog down.
+        //
+        // This branch is deliberately fail-OPEN, and it is the one place where the exclusive
+        // window and the priced unassigned rung (Q19) are both skipped. That is the correct
+        // trade for the Inbox's only authorization hook — denying here would halt proposing —
+        // but it rests on an operational invariant: `proposerCheckerGasLimit` must comfortably
+        // cover MAX_BACKFILL_EPOCHS snapshots over a full list, or a caller could reach this
+        // branch routinely and propose without paying. That bound is asserted against the
+        // deployed limit by test_R5_checkProposer_deepBacklogFitsDeployedGasLimit; re-run it if
+        // MAX_BACKFILL_EPOCHS, MAX_LIST_SIZE, or the configured gas limit ever change.
         if (_assignedEpoch != currentEpoch) {
             return epochEnd;
         }
@@ -1115,7 +1138,12 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
         // Q17: resumable — record every epoch from _assignedEpoch + 1 so a quiet epoch's winner
         // and signer survive for S1 disputes.
-        uint32 start = _assignedEpoch + 1;
+        // The first epoch the cursor still owes a record for. Kept separate from the loop's start
+        // below, which may be moved forward to bound the work: the re-anchor at the end must ask
+        // "was a gap backfilled?", which is a property of the ORIGINAL cursor, not of wherever
+        // the bounded loop happened to begin.
+        uint32 gapStart = _assignedEpoch + 1;
+        uint32 start = gapStart;
 
         // R5-F3: the window is anchored at the CURRENT epoch rather than at the cursor, so the
         // cache always lands on the live epoch. A backlog deeper than _maxSteps (a chain-wide
@@ -1153,7 +1181,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         // would measure absence from further back than reality — the direction that escrows an
         // honest winner. Leaving the clock untouched is safe: checkProposer refuses to escrow at
         // all while the cache is behind, and the next call re-anchors once it lands current.
-        if (start < currentEpoch && _assignedEpoch == currentEpoch) {
+        if (gapStart < currentEpoch && _assignedEpoch == currentEpoch) {
             _lastWinnerProposalAt = uint48(_epochStartTimestamp(currentEpoch));
         }
 

@@ -19,6 +19,11 @@ contract TestProposerAuction is CommonTest {
     uint256 internal constant SLOT = 12;
     uint256 internal constant EPOCH = SLOT * 32;
 
+    /// @dev The proposerCheckerGasLimit configured in MainnetInbox/DevnetInbox. checkProposer
+    ///      must complete a worst-case catch-up within this budget (see the R5-F10 invariant
+    ///      test); if it cannot, the fail-open stale-cache branch becomes routine.
+    uint256 internal constant DEPLOYED_CHECKER_GAS_LIMIT = 3_000_000;
+
     uint96 internal constant LIVENESS_BOND = 100; // gwei
     uint16 internal constant BOND_MULTIPLIER = 2;
     uint16 internal constant REWARD_BPS = 5000; // 50%
@@ -1823,8 +1828,13 @@ contract TestProposerAuction is CommonTest {
         warpToEpoch(1002);
         _checkProposer(Alice);
 
-        // A very deep gap: far more epochs than MAX_BACKFILL_EPOCHS.
+        // A very deep gap: far more epochs than MAX_BACKFILL_EPOCHS. The skipped range is
+        // reported rather than silently dropped, so assert the reported bounds: the cursor owed
+        // records from 1003, and the bounded window resumes at currentEpoch - MAX_BACKFILL + 1.
         warpToEpoch(1300);
+        uint32 resumeAt = 1300 - auction.MAX_BACKFILL_EPOCHS() + 1;
+        vm.expectEmit(true, true, true, true);
+        emit IProposerAuction.SnapshotsSkipped(1003, resumeAt - 1);
         auction.snapshot();
 
         // The cache is current, so the ladder authorizes against a live assignment.
@@ -1835,5 +1845,56 @@ contract TestProposerAuction is CommonTest {
         );
         vm.warp(epochStart(1300) + 10);
         _checkProposer(Alice); // does not revert: authorization is not stale
+    }
+
+    /// @dev R5-F10 invariant: the fail-open stale-cache branch in checkProposer is only a rare
+    ///      liveness valve if the deployed proposerCheckerGasLimit actually covers a worst-case
+    ///      catch-up. Drives the deepest bounded backlog (MAX_BACKFILL_EPOCHS) over a FULL list
+    ///      at the deployed 3M limit and asserts the branch was NOT taken.
+    ///
+    ///      The assertion is indirect but exact: an unbonded stranger is authorized ONLY by the
+    ///      fail-open branch. If the catch-up landed the cache on the live epoch, Alice is the
+    ///      winner with ~zero absence, so the stranger is rejected. A revert therefore proves the
+    ///      backlog fit; a success (or an out-of-gas) proves it did not.
+    ///      Re-run if MAX_BACKFILL_EPOCHS, MAX_LIST_SIZE, or the configured gas limit change.
+    function test_R5_checkProposer_deepBacklogFitsDeployedGasLimit() public {
+        // The shared fixture's tenure (10 epochs) is shorter than the backlog under test, which
+        // would expire every bid and make the snapshots artificially cheap. Redeploy with a
+        // tenure long enough that the list stays fully populated for the whole window.
+        IProposerAuction.Config memory config = _defaultConfig();
+        config.tenureMaxEpochs = 10_000;
+        auction = ProposerAuction(
+            deploy({
+                name: "", // skip resolver registration (owner-gated outside setUp)
+                impl: address(new ProposerAuction(config)),
+                data: abi.encodeCall(ProposerAuction.init, (Alice))
+            })
+        );
+
+        uint32 maxBackfill = auction.MAX_BACKFILL_EPOCHS();
+        uint256 fees = uint256(maxBackfill + 8);
+        warpToEpoch(1000);
+
+        // Fill the list so every snapshot walks the widest possible candidate set.
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, uint256(1000) * 1 gwei * fees);
+        for (uint256 i = 1; i < auction.MAX_LIST_SIZE(); ++i) {
+            address filler = makeAddr(string.concat("filler", vm.toString(i)));
+            _bidder(filler, 100, filler);
+            _depositEth(filler, uint256(100) * 1 gwei * fees);
+        }
+
+        warpToEpoch(1002);
+        _checkProposer(Alice);
+        assertEq(auction.getBidderCount(), auction.MAX_LIST_SIZE(), "full list");
+        assertEq(auction.getAssignmentForCurrentEpoch().winner, Alice, "Alice holds the seat");
+
+        // Exactly the deepest backlog the bounded loop processes in a single call.
+        warpToEpoch(1002 + maxBackfill);
+
+        address stranger = makeAddr("unbondedStranger");
+        vm.prank(address(inbox));
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        auction.checkProposer{ gas: DEPLOYED_CHECKER_GAS_LIMIT }(stranger, "");
     }
 }
