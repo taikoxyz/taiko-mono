@@ -94,9 +94,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Challenger reward share in basis points.
     uint16 private immutable _rewardBps;
 
-    /// @dev Settle-caller bounty share of the locked remainder, in basis points.
-    uint16 private immutable _settleBountyBps;
-
     /// @dev Delay before a bond withdrawal becomes possible.
     uint48 private immutable _bondWithdrawalDelay;
 
@@ -241,7 +238,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             _config.bondMultiplier > 0 && _config.bondMultiplier <= 100, InvalidBondMultiplier()
         );
         require(_config.rewardBps <= 5000, InvalidBps()); // <= 50%: a self-slash must never be free
-        require(_config.settleBountyBps <= 5000, InvalidBps());
         require(_config.bondWithdrawalDelay > 0, ZeroValue());
         require(_config.tenureMaxEpochs > 0, ZeroValue());
         require(_config.initialFloorInGwei > 0, ZeroValue());
@@ -263,7 +259,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         _livenessBond = _config.livenessBondAmount;
         _bondMultiplier = _config.bondMultiplier;
         _rewardBps = _config.rewardBps;
-        _settleBountyBps = _config.settleBountyBps;
         _bondWithdrawalDelay = _config.bondWithdrawalDelay;
         _tenureMaxEpochs = _config.tenureMaxEpochs;
         _initialFloorInGwei = _config.initialFloorInGwei;
@@ -319,6 +314,18 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         _catchUpSnapshots(MAX_BACKFILL_EPOCHS);
 
         uint32 currentEpoch = _currentEpochIndex();
+        // R5-F17: the catch-up above yields when the remaining gas drops below the per-snapshot
+        // reserve, and the caller chooses the transaction's gas limit — so a bidder can hand in
+        // just enough gas to process ZERO epochs while still funding the rest of this function.
+        // Everything below reads the cache: the EMA floor, and the eviction guard that protects
+        // the finalized assignment. Against a stale cache that guard protects the previous
+        // epoch's winner, so a crafted-gas bid could evict the live one — reintroducing R5-F2.
+        // checkProposer cannot revert on a stale cache (it is the Inbox's only authorization
+        // path, so it degrades to permissionless proposing instead), but bidding is not
+        // liveness-critical: reject the bid and let the caller retry with more gas or after a
+        // permissionless snapshot() poke.
+        require(_assignedEpoch == currentEpoch, StaleAssignmentCache());
+
         (uint128 topAmount, address topHolder) = _activeTop(currentEpoch);
 
         // Self re-bids (same holder) are exempt from a reserve floor ABOVE their own live rate:
@@ -327,7 +334,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         // rate — self-lowering is what collapses the floor (which tracks activeTop) toward zero.
         uint128 floor = getReserveFloor();
         if (topHolder == msg.sender && floor > topAmount) {
-            floor = topAmount;
+            // R5-F20: the exemption relaxes the floor to the incumbent's own rate, never below
+            // the configured backstop. getReserveFloor() already re-asserts initialFloor, so no
+            // accepted bid should sit under it today — clamping here keeps that a local
+            // invariant of this branch rather than one inherited from every prior bid.
+            floor = uint128(LibMath.max(uint256(topAmount), uint256(_initialFloorInGwei)));
         }
         require(_amountInGwei >= floor, BidBelowReserve());
         if (topHolder != address(0) && topHolder != msg.sender && _amountInGwei > topAmount) {
@@ -650,21 +661,23 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         } else {
             reward = 0;
         }
-        // Settle bounty (Q8): pay the caller out of the locked remainder so settlement is
-        // self-incentivized. R5-F4: the bounty is a watchdog fee, not a rebate — paying it to the
-        // slashed winner would refund part of their own penalty (and, since ejection is evaluated
-        // after the credit below, could lift them back over the ejection threshold), and paying it
-        // to a backup challenger would hand back the reward Q9 just burned. Both are excluded and
-        // their share stays locked.
-        uint128 bounty;
-        if (
-            _settleBountyBps > 0 && msg.sender != escrow.winner
-                && !(escrow.challengerIsBackup && msg.sender == escrow.challenger)
-        ) {
-            bounty = uint128(uint256(escrow.amount - reward) * _settleBountyBps / 10_000);
-            if (bounty > 0) _bonds[msg.sender].balance += bounty;
-        }
-        _totalSlashedAmount += escrow.amount - reward - bounty;
+        // R5-F18: settlement carries NO caller bounty. Q8 added one so that somebody was paid to
+        // end a stall, and R5-F4 then tried to keep it away from the punished parties by
+        // comparing msg.sender against the winner and a backup challenger — but an address
+        // comparison cannot bind a sybil. Either party settles through a fresh EOA and collects
+        // anyway, and because that EOA was never listed it withdraws the credit with no delay
+        // (the deliberate carve-out for transient rung-2 bonders), reproducing exactly the slash
+        // rebate F4 set out to remove. A percentage of the slash can never be made
+        // sybil-resistant, so the incentive is dropped rather than fenced:
+        //   - the normal case is already self-incentivized — a non-backup challenger settles to
+        //     collect their own reward above;
+        //   - liveness no longer waits for settlement — _escrowStallSlash debits the bond when
+        //     the escrow is taken and _snapshot refuses to promote a winner below the ejection
+        //     threshold, so a stalling winner loses the seat at the next boundary whether or not
+        //     anyone settles (this is what Q8 was really protecting);
+        //   - an escrow nobody settles leaves the debit standing, so the punishment is in force
+        //     regardless; settling only finalizes the accounting.
+        _totalSlashedAmount += escrow.amount - reward;
 
         _maybeEject(escrow.winner);
 
@@ -672,13 +685,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @inheritdoc IProposerAuction
-    function refuteStall(
-        uint32 _epoch,
-        IInbox.Proposal calldata _proposal
-    )
-        external
-        nonReentrant
-    {
+    function refuteStall(uint32 _epoch, IInbox.Proposal calldata _proposal) external nonReentrant {
         IProposerAuction.StallEscrow storage escrow = _stallEscrows[_epoch];
         require(escrow.escrowedAt != 0 && !escrow.settled, NoPendingStallSlash());
         require(msg.sender == escrow.winner, NotWinner());
@@ -703,13 +710,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @dev Evidence window: the per-epoch winner/signer records persist forever, but slashing
     ///      is economically effective only while the winner's bond remains (bond withdrawal is
     ///      only possible after quit + the withdrawal delay).
-    function slashInvalidBlock(
-        uint32 _epoch,
-        SignedBlock calldata _block
-    )
-        external
-        nonReentrant
-    {
+    function slashInvalidBlock(uint32 _epoch, SignedBlock calldata _block) external nonReentrant {
         address winner = _epochWinners[_epoch];
         require(winner != address(0), NoWinnerForEpoch());
         require(_block.epoch == _epoch, InvalidSignature());
@@ -904,11 +905,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @inheritdoc IProposerAuction
     function getHandoverMargin() external view returns (uint48 handoverMargin_) {
         return _handoverMargin;
-    }
-
-    /// @inheritdoc IProposerAuction
-    function getSettleBountyBps() external view returns (uint16 settleBountyBps_) {
-        return _settleBountyBps;
     }
 
     /// @inheritdoc IProposerAuction
@@ -1140,8 +1136,13 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         // freshly assigned epoch a full grace window measured from that epoch's start instead;
         // a continuous outage with live fallback proposals still advances one epoch at a time and
         // keeps the carried clock (Q2).
-        if (start < currentEpoch) {
-            _lastWinnerProposalAt = uint48(_epochStartTimestamp(_assignedEpoch));
+        // R5-F19: only re-anchor once the cache actually reached the live epoch. When the loop
+        // above yielded on gas, _assignedEpoch is an OLDER epoch, and anchoring to its start
+        // would measure absence from further back than reality — the direction that escrows an
+        // honest winner. Leaving the clock untouched is safe: checkProposer refuses to escrow at
+        // all while the cache is behind, and the next call re-anchors once it lands current.
+        if (start < currentEpoch && _assignedEpoch == currentEpoch) {
+            _lastWinnerProposalAt = uint48(_epochStartTimestamp(currentEpoch));
         }
 
         // Q5: purge once, after the catch-up loop, at the (now-current) _assignedEpoch reference.
@@ -1421,14 +1422,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @dev Returns whether an account holds at least the given bond amount.
-    function _hasBondAtLeast(
-        address _account,
-        uint128 _amount
-    )
-        internal
-        view
-        returns (bool ok_)
-    {
+    function _hasBondAtLeast(address _account, uint128 _amount) internal view returns (bool ok_) {
         return _bonds[_account].balance >= _amount;
     }
 
@@ -1634,6 +1628,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     error ActiveBidderMustQuitFirst();
     error WithdrawalDelayNotPassed();
     error RefuteWindowNotPassed();
+    error StaleAssignmentCache();
     error EthTransferFailed();
     error NotInbox();
 }

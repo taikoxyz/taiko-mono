@@ -22,7 +22,6 @@ contract TestProposerAuction is CommonTest {
     uint96 internal constant LIVENESS_BOND = 100; // gwei
     uint16 internal constant BOND_MULTIPLIER = 2;
     uint16 internal constant REWARD_BPS = 5000; // 50%
-    uint16 internal constant SETTLE_BOUNTY_BPS = 500; // 5%
     uint48 internal constant BOND_WITHDRAWAL_DELAY = 1 days;
     uint32 internal constant TENURE_MAX_EPOCHS = 10;
     uint128 internal constant INITIAL_FLOOR = 10; // gwei
@@ -70,7 +69,6 @@ contract TestProposerAuction is CommonTest {
             livenessBondAmount: LIVENESS_BOND,
             bondMultiplier: BOND_MULTIPLIER,
             rewardBps: REWARD_BPS,
-            settleBountyBps: SETTLE_BOUNTY_BPS,
             bondWithdrawalDelay: BOND_WITHDRAWAL_DELAY,
             tenureMaxEpochs: TENURE_MAX_EPOCHS,
             initialFloorInGwei: INITIAL_FLOOR,
@@ -803,21 +801,21 @@ contract TestProposerAuction is CommonTest {
         escrowedAt_ = uint48(block.timestamp);
     }
 
-    function test_settleStallSlash_backupChallengerRewardBurnedAndSettlerBountied() public {
+    function test_settleStallSlash_backupChallengerRewardBurnedAndNothingPaidToSettler() public {
         _setupEscrowedStall(1000);
         vm.warp(epochStart(1000) + ESCROW_GRACE + 1 + REFUTE_WINDOW);
 
         uint128 challengerBefore = auction.getBondInfo(Bob).balance;
-        uint128 bounty = uint128(uint256(LIVENESS_BOND) * SETTLE_BOUNTY_BPS / 10_000);
 
-        // Q9: the designated backup's reward is burned; Q8: a settle bounty goes to the caller.
+        // Q9: the designated backup's reward is burned. R5-F18: settlement pays no bounty, so
+        // the entire escrow stays locked.
         vm.expectEmit(true, true, true, true);
         emit IProposerAuction.StallSettled(1000, Alice, LIVENESS_BOND, Bob, 0);
         auction.settleStallSlash(1000);
 
         assertEq(auction.getBondInfo(Bob).balance, challengerBefore, "backup reward burned");
-        assertEq(auction.getBondInfo(address(this)).balance, bounty, "settle bounty to caller");
-        assertEq(auction.getTotalSlashedAmount(), LIVENESS_BOND - bounty, "rest locked");
+        assertEq(auction.getBondInfo(address(this)).balance, 0, "settler paid nothing");
+        assertEq(auction.getTotalSlashedAmount(), LIVENESS_BOND, "whole escrow locked");
     }
 
     function test_settleStallSlash_nonBackupChallengerGetsReward() public {
@@ -828,13 +826,12 @@ contract TestProposerAuction is CommonTest {
         vm.warp(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1 + REFUTE_WINDOW);
 
         uint128 reward = uint128(uint256(LIVENESS_BOND) * REWARD_BPS / 10_000);
-        uint128 bounty = uint128(uint256(LIVENESS_BOND - reward) * SETTLE_BOUNTY_BPS / 10_000);
         auction.settleStallSlash(1000);
 
         assertEq(
             auction.getBondInfo(Carol).balance, ejectionThreshold() + reward, "watchdog reward"
         );
-        assertEq(auction.getTotalSlashedAmount(), LIVENESS_BOND - reward - bounty);
+        assertEq(auction.getTotalSlashedAmount(), LIVENESS_BOND - reward);
     }
 
     function test_settleStallSlash_RevertWhen_windowNotPassed() public {
@@ -1624,28 +1621,33 @@ contract TestProposerAuction is CommonTest {
         assertGt(aliceInfo.amountInGwei, 0, "Alice is still listed");
     }
 
-    /// @dev R5-F4: the settle bounty is a watchdog fee. Neither the slashed winner nor a backup
-    ///      challenger (whose reward Q9 burns) may collect it by self-settling.
-    function test_R5_settleBounty_deniedToSlashedWinnerAndBackupChallenger() public {
+    /// @dev R5-F18: settlement pays no bounty at all, so there is nothing for a sybil to farm.
+    ///      An address-based exclusion could not bind a sybil — the backup (or the slashed
+    ///      winner) would settle through a fresh EOA and, because that EOA was never listed,
+    ///      withdraw the credit with no delay. Asserted from the sybil's point of view.
+    function test_R5_settleBounty_removed_sybilSettlerGainsNothing() public {
         uint48 escrowedAt = _setupEscrowedStall(1000);
         vm.warp(escrowedAt + REFUTE_WINDOW);
 
+        address sybil = makeAddr("backupControlledSybil");
         uint128 backupBefore = auction.getBondInfo(Bob).balance;
         uint128 winnerBefore = auction.getBondInfo(Alice).balance;
 
-        // Bob is the designated backup and the recorded challenger: self-settling pays him nothing.
-        vm.prank(Bob);
+        // The stall's beneficiary settles through an address the contract cannot link to them.
+        vm.prank(sybil);
         auction.settleStallSlash(1000);
 
-        assertEq(auction.getBondInfo(Bob).balance, backupBefore, "backup gets no bounty");
-        assertEq(auction.getBondInfo(Alice).balance, winnerBefore, "winner gets no refund");
+        assertEq(auction.getBondInfo(sybil).balance, 0, "sybil settler credited nothing");
+        assertEq(auction.getBondInfo(Bob).balance, backupBefore, "backup recovers nothing");
+        assertEq(auction.getBondInfo(Alice).balance, winnerBefore, "winner recovers nothing");
         assertEq(
             auction.getTotalSlashedAmount(), LIVENESS_BOND, "the whole slash stays locked/burned"
         );
     }
 
-    /// @dev R5-F4 companion: the slashed winner cannot claw back a bounty either.
-    function test_R5_settleBounty_deniedToSlashedWinner() public {
+    /// @dev R5-F18 companion: a non-backup challenger still collects their reward, so the normal
+    ///      case remains self-incentivized to settle without any caller bounty.
+    function test_R5_settle_nonBackupChallengerStillIncentivized() public {
         _setupServingWinner(1000);
         _depositBond(Carol, ejectionThreshold());
         vm.warp(epochStart(1000) + STALL_GRACE + BACKUP_GRACE + 1);
@@ -1653,10 +1655,41 @@ contract TestProposerAuction is CommonTest {
         vm.warp(block.timestamp + REFUTE_WINDOW);
 
         uint128 winnerBefore = auction.getBondInfo(Alice).balance;
-        vm.prank(Alice);
+        uint128 reward = uint128(uint256(LIVENESS_BOND) * REWARD_BPS / 10_000);
+
+        vm.prank(Alice); // even self-settled by the winner, only Carol is paid
         auction.settleStallSlash(1000);
 
-        assertEq(auction.getBondInfo(Alice).balance, winnerBefore, "no self-refund via the bounty");
+        assertEq(auction.getBondInfo(Alice).balance, winnerBefore, "no self-refund");
+        assertEq(
+            auction.getBondInfo(Carol).balance, ejectionThreshold() + reward, "challenger paid"
+        );
+    }
+
+    /// @dev R5-F17: the catch-up yields on a low gas budget and the caller picks the gas limit, so
+    ///      a bidder can force it to process zero epochs and leave the eviction guard reading a
+    ///      stale assignment. bid() must refuse rather than act on it (checkProposer, which cannot
+    ///      revert, degrades to permissionless proposing instead).
+    function test_R5_bid_RevertWhen_staleCacheFromCraftedGasBudget() public {
+        warpToEpoch(1000);
+        _setupWinner(Alice, 1000, vm.addr(ALICE_KEY));
+        _depositEth(Alice, 100_000 * 1 gwei);
+        _checkProposer(Alice); // cache now current at epoch 1000
+
+        // Leave a multi-epoch backlog so the catch-up has real work to do.
+        warpToEpoch(1005);
+        _depositBond(Bob, requiredBond());
+
+        // Starve the catch-up loop: below the per-snapshot reserve it processes nothing.
+        vm.prank(Bob);
+        vm.expectRevert(ProposerAuction.StaleAssignmentCache.selector);
+        auction.bid{ gas: 400_000 }(2000, vm.addr(BOB_KEY));
+
+        // With a normal budget the same bid lands and the cache is brought current.
+        vm.prank(Bob);
+        auction.bid(2000, vm.addr(BOB_KEY));
+        (IProposerAuction.BidInfo memory info,) = auction.getBidderInfo(Bob);
+        assertEq(info.amountInGwei, 2000, "bid accepted once the cache is current");
     }
 
     /// @dev R5-F5: the increment cap must never drag the reserve floor below initialFloor, and an
