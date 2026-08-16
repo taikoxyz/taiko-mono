@@ -88,7 +88,7 @@ async function storeTypes(sourceFile: SourceFile) {
 
 async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfigFile: ConfiguredBridgesType) {
   logger.info('Building bridge config...');
-  const routingContractsMap: RoutingMap = {};
+  const routingContractsMap: RoutingMap = Object.create(null);
 
   const bridges: ConfiguredBridgesType = configuredBridgesConfigFile;
 
@@ -98,8 +98,8 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
       throw new Error();
     }
     bridges.configuredBridges.forEach((item: BridgeConfig) => {
-      if (!routingContractsMap[item.source]) {
-        routingContractsMap[item.source] = {};
+      if (!Object.prototype.hasOwnProperty.call(routingContractsMap, item.source)) {
+        routingContractsMap[item.source] = Object.create(null);
       }
       routingContractsMap[item.source][item.destination] = item.addresses;
     });

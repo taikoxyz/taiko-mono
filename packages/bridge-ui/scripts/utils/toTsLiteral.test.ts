@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { runInNewContext } from 'vm';
 
 import { toTsLiteral, tsExpression } from './toTsLiteral';
 
@@ -19,6 +20,17 @@ describe('toTsLiteral', () => {
         },
       }),
     ).toBe('{"nested": {"values": ["a", 1, false, null, undefined, 2n]}}');
+  });
+
+  it('serializes __proto__ as an own data property', () => {
+    const input = JSON.parse('{"__proto__":{"inherited":true}}');
+    const literal = toTsLiteral(input);
+    const output = runInNewContext(`(${literal})`);
+
+    expect(Object.hasOwn(output, '__proto__')).toBe(true);
+    expect(Object.keys(output)).toEqual(['__proto__']);
+    expect(output.inherited).toBeUndefined();
+    expect(output.__proto__).toEqual({ inherited: true });
   });
 
   it('rejects non-finite numbers', () => {

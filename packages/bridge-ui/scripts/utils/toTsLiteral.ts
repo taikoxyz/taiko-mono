@@ -72,7 +72,8 @@ export function toTsLiteral(value: unknown): string {
     }
 
     const entries = Object.entries(value).map(([key, nestedValue]) => {
-      return `${JSON.stringify(key)}: ${toTsLiteral(nestedValue)}`;
+      const propertyKey = key === '__proto__' ? `[${JSON.stringify(key)}]` : JSON.stringify(key);
+      return `${propertyKey}: ${toTsLiteral(nestedValue)}`;
     });
     return `{${entries.join(', ')}}`;
   }

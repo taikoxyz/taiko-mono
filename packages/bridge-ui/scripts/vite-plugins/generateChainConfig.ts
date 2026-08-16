@@ -162,21 +162,13 @@ function toLayerTypeExpression(value: unknown) {
   return tsExpression(`LayerType.${value}`);
 }
 
-function withLayerTypeExpressions(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(withLayerTypeExpressions);
-  }
-
-  if (typeof value === 'object' && value !== null) {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nestedValue]) => [
-        key,
-        key === 'type' ? toLayerTypeExpression(nestedValue) : withLayerTypeExpressions(nestedValue),
-      ]),
-    );
-  }
-
-  return value;
+function withLayerTypeExpressions(chainConfig: ChainConfigMap): unknown {
+  return Object.fromEntries(
+    Object.entries(chainConfig).map(([chainId, config]) => [
+      chainId,
+      { ...config, type: toLayerTypeExpression(config.type) },
+    ]),
+  );
 }
 
 export const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => toTsLiteral(withLayerTypeExpressions(obj));
