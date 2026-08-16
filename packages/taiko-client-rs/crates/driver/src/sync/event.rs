@@ -334,6 +334,39 @@ fn resolve_reconnect_start_block(
         .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
 }
 
+/// Resolve the reconnect start block for a generation that delivered no proposal logs at all.
+///
+/// A quiet generation leaves no `last_seen` height to rewind from, so
+/// [`resolve_reconnect_start_block`] cannot be used and the previous start block would otherwise be
+/// replayed verbatim — indefinitely, on a chain quiet enough that no proposal arrives before each
+/// interruption.
+///
+/// Reaching live is the missing proof of coverage: event-scanner emits `SwitchingToLive` once its
+/// historical backfill is done and before its first live request, so the whole range from this
+/// generation's start block to the L1 head was scanned and found to contain no proposals.
+/// Restarting at the finalized floor therefore skips only blocks already known to be empty, and
+/// nothing at or below finalized can be replaced. The `max` keeps a floor that trails the current
+/// start block from re-walking a range this generation already proved clean.
+fn resolve_quiet_reconnect_start_block(
+    current_start_block_number: u64,
+    finalized_l1_block_number: Option<u64>,
+) -> u64 {
+    finalized_l1_block_number
+        .map_or(current_start_block_number, |finalized| current_start_block_number.max(finalized))
+}
+
+/// Raise the finalized reconnect floor, keeping it monotonic.
+///
+/// `eth_getBlockByNumber(finalized)` is monotonic for a single node but not across a rotating set
+/// of backends behind one RPC URL, so a lagging backend can report a height below one already
+/// observed. Letting the floor regress would replay from an older point on the next interruption.
+/// Raising it can never cause a skip: both reconnect paths still bound the restart point by
+/// coverage this process actually proved.
+fn raise_finalized_floor(floor: &mut Option<u64>, observed_block_number: u64) {
+    *floor =
+        Some(floor.map_or(observed_block_number, |current| current.max(observed_block_number)));
+}
+
 /// Base delay before the first reconnect attempt after a failed scanner generation.
 const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
 
@@ -1708,6 +1741,9 @@ impl SyncStage for EventSyncer {
         let derivation = Arc::new(derivation_pipeline);
         let router = self.build_router(derivation.clone());
 
+        // Tracked as a number rather than only as a tag so a quiet generation can compare the
+        // finalized floor against the block it actually started from.
+        let mut reconnect_start_block_number = anchor_block_number;
         let mut reconnect_start_tag = start_tag;
         let startup_anchor_block_number = anchor_block_number;
         // Newest finalized L1 height observed so far, refreshed on a timer while the scanner is
@@ -1813,9 +1849,10 @@ impl SyncStage for EventSyncer {
                         // Best-effort: a failure here just leaves the previous floor in place,
                         // and the reconnect path retries the lookup anyway.
                         match self.try_finalized_l1_snapshot().await {
-                            Ok(Some(snapshot)) => {
-                                last_known_finalized_block_number = Some(snapshot.block_number);
-                            }
+                            Ok(Some(snapshot)) => raise_finalized_floor(
+                                &mut last_known_finalized_block_number,
+                                snapshot.block_number,
+                            ),
                             Ok(None) => {}
                             Err(err) => debug!(
                                 ?err,
@@ -1921,11 +1958,15 @@ impl SyncStage for EventSyncer {
             // the next live scanner transition and confirmed-sync probe re-open it.
             self.close_preconf_ingress(&router).await;
 
-            if let Some(block_number) = last_seen_l1_block_number {
+            // A generation that neither delivered logs nor reached live proved no coverage at
+            // all, so its start block is the only safe restart point and is left untouched.
+            let generation_reached_live = scanner_reconnect_state.is_live();
+            if last_seen_l1_block_number.is_some() || generation_reached_live {
                 match self.resolve_finalized_reconnect_anchor().await {
-                    Some(snapshot) => {
-                        last_known_finalized_block_number = Some(snapshot.block_number);
-                    }
+                    Some(snapshot) => raise_finalized_floor(
+                        &mut last_known_finalized_block_number,
+                        snapshot.block_number,
+                    ),
                     None => warn!(
                         cached_finalized_block = ?last_known_finalized_block_number,
                         startup_anchor_block_number,
@@ -1933,11 +1974,18 @@ impl SyncStage for EventSyncer {
                          finalized block, or the startup anchor if finality was never observed"
                     ),
                 }
-                reconnect_start_tag = BlockNumberOrTag::Number(resolve_reconnect_start_block(
-                    block_number,
-                    last_known_finalized_block_number,
-                    startup_anchor_block_number,
-                ));
+                reconnect_start_block_number = match last_seen_l1_block_number {
+                    Some(block_number) => resolve_reconnect_start_block(
+                        block_number,
+                        last_known_finalized_block_number,
+                        startup_anchor_block_number,
+                    ),
+                    None => resolve_quiet_reconnect_start_block(
+                        reconnect_start_block_number,
+                        last_known_finalized_block_number,
+                    ),
+                };
+                reconnect_start_tag = BlockNumberOrTag::Number(reconnect_start_block_number);
             }
             let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
             warn!(
@@ -3339,6 +3387,42 @@ mod tests {
     fn reconnect_start_falls_back_to_startup_anchor_without_finalization() {
         let reconnect_start = resolve_reconnect_start_block(120, None, 10);
         assert_eq!(reconnect_start, 10);
+    }
+
+    #[test]
+    fn quiet_reconnect_start_advances_to_finalized_after_reaching_live() {
+        // The generation scanned from 100 to the L1 head and delivered no proposals, so the
+        // range is proven empty and the next generation may start at the finalized floor
+        // instead of replaying from 100 again.
+        let reconnect_start = resolve_quiet_reconnect_start_block(100, Some(900));
+        assert_eq!(reconnect_start, 900);
+    }
+
+    #[test]
+    fn quiet_reconnect_start_keeps_position_when_floor_trails() {
+        // A floor behind the current start block would only re-walk a range this generation
+        // already proved clean.
+        let reconnect_start = resolve_quiet_reconnect_start_block(900, Some(100));
+        assert_eq!(reconnect_start, 900);
+    }
+
+    #[test]
+    fn quiet_reconnect_start_holds_position_without_finalization() {
+        let reconnect_start = resolve_quiet_reconnect_start_block(100, None);
+        assert_eq!(reconnect_start, 100);
+    }
+
+    #[test]
+    fn finalized_floor_never_regresses() {
+        let mut floor = None;
+        raise_finalized_floor(&mut floor, 100);
+        assert_eq!(floor, Some(100));
+        // A lagging backend behind a load-balanced RPC URL reports an older finalized height;
+        // accepting it would replay from an older point on the next interruption.
+        raise_finalized_floor(&mut floor, 90);
+        assert_eq!(floor, Some(100));
+        raise_finalized_floor(&mut floor, 120);
+        assert_eq!(floor, Some(120));
     }
 
     // -- resolve_missing_batch_mapping_fallback tests --

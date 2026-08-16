@@ -45,3 +45,4 @@ sha2 = { workspace = true }
 
 [dev-dependencies]
 hyper = { workspace = true, features = ["server"] }
+futures = { workspace = true }

@@ -8,7 +8,7 @@ use alloy_eips::eip4844::{
 };
 use alloy_rpc_types::BlobTransactionSidecar;
 use once_cell::sync::OnceCell;
-use reqwest::Client as HttpClient;
+use reqwest::{Client as HttpClient, Response};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -26,6 +26,13 @@ pub const DEFAULT_BLOB_FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Number of leading characters of an unexpected response body included in error messages.
 const BODY_EXCERPT_CHARS: usize = 120;
+
+/// Largest response body accepted from a blob server, in bytes.
+///
+/// One blob is [`BYTES_PER_BLOB`] bytes, so its hex encoding is twice that; the headroom covers
+/// the `0x` prefix, JSON quoting, and the commitment, proof and storage-reference fields that
+/// share the metadata response. Both blob-server routes are bounded by this.
+const MAX_BLOB_SERVER_RESPONSE_BYTES: usize = BYTES_PER_BLOB * 2 + 4096;
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
@@ -181,7 +188,7 @@ impl BlobDataSource {
             debug!(hash = ?hash, url = url.as_str(), "requesting blob sidecar from endpoint");
 
             let response = client
-                .get(url)
+                .get(url.clone())
                 .header("accept", "application/json")
                 .send()
                 .await
@@ -192,8 +199,9 @@ impl BlobDataSource {
                 return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
             }
 
+            let body = read_bounded_body(response, &url).await?;
             let payload: BlobServerResponse =
-                response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+                serde_json::from_str(&body).map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
             // Blobscan-style responses carry only metadata and storage references; the blob
             // payload itself lives behind the dedicated `/blobs/{hash}/data` route.
@@ -283,7 +291,7 @@ impl BlobDataSource {
             return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
         }
 
-        let body = response.text().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let body = read_bounded_body(response, &url).await?;
         let trimmed = body.trim();
         let payload =
             serde_json::from_str::<String>(trimmed).unwrap_or_else(|_| trimmed.to_owned());
@@ -344,6 +352,41 @@ pub(crate) fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
     Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
 }
 
+/// Read a blob-server response body, refusing to buffer more than
+/// [`MAX_BLOB_SERVER_RESPONSE_BYTES`].
+///
+/// `Response::text` and `Response::json` buffer the whole body with no ceiling, so a hostile or
+/// malfunctioning blob server could stream a chunked body for the entire fetch timeout — up to
+/// two minutes by default — and exhaust a follower's memory. Accumulating chunk by chunk against
+/// a running limit fails fast instead. `Content-Length` only lets the rejection happen before any
+/// body is read; it is not load-bearing, because a chunked response declares no length at all.
+async fn read_bounded_body(mut response: Response, url: &Url) -> Result<String, BlobDataError> {
+    if let Some(declared) = response.content_length() &&
+        declared > MAX_BLOB_SERVER_RESPONSE_BYTES as u64
+    {
+        return Err(BlobDataError::Parse(format!(
+            "blob server response from {url} declares {declared} bytes, over the \
+             {MAX_BLOB_SERVER_RESPONSE_BYTES} byte limit"
+        )));
+    }
+
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(chunk) =
+        response.chunk().await.map_err(|err| BlobDataError::Other(err.into()))?
+    {
+        if body.len() + chunk.len() > MAX_BLOB_SERVER_RESPONSE_BYTES {
+            return Err(BlobDataError::Parse(format!(
+                "blob server response from {url} exceeds the {MAX_BLOB_SERVER_RESPONSE_BYTES} \
+                 byte limit"
+            )));
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    String::from_utf8(body)
+        .map_err(|err| BlobDataError::Parse(format!("non-UTF-8 body from {url}: {err}")))
+}
+
 /// Whether `value` is hex text (with optional `0x`) of exactly one blob's length.
 ///
 /// Used to reject non-blob bodies from a blob server's `/data` route before they reach the hex
@@ -402,10 +445,13 @@ mod tests {
 
     use super::*;
     use alloy_eips::eip4844::env_settings::EnvKzgSettings;
-    use http_body_util::Full;
+    use http_body_util::{Full, StreamBody};
     use hyper::{
-        StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE,
-        server::conn::http1::Builder as Http1Builder, service::service_fn,
+        StatusCode,
+        body::{Bytes as HyperBytes, Frame},
+        header::CONTENT_TYPE,
+        server::conn::http1::Builder as Http1Builder,
+        service::service_fn,
     };
     use tokio::{net::TcpListener, select, spawn, sync::Notify, task::JoinHandle};
 
@@ -494,6 +540,114 @@ mod tests {
             self.shutdown.notify_waiters();
             self.handle.abort();
         }
+    }
+
+    /// Serves a chunked response with no `Content-Length`, so the streaming limit is exercised
+    /// rather than the declared-length early reject.
+    struct TestChunkedServer {
+        /// Base URL of the running server.
+        endpoint: Url,
+        /// Signals the accept loop to stop.
+        shutdown: Arc<Notify>,
+        /// Accept-loop task.
+        handle: JoinHandle<()>,
+    }
+
+    impl TestChunkedServer {
+        /// Serve `chunk_count` chunks of `chunk_size` bytes each, for every request path.
+        async fn start(chunk_count: usize, chunk_size: usize) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("test server should bind an ephemeral port");
+            let addr = listener.local_addr().expect("listener address should be available");
+            let endpoint =
+                Url::parse(&format!("http://{addr}")).expect("test endpoint URL should parse");
+
+            let shutdown = Arc::new(Notify::new());
+            let cancel = shutdown.clone();
+
+            let handle = spawn(async move {
+                loop {
+                    select! {
+                        _ = cancel.notified() => break,
+                        accept_result = listener.accept() => {
+                            let Ok((stream, _)) = accept_result else { continue };
+                            spawn(async move {
+                                let io = hyper_util::rt::TokioIo::new(stream);
+                                let service = service_fn(move |_| async move {
+                                    let frames = (0..chunk_count).map(move |_| {
+                                        Ok::<_, hyper::Error>(Frame::data(HyperBytes::from(
+                                            vec![b'0'; chunk_size],
+                                        )))
+                                    });
+                                    Ok::<_, hyper::Error>(
+                                        hyper::Response::builder()
+                                            .status(StatusCode::OK)
+                                            .header(CONTENT_TYPE, "application/json")
+                                            .body(StreamBody::new(futures::stream::iter(frames)))
+                                            .expect("test response should build"),
+                                    )
+                                });
+                                let _ = Http1Builder::new().serve_connection(io, service).await;
+                            });
+                        }
+                    }
+                }
+            });
+
+            Self { endpoint, shutdown, handle }
+        }
+
+        /// Base URL of the running server.
+        fn endpoint(&self) -> Url {
+            self.endpoint.clone()
+        }
+    }
+
+    impl Drop for TestChunkedServer {
+        fn drop(&mut self) {
+            self.shutdown.notify_waiters();
+            self.handle.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn blob_server_rejects_oversized_declared_response() {
+        // A single body larger than the limit, served with `Content-Length` so the rejection
+        // happens before any of it is read.
+        let oversized = "0".repeat(MAX_BLOB_SERVER_RESPONSE_BYTES + 1);
+        let server = TestBlobServer::start(oversized).await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let Err(BlobDataError::Parse(message)) = source.get_blobs(0, &[B256::ZERO]).await else {
+            panic!("expected an oversized-response error");
+        };
+        assert!(
+            message.contains("declares") && message.contains("over the"),
+            "error should report the declared length, got {message}",
+        );
+    }
+
+    #[tokio::test]
+    async fn blob_server_rejects_oversized_chunked_response() {
+        // A chunked body declares no length, so only the running limit can stop it. Streaming
+        // well past the cap must fail without buffering the whole body.
+        let chunk_size = 16 * 1024;
+        let chunk_count = MAX_BLOB_SERVER_RESPONSE_BYTES.div_ceil(chunk_size) + 8;
+        let server = TestChunkedServer::start(chunk_count, chunk_size).await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let Err(BlobDataError::Parse(message)) = source.get_blobs(0, &[B256::ZERO]).await else {
+            panic!("expected an oversized-chunked-response error");
+        };
+        assert!(
+            message.contains("exceeds the"),
+            "error should report the streaming limit, got {message}",
+        );
     }
 
     #[tokio::test]
