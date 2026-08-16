@@ -95,7 +95,7 @@ updates:
   #
   # `exclude-paths` is how members are actually dropped — it is checked inside
   # fetch_package_json_if_present, the same helper the pnpm workspace expansion
-  # calls. The five packages below have had no commits in over six months, so
+  # calls. The four packages below have had no commits in over six months, so
   # version-bump PRs against them have no reviewer.
   #
   # Two caveats worth keeping in mind:
@@ -109,7 +109,6 @@ updates:
     directory: "/"
     exclude-paths:
       - "packages/nfts"
-      - "packages/snaefell-ui"
       - "packages/taikoon-ui"
       - "packages/ui-lib"
       - "packages/supplementary-contracts"
