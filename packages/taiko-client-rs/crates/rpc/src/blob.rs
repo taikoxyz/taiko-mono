@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 
 use alloy::primitives::{B256, hex};
 use alloy_eips::eip4844::{
-    Blob, Bytes48, VERSIONED_HASH_VERSION_KZG, c_kzg, env_settings::EnvKzgSettings,
+    BYTES_PER_BLOB, Blob, Bytes48, VERSIONED_HASH_VERSION_KZG, c_kzg, env_settings::EnvKzgSettings,
 };
 use alloy_rpc_types::BlobTransactionSidecar;
 use once_cell::sync::OnceCell;
@@ -23,6 +23,9 @@ use crate::beacon::{BeaconClient, BeaconSidecar};
 /// PeerDAS beacon nodes (e.g. lighthouse `--semi-supernode`) reconstruct blobs from data columns
 /// on request, which has been measured at multiple seconds per blob in the requested slot.
 pub const DEFAULT_BLOB_FETCH_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Number of leading characters of an unexpected response body included in error messages.
+const BODY_EXCERPT_CHARS: usize = 120;
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
@@ -248,7 +251,10 @@ impl BlobDataSource {
     /// Fetch the hex-encoded blob payload from a blob server's `/blobs/{hash}/data` route.
     ///
     /// Blobscan serves the payload as a JSON-encoded string (`"0x…"`); a bare hex body is
-    /// accepted as well for other blob-server implementations.
+    /// accepted as well for other blob-server implementations. Anything else — an error
+    /// envelope served with HTTP 200, an empty body, a truncated payload — is rejected here
+    /// with the route and a body excerpt, rather than being handed to the hex decoder where it
+    /// surfaces as an unattributable parse error.
     async fn fetch_blob_data(
         &self,
         client: &HttpClient,
@@ -261,7 +267,7 @@ impl BlobDataSource {
         debug!(hash = ?hash, url = url.as_str(), "requesting blob payload from data endpoint");
 
         let response = client
-            .get(url)
+            .get(url.clone())
             .header("accept", "application/json")
             .send()
             .await
@@ -271,6 +277,7 @@ impl BlobDataSource {
             warn!(
                 status = response.status().as_u16(),
                 hash = ?hash,
+                url = url.as_str(),
                 "blob server data endpoint returned error status"
             );
             return Err(BlobDataError::HttpStatus { status: response.status().as_u16() });
@@ -278,7 +285,26 @@ impl BlobDataSource {
 
         let body = response.text().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
         let trimmed = body.trim();
-        Ok(serde_json::from_str::<String>(trimmed).unwrap_or_else(|_| trimmed.to_owned()))
+        let payload =
+            serde_json::from_str::<String>(trimmed).unwrap_or_else(|_| trimmed.to_owned());
+
+        if !is_blob_sized_hex(&payload) {
+            warn!(
+                hash = ?hash,
+                url = url.as_str(),
+                body_len = trimmed.len(),
+                "blob server data endpoint returned a body that is not a blob-sized hex payload"
+            );
+            return Err(BlobDataError::Parse(format!(
+                "unexpected body from {url}: {} bytes, expected {} hex characters; body starts \
+                 with {:?}",
+                trimmed.len(),
+                BYTES_PER_BLOB * 2,
+                excerpt(trimmed),
+            )));
+        }
+
+        Ok(payload)
     }
 
     /// Match requested blob hashes to fetched beacon sidecars in order.
@@ -316,6 +342,23 @@ impl BlobDataSource {
 pub(crate) fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
     let bytes = decode_hex(value)?;
     Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
+}
+
+/// Whether `value` is hex text (with optional `0x`) of exactly one blob's length.
+///
+/// Used to reject non-blob bodies from a blob server's `/data` route before they reach the hex
+/// decoder, where an HTTP 200 error envelope would otherwise surface as a bare invalid-character
+/// message and an empty body as a slice-conversion failure.
+fn is_blob_sized_hex(value: &str) -> bool {
+    let stripped = value.strip_prefix("0x").unwrap_or(value);
+    stripped.len() == BYTES_PER_BLOB * 2 && stripped.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+/// Leading characters of an unexpected response body, for error messages.
+///
+/// Truncates on a character boundary so non-UTF-8-ish bodies cannot panic the error path.
+fn excerpt(body: &str) -> String {
+    body.chars().take(BODY_EXCERPT_CHARS).collect()
 }
 
 /// Decode hex text (with optional `0x`) into raw bytes.
@@ -551,6 +594,127 @@ mod tests {
 
         assert_eq!(sidecars.len(), 1);
         assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
+    }
+
+    #[tokio::test]
+    async fn blob_server_with_empty_inline_data_falls_back_to_data_endpoint() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        // A present-but-empty `data` field is as unusable as a missing one and must take the
+        // same `/data` route rather than being decoded into a zero-length blob.
+        let mut metadata: serde_json::Value =
+            serde_json::from_str(&blobscan_metadata_body(&zero_commitment, zero_hash))
+                .expect("metadata body should parse");
+        metadata["data"] = serde_json::json!("");
+        let server = TestBlobServer::start_with_routes(
+            vec![
+                (format!("/blobs/{zero_hash}"), metadata.to_string()),
+                (format!("/blobs/{zero_hash}/data"), quoted_hex_body(&Blob::ZERO)),
+            ],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let sidecars = source
+            .get_blobs(0, &[zero_hash])
+            .await
+            .expect("empty inline data should fall back to the /data route");
+
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
+    }
+
+    #[tokio::test]
+    async fn blob_server_data_endpoint_missing_is_reported_as_http_status() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        // Only the metadata route is served, so `/data` 404s by construction.
+        let server = TestBlobServer::start_with_routes(
+            vec![(
+                format!("/blobs/{zero_hash}"),
+                blobscan_metadata_body(&zero_commitment, zero_hash),
+            )],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let result = source.get_blobs(0, &[zero_hash]).await;
+        assert!(
+            matches!(result, Err(BlobDataError::HttpStatus { status: 404 })),
+            "expected the /data route's 404 to surface as an HTTP status error, got {result:?}",
+        );
+    }
+
+    #[tokio::test]
+    async fn blob_server_data_endpoint_error_envelope_is_diagnosable() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        // A JSON error envelope served with HTTP 200 is what CDNs and gateways return; it must
+        // not reach the hex decoder, where it surfaced as a bare invalid-character message with
+        // no indication of which route produced it.
+        let server = TestBlobServer::start_with_routes(
+            vec![
+                (
+                    format!("/blobs/{zero_hash}"),
+                    blobscan_metadata_body(&zero_commitment, zero_hash),
+                ),
+                (
+                    format!("/blobs/{zero_hash}/data"),
+                    r#"{"error":"blob expired","code":"NOT_FOUND"}"#.to_owned(),
+                ),
+            ],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let Err(BlobDataError::Parse(message)) = source.get_blobs(0, &[zero_hash]).await else {
+            panic!("expected a parse error for an error envelope served with HTTP 200");
+        };
+        assert!(
+            message.contains("/data") && message.contains("blob expired"),
+            "error should name the route and quote the body, got {message}",
+        );
+    }
+
+    #[tokio::test]
+    async fn blob_server_data_endpoint_empty_body_is_diagnosable() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        let server = TestBlobServer::start_with_routes(
+            vec![
+                (
+                    format!("/blobs/{zero_hash}"),
+                    blobscan_metadata_body(&zero_commitment, zero_hash),
+                ),
+                (format!("/blobs/{zero_hash}/data"), String::new()),
+            ],
+            None,
+        )
+        .await;
+        let source = BlobDataSource::new(None, Some(server.endpoint()), true, None)
+            .await
+            .expect("blob source should be constructed");
+
+        let Err(BlobDataError::Parse(message)) = source.get_blobs(0, &[zero_hash]).await else {
+            panic!("expected a parse error for an empty /data body");
+        };
+        assert!(
+            message.contains("0 bytes"),
+            "error should report the empty body length, got {message}",
+        );
     }
 
     #[tokio::test]

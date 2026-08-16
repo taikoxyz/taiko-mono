@@ -1,6 +1,7 @@
 //! Driver-specific CLI flags.
 
 use clap::Parser;
+use rpc::blob::DEFAULT_BLOB_FETCH_TIMEOUT;
 use std::time::Duration;
 use url::Url;
 
@@ -42,10 +43,14 @@ pub struct DriverArgs {
     )]
     pub blob_server_endpoint: Option<Url>,
     /// Timeout in seconds for blob fetches from the L1 beacon node or the blob server.
+    ///
+    /// Rejects zero: a zero-second deadline fails every blob fetch, which wedges derivation
+    /// rather than expressing "no timeout".
     #[clap(
         long = "blob.fetchTimeout",
         env = "BLOB_FETCH_TIMEOUT",
-        default_value = "120",
+        default_value_t = DEFAULT_BLOB_FETCH_TIMEOUT.as_secs(),
+        value_parser = clap::value_parser!(u64).range(1..),
         help = "Timeout in seconds for blob fetches from the L1 beacon node or the blob server; \
                 PeerDAS beacon nodes may reconstruct blobs from data columns on request, which \
                 takes multiple seconds per blob in the slot"

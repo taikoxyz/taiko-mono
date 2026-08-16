@@ -145,6 +145,12 @@ impl BeaconClient {
     /// `blob_fetch_timeout` bounds blob-sidecar requests, which may require PeerDAS nodes to
     /// reconstruct blobs from data columns. Metadata requests retain [`DEFAULT_HTTP_TIMEOUT`].
     pub async fn new(endpoint: Url, blob_fetch_timeout: Duration) -> Result<Self, BlobDataError> {
+        // The client-wide deadline must stay `timeout`, not `read_timeout`: a per-request
+        // `RequestBuilder::timeout` replaces `timeout` outright (reqwest resolves it as
+        // request-or-client), which is what lets `blobs_by_timestamp` raise its own deadline
+        // above this one. `read_timeout` is read straight off the client and ignores the
+        // per-request value, so swapping them would silently cap blob fetches back at
+        // `DEFAULT_HTTP_TIMEOUT` — the exact stall this timeout split exists to prevent.
         let http = HttpClient::builder()
             .no_proxy()
             .timeout(DEFAULT_HTTP_TIMEOUT)

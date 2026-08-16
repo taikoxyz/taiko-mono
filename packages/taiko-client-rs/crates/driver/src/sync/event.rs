@@ -203,6 +203,10 @@ struct EventStreamStartPoint {
     initial_proposal_id: u64,
     /// Confirmed L2 tip established before live scanning.
     bootstrap_confirmed_tip: u64,
+    /// Finalized L1 height observed while resolving this start point, when finality was
+    /// available. Seeds the reconnect anchor floor so the first scanner interruption already
+    /// has a finalized fallback instead of only the startup anchor.
+    finalized_block_number: Option<u64>,
 }
 
 /// Decide whether a confirmed-sync probe is still needed.
@@ -314,8 +318,12 @@ fn resolve_missing_batch_mapping_fallback(
 /// - Rewind one block from the last seen height to cover partial delivery from the boundary block.
 /// - If a finalized L1 block exists behind that overlap point, rewind all the way to finalized so
 ///   reconnect replays the entire reorg-unsafe window.
-/// - If finalization is unavailable, fall back to the original startup anchor to avoid skipping
-///   potentially replaced historical logs on fresh chains.
+/// - If finalization has never been observed, fall back to the original startup anchor to avoid
+///   skipping potentially replaced historical logs on fresh chains.
+///
+/// `finalized_l1_block_number` may be the newest finalized height observed so far rather than one
+/// read just now: finality is monotonic, so an older finalized height is still a sound floor, and
+/// the `min` against the overlap point keeps a stale value from ever skipping unprocessed blocks.
 fn resolve_reconnect_start_block(
     last_seen_l1_block_number: u64,
     finalized_l1_block_number: Option<u64>,
@@ -329,14 +337,23 @@ fn resolve_reconnect_start_block(
 /// Base delay before the first reconnect attempt after a failed scanner generation.
 const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
 
-/// Maximum attempts to resolve the finalized reconnect anchor before falling back to the
-/// startup anchor.
+/// Maximum attempts to resolve the finalized reconnect anchor before falling back to the last
+/// known finalized height.
 ///
 /// A scanner interruption is usually caused by a transient L1 RPC outage, so the finalized
-/// lookup issued right after it tends to fail for the same reason. Falling back to the startup
-/// anchor on the first failure amplifies a brief hiccup into a replay of the entire span since
-/// process start; retrying with the scanner reconnect backoff rides out short outages first.
+/// lookup issued right after it tends to fail for the same reason. Giving up on the first
+/// failure leans on a floor that can be arbitrarily stale — the startup anchor, on a process
+/// that has never observed finality — so retrying with the scanner reconnect backoff rides out
+/// short outages first.
 const FINALIZED_RECONNECT_ANCHOR_MAX_ATTEMPTS: u32 = 10;
+
+/// How often the finalized reconnect anchor floor is refreshed while the scanner is healthy.
+///
+/// The anchor is otherwise only resolved when a scanner generation dies, so a process that runs
+/// for days without an interruption would meet its first one holding a days-old floor and rewind
+/// accordingly. Refreshing on a slow timer keeps the floor recent at the cost of one
+/// `eth_getBlockByNumber(finalized)` plus one `getCoreState` call per interval.
+const FINALIZED_ANCHOR_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Compute the scanner reconnect delay for the given consecutive-failure count.
 ///
@@ -1408,9 +1425,14 @@ impl EventSyncer {
     /// failures before giving up.
     ///
     /// Returns `None` when the chain has no finalized block yet, or when every attempt failed —
-    /// the caller then falls back to the startup anchor. A missing-finality result
+    /// the caller then keeps whichever finalized floor it already holds. A missing-finality result
     /// (`Ok(None)` from [`Self::try_finalized_l1_snapshot`]) is returned immediately without
     /// retrying: that is an authoritative answer from a healthy RPC, not a failure.
+    ///
+    /// Every other error is retried regardless of kind. `try_finalized_l1_snapshot` maps both its
+    /// block lookup and its `getCoreState` call to [`SyncError::Rpc`], so the two cannot be told
+    /// apart here; retrying a deterministic failure costs the backoff budget once per reconnect.
+    #[instrument(skip(self), level = "debug")]
     async fn resolve_finalized_reconnect_anchor(&self) -> Option<FinalizedL1Snapshot> {
         let mut attempt = 0u32;
         loop {
@@ -1553,6 +1575,7 @@ impl EventSyncer {
                             anchor_block_number,
                             initial_proposal_id: 0,
                             bootstrap_confirmed_tip: 0,
+                            finalized_block_number,
                         });
                     }
                 }
@@ -1572,6 +1595,7 @@ impl EventSyncer {
             anchor_block_number,
             initial_proposal_id: target_proposal_id,
             bootstrap_confirmed_tip,
+            finalized_block_number,
         })
     }
 }
@@ -1686,6 +1710,11 @@ impl SyncStage for EventSyncer {
 
         let mut reconnect_start_tag = start_tag;
         let startup_anchor_block_number = anchor_block_number;
+        // Newest finalized L1 height observed so far, refreshed on a timer while the scanner is
+        // healthy and on every successful anchor resolution. It is the reconnect floor: falling
+        // back to the frozen startup anchor instead would replay the whole span since process
+        // start, which is how a brief L1 blip turned into a multi-day re-derivation.
+        let mut last_known_finalized_block_number = start_point.finalized_block_number;
 
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
@@ -1766,6 +1795,11 @@ impl SyncStage for EventSyncer {
             // transiently failed probe must not have to wait for the next proposal event.
             let mut probe_retry = interval(CONFIRMED_SYNC_PROBE_RETRY_INTERVAL);
             probe_retry.set_missed_tick_behavior(MissedTickBehavior::Skip);
+            let mut finalized_anchor_refresh = interval(FINALIZED_ANCHOR_REFRESH_INTERVAL);
+            finalized_anchor_refresh.set_missed_tick_behavior(MissedTickBehavior::Skip);
+            // The first tick fires immediately; the floor is already seeded from the start point,
+            // so skip it and let the timer refresh on its own cadence.
+            finalized_anchor_refresh.tick().await;
 
             loop {
                 let message = tokio::select! {
@@ -1774,6 +1808,21 @@ impl SyncStage for EventSyncer {
                             break;
                         };
                         message
+                    }
+                    _ = finalized_anchor_refresh.tick() => {
+                        // Best-effort: a failure here just leaves the previous floor in place,
+                        // and the reconnect path retries the lookup anyway.
+                        match self.try_finalized_l1_snapshot().await {
+                            Ok(Some(snapshot)) => {
+                                last_known_finalized_block_number = Some(snapshot.block_number);
+                            }
+                            Ok(None) => {}
+                            Err(err) => debug!(
+                                ?err,
+                                "failed to refresh finalized reconnect anchor floor"
+                            ),
+                        }
+                        continue;
                     }
                     _ = probe_retry.tick(), if should_probe_confirmed_sync(
                         self.cfg.preconfirmation_enabled,
@@ -1873,19 +1922,20 @@ impl SyncStage for EventSyncer {
             self.close_preconf_ingress(&router).await;
 
             if let Some(block_number) = last_seen_l1_block_number {
-                let reconnect_finalized_block_number = self
-                    .resolve_finalized_reconnect_anchor()
-                    .await
-                    .map(|snapshot| snapshot.block_number);
-                if reconnect_finalized_block_number.is_none() {
-                    warn!(
-                        fallback_start_block = startup_anchor_block_number,
-                        "finalized reconnect anchor unavailable; rewinding to startup anchor"
-                    );
+                match self.resolve_finalized_reconnect_anchor().await {
+                    Some(snapshot) => {
+                        last_known_finalized_block_number = Some(snapshot.block_number);
+                    }
+                    None => warn!(
+                        cached_finalized_block = ?last_known_finalized_block_number,
+                        startup_anchor_block_number,
+                        "finalized reconnect anchor unavailable; falling back to the last known \
+                         finalized block, or the startup anchor if finality was never observed"
+                    ),
                 }
                 reconnect_start_tag = BlockNumberOrTag::Number(resolve_reconnect_start_block(
                     block_number,
-                    reconnect_finalized_block_number,
+                    last_known_finalized_block_number,
                     startup_anchor_block_number,
                 ));
             }
@@ -2177,6 +2227,27 @@ mod tests {
         }
 
         assert!(syncer.resolve_finalized_reconnect_anchor().await.is_none());
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_reconnect_anchor_retry_budget_matches_the_configured_cap() {
+        let asserter = Asserter::new();
+        let mut syncer = build_syncer().await;
+        syncer.rpc = mock_client_with_l1_asserter(asserter.clone());
+        // The production default, rather than the 1s `build_syncer` uses: the budget this pins
+        // is how long a scanner interruption waits before rewinding, so it has to be the real
+        // one.
+        syncer.cfg.retry_interval = Duration::from_secs(12);
+        for _ in 0..FINALIZED_RECONNECT_ANCHOR_MAX_ATTEMPTS {
+            asserter.push_failure_msg("connection refused");
+        }
+
+        let started = tokio::time::Instant::now();
+        assert!(syncer.resolve_finalized_reconnect_anchor().await.is_none());
+
+        // Nine sleeps between ten attempts, doubling from 1s to the 12s cap:
+        // 1 + 2 + 4 + 8 + 12 * 5 = 75s.
+        assert_eq!(started.elapsed(), Duration::from_secs(75));
     }
 
     #[test_log::test(tokio::test(start_paused = true))]
