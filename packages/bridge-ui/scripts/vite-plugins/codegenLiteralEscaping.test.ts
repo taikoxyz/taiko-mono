@@ -1,17 +1,18 @@
-import { Buffer } from 'buffer';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { runInNewContext } from 'vm';
 
+import type { BridgeConfig } from '../../src/libs/bridge/types';
 import { toTsLiteral } from '../utils/toTsLiteral';
-import { _formatObjectToTsLiteral as formatBridgeConfig, generateBridgeConfig } from './generateBridgeConfig';
+import {
+  _buildRoutingMap as buildRoutingMap,
+  _formatObjectToTsLiteral as formatBridgeConfig,
+} from './generateBridgeConfig';
 import { _formatObjectToTsLiteral as formatChainConfig } from './generateChainConfig';
 import { _formatObjectToTsLiteral as formatCustomTokenConfig } from './generateCustomTokenConfig';
 import { _formatObjectToTsLiteral as formatEventIndexerConfig } from './generateEventIndexerConfig';
 import { _formatObjectToTsLiteral as formatRelayerConfig } from './generateRelayerConfig';
 
 const quoteBreakout = `safe"; globalThis.__codegenExecuted = true; "`;
-const generatedBridgeConfigPath = path.resolve(process.cwd(), 'src/generated/bridgeConfig.ts');
 
 describe('bridge-ui generated TypeScript literals', () => {
   it('does not treat config keys as internal serializer expressions', () => {
@@ -38,53 +39,33 @@ describe('bridge-ui generated TypeScript literals', () => {
     expect(literal).not.toContain(`"${quoteBreakout}"`);
   });
 
-  it('keeps reserved bridge route keys as data without prototype pollution', async () => {
+  it('keeps reserved bridge route keys as data without prototype pollution', () => {
     const pollutionKey = '__bridgeConfigPollutionProbe';
-    let existingGeneratedSource: string | undefined;
-    try {
-      existingGeneratedSource = await fs.readFile(generatedBridgeConfigPath, 'utf8');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-    }
-
-    vi.stubEnv(
-      'CONFIGURED_BRIDGES',
-      Buffer.from(
-        JSON.stringify({
-          configuredBridges: [
-            {
-              source: '__proto__',
-              destination: pollutionKey,
-              addresses: {
-                bridgeAddress: '0x1',
-                erc20VaultAddress: '0x2',
-                erc721VaultAddress: '0x3',
-                erc1155VaultAddress: '0x4',
-                signalServiceAddress: '0x5',
-              },
-            },
-          ],
-        }),
-      ).toString('base64'),
-    );
+    const addresses = {
+      bridgeAddress: '0x1',
+      erc20VaultAddress: '0x2',
+      erc721VaultAddress: '0x3',
+      erc1155VaultAddress: '0x4',
+      signalServiceAddress: '0x5',
+    } as unknown as BridgeConfig['addresses'];
 
     try {
-      await generateBridgeConfig().buildStart();
+      const routingContractsMap = buildRoutingMap({
+        configuredBridges: [{ source: '__proto__', destination: pollutionKey, addresses }],
+      });
 
       expect(Object.hasOwn(Object.prototype, pollutionKey)).toBe(false);
-      const generatedSource = await fs.readFile(generatedBridgeConfigPath, 'utf8');
-      expect(generatedSource).toContain('["__proto__"]');
-      expect(generatedSource).toContain(`${pollutionKey}: {`);
+      expect(Object.hasOwn(routingContractsMap, '__proto__')).toBe(true);
+
+      const literal = formatBridgeConfig(routingContractsMap);
+      expect(literal).toContain('["__proto__"]');
+
+      const generated = runInNewContext(`(${literal})`);
+      expect(Object.keys(generated)).toEqual(['__proto__']);
+      expect(Object.hasOwn(Object.getPrototypeOf(generated), pollutionKey)).toBe(false);
+      expect(generated['__proto__'][pollutionKey]).toEqual(addresses);
     } finally {
       delete (Object.prototype as unknown as Record<string, unknown>)[pollutionKey];
-      vi.unstubAllEnvs();
-      if (existingGeneratedSource === undefined) {
-        await fs.rm(generatedBridgeConfigPath, { force: true });
-      } else {
-        await fs.writeFile(generatedBridgeConfigPath, existingGeneratedSource);
-      }
     }
   });
 
