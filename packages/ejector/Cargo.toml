@@ -28,7 +28,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # web
 axum = "0.7"
 reqwest = { version = "0.12" }
-event-scanner = "1.1.0"
+event-scanner = "1.1.1"
 robust-provider = { version = "1.0.1", features = ["http-subscription"] }
 
 # ethereum

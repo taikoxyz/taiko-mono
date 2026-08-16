@@ -1,7 +1,8 @@
 //! Driver specific error types.
 
-use std::{io, result::Result as StdResult, time::Duration};
+use std::{result::Result as StdResult, time::Duration};
 
+use alloy::primitives::B256;
 use anyhow::Error as AnyhowError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
@@ -23,10 +24,6 @@ pub enum DriverError {
     #[error(transparent)]
     Sync(#[from] SyncError),
 
-    /// I/O error emitted by the runtime.
-    #[error("io error: {0}")]
-    Io(#[from] io::Error),
-
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]
     PreconfirmationDisabled,
@@ -34,6 +31,19 @@ pub enum DriverError {
     /// Preconfirmation ingress loop has not started yet.
     #[error("preconfirmation ingress loop is not ready")]
     PreconfIngressNotReady,
+
+    /// Canonical parent changed after the preconfirmation was authenticated.
+    #[error(
+        "preconfirmation parent mismatch for block {block_number}: expected {expected}, got {actual}"
+    )]
+    PreconfParentMismatch {
+        /// L2 block number targeted by the preconfirmation.
+        block_number: u64,
+        /// Parent hash authenticated by the preconfirmation sender.
+        expected: B256,
+        /// Parent hash currently canonical in the execution engine.
+        actual: B256,
+    },
 
     /// Block not found on remote node.
     #[error("remote node missing block {0}")]
@@ -87,18 +97,4 @@ pub enum DriverError {
     /// Generic boxed error.
     #[error(transparent)]
     Other(#[from] AnyhowError),
-}
-
-/// Map a [`DriverError`] into a target error type while preserving sync errors.
-///
-/// This ensures `DriverError::Sync` is converted through `From<SyncError>` instead of being
-/// wrapped as a generic driver error.
-pub fn map_driver_error<T>(err: DriverError) -> T
-where
-    T: From<SyncError> + From<DriverError>,
-{
-    match err {
-        DriverError::Sync(sync_err) => sync_err.into(),
-        other => other.into(),
-    }
 }

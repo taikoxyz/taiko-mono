@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "2.3.0",
+  "version": "3.1.0",
   "private": true,
   "scripts": {
     "postinstall": "[ -n \"$CI\" ] || foundryup --version $(grep foundry .tool-versions | awk '{print $2}') 2>/dev/null || true",
@@ -10,10 +10,11 @@
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
     "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
     "compile:shared": "FOUNDRY_PROFILE=shared forge build --build-info --extra-output storage-layout",
-    "compile": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2",
-    "test:l1": "FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/**/*.t.sol'",
-    "test:l2": "FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/**/*.t.sol'",
-    "test:shared": "FOUNDRY_PROFILE=shared forge test --match-path 'test/shared/**/*.t.sol'",
+    "compile:l1o": "FOUNDRY_PROFILE=layer1o forge build",
+    "compile": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && pnpm compile:l1o",
+    "test:l1": "FOUNDRY_PROFILE=layer1 forge test --extra-output storage-layout --match-path 'test/layer1/**/*.t.sol'",
+    "test:l2": "FOUNDRY_PROFILE=layer2 forge test --extra-output storage-layout --match-path 'test/layer2/**/*.t.sol'",
+    "test:shared": "FOUNDRY_PROFILE=shared forge test --extra-output storage-layout --match-path 'test/shared/**/*.t.sol'",
     "snapshot:l1": "pnpm test:l1 && FOUNDRY_PROFILE=layer1 forge snapshot --snap gas-reports/layer1-contracts.txt",
     "test": "pnpm test:l1 && pnpm test:l2 && pnpm test:shared",
     "layout:shared": "./script/gen-layouts.sh shared",
@@ -48,6 +49,8 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "@automata-network/automata-dcap-attestation": "1.1.0",
+    "@automata-network/on-chain-pccs": "1.1.1",
     "@openzeppelin/contracts": "4.9.6",
     "@openzeppelin/contracts-upgradeable": "4.9.6",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
@@ -55,9 +58,9 @@
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "risc0-ethereum": "github:risc0/risc0-ethereum#v3.0.0",
-    "solady": "github:Vectorized/solady#v0.1.24",
+    "risc0-ethereum": "github:risc0/risc0-ethereum#v3.0.1",
+    "solady": "github:Vectorized/solady#v0.1.26",
     "urc": "github:eth-fabric/urc#main",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0"
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v6.1.1"
   }
 }

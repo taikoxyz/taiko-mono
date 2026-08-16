@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ISP1Verifier } from "@sp1-contracts/src/ISP1Verifier.sol";
+import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 import "forge-std/src/Test.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
 import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";

@@ -1,9 +1,7 @@
 //! Event sync logic.
 
-/// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
-const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
-
 use std::{
+    collections::{HashSet, VecDeque},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -16,36 +14,36 @@ use alloy::{
     primitives::{Address, B256, U256},
     sol_types::SolEvent,
 };
-use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
+use alloy_consensus::TxEnvelope;
 use alloy_provider::Provider;
 use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
-use event_scanner::{EventFilter, Notification, ScannerMessage};
-use metrics::{counter, gauge, histogram};
+use event_scanner::{EventFilter, Notification, ScannerError, ScannerMessage};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::{sleep, timeout},
+    time::{MissedTickBehavior, interval, sleep, timeout},
 };
-use tokio_retry::{Retry, strategy::ExponentialBackoff};
+use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    SyncError, SyncStage,
+    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
+    error::EngineSubmissionError,
 };
 use crate::{
     config::DriverConfig,
-    derivation::ShastaDerivationPipeline,
+    derivation::{DerivationError, ShastaDerivationPipeline},
     error::DriverError,
     metrics::DriverMetrics,
     production::{
-        BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
-        ProductionInput, ProductionRouter, path::EngineBlockOutcome,
+        BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfSubmissionOutcome,
+        PreconfirmationPath, ProductionInput, ProductionRouter, path::EngineBlockOutcome,
     },
 };
 
@@ -60,12 +58,131 @@ enum ProposalLogResult {
     SkippedOrphaned,
 }
 
+/// Stable identity of a proposal log that completed processing in this event-syncer run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ProcessedProposalLog {
+    /// L1 block containing the proposal log.
+    block_number: u64,
+    /// Hash of the L1 block containing the proposal log.
+    block_hash: B256,
+    /// Hash of the transaction that emitted the proposal log.
+    transaction_hash: B256,
+    /// Index of the proposal log within its L1 block.
+    log_index: u64,
+}
+
+impl ProcessedProposalLog {
+    /// Build an identity only when every field required for exact replay matching is present.
+    fn from_log(log: &Log) -> Option<Self> {
+        Some(Self {
+            block_number: log.block_number?,
+            block_hash: log.block_hash?,
+            transaction_hash: log.transaction_hash?,
+            log_index: log.log_index?,
+        })
+    }
+}
+
+/// Proposal logs processed successfully by the current event-syncer run.
+#[derive(Debug, Default)]
+struct ProcessedProposalLogCache {
+    /// Exact identities used to recognize reconnect replays.
+    entries: HashSet<ProcessedProposalLog>,
+    /// Insertion order used to bound memory without affecting correctness.
+    insertion_order: VecDeque<ProcessedProposalLog>,
+}
+
+/// Maximum number of successfully processed proposal logs retained for reconnect deduplication.
+///
+/// Eviction only causes an old log to be derived again; it never causes new log data to be
+/// skipped. The capacity comfortably covers the normal reorg-unsafe proposal window.
+const PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY: usize = 1024;
+
+impl ProcessedProposalLogCache {
+    /// Remove exact proposal-log replays while retaining new or incompletely identified logs.
+    fn retain_unprocessed(&self, logs: Vec<Log>) -> Vec<Log> {
+        logs.into_iter()
+            .filter(|log| {
+                ProcessedProposalLog::from_log(log)
+                    .is_none_or(|identity| !self.entries.contains(&identity))
+            })
+            .collect()
+    }
+
+    /// Record proposal logs only after their whole scanner batch completes successfully.
+    fn record_processed(&mut self, logs: &[Log]) {
+        for identity in logs.iter().filter_map(ProcessedProposalLog::from_log) {
+            if !self.entries.insert(identity) {
+                continue;
+            }
+            self.insertion_order.push_back(identity);
+            if self.entries.len() > PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY &&
+                let Some(oldest) = self.insertion_order.pop_front()
+            {
+                self.entries.remove(&oldest);
+            }
+        }
+    }
+
+    /// Forget processed logs above a reported common ancestor before replaying the new branch.
+    fn invalidate_after(&mut self, common_ancestor: u64) {
+        self.entries.retain(|identity| identity.block_number <= common_ancestor);
+        self.insertion_order.retain(|identity| identity.block_number <= common_ancestor);
+    }
+}
+
+/// Finalized-ancestry proof state for a proposal log's source L1 block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProposalLogCanonicality {
+    /// The log block hash matches the ancestor at its height on the finalized chain.
+    Canonical,
+    /// The finalized chain contains a different block hash at the log's height.
+    Orphaned,
+    /// Finality or ancestry data is insufficient to make a permanent decision.
+    Unproven,
+}
+
+/// Retry decision attached to a failed proposal-processing attempt.
+///
+/// The decision is made where the full context is available (error class plus the canonical
+/// proof of the source log), so the retry predicate never has to re-derive it: only `Abort`
+/// stops the retry loop.
+enum ProposalRetryError {
+    /// Deterministic failure on a proven-canonical log; retrying cannot change the outcome.
+    Abort(DriverError),
+    /// Transient or unproven failure; the attempt should be retried.
+    Retry(DriverError),
+}
+
+impl ProposalRetryError {
+    /// Unwrap the underlying driver error regardless of the retry decision.
+    fn into_inner(self) -> DriverError {
+        match self {
+            ProposalRetryError::Abort(err) | ProposalRetryError::Retry(err) => err,
+        }
+    }
+}
+
 /// Default timeout for preconfirmation payload submission.
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
-const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(24);
 /// Timeout for best-effort `head_l1_origin` reset after an event-scanner reorg.
 const REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT: Duration = Duration::from_secs(12);
+/// Interval between confirmed-sync probe retries while preconfirmation ingress is closed.
+///
+/// Reopening must not depend on the next scanner item: the scanner filters empty log batches
+/// and emits `SwitchingToLive` once per generation, so a transiently failed probe on a quiet
+/// inbox would otherwise leave ingress closed until an unrelated proposal event arrives — which
+/// a closed ingress itself suppresses on a preconfirmation-driven chain.
+const CONFIRMED_SYNC_PROBE_RETRY_INTERVAL: Duration = Duration::from_secs(6);
+/// Maximum orphan-proof ancestry walk, in blocks between the log height and the finalized head.
+///
+/// Orphan candidates arrive on the live scanner path near the L1 head (catch-up ranges stream
+/// only canonical logs) and the proof first runs once finality reaches the log height, so the
+/// walk normally spans the finality lag (~2 epochs). The cap guards the practically
+/// unreachable deep case, which stays retryable.
+const MAX_ORPHAN_PROOF_ANCESTRY_WALK: u64 = 512;
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -98,11 +215,6 @@ fn should_probe_confirmed_sync(
     preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
-/// Resolve whether confirmed-sync readiness should open ingress.
-fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
-    confirmed_sync_snapshot.is_ready()
-}
-
 /// Resolve confirmed-sync probe readiness from a probe result.
 ///
 /// Any probe error keeps ingress closed (fail-closed) until a later successful probe.
@@ -110,12 +222,13 @@ fn resolve_confirmed_sync_probe(
     confirmed_sync_probe: Result<ConfirmedSyncSnapshot, SyncError>,
 ) -> bool {
     match confirmed_sync_probe {
-        Ok(confirmed_sync_snapshot) => resolve_confirmed_sync_ready(confirmed_sync_snapshot),
+        Ok(snap) => snap.is_ready(),
         Err(_) => false,
     }
 }
 
-/// Resolve the L2 block number that event sync should use as its resume source.
+/// Resolve the L2 block number that event sync should use as its resume source, paired with a
+/// static label naming the chosen source so the caller's log cannot diverge from the decision.
 ///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
 /// resume point such as `Latest`, which can include local preconfirmation-only blocks.
@@ -124,16 +237,20 @@ fn resolve_resume_head_block_number(
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
     rpc_l2_block_number: Option<u64>,
-) -> Result<u64, SyncError> {
+) -> Result<(u64, &'static str), SyncError> {
     if checkpoint_configured {
-        return checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead);
+        return checkpoint_synced_head
+            .map(|head| (head, "checkpoint-synced head"))
+            .ok_or(SyncError::MissingCheckpointResumeHead);
     }
     match (head_l1_origin_block_id, rpc_l2_block_number) {
-        (Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => Ok(rpc),
-        (Some(origin), _) => Ok(origin),
+        (Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => {
+            Ok((rpc, "lower rpc block number (instead of local head_l1_origin)"))
+        }
+        (Some(origin), _) => Ok((origin, "local head_l1_origin")),
         // Genesis fallback: no local origin yet and the RPC reports block 0, i.e. a brand-new
         // chain bootstrapped from genesis.
-        (None, Some(0)) => Ok(0),
+        (None, Some(0)) => Ok((0, "genesis fallback (head_l1_origin unavailable)")),
         (None, _) => Err(SyncError::MissingHeadL1OriginResume),
     }
 }
@@ -144,23 +261,13 @@ fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_
     rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
-/// Select scanner start block when the resolved target proposal id is zero.
-///
-/// - If finalized-safe proposal id is zero, scanner can safely start from finalized L1 block.
-/// - Otherwise, keep genesis start to avoid skipping historical proposal events.
-fn resolve_zero_target_start_block(
-    finalized_safe_proposal_id: u64,
-    finalized_block_number: u64,
-) -> u64 {
-    if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
-}
-
 /// Resolve the target proposal id and finalized-safe proposal id, accounting for the
 /// finalized snapshot being unavailable on fresh chains.
 ///
 /// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
-/// - When finalization is unavailable, both values reset to 0 triggering a full genesis replay.
-///   This is safe because derivation is idempotent (the engine skips already-known blocks).
+/// - When finalization is unavailable, both values reset to 0 so the caller can replay from the
+///   inbox activation block. This is safe because derivation is idempotent (the engine skips
+///   already-known blocks).
 fn resolve_target_with_optional_finalization(
     resume_proposal_id: u64,
     finalized_safe_proposal_id: Option<u64>,
@@ -168,6 +275,37 @@ fn resolve_target_with_optional_finalization(
     match finalized_safe_proposal_id {
         Some(safe_id) => (resume_proposal_id.min(safe_id), safe_id),
         None => (0, 0),
+    }
+}
+
+/// Fallback strategy when the execution engine has no batch mapping for the resume target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MissingBatchMappingFallback {
+    /// Extract the scanner anchor from the resume head block itself.
+    UseResumeHead,
+    /// Restart derivation from proposal zero, scanning from the inbox activation block.
+    ReplayFromActivation,
+}
+
+/// Decide how to bootstrap when no batch mapping exists for the target proposal.
+///
+/// Blocks reached via checkpoint/P2P sync bypass derivation, so the engine's custom tables hold
+/// no rows for them and the lookup reports the match at head as uncertain. When the target is
+/// the resume head's own proposal, the resume head block substitutes for the mapped target
+/// block: it belongs to the target proposal, and every later proposal is included on L1 after
+/// that proposal's anchor. This arm also covers the genesis bootstrap, where the zero target
+/// resolves its anchor through the genesis block's activation fallback. When the finalized
+/// bound rewound the target below the resume proposal, no local substitute exists and
+/// derivation replays from the activation block instead — safe because derivation is
+/// idempotent and no proposal events exist before activation.
+fn resolve_missing_batch_mapping_fallback(
+    target_proposal_id: u64,
+    resume_proposal_id: u64,
+) -> MissingBatchMappingFallback {
+    if target_proposal_id == resume_proposal_id {
+        MissingBatchMappingFallback::UseResumeHead
+    } else {
+        MissingBatchMappingFallback::ReplayFromActivation
     }
 }
 
@@ -188,35 +326,96 @@ fn resolve_reconnect_start_block(
         .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
 }
 
-/// Convert a scanner setup error into either a fatal startup error or a retryable reconnect error.
+/// Base delay before the first reconnect attempt after a failed scanner generation.
+const SCANNER_RECONNECT_BACKOFF_BASE: Duration = Duration::from_secs(1);
+
+/// Compute the scanner reconnect delay for the given consecutive-failure count.
 ///
-/// Before the first successful scanner start, setup failures must fail fast so callers waiting on
-/// ingress readiness observe a clear startup error. After the scanner has started once, the same
-/// failures are treated as transient reconnect errors.
-fn resolve_event_scanner_setup_error(
-    scanner_started_once: bool,
-    error_message: String,
-) -> Result<String, SyncError> {
-    if scanner_started_once {
-        Ok(error_message)
-    } else {
-        Err(SyncError::EventScannerInit(error_message))
+/// Delays double from [`SCANNER_RECONNECT_BACKOFF_BASE`] per consecutive failed scanner
+/// generation and cap at the configured retry interval: a transient L1 hiccup (a single
+/// canceled poll) reconnects within a second instead of paying the full flat interval, while
+/// a persistent outage settles at the configured pace.
+fn scanner_reconnect_delay(retry_interval: Duration, consecutive_failures: u32) -> Duration {
+    let mut delay = SCANNER_RECONNECT_BACKOFF_BASE.min(retry_interval);
+    // A `Duration` can hold at most `u64::MAX` whole seconds, so 64 saturating doublings cover
+    // every representable cap without allowing an unbounded loop for a saturated failure count.
+    for _ in 0..consecutive_failures.min(u64::BITS) {
+        delay = delay.saturating_mul(2).min(retry_interval);
+        if delay == retry_interval {
+            break;
+        }
+    }
+    delay
+}
+
+/// Reconnect backoff state retained across event-scanner generations.
+#[derive(Debug, Default)]
+struct ScannerReconnectState {
+    /// Consecutive generations that failed before processing successful live activity.
+    consecutive_failures: u32,
+    /// Whether the current generation has transitioned from replay into live scanning.
+    generation_live: bool,
+}
+
+impl ScannerReconnectState {
+    /// Start a new scanner generation in replay mode without discarding prior failures.
+    fn begin_generation(&mut self) {
+        self.generation_live = false;
+    }
+
+    /// Record the scanner's transition from historical replay into live scanning.
+    fn mark_switching_to_live(&mut self) {
+        self.generation_live = true;
+    }
+
+    /// Return whether the current scanner generation has transitioned into live scanning.
+    fn is_live(&self) -> bool {
+        self.generation_live
+    }
+
+    /// Reset accumulated failures after a scanner batch succeeds during live scanning.
+    fn mark_successful_batch(&mut self) {
+        if self.generation_live {
+            self.consecutive_failures = 0;
+        }
+    }
+
+    /// Record a failed generation and return the delay before its reconnect attempt.
+    fn next_delay(&mut self, retry_interval: Duration) -> Duration {
+        let delay = scanner_reconnect_delay(retry_interval, self.consecutive_failures);
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        delay
     }
 }
 
-/// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
+/// Return whether a preconfirmation target is at or below the confirmed tip.
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
     block_number <= confirmed_tip
 }
 
+/// Return whether a proposal-processing failure is a deterministic engine verdict.
+///
+/// Only a newPayload `INVALID` qualifies: it is the engine's judgement on the payload content
+/// itself, so resubmitting the identical payload cannot change the answer and retrying forever
+/// would stall event sync silently. `ACCEPTED` is excluded because taiko-geth returns it while
+/// the parent state is temporarily unavailable, and forkchoice `INVALID` is excluded because it
+/// can reflect an unknown or unprocessable head rather than the payload content (the engine
+/// layer keeps both away from `InvalidBlock`). RPC transport failures, engine syncing, and
+/// missing data stay retryable.
+fn is_fatal_proposal_processing_error(err: &DriverError) -> bool {
+    matches!(
+        err,
+        DriverError::Sync(SyncError::Derivation(DerivationError::Engine(
+            EngineSubmissionError::InvalidBlock(..)
+        )))
+    )
+}
+
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
-pub struct EventSyncer<P>
-where
-    P: Provider + Clone,
-{
+pub struct EventSyncer {
     /// RPC client shared with derivation pipeline.
-    rpc: Client<P>,
+    rpc: Client,
     /// Static driver configuration.
     cfg: DriverConfig,
     /// Beacon-sync checkpoint head shared by the sync pipeline.
@@ -249,36 +448,41 @@ type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 ///
 /// Wraps a payload and a oneshot channel for returning the processing result
 /// back to the caller.
+///
+/// The channel indirection is deliberate and load-bearing: injections run inside the
+/// ingress loop's own task, so a submitter whose future is dropped mid-await (for
+/// example an axum handler cancelled by a client disconnect) cannot cancel an engine
+/// injection already in flight. Do not replace this queue with direct router calls
+/// from submitter tasks.
 pub struct PreconfJob {
     /// The preconfirmation payload to be processed.
     payload: Arc<PreconfPayload>,
     /// Oneshot channel to send the processing result back to the caller.
-    respond_to: oneshot::Sender<Result<(), DriverError>>,
+    respond_to: oneshot::Sender<Result<PreconfSubmissionOutcome, DriverError>>,
 }
 
-/// Return whether the provided preconfirmation payload already materialized into the local L2
-/// chain state.
+/// Return the block hash of the local L2 block the provided preconfirmation payload already
+/// materialized into, or `None` when it is not materialized.
 ///
 /// Materialization requires both the per-block L1 origin record and the execution header to match
-/// the payload attributes previously submitted to the engine.
-async fn preconfirmation_payload_is_materialized<P>(
-    rpc: &Client<P>,
+/// the payload attributes previously submitted to the engine. The returned hash is the one
+/// observed by this check, so callers can bind their follow-up reads to the exact block that
+/// satisfied the comparison rather than re-resolving by height.
+async fn materialized_preconfirmation_block_hash(
+    rpc: &Client,
     payload: &PreconfPayload,
-) -> Result<bool, DriverError>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+) -> Result<Option<B256>, DriverError> {
     let block_number = payload.block_number();
     let expected_payload = payload.payload();
     let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
-        return Ok(false);
+        return Ok(None);
     };
     // Treat a zero build-payload id as an uninitialized origin record so we fail closed and
     // re-submit rather than falsely acknowledging a materialized payload.
     if origin.build_payload_args_id == [0u8; 8] ||
         origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
     {
-        return Ok(false);
+        return Ok(None);
     }
 
     let Some(block) = rpc
@@ -287,73 +491,73 @@ where
         .await
         .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
     else {
-        return Ok(false);
+        return Ok(None);
     };
     let header = &block.header;
 
+    if header.parent_hash != payload.expected_parent_hash() {
+        return Ok(None);
+    }
     if origin.l2_block_hash != B256::ZERO && header.hash != origin.l2_block_hash {
-        return Ok(false);
+        return Ok(None);
     }
     if header.number != block_number {
-        return Ok(false);
+        return Ok(None);
     }
     if header.beneficiary != expected_payload.payload_attributes.suggested_fee_recipient {
-        return Ok(false);
+        return Ok(None);
     }
     if header.mix_hash != expected_payload.payload_attributes.prev_randao {
-        return Ok(false);
+        return Ok(None);
     }
     if header.gas_limit != expected_payload.block_metadata.gas_limit {
-        return Ok(false);
+        return Ok(None);
     }
     if header.timestamp != expected_payload.payload_attributes.timestamp {
-        return Ok(false);
+        return Ok(None);
     }
     if header.extra_data != expected_payload.block_metadata.extra_data {
-        return Ok(false);
+        return Ok(None);
     }
 
-    Ok(matches!(
+    let matches_base_fee = matches!(
         header.base_fee_per_gas,
         Some(base_fee) if U256::from(base_fee) == expected_payload.base_fee_per_gas
-    ))
+    );
+    Ok(matches_base_fee.then_some(header.hash))
 }
 
-impl<P> EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl EventSyncer {
     /// Build the production router with the enabled paths.
     fn build_router(
         &self,
-        derivation: Arc<ShastaDerivationPipeline<P>>,
+        derivation: Arc<ShastaDerivationPipeline>,
     ) -> Arc<AsyncMutex<ProductionRouter>> {
-        let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
-
-        // Add canonical L1 proposal path.
         let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
             CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
         );
-        paths.push(canonical_path);
 
-        // Add preconfirmation path if enabled.
-        if self.cfg.preconfirmation_enabled {
-            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
-            paths.push(preconf_path);
-        }
+        // The preconfirmation path is only registered when preconfirmation is enabled.
+        let preconf_path = self.cfg.preconfirmation_enabled.then(|| {
+            Arc::new(PreconfirmationPath::new(self.rpc.clone()))
+                as Arc<dyn BlockProductionPath + Send + Sync>
+        });
 
-        Arc::new(AsyncMutex::new(ProductionRouter::new(paths)))
+        Arc::new(AsyncMutex::new(ProductionRouter::new(canonical_path, preconf_path)))
     }
 
     /// Spawn the preconfirmation ingress processing loop.
+    ///
+    /// The event loop is the sole owner of the ingress readiness gate: it opens the gate after
+    /// spawning this loop (and on later probe-passed reopens) and closes it under the router
+    /// lock during scanner reconnects. This loop only reads the gate per job, so a spawn racing
+    /// a reconnect close can never reopen the gate.
     fn spawn_preconf_ingress(
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         mut rx: PreconfReceiver,
-        rpc: Client<P>,
+        rpc: Client,
         ready_flag: Arc<AtomicBool>,
-        ready_notify: Arc<Notify>,
     ) {
         spawn(async move {
             // Start consuming externally supplied preconfirmation payloads after strict event-sync
@@ -362,40 +566,28 @@ where
                 queue_capacity = PRECONF_CHANNEL_CAPACITY,
                 "started preconfirmation ingress loop"
             );
-            // Signal that the ingress loop is ready to accept submissions.
-            ready_flag.store(true, Ordering::Release);
-            ready_notify.notify_waiters();
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
-                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
-                match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
-                    Ok(true) => {
-                        debug!(
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            "acknowledging already materialized preconfirmation payload"
-                        );
-                        let _ = job.respond_to.send(Ok(()));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                        continue;
-                    }
-                    Ok(false) => {}
-                    Err(err) => {
-                        error!(
-                            ?err,
-                            block_number, "failed to check preconfirmation materialization state"
-                        );
-                        let _ = job.respond_to.send(Err(err));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                        continue;
-                    }
-                }
-
                 let router_guard = router.lock().await;
-                // Re-check after acquiring router lock so event-sync updates cannot race this
-                // preconfirmation submission.
+                // Re-check ingress readiness under the router lock: the event loop closes the
+                // gate when the scanner drops into a replay window, and jobs that were already
+                // queued (or raced past the submit-side readiness check) must not inject
+                // against a stale confirmed boundary mid-replay. Replay derivation serializes
+                // on the same lock, so a closed gate observed here is authoritative.
+                if !ready_flag.load(Ordering::Acquire) {
+                    warn!(
+                        block_number,
+                        "rejecting queued preconfirmation payload while ingress is closed"
+                    );
+                    let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
+                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                    continue;
+                }
+                // All remaining checks run while holding the router lock so event-sync updates
+                // and sibling injections cannot race this preconfirmation submission.
                 // On genesis chains head_l1_origin is not yet written; default to 0 so
                 // the staleness check passes for any block_number >= 1.  This matches the
                 // Go driver's `checkMessageBlockNumber` which skips the check when nil.
@@ -405,21 +597,49 @@ where
                     Err(err) => {
                         error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
                         let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                 };
                 if is_stale_preconf(block_number, head_l1_origin_block_id) {
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
+                    DriverMetrics::preconf_stale_dropped_total().inc();
+                    DriverMetrics::preconf_stale_dropped_ingress_total().inc();
                     warn!(
                         block_number,
                         head_l1_origin_block_id,
                         "dropping stale preconfirmation payload in ingress loop"
                     );
-                    let _ = job.respond_to.send(Ok(()));
-                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    let _ = job.respond_to.send(Ok(PreconfSubmissionOutcome::Stale));
+                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
+                }
+                // Decide materialization inside the serialized section and bind the outcome to
+                // the exact observed block hash: once the lock is released a same-height sibling
+                // can become canonical, so callers must never re-resolve the block by height.
+                match materialized_preconfirmation_block_hash(&rpc, job.payload.as_ref()).await {
+                    Ok(Some(block_hash)) => {
+                        debug!(
+                            block_number,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                            %block_hash,
+                            "preconfirmation payload is already materialized"
+                        );
+                        let _ = job
+                            .respond_to
+                            .send(Ok(PreconfSubmissionOutcome::AlreadyMaterialized { block_hash }));
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        error!(
+                            ?err,
+                            block_number, "failed to check preconfirmation materialization state"
+                        );
+                        let _ = job.respond_to.send(Err(err));
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
+                        continue;
+                    }
                 }
 
                 // Single-shot injection while holding router lock to avoid interleaving.
@@ -428,22 +648,39 @@ where
                     .await;
 
                 let duration_secs = start.elapsed().as_secs_f64();
-                histogram!(DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS).record(duration_secs);
+                DriverMetrics::preconf_injection_duration_seconds().observe(duration_secs);
 
                 match router_call {
-                    Ok(_) => {
-                        counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
-                        info!(
-                            block_number,
-                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
-                            duration_secs,
-                            "preconfirmation payload injected"
-                        );
-                        // Return success to the original sender.
-                        let _ = job.respond_to.send(Ok(()));
-                    }
+                    Ok(outcomes) => match outcomes.last() {
+                        Some(outcome) => {
+                            DriverMetrics::preconf_injection_success_total().inc();
+                            let block_hash = outcome.block.header.hash;
+                            info!(
+                                block_number,
+                                build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                                %block_hash,
+                                duration_secs,
+                                "preconfirmation payload injected"
+                            );
+                            // Return the produced block identity to the original sender.
+                            let _ = job
+                                .respond_to
+                                .send(Ok(PreconfSubmissionOutcome::Inserted { block_hash }));
+                        }
+                        // The preconfirmation path always yields exactly one outcome; treat an
+                        // empty result as a missing block rather than fabricating an identity.
+                        None => {
+                            DriverMetrics::preconf_injection_failures_total().inc();
+                            error!(
+                                block_number,
+                                duration_secs, "preconfirmation injection returned no block"
+                            );
+                            let _ =
+                                job.respond_to.send(Err(DriverError::BlockNotFound(block_number)));
+                        }
+                    },
                     Err(err) => {
-                        counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
+                        DriverMetrics::preconf_injection_failures_total().inc();
                         error!(
                             ?err,
                             block_number,
@@ -455,19 +692,81 @@ where
                         let _ = job.respond_to.send(Err(err));
                     }
                 }
-                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
             }
         });
     }
 
-    /// Return whether a failed proposal log is permanently orphaned because its source L1 block
-    /// no longer exists on the provider.
+    /// Run one confirmed-sync probe and open preconfirmation ingress when it passes, spawning
+    /// the ingress consumer on first open.
+    ///
+    /// Must only be called from the event-loop task so gate transitions keep a single owner: an
+    /// open here is program-ordered with any later reconnect close performed by the same loop.
+    async fn try_open_preconf_ingress(
+        &self,
+        router: &Arc<AsyncMutex<ProductionRouter>>,
+        preconf_ingress_spawned: &mut bool,
+    ) {
+        let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
+        if let Err(err) = &confirmed_sync_probe {
+            DriverMetrics::event_confirmed_sync_probe_errors_total().inc();
+            warn!(?err, "confirmed-sync probe failed; keeping preconfirmation ingress closed");
+            return;
+        }
+        if !resolve_confirmed_sync_probe(confirmed_sync_probe) {
+            return;
+        }
+        let rx = self
+            .preconf_rx
+            .lock()
+            .expect("preconfirmation receiver lock should not be poisoned")
+            .take();
+        if let Some(rx) = rx {
+            self.spawn_preconf_ingress(
+                router.clone(),
+                rx,
+                self.rpc.clone(),
+                self.preconf_ingress_ready.clone(),
+            );
+            *preconf_ingress_spawned = true;
+        }
+        // The event loop is the sole owner of the ingress gate: opening it here rather than
+        // inside the freshly spawned consumer cannot race a reconnect close, which the same
+        // event-loop task performs in program order.
+        if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
+            info!("opened preconfirmation ingress after confirmed-sync probe");
+            self.preconf_ingress_notify.notify_waiters();
+        }
+    }
+
+    /// Close preconfirmation ingress ahead of a scanner replay window.
+    ///
+    /// The gate is stored closed before the router lock is touched: the lock is fair, so
+    /// waiting on it first would let every already-queued ingress job acquire ahead of the
+    /// close and inject after lag detection. Storing first bounds post-lag injection to the
+    /// single job currently holding the lock; the acquire/release below is the barrier that
+    /// lets that in-flight injection finish before replay derivation (which serializes on the
+    /// same lock) begins, while every job dequeued afterwards observes the closed gate.
+    ///
+    /// Must only be called from the event-loop task, keeping gate transitions single-owner.
+    async fn close_preconf_ingress(&self, router: &Arc<AsyncMutex<ProductionRouter>>) {
+        if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
+            info!("closing preconfirmation ingress during event scanner reconnect");
+        }
+        drop(router.lock().await);
+    }
+
+    /// Resolve a proposal log's source block against finalized L1 ancestry.
+    ///
+    /// A permanent decision is returned only when finality has reached the log height and every
+    /// required content-addressed ancestry hop is available and height-consistent. Mutable head
+    /// views, missing data, and capped walks remain [`ProposalLogCanonicality::Unproven`].
     #[instrument(skip(self), level = "debug")]
-    async fn is_permanently_orphaned_proposal_log(
+    async fn proposal_log_canonicality(
         &self,
         block_hash: B256,
         log_block_number: Option<u64>,
-    ) -> Result<bool, SyncError> {
+    ) -> Result<ProposalLogCanonicality, SyncError> {
         let block = self
             .rpc
             .l1_provider
@@ -475,29 +774,124 @@ where
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
-        // If the block is still resolvable, the failure came from downstream processing, not a
-        // reorg that removed the source log.
-        if block.is_some() {
-            return Ok(false);
-        }
-
-        let Some(log_block_number) = log_block_number else {
-            // We already proved the block hash is gone, and without a block number there is no
-            // head-height guard we can apply before classifying it as orphaned.
-            return Ok(true);
+        // Resolve the height to compare at, preferring the stored block's own header. Without
+        // either source (the hash is gone and the log carried no number) there is no canonical
+        // row to compare against, so no mismatch can be proven and the log stays retryable;
+        // mined logs always carry a block number, making this fallback effectively unreachable.
+        let Some(block_number) = block.map(|block| block.header.number).or(log_block_number) else {
+            return Ok(ProposalLogCanonicality::Unproven);
         };
 
-        // A transiently lagging provider can return `None` for a block that has not yet reached
-        // the provider's visible head. Only classify the log as orphaned once the head has caught
-        // up to or passed the log's block number.
-        let chain_head = self
-            .rpc
-            .l1_provider
-            .get_block_number()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        // A canonical row is only immutable once its height is finalized. Above the finalized
+        // height a mismatch can still be a transient view split (a load-balanced backend
+        // lagging or briefly following a losing fork) rather than proof that the log's block
+        // lost a reorg — and the scanner, having observed no reorg on its own view, would never
+        // re-serve a wrongly skipped log. Stay retryable until the height finalizes.
+        let finalized_block =
+            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block,
+                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
+        let Some(finalized_block) = finalized_block else {
+            return Ok(ProposalLogCanonicality::Unproven);
+        };
+        if finalized_block.header.number < block_number {
+            return Ok(ProposalLogCanonicality::Unproven);
+        }
 
-        Ok(chain_head >= log_block_number)
+        // The canonical hash at the log height is derived from the finalized block's own
+        // parent-hash chain rather than a by-number read: no multi-request scheme observes one
+        // chain snapshot (not even a JSON-RPC batch — its items execute against live state and,
+        // on some backends, concurrently), while every hop below is a content-addressed by-hash
+        // read that is identical across backends, load balancers, and fork-choice updates.
+        // Missing or inconsistent ancestry data leaves the mismatch unproven, so the log stays
+        // retryable.
+        if finalized_block.header.number - block_number > MAX_ORPHAN_PROOF_ANCESTRY_WALK {
+            warn!(
+                block_number,
+                finalized_block_number = finalized_block.header.number,
+                "orphan-proof ancestry walk exceeds cap; keeping proposal log retryable"
+            );
+            return Ok(ProposalLogCanonicality::Unproven);
+        }
+        let mut cursor = finalized_block;
+        while cursor.header.number > block_number.saturating_add(1) {
+            let parent_number = cursor.header.number - 1;
+            let parent = self
+                .rpc
+                .l1_provider
+                .get_block_by_hash(cursor.header.parent_hash)
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+            let Some(parent) = parent else {
+                return Ok(ProposalLogCanonicality::Unproven);
+            };
+            // Content addressing fixes the parent's height on honest data; treat anything else
+            // as unproven rather than risking a non-terminating walk.
+            if parent.header.number != parent_number {
+                return Ok(ProposalLogCanonicality::Unproven);
+            }
+            cursor = parent;
+        }
+        let canonical_hash_at_height = if cursor.header.number == block_number {
+            cursor.header.hash
+        } else {
+            cursor.header.parent_hash
+        };
+
+        Ok(if canonical_hash_at_height == block_hash {
+            ProposalLogCanonicality::Canonical
+        } else {
+            ProposalLogCanonicality::Orphaned
+        })
+    }
+
+    /// Decide whether a failed attempt on a proposal log aborts or keeps retrying.
+    ///
+    /// Aborting requires both a deterministic engine verdict on the payload content and an
+    /// explicit finalized-ancestry proof of the source log. Unproven canonicality keeps the
+    /// attempt retryable so event-side reorg processing can eventually skip a losing-fork log.
+    fn classify_proposal_processing_failure(
+        &self,
+        err: DriverError,
+        log: &Log,
+        canonicality: ProposalLogCanonicality,
+    ) -> ProposalRetryError {
+        if !is_fatal_proposal_processing_error(&err) {
+            warn!(
+                ?err,
+                tx_hash = ?log.transaction_hash,
+                block_number = log.block_number,
+                "proposal derivation failed; retrying"
+            );
+            return ProposalRetryError::Retry(err);
+        }
+
+        match canonicality {
+            ProposalLogCanonicality::Canonical => {
+                error!(
+                    ?err,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal derivation hit a deterministic engine verdict on a \
+                     proven-canonical log; aborting"
+                );
+                ProposalRetryError::Abort(err)
+            }
+            ProposalLogCanonicality::Orphaned | ProposalLogCanonicality::Unproven => {
+                warn!(
+                    ?err,
+                    ?canonicality,
+                    tx_hash = ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "deterministic engine verdict but finalized ancestry does not prove the \
+                     source log canonical; \
+                     retrying"
+                );
+                ProposalRetryError::Retry(err)
+            }
+        }
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
@@ -605,65 +999,67 @@ where
                 });
             };
 
-            // Retry proposal processing on transient errors.
+            // Retry proposal processing on transient errors; a deterministic engine verdict
+            // aborts only once the source log is proven canonical on L1.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
             let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            let processing = Retry::spawn(retry_strategy, move || {
-                let router = router.clone();
-                let log = proposal_log.clone();
-                async move {
-                    let router_call = {
-                        // Lock router so L1 proposals and preconf inputs cannot interleave.
-                        let router_guard = router.lock().await;
-                        router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
-                    };
+            let processing = RetryIf::spawn(
+                retry_strategy,
+                move || {
+                    let router = router.clone();
+                    let log = proposal_log.clone();
+                    async move {
+                        let router_call = {
+                            // Lock router so L1 proposals and preconf inputs cannot interleave.
+                            let router_guard = router.lock().await;
+                            router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
+                        };
 
-                    match router_call {
-                        Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
-                        Err(err) => match syncer
-                            .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
-                            .await
-                        {
-                            Ok(true) => {
-                                counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
-                                    .increment(1);
-                                warn!(
-                                    ?err,
-                                    block_number = log.block_number,
-                                    block_hash = ?block_hash,
-                                    transaction_hash = ?log.transaction_hash,
-                                    "skipping permanently orphaned proposal log",
-                                );
-                                Ok(ProposalLogResult::SkippedOrphaned)
-                            }
-                            Ok(false) => {
-                                warn!(
-                                    ?err,
-                                    tx_hash = ?log.transaction_hash,
-                                    block_number = log.block_number,
-                                    "proposal derivation failed; retrying"
-                                );
-                                Err(err)
-                            }
-                            Err(recheck_err) => {
-                                warn!(
-                                    ?err,
-                                    ?recheck_err,
-                                    tx_hash = ?log.transaction_hash,
-                                    block_number = log.block_number,
-                                    "proposal derivation failed and orphaned-log recheck errored; retrying"
-                                );
-                                Err(err)
-                            }
-                        },
+                        match router_call {
+                            Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
+                            Err(err) => match syncer
+                                .proposal_log_canonicality(block_hash, log.block_number)
+                                .await
+                            {
+                                Ok(ProposalLogCanonicality::Orphaned) => {
+                                    DriverMetrics::event_orphaned_proposal_logs_total().inc();
+                                    warn!(
+                                        ?err,
+                                        block_number = log.block_number,
+                                        block_hash = ?block_hash,
+                                        transaction_hash = ?log.transaction_hash,
+                                        "skipping permanently orphaned proposal log",
+                                    );
+                                    Ok(ProposalLogResult::SkippedOrphaned)
+                                }
+                                Ok(canonicality) => Err(syncer
+                                    .classify_proposal_processing_failure(err, &log, canonicality)),
+                                Err(recheck_err) => {
+                                    warn!(
+                                        ?err,
+                                        ?recheck_err,
+                                        tx_hash = ?log.transaction_hash,
+                                        block_number = log.block_number,
+                                        "proposal derivation failed and orphaned-log recheck errored; retrying"
+                                    );
+                                    // Surface the retryable recheck error instead of the
+                                    // original failure: a fatal verdict may only abort after
+                                    // the log is proven canonical, never while orphanhood is
+                                    // still unresolved.
+                                    Err(ProposalRetryError::Retry(DriverError::Sync(recheck_err)))
+                                }
+                            },
+                        }
                     }
-                }
-            })
+                },
+                |err: &ProposalRetryError| matches!(err, ProposalRetryError::Retry(_)),
+            )
             .await
+            .map_err(ProposalRetryError::into_inner)
             .map_err(|err| match err {
                 DriverError::Sync(sync_err) => sync_err,
                 DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
@@ -675,7 +1071,7 @@ where
             };
 
             if let Some(last_outcome) = outcomes.last() {
-                gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+                DriverMetrics::event_last_canonical_block_number()
                     .set(last_outcome.block_number() as f64);
             }
 
@@ -686,15 +1082,15 @@ where
                 "successfully processed proposal into L2 blocks",
             );
 
-            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
-            counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
+            DriverMetrics::event_last_canonical_proposal_id().set(proposal_id as f64);
+            DriverMetrics::event_derived_blocks_total().inc_by(outcomes.len() as u64);
         }
         Ok(())
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
-    pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
+    pub async fn new(cfg: &DriverConfig, rpc: Client) -> Result<Self, SyncError> {
         Self::new_with_checkpoint_resume_head(cfg, rpc, Arc::new(CheckpointResumeHead::default()))
             .await
     }
@@ -703,7 +1099,7 @@ where
     #[instrument(skip(cfg, rpc, checkpoint_resume_head))]
     pub(crate) async fn new_with_checkpoint_resume_head(
         cfg: &DriverConfig,
-        rpc: Client<P>,
+        rpc: Client,
         checkpoint_resume_head: Arc<CheckpointResumeHead>,
     ) -> Result<Self, SyncError> {
         let blob_source = Arc::new(
@@ -721,7 +1117,7 @@ where
         } else {
             (None, None)
         };
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
+        DriverMetrics::event_last_canonical_block_number().set(0.0);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -732,11 +1128,6 @@ where
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
-    }
-
-    /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
-    pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
-        self.preconf_tx.clone()
     }
 
     /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
@@ -802,7 +1193,7 @@ where
     pub async fn submit_preconfirmation_payload(
         &self,
         payload: PreconfPayload,
-    ) -> Result<(), DriverError> {
+    ) -> Result<PreconfSubmissionOutcome, DriverError> {
         self.submit_preconfirmation_payload_with_timeout(
             payload,
             PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
@@ -815,7 +1206,7 @@ where
         &self,
         payload: PreconfPayload,
         timeout_duration: Duration,
-    ) -> Result<(), DriverError> {
+    ) -> Result<PreconfSubmissionOutcome, DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
 
         // Reject early if strict ingress gating is not satisfied yet.
@@ -823,13 +1214,18 @@ where
             return Err(DriverError::PreconfIngressNotReady);
         }
 
-        if preconfirmation_payload_is_materialized(&self.rpc, &payload).await? {
+        // Best-effort duplicate fast path outside the serialized loop: the returned outcome
+        // carries the exact hash this check observed, so it stays self-consistent even if a
+        // sibling becomes canonical afterwards.
+        let materialized_block_hash =
+            materialized_preconfirmation_block_hash(&self.rpc, &payload).await?;
+        if let Some(block_hash) = materialized_block_hash {
             debug!(
                 block_number = payload.block_number(),
                 build_payload_args_id = %PayloadId::new(payload.payload().l1_origin.build_payload_args_id),
-                "skipping already materialized preconfirmation payload"
+                %block_hash,
+                "preconfirmation payload is already materialized"
             );
-            return Ok(());
         }
 
         let block_number = payload.block_number();
@@ -840,13 +1236,16 @@ where
             None => 0,
         };
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
-            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-            counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
+            DriverMetrics::preconf_stale_dropped_total().inc();
+            DriverMetrics::preconf_stale_dropped_before_enqueue_total().inc();
             warn!(
                 block_number,
                 head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
             );
-            return Ok(());
+            return Ok(PreconfSubmissionOutcome::Stale);
+        }
+        if let Some(block_hash) = materialized_block_hash {
+            return Ok(PreconfSubmissionOutcome::AlreadyMaterialized { block_hash });
         }
 
         debug!(block_number, "submitting preconfirmation payload to queue");
@@ -862,7 +1261,7 @@ where
 
         match enqueue_result {
             Err(_) => {
-                counter!(DriverMetrics::PRECONF_ENQUEUE_TIMEOUTS_TOTAL).increment(1);
+                DriverMetrics::preconf_enqueue_timeouts_total().inc();
                 error!(
                     block_number,
                     timeout_ms = timeout_duration.as_millis() as u64,
@@ -871,7 +1270,7 @@ where
                 return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
             }
             Ok(Err(err)) => {
-                counter!(DriverMetrics::PRECONF_ENQUEUE_FAILURES_TOTAL).increment(1);
+                DriverMetrics::preconf_enqueue_failures_total().inc();
                 error!(block_number, ?err, "preconfirmation enqueue failed");
                 return Err(DriverError::PreconfEnqueueFailed(err.to_string()));
             }
@@ -883,9 +1282,9 @@ where
         // Await the processing result with timeout.
         let response_result = timeout(timeout_duration, resp_rx).await;
 
-        match response_result {
+        let outcome = match response_result {
             Err(_) => {
-                counter!(DriverMetrics::PRECONF_RESPONSE_TIMEOUTS_TOTAL).increment(1);
+                DriverMetrics::preconf_response_timeouts_total().inc();
                 error!(
                     block_number,
                     timeout_ms = timeout_duration.as_millis() as u64,
@@ -894,7 +1293,7 @@ where
                 return Err(DriverError::PreconfResponseTimeout { waited: timeout_duration });
             }
             Ok(Err(err)) => {
-                counter!(DriverMetrics::PRECONF_RESPONSE_DROPPED_TOTAL).increment(1);
+                DriverMetrics::preconf_response_dropped_total().inc();
                 error!(block_number, ?err, "preconfirmation response channel closed");
                 return Err(DriverError::PreconfResponseDropped { recv_error: err });
             }
@@ -902,12 +1301,12 @@ where
                 if let Err(ref err) = inner_result {
                     warn!(block_number, ?err, "preconfirmation processing returned error");
                 }
-                inner_result?;
+                inner_result?
             }
-        }
+        };
 
-        debug!(block_number, "preconfirmation payload processed successfully");
-        Ok(())
+        debug!(block_number, ?outcome, "preconfirmation payload processed successfully");
+        Ok(outcome)
     }
 
     /// Resolve the L2 execution block used as event-sync resume source.
@@ -945,21 +1344,13 @@ where
             (head_l1_origin_block_id, rpc_l2_block_number)
         };
 
-        let resume_head_block_number = resolve_resume_head_block_number(
+        let (resume_head_block_number, source) = resolve_resume_head_block_number(
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
             rpc_l2_block_number,
         )?;
 
-        let source = match (checkpoint_configured, head_l1_origin_block_id, rpc_l2_block_number) {
-            (true, _, _) => "checkpoint-synced head",
-            (false, Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => {
-                "lower rpc block number (instead of local head_l1_origin)"
-            }
-            (false, Some(_), _) => "local head_l1_origin",
-            (false, None, _) => "genesis fallback (head_l1_origin unavailable)",
-        };
         info!(
             resume_head_block_number,
             head_l1_origin_block_id, rpc_l2_block_number, source, "resolved event resume source",
@@ -1020,8 +1411,8 @@ where
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
 
-        // Try to get finalized snapshot. When unavailable, fall back to genesis replay
-        // which is safe because derivation is idempotent.
+        // Try to get finalized snapshot. When unavailable, replay proposal zero from the inbox
+        // activation block, which is safe because derivation is idempotent.
         let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
 
         let (target_proposal_id, finalized_safe_proposal_id) =
@@ -1046,47 +1437,83 @@ where
             resume_number = resume_head_block.number(),
             "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
-        if target_proposal_id == 0 {
-            let start_block = finalized_snapshot.as_ref().map_or(0, |snapshot| {
-                resolve_zero_target_start_block(
-                    snapshot.finalized_safe_proposal_id,
-                    snapshot.block_number,
-                )
-            });
-            info!(
-                start_block,
-                finalized_safe_proposal_id,
-                finalized_block_number,
-                "resolved zero-target scanner start block",
-            );
-            return Ok(EventStreamStartPoint {
-                anchor_block_number: start_block,
-                initial_proposal_id: 0,
-                bootstrap_confirmed_tip: 0,
-            });
-        }
+        // Batch zero is the genesis boundary: the engine has no mapping for it and looking it up
+        // would trigger a full backward chain scan, so route it through the fallback arms below.
+        let target_block_number = if target_proposal_id == 0 {
+            None
+        } else {
+            self.rpc
+                .last_block_id_by_batch_id(U256::from(target_proposal_id))
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                .map(|block_number| block_number.to::<u64>())
+        };
 
-        let target_block_number = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(target_proposal_id))
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
-        let target_block = self
-            .rpc
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
-            .full()
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
-            .map_transactions(|tx: RpcTransaction| tx.into());
+        let (target_block, bootstrap_confirmed_tip) = match target_block_number {
+            // The mapped target block usually is the resume head itself; skip the refetch.
+            Some(block_number) if block_number == resume_head_block.header.number => {
+                (resume_head_block, block_number)
+            }
+            Some(block_number) => {
+                let block = self
+                    .rpc
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Number(block_number))
+                    .full()
+                    .await
+                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                    .ok_or(SyncError::MissingExecutionBlock { number: block_number })?
+                    .map_transactions(|tx: RpcTransaction| tx.into());
+                (block, block_number)
+            }
+            None => {
+                match resolve_missing_batch_mapping_fallback(target_proposal_id, resume_proposal_id)
+                {
+                    MissingBatchMappingFallback::UseResumeHead => {
+                        if target_proposal_id == 0 {
+                            info!(
+                                resume_number = resume_head_block.header.number,
+                                "bootstrapping event sync from the genesis resume head",
+                            );
+                        } else {
+                            warn!(
+                                target_proposal_id,
+                                resume_number = resume_head_block.header.number,
+                                "batch mapping unavailable for resume-head proposal; extracting \
+                                 anchor from the resume head block",
+                            );
+                        }
+                        let resume_number = resume_head_block.header.number;
+                        (resume_head_block, resume_number)
+                    }
+                    MissingBatchMappingFallback::ReplayFromActivation => {
+                        let anchor_block_number = self.activation_block_number().await?;
+                        if target_proposal_id == 0 {
+                            info!(
+                                resume_proposal_id,
+                                anchor_block_number,
+                                "no finalized proposal to resume from; replaying derivation from \
+                                 the activation block",
+                            );
+                        } else {
+                            warn!(
+                                target_proposal_id,
+                                resume_proposal_id,
+                                anchor_block_number,
+                                "batch mapping unavailable for finalized-bounded target; replaying \
+                                 derivation from the activation block",
+                            );
+                        }
+                        return Ok(EventStreamStartPoint {
+                            anchor_block_number,
+                            initial_proposal_id: 0,
+                            bootstrap_confirmed_tip: 0,
+                        });
+                    }
+                }
+            }
+        };
 
-        info!(
-            target_hash = ?target_block.hash(),
-            target_block_number = target_block.number(),
-            "determined target block for anchor extraction",
-        );
         let anchor_block_number =
             self.decode_anchor_block_number(&target_block, anchor_address).await?;
         info!(
@@ -1094,20 +1521,17 @@ where
             target_hash = ?target_block.hash(),
             target_number = target_block.number(),
             target_proposal_id,
-            "derived anchor block number from anchorV4 transaction",
+            "derived anchor block number from target block",
         );
         Ok(EventStreamStartPoint {
             anchor_block_number,
             initial_proposal_id: target_proposal_id,
-            bootstrap_confirmed_tip: target_block_number.to::<u64>(),
+            bootstrap_confirmed_tip,
         })
     }
 }
 
-impl<P> EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl EventSyncer {
     /// Resolve the activation block number by converting the inbox activation timestamp through
     /// the beacon endpoint.
     async fn activation_block_number(&self) -> Result<u64, SyncError> {
@@ -1181,27 +1605,12 @@ fn decode_anchor_call(
     let missing =
         |reason: &'static str| SyncError::MissingAnchorTransaction { block_number, reason };
 
-    let txs = block
-        .transactions
-        .as_transactions()
-        .ok_or_else(|| missing("block body returned only transaction hashes"))?;
-    let first_tx = txs.first().ok_or_else(|| missing("block contains no transactions"))?;
-    // Anchor transactions are injected as the first transaction for every non-genesis block.
-    let destination =
-        first_tx.to().ok_or_else(|| missing("unable to determine anchor transaction recipient"))?;
-    if destination != anchor_address {
-        return Err(missing("first transaction is not the anchor contract"));
-    }
-
-    anchorV4Call::abi_decode(first_tx.input())
-        .map_err(|_| missing("failed to decode anchorV4 calldata"))
+    let input = crate::anchor_tx::first_anchor_tx_input(block, anchor_address).map_err(missing)?;
+    anchorV4Call::abi_decode(input).map_err(|_| missing("failed to decode anchorV4 calldata"))
 }
 
 #[async_trait::async_trait]
-impl<P> SyncStage for EventSyncer<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl SyncStage for EventSyncer {
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
@@ -1210,8 +1619,8 @@ where
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(initial_proposal_id as f64);
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+        DriverMetrics::event_last_canonical_proposal_id().set(initial_proposal_id as f64);
+        DriverMetrics::event_last_canonical_block_number()
             .set(start_point.bootstrap_confirmed_tip as f64);
         info!(
             initial_proposal_id,
@@ -1235,15 +1644,23 @@ where
 
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
-        let mut scanner_live = false;
         let mut scanner_started_once = false;
+        // Keep successful proposal identities across scanner generations. A reconnect rewinds
+        // to a safe overlap, but exact replayed logs do not need another blob fetch and full
+        // derivation. Changed log identities still take the normal reorg path (WLP-INV-004,
+        // WLP-INV-009).
+        let mut processed_proposal_logs = ProcessedProposalLogCache::default();
+        // Retain reconnect failures until a generation processes successful live activity. Merely
+        // receiving `SwitchingToLive` is insufficient because event-scanner emits it before the
+        // first live `eth_getLogs` request.
+        let mut scanner_reconnect_state = ScannerReconnectState::default();
 
         loop {
-            if !preconf_ingress_spawned {
-                // A reconnect re-enters historical sync and must wait for a fresh
-                // `SwitchingToLive` notification before probing ingress readiness.
-                scanner_live = false;
-            }
+            // Every reconnect re-enters historical sync with a fresh scanner, so the previous
+            // generation's live state must not leak forward: (re)opening ingress requires a
+            // fresh `SwitchingToLive` from the scanner actually streaming plus a passed
+            // confirmed-sync probe (WLP-INV-002).
+            scanner_reconnect_state.begin_generation();
             let mut scanner = match self
                 .cfg
                 .client
@@ -1254,14 +1671,16 @@ where
                 Ok(scanner) => scanner,
                 Err(err) => {
                     let err =
-                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
+                        super::retryable_after_first_success(scanner_started_once, err.to_string())
+                            .map_err(SyncError::EventScannerInit)?;
+                    let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
-                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        retry_after_secs = delay.as_secs_f64(),
                         "failed to initialize event scanner; retrying"
                     );
-                    sleep(self.cfg.retry_interval).await;
+                    sleep(delay).await;
                     continue;
                 }
             };
@@ -1276,14 +1695,16 @@ where
                 }
                 Err(err) => {
                     let err =
-                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
+                        super::retryable_after_first_success(scanner_started_once, err.to_string())
+                            .map_err(SyncError::EventScannerInit)?;
+                    let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
-                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        retry_after_secs = delay.as_secs_f64(),
                         "failed to start event scanner; retrying"
                     );
-                    sleep(self.cfg.retry_interval).await;
+                    sleep(delay).await;
                     continue;
                 }
             };
@@ -1295,17 +1716,52 @@ where
             );
 
             let mut last_seen_l1_block_number = None;
+            // Retry ingress reopening on a timer as well as on stream items: on a quiet inbox
+            // the stream yields nothing (see `CONFIRMED_SYNC_PROBE_RETRY_INTERVAL`), so a
+            // transiently failed probe must not have to wait for the next proposal event.
+            let mut probe_retry = interval(CONFIRMED_SYNC_PROBE_RETRY_INTERVAL);
+            probe_retry.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-            while let Some(message) = stream.next().await {
+            loop {
+                let message = tokio::select! {
+                    message = stream.next() => {
+                        let Some(message) = message else {
+                            break;
+                        };
+                        message
+                    }
+                    _ = probe_retry.tick(), if should_probe_confirmed_sync(
+                        self.cfg.preconfirmation_enabled,
+                        preconf_ingress_spawned,
+                        self.preconf_ingress_ready.load(Ordering::Acquire),
+                        scanner_reconnect_state.is_live(),
+                    ) => {
+                        self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned)
+                            .await;
+                        continue;
+                    }
+                };
                 debug!(?message, "received inbox proposal message from event scanner");
                 match message {
                     Ok(ScannerMessage::Data(logs)) => {
                         if let Some(block_number) = logs.last().and_then(|log| log.block_number) {
                             last_seen_l1_block_number = Some(block_number);
                         }
-                        counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+                        DriverMetrics::event_scanner_batches_total().inc();
+                        DriverMetrics::event_proposals_total().inc_by(logs.len() as u64);
+                        let received_log_count = logs.len();
+                        let logs = processed_proposal_logs.retain_unprocessed(logs);
+                        let replayed_log_count = received_log_count - logs.len();
+                        if replayed_log_count > 0 {
+                            info!(
+                                replayed_log_count,
+                                "skipping exact proposal log replays after scanner reconnect"
+                            );
+                        }
+                        let processed_logs = logs.clone();
                         self.process_log_batch(router.clone(), logs).await?;
+                        processed_proposal_logs.record_processed(&processed_logs);
+                        scanner_reconnect_state.mark_successful_batch();
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
@@ -1314,9 +1770,10 @@ where
                                 // Scanner live is necessary but not sufficient: confirmed-sync
                                 // readiness must also pass before ingress
                                 // opens.
-                                scanner_live = true;
+                                scanner_reconnect_state.mark_switching_to_live();
                             }
                             Notification::ReorgDetected { common_ancestor } => {
+                                processed_proposal_logs.invalidate_after(common_ancestor);
                                 if timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
@@ -1336,9 +1793,23 @@ where
                         }
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                        error!(?err, "error receiving proposal logs from event scanner");
-                        continue;
+                        DriverMetrics::event_scanner_errors_total().inc();
+                        // Every stream error ends the generation. `Lagged` is the only
+                        // non-terminal error, but its dropped ranges are never re-fetched, so
+                        // continuing would silently skip proposals; all other errors halt the
+                        // stream on their own, and waiting for the trailing `None` would let
+                        // the probe-retry timer reopen ingress on a generation whose scanner is
+                        // already dead (WLP-INV-002).
+                        if matches!(err, ScannerError::Lagged(_)) {
+                            warn!(
+                                ?err,
+                                "event scanner dropped lagged block ranges; replaying from \
+                                 reconnect overlap"
+                            );
+                        } else {
+                            error!(?err, "terminal event scanner error; reconnecting");
+                        }
+                        break;
                     }
                 }
 
@@ -1346,47 +1817,15 @@ where
                     self.cfg.preconfirmation_enabled,
                     preconf_ingress_spawned,
                     self.preconf_ingress_ready.load(Ordering::Acquire),
-                    scanner_live,
+                    scanner_reconnect_state.is_live(),
                 ) {
-                    let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
-                    if let Err(err) = &confirmed_sync_probe {
-                        counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL)
-                            .increment(1);
-                        warn!(
-                            ?err,
-                            "confirmed-sync probe failed; keeping preconfirmation ingress closed"
-                        );
-                        continue;
-                    }
-                    let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                    if confirmed_sync_ready {
-                        let rx = self
-                            .preconf_rx
-                            .lock()
-                            .expect("preconfirmation receiver lock should not be poisoned")
-                            .take();
-                        if let Some(rx) = rx {
-                            self.spawn_preconf_ingress(
-                                router.clone(),
-                                rx,
-                                self.rpc.clone(),
-                                self.preconf_ingress_ready.clone(),
-                                self.preconf_ingress_notify.clone(),
-                            );
-                            preconf_ingress_spawned = true;
-                        } else if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
-                            info!("re-opened preconfirmation ingress after scanner reconnect");
-                            self.preconf_ingress_notify.notify_waiters();
-                        }
-                    }
+                    self.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
                 }
             }
 
             // A dropped scanner forces a historical replay window again, so close ingress until
             // the next live scanner transition and confirmed-sync probe re-open it.
-            if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
-                info!("closing preconfirmation ingress during event scanner reconnect");
-            }
+            self.close_preconf_ingress(&router).await;
 
             if let Some(block_number) = last_seen_l1_block_number {
                 let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
@@ -1407,12 +1846,13 @@ where
                     startup_anchor_block_number,
                 ));
             }
+            let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
             warn!(
                 start_tag = ?reconnect_start_tag,
-                retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                retry_after_secs = delay.as_secs_f64(),
                 "event scanner stream ended; reconnecting"
             );
-            sleep(self.cfg.retry_interval).await;
+            sleep(delay).await;
         }
     }
 }
@@ -1420,88 +1860,30 @@ where
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::HashSet,
         path::PathBuf,
         sync::{Arc as StdArc, Mutex},
         time::Duration,
     };
 
     use super::*;
-    use alethia_reth_primitives::payload::attributes::{
-        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-    };
+    use alethia_reth_primitives::payload::attributes::RpcL1Origin;
     use alloy::{
-        primitives::{
-            Address, B256, Bytes, FixedBytes, U256,
-            aliases::{U24, U48},
-        },
+        primitives::{Address, B256, Bytes, FixedBytes, U256, aliases::U48},
         transports::http::reqwest::Url,
     };
-    use alloy_provider::{ProviderBuilder, RootProvider};
-    use alloy_rpc_types_engine::PayloadId;
-    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
-    use async_trait::async_trait;
-    use bindings::{
-        anchor::Anchor::AnchorInstance,
-        inbox::{
-            IInbox::{CoreState, DerivationSource},
-            Inbox::{InboxInstance, getCoreStateCall},
-            LibBlobs::BlobSlice,
-        },
-    };
-    use rpc::{
-        SubscriptionSource,
-        blob::BlobDataSource,
-        client::{Client, ClientConfig, ShastaProtocolInstance},
-    };
+    use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
+    use rpc::{SubscriptionSource, blob::BlobDataSource, client::ClientConfig};
 
     use crate::{
-        production::{BlockProductionPath, ProductionInput, ProductionPathKind, ProductionRouter},
-        sync::engine::EngineBlockOutcome,
+        production::{BlockProductionPath, ProductionRouter},
+        test_support::{
+            MockProductionPath, mock_client_with_asserters, mock_client_with_l1_asserter,
+            sample_derivation_source, sample_payload,
+        },
     };
 
-    fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
-        let payload_attributes = EthPayloadAttributes {
-            timestamp: 0,
-            prev_randao: B256::ZERO,
-            suggested_fee_recipient: Address::ZERO,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: Address::ZERO,
-            gas_limit: 0,
-            timestamp: U256::ZERO,
-            mix_hash: B256::ZERO,
-            tx_list: Some(Bytes::new()),
-            extra_data: Bytes::new(),
-        };
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: None,
-            l1_block_hash: None,
-            build_payload_args_id: [0u8; 8],
-            is_forced_inclusion: false,
-            signature: [0u8; 65],
-        };
-
-        TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::ZERO,
-            block_metadata,
-            l1_origin,
-            anchor_transaction: None,
-        }
-    }
-
-    fn mock_client() -> Client<RootProvider> {
-        mock_client_with_l1_asserter(Asserter::new())
-    }
-
-    async fn build_syncer() -> EventSyncer<RootProvider> {
+    async fn build_syncer() -> EventSyncer {
         let client_config = ClientConfig {
             l1_provider_source: SubscriptionSource::Http(
                 Url::parse("http://localhost:8545").expect("valid http url"),
@@ -1511,20 +1893,20 @@ mod tests {
             jwt_secret: PathBuf::from("/dev/null"),
             inbox_address: Address::ZERO,
         };
-        let mut cfg = DriverConfig::new(
+        let cfg = DriverConfig::new(
             client_config,
             Duration::from_secs(1),
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
             None,
+            true,
         );
-        cfg.preconfirmation_enabled = true;
 
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
         EventSyncer {
-            rpc: mock_client(),
+            rpc: mock_client_with_l1_asserter(Asserter::new()),
             cfg,
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
@@ -1533,6 +1915,32 @@ mod tests {
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
+    }
+
+    /// L1 block response with explicit height, hash, and parent hash for orphan-proof tests.
+    fn l1_block_at(number: u64, hash: B256, parent_hash: B256) -> Option<RpcBlock<TxEnvelope>> {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.number = number;
+        block.header.hash = hash;
+        block.header.parent_hash = parent_hash;
+        Some(block)
+    }
+
+    /// Build a syncer over `asserter` and run the orphan check, returning its raw result.
+    ///
+    /// Callers push the L1 provider responses onto `asserter` first (and keep a clone when the
+    /// test also asserts the drained queue), then assert on the returned result themselves.
+    async fn check_orphaned_proposal_log(
+        asserter: Asserter,
+        block_hash: B256,
+        log_block_number: Option<u64>,
+    ) -> Result<bool, SyncError> {
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        syncer
+            .proposal_log_canonicality(block_hash, log_block_number)
+            .await
+            .map(|canonicality| canonicality == ProposalLogCanonicality::Orphaned)
     }
 
     fn sample_event_log_with_block_hash(block_hash: B256) -> Log {
@@ -1548,17 +1956,6 @@ mod tests {
         }
     }
 
-    fn sample_derivation_source() -> DerivationSource {
-        DerivationSource {
-            isForcedInclusion: false,
-            blobSlice: BlobSlice {
-                blobHashes: vec![FixedBytes::ZERO],
-                offset: U24::ZERO,
-                timestamp: U48::ZERO,
-            },
-        }
-    }
-
     fn sample_proposed_log(proposal_id: u64, block_hash: B256, transaction_hash: B256) -> Log {
         let proposed = Proposed {
             id: U48::from(proposal_id),
@@ -1566,7 +1963,7 @@ mod tests {
             parentProposalHash: FixedBytes::from([proposal_id as u8; 32]),
             endOfSubmissionWindowTimestamp: U48::from(1u64),
             basefeeSharingPctg: 0,
-            sources: vec![sample_derivation_source()],
+            sources: vec![sample_derivation_source(vec![FixedBytes::ZERO], false)],
         };
 
         Log {
@@ -1582,11 +1979,109 @@ mod tests {
         }
     }
 
-    fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
-        let mut block = RpcBlock::<TxEnvelope>::default();
-        block.header.number = block_number;
-        block.header.hash = B256::from([block_number as u8; 32]);
-        EngineBlockOutcome { block, payload_id: PayloadId::new([block_number as u8; 8]) }
+    #[test]
+    fn processed_proposal_log_cache_skips_only_exact_reconnect_replay() {
+        let original = sample_proposed_log(1, B256::from([0x11; 32]), B256::from([0x21; 32]));
+        let replacement = sample_proposed_log(1, B256::from([0x12; 32]), B256::from([0x22; 32]));
+        let mut cache = ProcessedProposalLogCache::default();
+
+        cache.record_processed(std::slice::from_ref(&original));
+
+        assert!(cache.retain_unprocessed(vec![original]).is_empty());
+        assert_eq!(cache.retain_unprocessed(vec![replacement]).len(), 1);
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_invalidates_entries_above_reorg_ancestor() {
+        let ancestor_log = sample_proposed_log(10, B256::from([0x31; 32]), B256::from([0x41; 32]));
+        let reorged_log = sample_proposed_log(11, B256::from([0x32; 32]), B256::from([0x42; 32]));
+        let mut cache = ProcessedProposalLogCache::default();
+        cache.record_processed(&[ancestor_log.clone(), reorged_log.clone()]);
+
+        cache.invalidate_after(10);
+
+        assert!(cache.retain_unprocessed(vec![ancestor_log]).is_empty());
+        assert_eq!(cache.retain_unprocessed(vec![reorged_log]).len(), 1);
+    }
+
+    #[test]
+    fn processed_proposal_log_cache_evicts_oldest_entry_at_capacity() {
+        let mut cache = ProcessedProposalLogCache::default();
+        let logs = (1..=PROCESSED_PROPOSAL_LOG_CACHE_CAPACITY as u64 + 1)
+            .map(|id| {
+                sample_proposed_log(id, B256::from(U256::from(id)), B256::from(U256::from(id + 1)))
+            })
+            .collect::<Vec<_>>();
+
+        for log in &logs {
+            cache.record_processed(std::slice::from_ref(log));
+        }
+
+        assert_eq!(cache.retain_unprocessed(vec![logs[0].clone()]).len(), 1);
+        assert!(cache.retain_unprocessed(vec![logs.last().unwrap().clone()]).is_empty());
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_backs_off_exponentially_to_the_configured_cap() {
+        let cap = Duration::from_secs(12);
+        let delays: Vec<u64> =
+            (0..7).map(|failures| scanner_reconnect_delay(cap, failures).as_secs()).collect();
+        assert_eq!(delays, vec![1, 2, 4, 8, 12, 12, 12]);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_never_exceeds_a_small_configured_interval() {
+        let cap = Duration::from_secs(2);
+        assert_eq!(scanner_reconnect_delay(cap, 0), Duration::from_secs(1));
+        assert_eq!(scanner_reconnect_delay(cap, 5), cap);
+        assert_eq!(scanner_reconnect_delay(Duration::ZERO, 3), Duration::ZERO);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_saturates_on_large_failure_counts() {
+        let cap = Duration::from_secs(12);
+        assert_eq!(scanner_reconnect_delay(cap, u32::MAX), cap);
+    }
+
+    #[test]
+    fn scanner_reconnect_delay_reaches_a_configured_cap_above_sixty_four_seconds() {
+        let cap = Duration::from_secs(120);
+        assert_eq!(scanner_reconnect_delay(cap, 6), Duration::from_secs(64));
+        assert_eq!(scanner_reconnect_delay(cap, 7), cap);
+    }
+
+    #[test]
+    fn scanner_reconnect_backoff_keeps_escalating_without_successful_live_activity() {
+        let cap = Duration::from_secs(12);
+        let mut state = ScannerReconnectState::default();
+
+        let delays = (0..5)
+            .map(|_| {
+                state.begin_generation();
+                state.mark_successful_batch();
+                state.mark_switching_to_live();
+                state.next_delay(cap).as_secs()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(delays, vec![1, 2, 4, 8, 12]);
+    }
+
+    #[test]
+    fn scanner_reconnect_backoff_resets_after_successful_live_activity() {
+        let cap = Duration::from_secs(12);
+        let mut state = ScannerReconnectState::default();
+
+        state.begin_generation();
+        assert_eq!(state.next_delay(cap), Duration::from_secs(1));
+        state.begin_generation();
+        assert_eq!(state.next_delay(cap), Duration::from_secs(2));
+
+        state.begin_generation();
+        state.mark_switching_to_live();
+        state.mark_successful_batch();
+
+        assert_eq!(state.next_delay(cap), Duration::from_secs(1));
     }
 
     fn sample_core_state(next_proposal_id: u64) -> CoreState {
@@ -1600,174 +2095,62 @@ mod tests {
         }
     }
 
-    #[derive(Clone)]
-    struct MockBatchPath {
-        orphaned_tx_hashes: StdArc<HashSet<B256>>,
-        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
-    }
-
-    impl MockBatchPath {
-        fn new(orphaned_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
-            Self {
-                orphaned_tx_hashes: StdArc::new(orphaned_tx_hashes.into_iter().collect()),
-                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
-            }
-        }
-
-        fn seen_tx_hashes(&self) -> Vec<B256> {
-            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockBatchPath {
-        fn kind(&self) -> ProductionPathKind {
-            ProductionPathKind::L1Events
-        }
-
-        async fn produce(
-            &self,
-            input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let ProductionInput::L1ProposalLog(log) = input else {
-                panic!("mock batch path only supports L1 proposal logs");
-            };
-
-            let tx_hash =
-                log.transaction_hash.expect("test proposal log should always include tx hash");
-            self.seen_tx_hashes
-                .lock()
-                .expect("seen tx hashes mutex should not be poisoned")
-                .push(tx_hash);
-
-            if self.orphaned_tx_hashes.contains(&tx_hash) {
-                return Err(DriverError::Other(anyhow!("mock orphaned proposal failure")));
-            }
-
-            Ok(vec![sample_engine_outcome(
-                log.block_number.expect("test proposal log should always include block number"),
-            )])
-        }
-    }
-
-    #[derive(Clone)]
-    struct MockRetryBatchPath {
-        fail_once_tx_hashes: StdArc<Mutex<HashSet<B256>>>,
-        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
-    }
-
-    impl MockRetryBatchPath {
-        fn new(fail_once_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
-            Self {
-                fail_once_tx_hashes: StdArc::new(Mutex::new(
-                    fail_once_tx_hashes.into_iter().collect(),
-                )),
-                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
-            }
-        }
-
-        fn seen_tx_hashes(&self) -> Vec<B256> {
-            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
-        }
-    }
-
-    #[async_trait]
-    impl BlockProductionPath for MockRetryBatchPath {
-        fn kind(&self) -> ProductionPathKind {
-            ProductionPathKind::L1Events
-        }
-
-        async fn produce(
-            &self,
-            input: ProductionInput,
-        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
-            let ProductionInput::L1ProposalLog(log) = input else {
-                panic!("mock retry batch path only supports L1 proposal logs");
-            };
-
-            let tx_hash =
-                log.transaction_hash.expect("test proposal log should always include tx hash");
-            self.seen_tx_hashes
-                .lock()
-                .expect("seen tx hashes mutex should not be poisoned")
-                .push(tx_hash);
-
-            if self
-                .fail_once_tx_hashes
-                .lock()
-                .expect("fail-once tx hashes mutex should not be poisoned")
-                .remove(&tx_hash)
-            {
-                return Err(DriverError::Other(anyhow!("mock retryable proposal failure")));
-            }
-
-            Ok(vec![sample_engine_outcome(
-                log.block_number.expect("test proposal log should always include block number"),
-            )])
-        }
-    }
-
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
-        mock_client_with_asserters(l1_asserter, Asserter::new())
-    }
-
-    fn mock_client_with_asserters(
-        l1_asserter: Asserter,
-        l2_auth_asserter: Asserter,
-    ) -> Client<RootProvider> {
-        let l1_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
-        let l2_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let l2_auth_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(l2_auth_asserter);
-        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
-        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
-        let shasta = ShastaProtocolInstance { inbox, anchor };
-
-        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
-    }
-
     #[tokio::test]
-    async fn orphaned_proposal_log_is_permanent_when_l1_block_is_missing() {
+    async fn proposal_log_is_orphaned_when_missing_by_hash_and_canonical_hash_differs() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
+        // The reorged-out block is no longer served by hash and the finalized block sits at the
+        // log height with a different hash, proving the source block left the canonical chain.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&1u64);
+        asserter.push_success(&l1_block_at(1, B256::from([6u8; 32]), B256::ZERO));
 
-        let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([1u8; 32]), Some(1))
             .await
-            .expect("block lookup should succeed");
+            .expect("block lookups should succeed");
 
         assert!(is_orphaned);
     }
 
     #[tokio::test]
-    async fn proposal_log_is_retryable_when_chain_head_is_behind_missing_block() {
+    async fn proposal_log_is_retryable_when_missing_by_hash_but_still_canonical() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
+        let block_hash = B256::from([8u8; 32]);
+        // A lagging or mixed RPC backend cannot resolve the hash, but the finalized block at
+        // the log height carries the same hash: the block is canonical and the by-hash miss
+        // was transient, so the log must stay retryable instead of being skipped.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&0u64);
+        asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
 
-        let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_finalized_ancestor_is_missing() {
+        let asserter = Asserter::new();
+        // The finalized block anchors the walk, but the hop toward the log height cannot be
+        // resolved, so no mismatch is proven and the log stays retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([5u8; 32]), Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_missing_by_hash_without_height() {
+        let asserter = Asserter::new();
+        // The hash is gone and the log carries no block number, so there is no canonical row
+        // to compare against — without a proven mismatch the log must stay retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([9u8; 32]), None)
             .await
             .expect("block lookup should succeed");
 
@@ -1775,24 +2158,207 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_is_retryable_when_l1_block_still_exists() {
+    async fn proposal_log_is_retryable_when_l1_block_is_still_canonical() {
         let asserter = Asserter::new();
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(asserter.clone()),
-            ..build_syncer().await
-        };
-        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+        let block_hash = B256::from([2u8; 32]);
+        // The block resolves by hash and the finalized block at its height carries the same
+        // hash, so the derivation failure came from downstream processing.
+        asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
+        asserter.push_success(&l1_block_at(1, block_hash, B256::ZERO));
 
-        let log = sample_event_log_with_block_hash(B256::from([2u8; 32]));
-        let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(
-                log.block_hash.expect("test log should include block hash"),
-                log.block_number,
-            )
+        let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
             .await
-            .expect("block lookup should succeed");
+            .expect("block lookups should succeed");
 
         assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_orphaned_when_stored_block_is_not_canonical() {
+        let asserter = Asserter::new();
+        // Nodes keep serving reorged-out blocks by hash, so the by-hash lookup succeeds...
+        asserter.push_success(&l1_block_at(1, B256::from([4u8; 32]), B256::ZERO));
+        // ...but the finalized child's parent hash differs at the log height.
+        asserter.push_success(&l1_block_at(2, B256::from([0xf2u8; 32]), B256::from([6u8; 32])));
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([4u8; 32]), Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_orphaned_after_walking_finalized_ancestry() {
+        let asserter = Asserter::new();
+        // The finalized block sits two above the log height; one content-addressed hop reaches
+        // the log-height child, whose parent hash differs from the log's block hash.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&l1_block_at(2, B256::from([0xf2u8; 32]), B256::from([6u8; 32])));
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([7u8; 32]), Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_walked_ancestor_matches() {
+        let asserter = Asserter::new();
+        let block_hash = B256::from([7u8; 32]);
+        // Same walk, but the ancestor at the log height is the log's own block: canonical.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&l1_block_at(2, B256::from([0xf2u8; 32]), block_hash));
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, block_hash, Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_ancestor_height_is_inconsistent() {
+        let asserter = Asserter::new();
+        // A hop returning a block at the wrong height cannot extend the proof; treat it as
+        // unproven instead of walking further.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(3, B256::from([0xf3u8; 32]), B256::from([0xf2u8; 32])));
+        asserter.push_success(&l1_block_at(7, B256::from([0xf2u8; 32]), B256::ZERO));
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([7u8; 32]), Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_ancestry_walk_exceeds_cap() {
+        let asserter = Asserter::new();
+        // Finality this far above the log height is unreachable for live orphan candidates;
+        // the capped walk stays retryable instead of issuing an unbounded chain of hops.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(1000, B256::from([0xf1u8; 32]), B256::ZERO));
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([8u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(asserter.read_q().is_empty(), "capped walk must not fetch ancestors");
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_without_ancestor_fetch_at_one_over_cap_distance() {
+        let asserter = Asserter::new();
+        // Log height 1 vs finalized height cap + 2 puts the walk distance at exactly cap + 1,
+        // the smallest beyond-cap distance: the guard must trip before any ancestor hop.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(
+            MAX_ORPHAN_PROOF_ANCESTRY_WALK + 2,
+            B256::from([0xf1u8; 32]),
+            B256::from([0xf0u8; 32]),
+        ));
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([8u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(asserter.read_q().is_empty(), "one-over-cap distance must not fetch ancestors");
+    }
+
+    #[tokio::test]
+    async fn proposal_log_ancestry_walk_starts_at_exact_cap_distance() {
+        let asserter = Asserter::new();
+        // Log height 1 vs finalized height cap + 1 puts the walk distance at exactly the cap,
+        // the largest in-cap distance: the walk must start, and its first (missing) ancestor
+        // hop leaves the log retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(
+            MAX_ORPHAN_PROOF_ANCESTRY_WALK + 1,
+            B256::from([0xf1u8; 32]),
+            B256::from([0xf0u8; 32]),
+        ));
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([8u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(
+            asserter.read_q().is_empty(),
+            "exact-cap distance must fetch the first ancestor hop"
+        );
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_mismatch_height_is_not_finalized() {
+        let asserter = Asserter::new();
+        // The hash misses and the finalized height (0) has not reached the log height (1): the
+        // provider may be lagging the scanner or briefly following a losing fork, so nothing
+        // can be proven and the log must stay retryable without any ancestry fetch.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
+
+        let is_orphaned =
+            check_orphaned_proposal_log(asserter.clone(), B256::from([10u8; 32]), Some(1))
+                .await
+                .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+        assert!(asserter.read_q().is_empty(), "unfinalized height must not fetch ancestors");
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_finalized_height_is_unavailable() {
+        let asserter = Asserter::new();
+        // Without a finalized block there is no immutable chain to anchor the proof, so no
+        // mismatch can be proven and the log stays retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([11u8; 32]), Some(1))
+            .await
+            .expect("block lookups should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_before_first_l1_finality() {
+        let asserter = Asserter::new();
+        // Fresh chains report "finalized block not found" until the first finalized epoch;
+        // treat it as "finality unavailable" rather than an error, keeping the log retryable.
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
+
+        let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([12u8; 32]), Some(1))
+            .await
+            .expect("pre-finality lookup should not error");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_reorg_check_is_transient_on_finalized_rpc_error() {
+        let asserter = Asserter::new();
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_failure_msg("boom");
+
+        let err = check_orphaned_proposal_log(asserter, B256::from([13u8; 32]), Some(1))
+            .await
+            .expect_err("finalized lookup failure should be surfaced");
+
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
     }
 
     #[tokio::test]
@@ -1806,7 +2372,7 @@ mod tests {
 
         let log = sample_event_log_with_block_hash(B256::from([3u8; 32]));
         let err = syncer
-            .is_permanently_orphaned_proposal_log(
+            .proposal_log_canonicality(
                 log.block_hash.expect("test log should include block hash"),
                 log.block_number,
             )
@@ -1816,19 +2382,19 @@ mod tests {
         assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_skips_orphaned_proposal_log_and_continues_batch() {
         let orphaned_block_hash = B256::from([0x11; 32]);
         let orphaned_tx_hash = B256::from([0x21; 32]);
         let later_tx_hash = B256::from([0x22; 32]);
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_success(&2u64);
+        asserter.push_success(&l1_block_at(1, B256::from([0x66; 32]), B256::ZERO));
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockBatchPath::new([orphaned_tx_hash]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let path = MockProductionPath::failing_for([orphaned_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
             Duration::from_millis(250),
@@ -1855,8 +2421,8 @@ mod tests {
             rpc: mock_client_with_l1_asserter(Asserter::new()),
             ..build_syncer().await
         };
-        let path = MockBatchPath::new([]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let path = MockProductionPath::default();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
         let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
         log.block_hash = None;
 
@@ -1872,7 +2438,7 @@ mod tests {
         assert!(path.seen_tx_hashes().is_empty());
     }
 
-    #[tokio::test]
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn process_log_batch_retries_when_orphan_recheck_errors() {
         let retry_block_hash = B256::from([0x51; 32]);
         let retry_tx_hash = B256::from([0x61; 32]);
@@ -1881,8 +2447,8 @@ mod tests {
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
-        let path = MockRetryBatchPath::new([retry_tx_hash]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let path = MockProductionPath::failing_once_for([retry_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
             Duration::from_millis(250),
@@ -1900,10 +2466,115 @@ mod tests {
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
     }
 
+    #[test]
+    fn fatal_proposal_processing_errors_are_newpayload_invalid_only() {
+        assert!(is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::InvalidBlock(1, "invalid".into()))
+        ))));
+        // ACCEPTED is transient on taiko-geth (returned while parent state is unavailable) and
+        // forkchoice INVALID can reflect an unknown head; both must stay retryable.
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus(
+                1,
+                "ACCEPTED".into()
+            ))
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::UnexpectedPayloadStatus(
+                1,
+                "forkchoice INVALID: bad head".into()
+            ))
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Derivation(
+            DerivationError::Engine(EngineSubmissionError::EngineSyncing(1))
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Sync(SyncError::Rpc(
+            RpcClientError::Provider("boom".into())
+        ))));
+        assert!(!is_fatal_proposal_processing_error(&DriverError::Other(anyhow!("boom"))));
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_aborts_without_retry_on_fatal_engine_verdict() {
+        let fatal_block_hash = B256::from([0x71; 32]);
+        let fatal_tx_hash = B256::from([0x81; 32]);
+        let asserter = Asserter::new();
+        // Finalized ancestry resolves the source block as canonical, so the deterministic engine
+        // verdict must abort instead of retrying forever.
+        asserter.push_success(&l1_block_at(1, fatal_block_hash, B256::ZERO));
+        asserter.push_success(&l1_block_at(1, fatal_block_hash, B256::ZERO));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockProductionPath::fatal();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, fatal_block_hash, fatal_tx_hash)],
+            ),
+        )
+        .await;
+
+        let err = result
+            .expect("fatal verdict should abort immediately instead of exhausting the timeout")
+            .expect_err("fatal engine verdict on a proven-canonical log should surface an error");
+        assert!(matches!(
+            err,
+            SyncError::Derivation(DerivationError::Engine(EngineSubmissionError::InvalidBlock(..)))
+        ));
+        assert_eq!(
+            path.seen_tx_hashes(),
+            vec![fatal_tx_hash],
+            "a deterministic engine verdict on a proven-canonical log must not be retried"
+        );
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn process_log_batch_keeps_retrying_fatal_verdict_without_canonical_proof() {
+        let stale_block_hash = B256::from([0x72; 32]);
+        let stale_tx_hash = B256::from([0x82; 32]);
+        let asserter = Asserter::new();
+        // Two attempts' worth of responses. The by-hash recheck resolves the block with the
+        // log's own hash — the matching view a lagging backend would report — but L1 finality
+        // has not reached the log height, and a mutable view below finality cannot prove
+        // canonicality strongly enough to terminate event sync: the fatal verdict must keep
+        // retrying instead of aborting on a possibly-reorged log.
+        for _ in 0..2 {
+            asserter.push_success(&l1_block_at(1, stale_block_hash, B256::ZERO));
+            asserter.push_success(&l1_block_at(0, B256::ZERO, B256::ZERO));
+        }
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockProductionPath::fatal();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, stale_block_hash, stale_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            result.is_err(),
+            "an unproven fatal verdict must keep retrying rather than abort the batch"
+        );
+        assert!(
+            path.seen_tx_hashes().len() >= 2,
+            "the proposal should be retried while canonicality stays unproven"
+        );
+    }
+
     #[tokio::test]
     async fn preconf_submit_rejected_before_first_event_sync_gate() {
         let syncer = build_syncer().await;
-        let payload = PreconfPayload::new(sample_payload(1));
+        let payload = PreconfPayload::new(sample_payload(1), B256::ZERO);
         let err = syncer
             .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
             .await
@@ -1912,36 +2583,343 @@ mod tests {
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
     }
 
-    #[test]
-    fn confirmed_sync_ready_when_target_is_zero() {
-        assert!(ConfirmedSyncSnapshot::new(0, None, None).is_ready());
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn default_preconfirmation_submission_waits_24_seconds_for_response() {
+        let l2_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                Asserter::new(),
+                l2_asserter.clone(),
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+        // Materialization lookup misses, then the empty confirmed head keeps block 1 non-stale.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+
+        let submission = syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(sample_payload(1), B256::ZERO));
+        tokio::pin!(submission);
+
+        assert!(
+            timeout(Duration::from_secs(23), submission.as_mut()).await.is_err(),
+            "the default response wait must remain active through 23 seconds"
+        );
+        let err = timeout(Duration::from_secs(2), submission.as_mut())
+            .await
+            .expect("the default response wait should finish at 24 seconds")
+            .expect_err("an unconsumed queued job should time out");
+
+        assert!(matches!(
+            err,
+            DriverError::PreconfResponseTimeout { waited }
+                if waited == Duration::from_secs(24)
+        ));
+    }
+
+    /// Spawn the ingress loop with mock production paths, returning its job sender.
+    ///
+    /// The gate is left untouched: tests own the `ready_flag` transitions the way the event
+    /// loop does in production.
+    async fn spawn_test_preconf_ingress(
+        l2_asserter: Asserter,
+        path: MockProductionPath,
+        ready_flag: Arc<AtomicBool>,
+    ) -> PreconfSender {
+        let rpc = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter,
+            Asserter::new(),
+            Address::ZERO,
+        );
+        let syncer = EventSyncer { rpc: rpc.clone(), ..build_syncer().await };
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockProductionPath::default()),
+            Some(Arc::new(path) as Arc<dyn BlockProductionPath + Send + Sync>),
+        )));
+        let (tx, rx) = mpsc::channel(4);
+
+        syncer.spawn_preconf_ingress(router, rx, rpc, ready_flag);
+
+        tx
+    }
+
+    /// Enqueue one preconfirmation job for `block_number` and await its processing result.
+    async fn enqueue_preconf_job(
+        tx: &PreconfSender,
+        block_number: u64,
+    ) -> Result<PreconfSubmissionOutcome, DriverError> {
+        let (respond_to, response) = oneshot::channel();
+        tx.send(PreconfJob {
+            payload: StdArc::new(PreconfPayload::new(sample_payload(block_number), B256::ZERO)),
+            respond_to,
+        })
+        .await
+        .expect("ingress queue should accept the job");
+
+        timeout(Duration::from_secs(1), response)
+            .await
+            .expect("ingress loop should answer the queued job")
+            .expect("ingress loop should not drop the response channel")
+    }
+
+    #[tokio::test]
+    async fn preconf_ingress_loop_rejects_queued_jobs_while_ingress_closed() {
+        let l2_asserter = Asserter::new();
+        // Materialization probe: no per-block origin row yet.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        // Confirmed-boundary read for the no-gate path; must stay unconsumed once the closed
+        // gate rejects the job before reading the boundary.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+
+        let path = MockProductionPath::default();
+        let ready_flag = Arc::new(AtomicBool::new(false));
+        let tx = spawn_test_preconf_ingress(l2_asserter, path.clone(), ready_flag.clone()).await;
+
+        // The event loop owns the gate and has not opened it (or a reconnect close landed
+        // right after this loop spawned), so the queued job must bounce even though the
+        // consumer task is already running.
+        let result = enqueue_preconf_job(&tx, 1).await;
+
+        assert!(matches!(result, Err(DriverError::PreconfIngressNotReady)));
+        assert!(path.produced_blocks().is_empty());
+    }
+
+    #[tokio::test]
+    async fn preconf_ingress_loop_processes_jobs_while_ingress_open() {
+        let l2_asserter = Asserter::new();
+        // Materialization probe: no per-block origin row yet.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        // Confirmed boundary unwritten: genesis boundary 0, so block 1 is not stale.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+
+        let path = MockProductionPath::default();
+        let ready_flag = Arc::new(AtomicBool::new(false));
+        let tx = spawn_test_preconf_ingress(l2_asserter, path.clone(), ready_flag.clone()).await;
+
+        // Simulate the event loop opening the gate after a passed confirmed-sync probe.
+        ready_flag.store(true, Ordering::Release);
+        let result = enqueue_preconf_job(&tx, 1).await;
+
+        assert!(result.is_ok());
+        assert_eq!(path.produced_blocks(), vec![1]);
+    }
+
+    #[tokio::test]
+    async fn materialized_preconfirmation_requires_expected_parent() {
+        let l2_asserter = Asserter::new();
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
+        let mut attributes = sample_payload(2);
+        attributes.l1_origin.build_payload_args_id = [0x11; 8];
+        let origin = attributes.l1_origin.clone();
+        let expected_parent_hash = B256::from([0x22; 32]);
+        let payload = PreconfPayload::new(attributes.clone(), expected_parent_hash);
+
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.parent_hash = B256::from([0x33; 32]);
+        block.header.number = 2;
+        block.header.beneficiary = attributes.payload_attributes.suggested_fee_recipient;
+        block.header.mix_hash = attributes.payload_attributes.prev_randao;
+        block.header.gas_limit = attributes.block_metadata.gas_limit;
+        block.header.timestamp = attributes.payload_attributes.timestamp;
+        block.header.extra_data = attributes.block_metadata.extra_data.clone();
+        block.header.base_fee_per_gas = Some(0);
+
+        l2_asserter.push_success(&Some(origin));
+        l2_asserter.push_success(&Some(block));
+
+        assert!(
+            materialized_preconfirmation_block_hash(&client, &payload)
+                .await
+                .expect("materialization lookup should succeed")
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn materialized_preconfirmation_returns_observed_block_hash() {
+        let l2_asserter = Asserter::new();
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
+        let mut attributes = sample_payload(2);
+        attributes.l1_origin.build_payload_args_id = [0x11; 8];
+        let origin = attributes.l1_origin.clone();
+        let expected_parent_hash = B256::from([0x22; 32]);
+        let payload = PreconfPayload::new(attributes.clone(), expected_parent_hash);
+
+        let observed_block_hash = B256::from([0x66; 32]);
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.hash = observed_block_hash;
+        block.header.parent_hash = expected_parent_hash;
+        block.header.number = 2;
+        block.header.beneficiary = attributes.payload_attributes.suggested_fee_recipient;
+        block.header.mix_hash = attributes.payload_attributes.prev_randao;
+        block.header.gas_limit = attributes.block_metadata.gas_limit;
+        block.header.timestamp = attributes.payload_attributes.timestamp;
+        block.header.extra_data = attributes.block_metadata.extra_data.clone();
+        block.header.base_fee_per_gas = Some(0);
+
+        l2_asserter.push_success(&Some(origin));
+        l2_asserter.push_success(&Some(block));
+
+        assert_eq!(
+            materialized_preconfirmation_block_hash(&client, &payload)
+                .await
+                .expect("materialization lookup should succeed"),
+            Some(observed_block_hash)
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_materialized_preconfirmation_reports_stale() {
+        let l2_asserter = Asserter::new();
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
+        let syncer = EventSyncer { rpc: client, ..build_syncer().await };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let mut attributes = sample_payload(2);
+        attributes.l1_origin.build_payload_args_id = [0x44; 8];
+        let origin = attributes.l1_origin.clone();
+        let expected_parent_hash = B256::from([0x55; 32]);
+        let payload = PreconfPayload::new(attributes.clone(), expected_parent_hash);
+
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.parent_hash = expected_parent_hash;
+        block.header.number = 2;
+        block.header.beneficiary = attributes.payload_attributes.suggested_fee_recipient;
+        block.header.mix_hash = attributes.payload_attributes.prev_randao;
+        block.header.gas_limit = attributes.block_metadata.gas_limit;
+        block.header.timestamp = attributes.payload_attributes.timestamp;
+        block.header.extra_data = attributes.block_metadata.extra_data.clone();
+        block.header.base_fee_per_gas = Some(0);
+
+        let mut confirmed_head = origin.clone();
+        confirmed_head.block_id = U256::from(2u64);
+        l2_asserter.push_success(&Some(origin));
+        l2_asserter.push_success(&Some(block));
+        l2_asserter.push_success(&Some(confirmed_head));
+
+        let outcome = syncer
+            .submit_preconfirmation_payload(payload)
+            .await
+            .expect("materialized payload should return a terminal outcome");
+
+        assert_eq!(outcome, PreconfSubmissionOutcome::Stale);
     }
 
     #[test]
-    fn confirmed_sync_ready_requires_head_l1_origin_for_nonzero_target() {
-        assert!(!ConfirmedSyncSnapshot::new(7, Some(11), None).is_ready());
+    fn stale_preconfirmation_boundary_is_inclusive() {
+        assert!(is_stale_preconf(42, 42));
+        assert!(!is_stale_preconf(43, 42));
     }
 
-    #[test]
-    fn confirmed_sync_ready_requires_target_batch_mapping_for_nonzero_target() {
-        assert!(!ConfirmedSyncSnapshot::new(7, None, Some(11)).is_ready());
+    #[tokio::test]
+    async fn queued_preconfirmation_reports_stale_after_confirmed_tip_advances() {
+        let l2_asserter = Asserter::new();
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
+        let syncer = EventSyncer { rpc: client.clone(), ..build_syncer().await };
+        let rx = syncer
+            .preconf_rx
+            .lock()
+            .expect("preconfirmation receiver mutex should not be poisoned")
+            .take()
+            .expect("preconfirmation receiver should be available");
+        let path = MockProductionPath::default();
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(path.clone()),
+            Some(Arc::new(path)),
+        )));
+        syncer.spawn_preconf_ingress(router, rx, client, Arc::clone(&syncer.preconf_ingress_ready));
+        // The event loop owns the gate in production; open it directly here since this test
+        // drives the ingress loop without running the event loop.
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let mut initial_head = sample_payload(0).l1_origin;
+        initial_head.block_id = U256::ZERO;
+        let mut advanced_head = initial_head.clone();
+        advanced_head.block_id = U256::from(1u64);
+        // Pre-enqueue: materialization origin miss, then non-stale head; ingress loop reads the
+        // advanced head first (under the router lock) and short-circuits as stale before any
+        // materialization lookup.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        l2_asserter.push_success(&Some(initial_head));
+        l2_asserter.push_success(&Some(advanced_head));
+
+        let outcome = syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(sample_payload(1), B256::ZERO))
+            .await
+            .expect("stale payload should return a terminal outcome");
+
+        assert_eq!(outcome, PreconfSubmissionOutcome::Stale);
     }
 
-    #[test]
-    fn confirmed_sync_ready_is_false_when_head_is_behind_target_block() {
-        assert!(!ConfirmedSyncSnapshot::new(7, Some(12), Some(11)).is_ready());
-    }
+    #[tokio::test]
+    async fn queued_preconfirmation_binds_inserted_outcome_to_produced_block() {
+        let l2_asserter = Asserter::new();
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter.clone(),
+            Asserter::new(),
+            Address::ZERO,
+        );
+        let syncer = EventSyncer { rpc: client.clone(), ..build_syncer().await };
+        let rx = syncer
+            .preconf_rx
+            .lock()
+            .expect("preconfirmation receiver mutex should not be poisoned")
+            .take()
+            .expect("preconfirmation receiver should be available");
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockProductionPath::default()),
+            Some(Arc::new(MockProductionPath::default())),
+        )));
+        syncer.spawn_preconf_ingress(router, rx, client, Arc::clone(&syncer.preconf_ingress_ready));
+        // The event loop owns the gate in production; open it directly here since this test
+        // drives the ingress loop without running the event loop.
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
 
-    #[test]
-    fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
-        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
-        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
-    }
+        let mut head = sample_payload(0).l1_origin;
+        head.block_id = U256::ZERO;
+        // Pre-enqueue: materialization origin miss + non-stale head; ingress loop: non-stale
+        // head (under the router lock) + materialization origin miss, then injection.
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        l2_asserter.push_success(&Some(head.clone()));
+        l2_asserter.push_success(&Some(head));
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
 
-    #[test]
-    fn confirmed_sync_ready_reflects_snapshot_readiness() {
-        let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
-        assert!(ready, "resolved readiness should mirror snapshot readiness");
+        let outcome = syncer
+            .submit_preconfirmation_payload(PreconfPayload::new(sample_payload(1), B256::ZERO))
+            .await
+            .expect("inserted payload should return a terminal outcome");
+
+        // The preconfirmation `MockProductionPath` replies with `sample_engine_outcome(1)`,
+        // whose block hash is below.
+        assert_eq!(
+            outcome,
+            PreconfSubmissionOutcome::Inserted { block_hash: B256::from([1u8; 32]) }
+        );
     }
 
     #[test]
@@ -1966,11 +2944,94 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn try_open_preconf_ingress_keeps_gate_closed_on_probe_error() {
+        let l1_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(l1_asserter.clone()),
+            ..build_syncer().await
+        };
+        // The core-state read fails, so the probe errors and the gate must stay closed with the
+        // consumer unspawned; the timer-driven retry re-runs this probe on the next tick.
+        l1_asserter.push_failure_msg("boom");
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockProductionPath::default()),
+            None,
+        )));
+        let mut preconf_ingress_spawned = false;
+
+        syncer.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
+
+        assert!(!preconf_ingress_spawned);
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+    }
+
+    #[tokio::test]
+    async fn try_open_preconf_ingress_opens_gate_and_spawns_consumer_when_probe_passes() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                Asserter::new(),
+                Address::ZERO,
+            ),
+            ..build_syncer().await
+        };
+        // nextProposalId == 1 makes the confirmed-sync target 0, which is ready even with no
+        // head_l1_origin row yet, so a single passed probe must spawn the consumer and open the
+        // gate.
+        let core_state = sample_core_state(1);
+        l1_asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&core_state)));
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockProductionPath::default()),
+            None,
+        )));
+        let mut preconf_ingress_spawned = false;
+
+        syncer.try_open_preconf_ingress(&router, &mut preconf_ingress_spawned).await;
+
+        assert!(preconf_ingress_spawned);
+        assert!(syncer.preconf_ingress_ready.load(Ordering::Acquire));
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn close_preconf_ingress_stores_closed_before_router_barrier() {
+        let syncer = build_syncer().await;
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(
+            Arc::new(MockProductionPath::default()),
+            None,
+        )));
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        // Simulate an in-flight injection holding the router lock: the fair mutex would serve
+        // queued waiters ahead of the close, so the gate must already read closed while the
+        // close is still blocked on its barrier.
+        let in_flight = router.lock().await;
+        let blocked_close =
+            timeout(Duration::from_millis(50), syncer.close_preconf_ingress(&router)).await;
+        assert!(blocked_close.is_err(), "barrier must wait for the in-flight lock holder");
+        assert!(
+            !syncer.preconf_ingress_ready.load(Ordering::Acquire),
+            "gate must be closed before the barrier is acquired"
+        );
+
+        drop(in_flight);
+        syncer.close_preconf_ingress(&router).await;
+    }
+
+    #[tokio::test]
     async fn reset_head_l1_origin_after_reorg_lowers_head_to_latest_canonical_batch_tip() {
         let l1_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
         let syncer = EventSyncer {
-            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            rpc: mock_client_with_asserters(
+                l1_asserter.clone(),
+                Asserter::new(),
+                l2_auth_asserter.clone(),
+                Address::ZERO,
+            ),
             ..build_syncer().await
         };
 
@@ -1991,7 +3052,12 @@ mod tests {
         let l1_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
         let syncer = EventSyncer {
-            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            rpc: mock_client_with_asserters(
+                l1_asserter.clone(),
+                Asserter::new(),
+                l2_auth_asserter.clone(),
+                Address::ZERO,
+            ),
             ..build_syncer().await
         };
 
@@ -2015,7 +3081,7 @@ mod tests {
 
         let resolved = resolve_resume_head_block_number(true, Some(420), None, None)
             .expect("checkpoint resume head should be used when present");
-        assert_eq!(resolved, 420);
+        assert_eq!(resolved, (420, "checkpoint-synced head"));
     }
 
     #[test]
@@ -2026,50 +3092,29 @@ mod tests {
 
         let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(80))
             .expect("head_l1_origin should drive resume when rpc head is not lower");
-        assert_eq!(resolved, 64);
+        assert_eq!(resolved, (64, "local head_l1_origin"));
 
         let resolved = resolve_resume_head_block_number(false, None, None, Some(0))
             .expect("genesis fallback when rpc reports block 0 and origin is missing");
-        assert_eq!(resolved, 0);
+        assert_eq!(resolved, (0, "genesis fallback (head_l1_origin unavailable)"));
     }
 
     #[test]
     fn resume_head_resolution_prefers_lower_non_zero_rpc_over_origin() {
         let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(32))
             .expect("lower non-zero rpc block number should win");
-        assert_eq!(resolved, 32);
+        assert_eq!(resolved, (32, "lower rpc block number (instead of local head_l1_origin)"));
 
         let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(0))
             .expect("zero rpc block number must not override origin");
-        assert_eq!(resolved, 64);
+        assert_eq!(resolved, (64, "local head_l1_origin"));
     }
 
     #[test]
     fn resume_head_resolution_falls_back_to_origin_when_rpc_missing() {
         let resolved = resolve_resume_head_block_number(false, None, Some(64), None)
             .expect("missing rpc block number should fall back to local origin");
-        assert_eq!(resolved, 64);
-    }
-
-    #[test]
-    fn preconfirmation_submit_timeout_defaults_to_12_seconds() {
-        assert_eq!(
-            PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
-            Duration::from_secs(12),
-            "preconfirmation submit timeout should default to 12 seconds"
-        );
-    }
-
-    #[test]
-    fn zero_target_uses_finalized_block_when_finalized_safe_is_zero() {
-        let start_block = resolve_zero_target_start_block(0, 4_096);
-        assert_eq!(start_block, 4_096);
-    }
-
-    #[test]
-    fn zero_target_uses_genesis_when_finalized_safe_exists() {
-        let start_block = resolve_zero_target_start_block(17, 4_096);
-        assert_eq!(start_block, 0);
+        assert_eq!(resolved, (64, "local head_l1_origin"));
     }
 
     // -- resolve_target_with_optional_finalization tests --
@@ -2118,14 +3163,37 @@ mod tests {
         assert_eq!(reconnect_start, 10);
     }
 
-    #[test]
-    fn scanner_setup_errors_fail_fast_before_first_successful_start() {
-        let err = resolve_event_scanner_setup_error(false, "boom".into())
-            .expect_err("startup scanner errors should fail fast");
-        assert!(matches!(err, SyncError::EventScannerInit(reason) if reason == "boom"));
+    // -- resolve_missing_batch_mapping_fallback tests --
 
-        let err = resolve_event_scanner_setup_error(true, "boom".into())
-            .expect("post-start scanner errors should be retryable");
-        assert_eq!(err, "boom");
+    #[test]
+    fn missing_batch_mapping_uses_resume_head_for_resume_proposal() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(18_058, 18_058),
+            MissingBatchMappingFallback::UseResumeHead
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_replays_from_activation_for_rewound_target() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(18_045, 18_058),
+            MissingBatchMappingFallback::ReplayFromActivation
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_uses_resume_head_for_genesis_target() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(0, 0),
+            MissingBatchMappingFallback::UseResumeHead
+        );
+    }
+
+    #[test]
+    fn missing_batch_mapping_replays_from_activation_for_zero_target_with_nonzero_resume() {
+        assert_eq!(
+            resolve_missing_batch_mapping_fallback(0, 7),
+            MissingBatchMappingFallback::ReplayFromActivation
+        );
     }
 }

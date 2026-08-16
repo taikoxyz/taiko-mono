@@ -10,16 +10,17 @@ use rpc::client::ClientConfig;
 pub struct DriverConfig {
     /// Underlying RPC client configuration shared with other components.
     pub client: ClientConfig,
-    /// Interval between retry attempts when sync operations fail.
+    /// Maximum interval between retry attempts when sync operations fail; the event scanner
+    /// reconnect backs off exponentially from one second up to this cap, while beacon-sync
+    /// polling uses it as a flat interval.
     pub retry_interval: Duration,
     /// L1 beacon endpoint used for lookahead / slot metadata.
     pub l1_beacon_endpoint: Url,
-    /// Optional L2 checkpoint endpoint used for beacon sync.
+    /// Optional L2 checkpoint endpoint used as an untrusted block-body source for beacon sync.
     pub l2_checkpoint_url: Option<Url>,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
-    /// Enable preconfirmation handling (disabled by default).
-    /// NOTE: will be changed to be decided by flag in future.
+    /// Enable preconfirmation ingress handling.
     pub preconfirmation_enabled: bool,
 }
 
@@ -27,13 +28,15 @@ impl DriverConfig {
     /// Build a [`DriverConfig`] from raw parameters.
     ///
     /// The `client` argument bundles all RPC endpoints and contract metadata, while the remaining
-    /// parameters control retry behaviour and optional checkpointing resources.
+    /// parameters control retry behaviour, optional checkpointing resources, and whether the
+    /// preconfirmation ingress path is enabled.
     pub fn new(
         client: ClientConfig,
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
         blob_server_endpoint: Option<Url>,
+        preconfirmation_enabled: bool,
     ) -> Self {
         Self {
             client,
@@ -41,7 +44,7 @@ impl DriverConfig {
             l1_beacon_endpoint,
             l2_checkpoint_url,
             blob_server_endpoint,
-            preconfirmation_enabled: false,
+            preconfirmation_enabled,
         }
     }
 }

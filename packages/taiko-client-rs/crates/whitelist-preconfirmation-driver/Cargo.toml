@@ -15,6 +15,8 @@ alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
 alloy-rpc-types-engine-2 = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
 arc-swap = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
@@ -22,6 +24,7 @@ bindings = { path = "../bindings" }
 bytes = { workspace = true }
 discv5 = { workspace = true }
 driver = { path = "../driver" }
+enr = { workspace = true }
 flate2 = { workspace = true }
 futures = { workspace = true }
 hashlink = { workspace = true }
@@ -29,9 +32,12 @@ http = { workspace = true }
 http-body = { workspace = true }
 http-body-util = { workspace = true }
 jsonwebtoken = { workspace = true }
+kona-disc = { workspace = true }
 kona-gossip = { workspace = true }
+kona-peers = { workspace = true }
 libp2p = { workspace = true }
-metrics = { workspace = true }
+once_cell = { workspace = true }
+prometheus = { workspace = true }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 serde = { workspace = true }

@@ -127,16 +127,17 @@ func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
 		return defaultPayload, nil
 	}
-	if derivationIdx != len(meta.GetEventData().Sources)-1 {
-		// For forced-inclusion source, ensure it contains exactly one block.
-		if len(derivationSourceManifest.Blocks) != 1 {
-			log.Warn(
-				"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
-				"blobs", len(meta.GetEventData().Sources[derivationIdx].BlobSlice.BlobHashes),
-				"blocks", len(derivationSourceManifest.Blocks),
-			)
-			return defaultPayload, nil
-		}
+	// A forced-inclusion source must contain exactly one block. This is keyed on the source's
+	// isForcedInclusion flag (not its position in the array) to match the derivation spec and the
+	// Rust client.
+	if meta.GetEventData().Sources[derivationIdx].IsForcedInclusion &&
+		len(derivationSourceManifest.Blocks) != 1 {
+		log.Warn(
+			"Invalid blocks count in forced-inclusion source manifest, use default payload instead",
+			"blobs", len(meta.GetEventData().Sources[derivationIdx].BlobSlice.BlobHashes),
+			"blocks", len(derivationSourceManifest.Blocks),
+		)
+		return defaultPayload, nil
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
@@ -316,8 +317,11 @@ func validateMetadataTimestamp(
 // ComputeTimestampLowerBound calculates the minimum allowed timestamp for the next block.
 //
 // The lower bound is determined by taking the maximum of three constraints:
-// 1. parent_timestamp + 1: Blocks must progress forward in time
-// 2. proposal_timestamp - TIMESTAMP_MAX_OFFSET: Blocks cannot be too far in the past relative to the proposal
+//  1. parent_timestamp + 1: Blocks must progress forward in time.
+//  2. proposal_timestamp - TIMESTAMP_MAX_OFFSET: Blocks cannot be too far in the past relative
+//     to the proposal.
+//  3. SHASTA_FORK_TIME: No block may predate the chain's Shasta fork activation timestamp.
+//
 // Returns the maximum of all three values to ensure all constraints are satisfied.
 func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp uint64, chainID *big.Int) uint64 {
 	timestampMaxOffset := manifest.TimestampMaxOffsetByChainID(chainID)
@@ -327,7 +331,11 @@ func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp uint64, chain
 		lowerBound = max(lowerBound, proposalTimestamp-timestampMaxOffset)
 	}
 
-	return lowerBound
+	// Enforce the Shasta fork-time floor: no derived block may carry a timestamp earlier than the
+	// chain's Shasta fork activation. This mirrors the derivation spec (Derivation.md) and the Rust
+	// driver / raiko / gaiko prover implementations, preventing a driver/prover consensus split at a
+	// non-genesis Shasta fork activation. For genesis-activated chains the floor is 0 and is a no-op.
+	return max(lowerBound, manifest.ShastaForkTimeByChainID(chainID))
 }
 
 // validateAnchorBlockNumber checks if each block's anchor block number is valid.

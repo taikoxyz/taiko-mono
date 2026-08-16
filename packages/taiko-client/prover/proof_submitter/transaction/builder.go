@@ -68,22 +68,15 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			// Set first proposal information.
 			if i == 0 {
 				input.Commitment.FirstProposalId = proposals[i].Id
-				if proposals[i].Id.Cmp(common.Big1) == 0 {
-					block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ProposalOptions().L2BlockNums[0])
-					if err != nil {
-						return nil, err
-					}
-					input.Commitment.FirstProposalParentBlockHash = block.ParentHash()
-				} else {
-					lastOriginInLastProposal, err := a.rpc.LastL1OriginInProposal(
-						ctx,
-						new(big.Int).Sub(proposals[i].Id, common.Big1),
-					)
-					if err != nil {
-						return nil, err
-					}
-					input.Commitment.FirstProposalParentBlockHash = lastOriginInLastProposal.L2BlockHash
+				// The parent of the first proposal's first block is the previous proposal's
+				// last block, so its hash is exactly that block's ParentHash. Reading the
+				// block by number works for beacon-synced blocks (no L1Origin) and the
+				// genesis-parent case alike.
+				block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ProposalOptions().L2BlockNums[0])
+				if err != nil {
+					return nil, err
 				}
+				input.Commitment.FirstProposalParentBlockHash = block.ParentHash()
 			}
 
 			// Set last proposal information.
@@ -128,16 +121,13 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 		}
 		log.Info(
 			"Verifier information",
-			"GethVerifierID", batchProof.SgxGethVerifierID,
-			"GethProof", common.Bytes2Hex(batchProof.SgxGethBatchProof),
+			"companionVerifierID", batchProof.CompanionVerifierID,
+			"companionProof", common.Bytes2Hex(batchProof.CompanionBatchProof),
 			"VerifierID", batchProof.VerifierID,
 			"Proof", common.Bytes2Hex(batchProof.BatchProof),
 		)
 
-		encodedSubProofs, err := encoding.EncodeBatchesSubProofs([]encoding.SubProofShasta{
-			{VerifierId: batchProof.SgxGethVerifierID, Proof: batchProof.SgxGethBatchProof},
-			{VerifierId: batchProof.VerifierID, Proof: batchProof.BatchProof},
-		})
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofs(orderedSubProofs(batchProof))
 		if err != nil {
 			return nil, err
 		}
@@ -155,4 +145,17 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			Value:    txOpts.Value,
 		}, nil
 	}
+}
+
+// orderedSubProofs returns the batch's companion and primary sub-proofs in ascending
+// verifier ID order, as required by ComposeVerifier.
+func orderedSubProofs(batchProof *proofProducer.BatchProofs) []encoding.SubProofShasta {
+	subProofs := []encoding.SubProofShasta{
+		{VerifierId: batchProof.CompanionVerifierID, Proof: batchProof.CompanionBatchProof},
+		{VerifierId: batchProof.VerifierID, Proof: batchProof.BatchProof},
+	}
+	if subProofs[0].VerifierId > subProofs[1].VerifierId {
+		subProofs[0], subProofs[1] = subProofs[1], subProofs[0]
+	}
+	return subProofs
 }

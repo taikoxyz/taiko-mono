@@ -74,7 +74,7 @@ contract InboxProposeTest is InboxTestBase {
     }
 
     function test_propose_RevertWhen_NotActivated() public {
-        Inbox unactivated = _deployUninitializedInbox();
+        Inbox unactivated = _deployInbox();
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
@@ -293,9 +293,11 @@ contract InboxProposeTest is InboxTestBase {
         assertEq(tail, 12, "tail");
     }
 
-    function test_propose_allowsPermissionlessWhen_ForcedInclusionTooOld() public {
+    function test_propose_RevertWhen_NonProposerEvenIfForcedInclusionTooOld() public {
+        // Permissionless proposing remains disabled: even when the oldest forced inclusion is
+        // overdue beyond the permissionless multiplier, only authorized proposers may propose.
         _setBlobHashes(3);
-        ProposedEvent memory first = _proposeAndDecode(_defaultProposeInput());
+        _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
@@ -311,22 +313,10 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
 
-        ProposedEvent memory payload = _proposeWithCaller(David, input);
-
-        uint48 proposalTimestamp = uint48(block.timestamp);
-        uint48 originBlockNumber = uint48(block.number - 1);
-        bytes32 originBlockHash = blockhash(block.number - 1);
-        IInbox.Proposal memory expectedProposal =
-            _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
-
-        assertEq(payload.proposer, David, "proposer");
-        assertTrue(payload.sources[0].isForcedInclusion, "forced inclusion");
-        assertEq(payload.id, first.id + 1, "proposal id");
-        assertEq(
-            inbox.getProposalHash(expectedProposal.id),
-            codec.hashProposal(expectedProposal),
-            "proposal hash"
-        );
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert();
+        vm.prank(David);
+        inbox.propose(bytes(""), encodedInput);
     }
 
     function test_propose_processesForcedInclusion_andRecordsGas() public {
@@ -436,20 +426,6 @@ contract InboxProposeTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(_ref);
     }
 
-    function _proposeWithCaller(
-        address _caller,
-        IInbox.ProposeInput memory _input
-    )
-        internal
-        returns (ProposedEvent memory payload_)
-    {
-        bytes memory encodedInput = codec.encodeProposeInput(_input);
-        vm.recordLogs();
-        vm.prank(_caller);
-        inbox.propose(bytes(""), encodedInput);
-        payload_ = _readProposedEvent();
-    }
-
     // =========================================================================
     // Boundary Tests - propose() conditions
     // =========================================================================
@@ -500,7 +476,9 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
-    function test_propose_permissionless_AllowsCallerWithoutBond() public {
+    function test_propose_RevertWhen_PermissionlessCallerHasNoBond() public {
+        // Permissionless proposing remains disabled: an unauthorized caller reverts on the
+        // proposer check regardless of how overdue the oldest forced inclusion is.
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -520,41 +498,9 @@ contract InboxProposeTest is InboxTestBase {
 
         assertEq(inbox.getBond(Emma).balance, 0, "emma has no bond");
 
-        ProposedEvent memory payload = _proposeWithCaller(Emma, input);
-        assertEq(payload.id, 2, "permissionless proposal accepted");
-        assertEq(payload.proposer, Emma, "permissionless proposer");
-    }
-
-    /// @notice Test permissionless proposal at exact boundary
-    /// (timestamp == permissionlessTimestamp)
-    function test_propose_notPermissionlessWhen_AtExactPermissionlessTimestamp() public {
-        _setBlobHashes(3);
-        _proposeAndDecode(_defaultProposeInput());
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 1);
-
-        LibBlobs.BlobReference memory forcedRef =
-            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-        _saveForcedInclusion(forcedRef);
-
-        // Calculate exact permissionlessTimestamp
-        // permissionlessTimestamp = forcedInclusionDelay * multiplier + oldestTimestamp
-        uint256 waitTime = uint256(config.forcedInclusionDelay)
-            * uint256(config.permissionlessInclusionMultiplier);
-
-        // Warp to exactly the permissionless timestamp
-        vm.warp(block.timestamp + waitTime);
-        vm.roll(block.number + 1);
-
-        // At exact boundary (timestamp == permissionlessTimestamp), NOT permissionless
-        // because condition is block.timestamp > permissionlessTimestamp (strict >)
-        IInbox.ProposeInput memory input = _defaultProposeInput();
-        input.numForcedInclusions = 1;
-
-        // Should NOT be permissionless at exact boundary, so unauthorized user fails
         bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert(); // Will revert due to proposer check
-        vm.prank(David);
+        vm.expectRevert();
+        vm.prank(Emma);
         inbox.propose(bytes(""), encodedInput);
     }
 }

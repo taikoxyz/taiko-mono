@@ -2,7 +2,7 @@
 
 This document records the custom-table model that preconfirmation and event-sync logic across `taiko-client-rs` depends on.
 
-Scope includes `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
+Scope includes `crates/driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
 
 Before checking `alethia-reth` code, ask for the local path in the current environment.
 

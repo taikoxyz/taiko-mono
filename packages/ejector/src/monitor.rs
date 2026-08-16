@@ -20,7 +20,6 @@ mod l2_poller;
 
 use crate::{
     beacon::BeaconClient,
-    bindings::TaikoWrapper,
     metrics,
     monitor_reorg::{ChainReorgTracker, MAX_REORG_HISTORY},
     utils::{
@@ -99,10 +98,8 @@ pub struct Monitor {
     l2_http_url: Url,
     l1_http_url: Url,
     eject_after: Duration,
-    taiko_wrapper_address: Address,
     whitelist_address: Address,
     handover_slots: u64,
-    preconf_router_address: Address,
     anchor_address: Option<Address>,
     min_operators: u64,
     min_reorg_depth_for_eject: usize,
@@ -116,10 +113,8 @@ pub struct MonitorParams {
     pub l1_http_url: Url,
     pub l2_http_url: Url,
     pub eject_after_seconds: u64,
-    pub taiko_wrapper_address: Address,
     pub whitelist_address: Address,
     pub handover_slots: u64,
-    pub preconf_router_address: Address,
     pub anchor_address: Option<Address>,
     pub min_operators: u64,
     pub min_reorg_depth_for_eject: usize,
@@ -259,10 +254,8 @@ impl Monitor {
             l2_http_url: params.l2_http_url,
             l1_http_url: params.l1_http_url,
             eject_after,
-            taiko_wrapper_address: params.taiko_wrapper_address,
             whitelist_address: params.whitelist_address,
             handover_slots: params.handover_slots,
-            preconf_router_address: params.preconf_router_address,
             anchor_address: params.anchor_address,
             min_operators: params.min_operators,
             min_reorg_depth_for_eject: params.min_reorg_depth_for_eject,
@@ -272,8 +265,7 @@ impl Monitor {
     }
 
     // run starts a loop to watch for new blocks and run a callback on eject time reached.
-    // it will update per epoch and handle reconnections, as well as check if preconfs are enabled
-    // before starting the ejector. It will however monitor the block stream regardless.
+    // it will update per epoch and handle reconnections.
     pub async fn run(&self) -> Result<()> {
         info!("Running block watcher at {}", self.l2_http_url);
 
@@ -293,15 +285,11 @@ impl Monitor {
 
         let l1_http_url = self.l1_http_url.clone();
         let l2_http_url = self.l2_http_url.clone();
-        let taiko_wrapper_address = self.taiko_wrapper_address;
         let whitelist_address = self.whitelist_address;
         let signer = self.l1_signer.clone();
 
         let slots_per_epoch = self.beacon_client.slots_per_epoch;
-        let mut handover_slots = self.handover_slots;
-
-        // Track when we've last reloaded config from chain
-        let mut last_config_reload_epoch = self.beacon_client.current_epoch();
+        let handover_slots = self.handover_slots;
 
         // get current operator responsibility
         let mut prev_resp = self.responsibility_now();
@@ -312,7 +300,7 @@ impl Monitor {
         // that way in case of an error with the ejector we don't eject down to 0 operators.
         let min_operators = self.min_operators;
 
-        // Reuse a single HTTP provider and PreconfRouter binding
+        // Reuse a single HTTP provider for L1 contract calls.
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
         let initial_l2_head_number = match l2_http_provider.get_block_number().await {
@@ -353,8 +341,6 @@ impl Monitor {
                 warn!("Whitelist scanner will retry cache refresh with tracker state on startup");
             }
         }
-        let preconf_router =
-            crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider.clone());
         let _operator_added_listener = tokio::spawn(l1_events::run_operator_event_scanner(
             l1_http_url.clone(),
             whitelist_address,
@@ -374,32 +360,6 @@ impl Monitor {
                 let curr_epoch = beacon_client.current_epoch();
                 let curr_slot = beacon_client.current_slot();
                 let slot_in_epoch = beacon_client.slot_in_epoch();
-                // Reload handover config from chain at epoch transitions (best-effort)
-                if curr_epoch > last_config_reload_epoch {
-                    tracing::info!(
-                        "Epoch transition detected; reloading handover config; last_config_reload_epoch={last_config_reload_epoch}, curr_epoch={curr_epoch}",
-                    );
-                    match preconf_router.getConfig().call().await {
-                        Ok(onchain_slots) => {
-                            // Convert uint256 -> u64 (use low 64 bits)
-                            let new_slots: u64 = onchain_slots.as_limbs()[0];
-                            if new_slots != handover_slots {
-                                tracing::info!(
-                                    "Updated handover slots from on-chain config; old={handover_slots}, new={new_slots}"
-                                );
-                                handover_slots = new_slots;
-                            }
-                        }
-                        Err(e) => {
-                            // Allow failure: contract upgrade may not be deployed yet
-                            tracing::warn!(
-                                "Failed to fetch PreconfRouter config; keeping current handover slots; error={e:?}; current={handover_slots}",
-                            );
-                        }
-                    }
-                    last_config_reload_epoch = curr_epoch;
-                }
-
                 let curr_resp = responsibility_for_slot(curr_slot, slots_per_epoch, handover_slots);
 
                 info!(
@@ -416,23 +376,6 @@ impl Monitor {
                         curr_resp.epoch
                     );
                     prev_resp = curr_resp;
-                }
-
-                match are_preconfs_enabled(&watchdog_l1_http_url, taiko_wrapper_address).await {
-                    Ok(false) => {
-                        // zero out the last seen
-                        *last_seen_for_watch.lock().await = Instant::now();
-                        metrics::set_last_seen_drift_seconds(0);
-                        debug!("Preconfs are disabled, skipping block watch and resetting timer");
-                        continue;
-                    }
-                    Err(e) => {
-                        // should rarely happen, l1 rpc error only
-                        warn!("preconfs check error: {e:?}; skipping eject this tick");
-                        // don't reset timer; just skip the eject decision below
-                        continue;
-                    }
-                    Ok(true) => {}
                 }
 
                 let elapsed = last_seen_for_watch.lock().await.elapsed();
@@ -848,19 +791,6 @@ impl Monitor {
         let slot = self.beacon_client.current_slot();
         responsibility_for_slot(slot, self.beacon_client.slots_per_epoch, self.handover_slots)
     }
-}
-
-pub async fn are_preconfs_enabled(
-    l1_http_url: &Url,
-    taiko_wrapper_address: Address,
-) -> Result<bool> {
-    let provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
-
-    let taiko_wrapper = TaikoWrapper::new(taiko_wrapper_address, provider);
-
-    let preconf_router = taiko_wrapper.preconfRouter().call().await?;
-
-    Ok(!preconf_router.is_zero())
 }
 
 #[cfg(test)]

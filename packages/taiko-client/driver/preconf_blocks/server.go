@@ -49,6 +49,16 @@ const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid re
 // monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with on-chain state.
 const monitorLatestProposalOnChainInterval = 10 * time.Second
 
+// shutdownImminenceMarginSlots is the number of upcoming L1 slots CanShutdown
+// treats as already in-window: shutdown is refused not only while the current
+// slot is inside one of this operator's sequencing ranges, but also when a
+// range starts within this many slots. The margin must cover replacing the
+// pod (rescheduling plus execution-client and driver boot, observed 30-60s)
+// and the preconfer client's own reconnect time, so a restart triggered just
+// before a hand-over cannot leave the operator unable to sequence when its
+// window opens. Eight 12s slots ≈ 96s.
+const shutdownImminenceMarginSlots = uint64(8)
+
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
@@ -1079,17 +1089,22 @@ func (s *PreconfBlockAPIServer) CanShutdown(globalSlot uint64) bool {
 
 // canShutdownLocked is the lock-held variant of CanShutdown for callers that
 // already hold s.lookaheadMutex.
+//
+// A range blocks shutdown from shutdownImminenceMarginSlots before its start
+// until its end: a SIGTERM landing just before a sequencing window would
+// otherwise take the driver down for the pod-replacement time and leave the
+// operator dark when the window opens.
 func (s *PreconfBlockAPIServer) canShutdownLocked(globalSlot uint64) bool {
 	if s.lookahead == nil || s.rpc.L1Beacon == nil {
 		return true
 	}
 	for _, r := range s.lookahead.CurrRanges {
-		if globalSlot >= r.Start && globalSlot < r.End {
+		if globalSlot+shutdownImminenceMarginSlots >= r.Start && globalSlot < r.End {
 			return false
 		}
 	}
 	for _, r := range s.lookahead.NextRanges {
-		if globalSlot >= r.Start && globalSlot < r.End {
+		if globalSlot+shutdownImminenceMarginSlots >= r.Start && globalSlot < r.End {
 			return false
 		}
 	}
@@ -1213,7 +1228,9 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 			},
 			header.Time,
 		),
-		PreconfChainReorged: true,
+		// Known proposals do not constitute a real reorg; the inserter will detect
+		// and signal a PreconfChainReorged if the payload actually changes.
+		PreconfChainReorged: false,
 		LastBlockID:         blockID.ToInt().Uint64(),
 	})
 }

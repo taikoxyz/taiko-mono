@@ -2,7 +2,7 @@
 
 This document explains the operational flow that must be preserved when changing preconfirmation or event-sync behavior across `taiko-client-rs` crates.
 
-Scope includes `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
+Scope includes `crates/driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
 
 Whitelist-specific importer paths are included as concrete examples where those flows are implemented.
 
@@ -47,8 +47,6 @@ Primary Rust behavior anchors:
   - Continuously evaluates scanner-live plus confirmed-sync readiness.
   - Opens preconf ingress only after readiness is true.
   - Exposes explicit wait path for ingress readiness.
-- `crates/preconfirmation-driver/src/runner/preconf_ingress_sync.rs`
-  - Runner waits for ingress readiness before preconf operations proceed.
 - `crates/whitelist-preconfirmation-driver/src/preconf_ingress_sync.rs`
   - Whitelist importer path also blocks on event-sync ingress readiness.
 
@@ -71,16 +69,17 @@ Primary Rust behavior anchors:
   - Stale check is applied before enqueue and again during ingress processing.
 - `crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs`
   - Whitelist importer cached payloads at or below confirmed boundary are dropped.
-- `crates/whitelist-preconfirmation-driver/src/importer/response.rs`
+- `crates/whitelist-preconfirmation-driver/src/importer/ingress.rs`
   - Whitelist importer unsafe-response serving excludes blocks at or below confirmed boundary.
-- `crates/preconfirmation-driver/src/subscription/event_handler.rs`
-  - Incoming commitments at or below event-sync tip are dropped.
 
 Required interpretation:
 
 - `block_number <= head_l1_origin` means the preconf item is stale.
 - Stale preconf items must be dropped/ignored.
 - Stale preconf items cannot be used to reorg confirmed history.
+- A missing `head_l1_origin` is treated as the genesis boundary `0` in the whitelist importer
+  (`crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs`), mirroring the
+  event-sync convention in `crates/driver/src/sync/event.rs`.
 
 ## Event Path Reorg Handling (Sequence)
 
@@ -109,7 +108,7 @@ Primary Rust behavior anchors:
 - `crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs`
   - Detects parent mismatches and requests missing parent/ancestor payloads.
   - Imports only contiguous parent-valid payload chains.
-- `crates/whitelist-preconfirmation-driver/src/importer/response.rs`
+- `crates/whitelist-preconfirmation-driver/src/importer/ingress.rs`
   - Publishes unsafe block requests/responses used for ancestry recovery.
 - `crates/driver/src/sync/event.rs`
   - Final preconf submission passes through strict ingress/stale gating.

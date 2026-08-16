@@ -1,32 +1,22 @@
 use std::borrow::Cow;
 
-use alethia_reth_primitives::payload::attributes::{
-    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-};
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_primitives::{Address, B256, Bytes, FixedBytes, U256};
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
+use alloy_provider::{Provider, RootProvider};
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
-use alloy_rpc_types_engine_2::PayloadAttributes;
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
-use rpc::{
-    client::{Client, ClientWithWallet},
-    error::RpcClientError,
-};
+use protocol::shasta::{PayloadAttributesInput, build_payload_attributes};
+use rpc::{client::Client, error::RpcClientError};
 use tracing::{info, warn};
 
 use crate::helper::{increase_l1_time, mine_l1_blocks};
-
-/// The RPC client type used in Shasta tests.
-pub type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
 
 /// Number of L1 blocks to mine to ensure preconfigured operator whitelist is active.
 const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
@@ -37,10 +27,44 @@ const L1_BLOCK_TIME_SECONDS: u64 = 12;
 ///
 /// Uses batch operations (single `evm_increaseTime` + single `anvil_mine`) instead of
 /// looping 64 times, reducing RPC calls from 128 to 2.
-pub async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
+pub async fn ensure_preconf_whitelist_active(client: &Client) -> Result<()> {
     let total_seconds = PRECONF_OPERATOR_ACTIVATION_BLOCKS as u64 * L1_BLOCK_TIME_SECONDS;
     increase_l1_time(client, total_seconds).await?;
     mine_l1_blocks(client, PRECONF_OPERATOR_ACTIVATION_BLOCKS).await?;
+    Ok(())
+}
+
+/// Advances L1 time past the current L2 head's timestamp.
+///
+/// Teardown's `evm_revert` rewinds L1 time, but derived L2 blocks persist across tests,
+/// so a fresh test can observe an L2 head stamped AHEAD of its own L1 timeline — a state
+/// impossible on a real chain. Anything that builds on that head with an L1-head-derived
+/// timestamp (the proposer's engine-mode FCU preview, manifest timestamp validation)
+/// then fails on `attributes.timestamp < parent.timestamp` by a second or two. Ratchet
+/// L1 time forward BEFORE the per-test snapshot so the fix survives teardown and L1 time
+/// stays monotonic across the whole run, mirroring the real chain.
+pub(crate) async fn align_l1_time_past_l2_head(client: &Client) -> Result<()> {
+    let l2_head = client
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest L2 block missing while aligning L1 time"))?;
+    let l1_head = client
+        .l1_provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("latest L1 block missing while aligning L1 time"))?;
+
+    let l2_timestamp = l2_head.header.timestamp;
+    let l1_timestamp = l1_head.header.timestamp;
+    if l1_timestamp > l2_timestamp {
+        return Ok(());
+    }
+
+    let skip = l2_timestamp - l1_timestamp + 1;
+    info!(l1_timestamp, l2_timestamp, skip, "advancing L1 time past persisted L2 head");
+    increase_l1_time(client, skip).await?;
+    mine_l1_blocks(client, 1).await?;
     Ok(())
 }
 
@@ -54,7 +78,7 @@ fn is_not_found_error(err: &RpcClientError) -> bool {
 }
 
 /// Reset the authenticated L1 RPC head.
-pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_head_l1_origin(client: &Client) -> Result<()> {
     // Choose the highest L2 block that actually has an L1 origin row, then repoint
     // `head_l1_origin` there. Hardcoding block 1 is brittle when tests reset chains to genesis
     // or run against nodes with sparse origin rows.
@@ -96,7 +120,7 @@ pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
 }
 
 /// Revert the L1 snapshot.
-pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
+pub(crate) async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
     let reverted = provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
         .await
@@ -106,19 +130,21 @@ pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Resu
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
-pub async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Result<String> {
+pub(crate) async fn create_snapshot(provider: &RootProvider) -> Result<String> {
     provider
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await
-        .with_context(|| format!("creating L1 snapshot during {phase}"))
+        .context("creating L1 snapshot")
 }
 
 fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
-    matches!(status, PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted)
+    // Canonical insertion requires strict VALID, matching production submission: ACCEPTED
+    // means the engine stored the block on a side chain without executing it.
+    matches!(status, PayloadStatusEnum::Valid)
 }
 
 /// Reset the L2 chain head to the base block (height 1) using the engine API.
-pub async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
     let head: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)
@@ -176,12 +202,23 @@ pub async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
         "failed to reset L2 head to block 1 (current {})",
         new_head.header.number
     );
+    // The reset relies on the execution client rebuilding a byte-identical base block;
+    // stale custom-table rows (l1_origin) keep the ORIGINAL hash, so a divergent rebuild
+    // (e.g. a payload-construction change in a new alethia-reth image) would silently
+    // poison every later test. Fail loudly instead.
+    ensure!(
+        new_head.header.hash == block_one.header.hash,
+        "rebuilt base block hash {} != original {}; the L2 execution image no longer \
+         rebuilds block 1 byte-identically — recreate the docker env (rerun `just test`)",
+        new_head.header.hash,
+        block_one.header.hash
+    );
 
     Ok(())
 }
 
 async fn fork_to(
-    client: &RpcClient,
+    client: &Client,
     block: &RpcBlock<TxEnvelope>,
     l1_origin: &RpcL1Origin,
     parent_hash: B256,
@@ -205,41 +242,22 @@ async fn fork_to(
         })
         .unwrap_or_default();
 
-    let payload_attributes = PayloadAttributes {
-        timestamp,
-        prev_randao: mix_digest,
-        suggested_fee_recipient: coinbase,
-        withdrawals: Some(Vec::new()),
-        parent_beacon_block_root: None,
-        slot_number: None,
-    };
-
-    let block_metadata = TaikoBlockMetadata {
+    let taiko_attrs = build_payload_attributes(PayloadAttributesInput {
         beneficiary: coinbase,
-        gas_limit,
-        timestamp: U256::from(timestamp),
+        timestamp,
         mix_hash: mix_digest,
+        gas_limit,
         tx_list: Some(tx_list),
         extra_data,
-    };
-
-    let l1_origin_attrs = RpcL1Origin {
-        block_id: U256::from(block_number),
-        l2_block_hash: B256::ZERO,
+        base_fee_per_gas: U256::from(base_fee),
+        block_number,
         l1_block_height: l1_origin.l1_block_height,
         l1_block_hash: l1_origin.l1_block_hash,
-        build_payload_args_id: [0u8; 8],
         is_forced_inclusion: l1_origin.is_forced_inclusion,
         signature: l1_origin.signature,
-    };
-
-    let taiko_attrs = TaikoPayloadAttributes {
-        payload_attributes,
-        base_fee_per_gas: U256::from(base_fee),
-        block_metadata,
-        l1_origin: l1_origin_attrs,
+        parent_beacon_block_root: None,
         anchor_transaction: None,
-    };
+    });
 
     let forkchoice_state = ForkchoiceState {
         head_block_hash: parent_hash,
@@ -288,6 +306,8 @@ async fn fork_to(
         withdrawals_hash,
         header_difficulty: Some(header_difficulty),
         taiko_block: Some(true),
+        block_access_list: None,
+        slot_number: None,
     };
 
     let exec_status = client
@@ -319,16 +339,13 @@ async fn fork_to(
 }
 
 /// Fetch proposal hash from the inbox contract.
-pub async fn get_proposal_hash(client: &ClientWithWallet, proposal_id: U256) -> Result<B256> {
+pub async fn get_proposal_hash(client: &Client, proposal_id: U256) -> Result<B256> {
     let hash: FixedBytes<32> = client.shasta.inbox.getProposalHash(proposal_id).call().await?;
     Ok(hash)
 }
 
 /// Ensures the latest L2 block contains an Anchor `anchorV4` call.
-pub async fn verify_anchor_block<P>(client: &Client<P>, anchor_address: Address) -> Result<()>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub async fn verify_anchor_block(client: &Client, anchor_address: Address) -> Result<()> {
     let latest_block: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)
@@ -343,10 +360,9 @@ where
         .and_then(|txs| txs.first())
         .ok_or_else(|| anyhow::anyhow!("block missing anchor transaction"))?;
 
-    let selectors = [anchorV4Call::SELECTOR];
     ensure!(first_tx.input().len() >= 4, "anchor transaction input too short");
     ensure!(
-        selectors.iter().any(|sel| &first_tx.input()[..sel.len()] == sel.as_slice()),
+        first_tx.input()[..4] == anchorV4Call::SELECTOR,
         "first transaction is not calling an Anchor anchorV4 entrypoint"
     );
     ensure!(

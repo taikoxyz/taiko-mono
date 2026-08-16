@@ -7,6 +7,8 @@
 //! - Processing L1 inbox events to derive L2 blocks
 //! - Handling preconfirmation payloads for block production
 
+/// Shared helper for locating the anchor transaction inside a fetched L2 block.
+pub(crate) mod anchor_tx;
 /// Driver runtime configuration types.
 pub mod config;
 /// L1-to-L2 derivation pipelines and manifest handling.
@@ -17,16 +19,18 @@ pub mod driver;
 pub mod error;
 /// Metrics emitted by the driver.
 pub mod metrics;
+/// Shared preconfirmation ingress sync helper for preconfirmation drivers.
+pub mod preconf_ingress_sync;
 /// Production path routing and payload wrappers.
 pub mod production;
 /// Synchronization stages and event scanning.
 pub mod sync;
+/// Shared test-only fixtures and mocks for driver unit tests.
+#[cfg(test)]
+pub(crate) mod test_support;
 
 pub use config::DriverConfig;
 pub use driver::Driver;
-pub use error::{DriverError, map_driver_error};
-pub use production::PreconfPayload;
+pub use error::DriverError;
+pub use production::{PreconfPayload, PreconfSubmissionOutcome};
 pub use sync::{ConfirmedSyncSnapshot, SyncPipeline, SyncStage, event::EventSyncer};
-
-// Re-export signer from protocol crate for backward compatibility
-pub use protocol::signer;

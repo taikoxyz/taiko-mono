@@ -9,14 +9,6 @@ pub type Result<T> = StdResult<T, ProtocolError>;
 /// Error types for Shasta protocol operations
 #[derive(Debug, Error)]
 pub enum ProtocolError {
-    /// IO error during encoding/decoding
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    /// RLP encoding/decoding error
-    #[error("RLP error: {0}")]
-    Rlp(String),
-
     /// Compression error
     #[error("compression error: {0}")]
     Compression(String),
@@ -24,10 +16,6 @@ pub enum ProtocolError {
     /// Invalid payload format
     #[error("invalid payload format: {0}")]
     InvalidPayload(String),
-
-    /// Generic error
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 /// Result type alias for fork configuration lookups.
@@ -39,7 +27,7 @@ pub enum ForkConfigError {
     /// Chain ID is not recognised.
     #[error("unsupported chain id {0} for fork configuration")]
     UnsupportedChainId(u64),
-    /// The fork activation is not block-based (e.g. configured as timestamp/TTD).
+    /// The fork activation does not have a timestamp.
     #[error("unsupported fork activation condition")]
     UnsupportedActivation,
 }

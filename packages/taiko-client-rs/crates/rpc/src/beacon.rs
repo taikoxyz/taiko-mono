@@ -325,7 +325,7 @@ impl BeaconClient {
     ///
     /// Mirrors the Go driver implementation:
     /// `(now_utc_unix - genesis_time) / seconds_per_slot`.
-    pub fn current_slot(&self) -> u64 {
+    fn current_slot(&self) -> u64 {
         let now_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_secs())
@@ -342,16 +342,24 @@ impl BeaconClient {
         self.current_slot() / self.slots_per_epoch
     }
 
-    /// Return configured slots per epoch from the beacon spec.
-    pub const fn slots_per_epoch(&self) -> u64 {
-        self.slots_per_epoch
-    }
-
     /// Return the beacon genesis timestamp (seconds since UNIX epoch).
     ///
     /// Fetched from `/eth/v1/beacon/genesis` during client construction.
     pub const fn genesis_time(&self) -> u64 {
         self.genesis_time
+    }
+
+    /// Return the number of slots per beacon epoch.
+    ///
+    /// Fetched from `/eth/v1/config/spec` (`SLOTS_PER_EPOCH`) during client construction.
+    pub const fn slots_per_epoch(&self) -> u64 {
+        self.slots_per_epoch
+    }
+
+    /// Return the current slot's index within its beacon epoch, based on local
+    /// wall-clock time.
+    pub fn current_slot_in_epoch(&self) -> u64 {
+        self.current_slot() % self.slots_per_epoch
     }
 }
 

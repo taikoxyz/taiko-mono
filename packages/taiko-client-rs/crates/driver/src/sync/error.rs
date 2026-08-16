@@ -3,23 +3,15 @@
 use alloy::primitives::B256;
 use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
-use std::result::Result as StdResult;
 use thiserror::Error;
 
 use crate::derivation::DerivationError;
 
-/// Result type alias for sync operations.
-pub type Result<T> = StdResult<T, SyncError>;
-
 /// Errors emitted by sync components.
 #[derive(Debug, Error)]
 pub enum SyncError {
-    /// Beacon sync: checkpoint node has no L1 origin.
-    #[error("checkpoint node has no L1 origin")]
-    CheckpointNoOrigin,
-
-    /// Beacon sync: failed to query checkpoint head.
-    #[error("failed to query checkpoint head")]
+    /// Beacon sync: failed to query the checkpoint node.
+    #[error("failed to query checkpoint node")]
     CheckpointQuery(#[source] RpcClientError),
 
     /// Beacon sync: failed to submit remote block.
@@ -30,15 +22,6 @@ pub enum SyncError {
         #[source]
         /// Underlying submission error.
         error: AnyhowError,
-    },
-
-    /// Beacon sync: checkpoint head behind local head.
-    #[error("checkpoint head {checkpoint} is behind local head {local}")]
-    CheckpointBehind {
-        /// Checkpoint-synced head block number.
-        checkpoint: u64,
-        /// Local execution head block number.
-        local: u64,
     },
 
     /// Event sync: checkpoint mode enabled, but beacon sync did not publish a resume head.
@@ -54,13 +37,6 @@ pub enum SyncError {
     MissingExecutionBlock {
         /// Missing execution block number.
         number: u64,
-    },
-
-    /// Event sync: execution engine missing batch-to-block mapping.
-    #[error("no execution block found for batch {proposal_id}")]
-    MissingExecutionBlockForBatch {
-        /// Proposal id whose batch mapping was absent.
-        proposal_id: u64,
     },
 
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
@@ -118,19 +94,29 @@ pub enum EngineSubmissionError {
     /// Failure communicating with the execution engine's public RPC.
     #[error("execution engine provider error: {0}")]
     Provider(String),
-    /// Unable to determine the latest canonical L2 block.
-    #[error("latest L2 block not found")]
-    MissingParent,
     /// Execution engine is syncing and cannot accept the provided block.
     #[error("execution engine syncing while inserting block {0}")]
     EngineSyncing(u64),
     /// Execution engine rejected the block payload.
     #[error("execution engine rejected block {0}: {1}")]
     InvalidBlock(u64, String),
+    /// Execution engine returned a status other than VALID for a canonical insert.
+    #[error("execution engine returned unexpected payload status for block {0}: {1}")]
+    UnexpectedPayloadStatus(u64, String),
     /// Engine did not return a payload identifier after forkchoice update.
     #[error("forkchoice update returned no payload id")]
     MissingPayloadId,
     /// Execution engine failed to return the inserted block via RPC.
     #[error("inserted block {0} not found via rpc provider")]
     MissingInsertedBlock(u64),
+    /// The canonical block read back after promotion does not match the submitted payload.
+    #[error("inserted block {block_number} hash mismatch: expected {expected}, got {actual}")]
+    InsertedBlockHashMismatch {
+        /// Number of the block that was submitted to the engine.
+        block_number: u64,
+        /// Block hash of the payload the engine was asked to insert.
+        expected: B256,
+        /// Block hash the provider returned at that height after promotion.
+        actual: B256,
+    },
 }

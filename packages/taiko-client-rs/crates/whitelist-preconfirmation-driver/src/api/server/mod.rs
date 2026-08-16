@@ -12,10 +12,8 @@ use crate::{
 
 mod auth;
 mod handlers;
-mod http_error;
-mod http_utils;
+mod http;
 mod router;
-mod state;
 mod websocket;
 
 #[cfg(test)]
@@ -25,15 +23,20 @@ mod tests;
 /// account for expansion relative to compressed bytes on wire.
 const PRECONF_BLOCKS_BODY_LIMIT_BYTES: usize = (MAX_COMPRESSED_TX_LIST_BYTES * 2) + (64 * 1024);
 
+/// Shared state for REST/WS handlers.
+#[derive(Clone)]
+struct AppState {
+    /// Shared API implementation used by all request handlers.
+    api: Arc<dyn WhitelistApi>,
+    /// Optional shared JWT validator; `None` disables auth checks.
+    jwt_auth: Option<Arc<auth::JwtAuth>>,
+}
+
 /// Configuration for the whitelist preconfirmation REST/WS server.
 #[derive(Debug, Clone)]
 pub struct WhitelistApiServerConfig {
     /// Socket address to listen on.
     pub listen_addr: SocketAddr,
-    /// Whether HTTP transport is enabled.
-    pub enable_http: bool,
-    /// Whether WebSocket transport is enabled.
-    pub enable_ws: bool,
     /// Optional shared secret used to validate `Authorization: Bearer <jwt>` on all routes.
     pub jwt_secret: Option<Vec<u8>>,
     /// Optional list of allowed CORS origins.
@@ -41,12 +44,10 @@ pub struct WhitelistApiServerConfig {
 }
 
 impl Default for WhitelistApiServerConfig {
-    /// Build the default server configuration (loopback bind, HTTP+WS enabled, no JWT).
+    /// Build the default server configuration (loopback bind, no JWT).
     fn default() -> Self {
         Self {
             listen_addr: "127.0.0.1:8552".parse().expect("valid default address"),
-            enable_http: true,
-            enable_ws: true,
             jwt_secret: None,
             cors_origins: vec!["*".to_string()],
         }
@@ -72,29 +73,26 @@ impl WhitelistApiServer {
         config: WhitelistApiServerConfig,
         api: Arc<dyn WhitelistApi>,
     ) -> Result<Self> {
-        if !config.enable_http && !config.enable_ws {
-            return Err(WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled);
-        }
-
-        let state = state::AppState {
+        let state = AppState {
             api: Arc::clone(&api),
             jwt_auth: config
                 .jwt_secret
                 .as_ref()
                 .map(|secret| Arc::new(auth::JwtAuth::new(secret.as_slice()))),
         };
-        let app =
-            router::build_router(state, &config.cors_origins, config.enable_http, config.enable_ws);
+        let app = router::build_router(state, &config.cors_origins);
 
         let listener = TcpListener::bind(config.listen_addr).await.map_err(|e| {
-            WhitelistPreconfirmationDriverError::RestWsServerBind {
-                listen_addr: config.listen_addr,
-                reason: e.to_string(),
-            }
+            WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
+                "failed to bind {}: {e}",
+                config.listen_addr
+            ))
         })?;
 
         let addr = listener.local_addr().map_err(|e| {
-            WhitelistPreconfirmationDriverError::RestWsServerLocalAddr { reason: e.to_string() }
+            WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
+                "failed to get local address: {e}"
+            ))
         })?;
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -110,8 +108,6 @@ impl WhitelistApiServer {
 
         info!(
             addr = %addr,
-            enable_http = config.enable_http,
-            enable_ws = config.enable_ws,
             jwt_enabled = config.jwt_secret.is_some(),
             cors_origins = ?config.cors_origins,
             http_url = %format!("http://{addr}"),

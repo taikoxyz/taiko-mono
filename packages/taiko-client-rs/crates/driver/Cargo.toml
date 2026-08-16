@@ -20,7 +20,8 @@ alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
-metrics = { workspace = true }
+once_cell = { workspace = true }
+prometheus = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
@@ -38,14 +39,14 @@ alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
-preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
-preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }
 rand = { workspace = true }
 secp256k1 = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
-test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
-tokio = { workspace = true }
+# `test-util` enables paused-time (`start_paused`) unit tests; the workspace default is `full`,
+# which does not include it.
+tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber = { workspace = true }

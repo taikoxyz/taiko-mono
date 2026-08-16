@@ -17,7 +17,7 @@ tower = { workspace = true }
 
 # ethereum
 alloy = { workspace = true }
-alloy-eips = { workspace = true }
+alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true, features = ["ws"] }
 alloy-rpc-types = { workspace = true }
@@ -42,3 +42,6 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+
+[dev-dependencies]
+hyper = { workspace = true, features = ["server"] }

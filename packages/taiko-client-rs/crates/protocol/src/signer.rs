@@ -1,13 +1,16 @@
 //! Deterministic secp256k1 signer with fixed-k signing support.
 
-use alloy::signers::{Result as SignerResult, Signer, SignerSync};
-use alloy_primitives::{Address, B256, Signature as AlloySignature, U256, hex};
-use async_trait::async_trait;
+use alloy_primitives::{Address, Signature as AlloySignature, U256, hex};
 use k256::{
     AffinePoint, FieldBytes, ProjectivePoint, Scalar,
     elliptic_curve::{
-        bigint::U256 as ScalarModulus, ff::PrimeField, ops::Reduce, point::AffineCoordinates,
-        scalar::IsHigh, sec1::ToEncodedPoint,
+        bigint::U256 as ScalarModulus,
+        ff::PrimeField,
+        group::prime::PrimeCurveAffine,
+        ops::{MulByGenerator, Reduce},
+        point::AffineCoordinates,
+        scalar::IsHigh,
+        sec1::ToEncodedPoint,
     },
 };
 use thiserror::Error;
@@ -43,21 +46,19 @@ pub enum FixedKSignerError {
     SigningFailed,
 }
 
-/// Deterministic secp256k1 signer.
+/// Deterministic secp256k1 signer for golden-touch anchor transactions.
 #[derive(Debug, Clone)]
 pub struct FixedKSigner {
     /// Secp256k1 private scalar used for fixed-k signing.
     secret_scalar: Scalar,
     /// Ethereum address derived from `secret_scalar`.
     address: Address,
-    /// Optional chain id used by Alloy signer traits.
-    chain_id: Option<u64>,
 }
 
 impl FixedKSigner {
     /// Instantiate a signer from a hex-encoded private key (with or without `0x`).
     #[instrument(skip(private_key_hex))]
-    pub fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
+    fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
         let trimmed = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
         let bytes = hex::decode_to_array::<_, 32>(trimmed)
             .map_err(|_| FixedKSignerError::InvalidPrivateKey)?;
@@ -73,7 +74,7 @@ impl FixedKSigner {
         let address = Self::derive_address(&scalar);
 
         debug!(?address, "initialised fixed-k signer");
-        Ok(Self { secret_scalar: scalar, address, chain_id: None })
+        Ok(Self { secret_scalar: scalar, address })
     }
 
     /// Convenience helper that instantiates the signer using the embedded golden-touch key.
@@ -95,11 +96,19 @@ impl FixedKSigner {
         &self,
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
-        for candidate in [Scalar::ONE, Scalar::from(2u64)] {
-            if let Ok(signature) = self.sign_with_specific_k(candidate, hash) {
-                debug!(?candidate, "generated signature with fixed k");
-                return Ok(signature);
-            }
+        // For k = 1, kG is the generator and k^-1 is one, so skip the generic
+        // scalar multiplication and inversion path.
+        if let Ok(signature) =
+            self.sign_with_k_components(AffinePoint::generator(), Scalar::ONE, hash)
+        {
+            debug!(candidate = ?Scalar::ONE, "generated signature with fixed k");
+            return Ok(signature);
+        }
+
+        let candidate = Scalar::from(2u64);
+        if let Ok(signature) = self.sign_with_specific_k(candidate, hash) {
+            debug!(?candidate, "generated signature with fixed k");
+            return Ok(signature);
         }
         Err(FixedKSignerError::SigningFailed)
     }
@@ -112,16 +121,28 @@ impl FixedKSigner {
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
         // Calculate k * G in affine coordinates.
-        let k_point: AffinePoint = (ProjectivePoint::GENERATOR * k).to_affine();
+        let k_point: AffinePoint = ProjectivePoint::mul_by_generator(&k).to_affine();
+        let kinv =
+            Option::<Scalar>::from(k.invert()).ok_or(FixedKSignerError::NonInvertibleScalar)?;
+
+        self.sign_with_k_components(k_point, kinv, hash)
+    }
+
+    /// Finish signing from the affine nonce point and inverse nonce scalar.
+    ///
+    /// `k_point` and `kinv` must be derived from the same non-zero nonce scalar.
+    fn sign_with_k_components(
+        &self,
+        k_point: AffinePoint,
+        kinv: Scalar,
+        hash: &[u8; 32],
+    ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
         let x_bytes = k_point.x();
         let y_is_odd = bool::from(k_point.y_is_odd());
 
         let raw_r = Scalar::from_repr(x_bytes);
         let overflow = !bool::from(raw_r.is_some());
         let r = raw_r.unwrap_or_else(|| <Scalar as Reduce<ScalarModulus>>::reduce_bytes(&x_bytes));
-
-        let kinv =
-            Option::<Scalar>::from(k.invert()).ok_or(FixedKSignerError::NonInvertibleScalar)?;
 
         // s = k^{-1} (hash + r * priv)
         let hash_bytes: FieldBytes = (*hash).into();
@@ -158,61 +179,16 @@ impl FixedKSigner {
 
     /// Derive the Ethereum address corresponding to the given private key scalar.
     fn derive_address(scalar: &Scalar) -> Address {
-        let public_key = (ProjectivePoint::GENERATOR * scalar).to_affine();
+        let public_key = ProjectivePoint::mul_by_generator(scalar).to_affine();
         let encoded = public_key.to_encoded_point(false);
         Address::from_raw_public_key(&encoded.as_bytes()[1..])
     }
-
-    /// Internal helper to implement the `SignerSync` trait.
-    fn sign_hash_internal(&self, hash: &B256) -> Result<AlloySignature, FixedKSignerError> {
-        let mut bytes = [0u8; 32];
-        bytes.copy_from_slice(hash.as_slice());
-        let sig = self.sign_with_predefined_k(&bytes)?;
-        debug!(address = ?self.address, "produced signature for hash");
-        Ok(sig.signature)
-    }
 }
 
-#[async_trait]
-impl Signer for FixedKSigner {
-    /// Asynchronously sign a 32-byte hash.
-    async fn sign_hash(&self, hash: &B256) -> SignerResult<AlloySignature> {
-        SignerSync::sign_hash_sync(self, hash)
-    }
-
-    /// Return the signer's Ethereum address.
-    fn address(&self) -> Address {
-        self.address
-    }
-
-    /// Return the signer's configured chain ID, if any.
-    fn chain_id(&self) -> Option<u64> {
-        self.chain_id
-    }
-
-    /// Set or clear the signer's chain ID.
-    fn set_chain_id(&mut self, chain_id: Option<u64>) {
-        self.chain_id = chain_id;
-    }
-}
-
-impl SignerSync for FixedKSigner {
-    /// Synchronously sign a 32-byte hash.
-    fn sign_hash_sync(&self, hash: &B256) -> SignerResult<AlloySignature> {
-        self.sign_hash_internal(hash).map_err(alloy::signers::Error::other)
-    }
-
-    /// Return the signer's Ethereum address.
-    fn chain_id_sync(&self) -> Option<u64> {
-        self.chain_id
-    }
-}
-
-#[cfg(all(test, feature = "net"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use k256::Scalar;
-    use tokio::runtime::Runtime;
 
     fn expected_signature(r_hex: &str, s_hex: &str, v: u8) -> (AlloySignature, u8) {
         let r_bytes = hex::decode_to_array::<_, 32>(r_hex).unwrap();
@@ -262,28 +238,30 @@ mod tests {
             "0x663d210fa6dba171546498489de1ba024b89db49e21662f91bf83cdffe788820",
         )
         .unwrap();
-        let k1_sig = signer.sign_with_specific_k(Scalar::ONE, &payload).ok();
-        let k2_sig =
-            signer.sign_with_specific_k(Scalar::from(2u64), &payload).expect("k=2 signature");
-        let actual =
-            signer.sign_with_predefined_k(&payload).expect("predefined k signature").signature;
-        let matches_k1 = k1_sig.as_ref().map(|sig| sig.signature == actual).unwrap_or(false);
-        let matches_k2 = k2_sig.signature == actual;
-        assert!(matches_k1 || matches_k2, "predefined-k result matches neither k=1 nor k=2 output");
+        let expected = signer.sign_with_specific_k(Scalar::ONE, &payload).expect("k=1 signature");
+        let actual = signer.sign_with_predefined_k(&payload).expect("predefined k signature");
+
+        assert_eq!(actual.signature, expected.signature);
+        assert_eq!(actual.recovery_id, expected.recovery_id);
     }
 
     #[test]
-    fn signer_trait_impls_sign_hashed_payload() {
+    fn sign_with_predefined_k_falls_back_when_k1_produces_zero_s() {
         let signer = FixedKSigner::golden_touch().expect("golden touch key");
-        let payload = hex::decode_to_array::<_, 32>(
-            "0x44943399d1507f3ce7525e9be2f987c3db9136dc759cb7f92f742154196868b9",
-        )
-        .unwrap();
-        let hash = B256::from(payload);
-        let expected = SignerSync::sign_hash_sync(&signer, &hash).expect("sync sign");
+        let r = Option::<Scalar>::from(Scalar::from_repr(AffinePoint::GENERATOR.x()))
+            .expect("generator x coordinate is canonical");
+        let payload: [u8; 32] = (-(r * signer.secret_scalar)).to_bytes().into();
 
-        let rt = Runtime::new().expect("runtime");
-        let async_sig = rt.block_on(signer.sign_hash(&hash)).expect("async sign");
-        assert_eq!(async_sig, expected);
+        assert!(matches!(
+            signer.sign_with_specific_k(Scalar::ONE, &payload),
+            Err(FixedKSignerError::ZeroSignatureComponent)
+        ));
+        let expected = signer
+            .sign_with_specific_k(Scalar::from(2u64), &payload)
+            .expect("k=2 fallback signature");
+        let actual = signer.sign_with_predefined_k(&payload).expect("predefined k signature");
+
+        assert_eq!(actual.signature, expected.signature);
+        assert_eq!(actual.recovery_id, expected.recovery_id);
     }
 }

@@ -8,13 +8,11 @@ use alloy::{
     rpc::types::Log,
     sol_types::{SolCall, SolEvent},
 };
-use alloy_consensus::{Transaction, TxEnvelope};
+use alloy_consensus::TxEnvelope;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
-use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
-use metrics::{counter, gauge};
 use protocol::shasta::{
     constants::{
         MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET, PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID,
@@ -27,13 +25,13 @@ use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
-    derivation::manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
+    derivation::manifest::{ManifestFetcherError, fetcher::shasta::ShastaSourceManifestFetcher},
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 use protocol::shasta::AnchorTxConstructor;
 
-use super::super::{DerivationError, DerivationPipeline};
+use super::super::DerivationError;
 
 /// Decoded Shasta `Proposed` event enriched with the containing L1 block metadata.
 #[derive(Debug, Clone)]
@@ -64,13 +62,7 @@ pub use bundle::ShastaProposalBundle;
 ///
 /// Failures are downgraded to `None` so proposal derivation can proceed without finalized
 /// forkchoice hints.
-async fn try_last_finalized_proposal_id_at_block<P>(
-    rpc: &Client<P>,
-    block_hash: B256,
-) -> Option<u64>
-where
-    P: Provider + Clone + 'static,
-{
+async fn try_last_finalized_proposal_id_at_block(rpc: &Client, block_hash: B256) -> Option<u64> {
     match rpc
         .shasta
         .inbox
@@ -96,8 +88,11 @@ fn build_bundle_meta(
     event: &ProposedEventContext,
     last_finalized_proposal_id: Option<u64>,
 ) -> BundleMeta {
+    let proposal_id = event.event.id.to::<u64>();
+    let last_finalized_proposal_id = last_finalized_proposal_id.filter(|id| *id < proposal_id);
+
     BundleMeta {
-        proposal_id: event.event.id.to::<u64>(),
+        proposal_id,
         last_finalized_proposal_id,
         proposal_timestamp: event.l1_timestamp,
         l1_block_number: event.l1_block_number,
@@ -133,26 +128,9 @@ fn decode_parent_anchor_block_number(
     anchor_address: Address,
 ) -> Result<u64, DerivationError> {
     let block_number = parent_block.header.number;
-    let txs = parent_block.transactions.as_transactions().ok_or_else(|| {
-        DerivationError::Other(anyhow!(
-            "parent block {block_number} returned only transaction hashes"
-        ))
-    })?;
-    let first_tx = txs.first().ok_or_else(|| {
-        DerivationError::Other(anyhow!("parent block {block_number} contains no transactions"))
-    })?;
-    let destination = first_tx.to().ok_or_else(|| {
-        DerivationError::Other(anyhow!(
-            "unable to determine anchor transaction recipient for parent block {block_number}"
-        ))
-    })?;
-    if destination != anchor_address {
-        return Err(DerivationError::Other(anyhow!(
-            "parent block {block_number} first transaction is not the anchor contract"
-        )));
-    }
-
-    let input = first_tx.input();
+    let input = crate::anchor_tx::first_anchor_tx_input(parent_block, anchor_address).map_err(
+        |reason| DerivationError::Other(anyhow!("parent block {block_number}: {reason}")),
+    )?;
     if let Ok(call) = anchorV4Call::abi_decode(input) {
         return Ok(call.0.0.to::<u64>());
     }
@@ -184,22 +162,61 @@ fn validate_forced_inclusion_manifest(
     }
 }
 
+/// Returns whether a manifest fetch error reflects undecodable blob/manifest *content* rather
+/// than a transient fetch/RPC failure.
+///
+/// Any party can post an arbitrarily encoded (or empty) blob for a derivation source — most
+/// commonly a forced inclusion, where the blob bytes are attacker-controlled. Such a blob is not
+/// a fatal condition: it must degrade to the default payload, matching the Go reference's
+/// `ErrInvalidBlobBytes` handling in `DerivationSourceFetcher.Fetch`. Transient errors (beacon or
+/// RPC unavailability, blob-count mismatch) must instead propagate so derivation retries them.
+fn is_undecodable_manifest_error(err: &DerivationError) -> bool {
+    matches!(
+        err,
+        DerivationError::Manifest(
+            ManifestFetcherError::Invalid(_) | ManifestFetcherError::EmptyBlobSidecars
+        )
+    )
+}
+
+/// Resolve a derivation source's manifest from its fetch/decode result.
+///
+/// A successfully decoded manifest is passed through forced-inclusion validation. A failure caused
+/// by undecodable blob/manifest content degrades to the default payload instead of stalling
+/// derivation (see [`is_undecodable_manifest_error`]). Transient failures are returned unchanged so
+/// the caller retries them.
+fn resolve_source_manifest(
+    proposal_id: u64,
+    source: &DerivationSource,
+    result: Result<DerivationSourceManifest, DerivationError>,
+) -> Result<DerivationSourceManifest, DerivationError> {
+    match result {
+        Ok(manifest) => Ok(validate_forced_inclusion_manifest(proposal_id, source, manifest)),
+        Err(err) if is_undecodable_manifest_error(&err) => {
+            warn!(
+                proposal_id,
+                is_forced_inclusion = source.isForcedInclusion,
+                %err,
+                "undecodable blob/manifest for derivation source, using default payload instead"
+            );
+            Ok(DerivationSourceManifest::default())
+        }
+        Err(err) => Err(err),
+    }
+}
+
 /// Shasta-specific derivation pipeline.
 ///
 /// The pipeline consumes proposal logs emitted by the Shasta inbox, resolves the
 /// referenced manifests, and converts them into execution payloads that materialise new
 /// blocks in the execution engine.
-pub struct ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + 'static,
-{
+pub struct ShastaDerivationPipeline {
     /// RPC client bundle used for L1/L2 queries and engine calls.
-    rpc: Client<P>,
+    rpc: Client,
     /// Builder for Shasta anchor transactions.
     anchor_constructor: AnchorTxConstructor<RootProvider>,
     /// Manifest fetcher used to resolve derivation-source blobs.
-    derivation_source_manifest_fetcher:
-        Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
+    derivation_source_manifest_fetcher: ShastaSourceManifestFetcher,
     /// Activation timestamp for the Shasta fork on this chain.
     shasta_fork_timestamp: u64,
     /// Minimum base-fee clamp to use for EIP-4396 calculations on this chain.
@@ -210,22 +227,18 @@ where
     initial_proposal_id: U256,
 }
 
-impl<P> ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + 'static,
-{
+impl ShastaDerivationPipeline {
     /// Create a new derivation pipeline instance.
     ///
     /// Manifests are fetched via the supplied blob source while the driver client is
     /// reused to query both L1 contracts and L2 execution state.
     #[instrument(skip(rpc, blob_source), name = "shasta_derivation_new")]
     pub async fn new(
-        rpc: Client<P>,
+        rpc: Client,
         blob_source: Arc<BlobDataSource>,
         initial_proposal_id: U256,
     ) -> Result<Self, DerivationError> {
-        let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
-            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
+        let source_manifest_fetcher = ShastaSourceManifestFetcher::new(blob_source.clone());
         let anchor_address = *rpc.shasta.anchor.address();
         let anchor_constructor =
             AnchorTxConstructor::new(rpc.l2_provider.clone(), anchor_address).await?;
@@ -252,7 +265,8 @@ where
     /// Load the parent L2 block used as context when constructing payload attributes.
     ///
     /// Preference is given to the execution engine's cached origin pointer for the proposal.
-    /// If unavailable, fall back to the latest canonical block.
+    /// If unavailable, fall back to the batch-to-block mapping so derivation always anchors to
+    /// the last execution block of the preceding proposal.
     #[instrument(skip(self), fields(proposal_id), level = "debug")]
     async fn load_parent_block(
         &self,
@@ -306,6 +320,18 @@ where
             .ok_or(DerivationError::BlockUnavailable(block_number))
     }
 
+    /// Build a proposal bundle from a decoded event, resolving the last finalized proposal id.
+    async fn event_to_manifest(
+        &self,
+        event: &ProposedEventContext,
+    ) -> Result<ShastaProposalBundle, DerivationError> {
+        self.build_manifest_from_event(
+            event,
+            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await,
+        )
+        .await
+    }
+
     /// Decode a proposal log into the event payload and enrich it with L1 block metadata.
     #[instrument(skip(self, log), level = "debug")]
     async fn decode_log_to_event_context(
@@ -337,19 +363,12 @@ where
         Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
-    /// Fetch and decode a single manifest from the blob store.
-    ///
-    /// The caller is responsible for providing the correct fetcher implementation for
-    /// the manifest type.
-    async fn fetch_and_decode_manifest<M>(
+    /// Fetch and decode a single derivation-source manifest from the blob store.
+    async fn fetch_and_decode_manifest(
         &self,
-        fetcher: &dyn ManifestFetcher<Manifest = M>,
         source: &DerivationSource,
         proposal_timestamp: u64,
-    ) -> Result<M, DerivationError>
-    where
-        M: Send,
-    {
+    ) -> Result<DerivationSourceManifest, DerivationError> {
         let hashes = derivation_source_to_blob_hashes(source);
         let offset = source.blobSlice.offset.to::<u64>() as usize;
         let timestamp = source.blobSlice.timestamp.to::<u64>();
@@ -359,8 +378,10 @@ where
             hash_count = hashes.len(),
             offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
         );
-        let manifest =
-            fetcher.fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks).await?;
+        let manifest = self
+            .derivation_source_manifest_fetcher
+            .fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks)
+            .await?;
         Ok(manifest)
     }
 
@@ -390,14 +411,10 @@ where
             let manifest = if !is_source_offset_valid(source) {
                 DerivationSourceManifest::default()
             } else {
-                let manifest = self
-                    .fetch_and_decode_manifest(
-                        self.derivation_source_manifest_fetcher.as_ref(),
-                        source,
-                        event.l1_timestamp,
-                    )
-                    .await?;
-                validate_forced_inclusion_manifest(proposal_id, source, manifest)
+                // An undecodable blob/manifest degrades to the default payload rather than
+                // stalling derivation; only transient errors propagate to be retried.
+                let result = self.fetch_and_decode_manifest(source, event.l1_timestamp).await;
+                resolve_source_manifest(proposal_id, source, result)?
             };
             manifest_segments.push(SourceManifestSegment {
                 manifest,
@@ -412,7 +429,7 @@ where
         };
 
         if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
-            gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+            DriverMetrics::derivation_last_finalized_proposal_id()
                 .set(last_finalized_proposal_id as f64);
         }
 
@@ -432,7 +449,7 @@ where
         {
             decode_parent_anchor_block_number(parent_block, *self.rpc.shasta.anchor.address())?
         } else {
-            self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?.anchor_block_number
+            self.rpc.shasta_anchor_block_number_by_hash(parent_block.hash()).await?
         };
 
         let grandparent_timestamp = if parent_header.number == 0 {
@@ -471,29 +488,12 @@ where
     }
 }
 
-#[async_trait]
-impl<P> DerivationPipeline for ShastaDerivationPipeline<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    type Manifest = ShastaProposalBundle;
-
-    // Convert a proposal log into a manifest for processing.
-    #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
-    async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
-        let event = self.decode_log_to_event_context(log).await?;
-        self.build_manifest_from_event(
-            &event,
-            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await,
-        )
-        .await
-    }
-
-    // Convert a manifest into execution engine blocks for block production.
+impl ShastaDerivationPipeline {
+    /// Convert a manifest into execution engine blocks for block production.
     #[instrument(skip(self, manifest, applier), name = "shasta_manifest_to_blocks")]
     async fn manifest_to_engine_blocks(
         &self,
-        manifest: Self::Manifest,
+        manifest: ShastaProposalBundle,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
@@ -503,7 +503,7 @@ where
                 initial_proposal_id = ?self.initial_proposal_id,
                 "skipping proposal below initial proposal id"
             );
-            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
+            DriverMetrics::event_proposals_skipped_total().inc();
             return Ok(Vec::new());
         }
         info!(
@@ -524,7 +524,7 @@ where
         {
             let outcomes =
                 known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
-            counter!(DriverMetrics::DERIVATION_CANONICAL_HITS_TOTAL).increment(1);
+            DriverMetrics::derivation_canonical_hits_total().inc();
             self.update_canonical_proposal_origins(&meta, &known_blocks).await?;
             return Ok(outcomes);
         }
@@ -539,24 +539,24 @@ where
         Ok(outcomes)
     }
 
+    /// Process the provided proposal log, materialising the derived blocks in the execution
+    /// engine.
     #[instrument(skip(self, log, applier), name = "shasta_process_proposal")]
-    async fn process_proposal(
+    pub async fn process_proposal(
         &self,
         log: &Log,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
         let proposal_id = event.event.id.to::<u64>();
-        let last_finalized_proposal_id =
-            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
-            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
+            DriverMetrics::event_proposals_skipped_total().inc();
             return Ok(Vec::new());
         }
 
-        let manifest = self.build_manifest_from_event(&event, last_finalized_proposal_id).await?;
+        let manifest = self.event_to_manifest(&event).await?;
         let outcomes = self.manifest_to_engine_blocks(manifest, applier).await?;
 
         if let Some(last) = outcomes.last() {
@@ -585,22 +585,14 @@ mod tests {
     use alloy::{
         consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559},
         eips::eip2930::AccessList,
-        primitives::{
-            Address, B256, Bytes, FixedBytes, TxKind,
-            aliases::{U24, U48},
-        },
+        primitives::{Address, B256, Bytes, FixedBytes, TxKind, aliases::U48},
         rpc::types::eth::BlockTransactions,
         sol_types::SolCall,
     };
-    use alloy_provider::{ProviderBuilder, RootProvider};
     use alloy_transport::mock::Asserter;
     use bindings::{
-        anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint},
-        inbox::{
-            IInbox,
-            Inbox::{InboxInstance, getCoreStateCall},
-            LibBlobs::BlobSlice,
-        },
+        anchor::ICheckpointStore::Checkpoint,
+        inbox::{IInbox, Inbox::getCoreStateCall},
     };
     use protocol::{
         FixedKSigner,
@@ -610,24 +602,11 @@ mod tests {
             manifest::{BlockManifest, DerivationSourceManifest},
         },
     };
-    use rpc::{
-        blob::BlobDataSource,
-        client::{Client, ShastaProtocolInstance},
-    };
+    use rpc::blob::BlobDataSource;
 
-    fn sample_derivation_source(
-        blob_hashes: Vec<FixedBytes<32>>,
-        is_forced: bool,
-    ) -> DerivationSource {
-        DerivationSource {
-            isForcedInclusion: is_forced,
-            blobSlice: BlobSlice {
-                blobHashes: blob_hashes,
-                offset: U24::from(0u32),
-                timestamp: U48::from(0u64),
-            },
-        }
-    }
+    use crate::test_support::{
+        mock_client_with_asserters, mock_client_with_l1_asserter, sample_derivation_source,
+    };
 
     fn sample_event_context() -> ProposedEventContext {
         ProposedEventContext {
@@ -643,30 +622,6 @@ mod tests {
             l1_block_hash: B256::from([6u8; 32]),
             l1_timestamp: 7,
         }
-    }
-
-    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
-        mock_client_with_asserters(l1_asserter, Asserter::new(), Asserter::new(), Address::ZERO)
-    }
-
-    fn mock_client_with_asserters(
-        l1_asserter: Asserter,
-        l2_asserter: Asserter,
-        l2_auth_asserter: Asserter,
-        anchor_address: Address,
-    ) -> Client<RootProvider> {
-        let l1_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
-        let l2_provider =
-            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
-        let l2_auth_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(l2_auth_asserter);
-        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
-        let anchor = AnchorInstance::new(anchor_address, l2_auth_provider.clone());
-        let shasta = ShastaProtocolInstance { inbox, anchor };
-
-        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     fn sign_test_anchor_tx(anchor_address: Address, input: Bytes) -> TxEnvelope {
@@ -751,6 +706,81 @@ mod tests {
     }
 
     #[test]
+    fn resolve_source_manifest_defaults_on_undecodable_blob() {
+        // Regression: a forced-inclusion source whose blob fails to decode (the on-chain
+        // proposal 1812 / L1 block 5167 case) must degrade to the default payload, not propagate
+        // a fatal error that stalls derivation and retries forever.
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], true);
+        let result = Err(DerivationError::Manifest(ManifestFetcherError::Invalid(
+            "invalid blob encoding".to_string(),
+        )));
+
+        let resolved = resolve_source_manifest(1812, &source, result)
+            .expect("an undecodable blob must resolve to the default payload, not an error");
+
+        assert_eq!(resolved.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn resolve_source_manifest_defaults_on_empty_blob_sidecars() {
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], false);
+        let result = Err(DerivationError::Manifest(ManifestFetcherError::EmptyBlobSidecars));
+
+        let resolved = resolve_source_manifest(1, &source, result)
+            .expect("empty blob sidecars must resolve to the default payload");
+
+        assert_eq!(resolved.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn resolve_source_manifest_propagates_transient_error() {
+        // Transient fetch failures (e.g. the beacon returned the wrong sidecar count) must still
+        // propagate so derivation retries them instead of silently defaulting forever.
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], true);
+        let result = Err(DerivationError::Manifest(ManifestFetcherError::BlobCountMismatch {
+            expected: 1,
+            actual: 0,
+        }));
+
+        let resolved = resolve_source_manifest(1, &source, result);
+
+        assert!(
+            matches!(
+                resolved,
+                Err(DerivationError::Manifest(ManifestFetcherError::BlobCountMismatch { .. }))
+            ),
+            "transient errors must propagate, got {resolved:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_source_manifest_passes_through_valid_manifest() {
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], true);
+        let manifest = DerivationSourceManifest { blocks: vec![BlockManifest::default()] };
+
+        let resolved = resolve_source_manifest(1, &source, Ok(manifest))
+            .expect("a valid manifest must pass through unchanged");
+
+        assert_eq!(resolved.blocks.len(), 1);
+    }
+
+    #[test]
+    fn is_undecodable_manifest_error_distinguishes_content_from_transient() {
+        assert!(is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::Invalid("invalid blob encoding".to_string())
+        )));
+        assert!(is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::EmptyBlobSidecars
+        )));
+        assert!(!is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::BlobCountMismatch { expected: 1, actual: 0 }
+        )));
+        assert!(!is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::EmptyBlobHashes
+        )));
+    }
+
+    #[test]
     fn bundle_meta_preserves_absent_finalized_proposal_id() {
         let event = sample_event_context();
 
@@ -815,9 +845,7 @@ mod tests {
         let pipeline = ShastaDerivationPipeline {
             rpc: client,
             anchor_constructor,
-            derivation_source_manifest_fetcher: Arc::new(ShastaSourceManifestFetcher::new(
-                blob_source,
-            )),
+            derivation_source_manifest_fetcher: ShastaSourceManifestFetcher::new(blob_source),
             shasta_fork_timestamp: 0,
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
             chain_id: TAIKO_MAINNET_CHAIN_ID,

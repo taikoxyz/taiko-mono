@@ -6,10 +6,11 @@ import (
 	"log/slog"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
 // handleMessageProcessedEvent handles an individual MessageProcessed event
@@ -59,6 +60,11 @@ func (i *Indexer) handleMessageProcessedEvent(
 		}
 	}
 
+	if _, ignored := i.ignoredMsgHashes[event.MsgHash]; ignored {
+		slog.Warn("skipping ignored MessageProcessed msgHash", "msgHash", common.Hash(event.MsgHash).Hex())
+		return nil
+	}
+
 	// if the message is not status new, and we are iterating crawling past blocks,
 	// we also dont want to handle this event. it has already been handled.
 	if i.watchMode == CrawlPastBlocks {
@@ -71,7 +77,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	id, err := i.saveEventToDB(
+	if _, err := i.saveEventToDB(
 		ctx,
 		marshaled,
 		"0x",
@@ -81,26 +87,45 @@ func (i *Indexer) handleMessageProcessedEvent(
 		message.Data,
 		message.Value,
 		event.Raw.BlockNumber,
-	)
-	if err != nil {
+	); err != nil {
 		return errors.Wrap(err, "i.saveEventToDB")
 	}
 
-	msg := queue.QueueMessageProcessedBody{
-		ID:      id,
-		Message: message,
-	}
-
-	marshalledMsg, err := json.Marshal(msg)
+	// Forged-message detection (relocated from the removed watchdog): if the
+	// bridge that should have originated this message has no record of sending
+	// it, alert. This runs after saveEventToDB and is best-effort: the indexer's
+	// filter loop advances the block number even when the handler errors, so a
+	// propagated origin-chain RPC error would drop the already-indexed event.
+	forged, err := i.isForgedMessage(ctx, message)
 	if err != nil {
-		return errors.Wrap(err, "json.Marshal")
+		slog.Warn("could not verify whether message was sent; skipping forged-message check",
+			"msgId", message.Id,
+			"err", err.Error(),
+		)
+
+		return nil
 	}
 
-	// we add it to the queue, so the processor can pick up and attempt to process
-	// the message onchain.
-	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil, nil); err != nil {
-		return errors.Wrap(err, "i.queue.Publish")
+	if forged {
+		slog.Warn("dest bridge did not send this message", "msgId", message.Id)
+
+		relayer.BridgeMessageNotSent.Inc()
 	}
 
 	return nil
+}
+
+// isForgedMessage reports whether the bridge that should have originated this
+// message (destBridge) has no record of having sent it — the signature of a
+// forged message. Relocated from the removed watchdog.
+func (i *Indexer) isForgedMessage(ctx context.Context, message bridge.IBridgeMessage) (bool, error) {
+	callCtx, cancel := context.WithTimeout(ctx, i.ethClientTimeout)
+	defer cancel()
+
+	sent, err := i.destBridge.IsMessageSent(&bind.CallOpts{Context: callCtx}, message)
+	if err != nil {
+		return false, errors.Wrap(err, "i.destBridge.IsMessageSent")
+	}
+
+	return !sent, nil
 }

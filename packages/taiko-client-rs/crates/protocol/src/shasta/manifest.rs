@@ -7,7 +7,7 @@ use std::{
 
 use alloy::primitives::{Address, U256};
 use alloy_consensus::TxEnvelope;
-use alloy_rlp::{self, Decodable, Encodable, RlpDecodable, RlpEncodable};
+use alloy_rlp::{self, Encodable, RlpDecodable, RlpEncodable};
 use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use serde::{Deserialize, Serialize};
 
@@ -76,8 +76,11 @@ impl DerivationSourceManifest {
             }
         };
 
-        let mut decoded_slice = decoded.as_slice();
-        let manifest = match <DerivationSourceManifest as Decodable>::decode(&mut decoded_slice) {
+        // Decode with `decode_exact`, which rejects any bytes left after the RLP structure instead
+        // of silently ignoring them. A lenient decode would let a proposer append junk to an
+        // otherwise valid manifest and still have the crafted blocks derived; such trailing data
+        // must instead degrade the source to the default payload.
+        let manifest = match alloy_rlp::decode_exact::<DerivationSourceManifest>(&decoded) {
             Ok(m) => m,
             Err(err) => {
                 warn!(?err, "failed to decode derivation manifest RLP; returning default manifest");
@@ -106,8 +109,12 @@ where
     let rlp_encoded = alloy_rlp::encode(manifest);
 
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(&rlp_encoded)?;
-    let compressed = encoder.finish()?;
+    encoder
+        .write_all(&rlp_encoded)
+        .map_err(|e| ProtocolError::Compression(format!("failed to compress manifest: {e}")))?;
+    let compressed = encoder
+        .finish()
+        .map_err(|e| ProtocolError::Compression(format!("failed to compress manifest: {e}")))?;
 
     let mut output = Vec::with_capacity(64 + compressed.len());
 
@@ -122,6 +129,13 @@ where
     Ok(output)
 }
 
+/// Return the least significant 64 bits of a 32-byte big-endian word.
+fn low_u64_from_word(word: &[u8]) -> u64 {
+    let mut low = [0u8; 8];
+    low.copy_from_slice(&word[24..32]);
+    u64::from_be_bytes(low)
+}
+
 /// Decode a manifest from the Shasta protocol payload format.
 fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     if bytes.len() < offset + 64 {
@@ -133,32 +147,35 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     }
 
     let version_raw = U256::from_be_slice(&bytes[offset..offset + 32]);
-    let version = u32::try_from(version_raw).map_err(|_| {
-        ProtocolError::InvalidPayload(format!("version field exceeds u32 range: {version_raw}"))
+    let version_u64 = u64::try_from(version_raw).map_err(|_| {
+        ProtocolError::InvalidPayload(format!("version field exceeds u64 range: {version_raw}"))
     })?;
+    let version = version_u64 as u32;
     if version != SHASTA_PAYLOAD_VERSION as u32 {
         return Err(ProtocolError::InvalidPayload(format!(
             "unsupported payload version: expected {SHASTA_PAYLOAD_VERSION}, got {version}"
         )));
     }
 
-    let size_raw = U256::from_be_slice(&bytes[offset + 32..offset + 64]);
-    let size_u64 = u64::try_from(size_raw).map_err(|_| {
-        ProtocolError::InvalidPayload(format!("size field exceeds u64 range: {size_raw}"))
-    })?;
+    let size_u64 = low_u64_from_word(&bytes[offset + 32..offset + 64]);
     let size = usize::try_from(size_u64).map_err(|_| {
         ProtocolError::InvalidPayload(format!("size field exceeds usize range: {size_u64}"))
     })?;
 
-    if bytes.len() < offset + 64 + size {
+    // Bound the compressed slice `[start, start + size)` with subtraction so a hostile `size`
+    // (attacker-controlled up to `u64::MAX` in a forced-inclusion blob) cannot overflow the
+    // `start + size` addition and panic. The header check above guarantees `start <= bytes.len()`,
+    // so `bytes.len() - start` never underflows, and `size <= remaining` keeps `start + size`
+    // within bounds. Mirrors the Go reference `DerivationSourceFetcher.manifestFromBlobBytes`.
+    let start = offset + 64;
+    let remaining = bytes.len() - start;
+    if remaining < size {
         return Err(ProtocolError::InvalidPayload(format!(
-            "payload too short for compressed data: expected {} bytes, got {}",
-            offset + 64 + size,
-            bytes.len()
+            "payload too short for compressed data: need {size} bytes after offset {start}, got {remaining}"
         )));
     }
 
-    let compressed = &bytes[offset + 64..offset + 64 + size];
+    let compressed = &bytes[start..start + size];
     let mut decoder = ZlibDecoder::new(compressed);
     let mut decoded = Vec::new();
     decoder
@@ -171,6 +188,17 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn manifest_with_gas_limit(gas_limit: u64) -> DerivationSourceManifest {
+        DerivationSourceManifest { blocks: vec![BlockManifest { gas_limit, ..Default::default() }] }
+    }
+
+    fn assert_decoded_gas_limit(payload: &[u8], expected_gas_limit: u64) {
+        let decoded = DerivationSourceManifest::decompress_and_decode(payload, 0)
+            .expect("manifest decoding should not return a hard error");
+        assert_eq!(decoded.blocks.len(), 1);
+        assert_eq!(decoded.blocks[0].gas_limit, expected_gas_limit);
+    }
 
     #[test]
     fn test_decode_manifest_payload_too_short() {
@@ -192,15 +220,43 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_manifest_payload_size_too_large() {
-        let mut payload = vec![0u8; 64];
-        payload[31] = SHASTA_PAYLOAD_VERSION;
-        // size_raw > u64::MAX should yield error.
-        payload[32] = 1;
+    fn test_decode_manifest_payload_version_truncates_uint64_to_uint32() {
+        let manifest = manifest_with_gas_limit(98_765);
+        let mut payload = manifest.encode_and_compress().unwrap();
+        let go_accepted_version = (1u64 << 32) + u64::from(SHASTA_PAYLOAD_VERSION);
 
-        let result = decode_manifest_payload(&payload, 0);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("size field exceeds u64 range"));
+        payload[..32].copy_from_slice(&U256::from(go_accepted_version).to_be_bytes::<32>());
+
+        assert_decoded_gas_limit(&payload, 98_765);
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_version_above_uint64_returns_default() {
+        let manifest = manifest_with_gas_limit(77_777);
+        let mut payload = manifest.encode_and_compress().unwrap();
+
+        // Any non-zero byte before the final 8 bytes makes the 32-byte word exceed uint64.
+        payload[23] = 1;
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0)
+            .expect("manifest decoding should fall back instead of returning a hard error");
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        assert_eq!(
+            decoded.blocks[0].gas_limit,
+            DerivationSourceManifest::default().blocks[0].gas_limit
+        );
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_size_uses_low_64_bits() {
+        let manifest = manifest_with_gas_limit(123_456);
+        let mut payload = manifest.encode_and_compress().unwrap();
+
+        // Set a high bit outside the low uint64 size word. Go's big.Int.Uint64() keeps
+        // the low 64 bits, so Rust must keep decoding the real compressed length.
+        payload[55] = 1;
+
+        assert_decoded_gas_limit(&payload, 123_456);
     }
 
     #[test]
@@ -236,6 +292,39 @@ mod tests {
 
         let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
         assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn test_derivation_manifest_decode_rejects_trailing_bytes() {
+        use flate2::{Compression, write::ZlibEncoder};
+
+        // A valid single-block manifest with a stray byte appended past the RLP structure. Trailing
+        // data must be rejected so the source degrades to the default payload rather than deriving
+        // the crafted block.
+        let manifest = manifest_with_gas_limit(0xBEEF);
+        let mut body = alloy_rlp::encode(&manifest);
+        body.push(0xFF);
+
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&body).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let mut payload = Vec::with_capacity(64 + compressed.len());
+        let mut version_bytes = [0u8; 32];
+        version_bytes[31] = SHASTA_PAYLOAD_VERSION;
+        payload.extend_from_slice(&version_bytes);
+
+        let len_bytes = U256::from(compressed.len()).to_be_bytes::<32>();
+        payload.extend_from_slice(&len_bytes);
+        payload.extend_from_slice(&compressed);
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0).unwrap();
+        // Falls back to the default single-block manifest, not the crafted 0xBEEF block.
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        assert_eq!(
+            decoded.blocks[0].gas_limit,
+            DerivationSourceManifest::default().blocks[0].gas_limit
+        );
     }
 
     #[test]
@@ -296,5 +385,94 @@ mod tests {
 
         let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
         assert_eq!(decoded.blocks.len(), manifest.blocks.len());
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_size_u64_max_returns_err() {
+        // A forced-inclusion blob can set the size word to u64::MAX. The bounds check must reject
+        // it with an error instead of overflowing `offset + 64 + size` and panicking (which would
+        // bypass the default-manifest fallback and crash derivation).
+        let mut payload = vec![0u8; 64];
+        payload[31] = SHASTA_PAYLOAD_VERSION;
+        payload[56..64].fill(0xFF); // size word low 64 bits = u64::MAX
+
+        let result = decode_manifest_payload(&payload, 0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("payload too short for compressed data"));
+    }
+
+    #[test]
+    fn test_decompress_and_decode_size_u64_max_returns_default() {
+        // The overflow-triggering payload must degrade to the default manifest via the decode
+        // fallback, matching Go, rather than panicking the derivation pipeline.
+        let mut payload = vec![0u8; 64];
+        payload[31] = SHASTA_PAYLOAD_VERSION;
+        payload[56..64].fill(0xFF);
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0)
+            .expect("hostile size must fall back to default, not return a hard error");
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        assert_eq!(
+            decoded.blocks[0].gas_limit,
+            DerivationSourceManifest::default().blocks[0].gas_limit
+        );
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_size_exceeds_remaining_returns_err() {
+        // A `size` larger than the bytes available after the header (without overflowing) must be
+        // rejected so the compressed slice never reads out of bounds.
+        let mut payload = vec![0u8; 66]; // 64-byte header + 2 trailing bytes
+        payload[31] = SHASTA_PAYLOAD_VERSION;
+        payload[63] = 100; // size = 100, but only 2 bytes remain after the header
+
+        let result = decode_manifest_payload(&payload, 0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("payload too short for compressed data"));
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_nonzero_offset() {
+        // Production callers pass a U24 blob offset; the header and compressed slice must be
+        // read relative to it.
+        let manifest = manifest_with_gas_limit(55_555);
+        let payload = manifest.encode_and_compress().unwrap();
+
+        let offset = 7usize;
+        let mut padded = vec![0xAA; offset];
+        padded.extend_from_slice(&payload);
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&padded, offset)
+            .expect("manifest decoding should not return a hard error");
+        let baseline = DerivationSourceManifest::decompress_and_decode(&payload, 0)
+            .expect("manifest decoding should not return a hard error");
+
+        assert_eq!(decoded.blocks.len(), baseline.blocks.len());
+        assert_eq!(decoded.blocks[0].gas_limit, 55_555);
+        assert_eq!(decoded.blocks[0].gas_limit, baseline.blocks[0].gas_limit);
+    }
+
+    #[test]
+    fn test_derivation_manifest_empty_blocks_decodes_as_empty() {
+        // Pins current behavior on a cross-client parity surface: an empty `blocks` list
+        // decodes as-is instead of degrading to the default single-block manifest.
+        let manifest = DerivationSourceManifest { blocks: vec![] };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert!(decoded.blocks.is_empty());
+    }
+
+    #[test]
+    fn test_derivation_manifest_default_max_blocks_boundary() {
+        // Exactly DERIVATION_SOURCE_MAX_BLOCKS blocks must decode on the default (non-Unzen)
+        // path; one block more falls back (covered by `test_derivation_manifest_too_many_blocks`).
+        let blocks: Vec<BlockManifest> =
+            (0..DERIVATION_SOURCE_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+        let manifest = DerivationSourceManifest { blocks };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), DERIVATION_SOURCE_MAX_BLOCKS);
     }
 }

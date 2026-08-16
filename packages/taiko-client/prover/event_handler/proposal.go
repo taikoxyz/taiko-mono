@@ -105,7 +105,20 @@ func (h *ProposalEventHandler) handleProposal(
 				ctx,
 			),
 		); err != nil {
-			log.Error("Handle proposed event error", "error", err)
+			if ctx.Err() != nil {
+				return
+			}
+			// Roll the cursors back, so that the periodic proposal re-scan can pick this
+			// proposal up again, otherwise it would be skipped forever.
+			if !h.sharedState.RollbackProposalCursor(ctx, proposalID.Uint64()-1, newL1Current) {
+				return
+			}
+			log.Error(
+				"Handle proposed event error, rolled back the proposal cursor for a re-scan",
+				"proposalID", proposalID,
+				"l1Height", newL1Current.Number,
+				"error", err,
+			)
 		}
 	}()
 

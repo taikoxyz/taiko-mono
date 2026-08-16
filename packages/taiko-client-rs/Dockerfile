@@ -1,4 +1,4 @@
-FROM rust:1.94.1 AS build
+FROM rust:1.95.0 AS build
 
 WORKDIR /app
 
@@ -8,7 +8,6 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 COPY packages/taiko-client-rs packages/taiko-client-rs
-COPY packages/preconfirmation-p2p packages/preconfirmation-p2p
 
 WORKDIR /app/packages/taiko-client-rs
 

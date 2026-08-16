@@ -110,25 +110,52 @@ pub(crate) fn decode_unsafe_response_message(
     decode_envelope_ssz(&decoded)
 }
 
-/// Decode snappy bytes after validating decompressed length against gossip limits.
-fn decompress_snappy_with_limit(data: &[u8], kind: &str) -> Result<Vec<u8>> {
-    let decoded_len = snap::raw::decompress_len(data).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to inspect snappy {kind} size: {err}"
-        ))
-    })?;
+/// Failure mode of [`bounded_decompress_snappy`], distinguishing the stage that failed.
+pub(crate) enum SnappyDecompressError {
+    /// `decompress_len` could not inspect the snappy frame.
+    Inspect(snap::Error),
+    /// Decompressed length would exceed [`MAX_DECOMPRESSED_GOSSIP_BYTES`].
+    TooLarge(usize),
+    /// `decompress_vec` failed to produce the decompressed bytes.
+    Decompress(snap::Error),
+}
+
+/// Decompress snappy bytes, bounding the decompressed length against gossip limits.
+///
+/// On success returns the decompressed bytes; on failure returns a
+/// [`SnappyDecompressError`] identifying the stage so callers can choose their own
+/// error-reporting or fallback behavior.
+pub(crate) fn bounded_decompress_snappy(
+    data: &[u8],
+) -> core::result::Result<Vec<u8>, SnappyDecompressError> {
+    let decoded_len = match snap::raw::decompress_len(data) {
+        Ok(len) => len,
+        Err(err) => return Err(SnappyDecompressError::Inspect(err)),
+    };
 
     if decoded_len > MAX_DECOMPRESSED_GOSSIP_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "snappy {kind} too large after decompression: {decoded_len} > {MAX_DECOMPRESSED_GOSSIP_BYTES}"
-        )));
+        return Err(SnappyDecompressError::TooLarge(decoded_len));
     }
 
-    let mut decoder = snap::raw::Decoder::new();
-    decoder.decompress_vec(data).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to decompress snappy {kind}: {err}"
-        ))
+    snap::raw::Decoder::new().decompress_vec(data).map_err(SnappyDecompressError::Decompress)
+}
+
+/// Decode snappy bytes after validating decompressed length against gossip limits.
+fn decompress_snappy_with_limit(data: &[u8], kind: &str) -> Result<Vec<u8>> {
+    bounded_decompress_snappy(data).map_err(|err| match err {
+        SnappyDecompressError::Inspect(err) => WhitelistPreconfirmationDriverError::InvalidPayload(
+            format!("failed to inspect snappy {kind} size: {err}"),
+        ),
+        SnappyDecompressError::TooLarge(decoded_len) => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "snappy {kind} too large after decompression: {decoded_len} > {MAX_DECOMPRESSED_GOSSIP_BYTES}"
+            ))
+        }
+        SnappyDecompressError::Decompress(err) => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "failed to decompress snappy {kind}: {err}"
+            ))
+        }
     })
 }
 
@@ -146,11 +173,6 @@ pub(crate) fn encode_unsafe_payload_message(
             "failed to compress snappy payload: {err}"
         ))
     })
-}
-
-/// Encode a message for the `requestEndOfSequencingPreconfBlocks` topic.
-pub(crate) fn encode_eos_request_message(epoch: u64) -> Vec<u8> {
-    epoch.to_be_bytes().to_vec()
 }
 
 /// Encode a message for the `requestPreconfBlocks` topic.
@@ -417,16 +439,6 @@ mod tests {
             envelope.execution_payload.block_number
         );
         assert_eq!(decoded_envelope.signature, envelope.signature);
-    }
-
-    #[test]
-    fn encode_eos_request_message_produces_big_endian_bytes() {
-        let epoch = 0x0102030405060708u64;
-        let encoded = encode_eos_request_message(epoch);
-        assert_eq!(encoded, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
-
-        let zero = encode_eos_request_message(0);
-        assert_eq!(zero, vec![0u8; 8]);
     }
 
     #[test]

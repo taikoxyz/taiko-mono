@@ -8,7 +8,7 @@ use axum::{
 };
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 
-use super::{http_utils::error_response, state::AppState};
+use super::{AppState, http::error_response};
 
 /// Optional Bearer JWT validator shared by REST/WS routes.
 pub(super) struct JwtAuth {

@@ -22,5 +22,10 @@ func (s *EventHandlerTestSuite) TestProposalHandle() {
 		BackOffMaxRetries:        5,
 		ProveUnassignedProposals: true,
 	})
-	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer), func() {}))
+	// Propose the proposal to handle, then a following proposal so the handled proposal's
+	// last block is sealed by a newer proposal on top of it; WaitProposalHeader only resolves
+	// a proposal once its boundary is confirmed this way.
+	proposal := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
+	s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
+	s.Nil(handler.Handle(context.Background(), proposal, func() {}))
 }

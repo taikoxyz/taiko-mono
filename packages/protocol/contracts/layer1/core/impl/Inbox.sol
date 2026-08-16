@@ -47,9 +47,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
         DerivationSource[] sources;
-        bool allowsPermissionless;
     }
 
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    event InboxActivated(bytes32 lastPacayaBlockHash);
+
+    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
@@ -170,27 +176,85 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the owner and genesis state of the inbox.
-    /// @dev The genesis block hash is permanent after initialization. Setting it incorrectly
-    ///      leaves the inbox in an unrecoverable state that can only be fixed via a proxy
-    ///      upgrade, so deployers must verify `_genesisBlockHash` before calling.
+    /// @notice Initializes the owner of the inbox.
     /// @param _owner The owner of this contract
-    /// @param _genesisBlockHash The L2 genesis block hash, i.e. the block hash of the last Pacaya
-    ///        block, since Shasta inherits L2 state from Pacaya.
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function init(address _owner) external initializer {
         __Essential_init(_owner);
+    }
 
+    /// @notice Activates the inbox so that it can start accepting proposals.
+    /// @dev Can be called multiple times within the activation window to handle reorgs.
+    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
+    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.initCoreState(_genesisBlockHash);
+        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal);
+        emit InboxActivated(_lastPacayaBlockHash);
+    }
+
+    /// @notice One-time owner recovery that resets the inbox core state after an incident.
+    /// @dev Invoke via `upgradeToAndCall` on the proxy. The caller must supply a consistent
+    ///      `(_lastFinalizedProposalId, _lastFinalizedBlockHash)` pair: `_lastFinalizedBlockHash`
+    ///      must be the true L2 end-block hash of `_lastFinalizedProposalId`, otherwise `prove`
+    ///      cannot resume.
+    /// @dev `nextProposalId` and `lastProposalBlockId` are intentionally preserved from the current
+    ///      core state instead of being reset. Proposals submitted after the incident keep their
+    ///      unique IDs, so resuming proposing cannot collide with existing on-chain proposal IDs.
+    /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than the
+    ///        current `nextProposalId`, and the unfinalized range
+    ///        `nextProposalId - _lastFinalizedProposalId` must be smaller than the ring buffer size
+    ///        so proposing can resume. The chosen finalized proposal must still be anchored in the
+    ///        current ring buffer.
+    /// @param _lastFinalizedBlockHash The true L2 block hash at the end of `_lastFinalizedProposalId`.
+    function init2(
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedBlockHash
+    )
+        external
+        onlyOwner
+        reinitializer(2)
+    {
+        CoreState memory currentState = _coreState;
+
+        require(currentState.nextProposalId > 0, InvalidRecoveryState());
+        require(_lastFinalizedProposalId < currentState.nextProposalId, InvalidRecoveryState());
+        require(
+            currentState.nextProposalId - _lastFinalizedProposalId < _ringBufferSize,
+            InvalidRecoveryState()
+        );
+        require(_lastFinalizedBlockHash != 0, InvalidRecoveryState());
+
+        currentState.lastFinalizedProposalId = _lastFinalizedProposalId;
+        currentState.lastFinalizedTimestamp = uint48(block.timestamp);
+        currentState.lastCheckpointTimestamp = uint48(block.timestamp);
+        currentState.lastFinalizedBlockHash = _lastFinalizedBlockHash;
+        _coreState = currentState;
+
+        emit StateRecovered(
+            currentState.nextProposalId, _lastFinalizedProposalId, _lastFinalizedBlockHash
+        );
+    }
+
+    /// @notice One-time owner function that voids all queued forced inclusions by moving the
+    ///         queue head to the tail.
+    /// @dev Invoke via `upgradeToAndCall` on the proxy. The skipped entries were queued while
+    ///      forced inclusions were disabled after the June 2026 incident; their blobs have
+    ///      expired from the blob retention window and can no longer be derived, so they must
+    ///      be evicted before forced inclusion processing is re-enabled. Their fees remain in
+    ///      the contract.
+    function init3() external onlyOwner reinitializer(3) {
+        LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
+        (uint48 head, uint48 tail) = ($.head, $.tail);
+        $.head = tail;
+        emit ForcedInclusionsVoided(head, tail);
     }
 
     /// @inheritdoc IInbox
@@ -226,9 +290,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IInbox
-    /// @dev When the prover whitelist is enabled, only whitelisted
-    ///      provers may prove until a proposal becomes older than `permissionlessProvingDelay`,
-    ///      after which proving becomes permissionless for that proposal.
+    /// @dev When the prover whitelist is enabled and contains at least one prover, only
+    ///      whitelisted provers may prove.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     ///      Transition structs, each with the proposal metadata and end block hash. The proof
     ///      range can start at or before the last finalized proposal to handle race conditions
@@ -271,7 +334,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _validateCommitment(state, commitment);
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
+            bool isWhitelistEnabled = _checkProver(msg.sender);
 
             // ---------------------------------------------------------
             // 2. Verify parent block-hash continuity and last proposal hash
@@ -535,19 +598,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
-            // If forced inclusion is old enough, allow anyone to propose
-            // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
-            // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp;
-            if (!result.allowsPermissionless) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
-                if (_minBond > 0) {
-                    // Only if there is a minimum bond set, execute this check
-                    require(
-                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
-                    );
-                }
+            // Permissionless proposing is temporarily disabled.
+            uint48 endOfSubmissionWindowTimestamp =
+                _proposerChecker.checkProposer(msg.sender, _lookahead);
+            if (_minBond > 0) {
+                // Only if there is a minimum bond set, execute this check
+                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -612,14 +668,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
-            uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
+            (, head) = _dequeueAndProcessForcedInclusions(
                 $, _feeRecipient, result_.sources, head, toProcess
             );
-
-            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
-                * _permissionlessInclusionMultiplier + oldestTimestamp;
-            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
         }
     }
 
@@ -714,27 +765,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
-    ///      becomes permissionless once a proposal is older than the permissionless delay.
+    /// @dev Checks if the caller is an authorized prover.
     /// @param _addr The address of the caller to check.
-    /// @param _proposalAge The age in seconds since the proposal became available for proving.
     /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise.
-    function _checkProver(
-        address _addr,
-        uint256 _proposalAge
-    )
-        private
-        view
-        returns (bool whitelistEnabled_)
-    {
+    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
         if (address(_proverWhitelist) == address(0)) return false;
 
         (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
         if (proverCount == 0) return false;
 
-        if (!isWhitelisted) {
-            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
-        }
+        require(isWhitelisted, ProverNotWhitelisted());
         return true;
     }
 
@@ -781,6 +821,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error InsufficientBond();
+    error InvalidRecoveryState();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();

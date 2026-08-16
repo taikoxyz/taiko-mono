@@ -187,6 +187,19 @@ interface IInbox {
         address indexed actualProver
     );
 
+    /// @notice Emitted when the inbox core state is reset during incident recovery.
+    /// @param nextProposalId The next proposal ID set by the recovery.
+    /// @param lastFinalizedProposalId The last finalized proposal ID set by the recovery.
+    /// @param lastFinalizedBlockHash The last finalized block hash set by the recovery.
+    event StateRecovered(
+        uint48 nextProposalId, uint48 lastFinalizedProposalId, bytes32 lastFinalizedBlockHash
+    );
+
+    /// @notice Emitted when queued forced inclusions are voided by moving the queue head.
+    /// @param oldHead The queue head before the move.
+    /// @param newHead The queue head after the move (equals the queue tail).
+    event ForcedInclusionsVoided(uint48 oldHead, uint48 newHead);
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------

@@ -46,8 +46,8 @@ func tryLastFinalizedCheckpoint(
 		return nil, nil
 	}
 
-	// We can skip this check when proposalID is nil
-	if proposalID != nil && coreState.LastFinalizedProposalId.Cmp(proposalID) < 0 {
+	// We can skip this check when proposalID is nil or LastFinalizedProposalId is larger than proposalID
+	if proposalID != nil && coreState.LastFinalizedProposalId.Cmp(proposalID) >= 0 {
 		return nil, nil
 	}
 
@@ -303,7 +303,7 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 			"⏰ New preconfirmation L2 block inserted",
 			"blockID", header.Number,
 			"hash", header.Hash(),
-			"fork", "Shasta",
+			"fork", rpc.ForkLabel(i.rpc.L2.ChainID, header.Time),
 			"coinbase", header.Coinbase.Hex(),
 			"timestamp", header.Time,
 			"baseFee", utils.WeiToGWei(header.BaseFee),

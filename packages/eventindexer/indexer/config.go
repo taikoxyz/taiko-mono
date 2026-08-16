@@ -24,7 +24,6 @@ type Config struct {
 	MetricsHTTPPort         uint64
 	ETHClientTimeout        uint64
 	L1TaikoAddress          common.Address
-	ShastaInboxAddress      common.Address
 	BridgeAddress           common.Address
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
@@ -32,8 +31,6 @@ type Config struct {
 	IndexNFTs               bool
 	IndexERC20s             bool
 	Layer                   string
-	OntakeForkHeight        uint64
-	PacayaForkHeight        uint64
 	OpenDBFunc              func() (db.DB, error)
 }
 
@@ -50,7 +47,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
-		ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
@@ -59,8 +55,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),
 		IndexERC20s:             c.Bool(flags.IndexERC20s.Name),
 		Layer:                   c.String(flags.Layer.Name),
-		OntakeForkHeight:        c.Uint64(flags.OntakeForkHeight.Name),
-		PacayaForkHeight:        c.Uint64(flags.PacayaForkHeight.Name),
 		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

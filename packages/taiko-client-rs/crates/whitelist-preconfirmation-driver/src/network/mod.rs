@@ -4,6 +4,7 @@ mod behaviour;
 mod config;
 mod discovery;
 pub(crate) mod handler;
+mod peer_manager;
 mod runtime;
 mod topics;
 

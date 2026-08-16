@@ -32,6 +32,8 @@ var (
 	errAlreadyProcessing = errors.New("already processing txHash")
 )
 
+const gasRefundPerCacheOperation uint64 = 20_000
+
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
 // get its on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
@@ -339,12 +341,16 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	// The tx manager floors the tip at its configured MinTipCap before sending,
+	// so use that same effective tip in the profitability estimate below.
+	// Otherwise the estimate under-counts the tip whenever the suggested tip is
+	// below MinTipCap, producing false "unprofitable after transacting" events.
+	gasTipCap = relayer.EffectiveGasTipCap(gasTipCap, p.minTipCap)
+
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
 	if err != nil {
 		return nil, err
 	}
-
-	gasLimit := uint64(float64(event.Message.GasLimit))
 
 	// if destination address is a contract, add padding. check message.to
 	// to see if it is a contract address.
@@ -353,11 +359,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	if len(code) != 0 {
-		gasLimit = uint64(float64(gasLimit) * 1.1)
-	} else {
-		gasLimit = uint64(float64(gasLimit) * 1.05)
-	}
+	gasLimit := relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0)
 
 	var estimatedMaxCost uint64
 
@@ -459,18 +461,41 @@ func (p *Processor) sendProcessMessageCall(
 	relayer.MessageSentEventsProcessed.Inc()
 
 	if p.profitableOnly {
-		cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
-
-		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
-			"srcTxHash", event.Raw.TxHash.Hex(),
-			"actualCost", cost,
-			"estimatedMaxCost", estimatedMaxCost,
-		)
-
-		if cost > estimatedMaxCost {
-			relayer.UnprofitableMessageAfterTransacting.Inc()
+		if receipt.EffectiveGasPrice == nil {
+			relayer.AfterTransactingProfitabilityEvaluationErrors.Inc()
+			slog.Warn("missing effective gas price; skipping after-transacting profitability",
+				"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+				"srcTxHash", event.Raw.TxHash.Hex(),
+			)
 		} else {
-			relayer.ProfitableMessageAfterTransacting.Inc()
+			cost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
+
+			relayerFee, err := p.relayerFeeFromReceipt(ctx, receipt, event)
+			if err != nil {
+				relayer.AfterTransactingProfitabilityEvaluationErrors.Inc()
+				slog.Warn("failed to determine relayer fee; skipping after-transacting profitability",
+					"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+					"srcTxHash", event.Raw.TxHash.Hex(),
+					"actualCost", cost,
+					"estimatedMaxCost", estimatedMaxCost,
+					"processingFee", event.Message.Fee,
+					"error", err,
+				)
+			} else {
+				slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+					"srcTxHash", event.Raw.TxHash.Hex(),
+					"actualCost", cost,
+					"estimatedMaxCost", estimatedMaxCost,
+					"processingFee", event.Message.Fee,
+					"relayerFee", relayerFee,
+				)
+
+				if cost.Cmp(relayerFee) > 0 {
+					relayer.UnprofitableMessageAfterTransacting.Inc()
+				} else {
+					relayer.ProfitableMessageAfterTransacting.Inc()
+				}
+			}
 		}
 	}
 
@@ -479,6 +504,95 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	return receipt, nil
+}
+
+func (p *Processor) relayerFeeFromReceipt(
+	ctx context.Context,
+	receipt *types.Receipt,
+	event *bridge.BridgeMessageSent,
+) (*big.Int, error) {
+	messageProcessed, ok := encoding.BridgeABI.Events[relayer.EventNameMessageProcessed]
+	if !ok {
+		return nil, errors.New("MessageProcessed ABI event not found")
+	}
+
+	var stats *bridge.BridgeProcessingStats
+
+	for _, receiptLog := range receipt.Logs {
+		if receiptLog == nil || receiptLog.Address != p.cfg.DestBridgeAddress || len(receiptLog.Topics) < 2 ||
+			receiptLog.Topics[0] != messageProcessed.ID || receiptLog.Topics[1] != common.Hash(event.MsgHash) {
+			continue
+		}
+
+		decoded := struct {
+			Message bridge.IBridgeMessage
+			Stats   bridge.BridgeProcessingStats
+		}{}
+		if err := encoding.BridgeABI.UnpackIntoInterface(
+			&decoded,
+			relayer.EventNameMessageProcessed,
+			receiptLog.Data,
+		); err != nil {
+			return nil, errors.Wrap(err, "unpack MessageProcessed event")
+		}
+
+		stats = &decoded.Stats
+
+		break
+	}
+
+	if stats == nil {
+		return nil, errors.New("MessageProcessed event not found in receipt")
+	}
+
+	if event.Message.GasLimit == 0 {
+		return nil, errors.New("message gas limit is zero")
+	}
+
+	if !stats.ProcessedByRelayer {
+		return new(big.Int).SetUint64(event.Message.Fee), nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+	defer cancel()
+
+	minedHeader, err := p.destEthClient.HeaderByHash(ctx, receipt.BlockHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "get mined block header")
+	}
+
+	if minedHeader == nil || minedHeader.BaseFee == nil {
+		return nil, errors.New("mined block base fee is missing")
+	}
+
+	refund := new(big.Int).Mul(
+		new(big.Int).SetUint64(uint64(stats.NumCacheOps)),
+		new(big.Int).SetUint64(gasRefundPerCacheOperation),
+	)
+	gasUsedInFeeCalc := new(big.Int).SetUint64(uint64(stats.GasUsedInFeeCalc))
+	gasCharged := new(big.Int)
+
+	if gasUsedInFeeCalc.Cmp(refund) > 0 {
+		gasCharged.Sub(gasUsedInFeeCalc, refund)
+	}
+
+	maxFee := new(big.Int).Mul(gasCharged, new(big.Int).SetUint64(event.Message.Fee))
+	maxFee.Div(maxFee, new(big.Int).SetUint64(uint64(event.Message.GasLimit)))
+	baseFee := new(big.Int).Mul(gasCharged, minedHeader.BaseFee)
+
+	var paidFee *big.Int
+	if baseFee.Cmp(maxFee) >= 0 {
+		paidFee = maxFee
+	} else {
+		paidFee = new(big.Int).Rsh(new(big.Int).Add(maxFee, baseFee), 1)
+	}
+
+	feeCap := new(big.Int).SetUint64(event.Message.Fee)
+	if paidFee.Cmp(feeCap) > 0 {
+		return feeCap, nil
+	}
+
+	return paidFee, nil
 }
 
 // retrieve the balance of the relayer and set Prometheus
@@ -519,7 +633,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	m := make(map[string]interface{})
 
 	for _, log := range receipt.Logs {
-		if len(log.Topics) == 0 {
+		if log == nil || len(log.Topics) == 0 {
 			continue
 		}
 
@@ -559,7 +673,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 // getBaseFee determines the baseFee on the dest chain
 func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
-	blk, err := p.destEthClient.BlockByNumber(ctx, nil)
+	destBlock, err := p.destEthClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -567,15 +681,14 @@ func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
 	var baseFee *big.Int
 
 	if p.taikoL2 != nil {
-		bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(blk.GasUsed()))
-		if err != nil {
-			return nil, err
+		if destBlock.BaseFee() != nil {
+			return destBlock.BaseFee(), nil
 		}
 
-		baseFee = bf.Basefee
+		return nil, relayer.ErrMissingDestBaseFee
 	} else {
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
-		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+		baseFee = eip1559.CalcBaseFee(cfg, destBlock.Header())
 	}
 
 	return baseFee, nil

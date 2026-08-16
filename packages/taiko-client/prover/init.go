@@ -16,62 +16,75 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
+const (
+	sgxGethVerifierID   uint8 = 1
+	sgxRethVerifierID   uint8 = 4
+	risc0RethVerifierID uint8 = 5
+	sp1RethVerifierID   uint8 = 6
+)
+
+func verifierIDsByProofType() map[producer.ProofType]uint8 {
+	return map[producer.ProofType]uint8{
+		producer.ProofTypeSgxGeth: sgxGethVerifierID,
+		producer.ProofTypeSgx:     sgxRethVerifierID,
+		producer.ProofTypeZKR0:    risc0RethVerifierID,
+		producer.ProofTypeZKSP1:   sp1RethVerifierID,
+	}
+}
+
+func enabledProofTypes(forceSGXProof bool, zkOnlyProofs bool) []producer.ProofType {
+	if forceSGXProof && !zkOnlyProofs {
+		return []producer.ProofType{producer.ProofTypeSgx}
+	}
+	return []producer.ProofType{producer.ProofTypeZKR0, producer.ProofTypeZKSP1}
+}
+
 // initProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
-		// ZKVM proof producers.
-		zkvmProducer producer.ProofProducer
-
 		// All activated proof types in protocol.
-		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
-
-		// VerifierIDs
-		sgxGethVerifierID   uint8 = 1
-		sgxRethVerifierID   uint8 = 4
-		risc0RethVerifierID uint8 = 5
-		sp1RethVerifierID   uint8 = 6
-
-		err error
+		proofTypes = enabledProofTypes(p.cfg.ForceSGXProof, p.cfg.ZkOnlyProofs)
+		err        error
 	)
 
-	sgxGethProducer := &producer.SgxGethProofProducer{
-		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		VerifierID:          sgxGethVerifierID,
-		ApiKey:              p.cfg.RaikoApiKey,
-		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		Dummy:               p.cfg.Dummy,
-	}
-	// Initialize the sgx proof producer.
-	proofTypes = append(proofTypes, producer.ProofTypeSgx)
-	sgxRethProducer := &producer.ComposeProofProducer{
-		SgxGethProducer: sgxGethProducer,
-		VerifierIDs: map[producer.ProofType]uint8{
-			producer.ProofTypeSgx: sgxRethVerifierID,
-		},
-		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		ProofType:           producer.ProofTypeSgx,
-		ApiKey:              p.cfg.RaikoApiKey,
-		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-		Dummy:               p.cfg.Dummy,
-	}
-
-	// Initialize the zk verifiers and zkvm proof producers.
-	var zkVerifierIDs = make(map[producer.ProofType]uint8, proofSubmitter.MaxNumSupportedZkTypes)
-	proofTypes = append(proofTypes, producer.ProofTypeZKR0)
-	zkVerifierIDs[producer.ProofTypeZKR0] = risc0RethVerifierID
-	proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
-	zkVerifierIDs[producer.ProofTypeZKSP1] = sp1RethVerifierID
-
-	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
-		zkvmProducer = &producer.ComposeProofProducer{
-			VerifierIDs:         zkVerifierIDs,
-			SgxGethProducer:     sgxGethProducer,
-			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-			ApiKey:              p.cfg.RaikoApiKey,
-			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			ProofType:           producer.ProofTypeZKAny,
-			Dummy:               p.cfg.Dummy,
+	// A ZK-only prover can only finalize against a proof verifier that accepts the
+	// [RISC0, SP1] sub-proof pair (ZkRequiredVerifier, live with the Unzen hardfork).
+	// That is not checkable on-chain (areVerifiersSufficient is internal), so surface the
+	// configured verifier loudly for the operator to check: on the pre-Unzen
+	// MainnetVerifier every ZK-only submission reverts with CV_VERIFIERS_INSUFFICIENT.
+	if p.cfg.ZkOnlyProofs {
+		if inboxConfig, err := p.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx}); err != nil {
+			log.Warn("ZK-only proof mode is enabled, but fetching the inbox's proof verifier failed", "error", err)
+		} else {
+			log.Warn(
+				"ZK-only proof mode is enabled: the inbox's proof verifier must accept the [RISC0, SP1] "+
+					"sub-proof pair (ZkRequiredVerifier, live with the Unzen hardfork), "+
+					"otherwise every proof submission will revert",
+				"proofVerifier", inboxConfig.ProofVerifier,
+			)
 		}
+	}
+	if p.cfg.ForceSGXProof && !p.cfg.ZkOnlyProofs {
+		if inboxConfig, err := p.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx}); err != nil {
+			log.Warn("Force SGX proof mode is enabled, but fetching the inbox's proof verifier failed", "error", err)
+		} else {
+			log.Warn(
+				"Force SGX proof mode is enabled: the inbox's proof verifier must accept the "+
+					"[SGX_GETH, SGX_RETH] sub-proof pair, otherwise every proof submission will revert",
+				"proofVerifier", inboxConfig.ProofVerifier,
+			)
+		}
+	}
+
+	// Initialize proof verifier IDs and the Raiko proof producer.
+	verifierIDs := verifierIDsByProofType()
+
+	zkvmProducer := &producer.ComposeProofProducer{
+		VerifierIDs:         verifierIDs,
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		ApiKey:              p.cfg.RaikoApiKey,
+		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		Dummy:               p.cfg.Dummy,
 	}
 	// Init proof buffers.
 	var (
@@ -86,9 +99,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 	for _, proofType := range proofTypes {
 		cacheMaps[proofType] = cmap.New[*producer.ProofResponse]()
 		switch proofType {
-		case producer.ProofTypeOp, producer.ProofTypeSgx:
-			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
-		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
+		case producer.ProofTypeSgx, producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
 		default:
 			return fmt.Errorf("unexpected proof type: %s", proofType)
@@ -97,7 +108,6 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 
 	if p.proofSubmitter, err = proofSubmitter.NewProofSubmitter(
 		p.ctx,
-		sgxRethProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
@@ -115,6 +125,10 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		cacheMaps,
 		p.flushCacheNotify,
 		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
+		new(big.Int).SetUint64(p.cfg.MaxRisc0ProofProposalDistance),
+		p.cfg.ForceSP1Proof,
+		p.cfg.ForceSGXProof,
+		p.cfg.ZkOnlyProofs,
 	); err != nil {
 		return fmt.Errorf("failed to initialize proof submitter: %w", err)
 	}

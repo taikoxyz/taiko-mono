@@ -18,7 +18,7 @@ var (
 	}
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service for post Shasta fork",
+		Usage:    "RPC endpoint of the Raiko 2 host service for post Unzen fork",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
@@ -27,12 +27,6 @@ var (
 
 // Optional flags used by prover.
 var (
-	RaikoZKVMHostEndpoint = &cli.StringFlag{
-		Name:     "raiko.host.zkvm",
-		Usage:    "RPC endpoint of a Raiko ZKVM host service for post Shasta fork",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
-	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
 		Usage:    "Path to an Api key for the Raiko service",
@@ -70,6 +64,50 @@ var (
 		Value:    0,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
+	}
+	MaxRisc0ProofProposalDistance = &cli.Uint64Flag{
+		Name: "prover.maxRisc0ProofProposalDistance",
+		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting RISC0 proofs. " +
+			"When proposalID exceeds lastFinalizedProposalID + maxRisc0ProofProposalDistance, the prover stops " +
+			"requesting RISC0 proofs, clears the RISC0 backlog, and falls back to SP1 until the backlog " +
+			"is cleared and the RISC0 endpoint reports clean, then resumes RISC0. Set to 0 to always use SP1. " +
+			"Post Shasta fork only.",
+		Value:    30,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE"},
+	}
+	ForceSP1Proof = &cli.BoolFlag{
+		Name: "prover.forceSP1Proof",
+		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
+			"Ignored when --prover.zkOnlyProofs is set. Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_FORCE_SP1_PROOF"},
+	}
+	ForceSGXProof = &cli.BoolFlag{
+		Name: "prover.forceSGXProof",
+		Usage: "Always request SGX_RETH proofs from the Raiko proof producer instead of using the " +
+			"RISC0-to-SP1 selection and fallback flow. Ignored when --prover.zkOnlyProofs is set. " +
+			"The inbox's proof verifier must accept the [SGX_GETH, SGX_RETH] sub-proof pair. " +
+			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
+			"Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_FORCE_SGX_PROOF"},
+	}
+	ZkOnlyProofs = &cli.BoolFlag{
+		Name: "prover.zkOnlyProofs",
+		Usage: "Prove every proposal with both RISC0 and SP1 proofs and submit the [RISC0, SP1] sub-proof pair, " +
+			"instead of pairing a single ZK proof with an SGX_GETH proof. The " +
+			"inbox's proof verifier must accept the [RISC0, SP1] pair — i.e. ZkRequiredVerifier, live with the " +
+			"Unzen hardfork; on the pre-Unzen MainnetVerifier every submission reverts. " +
+			"Intended for provers running without a TEE (sgx-geth) service or during SGX outages; " +
+			"note that it generates proofs on both ZKVMs for every proposal. " +
+			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
+			"Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZK_ONLY_PROOFS"},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
@@ -110,14 +148,6 @@ var (
 		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
 	}
 	// Batch proof related flag
-	SGXBatchSize = &cli.Uint64Flag{
-		Name: "prover.sgx.batchSize",
-		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proofs immediately, " +
-			"this flag only works for proposal proof aggregation",
-		Value:    1,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
-	}
 	ZKVMBatchSize = &cli.Uint64Flag{
 		Name: "prover.zkvm.batchSize",
 		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proofs immediately, " +
@@ -144,9 +174,11 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	LocalProposerAddresses,
 	BlockConfirmations,
 	RaikoRequestTimeout,
-	RaikoZKVMHostEndpoint,
-	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
+	MaxRisc0ProofProposalDistance,
+	ForceSP1Proof,
+	ForceSGXProof,
+	ZkOnlyProofs,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

@@ -35,10 +35,8 @@ jobs:
             eventindexer
             fork-diff
             geth-rpc-gateway
-            preconfirmation-p2p
             protocol
             relayer
-            urcindexer-rs
             nfts
             ui-lib
             taiko-client

@@ -7,7 +7,10 @@ optimizer_runs = 200
 ffi = true
 memory_limit = 4_294_967_296
 solc_version = "0.8.30"
-evm_version = "prague"
+# L1 (Ethereum) EVM version. Ethereum mainnet is on Osaka.
+# Taiko L2 is also on Osaka, but the two chains can fork independently again, so the L2 profiles
+# (layer2, shared, genesis) below set `evm_version` explicitly instead of inheriting this value.
+evm_version = "osaka"
 # Fuzzing configuration (updated for newer Foundry versions)
 fuzz = { runs = 200, show_logs = false }
 # Exclude genesis tests - they require special setup via genesis.test.sh
@@ -23,11 +26,24 @@ remappings = [
     "@solady/=node_modules/solady/",
     "solady/src/=node_modules/solady/src/",
     "solady/utils/=node_modules/solady/src/utils/",
+    "solady/auth/=node_modules/solady/src/auth/",
     "@optimism/=node_modules/optimism/",
-    "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
+    # sp1-contracts publishes its sources under contracts/src/. Taiko imports use "@sp1-contracts/X"
+    # (X under contracts/src/), which also matches the vendored DCAP entrypoint's
+    # "@sp1-contracts/ISP1Verifier.sol" import.
+    "@sp1-contracts/=node_modules/sp1-contracts/contracts/src/",
     "forge-std/=node_modules/forge-std/",
     "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
     "@eth-fabric/urc/=node_modules/urc/src/",
+    # Automata DCAP attestation, pinned as npm dependencies (see package.json):
+    #   @automata-network/automata-dcap-attestation@1.1.0 (ToB audited v1.0 baseline + remediation)
+    #   @automata-network/on-chain-pccs@1.1.1
+    # The attestation contracts read Intel collateral from on-chain PCCS via these libraries.
+    "@automata-network/on-chain-pccs/=node_modules/@automata-network/on-chain-pccs/src/",
+    "@automata-network/automata-dcap-attestation/=node_modules/@automata-network/automata-dcap-attestation/",
+    # risc0 verifier interface imported by the DCAP entrypoint (ZK route is unused on-chain, but
+    # must resolve for the entrypoint to compile). The sp1 interface resolves via "@sp1-contracts/".
+    "risc0/=node_modules/risc0-ethereum/contracts/src/",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",
@@ -95,13 +111,22 @@ test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 cache_path = "cache/layer1"
+# The Automata DCAP verifier (X.509/ASN.1 parsing in QuoteVerifierBase) needs the IR pipeline to
+# compile, but via_ir alters codegen in a way that breaks unrelated Shasta tests. So the standard
+# L1 build/test stays non-IR here, and the only file that pulls in the Automata verifier
+# (DeployAutomataDcapAttestation) is skipped. Deploy it under profile.layer1o, which enables via_ir.
+skip = ["*DeployAutomataDcapAttestation.s.sol"]
 
 [profile.layer1o]
 src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
-out = "out/layer1"
+# Separate out/cache dirs so this IR build never overwrites the non-IR artifacts in out/layer1
+# (mixing them makes the Shasta suite fail under the IR codegen).
+out = "out/layer1o"
 cache_path = "cache/layer1o"
+# via_ir is required to compile the Automata DCAP verifier. Use this profile to run
+# DeployAutomataDcapAttestation (and any other IR-only L1 build); the standard suite uses layer1.
 via_ir = true
 
 [profile.layer2]
@@ -110,7 +135,9 @@ test = "test/layer2"
 script = "script/layer2"
 out = "out/layer2"
 cache_path = "cache/layer2"
-evm_version = "shanghai"
+# Taiko L2 EVM version. Kept explicit (rather than inherited from profile.default) so L2 can be
+# pinned to a different fork than L1 whenever the two chains diverge again.
+evm_version = "osaka"
 
 [profile.shared]
 src = "contracts/shared"
@@ -118,7 +145,9 @@ test = "test/shared"
 script = "script/shared"
 out = "out/shared"
 cache_path = "cache/shared"
-evm_version = "shanghai"
+# Shared contracts are deployed on both L1 and L2, so this must stay at the oldest fork of the two.
+# Both are on Osaka today; drop this back to the lagging chain's fork if they diverge again.
+evm_version = "osaka"
 
 [profile.genesis]
 src = "contracts/layer2"
@@ -126,4 +155,5 @@ test = "test/genesis"
 script = "script/layer2"
 out = "out/genesis"
 cache_path = "cache/genesis"
-evm_version = "shanghai"
+# Must match profile.layer2 — this profile builds the same L2 contracts into the genesis alloc.
+evm_version = "osaka"

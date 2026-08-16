@@ -12,7 +12,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 ) error {
-	startingBlock, err := i.getGenesisBlockHeight(ctx)
+	startingBlock, err := i.getFirstShastaBlockHeight(ctx)
 	if err != nil {
 		return err
 	}
@@ -43,40 +43,15 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	return nil
 }
 
-// getGenesisBlockHeight returns the genesis block height by trying different
-// contract versions in order (v1 -> v2 -> v3 -> v4). Returns 0 if no TaikoL1
-// contract is configured.
-func (i *Indexer) getGenesisBlockHeight(ctx context.Context) (uint64, error) {
-	if i.taikol1 == nil {
-		return 0, nil
+// getFirstShastaBlockHeight returns the first Shasta block height.
+func (i *Indexer) getFirstShastaBlockHeight(ctx context.Context) (uint64, error) {
+	if i.inbox == nil {
+		return 0, errors.New("inbox contract not configured")
 	}
 
-	// Try v1 bindings
-	slotA, _, err := i.taikol1.GetStateVariables(nil)
-	if err == nil {
-		return slotA.GenesisHeight, nil
-	}
-
-	// Try v2 bindings
-	slotAV2, _, err := i.taikol1V2.GetStateVariables(nil)
-	if err == nil {
-		return slotAV2.GenesisHeight, nil
-	}
-
-	// Try v3 bindings
-	stats, err := i.taikoInbox.GetStats1(nil)
-	if err == nil {
-		return stats.GenesisHeight, nil
-	}
-
-	// Try v4 bindings
-	if i.shastaInbox == nil {
-		return 0, errors.New("no compatible TaikoL1 contract version found")
-	}
-
-	ts, err := i.shastaInbox.ActivationTimestamp(nil)
+	ts, err := i.inbox.ActivationTimestamp(nil)
 	if err != nil {
-		return 0, errors.Wrap(err, "shastaInbox.ActivationTimestamp")
+		return 0, errors.Wrap(err, "inbox.ActivationTimestamp")
 	}
 
 	blockNum, err := i.getBlockByTimestamp(ctx, ts.Uint64())

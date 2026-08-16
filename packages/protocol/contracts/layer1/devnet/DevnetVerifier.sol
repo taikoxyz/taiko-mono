@@ -5,7 +5,7 @@ import "../verifiers/compose/ComposeVerifier.sol";
 
 /// @title DevnetVerifier
 /// @notice SGX + (OP or RISC0 or SP1) verifier for devnet
-/// @dev In production, use AnyTwoVerifier. This is for testing with OpVerifier support.
+/// @dev In production, use ZkRequiredVerifier. This is for testing with OpVerifier support.
 /// @custom:security-contact security@taiko.xyz
 contract DevnetVerifier is ComposeVerifier {
     constructor(

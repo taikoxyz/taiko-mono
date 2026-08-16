@@ -18,11 +18,11 @@ func filterFuncShasta(
 ) error {
 	wg, ctx := errgroup.WithContext(ctx)
 
-	if i.shastaInbox != nil {
+	if i.inbox != nil {
 		wg.Go(func() error {
-			provedEvents, err := i.shastaInbox.FilterProved(filterOpts, nil)
+			provedEvents, err := i.inbox.FilterProved(filterOpts, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.shastaInbox.FilterProved")
+				return errors.Wrap(err, "i.inbox.FilterProved")
 			}
 			defer provedEvents.Close()
 
@@ -34,9 +34,9 @@ func filterFuncShasta(
 			return nil
 		})
 		wg.Go(func() error {
-			proposedEvents, err := i.shastaInbox.FilterProposed(filterOpts, nil, nil)
+			proposedEvents, err := i.inbox.FilterProposed(filterOpts, nil, nil)
 			if err != nil {
-				return errors.Wrap(err, "i.shastaInbox.FilterProposed")
+				return errors.Wrap(err, "i.inbox.FilterProposed")
 			}
 			defer proposedEvents.Close()
 

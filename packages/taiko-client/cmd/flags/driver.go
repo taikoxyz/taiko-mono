@@ -1,8 +1,6 @@
 package flags
 
 import (
-	"time"
-
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/urfave/cli/v2"
 )
@@ -16,14 +14,6 @@ var (
 		Value:    false,
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_SYNC"},
-	}
-	P2PSyncTimeout = &cli.DurationFlag{
-		Name: "p2p.syncTimeout",
-		Usage: "P2P syncing timeout, if no sync progress is made within this time span, " +
-			"driver will stop the P2P sync and insert all remaining L2 blocks one by one",
-		Value:    1 * time.Hour,
-		Category: driverCategory,
-		EnvVars:  []string{"P2P_SYNC_TIMEOUT"},
 	}
 	CheckPointSyncURL = &cli.StringFlag{
 		Name:     "p2p.checkPointSyncUrl",
@@ -75,7 +65,6 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2AuthEndpoint,
 	JWTSecret,
 	P2PSync,
-	P2PSyncTimeout,
 	CheckPointSyncURL,
 	BlobServerEndpoint,
 	PreconfBlockServerPort,

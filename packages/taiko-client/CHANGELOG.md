@@ -1,5 +1,120 @@
 # Changelog
 
+## [2.6.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.5.0...taiko-alethia-client-v2.6.0) (2026-07-15)
+
+
+### Features
+
+* **protocol:** use audited upstream automata code with DEBUG enclaves rejection ([#21827](https://github.com/taikoxyz/taiko-mono/issues/21827)) ([add6e28](https://github.com/taikoxyz/taiko-mono/commit/add6e2862343d3f71278b47da2093da6501ad03b))
+* **taiko-client,taiko-client-rs:** restore forced inclusion propose inputs ([#21936](https://github.com/taikoxyz/taiko-mono/issues/21936)) ([2d7fd1a](https://github.com/taikoxyz/taiko-mono/commit/2d7fd1a3e76505652a6adee6d24278affa6ddd9c))
+* **taiko-client:** add ZK-only RISC0 + SP1 proof mode ([#21959](https://github.com/taikoxyz/taiko-mono/issues/21959)) ([f92b4f1](https://github.com/taikoxyz/taiko-mono/commit/f92b4f13cfb0860db2236cadb0481c30ca853c21))
+* **taiko-client:** split dummy proof flags ([#21960](https://github.com/taikoxyz/taiko-mono/issues/21960)) ([04f8159](https://github.com/taikoxyz/taiko-mono/commit/04f8159ae3567dff895b0ecca1c9f01ee024d46d))
+
+
+### Bug Fixes
+
+* **taiko-client:** fallback RISC0 proofs to SP1 ([#21804](https://github.com/taikoxyz/taiko-mono/issues/21804)) ([485e214](https://github.com/taikoxyz/taiko-mono/commit/485e214bb5f7bdb5de7fa299eb8cbf45128f345e))
+* **taiko-client:** only postpone event sync while chain data is syncing ([#21896](https://github.com/taikoxyz/taiko-mono/issues/21896)) ([97abf8b](https://github.com/taikoxyz/taiko-mono/commit/97abf8b2ee0479a496c6301e509457d5bbc6cb44))
+* **taiko-client:** roll back proposal cursors so failed proposals are re-scanned ([#21951](https://github.com/taikoxyz/taiko-mono/issues/21951)) ([3e8b570](https://github.com/taikoxyz/taiko-mono/commit/3e8b570455624ab7fd263c52aabfe2651cdb0fc2))
+* **taiko-client:** wait for execution sync before events ([#21877](https://github.com/taikoxyz/taiko-mono/issues/21877)) ([035d817](https://github.com/taikoxyz/taiko-mono/commit/035d817bb62073a277dccbd4a49a3ca068fde217))
+
+
+### Chores
+
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+* **taiko-client:** harden driver restarts in the beacon-sync handover window ([#21899](https://github.com/taikoxyz/taiko-mono/issues/21899)) ([46a9957](https://github.com/taikoxyz/taiko-mono/commit/46a9957107018a60f1f8de3ed7394b98739ac245))
+* **taiko-client:** key forced-inclusion single-block rule on isForcedInclusion, not array position ([#21912](https://github.com/taikoxyz/taiko-mono/issues/21912)) ([6eed016](https://github.com/taikoxyz/taiko-mono/commit/6eed016d804faa537fe5e7e4809ab166325f6290))
+
+
+### Code Refactoring
+
+* **taiko-client:** quick-win cleanups (dead metrics, WS dedup, driver shutdown, utils split, blob logs) ([#21928](https://github.com/taikoxyz/taiko-mono/issues/21928)) ([a77b70f](https://github.com/taikoxyz/taiko-mono/commit/a77b70fa3aed19aa26b6b962ec512215ff191477))
+* **taiko-client:** remove --p2p.syncTimeout flag and out-of-sync fallback ([#21902](https://github.com/taikoxyz/taiko-mono/issues/21902)) ([bee3dec](https://github.com/taikoxyz/taiko-mono/commit/bee3dece784ec69f3ba85993ae0e93bd1c37a4dc))
+
+
+### Tests
+
+* **taiko-client:** send `numForcedInclusions=0` to match current Shasta Inbox ([#21929](https://github.com/taikoxyz/taiko-mono/issues/21929)) ([1e536f5](https://github.com/taikoxyz/taiko-mono/commit/1e536f581d08a0610ecd3862ff861263a438b4ba))
+
+## [2.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.4.0...taiko-alethia-client-v2.5.0) (2026-06-30)
+
+
+### Features
+
+* **taiko-client:** expose zk proof distance flag ([#21782](https://github.com/taikoxyz/taiko-mono/issues/21782)) ([a9adcce](https://github.com/taikoxyz/taiko-mono/commit/a9adcced7e9737876dda19cc2393295f49b4f101))
+* **taiko-client:** latched ZK→SGX drain/resume for proof submitter ([#21795](https://github.com/taikoxyz/taiko-mono/issues/21795)) ([6d16262](https://github.com/taikoxyz/taiko-mono/commit/6d1626282c1394ba00be64b79e54a08fe3f68c72))
+
+
+### Bug Fixes
+
+* **taiko-client:** decouple prover proposal iteration ([#21842](https://github.com/taikoxyz/taiko-mono/issues/21842)) ([a2271a4](https://github.com/taikoxyz/taiko-mono/commit/a2271a4190371b04dda51cf1def920388c19db94))
+* **taiko-client:** handle empty blob case ([#21849](https://github.com/taikoxyz/taiko-mono/issues/21849)) ([bd69613](https://github.com/taikoxyz/taiko-mono/commit/bd696135ff30ca73fa7bfc66d76be0c9cbfe3130))
+* **taiko-client:** report actual fork label in preconf block log ([#21798](https://github.com/taikoxyz/taiko-mono/issues/21798)) ([8db1860](https://github.com/taikoxyz/taiko-mono/commit/8db186096f7f1700064c96dfb6ea6467fa1582bd))
+
+## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.3.0...taiko-alethia-client-v2.4.0) (2026-06-12)
+
+
+### Features
+
+* **protocol,taiko-client,taiko-client-rs:** raise Unzen derivation source block limit ([#21600](https://github.com/taikoxyz/taiko-mono/issues/21600)) ([189d6d4](https://github.com/taikoxyz/taiko-mono/commit/189d6d47e20d49f0105a56b3a0b8c9fc2aed07bb))
+* **taiko-client,taiko-client-rs:** add devnet Uzen time override flag ([#21566](https://github.com/taikoxyz/taiko-mono/issues/21566)) ([f72c38d](https://github.com/taikoxyz/taiko-mono/commit/f72c38d51f09178aa897d738cc3da6846795843b))
+* **taiko-client,taiko-client-rs:** carry Uzen `header.difficulty` on preconfirmation gossip wire ([#21576](https://github.com/taikoxyz/taiko-mono/issues/21576)) ([539e986](https://github.com/taikoxyz/taiko-mono/commit/539e9867d4eeace708ef0f0e994528f540abc098))
+* **taiko-client,taiko-client-rs:** rename Unzen fork ([#21599](https://github.com/taikoxyz/taiko-mono/issues/21599)) ([1252842](https://github.com/taikoxyz/taiko-mono/commit/125284295ac78e45bc2f3d742b6022eb3ebfb50a))
+* **taiko-client:** enable Unzen hardfork for nethermind tests ([#21598](https://github.com/taikoxyz/taiko-mono/issues/21598)) ([30378fd](https://github.com/taikoxyz/taiko-mono/commit/30378fd6204e30d00d936b86e3a0f6613665a310))
+* **taiko-client:** expose canShutdown on preconf /status for k8s preStop probes ([#21648](https://github.com/taikoxyz/taiko-mono/issues/21648)) ([acd8253](https://github.com/taikoxyz/taiko-mono/commit/acd8253641b6cd225e3d6fbb2f9cd2ccd7434c3d))
+* **taiko-client:** introduce Uzen fork ([#21557](https://github.com/taikoxyz/taiko-mono/issues/21557)) ([2a0dcdf](https://github.com/taikoxyz/taiko-mono/commit/2a0dcdfe84054bfb27495d1676b67a644a6893e7))
+* **taiko-client:** optimize prover proof buffer cache handling ([#21655](https://github.com/taikoxyz/taiko-mono/issues/21655)) ([ec050f4](https://github.com/taikoxyz/taiko-mono/commit/ec050f49d757a8a5bad64dc9d9c23b946dd4c80a))
+* **taiko-client:** remove Pacaya surface and make `taiko-client` Shasta-only ([#21526](https://github.com/taikoxyz/taiko-mono/issues/21526)) ([a2d9994](https://github.com/taikoxyz/taiko-mono/commit/a2d99949d1ab7781a62b4908cdf43db5afed2dbb))
+* **taiko-client:** support HTTP-only L1/L2 endpoints in driver via polling in driver ([#21617](https://github.com/taikoxyz/taiko-mono/issues/21617)) ([e6faf95](https://github.com/taikoxyz/taiko-mono/commit/e6faf9506525919bb964dc5e7abfd091dec60c9e))
+
+
+### Bug Fixes
+
+* **taiko-client:** allow preconf ingress before first proposal ([#21715](https://github.com/taikoxyz/taiko-mono/issues/21715)) ([974ac50](https://github.com/taikoxyz/taiko-mono/commit/974ac50f26ec220006f36c4414252dfd3d2a1228))
+* **taiko-client:** delay highestUnsafePayload rollback on L1 reorg ([#21666](https://github.com/taikoxyz/taiko-mono/issues/21666)) ([6b2d202](https://github.com/taikoxyz/taiko-mono/commit/6b2d202719882cc0c095034cad34cee1b604adbb))
+* **taiko-client:** fix prover support for `l1.beacon` flag ([#21545](https://github.com/taikoxyz/taiko-mono/issues/21545)) ([805c16d](https://github.com/taikoxyz/taiko-mono/commit/805c16dca1f49935eada53a4a167fd20886927ab))
+* **taiko-client:** get parent hash by `BlockByNumber` ([#21534](https://github.com/taikoxyz/taiko-mono/issues/21534)) ([6b0d524](https://github.com/taikoxyz/taiko-mono/commit/6b0d524e25c5599444c067d1a89d2e19e3f9a66c))
+* **taiko-client:** prevent genesis reset on event-sync handoff ([#21670](https://github.com/taikoxyz/taiko-mono/issues/21670)) ([14d07e7](https://github.com/taikoxyz/taiko-mono/commit/14d07e71722e1efa1e897bb907dfbcb9794696bb))
+* **taiko-client:** refresh cached L2 head before beacon-sync decision ([#21593](https://github.com/taikoxyz/taiko-mono/issues/21593)) ([8ce3001](https://github.com/taikoxyz/taiko-mono/commit/8ce30012edbf549b78b10bcfc823620de2d9ced7))
+* **taiko-client:** reset head L1 origin in handleProposalReorg ([#21627](https://github.com/taikoxyz/taiko-mono/issues/21627)) ([c39c782](https://github.com/taikoxyz/taiko-mono/commit/c39c782c0f69222f9690577203fa3250291dfaec))
+* **taiko-client:** resolve prover proposal last block from extraData ([#21735](https://github.com/taikoxyz/taiko-mono/issues/21735)) ([746e756](https://github.com/taikoxyz/taiko-mono/commit/746e7563db71590538427af145a19a2f84407ec7))
+* **taiko-client:** skip updating the finalized height when LastFinalizedProposalId is larger than proposalID ([#21693](https://github.com/taikoxyz/taiko-mono/issues/21693)) ([12de017](https://github.com/taikoxyz/taiko-mono/commit/12de0179df9c14ed143b5979025024f6213bc214))
+* **taiko-client:** use dynamic event range instead of fixed range ([#21607](https://github.com/taikoxyz/taiko-mono/issues/21607)) ([8272070](https://github.com/taikoxyz/taiko-mono/commit/82720700fdb0e37dad6f21aaa6e9af8ccba7b94b))
+
+
+### Chores
+
+* **repo:** fix links ([#21647](https://github.com/taikoxyz/taiko-mono/issues/21647)) ([8ce2f20](https://github.com/taikoxyz/taiko-mono/commit/8ce2f2082fda0ab63bcde06d8cbe336514fce6c6))
+* **taiko-client,taiko-client-rs:** bump execution deps ([#21671](https://github.com/taikoxyz/taiko-mono/issues/21671)) ([cdb811a](https://github.com/taikoxyz/taiko-mono/commit/cdb811a130759010378cdd05fb16b06e9597f1c6))
+* **taiko-client,taiko-client-rs:** bump Hoodi Unzen execution deps ([#21689](https://github.com/taikoxyz/taiko-mono/issues/21689)) ([fd88b22](https://github.com/taikoxyz/taiko-mono/commit/fd88b22c42eab091397d6269a9dad68464028cec))
+* **taiko-client:** downgrade the log level ([#21574](https://github.com/taikoxyz/taiko-mono/issues/21574)) ([eafc351](https://github.com/taikoxyz/taiko-mono/commit/eafc3517940edad56b59bd616761a66229309e04))
+* **taiko-client:** downgrade transition config exchange log to debug ([#21580](https://github.com/taikoxyz/taiko-mono/issues/21580)) ([1c23b22](https://github.com/taikoxyz/taiko-mono/commit/1c23b223c109cdba59745c2f43eba3e913beb2f5))
+* **taiko-client:** fix preconfblocks api workflow ([#21579](https://github.com/taikoxyz/taiko-mono/issues/21579)) ([b2c8927](https://github.com/taikoxyz/taiko-mono/commit/b2c892797f31ba2e815d3a416d9ca45a64f55fe4))
+* **taiko-client:** harden preconf and blob fallback inputs ([#21638](https://github.com/taikoxyz/taiko-mono/issues/21638)) ([ff4c0f9](https://github.com/taikoxyz/taiko-mono/commit/ff4c0f9d4705319e0b68d81c9766e96490c56679))
+* **taiko-client:** remove unused tests and workflows ([#21535](https://github.com/taikoxyz/taiko-mono/issues/21535)) ([2d90dc4](https://github.com/taikoxyz/taiko-mono/commit/2d90dc4b5600388388f5fc7859cf68bfdf963c87))
+* **taiko-client:** rename difficulty to mixHash after Uzen ([#21563](https://github.com/taikoxyz/taiko-mono/issues/21563)) ([8b4a629](https://github.com/taikoxyz/taiko-mono/commit/8b4a62996910da6461d785aebaf9c3c7d30bb556))
+* **taiko-client:** revert changes for `--allow-all-sequencers` flag ([#21536](https://github.com/taikoxyz/taiko-mono/issues/21536)) ([b87663d](https://github.com/taikoxyz/taiko-mono/commit/b87663d2c66d4ab7f121203995839ccf60c06f12))
+
+
+### Documentation
+
+* **taiko-client:** add comments to subcommand interface and action ([#21664](https://github.com/taikoxyz/taiko-mono/issues/21664)) ([77c281e](https://github.com/taikoxyz/taiko-mono/commit/77c281e6f337e778ac924dfd445029cbd6295409))
+
+
+### Code Refactoring
+
+* **taiko-client-rs:** share fallback whitelist timeline across resolver clones, drop dead code ([#21774](https://github.com/taikoxyz/taiko-mono/issues/21774)) ([8219429](https://github.com/taikoxyz/taiko-mono/commit/8219429f2572ef65e8463e679a9897a28a227a06))
+* **taiko-client,taiko-client-rs:** swap preconf whitelist check from coinbase to node P2P signer ([#21584](https://github.com/taikoxyz/taiko-mono/issues/21584)) ([5d62757](https://github.com/taikoxyz/taiko-mono/commit/5d6275785966683f783069f76d3982c05ccf7c7a))
+* **taiko-client:** extract shared RPC and envelope helpers ([#21573](https://github.com/taikoxyz/taiko-mono/issues/21573)) ([a79972f](https://github.com/taikoxyz/taiko-mono/commit/a79972f2c377437b02e5d6b6a0fc0c4d995b3398))
+
+
+### Workflow
+
+* **taiko-client:** add Unzen ZK gas schedule to devnet chainspec ([#21746](https://github.com/taikoxyz/taiko-mono/issues/21746)) ([725e406](https://github.com/taikoxyz/taiko-mono/commit/725e4069f11c00dee726d7ff38b219a95fcf9d24))
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.2.0...taiko-alethia-client-v2.3.0) (2026-04-02)
 
 

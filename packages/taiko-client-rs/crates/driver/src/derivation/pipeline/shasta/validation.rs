@@ -69,7 +69,7 @@ pub fn validate_source_manifest(
     manifest: &DerivationSourceManifest,
     ctx: &ValidationContext,
 ) -> Result<(), ValidationError> {
-    if block_count(manifest) == 0 {
+    if manifest.blocks.is_empty() {
         return Err(ValidationError::EmptyManifest);
     }
 
@@ -93,10 +93,6 @@ pub fn validate_source_manifest(
     Ok(())
 }
 
-/// Return the total number of blocks contained in the derivation source.
-pub fn block_count(manifest: &DerivationSourceManifest) -> usize {
-    manifest.blocks.len()
-}
 /// Ensure every block timestamp falls within the allowed window derived from the parent block,
 /// proposal timestamp, and fork activation point.
 fn validate_timestamps(

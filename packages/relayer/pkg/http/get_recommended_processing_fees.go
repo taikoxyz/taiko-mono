@@ -2,15 +2,16 @@ package http
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
 
 	"github.com/cyberhorsey/webutils"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/labstack/echo/v4"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 type getRecommendedProcessingFeesResponse struct {
@@ -28,13 +29,13 @@ type FeeType uint64
 
 // gas limits
 var (
-	Eth                FeeType = 900000
-	ERC20NotDeployed   FeeType = 1650000
-	ERC20Deployed      FeeType = 1000000
-	ERC721NotDeployed  FeeType = 2500000
-	ERC721Deployed     FeeType = 1500000
-	ERC1155NotDeployed FeeType = 2650000
-	ERC1155Deployed    FeeType = 1850000
+	Eth                FeeType = FeeType(messageMinGasLimit(0) + 1)
+	ERC20NotDeployed   FeeType = FeeType(messageMinGasLimit(516) + 750_000)
+	ERC20Deployed      FeeType = FeeType(messageMinGasLimit(516) + 500_000)
+	ERC721NotDeployed  FeeType = FeeType(messageMinGasLimit(548) + 2_400_000)
+	ERC721Deployed     FeeType = FeeType(messageMinGasLimit(548) + 1_100_000)
+	ERC1155NotDeployed FeeType = FeeType(messageMinGasLimit(772) + 2_600_000)
+	ERC1155Deployed    FeeType = FeeType(messageMinGasLimit(772) + 1_100_000)
 )
 
 var (
@@ -113,16 +114,18 @@ func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 	}
 
 	for _, f := range feeTypes {
+		paddedGasLimit := relayer.PaddedMessageGasLimit(uint64(f), true)
+
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(uint64(f), destGasTipCap, destBaseFee, Layer2).String(),
+			Amount:      srv.getCost(paddedGasLimit, destGasTipCap, destBaseFee, Layer2).String(),
 			DestChainID: destChainID.Uint64(),
 			GasLimit:    strconv.Itoa(int(f)),
 		})
 
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(uint64(f), srcGasTipCap, srcBaseFee, Layer1).String(),
+			Amount:      srv.getCost(paddedGasLimit, srcGasTipCap, srcBaseFee, Layer1).String(),
 			DestChainID: srcChainID.Uint64(),
 			GasLimit:    strconv.Itoa(int(f)),
 		})
@@ -149,41 +152,58 @@ func (srv *Server) getCost(
 		return cost
 	}
 
-	costRat := new(big.Rat).SetInt(cost)
-
-	multiplierRat := new(big.Rat).SetFloat64(srv.processingFeeMultiplier)
-
-	costRat.Mul(costRat, multiplierRat)
-
-	costAfterMultiplier := new(big.Int).Div(costRat.Num(), costRat.Denom())
-
-	return costAfterMultiplier
+	return mulRatCeil(cost, srv.processingFeeMultiplier)
 }
 
 func (srv *Server) getDestChainBaseFee(ctx context.Context, destLayer layer, chainID *big.Int) (*big.Int, error) {
-	blk, err := srv.srcEthClient.BlockByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var baseFee *big.Int
-
 	if destLayer == Layer2 {
 		latestL2Block, err := srv.destEthClient.BlockByNumber(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		bf, err := srv.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
-		if err != nil {
-			return nil, err
+		if latestL2Block.BaseFee() != nil {
+			return latestL2Block.BaseFee(), nil
 		}
 
-		baseFee = bf.Basefee
-	} else {
-		cfg := params.NetworkIDToChainConfigOrDefault(chainID)
-		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+		return nil, relayer.ErrMissingDestBaseFee
 	}
 
-	return baseFee, nil
+	blk, err := srv.srcEthClient.BlockByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := params.NetworkIDToChainConfigOrDefault(chainID)
+
+	return eip1559.CalcBaseFee(cfg, blk.Header()), nil
+}
+
+func messageMinGasLimit(dataLength uint64) uint64 {
+	return (((dataLength+31)/32)*32+416)*16 + 800_000
+}
+
+func mulRatCeil(value *big.Int, multiplier float64) *big.Int {
+	valueRat := new(big.Rat).SetInt(value)
+	multiplierRat := parseMultiplier(multiplier)
+	valueRat.Mul(valueRat, multiplierRat)
+
+	quotient, remainder := new(big.Int).QuoRem(valueRat.Num(), valueRat.Denom(), new(big.Int))
+	if remainder.Sign() > 0 {
+		quotient.Add(quotient, big.NewInt(1))
+	}
+
+	return quotient
+}
+
+func parseMultiplier(multiplier float64) *big.Rat {
+	if multiplier < 1 || math.IsNaN(multiplier) || math.IsInf(multiplier, 0) {
+		return big.NewRat(1, 1)
+	}
+
+	if rat, ok := new(big.Rat).SetString(strconv.FormatFloat(multiplier, 'f', -1, 64)); ok {
+		return rat
+	}
+
+	return big.NewRat(1, 1)
 }

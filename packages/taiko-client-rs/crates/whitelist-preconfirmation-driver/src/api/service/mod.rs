@@ -5,23 +5,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
-};
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
-use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
+use alloy_signer::SignerSync;
+use alloy_signer_local::PrivateKeySigner;
 use async_trait::async_trait;
-use driver::{PreconfPayload, sync::event::EventSyncer};
-use metrics::histogram;
-use protocol::{
-    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, payload_id_to_bytes},
-    signer::FixedKSigner,
-};
+use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
+use protocol::shasta::calculate_shasta_mix_hash;
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
@@ -30,11 +24,11 @@ use crate::{
     api::{
         WhitelistApi,
         types::{
-            BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-            WhitelistStatus,
+            ApiStatus, BuildPreconfBlockRequest, BuildPreconfBlockResponse,
+            EndOfSequencingNotification, ExecutableData,
         },
     },
-    cache::SharedPreconfCacheState,
+    cache::SharedPreconfState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::validate_execution_payload_for_preconf,
@@ -68,30 +62,49 @@ const SECONDS_PER_SLOT: u64 = 12;
 const SHUTDOWN_BLOCK_WINDOW: Duration =
     Duration::from_secs(HAND_OVER_WINDOW_SLOTS * SECONDS_PER_SLOT * 3 / 2);
 
-/// Pure helper deciding whether the pod is safe to shut down given the time
-/// of the most recent `build_preconf_block` invocation. Returns `true` when
-/// no invocation has been recorded or when the elapsed time meets or exceeds
-/// `SHUTDOWN_BLOCK_WINDOW`.
-fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
-    match last_preconf_request {
-        None => true,
-        Some(at) => at.elapsed() >= SHUTDOWN_BLOCK_WINDOW,
-    }
+/// Number of L1 slots ahead of the hand-over window during which shutdown is
+/// refused even without recent build requests. `can_shutdown_for` blocks from
+/// this margin before the hand-over boundary through the end of the epoch, so
+/// a restart triggered just before a hand-over cannot leave the upcoming
+/// preconfer without its driver while its window opens: replacing the pod
+/// (rescheduling plus execution-client and driver boot) takes ~30-60s, which
+/// the activity-based `SHUTDOWN_BLOCK_WINDOW` cannot see because it only
+/// looks backwards at requests already received.
+const SHUTDOWN_IMMINENCE_MARGIN_SLOTS: u64 = 8;
+
+/// Pure helper deciding whether the pod is safe to shut down.
+///
+/// Returns `false` (refuse shutdown) when either:
+/// - a `build_preconf_block` request was received within `SHUTDOWN_BLOCK_WINDOW`: the preconfer
+///   this driver serves is actively sequencing, or
+/// - `slot_in_epoch` is within `SHUTDOWN_IMMINENCE_MARGIN_SLOTS` of the hand-over boundary or past
+///   it: a preconfer taking over at the next hand-over would find its driver still booting. This
+///   driver has no lookahead, so the guard applies to every epoch tail regardless of which operator
+///   is due next.
+fn can_shutdown_for(
+    last_preconf_request: Option<Instant>,
+    slot_in_epoch: u64,
+    slots_per_epoch: u64,
+) -> bool {
+    let recently_active =
+        matches!(last_preconf_request, Some(at) if at.elapsed() < SHUTDOWN_BLOCK_WINDOW);
+
+    let handover_start = slots_per_epoch.saturating_sub(HAND_OVER_WINDOW_SLOTS);
+    let handover_imminent = slot_in_epoch + SHUTDOWN_IMMINENCE_MARGIN_SLOTS >= handover_start;
+
+    !recently_active && !handover_imminent
 }
 
 /// Implements whitelist preconfirmation API business logic.
-pub(crate) struct WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) struct WhitelistApiService {
     /// Event syncer for L1 origin lookups.
-    event_syncer: Arc<EventSyncer<P>>,
+    event_syncer: Arc<EventSyncer>,
     /// RPC client for L1/L2 reads.
-    rpc: Client<P>,
+    rpc: Client,
     /// Chain ID for signature domain separation.
     chain_id: u64,
-    /// Deterministic signer for block signing.
-    signer: FixedKSigner,
+    /// Standard secp256k1 signer for block signing.
+    signer: PrivateKeySigner,
     /// Beacon client used to derive current epoch values for EOS requests.
     beacon_client: Arc<BeaconClient>,
     /// Channel to publish messages to the P2P network.
@@ -101,12 +114,8 @@ where
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
     /// build requests when this node's own P2P signer has been deregistered on-chain.
     operator_set: SharedOperatorSet,
-    /// Local peer ID string.
-    local_peer_id: String,
-    /// Highest unsafe payload block ID tracked by this node (shared with importer).
-    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
-    /// Shared cache state used to back `/status` and EOS visibility.
-    cache_state: SharedPreconfCacheState,
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
+    state: SharedPreconfState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
     /// Wall-clock instant of the most recent `build_preconf_block` invocation,
@@ -116,36 +125,26 @@ where
 }
 
 /// Dependency bundle for constructing `WhitelistApiService`.
-pub(crate) struct WhitelistApiServiceParams<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+pub(crate) struct WhitelistApiServiceParams {
     /// Shared event syncer used to read the current L1 origin.
-    pub(crate) event_syncer: Arc<EventSyncer<P>>,
+    pub(crate) event_syncer: Arc<EventSyncer>,
     /// L1/L2 RPC client.
-    pub(crate) rpc: Client<P>,
+    pub(crate) rpc: Client,
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
     /// Signer used for block signing operations.
-    pub(crate) signer: FixedKSigner,
+    pub(crate) signer: PrivateKeySigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Shared operator set used to gate the build API on the node's own whitelist status.
     pub(crate) operator_set: SharedOperatorSet,
-    /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
-    pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    /// Shared driver state (recent envelopes, EOS markers, last reported L2 head).
+    pub(crate) state: SharedPreconfState,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared preconfirmation cache state.
-    pub(crate) cache_state: SharedPreconfCacheState,
-    /// Local peer ID string.
-    pub(crate) local_peer_id: String,
 }
 
-impl<P> WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
+impl WhitelistApiService {
     /// Create a new API service instance.
     pub(crate) fn new(
         WhitelistApiServiceParams {
@@ -155,11 +154,9 @@ where
             signer,
             beacon_client,
             operator_set,
-            highest_unsafe_l2_payload_block_id,
+            state,
             network_command_tx,
-            cache_state,
-            local_peer_id,
-        }: WhitelistApiServiceParams<P>,
+        }: WhitelistApiServiceParams,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
@@ -169,9 +166,7 @@ where
             signer,
             beacon_client,
             operator_set,
-            local_peer_id,
-            highest_unsafe_l2_payload_block_id,
-            cache_state,
+            state,
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
@@ -187,8 +182,13 @@ where
     }
 
     /// Returns `true` when no `build_preconf_block` request has been received
-    /// within the last `SHUTDOWN_BLOCK_WINDOW`.
+    /// within the last `SHUTDOWN_BLOCK_WINDOW` and no hand-over boundary is
+    /// imminent (see `can_shutdown_for`).
     pub(super) async fn compute_can_shutdown(&self) -> bool {
-        can_shutdown_for(*self.last_preconf_request_at.lock().await)
+        can_shutdown_for(
+            *self.last_preconf_request_at.lock().await,
+            self.beacon_client.current_slot_in_epoch(),
+            self.beacon_client.slots_per_epoch(),
+        )
     }
 }

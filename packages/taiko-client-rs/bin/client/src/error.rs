@@ -1,7 +1,7 @@
 //! Error types for the CLI.
 //!
 //! This module defines the unified error type [`CliError`] used throughout the CLI binary.
-//! It consolidates errors from downstream crates (driver, proposer, rpc, preconfirmation-driver)
+//! It consolidates errors from downstream crates (driver, proposer, rpc)
 //! and whitelist-preconfirmation-driver, as well as CLI-specific errors like URL parsing, runtime
 //! initialization, and metrics setup.
 
@@ -10,7 +10,7 @@ use thiserror::Error;
 /// Errors that can occur during CLI execution.
 ///
 /// This enum covers all error cases in the CLI binary, including:
-/// - Errors propagated from downstream crates (driver, proposer, rpc, preconfirmation-driver,
+/// - Errors propagated from downstream crates (driver, proposer, rpc,
 ///   whitelist-preconfirmation-driver)
 /// - Configuration errors (URL parsing, socket address parsing)
 /// - Runtime errors (tokio runtime initialization, I/O)
@@ -45,20 +45,6 @@ pub enum CliError {
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
 
-    /// Error from the preconfirmation driver crate.
-    ///
-    /// Wraps [`preconfirmation_driver::PreconfirmationClientError`] for errors
-    /// occurring during P2P networking, commitment validation, and catchup sync.
-    #[error(transparent)]
-    Preconfirmation(#[from] preconfirmation_driver::PreconfirmationClientError),
-
-    /// Error from the preconfirmation driver runner.
-    ///
-    /// Wraps [`preconfirmation_driver::RunnerError`] for errors occurring during
-    /// preconfirmation driver orchestration.
-    #[error(transparent)]
-    PreconfirmationRunner(#[from] preconfirmation_driver::RunnerError),
-
     /// Error from the whitelist preconfirmation driver.
     ///
     /// Wraps [`whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverError`] for
@@ -88,27 +74,12 @@ pub enum CliError {
     #[error("invalid socket address: {0}")]
     AddrParse(#[from] std::net::AddrParseError),
 
-    /// Failed to initialize the metrics exporter.
-    ///
-    /// Occurs when the Prometheus metrics exporter fails to start,
-    /// typically due to port binding issues or configuration errors.
-    #[error("metrics initialization failed: {0}")]
-    MetricsInit(#[from] metrics_exporter_prometheus::BuildError),
-
     /// Invalid L1 transport configuration.
     ///
     /// Occurs when CLI arguments or programmatic construction provide either zero or multiple
     /// L1 endpoints.
     #[error("configure exactly one of --l1.http / L1_HTTP or --l1.ws / L1_WS")]
     InvalidL1EndpointConfig,
-
-    /// Preconfirmation ingress was not enabled on the driver.
-    ///
-    /// Occurs when the preconfirmation driver command is run but the underlying
-    /// event syncer does not have preconfirmation ingress enabled. This typically
-    /// indicates a configuration mismatch.
-    #[error("preconfirmation ingress not enabled on driver")]
-    PreconfIngressNotEnabled,
 }
 
 /// Result alias for CLI operations.
