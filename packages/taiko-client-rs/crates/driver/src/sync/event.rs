@@ -346,13 +346,41 @@ fn resolve_reconnect_start_block(
 /// generation's start block to the L1 head was scanned and found to contain no proposals.
 /// Restarting at the finalized floor therefore skips only blocks already known to be empty, and
 /// nothing at or below finalized can be replaced. The `max` keeps a floor that trails the current
-/// start block from re-walking a range this generation already proved clean.
+/// start block from re-walking a range this generation already proved clean. The supplied floor
+/// must have been observed before this scanner generation began; a floor refreshed while live can
+/// be ahead of the scanner's unobservable progress and is only safe for the next generation.
 fn resolve_quiet_reconnect_start_block(
     current_start_block_number: u64,
-    finalized_l1_block_number: Option<u64>,
+    finalized_l1_block_number_at_generation_start: Option<u64>,
 ) -> u64 {
-    finalized_l1_block_number
+    finalized_l1_block_number_at_generation_start
         .map_or(current_start_block_number, |finalized| current_start_block_number.max(finalized))
+}
+
+/// Resolve the next scanner start after a generation that proved some amount of coverage.
+///
+/// A delivered proposal gives an exact overlap point, so that path may use the newest finalized
+/// floor observed by the time the generation ends. A quiet generation only proves historical
+/// coverage through the finalized floor known before scanning began: a later refresh can advance
+/// beyond the live scanner's unobserved progress and must be retained only for the next generation.
+fn resolve_generation_reconnect_start_block(
+    current_start_block_number: u64,
+    last_seen_l1_block_number: Option<u64>,
+    finalized_l1_block_number_at_generation_start: Option<u64>,
+    latest_finalized_l1_block_number: Option<u64>,
+    startup_anchor_block_number: u64,
+) -> u64 {
+    match last_seen_l1_block_number {
+        Some(block_number) => resolve_reconnect_start_block(
+            block_number,
+            latest_finalized_l1_block_number,
+            startup_anchor_block_number,
+        ),
+        None => resolve_quiet_reconnect_start_block(
+            current_start_block_number,
+            finalized_l1_block_number_at_generation_start,
+        ),
+    }
 }
 
 /// Raise the finalized reconnect floor, keeping it monotonic.
@@ -1766,6 +1794,11 @@ impl SyncStage for EventSyncer {
         let mut scanner_reconnect_state = ScannerReconnectState::default();
 
         loop {
+            // Only a finalized floor known before this generation starts is guaranteed to lie
+            // within the historical range once the scanner reaches live. Refreshes observed while
+            // live are retained globally for the next generation, but cannot advance this quiet
+            // generation past blocks whose scan progress is not externally visible.
+            let finalized_block_number_at_generation_start = last_known_finalized_block_number;
             // Every reconnect re-enters historical sync with a fresh scanner, so the previous
             // generation's live state must not leak forward: (re)opening ingress requires a
             // fresh `SwitchingToLive` from the scanner actually streaming plus a passed
@@ -1974,17 +2007,13 @@ impl SyncStage for EventSyncer {
                          finalized block, or the startup anchor if finality was never observed"
                     ),
                 }
-                reconnect_start_block_number = match last_seen_l1_block_number {
-                    Some(block_number) => resolve_reconnect_start_block(
-                        block_number,
-                        last_known_finalized_block_number,
-                        startup_anchor_block_number,
-                    ),
-                    None => resolve_quiet_reconnect_start_block(
-                        reconnect_start_block_number,
-                        last_known_finalized_block_number,
-                    ),
-                };
+                reconnect_start_block_number = resolve_generation_reconnect_start_block(
+                    reconnect_start_block_number,
+                    last_seen_l1_block_number,
+                    finalized_block_number_at_generation_start,
+                    last_known_finalized_block_number,
+                    startup_anchor_block_number,
+                );
                 reconnect_start_tag = BlockNumberOrTag::Number(reconnect_start_block_number);
             }
             let delay = scanner_reconnect_state.next_delay(self.cfg.retry_interval);
@@ -3410,6 +3439,16 @@ mod tests {
     fn quiet_reconnect_start_holds_position_without_finalization() {
         let reconnect_start = resolve_quiet_reconnect_start_block(100, None);
         assert_eq!(reconnect_start, 100);
+    }
+
+    #[test]
+    fn quiet_generation_uses_only_floor_known_before_scanning() {
+        // The scanner started while block 200 was finalized and reached live, proving coverage
+        // through 200. A later refresh observed block 900, but the live scanner failed before
+        // proving that it covered the intervening range, so reconnect must not skip to 900.
+        let reconnect_start =
+            resolve_generation_reconnect_start_block(100, None, Some(200), Some(900), 10);
+        assert_eq!(reconnect_start, 200);
     }
 
     #[test]
