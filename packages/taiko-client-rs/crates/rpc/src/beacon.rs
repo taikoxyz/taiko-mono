@@ -12,7 +12,10 @@ use serde::Deserialize;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::blob::{BlobDataError, parse_blob, parse_bytes48};
+use crate::{
+    blob::{BlobDataError, parse_blob, parse_bytes48},
+    client::DEFAULT_HTTP_TIMEOUT,
+};
 
 /// JSON payload returned by `/eth/v1/beacon/genesis`.
 #[derive(Debug, Deserialize)]
@@ -122,6 +125,8 @@ pub struct BeaconClient {
     endpoint: Url,
     /// Shared HTTP client used for beacon requests.
     http: HttpClient,
+    /// Extended timeout used only for blob-sidecar requests.
+    blob_fetch_timeout: Duration,
     /// Beacon genesis timestamp (seconds since UNIX epoch).
     genesis_time: u64,
     /// Slot duration in seconds from beacon spec.
@@ -137,12 +142,12 @@ impl BeaconClient {
     /// the genesis timestamp and `/eth/v1/config/spec` to fetch `SECONDS_PER_SLOT`. Those values
     /// allow proposal timestamps to be converted into the correct beacon slot.
     ///
-    /// `timeout` bounds every request issued by this client; blob-sidecar callers should size it
-    /// for PeerDAS nodes that reconstruct blobs from data columns on request.
-    pub async fn new(endpoint: Url, timeout: Duration) -> Result<Self, BlobDataError> {
+    /// `blob_fetch_timeout` bounds blob-sidecar requests, which may require PeerDAS nodes to
+    /// reconstruct blobs from data columns. Metadata requests retain [`DEFAULT_HTTP_TIMEOUT`].
+    pub async fn new(endpoint: Url, blob_fetch_timeout: Duration) -> Result<Self, BlobDataError> {
         let http = HttpClient::builder()
             .no_proxy()
-            .timeout(timeout)
+            .timeout(DEFAULT_HTTP_TIMEOUT)
             .build()
             .map_err(|err| BlobDataError::Other(err.into()))?;
 
@@ -185,7 +190,14 @@ impl BeaconClient {
             slots_per_epoch, genesis_time, "initialised beacon client metadata"
         );
 
-        Ok(Self { endpoint, http, genesis_time, seconds_per_slot, slots_per_epoch })
+        Ok(Self {
+            endpoint,
+            http,
+            blob_fetch_timeout,
+            genesis_time,
+            seconds_per_slot,
+            slots_per_epoch,
+        })
     }
 
     /// Fetch blob sidecars for the beacon slot that corresponds to the provided timestamp.
@@ -206,6 +218,7 @@ impl BeaconClient {
         let response = self
             .http
             .get(sidecars_url.clone())
+            .timeout(self.blob_fetch_timeout)
             .send()
             .await
             .map_err(|err| BlobDataError::Other(err.into()))?;
@@ -391,4 +404,95 @@ fn parse_spec_u64(spec: &serde_json::Value, key: &str) -> Result<u64, BlobDataEr
         .ok_or_else(|| BlobDataError::Parse(format!("{key} missing in beacon spec")))?
         .parse::<u64>()
         .map_err(|err| BlobDataError::Parse(err.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http_body_util::Full;
+    use hyper::{
+        StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE,
+        server::conn::http1::Builder as Http1Builder, service::service_fn,
+    };
+    use tokio::{net::TcpListener, spawn, task::JoinHandle, time::sleep};
+
+    async fn start_beacon_server(
+        genesis_delay: Duration,
+        sidecars_delay: Duration,
+    ) -> (Url, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test server should bind an ephemeral port");
+        let addr = listener.local_addr().expect("listener address should be available");
+        let endpoint =
+            Url::parse(&format!("http://{addr}")).expect("test endpoint URL should parse");
+
+        let handle = spawn(async move {
+            loop {
+                let Ok((stream, _)) = listener.accept().await else { continue };
+                spawn(async move {
+                    let io = hyper_util::rt::TokioIo::new(stream);
+                    let service =
+                        service_fn(move |req: hyper::Request<hyper::body::Incoming>| async move {
+                            let (status, body) = match req.uri().path() {
+                                "/eth/v1/beacon/genesis" => {
+                                    sleep(genesis_delay).await;
+                                    (StatusCode::OK, r#"{"data":{"genesis_time":"0"}}"#)
+                                }
+                                "/eth/v1/config/spec" => (
+                                    StatusCode::OK,
+                                    r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#,
+                                ),
+                                "/eth/v1/beacon/blob_sidecars/0" => {
+                                    sleep(sidecars_delay).await;
+                                    (StatusCode::OK, r#"{"data":[]}"#)
+                                }
+                                _ => (StatusCode::NOT_FOUND, ""),
+                            };
+                            Ok::<_, hyper::Error>(
+                                hyper::Response::builder()
+                                    .status(status)
+                                    .header(CONTENT_TYPE, "application/json")
+                                    .body(Full::new(HyperBytes::from_static(body.as_bytes())))
+                                    .expect("test response should build"),
+                            )
+                        });
+                    let _ = Http1Builder::new().serve_connection(io, service).await;
+                });
+            }
+        });
+
+        (endpoint, handle)
+    }
+
+    #[tokio::test]
+    async fn metadata_requests_do_not_use_the_blob_fetch_timeout() {
+        let (endpoint, server_handle) =
+            start_beacon_server(Duration::from_millis(100), Duration::ZERO).await;
+
+        let result = BeaconClient::new(endpoint, Duration::from_millis(10)).await;
+        server_handle.abort();
+
+        assert!(result.is_ok(), "metadata request unexpectedly used blob timeout: {result:?}");
+    }
+
+    #[tokio::test]
+    async fn blob_sidecar_requests_use_the_blob_fetch_timeout() {
+        let (endpoint, server_handle) =
+            start_beacon_server(Duration::ZERO, Duration::from_millis(100)).await;
+        let client = BeaconClient::new(endpoint, Duration::from_millis(10))
+            .await
+            .expect("beacon metadata should load without delay");
+
+        let result = client.blobs_by_timestamp(0).await;
+        server_handle.abort();
+
+        let Err(BlobDataError::Other(err)) = result else {
+            panic!("expected blob sidecar request timeout, got {result:?}");
+        };
+        let reqwest_error = err
+            .downcast_ref::<reqwest::Error>()
+            .expect("blob sidecar request should return a reqwest error");
+        assert!(reqwest_error.is_timeout(), "expected timeout error, got {reqwest_error}");
+    }
 }
