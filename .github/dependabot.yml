@@ -1,17 +1,28 @@
 # Dependabot configuration for automated dependency updates.
 # This file is the single source of truth and overrides any GitHub repo settings.
 #
-# Key features:
-# - Monthly updates scheduled for Saturday 04:20 ET
-# - Dependencies are grouped by ecosystem to minimize PR noise
-# - Each group has designated reviewers and single PR limit
-# - To ignore updates for a dependency, add to ecosystem's ignore field (and open
-#   a GitHub issue if needed for tracking):
+# Two independent update streams reach this repo:
+#
+#   1. Version updates  — driven entirely by this file. Honour `schedule`,
+#      `open-pull-requests-limit`, `directories` and `groups`.
+#   2. Security updates — driven by Dependabot alerts (Settings -> Code security).
+#      They ignore `open-pull-requests-limit` entirely and, unless a group is
+#      explicitly marked `applies-to: security-updates`, they ignore `groups`
+#      too. That is why every ecosystem below declares BOTH a version-update
+#      group and a security-update group: without the latter, a batch of alerts
+#      lands as one PR per package.
+#
+# To ignore updates for a dependency, add to the ecosystem's ignore field (and
+# open a GitHub issue if needed for tracking):
 #   ignore:
 #     - dependency-name: "golang.org/x/crypto"  # skip all crypto updates
 
 version: 2
 updates:
+  # ---------------------------------------------------------------------------
+  # Go — one root module (github.com/taikoxyz/taiko-mono) covers taiko-client,
+  # relayer, eventindexer and the shared packages.
+  # ---------------------------------------------------------------------------
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -19,12 +30,20 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 3
     groups:
       go-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      go-security:
+        applies-to: security-updates
         patterns:
           - "*"
 
+  # ---------------------------------------------------------------------------
+  # GitHub Actions
+  # ---------------------------------------------------------------------------
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -32,21 +51,86 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 3
     groups:
       github-actions-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
 
-  - package-ecosystem: "npm"
-    directory: "/"
+  # ---------------------------------------------------------------------------
+  # Rust — previously absent, so taiko-client-rs and ejector received version
+  # updates from nobody and only ever saw security PRs.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "cargo"
+    directories:
+      - "/packages/taiko-client-rs"
+      - "/packages/ejector"
     schedule:
       interval: "monthly"
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 3
     groups:
-      npm-updates:
+      cargo-updates:
+        applies-to: version-updates
         patterns:
           - "*"
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # ---------------------------------------------------------------------------
+  # npm / pnpm — a single root entry is all that is needed. Dependabot's npm
+  # fetcher reads pnpm-workspace.yaml and glob-expands `packages/*` itself, so
+  # `directory: "/"` already pulls in every member manifest; listing members
+  # explicitly is redundant. See dependabot-core npm_and_yarn/file_fetcher.rb:
+  # fetch_files -> pnpm_files -> fetch_pnpm_workspace_package_jsons.
+  #
+  # `exclude-paths` is how members are actually dropped — it is checked inside
+  # fetch_package_json_if_present, the same helper the pnpm workspace expansion
+  # calls. The five packages below have had no commits in over six months, so
+  # version-bump PRs against them have no reviewer.
+  #
+  # Two caveats worth keeping in mind:
+  #   - `exclude-paths` is version-updates only. It does NOT stop security PRs
+  #     on these packages: security updates work off the dependency graph. Those
+  #     have to be dismissed in the Security tab, or the packages retired.
+  #   - Patterns are relative to `directory`, and a bare directory name prefix-
+  #     matches everything beneath it, so `packages/nfts` covers its manifest.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/"
+    exclude-paths:
+      - "packages/nfts"
+      - "packages/snaefell-ui"
+      - "packages/taikoon-ui"
+      - "packages/ui-lib"
+      - "packages/supplementary-contracts"
+    schedule:
+      interval: "monthly"
+      day: "saturday"
+      time: "04:20"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    groups:
+      npm-updates:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    ignore:
+      # Majors are handled by hand. Left to Dependabot they rot: svelte 4->5,
+      # eslint 8->9, vite 5->6 and vitest 1->3 all sat open for months before
+      # being closed unmerged.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

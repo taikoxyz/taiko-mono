@@ -5,11 +5,11 @@ use std::{net::SocketAddr, sync::Arc};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
+use alloy_signer_local::PrivateKeySigner;
 use driver::{
     DriverConfig,
     preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
 };
-use protocol::signer::FixedKSigner;
 use rpc::{beacon::BeaconClient, client::DEFAULT_HTTP_TIMEOUT};
 use tracing::{info, warn};
 
@@ -125,7 +125,7 @@ impl WhitelistPreconfirmationDriverRunner {
         let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
-            let signer = FixedKSigner::new(signer_key).map_err(|e| {
+            let signer = signer_key.parse::<PrivateKeySigner>().map_err(|e| {
                 WhitelistPreconfirmationDriverError::Signing(format!(
                     "failed to create P2P signer: {e}"
                 ))
