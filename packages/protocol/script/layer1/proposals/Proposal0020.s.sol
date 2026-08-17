@@ -2,6 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "../governance/BuildDirectProposal.sol";
+import {
+    Action,
+    IEmergencyMultisig,
+    IEncryptionRegistry,
+    IMultisig,
+    ISignerList
+} from "../governance/IAragonGovernance.sol";
 
 // Security council revamp: 9 -> 5 members, standard threshold 5/9 -> 3/5, emergency
 // threshold 7/9 -> 4/5. See Proposal0020.md for the full specification.
@@ -54,43 +61,47 @@ contract Proposal0020 is BuildDirectProposal {
         actions_[0] = Action({
             to: L1.DAO_SIGNER_LIST,
             value: 0,
-            data: abi.encodeWithSignature(
-                "updateSettings((address,uint16))",
-                L1.DAO_ENCRYPTION_REGISTRY,
-                NEW_MIN_SIGNER_LIST_LENGTH
+            data: abi.encodeCall(
+                ISignerList.updateSettings,
+                (ISignerList.Settings({
+                        encryptionRegistry: L1.DAO_ENCRYPTION_REGISTRY,
+                        minSignerListLength: NEW_MIN_SIGNER_LIST_LENGTH
+                    }))
             )
         });
         actions_[1] = Action({
-            to: L1.DAO_SIGNER_LIST,
-            value: 0,
-            data: abi.encodeWithSignature("addSigners(address[])", toAdd)
+            to: L1.DAO_SIGNER_LIST, value: 0, data: abi.encodeCall(ISignerList.addSigners, (toAdd))
         });
         actions_[2] = Action({
             to: L1.DAO_SIGNER_LIST,
             value: 0,
-            data: abi.encodeWithSignature("removeSigners(address[])", toRemove)
+            data: abi.encodeCall(ISignerList.removeSigners, (toRemove))
         });
         actions_[3] = Action({
             to: L1.DAO_STANDARD_MULTISIG,
             value: 0,
-            data: abi.encodeWithSignature(
-                "updateMultisigSettings((bool,uint16,uint32,address,uint32))",
-                true, // onlyListed
-                NEW_STANDARD_MIN_APPROVALS,
-                DESTINATION_PROPOSAL_DURATION,
-                L1.DAO_SIGNER_LIST,
-                PROPOSAL_EXPIRATION_PERIOD
+            data: abi.encodeCall(
+                IMultisig.updateMultisigSettings,
+                (IMultisig.MultisigSettings({
+                        onlyListed: true,
+                        minApprovals: NEW_STANDARD_MIN_APPROVALS,
+                        destinationProposalDuration: DESTINATION_PROPOSAL_DURATION,
+                        signerList: L1.DAO_SIGNER_LIST,
+                        proposalExpirationPeriod: PROPOSAL_EXPIRATION_PERIOD
+                    }))
             )
         });
         actions_[4] = Action({
             to: L1.DAO_EMERGENCY_MULTISIG,
             value: 0,
-            data: abi.encodeWithSignature(
-                "updateMultisigSettings((bool,uint16,address,uint32))",
-                true, // onlyListed
-                NEW_EMERGENCY_MIN_APPROVALS,
-                L1.DAO_SIGNER_LIST,
-                PROPOSAL_EXPIRATION_PERIOD
+            data: abi.encodeCall(
+                IEmergencyMultisig.updateMultisigSettings,
+                (IEmergencyMultisig.MultisigSettings({
+                        onlyListed: true,
+                        minApprovals: NEW_EMERGENCY_MIN_APPROVALS,
+                        signerList: L1.DAO_SIGNER_LIST,
+                        proposalExpirationPeriod: PROPOSAL_EXPIRATION_PERIOD
+                    }))
             )
         });
         // Housekeeping: prunes unlisted accounts from the EncryptionRegistry's account
@@ -99,7 +110,7 @@ contract Proposal0020 is BuildDirectProposal {
         actions_[5] = Action({
             to: L1.DAO_ENCRYPTION_REGISTRY,
             value: 0,
-            data: abi.encodeWithSignature("removeUnused()")
+            data: abi.encodeCall(IEncryptionRegistry.removeUnused, ())
         });
     }
 
@@ -107,8 +118,9 @@ contract Proposal0020 is BuildDirectProposal {
     /// pins the exact current membership so a stale address fails fast with a clear
     /// message instead of an opaque action revert.
     function checkBaseline() internal view override {
-        check(readUint(L1.DAO_SIGNER_LIST, "addresslistLength()") == 9, "member count changed");
-        (address encryptionRegistry, uint16 minSignerListLength) = readSignerListSettings();
+        ISignerList signerList = ISignerList(L1.DAO_SIGNER_LIST);
+        check(signerList.addresslistLength() == 9, "member count changed");
+        (address encryptionRegistry, uint16 minSignerListLength) = signerList.settings();
         check(encryptionRegistry == L1.DAO_ENCRYPTION_REGISTRY, "encryptionRegistry changed");
         check(minSignerListLength == 8, "minSignerListLength changed");
 
@@ -118,7 +130,7 @@ contract Proposal0020 is BuildDirectProposal {
             uint32 stdDuration,
             address stdSignerList,
             uint32 stdExpiration
-        ) = readStandardMultisigSettings();
+        ) = IMultisig(L1.DAO_STANDARD_MULTISIG).multisigSettings();
         check(stdOnlyListed, "standard onlyListed changed");
         check(stdApprovals == 5, "standard minApprovals changed");
         check(stdSignerList == L1.DAO_SIGNER_LIST, "standard signerList changed");
@@ -133,7 +145,7 @@ contract Proposal0020 is BuildDirectProposal {
             uint16 emergencyApprovals,
             address emergencySignerList,
             uint32 emergencyExpiration
-        ) = readEmergencyMultisigSettings();
+        ) = IEmergencyMultisig(L1.DAO_EMERGENCY_MULTISIG).multisigSettings();
         check(emergencyOnlyListed, "emergency onlyListed changed");
         check(emergencyApprovals == 7, "emergency minApprovals changed");
         check(emergencySignerList == L1.DAO_SIGNER_LIST, "emergency signerList changed");
@@ -154,15 +166,9 @@ contract Proposal0020 is BuildDirectProposal {
             L1.SC_GATTACA
         ];
         for (uint256 i; i < current.length; ++i) {
-            check(
-                readBool(L1.DAO_SIGNER_LIST, "isListed(address)", current[i]),
-                "expected current member not listed"
-            );
+            check(signerList.isListed(current[i]), "expected current member not listed");
         }
-        check(
-            !readBool(L1.DAO_SIGNER_LIST, "isListed(address)", L1.SC_GUSTAVO_GONZALEZ),
-            "new member already listed"
-        );
+        check(!signerList.isListed(L1.SC_GUSTAVO_GONZALEZ), "new member already listed");
         check(L1.SC_GUSTAVO_GONZALEZ.code.length == 0, "new member is not an EOA");
     }
 
@@ -170,30 +176,27 @@ contract Proposal0020 is BuildDirectProposal {
     /// as its encryption agent before the DAO executes the actions (the real rotation
     /// appoints a replacement agent instead of un-appointing).
     function simulatePreExecution() internal override {
-        address appointer =
-            readAddr(L1.DAO_ENCRYPTION_REGISTRY, "appointerOf(address)", L1.SC_GUSTAVO_GONZALEZ);
+        IEncryptionRegistry registry = IEncryptionRegistry(L1.DAO_ENCRYPTION_REGISTRY);
+        address appointer = registry.appointerOf(L1.SC_GUSTAVO_GONZALEZ);
         if (appointer != address(0)) {
             console2.log(
                 "simulating agent rotation: releasing SC_GUSTAVO_GONZALEZ, appointer:", appointer
             );
+            // Appointing oneself un-appoints (see EncryptionRegistry.appointAgent).
             vm.prank(appointer);
-            (bool ok,) = L1.DAO_ENCRYPTION_REGISTRY
-                .call(abi.encodeWithSignature("appointAgent(address)", appointer));
-            check(ok, "simulated agent rotation reverted");
+            registry.appointAgent(appointer);
         }
     }
 
     function checkPostState() internal view override {
-        check(readUint(L1.DAO_SIGNER_LIST, "addresslistLength()") == 5, "expected 5 members");
+        ISignerList signerList = ISignerList(L1.DAO_SIGNER_LIST);
+        check(signerList.addresslistLength() == 5, "expected 5 members");
 
         address[5] memory listed = [
             L1.SC_TAIKO_LABS, L1.SC_L2BEAT, L1.SC_ARAGON, L1.SC_NETHERMIND, L1.SC_GUSTAVO_GONZALEZ
         ];
         for (uint256 i; i < listed.length; ++i) {
-            check(
-                readBool(L1.DAO_SIGNER_LIST, "isListed(address)", listed[i]),
-                "retained/new member not listed"
-            );
+            check(signerList.isListed(listed[i]), "retained/new member not listed");
         }
         address[5] memory removed = [
             L1.SC_CHAINBOUND,
@@ -203,22 +206,17 @@ contract Proposal0020 is BuildDirectProposal {
             L1.SC_GATTACA
         ];
         for (uint256 i; i < removed.length; ++i) {
-            check(
-                !readBool(L1.DAO_SIGNER_LIST, "isListed(address)", removed[i]),
-                "removed member still listed"
-            );
+            check(!signerList.isListed(removed[i]), "removed member still listed");
         }
 
         // Action 6 effect: every account still enumerated by the registry is a listed
         // signer, i.e. the removed members were pruned (their appointerOf/agent mappings
         // persist, as documented in Proposal0020.md).
-        address[] memory registered = abi.decode(
-            readRaw(L1.DAO_ENCRYPTION_REGISTRY, abi.encodeWithSignature("getRegisteredAccounts()")),
-            (address[])
-        );
+        IEncryptionRegistry registry = IEncryptionRegistry(L1.DAO_ENCRYPTION_REGISTRY);
+        address[] memory registered = registry.getRegisteredAccounts();
         for (uint256 i; i < registered.length; ++i) {
             check(
-                readBool(L1.DAO_SIGNER_LIST, "isListed(address)", registered[i]),
+                signerList.isListed(registered[i]),
                 string.concat("unlisted account still registered: ", vm.toString(registered[i]))
             );
         }
@@ -226,12 +224,11 @@ contract Proposal0020 is BuildDirectProposal {
         // The invariant behind the mandatory rotation: once listed, SC_GUSTAVO_GONZALEZ must
         // not be any seat's appointed agent.
         check(
-            readAddr(L1.DAO_ENCRYPTION_REGISTRY, "appointerOf(address)", L1.SC_GUSTAVO_GONZALEZ)
-                == address(0),
+            registry.appointerOf(L1.SC_GUSTAVO_GONZALEZ) == address(0),
             "SC_GUSTAVO_GONZALEZ still an appointed agent; Taiko Labs must rotate before execution"
         );
 
-        (address encryptionRegistry, uint16 minSignerListLength) = readSignerListSettings();
+        (address encryptionRegistry, uint16 minSignerListLength) = signerList.settings();
         check(encryptionRegistry == L1.DAO_ENCRYPTION_REGISTRY, "encryptionRegistry not preserved");
         check(minSignerListLength == NEW_MIN_SIGNER_LIST_LENGTH, "minSignerListLength not updated");
 
@@ -241,7 +238,7 @@ contract Proposal0020 is BuildDirectProposal {
             uint32 stdDuration,
             address stdSignerList,
             uint32 stdExpiration
-        ) = readStandardMultisigSettings();
+        ) = IMultisig(L1.DAO_STANDARD_MULTISIG).multisigSettings();
         check(stdApprovals == NEW_STANDARD_MIN_APPROVALS, "standard threshold not updated");
         check(
             stdOnlyListed && stdSignerList == L1.DAO_SIGNER_LIST
@@ -255,7 +252,7 @@ contract Proposal0020 is BuildDirectProposal {
             uint16 emergencyApprovals,
             address emergencySignerList,
             uint32 emergencyExpiration
-        ) = readEmergencyMultisigSettings();
+        ) = IEmergencyMultisig(L1.DAO_EMERGENCY_MULTISIG).multisigSettings();
         check(emergencyApprovals == NEW_EMERGENCY_MIN_APPROVALS, "emergency threshold not updated");
         check(
             emergencyOnlyListed && emergencySignerList == L1.DAO_SIGNER_LIST

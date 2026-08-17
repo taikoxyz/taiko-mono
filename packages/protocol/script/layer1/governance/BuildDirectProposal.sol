@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { Action, IMultisig } from "./IAragonGovernance.sol";
 import "forge-std/src/Script.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 
@@ -20,19 +21,13 @@ import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 ///               for direct submission (requires pre-pinned metadata).
 /// - `l1dryrun`: on a fork — run `checkBaseline()`, create the proposal as `SENDER`
 ///               (`APPROVE=true` additionally approves at creation; default false),
+///               assert the stored proposal matches the built actions (`getProposal`),
 ///               run `simulatePreExecution()`, apply the actions as the DAO, then run
 ///               `checkPostState()`.
 ///
 /// The print-mode direct-submission fallback always encodes `approveProposal = false`;
 /// a direct submitter approves separately.
 abstract contract BuildDirectProposal is Script {
-    /// @dev Mirrors Aragon OSx `IDAO.Action`.
-    struct Action {
-        address to;
-        uint256 value;
-        bytes data;
-    }
-
     function run() external {
         string memory mode = vm.envString("MODE");
         if (keccak256(abi.encodePacked(mode)) == keccak256(abi.encodePacked("print"))) {
@@ -111,7 +106,7 @@ abstract contract BuildDirectProposal is Script {
                 "`\n- Function: `createProposal`\n- Value: `0`\n- Metadata URI: `",
                 metadataURI,
                 "`\n- Calldata: `",
-                vm.toString(buildCreateProposalCalldata(metadataURI, false)),
+                vm.toString(buildCreateProposalCalldata(metadataURI)),
                 "`\n"
             );
         }
@@ -127,27 +122,44 @@ abstract contract BuildDirectProposal is Script {
         address sender = vm.envOr("SENDER", address(0));
         if (sender == address(0)) revert MissingEnv("SENDER");
         string memory metadataURI = vm.envOr("METADATA_URI", string("ipfs://dryrun-placeholder"));
+        bool approve = vm.envOr("APPROVE", false);
 
         // Built before the prank: a subclass's buildDaoActions may make view calls, and
         // an external call inside the argument expression would consume the prank.
-        bytes memory createCalldata =
-            buildCreateProposalCalldata(metadataURI, vm.envOr("APPROVE", false));
+        Action[] memory actions = buildDaoActions();
+        IMultisig multisig = IMultisig(L1.DAO_STANDARD_MULTISIG);
         vm.prank(sender);
-        (bool ok, bytes memory ret) = L1.DAO_STANDARD_MULTISIG.call(createCalldata);
-        logIfReverted(ok, ret);
-        check(ok, "createProposal reverted");
-        console2.log("createProposal accepted, proposalId:", abi.decode(ret, (uint256)));
+        uint256 proposalId = multisig.createProposal(
+            bytes(metadataURI), actions, L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN, approve
+        );
+        console2.log("createProposal accepted, proposalId:", proposalId);
+
+        // Rehearses the approver-side check (the `getProposal` diff in Proposal$P.md):
+        // what the multisig stored is exactly what buildDaoActions() built.
+        (,,,, Action[] memory stored, address destinationPlugin) = multisig.getProposal(proposalId);
+        check(
+            destinationPlugin == L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN,
+            "stored destination plugin differs"
+        );
+        check(stored.length == actions.length, "stored action count differs");
+        for (uint256 i; i < stored.length; ++i) {
+            check(
+                stored[i].to == actions[i].to && stored[i].value == actions[i].value
+                    && keccak256(stored[i].data) == keccak256(actions[i].data),
+                string.concat("stored action ", vm.toString(i + 1), " differs")
+            );
+        }
 
         simulatePreExecution();
 
-        Action[] memory actions = buildDaoActions();
         for (uint256 i; i < actions.length; ++i) {
             check(
                 actions[i].to.code.length > 0,
                 string.concat("action ", vm.toString(i + 1), " target has no code")
             );
             vm.prank(L1.DAO);
-            (ok, ret) = actions[i].to.call{ value: actions[i].value }(actions[i].data);
+            (bool ok, bytes memory ret) =
+                actions[i].to.call{ value: actions[i].value }(actions[i].data);
             logIfReverted(ok, ret);
             check(ok, string.concat("action ", vm.toString(i + 1), " reverted"));
         }
@@ -160,22 +172,18 @@ abstract contract BuildDirectProposal is Script {
     // Helpers for subclasses
     // ---------------------------------------------------------------
 
-    /// @dev The full `Multisig.createProposal` calldata (dryrun and direct-submission
-    /// fallback; the DAO UI assembles this call itself).
-    function buildCreateProposalCalldata(
-        string memory _metadataURI,
-        bool _approveProposal
-    )
+    /// @dev The full `Multisig.createProposal` calldata for the direct-submission
+    /// fallback (the DAO UI assembles this call itself, and the dryrun calls the typed
+    /// interface). Always encodes `approveProposal = false`; a direct submitter
+    /// approves separately.
+    function buildCreateProposalCalldata(string memory _metadataURI)
         internal
         view
         returns (bytes memory)
     {
-        return abi.encodeWithSignature(
-            "createProposal(bytes,(address,uint256,bytes)[],address,bool)",
-            bytes(_metadataURI),
-            buildDaoActions(),
-            L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN,
-            _approveProposal
+        return abi.encodeCall(
+            IMultisig.createProposal,
+            (bytes(_metadataURI), buildDaoActions(), L1.DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN, false)
         );
     }
 
@@ -190,62 +198,6 @@ abstract contract BuildDirectProposal is Script {
         if (!_ok) revert CheckFailed(_what);
     }
 
-    function readUint(address _target, string memory _sig) internal view returns (uint256) {
-        return abi.decode(readRaw(_target, abi.encodeWithSignature(_sig)), (uint256));
-    }
-
-    function readBool(
-        address _target,
-        string memory _sig,
-        address _arg
-    )
-        internal
-        view
-        returns (bool)
-    {
-        return abi.decode(readRaw(_target, abi.encodeWithSignature(_sig, _arg)), (bool));
-    }
-
-    function readAddr(
-        address _target,
-        string memory _sig,
-        address _arg
-    )
-        internal
-        view
-        returns (address)
-    {
-        return abi.decode(readRaw(_target, abi.encodeWithSignature(_sig, _arg)), (address));
-    }
-
-    /// @dev SignerList settings: (encryptionRegistry, minSignerListLength).
-    function readSignerListSettings() internal view returns (address, uint16) {
-        return abi.decode(
-            readRaw(L1.DAO_SIGNER_LIST, abi.encodeWithSignature("settings()")), (address, uint16)
-        );
-    }
-
-    /// @dev Standard Multisig settings:
-    /// (onlyListed, minApprovals, destinationProposalDuration, signerList, expirationPeriod).
-    function readStandardMultisigSettings()
-        internal
-        view
-        returns (bool, uint16, uint32, address, uint32)
-    {
-        return abi.decode(
-            readRaw(L1.DAO_STANDARD_MULTISIG, abi.encodeWithSignature("multisigSettings()")),
-            (bool, uint16, uint32, address, uint32)
-        );
-    }
-
-    /// @dev Emergency Multisig settings: (onlyListed, minApprovals, signerList, expirationPeriod).
-    function readEmergencyMultisigSettings() internal view returns (bool, uint16, address, uint32) {
-        return abi.decode(
-            readRaw(L1.DAO_EMERGENCY_MULTISIG, abi.encodeWithSignature("multisigSettings()")),
-            (bool, uint16, address, uint32)
-        );
-    }
-
     function nameOf(address _target) internal pure returns (string memory) {
         if (_target == L1.DAO_SIGNER_LIST) return "SignerList";
         if (_target == L1.DAO_STANDARD_MULTISIG) return "Standard Multisig";
@@ -253,20 +205,6 @@ abstract contract BuildDirectProposal is Script {
         if (_target == L1.DAO_ENCRYPTION_REGISTRY) return "EncryptionRegistry";
         if (_target == L1.DAO) return "DAO";
         return "?";
-    }
-
-    function readRaw(
-        address _target,
-        bytes memory _data
-    )
-        internal
-        view
-        returns (bytes memory)
-    {
-        (bool ok, bytes memory ret) = _target.staticcall(_data);
-        logIfReverted(ok, ret);
-        check(ok, "staticcall reverted");
-        return ret;
     }
 
     // ---------------------------------------------------------------

@@ -63,7 +63,7 @@ Action 6 removes the delisted members from the registry's account enumeration on
 `appointerOf`/agent mappings persist. This is harmless — an unlisted appointer can never
 resolve for approvals — but their former agent addresses stay reserved and cannot be
 appointed by other seats. See `removeUnused()` in
-[EncryptionRegistry.sol](https://github.com/taikoxyz/dao-contracts/blob/main/src/EncryptionRegistry.sol);
+[EncryptionRegistry.sol](https://github.com/taikoxyz/dao-contracts/blob/dao-contracts-v1.0.0/src/EncryptionRegistry.sol);
 the dryrun's `checkPostState` asserts the pruning.
 
 Member addresses (from the on-chain SignerList census, cross-checked against
@@ -111,7 +111,12 @@ Member addresses (from the on-chain SignerList census, cross-checked against
 `script/layer1/governance/BuildDirectProposal.sol` — the direct-DAO sibling of
 `BuildProposal` for governance-stack changes (see Technical Specification) — so the
 proposal file contains only the member addresses, the new settings, the six actions, and
-the dryrun assertions; all print/dryrun machinery lives in the base. The proposal is
+the dryrun assertions; all print/dryrun machinery lives in the base. Every call to the
+governance contracts is typed against
+`script/layer1/governance/IAragonGovernance.sol` (compiler-derived selectors and named
+struct fields, no hand-encoded signatures); the dryrun exercises the declarations
+against the fork (`appointAgent` only until the Taiko Labs agent rotation lands
+on-chain — see that file's header for the full fidelity anchors). The proposal is
 created through the Taiko DAO UI (dao.taiko.xyz), which pins the metadata to IPFS and
 assembles the `createProposal` call; the script supplies the six actions to paste into the
 UI's custom-action (calldata) form:
@@ -132,6 +137,10 @@ cast call 0xD7dA1C25E915438720692bC55eb3a7170cA90321 \
   "getProposal(uint256)(bool,uint16,(uint16,uint64,uint64),bytes,(address,uint256,bytes)[],address)" \
   <PROPOSAL_ID> --rpc-url <ETHEREUM_RPC>
 ```
+
+The `getProposal` output tuple mirrors `IMultisig.getProposal` in
+`script/layer1/governance/IAragonGovernance.sol`; the dryrun rehearses this comparison
+(it asserts the stored actions match `buildDaoActions()` after creation).
 
 Direct-submission fallback (bypassing the UI): pre-pin the metadata yourself and pass
 `METADATA_URI=ipfs://<CID>` to the `print` mode to get the full `createProposal` calldata.
