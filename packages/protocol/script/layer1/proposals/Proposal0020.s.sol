@@ -21,15 +21,15 @@ contract Proposal0020 is BuildDirectProposal {
     // L1.SC_DREW_VAN_DER_WERFF, L1.SC_TONI_WAHRSTATTER, L1.SC_GATTACA; and the retained
     // L1.SC_TAIKO_LABS, L1.SC_L2BEAT, L1.SC_ARAGON, L1.SC_NETHERMIND (dryrun assertions only).
     //
-    // IMPORTANT: SC_GUSTAVO_GONZALEZ is currently the encryption agent appointed by the
-    // Taiko Labs seat. Before this proposal EXECUTES, Taiko Labs must appoint a
-    // replacement agent (EncryptionRegistry.appointAgent from the Taiko Labs Safe). If it
-    // is still appointed at execution time, the Taiko Labs seat is left without a valid
-    // approver until Taiko Labs rotates: only the appointed agent may approve for a seat,
-    // and once this address is listed as its own seat, its approvals credit that seat
-    // instead. The dryrun simulates the rotation between creation and execution;
-    // approvals on in-flight proposals are unaffected (approvals are recorded per seat
-    // owner).
+    // IMPORTANT: SC_GUSTAVO_GONZALEZ must not be any seat's appointed encryption agent
+    // when this proposal EXECUTES: only the appointed agent may approve for a seat, and
+    // once an agent's address is listed as its own seat, its approvals credit that seat
+    // instead — the appointing seat is left without a valid approver until it rotates
+    // (recoverable at any time; approvals on in-flight proposals are unaffected, as they
+    // are recorded per seat owner). The address holds no appointment today; if one
+    // appears before execution, the dryrun simulates the release (simulatePreExecution)
+    // and checkPostState asserts the invariant. The rule is permanent: after execution,
+    // no seat may appoint a listed seat address as its agent.
 
     // New thresholds. minSignerListLength must stay >= the emergency minApprovals (see
     // SignerList.Settings NatSpec); 4 preserves the current one-removal headroom pattern.
@@ -172,9 +172,10 @@ contract Proposal0020 is BuildDirectProposal {
         check(L1.SC_GUSTAVO_GONZALEZ.code.length == 0, "new member is not an EOA");
     }
 
-    /// @dev Models the mandatory out-of-band step: Taiko Labs releases SC_GUSTAVO_GONZALEZ
-    /// as its encryption agent before the DAO executes the actions (the real rotation
-    /// appoints a replacement agent instead of un-appointing).
+    /// @dev Defensive: if SC_GUSTAVO_GONZALEZ has become some seat's appointed encryption
+    /// agent by execution time, model the appointer releasing it first (a real rotation
+    /// appoints a replacement agent instead of un-appointing). No-op while the address
+    /// holds no appointment, as is the case today.
     function simulatePreExecution() internal override {
         IEncryptionRegistry registry = IEncryptionRegistry(L1.DAO_ENCRYPTION_REGISTRY);
         address appointer = registry.appointerOf(L1.SC_GUSTAVO_GONZALEZ);
@@ -221,11 +222,11 @@ contract Proposal0020 is BuildDirectProposal {
             );
         }
 
-        // The invariant behind the mandatory rotation: once listed, SC_GUSTAVO_GONZALEZ must
-        // not be any seat's appointed agent.
+        // Once listed, SC_GUSTAVO_GONZALEZ must not be any seat's appointed agent: its
+        // approvals would credit its own seat, stranding the appointing seat.
         check(
             registry.appointerOf(L1.SC_GUSTAVO_GONZALEZ) == address(0),
-            "SC_GUSTAVO_GONZALEZ still an appointed agent; Taiko Labs must rotate before execution"
+            "SC_GUSTAVO_GONZALEZ is an appointed agent; the appointer must rotate before execution"
         );
 
         (address encryptionRegistry, uint16 minSignerListLength) = signerList.settings();

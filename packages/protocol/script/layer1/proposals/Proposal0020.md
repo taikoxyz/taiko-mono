@@ -7,7 +7,7 @@ This proposal restructures the Security Council:
 - **Removed (5):** Chainbound, Halborn, Drew Van der Werff, Toni Wahrstätter, Gattaca
 - **Retained (4):** Taiko Labs, L2BEAT, Aragon, Nethermind
 - **Added (1):** Gustavo Gonzalez (independent member), seat
-  `0xAC5898b0FFFd23F4Ef09F0E50Fa1bC4896eF7163` (EOA)
+  `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986` (EOA)
 - **Standard proposal threshold:** 5/9 → **3/5**
 - **Emergency proposal threshold:** 7/9 → **4/5**
 - **SignerList `minSignerListLength`:** 8 → **4** (contract-documented floor: must be ≥ the
@@ -15,17 +15,16 @@ This proposal restructures the Security Council:
 
 ## Prerequisites
 
-1. **Taiko Labs agent rotation — required before EXECUTION**: the seat address is
-   currently the encryption agent appointed by the Taiko Labs Safe
-   (`0xb47fE76aC588101BFBdA9E68F66433bA51E8029a`). Any time between proposal creation and
-   final execution — recommended when the proposal is forwarded to the veto stage —
-   Taiko Labs must call `EncryptionRegistry.appointAgent(replacementEOA)`. Rotation
-   timing does not disturb approvals: membership is snapshotted at creation, agent
-   resolution is current-state, and approvals are recorded per seat owner. If the
-   proposal executes while the appointment still stands, the Taiko Labs seat cannot
-   approve new proposals until Taiko Labs rotates (recoverable at any time, but the
-   council effectively runs 4-seated meanwhile). The dryrun simulates this rotation and
-   `checkPostState` asserts the invariant.
+1. **The seat address must hold no agent appointment at EXECUTION**: the new seat
+   `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986` is not any seat's appointed encryption
+   agent today (verified on-chain) and must remain unappointed through execution — once
+   an agent's address is listed as its own seat, its approvals credit that seat instead,
+   leaving the appointing seat without a valid approver until it rotates (recoverable at
+   any time, but that seat cannot approve meanwhile). The dryrun simulates the release
+   if an appointment appears before execution, and `checkPostState` asserts the
+   invariant. The rule is permanent: after execution, no seat may appoint a listed seat
+   address (including this one) as its agent. This proposal does not touch the Taiko
+   Labs seat's current agent appointment.
 2. **No in-flight proposals**: confirm no open Standard or Emergency multisig proposals at
    execution time (members removed here can still act on proposals created earlier, whose
    census is snapshotted, until they expire after 14 days).
@@ -50,7 +49,7 @@ the then-current list, which the new thresholds (3, 4) satisfy at every intermed
 | #   | Target                                                          | Call                                                              |
 | --- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
 | 1   | SignerList `0x0F95E6968EC1B28c794CF1aD99609431de5179c2`         | `updateSettings((0x2eFDb93a3B87b930E553d504db67Ee41c69C42d1, 4))` |
-| 2   | SignerList                                                      | `addSigners([0xAC5898b0FFFd23F4Ef09F0E50Fa1bC4896eF7163])`        |
+| 2   | SignerList                                                      | `addSigners([0xe63E61BbB3aa1b82d44471AbcAb490102C17c986])`        |
 | 3   | SignerList                                                      | `removeSigners([Chainbound, Halborn, Drew, Toni, Gattaca])`       |
 | 4   | Standard Multisig `0xD7dA1C25E915438720692bC55eb3a7170cA90321`  | `updateMultisigSettings((true, 3, 864000, SignerList, 1209600))`  |
 | 5   | Emergency Multisig `0x2AffADEb2ef5e1F2a7F58964ee191F1e88317ECd` | `updateMultisigSettings((true, 4, SignerList, 1209600))`          |
@@ -75,7 +74,7 @@ Member addresses (from the on-chain SignerList census, cross-checked against
 | L2BEAT                         | `0xf1cF63589A1e012F9124182c9eAa36B5333e5f06`       | retained    |
 | Aragon                         | `0xb284810536C0dAB6A8e48153B58588A9B9e0F701`       | retained    |
 | Nethermind                     | `0x5353c607e6eca6C63FEC5c6C0F5CC3a5348d5c95`       | retained    |
-| Gustavo Gonzalez (independent) | `0xAC5898b0FFFd23F4Ef09F0E50Fa1bC4896eF7163` (EOA) | added       |
+| Gustavo Gonzalez (independent) | `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986` (EOA) | added       |
 | Chainbound                     | `0x436a1075099A145417EBFc74BBaC9605e3e4f1A7`       | removed     |
 | Halborn                        | `0x0F40268Ec0Dc8D88CF2f22E227A29a0b478b6351`       | removed     |
 | Drew Van der Werff             | `0x25d3E89bAcE2040Ed3aF7c4c7B505cfBB72fD6f1`       | removed     |
@@ -99,10 +98,7 @@ Member addresses (from the on-chain SignerList census, cross-checked against
 1. The new member EOA registers its encryption key via dao.taiko.xyz
    (`setOwnPublicKey`, only possible once listed); until then the seat can approve
    emergency proposals but cannot decrypt them.
-2. Taiko Labs' replacement agent registers a new key for the seat via dao.taiko.xyz
-   (`setPublicKey`, callable only by the appointed agent — an agent is not listed, so
-   `setOwnPublicKey` does not apply; the rotation wiped the stored key).
-3. Update `security-council-profiles.json` in `taikoxyz/dao-ui-mono`; record execution in
+2. Update `security-council-profiles.json` in `taikoxyz/dao-ui-mono`; record execution in
    `deployments/mainnet-contract-logs-L1.md`.
 
 ## Building and submitting via the DAO UI
@@ -156,7 +152,7 @@ Council and, during the veto window, TAIKO holders read. Paste them exactly:
   emergency proposal threshold to 4/5.
 - **Description:** Removes Chainbound, Halborn, Drew Van der Werff, Toni Wahrstätter and
   Gattaca; retains Taiko Labs, L2BEAT, Aragon and Nethermind; adds Gustavo Gonzalez as an
-  independent member (seat `0xAC5898b0FFFd23F4Ef09F0E50Fa1bC4896eF7163`). Lowers the
+  independent member (seat `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986`). Lowers the
   SignerList `minSignerListLength` from 8 to 4, the standard multisig `minApprovals` from
   5 to 3, and the emergency multisig `minApprovals` from 7 to 4. All other settings (the
   10-day veto duration and 14-day proposal expiration) are unchanged. Full technical
