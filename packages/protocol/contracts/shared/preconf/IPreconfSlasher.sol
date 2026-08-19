@@ -5,7 +5,21 @@ pragma solidity ^0.8.24;
 /// @dev Contains entities that are shared by both PreconfSlasherL1 and PreconfSlasherL2
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfSlasher {
-    // The object that is preconfirmed
+    // ---------------------------------------------------------------
+    // Preconfirmation fault
+    // ---------------------------------------------------------------
+
+    /// @dev The slashing reason forwarded to the L1 preconfirmation slasher
+    enum PreconfirmationFault {
+        // A liveness fault: the preconfer missed a submission or missed the EOP flag.
+        // On L1, this is further classified: if the L1 slot had a block, it becomes a Safety fault.
+        Liveness,
+        // A safety fault: the preconfirmed data does not match the submitted data,
+        // or an invalid EOP flag was set.
+        Safety
+    }
+
+    /// @dev The object that is preconfirmed
     struct Preconfirmation {
         // End of preconfirmation flag
         bool eop;
@@ -21,15 +35,5 @@ interface IPreconfSlasher {
         uint256 parentSubmissionWindowEnd;
         // The timestamp of the preconfer's slot in the lookahead
         uint256 submissionWindowEnd;
-    }
-
-    // The slashing reason forwarded to the L1 preconfirmation slasher
-    enum PreconfirmationFault {
-        // A liveness fault: the preconfer missed a submission or missed the EOP flag.
-        // On L1, this is further classified: if the L1 slot had a block, it becomes a Safety fault.
-        Liveness,
-        // A safety fault: the preconfirmed data does not match the submitted data,
-        // or an invalid EOP flag was set.
-        Safety
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
@@ -14,6 +15,15 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import "./LookaheadStore_Layout.sol"; // DO NOT DELETE
 
 /// @title LookaheadStore
+/// @notice Stores epoch-wise Preconfer Lookahead that is used by the inbox for proposer verification
+/// @dev Offchain, the next epoch's lookahead is built by:
+///   1. Reading BLS validator keys from the beacon proposer lookahead for the next epoch.
+///   2. For each key registered to a URC operator, checking if the operator was active using
+///      `isOperatorActive` at the reference timestamp from
+///      `PreconfSlasherL1.getOperatorValidityReferenceTimestamp`.
+///   3. Assembling `LookaheadSlot`s for active operators and encoding via `encodeLookahead`.
+///   4. The encoded lookahead is then posted onchain via `checkProposer` along with the proposer's
+///      signature on the commitment received from `buildLookaheadCommitment`
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, IProposerChecker, EssentialContract {
     // ---------------------------------------------------------------
@@ -23,6 +33,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, EssentialContract 
     address public immutable inbox;
     address public immutable preconfSlasherL1;
     address public immutable preconfWhitelist;
+    address public immutable urc;
 
     uint256 public constant LOOKAHEAD_BUFFER_SIZE = 503;
 
@@ -46,10 +57,16 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, EssentialContract 
 
     uint256[48] private __gap_blacklist;
 
-    constructor(address _inbox, address _preconfSlasherL1, address _preconfWhitelist) {
+    constructor(
+        address _inbox,
+        address _preconfSlasherL1,
+        address _preconfWhitelist,
+        address _urc
+    ) {
         inbox = _inbox;
         preconfSlasherL1 = _preconfSlasherL1;
         preconfWhitelist = _preconfWhitelist;
+        urc = _urc;
     }
 
     function init(address _owner, address _overseer) external initializer {
@@ -186,6 +203,44 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, EssentialContract 
     }
 
     /// @inheritdoc ILookaheadStore
+    function isOperatorActive(
+        bytes32 _registrationRoot,
+        uint256 _referenceTimestamp
+    )
+        public
+        view
+        returns (bool)
+    {
+        IRegistry.OperatorData memory opData = IRegistry(urc).getOperatorData(_registrationRoot);
+
+        // 1. Must be registered at reference
+        if (opData.registeredAt == 0 || opData.registeredAt > _referenceTimestamp) return false;
+        if (opData.unregisteredAt != 0 && opData.unregisteredAt < _referenceTimestamp) {
+            return false;
+        }
+
+        // 2. Must be opted into preconfSlasherL1 at reference
+        IRegistry.SlasherCommitment memory sc =
+            IRegistry(urc).getSlasherCommitment(_registrationRoot, preconfSlasherL1);
+        if (sc.optedInAt == 0 || sc.optedInAt > _referenceTimestamp) return false;
+        if (sc.optedOutAt != 0 && sc.optedOutAt < _referenceTimestamp) return false;
+
+        // 3. Must not be blacklisted at reference
+        BlacklistTimestamps memory bt = blacklist[_registrationRoot];
+        if (bt.blacklistedAt != 0 && bt.blacklistedAt < _referenceTimestamp) {
+            if (bt.unBlacklistedAt < bt.blacklistedAt || bt.unBlacklistedAt >= _referenceTimestamp)
+            {
+                return false;
+            }
+        }
+
+        // 4. Must not be slashed at reference
+        if (opData.slashedAt != 0 && opData.slashedAt < _referenceTimestamp) return false;
+
+        return true;
+    }
+
+    /// @inheritdoc ILookaheadStore
     function buildLookaheadCommitment(
         uint256 _epochTimestamp,
         bytes calldata _encodedLookahead
@@ -290,12 +345,12 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, EssentialContract 
             context_ = _handleSameEpochProposer(_data, _epochTimestamp);
         }
 
-        // Use fallback preconfer if no opted-in slot, otherwise use lookahead committer
-        // All operators are validated when lookahead is posted, so no need to re-validate
+        // Use fallback preconfer if no opted-in slot, otherwise use lookahead operator
         if (context_.isFallback) {
             context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
         } else {
-            if (isOperatorBlacklisted(context_.lookaheadSlot.registrationRoot)) {
+            if (!isOperatorActive(context_.lookaheadSlot.registrationRoot, block.timestamp)) {
+                // If the lookahead operator is no longer valid, use fallback
                 context_.isFallback = true;
                 context_.proposer = IPreconfWhitelist(preconfWhitelist).getOperatorForCurrentEpoch();
                 if (_data.slotIndex == type(uint256).max) {
