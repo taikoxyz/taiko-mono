@@ -50,6 +50,12 @@ interface IProposerAuction is IProposerChecker {
         uint32 indexed epoch, address indexed winner, address indexed backup, uint128 chargedInGwei
     );
 
+    /// @notice Emitted when a backlog deeper than the backfill window forces the catch-up to skip
+    /// epochs, so the skipped range is observable rather than silently dropped.
+    /// @param fromEpoch The first skipped epoch (inclusive).
+    /// @param toEpoch The last skipped epoch (inclusive).
+    event SnapshotsSkipped(uint32 indexed fromEpoch, uint32 indexed toEpoch);
+
     /// @notice Emitted when TAIKO bonds are deposited.
     event BondDeposited(address indexed account, uint128 amount);
 
@@ -203,7 +209,6 @@ interface IProposerAuction is IProposerChecker {
     /// @param livenessBondAmount Slash amount per fault, in gwei.
     /// @param bondMultiplier Multiplier for livenessBond to derive bond thresholds.
     /// @param rewardBps Challenger reward share in basis points (<= 5000).
-    /// @param settleBountyBps Settle-caller bounty share of the locked remainder (<= 5000).
     /// @param bondWithdrawalDelay Delay before a bond withdrawal becomes possible, in seconds.
     /// @param tenureMaxEpochs Maximum tenure of a standing bid, in epochs.
     /// @param initialFloorInGwei Initial reserve floor, in gwei.
@@ -224,7 +229,6 @@ interface IProposerAuction is IProposerChecker {
         uint96 livenessBondAmount;
         uint16 bondMultiplier;
         uint16 rewardBps;
-        uint16 settleBountyBps;
         uint48 bondWithdrawalDelay;
         uint32 tenureMaxEpochs;
         uint128 initialFloorInGwei;
@@ -377,9 +381,6 @@ interface IProposerAuction is IProposerChecker {
     /// @notice Returns the handover margin (seconds before epoch start during which the incoming
     ///         operator's handover blocks are legal S1 evidence).
     function getHandoverMargin() external view returns (uint48 handoverMargin_);
-
-    /// @notice Returns the settle-caller bounty share in basis points.
-    function getSettleBountyBps() external view returns (uint16 settleBountyBps_);
 
     /// @notice Returns the reserve-floor decay (basis points retained per unassigned epoch).
     function getFloorDecayBps() external view returns (uint16 floorDecayBps_);

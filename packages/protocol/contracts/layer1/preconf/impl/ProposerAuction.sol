@@ -48,6 +48,23 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     /// @notice Maximum number of epochs backfilled by snapshot().
     uint32 public constant MAX_BACKFILL_EPOCHS = 32;
 
+    /// @notice Maximum number of epochs backfilled on the proposing hot path.
+    /// @dev checkProposer runs inside the Inbox's gas-isolated call, so its catch-up must fit
+    ///      inside `proposerCheckerGasLimit` over a full list. MAX_BACKFILL_EPOCHS does not: the
+    ///      loop yields on the gas reserve, leaves the cache behind the live epoch, and drops
+    ///      into the fail-open branch — which skips the exclusive window and the priced
+    ///      unassigned rung. Because the backfill window is anchored at the CURRENT epoch, a
+    ///      smaller cap still lands the cache live; it only records fewer of the skipped epochs,
+    ///      and `snapshot()` (bounded by MAX_BACKFILL_EPOCHS) recovers the rest permissionlessly.
+    ///      Pinned by test_R5_checkProposer_deepBacklogFitsDeployedGasLimit.
+    uint32 public constant HOT_PATH_BACKFILL_EPOCHS = 8;
+
+    /// @dev Gas kept in reserve before starting another backfill step, so a catch-up can never
+    ///      exhaust the Inbox's gas-isolated proposer-checker budget (R5-F10). Sized above the
+    ///      worst-case cost of one _snapshot over a full MAX_LIST_SIZE list plus the trailing
+    ///      purge and the caller's remaining work.
+    uint256 internal constant _SNAPSHOT_GAS_RESERVE = 500_000;
+
     /// @notice Fault type: stall (liveness fault).
     uint8 internal constant _FAULT_STALL = 1;
 
@@ -87,9 +104,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @dev Challenger reward share in basis points.
     uint16 private immutable _rewardBps;
-
-    /// @dev Settle-caller bounty share of the locked remainder, in basis points.
-    uint16 private immutable _settleBountyBps;
 
     /// @dev Delay before a bond withdrawal becomes possible.
     uint48 private immutable _bondWithdrawalDelay;
@@ -235,7 +249,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             _config.bondMultiplier > 0 && _config.bondMultiplier <= 100, InvalidBondMultiplier()
         );
         require(_config.rewardBps <= 5000, InvalidBps()); // <= 50%: a self-slash must never be free
-        require(_config.settleBountyBps <= 5000, InvalidBps());
         require(_config.bondWithdrawalDelay > 0, ZeroValue());
         require(_config.tenureMaxEpochs > 0, ZeroValue());
         require(_config.initialFloorInGwei > 0, ZeroValue());
@@ -257,7 +270,6 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         _livenessBond = _config.livenessBondAmount;
         _bondMultiplier = _config.bondMultiplier;
         _rewardBps = _config.rewardBps;
-        _settleBountyBps = _config.settleBountyBps;
         _bondWithdrawalDelay = _config.bondWithdrawalDelay;
         _tenureMaxEpochs = _config.tenureMaxEpochs;
         _initialFloorInGwei = _config.initialFloorInGwei;
@@ -288,6 +300,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         __Essential_init(_owner);
         // Sentinel so the first real unassigned epoch still charges the unassigned-mode fee.
         _lastUnassignedFeeEpoch = type(uint32).max;
+        // R5-F13: anchor the snapshot cursor at deployment rather than overloading 0 as a
+        // "never snapshotted" sentinel — 0 is a real epoch index on a fresh-genesis chain, where
+        // the overloaded value made epoch 0 unrecordable. Epochs before deployment predate any
+        // bid (bids take effect TRANSITION_LEAD_EPOCHS later), so there is nothing to backfill.
+        _assignedEpoch = _currentEpochIndex();
     }
 
     // ---------------------------------------------------------------
@@ -302,14 +319,39 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         require(bond.balance >= _requiredBond, InsufficientBond());
         if (bond.withdrawableAt != 0) bond.withdrawableAt = 0;
 
+        // R5-F11: bring the assignment cache current before reading it. bid() consults the cache
+        // for the eviction guard below and the EMA-derived floor, and a stale cache would both
+        // skip the Q1 decay and let a full-list eviction target a stale winner.
+        _catchUpSnapshots(MAX_BACKFILL_EPOCHS);
+
         uint32 currentEpoch = _currentEpochIndex();
+        // R5-F17: the catch-up above yields when the remaining gas drops below the per-snapshot
+        // reserve, and the caller chooses the transaction's gas limit — so a bidder can hand in
+        // just enough gas to process ZERO epochs while still funding the rest of this function.
+        // Everything below reads the cache: the EMA floor, and the eviction guard that protects
+        // the finalized assignment. Against a stale cache that guard protects the previous
+        // epoch's winner, so a crafted-gas bid could evict the live one — reintroducing R5-F2.
+        // checkProposer cannot revert on a stale cache (it is the Inbox's only authorization
+        // path, so it degrades to permissionless proposing instead), but bidding is not
+        // liveness-critical: reject the bid and let the caller retry with more gas or after a
+        // permissionless snapshot() poke.
+        require(_assignedEpoch == currentEpoch, StaleAssignmentCache());
+
         (uint128 topAmount, address topHolder) = _activeTop(currentEpoch);
 
-        // Self re-bids (same holder) are exempt from the reserve floor: an incumbent must be
-        // able to re-bid or rotate signer at their own rate without the floor ratcheting rent.
-        if (topHolder != msg.sender) {
-            require(_amountInGwei >= getReserveFloor(), BidBelowReserve());
+        // Self re-bids (same holder) are exempt from a reserve floor ABOVE their own live rate:
+        // an incumbent must be able to re-bid or rotate signer at their own rate without the
+        // floor ratcheting rent. R5-F5: the exemption is bounded BELOW by the incumbent's current
+        // rate — self-lowering is what collapses the floor (which tracks activeTop) toward zero.
+        uint128 floor = getReserveFloor();
+        if (topHolder == msg.sender && floor > topAmount) {
+            // R5-F20: the exemption relaxes the floor to the incumbent's own rate, never below
+            // the configured backstop. getReserveFloor() already re-asserts initialFloor, so no
+            // accepted bid should sit under it today — clamping here keeps that a local
+            // invariant of this branch rather than one inherited from every prior bid.
+            floor = uint128(LibMath.max(uint256(topAmount), uint256(_initialFloorInGwei)));
         }
+        require(_amountInGwei >= floor, BidBelowReserve());
         if (topHolder != address(0) && topHolder != msg.sender && _amountInGwei > topAmount) {
             require(
                 _amountInGwei
@@ -323,10 +365,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             // New entry: its live fields already take effect TRANSITION_LEAD_EPOCHS later.
             _purgeInactiveInternal();
             if (_ranked.length >= MAX_LIST_SIZE) {
-                // A full list is not closed: evict the lowest-ranked entry when the new bid
-                // clears it by the increment (the evictee is rank 16, never winner/backup, so
-                // the current/next assignment finality invariant is untouched).
-                address evictee = _lowestBidder();
+                // A full list is not closed: evict the lowest-ranked EVICTABLE entry when the new
+                // bid clears it by the increment. R5-F2: evictability excludes the addresses
+                // holding a finalized assignment (current/next winner and backup), so a new bid
+                // can never lapse a reigning winner and retroactively un-assign a finalized epoch.
+                address evictee = _lowestEvictableBidder();
                 require(evictee != address(0), ListFull());
                 require(
                     _amountInGwei
@@ -476,7 +519,15 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         uint256 available = _ethBalances[msg.sender];
         // The fixed next-epoch winner must keep enough ETH to pay the epoch they already won;
         // otherwise draining prepaid ETH would be a fast exit that bypasses the quit notice.
-        if (_assignedEpoch == _currentEpochIndex() && _nextWinner == msg.sender) {
+        // R5-F15: when the catch-up above could not reach the current epoch (a backlog larger
+        // than one call can clear), the cached _nextWinner is stale and the reservation would be
+        // silently skipped. Reserve for any caller still holding an active bid in that case —
+        // the conservative side, since the alternative is an unnoticed fee-free exit.
+        bool cacheCurrent = _assignedEpoch == _currentEpochIndex();
+        if (
+            (cacheCurrent && _nextWinner == msg.sender)
+                || (!cacheCurrent && _hasActiveBid(msg.sender))
+        ) {
             uint256 reserved = uint256(_bids[msg.sender].amountInGwei) * 1 gwei;
             available = available > reserved ? available - reserved : 0;
         }
@@ -521,14 +572,39 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         uint32 currentEpoch = _currentEpochIndex();
         // Q4: bounded resumable catch-up instead of a single-epoch snapshot, so a quiet epoch
         // is never sealed (and its S1 evidence voided) by its first successor proposal.
-        _catchUpSnapshots(MAX_BACKFILL_EPOCHS);
+        // R5-F21: bounded by HOT_PATH_BACKFILL_EPOCHS, not MAX_BACKFILL_EPOCHS — the Inbox caps
+        // this call's gas, and a 32-epoch catch-up over a full list exceeds that budget, which
+        // would leave the cache stale and hand the proposal to the fail-open branch below.
+        _catchUpSnapshots(HOT_PATH_BACKFILL_EPOCHS);
 
         uint48 epochStart = LibPreconfUtils.getEpochTimestamp();
         uint48 epochEnd = uint48(uint256(epochStart) + LibPreconfConstants.SECONDS_IN_EPOCH);
 
+        // R5-F3: the catch-up is bounded (by steps and by gas), so a long backlog can leave the
+        // cache behind the live epoch. The cached winner/backup/clock then describe some older
+        // epoch: authorizing against them would deny the true winner, and escrowing against them
+        // would slash an operator for an epoch they were never assigned. Fall back to
+        // permissionless proposing — never authorize or slash from a stale assignment — so the
+        // chain keeps moving while successive proposals grind the backlog down.
+        //
+        // This branch is deliberately fail-OPEN, and it is the one place where the exclusive
+        // window and the priced unassigned rung (Q19) are both skipped. That is the correct
+        // trade for the Inbox's only authorization hook — denying here would halt proposing —
+        // but it rests on an operational invariant: `proposerCheckerGasLimit` must comfortably
+        // cover HOT_PATH_BACKFILL_EPOCHS snapshots over a full list — the bound this function
+        // actually catches up under, NOT the larger MAX_BACKFILL_EPOCHS used by the
+        // permissionless entry points — or a caller could reach this branch routinely and
+        // propose without paying. That bound is asserted against the deployed limit by
+        // test_R5_checkProposer_deepBacklogFitsDeployedGasLimit; re-run it if
+        // HOT_PATH_BACKFILL_EPOCHS, MAX_LIST_SIZE, or the configured gas limit ever change.
+        if (_assignedEpoch != currentEpoch) {
+            return epochEnd;
+        }
+
         // Q2: when the winner carried their clock across a boundary, _lastWinnerProposalAt is
-        // their actual last proposal (possibly in a previous epoch); only a winner with no
-        // proposal history (freshly assigned) measures absence from epochStart.
+        // their actual last proposal (possibly in a previous epoch). The clock is re-anchored to
+        // the epoch start on assignment and after a backfilled gap, so a zero value only occurs
+        // before the first snapshot ever runs.
         uint48 absenceBase = _lastWinnerProposalAt == 0 ? epochStart : _lastWinnerProposalAt;
         uint48 absence = uint48(block.timestamp) - absenceBase;
 
@@ -543,7 +619,12 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         bool allowed;
         if (winner == address(0)) {
             // Unassigned: any bonded operator may propose first-come; anyone after the grace.
-            bool bonded = _hasBondAtLeast(_proposer, _ejectionThreshold);
+            // R5-F14: the instant rung is priced (Q19), so eligibility for it requires the ability
+            // to pay. Checking it here — rather than reverting inside the charge — keeps an
+            // unfunded operator on the free post-grace rung instead of turning a priced privilege
+            // into a hard revert on the Inbox's only authorization path.
+            bool bonded = _hasBondAtLeast(_proposer, _ejectionThreshold)
+                && _canPayUnassignedFee(currentEpoch, _proposer);
             allowed = absence > _stallGrace || bonded;
             if (allowed && bonded && absence <= _stallGrace) {
                 // Q19: price the free-rider option — the first bonded operator to use the
@@ -605,11 +686,23 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         } else {
             reward = 0;
         }
-        // Settle bounty (Q8): pay the caller out of the locked remainder so settlement is
-        // self-incentivized.
-        uint128 bounty = uint128(uint256(escrow.amount - reward) * _settleBountyBps / 10_000);
-        if (bounty > 0) _bonds[msg.sender].balance += bounty;
-        _totalSlashedAmount += escrow.amount - reward - bounty;
+        // R5-F18: settlement carries NO caller bounty. Q8 added one so that somebody was paid to
+        // end a stall, and R5-F4 then tried to keep it away from the punished parties by
+        // comparing msg.sender against the winner and a backup challenger — but an address
+        // comparison cannot bind a sybil. Either party settles through a fresh EOA and collects
+        // anyway, and because that EOA was never listed it withdraws the credit with no delay
+        // (the deliberate carve-out for transient rung-2 bonders), reproducing exactly the slash
+        // rebate F4 set out to remove. A percentage of the slash can never be made
+        // sybil-resistant, so the incentive is dropped rather than fenced:
+        //   - the normal case is already self-incentivized — a non-backup challenger settles to
+        //     collect their own reward above;
+        //   - liveness no longer waits for settlement — _escrowStallSlash debits the bond when
+        //     the escrow is taken and _snapshot refuses to promote a winner below the ejection
+        //     threshold, so a stalling winner loses the seat at the next boundary whether or not
+        //     anyone settles (this is what Q8 was really protecting);
+        //   - an escrow nobody settles leaves the debit standing, so the punishment is in force
+        //     regardless; settling only finalizes the accounting.
+        _totalSlashedAmount += escrow.amount - reward;
 
         _maybeEject(escrow.winner);
 
@@ -664,7 +757,27 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         // Q3: the incoming operator legally produces handover blocks in the last
         // HANDOVER_MARGIN seconds of the outgoing epoch (the client's handoverSkipSlots
         // convention). Blocks tagged epoch E are legal from epochStart(E) - handoverMargin.
-        uint256 legalStart = epochStart - uint256(_handoverMargin);
+        //
+        // R5-F7: the margin is granted only for a GENUINE handover — when a different operator
+        // held the previous epoch. Granting it unconditionally let one operator that won two
+        // adjacent epochs legally hold two epoch tags at once during the overlap, and two
+        // conflicting blocks tagged E-1 and E are caught by neither predicate here (each sits in
+        // its own legal window) nor by slashEquivocation (which requires a shared epoch tag).
+        // With no handover there is nothing to hand over, so the early window is withheld and the
+        // early-tagged block becomes a plain invalid-block fault. An unrecorded predecessor
+        // (address(0)) is treated as a handover, so a missing record never causes a false slash.
+        //
+        // Note the predicate keys on who was ASSIGNED the previous epoch, not on who actually
+        // proposed in it. An operator holding both E-1 and E gets no margin even if it was
+        // silent through E-1 and a backup served — and that is correct, not an oversight: it
+        // still owns E-1, so blocks it signs inside E-1's window belong under the E-1 tag, and
+        // it needs no early E window to resume. The margin exists only for an operator that
+        // does NOT own the outgoing epoch. Client rule: tag a block with the epoch you are the
+        // assigned winner of; only the incoming winner of E may sign into E's early window.
+        uint256 legalStart = epochStart;
+        if (_epoch == 0 || _epochWinners[_epoch - 1] != winner) {
+            legalStart -= uint256(_handoverMargin);
+        }
         require(
             uint256(_block.timestamp) < legalStart
                 || uint256(_block.timestamp) >= epochStart + LibPreconfConstants.SECONDS_IN_EPOCH,
@@ -714,7 +827,13 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             InvalidSignature()
         );
 
-        bytes32 evidence = keccak256(abi.encode(_hashBlockData(_a), _hashBlockData(_b)));
+        // R5-F6: key the one-shot digest on the POSITION that was equivocated, not on the ordered
+        // pair of blocks. keccak(a,b) != keccak(b,a), so a pair-keyed digest let the same
+        // equivocation settle twice (and k blocks sharing a seqNo be farmed k*(k-1) times),
+        // burning past the intended one-liveness-bond-per-fault cap while paying the reward each
+        // time. One (epoch, seqNo) equivocation is now slashable exactly once, whichever pair of
+        // conflicting signatures is presented.
+        bytes32 evidence = keccak256(abi.encode(_a.seqNo));
         _slashForFault(_epoch, _FAULT_EQUIVOCATION, winner, msg.sender, evidence);
     }
 
@@ -821,17 +940,16 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
             uint256 incrementBar = uint256(topAmount) * (10_000 + MIN_INCREMENT_BPS) / 10_000;
             floor = LibMath.min(floor, incrementBar);
         }
+        // R5-F5: re-assert initialFloor AFTER the increment cap. The cap follows activeTop, so
+        // without this a low incumbent bid would drag the floor below the configured revenue
+        // backstop (and, with the self re-bid exemption, ratchet the clearing price toward zero).
+        floor = LibMath.max(floor, uint256(_initialFloorInGwei));
         floorInGwei_ = uint128(LibMath.min(floor, uint256(type(uint128).max)));
     }
 
     /// @inheritdoc IProposerAuction
     function getHandoverMargin() external view returns (uint48 handoverMargin_) {
         return _handoverMargin;
-    }
-
-    /// @inheritdoc IProposerAuction
-    function getSettleBountyBps() external view returns (uint16 settleBountyBps_) {
-        return _settleBountyBps;
     }
 
     /// @inheritdoc IProposerAuction
@@ -936,16 +1054,22 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
         // Q2/Q12 — the winner-absence clock. A winner unchanged across the boundary carries
         // their clock (the ladder does not re-close); a genuinely new (scheduled) winner gets
-        // the full grace from epochStart (reset to 0); a fresh-computed winner on a *contiguous*
+        // the full grace from this epoch's start; a fresh-computed winner on a *contiguous*
         // boundary is a surprise inheritance and its clock starts at assignment, so an escrow can
         // never fire in the transaction that created the assignment; a boot/catch-up-gap snapshot
-        // is not a surprise and gets the full grace from epochStart.
+        // is not a surprise and gets the full grace from this epoch's start.
+        // R5-F12: the "fresh grace" cases anchor to the epoch start explicitly instead of writing
+        // 0. Zero was overloaded ("measure from whatever epoch is current"), so a winner assigned
+        // but never proposing kept re-deriving a fresh grace every epoch — the ladder re-close Q2
+        // set out to remove.
         if (promoted) {
-            if (_currentWinner != prevWinner) _lastWinnerProposalAt = 0;
+            if (_currentWinner != prevWinner) {
+                _lastWinnerProposalAt = uint48(_epochStartTimestamp(_epoch));
+            }
         } else if (contiguous) {
             _lastWinnerProposalAt = uint48(block.timestamp);
         } else {
-            _lastWinnerProposalAt = 0;
+            _lastWinnerProposalAt = uint48(_epochStartTimestamp(_epoch));
         }
 
         // Record the epoch's winner/signer BEFORE materializing pending changes that affect the
@@ -1011,27 +1135,66 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
 
     /// @dev Catches up missed snapshots up to _maxSteps epochs back, so epoch records and fee
     ///      charges exist even for epochs in which nobody proposed.
+    /// @dev R5-F10: the loop is additionally bounded by remaining gas. checkProposer runs this
+    ///      inside the Inbox's gas-isolated `try ... {gas: proposerCheckerGasLimit}` call; without
+    ///      a gas bound a large backlog would OOG the checker, and with the escape hatch shut
+    ///      that reverts `propose` for everyone. Stopping early is always safe: catch-up is
+    ///      resumable, and a cache left behind the current epoch is handled by the stale-cache
+    ///      fallback in checkProposer.
     /// @param _maxSteps The maximum number of epochs to backfill.
     function _catchUpSnapshots(uint32 _maxSteps) internal returns (uint256 purged_) {
         uint32 currentEpoch = _currentEpochIndex();
         if (_assignedEpoch >= currentEpoch) return 0;
-        uint32 start;
-        if (_assignedEpoch == 0) {
-            // Bootstrap: the contract has never snapshotted. Epochs before now predate any bid
-            // (bids take effect two epochs after placement), so fast-forward to the current
-            // epoch instead of backfilling the pre-deployment gap.
-            start = currentEpoch;
-        } else {
-            // Q17: resumable — process up to _maxSteps epochs starting from _assignedEpoch + 1,
-            // never skipping, so repeated permissionless pokes eventually record every epoch
-            // (bounded gas per call, no permanently lost epochs).
-            start = _assignedEpoch + 1;
+
+        // Q17: resumable — record every epoch from _assignedEpoch + 1 so a quiet epoch's winner
+        // and signer survive for S1 disputes.
+        // The first epoch the cursor still owes a record for. Kept separate from the loop's start
+        // below, which may be moved forward to bound the work: the re-anchor at the end must ask
+        // "was a gap backfilled?", which is a property of the ORIGINAL cursor, not of wherever
+        // the bounded loop happened to begin.
+        uint32 gapStart = _assignedEpoch + 1;
+        uint32 start = gapStart;
+
+        // R5-F3: the window is anchored at the CURRENT epoch rather than at the cursor, so the
+        // cache always lands on the live epoch. A backlog deeper than _maxSteps (a chain-wide
+        // halt of hours, or a long-idle deployment) must never leave checkProposer authorizing —
+        // or stall-slashing — against an assignment computed for some older epoch. Records for
+        // the skipped range are reported rather than silently dropped. _assignedEpoch is left
+        // untouched so the first _snapshot below takes its fresh-compute path.
+        unchecked {
+            if (currentEpoch - start >= _maxSteps) {
+                uint32 resumeAt = currentEpoch - _maxSteps + 1;
+                emit SnapshotsSkipped(start, resumeAt - 1);
+                start = resumeAt;
+            }
         }
-        uint32 end = start + _maxSteps - 1;
-        if (end > currentEpoch) end = currentEpoch;
-        for (uint32 e = start; e <= end; ++e) {
+
+        uint32 processed;
+        for (uint32 e = start; e <= currentEpoch; ++e) {
+            if (gasleft() < _SNAPSHOT_GAS_RESERVE) break;
             _snapshot(e);
+            unchecked {
+                ++processed;
+            }
         }
+        if (processed == 0) return 0;
+
+        // R5-F1: a backfilled gap means nobody proposed during those epochs — a chain-wide quiet
+        // period the winner may have had no way to break. Carrying the pre-gap absence clock
+        // across it would make the winner's first post-gap epoch instantly escrow-eligible with
+        // an unrefutable gap (they have no in-gap proposal to exhibit). Give the winner of the
+        // freshly assigned epoch a full grace window measured from that epoch's start instead;
+        // a continuous outage with live fallback proposals still advances one epoch at a time and
+        // keeps the carried clock (Q2).
+        // R5-F19: only re-anchor once the cache actually reached the live epoch. When the loop
+        // above yielded on gas, _assignedEpoch is an OLDER epoch, and anchoring to its start
+        // would measure absence from further back than reality — the direction that escrows an
+        // honest winner. Leaving the clock untouched is safe: checkProposer refuses to escrow at
+        // all while the cache is behind, and the next call re-anchors once it lands current.
+        if (gapStart < currentEpoch && _assignedEpoch == currentEpoch) {
+            _lastWinnerProposalAt = uint48(_epochStartTimestamp(currentEpoch));
+        }
+
         // Q5: purge once, after the catch-up loop, at the (now-current) _assignedEpoch reference.
         purged_ = _purgeInactiveInternal();
     }
@@ -1250,6 +1413,11 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     }
 
     /// @dev Removes a bidder from the list (swap-pop) and clears their bid entry.
+    /// @dev R5-F9: the pending update is cleared with the entry. _materializePending only walks
+    ///      _ranked, so a pending left behind by an eviction/lapse/ejection survives off-list and
+    ///      is applied to the same address's NEXT entry — retroactively activating that fresh bid
+    ///      (its effectiveEpoch is in the past), at a stale amount that re-checks neither the
+    ///      reserve floor nor the increment, under a stale signer.
     /// @param _bidder The bidder to remove.
     function _removeBidder(address _bidder) internal {
         if (_bids[_bidder].amountInGwei == 0) return;
@@ -1260,6 +1428,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
                 _ranked[i] = _ranked[last];
                 _ranked.pop();
                 delete _bids[_bidder];
+                delete _pendingUpdates[_bidder];
                 return;
             }
         }
@@ -1323,28 +1492,62 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
         }
     }
 
+    /// @dev Returns whether an account could pay this epoch's unassigned-mode fee (R5-F14).
+    ///      Already-charged epochs are free, so the answer is trivially true then.
+    /// @param _epoch The current epoch.
+    /// @param _proposer The account to check.
+    /// @return ok_ True if the account can take the priced instant unassigned rung.
+    function _canPayUnassignedFee(
+        uint32 _epoch,
+        address _proposer
+    )
+        internal
+        view
+        returns (bool ok_)
+    {
+        if (_lastUnassignedFeeEpoch == _epoch) return true;
+        return _ethBalances[_proposer] >= uint256(getReserveFloor()) * 1 gwei;
+    }
+
     /// @dev Charges the unassigned-mode fee (the decaying reserve floor) to the first bonded
     ///      operator to use the instant unassigned rung in an epoch, once per epoch (Q19).
+    /// @dev Callers gate on _canPayUnassignedFee first, so this never reverts on the hot path.
     function _chargeUnassignedFee(uint32 _epoch, address _proposer) internal {
         if (_lastUnassignedFeeEpoch == _epoch) return;
         uint256 feeWei = uint256(getReserveFloor()) * 1 gwei;
-        require(_ethBalances[_proposer] >= feeWei, InsufficientEth());
+        if (_ethBalances[_proposer] < feeWei) return;
         _ethBalances[_proposer] -= feeWei;
         _proceeds += feeWei;
         _lastUnassignedFeeEpoch = _epoch;
     }
 
-    /// @dev Returns the lowest-ranked listed bidder (the entry that loses to every other). Used
-    ///      to evict the worst entry when the list is full (Q14).
-    function _lowestBidder() internal view returns (address lowest_) {
+    /// @dev Returns the lowest-ranked EVICTABLE bidder — the worst entry that does not hold a
+    ///      finalized assignment. Used to make room when the list is full (Q14).
+    /// @dev R5-F2: the previous version ranked by raw amount over every listed entry, so when the
+    ///      only assignment-active entry was also the cheapest (the rest being not-yet-effective
+    ///      higher bids), a new bid evicted the reigning winner and retroactively un-assigned an
+    ///      already-finalized epoch. Addresses cached as current/next winner or backup are
+    ///      therefore never eviction candidates; at most four entries are protected, so a
+    ///      MAX_LIST_SIZE of 16 always leaves candidates.
+    function _lowestEvictableBidder() internal view returns (address lowest_) {
         for (uint256 i; i < _ranked.length; ++i) {
             address bidder = _ranked[i];
             IProposerAuction.BidInfo memory info = _bids[bidder];
             if (info.amountInGwei == 0) continue;
+            if (_holdsAssignment(bidder)) continue;
             if (lowest_ == address(0) || _outranks(_bids[lowest_], info)) {
                 lowest_ = bidder;
             }
         }
+    }
+
+    /// @dev Returns whether an address holds a finalized (current or next epoch) assignment and
+    ///      therefore must not be removed by an eviction.
+    /// @param _bidder The address to check.
+    /// @return holds_ True if the address is the current/next winner or backup.
+    function _holdsAssignment(address _bidder) internal view returns (bool holds_) {
+        return _bidder == _currentWinner || _bidder == _currentBackup || _bidder == _nextWinner
+            || _bidder == _nextBackup;
     }
 
     /// @dev Rank comparison: higher amount wins; ties break by earlier placement (placedSeq).
@@ -1482,6 +1685,7 @@ contract ProposerAuction is EssentialContract, IProposerAuction {
     error ActiveBidderMustQuitFirst();
     error WithdrawalDelayNotPassed();
     error RefuteWindowNotPassed();
+    error StaleAssignmentCache();
     error EthTransferFailed();
     error NotInbox();
 }
