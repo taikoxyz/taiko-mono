@@ -12,10 +12,7 @@ source "$PROJECT_ROOT/scripts/common.sh"
 check_command "cast"
 check_command "forge"
 check_command "docker"
-# jq is required for NMC to dynamically inject shastaTimestamp into chainspec
-if [ "${L2_NODE:-}" == "l2_nmc" ]; then
-  check_command "jq"
-fi
+check_command "jq"
 
 # Keep L2 Unzen fork active from genesis in the integration test environment, and
 # start Anvil from a past timestamp so preconf activation stays behind wall
