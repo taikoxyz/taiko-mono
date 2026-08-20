@@ -93,7 +93,7 @@
   not `msg.sender` (r4c-4). A searcher who front-runs a copied proof/poke/slice therefore
   advances the chain but **cannot redirect the reward to itself**, which also removes the
   incentive for rational provers to withhold. Additionally, a reward for completing a *duty*
-  exists **only when the duty-holder failed it** and is funded by that failer (§5.2), so there
+  exists **only when the duty-holder failed it** and is funded by that faulter (§5.2), so there
   is never an honest party being front-run out of a prize.
 - **I9 — Deterrence value is oracle-free.** The design uses **no price feeds** (owner
   directive). Deterrence that must *match* an ETH-denominated gain — the equivocation/MEV-theft

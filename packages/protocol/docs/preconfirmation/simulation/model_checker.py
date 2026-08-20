@@ -40,7 +40,7 @@ Two design rules that need care in the abstraction:
 
 * Section 6.7 cancellation cascade: when the openEpoch is cancelled at
   H_cancel, every committed-CONTENT, unsealed descendant chained to it is
-  VOIDed in the same deterministic cascade (its commitment referenced a
+  voided in the same deterministic cascade (its commitment referenced a
   parent lineage that no longer exists). VOID epochs close as CANCELLED, in
   openEpoch order, via a permissionless action. Forced snapshots of the
   cancelled/voided epochs re-queue at the front (the earliest still-SEQ
@@ -287,7 +287,7 @@ def actions(s: State):
         # where seal is simply not taken; the resulting missed deadline materializes a
         # certificate inside the next tick (see above).
 
-    # ---- Close a VOIDed openEpoch as CANCELLED (permissionless, always enabled):
+    # ---- Close a voided openEpoch as CANCELLED (permissionless, always enabled):
     #      the deferred, in-order closure step of the 6.7 cascade. ----
     if oe < n and s.status[oe] == VOID:
         new_status = list(s.status); new_status[oe] = CANCELLED
@@ -299,7 +299,7 @@ def actions(s: State):
     # ---- H_cancel disaster: a CONTENT openEpoch stuck while lag exceeds K (data-loss floor).
     #      Re-resolves to CANCELLED (== sealed-empty) and advances. Permissionless.
     #      Cascade (6.7): every committed-CONTENT unsealed descendant chained to it is
-    #      VOIDed in the same deterministic step (its commitment referenced a lineage that
+    #      voided in the same deterministic step (its commitment referenced a lineage that
     #      no longer exists); forced snapshots of all cancelled/voided epochs re-queue at
     #      the front (earliest still-SEQ epoch); the cancellation-causing tenure is charged
     #      (an additional CANCEL-class certificate, beyond any earlier SEAL cert). ----
@@ -497,7 +497,7 @@ def inv_bond_nonneg(s: State):
 def inv_content_current_gen(s: State):
     # 6.7 cascade correctness: every live CONTENT commitment must be of the current
     # lineage generation -- a commitment made before an ancestor's cancellation must have
-    # been VOIDed by the cascade, never left CONTENT (and hence sealable).
+    # been voided by the cascade, never left CONTENT (and hence sealable).
     for e in range(NEPOCHS):
         if s.status[e] == CONTENT:
             if s.cgen[e] != s.gen:

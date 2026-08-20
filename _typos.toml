@@ -26,6 +26,9 @@ extend-exclude = [
   "**/**/pnpm-lock.yaml",
   "CHANGELOG.md",
   "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md",
+  # Faithful markdown conversions of historical design docs (source typos preserved verbatim)
+  "packages/protocol/docs/preconfirmation/reference/post-whitelist-design.md",
+  "packages/protocol/docs/preconfirmation/reference/post-shasta-preconf-slashing.md",
   "packages/protocol/contracts/layer1/automata-attestation/**",
   "packages/protocol/deployments/**",
   # Auto-generated bindings

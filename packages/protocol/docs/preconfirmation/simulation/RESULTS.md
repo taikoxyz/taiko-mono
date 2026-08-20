@@ -51,9 +51,9 @@ legal action of any actor:
   missed-seal certificate deterministically (I2 read-time materialization, with tolling: only
   time spent as the *openEpoch* counts, so a backlogged descendant is never blamed);
 - **cancel** a stuck CONTENT epoch past the data-loss horizon (`H_cancel`), which also
-  **cascades**: every committed-CONTENT unsealed descendant is VOIDed (§6.7), forced snapshots
+  **cascades**: every committed-CONTENT unsealed descendant is voided (§6.7), forced snapshots
   re-queue to the earliest still-SEQ epoch, and the causing tenure is charged an additional
-  CANCEL-class certificate; **close_void** later closes a VOIDed epoch as CANCELLED in
+  CANCEL-class certificate; **close_void** later closes a voided epoch as CANCELLED in
   `openEpoch` order;
 - **debit** a settled certificate (one-shot per logical fault id);
 - **promote** a terminated holder's successor (or drop to anarchy);
@@ -81,7 +81,7 @@ State invariants (at every reachable state):
 | `open_monotone` | I3 | `openEpoch` always equals the lowest non-closed epoch |
 | `seal_immutable` | Immutability corollary | a SEALED/CANCELLED epoch never changes afterwards |
 | `empty_not_forced` | I6 | an epoch never resolves EMPTY while its forced snapshot is non-empty |
-| `content_current_gen` | §6.7 | every live CONTENT commitment is of the current lineage generation — a commitment that predates an ancestor's cancellation must have been VOIDed by the cascade, never left sealable |
+| `content_current_gen` | §6.7 | every live CONTENT commitment is of the current lineage generation — a commitment that predates an ancestor's cancellation must have been voided by the cascade, never left sealable |
 | `bond_nonneg` | §4, §8 | a slash never drives a reserve below zero |
 | `no_frame` | §7.2, §8.3 | a certificate only ever names the acting owner of that epoch |
 | `withdraw_gated` | §8.4, I2 | no withdrawn tenure retains an unresolved certificate or unsealed owned epoch |
@@ -154,7 +154,7 @@ and the named invariant **must** catch it:
 and recovery lane, seat handover / promotion / anarchy, objective liveness certificates with
 read-time (tolled) maturity materialization and one-shot debiting, the state-gated withdrawal,
 forced-snapshot / empty-resolution interaction (I6), recovery-only mode via the global lag cap,
-the cancellation floor, and the §6.7 cascade (VOIDed descendants, in-order closure, forced
+the cancellation floor, and the §6.7 cascade (voided descendants, in-order closure, forced
 re-queue, causing-tenure charge).
 
 **Abstracted away (deliberately):** exact slot counts (`Γc`, `κ`, the 32-slot epoch, the `Γc+κ`
