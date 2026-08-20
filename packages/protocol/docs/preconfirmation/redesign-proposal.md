@@ -66,13 +66,13 @@
   matured, certificate settled, parent takes the empty outcome, slashability fixed) — and
   nothing after `D + κ` can change it. There is no second grace: maturity, settlement,
   parent-state irreversibility, and accepted-artifact-set closure are the *same* moment, so
-  effective finality is `D + κ` (not `D + 2κ`) and I4's `Γb + κ` bound holds exactly.
+  effective finality is `D + κ` (not `D + 2κ`) and I4's `Γc + κ` finality bound holds exactly.
 - **I3 — Single open epoch, always advanceable.** One canonical `openEpoch`; only a valid
   seal advances it; at every moment a permissionless action exists that can eventually advance
   it (content seal, forced-only seal, empty seal, or the bounded expiry cancellation).
   Unproven material never blocks any of these.
 - **I4 — Successor-safe parent.** Epoch N's outcome (content-with-DA or empty) is irreversible
-  within `Γb + κ` of its boundary, and every later deadline measures from the moment its
+  within `Γc + κ` of its boundary, and every later deadline measures from the moment its
   prerequisite became irreversible (automatic tolling), never from wall-clock while blocked.
 - **I5 — Bounded global backlog.** `openEpoch` lagging by more than `K` epochs triggers
   recovery-only mode (no new discretionary content, no fees) until the lag clears. All
@@ -158,19 +158,24 @@ persistent consumed-set keyed on the logical id, entered only at certificate *se
 
 ```text
 sequencing [T_N ─────────────── T_N+E)   preconfs stream over P2P; blob slices stream to L1 DURING the epoch
-commit     by T_N + E + Γc               EBC: one-shot content commitment, references already-posted blobs
-publish    by T_N + E + Γb               any remaining slices; open to anyone from the boundary
+commit     by T_N + E + Γc               EBC references its already-posted blobs; valid only if that data is on L1
 parent final at T_N + E + Γc + κ         SINGLE atomic decision (I2): content-or-empty, irreversible
 seal       [T_N + d·E, T_N + (d+s)·E)    one proof-carrying seal finalizes the epoch
 ```
+
+There is exactly **one** finality decision per epoch, at `T_N + E + Γc + κ` (≈ 7 slots into the
+successor's epoch). Publication is not a separate later deadline: the EBC is valid only if the
+blob slices it references are already on L1, so data availability is established *at* the EBC and
+the only thing the `κ` grace covers is byte-identical re-posting of a slice that was reorged out
+in the `[boundary, Γc]` window (§5.2). This removes v6-draft's second `Γb`-based decision (the
+audit-flagged inconsistency).
 
 | Param | Meaning | Initial | Notes |
 | --- | --- | --- | --- |
 | `d`, `s` | seal deferral / window (epochs) | 2, 2 | §10.1 |
 | `q` | auction transition delay (epochs) | 2 | current + next final |
 | `Γc` | EBC deadline past boundary | 4 slots | lowered v6 (r4c-3) to shrink the successor's last-look exposure |
-| `Γb` | publication deadline past boundary | 8 slots | lowered v6 (r4c-3); parent-final at `Γc+κ = 7 slots` (~22% of the successor epoch), not 27 |
-| `κ` | reorg grace | 3 slots | single-grace lifecycle §3.1, I2 |
+| `κ` | reorg grace (also the DA re-post window) | 3 slots | single-grace lifecycle §3.1, I2; parent-final at `Γc+κ = 7 slots` (~22% of the successor epoch), not 27 |
 | `D_anchor` | minimum committed-anchor depth | 32 slots (1 epoch) | the EBC-committed anchor must be ≥ this deep at commit time; sized for L1 reorg safety, not "minimum useful" (v5, r4a-C2/H8) — raised from v4's 4 |
 | `H_force` | force-resolution horizon for a stuck `openEpoch` | 2 epochs past `end(W_N)` | oldest PUBLISHED-unsealed epoch becomes force-resolvable well before `H_cancel`; caps single-holder stalls (v5, r4b-H4) |
 | `K` / `K'` | global lag cap / exit | 8 / 4 epochs | recovery-only mode (I5) |
@@ -199,13 +204,13 @@ monotone — resubmission shifts *when*, never *what*. Because the EBC commits i
 includes it — the derivation outcome does not depend on that block at all, which is what makes
 "shifts when, never what" hold for the *origin* and not only the content (r4b-C1).
 
-**One grace, one atomic decision** (r4c-2). A deadline `D` (EBC at `T_N+E+Γc`; publication at
-`T_N+E+Γb`) has a single κ-slot grace for byte-identical (re)submission. At `D + κ` a single
+**One grace, one atomic decision** (r4c-2). Each deadline `D` (the EBC at `T_N+E+Γc`, and each
+seal window) has a single κ-slot grace for byte-identical (re)submission. At `D + κ` a single
 transition fires and is irreversible: present ⇒ accepted, absent ⇒ certificate settled + parent
 outcome fixed + `L_slash` debitable. There is no "pending, then a second κ": maturity,
 settlement, parent-state irreversibility, and artifact-set closure coincide, so a byte-identical
 artifact arriving after `D + κ` is rejected (it cannot revive content or clear a settled slash),
-and I4's `Γb + κ` finality bound is exact rather than `2κ`-loose. Withdrawal gating counts
+and I4's `Γc + κ` finality bound is exact rather than `2κ`-loose. Withdrawal gating counts
 settled certificates and computes any not-yet-materialized maturity at read time (I2). Reorgs
 deeper than `κ` are an exceptional L1-consensus event bound to a finalized origin root + a
 certificate *incarnation* number (r4c-8): all records are L1 state, so `openEpoch`, certificates,
@@ -262,20 +267,24 @@ One-shot per (tenure, epoch), due `T_N + E + Γc` (4 slots), binding the full or
 EOP tip, committed L1 origin (I1), and the **hashes of blob slices already posted to L1** — the
 holder streams its data to L1 *during* its own sequencing epoch and the EBC references it, rather
 than promising to publish later. Consequence (r4c-3): the epoch's **content-or-empty outcome is
-decided by the EBC alone**, at `T_N + E + Γc + κ = 7 slots` into the successor's epoch, not at
-`Γb + κ = 27`. Missing EBC ⇒ EMPTY-PENDING + certificate. Explicit empty EBC: valid, unslashed,
+decided by the EBC alone**, at `T_N + E + Γc + κ = 7 slots` into the successor's epoch, versus
+~27 slots under a separate late-publication deadline. Missing EBC ⇒ EMPTY-PENDING + certificate. Explicit empty EBC: valid, unslashed,
 counted against `K_empty`, invalid when the forced snapshot is non-empty (I6). The committed
 anchor must be ≥ `D_anchor` (32 slots) deep and satisfy the freshness-and-advancement floor of
 §6.6; because the origin is committed *content*, no L1 reorg of the EBC's inclusion changes what
 the epoch derives to (I1).
 
-### 5.2 Publish — data-availability backstop, fault-only fill (v6; r3a-F1/F2, r4b-H2)
+### 5.2 Publish — availability is part of EBC validity, fault-only fill (v6; r3a-F1/F2, r4b-H2)
 
-Because the EBC references already-posted blobs, publication is normally *complete at commit*.
-`Γb` (8 slots) is only a **DA backstop**: if some referenced slice was censored out in the
-`[boundary, Γb]` window, any party may post the byte-matching slice, keeping the epoch's
-committed outcome alive. This preserves the r4b-H2 rebuttal (a third party cannot fault an
-honest holder — it published its own data) while shrinking the whole exposure window.
+Publication is **not a separate deadline**: the holder streams blob slices to L1 during its own
+epoch, the EBC references them, and **the EBC is valid only if that referenced data is on L1**.
+So the epoch's content-or-empty outcome is a single decision at `Γc + κ` (§3): valid EBC with
+available data ⇒ content; no valid EBC ⇒ empty. The `κ` grace is the *only* backstop — if a
+referenced slice was reorged out in the `[boundary, Γc]` window, any party may re-post the
+byte-matching slice within `κ`, keeping the committed outcome alive; nothing new can be
+introduced (byte-identical only). This preserves the r4b-H2 rebuttal (a third party cannot fault
+an honest holder — it published its own data) and, unlike v6-draft, defines **one** irreversible
+decision rather than two.
 
 - **Fill reward exists only in the fault case, funded by the faulter, and the payee is
   precommitted** (I8; r4c-4). A fill reward exists **only** when the holder failed to make its
@@ -295,11 +304,11 @@ locked by its own EBC, not by a later choice. The remaining ~7-slot soft window 
 bounded characteristic of deferred publication, stated here rather than left open; driving it to
 zero (predecessor ends sequencing `Γc+κ` early, ~22% duty-cycle cost) stays a §13-T lever.
 - Censoring publication means censoring **every data holder** across the `32`-slot in-epoch
-  streaming span plus the `Γb = 8`-slot backstop — priced in §11.5 as the binding censorship
+  streaming span plus the `κ`-slot re-post grace — priced in §11.5 as the binding censorship
   target (the chunky artifact), not the seal.
-- **Referenced data unavailable through `Γb`** (neither holder nor filler posted a referenced
-  slice) ⇒ epoch flips EMPTY-PENDING + certificate on the holder at the single `Γb + κ`
-  decision (I2). Successor soft-preconf exposure is the `Γc + κ = 7`-slot window of §5.2.
+- **No valid EBC-with-available-data by `Γc + κ`** ⇒ epoch resolves EMPTY-PENDING + certificate
+  on the holder at that single decision (I2). Successor soft-preconf exposure is exactly this
+  `Γc + κ = 7`-slot window.
 
 ### 5.3 Sequencing and preconfirmations
 
@@ -484,7 +493,9 @@ remains payable — with the G5 reframing (r3a-F9) now explicit in §1: in Phase
 this is a **censorship-resistant fallback that anyone can exit by out-bidding the reserve
 floor**; in Phase A it is **DAO-recoverable**, with the DAO fast-path SLA of §10.3. Bridge
 flow during anarchy = forced-only cadence; queue data retention per §6.4 keeps long outages
-refund-safe rather than value-destroying.
+refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided forced
+item is `H_cancel` + one forced-only bridge cadence** (r4a-M14): a depositor can make an informed
+decision from that bound, and no value is burned — only delayed.
 
 ---
 
@@ -542,7 +553,7 @@ as v3.
   lane that advances regardless. Optional bond-priority ordering is a §13-T tuning lever, not a
   structural need.
 - **11.5 Censorship, remodeled** (r3a-F1/F4, r3b-F6): the binding target is **publication**
-  (blob payloads over the `32`-slot in-epoch stream + `Γb=8`-slot backstop, every data holder a
+  (blob payloads over the `32`-slot in-epoch stream + `κ`-slot re-post grace, every data holder a
   potential includer), then the seal (1 small tx, `32·s` residual slots). Targeted censorship of
   one holder is priced by the corridor rule (`gain ≪ C_cen(span)`); **systemic** censorship that
   stalls `openEpoch` is handled by the **degradation ladder** (§10.4) — `H_force` force-resolves
@@ -603,7 +614,7 @@ alignment; automated bond scaling.
 
 **13-T — Tuning (gates Phase B)**:
 
-1. `Γc`/`Γb` residual soft-preconf window (`Γc + κ`, now ~7 slots) vs `Γpre` early-cutoff to
+1. `Γc` residual soft-preconf window (`Γc + κ`, now ~7 slots) vs `Γpre` early-cutoff to
    drive it to zero at a duty-cycle cost (r4c-3; round-2 §13.1).
 2. **Maximum tenure duration** vs. accepted incumbency residual — the only complete
    censorship-resistance bound (r4c-9); interacts with §4's future-epoch-reservation gate.
@@ -629,9 +640,10 @@ not the v3 always-on escrow). **15.** derivation origin is the **EBC's committed
 its L1 inclusion block. **16.** a **degradation ladder** (`H_force` → recovery-only → attested
 freeze) replaces the single global brake so one withheld epoch is never a chain-wide halt.
 **17.** recovery pool pre-funded from per-tenure ETH deposits with a solvency invariant. New in
-**v6**: **18.** EBC references **already-posted** blobs and `Γc`/`Γb` are lowered (4/8), so the
-parent's content-or-empty outcome is final at `Γc+κ = 7` slots and the successor's soft-preconf
-window shrinks from ~84% to ~22% of its epoch; **19.** **single-grace** certificate lifecycle
+**v6**: **18.** EBC references **already-posted** blobs (publication folded into EBC validity, no
+separate publish deadline) and `Γc` is lowered to 4, so the parent's content-or-empty outcome is
+a single decision at `Γc+κ = 7` slots and the successor's soft-preconf window shrinks from ~84%
+to ~22% of its epoch; **19.** **single-grace** certificate lifecycle
 (maturity = settlement = irreversibility at `D+κ`, not `D+2κ`); **20.** **precommitted payees**
 for every permissionless reward; **21.** senior **per-tenure ETH recovery reserve** (deliberate
 faults never touch the shared pool); **22.** forced-item **lifecycle nullifier** + **verdict
