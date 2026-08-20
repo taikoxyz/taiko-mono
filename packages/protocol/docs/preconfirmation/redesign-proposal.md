@@ -1,6 +1,6 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v7, 2026-08-20** — revised after
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v8, 2026-08-20** — revised after
 > adversarial review rounds 1–6 (ten reviewer passes:
 > [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
@@ -14,12 +14,17 @@
 > and r5b Codex, a [PR review](https://github.com/taikoxyz/taiko-mono/pull/22034#discussion_r3820964313);
 > rounds 5–6 reviewed the verification artifact and documentation consistency rather than the
 > mechanisms); dispositions in [Appendix B](#appendix-b--review-dispositions) and, for rounds
-> 5–6, in [`simulation/RESULTS.md`](simulation/RESULTS.md) and the PR thread. **v7** folds in
+> 5–6, in [`simulation/RESULTS.md`](simulation/RESULTS.md) and the PR thread. **v7** folded in
 > the owner-approved self-review simplification round: a single present-at-`D+κ` acceptance
 > rule, a deadline-only seal (the `d` deferral removed), `H_force` retired into the seal
-> deadline, one ETH account per tenure with a seniority waterfall, and Total Anarchy's
-> discretionary content restored via atomic proof-carrying proposals
-> ([Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm) #24–28). Design only —
+> deadline, one ETH account per tenure with a seniority waterfall, and an attempt to restore
+> Total Anarchy's discretionary content via atomic proof-carrying proposals
+> ([Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm) #24–28). **v8** is the
+> owner-mandated **post-simplification regression audit**: every finding from all six review
+> rounds was re-checked against the v7 changes. The four structural simplifications (#24–27)
+> hold every prior closure; the anarchy-content restoration (#28) **re-opened round-2 finding
+> 6's empty-front-running horn and is reverted** — anarchy is forced-only/empty again, with the
+> repair path recorded in §13-T for a future revision. Design only —
 > mechanisms, invariants, incentives, parameters. Baseline: [`status-quo.md`](status-quo.md);
 > owner decisions: its §6 and
 > [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
@@ -341,6 +346,11 @@ shrinks from ~84% of the successor epoch to ~22%, and — critically — a prede
 locked by its own EBC, not by a later choice. The remaining ~7-slot soft window is the honest,
 bounded characteristic of deferred publication, stated here rather than left open; driving it to
 zero (predecessor ends sequencing `Γc+κ` early, ~22% duty-cycle cost) stays a §13-T lever.
+Stated for completeness (v8 audit, re: r4c-3): under §3.1's present-at-`D+κ` acceptance rule a
+holder may also *deliberately* withhold its ready EBC until slot 7 — its content-or-empty
+optionality spans the same 7 slots the successor already treats as provisional, so the
+successor's exposure is unchanged; the rule moves inclusion risk off honest holders without
+giving strategic ones anything the soft window had not already priced.
 - Censoring publication means censoring **every data holder** across the `32`-slot in-epoch
   streaming span plus the `κ`-slot re-post grace — priced in §11.5 as the binding censorship
   target (the chunky artifact), not the seal.
@@ -532,37 +542,29 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
 
 ## 9. Total Anarchy
 
-Unowned epochs have no bonded seat — and in **v7, per the original brief, they still accept
-discretionary content**, through the one shape that cannot create unfunded liabilities:
+Unowned epochs resolve EMPTY-PENDING and are sealed permissionlessly as empty or forced-only
+(I6/I7); **no discretionary content**; recovery lane fully open; recovery compensation (§7.3,
+paid from the faulter's recovery tranche) remains payable. G5 reframing (r3a-F9) as before: in
+Phase B this is a **censorship-resistant fallback that anyone can exit by out-bidding the
+reserve floor**; in Phase A it is **DAO-recoverable**, with the DAO fast-path SLA of §10.3.
+Bridge flow during anarchy = forced-only cadence; queue data retention per §6.4 keeps long
+outages refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided
+forced item is `H_cancel` + one forced-only bridge cadence** (r4a-M14): a depositor can make an
+informed decision from that bound, and no value is burned — only delayed.
 
-- **Content lands only as an atomic proof-carrying proposal: propose ≡ seal.** For an unowned
-  `openEpoch` whose parent is final, **anyone, first-come-first-served**, may submit a single
-  transaction carrying the epoch's full content *and* its validity proof; acceptance seals the
-  epoch on the spot (I7). This is exactly the Shasta inbox's existing atomic
-  propose+prove+finalize shape (the parked permissionless branch — status quo §5), reused as
-  the anarchy lane. There is **no unsealed-content limbo, ever**: an anarchy epoch is either
-  sealed-with-content atomically or resolves empty/forced-only — nothing for the recovery lane
-  to fund and no path to `H_cancel` cascades, which is precisely why v6 had dropped anarchy
-  content and why v7 can restore it.
-- **Self-funded, unbonded, unpaid.** The proposer pays its own proving; its motive is its own
-  transactions' inclusion and whatever MEV the content carries. No slashing and no protocol
-  rewards (nothing is bonded, nothing is promised) — and therefore **no preconfirmations**:
-  users get L1-speed inclusion, not sub-slot promises. An FCFS gas race with unbonded MEV
-  extraction is the accepted character of the fallback mode, stated plainly.
-- **I6 binds anarchy too.** An atomic anarchy proposal is valid **only if it embeds the pending
-  forced snapshot**; with no such proposal, the forced-only minimum outcome remains
-  constructible and sealable by anyone, funded by the forced-queue fees (§6.5), exactly as in
-  v6. Explicit-empty resolutions stay permissionless and unpaid. In recovery-only mode (I5),
-  discretionary anarchy proposals pause like all discretionary content; forced-embedding
-  proposals do not.
-
-G5 reframing (r3a-F9) as before: in Phase B this is a **censorship-resistant fallback that
-anyone can exit by out-bidding the reserve floor**; in Phase A it is **DAO-recoverable**, with
-the DAO fast-path SLA of §10.3. Bridge flow during anarchy ≥ forced-only cadence (better
-whenever atomic proposals land); queue data retention per §6.4 keeps long outages refund-safe
-rather than value-destroying. **Worst-case bridge settlement for a voided forced item is
-`H_cancel` + one forced-only bridge cadence** (r4a-M14): a depositor can make an informed
-decision from that bound, and no value is burned — only delayed.
+> **v8 note — why the v7 anarchy-content restoration was reverted.** v7 briefly restored the
+> brief's FCFS anarchy content via atomic proof-carrying proposals (propose ≡ seal). The
+> post-simplification regression audit found this **re-opens round-2 finding 6's
+> empty-front-running horn**: a proof-free empty seal is valid (and cheap) from the moment the
+> epoch is resolvable, while a proof-carrying proposal needs ~10–15 minutes of proving — so any
+> actor can resolve the epoch empty before any content proposal can physically exist, and a
+> griefer can torch every proposer's proving work at near-zero cost. The v3–v6 rule
+> ("no discretionary anarchy content", accepted by that reviewer as *resolved by subtraction*)
+> is therefore restored. The atomicity half of the idea remains sound — it satisfies r2-6's
+> only-proven-content-locks invariant — and the missing half (a deterministic `S`-epoch
+> empty-wait so pure-empty resolution is valid only after the window in which a proven
+> transition could have landed) is recorded as §13-T.9 for the owner to revisit deliberately,
+> not as part of a simplification round.
 
 ---
 
@@ -683,9 +685,6 @@ alignment; automated bond scaling.
     post-reorg (§8, r4c-8).
 12. **[Phase A]** Precommitted-payee binding (proof public input / pre-registration) for every
     permissionless reward (I8, §5.2, §8; r4c-4).
-13. **[Phase A]** Anarchy atomic-proposal lane (v7, §9): spec of the propose≡seal path reusing
-    the Shasta atomic propose+prove shape, including the forced-snapshot-embedding validity
-    rule, its FCFS ordering on L1, and its interaction with recovery-only mode.
 
 **13-T — Tuning (gates Phase B)**:
 
@@ -699,6 +698,14 @@ alignment; automated bond scaling.
 6. Censorship-corridor quantification against real builder-market data.
 7. Phase A→B objective criteria.
 8. Client migration sequencing.
+9. **Anarchy discretionary content, revisited deliberately** (v8; §9 note): atomic
+   propose≡seal proposals satisfy r2-6's only-proven-content-locks invariant, but restoring
+   them requires the missing ordering half — a deterministic `S`-epoch **empty-wait** (pure
+   empty resolution of an unowned epoch valid only after the window in which a proven
+   transition could have landed; forced-only outcomes unaffected — I6 already invalidates
+   empty), plus its lag/`K` interaction (`S < K` keeps dead-anarchy lag constant at `S`) and
+   the FCFS/builder-ordering analysis. Only if the owner wants anarchy content badly enough to
+   pay this complexity.
 
 ---
 
@@ -732,11 +739,13 @@ end time alone; early seals are valid and strictly beneficial (owner-approved di
 **26.** **`H_force` retired**: fault-paid permissionless resolution attaches at the seal
 deadline itself, making recovery ~2 epochs faster with one fewer horizon (§6.7, §10.4).
 **27.** **one ETH account per tenure** with a recovery/safety/working seniority waterfall and a
-single admission solvency invariant (§4, §7.3). **28.** **Total Anarchy content restored** per
-the brief — discretionary anarchy content lands FCFS as an **atomic proof-carrying proposal**
-(propose ≡ seal, the Shasta atomic shape), unbonded and unpaid, forced-snapshot-embedding
-required; this reverses v3–v6's forced-only-anarchy divergence now that atomicity removes the
-unfunded-liveness objection (§9).
+single admission solvency invariant (§4, §7.3). **28.** **Total Anarchy content restoration —
+attempted in v7, reverted in v8.** The atomic propose≡seal path closed r2-6's unproven-content
+horn, but the post-simplification regression audit showed it **re-opens r2-6's
+empty-front-running horn** (a cheap proof-free empty seal beats any ~10–15-minute
+proof-carrying proposal; near-zero-cost censorship of anarchy content). Anarchy returns to
+forced-only/empty — the brief's divergence stands — and the repair path (a deterministic
+`S`-epoch empty-wait) is recorded as §13-T.9 for a deliberate future revision (§9 v8 note).
 
 ## Appendix B — Review dispositions
 

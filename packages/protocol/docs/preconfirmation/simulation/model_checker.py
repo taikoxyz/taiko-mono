@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Exhaustive explicit-state model checker for the Taiko based-preconfirmation
-redesign (redesign-proposal.md, v7).
+redesign (redesign-proposal.md, v8).
 
 WHAT THIS IS
 ------------
-An abstract state machine of the v7 protocol and a bounded, exhaustive
+An abstract state machine of the v8 protocol and a bounded, exhaustive
 breadth-first exploration of *every* adversarial interleaving of actions.
 At every reachable state it checks a set of safety invariants (derived from
 the doc's I1-I9, the immutability corollary, and the no-frame / bounded-bond
@@ -50,10 +50,10 @@ Two design rules that need care in the abstraction:
   be of the current generation -- a stale commitment surviving a cascade
   (the bug this models) is caught immediately.
 
-* v7 anarchy lane (design section 9): an unowned openEpoch may be decided-
-  CONTENT and sealed in one atomic step (propose == seal) -- discretionary
-  only in NORMAL mode, forced-embedding proposals in any mode. Anarchy
-  epochs therefore never hold an unsealed content commitment.
+Anarchy (unowned) epochs carry no discretionary content (design section 9;
+the v7 atomic-anarchy action was removed again in v8 after the regression
+audit found it re-opened round-2 finding 6's empty-front-running horn):
+they resolve EMPTY or forced-only CONTENT like any unowned epoch.
 
 The adversary is *maximally nondeterministic*: at every step it may pick any
 enabled action (honest or Byzantine) for any actor. Exhaustive BFS over this
@@ -308,24 +308,6 @@ def actions(s: State):
         # The adversary's choice to *withhold* the seal is captured by exploring the state
         # where seal is simply not taken; the resulting missed deadline materializes a
         # certificate inside the next tick (see above).
-
-    # ---- Anarchy atomic proposal (v7, design 9): for an UNOWNED openEpoch whose parent
-    #      is final (it is the openEpoch, so the prefix below is closed), anyone may land a
-    #      single proof-carrying proposal that decides CONTENT and seals it in the same
-    #      step (propose == seal; the Shasta atomic shape). No unsealed-content limbo can
-    #      exist for anarchy epochs. Discretionary only in NORMAL mode; a forced-snapshot
-    #      epoch may take the atomic path in any mode (the proposal must embed the
-    #      snapshot, so the outcome is CONTENT, satisfying I6). ----
-    if oe < n and s.status[oe] == SEQ and s.owner[oe] is None and oe <= s.clock \
-            and (s.mode == NORMAL or s.forced[oe]):
-        new_status = list(s.status); new_status[oe] = SEALED
-        new_decided = list(s.decided_as); new_decided[oe] = CONTENT
-        new_cgen = list(s.cgen); new_cgen[oe] = s.gen
-        ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided),
-                     cgen=tuple(new_cgen))
-        ns = replace(ns, openEpoch=recompute_open(ns.status))
-        ns = _enter_modes(ns)
-        out.append((f"anarchy_seal(e{oe})", ns))
 
     # ---- Close a voided openEpoch as CANCELLED (permissionless, always enabled):
     #      the deferred, in-order closure step of the 6.7 cascade. ----
@@ -807,7 +789,7 @@ def main():
         return 0 if run_mutation_tests() else 1
     if len(sys.argv) >= 3:
         NEPOCHS = int(sys.argv[1]); MAXCLOCK = int(sys.argv[2])
-    print(f"# v7 protocol state-machine model check")
+    print(f"# v8 protocol state-machine model check")
     print(f"# params: NEPOCHS={NEPOCHS} MAXCLOCK={MAXCLOCK} K={K} NTENURES={NTENURES} "
           f"RESERVE0={RESERVE0}")
     if MAXCLOCK < NEPOCHS - 1:
