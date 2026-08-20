@@ -617,7 +617,7 @@
     <div class="col">
       <div class="bigstat">10 passes</div>
       <p class="mut" style="margin-top:6px; margin-bottom:18px">of adversarial review across 6 rounds (multiple independent AI reviewers), every finding accepted-or-rebutted in a public disposition table. Two genuine correctness bugs were caught and fixed (double-grace finality; front-runnable rewards).</p>
-      <div class="bigstat">1.7 M+ states</div>
+      <div class="bigstat">4.6 M states</div>
       <p class="mut" style="margin-top:6px">explored by an exhaustive model checker of the epoch state machine across three bounds — <b>zero invariant violations, zero permanent halts</b>, with the adversary free to interleave every legal action.</p>
     </div>
     <div class="col">
@@ -629,6 +629,7 @@
         <tr><th>Bound</th><th class="r">States</th><th class="r">Violations</th><th class="r">Halts</th></tr>
         <tr><td class="mono">3 × 4</td><td class="r">644,567</td><td class="r ok">0</td><td class="r ok">0</td></tr>
         <tr><td class="mono">3 × 5</td><td class="r">1,064,029</td><td class="r ok">0</td><td class="r ok">0</td></tr>
+        <tr><td class="mono">4 × 3</td><td class="r">2,893,013</td><td class="r ok">0</td><td class="r ok">0</td></tr>
       </table>
       <p class="small mut" style="margin-top:10px">Bounded checking of a logical abstraction — strong evidence for the state machine, not a proof of the eventual Solidity.</p>
     </div>

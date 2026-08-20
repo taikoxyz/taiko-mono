@@ -151,6 +151,7 @@ code 0:
 | --- | ---: | ---: | :---: | :---: |
 | 3 × 4 (default) | 644,567 | 257,167 | 0 | 0 |
 | 3 × 5 | 1,064,029 | 514,512 | 0 | 0 |
+| 4 × 3 | 2,893,013 | 689,529 | 0 | 0 |
 
 The completed runs span the structurally interesting depth: handovers, multi-tenure
 promotion chains, anarchy, forced-only epochs, recovery-only mode (lag `> K`), the data-loss
