@@ -1,13 +1,14 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v5, 2026-08-20** — revised after
-> four adversarial review rounds; rounds 3 and 4 each comprised two independent passes
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v6, 2026-08-20** — revised after
+> adversarial review rounds 1–4 (round 4 comprised three independent passes)
 > ([r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
 > [r3a MiniMax](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354204450),
 > [r3b DeepSeek](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354253289),
 > [r4a MiniMax](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354402375),
-> [r4b DeepSeek](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354409216));
+> [r4b DeepSeek](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354409216),
+> [r4c multi-pass](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354577413));
 > dispositions in [Appendix B](#appendix-b--review-dispositions). Design only — mechanisms,
 > invariants, incentives, parameters. Baseline: [`status-quo.md`](status-quo.md); owner
 > decisions: its §6 and [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
@@ -59,8 +60,13 @@
   never-poked fault can never clear the gate. Poke-path censorship therefore cannot buy a
   withdrawal — only censorship of the withdrawal transaction *itself*, which merely forces the
   holder to retry (each retry re-materializes) and is out-waited by the ≥2-week floor.
-  Certificates keep the κ lifecycle: *pending* at maturity, *settled* at `+κ` unless a
-  byte-identical resubmission landed, debited exactly at settlement.
+  **Single grace interval** (r4c-2): the deadline is `D`; a byte-identical artifact may be
+  (re)submitted until `D + κ`; at `D + κ` **exactly one atomic transition** fires — the
+  artifact is present (→ no fault, parent takes the content outcome) or absent (→ fault
+  matured, certificate settled, parent takes the empty outcome, slashability fixed) — and
+  nothing after `D + κ` can change it. There is no second grace: maturity, settlement,
+  parent-state irreversibility, and accepted-artifact-set closure are the *same* moment, so
+  effective finality is `D + κ` (not `D + 2κ`) and I4's `Γb + κ` bound holds exactly.
 - **I3 — Single open epoch, always advanceable.** One canonical `openEpoch`; only a valid
   seal advances it; at every moment a permissionless action exists that can eventually advance
   it (content seal, forced-only seal, empty seal, or the bounded expiry cancellation).
@@ -79,12 +85,16 @@
   changes only through proof-carrying seals or the deterministic proof-free resolutions (valid
   empty seal; expiry cancellation), all pure functions of on-chain state. Who sends a
   transaction never affects what the outcome is.
-- **I8 — Payees are state, not senders.** Every payment the protocol makes (compensation,
-  refund, reward) goes to an address determined by a pure function of on-chain state — the
-  address *recorded* as having performed the rewarded action — never to a claim that
-  front-runs an honest party out of a prize it would otherwise earn. A reward for completing a
-  duty exists **only when the duty-holder failed it** and is funded by that failer (§5.2), so
-  there is no honest party to front-run.
+- **I8 — Payees are precommitted, not first-claimers.** Every payment the protocol makes
+  (fill/recovery compensation, refund, poke bounty, forced-item fee) goes to a beneficiary
+  **cryptographically bound before the witness is disclosed** — for a proof, the payout address
+  is a *public input* of the proof (copying the proof from the mempool cannot change it); for a
+  poke or fill, the actor pre-registers its beneficiary and the reward pays that registration,
+  not `msg.sender` (r4c-4). A searcher who front-runs a copied proof/poke/slice therefore
+  advances the chain but **cannot redirect the reward to itself**, which also removes the
+  incentive for rational provers to withhold. Additionally, a reward for completing a *duty*
+  exists **only when the duty-holder failed it** and is funded by that failer (§5.2), so there
+  is never an honest party being front-run out of a prize.
 - **I9 — Deterrence value is oracle-free.** The design uses **no price feeds** (owner
   directive). Deterrence that must *match* an ETH-denominated gain — the equivocation/MEV-theft
   safety slash — is itself **denominated in ETH**, drawn from the prepaid-ETH the design
@@ -147,10 +157,10 @@ persistent consumed-set keyed on the logical id, entered only at certificate *se
 `E = 384 s`; epoch `N` = `[T_N, T_N + E)`.
 
 ```text
-sequencing [T_N ─────────────── T_N+E)   preconfs stream over P2P; blob slices may stream to L1
-commit     by T_N + E + Γc               EBC: one-shot content commitment (small tx)
-publish    by T_N + E + Γb               remaining blob slices; OPEN TO ANYONE from the boundary
-irreversible at deciding artifact + κ    observed → pending → irreversible (I2 lifecycle)
+sequencing [T_N ─────────────── T_N+E)   preconfs stream over P2P; blob slices stream to L1 DURING the epoch
+commit     by T_N + E + Γc               EBC: one-shot content commitment, references already-posted blobs
+publish    by T_N + E + Γb               any remaining slices; open to anyone from the boundary
+parent final at T_N + E + Γc + κ         SINGLE atomic decision (I2): content-or-empty, irreversible
 seal       [T_N + d·E, T_N + (d+s)·E)    one proof-carrying seal finalizes the epoch
 ```
 
@@ -158,9 +168,9 @@ seal       [T_N + d·E, T_N + (d+s)·E)    one proof-carrying seal finalizes the
 | --- | --- | --- | --- |
 | `d`, `s` | seal deferral / window (epochs) | 2, 2 | §10.1 |
 | `q` | auction transition delay (epochs) | 2 | current + next final |
-| `Γc` | EBC deadline past boundary | 8 slots | |
-| `Γb` | publication deadline past boundary | 24 slots | open fill from the boundary — no holder-exclusive window (v4, §5.2) |
-| `κ` | reorg grace | 3 slots | certificate lifecycle §3.1 |
+| `Γc` | EBC deadline past boundary | 4 slots | lowered v6 (r4c-3) to shrink the successor's last-look exposure |
+| `Γb` | publication deadline past boundary | 8 slots | lowered v6 (r4c-3); parent-final at `Γc+κ = 7 slots` (~22% of the successor epoch), not 27 |
+| `κ` | reorg grace | 3 slots | single-grace lifecycle §3.1, I2 |
 | `D_anchor` | minimum committed-anchor depth | 32 slots (1 epoch) | the EBC-committed anchor must be ≥ this deep at commit time; sized for L1 reorg safety, not "minimum useful" (v5, r4a-C2/H8) — raised from v4's 4 |
 | `H_force` | force-resolution horizon for a stuck `openEpoch` | 2 epochs past `end(W_N)` | oldest PUBLISHED-unsealed epoch becomes force-resolvable well before `H_cancel`; caps single-holder stalls (v5, r4b-H4) |
 | `K` / `K'` | global lag cap / exit | 8 / 4 epochs | recovery-only mode (I5) |
@@ -187,14 +197,20 @@ Deadline artifacts are judged at deadline + `κ`; within the grace, resubmission
 monotone — resubmission shifts *when*, never *what*. Because the EBC commits its own origin
 (I1), a reorged-and-resubmitted EBC carries the identical origin into whichever L1 block finally
 includes it — the derivation outcome does not depend on that block at all, which is what makes
-"shifts when, never what" hold for the *origin* and not only the content (r4b-C1). A
-missed-deadline **certificate** is
-*pending* from record, *settled* at `record + κ` if no byte-identical resubmission landed, and
-**debits `L_slash` exactly at settlement** — an honest holder whose artifact was momentarily
-reorged is never debited, and a reorg-gamed pending state resolves in `κ` slots either way.
-Withdrawal gating counts pending **and** settled-unresolved certificates (§8.4). Reorgs deeper
-than `κ` are an exceptional L1-consensus event: all records are L1 state, so `openEpoch`,
-certificates, and artifacts rewind together; semantics specified as a blocking item (§13-S).
+"shifts when, never what" hold for the *origin* and not only the content (r4b-C1).
+
+**One grace, one atomic decision** (r4c-2). A deadline `D` (EBC at `T_N+E+Γc`; publication at
+`T_N+E+Γb`) has a single κ-slot grace for byte-identical (re)submission. At `D + κ` a single
+transition fires and is irreversible: present ⇒ accepted, absent ⇒ certificate settled + parent
+outcome fixed + `L_slash` debitable. There is no "pending, then a second κ": maturity,
+settlement, parent-state irreversibility, and artifact-set closure coincide, so a byte-identical
+artifact arriving after `D + κ` is rejected (it cannot revive content or clear a settled slash),
+and I4's `Γb + κ` finality bound is exact rather than `2κ`-loose. Withdrawal gating counts
+settled certificates and computes any not-yet-materialized maturity at read time (I2). Reorgs
+deeper than `κ` are an exceptional L1-consensus event bound to a finalized origin root + a
+certificate *incarnation* number (r4c-8): all records are L1 state, so `openEpoch`, certificates,
+and artifacts rewind together and a stale pre-reorg verdict fails the incarnation check even if
+its logical id looks unconsumed; joint-rewind semantics are §13-S.1.
 
 ---
 
@@ -224,6 +240,12 @@ reservation = `K·L_slash +` safety reserve), with v4 changes:
   at first idleness would have reached** (`q` epochs beyond). Idling is never a cheaper exit
   than quitting; promotion of the highest standby (not a reserve-floor re-auction) fills the
   seat where one exists.
+- **Future epochs require the *current* reservation** (r4c-7): parameter updates never
+  retroactively re-price *already-assigned* epochs, but every *new* epoch assignment — including
+  the perpetual incumbent's next one — is gated on the current reservation after its timelock. An
+  incumbent who does not top up to a raised reservation is gracefully terminated (its assigned
+  tail honored) before more exposure accrues; a no-max-duration tenure can therefore never keep
+  serving forever under stale collateral.
 - **Termination** on: settled fault certificate, bond below reservation, or `K_empty`
   no-discretionary-content epochs (fee-continuation above; no slash — but see §5.4).
 - **One canonical liability ledger** (r3b-F8b): the L1 bond contract is the sole ledger;
@@ -234,41 +256,50 @@ reservation = `K·L_slash +` safety reserve), with v4 changes:
 
 ## 5. The per-epoch pipeline: commit → publish → seal
 
-### 5.1 Commit — the epoch-boundary commitment (EBC)
+### 5.1 Commit — the epoch-boundary commitment (EBC), over already-published data (v6)
 
-One-shot per (tenure, epoch), due `T_N + E + Γc`, binds full ordered content + slice list + EOP
-tip **+ its committed L1 origin** (the anchor block number/hash/state-root it derives against —
-I1); postable from EOP onward. Missing EBC ⇒ EMPTY-PENDING + certificate. Explicit empty EBC:
-valid, unslashed, counted against `K_empty`, invalid when the forced snapshot is non-empty (I6).
-The committed anchor must be ≥ `D_anchor` (32 slots) deep at commit time and satisfy the
-epoch-relative freshness-and-advancement floor of §6.6 — so it is reorg-safe *and* a holder
-cannot fake "serving" by anchoring stale L1 blocks (r4b-M7); because the origin is committed
-*content*, no L1 reorg of the EBC's own inclusion can change what the epoch derives to (I1).
+One-shot per (tenure, epoch), due `T_N + E + Γc` (4 slots), binding the full ordered content,
+EOP tip, committed L1 origin (I1), and the **hashes of blob slices already posted to L1** — the
+holder streams its data to L1 *during* its own sequencing epoch and the EBC references it, rather
+than promising to publish later. Consequence (r4c-3): the epoch's **content-or-empty outcome is
+decided by the EBC alone**, at `T_N + E + Γc + κ = 7 slots` into the successor's epoch, not at
+`Γb + κ = 27`. Missing EBC ⇒ EMPTY-PENDING + certificate. Explicit empty EBC: valid, unslashed,
+counted against `K_empty`, invalid when the forced snapshot is non-empty (I6). The committed
+anchor must be ≥ `D_anchor` (32 slots) deep and satisfy the freshness-and-advancement floor of
+§6.6; because the origin is committed *content*, no L1 reorg of the EBC's inclusion changes what
+the epoch derives to (I1).
 
-### 5.2 Publish — holder duty, open fault-only fill (v5; r3a-F1/F2, r4b-H2)
+### 5.2 Publish — data-availability backstop, fault-only fill (v6; r3a-F1/F2, r4b-H2)
 
-Publication is the **holder's** duty: the holder posts its blob slices to L1 by
-`T_N + E + Γb` (24 slots), streaming during the epoch. Filling by others is a *liveness
-backstop*, not the primary path — so no exclusivity window exists (killing r3a-F1's
-right-of-way), and, crucially, **a third party withholding fill cannot manufacture a fault
-against an honest, uncensored holder** (it published itself). r4b-H2's "standby withholds fill
-to slash predecessor" therefore reduces to L1-censoring the *holder's own* publication tx —
-the §11.5 corridor case, now with *more* potential includers (open fill), not fewer.
+Because the EBC references already-posted blobs, publication is normally *complete at commit*.
+`Γb` (8 slots) is only a **DA backstop**: if some referenced slice was censored out in the
+`[boundary, Γb]` window, any party may post the byte-matching slice, keeping the epoch's
+committed outcome alive. This preserves the r4b-H2 rebuttal (a third party cannot fault an
+honest holder — it published its own data) while shrinking the whole exposure window.
 
-- **Fill reward exists only in the fault case, funded by the faulter** (I8; fixing both v3's
-  front-run-an-honest-holder escrow and v4's zero-incentive gap). If — and only if — the holder
-  fails to publish by a holder-exclusive-duty check, any party may post the byte-matching
-  completing slices and is paid from the **failing holder's prepaid ETH**, to the address the
-  state records as having posted them. There is no honest party to front-run (the reward exists
-  precisely because the holder failed), and I8 holds (payee = recorded actor). A self-protecting
-  successor now has both a structural reason (its parent) *and* a positive reward to complete
-  publication.
-- Censoring publication thus means censoring **every data holder** across the `32 + 24`-slot
-  streaming + fill span — priced in §11.5 as the binding censorship target (the chunky
-  artifact), not the seal.
-- **Missing publication at `Γb`** (neither holder nor any filler posted matching data) ⇒ epoch
-  flips EMPTY-PENDING + certificate on the holder. Successor exposure `Γb + κ ≈ 5.4 min`,
-  provisional-on-P2P, auto-tolled (I4).
+- **Fill reward exists only in the fault case, funded by the faulter, and the payee is
+  precommitted** (I8; r4c-4). A fill reward exists **only** when the holder failed to make its
+  own referenced data available, funded from the failing holder's prepaid ETH. The reward is
+  **not** paid to "whoever submits first": each candidate filler pre-registers a beneficiary
+  before disclosing the slice, and the payee is that registration, so a mempool searcher who
+  copies the slice cannot capture it (see I8 / §8 for the general precommitted-payee rule that
+  also covers seals, recoveries, and pokes). There is no honest party to front-run.
+
+**Successor safety — soft vs hard preconfs** (r4c-3, resolved not deferred). Because parent-final
+is now `Γc + κ = 7 slots` into the successor's epoch, the successor sequences its first ~7 slots
+as **soft** preconfs (explicitly parent-provisional) and upgrades to **hard** (bond-backed,
+equivocation-slashable) preconfs once its parent is final. The predecessor's residual "last-look"
+shrinks from ~84% of the successor epoch to ~22%, and — critically — a predecessor that
+*published on time* (data referenced by its EBC) has **no** last-look at all: its outcome is
+locked by its own EBC, not by a later choice. The remaining ~7-slot soft window is the honest,
+bounded characteristic of deferred publication, stated here rather than left open; driving it to
+zero (predecessor ends sequencing `Γc+κ` early, ~22% duty-cycle cost) stays a §13-T lever.
+- Censoring publication means censoring **every data holder** across the `32`-slot in-epoch
+  streaming span plus the `Γb = 8`-slot backstop — priced in §11.5 as the binding censorship
+  target (the chunky artifact), not the seal.
+- **Referenced data unavailable through `Γb`** (neither holder nor filler posted a referenced
+  slice) ⇒ epoch flips EMPTY-PENDING + certificate on the holder at the single `Γb + κ`
+  decision (I2). Successor soft-preconf exposure is the `Γc + κ = 7`-slot window of §5.2.
 
 ### 5.3 Sequencing and preconfirmations
 
@@ -277,16 +308,22 @@ tenure-registry gossip validation; EOS handover; `handoverSkipSlots` retired).
 
 ### 5.4 Epochs without discretionary content are bounded (r3a-F6/F7/F10)
 
-`K_empty` counts **every consecutive epoch in which the holder sequenced no discretionary
-content** — explicit-empty *and* forced-only alike. Consequences: sybil forced-inclusion
-traffic cannot reset the counter (F7); a holder cannot squat behind forced-only seals paying
-only bounties (F10 — additionally, a holder sealing its own assigned forced-only epoch is
-performing its duty and earns no recovery compensation; compensation exists only for
-recovering *another* tenure's fault); and idling to termination pays quit-equivalent fees
-(§4, F6). Forced content itself always flows (I6). **Forced-only fee income to any single
-tenure is capped** at `K_empty · a_forced` (r4a-M13): a holder cannot turn forced-only seals
-into a profit center, because the per-item base component (§6.5) covers cost, not margin, and
-aggregate income is bounded; excess accrues to the treasury.
+`K_empty` counts **every consecutive epoch in which the holder produced no post-derivation,
+non-system, non-self third-party content** — explicit-empty *and* forced-only alike, and (r4c-9)
+the count is taken **after** derivation on **non-system output that is not the holder's own
+Sybil traffic**, so neither malformed garbage (which totalizes to default/empty — I1) nor a
+self/no-op transaction resets it. Consequences: sybil forced-inclusion traffic cannot reset the
+counter (F7); a holder cannot squat behind forced-only seals paying only bounties (F10 — a holder
+sealing its own assigned forced-only epoch earns no recovery compensation); idling to termination
+pays quit-equivalent fees (§4, F6). Forced content always flows (I6). Forced-only fee income to a
+single tenure is capped at `K_empty · a_forced`, excess to treasury (r4a-M13).
+
+**Honest caveat** (r4c-9): `K_empty` bounds *how long a seat may go without serving anyone but
+itself*, but on-chain the protocol cannot fully distinguish "genuine third-party demand exists
+and is censored" from "no demand"; a truly rigorous censorship bound needs a **maximum tenure
+duration** (or an equivalent non-Sybil liveness signal). v6 records this as a §13-T decision
+(tenure cap vs. accepted residual) rather than claiming `K_empty` alone is a complete
+censorship-resistance guarantee.
 
 ### 5.5 Seal
 
@@ -308,6 +345,15 @@ with these v4/v5 clarifications:
   disaster path) are **voided with their queue fees refundable on L1**, and bridged messages
   they carried remain refundable through the bridge's own unprocessed-message path — a voided
   inclusion never burns user value (r3a-F3.1).
+- **Every forced item has one canonical lifecycle nullifier** (r4c-6): each item advances
+  `queued → snapshotted → {consumed | refunded}` on L1, and **the beneficiary/payer is stored
+  at enqueue time**. Every seal proof takes the item's status as a public input and **rejects a
+  `refunded` (or already-`consumed`) item**; a refund transition **atomically kills every live
+  containing commitment** (snapshot slot, EBC reference). So the expiry refund and any later
+  L2/bridge execution of the same item are mutually exclusive by construction — closing the
+  "retain the blob, let a snapshot commit, then also claim the refund" double-spend. The current
+  forced queue stores only fee + blob slice; this lifecycle+nullifier is new required state
+  (§13-S).
 - **§6.5 forced fees are priced from L1-measurable upper bounds, not unmeasurable zk-gas**
   (r4a-H10, r4b-H6): L1 cannot measure zk-gas at `saveForcedInclusion`, so the fee is
   `a + b·bytes + c·declared_gas`, where `bytes` and `declared_gas` are L1-observable at
@@ -378,17 +424,23 @@ Compensation for recovering **another tenure's** fault is **indexed, not fixed**
 multiple of prevailing L1 costs (base fee + blob base fee) plus the zk-proving component, paid
 in ETH. Funding order and solvency:
 
-1. **The faulted tenure's seized prepaid ETH** first — the polluter pays.
-2. **A recovery insurance pool** for any shortfall. v5 fixes v4's countercyclical funding bug
-   (the pool was fed by epoch fees, which stop in recovery-only mode exactly when the pool is
-   needed — r4b-H5): the pool is instead **pre-funded from a fixed per-tenure ETH deposit**
-   collected at bid time and released only when the tenure departs clean, so it is fullest when
-   tenures are most numerous and does not depend on ongoing fee flow. **Solvency invariant**:
-   `pool + Σ live per-tenure deposits ≥ K · max_recovery_cost` at all times, enforced by
-   admitting a new tenure only if its deposit keeps the invariant true (r4a-H6). If the
-   invariant would break — a coordinated mass-fault beyond `K` — the system is already in
-   recovery-only mode and the DAO-attested outage path (§10.4) covers the tail rather than the
-   chain halting silently.
+1. **The faulted tenure's own senior ETH recovery reserve** first (r4c-5) — a per-tenure
+   deposit collected at bid time and sized to **fully collateralize that tenure's worst-case
+   `K` outstanding recovery obligations**. A tenure's deliberate fault is thus always paid from
+   *its own* reserve; it can never spill onto other tenures. This is the senior, per-tenure ETH
+   reserve r4c-5 asks for, replacing v5's shared-pool-first waterfall.
+2. **A shared residual pool** only for the genuine remainder — an honest fault whose reserve
+   was legitimately drawn down by earlier honest recoveries — never for a deliberate
+   fault/recovery Sybil pair (that is bounded by rung 1). It is pre-funded from a small slice of
+   the per-tenure deposits (not fee flow, which stops in recovery-only mode — r4b-H5), so it
+   does not deplete counter-cyclically. **Solvency invariant**: `Σ live per-tenure reserves ≥
+   Σ live worst-case obligations`, enforced at tenure admission (r4a-H6); the shared pool is a
+   thin buffer above it, not the primary backstop.
+
+Recovery is a **cost-capped competitive job**, not a fixed cross-tenure subsidy: compensation is
+capped at indexed cost, and the ≥80% burn is denominated to match — the safety component in ETH
+(I9) so a TAIKO decline cannot make a fault/recovery cycle profitable against an ETH-denominated
+pool obligation (closing r4c-5's profitability path).
 
 A sustained L1 gas spike raises the payout with the cost instead of starving recovery.
 Deterrence stays burn-based: the TAIKO liveness slash is ≥ 80% burned; empty/forced-only
@@ -405,23 +457,30 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
   the ETH-denominated MEV they deter, fixed from tenure start — no oracle, no shorting window);
   liveness faults debit `L_live` in TAIKO. Safety supersedes and claws back any liveness payouts
   before burning.
-- **Certificate lifecycle** per §3.1: matured (computed) → materialized-on-read → pending →
-  settled(+κ) → debit at settlement (I2). Recording is permissionless; a **poke bounty** from
-  the debited bond pays the recorder; but no read of fault status ever *depends* on a prior
-  poke — the reading function materializes the certificate itself.
+- **Certificate lifecycle** per §3.1 (single grace): maturity/settlement/parent-irreversibility
+  coincide at `D + κ` (I2). Recording is permissionless; the **poke bounty pays a precommitted
+  beneficiary, not `msg.sender`** (I8, r4c-4), so a copied poke cannot be redirected; and no read
+  of fault status *depends* on a prior poke — the reading function materializes the certificate
+  itself.
+- **Verdicts are incarnation-bound** (r4c-8): a slashing verdict binds not only the stable
+  logical fault id but a **finalized canonical origin root + a certificate incarnation number**.
+  A verdict produced on a pre-reorg fork fails the incarnation/origin check on the post-reorg
+  canonical chain even if its logical id currently reads unconsumed — closing orphan-fork verdict
+  replay after a `>κ` rewind. Idempotency is still enforced only at the single L1 ledger (§4).
 - **Withdrawal gate** (§8.4): the gate computes maturity from the records and materializes any
-  missing certificate as part of the withdrawal call (I2), then requires zero pending *and*
-  zero unresolved-settled certificates, no unsealed assigned epochs, no in-flight verdicts, no
-  active attested-outage freeze — then the floor delay. A holder that missed an obligation thus
-  faults *itself* by trying to withdraw; poke-censorship cannot buy an exit.
+  missing certificate as part of the withdrawal call (I2), then requires zero unresolved
+  certificates, no unsealed assigned epochs, no in-flight verdicts, no active attested-outage
+  freeze — then the floor delay. A holder that missed an obligation faults *itself* by trying to
+  withdraw; poke-censorship cannot buy an exit.
 
 ---
 
 ## 9. Total Anarchy
 
 As v3 — unowned epochs resolve EMPTY-PENDING and are sealed permissionlessly as empty or
-forced-only (I6/I7); no discretionary content; recovery lane fully open; escrowed recovery
-claims remain claimable — with the G5 reframing (r3a-F9) now explicit in §1: in Phase B
+forced-only (I6/I7); no discretionary content; recovery lane fully open; recovery compensation
+(§7.3, paid from the faulter's senior reserve — there is no separate "escrow" object in v6)
+remains payable — with the G5 reframing (r3a-F9) now explicit in §1: in Phase B
 this is a **censorship-resistant fallback that anyone can exit by out-bidding the reserve
 floor**; in Phase A it is **DAO-recoverable**, with the DAO fast-path SLA of §10.3. Bridge
 flow during anarchy = forced-only cadence; queue data retention per §6.4 keeps long outages
@@ -466,7 +525,7 @@ as v3.
 
 ---
 
-## 11. Game-theory analysis (v5 deltas)
+## 11. Game-theory analysis (v6 deltas)
 
 - **11.1 Squat economics**: idle-to-termination now pays quit-equivalent fees (§4);
   forced-only squatting counts against `K_empty` and is fee-capped (§5.4); silent stall
@@ -483,22 +542,20 @@ as v3.
   lane that advances regardless. Optional bond-priority ordering is a §13-T tuning lever, not a
   structural need.
 - **11.5 Censorship, remodeled** (r3a-F1/F4, r3b-F6): the binding target is **publication**
-  (blob payloads, `32 + 24` slot span, every data holder a potential includer since fill is
-  open), then the seal (1 small tx, `32·s` residual slots). Targeted censorship of one
-  holder's artifacts is priced by the corridor rule (`gain ≪ C_cen(span)`); **systemic**
-  censorship that stalls `openEpoch` trips the brake's *suspension* — future deadlines pause,
-  so a builder cartel cannot keep converting censorship into fresh slashes — while
-  already-matured faults are erased only through the *attested-forgiveness* path, never by the
-  age trigger alone (§10.4: otherwise a seal-withholding holder could forgive itself). What
-  the design deliberately does **not** include is a self-attested "I was censored" toll
-  (r3a-F4's option): mempool non-inclusion is not mechanically decidable on-chain, and an
-  unfalsifiable attestation would hand every holder a free deadline-extension lever.
-  Residual: short targeted censorship below the suspension threshold can still cost an honest
-  holder one `L_slash`; the corridor keeps that unprofitable for the attacker, κ-grace
-  resubmission keeps it rare, and attested forgiveness exists for verified systemic events.
-  Stated plainly.
-- **11.6 Escrow-capture class**: eliminated by construction (no publication payment; payees
-  are state — I8).
+  (blob payloads over the `32`-slot in-epoch stream + `Γb=8`-slot backstop, every data holder a
+  potential includer), then the seal (1 small tx, `32·s` residual slots). Targeted censorship of
+  one holder is priced by the corridor rule (`gain ≪ C_cen(span)`); **systemic** censorship that
+  stalls `openEpoch` is handled by the **degradation ladder** (§10.4) — `H_force` force-resolves
+  the oldest epoch permissionlessly, and only an *attested* proof-outage (never age alone) can
+  reach a global freeze/forgiveness, so a builder cartel cannot convert censorship into either a
+  chain-wide halt or self-forgiveness. The design deliberately excludes a self-attested "I was
+  censored" toll (r3a-F4): mempool non-inclusion is not mechanically decidable, and an
+  unfalsifiable attestation is a free deadline-extension lever. Residual: short targeted
+  censorship below the `H_force` horizon can still cost an honest holder one `L_slash`; the
+  corridor keeps it unprofitable and κ-grace resubmission keeps it rare. Stated plainly.
+- **11.6 Reward-capture / front-running**: eliminated by precommitted payees (I8, r4c-4) — proof
+  payout addresses are proof public inputs, poke/fill beneficiaries pre-registered, so a copied
+  witness advances the chain but cannot redirect the reward.
 - **11.7 Simulation plan additions**: publication-censorship spans, sybil forced-inclusion
   floods against `K_empty`, cancellation-cascade depth under recovery-only mode, brake-trigger
   boundary gaming, insurance-pool solvency under gas spikes.
@@ -535,13 +592,21 @@ alignment; automated bond scaling.
 7. **[Phase B]** Permissionless proof-system-outage predicate for the attested freeze/
    forgiveness, or the finding that none exists so Phase B keeps a DAO attestation (§10.4).
 8. **[Phase B]** Phase-A DAO fast-path SLA definition (§10.3).
-9. **[Phase A]** Recovery-pool solvency invariant + per-tenure deposit sizing wired to admission
-   (§7.3, r4a-H6/r4b-H5).
+9. **[Phase A]** Senior per-tenure ETH recovery reserve sizing + solvency invariant wired to
+   admission (§7.3, r4a-H6/r4b-H5/r4c-5).
+10. **[Phase A]** Forced-item lifecycle nullifier (`queued→snapshotted→consumed|refunded`) in
+    proof public inputs; refund atomically kills live commitments (§6.5, r4c-6).
+11. **[Phase A]** Verdict incarnation + finalized-origin binding so orphan-fork verdicts fail
+    post-reorg (§8, r4c-8).
+12. **[Phase A]** Precommitted-payee binding (proof public input / pre-registration) for every
+    permissionless reward (I8, §5.2, §8; r4c-4).
 
 **13-T — Tuning (gates Phase B)**:
 
-1. `Γb + κ` provisional successor window vs `Γpre` early-sequencing-cutoff trade (round-2
-   §13.1, still open).
+1. `Γc`/`Γb` residual soft-preconf window (`Γc + κ`, now ~7 slots) vs `Γpre` early-cutoff to
+   drive it to zero at a duty-cycle cost (r4c-3; round-2 §13.1).
+2. **Maximum tenure duration** vs. accepted incumbency residual — the only complete
+   censorship-resistance bound (r4c-9); interacts with §4's future-epoch-reservation gate.
 2. `K`, `K'`, `K_empty`, `H_cancel`, `D_anchor` calibration and threshold gaming.
 3. Bridge-liveness SLA under long forced-only-cadence runs.
 4. Recovery insurance pool sizing; indexed-rate caps.
@@ -563,7 +628,15 @@ publication fill carries a **fault-only reward** funded by the failing holder (n
 not the v3 always-on escrow). **15.** derivation origin is the **EBC's committed content**, not
 its L1 inclusion block. **16.** a **degradation ladder** (`H_force` → recovery-only → attested
 freeze) replaces the single global brake so one withheld epoch is never a chain-wide halt.
-**17.** recovery pool pre-funded from per-tenure ETH deposits with a solvency invariant.
+**17.** recovery pool pre-funded from per-tenure ETH deposits with a solvency invariant. New in
+**v6**: **18.** EBC references **already-posted** blobs and `Γc`/`Γb` are lowered (4/8), so the
+parent's content-or-empty outcome is final at `Γc+κ = 7` slots and the successor's soft-preconf
+window shrinks from ~84% to ~22% of its epoch; **19.** **single-grace** certificate lifecycle
+(maturity = settlement = irreversibility at `D+κ`, not `D+2κ`); **20.** **precommitted payees**
+for every permissionless reward; **21.** senior **per-tenure ETH recovery reserve** (deliberate
+faults never touch the shared pool); **22.** forced-item **lifecycle nullifier** + **verdict
+incarnation**; **23.** future-epoch assignment gated on the **current** reservation (no perpetual
+grandfathering).
 
 ## Appendix B — Review dispositions
 
@@ -625,6 +698,21 @@ Rounds 1–2: see v2/v3 changelogs (all accepted; superseded details updated in 
 | **4a-M14** Bridge refund worst-case delay unstated | Accepted: worst case = `H_cancel` + forced-only bridge cadence, stated for informed deposit decisions (§9) |
 | **4a-M15** §13-S unprioritized | Accepted: each §13-S item tagged [Phase A]/[Phase B] |
 | **4b-M8** Cascade charges one `L_slash`; re-queue ordering | Accepted: cancellation-causing tenure charged for the cascade it forces; re-queue preserves original order (§6.7) |
+
+**Round 4c (multi-pass v4 review, [5354577413](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354577413) — 5 high, 5 medium; reviewed v4, resolved in v6):**
+
+| # | Finding | v6 response |
+| --- | --- | --- |
+| 1 (high) | EBC inclusion still an attacker-influenced derivation input | **Already resolved in v5** and the reviewer proposes exactly that fix: origin = EBC **committed content**, EBC inclusion authenticates availability only, contributes zero derivation inputs (I1, App. C). Restated crisply in v6 |
+| 2 (high) | Certificate lifecycle applies `κ` twice ⇒ `D+2κ` finality / parent-flip | **Accepted — real bug.** Collapsed to a **single grace**: maturity = settlement = parent-irreversibility = artifact-set-closure at `D+κ`, one atomic transition; post-`D+κ` artifacts rejected; I4's `Γb+κ` bound now exact (§0-I2, §3.1) |
+| 3 (high) | Predecessor 27/32-slot last-look over successor | Accepted, materially reduced: EBC references already-posted blobs and `Γc`/`Γb` lowered to 4/8 ⇒ parent-final at `Γc+κ = 7` slots (~22%, not 84%); an on-time predecessor has **no** last-look; successor soft/hard preconf boundary defined; driving to zero via `Γpre` is §13-T (§5.1, §5.2) |
+| 4 (high) | I8 payees still first-claimer / front-runnable | **Accepted.** Payees **precommitted** — proof payout address is a proof public input; poke/fill beneficiaries pre-registered; copied witnesses can't redirect rewards (I8, §5.2, §8) |
+| 5 (high) | Shared recovery insurance Sybil-drainable | Accepted: **senior per-tenure ETH reserve** sized to each tenure's own worst-case `K` obligations pays deliberate faults first; shared pool is a thin residual only; ETH-denominated so a TAIKO decline can't make the cycle profitable (§7.3) |
+| 6 (med) | Forced-item refund races a live snapshot | Accepted: per-item **lifecycle nullifier** (`queued→snapshotted→consumed\|refunded`) in seal proof public inputs; refund atomically kills live commitments; beneficiary stored at enqueue (§6.5, §13-S.10) |
+| 7 (med) | Prospective-only reservation grandfathers a perpetual incumbent | Accepted: already-assigned epochs keep their terms, but every **future** assignment requires the current reservation after timelock; top-up-or-graceful-terminate (§4) |
+| 8 (med) | Orphan-fork verdict replay after consumed-set rewind | Accepted: verdicts bind a **finalized origin root + certificate incarnation**, not just the logical id, so a pre-reorg verdict fails post-reorg (§8, §13-S.11) |
+| 9 (med) | `K_empty` resettable with garbage or a self/no-op tx | Accepted: count **post-derivation, non-system, non-self** output; and stated honestly that a complete censorship bound needs a **max tenure duration** — a §13-T decision, not a claim `K_empty` alone suffices (§5.4, §13-T.2) |
+| 10 (med) | v4 not self-contained; stale v3 escrow / ETH-floor refs | Accepted: stale "escrowed recovery claims" and ETH-floor language removed/reconciled; funding is now the single senior-reserve waterfall (§7.3, §9) |
 
 ## Appendix C — L2 header inputs and their sources
 
