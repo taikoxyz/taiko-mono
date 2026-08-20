@@ -1,6 +1,6 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v6, 2026-08-20** — revised after
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v7, 2026-08-20** — revised after
 > adversarial review rounds 1–6 (ten reviewer passes:
 > [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
@@ -14,7 +14,12 @@
 > and r5b Codex, a [PR review](https://github.com/taikoxyz/taiko-mono/pull/22034#discussion_r3820964313);
 > rounds 5–6 reviewed the verification artifact and documentation consistency rather than the
 > mechanisms); dispositions in [Appendix B](#appendix-b--review-dispositions) and, for rounds
-> 5–6, in [`simulation/RESULTS.md`](simulation/RESULTS.md) and the PR thread. Design only —
+> 5–6, in [`simulation/RESULTS.md`](simulation/RESULTS.md) and the PR thread. **v7** folds in
+> the owner-approved self-review simplification round: a single present-at-`D+κ` acceptance
+> rule, a deadline-only seal (the `d` deferral removed), `H_force` retired into the seal
+> deadline, one ETH account per tenure with a seniority waterfall, and Total Anarchy's
+> discretionary content restored via atomic proof-carrying proposals
+> ([Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm) #24–28). Design only —
 > mechanisms, invariants, incentives, parameters. Baseline: [`status-quo.md`](status-quo.md);
 > owner decisions: its §6 and
 > [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
@@ -83,7 +88,7 @@
 - **I5 — Bounded global backlog.** `openEpoch` lagging by more than `K` epochs triggers
   recovery-only mode (no new discretionary content, no fees) until the lag clears. All
   retention, collateral, and prover sizing is dimensioned against `K`, and — corollary — **the
-  content-bearing unsealed tail can never exceed ≈ `K + d + s` epochs**.
+  content-bearing unsealed tail can never exceed ≈ `K + S` epochs**.
 - **I6 — Forced inclusions are censorship-proof against the seat.** A non-empty forced
   snapshot makes the epoch's minimum valid outcome the deterministic forced-only epoch,
   constructible and provable by anyone from L1 data alone; empty is then invalid.
@@ -103,8 +108,9 @@
   is never an honest party being front-run out of a prize.
 - **I9 — Deterrence value is oracle-free.** The design uses **no price feeds** (owner
   directive). Deterrence that must *match* an ETH-denominated gain — the equivocation/MEV-theft
-  safety slash — is itself **denominated in ETH**, drawn from the prepaid-ETH the design
-  already collects; its value needs no oracle because ETH is the numéraire (owner assumption:
+  safety slash — is itself **denominated in ETH**, drawn from the safety tranche of the ETH
+  account the design already collects (§4); its value needs no oracle because ETH is the
+  numéraire (owner assumption:
   ETH stable-to-increasing). Liveness bonds, which deter *delay* rather than *theft*, stay in
   TAIKO (owner's bond-token choice). No mechanism reads a TAIKO/ETH price. (v5; supersedes
   v4's ETH-value floor and closes r4a-C1 / r4b-H3 without an oracle.)
@@ -166,7 +172,9 @@ persistent consumed-set keyed on the logical id, entered only at certificate *se
 sequencing [T_N ─────────────── T_N+E)   preconfs stream over P2P; blob slices stream to L1 DURING the epoch
 commit     by T_N + E + Γc               EBC references its already-posted blobs; valid only if that data is on L1
 parent final at T_N + E + Γc + κ         SINGLE atomic decision (I2): content-or-empty, irreversible
-seal       [T_N + d·E, T_N + (d+s)·E)    one proof-carrying seal finalizes the epoch
+seal       due by T_N + S·E (tolled)     one proof-carrying seal finalizes the epoch; valid from
+                                         the moment the epoch is the openEpoch with its decision
+                                         final — early seals welcome (v7: no deferral lower bound)
 ```
 
 There is exactly **one** finality decision per epoch, at `T_N + E + Γc + κ` (≈ 7 slots into the
@@ -178,15 +186,14 @@ audit-flagged inconsistency).
 
 | Param | Meaning | Initial | Notes |
 | --- | --- | --- | --- |
-| `d`, `s` | seal deferral / window (epochs) | 2, 2 | §10.1 |
+| `S` | seal deadline (epochs past `T_N`, tolled) | 4 | v7: deadline-only — replaces v6's `[T_N+d·E, T_N+(d+s)·E)` window (`d,s = 2,2`; same end time). Proving latency needs a deadline, not a ban on early seals: I1 fixes the outcome and I7 makes it sender-free, so sealing early is always valid and strictly shrinks the unsealed tail. §10.1 |
 | `q` | auction transition delay (epochs) | 2 | current + next final |
 | `Γc` | EBC deadline past boundary | 4 slots | lowered v6 (r4c-3) to shrink the successor's last-look exposure |
 | `κ` | reorg grace (also the DA re-post window) | 3 slots | single-grace lifecycle §3.1, I2; parent-final at `Γc+κ = 7 slots` (~22% of the successor epoch), not 27 |
 | `D_anchor` | minimum committed-anchor depth | 32 slots (1 epoch) | the EBC-committed anchor must be ≥ this deep at commit time; sized for L1 reorg safety, not "minimum useful" (v5, r4a-C2/H8) — raised from v4's 4 |
-| `H_force` | force-resolution horizon for a stuck `openEpoch` | 2 epochs past `end(W_N)` | oldest PUBLISHED-unsealed epoch becomes force-resolvable well before `H_cancel`; caps single-holder stalls (v5, r4b-H4) |
 | `K` / `K'` | global lag cap / exit | 8 / 4 epochs | recovery-only mode (I5) |
 | `K_empty` | max consecutive epochs **without discretionary content** (empty *or* forced-only) | 16 | redefined in v4 (r3a-F7/F10); termination §4 |
-| `H_cancel` | published-unsealed **data-loss** cancellation horizon | 10 days | disaster floor only (data genuinely gone); typical stalls resolve at `H_force`. + margin < blob retention (~18 d) for epoch **and forced-queue** data |
+| `H_cancel` | published-unsealed **data-loss** cancellation horizon | 10 days | disaster floor only (data genuinely gone); typical stalls resolve at the seal deadline via fault-paid recovery (v7, §6.7). + margin < blob retention (~18 d) for epoch **and forced-queue** data |
 | parse-time caps | `MAX_DECOMPRESSED_SIZE` 8 MB, `MAX_RLP_ELEMENTS` 1M, `MAX_RLP_DEPTH` 32, `MAX_TX_COUNT_PER_SOURCE` 100k, `MAX_PER_TX_SIZE` 128 KB | consensus constants | circuit-canonical, client-identical (I1); initial values, §13-S.5 finalizes |
 | `L_safety` (ETH) / `L_live` (TAIKO) | safety vs liveness slash | governance | safety in ETH (I9); liveness in TAIKO |
 
@@ -210,10 +217,16 @@ monotone — resubmission shifts *when*, never *what*. Because the EBC commits i
 includes it — the derivation outcome does not depend on that block at all, which is what makes
 "shifts when, never what" hold for the *origin* and not only the content (r4b-C1).
 
-**One grace, one atomic decision** (r4c-2). Each deadline `D` (the EBC at `T_N+E+Γc`, and each
-seal window) has a single κ-slot grace for byte-identical (re)submission. At `D + κ` a single
-transition fires and is irreversible: present ⇒ accepted, absent ⇒ certificate settled + parent
-outcome fixed + `L_slash` debitable. There is no "pending, then a second κ": maturity,
+**One grace, one atomic decision — and one acceptance rule** (r4c-2; v7). Each deadline `D`
+(the EBC at `T_N+E+Γc`, and each seal deadline) is judged by **presence at `D + κ`, full stop**:
+a *first* submission landing anywhere in `(D, D + κ]` is exactly as valid as one landing by `D`.
+One-shot-ness is the only constraint — the first-landed artifact wins, byte-identical re-lands
+are no-ops, and any second *distinct* artifact is invalid. So the honest submission budget for
+every deadline artifact is the full `D + κ` span (`Γc + κ = 7` slots for the EBC — G3), while
+the moment the world learns the outcome is unchanged (`D + κ` was already the earliest a
+successor could rely on the artifact set, since a reorged copy may reappear until then). At
+`D + κ` a single transition fires and is irreversible: present ⇒ accepted, absent ⇒ certificate
+settled + parent outcome fixed + `L_slash` debitable. There is no "pending, then a second κ": maturity,
 settlement, parent-state irreversibility, and artifact-set closure coincide, so a byte-identical
 artifact arriving after `D + κ` is rejected (it cannot revive content or clear a settled slash),
 and I4's `Γc + κ` finality bound is exact rather than `2κ`-loose. Withdrawal gating counts
@@ -227,14 +240,30 @@ its logical id looks unconsumed; joint-rewind semantics are §13-S.1.
 
 ## 4. The perpetual auction (L1)
 
-As v3 (bid = TAIKO bond + ETH fee rate + prepaid ETH; ≥10% increment; reserve floor;
-`q`-delayed transitions with current+next final; funding rule as automatic quit notice;
-reservation = `K·L_slash +` safety reserve), with v4 changes:
+As v3 (bid = TAIKO bond + ETH fee rate + ETH deposit; ≥10% increment; reserve floor;
+`q`-delayed transitions with current+next final; funding rule as automatic quit notice), with
+v4+ changes:
+
+- **One ETH account per tenure, one seniority waterfall (v7).** All ETH a tenure posts lives in
+  a **single account** with three seniority tranches, replacing the separately named
+  prepaid-ETH balance, safety bond, senior recovery reserve, and pool slice of v5/v6:
+  1. **Recovery tranche** (most senior) — sized to the tenure's worst-case `K` outstanding
+     recovery obligations at indexed cost caps; pays fault-paid resolutions of *this tenure's*
+     faults (§7.3) and the cancellation-cascade charge (§6.7).
+  2. **Safety tranche `L_safety`** — the equivocation/MEV-theft slash (I9), value-fixed in ETH
+     from tenure start.
+  3. **Working tranche** — per-epoch fees, fill-reward funding (§5.2), poke bounties, refunds.
+  A debit takes from the tranche that owes it, never above it; **admission requires the account
+  to cover tranches 1 + 2 plus a working floor** — one solvency invariant replacing the
+  per-object sizing rules — and the shared residual pool (§7.3) is a protocol-level account
+  funded by a small admission tithe, not an earmark inside anyone's balance. No amount or
+  incentive changes; what changes is that **every wei has exactly one job**, closing the
+  double-earmarking ambiguity rounds 4–6 kept probing.
 
 - **Split bond, oracle-free** (I9; r4a-C1, r4b-H3, r4a-H11): the reservation has two parts,
   neither reading a price feed.
-  - **Safety bond `L_safety` in ETH** — drawn from the prepaid-ETH balance, sized to exceed
-    per-epoch extractable MEV. It backs the equivocation/safety slash (the only fault that lets
+  - **Safety bond `L_safety` in ETH** — the safety tranche of the tenure's single ETH account
+    (v7 waterfall above), sized to exceed per-epoch extractable MEV. It backs the equivocation/safety slash (the only fault that lets
     a holder *steal* an ETH-denominated gain), so deterrence and gain share the ETH numéraire
     and match without any TAIKO/ETH conversion. A TAIKO price crash cannot cheapen it, and the
     withdraw-after-shorting attack (r4a-H11) evaporates: the debit's *value* is fixed in ETH
@@ -269,7 +298,9 @@ reservation = `K·L_slash +` safety reserve), with v4 changes:
 
 ### 5.1 Commit — the epoch-boundary commitment (EBC), over already-published data (v6)
 
-One-shot per (tenure, epoch), due `T_N + E + Γc` (4 slots), binding the full ordered content,
+One-shot per (tenure, epoch), due `T_N + E + Γc` (4 slots; accepted until `+κ` under §3.1's
+present-at-`D+κ` rule, so the honest budget is the full 7 slots), binding the full ordered
+content,
 EOP tip, committed L1 origin (I1), and the **hashes of blob slices already posted to L1** — the
 holder streams its data to L1 *during* its own sequencing epoch and the EBC references it, rather
 than promising to publish later. Consequence (r4c-3): the epoch's **content-or-empty outcome is
@@ -294,7 +325,8 @@ decision rather than two.
 
 - **Fill reward exists only in the fault case, funded by the faulter, and the payee is
   precommitted** (I8; r4c-4). A fill reward exists **only** when the holder failed to make its
-  own referenced data available, funded from the failing holder's prepaid ETH. The reward is
+  own referenced data available, funded from the failing holder's working tranche (§4). The
+  reward is
   **not** paid to "whoever submits first": each candidate filler pre-registers a beneficiary
   before disclosing the slice, and the payee is that registration, so a mempool searcher who
   copies the slice cannot capture it (see I8 / §8 for the general precommitted-payee rule that
@@ -342,9 +374,13 @@ censorship-resistance guarantee.
 
 ### 5.5 Seal
 
-As v3: within `W_N` on the tolled clock, one proof-carrying seal finalizes the epoch's
-canonical outcome (unique and always provable — I1); acceptance = finality; precomputable
-proofs (§6.6); one small retryable transaction.
+One proof-carrying seal finalizes the epoch's canonical outcome (unique and always provable —
+I1); acceptance = finality; precomputable proofs (§6.6); one small retryable transaction. v7:
+the seal has a **deadline only** — due by `T_N + S·E` on the tolled clock, valid from the
+moment the epoch is the `openEpoch` with its decision final. Early sealing is always legal
+(I1 fixes *what* it seals, I7 makes it sender-free) and strictly good: it shrinks the unsealed
+tail and everyone's preconf exposure. Missing the deadline matures the seal fault (I2), which
+both funds and opens fault-paid permissionless resolution (§6.7, §7.3).
 
 ---
 
@@ -395,16 +431,20 @@ with these v4/v5 clarifications:
   (r4a-M12, stated in §1). Raising `D_anchor` 4→32 shrinks that probability at a one-epoch
   L1→L2 latency cost (r4a/r4b concur; exact value is §13-T tuning).
 
-### 6.7 Force-resolution (fast) and expiry cancellation (disaster floor)
+### 6.7 Fault-paid resolution (fast) and expiry cancellation (disaster floor)
 
-Two horizons, so a single withheld seal cannot hold users hostage for 10 days (r4a-H5, r4b-H4):
+A single withheld seal cannot hold users hostage for 10 days (r4a-H5, r4b-H4) — and in v7 the
+fast path needs **no horizon of its own**:
 
-- **`H_force` (2 epochs past `end(W_N)`) — the fast path.** Once the oldest `openEpoch` is
-  PUBLISHED-but-unsealed past `H_force`, its data is on L1 (by definition of PUBLISHED), so
-  **anyone can seal it immediately** in the permissionless recovery lane, paid at cost from the
-  faulter's seized ETH (§7.3). A malicious recoverer cannot "sit on" the epoch: recovery is
-  non-exclusive, so any honest party seals it and collects. The single-holder stall therefore
-  resolves in ~one window, not 10 days — the recovery lane, not `H_cancel`, is the normal exit.
+- **The seal deadline is the fast path (v7 — replaces v5's separate `H_force`).** Seals are
+  permissionless at all times (I7); what a horizon ever gated was *compensation*. That is
+  exactly what the seal deadline's matured fault provides: at `T_N + S·E` (tolled) `+ κ`, the
+  certificate settles (I2), and from that moment **anyone can seal the epoch from its on-L1
+  data and be paid at indexed cost from the faulter's senior reserve tranche** (§7.3). A
+  malicious recoverer cannot "sit on" the epoch: recovery is non-exclusive, so any honest party
+  seals it and collects. A single-holder stall therefore resolves within ~`κ` of the deadline —
+  roughly two epochs *earlier* than v5's `H_force` — and the recovery lane, not `H_cancel`,
+  remains the normal exit.
 - **`H_cancel` (10 days) — the disaster floor.** Reached only when the data is *genuinely
   unavailable* (nobody, anywhere, holds it), so no seal is possible. Only then may anyone
   **cancel**: the epoch re-resolves empty/forced-only from whatever L1 data survives, and later
@@ -417,10 +457,10 @@ Two horizons, so a single withheld seal cannot hold users hostage for 10 days (r
    the unsealed tail — it cannot revert finalized L2 history, ever.
 2. **The cascade is structurally shallow**: recovery-only mode (I5) stops new content epochs
    once the lag exceeds `K`, so the committed-content unsealed tail — the only thing
-   cancellable — never exceeds ≈ `K + d + s` epochs (~77 min of chain), not 14 days. A
+   cancellable — never exceeds ≈ `K + S` epochs (~77 min of chain), not 14 days. A
    "publish a 14-day tail then cancel it all" attack cannot arise: the tail stops growing at
    `K`.
-3. What *is* lost in a cancellation is the unsealed preconf-layer view of those ≤ `K + d + s`
+3. What *is* lost in a cancellation is the unsealed preconf-layer view of those ≤ `K + S`
    epochs — exactly the exposure preconfirmations always carry against their bond, here
    reachable only after ≥ 10 days of continuously flagged failure.
 4. Forced snapshots of cancelled epochs re-queue at the front (data intact — retention outlasts
@@ -439,11 +479,11 @@ Compensation for recovering **another tenure's** fault is **indexed, not fixed**
 multiple of prevailing L1 costs (base fee + blob base fee) plus the zk-proving component, paid
 in ETH. Funding order and solvency:
 
-1. **The faulted tenure's own senior ETH recovery reserve** first (r4c-5) — a per-tenure
-   deposit collected at bid time and sized to **fully collateralize that tenure's worst-case
-   `K` outstanding recovery obligations**. A tenure's deliberate fault is thus always paid from
-   *its own* reserve; it can never spill onto other tenures. This is the senior, per-tenure ETH
-   reserve r4c-5 asks for, replacing v5's shared-pool-first waterfall.
+1. **The faulted tenure's own recovery tranche** first (r4c-5; the senior slice of its single
+   ETH account, §4's waterfall) — collected at bid time and sized to **fully collateralize that
+   tenure's worst-case `K` outstanding recovery obligations**. A tenure's deliberate fault is
+   thus always paid from *its own* account; it can never spill onto other tenures. This is the
+   senior, per-tenure ETH reserve r4c-5 asks for, replacing v5's shared-pool-first waterfall.
 2. **A shared residual pool** only for the genuine remainder — an honest fault whose reserve
    was legitimately drawn down by earlier honest recoveries — never for a deliberate
    fault/recovery Sybil pair (that is bounded by rung 1). It is pre-funded from a small slice of
@@ -492,15 +532,36 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
 
 ## 9. Total Anarchy
 
-As v3 — unowned epochs resolve EMPTY-PENDING and are sealed permissionlessly as empty or
-forced-only (I6/I7); no discretionary content; recovery lane fully open; recovery compensation
-(§7.3, paid from the faulter's senior reserve — there is no separate "escrow" object in v6)
-remains payable — with the G5 reframing (r3a-F9) now explicit in §1: in Phase B
-this is a **censorship-resistant fallback that anyone can exit by out-bidding the reserve
-floor**; in Phase A it is **DAO-recoverable**, with the DAO fast-path SLA of §10.3. Bridge
-flow during anarchy = forced-only cadence; queue data retention per §6.4 keeps long outages
-refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided forced
-item is `H_cancel` + one forced-only bridge cadence** (r4a-M14): a depositor can make an informed
+Unowned epochs have no bonded seat — and in **v7, per the original brief, they still accept
+discretionary content**, through the one shape that cannot create unfunded liabilities:
+
+- **Content lands only as an atomic proof-carrying proposal: propose ≡ seal.** For an unowned
+  `openEpoch` whose parent is final, **anyone, first-come-first-served**, may submit a single
+  transaction carrying the epoch's full content *and* its validity proof; acceptance seals the
+  epoch on the spot (I7). This is exactly the Shasta inbox's existing atomic
+  propose+prove+finalize shape (the parked permissionless branch — status quo §5), reused as
+  the anarchy lane. There is **no unsealed-content limbo, ever**: an anarchy epoch is either
+  sealed-with-content atomically or resolves empty/forced-only — nothing for the recovery lane
+  to fund and no path to `H_cancel` cascades, which is precisely why v6 had dropped anarchy
+  content and why v7 can restore it.
+- **Self-funded, unbonded, unpaid.** The proposer pays its own proving; its motive is its own
+  transactions' inclusion and whatever MEV the content carries. No slashing and no protocol
+  rewards (nothing is bonded, nothing is promised) — and therefore **no preconfirmations**:
+  users get L1-speed inclusion, not sub-slot promises. An FCFS gas race with unbonded MEV
+  extraction is the accepted character of the fallback mode, stated plainly.
+- **I6 binds anarchy too.** An atomic anarchy proposal is valid **only if it embeds the pending
+  forced snapshot**; with no such proposal, the forced-only minimum outcome remains
+  constructible and sealable by anyone, funded by the forced-queue fees (§6.5), exactly as in
+  v6. Explicit-empty resolutions stay permissionless and unpaid. In recovery-only mode (I5),
+  discretionary anarchy proposals pause like all discretionary content; forced-embedding
+  proposals do not.
+
+G5 reframing (r3a-F9) as before: in Phase B this is a **censorship-resistant fallback that
+anyone can exit by out-bidding the reserve floor**; in Phase A it is **DAO-recoverable**, with
+the DAO fast-path SLA of §10.3. Bridge flow during anarchy ≥ forced-only cadence (better
+whenever atomic proposals land); queue data retention per §6.4 keeps long outages refund-safe
+rather than value-destroying. **Worst-case bridge settlement for a voided forced item is
+`H_cancel` + one forced-only bridge cadence** (r4a-M14): a depositor can make an informed
 decision from that bound, and no value is burned — only delayed.
 
 ---
@@ -522,11 +583,13 @@ r4b showed that even v4's split brake let one seal-withholder freeze *everyone*:
 halt bought for one `L_slash`. v5 replaces the single global trigger with a three-rung ladder
 that escalates only as the failure proves genuinely systemic:
 
-1. **`H_force` — force-resolve the oldest epoch, nothing global** (§6.7). A stuck `openEpoch`
-   is first attacked directly: past `H_force` anyone permissionlessly seals it from its
-   on-L1 data, paid at cost from the faulter. A single withholding holder is ejected and its
-   epoch resolved in ~one window; **no honest tenure's deadlines pause and no withdrawals
-   freeze**. This is the normal recovery path and it defuses r4b-H4's attack entirely.
+1. **The seal deadline — fault-paid resolution of the oldest epoch, nothing global** (§6.7;
+   v7 folds v5's separate `H_force` into this rung). A stuck `openEpoch` is attacked directly:
+   the moment its seal deadline's fault matures, anyone permissionlessly seals it from its
+   on-L1 data, paid at indexed cost from the faulter's recovery tranche. A single withholding
+   holder is ejected and its epoch resolved within ~`κ` of the deadline; **no honest tenure's
+   deadlines pause and no withdrawals freeze**. This is the normal recovery path and it defuses
+   r4b-H4's attack entirely.
 2. **Recovery-only mode (I5)** — if lag still exceeds `K` (many epochs failing, not one), new
    discretionary content stops and effort funnels to the lane. Still no global withdrawal
    freeze; honest tenures with no open obligations may still exit.
@@ -560,16 +623,19 @@ as v3.
   structural need.
 - **11.5 Censorship, remodeled** (r3a-F1/F4, r3b-F6): the binding target is **publication**
   (blob payloads over the `32`-slot in-epoch stream + `κ`-slot re-post grace, every data holder a
-  potential includer), then the seal (1 small tx, `32·s` residual slots). Targeted censorship of
+  potential includer), then the seal (1 small tx, submittable across the whole multi-epoch span
+  to the `S`-epoch deadline). Targeted censorship of
   one holder is priced by the corridor rule (`gain ≪ C_cen(span)`); **systemic** censorship that
-  stalls `openEpoch` is handled by the **degradation ladder** (§10.4) — `H_force` force-resolves
-  the oldest epoch permissionlessly, and only an *attested* proof-outage (never age alone) can
+  stalls `openEpoch` is handled by the **degradation ladder** (§10.4) — the seal deadline's
+  matured fault opens fault-paid permissionless resolution of the oldest epoch (v7), and only
+  an *attested* proof-outage (never age alone) can
   reach a global freeze/forgiveness, so a builder cartel cannot convert censorship into either a
   chain-wide halt or self-forgiveness. The design deliberately excludes a self-attested "I was
   censored" toll (r3a-F4): mempool non-inclusion is not mechanically decidable, and an
   unfalsifiable attestation is a free deadline-extension lever. Residual: short targeted
-  censorship below the `H_force` horizon can still cost an honest holder one `L_slash`; the
-  corridor keeps it unprofitable and κ-grace resubmission keeps it rare. Stated plainly.
+  censorship that outlasts a holder's whole submission span can still cost an honest holder one
+  `L_slash`; the corridor keeps it unprofitable and κ-grace resubmission keeps it rare. Stated
+  plainly.
 - **11.6 Reward-capture / front-running**: eliminated by precommitted payees (I8, r4c-4) — proof
   payout addresses are proof public inputs, poke/fill beneficiaries pre-registered, so a copied
   witness advances the chain but cannot redirect the reward.
@@ -617,6 +683,9 @@ alignment; automated bond scaling.
     post-reorg (§8, r4c-8).
 12. **[Phase A]** Precommitted-payee binding (proof public input / pre-registration) for every
     permissionless reward (I8, §5.2, §8; r4c-4).
+13. **[Phase A]** Anarchy atomic-proposal lane (v7, §9): spec of the propose≡seal path reusing
+    the Shasta atomic propose+prove shape, including the forced-snapshot-embedding validity
+    rule, its FCFS ordering on L1, and its interaction with recovery-only mode.
 
 **13-T — Tuning (gates Phase B)**:
 
@@ -654,7 +723,20 @@ to ~22% of its epoch; **19.** **single-grace** certificate lifecycle
 for every permissionless reward; **21.** senior **per-tenure ETH recovery reserve** (deliberate
 faults never touch the shared pool); **22.** forced-item **lifecycle nullifier** + **verdict
 incarnation**; **23.** future-epoch assignment gated on the **current** reservation (no perpetual
-grandfathering).
+grandfathering). New in **v7** (owner-approved self-review round): **24.** **one acceptance
+rule** — presence at `D+κ` decides every deadline artifact; a first submission inside
+`(D, D+κ]` is valid (one-shot-ness is the only constraint), widening the honest budget to the
+full 7 slots with finality timing unchanged (§3.1). **25.** the seal is **deadline-only**
+(`S = 4` epochs, tolled) — the brief's `[T+384d, T+384(d+s))` window form is replaced by its
+end time alone; early seals are valid and strictly beneficial (owner-approved divergence, §5.5).
+**26.** **`H_force` retired**: fault-paid permissionless resolution attaches at the seal
+deadline itself, making recovery ~2 epochs faster with one fewer horizon (§6.7, §10.4).
+**27.** **one ETH account per tenure** with a recovery/safety/working seniority waterfall and a
+single admission solvency invariant (§4, §7.3). **28.** **Total Anarchy content restored** per
+the brief — discretionary anarchy content lands FCFS as an **atomic proof-carrying proposal**
+(propose ≡ seal, the Shasta atomic shape), unbonded and unpaid, forced-snapshot-embedding
+required; this reverses v3–v6's forced-only-anarchy divergence now that atomicity removes the
+unfunded-liveness objection (§9).
 
 ## Appendix B — Review dispositions
 

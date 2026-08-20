@@ -1,7 +1,7 @@
-# v6 Protocol — Exhaustive State-Machine Model-Checking Results
+# v7 Protocol — Exhaustive State-Machine Model-Checking Results
 
 **Artifact:** [`model_checker.py`](model_checker.py) — a self-contained Python explicit-state
-model checker for the [redesign proposal](../redesign-proposal.md) (v6).
+model checker for the [redesign proposal](../redesign-proposal.md) (v7).
 **Question asked:** *can the new design reach an invalid state?*
 **Answer (within the checked bounds and modelled configurations):** **No.** Across every
 explored bound the checker found **zero reachable states or transitions violating any safety
@@ -33,6 +33,19 @@ written to catch it.
 > seal-late-then-withdraw bypass the first model admitted is now structurally impossible, and
 > the withdrawal gate provably reads the computed matured set. The exit code now also fails on
 > liveness halts, not only safety violations.
+>
+> **Revision note (v7).** The owner-approved self-review simplification round changed the
+> *design*; the model tracks it as follows. Three of the five changes required **no model
+> change** because the abstraction already had the simpler shape: the model never had a
+> seal-window lower bound (v7's deadline-only seal — the design moved *toward* the model), it
+> never had a separate `H_force` (fault-paid resolution attaching at the deadline is exactly
+> the tick-materialization + seal semantics already checked), and the single-account waterfall
+> is invisible at this abstraction level (one `reserve` per tenure). The present-at-`D+κ`
+> acceptance rule is slot-level, below the abstraction. The one real addition is the **anarchy
+> atomic lane** (design §9): a new `anarchy_seal` action decides-CONTENT *and* seals an
+> unowned `openEpoch` in one step (discretionary only in NORMAL mode; forced-embedding in any
+> mode), so anarchy epochs can carry content without ever holding an unsealed commitment. All
+> bounds re-run clean with the new action in the relation.
 >
 > **Revision note (round 6).** A follow-up review pass tightened four more things: (5) seal-duty
 > materialization now covers **explicit-empty outcomes too** — any owned, DECIDED `openEpoch`
@@ -72,6 +85,8 @@ legal action of any actor:
   re-queue to the earliest still-SEQ epoch, and the causing tenure is charged an additional
   CANCEL-class certificate; **close_void** later closes a voided epoch as CANCELLED in
   `openEpoch` order;
+- **anarchy_seal** an unowned `openEpoch` (v7, §9): one atomic step decides CONTENT and seals
+  it (propose ≡ seal) — discretionary only in NORMAL mode, forced-embedding in any mode;
 - **debit** a settled certificate (one-shot per logical fault id);
 - **promote** a terminated holder's successor (or drop to anarchy);
 - **withdraw** a bond (only through the state-gate, which reads the computed matured set);
@@ -134,11 +149,10 @@ code 0:
 
 | Bound (`NEPOCHS × MAXCLOCK`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts |
 | --- | ---: | ---: | :---: | :---: |
-| 3 × 4 (default) | 620,966 | 243,564 | 0 | 0 |
-| 3 × 5 | 1,025,874 | 490,157 | 0 | 0 |
-| 4 × 3 | 2,722,729 | 602,324 | 0 | 0 |
+| 3 × 4 (default) | 644,567 | 257,167 | 0 | 0 |
+| 3 × 5 | 1,064,029 | 514,512 | 0 | 0 |
 
-The three completed runs span the structurally interesting depth: handovers, multi-tenure
+The completed runs span the structurally interesting depth: handovers, multi-tenure
 promotion chains, anarchy, forced-only epochs, recovery-only mode (lag `> K`), the data-loss
 cancellation floor, and — new in this revision — cascades over committed descendants, forced
 re-queueing, and matured-fault materialization under every interleaving of late seals,
@@ -164,7 +178,7 @@ and the named invariant **must** catch it:
 
 ## What this tells us about the design
 
-- **No reachable invalid state or transition** (within the bounds): the v6 state machine never
+- **No reachable invalid state or transition** (within the bounds): the v7 state machine never
   double-decides an epoch, never mutates finalized state, never seals out of order, never seals a
   commitment that an ancestor's cancellation voided, never resolves a forced epoch as empty,
   never double-debits a bond, never erases matured evidence, never drives a reserve negative,
@@ -182,7 +196,8 @@ and the named invariant **must** catch it:
 ## What is and isn't modelled
 
 **Modelled:** the epoch lifecycle and its single-decision finality, the `openEpoch` state machine
-and recovery lane, seat handover / promotion / anarchy, objective liveness certificates with
+and recovery lane, seat handover / promotion / anarchy (including v7's atomic anarchy content
+lane), objective liveness certificates with
 read-time (tolled) maturity materialization and one-shot debiting, the state-gated withdrawal,
 forced-snapshot / empty-resolution interaction (I6), recovery-only mode via the global lag cap,
 the cancellation floor, and the §6.7 cascade (voided descendants, in-order closure, forced
