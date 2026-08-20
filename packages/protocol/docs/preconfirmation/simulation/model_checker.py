@@ -9,9 +9,12 @@ An abstract state machine of the v6 protocol and a bounded, exhaustive
 breadth-first exploration of *every* adversarial interleaving of actions.
 At every reachable state it checks a set of safety invariants (derived from
 the doc's I1-I9, the immutability corollary, and the no-frame / bounded-bond
-properties). After the state space is built it runs a liveness analysis to
-find any reachable state from which the chain can never make progress
+properties), and at every *transition* it checks a set of edge invariants
+(monotone openEpoch, monotone evidence, debit conservation, read-time fault
+materialization). After the state space is built it runs a liveness analysis
+to find any reachable state from which the chain can never make progress
 (a permanent halt -> a violation of the G5 / I3 "always advanceable" claim).
+Halts fail the exit code just like safety violations do.
 
 ABSTRACTION
 -----------
@@ -23,12 +26,41 @@ exact slot counts. The slot arithmetic (last-look window, censorship
 corridor) is argued separately in the design doc's game-theory section and
 is out of scope for the state-machine checker.
 
+Two design rules that need care in the abstraction:
+
+* I2 (read-time fault materialization): liveness faults are objective L1
+  facts; certificates are *computed*, never dependent on a poke. The model
+  therefore materializes the seal-fault certificate deterministically inside
+  the `tick` action: an epoch that is the openEpoch, CONTENT-decided, owned,
+  and survives a full tick unsealed has objectively missed its (tolled) seal
+  deadline, and the certificate is settled at that moment and never erased.
+  Deadlines *toll* while an epoch is blocked behind unsealed ancestors
+  (design section 7.1): the certificate only ever arises from a tick spent as
+  the openEpoch, so a backlogged descendant is never blamed for waiting.
+
+* Section 6.7 cancellation cascade: when the openEpoch is cancelled at
+  H_cancel, every committed-CONTENT, unsealed descendant chained to it is
+  VOIDed in the same deterministic cascade (its commitment referenced a
+  parent lineage that no longer exists). VOID epochs close as CANCELLED, in
+  openEpoch order, via a permissionless action. Forced snapshots of the
+  cancelled/voided epochs re-queue at the front (the earliest still-SEQ
+  epoch). A generation counter `gen` tracks lineage changes: every CONTENT
+  commitment records the generation it was made against (`cgen`), and the
+  invariant `content_current_gen` requires every live CONTENT commitment to
+  be of the current generation -- a stale commitment surviving a cascade
+  (the bug this models) is caught immediately.
+
 The adversary is *maximally nondeterministic*: at every step it may pick any
 enabled action (honest or Byzantine) for any actor. Exhaustive BFS over this
 choice therefore covers all behaviours up to the epoch/clock bound.
 
 Run:  python3 model_checker.py            # default bound
       python3 model_checker.py 5 6        # NEPOCHS=5, MAXCLOCK=6
+      python3 model_checker.py --mutate   # invariant self-test
+
+Choose MAXCLOCK >= NEPOCHS-1: deciding epoch e requires clock >= e, so a
+smaller horizon leaves the tail epoch undecidable and reports (artifact) halts.
+Exit code is non-zero on any safety violation OR any halt.
 """
 
 from __future__ import annotations
@@ -52,6 +84,8 @@ RESERVE0 = K + 2   # per-tenure ETH/token reserve at admission (covers K obligat
 SEQ       = "SEQ"        # not yet decided (being sequenced / future)
 CONTENT   = "CONTENT"    # committed content outcome (valid EBC + available data)
 EMPTY     = "EMPTY"      # empty outcome (no valid EBC), or forced-only if forced
+VOID      = "VOID"       # commitment voided by an ancestor's cancellation cascade (6.7);
+                         # closes as CANCELLED when it becomes the openEpoch
 SEALED    = "SEALED"     # finalized by a proof-carrying (or empty) seal
 CANCELLED = "CANCELLED"  # H_cancel disaster resolution (data lost) -> treated as sealed-empty
 
@@ -74,17 +108,23 @@ class State:
     mode: str
     # tenures: reserve remaining, and set of (epoch) obligations still open
     reserve: tuple          # tuple[int] len NTENURES
-    # certificates: frozenset of (tenure, epoch, cls) that are SETTLED (debitable)
+    # certificates: frozenset of (tenure, epoch, cls) that are SETTLED (debitable).
+    # By I2 these are *computed* facts: materialized deterministically (tick/cancel/
+    # miss_commit), sticky forever, never dependent on a poke.
     settled_certs: frozenset
     consumed: frozenset     # frozenset of logical fault ids already debited
     withdrawn: frozenset    # tenures that have withdrawn their bond
     # bookkeeping for no-frame: which tenure was assigned each epoch (immutable record)
     assigned: tuple         # tuple[Optional[int]] len NEPOCHS
+    # cancellation-cascade lineage (6.7): global generation, bumped at each cancel;
+    # cgen[e] = generation a CONTENT commitment was made against (None if not committed)
+    gen: int
+    cgen: tuple             # tuple[Optional[int]] len NEPOCHS
 
     def key(self):
         return (self.status, self.owner, self.forced, self.decided_as, self.openEpoch,
                 self.clock, self.mode, self.reserve, self.settled_certs, self.consumed,
-                self.withdrawn, self.assigned)
+                self.withdrawn, self.assigned, self.gen, self.cgen)
 
 
 def initial_states():
@@ -128,6 +168,8 @@ def initial_states():
             consumed=frozenset(),
             withdrawn=frozenset(),
             assigned=owners,
+            gen=0,
+            cgen=tuple(None for _ in range(NEPOCHS)),
         )
         inits.append(st)
     return inits
@@ -152,8 +194,17 @@ def actions(s: State):
     oe = s.openEpoch
 
     # ---- Environment: advance wall clock ----
+    # I2 read-time materialization: a tick spent as a CONTENT-decided, owned openEpoch
+    # without a seal is an objectively missed (tolled) seal deadline. The certificate is
+    # settled deterministically here -- it is a computed L1 fact, not a poke -- and, being
+    # part of `settled_certs`, it is sticky: a later seal cannot erase it, so the
+    # seal-then-withdraw bypass is structurally impossible.
     if s.clock < MAXCLOCK:
-        ns = replace(s, clock=s.clock + 1)
+        certs = s.settled_certs
+        if oe < n and s.status[oe] == CONTENT and s.owner[oe] is not None:
+            if MUTANT != "no_materialize":
+                certs = certs | {(s.owner[oe], oe, "SEAL")}
+        ns = replace(s, clock=s.clock + 1, settled_certs=certs)
         ns = _enter_modes(ns)
         out.append((f"tick->{s.clock+1}", ns))
 
@@ -181,7 +232,11 @@ def actions(s: State):
         for dec in options:
             new_status = list(s.status); new_status[e] = dec
             new_decided = list(s.decided_as); new_decided[e] = dec
-            ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided))
+            new_cgen = list(s.cgen)
+            if dec == CONTENT:
+                new_cgen[e] = s.gen   # commitment is made against the current lineage (6.7)
+            ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided),
+                         cgen=tuple(new_cgen))
             out.append((f"decide(e{e}={dec}{'/forced' if s.forced[e] else ''})", ns))
 
     # MUTANT: re-decide an already-decided (not yet closed) epoch to the opposite outcome.
@@ -194,7 +249,9 @@ def actions(s: State):
                 out.append((f"REDECIDE(e{e}->{flip})", ns))
 
     # ---- Missed-commit fault: an owned SEQ epoch past its boundary resolves EMPTY
-    #      with a liveness certificate on its owner (objective, no accused cooperation). ----
+    #      with a liveness certificate on its owner (objective, no accused cooperation).
+    #      The EMPTY resolution and the certificate are atomic (I2: the resolving read
+    #      materializes the certificate). ----
     for e in range(n):
         if s.status[e] == SEQ and e <= s.clock and s.owner[e] is not None and not s.forced[e]:
             owner = s.owner[e]
@@ -217,38 +274,80 @@ def actions(s: State):
     # ---- Seal: only the openEpoch may be sealed; both CONTENT and EMPTY are sealable. ----
     if oe < n and s.status[oe] in DECIDED:
         # honest owner seal, or permissionless recovery seal (force-resolve). Both advance.
+        # A late seal does NOT erase a matured certificate: certs are sticky (I2).
         new_status = list(s.status); new_status[oe] = SEALED
-        ns = replace(s, status=tuple(new_status))
+        certs = s.settled_certs
+        if MUTANT == "seal_erases_cert":
+            certs = frozenset(c for c in certs if c[1] != oe)   # BUG: seal destroys evidence
+        ns = replace(s, status=tuple(new_status), settled_certs=certs)
         ns = replace(ns, openEpoch=recompute_open(ns.status))
         ns = _enter_modes(ns)
         out.append((f"seal(e{oe})", ns))
-        # A CONTENT openEpoch whose owner withholds the seal: permissionless force-resolve
-        # (same effect, different actor) -- modelled by the same seal action; adversary choice
-        # to *not* seal is captured by exploring the state where seal is simply not taken.
+        # The adversary's choice to *withhold* the seal is captured by exploring the state
+        # where seal is simply not taken; the resulting missed deadline materializes a
+        # certificate inside the next tick (see above).
 
-    # ---- Missed-seal fault: a DECIDED openEpoch that the owner leaves unsealed while the
-    #      clock advances -> liveness certificate; still sealable by anyone (force-resolve). ----
-    if oe < n and s.status[oe] == CONTENT and s.owner[oe] is not None and s.clock > oe:
-        owner = s.owner[oe]
-        cert = (owner, oe, "SEAL")
-        if cert not in s.settled_certs:
-            ns = replace(s, settled_certs=s.settled_certs | {cert})
-            out.append((f"miss_seal(e{oe},T{owner})", ns))
-
-    # ---- H_cancel disaster: a CONTENT openEpoch stuck while lag exceeds K (data-loss floor).
-    #      Re-resolves to CANCELLED (== sealed-empty) and advances. Permissionless. ----
-    if oe < n and s.status[oe] == CONTENT and lag(s) > K:
+    # ---- Close a VOIDed openEpoch as CANCELLED (permissionless, always enabled):
+    #      the deferred, in-order closure step of the 6.7 cascade. ----
+    if oe < n and s.status[oe] == VOID:
         new_status = list(s.status); new_status[oe] = CANCELLED
         ns = replace(s, status=tuple(new_status))
         ns = replace(ns, openEpoch=recompute_open(ns.status))
         ns = _enter_modes(ns)
-        out.append((f"cancel(e{oe})", ns))
+        out.append((f"close_void(e{oe})", ns))
+
+    # ---- H_cancel disaster: a CONTENT openEpoch stuck while lag exceeds K (data-loss floor).
+    #      Re-resolves to CANCELLED (== sealed-empty) and advances. Permissionless.
+    #      Cascade (6.7): every committed-CONTENT unsealed descendant chained to it is
+    #      VOIDed in the same deterministic step (its commitment referenced a lineage that
+    #      no longer exists); forced snapshots of all cancelled/voided epochs re-queue at
+    #      the front (earliest still-SEQ epoch); the cancellation-causing tenure is charged
+    #      (an additional CANCEL-class certificate, beyond any earlier SEAL cert). ----
+    if oe < n and s.status[oe] == CONTENT and lag(s) > K:
+        new_status = list(s.status); new_status[oe] = CANCELLED
+        new_cgen = list(s.cgen)
+        cascaded = []
+        if MUTANT != "no_cascade":
+            for e2 in range(oe + 1, n):
+                if new_status[e2] == CONTENT:
+                    new_status[e2] = VOID   # commitment voided; closes (in order) as CANCELLED
+                    cascaded.append(e2)
+        # forced re-queue: collect flags from the cancelled epoch and every voided epoch,
+        # move them to the earliest epoch that is still SEQ (design: "re-queue at the
+        # front", data intact). If no SEQ epoch remains inside the bounded horizon the
+        # flags stay in place (documented horizon artifact; CANCELLED/VOID epochs are not
+        # subject to I6, which constrains only EMPTY resolutions).
+        new_forced = list(s.forced)
+        carry = False
+        for e2 in [oe] + cascaded:
+            if new_forced[e2]:
+                carry = True
+        if carry:
+            target = next((e2 for e2 in range(n) if new_status[e2] == SEQ), None)
+            if target is not None:
+                for e2 in [oe] + cascaded:
+                    new_forced[e2] = False
+                new_forced[target] = True
+        certs = s.settled_certs
+        if s.owner[oe] is not None:
+            certs = certs | {(s.owner[oe], oe, "CANCEL")}   # charge the causing tenure (6.7)
+        ns = replace(s, status=tuple(new_status), forced=tuple(new_forced),
+                     settled_certs=certs, gen=s.gen + 1, cgen=tuple(new_cgen))
+        ns = replace(ns, openEpoch=recompute_open(ns.status))
+        ns = _enter_modes(ns)
+        out.append((f"cancel(e{oe},cascade={len(cascaded)})", ns))
 
     # ---- Debit a settled certificate (objective slash execution). One-shot per logical id. ----
     for cert in sorted(s.settled_certs):
         owner, e, cls = cert
         lid = (owner, e, cls)   # stable logical fault id
         if lid in s.consumed:
+            if MUTANT == "double_debit":
+                # BUG: re-execute a consumed debit (reserve decremented again, no new id)
+                new_res = list(s.reserve)
+                new_res[owner] = max(0, new_res[owner] - L_LIVE)
+                ns = replace(s, reserve=tuple(new_res))
+                out.append((f"REDEBIT({cls},T{owner},e{e})", ns))
             continue
         if owner in s.withdrawn:
             # withdrawn tenures have no reserve to debit; skip (should be impossible if gated)
@@ -272,7 +371,7 @@ def actions(s: State):
             if new_owner[e] == owner and s.status[e] == SEQ:
                 new_owner[e] = successor
                 # The duty legitimately transfers: the successor becomes the acting,
-                # accountable owner for this still-SEQ epoch (design §4). Update the
+                # accountable owner for this still-SEQ epoch (design section 4). Update the
                 # assignment record so no-frame is checked against the acting owner.
                 new_assigned[e] = successor
                 changed = True
@@ -282,10 +381,12 @@ def actions(s: State):
             out.append((lbl, ns))
 
     # ---- Withdrawal: a tenure with NO unresolved liability may withdraw (state-gated).
-    #      Only the LEGAL (gated) transition is in the design's transition relation; the
-    #      checker then proves the gate is *sufficient* (INV_WITHDRAW_GATED can never fire
-    #      over legal runs). Modelling an ungated withdraw would test the checker, not the
-    #      design, so it is deliberately omitted. ----
+    #      I2: the gate reads the *computed matured set* -- and because certificates are
+    #      materialized deterministically (tick/cancel/miss_commit) and sticky, the
+    #      settled_certs set IS the matured set here; a matured-but-undebited fault or an
+    #      unsealed owned epoch closes the gate. Only the LEGAL (gated) transition is in
+    #      the design's transition relation; the checker then proves the gate is
+    #      *sufficient* (INV_WITHDRAW_GATED can never fire over legal runs). ----
     for t in range(NTENURES):
         if t in s.withdrawn:
             continue
@@ -310,11 +411,11 @@ def _pick_successor(s: State, terminating_owner: int) -> Optional[int]:
 
 
 def _withdraw_gate_open(s: State, t: int) -> bool:
-    # zero unresolved certificates for t
+    # zero unresolved certificates for t (settled_certs is the computed matured set -- I2)
     for (owner, e, cls) in s.settled_certs:
         if owner == t and (owner, e, cls) not in s.consumed:
             return False
-    # no unsealed epoch still assigned to (currently owned by) t
+    # no unsealed epoch still assigned to (currently owned by) t -- VOID included
     for e in range(NEPOCHS):
         if s.owner[e] == t and s.status[e] not in CLOSED:
             return False
@@ -358,9 +459,9 @@ def inv_seal_immutable(s: State, hist_closed: dict):
     return None
 
 
-def inv_open_monotone(s: State, prev_open: Optional[int]):
-    if prev_open is not None and s.openEpoch < prev_open:
-        return f"openEpoch went backwards {prev_open}->{s.openEpoch}"
+def inv_open_monotone(s: State):
+    # state-level consistency: openEpoch always equals the lowest non-closed epoch.
+    # (Monotonicity across transitions is checked by the EDGE invariant below.)
     if s.openEpoch != recompute_open(s.status):
         return f"openEpoch {s.openEpoch} != recomputed {recompute_open(s.status)}"
     return None
@@ -393,16 +494,22 @@ def inv_bond_nonneg(s: State):
     return None
 
 
-def inv_no_double_debit(s: State):
-    # structural: consumed is a set, so no id twice; also every consumed id must have
-    # corresponded to a settled cert at some point (we can't easily check history here,
-    # but we ensure consumed subset of all-ever-settled via the settled set monotonicity
-    # enforced by construction). Return OK.
+def inv_content_current_gen(s: State):
+    # 6.7 cascade correctness: every live CONTENT commitment must be of the current
+    # lineage generation -- a commitment made before an ancestor's cancellation must have
+    # been VOIDed by the cascade, never left CONTENT (and hence sealable).
+    for e in range(NEPOCHS):
+        if s.status[e] == CONTENT:
+            if s.cgen[e] != s.gen:
+                return (f"epoch {e} CONTENT of stale generation {s.cgen[e]} "
+                        f"(current {s.gen}): cascade failed to void it")
+        if s.status[e] == VOID and s.cgen[e] is None:
+            return f"epoch {e} VOID but never committed (bookkeeping)"
     return None
 
 
 def inv_no_frame(s: State):
-    # a settled liveness certificate must name the tenure that was ASSIGNED that epoch
+    # a settled certificate must name the tenure that was ASSIGNED that epoch
     # (never an honest successor). assigned[] is the immutable assignment record.
     for (owner, e, cls) in s.settled_certs:
         if s.assigned[e] is not None and owner != s.assigned[e]:
@@ -424,7 +531,70 @@ def inv_withdraw_gated(s: State):
 
 SAFETY_INVARIANTS_STATE = [
     inv_single_decision, inv_empty_not_forced, inv_bond_nonneg,
-    inv_no_double_debit, inv_no_frame, inv_withdraw_gated, inv_closed_is_prefix,
+    inv_content_current_gen, inv_no_frame, inv_withdraw_gated, inv_closed_is_prefix,
+    inv_open_monotone,
+]
+
+
+# ---------------------------------------------------------------------------
+# Edge (transition) invariants: checked on every (state, action, successor).
+# ---------------------------------------------------------------------------
+def edge_open_monotone(s: State, ns: State, label: str):
+    # I3: openEpoch never decreases across any transition.
+    if ns.openEpoch < s.openEpoch:
+        return f"openEpoch went backwards {s.openEpoch}->{ns.openEpoch} on {label}"
+    return None
+
+
+def edge_evidence_monotone(s: State, ns: State, label: str):
+    # I2: certificates are computed L1 facts -- once settled they can never disappear
+    # (a seal or any other action must not erase evidence), and a consumed (debited)
+    # fault id can never be un-consumed.
+    if not ns.settled_certs >= s.settled_certs:
+        gone = s.settled_certs - ns.settled_certs
+        return f"evidence erased on {label}: {sorted(gone)}"
+    if not ns.consumed >= s.consumed:
+        return f"consumed set shrank on {label}"
+    return None
+
+
+def edge_debit_conservation(s: State, ns: State, label: str):
+    # I2/section 8: a reserve may only decrease by consuming exactly one FRESH logical
+    # fault id (one-shot debit); no transition may decrement a reserve twice for the
+    # same id or without an id.
+    decreased = [t for t in range(NTENURES) if ns.reserve[t] < s.reserve[t]]
+    if not decreased:
+        return None
+    newly = ns.consumed - s.consumed
+    if len(decreased) > 1:
+        return f"multiple reserves decreased in one step on {label}"
+    if len(newly) != 1:
+        return (f"reserve of T{decreased[0]} decreased without exactly one freshly "
+                f"consumed fault id on {label} (double debit)")
+    (owner, e, cls) = next(iter(newly))
+    if owner != decreased[0]:
+        return f"debit of T{decreased[0]} consumed an id belonging to T{owner} on {label}"
+    if (owner, e, cls) in s.consumed:
+        return f"fault id {(owner, e, cls)} consumed twice on {label}"
+    return None
+
+
+def edge_maturity_materialized(s: State, ns: State, label: str):
+    # I2 as a transition property: a tick spent as a CONTENT-decided, owned openEpoch
+    # must materialize that owner's SEAL certificate in the successor state.
+    if not label.startswith("tick"):
+        return None
+    oe = s.openEpoch
+    if oe < NEPOCHS and s.status[oe] == CONTENT and s.owner[oe] is not None:
+        if (s.owner[oe], oe, "SEAL") not in ns.settled_certs:
+            return (f"missed seal deadline of e{oe} (T{s.owner[oe]}) not materialized "
+                    f"on {label}")
+    return None
+
+
+EDGE_INVARIANTS = [
+    edge_open_monotone, edge_evidence_monotone, edge_debit_conservation,
+    edge_maturity_materialized,
 ]
 
 
@@ -435,7 +605,6 @@ def explore(stop_on_violation=False):
     visited = {}                 # key -> id
     parent = {}                  # id -> (parent_id, action_label)
     states = []                  # id -> State
-    open_hist = {}               # id -> openEpoch history bound (prev) for monotonicity
     closed_hist = {}             # id -> dict(epoch->closed status) snapshot
     violations = []
 
@@ -463,7 +632,6 @@ def explore(stop_on_violation=False):
             q.append(i)
 
     # BFS
-    goal_reachable_from = set()   # states from which "all closed" is reachable (liveness OK)
     edges = {}                    # id -> list[(child_id, label)]
     terminal_all_closed = set()
     STATE_CAP = 4_000_000
@@ -480,18 +648,15 @@ def explore(stop_on_violation=False):
                   f"shrink bound).", file=sys.stderr)
             break
         s = states[i]
-        # safety checks
+        # safety checks (state invariants)
         for inv in SAFETY_INVARIANTS_STATE:
             msg = inv(s)
             if msg:
                 violations.append(("SAFETY", inv.__name__, i, msg))
-        # seal-immutability & monotonicity vs. this state's closed snapshot
+        # seal-immutability vs. this state's closed snapshot
         m = inv_seal_immutable(s, closed_hist[i])
         if m:
             violations.append(("SAFETY", "inv_seal_immutable", i, m))
-        m = inv_open_monotone(s, None)
-        if m:
-            violations.append(("SAFETY", "inv_open_monotone", i, m))
         if stop_on_violation and violations:
             return states, parent, edges, violations, [], set(), set()
 
@@ -501,6 +666,11 @@ def explore(stop_on_violation=False):
         succ = actions(s)
         edges[i] = []
         for label, ns in succ:
+            # edge (transition) invariants
+            for einv in EDGE_INVARIANTS:
+                msg = einv(s, ns, label)
+                if msg:
+                    violations.append(("SAFETY", einv.__name__, i, msg))
             # child's closed snapshot extends this one
             child_closed = dict(closed_hist[i])
             for e in range(NEPOCHS):
@@ -510,6 +680,8 @@ def explore(stop_on_violation=False):
             edges[i].append((j, label))
             if is_new:
                 q.append(j)
+        if stop_on_violation and violations:
+            return states, parent, edges, violations, [], set(), set()
 
     # Liveness / halt analysis: a state is "live" if some path reaches all-closed.
     # Compute backwards reachability of terminal_all_closed over edges.
@@ -528,7 +700,7 @@ def explore(stop_on_violation=False):
                 dq.append(i)
 
     # A halt (G5/I3 violation) = a reachable state that is NOT terminal-all-closed AND
-    # cannot reach all-closed AND is not itself blocked only by the wall-clock bound.
+    # cannot reach all-closed within the horizon.
     halts = []
     for i in range(len(states)):
         s = states[i]
@@ -536,14 +708,9 @@ def explore(stop_on_violation=False):
             continue
         if s.openEpoch >= NEPOCHS:
             continue
-        # If the only reason it can't progress is that clock<MAXCLOCK hasn't advanced and
-        # advancing would help, the state still counts as needing progress; but since we
-        # allow tick actions, inability to reach goal within the bound is a genuine halt
-        # candidate for the modelled horizon. Filter out states that are "stuck" purely
-        # because the bound truncates a still-progressing chain: a state has a live future
-        # iff any successor is in reachable_to_goal (already captured). So anything here is
-        # a real dead-end within the horizon.
-        # Distinguish: is there ANY enabled action at all?
+        # Anything here cannot reach full finalization within the modelled horizon.
+        # With MAXCLOCK >= NEPOCHS-1 these are genuine halt candidates; with a smaller
+        # horizon they may be bound artifacts (tail epochs undecidable) -- main() warns.
         has_succ = len(edges.get(i, [])) > 0
         halts.append((i, has_succ))
 
@@ -560,10 +727,14 @@ def trace(parent, states, i):
 
 
 MUTANTS = {
-    "double_decision":      "inv_single_decision",   # re-decide a decided epoch
-    "empty_despite_forced": "inv_empty_not_forced",  # empty resolution despite forced (I6)
-    "seal_out_of_order":    "inv_closed_is_prefix",   # seal a non-openEpoch
-    "ungated_withdraw":     "inv_withdraw_gated",     # withdraw despite liability
+    "double_decision":      "inv_single_decision",        # re-decide a decided epoch
+    "empty_despite_forced": "inv_empty_not_forced",       # empty resolution despite forced (I6)
+    "seal_out_of_order":    "inv_closed_is_prefix",       # seal a non-openEpoch
+    "ungated_withdraw":     "inv_withdraw_gated",         # withdraw despite liability
+    "no_cascade":           "inv_content_current_gen",    # cancel fails to void descendants (6.7)
+    "double_debit":         "edge_debit_conservation",    # re-execute a consumed debit
+    "seal_erases_cert":     "edge_evidence_monotone",     # seal destroys matured evidence (I2)
+    "no_materialize":       "edge_maturity_materialized", # missed deadline never computed (I2)
 }
 
 
@@ -597,14 +768,18 @@ def main():
     print(f"# v6 protocol state-machine model check")
     print(f"# params: NEPOCHS={NEPOCHS} MAXCLOCK={MAXCLOCK} K={K} NTENURES={NTENURES} "
           f"RESERVE0={RESERVE0}")
+    if MAXCLOCK < NEPOCHS - 1:
+        print(f"# WARNING: MAXCLOCK ({MAXCLOCK}) < NEPOCHS-1 ({NEPOCHS - 1}): tail epochs "
+              f"are undecidable within the horizon, so reported halts will include bound "
+              f"artifacts. Use MAXCLOCK >= NEPOCHS-1 for meaningful liveness results.")
     states, parent, edges, violations, halts, goals, live = explore()
     print(f"# reachable states explored: {len(states)}")
     print(f"# terminal (all epochs closed) states: {len(goals)}")
     print(f"# states from which all-closed is reachable (live): {len(live)}")
 
-    print("\n## SAFETY invariant violations")
+    print("\n## SAFETY invariant violations (state + edge)")
     if not violations:
-        print("  NONE - no reachable state violates any safety invariant.")
+        print("  NONE - no reachable state or transition violates any safety invariant.")
     else:
         # de-dup by (invariant, msg-shape)
         seen = set()
@@ -624,8 +799,6 @@ def main():
         print("  NONE - every reachable non-terminal state can still reach a fully-sealed "
               "chain (no permanent halt within the horizon).")
     else:
-        # A dead-end with NO successors and openEpoch<NEPOCHS and clock==MAXCLOCK is only
-        # a horizon artifact if progress needs clock>MAXCLOCK. Report both classes.
         genuine = [(i, hs) for (i, hs) in real_halts if hs]      # has successors but none live
         deadend = [(i, hs) for (i, hs) in real_halts if not hs]  # no successors at all
         print(f"  states unable to reach all-closed within horizon: {len(real_halts)}")
@@ -639,8 +812,9 @@ def main():
             for a, j in trace(parent, states, i):
                 print(f"      {a}")
 
-    # exit code
-    bad = bool(violations)
+    # exit code: halts fail the run exactly like safety violations do (G5/I3 is a
+    # headline property; automation must not treat a halting model as passing).
+    bad = bool(violations) or bool(halts)
     return 1 if bad else 0
 
 

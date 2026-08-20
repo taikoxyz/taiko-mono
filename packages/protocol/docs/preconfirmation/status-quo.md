@@ -368,11 +368,15 @@ initially. Verification against the code:
 - *The client reorg-reconciliation path already handles re-proposals.* Nodes re-derive every
   on-chain proposal and keep the preconf chain only if content matches — exactly the behavior a
   successor's faithful re-proposal needs.
-- *Proof-carrying proposals enable an all-L2 auction.* Because `prove()` (today) saves L2
-  checkpoints on L1, and proof-carrying proposals make finalization instant, an L1
-  `checkProposer` can verify "X is the winner for epoch N" via a Merkle proof against a
-  finalized L2 checkpoint. Auction, bonds, and slashing can then all live on L2 in TAIKO —
-  consistent with the brief — with the transition delay `q` absorbing the finalization lag.
+- *Proof-carrying proposals would even permit an all-L2 auction.* Because `prove()` (today)
+  saves L2 checkpoints on L1, and proof-carrying proposals make finalization instant, an L1
+  `checkProposer` could verify "X is the winner for epoch N" via a Merkle proof against a
+  finalized L2 checkpoint — so an auction/bond ledger hosted on L2 is *technically feasible*,
+  with the transition delay `q` absorbing the finalization lag. **Note:** this is a
+  feasibility observation only; the resolved decision (§6, and the redesign proposal §4) is
+  the opposite placement — the **auction and bond ledger live on L1**, and only the slashing
+  *conditions* are checked/proven on L2 — because the auction must keep operating even when
+  the L2 itself is degraded or halted, which an L2-hosted auction cannot guarantee.
 
 **Challenges the design must answer (to be treated in the proposal's game-theory section):**
 

@@ -618,12 +618,12 @@ alignment; automated bond scaling.
    drive it to zero at a duty-cycle cost (r4c-3; round-2 §13.1).
 2. **Maximum tenure duration** vs. accepted incumbency residual — the only complete
    censorship-resistance bound (r4c-9); interacts with §4's future-epoch-reservation gate.
-2. `K`, `K'`, `K_empty`, `H_cancel`, `D_anchor` calibration and threshold gaming.
-3. Bridge-liveness SLA under long forced-only-cadence runs.
-4. Recovery insurance pool sizing; indexed-rate caps.
-5. Censorship-corridor quantification against real builder-market data.
-6. Phase A→B objective criteria.
-7. Client migration sequencing.
+3. `K`, `K'`, `K_empty`, `H_cancel`, `D_anchor` calibration and threshold gaming.
+4. Bridge-liveness SLA under long forced-only-cadence runs.
+5. Recovery insurance pool sizing; indexed-rate caps.
+6. Censorship-corridor quantification against real builder-market data.
+7. Phase A→B objective criteria.
+8. Client migration sequencing.
 
 ---
 
