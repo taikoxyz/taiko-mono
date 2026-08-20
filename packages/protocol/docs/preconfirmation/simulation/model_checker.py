@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Exhaustive explicit-state model checker for the Taiko based-preconfirmation
-redesign (redesign-proposal.md, v8).
+redesign (redesign-proposal.md, v9).
 
 WHAT THIS IS
 ------------
-An abstract state machine of the v8 protocol and a bounded, exhaustive
+An abstract state machine of the v9 protocol and a bounded, exhaustive
 breadth-first exploration of *every* adversarial interleaving of actions.
 At every reachable state it checks a set of safety invariants (derived from
 the doc's I1-I9, the immutability corollary, and the no-frame / bounded-bond
@@ -55,6 +55,21 @@ the v7 atomic-anarchy action was removed again in v8 after the regression
 audit found it re-opened round-2 finding 6's empty-front-running horn):
 they resolve EMPTY or forced-only CONTENT like any unowned epoch.
 
+* v9 proving-outage mode (round-7 finding 3): the adversary may start and
+  end a PROVING OUTAGE at any time, any number of times -- and may simply
+  never end it. While the outage is active, NO proof-carrying seal is
+  possible (CONTENT seals are disabled); proof-free actions -- empty seals,
+  void closures, and the disaster cancellation -- remain available, exactly
+  as in the design (valid empty seals and cancellations are deterministic
+  proof-free resolutions, I7). The liveness question the checker then
+  answers is the one round 7 asked: even under an adversarially timed,
+  possibly-permanent proving outage, can the chain always still reach full
+  finalization? (Answer: yes -- the H_cancel floor is the designed exit.)
+  Fault maturation is NOT paused during the modelled outage (the design's
+  attested-freeze forgiveness, section 10.4 rung 3, is governance and out
+  of model), which is the conservative direction: strictly more adversarial
+  states are explored.
+
 The adversary is *maximally nondeterministic*: at every step it may pick any
 enabled action (honest or Byzantine) for any actor. Exhaustive BFS over this
 choice therefore covers all behaviours up to the epoch/clock bound.
@@ -82,13 +97,19 @@ MAXCLOCK = 4       # wall-clock epochs the environment may advance to
 K = 2              # global lag cap (recovery-only beyond this) -- design value 8, scaled
                    # down so recovery-only mode is reachable within tiny bounds; the
                    # recovery-exit threshold K' (design 4) scales to 0 here (_enter_modes)
-CANCEL_LAG = K     # lag at which the disaster cancellation becomes enabled. The design's
+CANCEL_LAG = 1     # lag at which the disaster cancellation becomes enabled. The design's
                    # H_cancel is a 10-day wall-clock horizon; the model deliberately
-                   # collapses it onto the lag cap so the disaster lane is reachable
-                   # within bounded horizons. This OVER-approximates cancellation
+                   # collapses it to a small lag so the disaster lane is reachable within
+                   # bounded horizons -- including CHAINS of cancellations (a permanent
+                   # proving outage over an all-forced backlog cancels through one epoch
+                   # per CANCEL_LAG+1 ticks, so the horizon must fit
+                   # NEPOCHS*(CANCEL_LAG+1); with CANCEL_LAG=K=2 those chains overran
+                   # MAXCLOCK and showed up as pure horizon artifacts in the
+                   # outage-robust liveness pass). This OVER-approximates cancellation
                    # availability: safety-conservative (the cascade is exercised more,
                    # not less), and the real H_cancel delay is a timing parameter argued
-                   # in the design doc, not checked here.
+                   # in the design doc, not checked here. Kept separate from K (round-6
+                   # finding W3).
 MUTANT = None      # set to a mutant name to deliberately break the design (self-test)
 NTENURES = 3       # distinct tenure identities (owners) available
 L_LIVE = 1         # liveness slash (abstract units)
@@ -137,11 +158,14 @@ class State:
     # cgen[e] = generation a CONTENT commitment was made against (None if not committed)
     gen: int
     cgen: tuple             # tuple[Optional[int]] len NEPOCHS
+    # v9: proving-outage flag (round-7 finding 3). While True, proof-carrying (CONTENT)
+    # seals are impossible; proof-free resolutions remain available.
+    outage: bool
 
     def key(self):
         return (self.status, self.owner, self.forced, self.decided_as, self.openEpoch,
                 self.clock, self.mode, self.reserve, self.settled_certs, self.consumed,
-                self.withdrawn, self.assigned, self.gen, self.cgen)
+                self.withdrawn, self.assigned, self.gen, self.cgen, self.outage)
 
 
 def initial_states():
@@ -187,6 +211,7 @@ def initial_states():
             assigned=owners,
             gen=0,
             cgen=tuple(None for _ in range(NEPOCHS)),
+            outage=False,
         )
         inits.append(st)
     return inits
@@ -229,6 +254,13 @@ def actions(s: State):
         ns = replace(s, clock=s.clock + 1, settled_certs=certs)
         ns = _enter_modes(ns)
         out.append((f"tick->{s.clock+1}", ns))
+
+    # ---- Environment: proving outage (v9, round-7 finding 3). The adversary may start or
+    #      end an outage at any time, any number of times -- or never end it. ----
+    if not s.outage:
+        out.append(("outage_start", replace(s, outage=True)))
+    else:
+        out.append(("outage_end", replace(s, outage=False)))
 
     # ---- Decision on an epoch that is still SEQ and is 'current' enough ----
     # An epoch may be decided once (single decision). We allow deciding any SEQ epoch
@@ -293,8 +325,14 @@ def actions(s: State):
                 ns = replace(ns, openEpoch=recompute_open(ns.status))
                 out.append((f"SEAL_OOO(e{e})", ns))
 
-    # ---- Seal: only the openEpoch may be sealed; both CONTENT and EMPTY are sealable. ----
-    if oe < n and s.status[oe] in DECIDED:
+    # ---- Seal: only the openEpoch may be sealed; both CONTENT and EMPTY are sealable.
+    #      v9: a CONTENT seal is proof-carrying and therefore IMPOSSIBLE during a proving
+    #      outage; the EMPTY seal is proof-free (I7) and stays available. ----
+    if MUTANT == "outage_blocks_empty":
+        sealable = not s.outage                                   # BUG: outage blocks everything
+    else:
+        sealable = (s.status[oe] == EMPTY) if (oe < n and s.outage) else True
+    if oe < n and s.status[oe] in DECIDED and sealable:
         # honest owner seal, or permissionless recovery seal (force-resolve). Both advance.
         # A late seal does NOT erase a matured certificate: certs are sticky (I2).
         new_status = list(s.status); new_status[oe] = SEALED
@@ -707,36 +745,48 @@ def explore(stop_on_violation=False):
         if stop_on_violation and violations:
             return states, parent, edges, violations, [], set(), set()
 
-    # Liveness / halt analysis: a state is "live" if some path reaches all-closed.
-    # Compute backwards reachability of terminal_all_closed over edges.
-    reachable_to_goal = set(terminal_all_closed)
-    # build reverse edges
-    rev = {i: [] for i in range(len(states))}
-    for i, lst in edges.items():
-        for (j, _l) in lst:
-            rev[j].append(i)
-    dq = deque(terminal_all_closed)
-    while dq:
-        j = dq.popleft()
-        for i in rev[j]:
-            if i not in reachable_to_goal:
-                reachable_to_goal.add(i)
-                dq.append(i)
+    # Liveness / halt analysis, two passes (v9):
+    #
+    # (1) STANDARD: a state is "live" if some path reaches all-closed.
+    # (2) OUTAGE-ROBUST (round-7 finding 3): the same, over the sub-relation that
+    #     EXCLUDES `outage_end` -- i.e. the goal must be reachable even if an active
+    #     proving outage never lifts. Without this pass, an exists-path analysis could
+    #     always "un-outage" its way to the goal, making the outage model vacuous:
+    #     the design's proof-free floor (empty seals, void closure, cancellation) is
+    #     exactly what this pass verifies.
+    def _backward(exclude_label=None):
+        rev = {i: [] for i in range(len(states))}
+        for i, lst in edges.items():
+            for (j, lbl) in lst:
+                if exclude_label is not None and lbl == exclude_label:
+                    continue
+                rev[j].append(i)
+        reach = set(terminal_all_closed)
+        dq = deque(terminal_all_closed)
+        while dq:
+            j = dq.popleft()
+            for i in rev[j]:
+                if i not in reach:
+                    reach.add(i)
+                    dq.append(i)
+        return reach
 
-    # A halt (G5/I3 violation) = a reachable state that is NOT terminal-all-closed AND
-    # cannot reach all-closed within the horizon.
+    reachable_to_goal = _backward()
+    robust_to_goal = _backward(exclude_label="outage_end")
+
+    # A halt (G5/I3 violation) = a reachable, non-terminal state that cannot reach
+    # all-closed -- in the standard relation, or (strictly stronger) in the
+    # never-un-outage relation. With MAXCLOCK >= NEPOCHS-1 these are genuine halt
+    # candidates; with a smaller horizon they may be bound artifacts -- main() warns.
     halts = []
     for i in range(len(states)):
         s = states[i]
-        if i in reachable_to_goal:
-            continue
         if s.openEpoch >= NEPOCHS:
             continue
-        # Anything here cannot reach full finalization within the modelled horizon.
-        # With MAXCLOCK >= NEPOCHS-1 these are genuine halt candidates; with a smaller
-        # horizon they may be bound artifacts (tail epochs undecidable) -- main() warns.
-        has_succ = len(edges.get(i, [])) > 0
-        halts.append((i, has_succ))
+        if i in reachable_to_goal and i in robust_to_goal:
+            continue
+        kind = "standard" if i not in reachable_to_goal else "outage-robust"
+        halts.append((i, len(edges.get(i, [])) > 0, kind))
 
     return states, parent, edges, violations, halts, terminal_all_closed, reachable_to_goal
 
@@ -759,6 +809,9 @@ MUTANTS = {
     "double_debit":         "edge_debit_conservation",    # re-execute a consumed debit
     "seal_erases_cert":     "edge_evidence_monotone",     # seal destroys matured evidence (I2)
     "no_materialize":       "edge_maturity_materialized", # missed deadline never computed (I2)
+    # v9: a liveness mutant -- if an outage wrongly blocked proof-FREE resolutions too,
+    # a permanent outage would be a permanent halt; the halt analysis must catch it.
+    "outage_blocks_empty":  "LIVENESS_HALT",
 }
 
 
@@ -771,6 +824,16 @@ def run_mutation_tests():
     all_caught = True
     for mut, expected_inv in MUTANTS.items():
         MUTANT = mut
+        if expected_inv == "LIVENESS_HALT":
+            # liveness mutant: the bug manifests as a permanent halt, so run the full
+            # exploration (no early exit) and require the halt analysis to fire.
+            _, _, _, _violations, halts, _, _ = explore()
+            ok = bool(halts)
+            all_caught &= ok
+            status = "CAUGHT" if ok else "!! MISSED !!"
+            print(f"  mutant '{mut}' -> expect a permanent halt: {status} "
+                  f"({len(halts)} halt state(s) found)")
+            continue
         _, _, _, violations, _, _, _ = explore(stop_on_violation=True)
         caught = {name for (_k, name, _i, _m) in violations}
         ok = expected_inv in caught
@@ -789,7 +852,7 @@ def main():
         return 0 if run_mutation_tests() else 1
     if len(sys.argv) >= 3:
         NEPOCHS = int(sys.argv[1]); MAXCLOCK = int(sys.argv[2])
-    print(f"# v8 protocol state-machine model check")
+    print(f"# v9 protocol state-machine model check")
     print(f"# params: NEPOCHS={NEPOCHS} MAXCLOCK={MAXCLOCK} K={K} NTENURES={NTENURES} "
           f"RESERVE0={RESERVE0}")
     if MAXCLOCK < NEPOCHS - 1:
@@ -817,22 +880,22 @@ def main():
                 print(f"      {a}")
         print(f"  total raw violations: {len(violations)} (distinct shapes: {len(seen)})")
 
-    print("\n## LIVENESS / halt-safety (G5 / I3)")
-    real_halts = [(i, hs) for (i, hs) in halts]
-    if not real_halts:
+    print("\n## LIVENESS / halt-safety (G5 / I3) — standard AND outage-robust")
+    if not halts:
         print("  NONE - every reachable non-terminal state can still reach a fully-sealed "
-              "chain (no permanent halt within the horizon).")
+              "chain, and can do so even if an active proving outage never lifts.")
     else:
-        genuine = [(i, hs) for (i, hs) in real_halts if hs]      # has successors but none live
-        deadend = [(i, hs) for (i, hs) in real_halts if not hs]  # no successors at all
-        print(f"  states unable to reach all-closed within horizon: {len(real_halts)}")
-        print(f"    - with enabled successors but no live continuation: {len(genuine)}")
+        std = [h for h in halts if h[2] == "standard"]
+        rob = [h for h in halts if h[2] == "outage-robust"]
+        deadend = [h for h in halts if not h[1]]
+        print(f"  states unable to reach all-closed within horizon: {len(halts)}")
+        print(f"    - standard (no path at all): {len(std)}")
+        print(f"    - outage-robust only (every path needs the outage to lift): {len(rob)}")
         print(f"    - true dead-ends (no enabled action): {len(deadend)}")
-        # show one representative genuine halt trace if any
-        for (i, hs) in (genuine[:1] + deadend[:1]):
+        for (i, hs, kind) in halts[:2]:
             s = states[i]
-            print(f"  representative: openEpoch={s.openEpoch} clock={s.clock} mode={s.mode} "
-                  f"status={s.status}")
+            print(f"  representative ({kind}): openEpoch={s.openEpoch} clock={s.clock} "
+                  f"mode={s.mode} outage={s.outage} status={s.status}")
             for a, j in trace(parent, states, i):
                 print(f"      {a}")
 

@@ -1,15 +1,16 @@
-# v8 Protocol — Exhaustive State-Machine Model-Checking Results
+# v9 Protocol — Exhaustive State-Machine Model-Checking Results
 
 **Artifact:** [`model_checker.py`](model_checker.py) — a self-contained Python explicit-state
-model checker for the [redesign proposal](../redesign-proposal.md) (v8).
+model checker for the [redesign proposal](../redesign-proposal.md) (v9).
 **Question asked:** *can the new design reach an invalid state?*
 **Answer (within the checked bounds and modelled configurations):** **No.** Across every
 explored bound the checker found **zero reachable states or transitions violating any safety
-invariant** and **zero permanent halts** (every reachable state can still drive the chain to
-full finalization). Exploration is exhaustive **from a curated set of initial configurations**
+invariant** and **zero permanent halts** — including under an **adversarial proving outage
+that never lifts** (v9): the chain can always still reach full finalization through the
+proof-free floor. Exploration is exhaustive **from a curated set of initial configurations**
 (see [How it works](#how-it-works)) — it covers every adversarial interleaving from those
 seeds, not every conceivable initial assignment. A mutation self-test confirms the invariants
-are not vacuous — each of eight deliberately-injected design bugs is caught by the invariant
+are not vacuous — each of nine deliberately-injected design bugs is caught by the check
 written to catch it.
 
 > Scope honesty up front: this is *bounded* model checking of an *abstraction*. It exhaustively
@@ -54,6 +55,21 @@ written to catch it.
 > at every bound — a determinism check confirming the revert changed exactly one action and
 > nothing else.
 >
+> **Revision note (v9 — round 7).** Round 7 argued the zero-halt result was conditional on an
+> assumption the design does not guarantee: that a prover with the data always exists. The
+> model now includes an **adversarial proving-outage mode**: the adversary may start/end an
+> outage at any time — or never end it — and while it is active **no proof-carrying (CONTENT)
+> seal is possible**; only the design's proof-free resolutions (empty seals, void closure,
+> disaster cancellation) remain. Liveness is now checked **twice**: the standard exists-path
+> pass, and an **outage-robust** pass over the sub-relation that excludes `outage_end` — i.e.
+> the goal must be reachable *even if the outage never lifts* (without this second pass the
+> outage model would be vacuous: an exists-path analysis can always "un-outage" its way out). A
+> ninth mutant (`outage_blocks_empty` — the outage wrongly blocking proof-free seals too) must
+> produce permanent halts and does. `CANCEL_LAG` was decoupled from `K` and set to 1 so
+> *chains* of cancellations (a permanent outage over an all-forced backlog cancels through one
+> epoch per `CANCEL_LAG+1` ticks) fit inside bounded horizons — with `CANCEL_LAG = K = 2` those
+> chains overran `MAXCLOCK` and appeared as pure horizon artifacts in the robust pass.
+>
 > **Revision note (round 6).** A follow-up review pass tightened four more things: (5) seal-duty
 > materialization now covers **explicit-empty outcomes too** — any owned, DECIDED `openEpoch`
 > (content *or* empty) that survives a tick unsealed settles the owner's SEAL certificate, with
@@ -96,7 +112,10 @@ legal action of any actor:
 - **promote** a terminated holder's successor (or drop to anarchy);
 - **withdraw** a bond (only through the state-gate, which reads the computed matured set);
 - **tick** the wall clock (which drives recovery-only mode via the lag cap `K` and materializes
-  matured seal faults).
+  matured seal faults);
+- **outage_start / outage_end** (v9): toggle the proving outage — while active, CONTENT seals
+  are impossible and only proof-free resolutions advance the chain; the adversary may leave the
+  outage on forever.
 
 Only *legal* (design-permitted) transitions are in the relation; the invariants then verify that
 the reachable set contains no bad state and no bad transition. (Injecting illegal transitions
@@ -108,13 +127,16 @@ below.)
 (abstract slash unit); `RESERVE0 = K + 2` per-tenure reserve at admission. Two design horizons
 are deliberately scaled/collapsed for bounded exploration: the lag cap **`K = 2`** (design
 value 8; the recovery-exit threshold `K'`, design 4, scales to `lag == 0` here), and
-**`CANCEL_LAG = K`** — the disaster cancellation enables at `lag > CANCEL_LAG` instead of the
-design's 10-day `H_cancel` wall-clock horizon, so the disaster lane is *reachable* within tiny
-bounds. This **over-approximates cancellation availability**: safety-conservative (the cascade
-is exercised strictly more, not less), while the real `H_cancel` delay is a timing parameter
-argued in the design doc, not checked here. The model also does not represent data
-unavailability as disabling the seal action — the cancellation lane is explored *in addition
-to* sealing, another over-approximation in the same safe direction.
+**`CANCEL_LAG = 1`** (decoupled from `K` — round-6 W3) — the disaster cancellation enables at
+`lag > CANCEL_LAG` instead of the design's 10-day `H_cancel` wall-clock horizon, so the
+disaster lane — including **chains** of cancellations under a permanent proving outage, which
+consume `CANCEL_LAG + 1` ticks per epoch — is *reachable* within tiny bounds. This
+**over-approximates cancellation availability**: safety-conservative (the cascade is exercised
+strictly more, not less), while the real `H_cancel` delay is a timing parameter argued in the
+design doc, not checked here. Prover unavailability is modelled explicitly (v9, the outage
+mode); *data* unavailability is not a separate concept — a data-loss epoch behaves like a
+permanently-unprovable one, and both exit through the same cancellation floor the outage-robust
+pass verifies.
 
 After the state graph is built, a backward reachability pass from the "all epochs sealed" terminal
 states identifies any reachable state that **cannot** reach full finalization — a permanent halt,
@@ -145,6 +167,7 @@ Edge invariants (at every transition):
 | `edge_debit_conservation` | I2, §8 | a reserve decreases only by consuming exactly one fresh logical fault id — no double-debit, no id-less debit, no cross-tenure debit |
 | `edge_maturity_materialized` | I2 | a tick spent as a DECIDED (content or explicit-empty), owned `openEpoch` must settle that owner's missed-seal certificate (unless its miss-commit LIVENESS certificate already stands) |
 | **liveness / halt-safety** | **G5, I3** | **from every reachable state, full finalization is still reachable** |
+| **outage-robust halt-safety** (v9) | **G5, I3, §10.4** | **full finalization is reachable even if an active proving outage never lifts** — checked over the sub-relation excluding `outage_end`, so the proof-free floor (empty seals, void closure, cancellation) carries the whole burden |
 
 ## Results
 
@@ -152,11 +175,15 @@ All runs below completed the **full exploration from the curated initial configu
 state-cap truncation) and reported `SAFETY: NONE` and `LIVENESS: NONE` (no halt), with exit
 code 0:
 
-| Bound (`NEPOCHS × MAXCLOCK`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts |
+| Bound (`NEPOCHS × MAXCLOCK`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts (standard / outage-robust) |
 | --- | ---: | ---: | :---: | :---: |
-| 3 × 4 (default) | 620,966 | 243,564 | 0 | 0 |
-| 3 × 5 | 1,025,874 | 490,157 | 0 | 0 |
-| 4 × 3 | 2,722,729 | 602,324 | 0 | 0 |
+| 3 × 4 (default) | 2,339,418 | 1,130,952 | 0 | 0 / 0 |
+| 3 × 5 | 3,659,594 | 2,075,820 | 0 | 0 / 0 |
+
+The v9 outage adversary roughly quadruples the state space (every configuration is explored
+with and without an active outage, at every point), so the `4 × 3` bound now exceeds the
+4,000,000-state cap; the outage-free `4 × 3` result stands from the v8 model (2,722,729 states,
+0 violations, 0 halts — bit-for-bit reproducible by removing the two outage actions).
 
 The completed runs span the structurally interesting depth: handovers, multi-tenure
 promotion chains, anarchy, forced-only epochs, recovery-only mode (lag `> K`), the data-loss
@@ -179,6 +206,7 @@ and the named invariant **must** catch it:
 | re-execute an already-consumed debit | `edge_debit_conservation` | **CAUGHT** |
 | a seal erases the epoch's matured certificate | `edge_evidence_monotone` (I2) | **CAUGHT** |
 | a missed seal deadline is never materialized | `edge_maturity_materialized` (I2) | **CAUGHT** |
+| a proving outage wrongly blocks proof-free seals too | outage-robust halt analysis (v9) | **CAUGHT** (hundreds of thousands of permanent-halt states appear) |
 
 `# mutation self-test: ALL BUGS CAUGHT (invariants have teeth)`
 
@@ -190,11 +218,13 @@ and the named invariant **must** catch it:
   never double-debits a bond, never erases matured evidence, never drives a reserve negative,
   never frames a successor for a predecessor's miss, and never lets a tenure withdraw with
   outstanding — poked *or unpoked* — liability.
-- **Halt-safety (G5 / I3) holds structurally**: in *all* states of every run, whatever the
-  adversary does — withhold commits, withhold seals, force anarchy, stack forced snapshots,
-  trigger recovery-only mode, cancel a stuck epoch mid-backlog — a permissionless action always
-  remains that eventually finalizes the open epoch. This is the property the reviews pushed
-  hardest on, and it survives exhaustive attack in the abstraction.
+- **Halt-safety (G5 / I3) holds structurally — now including proving outages**: in *all* states
+  of every run, whatever the adversary does — withhold commits, withhold seals, force anarchy,
+  stack forced snapshots, trigger recovery-only mode, cancel a stuck epoch mid-backlog, or
+  **switch off proving forever** — a permissionless action always remains that eventually
+  finalizes the open epoch, and in the outage case that path uses only proof-free resolutions
+  (empty seals, void closure, cancellation with forced re-queue and refunds). This is the
+  property the reviews pushed hardest on, and it survives exhaustive attack in the abstraction.
 - **The I2 withdrawal-gate claim is now checked, not assumed**: because certificates materialize
   deterministically at maturity and are sticky, the explored relation contains every
   seal-late-then-withdraw ordering — and the gate blocks all of them until the debit lands.

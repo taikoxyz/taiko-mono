@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Taiko Based Preconfirmation Redesign — Learning Deck (v8)</title>
+<title>Taiko Based Preconfirmation Redesign — Learning Deck (v9)</title>
 <style>
   :root{
     --pink:#E81899; --pink-soft:#fdf0f8; --ink:#191322; --mut:#6b6b78;
@@ -59,7 +59,7 @@
 <section class="slide titleslide">
   <div class="kicker">Taiko · Protocol Design · August 2026</div>
   <h1>Based Preconfirmation<br>Redesign</h1>
-  <p style="font-size:26px; margin-top:22px; color:var(--mut)">A perpetual auction with commit → publish → seal epochs<br>Design v8 — a learning deck</p>
+  <p style="font-size:26px; margin-top:22px; color:var(--mut)">A perpetual auction with commit → publish → seal epochs<br>Design v9 — a learning deck</p>
   <div style="margin-top:44px">
     <span class="pill">Anyone can win the sequencing seat</span>
     <span class="pill">Slashing from day one</span>
@@ -93,7 +93,7 @@
       </ul>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>2</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>2</span></div>
 </section>
 
 <!-- 3 ─ GOALS -->
@@ -109,7 +109,7 @@
     <tr><td class="num">G5</td><td><b>Explicit degradation endgames</b> — the chain keeps moving through every failure; in the permissionless phase anyone can end a degradation by outbidding the reserve floor.</td></tr>
   </table>
   <p class="small mut" style="margin-top:18px">G5 is a <i>liveness</i> guarantee, not a user-fund-safety guarantee: an L1 reorg deeper than the grace κ can revert L2 state exactly as on any rollup.</p>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>3</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>3</span></div>
 </section>
 
 <!-- 4 ─ BIG PICTURE -->
@@ -167,7 +167,7 @@
     <line x1="1010" y1="170" x2="1010" y2="292" stroke="#E81899" stroke-width="2" marker-end="url(#ar)"/>
   </svg>
   <p class="small mut">One seat at a time; one open epoch at a time; every promise backed by bond; every outcome provable by anyone from L1 data.</p>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>4</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>4</span></div>
 </section>
 
 <!-- 5 ─ ROLES -->
@@ -197,7 +197,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>5</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>5</span></div>
 </section>
 
 <!-- 6 ─ AUCTION -->
@@ -211,7 +211,7 @@
         <li>A bid = <b>TAIKO liveness bond</b> + <b>ETH deposit</b> + <b>per-epoch ETH fee</b> paid to the treasury; a new bid must beat the incumbent by <b>≥ 10%</b>. The ETH lives in <b>one account with a seniority waterfall</b>: recovery tranche → safety tranche → working tranche, under a single admission solvency check.</li>
         <li>Every transition is delayed by <span class="mono">q = 2</span> epochs — the current and next epochs are always final, so handovers are never a surprise.</li>
         <li>Exits are never free: quitting gives <span class="mono">q</span> epochs of notice; <b>idling pays exactly what quitting would</b> (the fee clock keeps running), so going dark is never the cheaper exit.</li>
-        <li>Termination on: a settled fault, bond below reservation, or <span class="mono">K_empty = 16</span> consecutive epochs serving nobody but yourself.</li>
+        <li>Termination on: a settled fault, bond below reservation, or <span class="mono">K_empty = 16</span> idle epochs — and every tenure <b>expires after at most T_max</b> (weeks-scale) and re-auctions: the one idleness/censorship bound no Sybil can reset (v9).</li>
       </ul>
     </div>
     <div class="col" style="flex:0.85">
@@ -225,7 +225,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>6</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>6</span></div>
 </section>
 
 <!-- 7 ─ SPLIT BOND -->
@@ -252,7 +252,7 @@
       </ul>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>7</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>7</span></div>
 </section>
 
 <!-- 8 ─ TIMELINE -->
@@ -295,7 +295,7 @@
     <text x="80" y="309" font-size="15.5" fill="#191322">While epoch N settles, epoch N+1 is already sequencing: its first ~7 slots are <tspan font-weight="bold">soft</tspan> preconfs (parent-provisional),</text>
     <text x="80" y="330" font-size="15.5" fill="#191322">upgrading to <tspan font-weight="bold">hard</tspan> (bond-backed) the moment N's outcome is final. Proving latency (~10–15 min zkVM) fits well inside the 4-epoch seal deadline.</text>
   </svg>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>8</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>8</span></div>
 </section>
 
 <!-- 9 ─ COMMIT -->
@@ -320,7 +320,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>9</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>9</span></div>
 </section>
 
 <!-- 10 ─ PUBLISH -->
@@ -330,9 +330,9 @@
   <div class="cols">
     <div class="col">
       <ul>
-        <li>There is <b>no separate publication deadline</b>: the holder streams its blob data to L1 <i>during its own epoch</i>, and the EBC is valid <b>only if the data it references is already there</b>.</li>
+        <li>There is <b>no separate publication deadline</b>: the holder streams its blob data to L1 <i>during its own epoch</i>, and the EBC is valid <b>only if every referenced byte is on L1 at the single decision</b> (+7 slots) — first inclusions and re-posts alike (v9).</li>
         <li>So content-or-empty is a <b>single decision, 7 slots after the epoch</b> — not a second judgment ~27 slots later.</li>
-        <li>The κ grace exists for exactly one thing: if a referenced slice was reorged out, <b>anyone</b> may re-post the byte-identical slice. Nothing new can ever be introduced.</li>
+        <li>"Nothing new" means nothing outside the EBC's committed hashes — a delayed slice still lands validly after the boundary, from <b>any</b> data holder (P2P spreads them during the epoch).</li>
         <li>If a third party fills a slice the holder failed to keep available, the filler earns a reward — <b>funded by the failing holder</b>, paid to a pre-registered beneficiary. No fault, no reward, no honest party to front-run.</li>
       </ul>
     </div>
@@ -347,7 +347,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>10</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>10</span></div>
 </section>
 
 <!-- 11 ─ SEAL -->
@@ -374,7 +374,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>11</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>11</span></div>
 </section>
 
 <!-- 12 ─ USER VIEW -->
@@ -389,7 +389,7 @@
     <tr><td><b>At the seal</b></td><td>Proven, finalized L2 state on L1.</td><td>Validity proof</td></tr>
   </table>
   <p style="margin-top:20px" class="small mut">Force-included transactions ride the same rails: once snapshotted, an epoch's minimum valid outcome <i>includes them</i> — an empty resolution is simply invalid while the forced queue is non-empty (I6).</p>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>12</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>12</span></div>
 </section>
 
 <!-- 13 ─ INVARIANTS -->
@@ -416,7 +416,7 @@
       </ul>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>13</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>13</span></div>
 </section>
 
 <!-- 14 ─ STATE MACHINE -->
@@ -459,7 +459,7 @@
   </svg>
   <p style="margin-top:2px">The decision (7 slots) picks CONTENT or EMPTY <b>once</b>; seals close epochs <b>strictly in openEpoch order</b>; sealed state is untouchable, forever.</p>
   <p class="small mut" style="margin-top:8px">The disaster path is the only exception route: cancelling a stuck epoch marks every unsealed descendant commitment that chained to it VOID (each then closes as cancelled, in order), re-queues their forced items at the front, and bills the tenure that caused it — sealed history is never touched.</p>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>14</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>14</span></div>
 </section>
 
 <!-- 15 ─ FORCED INCLUSION -->
@@ -481,12 +481,12 @@
         <p style="margin-top:8px">Every forced item advances <span class="mono small">queued → snapshotted → consumed | refunded</span> on L1, with its payer stored at enqueue time. Seal proofs take the item's status as a public input; a refund atomically kills every live commitment containing the item. Refund <i>and</i> execution can never both happen.</p>
       </div>
       <div class="card" style="margin-top:16px">
-        <h3>Sybil-proof accounting</h3>
-        <p style="margin-top:8px">Self-inclusions don't reset the idle counter (<span class="mono">K_empty</span> counts epochs with no genuine third-party content), forced-only fee income per tenure is capped, and a holder sealing its own epochs earns no recovery bounty. Squatting has no profit path.</p>
+        <h3>Honest accounting (v9)</h3>
+        <p style="margin-top:8px">No chain can detect Sybil "demand", so <span class="mono">K_empty</span> is only a nuisance bound against lazy idlers — the binding bound is <span class="mono">T_max</span> tenure expiry. Forced-only fee income per tenure is capped, and a holder sealing its own epochs earns no recovery bounty. Squatting has no profit path and a hard clock.</p>
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>15</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>15</span></div>
 </section>
 
 <!-- 16 ─ FAULTS -->
@@ -513,7 +513,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>16</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>16</span></div>
 </section>
 
 <!-- 17 ─ HANDOVER -->
@@ -541,7 +541,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>17</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>17</span></div>
 </section>
 
 <!-- 18 ─ LADDER -->
@@ -561,7 +561,7 @@
     <p style="margin-top:6px; font-size:17px">A global pause of maturation + withdrawals requires an independent attestation of a genuine proof-system outage — never openEpoch age alone. Forgiveness never covers whoever drove the stall.</p>
   </div>
   <p class="small mut">Absolute floor: H_cancel (10 days, data genuinely unavailable) — the epoch re-resolves forced-only/empty, unsealed descendants re-resolve deterministically, and the causing tenure pays for the whole cascade. Sealed history is never touched.</p>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>18</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>18</span></div>
 </section>
 
 <!-- 19 ─ ANARCHY -->
@@ -588,7 +588,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>19</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>19</span></div>
 </section>
 
 <!-- 20 ─ GAME THEORY -->
@@ -598,7 +598,7 @@
   <table class="small">
     <tr><th style="width:300px">Attack</th><th>Why it fails</th></tr>
     <tr><td><b>Preconf equivocation / MEV theft</b></td><td>ETH safety bond sized above per-epoch extractable MEV; value fixed from tenure start — no oracle, no shorting window, no price-crash discount.</td></tr>
-    <tr><td><b>Squat the seat, serve nobody</b></td><td>Idling pays quit-equivalent fees; <span class="mono">K_empty</span> terminates; self-traffic doesn't reset the counter; forced-only income capped.</td></tr>
+    <tr><td><b>Squat the seat, serve nobody</b></td><td>Idling pays quit-equivalent fees; <span class="mono">K_empty</span> nuisance-terminates; <span class="mono">T_max</span> expiry evicts even a perfect Sybil (v9); forced-only income capped.</td></tr>
     <tr><td><b>Withhold the seal, hold users hostage</b></td><td>Data is already on L1; the deadline's matured fault lets anyone seal at the faulter's expense. A stall buys ~minutes, and costs a slash.</td></tr>
     <tr><td><b>Censor the poke, then exit</b></td><td>Liability is computed at read time — withdrawal itself materializes the fault (I2).</td></tr>
     <tr><td><b>Front-run proofs / pokes / fills</b></td><td>Payees are precommitted (proof public inputs, pre-registrations) — copying a witness pays the original beneficiary (I8).</td></tr>
@@ -606,7 +606,7 @@
     <tr><td><b>Publish a long tail, then cancel it</b></td><td>Recovery-only mode caps the unsealed content tail at ≈ K+d+s epochs (~77 min) — a 14-day cancellation avalanche cannot exist.</td></tr>
   </table>
   <p class="small mut" style="margin-top:14px">Stated residuals: sub-H_force targeted censorship can cost an honest holder one liveness slash (priced unprofitable); TAIKO-price erosion weakens only griefing deterrence; K_empty bounds self-serving, but a complete censorship bound awaits the max-tenure-duration decision.</p>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>20</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>20</span></div>
 </section>
 
 <!-- 21 ─ VERIFICATION -->
@@ -615,26 +615,25 @@
   <h2>How hard has this been attacked already?</h2>
   <div class="cols">
     <div class="col">
-      <div class="bigstat">10 passes</div>
-      <p class="mut" style="margin-top:6px; margin-bottom:18px">of adversarial review across 6 rounds (multiple independent AI reviewers), every finding accepted-or-rebutted in a public disposition table. An owner-approved simplification round (v7) was then <b>re-audited against every prior finding</b> — the one change that regressed an old fix was reverted (v8).</p>
-      <div class="bigstat">4.4 M states</div>
-      <p class="mut" style="margin-top:6px">explored by an exhaustive model checker of the epoch state machine across three bounds — <b>zero invariant violations, zero permanent halts</b>, with the adversary free to interleave every legal action.</p>
+      <div class="bigstat">11 passes</div>
+      <p class="mut" style="margin-top:6px; margin-bottom:18px">of adversarial review across 7 rounds (multiple independent AI reviewers), every finding accepted-or-rebutted in a public disposition table. An owner-approved simplification round (v7) was <b>re-audited against every prior finding</b> — the one change that regressed was reverted (v8) — and round 7's liveness blockers landed T_max, decision-time availability, and the outage-robust checker (v9).</p>
+      <div class="bigstat">6.0 M states</div>
+      <p class="mut" style="margin-top:6px">explored by an exhaustive model checker of the epoch state machine — <b>zero invariant violations, zero permanent halts, even under a proving outage that never lifts</b> (v9): the proof-free floor of empty seals and cancellation always finalizes the chain.</p>
     </div>
     <div class="col">
       <div class="card">
         <h3>The checker checks itself</h3>
-        <p style="margin-top:8px">8 deliberately-injected design bugs (double decision, ignore-forced, out-of-order seal, ungated withdrawal, missing cascade, double debit, evidence erasure, unmaterialized fault) — <b>8/8 caught</b> by the invariant written to catch each.</p>
+        <p style="margin-top:8px">9 deliberately-injected design bugs (double decision, ignore-forced, out-of-order seal, ungated withdrawal, missing cascade, double debit, evidence erasure, unmaterialized fault, outage-blocks-everything) — <b>9/9 caught</b> by the check written to catch each.</p>
       </div>
       <table class="small" style="margin-top:16px">
-        <tr><th>Bound</th><th class="r">States</th><th class="r">Violations</th><th class="r">Halts</th></tr>
-        <tr><td class="mono">3 × 4</td><td class="r">620,966</td><td class="r ok">0</td><td class="r ok">0</td></tr>
-        <tr><td class="mono">3 × 5</td><td class="r">1,025,874</td><td class="r ok">0</td><td class="r ok">0</td></tr>
-        <tr><td class="mono">4 × 3</td><td class="r">2,722,729</td><td class="r ok">0</td><td class="r ok">0</td></tr>
+        <tr><th>Bound (v9, outage adversary)</th><th class="r">States</th><th class="r">Violations</th><th class="r">Halts</th></tr>
+        <tr><td class="mono">3 × 4</td><td class="r">2,339,418</td><td class="r ok">0</td><td class="r ok">0 / 0</td></tr>
+        <tr><td class="mono">3 × 5</td><td class="r">3,659,594</td><td class="r ok">0</td><td class="r ok">0 / 0</td></tr>
       </table>
-      <p class="small mut" style="margin-top:10px">Bounded checking of a logical abstraction — strong evidence for the state machine, not a proof of the eventual Solidity.</p>
+      <p class="small mut" style="margin-top:10px">Halts column = standard / outage-robust passes. Bounded checking of a logical abstraction — strong evidence for the state machine, not a proof of the eventual Solidity.</p>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>21</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>21</span></div>
 </section>
 
 <!-- 22 ─ STATUS -->
@@ -647,7 +646,7 @@
       <ul class="small">
         <li>Deep-reorg (&gt; κ) joint-rewind semantics; cascade determinism proof.</li>
         <li>Consensus-exact parse caps across client and circuit; derivation-input sign-off (Appendix C).</li>
-        <li>Record-spine retention/compaction; recovery-tranche sizing; forced-item nullifier; verdict incarnation; precommitted-payee binding.</li>
+        <li>Record-spine retention/compaction; recovery-tranche sizing (incl. the cascade charge); forced-item nullifier; verdict incarnation; precommitted-payee binding; the T_max re-auction mechanism.</li>
       </ul>
       <h3 class="accent" style="margin:16px 0 12px">Tuning before Phase B (§13-T)</h3>
       <ul class="small">
@@ -671,7 +670,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v8</span><span>22</span></div>
+  <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>22</span></div>
 </section>
 
 </body>
