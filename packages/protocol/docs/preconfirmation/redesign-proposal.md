@@ -1,17 +1,23 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
 > **Deliverable 2 of the preconfirmation redesign effort. Draft v6, 2026-08-20** — revised after
-> adversarial review rounds 1–4 (round 4 comprised three independent passes)
-> ([r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
+> adversarial review rounds 1–6 (ten reviewer passes:
+> [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
 > [r3a MiniMax](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354204450),
 > [r3b DeepSeek](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354253289),
 > [r4a MiniMax](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354402375),
 > [r4b DeepSeek](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354409216),
-> [r4c multi-pass](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354577413));
-> dispositions in [Appendix B](#appendix-b--review-dispositions). Design only — mechanisms,
-> invariants, incentives, parameters. Baseline: [`status-quo.md`](status-quo.md); owner
-> decisions: its §6 and [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
+> [r4c multi-pass](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5354577413),
+> [r5a DeepSeek / r6 DeepSeek](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5355026969)
+> — the round-5a/6 bot edits its comment in place, so this anchor shows the latest round —
+> and r5b Codex, a [PR review](https://github.com/taikoxyz/taiko-mono/pull/22034#discussion_r3820964313);
+> rounds 5–6 reviewed the verification artifact and documentation consistency rather than the
+> mechanisms); dispositions in [Appendix B](#appendix-b--review-dispositions) and, for rounds
+> 5–6, in [`simulation/RESULTS.md`](simulation/RESULTS.md) and the PR thread. Design only —
+> mechanisms, invariants, incentives, parameters. Baseline: [`status-quo.md`](status-quo.md);
+> owner decisions: its §6 and
+> [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
 >
 > Prior art (post-whitelist URC design, post-Shasta slashing design, PR #22019) is consciously
 > not followed; #22019 is implementation reference only, per the redesign brief.
@@ -725,6 +731,17 @@ Rounds 1–2: see v2/v3 changelogs (all accepted; superseded details updated in 
 | 8 (med) | Orphan-fork verdict replay after consumed-set rewind | Accepted: verdicts bind a **finalized origin root + certificate incarnation**, not just the logical id, so a pre-reorg verdict fails post-reorg (§8, §13-S.11) |
 | 9 (med) | `K_empty` resettable with garbage or a self/no-op tx | Accepted: count **post-derivation, non-system, non-self** output; and stated honestly that a complete censorship bound needs a **max tenure duration** — a §13-T decision, not a claim `K_empty` alone suffices (§5.4, §13-T.2) |
 | 10 (med) | v4 not self-contained; stale v3 escrow / ETH-floor refs | Accepted: stale "escrowed recovery claims" and ETH-floor language removed/reconciled; funding is now the single senior-reserve waterfall (§7.3, §9) |
+
+**Rounds 5–6 (r5a DeepSeek, r5b Codex, r6 DeepSeek — links in the header):** these rounds
+attacked the **verification artifact** (`simulation/model_checker.py`) and documentation
+consistency rather than the mechanism design. All findings were accepted and fixed: real
+cross-transition invariant checking (monotone `openEpoch`, debit conservation), faithful
+modelling of the §6.7 cancellation cascade and of I2 read-time fault materialization for both
+content and explicit-empty seal duties, halt-failing exit codes, the explicit
+`CANCEL_LAG`/horizon abstraction note, exhaustiveness wording scoped to the curated initial
+configurations, and the round-count/deliverable-numbering reconciliation across the PR docs.
+Dispositions and re-run results: [`simulation/RESULTS.md`](simulation/RESULTS.md) (revision
+notes) and the PR thread replies.
 
 ## Appendix C — L2 header inputs and their sources
 

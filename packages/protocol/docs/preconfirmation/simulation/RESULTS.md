@@ -3,11 +3,14 @@
 **Artifact:** [`model_checker.py`](model_checker.py) — a self-contained Python explicit-state
 model checker for the [redesign proposal](../redesign-proposal.md) (v6).
 **Question asked:** *can the new design reach an invalid state?*
-**Answer (within the checked bounds):** **No.** Across every explored bound the checker found
-**zero reachable states or transitions violating any safety invariant** and **zero permanent
-halts** (every reachable state can still drive the chain to full finalization). A mutation
-self-test confirms the invariants are not vacuous — each of eight deliberately-injected design
-bugs is caught by the invariant written to catch it.
+**Answer (within the checked bounds and modelled configurations):** **No.** Across every
+explored bound the checker found **zero reachable states or transitions violating any safety
+invariant** and **zero permanent halts** (every reachable state can still drive the chain to
+full finalization). Exploration is exhaustive **from a curated set of initial configurations**
+(see [How it works](#how-it-works)) — it covers every adversarial interleaving from those
+seeds, not every conceivable initial assignment. A mutation self-test confirms the invariants
+are not vacuous — each of eight deliberately-injected design bugs is caught by the invariant
+written to catch it.
 
 > Scope honesty up front: this is *bounded* model checking of an *abstraction*. It exhaustively
 > explores every adversarial interleaving up to a finite number of epochs and wall-clock steps,
@@ -22,7 +25,7 @@ bugs is caught by the invariant written to catch it.
 > the first checker: (1) `openEpoch` monotonicity is now genuinely checked **across every
 > transition** (the first version only checked per-state consistency); (2) the double-debit
 > property is now a real transition invariant (`edge_debit_conservation`), not a structural
-> no-op; (3) the §6.7 **cancellation cascade is modelled** — cancelling the `openEpoch` VOIDs
+> no-op; (3) the §6.7 **cancellation cascade is modelled** — cancelling the `openEpoch` voids
 > every committed-CONTENT unsealed descendant (previously a stale descendant could seal
 > unchanged, a protocol-invalid continuation the model wrongly admitted); (4) **fault maturity
 > is materialized at read time (I2)** — a missed (tolled) seal deadline settles its certificate
@@ -30,6 +33,16 @@ bugs is caught by the invariant written to catch it.
 > seal-late-then-withdraw bypass the first model admitted is now structurally impossible, and
 > the withdrawal gate provably reads the computed matured set. The exit code now also fails on
 > liveness halts, not only safety violations.
+>
+> **Revision note (round 6).** A follow-up review pass tightened four more things: (5) seal-duty
+> materialization now covers **explicit-empty outcomes too** — any owned, DECIDED `openEpoch`
+> (content *or* empty) that survives a tick unsealed settles the owner's SEAL certificate, with
+> one carve-out: an epoch that resolved EMPTY through a *missed commit* already carries that
+> owner's LIVENESS certificate, and its closure is the recovery lane's job rather than a second
+> distinct fault; (6) the cancellation trigger is an explicit, documented abstraction
+> (`CANCEL_LAG`, below) rather than silently reusing the lag cap; (7) "exhaustive" is scoped
+> honestly to the curated initial configurations; (8) all model parameters are documented here
+> alongside the results.
 
 ---
 
@@ -48,8 +61,12 @@ legal action of any actor:
   certificate settled atomically with the EMPTY resolution);
 - **seal** the `openEpoch` (honest or permissionless force-resolve); *withholding* the seal is
   the path where seal is simply not taken — and a tick spent that way settles the owner's
-  missed-seal certificate deterministically (I2 read-time materialization, with tolling: only
-  time spent as the *openEpoch* counts, so a backlogged descendant is never blamed);
+  missed-seal certificate deterministically (I2 read-time materialization). This applies to
+  **both decided outcomes** — the proof-carrying content seal *and* the proof-free
+  explicit-empty/forced-only seal are the seat's duty — with tolling (only time spent as the
+  *openEpoch* counts, so a backlogged descendant is never blamed) and one carve-out (an epoch
+  EMPTY through a missed commit already carries that owner's LIVENESS certificate; closing it
+  is the recovery lane's job, not a second fault);
 - **cancel** a stuck CONTENT epoch past the data-loss horizon (`H_cancel`), which also
   **cascades**: every committed-CONTENT unsealed descendant is voided (§6.7), forced snapshots
   re-queue to the earliest still-SEQ epoch, and the causing tenure is charged an additional
@@ -65,6 +82,19 @@ Only *legal* (design-permitted) transitions are in the relation; the invariants 
 the reachable set contains no bad state and no bad transition. (Injecting illegal transitions
 would test the checker, not the design — so illegal moves appear only in the mutation self-test
 below.)
+
+**Model parameters** (documented so results are interpretable without reading the script):
+`NEPOCHS × MAXCLOCK` per the results table; `NTENURES = 3` tenure identities; `L_LIVE = 1`
+(abstract slash unit); `RESERVE0 = K + 2` per-tenure reserve at admission. Two design horizons
+are deliberately scaled/collapsed for bounded exploration: the lag cap **`K = 2`** (design
+value 8; the recovery-exit threshold `K'`, design 4, scales to `lag == 0` here), and
+**`CANCEL_LAG = K`** — the disaster cancellation enables at `lag > CANCEL_LAG` instead of the
+design's 10-day `H_cancel` wall-clock horizon, so the disaster lane is *reachable* within tiny
+bounds. This **over-approximates cancellation availability**: safety-conservative (the cascade
+is exercised strictly more, not less), while the real `H_cancel` delay is a timing parameter
+argued in the design doc, not checked here. The model also does not represent data
+unavailability as disabling the seal action — the cancellation lane is explored *in addition
+to* sealing, another over-approximation in the same safe direction.
 
 After the state graph is built, a backward reachability pass from the "all epochs sealed" terminal
 states identifies any reachable state that **cannot** reach full finalization — a permanent halt,
@@ -93,19 +123,20 @@ Edge invariants (at every transition):
 | `edge_open_monotone` | I3 | `openEpoch` never decreases across any transition |
 | `edge_evidence_monotone` | I2 | settled certificates and consumed ids never disappear — no action (a late seal included) can erase matured evidence |
 | `edge_debit_conservation` | I2, §8 | a reserve decreases only by consuming exactly one fresh logical fault id — no double-debit, no id-less debit, no cross-tenure debit |
-| `edge_maturity_materialized` | I2 | a tick spent as a CONTENT-decided, owned `openEpoch` must settle that owner's missed-seal certificate |
+| `edge_maturity_materialized` | I2 | a tick spent as a DECIDED (content or explicit-empty), owned `openEpoch` must settle that owner's missed-seal certificate (unless its miss-commit LIVENESS certificate already stands) |
 | **liveness / halt-safety** | **G5, I3** | **from every reachable state, full finalization is still reachable** |
 
 ## Results
 
-All runs below completed **fully exhaustively** (no state-cap truncation) and reported
-`SAFETY: NONE` and `LIVENESS: NONE` (no halt), with exit code 0:
+All runs below completed the **full exploration from the curated initial configurations** (no
+state-cap truncation) and reported `SAFETY: NONE` and `LIVENESS: NONE` (no halt), with exit
+code 0:
 
 | Bound (`NEPOCHS × MAXCLOCK`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts |
 | --- | ---: | ---: | :---: | :---: |
-| 3 × 4 (default) | 448,258 | 171,145 | 0 | 0 |
-| 3 × 5 | 727,284 | 339,789 | 0 | 0 |
-| 4 × 3 | 1,921,094 | 411,671 | 0 | 0 |
+| 3 × 4 (default) | 620,966 | 243,564 | 0 | 0 |
+| 3 × 5 | 1,025,874 | 490,157 | 0 | 0 |
+| 4 × 3 | 2,722,729 | 602,324 | 0 | 0 |
 
 The three completed runs span the structurally interesting depth: handovers, multi-tenure
 promotion chains, anarchy, forced-only epochs, recovery-only mode (lag `> K`), the data-loss

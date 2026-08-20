@@ -74,7 +74,16 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 NEPOCHS = 3        # number of epochs modelled (indices 0..NEPOCHS-1)
 MAXCLOCK = 4       # wall-clock epochs the environment may advance to
-K = 2              # global lag cap (recovery-only beyond this) -- small for tractability
+K = 2              # global lag cap (recovery-only beyond this) -- design value 8, scaled
+                   # down so recovery-only mode is reachable within tiny bounds; the
+                   # recovery-exit threshold K' (design 4) scales to 0 here (_enter_modes)
+CANCEL_LAG = K     # lag at which the disaster cancellation becomes enabled. The design's
+                   # H_cancel is a 10-day wall-clock horizon; the model deliberately
+                   # collapses it onto the lag cap so the disaster lane is reachable
+                   # within bounded horizons. This OVER-approximates cancellation
+                   # availability: safety-conservative (the cascade is exercised more,
+                   # not less), and the real H_cancel delay is a timing parameter argued
+                   # in the design doc, not checked here.
 MUTANT = None      # set to a mutant name to deliberately break the design (self-test)
 NTENURES = 3       # distinct tenure identities (owners) available
 L_LIVE = 1         # liveness slash (abstract units)
@@ -114,7 +123,10 @@ class State:
     settled_certs: frozenset
     consumed: frozenset     # frozenset of logical fault ids already debited
     withdrawn: frozenset    # tenures that have withdrawn their bond
-    # bookkeeping for no-frame: which tenure was assigned each epoch (immutable record)
+    # bookkeeping for no-frame: the ACTING assignment record -- which tenure currently
+    # holds each epoch's duty. Updated only when a duty legitimately transfers
+    # (promotion of still-SEQ epochs); the design's immutable tenure binding is the
+    # original assignment, which the model does not need separately.
     assigned: tuple         # tuple[Optional[int]] len NEPOCHS
     # cancellation-cascade lineage (6.7): global generation, bumped at each cancel;
     # cgen[e] = generation a CONTENT commitment was made against (None if not committed)
@@ -194,14 +206,19 @@ def actions(s: State):
     oe = s.openEpoch
 
     # ---- Environment: advance wall clock ----
-    # I2 read-time materialization: a tick spent as a CONTENT-decided, owned openEpoch
-    # without a seal is an objectively missed (tolled) seal deadline. The certificate is
-    # settled deterministically here -- it is a computed L1 fact, not a poke -- and, being
-    # part of `settled_certs`, it is sticky: a later seal cannot erase it, so the
-    # seal-then-withdraw bypass is structurally impossible.
+    # I2 read-time materialization: a tick spent as a DECIDED, owned openEpoch without a
+    # seal is an objectively missed (tolled) seal deadline -- the seat owes the seal for
+    # BOTH outcomes (proof-carrying content seal, and the proof-free explicit-empty /
+    # forced-only seal). The certificate is settled deterministically here -- it is a
+    # computed L1 fact, not a poke -- and, being part of `settled_certs`, it is sticky: a
+    # later seal cannot erase it, so the seal-then-withdraw bypass is structurally
+    # impossible. Carve-out: an epoch that resolved EMPTY through a missed commit already
+    # carries that owner's LIVENESS certificate; its closure is the recovery lane's job
+    # (paid from the faulter), not a second distinct fault.
     if s.clock < MAXCLOCK:
         certs = s.settled_certs
-        if oe < n and s.status[oe] == CONTENT and s.owner[oe] is not None:
+        if oe < n and s.status[oe] in DECIDED and s.owner[oe] is not None \
+                and (s.owner[oe], oe, "LIVENESS") not in s.settled_certs:
             if MUTANT != "no_materialize":
                 certs = certs | {(s.owner[oe], oe, "SEAL")}
         ns = replace(s, clock=s.clock + 1, settled_certs=certs)
@@ -303,7 +320,7 @@ def actions(s: State):
     #      no longer exists); forced snapshots of all cancelled/voided epochs re-queue at
     #      the front (earliest still-SEQ epoch); the cancellation-causing tenure is charged
     #      (an additional CANCEL-class certificate, beyond any earlier SEAL cert). ----
-    if oe < n and s.status[oe] == CONTENT and lag(s) > K:
+    if oe < n and s.status[oe] == CONTENT and lag(s) > CANCEL_LAG:
         new_status = list(s.status); new_status[oe] = CANCELLED
         new_cgen = list(s.cgen)
         cascaded = []
@@ -510,7 +527,7 @@ def inv_content_current_gen(s: State):
 
 def inv_no_frame(s: State):
     # a settled certificate must name the tenure that was ASSIGNED that epoch
-    # (never an honest successor). assigned[] is the immutable assignment record.
+    # (never an honest successor). assigned[] is the acting assignment record.
     for (owner, e, cls) in s.settled_certs:
         if s.assigned[e] is not None and owner != s.assigned[e]:
             return f"cert blames T{owner} for epoch {e} assigned to T{s.assigned[e]} (frame)"
@@ -580,12 +597,14 @@ def edge_debit_conservation(s: State, ns: State, label: str):
 
 
 def edge_maturity_materialized(s: State, ns: State, label: str):
-    # I2 as a transition property: a tick spent as a CONTENT-decided, owned openEpoch
-    # must materialize that owner's SEAL certificate in the successor state.
+    # I2 as a transition property: a tick spent as a DECIDED (content OR explicit-empty),
+    # owned openEpoch must materialize that owner's SEAL certificate in the successor
+    # state (unless the epoch already carries the owner's miss-commit LIVENESS cert).
     if not label.startswith("tick"):
         return None
     oe = s.openEpoch
-    if oe < NEPOCHS and s.status[oe] == CONTENT and s.owner[oe] is not None:
+    if oe < NEPOCHS and s.status[oe] in DECIDED and s.owner[oe] is not None \
+            and (s.owner[oe], oe, "LIVENESS") not in s.settled_certs:
         if (s.owner[oe], oe, "SEAL") not in ns.settled_certs:
             return (f"missed seal deadline of e{oe} (T{s.owner[oe]}) not materialized "
                     f"on {label}")
