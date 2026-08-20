@@ -271,9 +271,11 @@ driver's **preconf block server** (`driver/preconf_blocks/`):
   divergent preconf blocks, and the preconf server resets its unsafe-head watermark
   (`PreconfChainReorged`). L1 reorgs of the proposal itself roll the head L1 origin back.
 - **The only protocol-side handover datum the client consumes** is
-  `endOfSubmissionWindowTimestamp` from the `Proposed` event, which it passes into `anchorV4`.
-  The client enforces **no** anchor-recency or timestamp-vs-slot checks at preconf time — those
-  bite later, at derivation of the on-chain proposal.
+  `endOfSubmissionWindowTimestamp` from the `Proposed` event. Note the plumbing dead-end: the
+  driver threads it all the way into `AssembleAnchorV4Tx`, but the actual `anchorV4` contract
+  call only passes the checkpoint — **the deadline never reaches L2 state** (the missing piece
+  the slashing design needs). The client enforces **no** anchor-recency or timestamp-vs-slot
+  checks at preconf time — those bite later, at derivation of the on-chain proposal.
 - The Go proposer proposes from mempool content and gates on
   `GetPreconfWhiteListOperator() == own address`; in production the operator's own sequencing
   stack proposes the preconf'd blocks (outside this repo).
@@ -405,24 +407,25 @@ initially. Verification against the code:
    outgoing preconfer's final epochs). Client logic simplifies but must be rewritten around
    "sequencing epoch" vs. "proposal window" as distinct concepts.
 
-## 6. Open questions
+## 6. Open questions — resolved
 
-The following genuinely shape the design and are put to the project owner before drafting the
-proposal (the rest of the assessment proceeds on stated assumptions):
+The four design-shaping questions were put to the project owner (2026-08-20) and answered:
 
-1. **Auction pricing**: what does the winning bid actually pay — a per-epoch fee (in TAIKO,
-   burned? in ETH, to treasury?), or is the bid simply the bond size (highest bond wins, nothing
-   consumed)? This determines the auction's game theory more than any other choice.
-2. **Placement of auction + bonds**: all on L2 (L1 reads the winner via finalized-checkpoint
-   state proofs; maximally aligned with "all slashing on L2") vs. auction/bond on L1 with
-   L2-proven slash verdicts bridged up.
-3. **Fair-exchange scope**: out of scope for this redesign, or included (observer-attested
-   timeliness, target-block specification, or similar)?
-4. **Proof-gate failure policy**: halt-until-DAO-acts, or timeout-bypass, or hot-swappable key.
+1. **Auction pricing** → the winning bid is a **per-epoch fee in ETH, paid to the
+   treasury/DAO** (the TAIKO bond is a separate, slashable security deposit).
+2. **Placement of auction + bonds** → **auction and bond ledger live on L1**; slashing
+   *conditions* are checked/proven **on L2**, and the verdicts are bridged/proven up to L1
+   where the bond is seized.
+3. **Fair-exchange scope** → **out of scope for v1**. Rely on reputation and order-flow response
+   initially; the design keeps hooks (timestamped signed commitments) so timeliness enforcement
+   can be added later.
+4. **Proof gate** → **removed entirely**. Instead of a co-signature on proofs, the bootstrap
+   safety mechanism is a **temporary allowlist on auction participation**: only allowlisted
+   addresses can join the auction (and, during this phase, act in the permissionless fallback);
+   the allowlist is removed entirely once the proof system and protocol mature.
 
-Assumptions proceeding unless corrected: single standing seat (per-epoch granularity, winner
-persists across epochs until outbid/quit with delay `q·384 s`); initial parameters `d = 2`,
-`s = 1`, `q = 2` (revisited in the proposal); the whitelist contract is fully retired (no
-whitelist rung before Total Anarchy); Hoodi derivation constants raised to mainnet values;
-proofs in `propose()` are a single ZK proof plus the gate co-signature (multi-proof composition
-retired for proposals).
+Assumptions confirmed by silence (stated in the assessment and not corrected): single standing
+seat (per-epoch granularity, winner persists across epochs until outbid/quit with delay
+`q·384 s`); the `PreconfWhitelist` rotation contract is fully retired (the temporary bidder
+allowlist is a different, simpler object); Hoodi derivation constants raised toward mainnet
+values; initial `d`, `s`, `q` fixed in the proposal.
