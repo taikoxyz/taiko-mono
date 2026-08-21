@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.18.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.17.1...bridge-ui-v2.18.0) (2026-08-21)
+
+
+### Features
+
+* **bridge-ui:** check if retry failed is wrapped quota error ([#21905](https://github.com/taikoxyz/taiko-mono/issues/21905)) ([e91ad7f](https://github.com/taikoxyz/taiko-mono/commit/e91ad7f5fa6ab9f47d05921a8f4b8cefe54a59fe))
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix manual relayer fee estimation bug ([#21965](https://github.com/taikoxyz/taiko-mono/issues/21965)) ([ec4ed20](https://github.com/taikoxyz/taiko-mono/commit/ec4ed20796d4294dba06b9871ce622e5a15345bd))
+* **bridge-ui:** fix relayer claim path bug ([#21996](https://github.com/taikoxyz/taiko-mono/issues/21996)) ([8843a78](https://github.com/taikoxyz/taiko-mono/commit/8843a78d1a5a27fdca18744a8fb4ca224610f946))
+
+
+### Chores
+
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+
+
+### Code Refactoring
+
+* **bridge-ui:** add helper for formatting to replace raw string ingestion, schema validation ([#21653](https://github.com/taikoxyz/taiko-mono/issues/21653)) ([b9c5bb2](https://github.com/taikoxyz/taiko-mono/commit/b9c5bb2a2000dc2db94c9dc6e621591e01c1fe7b))
+
 ## [2.17.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.17.0...bridge-ui-v2.17.1) (2026-07-03)
 
 
