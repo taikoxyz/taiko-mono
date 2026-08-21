@@ -35,6 +35,7 @@ use super::{
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
     error::EngineSubmissionError,
+    is_historical_state_unavailable,
 };
 use crate::{
     config::DriverConfig,
@@ -1361,7 +1362,10 @@ impl EventSyncer {
 
     /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
     ///
-    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
+    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets), and when
+    /// the endpoint cannot serve state at the finalized block (non-archive nodes once L1
+    /// finality lags beyond their retained-state window): consumers then fall back to their
+    /// wider replay anchors instead of the finalized clamp.
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
         let finalized_block =
@@ -1380,7 +1384,7 @@ impl EventSyncer {
 
         let block_hash = finalized_block.header.hash;
         let block_number = finalized_block.header.number;
-        let core_state = self
+        let core_state = match self
             .rpc
             .shasta
             .inbox
@@ -1388,7 +1392,22 @@ impl EventSyncer {
             .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
             .call()
             .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        {
+            Ok(core_state) => core_state,
+            // A non-archive endpoint cannot serve state below its retained window once L1
+            // finality lags behind it; treat that as "no finalized snapshot" rather than a
+            // fatal stage error, mirroring the pre-finality case above.
+            Err(err) if is_historical_state_unavailable(&err.to_string()) => {
+                warn!(
+                    block_number,
+                    error = %err,
+                    "L1 endpoint cannot serve state at the finalized block; continuing \
+                     without a finalized snapshot"
+                );
+                return Ok(None);
+            }
+            Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+        };
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
         Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
@@ -2357,6 +2376,77 @@ mod tests {
         let err = check_orphaned_proposal_log(asserter, B256::from([13u8; 32]), Some(1))
             .await
             .expect_err("finalized lookup failure should be surfaced");
+
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
+    }
+
+    #[tokio::test]
+    async fn finalized_snapshot_resolves_block_and_finalized_safe_proposal_id() {
+        let asserter = Asserter::new();
+        let finalized_hash = B256::from([0x77u8; 32]);
+        asserter.push_success(&l1_block_at(100, finalized_hash, B256::ZERO));
+        asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(
+            &sample_core_state(9),
+        )));
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let snapshot = syncer
+            .try_finalized_l1_snapshot()
+            .await
+            .expect("finalized snapshot should resolve")
+            .expect("finalized block exists, so a snapshot must be produced");
+
+        assert_eq!(snapshot.block_number, 100);
+        assert_eq!(snapshot.block_hash, finalized_hash);
+        assert_eq!(snapshot.finalized_safe_proposal_id, 8);
+    }
+
+    #[tokio::test]
+    async fn finalized_snapshot_is_none_when_historical_state_unavailable() {
+        let asserter = Asserter::new();
+        // The finalized header resolves, but a non-archive path-scheme endpoint cannot serve
+        // state at that block once L1 finality lags beyond its ~128-block window; degrade to
+        // "no finalized snapshot" exactly like the pre-finality case instead of failing the
+        // event sync stage.
+        asserter.push_success(&l1_block_at(100, B256::from([0x77u8; 32]), B256::ZERO));
+        asserter.push_failure_msg("historical state 0xdeadbeef is not available");
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let snapshot = syncer
+            .try_finalized_l1_snapshot()
+            .await
+            .expect("historical-state error should degrade to no snapshot");
+
+        assert!(snapshot.is_none());
+    }
+
+    #[tokio::test]
+    async fn finalized_snapshot_is_none_before_first_l1_finality() {
+        let asserter = Asserter::new();
+        asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let snapshot =
+            syncer.try_finalized_l1_snapshot().await.expect("pre-finality lookup should not error");
+
+        assert!(snapshot.is_none());
+    }
+
+    #[tokio::test]
+    async fn finalized_snapshot_surfaces_unrelated_core_state_errors() {
+        let asserter = Asserter::new();
+        asserter.push_success(&l1_block_at(100, B256::from([0x77u8; 32]), B256::ZERO));
+        asserter.push_failure_msg("boom");
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let err = syncer
+            .try_finalized_l1_snapshot()
+            .await
+            .expect_err("unrelated core-state failures must stay fatal");
 
         assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
     }
