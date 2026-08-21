@@ -224,7 +224,7 @@
     <div class="stat good"><div class="value">Stronger</div><div class="label">Accountability, objective recovery, forced-inclusion liveness, and explicit invariants</div></div>
     <div class="stat risk"><div class="value">Riskier</div><div class="label">Implementation complexity, migration breadth, proof deadlines, and economic calibration</div></div>
     <div class="stat warn"><div class="value">Mixed</div><div class="label">Permissionless access improves, but sequencing control may become more concentrated</div></div>
-    <div class="stat accent"><div class="value">Conditional</div><div class="label">Good direction; not yet ready to replace the whitelist in one release</div></div>
+    <div class="stat risk"><div class="value">Not ready</div><div class="label">Mergeable design record, but not yet specific or closed enough for implementation</div></div>
   </section>
 
   <div class="callout verdict">
@@ -233,10 +233,16 @@
     <p><b>Recommendation:</b> accept PR #22034 as a strong design and decision record, but do not treat merge as authorization for a full replacement. Implement it incrementally behind a guarded Phase-A deployment, retain a tested whitelist rollback/fallback until the structural gates and empirical benchmarks close, and narrow several claims identified below before freezing the mechanism.</p>
   </div>
 
+  <div class="callout risk">
+    <p><b>Implementation-readiness status: NOT READY.</b> v9 is detailed enough to evaluate the direction, but an implementation team would still have to invent consensus-critical behavior, fund-safety rules, collateral bounds, and failure priorities. Two correct teams could implement materially different protocols from the current text.</p>
+    <p>The blocking work is stated explicitly in <a href="#implementation-ready">§2 · What is missing for implementation readiness</a>. This is separate from production readiness: closing the design blockers makes coding safe to begin; audits, benchmarks, testnet evidence, and operational diversity are later gates before replacing the whitelist.</p>
+  </div>
+
   <section class="panel">
     <h2 id="contents" class="anchor" style="margin-top:0">Contents</h2>
     <ol class="toc">
       <li><a href="#method">Method and baselines</a></li>
+      <li><a href="#implementation-ready">What is missing for implementation readiness</a></li>
       <li><a href="#matrix">Side-by-side comparison</a></li>
       <li><a href="#improvements">What v9 genuinely improves</a></li>
       <li><a href="#advantages-current">What the whitelist still does better</a></li>
@@ -275,7 +281,90 @@
   </div>
   <p class="small">This is a comparative design review, not a Solidity, prover, bridge, or client security audit. “High” findings below are high-priority design/readiness issues; they do not assert an exploitable bug in deployed code.</p>
 
-  <h2 id="matrix" class="anchor">2 · Side-by-side comparison</h2>
+  <h2 id="implementation-ready" class="anchor">2 · What is missing for implementation readiness</h2>
+  <div class="callout risk">
+    <p><b>Clear decision rule.</b> The design becomes <em>implementation-ready</em> only when it defines one deterministic protocol completely enough that contract, circuit, Go, and Rust teams do not need to make new mechanism or security-policy decisions. All seven blocker groups below must be closed in normative text and executable tests.</p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>#</th><th>Blocking workstream</th><th>What is missing today</th><th>Required closure before implementation</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="sev high">B1</span></td>
+          <td><b>Forced bridge-message terminal refund</b></td>
+          <td>A voided forced item can leave the source Bridge principal locked in <code>NEW</code>. Existing <code>recallMessage</code> requires proof of a destination-side <code>FAILED</code> signal, which an unsealed destination transaction never creates. Refunding only the forced-queue fee is not principal safety.</td>
+          <td>Specify a cross-chain terminal cancellation handshake bound to <code>msgHash</code>: canonical proof of <code>REFUNDED &amp;&amp; !CONSUMED</code> must unlock source recall and atomically make every later destination execution invalid. Model and test the double-spend exclusion.</td>
+        </tr>
+        <tr>
+          <td><span class="sev high">B2</span></td>
+          <td><b>Safety verdict latency, quarantine, and collateral</b></td>
+          <td><code>L_safety</code> covers one epoch, but equivocation evidence must travel through L2 proof, bridge, and L1 settlement before termination. The holder can retain already-assigned or new duties during that interval, so “evidence is provable” is not yet “exposure has stopped.”</td>
+          <td>Either quarantine the tenure and its assigned tail immediately on L1-verifiable conflicting signatures, or normatively bound evidence→L1-settlement latency and reserve <code>ceil(latency / E) × max per-epoch exposure</code>. Add assignment gates and multi-epoch equivocation tests.</td>
+        </tr>
+        <tr>
+          <td><span class="sev high">B3</span></td>
+          <td><b>EBC censorship and cartel recapture</b></td>
+          <td>The design prices the long blob-publication corridor, but content also depends on one recognizable EBC with only seven slots. Suppressing that cheaper mandatory artifact can force EMPTY, fault, termination, and standby promotion even while every blob remains available.</td>
+          <td>Model censorship cost as <code>min(C_EBC(7), C_slice(each span), C_seal(S))</code>; then lengthen or harden the EBC inclusion lane, or change fault/promotion attribution so seven-slot builder censorship is demonstrably more expensive than seat capture.</td>
+        </tr>
+        <tr>
+          <td><span class="sev high">B4</span></td>
+          <td><b>Cancellation and systemic-outage semantics</b></td>
+          <td>“No valid seal is possible” is not an observable L1 predicate; seal and cancel can overlap after <code>H_cancel</code>; and the same charge path covers holder-attributable loss and an honest holder caught in a protocol-wide proving outage.</td>
+          <td>Define an observable hard cutoff or attested branch, exact seal-vs-cancel priority, forced-item disposition, causal fault owner, compensation source, certificate forgiveness, and behavior when proof becomes available at the boundary. Honest tenures must not be charged for an attested systemic failure.</td>
+        </tr>
+        <tr>
+          <td><span class="sev high">B5</span></td>
+          <td><b>State-machine model validity</b></td>
+          <td>The checker admits late/out-of-order decisions, uses global lag instead of per-epoch tolled cancellation age, can declare success with unresolved forced work, and its outage mutation runs at a bound where the unmodified baseline already halts.</td>
+          <td>Encode an irreversible decision phase; track per-epoch <code>openAge</code> and causal tenure; require every forced item to reach <code>CONSUMED</code> or <code>REFUNDED</code> before the liveness goal; and require a clean baseline plus mutant-specific counterexample at every mutation-test bound.</td>
+        </tr>
+        <tr>
+          <td><span class="sev high">B6</span></td>
+          <td><b>One normative, internally consistent specification</b></td>
+          <td>The live artifacts disagree on whether first slice inclusion is valid through <code>D+κ</code> or <code>κ</code> is re-post-only, whether <code>H_cancel</code> covers only data loss or also permanent proving outage, and whether the residual pool is deposit-funded or fee-funded.</td>
+          <td>Choose one rule for each conflict, update proposal/table/deck/checker together, mark exactly which text is normative, and add consistency checks so client, circuit, and contract implementations cannot select different interpretations.</td>
+        </tr>
+        <tr>
+          <td><span class="sev high">B7</span></td>
+          <td><b>Executable Phase-A implementation specification</b></td>
+          <td>All fourteen §13-S items remain open, and v9 deliberately omits implementation details. Missing artifacts include exact contract interfaces/storage/events, proof public inputs, bridge verdict messages, client wire/state transitions, parameter formulas, record compaction, upgrade/migration, and rollback.</td>
+          <td>Close every §13-S item and publish a versioned implementation spec covering L1/L2 state machines, circuit/derivation rules, Go/Rust conformance vectors, economic formulas and bounds, governance transitions, deployment migration, emergency rollback, and security-test ownership.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top:0">Definition of done: implementation-ready</h3>
+    <ul>
+      <li><b>Every transition is mechanical:</b> actor, preconditions, clock, accepted inputs, priority against competing transitions, state writes, value movement, evidence, and reorg behavior are normative.</li>
+      <li><b>Funds always have one terminal state:</b> each ETH/TAIKO balance, recovery payment, forced fee, bridge principal, and refund is conserved and ends as paid, burned, consumed, or reclaimable—never merely “re-queued forever.”</li>
+      <li><b>Exposure is bounded by formulas:</b> safety and liveness reservations cover the stated worst case using explicit settlement-latency, backlog, gas/blob, and cascade bounds.</li>
+      <li><b>All implementations share test vectors:</b> Solidity, circuit, Go, and Rust agree byte-for-byte on derivation, deadlines, identities, degradation, forced lifecycle, evidence, and fork/reorg behavior.</li>
+      <li><b>The corrected model passes meaningful negatives:</b> clean baseline at every mutant bound, mutant-specific failures, exact timing/tolling, and no terminal state with unresolved forced or bridge work.</li>
+      <li><b>No contradictory source remains:</b> proposal, parameter table, learning deck, checker, results, and implementation spec state the same rules.</li>
+      <li><b>Migration is reversible:</b> storage/wiring changes, Phase-A activation, rollback to the whitelist, and Phase-A→B graduation have tested procedures and objective gates.</li>
+    </ul>
+  </div>
+
+  <h3>Still required later for production readiness</h3>
+  <p>These are not reasons to delay writing code once B1–B7 close, but they remain mandatory before the redesign becomes the sole production proposer path.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Evidence gate</th><th>Minimum evidence before replacing the whitelist</th></tr></thead>
+      <tbody>
+        <tr><td><b>Proof reliability</b></td><td>Independent prover diversity plus p50/p95/p99 and congestion/reorg retry latency comfortably inside <code>S=4</code>, including correlated outage drills.</td></tr>
+        <tr><td><b>L1 cost and storage</b></td><td>Measured normal/recovery gas, blob cost, record-spine growth, compaction cost, and worst-case costs at stressed base/blob fees.</td></tr>
+        <tr><td><b>Economic stress</b></td><td>Safety exposure, cheapest-fault re-entry, TAIKO drawdown, low-bid competition, recovery-cap spikes, cartel capture, and forced-fee affordability simulations.</td></tr>
+        <tr><td><b>Cross-stack conformance</b></td><td>End-to-end Solidity/circuit/Go/Rust vectors plus reorg, recovery, cancellation, anarchy, withdrawal, and bridge-refund integration tests.</td></tr>
+        <tr><td><b>Security assurance</b></td><td>Independent audits, formal properties for fund conservation and state transitions, fuzzing, model checking, and public issue closure.</td></tr>
+        <tr><td><b>Operational pilot</b></td><td>Shadow mode, bounded allowlisted Phase A, fault injection, incident response and rollback drills, objective Phase-B thresholds, and sustained incident-free runtime.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="matrix" class="anchor">3 · Side-by-side comparison</h2>
   <div class="scroll">
     <table>
       <thead><tr><th>Dimension</th><th>Current whitelist</th><th>v9 redesign</th><th>Honest advantage</th></tr></thead>
@@ -299,7 +388,7 @@
     </table>
   </div>
 
-  <h2 id="improvements" class="anchor">3 · What v9 genuinely improves</h2>
+  <h2 id="improvements" class="anchor">4 · What v9 genuinely improves</h2>
   <div class="grid steps">
     <div class="step"><div class="n">01 · TRUST</div><h3>Open-entry path</h3><p>Phase B removes both validator opt-in and the frozen URC dependency. This is a credible path beyond governance-selected operators.</p></div>
     <div class="step"><div class="n">02 · ACCOUNTABILITY</div><h3>Objective faults</h3><p>Missed duties become computed facts rather than discretionary ejector judgments, and withdrawal checks cannot ignore an unpoked fault.</p></div>
@@ -317,7 +406,7 @@
     </ul>
   </div>
 
-  <h2 id="advantages-current" class="anchor">4 · What the whitelist still does better</h2>
+  <h2 id="advantages-current" class="anchor">5 · What the whitelist still does better</h2>
   <div class="callout warn">
     <p><b>Centralized does not mean valueless.</b> The whitelist's main benefit is legibility: a small roster, one eligibility check, epoch-randomized rotation, known operational identities, immediate removal, and existing client reconciliation. Its trust assumption is strong but easy to state and monitor.</p>
   </div>
@@ -335,7 +424,7 @@
     </table>
   </div>
 
-  <h2 id="findings" class="anchor">5 · Findings and residual risks</h2>
+  <h2 id="findings" class="anchor">6 · Findings and residual risks</h2>
   <div class="callout good">
     <p><b>No new reason to block this documentation-only PR.</b> The report supports merging the design record. The findings below are mechanism-claim corrections or implementation gates that should be resolved before production replacement.</p>
   </div>
@@ -415,7 +504,7 @@
     </div>
   </article>
 
-  <h2 id="claims" class="anchor">6 · Claims that need narrower wording</h2>
+  <h2 id="claims" class="anchor">7 · Claims that need narrower wording</h2>
   <div class="scroll">
     <table>
       <thead><tr><th>Current shorthand</th><th>More defensible wording</th><th>Reason</th></tr></thead>
@@ -430,11 +519,11 @@
     </table>
   </div>
 
-  <h2 id="verification" class="anchor">7 · How much confidence the checker adds</h2>
+  <h2 id="verification" class="anchor">8 · How much confidence the checker adds</h2>
   <div class="grid stats">
     <div class="stat good"><div class="value">2.34M</div><div class="label">Reachable states in the documented default 3×4 run</div></div>
     <div class="stat good"><div class="value">3.66M</div><div class="label">Reachable states in the documented 3×5 run</div></div>
-    <div class="stat good"><div class="value">11/11</div><div class="label">Injected state-machine mutations caught</div></div>
+    <div class="stat warn"><div class="value">11/11*</div><div class="label">Reported mutations caught; the outage mutant's baseline/oracle still needs repair</div></div>
     <div class="stat warn"><div class="value">Finite</div><div class="label">Curated initial states and deliberately abstracted economics/timing</div></div>
   </div>
   <div class="scroll">
@@ -445,15 +534,15 @@
         <tr><td>Sticky fault evidence, one-shot debits, withdrawal gating, and no framing within the model.</td><td>Real L1 deadline ordering, reorg races, mempool censorship, or deep-reorg rewind semantics.</td></tr>
         <tr><td>Cancellation cascade shape, forced-flag requeuing, and proof-free exit-path existence.</td><td>That forced messages execute during a permanent proving outage.</td></tr>
         <tr><td>No deadlock in explored states, including an outage-robust relation.</td><td>Livelock freedom without weak fairness, throughput, latency, or economic willingness to take the advancing action.</td></tr>
-        <tr><td>That the named invariants have teeth against eleven injected bugs.</td><td>Bond sufficiency, recovery profitability, auction competition, storage affordability, or the value of a preconfirmation promise.</td></tr>
+        <tr><td>Most named invariants have useful negative controls against injected bugs.</td><td>A valid outage negative control: the unmodified 3×3 baseline already reports outage-robust halts, so merely observing halts does not prove that mutant is caught.</td></tr>
       </tbody>
     </table>
   </div>
-  <p>The checker is a strong design aid and worth wiring into CI. It should not be used as the headline reason to call the mechanism production-safe. The highest-risk remaining questions live precisely in the abstractions it omits.</p>
+  <p>The checker is a useful design aid, but it is not yet valid readiness evidence: B5 must close before its clean state counts or 11/11 mutation headline support implementation or production claims. Even after repair, the highest-risk economic and cross-chain questions live outside its current abstraction.</p>
 
-  <h2 id="recommendation" class="anchor">8 · Recommended adoption path</h2>
+  <h2 id="recommendation" class="anchor">9 · Recommended adoption path</h2>
   <div class="grid steps">
-    <div class="step"><div class="n">GATE 1</div><h3>Freeze semantics</h3><p>Resolve all Phase-A structural items, especially cancellation priority, reorg rewind, verdict transport, forced nullifiers, exact derivation inputs, and outage attribution.</p></div>
+    <div class="step"><div class="n">GATE 1</div><h3>Become implementation-ready</h3><p>Close every B1–B7 blocker in §2, all Phase-A structural items, the round-9 fund-safety gaps, and the corrected checker before freezing interfaces or writing production contracts.</p></div>
     <div class="step"><div class="n">GATE 2</div><h3>Prototype &amp; measure</h3><p>Build a non-production vertical slice and publish gas, storage, proving tail latency, bond, and client-migration results.</p></div>
     <div class="step"><div class="n">GATE 3</div><h3>Shadow Phase A</h3><p>Run the auction and fault accounting without making it the sole live proposer gate; compare assignments and simulate failures against production observations.</p></div>
     <div class="step"><div class="n">GATE 4</div><h3>Guarded activation</h3><p>Enable allowlisted Phase A with caps, a tested rollback, and the current whitelist retained as an emergency migration fallback—not as a silent permanent dependency.</p></div>
@@ -461,7 +550,7 @@
   <div class="panel">
     <h3 style="margin-top:0">Minimum go/no-go evidence before replacing the whitelist</h3>
     <ul>
-      <li><b>Semantic closure:</b> every §13-S Phase-A item has executable rules and adversarial tests; F1–F5 above are dispositioned.</li>
+      <li><b>Implementation readiness:</b> every B1–B7 blocker and §13-S Phase-A item has one normative rule, executable acceptance tests, and no contradictory artifact; F1–F5 are dispositioned.</li>
       <li><b>Proof reliability:</b> measured p99 plus congestion/reorg retry budget remains comfortably below <code>S=4</code>, with at least two independent proving implementations/operators.</li>
       <li><b>Economic solvency:</b> recovery and cascade reserves cover modeled worst cases without cross-tenure spill; cheapest-fault Sybil loops are uneconomic under stressed assumptions.</li>
       <li><b>User guarantee:</b> “soft,” “hard,” forced, anarchy, and outage behavior are specified in user-facing terms, including what is not compensated.</li>
@@ -471,7 +560,7 @@
     </ul>
   </div>
 
-  <h2 id="scorecard" class="anchor">9 · Decision scorecard</h2>
+  <h2 id="scorecard" class="anchor">10 · Decision scorecard</h2>
   <div class="scroll">
     <table>
       <thead><tr><th>Criterion</th><th class="score">Current</th><th class="score">v9 potential</th><th>Assessment</th></tr></thead>
@@ -491,7 +580,7 @@
     <p><b>Bottom line.</b> The current whitelist is a centralized operational system; v9 is an ambitious cryptoeconomic protocol. v9 is clearly better if its goal is objective accountability and eventual open contestability. The whitelist remains better if the immediate priority is simplicity, rotation among known operators, predictable operations, and low migration risk. The right decision is staged replacement with evidence gates—not a binary “new design good, current design bad” judgment.</p>
   </div>
 
-  <h2 id="sources" class="anchor">10 · Sources</h2>
+  <h2 id="sources" class="anchor">11 · Sources</h2>
   <div class="scroll">
     <table>
       <thead><tr><th>Source</th><th>Use in this review</th></tr></thead>
@@ -501,7 +590,8 @@
         <tr><td><a href="https://github.com/taikoxyz/taiko-mono/blob/a2c2b7c29d9952a1696d274aef4d7d331fafc4a4/packages/protocol/docs/preconfirmation/status-quo.md">Status-quo assessment</a></td><td>Implemented/deployed baseline, client behavior, parked URC design, and implementation seams.</td></tr>
         <tr><td><a href="https://github.com/taikoxyz/taiko-mono/blob/a2c2b7c29d9952a1696d274aef4d7d331fafc4a4/packages/protocol/contracts/layer1/preconf/impl/PreconfWhitelist.sol">Current <code>PreconfWhitelist</code></a></td><td>Roster management, delayed activation, randomized epoch selection, immediate ejection, and lack of slashing window.</td></tr>
         <tr><td><a href="https://github.com/taikoxyz/taiko-mono/blob/a2c2b7c29d9952a1696d274aef4d7d331fafc4a4/packages/protocol/docs/preconfirmation/simulation/RESULTS.md">Model-checker results</a></td><td>Verified invariants, bounded state counts, mutation tests, liveness scope, and explicit omissions.</td></tr>
-        <tr><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5363696684">Round-8 response</a> and <a href="https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5363700075">meeting-ready self-review</a></td><td>Latest dispositions and claims checked for this additional round.</td></tr>
+        <tr><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5363696684">Round-8 response</a> and <a href="https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5363700075">meeting-ready self-review</a></td><td>Round-8 dispositions and claims checked for this additional round.</td></tr>
+        <tr><td><a href="https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5364312582">Round-9 adversarial review</a></td><td>Forced-bridge refund, verdict-latency collateral, EBC censorship, checker-validity, and specification-closure blockers incorporated into the implementation-readiness matrix.</td></tr>
       </tbody>
     </table>
   </div>
