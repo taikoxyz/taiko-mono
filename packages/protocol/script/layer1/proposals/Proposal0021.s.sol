@@ -205,7 +205,9 @@ contract Proposal0021 is BuildProposal {
 
     function _checkRisc0Constants() private pure {
         require(
-            LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID != bytes32(0)
+            LibRisc0Constants.V0_6_0_PROPOSAL_IMAGE_ID != bytes32(0)
+                && LibRisc0Constants.V0_6_0_AGGREGATION_IMAGE_ID != bytes32(0)
+                && LibRisc0Constants.V0_8_0_RC1_PROPOSAL_IMAGE_ID != bytes32(0)
                 && LibRisc0Constants.V0_8_0_RC1_AGGREGATION_IMAGE_ID != bytes32(0),
             Risc0ImageIdNotSet()
         );
@@ -220,7 +222,11 @@ contract Proposal0021 is BuildProposal {
 
     function _checkSP1Constants() private pure {
         require(
-            LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
+            LibSP1Constants.V0_6_0_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_6_0_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && LibSP1Constants.V0_6_0_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
+                && LibSP1Constants.V0_6_0_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
+                && LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_BN254 != bytes32(0)
                 && LibSP1Constants.V0_8_0_RC1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES != bytes32(0)
                 && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_BN254 != bytes32(0)
                 && LibSP1Constants.V0_8_0_RC1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES != bytes32(0),
@@ -241,7 +247,9 @@ contract Proposal0021 is BuildProposal {
 
     function _checkSgxConstants() private pure {
         require(
-            NEW_SGXGETH_MR_ENCLAVE != bytes32(0) && NEW_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+            OLD_SGXGETH_MR_ENCLAVE != bytes32(0) && OLD_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
+                && OLD_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0) && NEW_SGXGETH_MR_ENCLAVE != bytes32(0)
+                && NEW_SGXRETH_NON_EDMM_MR_ENCLAVE != bytes32(0)
                 && NEW_SGXRETH_EDMM_MR_ENCLAVE != bytes32(0),
             SgxMrEnclaveNotSet()
         );
