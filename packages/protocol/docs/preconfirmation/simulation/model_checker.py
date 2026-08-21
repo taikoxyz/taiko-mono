@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
 Exhaustive explicit-state model checker for the Taiko based-preconfirmation
-redesign (redesign-proposal.md, v10 D1-D7 checker-validity upgrade + v11
-anarchy proposal phase).
+redesign (redesign-proposal.md), tracking the proposal through v14: the round-9
+D1-D7 checker-validity upgrade, the round-10 v11 anarchy proposal phase, and the
+round-12 Codex fidelity fixes (availability-certificate CONTENT/EMPTY resolution
+branch -- section 5.2 / 6.8 F2; the per-tenure equivocation-challenge withdrawal
+horizon with late preconf-vs-record settlement -- section 8 / r11-N2; and the
+machine-checked no-false-successor-slash tolling property -- section 7.1 / I4).
 
 WHAT THIS IS
 ------------
-An abstract state machine of the v10/v11 protocol and a bounded, exhaustive
+An abstract state machine of the v14 protocol and a bounded, exhaustive
 breadth-first exploration of *every* adversarial interleaving of actions.
 At every reachable state it checks a set of safety invariants (derived from
 the doc's I1-I9, the immutability corollary, and the no-frame / bounded-bond
@@ -177,21 +181,56 @@ Design rules that need care in the abstraction:
   rung 3, is governance and out of model), which is the conservative
   direction: strictly more adversarial states are explored.
 
+* v14 round-12 Codex fidelity fixes (three findings, three new mutants ->
+  24 total):
+  (1) Availability-certificate CONTENT/EMPTY resolution branch (section 5.2 /
+  6.8 F2). A discretionary content-bearing EBC no longer materializes CONTENT at
+  `decide`; it enters an UNRESOLVED state (the commit one-shot is consumed, the
+  availability outcome pending its AC in the R window), resolved by `ac_certify`
+  -> CONTENT (EBC mode) or `ac_timeout` -> EMPTY, or forced-only CONTENT when the
+  snapshot is non-empty (DEFAULT mode). This makes the checker explore the
+  accepted-EBC/no-AC branch and validates F2's commit-then-withhold: a
+  withheld-data epoch with a non-empty forced snapshot becomes forced-only/DEFAULT
+  (sealable in seal_content-forced form, not stuck) and the holder carries a
+  publication LIVENESS certificate. `edge_content_via_ac` checks that EBC-mode
+  (non-forced) CONTENT is reachable only via `ac_certify`; the `content_without_ac`
+  mutant materializes it directly and trips it. Only the CONTENT-vs-EMPTY
+  resolution branch and its mode consequence are modeled -- the AC's cryptographic
+  mechanics (SSZ/EIP-4788/slot timing) stay below the abstraction.
+  (2) Withdrawal equivocation-challenge horizon (section 8 / r11-N2). The
+  withdrawal gate keys on a single per-tenure horizon (CHALLENGE_HORIZON ticks
+  after the tenure's last assigned epoch's finality, >= Lambda + margin), NOT the
+  EBC acceptance window. A `safety_settle_late` watchtower action settles a
+  preconf-vs-record SAFETY certificate at any tick within the horizon; the
+  `withdraw_before_horizon` mutant exits before the horizon elapses and
+  inv_withdraw_gated then catches the late cert settling against the ex-holder.
+  (3) No-false-successor-slash tolling (section 7.1 / I4). Strict tolling (toll
+  behind ANY unclosed lower epoch) was EVALUATED and rejected: it manufactures the
+  round-8 W1 outage-robust artifact at every finite bound (measured: 13,336 halts
+  at 2x5, was clean), the delayed-free-close residual weak fairness resolves at the
+  protocol layer. Effectively-open tolling is retained, and the false-slash
+  property is machine-checked in its correctly-scoped form by
+  inv_no_seal_fault_behind_blocking: a missed-SEAL certificate never matures behind
+  a GENUINE (non-proof-free-closeable SEQ/CONTENT/UNRESOLVED) block -- only behind
+  a prefix the descendant could itself clear -- so no descendant is ever blamed for
+  a seal it could not have performed. The `loose_tolling` mutant matures a SEAL
+  behind an unclosed CONTENT ancestor and trips it.
+
 The adversary is *maximally nondeterministic*: at every step it may pick any
 enabled action (honest or Byzantine) for any actor. Exhaustive BFS over this
 choice therefore covers all behaviours up to the epoch/clock bound.
 
-Run:  python3 model_checker.py                # default bound (2x6, W_ANARCHY=1, ~40 s)
+Run:  python3 model_checker.py                # default bound (2x6, W_ANARCHY=1, ~2 min)
       python3 model_checker.py 3 6            # clean NEPOCHS=3 bound -- needs a large
-                                              # memory/time budget (>11M states; fails
-                                              # loudly at the cap, never silently)
-      W_ANARCHY=0 python3 model_checker.py    # disable the anarchy lane -> pre-anarchy v10
+                                              # memory/time budget (fails loudly at the
+                                              # 14M state cap, never silently)
+      W_ANARCHY=0 python3 model_checker.py    # disable the anarchy lane cleanly (lane-off)
       python3 model_checker.py 2 6 0          # same, via 3rd positional arg
       python3 model_checker.py --w-anarchy 0  # same, via flag
       python3 model_checker.py 2 7 --sticks 2 --cancel-lag 2
                                               # seal deadline = 2 tolled ticks, expiry
                                               # scaled with it
-      python3 model_checker.py --mutate       # invariant self-test (21 mutants)
+      python3 model_checker.py --mutate       # invariant self-test (24 mutants)
 
 Choose MAXCLOCK >= NEPOCHS-1 (deciding epoch e requires clock >= e) and, for
 liveness conclusions, MAXCLOCK >= NEPOCHS*CANCEL_LAG + 3: per-epoch
@@ -259,6 +298,21 @@ S_TICKS = 1        # tolled ticks an owned, DECIDED openEpoch may survive unseal
 MUTANT = None      # set to a mutant name to deliberately break the design (self-test)
 NTENURES = 3       # distinct tenure identities (owners) available
 L_LIVE = 1         # liveness slash (abstract units)
+CHALLENGE_HORIZON = 2  # v14 per-tenure equivocation-challenge horizon (design section 8, r11-N2):
+                   # a fixed window that starts at the tenure's LAST assigned epoch's finality and
+                   # runs >= Lambda + margin -- the SAME window the >= 2-week withdrawal floor is
+                   # sized to cover. Withdrawal is gated on "this horizon elapsed AND no settled
+                   # safety certificate", NOT on the EBC acceptance window: opening a preconf-vs-
+                   # record accusation is cheap and each preconf is a fresh fault id, so a "no
+                   # currently-open verdict" gate is re-openable (r11-N2 over-accusation). Model
+                   # form: for a tenure whose highest assigned epoch is e_last, the horizon elapses
+                   # at clock >= e_last + 1 + CHALLENGE_HORIZON (finality ~ e_last+1, plus the
+                   # window). The design's >= 2-week magnitude is collapsed to 2 ticks so the
+                   # late-settlement lane is reachable in tiny bounds; because 2 > 1 the horizon
+                   # STRICTLY CONTAINS the D+kappa acceptance window (clock <= e+1), the point N2
+                   # makes: the challenge horizon outlasts every acceptance/verdict window. A
+                   # `safety_settle_late` watchtower action may settle a preconf-vs-record SAFETY
+                   # cert against the tenure at any tick within the horizon.
 W_ANARCHY = 1      # v11 anarchy proposal-phase length in model ticks (design W_a, section 9;
                    # design value = S = 4 epochs, scaled down like K/CANCEL_LAG so both sides
                    # of the two-sided cutoff are exercised within tiny bounds). An UNOWNED
@@ -292,7 +346,14 @@ W_ANARCHY = 1      # v11 anarchy proposal-phase length in model ticks (design W_
 RESERVE0 = 3 * NEPOCHS + 1
 
 # Epoch status values
-SEQ       = "SEQ"        # not yet decided (being sequenced / future)
+SEQ        = "SEQ"        # not yet decided (being sequenced / future)
+UNRESOLVED = "UNRESOLVED" # v14 (r12-1): a content-bearing EBC was accepted at D+kappa (the commit
+                          # one-shot is consumed) but the availability certificate (AC, section 5.2)
+                          # has not yet resolved -- the CONTENT-vs-EMPTY outcome is pending inside
+                          # the R window. `ac_certify` -> CONTENT (EBC mode); `ac_timeout` ->
+                          # EMPTY, or forced-only CONTENT when the snapshot is non-empty (DEFAULT
+                          # mode; F2 commit-then-withhold, section 6.8). Not DECIDED, not CLOSED --
+                          # it is an OPEN, decision-pending state (blocks openEpoch like SEQ).
 CONTENT   = "CONTENT"    # committed content outcome (valid EBC + available data)
 EMPTY     = "EMPTY"      # empty outcome (no valid EBC)
 VOID      = "VOID"       # commitment voided by an ancestor's cancellation cascade (6.7);
@@ -447,12 +508,39 @@ def recompute_open(status):
 
 
 def _effectively_open(status, e):
-    # Epoch e's tolled clock runs iff no ancestor is SEQ (undecided) or CONTENT (a real
-    # proving/expiry latency): a prefix of CLOSED epochs plus VOID/EMPTY epochs -- whose
-    # closures are I7's deterministic, zero-latency proof-free resolutions -- is not a
-    # genuine block (see the tick comment). The openEpoch itself trivially qualifies.
+    # Epoch e's tolled clock runs iff no ancestor is a GENUINE block: SEQ (undecided), CONTENT (a
+    # real proving/expiry latency), or -- v14, r12-1 -- UNRESOLVED (its outcome is not yet
+    # irreversible, availability still pending). A prefix of CLOSED epochs plus decided-but-
+    # unclosed VOID/EMPTY epochs -- whose closures are I7's deterministic, zero-latency proof-free
+    # resolutions, clearable by ANYONE (the descendant included) in the same L1 block -- is NOT a
+    # genuine block: the descendant could clear it and seal in one block, so its seal deadline
+    # runs (design section 7.1 / I4 tolls until the prerequisite outcome is irreversible = decided,
+    # not until it is CLOSED). The openEpoch itself trivially qualifies.
+    #
+    # v14 (r12-3) -- why NOT the strict "only as the openEpoch" reading (Codex line ~414). Strict
+    # tolling (toll behind EVERY unclosed lower epoch, EMPTY/VOID included) makes the outage-robust
+    # liveness pass report spurious halts at EVERY finite bound: an adversary declines the FREE
+    # permissionless close of an EMPTY/VOID prefix until clock MAXCLOCK-1, and the descendant --
+    # which under strict tolling could not pre-age -- then lacks its CANCEL_LAG+1 fresh expiry
+    # ticks (the round-8 W1 unfair-scheduler residual, resolved by weak fairness at the protocol
+    # layer, not in a bounded model). Measured, not assumed: strict tolling gives 13,336
+    # outage-robust halts at 2x5 (was clean), all of this delayed-free-close class -- so it is not
+    # cleanly scopable and is not adopted. The false-slash property Codex worries about is instead
+    # machine-checked in its CORRECTLY-SCOPED form by inv_no_seal_fault_behind_blocking: a SEAL
+    # fault never matures behind a GENUINE (non-proof-free-closeable) block, only behind a prefix
+    # the descendant could itself clear -- so no descendant is ever blamed for a seal it could not
+    # have performed. The `loose_tolling` mutant treats a CONTENT ancestor (a genuine latency) as
+    # non-blocking, maturing a descendant's SEAL fault behind it, and that invariant fires.
+    if MUTANT == "loose_tolling":
+        # BUG: a real-latency CONTENT ancestor no longer tolls the descendant, so a SEAL fault
+        # matures on an epoch that genuinely could not have sealed (it is not the openEpoch and
+        # cannot clear a CONTENT prefix itself).
+        for a in range(e):
+            if status[a] == SEQ or status[a] == UNRESOLVED:
+                return False
+        return True
     for a in range(e):
-        if status[a] == SEQ or status[a] == CONTENT:
+        if status[a] == SEQ or status[a] == CONTENT or status[a] == UNRESOLVED:
             return False
     return True
 
@@ -521,16 +609,23 @@ def actions(s: State):
         new_decided = list(s.decided_as)
         new_cgen = list(s.cgen)
         new_committed = list(s.committed)
-        # (1) window closure
+        # (1) window closure. Both an undecided SEQ epoch AND an UNRESOLVED epoch (v14: an EBC
+        #     committed but whose availability certificate never landed -- section 5.2) auto-
+        #     resolve when their window closes: the AC R-window is subsumed into the same coarse
+        #     window as the decision (R < E), so an UNRESOLVED epoch times out here exactly as an
+        #     undecided one does. Forced-only CONTENT (I6) when the snapshot is non-empty --
+        #     DEFAULT-mode materialization, F2 -- else EMPTY; an owned epoch's owner is charged a
+        #     LIVENESS certificate atomically (a missing EBC OR a committed-but-withheld EBC is a
+        #     publication liveness fault, section 5.2 / F2).
         if MUTANT != "late_decide":
             for e in range(n):
-                if new_status[e] == SEQ and e + 1 < nc:
+                if new_status[e] in (SEQ, UNRESOLVED) and e + 1 < nc:
                     if s.fqueue[e]:
-                        new_status[e] = CONTENT   # forced-only (I6); permissionless
+                        new_status[e] = CONTENT   # forced-only (I6), DEFAULT mode; permissionless
                         new_decided[e] = CONTENT
                         new_cgen[e] = CUR         # materialized against the current lineage
                     else:
-                        new_status[e] = EMPTY
+                        new_status[e] = EMPTY     # DEFAULT mode (empty needs no proving, 5.2)
                         new_decided[e] = EMPTY
                     if s.owner[e] is not None:
                         certs = certs | {(s.owner[e], e, "LIVENESS")}
@@ -588,42 +683,61 @@ def actions(s: State):
             continue   # decision window closed (r9-D1); mutant re-enables late decides
         # In RECOVERY_ONLY / FROZEN no *new content* may be committed: only EMPTY/forced-only.
         content_allowed = (s.mode == NORMAL)
-        # If forced snapshot non-empty -> EMPTY is invalid (I6): must be CONTENT (forced-only).
-        # Forced-only content is allowed even in recovery-only mode (it is not discretionary).
+        # Each option is a target status: EMPTY / CONTENT (forced-only, DEFAULT) / UNRESOLVED
+        # (a discretionary content-bearing EBC, whose CONTENT-vs-EMPTY outcome is pending its
+        # availability certificate -- v14, r12-1, section 5.2 / F2).
         options = []
+        # v14 (r12-1): a discretionary content-bearing EBC by an owned seat in NORMAL mode does
+        # NOT materialize CONTENT directly -- an accepted EBC only consumes the commit one-shot;
+        # CONTENT materializes iff an availability certificate lands within the R window (5.2).
+        # The decision therefore enters UNRESOLVED, to be resolved by `ac_certify` (-> CONTENT,
+        # EBC mode) or `ac_timeout` (-> EMPTY / forced-only, DEFAULT mode). Available with OR
+        # without a forced prefix: discretionary content can ride on top of the forced snapshot,
+        # which is exactly F2's commit-then-withhold surface (a forced epoch that also commits
+        # discretionary content, then withholds its data -> forced-only/DEFAULT via ac_timeout).
+        if content_allowed and s.owner[e] is not None:
+            options.append(UNRESOLVED)
         if s.fqueue[e]:
-            options.append(CONTENT)  # forced-only content (valid in both phase regimes -- v11)
+            # forced-only content (DEFAULT, I6): constructible by anyone from the forced queue's
+            # own L1 blob data, so it needs no AC and materializes CONTENT directly. Valid in both
+            # phase regimes (v11) and both recovery modes (it is not discretionary).
+            options.append(CONTENT)
         else:
             # v11 (design 9.1): an UNOWNED epoch's proof-free EMPTY resolution is valid only
             # AT/AFTER its proposal cutoff -- the empty side of the two-sided rule that closes
             # round-2 finding 6's empty-front-running horn (horn 2). Owned epochs are ungated
-            # (an explicit-empty EBC is the holder's own choice, phase-free). W_ANARCHY=0
-            # collapses the cutoff to e, so empty_ok is always true (deciding needs clock>=e)
-            # and this branch reduces to the pre-anarchy `options.append(EMPTY)` exactly.
+            # (an explicit-empty EBC is the holder's own choice, phase-free; empty needs no
+            # proving, 5.2). W_ANARCHY=0 collapses the cutoff to e, so empty_ok is always true.
             empty_ok = (s.owner[e] is not None) or (s.clock >= _anarchy_cutoff(s, e))
             if MUTANT == "anarchy_empty_in_phase":
                 empty_ok = True   # BUG: proof-free empty valid inside the phase (horn 2)
             if empty_ok:
                 options.append(EMPTY)
-            if content_allowed and s.owner[e] is not None:
-                options.append(CONTENT)  # discretionary content, only if owned & normal mode
         if MUTANT == "empty_despite_forced" and s.fqueue[e] and EMPTY not in options:
             options = options + [EMPTY]   # BUG: allow empty despite forced snapshot (breaks I6)
         for dec in options:
-            new_status = list(s.status); new_status[e] = dec
-            new_decided = list(s.decided_as); new_decided[e] = dec
+            target = dec
+            if dec == UNRESOLVED and MUTANT == "content_without_ac":
+                target = CONTENT   # BUG (r12-1): discretionary content materializes CONTENT
+                                   # with NO availability certificate -> edge_content_via_ac
+            new_status = list(s.status); new_status[e] = target
+            new_decided = list(s.decided_as)
+            # UNRESOLVED is decision-pending: the CONTENT/EMPTY outcome is not yet recorded, so
+            # decided_as stays None until ac_certify/ac_timeout materializes it.
+            if target != UNRESOLVED:
+                new_decided[e] = target
             new_cgen = list(s.cgen)
             new_committed = list(s.committed)
-            if dec == CONTENT:
-                new_cgen[e] = CUR     # commitment is made against the current lineage (6.7)
+            if target in (CONTENT, UNRESOLVED):
+                new_cgen[e] = CUR     # content-bearing commitment made against the current lineage
             if s.owner[e] is not None:
-                # the owner's ACCEPTED artifact (content or explicit-empty EBC) consumes
-                # the (tenure, epoch) commit one-shot (3.1/5.1; r9-D4). Anarchy epochs
-                # resolve permissionlessly with no artifact -> no one-shot consumed.
+                # the owner's ACCEPTED artifact (content-bearing or explicit-empty EBC) consumes
+                # the (tenure, epoch) commit one-shot (3.1/5.1; r9-D4). Anarchy epochs resolve
+                # permissionlessly with no artifact -> no one-shot consumed.
                 new_committed[e] = s.owner[e]
             ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided),
                          cgen=tuple(new_cgen), committed=tuple(new_committed))
-            out.append((f"decide(e{e}={dec}{'/forced' if s.fqueue[e] else ''})", ns))
+            out.append((f"decide(e{e}={target}{'/forced' if s.fqueue[e] else ''})", ns))
 
     # MUTANT: re-decide an already-decided (not yet closed) epoch to the opposite outcome.
     if MUTANT == "double_decision":
@@ -633,6 +747,53 @@ def actions(s: State):
                 new_status = list(s.status); new_status[e] = flip
                 ns = replace(s, status=tuple(new_status))  # decided_as keeps original -> flip
                 out.append((f"REDECIDE(e{e}->{flip})", ns))
+
+    # ---- Availability-certificate resolution (v14, r12-1; design 5.2 / F2). An UNRESOLVED epoch
+    #      -- a content-bearing EBC accepted at D+kappa, availability pending -- resolves within
+    #      its R window (subsumed into the coarse decision window, clock <= e+1) by exactly one of:
+    #      * ac_certify -- the availability certificate is accepted (an SSZ/EIP-4788 membership
+    #        proof, constructible by anyone from public beacon data, so NOT blocked by a proving
+    #        outage). The epoch materializes CONTENT in EBC mode. This is the ONLY transition that
+    #        materializes EBC-mode (discretionary) CONTENT -- checked by edge_content_via_ac.
+    #      * ac_timeout -- the R window closes with no accepted AC (AC censorship / data
+    #        withheld). "Absence never needs proving" (5.2), so this is outage-immune. The
+    #        content-for-availability outcome is EMPTY; but if the forced snapshot is non-empty a
+    #        forced-only CONTENT is still demanded by I6 -- the F2 commit-then-withhold case: the
+    #        withheld-data epoch materializes forced-only/DEFAULT (sealable in seal_content-forced
+    #        form, NOT stuck), else EMPTY/DEFAULT. Either way, if owned, the holder is charged a
+    #        LIVENESS (publication) certificate atomically (5.2 / F2).
+    #      The window-closing tick auto-times-out any still-UNRESOLVED epoch (above), so an
+    #      UNRESOLVED epoch is always resolvable (no stuck state, no halt). ----
+    for e in range(n):
+        if s.status[e] != UNRESOLVED:
+            continue
+        if s.clock > e + 1:
+            continue   # R window closed -- the auto-timeout tick handles it (never reached: an
+                       # UNRESOLVED epoch is auto-resolved by the tick that would push clock past e+1)
+        # ac_certify -> CONTENT (EBC mode)
+        new_status = list(s.status); new_status[e] = CONTENT
+        new_decided = list(s.decided_as); new_decided[e] = CONTENT
+        # cgen stays CUR (set at decide); the availability outcome does not change the lineage.
+        ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided))
+        out.append((f"ac_certify(e{e})", ns))
+        # ac_timeout -> EMPTY, or forced-only CONTENT (DEFAULT) when the snapshot is non-empty (F2)
+        new_status2 = list(s.status)
+        new_decided2 = list(s.decided_as)
+        new_cgen2 = list(s.cgen)
+        certs2 = s.settled_certs
+        if s.fqueue[e]:
+            new_status2[e] = CONTENT   # forced-only, DEFAULT mode (I6); sealable in seal_content form
+            new_decided2[e] = CONTENT
+            new_cgen2[e] = CUR
+        else:
+            new_status2[e] = EMPTY     # DEFAULT mode
+            new_decided2[e] = EMPTY
+        if s.owner[e] is not None:
+            # committed-but-withheld data is a publication liveness fault on the holder (5.2 / F2)
+            certs2 = certs2 | {(s.owner[e], e, "LIVENESS")}
+        ns2 = replace(s, status=tuple(new_status2), decided_as=tuple(new_decided2),
+                      cgen=tuple(new_cgen2), settled_certs=certs2)
+        out.append((f"ac_timeout(e{e}{'/forced' if s.fqueue[e] else ''})", ns2))
 
     # ---- Missed-commit fault: an owned SEQ epoch past its boundary (and still inside its
     #      decision window) resolves EMPTY with a liveness certificate on its owner
@@ -687,15 +848,18 @@ def actions(s: State):
                              cgen=tuple(new_cgen))
             else:
                 # atomic: born SEALED (propose == seal). Consumes the forced snapshot items and
-                # clears the closed epoch's dead per-epoch bookkeeping (openAge/cgen/decided).
+                # clears the closed epoch's dead per-epoch bookkeeping (openAge/cgen/decided/
+                # committed -- the last already None for an unowned epoch; cleared for uniformity).
                 new_status = list(s.status); new_status[oe] = SEALED
                 new_fq = list(s.fqueue); items = new_fq[oe]; new_fq[oe] = ()
                 new_age = list(s.openAge); new_age[oe] = 0
                 new_cgen = list(s.cgen); new_cgen[oe] = None   # closed epoch's tag is dead
                 new_dec = list(s.decided_as); new_dec[oe] = None  # closed record is dead
+                new_com = list(s.committed); new_com[oe] = None   # dead one-shot (DeepSeek W#5)
                 ns = replace(s, status=tuple(new_status), fqueue=tuple(new_fq),
                              fconsumed=s.fconsumed | set(items), openAge=tuple(new_age),
-                             cgen=tuple(new_cgen), decided_as=tuple(new_dec))
+                             cgen=tuple(new_cgen), decided_as=tuple(new_dec),
+                             committed=tuple(new_com))
                 ns = replace(ns, openEpoch=recompute_open(ns.status))
             ns = _enter_modes(ns)
             out.append((f"anarchy_propose(e{oe}{'/forced' if s.fqueue[oe] else ''})", ns))
@@ -789,10 +953,13 @@ def actions(s: State):
             new_age = list(s.openAge); new_age[oe] = 0
             new_cgen = list(s.cgen); new_cgen[oe] = None   # closed epoch's tag is dead
             new_dec = list(s.decided_as); new_dec[oe] = None  # ditto its decision record
+            new_com = list(s.committed); new_com[oe] = None   # v14 (DeepSeek W#5): the commit
+            #   one-shot is dead once closed -- clear it so a just-sealed epoch cannot be
+            #   equivocated within its acceptance window and behaviourally-identical states merge
             ns = replace(s, status=tuple(new_status), settled_certs=certs,
                          fqueue=tuple(new_fq), fconsumed=s.fconsumed | set(items),
                          openAge=tuple(new_age), cgen=tuple(new_cgen),
-                         decided_as=tuple(new_dec))
+                         decided_as=tuple(new_dec), committed=tuple(new_com))
             ns = replace(ns, openEpoch=recompute_open(ns.status))
             ns = _enter_modes(ns)
             out.append((f"seal_content(e{oe})", ns))
@@ -807,8 +974,11 @@ def actions(s: State):
                 certs = frozenset(c for c in certs if c[1] != oe)   # BUG: seal destroys evidence
             new_age = list(s.openAge); new_age[oe] = 0
             new_dec = list(s.decided_as); new_dec[oe] = None  # closed record is dead
+            new_cgen = list(s.cgen); new_cgen[oe] = None      # (None already for EMPTY; uniform)
+            new_com = list(s.committed); new_com[oe] = None   # v14 (DeepSeek W#5): dead one-shot
             ns = replace(s, status=tuple(new_status), settled_certs=certs,
-                         openAge=tuple(new_age), decided_as=tuple(new_dec))
+                         openAge=tuple(new_age), decided_as=tuple(new_dec),
+                         cgen=tuple(new_cgen), committed=tuple(new_com))
             ns = replace(ns, openEpoch=recompute_open(ns.status))
             ns = _enter_modes(ns)
             out.append((f"seal_empty(e{oe})", ns))
@@ -823,9 +993,12 @@ def actions(s: State):
         items = new_fq[oe]; new_fq[oe] = ()
         new_age = list(s.openAge); new_age[oe] = 0
         new_dec = list(s.decided_as); new_dec[oe] = None
+        new_cgen = list(s.cgen); new_cgen[oe] = None
+        new_com = list(s.committed); new_com[oe] = None
         ns = replace(s, status=tuple(new_status), fqueue=tuple(new_fq),
                      fconsumed=s.fconsumed | set(items), openAge=tuple(new_age),
-                     decided_as=tuple(new_dec))
+                     decided_as=tuple(new_dec), cgen=tuple(new_cgen),
+                     committed=tuple(new_com))
         ns = replace(ns, openEpoch=recompute_open(ns.status))
         ns = _enter_modes(ns)
         out.append((f"seal_empty(e{oe},STEAL)", ns))
@@ -836,8 +1009,12 @@ def actions(s: State):
         new_status = list(s.status); new_status[oe] = CANCELLED
         new_cgen = list(s.cgen); new_cgen[oe] = None   # closed epoch's tag is dead
         new_dec = list(s.decided_as); new_dec[oe] = None
+        new_age = list(s.openAge); new_age[oe] = 0        # v14 (DeepSeek W#5): reset the dead
+        new_com = list(s.committed); new_com[oe] = None   # per-epoch fields on this closure path
+        #   too, exactly as seal_content/seal_empty do -- merges behaviourally-identical states.
         ns = replace(s, status=tuple(new_status), cgen=tuple(new_cgen),
-                     decided_as=tuple(new_dec))
+                     decided_as=tuple(new_dec), openAge=tuple(new_age),
+                     committed=tuple(new_com))
         ns = replace(ns, openEpoch=recompute_open(ns.status))
         ns = _enter_modes(ns)
         out.append((f"close_void(e{oe})", ns))
@@ -863,16 +1040,19 @@ def actions(s: State):
         cascaded = []
         if MUTANT != "no_cascade":
             for e2 in range(oe + 1, n):
-                if new_status[e2] == CONTENT:
+                # v14 (r12-1): an UNRESOLVED descendant is a content-bearing commitment (EBC
+                # accepted, availability pending) chained to the cancelled lineage exactly like a
+                # CONTENT one, so the cascade voids it too (6.7: committed-unsealed descendants).
+                if new_status[e2] in (CONTENT, UNRESOLVED):
                     new_status[e2] = VOID   # commitment voided; closes (in order) as CANCELLED
                     cascaded.append(e2)
         # lineage change: every commitment still alive after this cancellation was made
         # against a lineage that no longer exists -- re-tag it STALE (the per-epoch form
         # of the old global generation bump). In the healthy cascade all such epochs are
-        # VOID; under the no_cascade mutant a CONTENT epoch keeps a STALE tag and
+        # VOID; under the no_cascade mutant a CONTENT/UNRESOLVED epoch keeps a STALE tag and
         # inv_content_current_gen fires.
         for e2 in range(n):
-            if new_status[e2] in (CONTENT, VOID) and new_cgen[e2] is not None:
+            if new_status[e2] in (CONTENT, UNRESOLVED, VOID) and new_cgen[e2] is not None:
                 new_cgen[e2] = STALE
         new_cgen[oe] = None   # closing epoch's tag is dead
         new_fq = list(s.fqueue)
@@ -902,12 +1082,19 @@ def actions(s: State):
         certs = s.settled_certs
         if s.owner[oe] is not None:
             certs = certs | {(s.owner[oe], oe, "CANCEL")}   # charge the causing tenure (6.7)
-        new_age = list(s.openAge); new_age[oe] = 0
-        new_dec = list(s.decided_as); new_dec[oe] = None
+        new_age = list(s.openAge); new_dec = list(s.decided_as)
+        new_com = list(s.committed)   # v14 (DeepSeek W#5): the commit one-shot of the cancelled
+        #   epoch AND of every voided descendant is dead -- clear it (equivocate can no longer
+        #   fire on a cancelled/voided epoch), along with openAge; decided_as is cleared for the
+        #   cancelled epoch (a VOID descendant keeps its record until close_void closes it, and
+        #   its cgen stays STALE per inv_content_current_gen). This mirrors the seal paths.
+        new_age[oe] = 0; new_dec[oe] = None; new_com[oe] = None
+        for e2 in cascaded:
+            new_age[e2] = 0; new_com[e2] = None
         ns = replace(s, status=tuple(new_status), fqueue=tuple(new_fq),
                      settled_certs=certs, cgen=tuple(new_cgen),
                      frefunded=new_refunded, openAge=tuple(new_age),
-                     decided_as=tuple(new_dec))
+                     decided_as=tuple(new_dec), committed=tuple(new_com))
         ns = replace(ns, openEpoch=recompute_open(ns.status))
         ns = _enter_modes(ns)
         out.append((f"cancel(e{oe},cascade={len(cascaded)})", ns))
@@ -961,22 +1148,54 @@ def actions(s: State):
             lbl = f"promote(T{owner}->{'T'+str(successor) if successor is not None else 'anarchy'})"
             out.append((lbl, ns))
 
+    # ---- Late safety settlement (v14, r11-N2; design section 8 variant (b), preconf-vs-record).
+    #      A watchtower brings L2 evidence of a preconf-vs-record safety fault LATE -- at any tick
+    #      WITHIN the tenure's challenge horizon (not yet elapsed) -- settling an L1 SAFETY
+    #      certificate against the tenure for one of its held (materialized) epochs. Unlike the
+    #      double-EBC variant (self-materializing at D+kappa: the `equivocate` action), this
+    #      variant is evidence-based -- it needs an accuser and can arrive AFTER the acceptance
+    #      window, which is precisely why withdrawal must wait for the full horizon: a premature
+    #      exit would leave this cert unbackable. It is exactly the adversary move that a
+    #      horizon-eliding gate (the `withdraw_before_horizon` mutant) fails to guard against.
+    #      Modeled per-tenure against its highest held epoch (one action per tenure -- enough to
+    #      expose a premature withdrawal); the promote lane then reassigns any still-SEQ epochs.
+    #      Withdrawn tenures are NOT skipped: settling against a prematurely-withdrawn tenure is
+    #      the whole point -- but in a legal run the horizon has elapsed before any tenure
+    #      withdrew, so this action is disabled for it (no false positive). ----
+    for t in range(NTENURES):
+        if _challenge_horizon_elapsed(s, t):
+            continue   # horizon elapsed: no late settlement can land any more (the N2 boundary)
+        tgt = -1
+        for e in range(n):
+            if s.assigned[e] == t and (s.status[e] in DECIDED or s.status[e] in CLOSED) \
+                    and (t, e, "SAFETY") not in s.settled_certs:
+                tgt = e   # highest such epoch
+        if tgt < 0:
+            continue
+        certs = s.settled_certs | {(t, tgt, "SAFETY")}
+        ns = replace(s, settled_certs=certs)
+        out.append((f"safety_settle_late(T{t},e{tgt})", ns))
+
     # ---- Withdrawal: a tenure with NO unresolved liability may withdraw (state-gated).
     #      I2: the gate reads the *computed matured set* -- and because certificates are
-    #      materialized deterministically (tick/cancel/miss_commit/equivocate) and sticky,
-    #      the settled_certs set IS the matured set here; a matured-but-undebited fault, an
-    #      unsealed owned epoch, or an OPEN ACCEPTANCE WINDOW on a committed epoch (v10 --
-    #      the design's withdrawal floor outlasts every challenge window, 8/r9-B3, so an
-    #      exit can never complete while a second-artifact liability could still settle)
-    #      closes the gate. Only the LEGAL (gated) transition is in the design's transition
-    #      relation; the checker then proves the gate is *sufficient* (INV_WITHDRAW_GATED
-    #      can never fire over legal runs). ----
+    #      materialized deterministically (tick/cancel/miss_commit/equivocate/ac_timeout) and
+    #      sticky, the settled_certs set IS the matured set here; a matured-but-undebited fault,
+    #      an unsealed owned epoch, or a NON-ELAPSED equivocation-challenge horizon (v14, r11-N2:
+    #      the gate keys on a single per-tenure horizon >= Lambda + margin, not the acceptance
+    #      window -- see _withdraw_gate_open) closes the gate. Only the LEGAL (gated) transition is
+    #      in the design's transition relation; the checker then proves the gate is *sufficient*
+    #      (INV_WITHDRAW_GATED can never fire over legal runs, even against a late safety cert). ----
     for t in range(NTENURES):
         if t in s.withdrawn:
             continue
         gate = _withdraw_gate_open(s, t)
         if MUTANT == "ungated_withdraw":
             gate = True   # BUG: ignore the state-gate entirely
+        if MUTANT == "withdraw_before_horizon":
+            # BUG (r11-N2): the gate ignores the challenge horizon -- withdraw as soon as certs
+            # and epochs clear, while a late preconf-vs-record safety settlement is still possible
+            # within the horizon -> safety_settle_late then settles against the withdrawn tenure.
+            gate = _withdraw_gate_open(s, t, ignore_horizon=True)
         if gate:
             lbl = "withdraw" if _withdraw_gate_open(s, t) else "UNGATED_withdraw"
             ns = replace(s, withdrawn=s.withdrawn | {t})
@@ -994,21 +1213,42 @@ def _pick_successor(certs, withdrawn, terminating_owner) -> Optional[int]:
     return None  # anarchy
 
 
-def _withdraw_gate_open(s: State, t: int) -> bool:
+def _challenge_horizon_elapsed(s: State, t: int) -> bool:
+    # v14 (r11-N2; design section 8): the per-tenure equivocation-challenge horizon. It starts at
+    # t's LAST assigned epoch's finality (~ e_last+1 in the coarse clock) and runs
+    # CHALLENGE_HORIZON ticks, so it has elapsed once clock >= e_last + 1 + CHALLENGE_HORIZON. A
+    # tenure that holds no epoch (e_last undefined) has nothing to challenge -> trivially elapsed.
+    # Because CHALLENGE_HORIZON >= 2 > 1, the horizon STRICTLY CONTAINS the D+kappa acceptance
+    # window (clock <= e+1) of every epoch t held -- the N2 point that the challenge horizon
+    # outlasts every acceptance/verdict window.
+    last = -1
+    for e in range(NEPOCHS):
+        if s.assigned[e] == t:
+            last = e
+    if last < 0:
+        return True
+    return s.clock >= last + 1 + CHALLENGE_HORIZON
+
+
+def _withdraw_gate_open(s: State, t: int, ignore_horizon: bool = False) -> bool:
     # zero unresolved certificates for t (settled_certs is the computed matured set -- I2)
     for (owner, e, cls) in s.settled_certs:
         if owner == t and (owner, e, cls) not in s.consumed:
             return False
     for e in range(NEPOCHS):
-        # no unsealed epoch still assigned to (currently owned by) t -- VOID included
+        # no unsealed epoch still assigned to (currently owned by) t -- VOID/UNRESOLVED included
         if s.owner[e] == t and s.status[e] not in CLOSED:
             return False
-        # v10 (r9-D4 support): no committed epoch of t whose acceptance window is still
-        # open -- the design's >= 2-week withdrawal floor outlasts every D+kappa window
-        # and bounded verdict deadline (8, r9-B3), so an exit cannot complete while a
-        # second accepted artifact could still settle an equivocation certificate.
-        if s.committed[e] == t and s.clock <= e + 1:
-            return False
+    # v14 (r11-N2; design section 8): gate on the single per-tenure equivocation-challenge
+    # horizon -- elapsed with NO settled safety certificate -- NOT on the EBC acceptance window.
+    # Opening a preconf-vs-record accusation is cheap and each preconf is a fresh fault id, so a
+    # "no verdict currently open" gate is re-openable (over-accusation); a fixed horizon is not.
+    # The horizon strictly contains every acceptance window, and a late preconf-vs-record safety
+    # settlement (safety_settle_late) can land any tick inside it, so an exit is safe only once
+    # the horizon has elapsed. (A settled, unresolved safety cert is already caught by the
+    # certificate check above; the horizon closes the corner where the cert has not landed YET.)
+    if not ignore_horizon and not _challenge_horizon_elapsed(s, t):
+        return False
     return True
 
 
@@ -1116,11 +1356,13 @@ def inv_bond_nonneg(s: State):
 def inv_content_current_gen(s: State):
     # 6.7 cascade correctness: every live CONTENT commitment must be of the current
     # lineage generation -- a commitment made before an ancestor's cancellation must have
-    # been voided by the cascade, never left CONTENT (and hence sealable).
+    # been voided by the cascade, never left CONTENT (and hence sealable). v14 (r12-1): an
+    # UNRESOLVED commitment (content-bearing EBC, availability pending) is a live commitment
+    # too, so it must likewise carry the current lineage or have been voided.
     for e in range(NEPOCHS):
-        if s.status[e] == CONTENT:
+        if s.status[e] in (CONTENT, UNRESOLVED):
             if s.cgen[e] != CUR:
-                return (f"epoch {e} CONTENT with lineage tag {s.cgen[e]} "
+                return (f"epoch {e} {s.status[e]} with lineage tag {s.cgen[e]} "
                         f"(not current): cascade failed to void it")
         if s.status[e] == VOID and s.cgen[e] is None:
             return f"epoch {e} VOID but never committed (bookkeeping)"
@@ -1162,10 +1404,37 @@ def inv_anarchy_content_sealed(s: State):
     return None
 
 
+def inv_no_seal_fault_behind_blocking(s: State):
+    # v14 (r12-3; design section 7.1 / I4, the false-successor-slash Codex line ~414 raised). A
+    # missed-SEAL certificate may exist for epoch e ONLY when e could actually have sealed: every
+    # lower epoch is CLOSED, or is a proof-free-closeable EMPTY/VOID (clearable by anyone -- the
+    # descendant included -- in the same L1 block, so e can clear the prefix and seal in one
+    # block). A SEAL fault while a lower SEQ / CONTENT / UNRESOLVED epoch -- a GENUINE block:
+    # undecided, or real proving/expiry/availability latency the descendant CANNOT clear itself --
+    # is unclosed WOULD be the false-successor-slash Codex fears: e is not the openEpoch, cannot
+    # clear the block, and so could not have performed the seal it is blamed for. Equivalently:
+    # every SEAL'd epoch must have been _effectively_open when its fault matured (and effectively-
+    # open is monotone in the closed prefix -- ancestors only close further -- so the property
+    # holds at every later state too). Under effectively-open tolling this holds by construction;
+    # the `loose_tolling` mutant matures a SEAL behind an unclosed CONTENT and trips it.
+    # (LIVENESS/SAFETY/CANCEL certs are exempt: a missed-COMMIT / publication / equivocation /
+    # cancellation fault is objective at the decision, independent of seal ordering.)
+    for (o, e, cls) in s.settled_certs:
+        if cls != "SEAL":
+            continue
+        for a in range(e):
+            if s.status[a] in (SEQ, CONTENT, UNRESOLVED):
+                return (f"SEAL cert on epoch {e} (T{o}) while lower epoch {a} is {s.status[a]} "
+                        f"(a genuine, non-proof-free-closeable block): a descendant that is not "
+                        f"the openEpoch and could not have sealed was blamed (false-successor-slash, I4)")
+    return None
+
+
 SAFETY_INVARIANTS_STATE = [
     inv_single_decision, inv_empty_not_forced, inv_bond_nonneg,
     inv_content_current_gen, inv_no_frame, inv_withdraw_gated, inv_closed_is_prefix,
     inv_open_monotone, inv_forced_order, inv_anarchy_content_sealed,
+    inv_no_seal_fault_behind_blocking,
 ]
 
 
@@ -1248,23 +1517,49 @@ def edge_maturity_materialized(s: State, ns: State, label: str):
 
 def edge_decision_deadline(s: State, ns: State, label: str):
     # v10 (r9-D1/B5): the decision phase is DEADLINED and irreversible -- the design's
-    # single decision fires at D+kappa, full stop (3.1). (a) No transition may decide an
-    # epoch whose decision window (clock <= e+1) has closed; (b) no undecided epoch may
-    # survive any transition past its window; (c) the window-closing tick's auto-
-    # resolution of an OWNED epoch must settle that owner's LIVENESS certificate
-    # atomically (missing EBC => certificate, 5.1 / I2).
+    # single decision fires at D+kappa, full stop (3.1). v14 (r12-1): the availability
+    # resolution shares that deadline -- the AC R window is subsumed into the same coarse
+    # window, so an UNRESOLVED epoch counts as decision-pending exactly like SEQ. (a) No
+    # transition may decide/resolve an epoch whose window (clock <= e+1) has closed; (b) no
+    # SEQ-or-UNRESOLVED epoch may survive any transition past its window (the tick must
+    # auto-resolve it); (c) the window-closing tick's auto-resolution of an OWNED epoch must
+    # settle that owner's LIVENESS certificate atomically (missing/withheld EBC => certificate,
+    # 5.1 / 5.2 / I2).
+    PENDING = (SEQ, UNRESOLVED)
     for e in range(NEPOCHS):
-        if s.status[e] == SEQ and ns.status[e] != SEQ and s.clock > e + 1:
-            return (f"epoch {e} decided at clock {s.clock}, after its decision window "
+        if s.status[e] in PENDING and ns.status[e] not in PENDING and s.clock > e + 1:
+            return (f"epoch {e} decided/resolved at clock {s.clock}, after its decision window "
                     f"closed, on {label}")
-        if ns.status[e] == SEQ and ns.clock > e + 1:
-            return (f"epoch {e} survived past its decision window undecided (clock "
+        if ns.status[e] in PENDING and ns.clock > e + 1:
+            return (f"epoch {e} survived past its decision window unresolved (clock "
                     f"{ns.clock}) on {label}")
-        if s.status[e] == SEQ and ns.clock > s.clock and e + 1 < ns.clock \
+        if s.status[e] in PENDING and ns.clock > s.clock and e + 1 < ns.clock \
                 and s.owner[e] is not None \
                 and (s.owner[e], e, "LIVENESS") not in ns.settled_certs:
             return (f"epoch {e} window-close resolution did not settle T{s.owner[e]}'s "
                     f"LIVENESS certificate on {label}")
+    return None
+
+
+def edge_content_via_ac(s: State, ns: State, label: str):
+    # v14 (r12-1; design section 5.2 / 6.8 F2, Codex line ~539). CONTENT has two derivation modes.
+    # EBC mode is discretionary content, which materializes CONTENT only when an availability
+    # certificate is accepted -- the `ac_certify` transition. DEFAULT mode is the forced-only
+    # outcome (I6), constructible by anyone from the forced queue's own L1 blob data with NO AC,
+    # so it may materialize directly (a forced decide, the window-close tick, or ac_timeout when
+    # the snapshot is non-empty). The discriminator is the forced snapshot: a NON-forced epoch has
+    # no forced-only fallback, so its ONLY route to CONTENT is discretionary EBC -- which requires
+    # ac_certify. Hence: any epoch newly reaching CONTENT with an EMPTY forced snapshot, other
+    # than via ac_certify, materialized discretionary content with no availability certificate.
+    # The `content_without_ac` mutant makes a discretionary (non-forced) decide materialize
+    # CONTENT directly and is caught here; every legal forced-only DEFAULT materialization has a
+    # non-empty snapshot and is exempt.
+    for e in range(NEPOCHS):
+        if ns.status[e] == CONTENT and s.status[e] != CONTENT and not s.fqueue[e] \
+                and not label.startswith("ac_certify"):
+            return (f"epoch {e} materialized non-forced (discretionary) CONTENT via {label}, "
+                    f"not ac_certify -- EBC-mode content requires an availability certificate "
+                    f"(5.2/F2)")
     return None
 
 
@@ -1357,7 +1652,7 @@ EDGE_INVARIANTS = [
     edge_open_monotone, edge_evidence_monotone, edge_debit_conservation,
     edge_maturity_materialized, edge_seal_immutable, edge_decision_deadline,
     edge_typed_seal, edge_no_seal_after_expiry, edge_equivocation_settles,
-    edge_empty_respects_phase, edge_proposal_respects_phase,
+    edge_empty_respects_phase, edge_proposal_respects_phase, edge_content_via_ac,
 ]
 
 
@@ -1663,6 +1958,17 @@ MUTANTS = {
     "anarchy_ignores_ownership":   "edge_proposal_respects_phase", # proposal past an owned successor's start
                                                                    # (needs W_ANARCHY=2 so the truncation
                                                                    # term binds; self-test sets it)
+    # v14 Codex fidelity mutants (round 12):
+    "content_without_ac":   "edge_content_via_ac",         # r12-1: a discretionary content decision
+                                                           # materializes CONTENT with no availability
+                                                           # certificate (design 5.2/6.8 F2)
+    "withdraw_before_horizon": "inv_withdraw_gated",       # r11-N2: withdraw before the equivocation-
+                                                           # challenge horizon elapses, then a late
+                                                           # safety cert settles against the ex-holder
+    "loose_tolling":        "inv_no_seal_fault_behind_blocking", # r12-3: a descendant's missed-SEAL
+                                                           # cert matures behind an unclosed CONTENT
+                                                           # (genuine-latency) ancestor it could not
+                                                           # clear (false-successor-slash, I4)
     # Liveness mutant -- the bug manifests as a permanent halt (a reachable state from which
     # NO exit path exists), which the deadlock-freedom analysis must catch.
     "outage_blocks_empty":  "LIVENESS_HALT",              # a permanent outage becomes a halt
@@ -1683,8 +1989,8 @@ def run_mutation_tests():
       (c) runs the liveness (outage) mutant at a bound whose baseline OUTAGE-ROBUST pass
           is clean, so the halts it produces are attributable to the injected bug alone.
     All mutants run at 2x5 -- the smallest bound whose baseline is FULLY clean under the
-    v10 model, outage-robust liveness included (per-epoch tolled expiry needs MAXCLOCK >=
-    NEPOCHS*CANCEL_LAG + 3; the old 3x3/3x4 mutant bounds are invalid under v10 --
+    v14 model, outage-robust liveness included (per-epoch tolled expiry needs MAXCLOCK >=
+    NEPOCHS*CANCEL_LAG + 3; the old 3x3/3x4 mutant bounds are invalid under v14 --
     their baseline outage-robust passes report horizon artifacts, and the harness would
     refuse them). Every mutant's counterexample is reachable at 2x5, including
     `requeue_reorders` (cancel e0 carrying item 0 into a still-SEQ e1 holding its own
@@ -1696,7 +2002,19 @@ def run_mutation_tests():
     ownership` runs at W_ANARCHY=2 so the min(e+W, first-owned) truncation term actually
     binds (an owned epoch at e+1 undercuts e+2). Baseline cleanliness is W_ANARCHY-dependent
     (the phase reshapes the unowned-epoch resolutions), so the baseline-clean check and its
-    cache are keyed by (bound, W_ANARCHY)."""
+    cache are keyed by (bound, W_ANARCHY).
+
+    v14 round-12 Codex-fidelity mutants (all at W_ANARCHY=1): `content_without_ac` (a
+    discretionary content decision materializes CONTENT with no availability certificate ->
+    edge_content_via_ac), `withdraw_before_horizon` (withdraw before the equivocation-challenge
+    horizon elapses, then safety_settle_late settles against the ex-holder -> inv_withdraw_gated),
+    and `loose_tolling` (a descendant's missed-SEAL cert matures behind an unclosed CONTENT
+    ancestor it could not clear -> inv_no_seal_fault_behind_blocking). 24 mutants total. Three
+    incidental co-firings are tolerated (the stop_on_inv protocol attributes the expected
+    invariant regardless): `double_decision` and `reopen_sealed` and `nonatomic_anarchy_propose`
+    each ALSO trip `edge_content_via_ac` (a decided/closed/unowned epoch flipped to non-forced
+    CONTENT is a content materialization with no AC), and `reopen_sealed` also trips
+    `edge_open_monotone`, `double_decision` also trips `inv_content_current_gen`."""
     global MUTANT, NEPOCHS, MAXCLOCK, RESERVE0, W_ANARCHY
     print("# MUTATION SELF-TEST (each injected bug MUST be caught by the named invariant)")
     print("# validity protocol (r9-B5): per-mutant baseline-clean check, then attributed catch")
@@ -1809,15 +2127,30 @@ def main():
         RESERVE0 = 3 * NEPOCHS + 1   # re-size collateral to the new epoch count (round-8 W3)
     if len(pos) >= 3:
         W_ANARCHY = pos[2]   # 3rd positional arg mirrors the owner's CLI (v11)
-    print(f"# v10+v11 protocol state-machine model check "
-          f"(D1-D7 checker-validity upgrade + anarchy proposal phase)")
+    print(f"# v14 protocol state-machine model check (D1-D7 checker-validity upgrade + anarchy "
+          f"proposal phase + round-12 Codex fidelity: AC resolution, challenge horizon, tolling)")
     print(f"# params: NEPOCHS={NEPOCHS} MAXCLOCK={MAXCLOCK} K={K} CANCEL_LAG={CANCEL_LAG} "
-          f"S_TICKS={S_TICKS} W_ANARCHY={W_ANARCHY} NTENURES={NTENURES} RESERVE0={RESERVE0}")
+          f"S_TICKS={S_TICKS} W_ANARCHY={W_ANARCHY} CHALLENGE_HORIZON={CHALLENGE_HORIZON} "
+          f"NTENURES={NTENURES} RESERVE0={RESERVE0}")
+    # v14 (DeepSeek W#1): the composition of the anarchy proposal cutoff with the r9-D1 decision
+    # deadline is only consistent for W_ANARCHY <= 2 (the cutoff must not exceed the window-
+    # closing tick's auto-resolution clock, e+2, or edge_empty_respects_phase false-positives on
+    # a legal window-close EMPTY). The CLI accepts any int, so guard it as a HARD ERROR here
+    # rather than silently exploring an inconsistent relation.
+    if W_ANARCHY > 2:
+        print(f"# ERROR: W_ANARCHY ({W_ANARCHY}) > 2 is unsupported -- the proposal cutoff would "
+              f"exceed the decision window's auto-resolution clock (e+2), making a legal "
+              f"window-close EMPTY false-trip edge_empty_respects_phase. Use W_ANARCHY in "
+              f"{{0, 1, 2}} (see the W_ANARCHY comment / RESULTS.md).")
+        return 2
+    # v14 (DeepSeek suggestion): CANCEL_LAG < S_TICKS makes the missed-seal-then-late-seal
+    # orderings unreachable (expiry disables seals before the seal deadline can mature) -- a
+    # HARD ERROR now, not a warning, so such a config never silently runs and mis-reports.
     if CANCEL_LAG < S_TICKS:
-        print(f"# WARNING: CANCEL_LAG ({CANCEL_LAG}) < S_TICKS ({S_TICKS}): the per-epoch "
-              f"expiry disables seals before the seal deadline can even mature, so the "
-              f"missed-seal-then-late-seal orderings are unreachable. Use CANCEL_LAG >= "
-              f"S_TICKS.")
+        print(f"# ERROR: CANCEL_LAG ({CANCEL_LAG}) < S_TICKS ({S_TICKS}): the per-epoch expiry "
+              f"disables seals before the seal deadline can even mature, so the missed-seal-"
+              f"then-late-seal orderings are unreachable. Use CANCEL_LAG >= S_TICKS.")
+        return 2
     if MAXCLOCK < NEPOCHS - 1:
         print(f"# WARNING: MAXCLOCK ({MAXCLOCK}) < NEPOCHS-1 ({NEPOCHS - 1}): tail epochs "
               f"are undecidable within the horizon, so reported halts will include bound "
