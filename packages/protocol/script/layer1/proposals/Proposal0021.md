@@ -7,6 +7,14 @@ This proposal rotates the trusted proving identifiers from the raiko2 v0.6.0 set
 [`raiko2 v0.8.0-rc1`](https://github.com/taikoxyz/raiko2/releases/tag/v0.8.0-rc1)
 release set.
 
+The main motivation for this release is the RISC0/Boundless path: raiko2 v0.8.0-rc1 includes
+[`perf(guest): reduce zkVM crypto setup cycles`](https://github.com/taikoxyz/raiko2/commit/8b2147a0e74ba6387938cf35544797fb1b61cc07),
+which updates the guest crypto dependency graph and regenerates the RISC0 proposal and aggregation
+artifacts. Because those guest and build changes are shared by the raiko2 proving codebase, the same
+release also produces new SP1 artifacts and new TEE enclave measurements. This proposal therefore
+aligns all proving lanes to the same v0.8.0-rc1 artifact set instead of mixing RISC0 from v0.8.0-rc1
+with SP1 and TEE artifacts from v0.6.0.
+
 It executes **20 L1 actions** and **no L2 actions**:
 
 - **Actions 1-4**: rotate RISC0 proposal and aggregation image IDs.
