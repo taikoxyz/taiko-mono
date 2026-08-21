@@ -1,7 +1,7 @@
-# v9 Protocol — Exhaustive State-Machine Model-Checking Results
+# v11 Protocol — Exhaustive State-Machine Model-Checking Results
 
 **Artifact:** [`model_checker.py`](model_checker.py) — a self-contained Python explicit-state
-model checker for the [redesign proposal](../redesign-proposal.md) (v9).
+model checker for the [redesign proposal](../redesign-proposal.md) (v11).
 **Question asked:** *can the new design reach an invalid state?*
 **Answer (within the checked bounds and modelled configurations):** **No.** Across every
 explored bound the checker found **zero reachable states or transitions violating any safety
@@ -12,7 +12,7 @@ deadlock-freedom, not unconditional livelock-freedom under a fully unfair schedu
 [Liveness scope](#liveness--deadlock-freedom-and-its-scope).) Exploration is exhaustive **from a
 curated set of initial configurations** (see [How it works](#how-it-works)) — it covers every
 adversarial interleaving from those seeds, not every conceivable initial assignment. A mutation
-self-test confirms the invariants are not vacuous — each of **eleven** deliberately-injected
+self-test confirms the invariants are not vacuous — each of **fifteen** deliberately-injected
 design bugs is caught by the check written to catch it.
 
 > Scope honesty up front: this is *bounded* model checking of an *abstraction*. It exhaustively
@@ -24,6 +24,33 @@ design bugs is caught by the check written to catch it.
 > eventual Solidity, and not a substitute for the game-theory and timing analysis in the design
 > doc.
 
+> **Revision note (v11 — round 10, anarchy proposal phase).** The owner-directed round-10
+> review restored discretionary content to Total Anarchy (design §9), and the model now
+> carries the lane it reverted in v8 — this time with **both** sides of the repair:
+> (1) a new **`anarchy_propose`** action — any actor may seal an *unowned* `openEpoch` with
+> content in **one atomic step** (propose ≡ seal ≡ finality; proof-carrying, so impossible
+> during an outage; discretionary, so disabled in recovery-only mode); (2) the **two-sided
+> proposal cutoff** (`min(e + W_ANARCHY, first owned epoch after e)`, collapsed in
+> recovery-only mode): the unowned epoch's proof-free EMPTY resolution is enabled only
+> **at/after** the cutoff, and the proposal only **strictly before** it. Two new
+> path-independent edge invariants (`edge_empty_respects_phase`,
+> `edge_proposal_respects_phase`) enforce the two sides, and a new state invariant
+> (`inv_anarchy_content_sealed`) enforces atomicity (unowned discretionary content never
+> exists unsealed — it is born sealed, so the §6.7 cascade can never touch it). **Four new
+> mutants** prove the additions have teeth: horn 2 (`anarchy_empty_in_phase` — a proof-free
+> empty front-running the phase), the determinacy break (`anarchy_propose_after_close`),
+> horn 1 (`nonatomic_anarchy_propose`), and the owned-successor truncation
+> (`anarchy_ignores_ownership`, run at `W_ANARCHY = 2` so the truncation term binds) →
+> **fifteen** mutants total. **`W_ANARCHY = 0` disables the lane and reproduces the v8/v10
+> model bit-for-bit** — verified: the `3 × 4, W = 0` run reproduces the previous revision's
+> state count exactly (results table). *Honesty note (round-10 finding r10-11):* the
+> round-9 review dispositioned its checker-validity findings (R9-16 / D1–D7) as
+> "Closed-in-checker", describing typed seals, an `equivocate` action, ordered forced items,
+> and a "v10 revision note" in this file — **none of which was ever committed**; the checker
+> this revision extends is the round-8 model plus the v9 outage mode, exactly as the git
+> history records. Closing R9-16 for real remains open with the owner (proposal Appendix B,
+> r10-11; §13-T.10's CI lint is the guard that would have caught the drift).
+>
 > **Revision note (round 5).** This version incorporates fixes for four review findings against
 > the first checker: (1) `openEpoch` monotonicity is now genuinely checked **across every
 > transition** (the first version only checked per-state consistency); (2) the double-debit
@@ -133,7 +160,16 @@ legal action of any actor:
   matured seal faults);
 - **outage_start / outage_end** (v9): toggle the proving outage — while active, CONTENT seals
   are impossible and only proof-free resolutions advance the chain; the adversary may leave the
-  outage on forever.
+  outage on forever;
+- **anarchy_propose** (v11, design §9): any actor seals an **unowned** `openEpoch` with
+  discretionary content in one atomic proof-carrying step (propose ≡ seal ≡ finality),
+  strictly before the epoch's **proposal cutoff** (`min(e + W_ANARCHY, first owned epoch
+  after e)`, collapsed while recovery-only mode is active); the unowned epoch's proof-free
+  EMPTY resolution is conversely enabled only **at/after** the cutoff. The action is
+  impossible during an outage (it carries a proof) and in recovery-only mode (it is
+  discretionary content, I5); forced-only CONTENT decisions stay enabled in both phase
+  regimes (a forced-only seal is the degenerate proposal during the phase and the mandated
+  resolution after it — I6 cadence untouched).
 
 Only *legal* (design-permitted) transitions are in the relation; the invariants then verify that
 the reachable set contains no bad state and no bad transition. (Injecting illegal transitions
@@ -142,7 +178,10 @@ below.)
 
 **Model parameters** (documented so results are interpretable without reading the script):
 `NEPOCHS × MAXCLOCK` per the results table; `NTENURES = 3` tenure identities; `L_LIVE = 1`
-(abstract slash unit); `RESERVE0 = 2·NEPOCHS + 1` per-tenure reserve at admission (round-8 W3:
+(abstract slash unit); `W_ANARCHY = 1` anarchy proposal-phase length in ticks (v11; design
+`W_a = S = 4` epochs, scaled down like `K` so both sides of the cutoff are exercised within
+tiny bounds; `0` disables the lane and reproduces the v8/v10 model bit-for-bit, and the
+truncation-binding runs use `2`); `RESERVE0 = 2·NEPOCHS + 1` per-tenure reserve at admission (round-8 W3:
 sized to the abstract worst case — up to two debits per owned epoch, a missed-seal SEAL cert and
 a later CANCEL cert — so a correctly-admitted tenure is never driven negative; a run that *does*
 go negative is the checker detecting under-collateralization, which `inv_bond_nonneg` reports).
@@ -196,6 +235,7 @@ State invariants (at every reachable state):
 | `bond_nonneg` | §4, §8 | a slash never drives a reserve below zero |
 | `no_frame` | §7.2, §8.3 | a certificate only ever names the acting owner of that epoch |
 | `withdraw_gated` | §8.4, I2 | no withdrawn tenure retains an unresolved certificate or unsealed owned epoch |
+| `anarchy_content_sealed` | §9, I5 (v11) | unowned **discretionary** content exists only born-sealed (propose ≡ seal is atomic) — it can never sit in the cancellable value-at-risk tail or lock the chain unproven (round-2 finding 6, horn 1) |
 
 Edge invariants (at every transition):
 
@@ -206,6 +246,8 @@ Edge invariants (at every transition):
 | `edge_debit_conservation` | I2, §8 | a reserve decreases only by consuming exactly one fresh logical fault id — no double-debit, no id-less debit, no cross-tenure debit; and (round-8 W3, no zero-floor) it now checks *every* debit, including at exhausted reserve |
 | `edge_maturity_materialized` | I2 | a tick spent as a DECIDED (content or explicit-empty), owned `openEpoch` must settle that owner's missed-seal certificate (unless its miss-commit LIVENESS certificate already stands) |
 | `edge_seal_immutable` | I3+I7 corollary | **path-independent** (round-8 W2): no single transition may change an already-CLOSED epoch's status — dedup cannot mask a re-open |
+| `edge_empty_respects_phase` | §9.1 (v11) | an unowned, non-forced epoch resolves EMPTY only **at/after** its proposal cutoff — a proof-free empty inside the phase is round-2 finding 6's empty-front-running horn (horn 2) |
+| `edge_proposal_respects_phase` | §9.1 (v11) | an anarchy proposal (unowned SEQ→SEALED) is valid only for the `openEpoch`, strictly **before** its cutoff, in NORMAL mode, outside an outage — a late proposal would flip a determined outcome; one past an owned successor's start would leave that holder parentless |
 | **liveness / deadlock-freedom** | **G5, I3** | **from every reachable state, full finalization is still reachable (standard + outage-robust); scope per [Liveness](#liveness--deadlock-freedom-and-its-scope)** |
 | **outage-robust halt-safety** (v9) | **G5, I3, §10.4** | **full finalization is reachable even if an active proving outage never lifts** — checked over the sub-relation excluding `outage_end`, so the proof-free floor (empty seals, void closure, cancellation) carries the whole burden |
 
@@ -215,21 +257,25 @@ All runs below completed the **full exploration from the curated initial configu
 state-cap truncation) and reported `SAFETY: NONE` and `LIVENESS: NONE` (no halt), with exit
 code 0:
 
-| Bound (`NEPOCHS × MAXCLOCK`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts (standard / outage-robust) |
+| Bound (`NEPOCHS × MAXCLOCK`, `W_ANARCHY`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts (standard / outage-robust) |
 | --- | ---: | ---: | :---: | :---: |
-| 3 × 4 (default) | 2,339,418 | 1,130,952 | 0 | 0 / 0 |
-| 3 × 5 | 3,659,594 | 2,075,820 | 0 | 0 / 0 |
+| 3 × 4, `W = 0` (lane off — v10-equivalence check) | 2,339,418 | 1,130,952 | 0 | 0 / 0 |
 
-The v9 outage adversary roughly quadruples the state space (every configuration is explored
-with and without an active outage, at every point), so the `4 × 3` bound now exceeds the
-4,000,000-state cap; the outage-free `4 × 3` result stands from the v8 model (2,722,729 states,
-0 violations, 0 halts — bit-for-bit reproducible by removing the two outage actions).
+The `W = 0` row **exactly reproduces the pre-v11 model's documented `3 × 4` counts**
+(2,339,418 / 1,130,952) — the same bit-for-bit determinism check the v8 revert used, here run
+in the opposite direction: disabling the lane recovers the previous relation precisely, so
+every v11 delta is attributable to the lane alone. (The pre-v11 `3 × 5` result for
+comparison: 3,659,594 states / 2,075,820 terminal, 0 / 0.) The v9 outage adversary roughly
+quadruples the state space (every configuration is explored with and without an active
+outage, at every point), so the `4 × 3` bound exceeds the 4,000,000-state cap; the
+outage-free `4 × 3` result stands from the v8 model (2,722,729 states, 0 violations, 0 halts
+— bit-for-bit reproducible by removing the two outage actions).
 
 The completed runs span the structurally interesting depth: handovers, multi-tenure
-promotion chains, anarchy, forced-only epochs, recovery-only mode (lag `> K`), the data-loss
-cancellation floor, and — new in this revision — cascades over committed descendants, forced
-re-queueing, and matured-fault materialization under every interleaving of late seals,
-promotions, and withdrawals.
+promotion chains, anarchy (now with the proposal lane and both sides of its cutoff),
+forced-only epochs, recovery-only mode (lag `> K`), the data-loss cancellation floor,
+cascades over committed descendants, forced re-queueing, and matured-fault materialization
+under every interleaving of late seals, promotions, and withdrawals.
 
 ### Mutation self-test — the invariants have teeth
 
@@ -248,6 +294,10 @@ and the named invariant **must** catch it:
 | a missed seal deadline is never materialized | `edge_maturity_materialized` (I2) | **CAUGHT** |
 | re-open an already-CLOSED epoch (round-8 W2) | `edge_seal_immutable` | **CAUGHT** |
 | admit a tenure under-collateralized for its faults (round-8 W3) | `inv_bond_nonneg` | **CAUGHT** |
+| a proof-free empty resolves an unowned epoch inside its proposal phase — round-2 finding 6, horn 2 (v11) | `edge_empty_respects_phase` | **CAUGHT** |
+| an anarchy proposal is accepted at/after the cutoff, flipping a determined outcome (v11, r10-1) | `edge_proposal_respects_phase` | **CAUGHT** |
+| an anarchy proposal locks decided-but-unsealed content — round-2 finding 6, horn 1 (v11) | `inv_anarchy_content_sealed` | **CAUGHT** |
+| the cutoff ignores the owned-successor truncation (v11, r10-3; run at `W_ANARCHY = 2` so the term binds) | `edge_proposal_respects_phase` | **CAUGHT** |
 | a proving outage wrongly blocks proof-free seals too | outage-robust halt analysis (v9) | **CAUGHT** (hundreds of thousands of permanent-halt states appear) |
 
 `# mutation self-test: ALL BUGS CAUGHT (invariants have teeth)`
@@ -270,6 +320,14 @@ and the named invariant **must** catch it:
 - **The I2 withdrawal-gate claim is now checked, not assumed**: because certificates materialize
   deterministically at maturity and are sticky, the explored relation contains every
   seal-late-then-withdraw ordering — and the gate blocks all of them until the debit lands.
+- **The v11 anarchy lane holds under the same attack surface**: with the two-sided cutoff in
+  the relation, no interleaving of proposals, empties, forced decisions, outages, mode
+  switches, promotions-to-anarchy, and cancellations produces an empty inside a protected
+  phase, a proposal past a cutoff or an owned successor's start, unsealed unowned
+  discretionary content, or any regression of the prior invariants — and both liveness
+  passes still hold, because the post-cutoff proof-free empty is exactly the outage-robust
+  exit the v9 pass already relied on. `W_ANARCHY = 0` reproduces the pre-v11 state space
+  bit-for-bit (the v8-revert determinism check, re-run for the opposite direction).
 
 ## What is and isn't modelled
 
@@ -277,8 +335,10 @@ and the named invariant **must** catch it:
 and recovery lane, seat handover / promotion / anarchy, objective liveness certificates with
 read-time (tolled) maturity materialization and one-shot debiting, the state-gated withdrawal,
 forced-snapshot / empty-resolution interaction (I6), recovery-only mode via the global lag cap,
-the cancellation floor, and the §6.7 cascade (voided descendants, in-order closure, forced
-re-queue, causing-tenure charge).
+the cancellation floor, the §6.7 cascade (voided descendants, in-order closure, forced
+re-queue, causing-tenure charge), and (v11) the anarchy proposal phase — the atomic
+propose≡seal action, the two-sided cutoff with its ownership truncation, and its
+recovery-only / outage interactions.
 
 **Abstracted away (deliberately):** exact slot counts (`Γc`, `κ`, the 32-slot epoch, the `Γc+κ`
 last-look window), continuous bond magnitudes and fee/MEV economics, cryptographic mechanisms
@@ -307,9 +367,10 @@ worth taking if and when the depth is needed).
 
 ```bash
 cd packages/protocol/docs/preconfirmation/simulation
-python3 model_checker.py            # default 3×4 exhaustive run
+python3 model_checker.py            # default 3×4 exhaustive run (W_ANARCHY=1)
 python3 model_checker.py 3 5        # NEPOCHS=3 MAXCLOCK=5
-python3 model_checker.py 4 3        # NEPOCHS=4 MAXCLOCK=3
+python3 model_checker.py 3 4 0      # W_ANARCHY=0: anarchy lane off — reproduces the v8/v10 model
+python3 model_checker.py 3 5 2      # W_ANARCHY=2: ownership truncation binds
 python3 model_checker.py --mutate   # invariant self-test (all bugs must be CAUGHT)
 ```
 

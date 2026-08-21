@@ -1,6 +1,6 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v10, 2026-08-21** — revised after
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v11, 2026-08-21** — revised after
 > adversarial review rounds 1–7 (eleven reviewer passes:
 > [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
@@ -56,7 +56,20 @@
 > recall its source principal (§6.4), an **L1-legible `K_empty`** (§5.4), the
 > `freshness_ceiling ≥ D_anchor + Γc + κ + R + margin` parameter invariant (§6.6), min-span
 > censorship pricing (§11.5), and narrowed wording for the `T_max`, "chain keeps moving", and
-> "hard preconfirmation" claims. Design only — mechanisms, invariants, incentives, parameters.
+> "hard preconfirmation" claims. **v11 (2026-08-21)** executes the owner directive to revisit
+> §13-T.11 deliberately: **Total Anarchy regains discretionary content** — an unowned epoch
+> accepts **anarchy proposals from any address** (atomic propose≡seal, self-contained DA,
+> precommitted payee) strictly inside a per-epoch **proposal phase** ending at a mechanical
+> cutoff `T_prop = min(decision + W_a·E, T_F)`, with v10's empty/forced-only resolutions
+> valid only at/after the cutoff (the two-sided rule that closes round-2 finding 6's *both*
+> horns), ownership truncation + an assignment-side guard for mixed regimes, recovery-only
+> and outage interactions inherited from I5/§10.4, and `W_a = 0` recovering v10 byte-for-byte
+> (§9, §11.8, §13-S.18, Appendix A #35). The full derivation — the naive empty-wait's three
+> failure modes and the closing rules — is the round-10 review,
+> [`review-loop/round10-anarchy-content-review.md`](review-loop/round10-anarchy-content-review.md);
+> the model checker gains the lane, two phase edge-invariants, an atomicity invariant, and
+> four mutants ([`simulation/RESULTS.md`](simulation/RESULTS.md)). Design only —
+> mechanisms, invariants, incentives, parameters.
 > Baseline: [`status-quo.md`](status-quo.md); owner decisions: its §6 and
 > [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
 >
@@ -123,8 +136,8 @@
   effective finality is `D + κ` (not `D + 2κ`) and I4's `Γc + κ` finality bound holds exactly.
 - **I3 — Single open epoch, always advanceable.** One canonical `openEpoch`; only a valid
   seal advances it; at every moment a permissionless action exists that can eventually advance
-  it (content seal, forced-only seal, empty seal, or the bounded expiry cancellation).
-  Unproven material never blocks any of these.
+  it (content seal, anarchy proposal — §9, v11, forced-only seal, empty seal, or the bounded
+  expiry cancellation). Unproven material never blocks any of these.
 - **I4 — Successor-safe parent.** Epoch N's outcome (content-with-DA or empty) is irreversible
   within `Γc + κ` of its boundary, and every later deadline measures from the moment its
   prerequisite became irreversible (automatic tolling), never from wall-clock while blocked.
@@ -137,14 +150,23 @@
   but that tail is self-funding — each forced-only seal is paid at or above its proving cost by
   its own forced fees (§6.5), its data is on L1 by construction, and it drains via the rung-1
   fast path or re-queues intact rather than being voided at any tenure's expense. Only the
-  *discretionary* tail is value-at-risk collateral, and it is what `K + S` bounds — §6.7.)
+  *discretionary* tail is value-at-risk collateral, and it is what `K + S` bounds — §6.7.
+  Anarchy-proposal content — §9, v11 — never enters this tail at all: propose ≡ seal, so it
+  is born sealed and cancellation can never reach it.)
 - **I6 — Forced inclusions are censorship-proof against the seat.** A non-empty forced
   snapshot makes the epoch's minimum valid outcome the deterministic forced-only epoch,
   constructible and provable by anyone from L1 data alone; empty is then invalid.
 - **I7 — Only proven transitions lock state; outcomes are sender-free.** Canonical state
   changes only through proof-carrying seals or the deterministic proof-free resolutions (valid
   empty seal; expiry cancellation), all pure functions of on-chain state. Who sends a
-  transaction never affects what the outcome is.
+  transaction never affects what the outcome is. *One scoped selection rule (v11, r10-9):*
+  for an **unowned** epoch strictly inside its proposal phase (§9), *which* proven outcome
+  locks is selected **first-accepted-wins** among valid anarchy proposals — L1 inclusion
+  order is the selection rule, by definition of the FCFS anarchy lane the brief specifies —
+  while each candidate proposal's own derived outcome and reward payee remain sender-free
+  and proof-bound (I1, I8), and every *resolution* (empty, forced-only, cancellation) remains
+  a deterministic pure function of on-chain state. The relaxation ends at the epoch's
+  proposal cutoff `T_prop`, after which the epoch is fully order-free again.
 - **I8 — Payees are precommitted, not first-claimers.** Every payment the protocol makes
   (fill/recovery compensation, refund, poke bounty, forced-item fee) goes to a beneficiary
   **cryptographically bound before the witness is disclosed** — for a proof, the payout address
@@ -180,7 +202,9 @@ As before (whitelist trust today; URC/validator path blocked twice over — stat
 - **[G5]** (v4, per round 3) Two explicitly different degradation endgames:
   - **Phase B (permissionless)**: every failure ends in a state where the chain keeps moving
     (forced-only + heartbeats at minimum) and **anyone can end the degradation by bidding the
-    reserve floor** — anarchy is a censorship-resistant fallback, not a sequencing mode.
+    reserve floor** — anarchy is a censorship-resistant fallback, and (v11, §9) a degraded
+    FCFS best-effort sequencing lane at proof latency, never the service mode: its
+    guarantees stay the fallback's (§10.4's four-way split), only its service level rises.
   - **Phase A (allowlisted)**: the same mechanics, but auction entry is allowlisted, so the
     endgame is **DAO-recoverable, not permissionless** — the DAO commits to a fast-path SLA
     for growing the allowlist (§10.3). This is the stated, accepted price of the training
@@ -253,6 +277,7 @@ faults. This removes v6-draft's second `Γb`-based decision (the audit-flagged i
 | `D_anchor` | minimum committed-anchor depth | 32 slots (1 epoch) | the EBC-committed anchor must be ≥ this deep at commit time; sized for L1 reorg safety, not "minimum useful" (v5, r4a-C2/H8) — raised from v4's 4 |
 | `K` / `K'` | global lag cap / exit | 8 / 4 epochs | recovery-only mode (I5) |
 | `K_empty` | max consecutive epochs **without an accepted content-bearing EBC** | 16 | v10 (r9-A3): redefined on the L1-legible form — absent, explicit-empty, or forced-only EBCs all count; nuisance bound only, `T_max` is the binding bound (§5.4) |
+| `W_a` | anarchy proposal-phase length (epochs past an unowned epoch's decision, tolled) | = `S` (4) | v11 (r10-1/2/3): unowned epoch `N`'s **proposal cutoff** `T_prop(N) = min(D_N + W_a·E, T_F)`, fixed at `N`'s decision from then-current assignment state; anarchy proposals valid **strictly before** it, v10's empty/forced-only resolutions **at/after** it (two-sided mechanical rule, §9). Consensus constraints: `P_max + margin ≤ W_a·E` (the protected window covers proving) and `W_a + 2 ≤ K` (steady anarchy lag `≈ 1 + (Γc+κ)/E + W_a` epochs stays inside the recovery trigger). **`W_a = 0` disables the lane — byte-identical to v10** |
 | `H_cancel` | published-unsealed expiry-cancellation horizon | 10 days | disaster floor (data loss *or* permanent proving outage — §6.7); **mechanical cutoff** (v10, r9-F2): seals valid strictly before `T_exp`, cancellation at/after it, no overlap; attested-outage tolling of `T_exp` bounded by `H_toll_max` (§6.7). + margin < blob retention (~18 d) for epoch **and forced-queue** data |
 | `H_toll_max` | total attested-outage tolling cap on `T_exp` | 20 days | v10 (r9-F5/A6): bounds how long attested outages can defer expiry so I3's proof-free exit always eventually fires; per-window attestations auto-expire (§10.4) |
 | parse-time caps | `MAX_DECOMPRESSED_SIZE` 8 MB, `MAX_RLP_ELEMENTS` 1M, `MAX_RLP_DEPTH` 32, `MAX_TX_COUNT_PER_SOURCE` 100k, `MAX_PER_TX_SIZE` 128 KB | consensus constants | circuit-canonical, client-identical (I1); initial values, §13-S.5 finalizes |
@@ -407,6 +432,11 @@ v4+ changes:
 - **Termination** on: settled fault certificate, bond below reservation, `K_empty` consecutive
   epochs without an accepted content-bearing EBC (the L1-legible form — §5.4; fee-continuation
   above; no slash), or **tenure expiry at `T_max`** (re-auction, not a fault).
+- **Transitions out of anarchy clear pending proposal phases** (v11, r10-3): a seat
+  transition may not assign a first epoch `T_F` below any already-fixed anarchy proposal
+  cutoff (§9.1) — the transition delay is `max(q·E, latest fixed cutoff − now)`, at most
+  ≈ `(W_a + 1)·E` beyond `q` and only while phases are pending — so in-flight proposals keep
+  their promised windows and the incoming holder starts on a determined parent chain.
 - **One canonical liability ledger** (r3b-F8b): the L1 bond contract is the sole ledger;
   L2 verdicts and every transport only *instruct* it; idempotency (the logical-id
   consumed-set) is enforced exclusively there, at execution.
@@ -566,6 +596,10 @@ censored demand from no demand — is no longer a deferred decision. `T_max` is 
 as the tenure-renewal / re-pricing bound (v10 wording, r9-F1), with `K_empty` as the faster
 nuisance path against lazy idlers only — and the *transaction-inclusion* censorship floor is
 carried by the forced queue (I6), not by either counter.
+
+**Scope note (v11):** `K_empty` and `T_max` are *tenure* counters. Unowned epochs feed
+neither, and anarchy-proposal content (§9) resets nothing: no tenure exists in the lane, so
+no anarchy activity can launder a seat obligation or extend a tenure's runway.
 
 ### 5.5 Seal
 
@@ -840,13 +874,122 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
 
 ## 9. Total Anarchy
 
-Unowned epochs resolve EMPTY-PENDING and are sealed permissionlessly as empty or forced-only
-(I6/I7); **no discretionary content**; recovery lane fully open; recovery compensation (§7.3,
+**v11 (owner directive, round 10) — unowned epochs accept discretionary proposals from any
+address.** The forced-only/empty subtraction that stood from v3 (and was restored by the v8
+regression audit) is replaced by a mechanism that closes *both* horns of round-2 finding 6;
+the derivation and the full attack review are in
+[`review-loop/round10-anarchy-content-review.md`](review-loop/round10-anarchy-content-review.md).
+
+### 9.1 The proposal phase (normative)
+
+For an **unowned** epoch `N`:
+
+1. **The decision is unchanged.** No acceptable EBC can exist (the §3.1 predicate requires a
+   tenure's registered keys, and there is no tenure), so `N` resolves EMPTY-PENDING at its
+   single decision `D_N = T_N + E + Γc + κ`, exactly as v10.
+2. **One proposal cutoff, fixed at the decision.**
+   `T_prop(N) = min(D_N + W_a·E, T_F)` on the I4-tolled clock, where `F` is the earliest
+   epoch assigned to any tenure per L1 assignment state **at `D_N`** (`T_F = +∞` if none),
+   and `W_a` is the §3-table parameter (`= S` initially; `0` disables the lane). The cutoff
+   is fixed once, from then-current state, and never retroactively re-evaluated (the §3.1
+   artifact-set-closure discipline). While recovery-only mode (I5) is active the cutoff
+   collapses to *now* — anarchy proposals are discretionary content and the mode suppresses
+   them; mode entry/exit is itself deterministic from L1 state, so the collapsed cutoff
+   stays mechanical.
+3. **Strictly before `T_prop(N)`** — and only while `N` is the `openEpoch` with every
+   ancestor outcome determined — **any address** may submit an **anarchy proposal** (§9.2).
+   The first *accepted* proposal **seals the epoch in the same atomic step**: propose ≡ seal
+   ≡ finality. Later proposals and re-lands are inert no-ops; an invalid submission (failed
+   proof, wrong forced snapshot, ineligible anchor) reverts and consumes nothing.
+4. **At and after `T_prop(N)`**, proposals are invalid and the epoch is exactly a v10
+   unowned epoch: proof-free empty seal if the forced snapshot is empty, permissionless
+   proof-carrying **forced-only** seal if not (I6), recovery compensation per §7.3, and the
+   `T_exp` cancellation floor per §6.7 behind everything. **No L1 block can accept both a
+   proposal and a resolution** — the same overlap-free mechanical-cutoff rule as `T_exp`
+   (r9-F2). At the cutoff the epoch's outcome is thereby *determined* (a pure function of L1
+   state) even before its resolution seal lands — the §3.1 fixed-at-vs-materialized-at
+   split — so proposers for later epochs can build on it immediately, and the pending
+   resolution seals of skipped epochs may be materialized inside a later proposal's own
+   transaction.
+5. **Seat transitions clear pending phases.** A transition may not assign a first epoch `F`
+   with `T_F` below any already-fixed cutoff: the transition delay is
+   `max(q·E, latest fixed cutoff − now)` — at most ≈ `(W_a + 1)·E` beyond `q`, and only
+   while phases are actually pending. Epochs whose decision falls at/after `T_F` get an
+   empty phase (`T_prop = D_N`, rule 2's `min`), which is exactly the `Γc + κ` soft-window
+   regime the incoming holder already tolerates for its immediate predecessor (§5.2). An
+   auction winner therefore ends anarchy with bounded notice; in-flight proposals keep the
+   window they were promised; and "win the seat to torch proposals" costs a reserve-floor
+   bid to destroy at most one window's committed work — the G5 exit working as designed.
+
+**Why the two-sided cutoff is the whole repair** (r10-1/2/3, compressed). The v7 restoration
+closed horn 1 (atomicity: only proven content locks) and died on horn 2 (a proof-free empty
+beats any ~10–15-minute proof). A *one-sided* empty-wait fails three ways: waits measured
+from sealability serialize dead anarchy into one epoch per `W_a` (a permanent
+recovery-mode sawtooth); waits measured from the decision without a proposal cutoff leave
+content-vs-empty forever L1-order-dependent and re-open horn 2 at every content-run start;
+and any wait at all, un-truncated, leaves an owned successor sequencing on an undetermined
+parent past its own commit deadline. The two-sided, decision-anchored, ownership-truncated
+cutoff closes all three at once: concurrent `E`-spaced cutoffs keep dead-anarchy cadence at
+`1/E` with a **constant** lag band of `≈ 1 + (Γc+κ)/E + W_a` epochs (inside `K` by the §3
+constraint); a proposer self-selects a target epoch whose remaining window covers its
+proving time `P` (`W_a·E ≥ P + margin` makes the protected window real), landing after every
+older epoch's cutoff so the skipped tail auto-empties; and the truncation + assignment guard
+keep every owned epoch's parent chain determined before it sequences. Sustained anarchy
+therefore **self-paces**: content epochs land at ~one per `max(E, P)`, skipped epochs
+resolve empty, lag never leaves the band, and no mode oscillation occurs.
+
+### 9.2 The anarchy proposal artifact — atomic and self-contained
+
+One transaction, carrying:
+
+- **Content**: the epoch's full ordered content — the **forced-snapshot prefix is
+  mandatory** (I6; the snapshot's ordered commitment is a public input of the proof, exactly
+  as for every seal — §6.5) — followed by an arbitrary discretionary suffix (empty suffix
+  valid: a "forced-only seal" is just the degenerate proposal, and no rule tries to
+  distinguish them — any content predicate is stuffing-evadable, §5.4/r10-4).
+- **Data**: the content's blob slices ride **the proposal transaction itself**; the contract
+  binds them through the transaction's own blob versioned hashes and the proof opens exactly
+  those commitments. DA is by construction — **no availability certificate, no `R` window,
+  no publication deadline, no fill reward, no retention duty toward `H_cancel`** (the epoch
+  is born sealed; the §6.7 cascade can never reach it — I5).
+- **Origin**: a committed anchor from **exactly the eligibility window an owned EBC for `N`
+  would have had** (§6.6: depth, freshness, and advancement all measured against `N`'s own
+  schedule — epoch-relative, never landing-relative, per I1), and L2 timestamps within the
+  committed `[T_N, T_N + E)` bounds. By landing time the anchor is only deeper — strictly
+  safer. Honest consequence, stated: anarchy content executes with timestamps up to the lag
+  band (~30 min) behind wall clock, as any recovered epoch does; each content epoch's
+  advancing anchor also resumes L1→L2 bridge ingestion at content cadence — strictly better
+  than v10's forced-only-cadence ingestion.
+- **Payee**: the proposal's beneficiary (`coinbase` / forced-fee payee per §6.5) is a
+  **public input of its proof** (I8) — a copied proposal in the mempool advances the chain
+  but cannot be re-pointed.
+- **Derivation**: identical rules to any epoch — I1's parse caps and degradation, bounded
+  zk-gas — enforced by the same circuit. Garbage content is economically self-punishing
+  (the proposer pays blobs + proof for an empty-equivalent outcome), never dangerous.
+
+### 9.3 What the lane deliberately does not carry
+
+No preconfirmations, no bond, no duty, no fault, no equivocation class. A proposal is an
+**opportunity**, never an obligation (I2): nobody is slashed for not proposing, an unowned
+epoch with no proposals resolves exactly as in v10, and nothing is promised to anyone before
+a proposal lands — so there is nothing to equivocate against, no `L_safety` analog, and no
+new collateral machinery. Users in anarchy get **finality-on-landing** (L1-confirmation
+latency at proof cadence) instead of preconfs; their *guaranteed* inclusion path was and
+remains the forced queue (I6). The four-guarantee split of §10.4 is unchanged except
+guarantee 3, which rises from "none" to *conditional best-effort* — see §10.4. Race
+economics, the censor-race residual, and why the lane does not cannibalize the auction:
+§11.8.
+
+### 9.4 Resolution regime and bridge bounds (unchanged from v10 at/after the cutoff)
+
+At/after `T_prop`, unowned epochs resolve EMPTY-PENDING → empty or forced-only seals
+permissionlessly (I6/I7); recovery lane fully open; recovery compensation (§7.3,
 paid from the faulter's recovery tranche) remains payable. G5 reframing (r3a-F9) as before: in
 Phase B this is a **censorship-resistant fallback that anyone can exit by out-bidding the
 reserve floor**; in Phase A it is **DAO-recoverable**, with the DAO fast-path SLA of §10.3.
-Bridge flow during anarchy = forced-only cadence; queue data retention per §6.4 keeps long
-outages refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided
+Bridge flow during proposer-less anarchy = forced-only cadence (with proposer interest,
+forced items flow inside proposals at the same `decision + P` cadence or faster — r10-4);
+queue data retention per §6.4 keeps long outages refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided
 forced item is `H_cancel` + one forced-only bridge cadence** (r4a-M14) **while proving is
 available**; under a *permanent proving outage* the honest bound is different (v10, r9-A4):
 re-queued forced items loop through fresh horizons until blob expiry (~18 days + any exhausted
@@ -856,19 +999,18 @@ the end-to-end bound is ≈ blob retention + tolling + the user's own recall lat
 depositor can make an informed decision from these two bounds, and no value is burned — only
 delayed.
 
-> **v8 note — why the v7 anarchy-content restoration was reverted.** v7 briefly restored the
-> brief's FCFS anarchy content via atomic proof-carrying proposals (propose ≡ seal). The
-> post-simplification regression audit found this **re-opens round-2 finding 6's
-> empty-front-running horn**: a proof-free empty seal is valid (and cheap) from the moment the
-> epoch is resolvable, while a proof-carrying proposal needs ~10–15 minutes of proving — so any
-> actor can resolve the epoch empty before any content proposal can physically exist, and a
-> griefer can torch every proposer's proving work at near-zero cost. The v3–v6 rule
-> ("no discretionary anarchy content", accepted by that reviewer as *resolved by subtraction*)
-> is therefore restored. The atomicity half of the idea remains sound — it satisfies r2-6's
-> only-proven-content-locks invariant — and the missing half (a deterministic `S`-epoch
-> empty-wait so pure-empty resolution is valid only after the window in which a proven
-> transition could have landed) is recorded as §13-T.9 for the owner to revisit deliberately,
-> not as part of a simplification round.
+> **History note (v8 revert → v11 restoration).** v7 briefly restored the brief's FCFS
+> anarchy content via atomic proof-carrying proposals (propose ≡ seal). The v8
+> post-simplification regression audit found that this alone **re-opens round-2 finding 6's
+> empty-front-running horn** — a proof-free empty seal is valid (and cheap) from the moment
+> the epoch is resolvable, while a proof-carrying proposal needs ~10–15 minutes of proving —
+> and correctly reverted it, recording the repair path (then §13-T.11) rather than patching
+> inside a simplification round. **v11 executes that deferred revisit on the owner's
+> directive**, and the round-10 review found the recorded sketch necessary but insufficient:
+> the empty-wait needs its mirror (a proposal cutoff), the decision-anchored clock, and the
+> ownership truncation before it closes the horn without breaking dead-anarchy cadence or
+> owned successors (§9.1; findings r10-1/2/3). The v8 audit's conclusion stands as correct
+> for the mechanism it audited; v11 is a different, two-sided mechanism.
 
 ---
 
@@ -914,7 +1056,12 @@ that escalates only as the failure proves genuinely systemic:
    `H_toll_max` (§6.7) — for every epoch **whose data availability is already established**
    (accepted AC, §5.2). Duties that need no prover — the EBC, slice publication, the AC itself
    — **never toll**: a holder that fails those during an outage faulted on its own, and *that*
-   is the precise, well-defined replacement for "drove the stall". Forgiveness of in-window
+   is the precise, well-defined replacement for "drove the stall". The anarchy proposal
+   cutoff `T_prop` (§9, v11) likewise **never tolls on its own account** — it gates an
+   opportunity, not a duty; there is no holder to protect and its post-cutoff resolution is
+   proof-free, which is exactly what keeps the outage-robust liveness result intact — though
+   it inherits any tolling of the decision instant `D_N` it is measured from (I4).
+   Forgiveness of in-window
    proof-dependent certificates is bounded to the attested window; without an attestation, no
    tolling — which is why **Phase A pre-commits an attestation SLA** (a published maximum
    response time from observable outage onset to DAO attestation, alongside §10.3's allowlist
@@ -935,8 +1082,11 @@ keeps moving" conflates four different claims; the design makes exactly these, s
    proof-carrying forced-only seals. Under a permanent outage they are **not executed** — they
    re-queue, then void at blob expiry with full refunds and recallable bridge principals
    (§6.4, §9). The unconditional guarantee is *refund*, not *execution*.
-3. **Discretionary throughput (conditional on a serving holder and proving):** anarchy and
-   recovery-only mode deliberately carry none; a proving outage finalizes none.
+3. **Discretionary throughput (conditional):** recovery-only mode deliberately carries none;
+   a proving outage finalizes none; owned service needs a serving holder. Unowned epochs
+   (v11, §9) carry **best-effort FCFS anarchy-proposal content at proof latency —
+   conditional on proposer interest and proving, never guaranteed**: the protocol guarantees
+   the *phase* exists, not that anyone fills it.
 4. **Bridge completion (conditional, bounded):** normal path per §9; permanent-outage path =
    refund + user-initiated terminal-cancellation recall, bounded by blob retention + tolling +
    recall latency (§9).
@@ -1036,7 +1186,46 @@ keeps moving" conflates four different claims; the design makes exactly these, s
   witness advances the chain but cannot redirect the reward.
 - **11.7 Simulation plan additions**: publication-censorship spans, sybil forced-inclusion
   floods against `K_empty`, cancellation-cascade depth under recovery-only mode, brake-trigger
-  boundary gaming, insurance-pool solvency under gas spikes.
+  boundary gaming, insurance-pool solvency under gas spikes; (v11) anarchy-lane race
+  economics and the FCFS censor-race cost under measured proving latency (§11.8, §13-T.14).
+- **11.8 Anarchy-lane economics (v11, §9).** Four properties, stated in the order reviewers
+  will probe them.
+  - **The race is cost-symmetric, so it is competition, not a griefing lever.** Competing
+    proposals each burn real proving spend; the loser's proof is torched, exactly like a
+    losing recovery-lane seal (§11.3) — the racers' own cost, while the chain advances
+    regardless. A proposer prices its torch risk by *choosing its target epoch*: windows are
+    `E`-spaced, so it can always pick one whose remaining span exceeds its proving time plus
+    an inclusion margin, and speculative-ancestor risk (a rival's proposal for an
+    intermediate epoch invalidating a pipelined proof) is part of the same choice. Expected
+    concentration to the fastest prover/builder is the §11.3 texture again: income at
+    competitive margins, **no censorship lever** — declining an epoch just hands it to
+    anyone else, or to the empty resolution.
+  - **The censor-race residual, priced honestly** (r10-4). A determined racer *can* keep
+    discretionary anarchy content out by winning the FCFS race every epoch — and when the
+    forced snapshot is non-empty, §6.5's fees reimburse the forced share of its work, so the
+    marginal censorship cost can be small. This breaks no guarantee: the inclusion floor was
+    and remains the forced queue (I6) — which the censor's own winning proposals **must
+    include as their prefix** — the censor must beat arbitrarily fee-bumpable rivals in
+    every single race, and the durable exit is the auction (any party valuing open
+    sequencing above the racer's spend bids the reserve floor — G5). A *service-level*
+    residual in a fallback mode, deliberately priced rather than engineered away — no wait
+    asymmetry can fix it, because a "content" proposal is indistinguishable from a
+    forced-only-plus-stuffing one (§5.4's undecidability, again). Quantification: §13-T.14.
+  - **The lane does not cannibalize the auction** (r10-8). The seat buys what anarchy
+    structurally cannot offer: **preconfirmations** (sub-second promises backed by
+    `L_safety` — in anarchy nothing exists to slash, so no promise before landing is
+    credible), **exclusivity** (no race, no torched proofs), **cadence** (real-time
+    sequencing and the `K+S` pipeline vs proof-latency-stale, one-per-`max(E,P)` contested
+    slots), and **fine-grained MEV** (anarchy content freezes ~`P` before landing). Any
+    actor for whom sequencing is worth more than the reserve floor strictly prefers bidding
+    to racing; anarchy proposing pays no admission tithe or seat fee because it consumes no
+    protocol guarantee — it *is* the degraded service. The empirical check — does the
+    auction clear promptly out of anarchy once real demand exists — joins the §13-T.7
+    graduation metrics.
+  - **Nothing new to steal, nothing new to freeze.** Proposals carry precommitted payees
+    (I8), are born sealed (no cancellable value-at-risk — I5), post no bonds (nothing to
+    freeze or drain), and create no fault or certificate state (nothing to poke, mature, or
+    withdraw against). The lane's entire attack surface is the race itself.
 
 ---
 
@@ -1114,6 +1303,14 @@ alignment; automated bond scaling.
     predicate (`due ∈ [T_N, T_N+E)`), the `F_delay ≥ E + F_margin` consensus constraint, the
     snapshot commitment as a seal-proof public input, and an audit of every deployed config's
     `forcedInclusionDelay` against the constraint.
+18. **[Phase B]** **Anarchy-proposal artifact specification** (v11, round 10; §9): the
+    atomic proposal transaction format and its blob-versioned-hash binding, proof public
+    inputs (forced-snapshot commitment, committed anchor, parent lineage, payee — I8),
+    bundled ancestor-resolution semantics (materializing determined-but-unsealed empty
+    ancestors in the proposal transaction), the `T_prop` cutoff record in the spine, and the
+    assignment-side guard (`T_F ≥` every fixed cutoff) in the §4 transition machinery.
+    Phase-B-blocking because `W_a = 0` ships Phase A byte-identical to v10 (§9.1); becomes
+    [Phase A] only if the owner elects `W_a > 0` at launch.
 
 **13-T — Tuning (gates Phase B)**:
 
@@ -1151,14 +1348,14 @@ alignment; automated bond scaling.
     the checked invariants (the self-test + bounded run already exit non-zero on any violation
     or halt — "CI-safe"). Accepted in principle rounds 5–6, now tracked here rather than only
     in PR replies (self-review coverage audit).
-11. **Anarchy discretionary content, revisited deliberately** (v8; §9 note): atomic
-   propose≡seal proposals satisfy r2-6's only-proven-content-locks invariant, but restoring
-   them requires the missing ordering half — a deterministic `S`-epoch **empty-wait** (pure
-   empty resolution of an unowned epoch valid only after the window in which a proven
-   transition could have landed; forced-only outcomes unaffected — I6 already invalidates
-   empty), plus its lag/`K` interaction (`S < K` keeps dead-anarchy lag constant at `S`) and
-   the FCFS/builder-ordering analysis. Only if the owner wants anarchy content badly enough to
-   pay this complexity.
+11. **Anarchy discretionary content — RESOLVED in v11** (owner directive, round 10). The
+   deliberate revisit this item reserved has happened: §9 now carries the normative
+   mechanism (atomic propose≡seal + the **two-sided** `T_prop` cutoff + ownership
+   truncation), and the round-10 review
+   ([`review-loop/round10-anarchy-content-review.md`](review-loop/round10-anarchy-content-review.md))
+   records why this item's own sketch — the one-sided empty-wait — was necessary but
+   insufficient (findings r10-1/2/3). Remaining calibration is §13-T.14; the artifact spec
+   is §13-S.18.
 12. **Bonded-accusation seat suspension** (v10, r9-B1 option 3): an accuser-staked,
     forfeit-on-false suspension of an accused tenure's sequencing during preconf-vs-record
     adjudication, as an alternative to carrying the full `Λ ×` MEV exposure in `L_safety`.
@@ -1167,6 +1364,13 @@ alignment; automated bond scaling.
     wiring) that greps proposal / §3 parameter table / README / deck / checker constants for
     the normative values and fails on drift, enforcing the header's normative-precedence rule
     mechanically.
+14. **Anarchy-lane calibration** (v11, round 10; §9, §11.8): `W_a` against measured proving
+    latency `P_max` and the `K` band (the §3 constraints `P_max + margin ≤ W_a·E ≤ (K−2)·E`
+    as *checked* setter invariants, like §13-T.3's); quantification of the FCFS censor-race
+    economics (r10-4) alongside §13-T.6's corridor data; the auction-clears-out-of-anarchy
+    metric for §13-T.7; and the optional **multi-epoch batch proposal** (one aggregated
+    proof sealing `j` consecutive unowned epochs, restoring full-cadence anarchy throughput
+    when `j·E ≥ P`) — a throughput extension, not needed for soundness.
 
 ---
 
@@ -1206,7 +1410,9 @@ horn, but the post-simplification regression audit showed it **re-opens r2-6's
 empty-front-running horn** (a cheap proof-free empty seal beats any ~10–15-minute
 proof-carrying proposal; near-zero-cost censorship of anarchy content). Anarchy returns to
 forced-only/empty — the brief's divergence stands — and the repair path (a deterministic
-`S`-epoch empty-wait) is recorded as §13-T.9 for a deliberate future revision (§9 v8 note).
+`S`-epoch empty-wait) is recorded as §13-T.11 (v11 note: the v8 text cited "§13-T.9", a
+stale pre-renumbering reference — fixed here) for a deliberate future revision (§9 history
+note); **executed in v11 — see #35**.
 New in **v9**: **29.** **maximum tenure duration `T_max`** — the seat is no longer unbounded:
 every tenure expires after ≤ `T_max` epochs and re-auctions (incumbent may rebid; expiry is not
 a fault). This diverges from the brief's "winner persists unless quit/outbid" perpetual seat,
@@ -1230,6 +1436,15 @@ seal possible" predicate, with attested-outage tolling bounded by `H_toll_max` a
 forced item's `refunded && !consumed` L1 terminal state unlocks source-principal recall) — a
 required Bridge change the design previously hand-waved as "the bridge's own
 unprocessed-message path" (§6.4, §13-S.16).
+New in **v11** (owner directive, round 10): **35.** **Total Anarchy discretionary content
+restored** — this *removes* divergence #28 and returns to the brief's intent, on protocol
+terms the brief did not specify: an unowned epoch accepts **atomic proof-carrying proposals
+from any address** strictly inside a per-epoch proposal phase bounded by the mechanical
+cutoff `T_prop = min(decision + W_a·E, T_F)`, with v10's empty/forced-only resolutions valid
+only at/after the cutoff, an assignment-side guard clearing pending phases before any seat
+transition (adding up to ≈ `(W_a+1)·E` to the `q`-delay while phases are pending), FCFS
+first-accepted-wins selection stated as a scoped I7 rule, no preconfs/bonds/faults in the
+lane, and `W_a = 0` recovering v10 exactly (§9, §11.8, §13-S.18, §13-T.14).
 
 ## Appendix B — Review dispositions
 
@@ -1382,8 +1597,29 @@ the summary:
 | r9-F4 (high) | "Hard" preconf implies more than the bond delivers | Accepted: "hard" defined as deterrence-only — no restitution, aggregate reliance uncapped, deep-reorg residual (§5.2) |
 | r9-F7/F8/F9 (med) | Cost benchmarks, cheapest-fault re-entry floor, Phase-A sunset | Accepted into the gates: §13-T.2 empirical re-entry bound, §13-S.14 bounded-pilot + tested rollback, §10.2 AC gas budget |
 | r9-B6 (high, consistency) | Artifacts disagree (κ re-post-only vs first-inclusions; `H_cancel` scope; pool funding) | Accepted: all three fixed in place; normative-precedence rule added to the header; consistency lint tracked §13-T.13 |
-| r9-B5 / r9-D1–D7 (checker validity) | Decision deadline unmodeled, untyped seals, boolean forced queue, global lag, outage-mutant baseline invalid, `RESERVE0` self-fulfilling, no throughput report | Accepted: checker upgraded and re-run — see [`simulation/RESULTS.md`](simulation/RESULTS.md) (v10 revision note) |
+| r9-B5 / r9-D1–D7 (checker validity) | Decision deadline unmodeled, untyped seals, boolean forced queue, global lag, outage-mutant baseline invalid, `RESERVE0` self-fulfilling, no throughput report | Accepted: checker upgraded and re-run — see [`simulation/RESULTS.md`](simulation/RESULTS.md) (v10 revision note). **[v11 correction: this row overstated its own closure — the described upgrade was never committed; see r10-11 below]** |
 | r9-B7 | Implementation spec itself missing | Acknowledged as the definition of §13-S: v10 closes the *mechanism* gaps (S.15–S.17 added); the executable Phase-A spec remains the implementation-phase deliverable, per the staged-adoption recommendation both reports make |
+
+**Round 10 (owner-directed review: discretionary proposals in Total Anarchy; resolved in
+v11).** Not an adversarial pass on v10's existing mechanisms but a directed design review of
+one deferred decision (§13-T.11), executed on the owner's directive. Findings and full
+dispositions in
+[`review-loop/round10-anarchy-content-review.md`](review-loop/round10-anarchy-content-review.md);
+the summary:
+
+| # | Finding (severity, against the naive §13-T.11 sketch) | v11 response |
+| --- | --- | --- |
+| r10-1 (crit) | The empty-wait alone leaves content-vs-empty L1-order-dependent forever (no determinacy, I7 break, `T_exp` lesson violated) | Two-sided mechanical cutoff `T_prop`: proposals strictly before, v10 resolutions at/after, no overlap; outcome *determined* at the cutoff, materialized lazily (§9.1) |
+| r10-2 (crit) | Wait-from-sealability serializes dead anarchy (permanent recovery-mode sawtooth); wait-from-decision without a cutoff re-opens horn 2 at content-run startup | Decision-anchored concurrent cutoffs + the r10-1 mirror: constant lag band `≈ 1+(Γc+κ)/E+W_a` epochs, `1/E` dead-anarchy cadence, self-pacing content at ~one per `max(E,P)`; constraints `P+margin ≤ W_a·E`, `W_a+2 ≤ K` (§3 table, §9.1) |
+| r10-3 (crit) | A naive wait leaves an owned successor sequencing on an undetermined parent past its own EBC deadline (I4 break) | Cutoff truncation at `T_F` (fixed at each decision from then-current assignment state) + assignment-side guard: no first epoch below a fixed cutoff; transition delay `max(q·E, latest cutoff − now)` (§9.1, §4 interaction) |
+| r10-4 (high) | No forced-only/content wait asymmetry can exist (suffix predicates are stuffing-evadable); forced-fee-subsidized censor race | Proof-carrying vs proof-free is the only line drawn; forced cadence undegraded (fee-collecting proposals valid from the first v10-recovery instant); censor race stated as a priced service-level residual — I6 floor + G5 exit unchanged (§9.2, §11.8, §13-T.14) |
+| r10-5 (high) | Inheriting the owned pipeline's streamed-blob shape drags AC/fill/retention machinery into a holderless lane | Self-contained atomic artifact: blobs in the proposal tx (versioned-hash-bound), no AC/`R`/fill/retention, born sealed — zero addition to the I5 value-at-risk tail (§9.2) |
+| r10-6 (med) | Landing-relative anchors would break I1 / bridge coherence for late-proven proposals | Anchor from the epoch's own §6.6 eligibility window, epoch-relative; timestamps keep `[T_N, T_N+E)`; staleness band stated (§9.2) |
+| r10-7 (med) | Mode interactions unspecified (recovery-only, outage, cascade) | Recovery-only collapses cutoffs (I5); `T_prop` never tolls on its own account (outage-robust liveness preserved, §10.4); cascade re-resolution stays proposal-free (§6.7 untouched) |
+| r10-8 (med) | Seat-value cannibalization | Rebutted with the four seat-only goods (preconfs, exclusivity, cadence, fine-grained MEV); bidding dominates racing; empirical metric added to §13-T.7 (§11.8) |
+| r10-9 (low) | FCFS selection contradicts I7 as written | Scoped I7 selection rule: first-accepted-wins inside the phase only; candidates and resolutions stay sender-free/deterministic (§0-I7) |
+| r10-10 (low) | Day-one consensus risk of a new permissionless lane | `W_a = 0` is v10 byte-identical; §13-S.18 is Phase-B-blocking unless the owner lights the lane at launch |
+| r10-11 (high, artifact-consistency) | Round 9's R9-16 "Closed-in-checker" disposition (and this appendix's r9-B5/D1–D7 row) describes checker work — typed seals, `equivocate`, ordered forced items, a RESULTS.md "v10 revision note" — absent from the committed artifacts (`simulation/` last touched by the round-8 commit) | Flagged, not re-claimed: the v11 checker extension builds on the checker **as committed**; `RESULTS.md`'s v11 note states the discrepancy; closing R9-16 for real is re-opened for the owner alongside §13-T.10's CI lint (which would have caught the drift). Stale "§13-T.9" refs in §9's history note / App-A #28 fixed in passing |
 
 ## Appendix C — L2 header inputs and their sources
 
