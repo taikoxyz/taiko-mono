@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 Exhaustive explicit-state model checker for the Taiko based-preconfirmation
-redesign (redesign-proposal.md), tracking the proposal through v14: the round-9
-D1-D7 checker-validity upgrade, the round-10 v11 anarchy proposal phase, and the
-round-12 Codex fidelity fixes (availability-certificate CONTENT/EMPTY resolution
+redesign (redesign-proposal.md), tracking the proposal through v15 (the v15
+round-13 fixes are design/spec-level, at or below this abstraction — see RESULTS.md):
+the round-9 D1-D7 checker-validity upgrade, the round-10 v11 anarchy proposal
+phase, and the round-12 Codex fidelity fixes (availability-certificate CONTENT/EMPTY resolution
 branch -- section 5.2 / 6.8 F2; the per-tenure equivocation-challenge withdrawal
 horizon with late preconf-vs-record settlement -- section 8 / r11-N2; and the
 machine-checked no-false-successor-slash tolling property -- section 7.1 / I4).
