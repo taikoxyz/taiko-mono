@@ -119,7 +119,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 	case "l2_geth":
 		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, headNum))
 		return
-	case "l2_reth", "l2_nmc":
+	case "l2_reth":
 		s.setHeadByForkchoiceAncestor(headNum)
 		return
 	}
@@ -153,7 +153,7 @@ func (s *ClientTestSuite) setHeadByForkchoiceAncestor(headNum *big.Int) {
 	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID)
 	s.Nil(err)
 
-	s.clearTxPoolAfterReorg(ctx, "SetHead ancestor unwind")
+	s.clearTxPoolAfterReorg(ctx)
 }
 
 func (s *ClientTestSuite) ParseL1HttpURLFromEnv() *url.URL {
@@ -266,23 +266,13 @@ func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHas
 
 	s.Equal(attributes.L1Origin.BlockID.Uint64(), head.Number.Uint64())
 
-	s.clearTxPoolAfterReorg(context.Background(), "forkTo")
+	s.clearTxPoolAfterReorg(context.Background())
 }
 
-func (s *ClientTestSuite) clearTxPoolAfterReorg(ctx context.Context, source string) {
+func (s *ClientTestSuite) clearTxPoolAfterReorg(ctx context.Context) {
 	// Tests resubmit transactions with the same hash/nonce after resetting the canonical head,
 	// so stale pool entries would otherwise be rejected as already known or nonce-conflicting.
-	switch os.Getenv("L2_NODE") {
-	case "l2_nmc":
-		var cleared bool
-		err := s.RPCClient.L2Engine.CallContext(
-			ctx,
-			&cleared,
-			"taikoDebug_clearTxPoolForReorg",
-		)
-		s.Nil(err)
-		s.True(cleared, "TxPool clear failed after "+source)
-	case "l2_reth":
+	if os.Getenv("L2_NODE") == "l2_reth" {
 		var cleared uint64
 		err := s.RPCClient.L2.CallContext(
 			ctx,

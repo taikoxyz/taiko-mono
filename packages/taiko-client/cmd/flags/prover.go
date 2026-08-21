@@ -84,6 +84,17 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_FORCE_SP1_PROOF"},
 	}
+	ForceSGXProof = &cli.BoolFlag{
+		Name: "prover.forceSGXProof",
+		Usage: "Always request SGX_RETH proofs from the Raiko proof producer instead of using the " +
+			"RISC0-to-SP1 selection and fallback flow. Ignored when --prover.zkOnlyProofs is set. " +
+			"The inbox's proof verifier must accept the [SGX_GETH, SGX_RETH] sub-proof pair. " +
+			"When set, --prover.forceSP1Proof and --prover.maxRisc0ProofProposalDistance are ignored. " +
+			"Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_FORCE_SGX_PROOF"},
+	}
 	ZkOnlyProofs = &cli.BoolFlag{
 		Name: "prover.zkOnlyProofs",
 		Usage: "Prove every proposal with both RISC0 and SP1 proofs and submit the [RISC0, SP1] sub-proof pair, " +
@@ -99,19 +110,12 @@ var (
 		EnvVars:  []string{"PROVER_ZK_ONLY_PROOFS"},
 	}
 	// Special flags for testing.
-	PrimaryProofDummy = &cli.BoolFlag{
-		Name:     "prover.primaryProofDummy",
-		Usage:    "Produce dummy primary proofs, testing purposes only",
+	Dummy = &cli.BoolFlag{
+		Name:     "prover.dummy",
+		Usage:    "Produce dummy proofs, testing purposes only",
 		Value:    false,
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_PRIMARY_PROOF_DUMMY"},
-	}
-	CompanionProofDummy = &cli.BoolFlag{
-		Name:     "prover.companionProofDummy",
-		Usage:    "Produce dummy companion proofs, testing purposes only",
-		Value:    false,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_COMPANION_PROOF_DUMMY"},
+		EnvVars:  []string{"PROVER_DUMMY"},
 	}
 	ProofPollingInterval = &cli.DurationFlag{
 		Name:     "prover.proofPollingInterval",
@@ -164,8 +168,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoApiKeyPath,
 	L1ProverPrivKey,
 	StartingProposalID,
-	PrimaryProofDummy,
-	CompanionProofDummy,
+	Dummy,
 	ProveUnassignedProposals,
 	ProofPollingInterval,
 	LocalProposerAddresses,
@@ -176,5 +179,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposalWindowSize,
 	MaxRisc0ProofProposalDistance,
 	ForceSP1Proof,
+	ForceSGXProof,
 	ZkOnlyProofs,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

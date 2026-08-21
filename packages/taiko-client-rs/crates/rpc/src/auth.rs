@@ -344,6 +344,8 @@ mod tests {
             withdrawals_hash: Some(B256::from([0x22; 32])),
             header_difficulty: Some(U256::from(7u64)),
             taiko_block: Some(true),
+            block_access_list: None,
+            slot_number: None,
         };
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
@@ -377,6 +379,8 @@ mod tests {
             withdrawals_hash: None,
             header_difficulty: Some(U256::from(u64::MAX) + U256::from(1u64)),
             taiko_block: Some(true),
+            block_access_list: None,
+            slot_number: None,
         };
 
         let err = engine_new_payload_v2_value(&payload, &sidecar)
@@ -393,6 +397,8 @@ mod tests {
             withdrawals_hash: None,
             header_difficulty: None,
             taiko_block: Some(true),
+            block_access_list: None,
+            slot_number: None,
         };
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
@@ -410,6 +416,8 @@ mod tests {
             withdrawals_hash: None,
             header_difficulty: None,
             taiko_block: Some(true),
+            block_access_list: None,
+            slot_number: None,
         };
 
         let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();

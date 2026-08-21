@@ -126,6 +126,34 @@ func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
 }
 
+func TestRequestProposalProofForceSGXUsesSGXReth(t *testing.T) {
+	producer := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
+	submitter := &ProofSubmitter{
+		zkvmProofProducer:             producer,
+		maxRisc0ProofProposalDistance: big.NewInt(30),
+		forceSP1Proof:                 true,
+		forceSGXProof:                 true,
+	}
+
+	resp, err := submitter.requestProposalProof(
+		context.Background(),
+		&proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(40)},
+		big.NewInt(40),
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(40)}, 0),
+		time.Now(),
+		big.NewInt(10),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, proofProducer.ProofTypeSgx, resp.ProofType)
+	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeSgx}, producer.requestedTypes)
+	require.Equal(
+		t,
+		[]proofProducer.ProofType{proofProducer.ProofTypeSgxGeth},
+		producer.requestedCompanionTypes,
+	)
+}
+
 func TestRequestProposalProofErrorsOnNilZKVMResponse(t *testing.T) {
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0, nilResponse: true}
 	submitter := &ProofSubmitter{
@@ -165,7 +193,7 @@ func TestRequestProposalProofRejectsMissingZKVMProducer(t *testing.T) {
 	require.Nil(t, resp)
 }
 
-func TestAggregateProofsByTypeRejectsNonZKProofType(t *testing.T) {
+func TestAggregateProofsByTypeSupportsSGXProofType(t *testing.T) {
 	submitter := &ProofSubmitter{
 		zkvmProofProducer: &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0},
 		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
@@ -175,5 +203,5 @@ func TestAggregateProofsByTypeRejectsNonZKProofType(t *testing.T) {
 
 	err := submitter.AggregateProofsByType(context.Background(), proofProducer.ProofTypeSgx)
 
-	require.ErrorContains(t, err, "unknown proof type: sgx")
+	require.NoError(t, err)
 }

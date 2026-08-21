@@ -317,8 +317,11 @@ func validateMetadataTimestamp(
 // ComputeTimestampLowerBound calculates the minimum allowed timestamp for the next block.
 //
 // The lower bound is determined by taking the maximum of three constraints:
-// 1. parent_timestamp + 1: Blocks must progress forward in time
-// 2. proposal_timestamp - TIMESTAMP_MAX_OFFSET: Blocks cannot be too far in the past relative to the proposal
+//  1. parent_timestamp + 1: Blocks must progress forward in time.
+//  2. proposal_timestamp - TIMESTAMP_MAX_OFFSET: Blocks cannot be too far in the past relative
+//     to the proposal.
+//  3. SHASTA_FORK_TIME: No block may predate the chain's Shasta fork activation timestamp.
+//
 // Returns the maximum of all three values to ensure all constraints are satisfied.
 func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp uint64, chainID *big.Int) uint64 {
 	timestampMaxOffset := manifest.TimestampMaxOffsetByChainID(chainID)
@@ -328,7 +331,11 @@ func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp uint64, chain
 		lowerBound = max(lowerBound, proposalTimestamp-timestampMaxOffset)
 	}
 
-	return lowerBound
+	// Enforce the Shasta fork-time floor: no derived block may carry a timestamp earlier than the
+	// chain's Shasta fork activation. This mirrors the derivation spec (Derivation.md) and the Rust
+	// driver / raiko / gaiko prover implementations, preventing a driver/prover consensus split at a
+	// non-genesis Shasta fork activation. For genesis-activated chains the floor is 0 and is a no-op.
+	return max(lowerBound, manifest.ShastaForkTimeByChainID(chainID))
 }
 
 // validateAnchorBlockNumber checks if each block's anchor block number is valid.

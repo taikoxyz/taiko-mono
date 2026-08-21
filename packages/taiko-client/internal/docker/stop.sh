@@ -18,11 +18,8 @@ case "$L2_NODE" in
   l2_reth)
     DOCKER_SERVICE_LIST=("l1_node" "l2_reth")
     ;;
-  l2_nmc)
-    DOCKER_SERVICE_LIST=("l1_node" "l2_nmc")
-    ;;
   *)
-    echo "Error: Unknown L2_NODE: '$L2_NODE'. Supported values: l2_geth, l2_reth, l2_nmc"
+    echo "Error: Unknown L2_NODE: '$L2_NODE'. Supported values: l2_geth, l2_reth"
     exit 1
     ;;
 esac

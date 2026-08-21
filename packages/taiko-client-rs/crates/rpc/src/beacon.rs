@@ -348,6 +348,19 @@ impl BeaconClient {
     pub const fn genesis_time(&self) -> u64 {
         self.genesis_time
     }
+
+    /// Return the number of slots per beacon epoch.
+    ///
+    /// Fetched from `/eth/v1/config/spec` (`SLOTS_PER_EPOCH`) during client construction.
+    pub const fn slots_per_epoch(&self) -> u64 {
+        self.slots_per_epoch
+    }
+
+    /// Return the current slot's index within its beacon epoch, based on local
+    /// wall-clock time.
+    pub fn current_slot_in_epoch(&self) -> u64 {
+        self.current_slot() % self.slots_per_epoch
+    }
 }
 
 impl BeaconBlockResponse {

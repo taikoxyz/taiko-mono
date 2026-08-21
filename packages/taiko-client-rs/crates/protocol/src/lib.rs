@@ -8,12 +8,12 @@ pub mod codec;
 pub mod metrics;
 /// Shasta-specific protocol types, constants, and builders.
 pub mod shasta;
-/// Deterministic signer used by network protocol flows.
-#[cfg(feature = "net")]
+/// Deterministic fixed-k secp256k1 signer. Depends only on `alloy-primitives`/`k256`, so it is
+/// available without the `net` feature for zkVM guests (e.g. raiko2) that must regenerate the
+/// canonical golden-touch anchor signature.
 pub mod signer;
 /// Provider/event-scanner subscription source abstraction.
 #[cfg(feature = "net")]
 pub mod subscription_source;
 
-#[cfg(feature = "net")]
 pub use signer::{FixedKSigner, FixedKSignerError};

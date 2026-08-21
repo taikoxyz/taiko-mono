@@ -71,26 +71,6 @@ services:
       - --taiko.devnet-unzen-time
       - "0"
 
-  l2_nmc:
-    container_name: l2_nmc
-    image: nethermindeth/nethermind:master
-    restart: unless-stopped
-    pull_policy: always
-    volumes:
-      - .:/host
-      - ./nmc:/nethermind/configs
-    ports:
-      - "8545"
-      - "8546"
-      - "8551"
-    command:
-      - --config
-      - /nethermind/configs/taiko-devnet.cfg
-      - --datadir
-      - /nethermind/data
-      - --log
-      - DEBUG
-
   l2_reth:
     container_name: l2_reth
     image: us-docker.pkg.dev/evmchain/images/alethia-reth:main

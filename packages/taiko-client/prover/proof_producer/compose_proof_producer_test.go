@@ -1,7 +1,6 @@
 package producer
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"math/big"
@@ -21,9 +20,8 @@ import (
 func TestComposeProducerRequestProof(t *testing.T) {
 	var (
 		producer = &ComposeProofProducer{
-			PrimaryProofDummy:   true,
-			CompanionProofDummy: true,
-			DummyProofProducer:  DummyProofProducer{},
+			Dummy:              true,
+			DummyProofProducer: DummyProofProducer{},
 		}
 		blockID = common.Big32
 		opts    = &ProposalProofRequestOptions{
@@ -55,9 +53,8 @@ func TestComposeProducerAggregateUsesItemProofType(t *testing.T) {
 			ProofTypeSgxGeth: 1,
 			ProofTypeZKSP1:   6,
 		},
-		PrimaryProofDummy:   true,
-		CompanionProofDummy: true,
-		DummyProofProducer:  DummyProofProducer{},
+		Dummy:              true,
+		DummyProofProducer: DummyProofProducer{},
 	}
 
 	result, err := producer.Aggregate(
@@ -81,6 +78,41 @@ func TestComposeProducerAggregateUsesItemProofType(t *testing.T) {
 	require.True(t, opts.CompanionProofAggregationGenerated)
 }
 
+func TestComposeProducerAggregateUsesSGXRethVerifierID(t *testing.T) {
+	producer := &ComposeProofProducer{
+		VerifierIDs: map[ProofType]uint8{
+			ProofTypeSgxGeth: 1,
+			ProofTypeSgx:     4,
+		},
+		Dummy:              true,
+		DummyProofProducer: DummyProofProducer{},
+	}
+
+	result, err := producer.Aggregate(
+		context.Background(),
+		[]*ProofResponse{
+			{
+				BatchID:   common.Big1,
+				ProofType: ProofTypeSgx,
+				Meta: metadata.NewTaikoProposalMetadataShasta(
+					&shastaBindings.ShastaInboxClientProposed{Id: common.Big1},
+					0,
+				),
+				Opts: &ProposalProofRequestOptions{
+					ProofType:          ProofTypeSgx,
+					CompanionProofType: ProofTypeSgxGeth,
+				},
+			},
+		},
+		time.Now(),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, ProofTypeSgx, result.ProofType)
+	require.Equal(t, uint8(4), result.VerifierID)
+	require.Equal(t, uint8(1), result.CompanionVerifierID)
+}
+
 func TestComposeProducerAggregateRejectsInconsistentCompanionProofTypes(t *testing.T) {
 	producer := &ComposeProofProducer{
 		VerifierIDs: map[ProofType]uint8{
@@ -88,8 +120,7 @@ func TestComposeProducerAggregateRejectsInconsistentCompanionProofTypes(t *testi
 			ProofTypeZKR0:    5,
 			ProofTypeZKSP1:   6,
 		},
-		PrimaryProofDummy:   true,
-		CompanionProofDummy: true,
+		Dummy: true,
 	}
 	items := []*ProofResponse{
 		{
@@ -122,9 +153,8 @@ func TestComposeProducerAggregateRejectsInconsistentCompanionProofTypes(t *testi
 func TestComposeProducerZkOnlyRequestProofDummy(t *testing.T) {
 	var (
 		producer = &ComposeProofProducer{
-			PrimaryProofDummy:   true,
-			CompanionProofDummy: true,
-			DummyProofProducer:  DummyProofProducer{},
+			Dummy:              true,
+			DummyProofProducer: DummyProofProducer{},
 		}
 		blockID = common.Big32
 		opts    = &ProposalProofRequestOptions{
@@ -154,9 +184,8 @@ func TestComposeProducerZkOnlyAggregateDummy(t *testing.T) {
 			ProofTypeZKR0:  5,
 			ProofTypeZKSP1: 6,
 		},
-		PrimaryProofDummy:   true,
-		CompanionProofDummy: true,
-		DummyProofProducer:  DummyProofProducer{},
+		Dummy:              true,
+		DummyProofProducer: DummyProofProducer{},
 	}
 
 	result, err := producer.Aggregate(
@@ -191,9 +220,8 @@ func TestComposeProducerZkOnlyAggregateRequiresRisc0VerifierID(t *testing.T) {
 		VerifierIDs: map[ProofType]uint8{
 			ProofTypeZKSP1: 6,
 		},
-		PrimaryProofDummy:   true,
-		CompanionProofDummy: true,
-		DummyProofProducer:  DummyProofProducer{},
+		Dummy:              true,
+		DummyProofProducer: DummyProofProducer{},
 	}
 
 	_, err := producer.Aggregate(
@@ -264,80 +292,36 @@ func (r *raikoRequestRecorder) requestedTypes() map[ProofType]int {
 	return types
 }
 
-func TestComposeProducerDummyProofSelection(t *testing.T) {
-	tests := []struct {
-		name                        string
-		primaryProofDummy           bool
-		companionProofDummy         bool
-		expectedRequests            map[ProofType]int
-		expectedProof               []byte
-		expectedBatchProof          []byte
-		expectedCompanionBatchProof []byte
-		expectedPrimaryGenerated    bool
-	}{
-		{
-			name:                        "primary proof only",
-			primaryProofDummy:           true,
-			expectedRequests:            map[ProofType]int{ProofTypeSgxGeth: 2},
-			expectedProof:               bytes.Repeat([]byte{0xff}, 100),
-			expectedBatchProof:          bytes.Repeat([]byte{0xbb}, 100),
-			expectedCompanionBatchProof: common.Hex2Bytes("bbbb"),
-		},
-		{
-			name:                        "companion proof only",
-			companionProofDummy:         true,
-			expectedRequests:            map[ProofType]int{ProofTypeZKR0: 2},
-			expectedProof:               common.Hex2Bytes("aaaa"),
-			expectedBatchProof:          common.Hex2Bytes("aaaa"),
-			expectedCompanionBatchProof: bytes.Repeat([]byte{0xbb}, 100),
-			expectedPrimaryGenerated:    true,
-		},
+func TestComposeProducerRequestProofRequestsSGXRethAndSgxGethCompanion(t *testing.T) {
+	recorder := &raikoRequestRecorder{proofs: map[ProofType]string{
+		ProofTypeSgx:     "0xaaaa",
+		ProofTypeSgxGeth: "0xbbbb",
+	}}
+	server := httptest.NewServer(recorder.handler())
+	defer server.Close()
+
+	producer := &ComposeProofProducer{
+		RaikoHostEndpoint:   server.URL,
+		RaikoRequestTimeout: time.Second,
+	}
+	opts := &ProposalProofRequestOptions{
+		ProofType:          ProofTypeSgx,
+		CompanionProofType: ProofTypeSgxGeth,
+		L2BlockNums:        []*big.Int{common.Big1},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			recorder := &raikoRequestRecorder{proofs: map[ProofType]string{
-				ProofTypeZKR0:    "0xaaaa",
-				ProofTypeSgxGeth: "0xbbbb",
-			}}
-			server := httptest.NewServer(recorder.handler())
-			defer server.Close()
+	result, err := producer.RequestProof(
+		context.Background(),
+		opts,
+		common.Big1,
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: common.Big1}, 0),
+		time.Now(),
+	)
 
-			producer := &ComposeProofProducer{
-				VerifierIDs: map[ProofType]uint8{
-					ProofTypeSgxGeth: 1,
-					ProofTypeZKR0:    5,
-				},
-				RaikoHostEndpoint:   server.URL,
-				RaikoRequestTimeout: time.Second,
-				PrimaryProofDummy:   test.primaryProofDummy,
-				CompanionProofDummy: test.companionProofDummy,
-			}
-			opts := &ProposalProofRequestOptions{
-				ProofType:          ProofTypeZKR0,
-				CompanionProofType: ProofTypeSgxGeth,
-				L2BlockNums:        []*big.Int{common.Big1},
-			}
-			meta := metadata.NewTaikoProposalMetadataShasta(
-				&shastaBindings.ShastaInboxClientProposed{Id: common.Big1},
-				0,
-			)
-
-			proof, err := producer.RequestProof(context.Background(), opts, common.Big1, meta, time.Now())
-			require.NoError(t, err)
-			require.Equal(t, test.expectedProof, proof.Proof)
-			require.Equal(t, test.expectedPrimaryGenerated, opts.RethProofGenerated)
-			require.True(t, opts.CompanionProofGenerated)
-
-			batch, err := producer.Aggregate(context.Background(), []*ProofResponse{proof}, time.Now())
-			require.NoError(t, err)
-			require.Equal(t, test.expectedRequests, recorder.requestedTypes())
-			require.Equal(t, test.expectedBatchProof, batch.BatchProof)
-			require.Equal(t, test.expectedCompanionBatchProof, batch.CompanionBatchProof)
-			require.Equal(t, test.expectedPrimaryGenerated, opts.RethProofAggregationGenerated)
-			require.True(t, opts.CompanionProofAggregationGenerated)
-		})
-	}
+	require.NoError(t, err)
+	require.Equal(t, ProofTypeSgx, result.ProofType)
+	require.Equal(t, common.Hex2Bytes("aaaa"), result.Proof)
+	require.Equal(t, map[ProofType]int{ProofTypeSgx: 1, ProofTypeSgxGeth: 1}, recorder.requestedTypes())
 }
 
 func TestComposeProducerRequestProofRequestsPrimaryAndSgxGethCompanion(t *testing.T) {

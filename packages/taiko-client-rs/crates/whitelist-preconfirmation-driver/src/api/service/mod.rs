@@ -11,9 +11,11 @@ use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
+use alloy_signer::SignerSync;
+use alloy_signer_local::PrivateKeySigner;
 use async_trait::async_trait;
 use driver::{PreconfPayload, PreconfSubmissionOutcome, sync::event::EventSyncer};
-use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
+use protocol::shasta::calculate_shasta_mix_hash;
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
@@ -60,15 +62,37 @@ const SECONDS_PER_SLOT: u64 = 12;
 const SHUTDOWN_BLOCK_WINDOW: Duration =
     Duration::from_secs(HAND_OVER_WINDOW_SLOTS * SECONDS_PER_SLOT * 3 / 2);
 
-/// Pure helper deciding whether the pod is safe to shut down given the time
-/// of the most recent `build_preconf_block` invocation. Returns `true` when
-/// no invocation has been recorded or when the elapsed time meets or exceeds
-/// `SHUTDOWN_BLOCK_WINDOW`.
-fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
-    match last_preconf_request {
-        None => true,
-        Some(at) => at.elapsed() >= SHUTDOWN_BLOCK_WINDOW,
-    }
+/// Number of L1 slots ahead of the hand-over window during which shutdown is
+/// refused even without recent build requests. `can_shutdown_for` blocks from
+/// this margin before the hand-over boundary through the end of the epoch, so
+/// a restart triggered just before a hand-over cannot leave the upcoming
+/// preconfer without its driver while its window opens: replacing the pod
+/// (rescheduling plus execution-client and driver boot) takes ~30-60s, which
+/// the activity-based `SHUTDOWN_BLOCK_WINDOW` cannot see because it only
+/// looks backwards at requests already received.
+const SHUTDOWN_IMMINENCE_MARGIN_SLOTS: u64 = 8;
+
+/// Pure helper deciding whether the pod is safe to shut down.
+///
+/// Returns `false` (refuse shutdown) when either:
+/// - a `build_preconf_block` request was received within `SHUTDOWN_BLOCK_WINDOW`: the preconfer
+///   this driver serves is actively sequencing, or
+/// - `slot_in_epoch` is within `SHUTDOWN_IMMINENCE_MARGIN_SLOTS` of the hand-over boundary or past
+///   it: a preconfer taking over at the next hand-over would find its driver still booting. This
+///   driver has no lookahead, so the guard applies to every epoch tail regardless of which operator
+///   is due next.
+fn can_shutdown_for(
+    last_preconf_request: Option<Instant>,
+    slot_in_epoch: u64,
+    slots_per_epoch: u64,
+) -> bool {
+    let recently_active =
+        matches!(last_preconf_request, Some(at) if at.elapsed() < SHUTDOWN_BLOCK_WINDOW);
+
+    let handover_start = slots_per_epoch.saturating_sub(HAND_OVER_WINDOW_SLOTS);
+    let handover_imminent = slot_in_epoch + SHUTDOWN_IMMINENCE_MARGIN_SLOTS >= handover_start;
+
+    !recently_active && !handover_imminent
 }
 
 /// Implements whitelist preconfirmation API business logic.
@@ -79,8 +103,8 @@ pub(crate) struct WhitelistApiService {
     rpc: Client,
     /// Chain ID for signature domain separation.
     chain_id: u64,
-    /// Deterministic signer for block signing.
-    signer: FixedKSigner,
+    /// Standard secp256k1 signer for block signing.
+    signer: PrivateKeySigner,
     /// Beacon client used to derive current epoch values for EOS requests.
     beacon_client: Arc<BeaconClient>,
     /// Channel to publish messages to the P2P network.
@@ -109,7 +133,7 @@ pub(crate) struct WhitelistApiServiceParams {
     /// Chain ID used for signing and payload hashing.
     pub(crate) chain_id: u64,
     /// Signer used for block signing operations.
-    pub(crate) signer: FixedKSigner,
+    pub(crate) signer: PrivateKeySigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Shared operator set used to gate the build API on the node's own whitelist status.
@@ -158,8 +182,13 @@ impl WhitelistApiService {
     }
 
     /// Returns `true` when no `build_preconf_block` request has been received
-    /// within the last `SHUTDOWN_BLOCK_WINDOW`.
+    /// within the last `SHUTDOWN_BLOCK_WINDOW` and no hand-over boundary is
+    /// imminent (see `can_shutdown_for`).
     pub(super) async fn compute_can_shutdown(&self) -> bool {
-        can_shutdown_for(*self.last_preconf_request_at.lock().await)
+        can_shutdown_for(
+            *self.last_preconf_request_at.lock().await,
+            self.beacon_client.current_slot_in_epoch(),
+            self.beacon_client.slots_per_epoch(),
+        )
     }
 }

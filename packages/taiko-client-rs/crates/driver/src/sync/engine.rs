@@ -245,6 +245,8 @@ fn derive_payload_sidecar(
         withdrawals_hash,
         header_difficulty,
         taiko_block: Some(true),
+        block_access_list: None,
+        slot_number: None,
     }
 }
 

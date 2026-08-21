@@ -4,8 +4,13 @@ use alloy_primitives::{Address, Signature as AlloySignature, U256, hex};
 use k256::{
     AffinePoint, FieldBytes, ProjectivePoint, Scalar,
     elliptic_curve::{
-        bigint::U256 as ScalarModulus, ff::PrimeField, ops::Reduce, point::AffineCoordinates,
-        scalar::IsHigh, sec1::ToEncodedPoint,
+        bigint::U256 as ScalarModulus,
+        ff::PrimeField,
+        group::prime::PrimeCurveAffine,
+        ops::{MulByGenerator, Reduce},
+        point::AffineCoordinates,
+        scalar::IsHigh,
+        sec1::ToEncodedPoint,
     },
 };
 use thiserror::Error;
@@ -41,7 +46,7 @@ pub enum FixedKSignerError {
     SigningFailed,
 }
 
-/// Deterministic secp256k1 signer.
+/// Deterministic secp256k1 signer for golden-touch anchor transactions.
 #[derive(Debug, Clone)]
 pub struct FixedKSigner {
     /// Secp256k1 private scalar used for fixed-k signing.
@@ -53,7 +58,7 @@ pub struct FixedKSigner {
 impl FixedKSigner {
     /// Instantiate a signer from a hex-encoded private key (with or without `0x`).
     #[instrument(skip(private_key_hex))]
-    pub fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
+    fn new(private_key_hex: &str) -> Result<Self, FixedKSignerError> {
         let trimmed = private_key_hex.strip_prefix("0x").unwrap_or(private_key_hex);
         let bytes = hex::decode_to_array::<_, 32>(trimmed)
             .map_err(|_| FixedKSignerError::InvalidPrivateKey)?;
@@ -91,11 +96,19 @@ impl FixedKSigner {
         &self,
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
-        for candidate in [Scalar::ONE, Scalar::from(2u64)] {
-            if let Ok(signature) = self.sign_with_specific_k(candidate, hash) {
-                debug!(?candidate, "generated signature with fixed k");
-                return Ok(signature);
-            }
+        // For k = 1, kG is the generator and k^-1 is one, so skip the generic
+        // scalar multiplication and inversion path.
+        if let Ok(signature) =
+            self.sign_with_k_components(AffinePoint::generator(), Scalar::ONE, hash)
+        {
+            debug!(candidate = ?Scalar::ONE, "generated signature with fixed k");
+            return Ok(signature);
+        }
+
+        let candidate = Scalar::from(2u64);
+        if let Ok(signature) = self.sign_with_specific_k(candidate, hash) {
+            debug!(?candidate, "generated signature with fixed k");
+            return Ok(signature);
         }
         Err(FixedKSignerError::SigningFailed)
     }
@@ -108,16 +121,28 @@ impl FixedKSigner {
         hash: &[u8; 32],
     ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
         // Calculate k * G in affine coordinates.
-        let k_point: AffinePoint = (ProjectivePoint::GENERATOR * k).to_affine();
+        let k_point: AffinePoint = ProjectivePoint::mul_by_generator(&k).to_affine();
+        let kinv =
+            Option::<Scalar>::from(k.invert()).ok_or(FixedKSignerError::NonInvertibleScalar)?;
+
+        self.sign_with_k_components(k_point, kinv, hash)
+    }
+
+    /// Finish signing from the affine nonce point and inverse nonce scalar.
+    ///
+    /// `k_point` and `kinv` must be derived from the same non-zero nonce scalar.
+    fn sign_with_k_components(
+        &self,
+        k_point: AffinePoint,
+        kinv: Scalar,
+        hash: &[u8; 32],
+    ) -> Result<SignatureWithRecoveryId, FixedKSignerError> {
         let x_bytes = k_point.x();
         let y_is_odd = bool::from(k_point.y_is_odd());
 
         let raw_r = Scalar::from_repr(x_bytes);
         let overflow = !bool::from(raw_r.is_some());
         let r = raw_r.unwrap_or_else(|| <Scalar as Reduce<ScalarModulus>>::reduce_bytes(&x_bytes));
-
-        let kinv =
-            Option::<Scalar>::from(k.invert()).ok_or(FixedKSignerError::NonInvertibleScalar)?;
 
         // s = k^{-1} (hash + r * priv)
         let hash_bytes: FieldBytes = (*hash).into();
@@ -154,7 +179,7 @@ impl FixedKSigner {
 
     /// Derive the Ethereum address corresponding to the given private key scalar.
     fn derive_address(scalar: &Scalar) -> Address {
-        let public_key = (ProjectivePoint::GENERATOR * scalar).to_affine();
+        let public_key = ProjectivePoint::mul_by_generator(scalar).to_affine();
         let encoded = public_key.to_encoded_point(false);
         Address::from_raw_public_key(&encoded.as_bytes()[1..])
     }
@@ -213,13 +238,30 @@ mod tests {
             "0x663d210fa6dba171546498489de1ba024b89db49e21662f91bf83cdffe788820",
         )
         .unwrap();
-        let k1_sig = signer.sign_with_specific_k(Scalar::ONE, &payload).ok();
-        let k2_sig =
-            signer.sign_with_specific_k(Scalar::from(2u64), &payload).expect("k=2 signature");
-        let actual =
-            signer.sign_with_predefined_k(&payload).expect("predefined k signature").signature;
-        let matches_k1 = k1_sig.as_ref().map(|sig| sig.signature == actual).unwrap_or(false);
-        let matches_k2 = k2_sig.signature == actual;
-        assert!(matches_k1 || matches_k2, "predefined-k result matches neither k=1 nor k=2 output");
+        let expected = signer.sign_with_specific_k(Scalar::ONE, &payload).expect("k=1 signature");
+        let actual = signer.sign_with_predefined_k(&payload).expect("predefined k signature");
+
+        assert_eq!(actual.signature, expected.signature);
+        assert_eq!(actual.recovery_id, expected.recovery_id);
+    }
+
+    #[test]
+    fn sign_with_predefined_k_falls_back_when_k1_produces_zero_s() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch key");
+        let r = Option::<Scalar>::from(Scalar::from_repr(AffinePoint::GENERATOR.x()))
+            .expect("generator x coordinate is canonical");
+        let payload: [u8; 32] = (-(r * signer.secret_scalar)).to_bytes().into();
+
+        assert!(matches!(
+            signer.sign_with_specific_k(Scalar::ONE, &payload),
+            Err(FixedKSignerError::ZeroSignatureComponent)
+        ));
+        let expected = signer
+            .sign_with_specific_k(Scalar::from(2u64), &payload)
+            .expect("k=2 fallback signature");
+        let actual = signer.sign_with_predefined_k(&payload).expect("predefined k signature");
+
+        assert_eq!(actual.signature, expected.signature);
+        assert_eq!(actual.recovery_id, expected.recovery_id);
     }
 }

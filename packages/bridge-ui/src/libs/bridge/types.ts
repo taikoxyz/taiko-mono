@@ -68,19 +68,22 @@ export type Message = {
   data: Hex;
 };
 
+export type RelayerApiInteger = bigint | number | string;
+
 // Todo: adjust relayer to return same as bridge
-// Identical to Message, but relayer uses capitalization
+// Relayer API message shape. Integer values may be JSON numbers at the API
+// boundary, strings after precision-preserving parsing, or bigint in tests.
 export type RelayerMessage = {
-  Id: bigint;
+  Id: RelayerApiInteger;
   From: Address;
-  SrcChainId: bigint;
-  DestChainId: bigint;
+  SrcChainId: RelayerApiInteger;
+  DestChainId: RelayerApiInteger;
   SrcOwner: Address;
   DestOwner: Address;
   To: Address;
   RefundTo: Address;
-  Value: bigint;
-  Fee: bigint;
+  Value: RelayerApiInteger;
+  Fee: RelayerApiInteger;
   GasLimit: number;
   Data: Hex | string;
   Memo: string;

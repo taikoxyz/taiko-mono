@@ -19,6 +19,7 @@ func TestRequestProposalProofZkOnlyPinsSP1AndSkipsSelection(t *testing.T) {
 	submitter := &ProofSubmitter{
 		zkvmProofProducer:             zkvm,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
+		forceSGXProof:                 true,
 		zkOnlyProofs:                  true,
 		risc0Backlog:                  backlog,
 		ctx:                           context.Background(),
@@ -68,6 +69,7 @@ func TestNewProofSubmitterRequiresZKVMProducer(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		false,
 		false,
 		false,
 	)

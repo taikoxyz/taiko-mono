@@ -101,11 +101,20 @@ func (s *PreconfBlockAPIServerTestSuite) TestCanShutdown() {
 		NextRanges:   []SlotRange{{Start: 24, End: 32}},
 		UpdatedAt:    time.Now().UTC(),
 	}
+	// Ranges entirely in the future, to exercise the imminence margin.
+	laFuture := &Lookahead{
+		CurrOperator: curr,
+		NextOperator: next,
+		CurrRanges:   []SlotRange{{Start: 100, End: 124}},
+		NextRanges:   []SlotRange{{Start: 200, End: 208}},
+		UpdatedAt:    time.Now().UTC(),
+	}
 
 	tests := []struct {
 		name         string
 		setLookahead bool
 		setBeacon    bool
+		lookahead    *Lookahead
 		globalSlot   uint64
 		want         bool
 	}{
@@ -123,12 +132,43 @@ func (s *PreconfBlockAPIServerTestSuite) TestCanShutdown() {
 			setLookahead: true, setBeacon: true, globalSlot: 31, want: false,
 		},
 		{name: "slot outside both ranges → safe", setLookahead: true, setBeacon: true, globalSlot: 50, want: true},
+		{
+			name:         "curr range starts beyond margin → safe",
+			setLookahead: true, setBeacon: true, lookahead: laFuture,
+			globalSlot: 100 - shutdownImminenceMarginSlots - 1, want: true,
+		},
+		{
+			name:         "curr range starts exactly at margin → unsafe",
+			setLookahead: true, setBeacon: true, lookahead: laFuture,
+			globalSlot: 100 - shutdownImminenceMarginSlots, want: false,
+		},
+		{
+			name:         "slot just before curr range start → unsafe",
+			setLookahead: true, setBeacon: true, lookahead: laFuture, globalSlot: 99, want: false,
+		},
+		{
+			name:         "next range starts exactly at margin → unsafe",
+			setLookahead: true, setBeacon: true, lookahead: laFuture,
+			globalSlot: 200 - shutdownImminenceMarginSlots, want: false,
+		},
+		{
+			name:         "between ranges, both beyond margin → safe",
+			setLookahead: true, setBeacon: true, lookahead: laFuture, globalSlot: 150, want: true,
+		},
+		{
+			name:         "past all ranges → safe",
+			setLookahead: true, setBeacon: true, lookahead: laFuture, globalSlot: 208, want: true,
+		},
 	}
 
 	for _, tt := range tests {
 		s.T().Run(tt.name, func(t *testing.T) {
 			if tt.setLookahead {
-				s.s.lookahead = la
+				if tt.lookahead != nil {
+					s.s.lookahead = tt.lookahead
+				} else {
+					s.s.lookahead = la
+				}
 			} else {
 				s.s.lookahead = nil
 			}
