@@ -1,6 +1,6 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v10, 2026-08-21** — revised after
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v11, 2026-08-21** — revised after
 > adversarial review rounds 1–7 (eleven reviewer passes:
 > [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
@@ -56,7 +56,22 @@
 > recall its source principal (§6.4), an **L1-legible `K_empty`** (§5.4), the
 > `freshness_ceiling ≥ D_anchor + Γc + κ + R + margin` parameter invariant (§6.6), min-span
 > censorship pricing (§11.5), and narrowed wording for the `T_max`, "chain keeps moving", and
-> "hard preconfirmation" claims. Design only — mechanisms, invariants, incentives, parameters.
+> "hard preconfirmation" claims. **v11 (2026-08-21)** responds to **round 10**
+> ([r10 adversarial comment](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5365112264)):
+> a HIGH design blocker — Appendix C sourced `timestamp`/`gasLimit`/anchor from EBC-committed
+> content, leaving **no canonical header source for any epoch that resolves without an
+> accepted EBC** (unowned epochs, missed commits, cancellation re-resolutions), so a
+> range-only implementation would hand the first-landed sealer a retrospective
+> timestamp/anchor option over two valid-looking forced-only outcomes (breaking I6/I7 and the
+> anarchy→assigned handoff), while an EBC-requiring circuit would make the forced-only seal
+> unconstructible. v11 closes it with the normative **default derivation rule** (§6.8): every
+> no-EBC resolution's block sequence is a pure function of
+> `(chainId, epoch, index, canonical parent, forced snapshot)` — deterministic timestamps,
+> epoch-deterministic anchor, inherited gas limit, deterministic partitioning — plus the
+> **clock-capacity invariant** (forced block count ≤ `E` per epoch, deterministic spill), an
+> explicit default-derivation branch in the seal circuit, Appendix C updates, and the
+> `ANARCHY(forced) → ASSIGNED(content)` conformance-vector obligation (§13-S.18).
+> Design only — mechanisms, invariants, incentives, parameters.
 > Baseline: [`status-quo.md`](status-quo.md); owner decisions: its §6 and
 > [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
 >
@@ -141,6 +156,10 @@
 - **I6 — Forced inclusions are censorship-proof against the seat.** A non-empty forced
   snapshot makes the epoch's minimum valid outcome the deterministic forced-only epoch,
   constructible and provable by anyone from L1 data alone; empty is then invalid.
+  "Deterministic" is discharged by the **default derivation rule** (§6.8, v11): when no
+  accepted EBC exists, every header and execution input of the forced-only outcome is a pure
+  function of `(chainId, epoch, index, canonical parent, forced snapshot)` — no field is left
+  to the sealer's, sender's, or L1 builder's choice.
 - **I7 — Only proven transitions lock state; outcomes are sender-free.** Canonical state
   changes only through proof-carrying seals or the deterministic proof-free resolutions (valid
   empty seal; expiry cancellation), all pure functions of on-chain state. Who sends a
@@ -428,8 +447,11 @@ streams its data to L1 *during* its own sequencing epoch and the EBC references 
 promising to publish later; availability is judged **at the single decision**, not at the
 boundary (v9, §5.2). Consequence (r4c-3): the epoch's **content-or-empty outcome is
 decided by the EBC alone**, at `T_N + E + Γc + κ = 7 slots` into the successor's epoch, versus
-~27 slots under a separate late-publication deadline. Missing EBC ⇒ EMPTY-PENDING + certificate. Explicit empty EBC: valid, unslashed,
-counted against `K_empty`, invalid when the forced snapshot is non-empty (I6). The committed
+~27 slots under a separate late-publication deadline. Missing EBC ⇒ EMPTY-PENDING + certificate,
+and the epoch's empty/forced-only outcome derives by the **default rule** (§6.8, v11 — no EBC
+field is needed to construct or prove it). Explicit empty EBC: valid, unslashed,
+counted against `K_empty`, invalid when the forced snapshot is non-empty (I6 — the epoch then
+also derives by the default rule, the invalid EBC contributing nothing). The committed
 anchor must be ≥ `D_anchor` (32 slots) deep and satisfy the freshness-and-advancement floor of
 §6.6; because the origin is committed *content*, no L1 reorg of the EBC's inclusion changes what
 the epoch derives to (I1).
@@ -636,7 +658,10 @@ with these v4/v5 clarifications:
   that make the ratios finite). `a` (the per-item base) makes a griefer's cost scale with the
   *count* of items, not their size, so tiny-item floods (r4a-H10) pay for the sealing overhead
   they impose. Each snapshot admits items up to a per-snapshot bound; overflow spills
-  deterministically to the next epoch. Fees are paid to the **consuming epoch's sealer** (a
+  deterministically to the next epoch. **The bound is double-dimensioned (v11, r10):** it caps
+  zk-gas *and* the deterministic partition's block count (`≤ B_max ≤ E` blocks — §6.8's
+  clock-capacity invariant), so a default-derived forced-only epoch always fits its
+  one-second-per-block timestamp budget. Fees are paid to the **consuming epoch's sealer** (a
   state-recorded payee — I8). By construction the minimum forced-only seal is funded at or above
   its proving cost; a residual (a workload whose true circuit cost still exceeds the conservative
   bound) is closed by settling the shortfall from the recovery pool (§7.3). **The bounded
@@ -734,6 +759,65 @@ fast path needs **no horizon of its own**:
    reachable only after ≥ 10 days of continuously flagged failure.
 4. Forced snapshots of cancelled epochs re-queue at the front (data intact — retention outlasts
    `H_cancel`); voiding + refunds only per §6.4 above.
+
+### 6.8 The default derivation — canonical headers when no EBC exists (v11, r10)
+
+Appendix C sources `timestamp`, `gasLimit`, and the anchor from **committed content** — but an
+epoch can resolve with **no accepted EBC at all**: an unowned (anarchy) epoch, a missed-commit
+epoch, an invalid-EBC epoch (including explicit-empty against a non-empty snapshot), and a
+§6.7 cancellation re-resolution. Round 10 showed that leaving those fields undefined there is
+a consensus-critical hole with two failure horns: a *range-only* implementation ("any
+timestamp in `[T_N, T_N+E)`") lets competing permissionless sealers construct **two different
+valid-looking forced-only outcomes** — the first-landed seal becomes a retrospective option
+over timestamp-sensitive state (auctions, liquidations, quota clocks, EIP-4396 fee inheritance,
+timestamp-gated forks), breaking I6's determinism, I7's sender-independence, and the
+anarchy→assigned handoff a successor precomputes against — while an *EBC-requiring* circuit
+makes the forced-only transition unconstructible and stalls `openEpoch`. The default rule
+closes both horns:
+
+- **One pure function.** For any epoch `N` resolving without an accepted EBC, the L2 block
+  sequence is a pure function of `(chainId, N, intraEpochIndex, canonical parent chain,
+  forced snapshot)` — every header and execution input, with **no field left to the forced
+  sender, the sealer, or L1 inclusion timing**:
+  - **Empty outcome** (snapshot empty): **zero L2 blocks**. The epoch advances `openEpoch`
+    with no chain extension; the next content-bearing epoch's parent is unchanged.
+  - **Forced-only outcome** (snapshot non-empty): the snapshot's items in queue order,
+    partitioned into blocks by a **deterministic greedy rule** under the consensus per-block
+    caps (a new block exactly when the running cap is exceeded); block `i` (0-based) takes
+    **`t_i = max(T_N, parent.timestamp + 1) + i`**; `coinbase` = the epoch-deterministic
+    address (the existing forced rule); `gasLimit` = the parent's, drift zero; every other
+    field per its Appendix C class (**P**/**E**/**X**).
+  - **Anchor** (the field §9's anarchy bridge cadence depends on): epoch-deterministic — the
+    canonical L1 block at slot `slot(T_N) − D_anchor`, which satisfies §6.6's depth (exactly
+    `D_anchor`), freshness (lag `D_anchor` < ceiling by the §6.6 setter invariant), and
+    advancement (strictly increasing per epoch) by construction, and is verified by the same
+    §6.6 machinery as a committed anchor. Bridge messages carried as forced items therefore
+    keep executing against fresh L1 state through arbitrarily long anarchy.
+- **Clock-capacity invariant.** Timestamps are integer seconds, strictly increasing, and
+  every epoch-`N` block must satisfy `t < T_N + E` — so at most `E` (= 384) blocks fit in an
+  epoch. By induction every parent entering epoch `N` has `parent.timestamp ≤ T_N − 1`
+  (content epochs by the circuit-enforced `[T_N, T_N+E)` bound; default epochs by this very
+  rule), so `t_i = T_N + i` and the bound holds **iff the block count ≤ E**. The §6.5
+  per-snapshot bound is therefore also a **block-count budget**: snapshot admission must cap
+  items such that the deterministic partition emits ≤ `B_max ≤ E` blocks, with overflow
+  **spilling deterministically to the next epoch** (§6.5's existing spill rule) — mirroring
+  the deployed protocol's forced-inclusion cap and deterministic timestamp overwrite, which
+  exist for exactly this reason.
+- **The circuit has an explicit default branch.** The seal proof takes a derivation-mode
+  public input — `EBC` or `DEFAULT` — and the `DEFAULT` branch requires *no* EBC artifact:
+  it verifies the block sequence against the snapshot commitment and the rule above. A
+  forced-only seal is therefore always constructible by anyone from L1 data alone (I6), and
+  a `DEFAULT`-mode seal for an epoch that *has* an accepted EBC is invalid (the decision
+  record pins the mode — no mode-choice race).
+- **Consequences.** Exactly **one** valid post-state exists per (parent, snapshot, epoch);
+  competing sealers race to land *the same bytes*, so first-inclusion is a gas race, never a
+  state lottery — I7 restored where round 10 broke it. And because the snapshot is fixed
+  before `T_N`, the parent chain is final per I4, and the rule is closed-form, **the
+  successor can compute the exact parent header/state root at the parent's decision** — hard
+  preconfs, fee accrual, and slashable successor duties key on that computable header, not
+  merely on the EMPTY/forced-only class, which is the round-10 item-2 requirement satisfied
+  without any new tolling rule. Conformance vectors for the `ANARCHY(forced) →
+  ASSIGNED(content)` handoff are a Phase-A obligation (§13-S.18).
 
 ---
 
@@ -845,7 +929,10 @@ Unowned epochs resolve EMPTY-PENDING and are sealed permissionlessly as empty or
 paid from the faulter's recovery tranche) remains payable. G5 reframing (r3a-F9) as before: in
 Phase B this is a **censorship-resistant fallback that anyone can exit by out-bidding the
 reserve floor**; in Phase A it is **DAO-recoverable**, with the DAO fast-path SLA of §10.3.
-Bridge flow during anarchy = forced-only cadence; queue data retention per §6.4 keeps long
+Bridge flow during anarchy = forced-only cadence — viable precisely because §6.8's default
+derivation gives every unowned forced-only epoch an **advancing, epoch-deterministic anchor**
+(v11; without it, no EBC would mean no fresh L1 state root on L2 and bridge messages could not
+verify their signals); queue data retention per §6.4 keeps long
 outages refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided
 forced item is `H_cancel` + one forced-only bridge cadence** (r4a-M14) **while proving is
 available**; under a *permanent proving outage* the honest bound is different (v10, r9-A4):
@@ -1114,6 +1201,15 @@ alignment; automated bond scaling.
     predicate (`due ∈ [T_N, T_N+E)`), the `F_delay ≥ E + F_margin` consensus constraint, the
     snapshot commitment as a seal-proof public input, and an audit of every deployed config's
     `forcedInclusionDelay` against the constraint.
+18. **[Phase A]** **Default-derivation completion + handoff conformance vectors** (v11, r10;
+    §6.8): the exact default rule for every fork-specific field at implementation
+    granularity (with §13-S.3), the derivation-mode public input (`EBC`/`DEFAULT`) and its
+    decision-record pinning, the double-dimensioned snapshot bound (`B_max ≤ E` blocks) and
+    its deterministic spill, and an `ANARCHY(forced) → ASSIGNED(content)` conformance-vector
+    suite: competing min/max-timestamp seal candidates (both must be invalid except the one
+    default outcome), maximum forced block count, late sealing, EIP-4396 fee inheritance and
+    timestamp-gated fork boundaries across the handoff, asserting exactly one valid parent
+    exists and no honest successor certificate can mature.
 
 **13-T — Tuning (gates Phase B)**:
 
@@ -1230,6 +1326,14 @@ seal possible" predicate, with attested-outage tolling bounded by `H_toll_max` a
 forced item's `refunded && !consumed` L1 terminal state unlocks source-principal recall) — a
 required Bridge change the design previously hand-waved as "the bridge's own
 unprocessed-message path" (§6.4, §13-S.16).
+New in **v11** (round 10): **35.** the **default derivation rule** — when an epoch resolves
+without an accepted EBC, its headers are not "whatever fits the range" but one pure function
+of `(chainId, epoch, index, canonical parent, forced snapshot)` (§6.8): deterministic
+timestamps (`t_i = max(T_N, parent.timestamp+1)+i`), an epoch-deterministic advancing anchor,
+inherited gas limit, deterministic partitioning under a block-count budget `≤ E` with spill,
+and an explicit `DEFAULT` circuit branch. The brief's manifest-driven header model simply had
+no answer for holderless epochs; this is the missing half of I6's "deterministic forced-only
+outcome".
 
 ## Appendix B — Review dispositions
 
@@ -1385,24 +1489,35 @@ the summary:
 | r9-B5 / r9-D1–D7 (checker validity) | Decision deadline unmodeled, untyped seals, boolean forced queue, global lag, outage-mutant baseline invalid, `RESERVE0` self-fulfilling, no throughput report | Accepted: checker upgraded and re-run — see [`simulation/RESULTS.md`](simulation/RESULTS.md) (v10 revision note) |
 | r9-B7 | Implementation spec itself missing | Acknowledged as the definition of §13-S: v10 closes the *mechanism* gaps (S.15–S.17 added); the executable Phase-A spec remains the implementation-phase deliverable, per the staged-adoption recommendation both reports make |
 
+**Round 10 ([adversarial comment on v10](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5365112264) — 1 high design blocker + 2 explicit non-findings; resolved in v11):**
+
+| # | Finding | v11 response |
+| --- | --- | --- |
+| r10-1 (high) | **No canonical L2 clock/header for no-EBC epochs**: Appendix C sourced `timestamp`/`gasLimit`/anchor from EBC-committed content, so an unowned (or missed-commit / cancelled) forced-only epoch had no defined header source — a range-only implementation gives the first-landed sealer a retrospective timestamp/anchor option over two valid-looking outcomes (breaking I6/I7, poisoning the anarchy→assigned handoff, EIP-4396 fee state, and timestamp-sensitive apps), while an EBC-requiring circuit stalls `openEpoch`; and no clock-capacity invariant bounded block count against the 384-second timestamp budget | Accepted in full, all four closure items adopted: **§6.8 default derivation rule** (one pure function of `(chainId, epoch, index, canonical parent, forced snapshot)`; empty ⇒ zero blocks; `t_i = max(T_N, parent.timestamp+1)+i` with the `< T_N+E` bound proven by induction + the block-count budget; epoch-deterministic advancing anchor at `slot(T_N) − D_anchor`; inherited gasLimit; deterministic partitioning); **clock-capacity invariant** with the §6.5 snapshot bound double-dimensioned (`B_max ≤ E`, deterministic spill); **`DEFAULT` circuit branch** pinned by the decision record (no mode race, no unconstructibility); exact-parent-header computability at the decision stated as what successor hard preconfs/duties key on (no new tolling needed); `ANARCHY(forced)→ASSIGNED(content)` conformance vectors §13-S.18; I6/§5.1/§9/App-C updated (new source class **D**) |
+| r10-2 (non-finding, confirmed) | v10 does not allow discretionary content during Total Anarchy | Confirmed — §9 unchanged |
+| r10-3 (non-finding, confirmed) | No permanent lockout/inevitable slash from a maximal legal predecessor timestamp: `lastTimestamp_N ≤ T_(N+1)−1` keeps `T_(N+1)` legal | Confirmed — and now guaranteed structurally by §6.8's induction (every parent entering epoch `N` has timestamp `≤ T_N − 1`) |
+
 ## Appendix C — L2 header inputs and their sources
 
 Backing for §6.6's claim (r3a-F5). Source classes: **P** = parent chain state, **E** =
 epoch schedule (known before `T_N`), **C** = committed content (EBC-bound), **X** = execution
-result. None may be an L1-inclusion-time observation.
+result, and — v11 (r10) — **D** = the §6.8 **default derivation rule** (a pure function of
+`(chainId, epoch, index, canonical parent, forced snapshot)`), which supplies every
+**C**-class field whenever an epoch resolves without an accepted EBC (unowned, missed-commit,
+invalid-EBC, cancellation re-resolution). None may be an L1-inclusion-time observation.
 
 | Header / execution input | Today (Shasta) | v5 source | Inclusion-independence |
 | --- | --- | --- | --- |
 | `number` | parent + 1 | **P** | — |
 | `parentHash` | parent | **P** | — |
-| `timestamp` | manifest, bounded by proposal L1 time | **C**, bounded by `[T_N, T_N+E)` | **E** bounds replace inclusion-time bounds |
+| `timestamp` | manifest, bounded by proposal L1 time | **C**, bounded by `[T_N, T_N+E)`; **no EBC ⇒ D**: `t_i = max(T_N, parent.timestamp+1)+i` (§6.8) | **E** bounds replace inclusion-time bounds; default rule r10 |
 | `extraData` | basefeeSharingPctg + **proposalId** | basefeeSharingPctg (**E**) + **(epoch, intra-epoch index)** (**E/C**) | proposalId eliminated — the round-1 F6 fix |
-| `coinbase` | manifest; forced ⇒ proposal.proposer | **C**; forced ⇒ epoch-deterministic address (**E**) | tx-sender dependence eliminated |
-| `gasLimit` | manifest, drift-bounded | **C**, drift-bounded vs parent (**P**) | — |
+| `coinbase` | manifest; forced ⇒ proposal.proposer | **C**; forced ⇒ epoch-deterministic address (**E**); **no EBC ⇒ D** (same address) | tx-sender dependence eliminated |
+| `gasLimit` | manifest, drift-bounded | **C**, drift-bounded vs parent (**P**); **no EBC ⇒ D**: parent's, drift zero (§6.8) | — |
 | `difficulty` | zk-gas used (Unzen) | **X** | — |
 | `mixHash` | `keccak(parentDifficulty, number)` | **P** | already deterministic |
 | `baseFee` | EIP-4396 from parent timing | **P** | — |
-| anchor tx params (`anchorBlockNumber/Hash/StateRoot`) | holder-chosen recent L1 block | **C** — **committed inside the EBC**; ≥ `D_anchor` (32) deep, within the freshness ceiling, advancing (§6.6) | content-addressed ⇒ inclusion-independent; reorg-safe by depth; > κ ⇒ exceptional joint rewind |
+| anchor tx params (`anchorBlockNumber/Hash/StateRoot`) | holder-chosen recent L1 block | **C** — **committed inside the EBC**; ≥ `D_anchor` (32) deep, within the freshness ceiling, advancing (§6.6); **no EBC ⇒ D**: the canonical L1 block at slot `slot(T_N) − D_anchor` (§6.8) | content-addressed ⇒ inclusion-independent; reorg-safe by depth; > κ ⇒ exceptional joint rewind; default rule r10 |
 | forced-inclusion prefix | dequeued at proposal inclusion | per-epoch snapshot fixed before `T_N` (**E**), membership = items due in `[T_N, T_N+E)` under `F_delay ≥ E + F_margin` (§6.5, v10) | round-1 F7 fix; membership rule r9-C1 |
 | `stateRoot`, `receiptsRoot`, `logsBloom`, `gasUsed`, blob-gas fields | execution | **X** | — |
 
