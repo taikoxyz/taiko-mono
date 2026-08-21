@@ -191,8 +191,10 @@ struct FinalizedL1Snapshot {
     block_number: u64,
     /// Hash of the finalized L1 block.
     block_hash: B256,
-    /// Proposal id considered finalized-safe at this snapshot.
-    finalized_safe_proposal_id: u64,
+    /// Proposal id considered finalized-safe at this snapshot, or `None` when the endpoint
+    /// could not serve state at the finalized block. The block anchor above stays valid either
+    /// way: it comes from the finalized header, which needs no state to read.
+    finalized_safe_proposal_id: Option<u64>,
 }
 
 /// Bootstrap state produced while resolving the event scanner start point.
@@ -262,21 +264,39 @@ fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_
     rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
-/// Resolve the target proposal id and finalized-safe proposal id, accounting for the
-/// finalized snapshot being unavailable on fresh chains.
+/// Resolve the target proposal id and finalized-safe proposal id from the startup clamp.
 ///
-/// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
-/// - When finalization is unavailable, both values reset to 0 so the caller can replay from the
-///   inbox activation block. This is safe because derivation is idempotent (the engine skips
-///   already-known blocks).
+/// - [`FinalizedClamp::Bounded`]: target is bounded by `min(resume, finalized_safe)`.
+/// - [`FinalizedClamp::Unknown`]: no clamp is known, so the resume proposal stands as the target.
+///   Rewinding to 0 here would route a synced node into a replay from the inbox activation block,
+///   which on a long-lived chain cannot complete against a non-archive L2 (re-deriving an old
+///   proposal needs L2 state at its parent) and never revisits the decision once taken.
+/// - [`FinalizedClamp::Unfinalized`]: both reset to 0 so the caller replays from the activation
+///   block. Safe here precisely because the chain has not finalized yet, so activation is near.
 fn resolve_target_with_optional_finalization(
     resume_proposal_id: u64,
-    finalized_safe_proposal_id: Option<u64>,
-) -> (u64, u64) {
-    match finalized_safe_proposal_id {
-        Some(safe_id) => (resume_proposal_id.min(safe_id), safe_id),
-        None => (0, 0),
+    clamp: FinalizedClamp,
+) -> (u64, Option<u64>) {
+    match clamp {
+        FinalizedClamp::Bounded(safe_id) => (resume_proposal_id.min(safe_id), Some(safe_id)),
+        FinalizedClamp::Unknown => (resume_proposal_id, None),
+        FinalizedClamp::Unfinalized => (0, None),
     }
+}
+
+/// Startup clamp derived from the finalized L1 snapshot.
+///
+/// These three states must stay distinct: `Unknown` and `Unfinalized` both mean "no clamp value"
+/// but call for opposite responses, because only one of them implies a near-empty chain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FinalizedClamp {
+    /// Finalized core state was readable; derivation must not target past this proposal id.
+    Bounded(u64),
+    /// A finalized L1 block exists but the endpoint cannot serve state at it, so the
+    /// finalized-safe id is unknown. The resume target stands unclamped.
+    Unknown,
+    /// The L1 chain has not finalized yet (fresh devnets).
+    Unfinalized,
 }
 
 /// Fallback strategy when the execution engine has no batch mapping for the resume target.
@@ -1362,10 +1382,12 @@ impl EventSyncer {
 
     /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
     ///
-    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets), and when
-    /// the endpoint cannot serve state at the finalized block (non-archive nodes once L1
-    /// finality lags beyond their retained-state window): consumers then fall back to their
-    /// wider replay anchors instead of the finalized clamp.
+    /// Returns `None` only when the L1 chain has not yet finalized (e.g. fresh devnets).
+    ///
+    /// When the endpoint cannot serve state at the finalized block (non-archive nodes once L1
+    /// finality lags beyond their retained-state window), the snapshot is still returned with
+    /// `finalized_safe_proposal_id: None`: the finalized header needs no state, so the block
+    /// anchor stays valid and only the clamp is lost.
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
         let finalized_block =
@@ -1401,16 +1423,24 @@ impl EventSyncer {
                 warn!(
                     block_number,
                     error = %err,
-                    "L1 endpoint cannot serve state at the finalized block; continuing \
-                     without a finalized snapshot"
+                    "L1 endpoint cannot serve state at the finalized block; keeping the \
+                     finalized block anchor without a finalized-safe proposal clamp"
                 );
-                return Ok(None);
+                return Ok(Some(FinalizedL1Snapshot {
+                    block_number,
+                    block_hash,
+                    finalized_safe_proposal_id: None,
+                }));
             }
             Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
         };
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
-        Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
+        Ok(Some(FinalizedL1Snapshot {
+            block_number,
+            block_hash,
+            finalized_safe_proposal_id: Some(finalized_safe_proposal_id),
+        }))
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -1430,15 +1460,17 @@ impl EventSyncer {
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
 
-        // Try to get finalized snapshot. When unavailable, replay proposal zero from the inbox
-        // activation block, which is safe because derivation is idempotent.
+        // Try to get finalized snapshot. Only a chain that has never finalized replays proposal
+        // zero from the inbox activation block; an unreadable clamp keeps the resume target.
         let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
 
+        let clamp = match finalized_snapshot.map(|snapshot| snapshot.finalized_safe_proposal_id) {
+            Some(Some(safe_id)) => FinalizedClamp::Bounded(safe_id),
+            Some(None) => FinalizedClamp::Unknown,
+            None => FinalizedClamp::Unfinalized,
+        };
         let (target_proposal_id, finalized_safe_proposal_id) =
-            resolve_target_with_optional_finalization(
-                resume_proposal_id,
-                finalized_snapshot.as_ref().map(|s| s.finalized_safe_proposal_id),
-            );
+            resolve_target_with_optional_finalization(resume_proposal_id, clamp);
         let (finalized_block_number, finalized_block_hash) =
             if let Some(snapshot) = finalized_snapshot {
                 (Some(snapshot.block_number), Some(snapshot.block_hash))
@@ -2399,16 +2431,15 @@ mod tests {
 
         assert_eq!(snapshot.block_number, 100);
         assert_eq!(snapshot.block_hash, finalized_hash);
-        assert_eq!(snapshot.finalized_safe_proposal_id, 8);
+        assert_eq!(snapshot.finalized_safe_proposal_id, Some(8));
     }
 
     #[tokio::test]
-    async fn finalized_snapshot_is_none_when_historical_state_unavailable() {
+    async fn finalized_snapshot_keeps_block_anchor_when_state_unreadable() {
         let asserter = Asserter::new();
-        // The finalized header resolves, but a non-archive path-scheme endpoint cannot serve
-        // state at that block once L1 finality lags beyond its ~128-block window; degrade to
-        // "no finalized snapshot" exactly like the pre-finality case instead of failing the
-        // event sync stage.
+        // The finalized *header* needs no state, so it resolves even on a non-archive endpoint.
+        // Only the core-state read fails, so the block anchor must survive: dropping it would
+        // strand the reconnect path on the far wider startup anchor.
         asserter.push_success(&l1_block_at(100, B256::from([0x77u8; 32]), B256::ZERO));
         asserter.push_failure_msg("historical state 0xdeadbeef is not available");
 
@@ -2417,9 +2448,15 @@ mod tests {
         let snapshot = syncer
             .try_finalized_l1_snapshot()
             .await
-            .expect("historical-state error should degrade to no snapshot");
+            .expect("historical-state error must not fail the stage")
+            .expect("the finalized header is readable, so the block anchor must survive");
 
-        assert!(snapshot.is_none());
+        assert_eq!(snapshot.block_number, 100);
+        assert_eq!(snapshot.block_hash, B256::from([0x77u8; 32]));
+        assert_eq!(
+            snapshot.finalized_safe_proposal_id, None,
+            "the clamp is state-derived, so it is the only field the failed read may drop"
+        );
     }
 
     #[tokio::test]
@@ -3211,28 +3248,42 @@ mod tests {
 
     #[test]
     fn without_finalization_resets_to_zero_target() {
-        let (target, safe) = resolve_target_with_optional_finalization(0, None);
+        let (target, safe) =
+            resolve_target_with_optional_finalization(0, FinalizedClamp::Unfinalized);
         assert_eq!(target, 0);
-        assert_eq!(safe, 0);
+        assert_eq!(safe, None);
 
-        // Even with a non-zero resume, no finalization resets both to 0.
-        let (target, safe) = resolve_target_with_optional_finalization(5, None);
+        // Even with a non-zero resume, a chain that has never finalized resets both to 0.
+        let (target, safe) =
+            resolve_target_with_optional_finalization(5, FinalizedClamp::Unfinalized);
         assert_eq!(target, 0);
-        assert_eq!(safe, 0);
+        assert_eq!(safe, None);
+    }
+
+    #[test]
+    fn unreadable_finalized_state_keeps_resume_target_unclamped() {
+        // An endpoint that cannot serve finalized state says nothing about how far the chain has
+        // progressed, so the resume target must stand. Resetting to 0 here would start a replay
+        // from the inbox activation block that a synced node cannot finish.
+        let (target, safe) = resolve_target_with_optional_finalization(50, FinalizedClamp::Unknown);
+        assert_eq!(target, 50);
+        assert_eq!(safe, None);
     }
 
     #[test]
     fn with_finalization_target_is_bounded_by_finalized_safe() {
-        let (target, safe) = resolve_target_with_optional_finalization(120, Some(90));
+        let (target, safe) =
+            resolve_target_with_optional_finalization(120, FinalizedClamp::Bounded(90));
         assert_eq!(target, 90);
-        assert_eq!(safe, 90);
+        assert_eq!(safe, Some(90));
     }
 
     #[test]
     fn with_finalization_target_keeps_resume_when_behind() {
-        let (target, safe) = resolve_target_with_optional_finalization(50, Some(120));
+        let (target, safe) =
+            resolve_target_with_optional_finalization(50, FinalizedClamp::Bounded(120));
         assert_eq!(target, 50);
-        assert_eq!(safe, 120);
+        assert_eq!(safe, Some(120));
     }
 
     #[test]

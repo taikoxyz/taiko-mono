@@ -55,13 +55,43 @@ struct FinalizedSyncTarget {
 /// safe, and finalized. A target from the degraded latest-block fallback is advertised as head
 /// and safe only: the L1 transactions recording it are not yet final, and telling the engine it
 /// is finalized would block the rewind event sync needs if an L1 reorg drops the target's
-/// proposal. Event sync advances the engine's finalized marking later, once real finalized data
-/// is readable again.
+/// proposal.
+///
+/// The engine's finalized marking is then left for derivation to advance, via the promotion
+/// forkchoice in [`crate::sync::engine`]. Note that is not guaranteed to happen promptly: the
+/// finalized hint behind it is itself read from inbox core state at a proposal's own L1 block,
+/// so on the same non-archive endpoints it stays unresolved for any proposal older than the
+/// retained-state window, and already-canonical proposals submit no forkchoice at all. A zero
+/// finalized marking is safe in both target execution clients — it costs freezer layout on geth
+/// and nothing on reth, whose backfill targets the head — so the marking may simply stay unset
+/// until derivation catches up to within that window.
 fn checkpoint_forkchoice_state(block_hash: B256, l1_finalized: bool) -> ForkchoiceState {
     ForkchoiceState {
         head_block_hash: block_hash,
         safe_block_hash: block_hash,
         finalized_block_hash: if l1_finalized { block_hash } else { B256::ZERO },
+    }
+}
+
+/// Tracks whether any sync target read in this stage fell back to the latest L1 block.
+///
+/// The read mode is recomputed every tick, and the trigger boundary (a finality lag past the
+/// endpoint's retained-state window) sits close to the normal finality lag, so a marginal
+/// finality incident would otherwise flap the engine's finalized advertisement tick by tick.
+/// Execution clients expect that marking to be monotone — geth's skeleton records a finalized
+/// height and never clears it — so once a read degrades, the stage stays degraded.
+#[derive(Debug, Default)]
+struct TargetReadMode {
+    /// Whether any read so far fell back to the latest L1 block. Sticky for the stage's life.
+    degraded: bool,
+}
+
+impl TargetReadMode {
+    /// Record one target read and return whether the engine may still be told the target is
+    /// finalized.
+    fn observe(&mut self, l1_finalized: bool) -> bool {
+        self.degraded |= !l1_finalized;
+        !self.degraded
     }
 }
 
@@ -260,6 +290,7 @@ impl SyncStage for BeaconSyncer {
         // immediately, preserving fail-fast timing at startup.
         let mut target_seen_once = false;
         let mut checkpoint_seen_once = false;
+        let mut target_read_mode = TargetReadMode::default();
 
         loop {
             ticker.tick().await;
@@ -287,6 +318,9 @@ impl SyncStage for BeaconSyncer {
                     continue;
                 }
             };
+            // Observed here rather than at the submission below, so a degraded read still
+            // latches on ticks that bail out before reaching it.
+            let advertise_finalized = target_read_mode.observe(target.l1_finalized);
 
             // A zero hash means the inbox has finalized nothing and recorded no genesis
             // checkpoint yet; event sync will derive everything from the activation block.
@@ -401,7 +435,7 @@ impl SyncStage for BeaconSyncer {
                 target_block_number, local_head, "syncing execution engine toward finalized target"
             );
 
-            match self.submit_target_block(block, target.l1_finalized).await {
+            match self.submit_target_block(block, advertise_finalized).await {
                 Ok(()) => DriverMetrics::beacon_sync_remote_submissions_total().inc(),
                 // An INVALID verdict is not transient: the block hashes to the L1 checkpoint yet
                 // the engine rejects it, which needs operator attention rather than retries.
@@ -509,6 +543,28 @@ mod tests {
         assert_eq!(target.proposal_id, 3);
         assert_eq!(target.block_hash, B256::from([4u8; 32]));
         assert!(!target.l1_finalized, "latest-read targets must not claim finalized anchoring");
+    }
+
+    #[test]
+    fn target_read_mode_latches_degraded_across_later_finalized_reads() {
+        let mut mode = TargetReadMode::default();
+
+        // A marginal finality incident straddles the retained-state boundary, so reads alternate.
+        assert!(mode.observe(true), "a finalized read may advertise finalized");
+        assert!(!mode.observe(false), "a latest-read target must withhold it");
+        assert!(
+            !mode.observe(true),
+            "the engine's finalized marking must stay monotone for the life of the stage, so a \
+             recovered read must not re-advertise after a degraded one"
+        );
+        assert!(!mode.observe(false));
+    }
+
+    #[test]
+    fn target_read_mode_advertises_finalized_while_every_read_is_finalized() {
+        let mut mode = TargetReadMode::default();
+        assert!(mode.observe(true));
+        assert!(mode.observe(true));
     }
 
     #[test]

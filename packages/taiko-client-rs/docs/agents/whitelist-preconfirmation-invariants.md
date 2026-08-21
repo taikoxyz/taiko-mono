@@ -39,10 +39,17 @@ Event sync startup must use checkpoint resume head or local `head_l1_origin` rec
   - Degraded L1 endpoints (non-archive nodes once L1 finality lags beyond their retained-state
     window, and pre-finality devnets) downgrade the beacon target to a latest-block read of the
     inbox core state. The imported checkpoint is then advertised to the engine as head/safe only
-    (finalized stays zero), and event sync starts without a finalized snapshot, replaying from
-    the inbox activation block. A latest-read target must never be advertised as
-    engine-finalized: that would block the rewind event sync needs if an L1 reorg drops the
-    target's proposal.
+    (finalized stays zero). A latest-read target must never be advertised as engine-finalized:
+    that would block the rewind event sync needs if an L1 reorg drops the target's proposal.
+    That withholding is latched for the life of the stage, because execution clients expect the
+    finalized marking to be monotone.
+  - Only a chain that has never finalized replays event sync from the inbox activation block.
+    An endpoint that cannot serve state at an existing finalized block keeps the finalized block
+    anchor (the header needs no state) and loses only the finalized-safe proposal clamp, so the
+    startup target stays the resume proposal. The startup target is therefore finalized-safe
+    whenever a clamp is readable, and never rewinds below the resume point when it is not:
+    rewinding to zero on a long-lived chain would start a replay that cannot complete against a
+    non-archive L2, and the decision is never revisited once taken.
 - Failure mode if broken:
   - Starting from `Latest` or another unsafe point can include local-only preconf chain state and skip required historical event replay.
 
