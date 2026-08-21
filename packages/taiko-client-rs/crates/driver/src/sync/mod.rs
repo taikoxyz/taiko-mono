@@ -5,6 +5,24 @@ use std::sync::Arc;
 /// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
 pub(crate) const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
 
+/// Geth error fragment returned when a node cannot serve state at the requested block.
+///
+/// Path-scheme geth keeps only ~128 recent blocks of live state and answers older state reads
+/// with "historical state <root> is not available" unless state-history indexing
+/// (`--gcmode archive`) is enabled, so finalized-block reads hit this whenever L1 finality
+/// lags beyond that window.
+pub(crate) const HISTORICAL_STATE_UNAVAILABLE: &str = "historical state";
+
+/// Hash-scheme geth error fragment for state pruned below the recent-trie window.
+pub(crate) const MISSING_TRIE_NODE: &str = "missing trie node";
+
+/// Whether an RPC error message indicates the endpoint cannot serve state at the requested
+/// block (a non-archive node asked below its retained-state window), rather than a transport
+/// or endpoint failure.
+pub(crate) fn is_historical_state_unavailable(message: &str) -> bool {
+    message.contains(HISTORICAL_STATE_UNAVAILABLE) || message.contains(MISSING_TRIE_NODE)
+}
+
 use async_trait::async_trait;
 use rpc::client::Client;
 use tracing::{info, instrument};
@@ -86,11 +104,24 @@ impl SyncPipeline {
 
 #[cfg(test)]
 mod tests {
-    use super::retryable_after_first_success;
+    use super::{is_historical_state_unavailable, retryable_after_first_success};
 
     #[test]
     fn poll_errors_fail_fast_only_before_first_success() {
         assert_eq!(retryable_after_first_success(false, "boom"), Err("boom"));
         assert_eq!(retryable_after_first_success(true, "boom"), Ok("boom"));
+    }
+
+    #[test]
+    fn historical_state_matcher_covers_both_geth_state_schemes() {
+        assert!(is_historical_state_unavailable(
+            "server returned an error response: error code -32000: historical state \
+             0xdeadbeef is not available"
+        ));
+        assert!(is_historical_state_unavailable(
+            "missing trie node 0xdeadbeef (path 0x01) not found"
+        ));
+        assert!(!is_historical_state_unavailable("finalized block not found"));
+        assert!(!is_historical_state_unavailable("connection refused"));
     }
 }
