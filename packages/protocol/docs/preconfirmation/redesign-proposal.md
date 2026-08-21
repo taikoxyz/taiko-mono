@@ -1,6 +1,6 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v13, 2026-08-21** — revised after
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v14, 2026-08-21** — revised after
 > adversarial review rounds 1–7 (eleven reviewer passes:
 > [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
@@ -95,7 +95,21 @@
 > tolling (§6.7/§10.4); the **withdrawal gate on a single equivocation-challenge horizon** (§8);
 > the **intra-tenure MEV-spike limit** of the `L_safety` match (§8/§11.2); and precision fixes
 > to the one-shot-vs-equivocation predicate, AC-censorship "differ vs lag", and "forced content
-> flows = eventual" (§3.1, §5.2, I6).
+> flows = eventual" (§3.1, §5.2, I6). **v14 (2026-08-21)** applies the **round-12** review loop
+> ([`review-loop/step-2-findings.md`](review-loop/step-2-findings.md)), which — corroborated by
+> the Codex review bot — found the v12 F1 bridge-recall fix **still unsound** and one secondary
+> gating gap, both now fixed: the **§6.4 recall is re-based on a *terminal* destination-side
+> `FAILED` mark** (an L1→L2-synced proof of the carrier's `refunded` state marks the message
+> `FAILED`, restoring `FAILED`⊥`DONE` exclusion; `msgHash` stored in the nullifier; refund
+> guarantee stated as conditional on eventual proving resumption — §6.4, §9, §10.4), replacing
+> v12's unsound non-terminal "not-`DONE` snapshot"; and the **attested-outage toll is broadened
+> to forced-only/DEFAULT epochs** (data-established by the forced-queue nullifier, not only an
+> AC — §10.4/§6.7), so no honest holder is slashed for an un-producible forced-only seal during
+> an outage. Plus the upper coupling `H_cancel + H_toll_max + margin ≤ blob_retention` (§6.7),
+> and premise/label precision (the default-outcome tuple lists the finalized L1 chain — I1; the
+> nullifier relabeled the seal-vs-refund exclusion nullifier — §6.5). F2, F3, N1–N5 were
+> re-verified as holding. The round-12 checker-fidelity items the bot raised are folded into the
+> model checker's v14 revision.
 >
 > Design only — mechanisms, invariants, incentives, parameters.
 > Baseline: [`status-quo.md`](status-quo.md); owner decisions: its §6 and
@@ -120,8 +134,12 @@
   L1-derived input is that EBC's committed content — never any transaction's L1 inclusion
   block. When an epoch resolves **without** an accepted-and-available EBC, its outcome is the
   **default derivation** (§6.8), a pure function of `(chainId, epoch, index, canonical parent,
-  forced snapshot)` whose inputs are epoch-schedule/parent-chain quantities (Appendix C class
-  **D**/**E**/**P**), still never an inclusion-time observation (v12, r11-F3: I1 and I6 agree
+  forced snapshot, and the finalized canonical L1 chain up to slot ≤ slot(T_N) − D_anchor)`
+  (v14, r12-5: the last term — the finalized L1 the default anchor `F(N)` reads (§6.8) — was
+  implicit; it is an inclusion-*independent* input at finalized depth ≥ `D_anchor`, so listing
+  it completes the premise without weakening determinism) whose inputs are
+  epoch-schedule/parent-chain/finalized-L1 quantities (Appendix C class **D**/**E**/**P**),
+  still never an inclusion-time observation (v12, r11-F3: I1 and I6 agree
   on default-epoch inputs — the "only input is committed content" clause is scoped to the
   EBC case, not overclaimed across holderless epochs).
   - *Content-addressed origin (r4a-C2, r4b-C1).* The EBC **commits its own L1 origin** (the
@@ -697,49 +715,66 @@ with these v4/v5 clarifications:
   data. Snapshot items whose blobs have genuinely expired (reachable only through the §6.7
   disaster path) are **voided with their queue fees refundable on L1** — a voided
   inclusion never burns user value (r3a-F3.1).
-- **Bridge terminal-cancellation handshake (v10, r9-cB1; v12 correction, r11-F1; normative,
-  Phase-A-blocking §13-S.16).** The queue-fee refund alone is not principal safety: a voided
-  forced item that carried a bridge message leaves the *source-side principal* locked in the
-  message's `NEW` state, and today's `recallMessage` unlocks it only against a proof of a
+- **Bridge terminal-cancellation handshake (v10, r9-cB1; v12 → v14 correction, r11-F1 / r12-1;
+  normative, Phase-A-blocking §13-S.16).** The queue-fee refund alone is not principal safety: a
+  voided forced item that carried a bridge message leaves the *source-side principal* locked in
+  the message's `NEW` state, and today's `recallMessage` unlocks it only against a proof of a
   *destination-side* `FAILED` signal — which a never-executed destination transaction never
-  creates. The design therefore requires the bridge to accept a second recall predicate — but
-  **keyed on the message's destination fate, not on the forced-item nullifier** (v12, r11-F1;
-  the v10 draft keyed it on the item reaching `refunded && !consumed`, which was wrong on two
-  counts):
-  - **Correct predicate.** The recaller supplies the `msgHash` (the source Bridge already
-    holds the message in `NEW`, so `msgHash` is available source-side) and a **canonical proof
-    that this `msgHash` is not `DONE` (never `processMessage`-received) on a finalized/sealed
-    destination Bridge state**, together with a proof that the message's forced carrier reached
-    the terminal `refunded` L1 state so that *its own seal* can no longer deliver it. Recall
-    releases the source principal only on the conjunction. Delivery status is thus read from
-    the **message**, not inferred from the item.
-  - **Why the nullifier alone was wrong.** (1) *Alternate delivery double-spend* — the source
-    `sendMessage` signal exists regardless of the forced path and `processMessage` is
-    permissionless, so the same `msgHash` can be delivered normally (destination `→ DONE`)
-    while a redundant forced copy that could not seal during an outage re-queues and voids
-    (`→ refunded`); a nullifier-only recall would then release a principal already delivered.
-    "Mutually exclusive by construction" held only for execution *via that item's own seal*,
-    never for alternate delivery of the same message — the destination-status check closes it.
-    (2) *Binding gap* — the L1 forced queue stores only fee + blob slice, and the nullifier
-    records `queued→snapshotted→{consumed|refunded}` + payer, never `msgHash`; the
-    (item ⇒ `msgHash`) mapping lives only in the blob, and refund fires at blob expiry (~18 d)
-    *after* the retention duty (`H_cancel` + margin) has lapsed — so a nullifier-keyed recall
-    is either unconstructible (principal frozen, contradicting "always recall") or, if it
-    drops the binding, lets an attacker recall an unrelated locked message against any refunded
-    item. Keying on the caller-supplied `msgHash` against destination state dissolves the
-    binding problem entirely.
-  This is a required change to the Bridge contract surface, named here rather than assumed;
-  the executed-*anywhere*-vs-recalled exclusion (not executed-via-this-item-vs-recalled) is an
-  explicit conformance-test obligation (§13-S.16).
-- **Every forced item has one canonical lifecycle nullifier** (r4c-6): each item advances
-  `queued → snapshotted → {consumed | refunded}` on L1, and **the beneficiary/payer is stored
-  at enqueue time**. Every seal proof takes the item's status as a public input and **rejects a
+  creates. **The recall must be gated on a *terminal* destination state, not a mutable
+  snapshot** (v14, r12-1 — the v12 draft's "`msgHash` is not `DONE` on a finalized destination"
+  predicate was **unsound**: `IBridge.Status` is `{NEW, RETRIABLE, DONE, FAILED, RECALLED}`, so
+  a never-processed message reads `NEW` = *not-`DONE`* at every finalized root, while
+  `processMessage` stays permissionless and the source `sendMessage` signal is **permanent**
+  (`SignalService` is append-only, never retracted). A not-`DONE` snapshot proves only "not yet
+  delivered", never "will never be delivered", so the attacker-chosen **recall-then-deliver**
+  order reopens the double-spend: void the carrier → `refunded`, recall the L1 principal against
+  the stale-`NEW` root, then `processMessage` on the destination once proving resumes → `DONE` =
+  principal on L1 **and** value on L2 for one deposit. And the snapshot cannot be both sound and
+  live — a fresh destination root is unconstructible during the very proving outage that voids
+  the carrier, freezing the principal). The correct mechanism restores a **terminal cross-chain
+  exclusion**:
+  - **Destination-side cancellation mark.** Add a destination Bridge transition that, on an
+    L1→L2-synced proof of the forced carrier's terminal `refunded`/void L1 state, marks the
+    message **`FAILED`** (equivalently a new positive `CANCELLED` terminal) and emits the
+    ordinary `signalForFailedMessage(msgHash)` signal. Because `FAILED` and `DONE` are **disjoint
+    terminal states** and `processMessage` accepts only `NEW`, once the message is `FAILED` it
+    can *never* reach `DONE` — delivery is foreclosed, not merely "not yet observed".
+  - **Source-side recall unchanged.** Source recall then uses the **existing, unmodified
+    `FAILED`-signal path** — no new predicate, no TOCTOU read. The terminal `FAILED` proof both
+    releases the principal and guarantees the message is dead on the destination, so recall and
+    delivery are mutually exclusive *by construction of the terminal-state disjointness*, closing
+    **both** orderings (deliver-then-recall was already closed by the deployed rule;
+    recall-then-deliver is now closed because the recall's prerequisite is the destination
+    `FAILED` mark, after which `processMessage` reverts).
+  - **Binding made constructible.** The `msgHash` is **stored in the forced-item nullifier at
+    snapshot time** (while the blob is still retained), so the (item ⇒ `msgHash`) mapping
+    survives blob expiry and the destination cancellation proof is constructible without the
+    expired blob — closing the v12 binding gap without a caller-supplied-`msgHash` free-recall
+    hole (only the item's *own* stored `msgHash` can be cancelled).
+  - **Liveness caveat, stated (v14, r12-1).** The destination `FAILED` mark needs L2 derivation
+    to resume to prove the carrier's `refunded` state into the destination, so the bridge-refund
+    guarantee (§9, §10.4 guarantee 4) is **conditional on eventual proving resumption** — under a
+    *permanent* outage the principal is recoverable only once proving returns; it is never
+    burned, but "recall latency" includes the outage's own duration. §9's worst-case bound is
+    restated accordingly.
+  This is a required change to the Bridge contract surface (a destination-side cancellation
+  transition + storing `msgHash` in the nullifier), named here rather than assumed; the
+  terminal executed-*anywhere*-vs-recalled exclusion and the double-spend/free-recall/freeze
+  exclusions are explicit conformance-test obligations (§13-S.16).
+- **Every forced item has one canonical lifecycle nullifier — the seal-vs-refund exclusion
+  nullifier** (r4c-6; relabeled v14, r12-4 — it enforces the seal-vs-refund exclusion of §6.5,
+  distinct from the §6.4 bridge cancellation which *reads* it): each item advances
+  `queued → snapshotted → {consumed | refunded}` on L1, and **the beneficiary/payer — and, for a
+  bridge-carrying item, its `msgHash` — are stored at enqueue/snapshot time** (v14, r12-1: while
+  the blob is still retained, so the item⇒`msgHash` binding survives blob expiry and the §6.4
+  destination cancellation proof is later constructible without the expired blob). Every seal
+  proof takes the item's status as a public input and **rejects a
   `refunded` (or already-`consumed`) item**; a refund transition **atomically kills every live
   containing commitment** (snapshot slot, EBC reference). So the expiry refund and any later
   L2/bridge execution of the same item are mutually exclusive by construction — closing the
   "retain the blob, let a snapshot commit, then also claim the refund" double-spend. The current
-  forced queue stores only fee + blob slice; this lifecycle+nullifier is new required state
-  (§13-S).
+  forced queue stores only fee + blob slice; this lifecycle+nullifier (with the stored `msgHash`)
+  is new required state (§13-S).
 - **Snapshot membership is a normative due-time rule, and the delay parameter is
   consensus-constrained** (v10, r9-C1). Epoch `N`'s forced snapshot contains **exactly the
   queued items whose *due time* (`submission + F_delay`) falls in `[T_N, T_N + E)`**, in queue
@@ -821,7 +856,13 @@ fast path needs **no horizon of its own**:
   seal could be produced or its fault mature, permanently starving discretionary-content
   finalization for a governance bug. The default (10 days vs the ~`S·E ≈ 26 min` floor) has
   enormous margin, but the interdependence is a checked constraint, not calibration folklore
-  (§13-T.3). **Seals are valid strictly before `T_exp`;
+  (§13-T.3). **The setter also enforces the *upper* coupling `H_cancel + H_toll_max + margin ≤
+  blob_retention`** (v14, r12-3): otherwise a CONTENT epoch's `T_exp` could toll past the point
+  its own discretionary blobs expire on L1 (an availability tolling cannot extend), leaving a
+  bounded window that is neither EBC-sealable (blobs gone) nor yet cancellable (`T_exp` not
+  reached). The bound keeps every tolled `T_exp` inside blob retention; equivalently, a CONTENT
+  epoch becomes cancellable the moment its blobs provably expire on L1 (a mechanical slot check),
+  whichever the implementation prefers (§13-T.3). **Seals are valid strictly before `T_exp`;
   cancellation is enabled at and after `T_exp`; no L1 block can accept both.** Stated plainly:
   unsealed content **expires** at `T_exp` even if a valid proof privately existed a moment
   earlier — expiry is a deadline outcome, not an impossibility oracle, and the two disaster
@@ -1213,13 +1254,15 @@ bridge messages could not verify their signals); with proposer interest, forced 
 inside proposals at the same `decision + P` cadence or faster (r10-4). Queue data retention per
 §6.4 keeps long outages refund-safe rather than value-destroying. **Worst-case bridge settlement for a voided
 forced item is `H_cancel` + one forced-only bridge cadence** (r4a-M14) **while proving is
-available**; under a *permanent proving outage* the honest bound is different (v10, r9-A4):
-re-queued forced items loop through fresh horizons until blob expiry (~18 days + any exhausted
-`H_toll_max` tolling) voids them with refunds, and the *source principal* of a bridged message
-then returns via the **terminal-cancellation recall** (§6.4) — which is **user-initiated**, so
-the end-to-end bound is ≈ blob retention + tolling + the user's own recall latency. A
-depositor can make an informed decision from these two bounds, and no value is burned — only
-delayed.
+available**; under a *permanent proving outage* the honest bound is different (v10, r9-A4;
+v14, r12-1): re-queued forced items loop through fresh horizons until blob expiry (~18 days +
+any exhausted `H_toll_max` tolling) voids them with refunds, and the *source principal* of a
+bridged message then returns via the **terminal-cancellation recall** (§6.4). That recall's
+destination-side `FAILED` mark needs L2 derivation to resume (to prove the carrier's `refunded`
+state into the destination), so principal recovery is **conditional on eventual proving
+resumption** — the end-to-end bound is ≈ blob retention + tolling + outage-tail + the user's own
+recall latency. A depositor can make an informed decision from these two bounds, and **no value
+is ever burned — only delayed, and released the moment proving returns**.
 
 > **History note (v8 revert → v11 restoration).** v7 briefly restored the brief's FCFS
 > anarchy content via atomic proof-carrying proposals (propose ≡ seal). The v8
@@ -1275,8 +1318,18 @@ that escalates only as the failure proves genuinely systemic:
    covers the holder(s) whose epochs drove the stall" rule was ill-defined under a systemic
    outage, where nobody "drove" it): while an attested window is active, **maturation of
    proof-dependent duties tolls** — seal deadlines, and the expiry clocks `T_exp` up to
-   `H_toll_max` (§6.7) — for every epoch **whose data availability is already established**
-   (accepted AC, §5.2). **Both proof-dependent clocks share the single `H_toll_max` budget and
+   `H_toll_max` (§6.7) — for every epoch **whose data availability is already established on L1
+   — by an accepted AC (§5.2, discretionary content) *or* the forced-queue snapshot nullifier's
+   `queued→snapshotted` state (§6.5, forced-only/DEFAULT content)** (v14, r12-2: a
+   forced-only/DEFAULT epoch never obtains an AC — its data is on L1 by construction via the
+   snapshot, not the certificate — yet its seal is proof-carrying and equally un-producible
+   during the outage, so scoping the toll to "accepted AC" alone would slash an honest holder
+   whose forced-only seal cannot be built; both availability witnesses toll identically).
+   **Whether an owned forced-only epoch even carries a missed-seal duty during an outage is
+   pinned** (v14, r12-2): it does, and it tolls under this rule; an epoch that resolved EMPTY
+   through a *missed commit* already carries that holder's LIVENESS certificate and its closure
+   is the recovery lane's job (not a second fault, the §6.7/checker carve-out). **Both
+   proof-dependent clocks share the single `H_toll_max` budget and
    toll in lockstep** (v12, r11-N1): the same attested-window elapsed time is added to the seal
    deadline and to `T_exp` for a given epoch, so the "seals valid strictly before `T_exp`"
    ordering (§6.7) is preserved through any tolled outage rather than the two clocks drifting
@@ -1313,9 +1366,11 @@ keeps moving" conflates four different claims; the design makes exactly these, s
    (v11, §9) carry **best-effort FCFS anarchy-proposal content at proof latency —
    conditional on proposer interest and proving, never guaranteed**: the protocol guarantees
    the *phase* exists, not that anyone fills it.
-4. **Bridge completion (conditional, bounded):** normal path per §9; permanent-outage path =
-   refund + user-initiated terminal-cancellation recall, bounded by blob retention + tolling +
-   recall latency (§9).
+4. **Bridge completion (conditional on eventual proving resumption; bounded):** normal path per
+   §9; permanent-outage path = refund + terminal-cancellation recall whose destination `FAILED`
+   mark needs L2 derivation to resume (§6.4, v14 r12-1), so the principal is released once
+   proving returns — bounded by blob retention + tolling + outage-tail + recall latency (§9).
+   Value is delayed, never burned.
 
 ---
 
@@ -1529,10 +1584,15 @@ alignment; automated bond scaling.
     budget at stressed base fees, AC record layout in the spine, and the seal circuit's
     KZG-opening binding of bytes to the certified commitments. Blocks implementation of the
     decision path — nothing about §3's timeline is buildable without it.
-16. **[Phase A]** **Bridge terminal-cancellation handshake** (v10, r9-cB1; §6.4): the
-    source-side recall predicate over the forced item's terminal `refunded && !consumed` L1
-    state, its signal-service proof format, and the executed-vs-recalled mutual-exclusion
-    conformance tests (double-spend exclusion). A required Bridge-contract change.
+16. **[Phase A]** **Bridge terminal-cancellation handshake** (v10, r9-cB1; v14 r12-1; §6.4):
+    a **destination-side cancellation transition** that, on an L1→L2-synced proof of the forced
+    carrier's terminal `refunded`/void state, marks the message `FAILED` (or a `CANCELLED`
+    terminal) and emits `signalForFailedMessage(msgHash)`; source recall then uses the existing
+    `FAILED`-signal path (terminal `FAILED`⊥`DONE` exclusion). `msgHash` stored in the nullifier
+    at snapshot time. Conformance tests for the **terminal** mutual exclusion — both delivery
+    orderings (deliver-then-recall *and* recall-then-deliver), the free-recall exclusion (only
+    the item's own stored `msgHash`), and the freeze/proving-resumption bound. A required
+    Bridge-contract change (a new destination transition + nullifier field).
 17. **[Phase A]** **Forced-snapshot membership rule** (v10, r9-C1; §6.5): the due-time
     predicate (`due ∈ [T_N, T_N+E)`), the `F_delay ≥ E + F_margin` consensus constraint, the
     snapshot commitment as a seal-proof public input, and an audit of every deployed config's
@@ -1704,6 +1764,13 @@ destination fate rather than the forced-item nullifier (§6.4); §6.8 derivation
 the **materialized decision** rather than "an accepted EBC exists" (§6.8); the §6.8 default
 anchor made **total and monotone** with §6.6(c) relaxed to non-decreasing for holderless epochs
 (§6.6, §6.8, I1); and the `H_cancel ≥ S·E + κ + margin` setter invariant (§6.7).
+New in **v14** (round 12): **38.** the round-12 *corrections*, again all repairs of just-added
+text rather than new direction: the §6.4 bridge recall re-based on a **terminal destination-side
+`FAILED` mark** (restoring `FAILED`⊥`DONE` exclusion — the v12 not-`DONE` snapshot was unsound),
+with the refund guarantee made conditional on eventual proving resumption; the attested-outage
+toll **broadened to forced-only/DEFAULT epochs** (data-established by the forced-queue nullifier,
+not only an AC); the upper coupling `H_cancel + H_toll_max + margin ≤ blob_retention`; and
+premise/label precision (§6.4, §6.5, §6.7, §9, §10.4, I1).
 
 ## Appendix B — Review dispositions
 
@@ -1850,7 +1917,7 @@ the summary:
 | r9-A6 (low) / r9-F5 / r9-C3 | Systemic outage slashes/charges honest holders; "drove the stall" ill-defined | Accepted: attested-outage tolling of proof-dependent duties (data-established epochs only), bounded by `H_toll_max`; systemic cascade costs socialized to the pool; attestation SLA pre-committed (§6.7, §10.4) |
 | r9-C1 (med) | Forced-snapshot membership rule and `forcedInclusionDelay` unpinned — client/circuit fork risk | Accepted: due-time membership rule, `F_delay ≥ E + F_margin`, snapshot as seal public input, config audit (§3 table, §6.5, §13-S.17) |
 | r9-C2 (low-med) | `freshness_ceiling` vs `D_anchor` interdependence unchecked — a bad setting slashes everyone | Accepted: setter-enforced `freshness_ceiling ≥ D_anchor + Γc + κ + R + margin` (§6.6, §13-T.3) |
-| r9-cB1 (high) | Voided forced bridge message strands source principal (`recallMessage` needs a destination `FAILED` signal that never exists) | Accepted: bridge terminal-cancellation handshake — recall against the item's `refunded && !consumed` terminal state; double-spend exclusion by nullifier construction (§6.4, §9, §13-S.16) |
+| r9-cB1 (high) | Voided forced bridge message strands source principal (`recallMessage` needs a destination `FAILED` signal that never exists) | Accepted: bridge terminal-cancellation handshake. *(v14 correction, r12-1: the final mechanism is a **destination-side `FAILED` mark** driven by an L1→L2-synced proof of the carrier's `refunded` state — restoring terminal `FAILED`⊥`DONE` exclusion — not the abandoned v10 `refunded && !consumed` recall predicate nor the v12 not-`DONE` snapshot; `msgHash` stored in the nullifier. §6.4, §9, §13-S.16.)* |
 | r9-F1 (high) / r9-cF6 | `T_max` mislabeled a censorship bound; admission ≠ sequencing decentralization | Accepted: renamed the tenure-renewal/re-pricing bound; inclusion floor carried by the forced queue; concentration metrics added to graduation criteria (§4, §5.4, §13-T.7) |
 | r9-F2 (high) / r9-cB4 | Cancellation predicate unobservable; seal-vs-cancel ordering choice | Accepted: mechanical `T_exp` cutoff — seals strictly before, cancellation at/after, no overlap; expiry-not-impossibility stated plainly (§3 table, §6.7) |
 | r9-F4 (high) | "Hard" preconf implies more than the bond delivers | Accepted: "hard" defined as deterrence-only — no restitution, aggregate reliance uncapped, deep-reorg residual (§5.2) |
@@ -1899,7 +1966,7 @@ now v13):**
 
 | # | Finding (severity) | Response |
 | --- | --- | --- |
-| r11-F1 (IMPORTANT, funds) | §6.4 bridge terminal-cancellation recall was keyed on the forced-item nullifier (`refunded && !consumed`), not the message's destination fate → (a) alternate-delivery double-spend (same `msgHash` delivered via normal `processMessage` while a redundant forced copy voids), (b) unconstructible/mis-bindable `msgHash` binding after blob expiry outlasts retention | Accepted: recall re-keyed on a caller-supplied `msgHash` proven **not-`DONE` on a finalized destination Bridge** plus the carrier's `refunded` terminal state; exclusion restated as executed-*anywhere*-vs-recalled; binding gap dissolved (§6.4, §13-S.16) |
+| r11-F1 (IMPORTANT, funds) | §6.4 bridge terminal-cancellation recall was keyed on the forced-item nullifier (`refunded && !consumed`), not the message's destination fate → (a) alternate-delivery double-spend (same `msgHash` delivered via normal `processMessage` while a redundant forced copy voids), (b) unconstructible/mis-bindable `msgHash` binding after blob expiry outlasts retention | v12 re-keyed recall on a **not-`DONE` destination snapshot** — **which round 12 showed was still unsound** (a non-terminal snapshot; `NEW`/`RETRIABLE`→`DONE`; recall-then-deliver reopens the double-spend, and sound-vs-live is impossible under outage). **Superseded by v14 r12-1** (below): terminal destination-side `FAILED` mark, `FAILED`⊥`DONE` exclusion, `msgHash` in the nullifier |
 | r11-F2 (IMPORTANT, liveness) | §6.8 mode-pin ("a DEFAULT seal for an epoch that *has an accepted EBC* is invalid") made a commit-then-withhold epoch (valid content EBC accepted per §3.1, blobs withheld, non-empty forced snapshot) unsealable in either mode → self-triggered ~10-day stall to `T_exp` | Accepted: derivation mode pinned on the **materialized CONTENT/EMPTY decision** (AC accepted ⇒ EBC mode; every EMPTY/forced-only materialization incl. withheld-data ⇒ DEFAULT mode); the pre-AC content-drop race guarded by "no seal before the availability decision materializes" (§6.8) |
 | r11-F3 (IMPORTANT, consistency/liveness) | §6.8 default anchor `slot(T_N)−D_anchor` claimed "advancement by construction / verified by the same §6.6 machinery", false at a content→default boundary (`slot(T_N) ≤` a fresh predecessor's anchor), and non-total on empty L1 slots | Accepted: default anchor = `max(previous non-empty anchor, deepest L1 block whose slot ≤ slot(T_N)−D_anchor)` (total, monotone, ≥ `D_anchor` deep); §6.6(c) relaxed to **non-decreasing for holderless epochs**; I1 amended to agree with I6 on default-epoch inputs (§6.6, §6.8, I1, App-C class D) |
 | r11-N1 (medium) | No setter invariant `H_cancel ≥ S·E + κ + margin` (the model checker already warns `CANCEL_LAG < S_TICKS`); seal-deadline vs `T_exp` tolling cap unpinned | Accepted: mechanical setter invariant added (§6.7), moved into §6.6's checked-constraint discipline; both proof-dependent clocks share the `H_toll_max` budget and toll in lockstep (§10.4) |
@@ -1908,6 +1975,23 @@ now v13):**
 | r11-N4 (medium) | AC censorship makes the materialized outcome **differ from** (not lag) the information-final outcome; successor hard-preconf exposure under a parent-flip unspecified | Accepted: §3.1 "may lag" → "ordinarily lags… except under AC censorship, may differ"; successor **hard**-upgrade keyed on the **contract-legible** materialization (not the info-final instant), so an orphaned soft preconf is never slashable equivocation; folded into the §11.5 residual (§3.1, §5.2) |
 | r11-N5 (low, precision) | "second distinct *accepted* EBC" oxymoron; §6.7 "empty/forced-only"; "forced content always flows" ambiguous; RESULTS.md stale "v10" | Accepted: one-shot *consumption* (i+ii+iii) vs *equivocation evidence* (i+ii+byte-distinct) disambiguated (§3.1, §8); §6.7 → "empty, items re-queue intact"; I6 "always flows = eventual, not timely, out-of-scope per §12"; RESULTS.md scope line added |
 | r11 refuted (audit) | 5 findings correctly refuted under adversarial verification | block-count-spill-vs-membership, single-epoch-MEV framing, explicit-empty-mode-unconstructibility horn, clock-capacity-vs-requeue packing, `H_toll_max`>retention-falsifies-bound-4 — each shown already-handled by existing text; recorded in `step-1-findings.md` |
+
+**Round 12 (second internal multi-agent challenge-then-respond review loop — six diverse-lens
+adversaries tasked first with *verifying the v12 fixes* against the deployed `Bridge.sol` /
+`SignalService.sol` / `Anchor.sol`, then hunting new; 16 raw → 13 survivors → 2 IMPORTANT + 3
+non-gating after dedup; full report
+[`review-loop/step-2-findings.md`](review-loop/step-2-findings.md); independently corroborated
+by the Codex review bot; resolved in v14):**
+
+| # | Finding (severity) | v14 response |
+| --- | --- | --- |
+| r12-1 (IMPORTANT, funds) | The v12 F1 recall re-fix is **still unsound**: "`msgHash` not-`DONE` on a finalized destination" is a *non-terminal* snapshot (`NEW`/`RETRIABLE`→`DONE`; `processMessage` permissionless; source signal permanent), so **recall-then-deliver** reopens the cross-chain double-spend / bridge insolvency, and the predicate can't be both sound and outage-live (a fresh root is unconstructible during the outage → principal freeze) | Accepted (my own v12 fix was wrong): §6.4 re-based on a **terminal destination-side `FAILED` mark** — an L1→L2-synced proof of the carrier's `refunded`/void state marks the message `FAILED` and emits `signalForFailedMessage`, so `FAILED`⊥`DONE` forecloses delivery; source recall uses the unchanged `FAILED`-signal path; `msgHash` stored in the nullifier at snapshot; refund guarantee stated **conditional on eventual proving resumption** (§6.4, §9, §10.4, §6.5, §13-S.16) |
+| r12-2 (IMPORTANT, liveness) | §10.4 rung-3 attested-outage toll scoped to "accepted AC" leaves forced-only/DEFAULT epochs (data on L1 via the forced-queue nullifier, never an AC) un-tolled → honest holder slashed for an un-producible forced-only seal during a systemic outage | Accepted: toll predicate broadened to "data availability established by an accepted AC **OR** the forced-queue snapshot nullifier (`queued→snapshotted`)"; pinned that an owned forced-only epoch does carry a missed-seal duty and tolls under this rule (§10.4, §6.7) |
+| r12-3 (low) | No *upper* coupling of `H_cancel + H_toll_max` (30 d) to blob retention (~18 d): a CONTENT epoch's `T_exp` could toll past its own blobs' expiry | Accepted: setter invariant `H_cancel + H_toll_max + margin ≤ blob_retention` (or make a CONTENT epoch cancellable once its blobs provably expire on L1) — §6.7, §13-T.3 |
+| r12-4 (note) | Stale attributions: the nullifier called "the §6.4 bridge-handshake nullifier"; Appendix B r9-cB1 still described the abandoned v10 predicate | Accepted: relabeled the **seal-vs-refund exclusion nullifier (§6.5)**; r9-cB1/r11-F1 rows synced to the v14 terminal-`FAILED` mechanism; RESULTS.md attribution updated in the checker's v14 revision |
+| r12-5 (note) | The default-outcome input tuple omitted the finalized L1 chain that `F(N)` reads | Accepted: I1's tuple now lists "the finalized canonical L1 chain up to slot ≤ slot(T_N) − D_anchor" (inclusion-independent at finalized depth; determinism unaffected) |
+| r12 checker-fidelity (Codex P1 ×3) | AC-resolution branch not modeled; withdrawal gate not on the challenge horizon; descendant tolling behind unclosed EMPTY/VOID | Folded into the model checker's v14 revision (AC-resolution branch + mode consequence; challenge-horizon gate + delayed-safety-settlement action; machine-checked no-descendant-seal-fault-while-lower-unclosed) — see [`simulation/RESULTS.md`](simulation/RESULTS.md) |
+| r12 verification | v12 fixes F2, F3, N1–N5 re-verified | **All HOLD** under adversarial re-verification against the deployed contracts; only F1 failed → r12-1 |
 
 ## Appendix C — L2 header inputs and their sources
 
