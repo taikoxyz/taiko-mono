@@ -1,4 +1,4 @@
-# PROPOSAL-0020: Move the SGX Legs onto a PCCS-Backed, Taiko-Owned DCAP Entrypoint
+# PROPOSAL-0022: Move the SGX Legs onto a PCCS-Backed, Taiko-Owned DCAP Entrypoint
 
 ## Executive Summary
 
@@ -14,7 +14,7 @@ alone can never finalize.
 
 **Prerequisite: Proposal0019 must execute first.** This proposal assumes 0019 has already rotated
 the RISC0/SP1 trusted image IDs and program keys to raiko2 v0.6.0 on the reused ZK verifiers, run
-`init3`, and upgraded the Inbox. Executing 0020 before 0019 would leave the ZK legs trusting the
+`init3`, and upgraded the Inbox. Executing 0022 before 0019 would leave the ZK legs trusting the
 old raiko2 v0.5.1 IDs and would skip `init3`.
 
 ## Why
@@ -135,6 +135,7 @@ Verified by fork-simulating the proposal against mainnet: the pin is accepted on
 `setEnclaveAttributePolicy`'s validity rules.
 
 > [!IMPORTANT]
+>
 > **Reconcile against a real v0.6.0 quote before submission.** Re-pinning later bumps the policy
 > version and **revokes every instance registered under the previous pin**, so this must be correct on
 > first execution. Read `ATTRIBUTES` from bytes `[96:112]` of a raw quote (`raiko2-sgx-prover
@@ -161,10 +162,10 @@ bootstrap` emits one; its JSON `quote` field is also persisted to the config dir
 
 ```bash
 # Print the action data (reverts until the ATTRIBUTES pin is set)
-P=0020 pnpm proposal
+P=0022 pnpm proposal
 
 # Fork-simulate the L1 actions
-P=0020 pnpm proposal:dryrun:l1
+P=0022 pnpm proposal:dryrun:l1
 ```
 
 Independent cross-checks against mainnet:

@@ -3,15 +3,15 @@ pragma solidity ^0.8.24;
 
 import "../governance/BuildProposal.sol";
 
-// To print the proposal action data: `P=0020 pnpm proposal`
-// To dryrun the proposal on L1: `P=0020 pnpm proposal:dryrun:l1`
+// To print the proposal action data: `P=0022 pnpm proposal`
+// To dryrun the proposal on L1: `P=0022 pnpm proposal:dryrun:l1`
 //
 // Stacks on Proposal0019 (Unzen), which MUST execute first: this proposal assumes 0019 has already
 // rotated the RISC0/SP1 trusted IDs to raiko2 v0.6.0 on the reused ZK verifiers, run `init3`, and
 // upgraded the Inbox to its own implementation. This proposal then moves the SGX legs onto a
 // Taiko-owned, PCCS-backed Automata DCAP entrypoint and re-points the Inbox at a new
 // ZkRequiredVerifier that composes the new SGX verifiers with those same reused ZK verifiers.
-contract Proposal0020 is BuildProposal {
+contract Proposal0022 is BuildProposal {
     // ---------------------------------------------------------------
     // New SGX stack, deployed 2026-07-16 at mainnet block 25543404 by
     // DeployAutomataDcapAttestation (profile layer1o) for the entrypoint and
@@ -126,18 +126,18 @@ contract Proposal0020 is BuildProposal {
         actions[0] = Controller.Action({
             target: SGXGETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(IProposal0020SgxVerifier.setMrSigner, (MR_SIGNER, true))
+            data: abi.encodeCall(IProposal0022SgxVerifier.setMrSigner, (MR_SIGNER, true))
         });
         actions[1] = Controller.Action({
             target: SGXGETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(IProposal0020SgxVerifier.setMrEnclave, (SGXGETH_MR_ENCLAVE, true))
+            data: abi.encodeCall(IProposal0022SgxVerifier.setMrEnclave, (SGXGETH_MR_ENCLAVE, true))
         });
         actions[2] = Controller.Action({
             target: SGXGETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0020SgxVerifier.setEnclaveAttributePolicy,
+                IProposal0022SgxVerifier.setEnclaveAttributePolicy,
                 (SGXGETH_MR_ENCLAVE, ENCLAVE_ATTRIBUTE_MASK, ENCLAVE_ATTRIBUTE_EXPECTED)
             )
         });
@@ -146,27 +146,27 @@ contract Proposal0020 is BuildProposal {
         actions[3] = Controller.Action({
             target: SGXRETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(IProposal0020SgxVerifier.setMrSigner, (MR_SIGNER, true))
+            data: abi.encodeCall(IProposal0022SgxVerifier.setMrSigner, (MR_SIGNER, true))
         });
         actions[4] = Controller.Action({
             target: SGXRETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0020SgxVerifier.setMrEnclave, (SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+                IProposal0022SgxVerifier.setMrEnclave, (SGXRETH_NON_EDMM_MR_ENCLAVE, true)
             )
         });
         actions[5] = Controller.Action({
             target: SGXRETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0020SgxVerifier.setMrEnclave, (SGXRETH_EDMM_MR_ENCLAVE, true)
+                IProposal0022SgxVerifier.setMrEnclave, (SGXRETH_EDMM_MR_ENCLAVE, true)
             )
         });
         actions[6] = Controller.Action({
             target: SGXRETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0020SgxVerifier.setEnclaveAttributePolicy,
+                IProposal0022SgxVerifier.setEnclaveAttributePolicy,
                 (SGXRETH_NON_EDMM_MR_ENCLAVE, ENCLAVE_ATTRIBUTE_MASK, ENCLAVE_ATTRIBUTE_EXPECTED)
             )
         });
@@ -174,7 +174,7 @@ contract Proposal0020 is BuildProposal {
             target: SGXRETH_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0020SgxVerifier.setEnclaveAttributePolicy,
+                IProposal0022SgxVerifier.setEnclaveAttributePolicy,
                 (SGXRETH_EDMM_MR_ENCLAVE, ENCLAVE_ATTRIBUTE_MASK, ENCLAVE_ATTRIBUTE_EXPECTED)
             )
         });
@@ -196,7 +196,7 @@ contract Proposal0020 is BuildProposal {
     error AttributePolicyNotSet();
 }
 
-interface IProposal0020SgxVerifier {
+interface IProposal0022SgxVerifier {
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external;
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
     function setEnclaveAttributePolicy(
