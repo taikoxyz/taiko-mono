@@ -113,7 +113,17 @@ CANCEL_LAG = 1     # lag at which the disaster cancellation becomes enabled. The
 MUTANT = None      # set to a mutant name to deliberately break the design (self-test)
 NTENURES = 3       # distinct tenure identities (owners) available
 L_LIVE = 1         # liveness slash (abstract units)
-RESERVE0 = K + 2   # per-tenure ETH/token reserve at admission (covers K obligations + margin)
+# Per-tenure reserve at admission. The design (section 7.3) SIZES the recovery tranche to a
+# tenure's worst-case obligations (the solvency invariant), so a correctly-admitted tenure's
+# reserve is never driven negative by its own debits. The abstract worst case is 2 debits per
+# owned epoch (a missed-seal SEAL cert AND a later CANCEL cert on the same epoch) across all
+# NEPOCHS epochs a single tenure can be the acting owner of -> 2*NEPOCHS, plus a margin. If a
+# run ever drives a reserve below zero, `inv_bond_nonneg` fires: that is the checker detecting
+# UNDER-collateralization, exactly the design's solvency property (round-8 finding W3). Debits
+# no longer silently floor at zero, so `edge_debit_conservation` now checks EVERY debit
+# (including at exhausted reserve) rather than only ones that happen to decrease a positive
+# reserve.
+RESERVE0 = 2 * NEPOCHS + 1
 
 # Epoch status values
 SEQ       = "SEQ"        # not yet decided (being sequenced / future)
@@ -325,6 +335,17 @@ def actions(s: State):
                 ns = replace(ns, openEpoch=recompute_open(ns.status))
                 out.append((f"SEAL_OOO(e{e})", ns))
 
+    # MUTANT: re-open an already-CLOSED epoch (violates the immutability corollary). Tests
+    # the path-independent edge_seal_immutable (round-8 W2).
+    if MUTANT == "reopen_sealed":
+        for e in range(n):
+            if s.status[e] in CLOSED:
+                new_status = list(s.status); new_status[e] = CONTENT
+                ns = replace(s, status=tuple(new_status))
+                ns = replace(ns, openEpoch=recompute_open(ns.status))
+                out.append((f"REOPEN(e{e})", ns))
+
+
     # ---- Seal: only the openEpoch may be sealed; both CONTENT and EMPTY are sealable.
     #      v9: a CONTENT seal is proof-carrying and therefore IMPOSSIBLE during a proving
     #      outage; the EMPTY seal is proof-free (I7) and stays available. ----
@@ -414,7 +435,11 @@ def actions(s: State):
             continue
         amt = L_LIVE
         new_res = list(s.reserve)
-        new_res[owner] = max(0, new_res[owner] - amt)   # never negative
+        # No silent zero-floor (round-8 W3): a debit ALWAYS decrements, so every debit is
+        # checked by edge_debit_conservation, and a debit that would drive the reserve below
+        # zero surfaces as an inv_bond_nonneg violation -- the checker detecting insolvency
+        # (reserve sizing insufficient) rather than masking it.
+        new_res[owner] = new_res[owner] - amt
         ns = replace(s, reserve=tuple(new_res), consumed=s.consumed | {lid})
         out.append((f"debit({cls},T{owner},e{e})", ns))
 
@@ -639,6 +664,18 @@ def edge_debit_conservation(s: State, ns: State, label: str):
     return None
 
 
+def edge_seal_immutable(s: State, ns: State, label: str):
+    # Immutability corollary (I3+I7), as a PATH-INDEPENDENT edge invariant (round-8 W2): no
+    # single transition may change an already-CLOSED epoch's status. The state-level
+    # inv_seal_immutable compares against the first-discovery closed-history and could be
+    # masked by state deduplication (State.key() omits closed_hist); this edge check looks
+    # only at the direct predecessor->successor pair, so dedup can never hide a re-open.
+    for e in range(NEPOCHS):
+        if s.status[e] in CLOSED and ns.status[e] != s.status[e]:
+            return f"epoch {e} was {s.status[e]} then changed to {ns.status[e]} on {label}"
+    return None
+
+
 def edge_maturity_materialized(s: State, ns: State, label: str):
     # I2 as a transition property: a tick spent as a DECIDED (content OR explicit-empty),
     # owned openEpoch must materialize that owner's SEAL certificate in the successor
@@ -656,14 +693,18 @@ def edge_maturity_materialized(s: State, ns: State, label: str):
 
 EDGE_INVARIANTS = [
     edge_open_monotone, edge_evidence_monotone, edge_debit_conservation,
-    edge_maturity_materialized,
+    edge_maturity_materialized, edge_seal_immutable,
 ]
 
 
 # ---------------------------------------------------------------------------
 # Exhaustive BFS with invariant checking + liveness (halt) post-analysis.
 # ---------------------------------------------------------------------------
-def explore(stop_on_violation=False):
+def explore(stop_on_violation=False, stop_on_inv=None):
+    # stop_on_inv (round-8 S1): when set to an invariant name, the exploration keeps running
+    # PAST unrelated violations and early-exits only once the NAMED invariant has fired. This
+    # makes the mutation self-test robust: an incidental violation from another invariant can
+    # no longer mask (false-MISSED) the invariant a mutant is meant to trip.
     visited = {}                 # key -> id
     parent = {}                  # id -> (parent_id, action_label)
     states = []                  # id -> State
@@ -698,6 +739,14 @@ def explore(stop_on_violation=False):
     terminal_all_closed = set()
     STATE_CAP = 4_000_000
     processed = 0
+    EMPTY_RET = (states, parent, edges, violations, [], set(), set())
+
+    def _stop():
+        if not violations:
+            return False
+        if stop_on_inv is not None:
+            return any(name == stop_on_inv for (_k, name, _i, _m) in violations)
+        return stop_on_violation
 
     while q:
         i = q.popleft()
@@ -719,8 +768,8 @@ def explore(stop_on_violation=False):
         m = inv_seal_immutable(s, closed_hist[i])
         if m:
             violations.append(("SAFETY", "inv_seal_immutable", i, m))
-        if stop_on_violation and violations:
-            return states, parent, edges, violations, [], set(), set()
+        if _stop():
+            return EMPTY_RET
 
         if s.openEpoch >= NEPOCHS:
             terminal_all_closed.add(i)
@@ -742,8 +791,8 @@ def explore(stop_on_violation=False):
             edges[i].append((j, label))
             if is_new:
                 q.append(j)
-        if stop_on_violation and violations:
-            return states, parent, edges, violations, [], set(), set()
+        if _stop():
+            return EMPTY_RET
 
     # Liveness / halt analysis, two passes (v9):
     #
@@ -788,6 +837,19 @@ def explore(stop_on_violation=False):
         kind = "standard" if i not in reachable_to_goal else "outage-robust"
         halts.append((i, len(edges.get(i, [])) > 0, kind))
 
+    # Scope of the liveness result (round-8 W1). Backward-reachability establishes exactly
+    # DEADLOCK-FREEDOM: every reachable state — every strongly-connected component included —
+    # has a path to a fully-sealed terminal, so there is NO reachable "terminal-avoiding
+    # trap" (an SCC from which finalization is unreachable). What it does NOT establish, and
+    # what NO checker of this model can, is livelock-freedom under a fully *unfair* scheduler:
+    # because every action (the tick, the permissionless advancing seal/cancel, even toggling
+    # the outage flag) is adversary-selectable, the non-terminal subgraph is full of cycles an
+    # adversary could loop in forever by simply declining the advancing action. That residual
+    # is inherent to *any* permissionless-liveness property and is resolved at the protocol
+    # layer, not in the model: the advancing action is open to every honest party, so under the
+    # standard weak-fairness assumption (an always-enabled permissionless action is eventually
+    # taken by someone honest) deadlock-freedom upgrades to finalization. RESULTS.md states
+    # the claim in exactly these terms rather than the unqualified "no permanent halt".
     return states, parent, edges, violations, halts, terminal_all_closed, reachable_to_goal
 
 
@@ -809,24 +871,27 @@ MUTANTS = {
     "double_debit":         "edge_debit_conservation",    # re-execute a consumed debit
     "seal_erases_cert":     "edge_evidence_monotone",     # seal destroys matured evidence (I2)
     "no_materialize":       "edge_maturity_materialized", # missed deadline never computed (I2)
-    # v9: a liveness mutant -- if an outage wrongly blocked proof-FREE resolutions too,
-    # a permanent outage would be a permanent halt; the halt analysis must catch it.
-    "outage_blocks_empty":  "LIVENESS_HALT",
+    "reopen_sealed":        "edge_seal_immutable",        # re-open a CLOSED epoch (round-8 W2)
+    "undersized_reserve":   "inv_bond_nonneg",            # admission under-collateralized (round-8 W3)
+    # Liveness mutant -- the bug manifests as a permanent halt (a reachable state from which
+    # NO exit path exists), which the deadlock-freedom analysis must catch.
+    "outage_blocks_empty":  "LIVENESS_HALT",              # a permanent outage becomes a halt
 }
 
 
 def run_mutation_tests():
     """Self-test: each mutant deliberately breaks the design; the checker MUST catch it.
     Runs at a tiny bound for speed."""
-    global MUTANT, NEPOCHS, MAXCLOCK
+    global MUTANT, NEPOCHS, MAXCLOCK, RESERVE0
     NEPOCHS, MAXCLOCK = 3, 3
+    RESERVE0 = 2 * NEPOCHS + 1
     print("# MUTATION SELF-TEST (each injected bug MUST be caught by the named invariant)")
     all_caught = True
     for mut, expected_inv in MUTANTS.items():
         MUTANT = mut
         if expected_inv == "LIVENESS_HALT":
-            # liveness mutant: the bug manifests as a permanent halt, so run the full
-            # exploration (no early exit) and require the halt analysis to fire.
+            # liveness mutant: the bug manifests as a permanent halt (a reachable state with
+            # no exit path), so run the full exploration and require the halt analysis to fire.
             _, _, _, _violations, halts, _, _ = explore()
             ok = bool(halts)
             all_caught &= ok
@@ -834,7 +899,15 @@ def run_mutation_tests():
             print(f"  mutant '{mut}' -> expect a permanent halt: {status} "
                   f"({len(halts)} halt state(s) found)")
             continue
-        _, _, _, violations, _, _, _ = explore(stop_on_violation=True)
+        if mut == "undersized_reserve":
+            # shrink admission collateral below the worst case so a debit drives a reserve
+            # negative -> inv_bond_nonneg; restore afterwards.
+            RESERVE0 = 0
+        # stop_on_inv keeps exploring past incidental violations and exits only once the
+        # EXPECTED invariant fires, so an unrelated invariant can't false-MISS the mutant (S1).
+        _, _, _, violations, *_ = explore(stop_on_inv=expected_inv)
+        if mut == "undersized_reserve":
+            RESERVE0 = 2 * NEPOCHS + 1
         caught = {name for (_k, name, _i, _m) in violations}
         ok = expected_inv in caught
         all_caught &= ok
@@ -847,11 +920,12 @@ def run_mutation_tests():
 
 
 def main():
-    global NEPOCHS, MAXCLOCK
+    global NEPOCHS, MAXCLOCK, RESERVE0
     if len(sys.argv) >= 2 and sys.argv[1] == "--mutate":
         return 0 if run_mutation_tests() else 1
     if len(sys.argv) >= 3:
         NEPOCHS = int(sys.argv[1]); MAXCLOCK = int(sys.argv[2])
+        RESERVE0 = 2 * NEPOCHS + 1   # re-size collateral to the new epoch count (round-8 W3)
     print(f"# v9 protocol state-machine model check")
     print(f"# params: NEPOCHS={NEPOCHS} MAXCLOCK={MAXCLOCK} K={K} NTENURES={NTENURES} "
           f"RESERVE0={RESERVE0}")
@@ -880,17 +954,26 @@ def main():
                 print(f"      {a}")
         print(f"  total raw violations: {len(violations)} (distinct shapes: {len(seen)})")
 
-    print("\n## LIVENESS / halt-safety (G5 / I3) — standard AND outage-robust")
+    print("\n## LIVENESS — deadlock-freedom (standard AND outage-robust); round-8 W1 scoping")
+    # Precise property (round-8 W1): this is DEADLOCK-freedom — from every reachable state an
+    # exit path to full finalization exists (no terminal-avoiding trap), in the standard
+    # relation and in the outage-robust sub-relation (the goal stays reachable even if a
+    # proving outage never lifts). It is NOT unconditional livelock-freedom under a fully
+    # unfair scheduler — inherent to any permissionless-liveness property and out of scope for
+    # the checker; the protocol supplies the missing weak-fairness (the advancing action is
+    # permissionless, so an honest party eventually takes it). See RESULTS.md.
     if not halts:
         print("  NONE - every reachable non-terminal state can still reach a fully-sealed "
-              "chain, and can do so even if an active proving outage never lifts.")
+              "chain, and can do so even if an active proving outage never lifts "
+              "(deadlock-freedom; livelock under a fully unfair scheduler is out of scope — "
+              "resolved by the permissionlessness of the advancing action).")
     else:
         std = [h for h in halts if h[2] == "standard"]
         rob = [h for h in halts if h[2] == "outage-robust"]
         deadend = [h for h in halts if not h[1]]
         print(f"  states unable to reach all-closed within horizon: {len(halts)}")
-        print(f"    - standard (no path at all): {len(std)}")
-        print(f"    - outage-robust only (every path needs the outage to lift): {len(rob)}")
+        print(f"    - standard (no exit path at all): {len(std)}")
+        print(f"    - outage-robust only (every exit needs the outage to lift): {len(rob)}")
         print(f"    - true dead-ends (no enabled action): {len(deadend)}")
         for (i, hs, kind) in halts[:2]:
             s = states[i]
@@ -899,7 +982,7 @@ def main():
             for a, j in trace(parent, states, i):
                 print(f"      {a}")
 
-    # exit code: halts fail the run exactly like safety violations do (G5/I3 is a
+    # exit code: halts fail the run exactly like safety violations do (deadlock-freedom is a
     # headline property; automation must not treat a halting model as passing).
     bad = bool(violations) or bool(halts)
     return 1 if bad else 0

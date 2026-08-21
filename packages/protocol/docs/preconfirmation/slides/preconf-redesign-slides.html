@@ -88,7 +88,7 @@
       <ul>
         <li>Decouple the seat from L1 validators: sell sequencing rights in an <b>open, perpetual on-chain auction</b>.</li>
         <li>Make every promise <b>bonded and objectively slashable</b> from the first day.</li>
-        <li>Make finalization <b>atomic with proving</b> — the proposal itself carries a validity proof, so there is no separate prover market and no finality lag.</li>
+        <li>Make finalization <b>carry its own proof</b> — the seal is one proof-carrying L1 transaction whose acceptance is finality, so there is no separate prover market (G4).</li>
         <li>Design the <b>failure modes first</b>: every degraded state has a permissionless exit.</li>
       </ul>
     </div>
@@ -284,7 +284,7 @@
     <text x="560" y="110" font-size="14" text-anchor="middle" fill="#0e8a5f">content-or-empty, irreversible</text>
     <line x1="560" y1="118" x2="560" y2="178" stroke="#0e8a5f" stroke-width="1.5" stroke-dasharray="4 3"/>
     <text x="560" y="232" font-size="15" text-anchor="middle" fill="#0e8a5f">+7 slots</text>
-    <text x="560" y="280" font-size="14" text-anchor="middle" fill="#6b6b78">κ = 3-slot grace: byte-identical re-posts only</text>
+    <text x="560" y="280" font-size="14" text-anchor="middle" fill="#6b6b78">κ = 3-slot grace: presence at the decision decides — a first inclusion in (D, D+κ] counts; re-posts byte-identical (v9)</text>
     <!-- sealable span (v7: deadline-only) -->
     <rect x="620" y="150" width="370" height="50" rx="8" fill="#fff" stroke="#191322" stroke-width="1.5" stroke-dasharray="6 4"/>
     <text x="805" y="181" font-size="17" text-anchor="middle" font-weight="bold">sealable any time → due by T+4E (tolled)</text>
@@ -533,7 +533,7 @@
     <div class="col">
       <div class="card">
         <h3>Solvent by admission</h3>
-        <p style="margin-top:8px">The senior tranche of each tenure's single ETH account is sized to its worst-case <span class="mono">K</span> outstanding recovery obligations, checked at admission: <span class="mono small">Σ reserves ≥ Σ worst-case obligations</span>. A deliberate fault can only ever spend its own account; a thin shared pool covers only the honest remainder.</p>
+        <p style="margin-top:8px">The senior tranche of each tenure's single ETH account is sized to its worst-case <span class="mono">K</span> outstanding recovery obligations <b>plus its worst-case cancellation-cascade charge</b> (v9), checked at admission: <span class="mono small">Σ reserves ≥ Σ worst-case obligations</span>. A deliberate fault can only ever spend its own account; a thin shared pool covers only the honest remainder.</p>
       </div>
       <div class="card" style="margin-top:16px">
         <h3>Recovery pays cost, not prizes</h3>
@@ -603,9 +603,9 @@
     <tr><td><b>Censor the poke, then exit</b></td><td>Liability is computed at read time — withdrawal itself materializes the fault (I2).</td></tr>
     <tr><td><b>Front-run proofs / pokes / fills</b></td><td>Payees are precommitted (proof public inputs, pre-registrations) — copying a witness pays the original beneficiary (I8).</td></tr>
     <tr><td><b>Flood forced inclusions</b></td><td>Per-item base fee + byte/gas-proportional pricing bounds proving cost; snapshots cap per-epoch load, overflow spills deterministically.</td></tr>
-    <tr><td><b>Publish a long tail, then cancel it</b></td><td>Recovery-only mode caps the unsealed content tail at ≈ K+d+s epochs (~77 min) — a 14-day cancellation avalanche cannot exist.</td></tr>
+    <tr><td><b>Publish a long tail, then cancel it</b></td><td>Recovery-only mode caps the unsealed <i>discretionary</i>-content tail at ≈ K+S epochs (~77 min) — a 14-day cancellation avalanche cannot exist (forced-only content is data-present and self-funding, not value-at-risk).</td></tr>
   </table>
-  <p class="small mut" style="margin-top:14px">Stated residuals: sub-H_force targeted censorship can cost an honest holder one liveness slash (priced unprofitable); TAIKO-price erosion weakens only griefing deterrence; K_empty bounds self-serving, but a complete censorship bound awaits the max-tenure-duration decision.</p>
+  <p class="small mut" style="margin-top:14px">Stated residuals: targeted censorship that outlasts a holder's whole submission span can cost an honest holder one liveness slash (priced unprofitable, κ-grace makes it rare); TAIKO-price erosion weakens only griefing deterrence (the ETH recovery-tranche drain is an oracle-free floor per fault); and the complete idleness/censorship bound is now <span class="mono">T_max</span> tenure expiry (v9) — <span class="mono">K_empty</span> is only the faster nuisance path.</p>
   <div class="foot"><span>Taiko Based Preconfirmation Redesign — v9</span><span>20</span></div>
 </section>
 
@@ -615,15 +615,15 @@
   <h2>How hard has this been attacked already?</h2>
   <div class="cols">
     <div class="col">
-      <div class="bigstat">11 passes</div>
-      <p class="mut" style="margin-top:6px; margin-bottom:18px">of adversarial review across 7 rounds (multiple independent AI reviewers), every finding accepted-or-rebutted in a public disposition table. An owner-approved simplification round (v7) was <b>re-audited against every prior finding</b> — the one change that regressed was reverted (v8) — and round 7's liveness blockers landed T_max, decision-time availability, and the outage-robust checker (v9).</p>
+      <div class="bigstat">8 rounds</div>
+      <p class="mut" style="margin-top:6px; margin-bottom:16px">of adversarial review (independent AI reviewers), every finding dispositioned publicly. A simplification round (v7) was re-audited and its one regression reverted (v8); round 7 landed T_max + the outage-robust checker (v9). A final <b>independent multi-agent fund-safety / state-validity / monopoly self-review</b> found <b>zero confirmed exploits</b> — only wording-precision fixes.</p>
       <div class="bigstat">6.0 M states</div>
-      <p class="mut" style="margin-top:6px">explored by an exhaustive model checker of the epoch state machine — <b>zero invariant violations, zero permanent halts, even under a proving outage that never lifts</b> (v9): the proof-free floor of empty seals and cancellation always finalizes the chain.</p>
+      <p class="mut" style="margin-top:6px">explored — <b>zero invariant violations and deadlock-freedom</b> (an exit path to finalization always exists), holding <b>even under a proving outage that never lifts</b>: the proof-free floor is that exit.</p>
     </div>
     <div class="col">
       <div class="card">
         <h3>The checker checks itself</h3>
-        <p style="margin-top:8px">9 deliberately-injected design bugs (double decision, ignore-forced, out-of-order seal, ungated withdrawal, missing cascade, double debit, evidence erasure, unmaterialized fault, outage-blocks-everything) — <b>9/9 caught</b> by the check written to catch each.</p>
+        <p style="margin-top:8px">11 deliberately-injected design bugs (double decision, ignore-forced, out-of-order seal, ungated withdrawal, missing cascade, double debit, evidence erasure, unmaterialized fault, reopen-sealed, under-collateralized admission, outage-blocks-everything) — <b>11/11 caught</b> by the check written to catch each.</p>
       </div>
       <table class="small" style="margin-top:16px">
         <tr><th>Bound (v9, outage adversary)</th><th class="r">States</th><th class="r">Violations</th><th class="r">Halts</th></tr>

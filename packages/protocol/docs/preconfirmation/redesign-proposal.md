@@ -29,9 +29,19 @@
 > a normative **maximum tenure duration `T_max`** replaces the Sybil-resettable `K_empty` as the
 > binding idleness/censorship bound (#29), slice availability is judged **at the single decision**
 > (first inclusions and re-posts alike), the cascade charge is collateralized as a recovery-class
-> liability, and the model checker now covers **proving outages**. Design only —
-> mechanisms, invariants, incentives, parameters. Baseline: [`status-quo.md`](status-quo.md);
-> owner decisions: its §6 and
+> liability, and the model checker now covers **proving outages**. **Round-8 hardening
+> (2026-08-21)** — a DeepSeek pass on the verification artifact plus an independent multi-agent
+> adversarial + monopoly self-review — changed **no mechanism**: the sweep confirmed no
+> fund-freeze/theft, no reachable invalid state, and no *harmful* monopoly (the auction is
+> highest-bidder-wins by design — an accepted, now-stated economic property, not a bug — because
+> censorship is priced independently of the seat, forced content always flows, and `T_max`
+> re-prices occupancy). It landed model-checker rigor (deadlock-freedom scoping, a
+> path-independent seal-immutability edge check, debit-solvency) and a set of doc-precision
+> corrections (discretionary-vs-forced content tail, the cancellation floor's general
+> no-valid-seal trigger, one-epoch equivocation exposure, capped recovery rate, `T_max`
+> occupancy semantics); dispositions in [Appendix B](#appendix-b--review-dispositions). Design
+> only — mechanisms, invariants, incentives, parameters. Baseline:
+> [`status-quo.md`](status-quo.md); owner decisions: its §6 and
 > [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
 >
 > Prior art (post-whitelist URC design, post-Shasta slashing design, PR #22019) is consciously
@@ -96,9 +106,15 @@
   within `Γc + κ` of its boundary, and every later deadline measures from the moment its
   prerequisite became irreversible (automatic tolling), never from wall-clock while blocked.
 - **I5 — Bounded global backlog.** `openEpoch` lagging by more than `K` epochs triggers
-  recovery-only mode (no new discretionary content, no fees) until the lag clears. All
+  recovery-only mode (no new *discretionary* content, no fees) until the lag clears. All
   retention, collateral, and prover sizing is dimensioned against `K`, and — corollary — **the
-  content-bearing unsealed tail can never exceed ≈ `K + S` epochs**.
+  *discretionary*-content-bearing unsealed tail can never exceed ≈ `K + S` epochs**. (Recovery-
+  only mode stops discretionary content only; forced content still flows — I6 — so the
+  *forced-only* decided-unsealed count can exceed `K + S` during a long proving-outage stall,
+  but that tail is self-funding — each forced-only seal is paid at or above its proving cost by
+  its own forced fees (§6.5), its data is on L1 by construction, and it drains via the rung-1
+  fast path or re-queues intact rather than being voided at any tenure's expense. Only the
+  *discretionary* tail is value-at-risk collateral, and it is what `K + S` bounds — §6.7.)
 - **I6 — Forced inclusions are censorship-proof against the seat.** A non-empty forced
   snapshot makes the epoch's minimum valid outcome the deterministic forced-only epoch,
   constructible and provable by anyone from L1 data alone; empty is then invalid.
@@ -308,9 +324,21 @@ v4+ changes:
   tenure holds the seat past `T_max` without winning it again. This is the **objective
   idleness/censorship bound** the §5.4 caveat admitted was missing: it is a pure function of
   on-chain state (no demand oracle, no Sybil predicate), it caps how long any holder — idle,
-  censoring, or griefing — can occupy the seat, and it bounds the runway of a Sybil-griefing
-  tenure (§11.2). Expiry is not a fault: no slash, ordinary quit-equivalent fee treatment.
-  (Divergence from the brief's unbounded perpetual seat: Appendix A #29.)
+  censoring, or griefing — must re-win the seat at auction, and it bounds the runway of a
+  Sybil-griefing tenure (§11.2). Expiry is not a fault: no slash, ordinary quit-equivalent fee
+  treatment. (Divergence from the brief's unbounded perpetual seat: Appendix A #29.)
+  - **What `T_max` does and does not bound** (self-review, monopoly review). It bounds
+    *recurring, re-priced occupancy of a tenure-id* — no id squats the seat for free past
+    `T_max`; every renewal is re-priced at the perpetual auction against honest bidders. It does
+    **not** promise a well-capitalized actor cannot *keep re-winning*: this design is
+    highest-bidder-wins, and durable highest-bidder control is an **accepted economic
+    property**, not a bug. That is not a *harmful* monopoly, because the seat confers no durable
+    power to deny a determined user — censoring a specific user's content is priced *separately
+    and independently of the seat* (the publication corridor, §11.5), forced content **always
+    flows** regardless of who holds the seat (I6, §5.4), and recovery is permissionless (§6.3).
+    The incumbent's realized-MEV information edge in each re-auction is the one genuine
+    incumbency advantage, flagged for calibration in §13-T.2. "Permissionless" here means *open
+    entry, no gatekeeper* (Phase B), not *no economic winner*.
 - **Termination** on: settled fault certificate, bond below reservation, `K_empty`
   no-discretionary-content epochs (fee-continuation above; no slash — but see §5.4), or
   **tenure expiry at `T_max`** (re-auction, not a fault).
@@ -489,9 +517,15 @@ fast path needs **no horizon of its own**:
   seals it and collects. A single-holder stall therefore resolves within ~`κ` of the deadline —
   roughly two epochs *earlier* than v5's `H_force` — and the recovery lane, not `H_cancel`,
   remains the normal exit.
-- **`H_cancel` (10 days) — the disaster floor.** Reached only when the data is *genuinely
-  unavailable* (nobody, anywhere, holds it), so no seal is possible. Only then may anyone
-  **cancel**: the epoch re-resolves empty/forced-only from whatever L1 data survives, and later
+- **`H_cancel` (10 days) — the disaster floor.** Reached only when **no valid seal is possible
+  for the full horizon** — the general condition I3 names, whose two realizations are (a) the
+  data is *genuinely unavailable* (nobody, anywhere, holds it — the data-loss disaster) and (b)
+  a *permanent proving outage* that never lifts (no proof-carrying seal can be produced, and I6
+  has removed the empty seal for a forced epoch). In either case the bounded expiry
+  cancellation is the proof-free exit I3 guarantees; an implementer must gate it on
+  "no valid seal within the horizon", **not** on an (impossible) data-availability oracle. Only
+  then may anyone **cancel**: the epoch re-resolves empty/forced-only from whatever L1 data
+  survives, and later
   **committed, unsealed** epochs that chained to it re-resolve in the same deterministic cascade.
   The cancellation-causing tenure is charged for the recovery/cascade it forced, not merely one
   `L_slash` (r4b-M8), and re-queued forced snapshots preserve their original queue order so
@@ -503,11 +537,16 @@ fast path needs **no horizon of its own**:
 
 1. **Sealed state is untouchable** (immutability corollary, §0): the cascade operates only on
    the unsealed tail — it cannot revert finalized L2 history, ever.
-2. **The cascade is structurally shallow**: recovery-only mode (I5) stops new content epochs
-   once the lag exceeds `K`, so the committed-content unsealed tail — the only thing
-   cancellable — never exceeds ≈ `K + S` epochs (~77 min of chain), not 14 days. A
-   "publish a 14-day tail then cancel it all" attack cannot arise: the tail stops growing at
-   `K`.
+2. **The cascade is structurally shallow**: recovery-only mode (I5) stops new *discretionary*
+   content epochs once the lag exceeds `K`, so the committed-*discretionary*-content unsealed
+   tail — the only **value-at-risk** thing cancellable — never exceeds ≈ `K + S` epochs (~77
+   min of chain), not 14 days. A "publish a 14-day tail then cancel it all" attack cannot
+   arise: that tail stops growing at `K`. (A *forced-only* decided-unsealed tail can be longer,
+   but it is not value-at-risk in a cascade: its data is on L1 by construction and outlives
+   `H_cancel` (§6.4), its re-seal is forced-fee-funded (§6.5), and bound 4 re-queues it intact
+   rather than voiding it — so it drains, it does not cascade. A cascade deep enough to
+   destroy value requires blobs to vanish within retention: a systemic L1/DA disaster, not a
+   single-tenure-attributable act — a holder cannot selectively delete its own on-L1 blob.)
 3. What *is* lost in a cancellation is the unsealed preconf-layer view of those ≤ `K + S`
    epochs — exactly the exposure preconfirmations always carry against their bond, here
    reachable only after ≥ 10 days of continuously flagged failure.
@@ -546,7 +585,14 @@ capped at indexed cost, and the ≥80% burn is denominated to match — the safe
 (I9) so a TAIKO decline cannot make a fault/recovery cycle profitable against an ETH-denominated
 pool obligation (closing r4c-5's profitability path).
 
-A sustained L1 gas spike raises the payout with the cost instead of starving recovery.
+A sustained L1 gas spike raises the payout with the cost **up to the indexed cap** instead of
+starving recovery; the cap is an absolute ETH ceiling (not merely a capped multiple of an
+uncapped base — hence "worst-case obligation" is finite and the admission solvency invariant is
+statable), and the per-tenure recovery tranche is sized to `K ×` that **cap**, so any spike up
+to the cap is paid from the faulter's own account, whenever it occurs. Beyond the cap, recovery
+is under-compensated *by design* and the faulter's own epochs degrade to a bounded cancellation
+stall (never a subsidy drawn from other tenants' deposits) — the "never spills onto other
+tenures" guarantee is about *whose* collateral pays, and it holds. The cap value is §13-T.5.
 Deterrence stays burn-based: the TAIKO liveness slash is ≥ 80% burned; empty/forced-only
 recovery earns a small indexed amount; a tenure sealing its own epochs earns nothing (§5.4).
 
@@ -654,7 +700,18 @@ as v3.
 - **11.2 Undercollateralization / TAIKO-shorting** (r4a-C1/H11, r4b-H3): defeated by the split
   bond (I9) — the *theft* fault (equivocation) is slashed in ETH, value-fixed from tenure start,
   so `MEV(ETH) − L_safety(ETH)` no longer moves with the TAIKO price and no short or price shock
-  cheapens it. Only *griefing* deterrence (`L_live` in TAIKO) carries the price residual — and
+  cheapens it. **`L_safety` is sized against *one* epoch's MEV, and one epoch is the exposure**
+  (self-review, re: aggregate equivocation): an equivocation is provable the instant each
+  epoch's one-shot EBC lands at its `D+κ` decision (§3.1) — sequentially, ~one epoch apart —
+  and a settled safety certificate *terminates* the tenure (§4). A holder therefore cannot
+  accumulate an `≈K+S`-deep tail of simultaneously-equivocable epochs against a single bond
+  (that depth is a liveness/cancellation quantity, and the seal carries zero derivation inputs
+  so it cannot batch-reorder a tail — I1): the *first* provable equivocation ends the tenure,
+  bounding safety exposure to the certificate's settle-and-terminate latency, which the design
+  fixes at the same single-decision `D+κ` window (§8; if L2 equivocation adjudication is slower
+  than one epoch, exposure is that latency in epochs — a small governance-bounded multiplier,
+  never `K+S` — and the adjudication-latency ceiling is a §13-S.4 item). Only *griefing*
+  deterrence (`L_live` in TAIKO) carries the price residual — and
   (v9, r7-4) **the TAIKO slash is not the whole price of a fault**: every missed obligation also
   drains the faulter's **ETH recovery tranche at indexed cost** (the fault-paid recovery it
   forces, §7.3) — an ETH-denominated, oracle-free floor per fault that a TAIKO decline cannot
@@ -662,12 +719,27 @@ as v3.
   drain + the ≥80%-burned `L_live` + the seat (termination) + a fresh fully-funded ETH account
   and `q`-epoch delay to re-enter + the auction price against honest bidders — and `T_max` (§4)
   hard-caps any single tenure's runway. The residual is `L_live`'s *marginal* contribution to
-  that stack, a §13-T sizing question, not a free denial-of-service lever.
+  that stack, a §13-T sizing question, not a free denial-of-service lever. **Honesty on the ETH
+  floor** (self-review, re: r7-4): the ETH recovery drain is *largest* for a content/forced-only
+  miss (a real proof-carrying seal must be recovered) and *smallest* for the cheapest griefing
+  fault — a missed commit on a no-forced-snapshot epoch resolves to a plain **empty** seal,
+  whose proof-free recovery earns only "a small indexed amount" (§7.3). For that fault the
+  binding deterrents are the ≥80%-burned `L_live`, **termination**, and the `q`-delay +
+  fresh-account + auction re-admission cost under the `T_max` runway cap — the ETH drain is a
+  floor, not the main cost. This is the honest form of r7-4: TAIKO denomination is retained per
+  the owner's directive, `T_max` caps the campaign, and `L_live`-vs-re-admission sizing is
+  §13-T.2.
 - **11.3 Recovery-lane seal-race** (r4a-H7): rebutted as a griefing cost, not a halt. Competing
   seals for the same `openEpoch` all target one advance; the first valid one advances it and the
   losers simply revert, wasting the *racers'* own gas — the chain still advances one seal per L1
   block, and honest recoverers are reimbursed at cost (§7.3), so a cartel spends to crowd a
-  lane that advances regardless. Optional bond-priority ordering is a §13-T tuning lever, not a
+  lane that advances regardless. A fastest-prover actor may come to win most recovery races and
+  so concentrate recovery *income* (self-review, grief-05) — but income is capped at indexed
+  cost (no extraction) and this creates **no censorship lever**: recovery is permissionless and
+  non-exclusive, so an actor that *declines* a targeted holder's epoch merely lets any other
+  party seal it and collect. It is not the separate prover *market* G4 avoids (that is about
+  finalization not needing one; the lane is a fault-only fallback). Optional bond-priority
+  ordering is a §13-T tuning lever, not a
   structural need.
 - **11.5 Censorship, remodeled** (r3a-F1/F4, r3b-F6): the binding target is **publication**
   (blob payloads over the `32`-slot in-epoch stream **plus the `Γc+κ`-slot post-boundary tail —
@@ -684,7 +756,12 @@ as v3.
   unfalsifiable attestation is a free deadline-extension lever. Residual: short targeted
   censorship that outlasts a holder's whole submission span can still cost an honest holder one
   `L_slash`; the corridor keeps it unprofitable and κ-grace resubmission keeps it rare. Stated
-  plainly.
+  plainly. Second residual (self-review, cen-02): the forced path's per-item base fee `a` (§6.5)
+  guarantees inclusion but is not free, so a *sub-`a`-value* user cannot cheaply self-rescue via
+  forced inclusion, and a competitor could suppress a rival app's small-value user base for
+  ~`a` marginal cost — an aggregate that no single user's corridor prices. This violates no
+  invariant (I6 never promised free inclusion) but is a real economics decision — accept /
+  app-relayer aggregation / size-tiered `a` — tracked as §13-T.9.
 - **11.6 Reward-capture / front-running**: eliminated by precommitted payees (I8, r4c-4) — proof
   payout addresses are proof public inputs, poke/fill beneficiaries pre-registered, so a copied
   witness advances the chain but cannot redirect the reward.
@@ -732,11 +809,19 @@ alignment; automated bond scaling.
 11. **[Phase A]** Verdict incarnation + finalized-origin binding so orphan-fork verdicts fail
     post-reorg (§8, r4c-8).
 12. **[Phase A]** Precommitted-payee binding (proof public input / pre-registration) for every
-    permissionless reward (I8, §5.2, §8; r4c-4).
+    permissionless reward (I8, §5.2, §8; r4c-4). For the **fill** reward specifically, the
+    registration must commit to the slice **bytes** (the withheld witness), not to the slice
+    **hash** — the hash is public from the EBC at commit time, so a registration over the hash
+    would be speculatively front-runnable and would reintroduce the copy-the-slice race the
+    precommitment is meant to close (self-review, fund-03).
 13. **[Phase A]** Maximum-tenure-duration `T_max` mechanism spec (v9, r7-1): expiry +
     re-auction transition semantics (incumbent rebid, `q`-delay, assigned-tail honoring),
     interaction with the future-epoch-reservation gate (§4) and `K_empty`'s nuisance role
     (§5.4). Existence is normative; only the value is §13-T tuning.
+14. **[Phase B]** Phase-A→B graduation criteria: **existence is normative** (Phase A is
+    training wheels with a defined, objective exit — not an indefinite DAO-gatekept regime);
+    only the specific thresholds are §13-T.7 tuning. Anchors the §10.3 "criteria are objective"
+    claim in the same existence-normative form as `T_max` (self-review, mono-04).
 
 **13-T — Tuning (gates Phase B)**:
 
@@ -749,9 +834,22 @@ alignment; automated bond scaling.
 4. Bridge-liveness SLA under long forced-only-cadence runs.
 5. Recovery insurance pool sizing; indexed-rate caps.
 6. Censorship-corridor quantification against real builder-market data.
-7. Phase A→B objective criteria.
+7. Phase A→B objective criteria (existence anchored in §13-S.14).
 8. Client migration sequencing.
-9. **Anarchy discretionary content, revisited deliberately** (v8; §9 note): atomic
+9. **Forced-inclusion fee floor `a` vs. small-value users** (self-review, cen-02): the
+   per-item base `a` (§6.5) that stops tiny-item floods also prices a *sub-`a`-value* user's
+   lone transaction out of the guaranteed forced path, so a competitor could suppress a rival
+   app's small-value user base for near-`a` marginal cost without any single user's censorship
+   corridor (§11.5) pricing it. I6 never promised free inclusion, so this breaks no invariant,
+   but it is a real economics decision: whether to (a) accept it (small users rely on the
+   seat's normal service, which `T_max` + the corridor keep honest), (b) make **app-relayer
+   aggregation** first-class so one forced item can batch many users and amortize `a`, or
+   (c) add a size-tiered `a`. Owner decision; interacts with §6.5 and §13-T.6.
+10. **Wire `model_checker.py` into CI** so a future doc/checker edit cannot silently invalidate
+    the checked invariants (the self-test + bounded run already exit non-zero on any violation
+    or halt — "CI-safe"). Accepted in principle rounds 5–6, now tracked here rather than only
+    in PR replies (self-review coverage audit).
+11. **Anarchy discretionary content, revisited deliberately** (v8; §9 note): atomic
    propose≡seal proposals satisfy r2-6's only-proven-content-locks invariant, but restoring
    them requires the missing ordering half — a deterministic `S`-epoch **empty-wait** (pure
    empty resolution of an unowned epoch valid only after the window in which a proven
@@ -902,6 +1000,34 @@ notes) and the PR thread replies.
 | 4 (high) | TAIKO `L_live` ⇒ cheap sustained griefing under a TAIKO decline | Partially rebutted: the TAIKO slash was never the whole fault price — every miss also drains the faulter's **ETH recovery tranche at indexed cost**, an oracle-free ETH floor per fault (§11.2). Partially accepted: `T_max` caps any griefing tenure's runway; `L_live`-vs-re-admission sizing is §13-T.2. Denomination unchanged per the owner's bond-token directive |
 | 5 (med) | Forced-fee ratio bounds still an assertion | Accepted as emphasis: §13-S.5 was already [Phase A]-blocking; §6.5 now states the finalized ratios are a **precondition for enabling forced-fee acceptance**, not a follow-up |
 | 6 (med) | Cascade charge's seniority/sufficiency unspecified | Accepted: the charge is a **recovery-class liability**, admission-sized into the recovery tranche (worst case over the ≤ `K+S` cancellable tail), overflowing only to the shared pool, never the safety tranche (§4, §6.7, §7.3, §13-S.9) |
+
+**Round 8 (DeepSeek on v9 — verification-artifact + doc-consistency; and an independent
+multi-agent adversarial + monopoly self-review). No mechanism changes.** DeepSeek attacked the
+model checker's rigor and doc staleness (like rounds 5–6); the self-review ran three adversarial
+attackers (fund-freeze/theft, invalid-state/halt, permissionlessness→monopoly) plus
+comment-coverage and slide-sync audits, with every security finding put through an adversarial
+verifier prompted to refute it. **No finding survived as a confirmed exploit** — each was
+already-closed, a misreading, or an accepted/deferred property. Dispositions:
+
+| # | Finding | v9 response (no mechanism change) |
+| --- | --- | --- |
+| r8-W1 | Checker liveness is existential (deadlock-freedom), not livelock-freedom under a fully unfair scheduler | Accepted, scoped precisely: the claim is now **deadlock-freedom** (from every reachable state an exit path always exists — no terminal-avoiding trap), standard + outage-robust; unconditional livelock-freedom is inherent-to-permissionless-liveness out of scope, supplied at the protocol layer by the permissionlessness of the advancing action (weak fairness). RESULTS.md + `main()` reworded |
+| r8-W2 | `inv_seal_immutable` could be masked by state dedup | Accepted: added **`edge_seal_immutable`**, a path-independent edge invariant (dedup cannot hide a re-open); new `reopen_sealed` mutant catches it |
+| r8-W3 | Debit-conservation ignored zero-reserve debits | Accepted: removed the silent zero-floor so **every** debit is checked, and `inv_bond_nonneg` now surfaces under-collateralization directly; `RESERVE0` sized to the abstract worst case; new `undersized_reserve` mutant catches it |
+| r8-W4 | Stale v6/v7 text (README "v6"; slide 20 "sub-`H_force`"/"awaits max-tenure decision"; slide numbers) | Accepted: README + deck synced to v9; slide residuals, seal-window, κ-caption, cascade-sizing, and "atomic-with-proving" wording corrected |
+| r8-S1 | Mutation self-test brittle to incidental violations | Accepted: `explore(stop_on_inv=...)` early-exits only on the *expected* invariant |
+| self-review fund-01 (crit) | Aggregate equivocation across the ≤`K+S` tail steals `(K+S)×` the bond | **Refuted** (misreading): equivocation is provable at each EBC's `D+κ` and the first settled safety cert *terminates* the tenure, so exposure is ~1 epoch, not the tail; seal carries zero derivation inputs (can't batch-reorder). Clarified in §11.2; adjudication-latency ceiling → §13-S.4 |
+| self-review invalid-01 (high) | The ≤`K+S` cancellable-tail bound is false | **Refuted** (misreading) with a real wording fix: "content tail" → "**discretionary**-content tail" (forced content always flows, is self-funding, re-queues not voided; a value-destroying cascade needs a systemic-DA disaster). §0-I5, §6.7 reworded |
+| self-review fund-02 (high) | Fixed recovery deposit vs gas-unbounded obligations spills onto the shared pool | **Refuted** (misreading): compensation is a **capped rate** (absolute ceiling), deposit sized to `K×`cap; above-cap is designed graceful degradation on the faulter's own epochs, never a cross-tenant subsidy. §7.3 wording tightened |
+| self-review mono-01/03 (high/med) | `T_max` doesn't stop a whale re-winning ⇒ monopoly | **Refuted** (misreading): `T_max` bounds re-priced occupancy of a *tenure-id*; durable highest-bidder control is an **accepted** property (not harmful — censorship priced separately, forced flow, permissionless recovery). Stated in §4 |
+| self-review halt-01 (high) | Permanent proving outage on a data-present forced epoch = permanent halt | **Refuted** (already-closed by I3) with a wording fix: §6.7's cancellation floor now triggers on "**no valid seal possible** — data-loss *or* permanent proving outage", not an impossible data-availability oracle |
+| self-review fund-03 (med) | Fill reward front-runnable | **Refuted** (already-closed by I8's "bound before the witness is disclosed") + a Phase-A precision item: bind to slice **bytes**, not the public hash (§13-S.12) |
+| self-review fund-04 / invalid-02 (med) | Bridge-refund freeze / re-queue loop | **Refuted** (misreading): the Taiko bridge refund is `recallMessage` (proof-gated, not timeout-based); forced-queue retention is `H_cancel`+margin, not raw blob life |
+| self-review cen-02 (med) | Forced-fee floor `a` prices small users out of the censorship-proof path | **Owner decision** (no invariant broken): tracked §13-T.9 (accept / app-relayer aggregation / size-tiered `a`) |
+| self-review mono-04 (med) | Phase-A DAO allowlist = de-facto gatekeeper | **Out of scope, stated** (accepted training-wheels property); Phase A→B exit made existence-normative (§13-S.14) |
+| self-review grief-05 (low) | Recovery-lane income concentrates on the fastest prover | Accepted as texture: income is cost-capped and confers **no censorship lever** (permissionless, non-exclusive recovery); stated in §11.3 |
+| coverage r7-#4 residual | ETH-recovery floor is weakest for the cheapest (empty-seal) fault | Accepted: §11.2 now states the floor is small there; the binding deterrents are the ≥80% burn, termination, and `T_max` re-admission cost |
+| coverage / tooling | Wire the checker into CI | Now tracked §13-T.10 (was only in PR replies) |
 
 ## Appendix C — L2 header inputs and their sources
 

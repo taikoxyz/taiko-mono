@@ -5,13 +5,15 @@ model checker for the [redesign proposal](../redesign-proposal.md) (v9).
 **Question asked:** *can the new design reach an invalid state?*
 **Answer (within the checked bounds and modelled configurations):** **No.** Across every
 explored bound the checker found **zero reachable states or transitions violating any safety
-invariant** and **zero permanent halts** — including under an **adversarial proving outage
-that never lifts** (v9): the chain can always still reach full finalization through the
-proof-free floor. Exploration is exhaustive **from a curated set of initial configurations**
-(see [How it works](#how-it-works)) — it covers every adversarial interleaving from those
-seeds, not every conceivable initial assignment. A mutation self-test confirms the invariants
-are not vacuous — each of nine deliberately-injected design bugs is caught by the check
-written to catch it.
+invariant** and **deadlock-freedom** — from every reachable state an exit path to full
+finalization always exists — holding even under an **adversarial proving outage that never
+lifts** (v9): the proof-free floor is that exit. (Precise scope, round-8 W1: this is
+deadlock-freedom, not unconditional livelock-freedom under a fully unfair scheduler — see
+[Liveness scope](#liveness--deadlock-freedom-and-its-scope).) Exploration is exhaustive **from a
+curated set of initial configurations** (see [How it works](#how-it-works)) — it covers every
+adversarial interleaving from those seeds, not every conceivable initial assignment. A mutation
+self-test confirms the invariants are not vacuous — each of **eleven** deliberately-injected
+design bugs is caught by the check written to catch it.
 
 > Scope honesty up front: this is *bounded* model checking of an *abstraction*. It exhaustively
 > explores every adversarial interleaving up to a finite number of epochs and wall-clock steps,
@@ -70,6 +72,22 @@ written to catch it.
 > epoch per `CANCEL_LAG+1` ticks) fit inside bounded horizons — with `CANCEL_LAG = K = 2` those
 > chains overran `MAXCLOCK` and appeared as pure horizon artifacts in the robust pass.
 >
+> **Revision note (round 8).** A DeepSeek pass on the checker plus an independent adversarial
+> self-review tightened the artifact without changing the design: (1) the liveness claim is
+> **scoped precisely to deadlock-freedom** — an exit path always exists — because backward
+> reachability cannot (and no checker of this model can) rule out livelock under a *fully unfair
+> scheduler* that starves the permissionless advancing action; that residual is inherent to any
+> permissionless-liveness property and is supplied at the protocol layer by weak fairness (the
+> advancing action is open to every honest party). See [Liveness scope](#liveness--deadlock-freedom-and-its-scope).
+> (2) A new path-independent edge invariant **`edge_seal_immutable`** checks "no transition may
+> change an already-CLOSED epoch" directly, so state deduplication (which omits `closed_hist`
+> from the key) can never mask a re-open. (3) Debits **no longer silently floor at zero**, so
+> `edge_debit_conservation` now checks *every* debit and `inv_bond_nonneg` surfaces
+> under-collateralization directly; `RESERVE0` is sized to the abstract worst case
+> (`2·NEPOCHS + 1` — up to two debits per owned epoch: a missed-seal and a later cancel). (4) The
+> mutation self-test is robust to incidental violations (`stop_on_inv` early-exits only on the
+> *expected* invariant). Two mutants added (`reopen_sealed`, `undersized_reserve`) → **eleven**.
+>
 > **Revision note (round 6).** A follow-up review pass tightened four more things: (5) seal-duty
 > materialization now covers **explicit-empty outcomes too** — any owned, DECIDED `openEpoch`
 > (content *or* empty) that survives a tick unsealed settles the owner's SEAL certificate, with
@@ -124,7 +142,11 @@ below.)
 
 **Model parameters** (documented so results are interpretable without reading the script):
 `NEPOCHS × MAXCLOCK` per the results table; `NTENURES = 3` tenure identities; `L_LIVE = 1`
-(abstract slash unit); `RESERVE0 = K + 2` per-tenure reserve at admission. Two design horizons
+(abstract slash unit); `RESERVE0 = 2·NEPOCHS + 1` per-tenure reserve at admission (round-8 W3:
+sized to the abstract worst case — up to two debits per owned epoch, a missed-seal SEAL cert and
+a later CANCEL cert — so a correctly-admitted tenure is never driven negative; a run that *does*
+go negative is the checker detecting under-collateralization, which `inv_bond_nonneg` reports).
+Two design horizons
 are deliberately scaled/collapsed for bounded exploration: the lag cap **`K = 2`** (design
 value 8; the recovery-exit threshold `K'`, design 4, scales to `lag == 0` here), and
 **`CANCEL_LAG = 1`** (decoupled from `K` — round-6 W3) — the disaster cancellation enables at
@@ -139,8 +161,25 @@ permanently-unprovable one, and both exit through the same cancellation floor th
 pass verifies.
 
 After the state graph is built, a backward reachability pass from the "all epochs sealed" terminal
-states identifies any reachable state that **cannot** reach full finalization — a permanent halt,
-which would violate G5 / I3. **Halts fail the exit code exactly like safety violations do.**
+states identifies any reachable state that **cannot** reach full finalization — a deadlock, which
+would violate G5 / I3. **Halts fail the exit code exactly like safety violations do.**
+
+### Liveness — deadlock-freedom and its scope
+
+The liveness property the checker establishes is **deadlock-freedom**: from every reachable
+state an exit path to a fully-sealed terminal exists — equivalently, there is no reachable
+*terminal-avoiding trap* (no SCC from which finalization is unreachable) — in both the standard
+relation and the **outage-robust** sub-relation (finalization stays reachable even if a proving
+outage never lifts). What the checker does **not** establish, and what no checker of this model
+can (round-8 W1), is **livelock-freedom under a fully unfair scheduler**: because every action —
+the clock tick, the permissionless advancing seal/cancel, even toggling the outage flag — is
+adversary-selectable, the non-terminal subgraph is full of cycles an adversary could loop in
+forever simply by *declining* the advancing action. That residual is inherent to *any*
+permissionless-liveness property; it is resolved not in the model but at the protocol layer, by
+**weak fairness**: the advancing action is open to every honest party, so an always-enabled
+permissionless action is eventually taken by someone honest, and deadlock-freedom then upgrades
+to finalization. RESULTS.md and the checker's output state the claim in exactly these terms
+rather than an unqualified "no permanent halt."
 
 ## Invariants checked
 
@@ -164,9 +203,10 @@ Edge invariants (at every transition):
 | --- | --- | --- |
 | `edge_open_monotone` | I3 | `openEpoch` never decreases across any transition |
 | `edge_evidence_monotone` | I2 | settled certificates and consumed ids never disappear — no action (a late seal included) can erase matured evidence |
-| `edge_debit_conservation` | I2, §8 | a reserve decreases only by consuming exactly one fresh logical fault id — no double-debit, no id-less debit, no cross-tenure debit |
+| `edge_debit_conservation` | I2, §8 | a reserve decreases only by consuming exactly one fresh logical fault id — no double-debit, no id-less debit, no cross-tenure debit; and (round-8 W3, no zero-floor) it now checks *every* debit, including at exhausted reserve |
 | `edge_maturity_materialized` | I2 | a tick spent as a DECIDED (content or explicit-empty), owned `openEpoch` must settle that owner's missed-seal certificate (unless its miss-commit LIVENESS certificate already stands) |
-| **liveness / halt-safety** | **G5, I3** | **from every reachable state, full finalization is still reachable** |
+| `edge_seal_immutable` | I3+I7 corollary | **path-independent** (round-8 W2): no single transition may change an already-CLOSED epoch's status — dedup cannot mask a re-open |
+| **liveness / deadlock-freedom** | **G5, I3** | **from every reachable state, full finalization is still reachable (standard + outage-robust); scope per [Liveness](#liveness--deadlock-freedom-and-its-scope)** |
 | **outage-robust halt-safety** (v9) | **G5, I3, §10.4** | **full finalization is reachable even if an active proving outage never lifts** — checked over the sub-relation excluding `outage_end`, so the proof-free floor (empty seals, void closure, cancellation) carries the whole burden |
 
 ## Results
@@ -206,6 +246,8 @@ and the named invariant **must** catch it:
 | re-execute an already-consumed debit | `edge_debit_conservation` | **CAUGHT** |
 | a seal erases the epoch's matured certificate | `edge_evidence_monotone` (I2) | **CAUGHT** |
 | a missed seal deadline is never materialized | `edge_maturity_materialized` (I2) | **CAUGHT** |
+| re-open an already-CLOSED epoch (round-8 W2) | `edge_seal_immutable` | **CAUGHT** |
+| admit a tenure under-collateralized for its faults (round-8 W3) | `inv_bond_nonneg` | **CAUGHT** |
 | a proving outage wrongly blocks proof-free seals too | outage-robust halt analysis (v9) | **CAUGHT** (hundreds of thousands of permanent-halt states appear) |
 
 `# mutation self-test: ALL BUGS CAUGHT (invariants have teeth)`
@@ -272,4 +314,5 @@ python3 model_checker.py --mutate   # invariant self-test (all bugs must be CAUG
 ```
 
 No dependencies beyond the Python 3 standard library. Exit code is non-zero on any safety
-violation or halt, so the checker is CI-safe.
+violation or halt, so the checker is CI-safe; wiring `model_checker.py` (and `--mutate`) into CI
+is tracked as design-doc §13-T.10 so a future edit cannot silently invalidate these invariants.
