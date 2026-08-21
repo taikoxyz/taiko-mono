@@ -7,7 +7,10 @@ optimizer_runs = 200
 ffi = true
 memory_limit = 4_294_967_296
 solc_version = "0.8.30"
-evm_version = "prague"
+# L1 (Ethereum) EVM version. Ethereum mainnet is on Osaka.
+# Taiko L2 is also on Osaka, but the two chains can fork independently again, so the L2 profiles
+# (layer2, shared, genesis) below set `evm_version` explicitly instead of inheriting this value.
+evm_version = "osaka"
 # Fuzzing configuration (updated for newer Foundry versions)
 fuzz = { runs = 200, show_logs = false }
 # Exclude genesis tests - they require special setup via genesis.test.sh
@@ -132,7 +135,9 @@ test = "test/layer2"
 script = "script/layer2"
 out = "out/layer2"
 cache_path = "cache/layer2"
-evm_version = "shanghai"
+# Taiko L2 EVM version. Kept explicit (rather than inherited from profile.default) so L2 can be
+# pinned to a different fork than L1 whenever the two chains diverge again.
+evm_version = "osaka"
 
 [profile.shared]
 src = "contracts/shared"
@@ -140,7 +145,9 @@ test = "test/shared"
 script = "script/shared"
 out = "out/shared"
 cache_path = "cache/shared"
-evm_version = "shanghai"
+# Shared contracts are deployed on both L1 and L2, so this must stay at the oldest fork of the two.
+# Both are on Osaka today; drop this back to the lagging chain's fork if they diverge again.
+evm_version = "osaka"
 
 [profile.genesis]
 src = "contracts/layer2"
@@ -148,4 +155,5 @@ test = "test/genesis"
 script = "script/layer2"
 out = "out/genesis"
 cache_path = "cache/genesis"
-evm_version = "shanghai"
+# Must match profile.layer2 — this profile builds the same L2 contracts into the genesis alloc.
+evm_version = "osaka"
