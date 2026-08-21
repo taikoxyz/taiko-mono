@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>DeepSeek Review of PR #22034 — Index</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.9rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+a{color:#16437e}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+.crit{background:#fdecea;color:#8a1f11;font-weight:700;padding:0 .3rem}
+.high{background:#fdf3e7;color:#8a4b11;font-weight:700;padding:0 .3rem}
+.med{background:#fdf8e1;color:#6e5c0a;font-weight:700;padding:0 .3rem}
+.low{background:#e8f5e9;color:#1e6e2e;font-weight:700;padding:0 .3rem}
+.info{background:#e3f2fd;color:#0d47a1;font-weight:700;padding:0 .3rem}
+</style></head><body>
+
+<h1>DeepSeek Independent Adversarial Review — PR #22034<br><span style="font-size:1rem;font-weight:400">Permissionless Based Preconfirmation Redesign (branch <code>claude/taiko-preconfirmation-redesign-i0c4ls</code>, normative doc v14)</span></h1>
+<p><strong>Review date 2026-08-21 · Round 1 of the iteration loop.</strong> Method: full read of the 2,038-line normative
+proposal; independent re-run of the model checker (default + 24-mutant self-test, both reproduced); grounding against the
+deployed contracts (<code>Inbox.sol</code>, <code>Bridge.sol</code>, <code>SignalService.sol</code>,
+<code>PreconfWhitelist.sol</code>, Go/Rust derivation drivers) and against <code>Derivation.md</code>; three parallel
+subagent audits (contract grounding, checker review, doc-consistency); original quantitative simulations
+(<a href="simulation/auction_sim.py">auction_sim.py</a>, results in <a href="simulation/results_round1.json">results_round1.json</a>).
+Note: the authors' own internal review loop has not terminated (README: step 3 pending over v14); this review is an
+external input to that loop.</p>
+
+<h2>Reports (one file per aspect)</h2>
+<table>
+<tr><th>Aspect</th><th>File</th><th>One-line verdict</th></tr>
+<tr><td>Protocol soundness</td><td><a href="01-protocol-soundness.html">01-protocol-soundness.html</a></td><td>Logically coherent and largely works as a <i>design</i>; three mechanisms are prose-only with no L1-evaluable implementation named (default-anchor binding, anarchy anchor eligibility, fill-reward trigger) plus one consensus-exactness gap (client timestamp rule)</td></tr>
+<tr><td>Adversarial attack catalog</td><td><a href="02-adversarial-attack-catalog.html">02-adversarial-attack-catalog.html</a></td><td>Structural liveness/bridge/nullifier defenses are closed; residual surface = watchtower-dependent deterrence, censorship corridors, anchor/timestamp levers, unspecified auction mechanics</td></tr>
+<tr><td>Auction simulations (0/1/N bidders)</td><td><a href="03-auction-bidder-simulations.html">03-auction-bidder-simulations.html</a></td><td>0 bidders: anarchy works (races self-extinguish when unprofitable; censor race net ≈ +0.02 ETH/epoch, falling to −0.01 subsidized when forced fees over-cover). 1 bidder: reserve monopoly keeps ~95% of rent. N bidders: rent dissipates, winner's-curse churn 25–50%, incumbency renewal 57→100% with advantage, heterogeneous racers concentrate income not power. Auction mechanics themselves are absent from the PR ("as v3")</td></tr>
+<tr><td>L2 vs L1 timestamps</td><td><a href="04-l2-l1-timestamps.html">04-l2-l1-timestamps.html</a></td><td>Epoch-window rule adds +383 s forward-stamp freedom (unpinned client rule), tightens the backward window vs today, ratchet-able anchor staleness ≥11 min; forced-inclusion time-travel provably impossible; L1-side slot robustness verified; T_N origin undefined</td></tr>
+<tr><td>Economic soundness</td><td><a href="05-economic-analysis.html">05-economic-analysis.html</a></td><td>Makes sense as market design (self-funding fallbacks, zero-revenue liveness); three informational weak points: reserve floor is the real price in thin markets, L_safety rests on a governance MEV guess, equivocation sizing only deters at watchtower p = 1 (quantified: 2× undersized at p=0.5)</td></tr>
+<tr><td>Doc consistency</td><td><a href="06-doc-consistency.html">06-doc-consistency.html</a></td><td>All arithmetic correct, no parameter drift; r12-5 tuple fix applied to 1 of 6 sites; slides deck materially stale (labeled v9, documented); "as v3" baseline absent from the PR</td></tr>
+<tr><td>Model checker</td><td><a href="07-model-checker-assessment.html">07-model-checker-assessment.html</a></td><td>Real and reproducible (1,408,548 states, 24/24 mutants); auction/timestamps/anchors/tolling/blob-expiry unmodeled; three wording issues to correct (two overclaims + a stale blurb)</td></tr>
+</table>
+
+<h2>Severity-ranked findings (consolidated)</h2>
+<table>
+<tr><th>#</th><th>Severity</th><th>Finding</th><th>Report</th></tr>
+<tr><td>S2</td><td class="high">HIGH</td><td>Default-anchor F(N) has no named L1 binding — a naive implementation makes forced-only/DEFAULT seals unconstructible or caller-claimable (breaks I3/I6)</td><td><a href="01-protocol-soundness.html">01 §S2</a></td></tr>
+<tr><td>S3</td><td class="high">HIGH</td><td>Anarchy-proposal anchor eligibility (depth/freshness "measured against N's schedule") has no named L1-evaluable check at late landing</td><td><a href="01-protocol-soundness.html">01 §S3</a></td></tr>
+<tr><td>A1</td><td class="high">HIGH</td><td>No funding-forfeit rule for a winning bidder that fails to fund → zero-cost grief-bid displacement of serving incumbents (auction mechanics "as v3", text absent)</td><td><a href="03-auction-bidder-simulations.html">03 §3.4</a></td></tr>
+<tr><td>T1</td><td class="high">HIGH</td><td>+383 s forward-stamp freedom with no pinned client acceptance rule (future-block rejection → consensus fork risk)</td><td><a href="04-l2-l1-timestamps.html">04 §4.2</a></td></tr>
+<tr><td>T4</td><td class="high">HIGH</td><td>Epoch clock origin T_N and slot-mapping rounding rules never defined</td><td><a href="04-l2-l1-timestamps.html">04 §4.8</a></td></tr>
+<tr><td>S4</td><td class="med">MEDIUM</td><td>Fill-reward trigger ("holder failed to post") not L1-computable as written (content-addressed commitments hide the poster)</td><td><a href="01-protocol-soundness.html">01 §S4</a></td></tr>
+<tr><td>S7/E3</td><td class="med">MEDIUM</td><td>Equivocation deterrence sized at Λ·MEV only deters at watchtower p = 1; 2× undersized at p = 0.5, 10× at p = 0.1; MEV bound is a governance guess (no oracle by directive)</td><td><a href="01-protocol-soundness.html">01 §S7</a> · <a href="05-economic-analysis.html">05 §5.3–5.4</a></td></tr>
+<tr><td>T3</td><td class="med">MEDIUM</td><td>Anchor staleness ratchet: holder keeps every L1→L2 signal ~freshness_ceiling (≥11 min) stale indefinitely; no upper setter bound on the ceiling</td><td><a href="04-l2-l1-timestamps.html">04 §4.6</a></td></tr>
+<tr><td>E1</td><td class="low">LOW</td><td>Seat-fee destination is treasury/DAO per the owner decision (status-quo.md §6.1) but the proposal never restates it — self-containment gap, not an economic unknown</td><td><a href="05-economic-analysis.html">05 §5.1</a></td></tr>
+<tr><td>C1</td><td class="med">MEDIUM</td><td>r12-5 finalized-L1-chain tuple term applied to I1 only; §6.8/I6/AppA#36/AppC/AppB still carry the 5-term tuple (invariant vs definition disagree)</td><td><a href="06-doc-consistency.html">06 §6.1</a></td></tr>
+<tr><td>M1</td><td class="med">MEDIUM</td><td>Checker omits the v14 cancel-on-blob-expiry rule, T_max, K_empty, auction, timestamps, anchors, H_toll_max; W_a = 4 uncheckable (hard error &gt; 2); "every mechanism" and "no permanent halt" phrasings overclaim</td><td><a href="07-model-checker-assessment.html">07 §7.3–7.5</a></td></tr>
+<tr><td>B4</td><td class="med">MEDIUM</td><td>Censor race in anarchy: marginal censorship cost net ≈ +0.02 ETH/epoch, falling to ≈ −0.01 (net-subsidized) when forced fees over-cover — discretionary anarchy content suppressible cheaply (priced residual r10-4, quantified)</td><td><a href="02-adversarial-attack-catalog.html">02 §B4</a> · <a href="03-auction-bidder-simulations.html">03 §3.3</a></td></tr>
+<tr><td>DOC1</td><td class="low">LOW</td><td>Slides deck materially stale (T_max framing, anarchy content, bridge refund, withdrawal gate, checker numbers) — documented, still misleading</td><td><a href="06-doc-consistency.html">06 §6.4</a></td></tr>
+</table>
+
+<h2>What is genuinely good (verified positives)</h2>
+<ul>
+<li><b>Liveness engineering:</b> degradation ladder + mechanical T_exp + re-queue/refund forced queue survive a permanent proving outage (checker-verified; the four-guarantee liveness split is honest).</li>
+<li><b>The two-sided anarchy cutoff</b> closes the empty-front-running horn without breaking cadence; W_a = 0 recovers v10 byte-for-byte.</li>
+<li><b>The v14 bridge fix</b> (terminal destination-side FAILED mark) restores FAILED⊥DONE exclusion and matches the deployed Bridge/SignalService semantics — the v12 not-DONE snapshot was indeed unsound (verified against Bridge.sol).</li>
+<li><b>I8 precommitted payees</b> elegantly kill reward-front-running across proofs, pokes, fills, and recoveries.</li>
+<li><b>Forced-inclusion time-travel is provably impossible</b> (F_delay ≥ E + margin ⇒ execution timestamp &gt; submission wall time) — a non-obvious, correct consequence of r9-C1.</li>
+<li><b>L1-builder timestamp manipulation is neutralized</b> (slot-indexed decisions and anchors; no inclusion-time derivation inputs).</li>
+<li><b>Honesty culture:</b> the doc's worst properties (watchtower dependence, spike residual, monopoly acceptance, band lags) are largely <i>stated</i> — the review's job was mostly to quantify and to find the things not yet stated.</li>
+</ul>
+
+<h2>Confidence & method transparency</h2>
+<ul>
+<li><b>Independently verified (two separate agent passes + my own re-checks):</b> the model-checker results (reproduced
+bit-for-bit, 5 run configurations), every line citation in every report, all arithmetic, the deployed-contract semantics
+(Bridge/SignalService/Inbox/PreconfWhitelist), and the ten headline findings (all verified TRUE by an independent
+refutation pass).</li>
+<li><b>Simulated (illustrative, assumptions stated):</b> auction outcomes under 0/1/2/3/5 bidders, incumbency renewal,
+anarchy race economics, equivocation breakeven, timestamp windows. Parameter values (seat value ≈ 0.20 ETH/epoch,
+reserve 0.01, noise 18%) are placeholders — the <i>structure</i> of the results (rent dissipation, reserve monopoly,
+p&lt;1 undersizing, time-travel impossibility) does not depend on them.</li>
+<li><b>Could not verify (stated, not hidden):</b> taiko-geth's exact future-block tolerance (not vendored in this repo);
+the NEPOCHS = 3 checker bound (exceeds this machine's memory — the authors state the same gap); the exact auction clock
+rules (absent from the PR).</li>
+<li><b>One self-correction during review:</b> an earlier claim that the R-window delays recovery was wrong and was
+retracted (01 §S6); the fee-destination claim was corrected against the owner decision in status-quo.md §6.1.</li>
+</ul>
+
+<h2>Open questions for the authors</h2>
+<p>See <a href="Questions.md">Questions.md</a> (16 questions across timestamps, L1-evaluability, auction economics,
+deterrence economics, and the verification artifact).</p>
+
+<p class="note">Round status: round 1 complete (3 subagent audits + checker re-runs + original simulations + 7 reports).
+Round 2 complete: an independent verifier re-checked all ten headline claims against the normative doc, the deployed
+contracts, the derivation drivers, and the checker — <b>all ten verified TRUE</b> (2026-08-21); checker variants re-run
+clean (W_a = 0: 1,411,772 states, 0 violations; sticks/cancel-lag: 1,224,824 states, 0 violations); self-corrections
+applied (report 01 §S6 retraction; report 04 §4.2 arithmetic and source-line precision; report 05 §5.1 fee-destination
+correction to the status-quo §6.1 owner decision). Round 3 complete: an independent attacker audited these reports,
+confirmed the numbers/quotes (re-running the checker: 1,408,548 / 1,411,772 states reproduced), and found 6 corrections —
+all applied: §13-S phase count (19 → 15 Phase-A + 4 Phase-B; S3 re-gated to Phase-B unless W_a &gt; 0 at launch), the
+"11 min behind" sign error in 04 §4.2, the censor-race figures (+0.02 to −0.01, not 0.01–0.02), the "two overclaims"
+count (three items), the C5 typo re-diagnosis, and minor precision fixes (102.4 min, ≥32-slot default staleness).</p>
+
+</body></html>

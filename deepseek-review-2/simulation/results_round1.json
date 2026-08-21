@@ -1,0 +1,238 @@
+{
+  "assumptions": [
+    "auction mechanics 'as v3' are NOT in the PR; modeled as ascending first-price w/ 10% steps + reserve",
+    "per-epoch seat value ~ N(0.20, 0.12) ETH (illustrative); T_max = 14 days; q = 2 epochs",
+    "incumbent observes realized value (adv = 20%); challengers estimate with 18% noise (winner's curse)",
+    "overbidding winners quit after q epochs (churn); no funding-forfeit modeled (none specified)"
+  ],
+  "N0": {
+    "auction": "no bidders \u2014 the seat never clears; the chain lives in Total Anarchy",
+    "race_profitable_regime": {
+      "epochs": 2000,
+      "content_epochs": 2000,
+      "content_cadence_epochs": 1.0,
+      "expected_profit_per_race": 0.01,
+      "races_happen": true,
+      "torch_cost_paid": 80.0,
+      "income": 300.0
+    },
+    "race_unprofitable_regime": {
+      "epochs": 2000,
+      "content_epochs": 122,
+      "content_cadence_epochs": 16.4,
+      "expected_profit_per_race": -0.0233,
+      "races_happen": true,
+      "torch_cost_paid": 4.9,
+      "income": 6.1
+    },
+    "censor_race": {
+      "marginal_per_epoch": -0.010000000000000002,
+      "note": "marginal censorship cost = proof cost - forced-fee subsidy; set cost=0.04, fee=0.05 => net -0.01 (subsidized)",
+      "censor_race_alt": {
+        "cost": 0.04,
+        "forced_fee": 0.02,
+        "marginal": 0.02,
+        "note": "if forced fees only partially cover work, marginal cost = 0.02/epoch"
+      }
+    },
+    "crossover": {
+      "seat_value": 0.2,
+      "price": 0.01,
+      "bid_profit": 0.19,
+      "race_profit": -0.01,
+      "bid_dominates": true
+    }
+  },
+  "N1": {
+    "n_bidders": 1,
+    "avg_price": 0.01,
+    "p50_price": 0.01,
+    "seat_util": 1.0,
+    "churn_quits": 0,
+    "incumbent_renewal": 1.0,
+    "protocol_rev_per_tenure": 378.0
+  },
+  "N2": {
+    "n_bidders": 2,
+    "avg_price": 0.149716,
+    "p50_price": 0.1912515,
+    "seat_util": 0.667,
+    "churn_quits": 4,
+    "incumbent_renewal": 0.286,
+    "protocol_rev_per_tenure": 2729.4
+  },
+  "N3": {
+    "n_bidders": 3,
+    "avg_price": 0.21914441666666667,
+    "p50_price": 0.242092,
+    "seat_util": 0.5,
+    "churn_quits": 6,
+    "incumbent_renewal": 0.8,
+    "protocol_rev_per_tenure": 3501.9
+  },
+  "N5": {
+    "n_bidders": 5,
+    "avg_price": 0.27559141666666664,
+    "p50_price": 0.2752745,
+    "seat_util": 0.75,
+    "churn_quits": 3,
+    "incumbent_renewal": 0.25,
+    "protocol_rev_per_tenure": 7264.6
+  },
+  "rent_dissipation": [
+    {
+      "n_bidders": 1,
+      "avg_price": 0.01,
+      "p50_price": 0.01,
+      "seat_util": 1.0,
+      "churn_quits": 0,
+      "incumbent_renewal": 1.0,
+      "protocol_rev_per_tenure": 378.0
+    },
+    {
+      "n_bidders": 2,
+      "avg_price": 0.149716,
+      "p50_price": 0.1912515,
+      "seat_util": 0.667,
+      "churn_quits": 4,
+      "incumbent_renewal": 0.286,
+      "protocol_rev_per_tenure": 2729.4
+    },
+    {
+      "n_bidders": 3,
+      "avg_price": 0.21914441666666667,
+      "p50_price": 0.242092,
+      "seat_util": 0.5,
+      "churn_quits": 6,
+      "incumbent_renewal": 0.8,
+      "protocol_rev_per_tenure": 3501.9
+    },
+    {
+      "n_bidders": 5,
+      "avg_price": 0.27559141666666664,
+      "p50_price": 0.2752745,
+      "seat_util": 0.75,
+      "churn_quits": 3,
+      "incumbent_renewal": 0.25,
+      "protocol_rev_per_tenure": 7264.6
+    }
+  ],
+  "incumbency_sweep": [
+    {
+      "adv": 0.0,
+      "renewal": 0.571
+    },
+    {
+      "adv": 0.1,
+      "renewal": 0.667
+    },
+    {
+      "adv": 0.2,
+      "renewal": 0.8
+    },
+    {
+      "adv": 0.4,
+      "renewal": 0.8
+    },
+    {
+      "adv": 0.7,
+      "renewal": 1.0
+    }
+  ],
+  "hetero_race": {
+    "wins": [1216, 493, 291],
+    "share": [0.608, 0.2465, 0.1455],
+    "note": "fastest prover wins ~skill share; income capped at indexed cost; no censorship lever (11.3 texture)"
+  },
+  "equivocation": [
+    {
+      "watchtower_p": 1.0,
+      "design_L_safety": 0.4,
+      "required_L": 0.4,
+      "undersized_by": 1.0,
+      "equivocation_profitable": false
+    },
+    {
+      "watchtower_p": 0.9,
+      "design_L_safety": 0.4,
+      "required_L": 0.444,
+      "undersized_by": 1.11,
+      "equivocation_profitable": true
+    },
+    {
+      "watchtower_p": 0.75,
+      "design_L_safety": 0.4,
+      "required_L": 0.533,
+      "undersized_by": 1.33,
+      "equivocation_profitable": true
+    },
+    {
+      "watchtower_p": 0.5,
+      "design_L_safety": 0.4,
+      "required_L": 0.8,
+      "undersized_by": 2.0,
+      "equivocation_profitable": true
+    },
+    {
+      "watchtower_p": 0.25,
+      "design_L_safety": 0.4,
+      "required_L": 1.6,
+      "undersized_by": 4.0,
+      "equivocation_profitable": true
+    },
+    {
+      "watchtower_p": 0.1,
+      "design_L_safety": 0.4,
+      "required_L": 4.0,
+      "undersized_by": 10.0,
+      "equivocation_profitable": true
+    },
+    {
+      "watchtower_p": 0.0,
+      "design_L_safety": 0.4,
+      "required_L": null,
+      "undersized_by": null,
+      "equivocation_profitable": true
+    }
+  ],
+  "timestamps": {
+    "today": {
+      "rule": "max(parent+1, L1ts - 1536, fork) <= ts <= L1ts",
+      "forward_max_s": 0,
+      "backward_max_s": 1536
+    },
+    "redesign": {
+      "rule": "ts in [T_N, T_N+E), strictly increasing (content); t_i = max(T_N,parent+1)+i (default)",
+      "forward_max_s": 383,
+      "backward_max_s": 383,
+      "note": "+/-383s window around the epoch schedule, decoupled from L1 inclusion time"
+    },
+    "forced_time_travel": [
+      {
+        "F_delay": 384,
+        "delta_N": 384,
+        "T_N_minus_w": 0,
+        "travel_possible": false
+      },
+      {
+        "F_delay": 576,
+        "delta_N": 384,
+        "T_N_minus_w": 192,
+        "travel_possible": false
+      },
+      {
+        "F_delay": 700,
+        "delta_N": 384,
+        "T_N_minus_w": 316,
+        "travel_possible": false
+      }
+    ],
+    "conclusion": "with F_delay >= E + margin, T_N > w always for forced items: no backward execution"
+  },
+  "lag": {
+    "anarchy_epochs": 5.22,
+    "anarchy_seconds": 2004,
+    "recovery_epochs": 8,
+    "recovery_seconds": 3072
+  }
+}

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Economic Soundness — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.9rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.yes{background:#e8f5e9;color:#1e6e2e;font-weight:700}
+.no{background:#fdecea;color:#8a1f11;font-weight:700}
+.partial{background:#fdf8e1;color:#6e5c0a;font-weight:700}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>Does This Make Economic Sense?</h1>
+<p><strong>Aspect 5 of the DeepSeek independent adversarial review</strong> of PR #22034 (v14 design). Review date 2026-08-21.
+Companions: <a href="index.html">index</a> · <a href="01-protocol-soundness.html">soundness</a> ·
+<a href="02-adversarial-attack-catalog.html">attacks</a> · <a href="03-auction-bidder-simulations.html">auction sims</a> ·
+<a href="04-l2-l1-timestamps.html">L2 vs L1 timestamps</a> · <a href="06-doc-consistency.html">doc consistency</a> ·
+<a href="07-model-checker-assessment.html">model checker</a>.</p>
+
+<div class="verdict"><b>Verdict: yes — economically coherent, with three honest caveats the design itself half-states.</b>
+The mechanism is a standard revenue-maximizing auction over the sequencing rent, with unusually robust fallbacks (the
+chain earns nothing and still lives with 0 bidders; forced inclusion is priced at cost). The economics make sense
+<i>as market design</i>. The three caveats: (1) the <b>single-bidder equilibrium hands ~95% of the rent to a reserve-price
+monopolist</b>, so the reserve floor — not the auction — is the actual price-setting mechanism when competition is thin
+(accepted, but the consequence is understated); (2) <b>every deterrence claim that matters is denominated in a
+governance-estimated "per-epoch MEV bound"</b> — with no oracle by directive, the entire safety economics rests on a guess;
+(3) the <b>equivocation sizing only deters at watchtower probability 1</b> (quantified below), and no user restitution means
+the market, not the protocol, must price the residual trust.</div>
+
+<h2>5.1 Who pays whom — the flows</h2>
+<table>
+<tr><th>Flow</th><th>Payer → receiver</th><th>Specified?</th><th>Economic function</th></tr>
+<tr><td>Seat price: per-epoch ETH fee rate + locked TAIKO bond + ETH deposit</td><td>winner → <b>treasury/DAO</b> (owner decision, status-quo.md §6.1) — <i>not restated in the proposal</i></td><td class="partial">specified outside the proposal</td><td>rent transfer — the auction IS DAO revenue; thin-market reserve calibration (5.2) is therefore revenue-critical</td></tr>
+<tr><td>L2 base/priority fees + MEV + preconf tips</td><td>users → seat holder</td><td class="yes">implicit</td><td>the seat's revenue; what the auction prices</td></tr>
+<tr><td>Forced-inclusion fees (a + b·bytes + c·gas)</td><td>forced users → consuming epoch's sealer</td><td class="yes">§6.5</td><td>funds the proof of the forced-only fallback; also the anarchy censor-race subsidy</td></tr>
+<tr><td>Liveness slash (TAIKO, ≥80% burned)</td><td>faulter → burn + (accuser share for safety class)</td><td class="yes">§8</td><td>griefing deterrence; deflationary TAIKO</td></tr>
+<tr><td>Safety slash (ETH, value-fixed)</td><td>equivocator → burn + accuser</td><td class="yes">§8/I9</td><td>theft deterrence, oracle-free</td></tr>
+<tr><td>Recovery compensation (indexed, capped)</td><td>faulter's recovery tranche → recoverer</td><td class="yes">§7.3</td><td>fault-paid liveness, no cross-tenant subsidy</td></tr>
+<tr><td>Admission tithe</td><td>tenures → shared residual pool</td><td class="yes">§4/§10.2</td><td>pre-funded, countercyclical-proof backstop</td></tr>
+</table>
+<div class="finding">Round-2 correction: the destination <b>is</b> decided — "the winning bid is a per-epoch fee in ETH, paid to
+the treasury/DAO" (owner decision, <code>status-quo.md</code> §6.1) — so the auction is protocol revenue, not rent
+destruction. What remains unspecified is that the <b>proposal never restates it</b> (§4/§10.2 say nothing about the fee's
+destination), so the normative record depends on a companion file's decision note — a self-containment gap, not an
+economic unknown.</div>
+
+<h2>5.2 Rent dissipation and the thin-market problem</h2>
+<p>Simulation (<a href="03-auction-bidder-simulations.html">aspect 3</a>): with N bidders the price converges to the
+second-highest estimate (rent partially dissipated, DAO captures it — if row 1 is treasury). With <b>1 bidder the price is
+the reserve floor</b>: at illustrative values the monopolist pays 0.010 vs a mean seat value of 0.20 ETH/epoch and keeps
+~95% of the rent, renewing at reserve every T_max. Two structural consequences:</p>
+<ul>
+<li><b>The reserve floor is the real price in thin markets.</b> "Permissionless entry" is then the only check on monopoly
+rents, and the reserve must be set near the expected seat value — which requires the same MEV estimate as L_safety (5.3).
+Governance sets both; both are guesses.</li>
+<li><b>Winner's-curse churn</b> (overbid → quit after q epochs) creates service oscillation: 25–50% of simulated tenures
+end in early quit. Real-world consequence: preconf service reliability suffers exactly when competition is fiercest. A
+funding bond (3.4 of the auction report) would damp this; none is specified.</li>
+</ul>
+
+<h2>5.3 Deterrence economics: the watchtower gap, quantified</h2>
+<p>Equivocation payoff = stolen MEV − <code>L_safety</code> (paid only if caught; no clawback of the stolen value; no
+restitution by design). Expected profit = <code>Λ·MEV − p·L_safety</code>. The design sizes <code>L_safety ≥ Λ·MEV</code>:</p>
+<table>
+<tr><th>Watchtower action probability p</th><th>Bond required for deterrence</th><th>Design's Λ·MEV sizing</th><th>Equivocation profitable?</th></tr>
+<tr><td>1.0 (double-EBC: self-materializing)</td><td>Λ·MEV (e.g. 0.40)</td><td>0.40</td><td class="yes">no — exactly matched</td></tr>
+<tr><td>0.9</td><td>0.444</td><td>0.40</td><td class="no">yes (11% undersized)</td></tr>
+<tr><td>0.5</td><td>0.80 (2×)</td><td>0.40</td><td class="no">yes (2× undersized)</td></tr>
+<tr><td>0.1</td><td>4.00 (10×)</td><td>0.40</td><td class="no">yes (10× undersized)</td></tr>
+</table>
+<div class="finding">The preconf-vs-record variant is <b>watchtower-dependent by design</b> (r11-N2 admits this qualitatively),
+but the sizing formula silently assumes p = 1. Since the double-EBC variant (the only self-materializing one) is also the
+cheapest to avoid, a rational equivocator uses preconf-vs-record and bets on p &lt; 1. Either (a) size
+<code>L_safety ≥ Λ·MEV/p_target</code> for an explicit p_target, or (b) adopt the bonded-accusation seat suspension
+(§13-T.12) to collapse the exposure window to detection latency. As written, the ETH-denominated safety bond — the design's
+central theft deterrent — is quantitatively undersized at any realistic p.</div>
+
+<h2>5.4 The L_safety estimation problem (the deeper issue)</h2>
+<div class="finding">
+<p>I9 forbids oracles, so "Λ × per-epoch extractable MEV" must be a <b>governance-estimated constant</b>. But per-epoch MEV
+is not an observable on-chain quantity; it depends on L2 flow, CEX-DEX spreads, and liquidation volume — it can change by an
+order of magnitude across a tenure (the doc admits the spike residual and re-prices at T_max). So the design's central
+safety guarantee ("matched at the sizing epoch") is exactly as good as a committee's MEV forecast, re-made every T_max.
+The design is honest about the re-pricing cadence; it is <b>not</b> honest that the estimate itself is the load-bearing
+input — if governance under-forecasts, equivocation is profitable in expectation even at p = 1 during high-MEV epochs.
+Recommend: express L_safety as a governance parameter with an explicit forecasting procedure and a spike-inclusive
+worst-case bound (§13-S.4), or accept the §13-T.12 suspension as the primary deterrent.</p></div>
+
+<h2>5.5 Other economic checks</h2>
+<table>
+<tr><th>Question</th><th>Answer</th><th>Assessment</th></tr>
+<tr><td>Does the chain survive with zero demand/bidders?</td><td>Yes: empty epochs need no proof, forced-only cadence is fee-funded, bridge works via the default anchor at 1/E cadence; no one is paid because no work is owed</td><td class="yes">sound — this is the design's best property</td></tr>
+<tr><td>Does the anarchy lane cannibalize the auction?</td><td>Simulation: bidding profit (+0.19/epoch) ≫ symmetric-race profit (−0.01/epoch); the seat's four exclusive goods (preconfs, exclusivity, cadence, fine-grained MEV) are real</td><td class="yes">no cannibalization under plausible parameters (r10-8 confirmed)</td></tr>
+<tr><td>Is forced inclusion priced right?</td><td>a + b·bytes + c·gas from L1-measurable quantities, worst-case ratios Phase-A-blocking (§13-S.5); base fee a prices out sub-a users (§13-T.9, owner decision pending)</td><td class="partial">funding claim is "to be proven" until ratios finalized — conceded honestly (r4b-H6)</td></tr>
+<tr><td>Does the TAIKO liveness bond hold up if TAIKO falls?</td><td>Griefing deterrent erodes with TAIKO price; the ETH recovery drain + termination + T_max-capped runway + re-admission cost remain as the floor. Stated honestly (§11.2)</td><td class="partial">residual accepted; T_max is the binding bound</td></tr>
+<tr><td>Is idling a cheap exit?</td><td>Idle exit pays quit-equivalent fees (fee clock runs to the quit-notice-equivalent epoch)</td><td class="yes">sound (r3a-F6)</td></tr>
+<tr><td>Is recovery profitable to game?</td><td>Cost-capped, ETH-denominated, ≥80% burn of the liveness slash, senior per-tenure tranche pays first — fault/recovery Sybil pairs unprofitable</td><td class="yes">sound</td></tr>
+<tr><td>Who bears empty-epoch and AC costs?</td><td>Empty: zero (proof-free). AC: the submitter, budgetable KB-scale, ~225/day worst case — negligible</td><td class="yes">sound</td></tr>
+<tr><td>Does the protocol depend on a subsidy forever?</td><td>No: in anarchy the chain runs on forced fees + volunteers; the only recurring external cost is blob/proving work, each fee-funded</td><td class="yes">self-sustaining by construction</td></tr>
+</table>
+
+<h2>5.6 Economic bottom line</h2>
+<p>The redesign is <b>economically sensible as a market design</b>: it prices the sequencing monopoly, funds its own
+fallbacks, and keeps the chain alive at zero revenue. Its economic weaknesses are not structural but <b>informational</b>:
+three governance-guessed quantities (reserve floor, L_safety/MEV bound, freshness ceiling) carry the entire incentive
+structure, the watchtower-probability gap undersizes the central theft deterrent, and the seat price's destination is
+unspecified. Fix those four, and the economics close.</p>
+
+<p class="note">Simulation: <a href="simulation/auction_sim.py">simulation/auction_sim.py</a> (equivocation table:
+<code>equivocation_breakeven()</code>).</p>
+</body></html>

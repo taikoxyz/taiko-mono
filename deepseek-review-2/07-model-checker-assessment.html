@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Model Checker Assessment — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.9rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.yes{background:#e8f5e9;color:#1e6e2e;font-weight:700}
+.partial{background:#fdf8e1;color:#6e5c0a;font-weight:700}
+.no{background:#fdecea;color:#8a1f11;font-weight:700}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>Model Checker Assessment — Verified, with a Measured Gap</h1>
+<p><strong>Aspect 7 of the DeepSeek independent adversarial review</strong> of PR #22034 (v14 design). Review date 2026-08-21.
+Companions: <a href="index.html">index</a> · <a href="01-protocol-soundness.html">soundness</a> ·
+<a href="02-adversarial-attack-catalog.html">attacks</a> · <a href="03-auction-bidder-simulations.html">auction sims</a> ·
+<a href="04-l2-l1-timestamps.html">L2 vs L1 timestamps</a> · <a href="05-economic-analysis.html">economics</a> ·
+<a href="06-doc-consistency.html">doc consistency</a>.</p>
+
+<div class="verdict"><b>Verdict:</b> the checker is <b>real, reproducible, and honestly scoped</b> — I independently re-ran it
+and reproduced RESULTS.md's numbers bit-for-bit (default run and the 24-mutant self-test; both exit 0). It is strong evidence
+for the <i>logical</i> state machine. It is <b>not</b> evidence about the auction, tenure economics, timestamps, anchors,
+tolling, or the v14 blob-expiry rule — none of which are modeled — and two RESULTS.md/README phrasings overclaim what the
+relation contains.</div>
+
+<h2>7.1 Reproduction (independent re-run, 2026-08-21)</h2>
+<table><tr><th>Run</th><th>Result</th></tr>
+<tr><td><code>python3 model_checker.py</code> (default 2×6, W_ANARCHY=1)</td><td>exit 0; 1,408,548 states; 615,968 terminal; 0 safety violations; 0 halts (standard + outage-robust); worst-case depth 6/7; RESERVE0 slack 1 — <b>matches RESULTS.md exactly</b></td></tr>
+<tr><td><code>python3 model_checker.py --mutate</code></td><td>exit 0; 24/24 mutants caught by their expected invariants; baselines clean per the validity protocol — matches RESULTS.md</td></tr>
+<tr><td>Wall time</td><td>≈ 48 s (RESULTS.md says "~2 min"; hardware-dependent, not a substantive drift)</td></tr>
+<tr><td><code>python3 model_checker.py 2 6 0</code> (W_a = 0 — anarchy lane off)</td><td>exit 0; 1,411,772 states; 0 violations; 0 halts — the "W_a = 0 recovers v10 byte-for-byte" claim is consistent (round-2 re-run)</td></tr>
+<tr><td><code>python3 model_checker.py 2 7 --sticks 2 --cancel-lag 2</code></td><td>exit 0; 1,224,824 states; 0 violations; 0 halts; outage-robust depth 8 — seal-deadline/cancellation scaling behaves (round-2 re-run)</td></tr></table>
+
+<h2>7.2 Model inventory (what IS checked)</h2>
+<p>State: per-epoch status (SEQ/UNRESOLVED/CONTENT/EMPTY/VOID/SEALED/CANCELLED), owners, ordered forced queue with terminal
+consumed/refunded sets, per-epoch tolled open-age, commit one-shots, certificate/consumed/withdrawn sets, lineage tags,
+proving-outage flag. Actions: tick (with deterministic auto-resolution of the decision window), outage start/end, decide,
+ac_certify/ac_timeout, miss_commit, anarchy_propose, equivocate, seal_content/seal_empty, close_void, cancel, debit,
+promote, safety_settle_late, withdraw. 12 state + 12 edge invariants; backward-BFS liveness in two relations. This is a
+faithful abstraction of the epoch state machine, including the v14 AC-resolution branch, the challenge-horizon withdrawal
+gate, and the no-false-successor-slash tolling property.</p>
+
+<h2>7.3 The gap: mechanisms the checker does not model</h2>
+<table><tr><th>Mechanism (§ of v14)</th><th>Modeled?</th><th>Note</th></tr>
+<tr><td>Auction, bids, reserve, ≥10% increment, q-delay, standby promotion (§4)</td><td class="no">no</td><td>only <code>promote</code>/<code>_pick_successor</code> exist; no bid action, no re-auction</td></tr>
+<tr><td>T_max tenure expiry / re-auction (§4); K_empty idleness termination (§5.4)</td><td class="no">no</td><td>no tenure-expiry or consecutive-empty counter</td></tr>
+<tr><td>L2 timestamps, t_i rule, clock-capacity invariant (§6.8)</td><td class="no">no</td><td>clock is a coarse integer; the very rules <a href="04-l2-l1-timestamps.html">aspect 4</a> analyzes are absent</td></tr>
+<tr><td>L1 anchors, D_anchor depth, freshness ceiling, advancement, F(N) (§6.6/6.8)</td><td class="no">no</td><td>no anchor field — S2/S3 of the <a href="01-protocol-soundness.html">soundness report</a> are invisible to the checker</td></tr>
+<tr><td>Availability certificate R-window / crypto mechanics (§5.2)</td><td class="partial">logical branch only</td><td>UNRESOLVED + ac_certify/ac_timeout modeled; SSZ/EIP-4788/KZG/slot timing abstracted (disclosed)</td></tr>
+<tr><td>Anarchy proposal cutoff T_prop (§9.1)</td><td class="yes">yes (scaled)</td><td>but W_a scaled 4→1 and <b>W_ANARCHY &gt; 2 is a hard error</b> — the shipped W_a = 4 configuration can never be checked</td></tr>
+<tr><td>Attested-outage tolling, H_toll_max, shared H_toll_max budget (§10.4)</td><td class="no">no</td><td>only I4 effectively-open tolling; "no active attested-outage freeze" in the withdrawal gate (§8.4) also omitted</td></tr>
+<tr><td><b>Cancel-on-blob-expiry (v14 §6.7)</b></td><td class="no">no</td><td><b>the v14 design's own newest rule has no transition in the checker</b>; cancel fires only on openAge &gt; CANCEL_LAG; RESULTS.md:747–749 concedes this</td></tr>
+<tr><td>Refund trigger (§6.4/§6.7)</td><td class="no">different</td><td>refunds fire at bound-stranding, not at blob expiry (~18 d)</td></tr>
+<tr><td>Bridge terminal-cancellation handshake (§6.4)</td><td class="no">no</td><td>only the consumed-xor-refunded nullifier is checked (disclosed as below-abstraction)</td></tr>
+<tr><td>Poke bounty, I8 payees, ETH/TAIKO split, 80% burn, accuser reward (§8, I9)</td><td class="no">no</td><td>single abstract reserve, L_LIVE = 1 for all classes</td></tr>
+<tr><td>Deep-reorg rewind / verdict incarnation (§3.1/§8)</td><td class="no">no</td><td>no reorg modeling</td></tr>
+</table>
+
+<h2>7.4 Documented deviations and their fairness</h2>
+<ul>
+<li><b>Effectively-open tolling</b> (not the doc's "universal descendant tolling"): a descendant's seal deadline runs behind
+a prefix of proof-free-closeable EMPTY/VOID epochs. Documented, with a measured justification (strict tolling produced 13,336
+spurious outage-robust halts of the delayed-free-close class) and a compensating invariant
+(<code>inv_no_seal_fault_behind_blocking</code>). This is a defensible scoping decision, honestly recorded.</li>
+<li><b>Decision as a window [e, e+1]</b> instead of the single atomic D+κ instant: conservative over-approximation, documented.</li>
+<li><b>RESERVE0</b> validates the checker's own 3·NEPOCHS+1 formula, not the doc's tranche/Λ×MEV sizing — the solvency
+<i>invariant</i> is checked, the doc's <i>sizing</i> is not.</li>
+</ul>
+
+<h2>7.5 Overclaims to correct</h2>
+<div class="finding">
+<ol>
+<li><b>RESULTS.md 563–571:</b> "whose relation already contains every v10, v11 and v14 mechanism" — false as stated: the
+relation omits blob-expiry cancellation, K_empty, T_max, the auction, H_toll_max, and attested-outage tolling. Reword to
+"the relation contains the logical epoch state machine of v10–v14".</li>
+<li><b>README line 15:</b> "no permanent halt exists even under an adversarial proving outage that never lifts" drops the
+checker's own deadlock-vs-unfair-scheduler scoping (livelock-freedom under a fully unfair scheduler is explicitly out of
+scope and resolved only by weak fairness at the protocol layer). The precise true claim is deadlock-freedom.</li>
+<li><b>README simulation blurb</b> is stale for v14 (omits the round-12 AC/horizon/tolling additions and the 24-mutant
+count) — cosmetic but contradicts the README's own accuracy standard.</li>
+</ol></div>
+
+<h2>7.6 Bottom line on the verification artifact</h2>
+<p>As evidence that the <b>logical epoch state machine</b> is safe and deadlock-free — including the two-sided anarchy
+cutoff, the one-shot commit + L1-direct equivocation, the AC resolution branch, ordered forced re-queue with refunds, and the
+challenge-horizon withdrawal gate — the checker is convincing and reproducible. As evidence about the <b>protocol</b>, it
+must be read with the gap table above; the auction, tenure economics, timestamps, anchors, and the newest v14 rule are
+outside its relation, and the exhaustive depth (2 epochs) is a stated limitation (NEPOCHS = 3 exceeded the 14M-state cap on
+this machine; multi-descendant cascades remain unchecked). This review's independent simulations
+(<a href="simulation/auction_sim.py">auction_sim.py</a>) cover the auction/economic gaps the checker cannot.</p>
+
+<p class="note">Line numbers refer to <code>packages/protocol/docs/preconfirmation/simulation/model_checker.py</code> and
+<code>simulation/RESULTS.md</code> at commit <code>0f29cae34</code>.</p>
+</body></html>
