@@ -105,7 +105,10 @@
 > v12's unsound non-terminal "not-`DONE` snapshot"; and the **attested-outage toll is broadened
 > to forced-only/DEFAULT epochs** (data-established by the forced-queue nullifier, not only an
 > AC — §10.4/§6.7), so no honest holder is slashed for an un-producible forced-only seal during
-> an outage. Plus the upper coupling `H_cancel + H_toll_max + margin ≤ blob_retention` (§6.7),
+> an outage. Plus a **cancel-on-blob-expiry** rule so a CONTENT epoch whose blobs have provably
+> expired becomes immediately cancellable (§6.7 — the additive `H_cancel + H_toll_max ≤
+> blob_retention` bound is infeasible against the defaults, so the mechanical blob-expiry cutoff
+> bounds the deadweight window instead),
 > and premise/label precision (the default-outcome tuple lists the finalized L1 chain — I1; the
 > nullifier relabeled the seal-vs-refund exclusion nullifier — §6.5). F2, F3, N1–N5 were
 > re-verified as holding. The round-12 checker-fidelity items the bot raised are folded into the
@@ -856,13 +859,18 @@ fast path needs **no horizon of its own**:
   seal could be produced or its fault mature, permanently starving discretionary-content
   finalization for a governance bug. The default (10 days vs the ~`S·E ≈ 26 min` floor) has
   enormous margin, but the interdependence is a checked constraint, not calibration folklore
-  (§13-T.3). **The setter also enforces the *upper* coupling `H_cancel + H_toll_max + margin ≤
-  blob_retention`** (v14, r12-3): otherwise a CONTENT epoch's `T_exp` could toll past the point
-  its own discretionary blobs expire on L1 (an availability tolling cannot extend), leaving a
-  bounded window that is neither EBC-sealable (blobs gone) nor yet cancellable (`T_exp` not
-  reached). The bound keeps every tolled `T_exp` inside blob retention; equivalently, a CONTENT
-  epoch becomes cancellable the moment its blobs provably expire on L1 (a mechanical slot check),
-  whichever the implementation prefers (§13-T.3). **Seals are valid strictly before `T_exp`;
+  (§13-T.3). **An `H_cancel` epoch whose discretionary blobs have provably expired on L1 becomes
+  immediately cancellable, regardless of any remaining `T_exp` toll** (v14, r12-3, corrected
+  r12-DS4): a CONTENT epoch whose blobs are gone can *never* seal as CONTENT (availability
+  tolling cannot resurrect expired L1 data), so continuing to toll its `T_exp` is deadweight —
+  it becomes cancellable on a mechanical `blob_slot + retention < now` slot check. This is the
+  normative rule, **not** an additive setter bound `H_cancel + H_toll_max ≤ blob_retention`
+  (which is *infeasible* against the stated defaults — `H_cancel` 10 d `+ H_toll_max` 20 d `>`
+  ~18 d retention — because `H_toll_max` must stay large to survive long outages; the two cannot
+  both fit under retention, so the blob-expiry cutoff, not an unsatisfiable coupling invariant,
+  is what bounds the deadweight window). Forced-only/DEFAULT epochs are unaffected — their data
+  outlives `H_cancel` and re-queues (§6.5), and past blob expiry they void-with-refund (§6.4).
+  **Seals are valid strictly before `T_exp`;
   cancellation is enabled at and after `T_exp`; no L1 block can accept both.** Stated plainly:
   unsealed content **expires** at `T_exp` even if a valid proof privately existed a moment
   earlier — expiry is a deadline outcome, not an impossibility oracle, and the two disaster
@@ -1769,7 +1777,8 @@ text rather than new direction: the §6.4 bridge recall re-based on a **terminal
 `FAILED` mark** (restoring `FAILED`⊥`DONE` exclusion — the v12 not-`DONE` snapshot was unsound),
 with the refund guarantee made conditional on eventual proving resumption; the attested-outage
 toll **broadened to forced-only/DEFAULT epochs** (data-established by the forced-queue nullifier,
-not only an AC); the upper coupling `H_cancel + H_toll_max + margin ≤ blob_retention`; and
+not only an AC); the cancel-on-blob-expiry rule for CONTENT epochs (the additive
+`H_cancel + H_toll_max ≤ blob_retention` bound is infeasible against the defaults); and
 premise/label precision (§6.4, §6.5, §6.7, §9, §10.4, I1).
 
 ## Appendix B — Review dispositions
@@ -1987,10 +1996,10 @@ by the Codex review bot; resolved in v14):**
 | --- | --- | --- |
 | r12-1 (IMPORTANT, funds) | The v12 F1 recall re-fix is **still unsound**: "`msgHash` not-`DONE` on a finalized destination" is a *non-terminal* snapshot (`NEW`/`RETRIABLE`→`DONE`; `processMessage` permissionless; source signal permanent), so **recall-then-deliver** reopens the cross-chain double-spend / bridge insolvency, and the predicate can't be both sound and outage-live (a fresh root is unconstructible during the outage → principal freeze) | Accepted (my own v12 fix was wrong): §6.4 re-based on a **terminal destination-side `FAILED` mark** — an L1→L2-synced proof of the carrier's `refunded`/void state marks the message `FAILED` and emits `signalForFailedMessage`, so `FAILED`⊥`DONE` forecloses delivery; source recall uses the unchanged `FAILED`-signal path; `msgHash` stored in the nullifier at snapshot; refund guarantee stated **conditional on eventual proving resumption** (§6.4, §9, §10.4, §6.5, §13-S.16) |
 | r12-2 (IMPORTANT, liveness) | §10.4 rung-3 attested-outage toll scoped to "accepted AC" leaves forced-only/DEFAULT epochs (data on L1 via the forced-queue nullifier, never an AC) un-tolled → honest holder slashed for an un-producible forced-only seal during a systemic outage | Accepted: toll predicate broadened to "data availability established by an accepted AC **OR** the forced-queue snapshot nullifier (`queued→snapshotted`)"; pinned that an owned forced-only epoch does carry a missed-seal duty and tolls under this rule (§10.4, §6.7) |
-| r12-3 (low) | No *upper* coupling of `H_cancel + H_toll_max` (30 d) to blob retention (~18 d): a CONTENT epoch's `T_exp` could toll past its own blobs' expiry | Accepted: setter invariant `H_cancel + H_toll_max + margin ≤ blob_retention` (or make a CONTENT epoch cancellable once its blobs provably expire on L1) — §6.7, §13-T.3 |
+| r12-3 (low) | No *upper* coupling of `H_cancel + H_toll_max` (30 d) to blob retention (~18 d): a CONTENT epoch's `T_exp` could toll past its own blobs' expiry | Accepted, via **cancel-on-blob-expiry** (§6.7): a CONTENT epoch whose blobs provably expired on L1 becomes immediately cancellable (it can never seal as CONTENT), which bounds the deadweight window. *(v14 self-correction, r12-DS4: the additive invariant `H_cancel + H_toll_max ≤ blob_retention` first proposed here is **infeasible** against the stated defaults — 10 d + 20 d > ~18 d — since `H_toll_max` must stay large for long outages; the blob-expiry cutoff is the actual mechanism, not the coupling bound.)* — §6.7, §13-T.3 |
 | r12-4 (note) | Stale attributions: the nullifier called "the §6.4 bridge-handshake nullifier"; Appendix B r9-cB1 still described the abandoned v10 predicate | Accepted: relabeled the **seal-vs-refund exclusion nullifier (§6.5)**; r9-cB1/r11-F1 rows synced to the v14 terminal-`FAILED` mechanism; RESULTS.md attribution updated in the checker's v14 revision |
 | r12-5 (note) | The default-outcome input tuple omitted the finalized L1 chain that `F(N)` reads | Accepted: I1's tuple now lists "the finalized canonical L1 chain up to slot ≤ slot(T_N) − D_anchor" (inclusion-independent at finalized depth; determinism unaffected) |
-| r12 checker-fidelity (Codex P1 ×3) | AC-resolution branch not modeled; withdrawal gate not on the challenge horizon; descendant tolling behind unclosed EMPTY/VOID | Folded into the model checker's v14 revision (AC-resolution branch + mode consequence; challenge-horizon gate + delayed-safety-settlement action; machine-checked no-descendant-seal-fault-while-lower-unclosed) — see [`simulation/RESULTS.md`](simulation/RESULTS.md) |
+| r12 checker-fidelity (Codex P1 ×3) | AC-resolution branch not modeled; withdrawal gate not on the challenge horizon; descendant tolling behind unclosed EMPTY/VOID | Being applied to the model checker in a **separate follow-up commit** (AC-resolution branch + mode consequence; challenge-horizon gate + delayed-safety-settlement action; machine-checked no-descendant-seal-fault-while-lower-unclosed) — these are checker-fidelity items, tracked as landing after the v14 design commit; `simulation/RESULTS.md` is updated when they land (DeepSeek W#2: the checker changes are not in the v14 *design* commit) |
 | r12 verification | v12 fixes F2, F3, N1–N5 re-verified | **All HOLD** under adversarial re-verification against the deployed contracts; only F1 failed → r12-1 |
 
 ## Appendix C — L2 header inputs and their sources

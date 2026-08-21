@@ -97,8 +97,10 @@ missed-seal duty during an outage at all.
   (~18 d).** N1 added only the lower bound; under a long attested outage a CONTENT epoch tolls
   `T_exp` past its own blobs' expiry — a bounded ~18→30 d stall, neither EBC-sealable nor yet
   cancellable, self-resolving at `H_toll_max`. **Fix:** setter invariant
-  `H_cancel + H_toll_max + margin ≤ blob_retention`, or make a CONTENT epoch cancellable once
-  its blobs provably expire on L1.
+  make a CONTENT epoch cancellable once its blobs provably expire on L1 (the additive
+  `H_cancel + H_toll_max ≤ blob_retention` bound is *infeasible* against the defaults — 10 d +
+  20 d > ~18 d — since `H_toll_max` must stay large for long outages, so the blob-expiry cutoff
+  is the mechanism, per DeepSeek W#4 / r12-DS4).
 - **R12-4 (NOTE) — stale attributions in derived artifacts.** RESULTS.md still calls the
   consumed-xor-refunded nullifier "the §6.4 bridge-handshake nullifier"; Appendix B r9-cB1 still
   describes the abandoned v10 `refunded && !consumed` recall predicate; RESULTS.md carried
@@ -143,10 +145,10 @@ Appendix B round-12 table; summary:
 | --- | --- | --- |
 | **R12-1** (gating) | §6.4 recall re-based on a **terminal destination-side `FAILED` mark** (L1→L2-synced proof of the carrier's `refunded` state marks the message `FAILED`; `FAILED`⊥`DONE` forecloses delivery, closing both orderings), `msgHash` stored in the nullifier, refund guarantee stated conditional on eventual proving resumption | §6.4, §9, §10.4, §6.5, §13-S.16, App. B |
 | **R12-2** (gating) | attested-outage toll broadened to "accepted AC **OR** forced-queue snapshot nullifier"; owned forced-only missed-seal duty pinned | §10.4, §6.7 |
-| **R12-3** | setter invariant `H_cancel + H_toll_max + margin ≤ blob_retention` (or cancel-on-blob-expiry) | §6.7, §13-T.3 |
+| **R12-3** | cancel-on-blob-expiry for CONTENT epochs (the additive `H_cancel + H_toll_max ≤ blob_retention` bound is infeasible against the defaults — DeepSeek W#4) | §6.7, §13-T.3 |
 | **R12-4** | nullifier relabeled "seal-vs-refund exclusion nullifier"; r9-cB1/r11-F1 synced to the terminal-`FAILED` mechanism; RESULTS.md attribution updated | §6.5, App. B, RESULTS.md |
 | **R12-5** | I1's default-outcome tuple lists the finalized L1 chain `F(N)` reads | I1 |
-| **Codex ×3** (checker fidelity) | AC-resolution branch + mode consequence; challenge-horizon withdrawal gate + delayed-safety-settlement action; machine-checked no-descendant-seal-fault-while-lower-unclosed | `model_checker.py`, RESULTS.md (v14 revision) |
+| **Codex ×3** (checker fidelity) | AC-resolution branch + mode consequence; challenge-horizon withdrawal gate + delayed-safety-settlement action; machine-checked no-descendant-seal-fault-while-lower-unclosed | `model_checker.py`, RESULTS.md — **separate follow-up commit** after the v14 design commit (not in the design diff; DeepSeek W#2) |
 
 **Loop status after step 2: NOT terminated at review time** (R12-1 + R12-2 gating). v14 resolves
 them; **step 3** re-reviews over v14 — with particular attention to the re-worked §6.4 bridge
