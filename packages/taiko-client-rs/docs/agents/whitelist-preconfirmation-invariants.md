@@ -36,6 +36,13 @@ Event sync startup must use checkpoint resume head or local `head_l1_origin` rec
 - Assumptions:
   - Checkpoint mode trusts the checkpoint head actually reached by local beacon sync.
   - Non-checkpoint mode requires local `head_l1_origin` and must fail closed if missing.
+  - Degraded L1 endpoints (non-archive nodes once L1 finality lags beyond their retained-state
+    window, and pre-finality devnets) downgrade the beacon target to a latest-block read of the
+    inbox core state. The imported checkpoint is then advertised to the engine as head/safe only
+    (finalized stays zero), and event sync starts without a finalized snapshot, replaying from
+    the inbox activation block. A latest-read target must never be advertised as
+    engine-finalized: that would block the rewind event sync needs if an L1 reorg drops the
+    target's proposal.
 - Failure mode if broken:
   - Starting from `Latest` or another unsafe point can include local-only preconf chain state and skip required historical event replay.
 
