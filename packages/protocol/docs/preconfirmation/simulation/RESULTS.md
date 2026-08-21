@@ -1,7 +1,21 @@
-# v10 Protocol — Exhaustive State-Machine Model-Checking Results
+# Protocol — Exhaustive State-Machine Model-Checking Results
 
 **Artifact:** [`model_checker.py`](model_checker.py) — a self-contained Python explicit-state
-model checker for the [redesign proposal](../redesign-proposal.md) (v10).
+model checker for the [redesign proposal](../redesign-proposal.md). The checker models the
+**logical state machine** and was upgraded for the round-9 findings (the "v10 upgrade" below);
+it tracks the proposal through **v12**.
+
+> **Scope of the v11/v12 additions (r11-N5).** The v11 **default derivation rule** (§6.8), its
+> `EBC`/`DEFAULT` mode pin, the **clock-capacity invariant**, the v12 default-anchor
+> `max()` rule, and the §6.4 bridge terminal-cancellation handshake are **header-determinism and
+> cross-chain properties below this checker's abstraction** (which collapses slot-level timing
+> and headers into phases). They are discharged by the **§13-S.18 / §13-S.16 conformance
+> vectors and proofs**, not by this state-machine checker. What the checker *does* verify about
+> holderless epochs — that an unowned/forced-only/EMPTY epoch always has a constructible
+> proof-free exit and never double-decides, seals out of order, or strands forced work — is
+> unchanged by v11/v12 and re-confirmed by the runs below (the v12 mode-pin correction is a
+> refinement of *which* proof-free seal applies, still modeled as `seal_empty`/forced-only).
+
 **Question asked:** *can the new design reach an invalid state?*
 **Answer (within the checked bounds and modelled configurations):** **No.** Across every
 explored bound the checker found **zero reachable states or transitions violating any safety

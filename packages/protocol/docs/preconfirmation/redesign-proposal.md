@@ -1,6 +1,6 @@
 # Taiko Based Preconfirmation Redesign — Perpetual Auction with Commit → Publish → Seal Epochs
 
-> **Deliverable 2 of the preconfirmation redesign effort. Draft v11, 2026-08-21** — revised after
+> **Deliverable 2 of the preconfirmation redesign effort. Draft v12, 2026-08-21** — revised after
 > adversarial review rounds 1–7 (eleven reviewer passes:
 > [r1](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353544928),
 > [r2](https://github.com/taikoxyz/taiko-mono/pull/22034#issuecomment-5353904484),
@@ -71,6 +71,25 @@
 > **clock-capacity invariant** (forced block count ≤ `E` per epoch, deterministic spill), an
 > explicit default-derivation branch in the seal circuit, Appendix C updates, and the
 > `ANARCHY(forced) → ASSIGNED(content)` conformance-vector obligation (§13-S.18).
+> **v12 (2026-08-21)** responds to **round 11** — the first internal multi-agent
+> challenge-then-respond review loop (six diverse-lens adversaries → per-finding adversarial
+> refutation → synthesis; report in
+> [`review-loop/step-1-findings.md`](review-loop/step-1-findings.md)), which concentrated on
+> the least-reviewed v10/v11 additions and confirmed three IMPORTANT defects plus five
+> non-gating clusters. v12 fixes all of them: the **bridge terminal-cancellation recall is
+> re-keyed on the message's destination fate** (a caller-supplied `msgHash` proven not-`DONE`
+> on the destination), not on the forced-item nullifier — closing an alternate-delivery
+> double-spend and an unconstructible-binding freeze (§6.4); the **§6.8 derivation mode is
+> pinned on the materialized CONTENT/EMPTY decision**, not on "an accepted EBC exists" —
+> closing a commit-then-withhold self-stall (§6.8); the **§6.8 default anchor** is redefined as
+> `max(previous non-empty anchor, deepest L1 block ≤ slot(T_N)−D_anchor)` — total on empty L1
+> slots and monotone by construction, with §6.6(c) relaxed to non-decreasing for holderless
+> epochs (§6.6, §6.8, I1); a **setter invariant `H_cancel ≥ S·E + κ + margin`** and shared
+> `H_toll_max` tolling (§6.6/§6.7/§10.4); the **withdrawal gate keyed on a single
+> equivocation-challenge horizon** (not "any open verdict") with watchtower-dependence stated
+> (§8); the **intra-tenure MEV-spike limit** of the `L_safety` match (§8/§11.2); and precision
+> fixes to the one-shot-vs-equivocation predicate, the AC-censorship "differ vs lag" wording,
+> and the "forced content always flows = eventual, not timely" scope (§3.1, §5.2, I6).
 > Design only — mechanisms, invariants, incentives, parameters.
 > Baseline: [`status-quo.md`](status-quo.md); owner decisions: its §6 and
 > [Appendix A](#appendix-a--divergence-from-the-brief-owner-to-confirm).
@@ -90,8 +109,14 @@
 
 - **I1 — Total, bounded, content-addressed derivation; outcome invariant under all L1
   timing.** Derivation maps *any* committed + published bytes to a unique, bounded-cost L2
-  block sequence, and its **only** L1-derived input is the EBC's committed content — never any
-  transaction's L1 inclusion block.
+  block sequence. When an epoch has an accepted, available EBC, derivation's **only**
+  L1-derived input is that EBC's committed content — never any transaction's L1 inclusion
+  block. When an epoch resolves **without** an accepted-and-available EBC, its outcome is the
+  **default derivation** (§6.8), a pure function of `(chainId, epoch, index, canonical parent,
+  forced snapshot)` whose inputs are epoch-schedule/parent-chain quantities (Appendix C class
+  **D**/**E**/**P**), still never an inclusion-time observation (v12, r11-F3: I1 and I6 agree
+  on default-epoch inputs — the "only input is committed content" clause is scoped to the
+  EBC case, not overclaimed across holderless epochs).
   - *Content-addressed origin (r4a-C2, r4b-C1).* The EBC **commits its own L1 origin** (the
     anchor block number/hash/state-root it builds on) inside its signed content. Derivation
     reads that committed origin, not the L1 block that happens to include the EBC transaction.
@@ -159,7 +184,11 @@
   "Deterministic" is discharged by the **default derivation rule** (§6.8, v11): when no
   accepted EBC exists, every header and execution input of the forced-only outcome is a pure
   function of `(chainId, epoch, index, canonical parent, forced snapshot)` — no field is left
-  to the sealer's, sender's, or L1 builder's choice.
+  to the sealer's, sender's, or L1 builder's choice. **"Always flows" means *eventual*, not
+  *timely*** (v12, r11-N5): I6 guarantees a forced item is *eventually* included (bounded by
+  queue depth / the `B_max` per-snapshot budget and, under a proving outage, by the
+  re-queue-then-refund path of §6.7/§9), never that it lands in a specific epoch — per-item
+  timeliness/fair-exchange is out of scope (§12).
 - **I7 — Only proven transitions lock state; outcomes are sender-free.** Canonical state
   changes only through proof-carrying seals or the deterministic proof-free resolutions (valid
   empty seal; expiry cancellation), all pure functions of on-chain state. Who sends a
@@ -305,10 +334,17 @@ a *first* submission landing anywhere in `(D, D + κ]` is exactly as valid as on
 (ii) carries a valid signature by the tenure's *registered* commitment keys (§2) for exactly
 that `(chain id, tenure id, epoch, role)` binding, and (iii) targets an unconsumed one-shot.
 **A submission failing (i) or (ii) is inert — a no-op that consumes nothing**: it cannot burn
-the one-shot, cannot fault the holder, and cannot displace a later valid artifact. The one-shot
-is consumed only by the **first accepted** artifact; byte-identical re-lands of it are no-ops;
-and a second *distinct accepted* artifact is not merely "invalid" — it is **irrefutable
-on-chain equivocation evidence** recorded against the tenure and slashed L1-directly (§8).
+the one-shot, cannot fault the holder, and cannot displace a later valid artifact. **Two
+distinct predicates over the same submission** (v12, r11-N5, disambiguating the earlier
+"second distinct accepted" shorthand): *one-shot consumption* is decided by (i)+(ii)+(iii) — the
+**first** submission satisfying all three consumes the slot; byte-identical re-lands of it are
+no-ops. *Equivocation evidence* is decided by (i)+(ii)+**byte-distinct from the consuming
+artifact** — any later submission that is well-formed, validly signed by the tenure's registered
+keys, but **differs in bytes** from the one that consumed the one-shot is not "a second accepted
+artifact" (only one artifact ever *consumes* the slot) but **irrefutable on-chain equivocation
+evidence** recorded against the tenure and slashed L1-directly (§8). So a griefer cannot burn
+the one-shot (its unsigned junk fails (ii)), and the holder cannot double-sign its own slot
+without leaving L1-direct evidence.
 Without this predicate, "first-landed wins" would let a griefer burn every honest holder's
 one-shot with one unsigned transaction per epoch — the round-9 A2 attack; with it, only the
 holder's own keys can consume or equivocate its slots. So the honest submission budget for
@@ -326,8 +362,14 @@ Its on-chain *materialization* follows I2's computed-state discipline: for the E
 slice-availability component, a permissionless **availability certificate** within the `R`
 window (§5.2) materializes CONTENT and the `R`-timeout materializes EMPTY; for pure
 artifact-presence components, any dependent read computes and materializes directly. An
-observer with L1 access knows the outcome with certainty at `D + κ`; only the contract-legible
-record may lag by ≤ `R`, and every dependent on-chain path reads through the materialization,
+observer with L1 access knows the outcome with certainty at `D + κ`; the contract-legible
+record ordinarily lags by ≤ `R` and then agrees — **except under an availability-certificate
+censorship attack** (v12, r11-N4), where a full builder/proposer coalition that suppresses the
+AC for the whole `R` window makes the materialized outcome EMPTY *differ from* (not merely lag)
+the information-final CONTENT outcome; that priced, rare residual and its successor consequences
+are handled in §5.2/§11.5 (an honest successor's soft→hard upgrade keys on the contract-legible
+materialization, not the information-final instant, precisely so a parent-flip cannot orphan it
+into a slashable position). Every dependent on-chain path reads through the materialization,
 never around it. Withdrawal gating counts
 settled certificates and computes any not-yet-materialized maturity at read time (I2). Reorgs
 deeper than `κ` are an exceptional L1-consensus event bound to a finalized origin root + a
@@ -508,12 +550,27 @@ branches through the SHA-256 precompile; a bounded, budgetable per-epoch overhea
 §10.2, ~225 epoch decisions/day chain-wide at worst). No third party's unrelated transaction
 (a withdrawal, a successor's EBC, a poke) ever carries a parent epoch's resolution cost: reads
 that depend on the parent's outcome read the materialized AC record or the closed `R` window —
-a storage read, not a proof verification. **Successor consequence:** the parent's outcome is
-*information-final* at `D + κ` (any beacon-node observer knows it with certainty) and
-*contract-legible* at AC acceptance or `R`-timeout, ≤ `R` slots later; the successor's
-soft→hard preconf upgrade (below) keys off the information-final instant, and any on-chain
-path that needs the parent's outcome keys off the materialization, which the successor itself
-can accelerate by submitting the AC.
+a storage read, not a proof verification. **Successor consequence (v12, r11-N4 — corrected).**
+The parent's outcome is *information-final* at `D + κ` (any beacon-node observer knows it with
+certainty) and *contract-legible* at AC acceptance or `R`-timeout, ≤ `R` slots later. In the
+honest case the two coincide within `R`, and the successor — which can itself *accelerate*
+legibility by submitting the AC — treats the parent as final for **soft** preconfs from `D+κ`.
+But the successor's upgrade to **hard** (bond-backed, equivocation-slashable) preconfs keys off
+the **contract-legible materialization, not the information-final instant**: only once the
+parent's outcome is on-chain (AC accepted ⇒ CONTENT, or the `R` window closed ⇒ EMPTY) does the
+successor bind its hard preconfs to it. This closes the one AC-censorship corner: if a full
+builder/proposer coalition suppresses the AC for the entire `R` window, the parent materializes
+EMPTY (a *different* outcome than the information-final CONTENT), but an honest successor has
+**not yet upgraded** — its still-soft, explicitly parent-provisional preconfs are rebuilt onto
+the EMPTY parent with no bond consequence, and an orphaned soft preconf is **never slashable
+equivocation** (equivocation is defined over hard, bond-backed commitments and, for the
+double-EBC variant, over the holder's own registered-key artifacts — §8; a successor whose
+parent flipped under it signed no conflicting *hard* commitment). The residual cost is exactly
+the §11.5 AC-corridor one — suppressing a tiny, sender-free, fee-bumpable AC transaction from
+every possible submitter for `R` slots is among the most expensive censorship there is, and it
+buys only a parent EMPTY-resolution plus a bounded successor soft-window rebuild, never a
+successor safety-slash. Any other on-chain path that needs the parent's outcome likewise reads
+the materialization, which anyone can accelerate by submitting the AC.
 
 - **Fill reward exists only in the fault case, funded by the faulter, and the payee is
   precommitted** (I8; r4c-4). A fill reward exists **only** when the holder failed to make its
@@ -612,19 +669,40 @@ with these v4/v5 clarifications:
   data. Snapshot items whose blobs have genuinely expired (reachable only through the §6.7
   disaster path) are **voided with their queue fees refundable on L1** — a voided
   inclusion never burns user value (r3a-F3.1).
-- **Bridge terminal-cancellation handshake (v10, r9-cB1; normative, Phase-A-blocking
-  §13-S.16).** The queue-fee refund alone is not principal safety: a voided forced item that
-  carried a bridge message leaves the *source-side principal* locked in the message's `NEW`
-  state, and today's `recallMessage` unlocks it only against a proof of a *destination-side*
-  `FAILED` signal — which a never-executed destination transaction never creates. The design
-  therefore requires the bridge to accept a second, equivalent recall predicate: **a canonical
-  proof that the forced item carrying `msgHash` reached the terminal `refunded` state (and is
-  not `consumed`) in the L1 forced-queue lifecycle (§6.5's nullifier)**. Because the refund
-  transition atomically kills every live containing commitment and every seal proof rejects a
-  `refunded` item, "refunded on L1" and "executed on the destination" are **mutually exclusive
-  by construction** — the recall can never double-spend against a later execution, and the
-  exclusion is an explicit conformance-test obligation (§13-S.16). This is a required change to
-  the Bridge contract surface, named here rather than assumed.
+- **Bridge terminal-cancellation handshake (v10, r9-cB1; v12 correction, r11-F1; normative,
+  Phase-A-blocking §13-S.16).** The queue-fee refund alone is not principal safety: a voided
+  forced item that carried a bridge message leaves the *source-side principal* locked in the
+  message's `NEW` state, and today's `recallMessage` unlocks it only against a proof of a
+  *destination-side* `FAILED` signal — which a never-executed destination transaction never
+  creates. The design therefore requires the bridge to accept a second recall predicate — but
+  **keyed on the message's destination fate, not on the forced-item nullifier** (v12, r11-F1;
+  the v10 draft keyed it on the item reaching `refunded && !consumed`, which was wrong on two
+  counts):
+  - **Correct predicate.** The recaller supplies the `msgHash` (the source Bridge already
+    holds the message in `NEW`, so `msgHash` is available source-side) and a **canonical proof
+    that this `msgHash` is not `DONE` (never `processMessage`-received) on a finalized/sealed
+    destination Bridge state**, together with a proof that the message's forced carrier reached
+    the terminal `refunded` L1 state so that *its own seal* can no longer deliver it. Recall
+    releases the source principal only on the conjunction. Delivery status is thus read from
+    the **message**, not inferred from the item.
+  - **Why the nullifier alone was wrong.** (1) *Alternate delivery double-spend* — the source
+    `sendMessage` signal exists regardless of the forced path and `processMessage` is
+    permissionless, so the same `msgHash` can be delivered normally (destination `→ DONE`)
+    while a redundant forced copy that could not seal during an outage re-queues and voids
+    (`→ refunded`); a nullifier-only recall would then release a principal already delivered.
+    "Mutually exclusive by construction" held only for execution *via that item's own seal*,
+    never for alternate delivery of the same message — the destination-status check closes it.
+    (2) *Binding gap* — the L1 forced queue stores only fee + blob slice, and the nullifier
+    records `queued→snapshotted→{consumed|refunded}` + payer, never `msgHash`; the
+    (item ⇒ `msgHash`) mapping lives only in the blob, and refund fires at blob expiry (~18 d)
+    *after* the retention duty (`H_cancel` + margin) has lapsed — so a nullifier-keyed recall
+    is either unconstructible (principal frozen, contradicting "always recall") or, if it
+    drops the binding, lets an attacker recall an unrelated locked message against any refunded
+    item. Keying on the caller-supplied `msgHash` against destination state dissolves the
+    binding problem entirely.
+  This is a required change to the Bridge contract surface, named here rather than assumed;
+  the executed-*anywhere*-vs-recalled exclusion (not executed-via-this-item-vs-recalled) is an
+  explicit conformance-test obligation (§13-S.16).
 - **Every forced item has one canonical lifecycle nullifier** (r4c-6): each item advances
   `queued → snapshotted → {consumed | refunded}` on L1, and **the beneficiary/payer is stored
   at enqueue time**. Every seal proof takes the item's status as a public input and **rejects a
@@ -679,7 +757,8 @@ with these v4/v5 clarifications:
   in the setter, not calibration folklore — §13-T.3) — so a holder cannot fake "serving" on
   stale L1 state while starving bridge ingestion; and (c) **advance** past the previous
   non-empty epoch's committed anchor — the epoch-relative replacement for Pacaya's
-  `MAX_ANCHOR_OFFSET` and its anchor-must-advance rule. Deeper-than-κ reorgs rewind L1 records
+  `MAX_ANCHOR_OFFSET` and its anchor-must-advance rule (relaxed to *non-decreasing* for
+  default/holderless epochs, §6.8, v12 r11-F3 — no holder to game the value there). Deeper-than-κ reorgs rewind L1 records
   and L2 derivation together (§3.1), failing *closed*; G5 is a liveness guarantee, not a
   user-fund-safety guarantee — a >κ L1 reorg can revert user transactions exactly as on any L2
   (r4a-M12, stated in §1). Raising `D_anchor` 4→32 shrinks that probability at a one-epoch
@@ -707,13 +786,22 @@ fast path needs **no horizon of its own**:
   sender/order-independence exactly where it matters most. The rule is therefore **mechanical
   and overlap-free**: each decided epoch has an expiry instant `T_exp = ` (its
   decision-final instant) `+ H_cancel` **on the tolled clock** (I4 ancestor tolling, plus the
-  bounded attested-outage tolling below). **Seals are valid strictly before `T_exp`;
+  bounded attested-outage tolling below). **The parameter setter mechanically enforces
+  `H_cancel ≥ S·E + κ + proving-time margin`** (v12, r11-N1) — the same checked-invariant
+  discipline §6.6 applies to `freshness_ceiling`: if `H_cancel` were set below the seal
+  deadline's own matured horizon, *every* content epoch would expire to cancellation before its
+  seal could be produced or its fault mature, permanently starving discretionary-content
+  finalization for a governance bug. The default (10 days vs the ~`S·E ≈ 26 min` floor) has
+  enormous margin, but the interdependence is a checked constraint, not calibration folklore
+  (§13-T.3). **Seals are valid strictly before `T_exp`;
   cancellation is enabled at and after `T_exp`; no L1 block can accept both.** Stated plainly:
   unsealed content **expires** at `T_exp` even if a valid proof privately existed a moment
   earlier — expiry is a deadline outcome, not an impossibility oracle, and the two disaster
   realizations (data genuinely unavailable; a proving outage that never lifts) are simply the
   two reasons the deadline can be reached. From `T_exp`, anyone may **cancel**: the epoch
-  re-resolves empty/forced-only from whatever L1 data survives, and later **committed,
+  re-resolves **empty** and its forced items **re-queue at the front intact** (bound 4 below;
+  their on-L1 data outlives `H_cancel`, so they are not voided by the cancellation — v12 wording
+  fix r11-N5, matching §6.5 and the model checker), and later **committed,
   unsealed** epochs that chained to it re-resolve in the same deterministic cascade.
   **Attribution is split, not blanket** (v10, r9-F5/C3): a cancellation reached with **no
   attested systemic outage covering the horizon** is tenure-attributable — the causing tenure
@@ -787,12 +875,26 @@ closes both horns:
     **`t_i = max(T_N, parent.timestamp + 1) + i`**; `coinbase` = the epoch-deterministic
     address (the existing forced rule); `gasLimit` = the parent's, drift zero; every other
     field per its Appendix C class (**P**/**E**/**X**).
-  - **Anchor** (the field §9's anarchy bridge cadence depends on): epoch-deterministic — the
-    canonical L1 block at slot `slot(T_N) − D_anchor`, which satisfies §6.6's depth (exactly
-    `D_anchor`), freshness (lag `D_anchor` < ceiling by the §6.6 setter invariant), and
-    advancement (strictly increasing per epoch) by construction, and is verified by the same
-    §6.6 machinery as a committed anchor. Bridge messages carried as forced items therefore
-    keep executing against fresh L1 state through arbitrarily long anarchy.
+  - **Anchor** (the field §9's anarchy bridge cadence depends on): epoch-deterministic —
+    `default_anchor(N) = max( previous non-empty epoch's anchor, F(N) )`, where **`F(N)` is
+    the highest canonical L1 execution block whose slot is `≤ slot(T_N) − D_anchor`** (v12,
+    r11-F3 — *total* on empty L1 slots, and not the naive "the block *at* slot
+    `slot(T_N) − D_anchor`", which need not exist). This is (i) **≥ `D_anchor` deep** — both
+    `F(N)` (by construction) and the previous anchor (which was ≥ `D_anchor` deep at its own
+    earlier `T`, hence deeper now) satisfy it; (ii) **within the freshness ceiling** — `F(N)`
+    lags `T_N` by ~`D_anchor`, and the §6.6 setter invariant keeps the ceiling above that; and
+    (iii) **non-decreasing** — the `max(previous, …)` guarantees it never goes behind the last
+    non-empty anchor, and across consecutive default epochs `slot(T_N) − D_anchor` advances by
+    `E` per epoch, so it strictly advances thereafter. **Advancement caveat, stated honestly
+    (v12, r11-F3):** at a content→default boundary a fresh-anchored predecessor `N−1` may have
+    committed an anchor at or ahead of `F(N)`, so the first default epoch's anchor **ties** the
+    predecessor's rather than strictly exceeding it. §6.6(c)'s *strict*-advancement rule —
+    which exists to stop a *holder* faking service on stale L1 state — is therefore relaxed to
+    **non-decreasing for default (holderless) epochs**, where there is no holder to game and
+    the value is a pure function; the `max()` form makes even non-decrease hold by
+    construction, so the v11 "strictly increasing / verified by the same §6.6 machinery" claim
+    is corrected, not merely re-asserted. Bridge messages carried as forced items therefore
+    keep executing against monotone, fresh-enough L1 state through arbitrarily long anarchy.
 - **Clock-capacity invariant.** Timestamps are integer seconds, strictly increasing, and
   every epoch-`N` block must satisfy `t < T_N + E` — so at most `E` (= 384) blocks fit in an
   epoch. By induction every parent entering epoch `N` has `parent.timestamp ≤ T_N − 1`
@@ -803,12 +905,27 @@ closes both horns:
   **spilling deterministically to the next epoch** (§6.5's existing spill rule) — mirroring
   the deployed protocol's forced-inclusion cap and deterministic timestamp overwrite, which
   exist for exactly this reason.
-- **The circuit has an explicit default branch.** The seal proof takes a derivation-mode
-  public input — `EBC` or `DEFAULT` — and the `DEFAULT` branch requires *no* EBC artifact:
-  it verifies the block sequence against the snapshot commitment and the rule above. A
-  forced-only seal is therefore always constructible by anyone from L1 data alone (I6), and
-  a `DEFAULT`-mode seal for an epoch that *has* an accepted EBC is invalid (the decision
-  record pins the mode — no mode-choice race).
+- **The circuit has an explicit default branch, pinned by the *materialized decision*** (v12,
+  r11-F2). The seal proof takes a derivation-mode public input — `EBC` or `DEFAULT` — and the
+  `DEFAULT` branch requires *no* EBC artifact: it verifies the block sequence against the
+  snapshot commitment and the rule above. The mode is pinned by the epoch's **materialized
+  CONTENT/EMPTY decision (§5.2), not by "an accepted EBC exists"**: a **CONTENT** materialization
+  (an availability certificate accepted by `D+κ`) ⇒ `EBC` mode; **every** EMPTY/forced-only
+  materialization ⇒ `DEFAULT` mode — absent EBC, invalid EBC, explicit-empty, *and the
+  commit-then-withhold case* (an EBC accepted under §3.1's one-shot predicate but whose blobs
+  never became available, so its AC times out to EMPTY while a non-empty forced snapshot still
+  demands a forced-only outcome under I6). The earlier "a `DEFAULT` seal for an epoch that has
+  an accepted EBC is invalid" wording was wrong precisely there: it left a validly-committed
+  epoch whose data was withheld unsealable in *either* mode (no AC ⇒ the `EBC` seal cannot open
+  bytes; "has an accepted EBC" ⇒ the `DEFAULT` seal was forbidden), a self-triggered stall to
+  `T_exp`. Pinning on the materialized decision closes it: the withheld-data epoch materializes
+  EMPTY-for-content + forced-only, seals in `DEFAULT` mode immediately, and the holder still
+  carries its publication-fault certificate (§5.2). The race the old clause meant to prevent —
+  a premature `DEFAULT` seal stealing a still-arriving CONTENT outcome — is guarded directly and
+  correctly by the rule that **no seal of either mode is valid before the availability decision
+  materializes** (AC accepted, or the `R` window closed — §5.2); cancellation re-resolutions
+  (§6.7) are `DEFAULT` by the same decision-pinning. A forced-only seal is therefore always
+  constructible by anyone from L1 data alone (I6), and no mode-choice race exists.
 - **Consequences.** Exactly **one** valid post-state exists per (parent, snapshot, epoch);
   competing sealers race to land *the same bytes*, so first-inclusion is a gas race, never a
   state lottery — I7 restored where round 10 broke it. And because the snapshot is fixed
@@ -874,8 +991,10 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
   liveness faults debit `L_live` in TAIKO. Safety supersedes and claws back any liveness payouts
   before burning.
 - **Two equivocation variants, two adjudication paths** (v10, r9-B1). (a) **Double-EBC —
-  L1-direct, zero latency.** A second *distinct accepted* EBC for the same (tenure, epoch)
-  (§3.1's predicate: validly signed by the tenure's registered keys) is complete equivocation
+  L1-direct, zero latency.** Two byte-distinct EBCs for the same (tenure, epoch), each
+  well-formed and validly signed by the tenure's registered keys (§3.1's equivocation-evidence
+  predicate — (i)+(ii)+byte-distinct, *not* "two accepted artifacts": only one ever consumes
+  the one-shot), are complete equivocation
   evidence already sitting in L1 records: the safety certificate **settles at the same `D+κ`
   decision with no L2 proof at all**, terminating the tenure immediately. No adjudication
   latency exists for this variant. (b) **Preconf-vs-record — L2-evidence.** A signed preconf
@@ -884,7 +1003,9 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
   normative **adjudication-latency ceiling `Λ`** (§3 table; the ceiling's exact derivation —
   anchor depth, proof time, bridge/verdict transport — is Phase-A-blocking §13-S.4), and
   `L_safety ≥ Λ ×` the per-epoch-MEV bound (§4), so an equivocator streaming faults while the
-  first certificate settles nets at most what the bond covers. There is deliberately **no
+  first certificate settles nets at most what the bond covers **at the tenure's sizing epoch**
+  (a within-tenure MEV spike above that fixed bound is the stated residual — §11.2, r11-N3).
+  There is deliberately **no
   accusation-time seat suspension** in the base design (an unbonded accusation would be a free
   denial lever); a *bonded*-accusation suspension (accuser stakes, false accusation forfeits)
   is a §13-T.12 option if calibration finds `Λ ×` sizing too capital-heavy.
@@ -898,11 +1019,30 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
   beneficiary. Burn-dominance keeps self-slashing unprofitable (a holder "accusing" itself
   recovers < 20% of its own bond); the accuser share makes enforcement a funded, competitive
   job like every liveness lane (I8, §7.3).
-- **Every in-flight verdict has a bounded deadline** (v10, r9-B3): an opened adjudication that
-  does not settle within its bounded window (`Λ`-derived, §13-S.4) is **dismissed with
-  prejudice against the accusation** — the withdrawal gate treats it as resolved, so a
-  slow/bogus accusation extends an honest ex-holder's lockup by at most the bounded window
-  beyond the ≥ 2-week floor, never indefinitely.
+- **Every in-flight verdict has a bounded deadline, and the gate reads a single global
+  challenge clock — not "any open verdict"** (v10 r9-B3; v12 correction, r11-N2). An opened
+  adjudication that does not settle within its bounded window (`Λ`-derived, §13-S.4) is
+  **dismissed with prejudice against the accusation**. But "no in-flight verdict" alone is
+  gameable: opening (not settling) a preconf-vs-record accusation is cheap, and each preconf
+  position is a fresh fault id, so a griefer could re-open a new accusation each time the last
+  one times out and freeze an honest ex-holder's withdrawal indefinitely. The gate therefore
+  keys on a **single per-(tenure) equivocation-challenge horizon** — a fixed window that starts
+  at the tenure's last assigned epoch's finality and runs `≥ Λ + margin`, the **same window the
+  ≥ 2-week withdrawal floor is sized to cover** — rather than on the presence of *any* currently
+  open verdict: once that horizon elapses with no *settled* safety certificate, withdrawal
+  proceeds even if a fresh accusation was just opened. An honest ex-holder's lockup is thus the
+  fixed horizon, not a re-openable chain of windows (r11-N2 over-accusation), and a bonded
+  accusation (§13-T.12, forfeit-on-dismissal) is the recommended companion so re-opening also
+  costs the griefer.
+- **Preconf-vs-record deterrence is watchtower-dependent — stated, not hidden** (v12, r11-N2).
+  Unlike the double-EBC variant (which self-materializes at `D+κ` from L1 records, §8a), the
+  preconf-vs-record safety fault needs an *accuser* to bring the L2 evidence within the
+  challenge horizon; if no watchtower does, the horizon elapses and `L_safety` releases. This is
+  the accepted price of an evidence-based (not self-materializing) fault: the funded accuser
+  reward (above) makes watching a paid job, and the horizon is sized so an honest watchtower has
+  `≥ Λ + margin` to act, but the design does not claim preconf-vs-record theft is deterred
+  *without any watchtower* — that residual is real and is why the double-EBC variant (the
+  cheapest equivocation to commit) was made self-materializing.
 - **Certificate lifecycle** per §3.1 (single grace): maturity/settlement/parent-irreversibility
   coincide at `D + κ` (I2). Recording is permissionless; the **poke bounty pays a precommitted
   beneficiary, not `msg.sender`** (I8, r4c-4), so a copied poke cannot be redirected; and no read
@@ -915,10 +1055,11 @@ distributions; stable fault ids; safety supersession + clawback), with v4/v5 ref
   replay after a `>κ` rewind. Idempotency is still enforced only at the single L1 ledger (§4).
 - **Withdrawal gate** (§8.4): the gate computes maturity from the records and materializes any
   missing certificate as part of the withdrawal call (I2), then requires zero unresolved
-  certificates, no unsealed assigned epochs, no in-flight verdicts **within their bounded
-  deadlines (time-expired verdicts count as resolved — v10, r9-B3)**, no active
-  attested-outage freeze — then the floor delay. A holder that missed an obligation faults
-  *itself* by trying to withdraw; poke-censorship cannot buy an exit.
+  certificates, no unsealed assigned epochs, **the equivocation-challenge horizon elapsed with
+  no settled safety certificate (not merely "no verdict currently open" — v12, r11-N2)**, no
+  active attested-outage freeze — then the floor delay. A holder that missed an obligation
+  faults *itself* by trying to withdraw; poke-censorship cannot buy an exit; and a griefer
+  cannot re-open accusations to freeze an honest exit past the fixed horizon.
 
 ---
 
@@ -999,7 +1140,11 @@ that escalates only as the failure proves genuinely systemic:
    outage, where nobody "drove" it): while an attested window is active, **maturation of
    proof-dependent duties tolls** — seal deadlines, and the expiry clocks `T_exp` up to
    `H_toll_max` (§6.7) — for every epoch **whose data availability is already established**
-   (accepted AC, §5.2). Duties that need no prover — the EBC, slice publication, the AC itself
+   (accepted AC, §5.2). **Both proof-dependent clocks share the single `H_toll_max` budget and
+   toll in lockstep** (v12, r11-N1): the same attested-window elapsed time is added to the seal
+   deadline and to `T_exp` for a given epoch, so the "seals valid strictly before `T_exp`"
+   ordering (§6.7) is preserved through any tolled outage rather than the two clocks drifting
+   apart. Duties that need no prover — the EBC, slice publication, the AC itself
    — **never toll**: a holder that fails those during an outage faulted on its own, and *that*
    is the precise, well-defined replacement for "drove the stall". Forgiveness of in-window
    proof-dependent certificates is bounded to the attested window; without an attestation, no
@@ -1051,10 +1196,18 @@ keeps moving" conflates four different claims; the design makes exactly these, s
   equivocation to detect is now also the fastest to kill), while the preconf-vs-record variant
   keeps sequencing until its L2-evidence certificate settles — there is no accusation-time
   suspension — so its exposure is genuinely `Λ` epochs of MEV, covered because `L_safety ≥ Λ ×`
-  the per-epoch bound and `Λ` is a normative ceiling (§13-S.4), not a hope. Erosion direction
-  stated: `L_safety` is value-fixed at tenure start while per-epoch MEV can grow across a
+  the per-epoch bound and `Λ` is a normative ceiling (§13-S.4), not a hope. **Honest limit of
+  the "covered"/"match" claim** (v12, r11-N3): `L_safety` covers `Λ ×` the per-epoch MEV *bound
+  set at tenure start*; because I9 forbids a mid-tenure re-size, a **within-tenure MEV spike**
+  that pushes actual extractable value above that fixed bound makes equivocation transiently
+  profitable until the next re-pricing — so the guarantee is "matched at the sizing epoch and
+  re-matched each `T_max`", not "matched instantaneously against every future spike". Erosion
+  direction stated: `L_safety` is value-fixed at tenure start while per-epoch MEV can grow across a
   multi-week tenure; the `T_max` re-auction is the mandatory re-pricing point (top-up to
-  current sizing — §4), bounding the drift window to one tenure length. Only *griefing*
+  current sizing — §4), bounding the drift window to one tenure length. Closing the spike
+  residual entirely needs one of two §13 levers: a spike-inclusive worst-case bound in the
+  §13-S.4 sizing, or the §13-T.12 bonded-accusation seat-suspension that collapses the
+  `Λ`-epoch exposure to detection latency. Only *griefing*
   deterrence (`L_live` in TAIKO) carries the price residual — and
   (v9, r7-4) **the TAIKO slash is not the whole price of a fault**: every missed obligation also
   drains the faulter's **ETH recovery tranche at indexed cost** (the fault-paid recovery it
@@ -1334,6 +1487,14 @@ inherited gas limit, deterministic partitioning under a block-count budget `≤ 
 and an explicit `DEFAULT` circuit branch. The brief's manifest-driven header model simply had
 no answer for holderless epochs; this is the missing half of I6's "deterministic forced-only
 outcome".
+New in **v12** (round 11): **36.** the round-11 *corrections* to the v10/v11 additions —
+none a new mechanism direction, all repairs of just-added text: bridge recall re-keyed on the
+**message's** destination fate rather than the forced-item nullifier (§6.4); §6.8 derivation
+mode pinned on the **materialized decision** rather than "an accepted EBC exists" (§6.8); the
+§6.8 default anchor made **total and monotone** with §6.6(c) relaxed to non-decreasing for
+holderless epochs (§6.6, §6.8, I1); and the `H_cancel ≥ S·E + κ + margin` setter invariant
+(§6.7). These sharpen the brief's holderless-epoch and cross-chain-refund handling rather than
+diverging from it further.
 
 ## Appendix B — Review dispositions
 
@@ -1497,6 +1658,23 @@ the summary:
 | r10-2 (non-finding, confirmed) | v10 does not allow discretionary content during Total Anarchy | Confirmed — §9 unchanged |
 | r10-3 (non-finding, confirmed) | No permanent lockout/inevitable slash from a maximal legal predecessor timestamp: `lastTimestamp_N ≤ T_(N+1)−1` keeps `T_(N+1)` legal | Confirmed — and now guaranteed structurally by §6.8's induction (every parent entering epoch `N` has timestamp `≤ T_N − 1`) |
 
+**Round 11 (first internal multi-agent challenge-then-respond review loop — six diverse-lens
+adversaries, per-finding adversarial refutation, synthesis; 23 raw findings → 18 survivors → 3
+IMPORTANT + 5 non-gating after dedup; full report
+[`review-loop/step-1-findings.md`](review-loop/step-1-findings.md); resolved in v12):**
+
+| # | Finding (severity) | v12 response |
+| --- | --- | --- |
+| r11-F1 (IMPORTANT, funds) | §6.4 bridge terminal-cancellation recall was keyed on the forced-item nullifier (`refunded && !consumed`), not the message's destination fate → (a) alternate-delivery double-spend (same `msgHash` delivered via normal `processMessage` while a redundant forced copy voids), (b) unconstructible/mis-bindable `msgHash` binding after blob expiry outlasts retention | Accepted: recall re-keyed on a caller-supplied `msgHash` proven **not-`DONE` on a finalized destination Bridge** plus the carrier's `refunded` terminal state; exclusion restated as executed-*anywhere*-vs-recalled; binding gap dissolved (§6.4, §13-S.16) |
+| r11-F2 (IMPORTANT, liveness) | §6.8 mode-pin ("a DEFAULT seal for an epoch that *has an accepted EBC* is invalid") made a commit-then-withhold epoch (valid content EBC accepted per §3.1, blobs withheld, non-empty forced snapshot) unsealable in either mode → self-triggered ~10-day stall to `T_exp` | Accepted: derivation mode pinned on the **materialized CONTENT/EMPTY decision** (AC accepted ⇒ EBC mode; every EMPTY/forced-only materialization incl. withheld-data ⇒ DEFAULT mode); the pre-AC content-drop race guarded by "no seal before the availability decision materializes" (§6.8) |
+| r11-F3 (IMPORTANT, consistency/liveness) | §6.8 default anchor `slot(T_N)−D_anchor` claimed "advancement by construction / verified by the same §6.6 machinery", false at a content→default boundary (`slot(T_N) ≤` a fresh predecessor's anchor), and non-total on empty L1 slots | Accepted: default anchor = `max(previous non-empty anchor, deepest L1 block whose slot ≤ slot(T_N)−D_anchor)` (total, monotone, ≥ `D_anchor` deep); §6.6(c) relaxed to **non-decreasing for holderless epochs**; I1 amended to agree with I6 on default-epoch inputs (§6.6, §6.8, I1, App-C class D) |
+| r11-N1 (medium) | No setter invariant `H_cancel ≥ S·E + κ + margin` (the model checker already warns `CANCEL_LAG < S_TICKS`); seal-deadline vs `T_exp` tolling cap unpinned | Accepted: mechanical setter invariant added (§6.7), moved into §6.6's checked-constraint discipline; both proof-dependent clocks share the `H_toll_max` budget and toll in lockstep (§10.4) |
+| r11-N2 (medium/low) | Preconf-vs-record accusation↔withdrawal-gate under-specified both ways: serial re-open freezes an honest exit; no accuser ⇒ `L_safety` releases | Accepted: withdrawal gate keyed on a **single per-tenure equivocation-challenge horizon** (not "any open verdict"), sized to the ≥2-week floor ≥ `Λ+margin`; watchtower-dependence of the preconf-vs-record variant stated explicitly; bonded accusation (§13-T.12) recommended (§8) |
+| r11-N3 (medium) | Intra-tenure MEV spike can exceed the value-fixed `L_safety`, over-stating I9's "match" / §8's "nets at most" | Accepted: language qualified — matched at the sizing epoch and re-matched each `T_max`, not instantaneously; spike residual named with two §13 closure levers (§8, §11.2) |
+| r11-N4 (medium) | AC censorship makes the materialized outcome **differ from** (not lag) the information-final outcome; successor hard-preconf exposure under a parent-flip unspecified | Accepted: §3.1 "may lag" → "ordinarily lags… except under AC censorship, may differ"; successor **hard**-upgrade keyed on the **contract-legible** materialization (not the info-final instant), so an orphaned soft preconf is never slashable equivocation; folded into the §11.5 residual (§3.1, §5.2) |
+| r11-N5 (low, precision) | "second distinct *accepted* EBC" oxymoron; §6.7 "empty/forced-only"; "forced content always flows" ambiguous; RESULTS.md stale "v10" | Accepted: one-shot *consumption* (i+ii+iii) vs *equivocation evidence* (i+ii+byte-distinct) disambiguated (§3.1, §8); §6.7 → "empty, items re-queue intact"; I6 "always flows = eventual, not timely, out-of-scope per §12"; RESULTS.md scope line added |
+| r11 refuted (audit) | 5 findings correctly refuted under adversarial verification | block-count-spill-vs-membership, single-epoch-MEV framing, explicit-empty-mode-unconstructibility horn, clock-capacity-vs-requeue packing, `H_toll_max`>retention-falsifies-bound-4 — each shown already-handled by existing text; recorded in `step-1-findings.md` |
+
 ## Appendix C — L2 header inputs and their sources
 
 Backing for §6.6's claim (r3a-F5). Source classes: **P** = parent chain state, **E** =
@@ -1517,7 +1695,7 @@ invalid-EBC, cancellation re-resolution). None may be an L1-inclusion-time obser
 | `difficulty` | zk-gas used (Unzen) | **X** | — |
 | `mixHash` | `keccak(parentDifficulty, number)` | **P** | already deterministic |
 | `baseFee` | EIP-4396 from parent timing | **P** | — |
-| anchor tx params (`anchorBlockNumber/Hash/StateRoot`) | holder-chosen recent L1 block | **C** — **committed inside the EBC**; ≥ `D_anchor` (32) deep, within the freshness ceiling, advancing (§6.6); **no EBC ⇒ D**: the canonical L1 block at slot `slot(T_N) − D_anchor` (§6.8) | content-addressed ⇒ inclusion-independent; reorg-safe by depth; > κ ⇒ exceptional joint rewind; default rule r10 |
+| anchor tx params (`anchorBlockNumber/Hash/StateRoot`) | holder-chosen recent L1 block | **C** — **committed inside the EBC**; ≥ `D_anchor` (32) deep, within the freshness ceiling, advancing (§6.6); **no EBC ⇒ D**: `max(prev non-empty anchor, deepest L1 block whose slot ≤ slot(T_N) − D_anchor)` — total, monotone (§6.8, v12 r11-F3) | content-addressed ⇒ inclusion-independent; reorg-safe by depth; > κ ⇒ exceptional joint rewind; default rule r10, made total/monotone r11 |
 | forced-inclusion prefix | dequeued at proposal inclusion | per-epoch snapshot fixed before `T_N` (**E**), membership = items due in `[T_N, T_N+E)` under `F_delay ≥ E + F_margin` (§6.5, v10) | round-1 F7 fix; membership rule r9-C1 |
 | `stateRoot`, `receiptsRoot`, `logsBloom`, `gasUsed`, blob-gas fields | execution | **X** | — |
 
