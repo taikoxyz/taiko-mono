@@ -2,19 +2,23 @@
 
 **Artifact:** [`model_checker.py`](model_checker.py) — a self-contained Python explicit-state
 model checker for the [redesign proposal](../redesign-proposal.md). The checker models the
-**logical state machine** and was upgraded for the round-9 findings (the "v10 upgrade" below);
-it tracks the proposal through **v12**.
+**logical state machine**. It was upgraded for the round-9 findings (the "v10 upgrade" below)
+and then extended with the round-10 **anarchy proposal phase** (design §9; the "v11 anarchy"
+note below); it tracks the proposal through **v12**.
 
-> **Scope of the v11/v12 additions (r11-N5).** The v11 **default derivation rule** (§6.8), its
-> `EBC`/`DEFAULT` mode pin, the **clock-capacity invariant**, the v12 default-anchor
-> `max()` rule, and the §6.4 bridge terminal-cancellation handshake are **header-determinism and
-> cross-chain properties below this checker's abstraction** (which collapses slot-level timing
-> and headers into phases). They are discharged by the **§13-S.18 / §13-S.16 conformance
-> vectors and proofs**, not by this state-machine checker. What the checker *does* verify about
-> holderless epochs — that an unowned/forced-only/EMPTY epoch always has a constructible
-> proof-free exit and never double-decides, seals out of order, or strands forced work — is
-> unchanged by v11/v12 and re-confirmed by the runs below (the v12 mode-pin correction is a
-> refinement of *which* proof-free seal applies, still modeled as `seal_empty`/forced-only).
+> **Scope of the v11/v12 additions (r11-N5).** The round-10 **anarchy proposal phase** (§9) *is*
+> in the checker (the `anarchy_propose` action, the two-sided `W_ANARCHY` cutoff, and its three
+> invariants — see the v11 revision note). The *other* v11/v12 additions are not: the v11
+> **default derivation rule** (§6.8), its `EBC`/`DEFAULT` mode pin, the **clock-capacity
+> invariant**, the v12 default-anchor `max()` rule, and the §6.4 bridge terminal-cancellation
+> handshake are **header-determinism and cross-chain properties below this checker's
+> abstraction** (which collapses slot-level timing and headers into phases). They are discharged
+> by the **§13-S.18 / §13-S.16 conformance vectors and proofs**, not by this state-machine
+> checker. What the checker *does* verify about holderless epochs — that an
+> unowned/forced-only/EMPTY epoch always has a constructible proof-free exit and never
+> double-decides, seals out of order, or strands forced work — is unchanged by v11/v12 and
+> re-confirmed by the runs below (the v12 mode-pin correction is a refinement of *which*
+> proof-free seal applies, still modeled as `seal_empty`/forced-only).
 
 **Question asked:** *can the new design reach an invalid state?*
 **Answer (within the checked bounds and modelled configurations):** **No.** Across every
@@ -30,8 +34,9 @@ unfair scheduler — see [Liveness scope](#liveness--deadlock-freedom-and-its-sc
 curated set of initial configurations** (see [How it works](#how-it-works)) — it covers every
 adversarial interleaving from those seeds, not every conceivable initial assignment. A mutation
 self-test — now with a per-mutant **validity protocol** (baseline-clean check before every
-mutant, r9-B5) — confirms the invariants are not vacuous: each of **seventeen**
-deliberately-injected design bugs is caught by the check written to catch it.
+mutant, r9-B5) — confirms the invariants are not vacuous: each of **twenty-one**
+deliberately-injected design bugs (seventeen from the v10 checker-validity upgrade, four from
+the v11 anarchy proposal phase) is caught by the check written to catch it.
 
 > Scope honesty up front: this is *bounded* model checking of an *abstraction*. It exhaustively
 > explores every adversarial interleaving up to a finite number of epochs and wall-clock steps,
@@ -137,6 +142,39 @@ deliberately-injected design bugs is caught by the check written to catch it.
 >   hardware; the state cap was raised 4M → 14M. The global lineage
 >   generation counter was replaced by an equivalent bounded per-epoch lineage tag
 >   (`CUR`/`STALE`) so state identity does not grow with cancellation history.
+>
+> **Revision note (v11 — round 10, anarchy proposal phase).** The owner-directed round-10
+> review restored discretionary content to Total Anarchy (design §9), and — **ported onto the
+> v10 checker above** — the model now carries the lane it reverted in v8, this time with
+> **both** sides of the repair: (1) a new **`anarchy_propose`** action — any actor may seal an
+> *unowned* `openEpoch` with content in **one atomic step** (propose ≡ seal ≡ finality; born
+> SEALED, adapted to v10's typed seals so it consumes the forced snapshot into `fconsumed`
+> exactly like `seal_content`; proof-carrying, so impossible during an outage; discretionary, so
+> disabled in recovery-only mode); (2) the **two-sided proposal cutoff**
+> (`min(e + W_ANARCHY, first owned epoch after e)`, collapsed in recovery-only mode): the
+> unowned epoch's proof-free EMPTY resolution is enabled only **at/after** the cutoff, and the
+> proposal only **strictly before** it. Two new path-independent edge invariants
+> (`edge_empty_respects_phase`, `edge_proposal_respects_phase`) enforce the two sides, and a new
+> state invariant (`inv_anarchy_content_sealed`) enforces atomicity (unowned discretionary
+> content never exists unsealed — it is born sealed, so the §6.7 cascade can never touch it).
+> **Four new mutants** prove the additions have teeth: horn 2 (`anarchy_empty_in_phase` — a
+> proof-free empty front-running the phase), the determinacy break
+> (`anarchy_propose_after_close`), horn 1 (`nonatomic_anarchy_propose`), and the owned-successor
+> truncation (`anarchy_ignores_ownership`, run at `W_ANARCHY = 2` so the truncation term binds)
+> → **twenty-one** mutants total. The composition with the r9-D1 decision deadline is
+> consistent for `W_ANARCHY ≤ 2`: the cutoff never exceeds `e+2` (the window-closing tick's
+> auto-resolution clock), so a window-close EMPTY auto-resolve always lands at/after the cutoff
+> and proposals only ever fire at clock `e` or `e+1` (inside the decision window). **`W_ANARCHY
+> = 0` disables the lane and reproduces the pre-anarchy v10 model bit-for-bit** — verified: the
+> `2 × 6, W = 0` run reproduces the v10 default's state count (508,276) exactly (results table).
+> *Honesty note (round-10 finding r10-11, updated at this merge):* the round-9 review
+> dispositioned its checker-validity findings (R9-16 / D1–D7) as "Closed-in-checker" —
+> describing typed seals, an `equivocate` action, and ordered forced items — and on the owner's
+> branch those were **described but not yet committed**. **As of this merge they are genuinely
+> present**: the anarchy phase was ported onto the *committed* v10 checker (typed seals,
+> `equivocate`, ordered forced items, and all of D1–D7), so R9-16 / D1–D7 is now really
+> closed-in-checker, not just in prose. §13-T.10's CI lint remains the guard that keeps the
+> checker and its prose from drifting apart again.
 
 > Earlier revision notes (rounds 5–8, v7–v9) are unchanged in substance and kept in the
 > repository history; their fixes — transition-level `openEpoch` monotonicity, real
@@ -195,7 +233,16 @@ legal action of any actor:
   materialization, and recovery-only mode via the lag cap `K`);
 - **outage_start / outage_end** (v9): toggle the proving outage — while active, proof-carrying
   seals are impossible and only proof-free resolutions advance the chain; the adversary may
-  leave the outage on forever.
+  leave the outage on forever;
+- **anarchy_propose** (v11, design §9): any actor seals an **unowned** `openEpoch` with
+  discretionary content in one atomic proof-carrying step (propose ≡ seal ≡ finality; born
+  SEALED, consuming the forced snapshot exactly as `seal_content` does), strictly before the
+  epoch's **proposal cutoff** (`min(e + W_ANARCHY, first owned epoch after e)`, collapsed while
+  recovery-only mode is active); the unowned epoch's proof-free EMPTY resolution is conversely
+  enabled only **at/after** the cutoff. The action is impossible during an outage (it carries a
+  proof) and in recovery-only mode (it is discretionary content, I5); forced-only CONTENT
+  decisions stay enabled in both phase regimes (a forced-only seal is the degenerate proposal
+  during the phase and the mandated resolution after it — I6 cadence untouched).
 
 Only *legal* (design-permitted) transitions are in the relation; the invariants then verify that
 the reachable set contains no bad state and no bad transition. (Injecting illegal transitions
@@ -246,6 +293,15 @@ Documented so results are interpretable without reading the script:
   maturation by one tick (a coarse image of the design's `S = 4`-epoch deadline exceeding one
   epoch); the results table includes such a run.
 - **`K = 2`** global lag cap (design 8, scaled; recovery-exit `K'` scales to `lag == 0`).
+- **`W_ANARCHY = 1`** (v11 anarchy proposal-phase length, design §9): the unowned-epoch
+  proposal cutoff is `min(e + W_ANARCHY, first owned epoch after e)`, collapsed to the current
+  clock in recovery-only mode. Design `W_a = S = 4` epochs, scaled down like `K`/`CANCEL_LAG`
+  so both sides of the two-sided cutoff are exercised in tiny bounds; the composition with the
+  r9-D1 decision deadline stays consistent for `W_ANARCHY ≤ 2` (the cutoff never exceeds the
+  window-closing tick's auto-resolution clock, `e+2`). **`W_ANARCHY = 0` disables the lane and
+  reproduces the pre-anarchy v10 model bit-for-bit** (checked — results table); the
+  truncation-binding mutant runs use `W_ANARCHY = 2`. Settable via `--w-anarchy N`, a 3rd
+  positional arg, or the `W_ANARCHY` environment variable.
 - **`RESERVE0 = 3·NEPOCHS + 1`** per-tenure admission reserve: worst case is now *three*
   debits on one owned epoch — missed-seal SEAL, CANCEL, and (v10) the L1-direct equivocation
   SAFETY cert — across all epochs a tenure can own. The design splits these across the
@@ -303,6 +359,7 @@ State invariants (at every reachable state):
 | `bond_nonneg` | §4, §8 | a slash never drives a reserve below zero |
 | `no_frame` | §7.2, §8.3 | a certificate only ever names the acting owner of that epoch |
 | `withdraw_gated` | §8.4, I2 | no withdrawn tenure retains an unresolved certificate or unsealed owned epoch |
+| `anarchy_content_sealed` | §9, I5 (v11) | unowned **discretionary** content exists only born-sealed (propose ≡ seal is atomic) — it can never sit in the cancellable value-at-risk tail or lock the chain unproven (round-2 finding 6, horn 1) |
 
 Edge invariants (at every transition):
 
@@ -317,6 +374,8 @@ Edge invariants (at every transition):
 | `edge_typed_seal` (v10) | I1, I7, r9-D2 | a proof-free (empty-typed) closure never closes a CONTENT-decided epoch; a proof-carrying content seal only consumes a CONTENT decision |
 | `edge_no_seal_after_expiry` (v10) | §6.7, r9-F2/B5 | no transition closes an expired CONTENT `openEpoch` as SEALED — seals strictly before `T_exp`, cancellation at/after, never both |
 | `edge_equivocation_settles` (v10) | §8, r9-D4 | an equivocation atomically settles an L1-direct SAFETY certificate against the equivocating tenure and terminates it |
+| `edge_empty_respects_phase` (v11) | §9.1 | an unowned, non-forced epoch resolves EMPTY only **at/after** its proposal cutoff — a proof-free empty inside the phase is round-2 finding 6's empty-front-running horn (horn 2) |
+| `edge_proposal_respects_phase` (v11) | §9.1 | an anarchy proposal (unowned SEQ→SEALED) is valid only for the `openEpoch`, strictly **before** its cutoff, in NORMAL mode, outside an outage — a late proposal would flip a determined outcome; one past an owned successor's start would leave that holder parentless |
 | **liveness / deadlock-freedom** | **G5, I3, r9-B5** | **from every reachable state, full finalization — all epochs closed and all forced work terminal — is still reachable (standard + outage-robust); scope per [Liveness](#liveness--deadlock-freedom-and-its-scope)** |
 | **outage-robust halt-safety** (v9) | **G5, I3, §10.4** | **the goal is reachable even if an active proving outage never lifts** — checked over the sub-relation excluding `outage_end`, so the proof-free floor (empty seals, void closure, cancellation with re-queue and refund) carries the whole burden |
 
@@ -329,28 +388,44 @@ exit code 0 — re-run at the end of the revision and bit-for-bit reproducible:
 
 | Bound (`NEPOCHS × MAXCLOCK`, params) | Reachable states | Goal (all-closed + forced-terminal) states | Safety violations | Halts (std / outage-robust) | Worst depth (std / robust) | Max debit / RESERVE0 | Wall time |
 | --- | ---: | ---: | :---: | :---: | :---: | :---: | ---: |
-| 2 × 5 (mutation-suite bound) | 409,954 | 223,282 | 0 | 0 / 0 | 6 / 7 | 5 / 7 | ~28 s |
-| **2 × 6 (default)** | 508,276 | 282,130 | 0 | 0 / 0 | 6 / 7 | 5 / 7 | ~35 s |
-| 2 × 7, `S_TICKS=2`, `CANCEL_LAG=2` (r9-D5) | 432,782 | 203,348 | 0 | 0 / 0 | 6 / 8 | 5 / 7 | ~29 s |
+| 2 × 5, `W = 1` (mutation-suite bound) | 407,978 | 223,282 | 0 | 0 / 0 | 6 / 7 | 5 / 7 | ~29 s |
+| **2 × 6, `W = 1` (default)** | 506,300 | 282,130 | 0 | 0 / 0 | 6 / 7 | 5 / 7 | ~36 s |
+| 2 × 6, `W = 0` (anarchy lane off — v10-equivalence check) | 508,276 | 282,130 | 0 | 0 / 0 | 6 / 7 | 5 / 7 | ~37 s |
+| 2 × 7, `S_TICKS=2`, `CANCEL_LAG=2`, `W = 1` (r9-D5) | 430,478 | 203,348 | 0 | 0 / 0 | 6 / 8 | 5 / 7 | ~30 s |
 
-**Three-epoch coverage, stated honestly: none completed.** The v10 state grew per epoch
-(ordered forced items, commit one-shots, tolled ages, equivocation branching), and **no
-`NEPOCHS=3` exploration completed within this session's practical limits** (~15 GB RAM,
-~20 min per run): the clean bound the artifact-free floor demands (3×6) was stopped past
-**11.2M discovered states with the frontier still growing** (an earlier attempt hard-failed
-the then-4M state cap), and even the below-floor 3×5 was stopped past **9.6M discovered
-states, likewise still growing**. No partial numbers are reported from either — the checker
-*fails loudly* at its cap and reports nothing from a truncated exploration, and this
-document follows the same rule. `python3 model_checker.py 3 6` (and `3 5`) remain one
-command away on larger hardware; until then, the v10 exhaustive evidence is the
-`NEPOCHS=2` bounds above, whose relation already contains every v10 mechanism — the
-decision window and auto-resolution, the commit one-shot and equivocation
-(certificate + atomic termination), typed seals, the per-epoch expiry with the no-overlap
-cutoff, the cancellation cascade with order-preserving re-queue into a still-SEQ epoch
-*and* the stranded-refund exit, and the outage-robust proof-free march. What two epochs
-cannot exhibit (and three can): cascades that void *multiple* descendants at once, re-queue
-chains longer than one hop, and three-tenure promotion chains — untested in v10 at
-exhaustive depth, a stated gap rather than a footnote.
+The **`W = 0` row exactly reproduces the pre-anarchy v10 model's `2 × 6` counts** (508,276
+states / 282,130 goal / depths 6, 7 / slack 2) — the bit-for-bit determinism check run in the
+direction the v8 revert used: disabling the anarchy lane recovers the previous relation
+precisely, so every v11 delta is attributable to the lane alone. Note the **direction** of that
+delta on *this* (v10) base: turning the lane **on** (`W = 1`) *lowers* the total slightly
+(508,276 → 506,300) rather than raising it, because the two-sided cutoff **gates out** the early
+proof-free EMPTY intermediates of an unowned, non-forced epoch inside its phase, while the
+born-sealed `anarchy_propose` is a shortcut that mostly lands on **already-reachable**
+terminals — the **goal count is identical (282,130)** in both, since the set of fully-final
+configurations is unchanged; only the intermediate exploration differs. (On the owner's round-8
+base — no decision deadline, boolean forced flags — the lane *added* states; the sign flips here
+because v10's decision deadline and typed seals change what the lane prunes versus adds. Either
+way, `W = 0` recovers the base relation exactly, which is the property that matters.)
+
+**Three-epoch coverage, stated honestly: none completed.** The v10/v11 state grows per epoch
+(ordered forced items, commit one-shots, tolled ages, equivocation branching, and now the
+anarchy phase), and **no `NEPOCHS=3` exploration completed within this session's practical
+limits** (~15 GB RAM, ~20 min per run): the clean bound the artifact-free floor demands (3×6)
+was stopped past **11.2M discovered states with the frontier still growing** (an earlier attempt
+hard-failed the then-4M state cap), and even the below-floor 3×5 was stopped past **9.6M
+discovered states, likewise still growing**. No partial numbers are reported from either — the
+checker *fails loudly* at its 14M state cap and reports nothing from a truncated exploration, and
+this document follows the same rule. `python3 model_checker.py 3 6` (and `3 5`) remain one
+command away on larger hardware; until then, the exhaustive evidence is the `NEPOCHS=2` bounds
+above, whose relation already contains every v10 *and* v11 mechanism — the decision window and
+auto-resolution, the commit one-shot and equivocation (certificate + atomic termination), typed
+seals, the per-epoch expiry with the no-overlap cutoff, the cancellation cascade with
+order-preserving re-queue into a still-SEQ epoch *and* the stranded-refund exit, the
+outage-robust proof-free march, **and the anarchy proposal phase with both sides of its
+two-sided cutoff** (exercised from the anarchy-in-every-position and full-anarchy initial
+configurations). What two epochs cannot exhibit (and three can): cascades that void *multiple*
+descendants at once, re-queue chains longer than one hop, and three-tenure promotion chains —
+untested at exhaustive depth, a stated gap rather than a footnote.
 
 The `S_TICKS=2` run scales the expiry with the longer deadline (`CANCEL_LAG=2`, keeping the
 matured-fault-then-late-seal orderings reachable) at that configuration's own artifact-free
@@ -359,8 +434,8 @@ one-tick-later seal-fault maturation — the semantics are exercised, not baked 
 
 **Horizon artifacts below the floor (documented, not counted as results).** Below
 `MAXCLOCK = NEPOCHS·CANCEL_LAG + 3` the outage-robust pass reports halts that are pure
-bound artifacts of the per-epoch tolled expiry — e.g. a 2×4 run (312,348 states, exit ≠ 0
-by design) reports **2,958 outage-robust-only halts, 0 standard halts, and 0 safety
+bound artifacts of the per-epoch tolled expiry — e.g. a 2×4 run (`W = 1`; 310,372 states,
+exit ≠ 0 by design) reports **2,958 outage-robust-only halts, 0 standard halts, and 0 safety
 violations**, every representative being a late-decided forced CONTENT epoch whose own
 `CANCEL_LAG+1` expiry ticks no longer fit the horizon under a permanent outage. The tool prints an explicit warning at such bounds and they
 are not used for liveness conclusions. This is exactly the review's r9-A4 point made
@@ -412,9 +487,11 @@ requires it fully clean — no violation, no halt, no truncation — failing lou
 (a catch at an already-dirty bound would be unattributable); (b) then requires the mutant to
 produce a counterexample attributed to the *expected* invariant (`stop_on_inv` — incidental
 co-firing of other invariants can neither mask nor fake it); (c) the liveness mutant runs at a
-bound whose baseline outage-robust pass is clean. All seventeen run at **2×5** (baseline:
-409,954 states, 0 violations, 0 halts — printed by the harness itself); the whole suite takes
-~60 s:
+bound whose baseline outage-robust pass is clean. All twenty-one run at **2×5** — the twenty
+non-truncation mutants at the default `W_ANARCHY = 1` (baseline: 407,978 states, 0 violations,
+0 halts) and `anarchy_ignores_ownership` at `W_ANARCHY = 2` (baseline: 405,074 states, 0
+violations, 0 halts) so its owned-successor truncation term binds; both baselines are printed
+by the harness itself. The whole suite takes a few minutes:
 
 | Injected bug | Should trip | Result |
 | --- | --- | --- |
@@ -434,7 +511,11 @@ bound whose baseline outage-robust pass is clean. All seventeen run at **2×5** 
 | an equivocation settles no SAFETY certificate (r9-D4) | `edge_equivocation_settles` (v10) | **CAUGHT** |
 | the seal stays enabled at/after `T_exp` (the §6.7 overlap bug, r9-B5) | `edge_no_seal_after_expiry` (v10) | **CAUGHT** |
 | cascade re-queue re-orders the forced queue (r9-D3) | `forced_order` (v10) | **CAUGHT** |
-| a proving outage wrongly blocks proof-free seals too | outage-robust halt analysis (v9) | **CAUGHT** (49,136 permanent-halt states) |
+| a proof-free empty resolves an unowned epoch inside its proposal phase — round-2 finding 6, horn 2 (v11) | `edge_empty_respects_phase` | **CAUGHT** |
+| an anarchy proposal is accepted at/after the cutoff, flipping a determined outcome (v11, r10-1) | `edge_proposal_respects_phase` | **CAUGHT** |
+| an anarchy proposal locks decided-but-unsealed content — round-2 finding 6, horn 1 (v11) | `inv_anarchy_content_sealed` | **CAUGHT** |
+| the cutoff ignores the owned-successor truncation (v11, r10-3; run at `W_ANARCHY = 2` so the term binds) | `edge_proposal_respects_phase` | **CAUGHT** |
+| a proving outage wrongly blocks proof-free seals too | outage-robust halt analysis (v9) | **CAUGHT** (48,148 permanent-halt states) |
 
 `# mutation self-test: ALL BUGS CAUGHT (invariants have teeth)` — with two documented
 incidental co-firings (`double_decision` also trips `content_current_gen`; `reopen_sealed`
@@ -465,6 +546,14 @@ invariant under the `stop_on_inv` protocol.
   model of the ≥2-week floor outlasting every challenge window (§8, r9-B3).
 - **Admission sizing is a checked bound** (r9-D7): the observed worst-case per-tenure debit is
   printed against `RESERVE0` every run.
+- **The v11 anarchy lane holds under the same attack surface**: with the two-sided cutoff in
+  the relation, no interleaving of proposals, empties, forced decisions, outages, mode switches,
+  promotions-to-anarchy, and cancellations produces an empty inside a protected phase, a
+  proposal past a cutoff or an owned successor's start, unsealed unowned discretionary content,
+  or any regression of the prior v10 invariants — and both liveness passes still hold, because
+  the post-cutoff proof-free empty is exactly the outage-robust exit the v9 pass already relied
+  on. `W_ANARCHY = 0` reproduces the pre-anarchy v10 state space bit-for-bit (the determinism
+  check, re-run in the lane-off direction).
 
 ## What is and isn't modelled
 
@@ -477,8 +566,10 @@ one-shot debiting; the state-gated withdrawal (including the open-acceptance-win
 ordered forced snapshots with order-preserving cascade re-queue, consumption, and terminal
 refund (I6, §6.5's nullifier, §6.4's refund); recovery-only mode via the global lag cap; the
 per-epoch mechanical expiry `T_exp` with the no-overlap seal cutoff and the §6.7 cascade
-(voided descendants, in-order closure, causing-tenure charge); and the adversarial proving
-outage with outage-robust liveness.
+(voided descendants, in-order closure, causing-tenure charge); the adversarial proving outage
+with outage-robust liveness; and (v11) the **anarchy proposal phase** — the atomic
+propose ≡ seal action (born sealed, adapted to v10's typed seals), the two-sided `W_ANARCHY`
+cutoff with its ownership truncation, and its recovery-only / outage interactions.
 
 **Abstracted away (deliberately):** exact slot counts (`Γc`, `κ`, `R`, the 32-slot epoch, the
 `Γc+κ` last-look window), the 10-day/18-day `H_cancel`/blob-retention magnitudes (collapsed to
@@ -503,12 +594,13 @@ conclusions. The v9 artifact — forced flags stranded on cancelled epochs when 
 target exists — is **gone**: that path is now the modeled refund and the goal predicate
 accounts for it (r9-B5). Neither remaining artifact affects any safety result.
 
-**Bounds are finite — and v10's completed bounds are two epochs.** A clean result at these
+**Bounds are finite — and the completed bounds are two epochs.** A clean result at these
 bounds does not prove correctness at all depths, and this revision's exhaustive runs stop at
 `NEPOCHS=2` (see [Results](#results) for exactly what that covers and what it cannot). The
 value of bounded model checking is that the overwhelming majority of state-machine bugs
-manifest at very small bounds — every v10 mechanism, including the cascade/re-queue/refund
-lanes and equivocation, is exercised at two epochs — but multi-descendant cascades and
+manifest at very small bounds — every v10 *and* v11 mechanism, including the cascade/re-queue/
+refund lanes, equivocation, and the anarchy proposal phase with both sides of its cutoff, is
+exercised at two epochs — but multi-descendant cascades and
 longer re-queue/promotion chains first exist at three, so completing `3 6` on larger
 hardware (or after a compact bit-packed state encoding, a standing reviewer suggestion) is
 the stated next step, not an optional nicety.
@@ -517,13 +609,16 @@ the stated next step, not an optional nicety.
 
 ```bash
 cd packages/protocol/docs/preconfirmation/simulation
-python3 model_checker.py                      # default 2×6 exhaustive run (~35 s)
+python3 model_checker.py                      # default 2×6 exhaustive run (W_ANARCHY=1, ~36 s)
 python3 model_checker.py 3 6                  # clean NEPOCHS=3 bound — needs a large
                                               #   memory/time budget (>11M states; did
                                               #   not complete on a 15 GB / ~20 min
                                               #   budget — fails loudly, never silently)
+W_ANARCHY=0 python3 model_checker.py          # anarchy lane off — reproduces the v10 model
+python3 model_checker.py 2 6 0                #   (same, via 3rd positional arg)
+python3 model_checker.py 2 6 2                # W_ANARCHY=2: ownership truncation binds
 python3 model_checker.py 2 7 --sticks 2 --cancel-lag 2   # S_TICKS=2 semantics run
-python3 model_checker.py --mutate             # validity-protocol mutation self-test
+python3 model_checker.py --mutate             # validity-protocol mutation self-test (21 mutants)
 ```
 
 No dependencies beyond the Python 3 standard library. Exit code is non-zero on any safety

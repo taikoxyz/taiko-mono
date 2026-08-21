@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
 Exhaustive explicit-state model checker for the Taiko based-preconfirmation
-redesign (redesign-proposal.md, v10).
+redesign (redesign-proposal.md, v10 D1-D7 checker-validity upgrade + v11
+anarchy proposal phase).
 
 WHAT THIS IS
 ------------
-An abstract state machine of the v10 protocol and a bounded, exhaustive
+An abstract state machine of the v10/v11 protocol and a bounded, exhaustive
 breadth-first exploration of *every* adversarial interleaving of actions.
 At every reachable state it checks a set of safety invariants (derived from
 the doc's I1-I9, the immutability corollary, and the no-frame / bounded-bond
 properties), and at every *transition* it checks a set of edge invariants
 (monotone openEpoch, monotone evidence, debit conservation, read-time fault
 materialization, decision deadline, typed seals, expiry cutoff, equivocation
-settlement). After the state space is built it runs a liveness analysis
+settlement, anarchy-phase empty/proposal cutoffs). After the state space is
+built it runs a liveness analysis
 to find any reachable state from which the chain can never make progress
 (a permanent halt -> a violation of the G5 / I3 "always advanceable" claim).
 Halts fail the exit code just like safety violations do.
@@ -126,11 +128,32 @@ Design rules that need care in the abstraction:
   (sticky evidence) and the new `edge_equivocation_settles` (certificate +
   termination are atomic) check the three design claims.
 
-Anarchy (unowned) epochs carry no discretionary content (design section 9;
-the v7 atomic-anarchy action was removed again in v8 after the regression
-audit found it re-opened round-2 finding 6's empty-front-running horn):
-they resolve EMPTY or forced-only CONTENT like any unowned epoch, with no
-commit artifact (so no one-shot and no equivocation surface).
+* v11 anarchy proposal phase (design section 9, round 10): unowned epochs
+  carry discretionary content again, via a TWO-SIDED mechanical cutoff that
+  closes BOTH horns of round-2 finding 6 (the v7 one-sided restoration was
+  reverted in v8 for re-opening the empty-front-running horn). `anarchy_propose`
+  lets ANY actor seal an unowned openEpoch with content in ONE atomic step
+  (propose == seal == finality; horn 1 -- unproven content never locks state,
+  and unowned discretionary content never exists unsealed, checked by
+  `inv_anarchy_content_sealed`). It is proof-carrying (impossible during a
+  proving outage) and discretionary (disabled in recovery-only mode, I5). The
+  proposal is valid STRICTLY BEFORE the epoch's cutoff (`_anarchy_cutoff`:
+  min(e + W_ANARCHY, first owned epoch after e), collapsed while recovery-only
+  mode is active); the unowned epoch's proof-free EMPTY resolution is valid
+  AT/AFTER the cutoff (horn 2 -- a cheap empty never front-runs the protected
+  proposal window). The two sides are path-independent edge invariants
+  (`edge_empty_respects_phase`, `edge_proposal_respects_phase`), and the
+  ownership truncation term models design rule 9.1-2/9.1-5 (an owned successor
+  must never sequence on an undetermined parent). Forced-only CONTENT for
+  unowned epochs stays enabled in BOTH regimes (I6 cadence untouched). Composed
+  onto the r9-D1 decision deadline: because the anarchy proposal is born SEALED
+  (adapted to v10's typed seals -- it consumes the forced snapshot into
+  fconsumed and clears the closed epoch's per-epoch bookkeeping, exactly like
+  seal_content), and because for W_ANARCHY <= 2 the cutoff never exceeds e+2
+  (the window-closing tick's auto-resolution clock), a window-close EMPTY
+  auto-resolve always lands at/after the cutoff and proposals only ever fire at
+  clock e or e+1 (inside the decision window). W_ANARCHY = 0 disables the lane
+  and recovers the pre-anarchy v10 model BIT-FOR-BIT (a checked property).
 
 * v9 proving-outage mode (round-7 finding 3): the adversary may start and
   end a PROVING OUTAGE at any time, any number of times -- and may simply
@@ -158,14 +181,17 @@ The adversary is *maximally nondeterministic*: at every step it may pick any
 enabled action (honest or Byzantine) for any actor. Exhaustive BFS over this
 choice therefore covers all behaviours up to the epoch/clock bound.
 
-Run:  python3 model_checker.py                # default bound (2x6, completes ~35 s)
+Run:  python3 model_checker.py                # default bound (2x6, W_ANARCHY=1, ~40 s)
       python3 model_checker.py 3 6            # clean NEPOCHS=3 bound -- needs a large
                                               # memory/time budget (>11M states; fails
                                               # loudly at the cap, never silently)
+      W_ANARCHY=0 python3 model_checker.py    # disable the anarchy lane -> pre-anarchy v10
+      python3 model_checker.py 2 6 0          # same, via 3rd positional arg
+      python3 model_checker.py --w-anarchy 0  # same, via flag
       python3 model_checker.py 2 7 --sticks 2 --cancel-lag 2
                                               # seal deadline = 2 tolled ticks, expiry
                                               # scaled with it
-      python3 model_checker.py --mutate       # invariant self-test
+      python3 model_checker.py --mutate       # invariant self-test (21 mutants)
 
 Choose MAXCLOCK >= NEPOCHS-1 (deciding epoch e requires clock >= e) and, for
 liveness conclusions, MAXCLOCK >= NEPOCHS*CANCEL_LAG + 3: per-epoch
@@ -233,6 +259,22 @@ S_TICKS = 1        # tolled ticks an owned, DECIDED openEpoch may survive unseal
 MUTANT = None      # set to a mutant name to deliberately break the design (self-test)
 NTENURES = 3       # distinct tenure identities (owners) available
 L_LIVE = 1         # liveness slash (abstract units)
+W_ANARCHY = 1      # v11 anarchy proposal-phase length in model ticks (design W_a, section 9;
+                   # design value = S = 4 epochs, scaled down like K/CANCEL_LAG so both sides
+                   # of the two-sided cutoff are exercised within tiny bounds). An UNOWNED
+                   # epoch e's proposal cutoff is min(e + W_ANARCHY, first owned epoch after e),
+                   # collapsed to the current clock while recovery-only mode is active (design
+                   # 9.1 I5): discretionary `anarchy_propose` (atomic content seal) is valid
+                   # STRICTLY BEFORE the cutoff, the proof-free EMPTY resolution AT/AFTER it.
+                   # The composition with the v10 decision deadline (r9-D1) is consistent for
+                   # W_ANARCHY <= 2: the cutoff never exceeds e+2 (the window-closing tick's
+                   # auto-resolution clock), so a window-close EMPTY auto-resolve always lands
+                   # AT/AFTER the cutoff, and proposals only ever fire at clock e or e+1 (inside
+                   # the decision window). W_ANARCHY = 0 disables the lane entirely (cutoff == e,
+                   # so `anarchy_propose` is never enabled and EMPTY is never phase-gated) and
+                   # reproduces the pre-anarchy v10 model BIT-FOR-BIT (a checked property; see
+                   # RESULTS.md / the `W_ANARCHY=0` run). Settable via `--w-anarchy N`, a 3rd
+                   # positional arg, or the `W_ANARCHY` environment variable.
 # Per-tenure reserve at admission. The design (section 7.3) SIZES the recovery tranche to a
 # tenure's worst-case obligations (the solvency invariant), so a correctly-admitted tenure's
 # reserve is never driven negative by its own debits. The abstract worst case is now THREE
@@ -415,6 +457,29 @@ def _effectively_open(status, e):
     return True
 
 
+def _anarchy_cutoff(s: State, e: int) -> int:
+    """v11 proposal cutoff for UNOWNED epoch e (design 9.1: T_prop = min(D + W_a*E, T_F),
+    with recovery-only mode collapsing pending phases -- I5). Model form: the epoch's
+    schedule index anchors the decision (deciding e requires clock >= e), so the cutoff is
+    min(e + W_ANARCHY, index of the first owned epoch after e) -- the second term is design
+    rule 9.1-2/9.1-5 (an owned successor must never sequence on an undetermined parent).
+    While the mode is not NORMAL the phase collapses to the current clock (resolutions
+    enabled now, proposals not). Used identically by the enabling conditions and by the
+    phase edge invariants, always on the transition's PRE-state, so the checks are
+    path-independent and promotion-driven owner changes can never produce a false positive.
+    W_ANARCHY = 0 yields cutoff == e (proposals, which need clock < cutoff <= e while a
+    decision needs clock >= e, are then never enabled; EMPTY, which needs clock >= cutoff ==
+    e, is never gated) -- the pre-anarchy model, recovered bit-for-bit."""
+    if s.mode != NORMAL:
+        return s.clock
+    cut = e + W_ANARCHY
+    for f in range(e + 1, NEPOCHS):
+        if s.owner[f] is not None:
+            cut = min(cut, f)
+            break
+    return cut
+
+
 def lag(s: State) -> int:
     return max(0, s.clock - s.openEpoch)
 
@@ -527,9 +592,19 @@ def actions(s: State):
         # Forced-only content is allowed even in recovery-only mode (it is not discretionary).
         options = []
         if s.fqueue[e]:
-            options.append(CONTENT)  # forced-only content
+            options.append(CONTENT)  # forced-only content (valid in both phase regimes -- v11)
         else:
-            options.append(EMPTY)
+            # v11 (design 9.1): an UNOWNED epoch's proof-free EMPTY resolution is valid only
+            # AT/AFTER its proposal cutoff -- the empty side of the two-sided rule that closes
+            # round-2 finding 6's empty-front-running horn (horn 2). Owned epochs are ungated
+            # (an explicit-empty EBC is the holder's own choice, phase-free). W_ANARCHY=0
+            # collapses the cutoff to e, so empty_ok is always true (deciding needs clock>=e)
+            # and this branch reduces to the pre-anarchy `options.append(EMPTY)` exactly.
+            empty_ok = (s.owner[e] is not None) or (s.clock >= _anarchy_cutoff(s, e))
+            if MUTANT == "anarchy_empty_in_phase":
+                empty_ok = True   # BUG: proof-free empty valid inside the phase (horn 2)
+            if empty_ok:
+                options.append(EMPTY)
             if content_allowed and s.owner[e] is not None:
                 options.append(CONTENT)  # discretionary content, only if owned & normal mode
         if MUTANT == "empty_despite_forced" and s.fqueue[e] and EMPTY not in options:
@@ -575,6 +650,55 @@ def actions(s: State):
             ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided),
                          settled_certs=s.settled_certs | {cert})
             out.append((f"miss_commit(e{e},T{owner})", ns))
+
+    # ---- Anarchy proposal (v11, design section 9, round 10): ANY actor may seal an UNOWNED
+    #      openEpoch with discretionary content in ONE atomic proof-carrying step
+    #      (propose == seal == finality; round-2 finding 6 horn 1 -- unproven content never
+    #      locks state, and unowned discretionary content never exists unsealed, checked by
+    #      inv_anarchy_content_sealed). Valid STRICTLY inside the epoch's proposal phase:
+    #      clock in [oe, cutoff) with cutoff = _anarchy_cutoff (the two-sided min that also
+    #      truncates at an owned successor's start), NORMAL mode only (discretionary content,
+    #      I5), and never during a proving outage (the proposal carries a proof). There is no
+    #      owner, no bond, no duty and no certificate in this lane, so no commit one-shot is
+    #      consumed (committed[oe] stays None -> no equivocation surface). A forced snapshot
+    #      does NOT block it: the proposal content includes the forced prefix by construction
+    #      (I6), so its atomic born-sealed closure consumes those forced items exactly as
+    #      seal_content does (nullifier -> fconsumed). The composition with the r9-D1 decision
+    #      deadline is consistent for W_ANARCHY <= 2 (cutoff <= oe+2, so a proposal only ever
+    #      fires at clock oe or oe+1, inside the decision window). W_ANARCHY=0 makes cutoff==oe
+    #      (proposals need clock < cutoff <= oe while the openEpoch needs clock >= oe), so this
+    #      action is never enabled -- the pre-anarchy model, recovered exactly. ----
+    if oe < n and s.status[oe] == SEQ and s.owner[oe] is None and oe <= s.clock \
+            and not s.outage and s.mode == NORMAL:
+        in_phase = s.clock < _anarchy_cutoff(s, oe)
+        if MUTANT == "anarchy_propose_after_close":
+            in_phase = True   # BUG: proposal accepted at/after the cutoff (flips a determined outcome)
+        if MUTANT == "anarchy_ignores_ownership":
+            in_phase = s.clock < oe + W_ANARCHY   # BUG: cutoff ignores the owned-successor truncation
+        if in_phase:
+            if MUTANT == "nonatomic_anarchy_propose":
+                # BUG (horn 1): the proposal locks decided-but-UNSEALED unowned content --
+                # sittable in the cancellable value-at-risk tail, unproven. Left CONTENT, not
+                # born sealed, so inv_anarchy_content_sealed fires.
+                new_status = list(s.status); new_status[oe] = CONTENT
+                new_decided = list(s.decided_as); new_decided[oe] = CONTENT
+                new_cgen = list(s.cgen); new_cgen[oe] = CUR   # unsealed content, current lineage
+                ns = replace(s, status=tuple(new_status), decided_as=tuple(new_decided),
+                             cgen=tuple(new_cgen))
+            else:
+                # atomic: born SEALED (propose == seal). Consumes the forced snapshot items and
+                # clears the closed epoch's dead per-epoch bookkeeping (openAge/cgen/decided).
+                new_status = list(s.status); new_status[oe] = SEALED
+                new_fq = list(s.fqueue); items = new_fq[oe]; new_fq[oe] = ()
+                new_age = list(s.openAge); new_age[oe] = 0
+                new_cgen = list(s.cgen); new_cgen[oe] = None   # closed epoch's tag is dead
+                new_dec = list(s.decided_as); new_dec[oe] = None  # closed record is dead
+                ns = replace(s, status=tuple(new_status), fqueue=tuple(new_fq),
+                             fconsumed=s.fconsumed | set(items), openAge=tuple(new_age),
+                             cgen=tuple(new_cgen), decided_as=tuple(new_dec))
+                ns = replace(ns, openEpoch=recompute_open(ns.status))
+            ns = _enter_modes(ns)
+            out.append((f"anarchy_propose(e{oe}{'/forced' if s.fqueue[oe] else ''})", ns))
 
     # ---- Equivocation (v10, r9-D4; design 3.1/5.1/8 variant (a)): a SECOND DISTINCT
     #      accepted commit artifact by the tenure that already consumed the (tenure,
@@ -1024,10 +1148,24 @@ def inv_withdraw_gated(s: State):
     return None
 
 
+def inv_anarchy_content_sealed(s: State):
+    # v11 (design section 9, r10-5/I5): unowned DISCRETIONARY content exists only born-sealed
+    # (propose == seal is one atomic step), so it can never sit in the cancellable
+    # value-at-risk tail or lock the chain unproven (round-2 finding 6, horn 1). An unowned
+    # CONTENT epoch is legitimate only in its forced-only form (the recovery lane's job), for
+    # which the forced snapshot -- fqueue[e] -- is non-empty; a non-forced unowned CONTENT
+    # epoch means a proposal was allowed to land decided-but-unsealed.
+    for e in range(NEPOCHS):
+        if s.owner[e] is None and s.status[e] == CONTENT and not s.fqueue[e]:
+            return (f"epoch {e} carries unowned discretionary CONTENT unsealed "
+                    f"(anarchy proposal was not atomic)")
+    return None
+
+
 SAFETY_INVARIANTS_STATE = [
     inv_single_decision, inv_empty_not_forced, inv_bond_nonneg,
     inv_content_current_gen, inv_no_frame, inv_withdraw_gated, inv_closed_is_prefix,
-    inv_open_monotone, inv_forced_order,
+    inv_open_monotone, inv_forced_order, inv_anarchy_content_sealed,
 ]
 
 
@@ -1175,10 +1313,51 @@ def edge_equivocation_settles(s: State, ns: State, label: str):
     return None
 
 
+def edge_empty_respects_phase(s: State, ns: State, label: str):
+    # v11 two-sided cutoff, EMPTY side (design 9.1; round-2 finding 6 horn 2, r10-1/2): an
+    # UNOWNED, non-forced epoch may resolve EMPTY only AT/AFTER its proposal cutoff. A
+    # proof-free empty landing inside the phase is exactly the empty-front-running horn that
+    # killed the v7 restoration. Identified structurally (unowned non-forced SEQ -> EMPTY;
+    # miss_commit requires an owner, so it can never trip this). The cutoff is read on the
+    # PRE-state (path-independent); the RESOLUTION clock is the POST-state clock -- for a
+    # `decide` the two coincide, and for the r9-D1 window-closing tick (which auto-resolves an
+    # undecided unowned epoch to EMPTY as the clock advances) the resolution genuinely happens
+    # at the new clock, which for W_ANARCHY <= 2 is always AT/AFTER the cutoff (cutoff <= e+2,
+    # the auto-resolution clock), so the tick never false-trips this check.
+    for e in range(NEPOCHS):
+        if s.status[e] == SEQ and ns.status[e] == EMPTY and s.owner[e] is None \
+                and not s.fqueue[e]:
+            cut = _anarchy_cutoff(s, e)
+            if ns.clock < cut:
+                return (f"epoch {e} resolved EMPTY at clock {ns.clock}, inside its anarchy "
+                        f"proposal phase (cutoff {cut}) on {label}")
+    return None
+
+
+def edge_proposal_respects_phase(s: State, ns: State, label: str):
+    # v11 two-sided cutoff, PROPOSAL side (design 9.1, r10-1/3): an anarchy proposal
+    # (structurally: unowned SEQ -> SEALED; no other action in this model produces that step)
+    # is valid only for the openEpoch, at/after its boundary, STRICTLY before its cutoff, in
+    # NORMAL mode, outside a proving outage. A proposal at/after the cutoff would flip an
+    # already-determined outcome; one past an owned successor's start (the truncation term of
+    # _anarchy_cutoff) would leave that holder sequencing on an undetermined parent. Read on
+    # the PRE-state; a proposal does not advance the clock, so s.clock is the proposal clock.
+    for e in range(NEPOCHS):
+        if s.status[e] == SEQ and ns.status[e] == SEALED and s.owner[e] is None:
+            cut = _anarchy_cutoff(s, e)
+            if e != s.openEpoch or s.clock < e or s.clock >= cut \
+                    or s.mode != NORMAL or s.outage:
+                return (f"anarchy proposal for epoch {e} outside its phase on {label} "
+                        f"(clock {s.clock}, cutoff {cut}, openEpoch {s.openEpoch}, "
+                        f"mode {s.mode}, outage {s.outage})")
+    return None
+
+
 EDGE_INVARIANTS = [
     edge_open_monotone, edge_evidence_monotone, edge_debit_conservation,
     edge_maturity_materialized, edge_seal_immutable, edge_decision_deadline,
     edge_typed_seal, edge_no_seal_after_expiry, edge_equivocation_settles,
+    edge_empty_respects_phase, edge_proposal_respects_phase,
 ]
 
 
@@ -1477,6 +1656,13 @@ MUTANTS = {
                                                           # (r9-B5; the 6.7 overlap bug)
     "requeue_reorders":     "inv_forced_order",           # cascade re-queue breaks original
                                                           # queue order (r9-D3; r4b-M8)
+    # v11 anarchy proposal phase (design section 9, round 10):
+    "anarchy_empty_in_phase":      "edge_empty_respects_phase",    # horn 2: empty front-runs the phase
+    "anarchy_propose_after_close": "edge_proposal_respects_phase", # late proposal flips a determined outcome
+    "nonatomic_anarchy_propose":   "inv_anarchy_content_sealed",   # horn 1: proposal locks unsealed content
+    "anarchy_ignores_ownership":   "edge_proposal_respects_phase", # proposal past an owned successor's start
+                                                                   # (needs W_ANARCHY=2 so the truncation
+                                                                   # term binds; self-test sets it)
     # Liveness mutant -- the bug manifests as a permanent halt (a reachable state from which
     # NO exit path exists), which the deadlock-freedom analysis must catch.
     "outage_blocks_empty":  "LIVENESS_HALT",              # a permanent outage becomes a halt
@@ -1503,24 +1689,38 @@ def run_mutation_tests():
     refuse them). Every mutant's counterexample is reachable at 2x5, including
     `requeue_reorders` (cancel e0 carrying item 0 into a still-SEQ e1 holding its own
     item 1: the buggy back-placement yields the out-of-order queue (1, 0)) and the
-    liveness mutant (an EMPTY epoch plus a never-lifting outage)."""
-    global MUTANT, NEPOCHS, MAXCLOCK, RESERVE0
+    liveness mutant (an EMPTY epoch plus a never-lifting outage).
+
+    v11 anarchy mutants: `anarchy_empty_in_phase`, `anarchy_propose_after_close` and
+    `nonatomic_anarchy_propose` run at the merged default W_ANARCHY=1; `anarchy_ignores_
+    ownership` runs at W_ANARCHY=2 so the min(e+W, first-owned) truncation term actually
+    binds (an owned epoch at e+1 undercuts e+2). Baseline cleanliness is W_ANARCHY-dependent
+    (the phase reshapes the unowned-epoch resolutions), so the baseline-clean check and its
+    cache are keyed by (bound, W_ANARCHY)."""
+    global MUTANT, NEPOCHS, MAXCLOCK, RESERVE0, W_ANARCHY
     print("# MUTATION SELF-TEST (each injected bug MUST be caught by the named invariant)")
     print("# validity protocol (r9-B5): per-mutant baseline-clean check, then attributed catch")
     MUT_BOUND = (2, 5)
+
+    def mut_w(mut):
+        # W_ANARCHY the mutant runs at (v11): the ownership-truncation mutant needs 2, all
+        # others the merged default 1.
+        return 2 if mut == "anarchy_ignores_ownership" else 1
+
     baseline_cache = {}
 
-    def baseline_clean(bound):
-        if bound in baseline_cache:
-            return baseline_cache[bound]
-        global MUTANT, NEPOCHS, MAXCLOCK, RESERVE0
+    def baseline_clean(bound, w):
+        if (bound, w) in baseline_cache:
+            return baseline_cache[(bound, w)]
+        global MUTANT, NEPOCHS, MAXCLOCK, RESERVE0, W_ANARCHY
         MUTANT = None
         NEPOCHS, MAXCLOCK = bound
+        W_ANARCHY = w
         RESERVE0 = 3 * NEPOCHS + 1
         r = explore()
         clean = (not r.violations) and (not r.halts) and (not r.truncated)
-        baseline_cache[bound] = clean
-        print(f"  baseline @ {bound[0]}x{bound[1]}: "
+        baseline_cache[(bound, w)] = clean
+        print(f"  baseline @ {bound[0]}x{bound[1]} W_ANARCHY={w}: "
               f"{'CLEAN' if clean else 'NOT CLEAN'} ({len(r.states)} states, "
               f"{len(r.violations)} violations, {len(r.halts)} halts"
               f"{', TRUNCATED' if r.truncated else ''})")
@@ -1529,12 +1729,14 @@ def run_mutation_tests():
     all_caught = True
     for mut, expected_inv in MUTANTS.items():
         bound = MUT_BOUND
-        if not baseline_clean(bound):
-            print(f"  mutant '{mut}' @ {bound[0]}x{bound[1]}: HARNESS ERROR -- baseline "
-                  f"not clean at this bound; a catch here would be unattributable. FAIL.")
+        w = mut_w(mut)
+        if not baseline_clean(bound, w):
+            print(f"  mutant '{mut}' @ {bound[0]}x{bound[1]} W_ANARCHY={w}: HARNESS ERROR -- "
+                  f"baseline not clean at this bound; a catch here would be unattributable. FAIL.")
             all_caught = False
             continue
         NEPOCHS, MAXCLOCK = bound
+        W_ANARCHY = w
         RESERVE0 = 3 * NEPOCHS + 1
         MUTANT = mut
         if expected_inv == "LIVENESS_HALT":
@@ -1565,16 +1767,24 @@ def run_mutation_tests():
         print(f"  mutant '{mut}' @ {bound[0]}x{bound[1]} [baseline clean] -> expect "
               f"{expected_inv}: {status} (invariants tripped: {sorted(caught) or 'none'})")
     MUTANT = None
+    W_ANARCHY = 1
     print(f"# mutation self-test: "
           f"{'ALL BUGS CAUGHT (invariants have teeth)' if all_caught else 'SOME MISSED / HARNESS ERROR'}")
     return all_caught
 
 
 def main():
-    global NEPOCHS, MAXCLOCK, RESERVE0, S_TICKS, CANCEL_LAG
+    global NEPOCHS, MAXCLOCK, RESERVE0, S_TICKS, CANCEL_LAG, W_ANARCHY
+    import os
     args = sys.argv[1:]
     if args and args[0] == "--mutate":
         return 0 if run_mutation_tests() else 1
+    # v11: W_ANARCHY may be set by env (e.g. `W_ANARCHY=0 python3 model_checker.py`), then
+    # overridden by `--w-anarchy N` or a 3rd positional arg below. 0 disables the anarchy
+    # lane and reproduces the pre-anarchy v10 model bit-for-bit.
+    env_w = os.environ.get("W_ANARCHY")
+    if env_w is not None:
+        W_ANARCHY = int(env_w)
     pos = []
     i = 0
     while i < len(args):
@@ -1588,14 +1798,21 @@ def main():
             CANCEL_LAG = int(args[i + 1])
             i += 2
             continue
+        if args[i] == "--w-anarchy":
+            W_ANARCHY = int(args[i + 1])   # v11 anarchy proposal-phase length (0 disables)
+            i += 2
+            continue
         pos.append(int(args[i]))
         i += 1
     if len(pos) >= 2:
         NEPOCHS, MAXCLOCK = pos[0], pos[1]
         RESERVE0 = 3 * NEPOCHS + 1   # re-size collateral to the new epoch count (round-8 W3)
-    print(f"# v10 protocol state-machine model check")
+    if len(pos) >= 3:
+        W_ANARCHY = pos[2]   # 3rd positional arg mirrors the owner's CLI (v11)
+    print(f"# v10+v11 protocol state-machine model check "
+          f"(D1-D7 checker-validity upgrade + anarchy proposal phase)")
     print(f"# params: NEPOCHS={NEPOCHS} MAXCLOCK={MAXCLOCK} K={K} CANCEL_LAG={CANCEL_LAG} "
-          f"S_TICKS={S_TICKS} NTENURES={NTENURES} RESERVE0={RESERVE0}")
+          f"S_TICKS={S_TICKS} W_ANARCHY={W_ANARCHY} NTENURES={NTENURES} RESERVE0={RESERVE0}")
     if CANCEL_LAG < S_TICKS:
         print(f"# WARNING: CANCEL_LAG ({CANCEL_LAG}) < S_TICKS ({S_TICKS}): the per-epoch "
               f"expiry disables seals before the seal deadline can even mature, so the "
