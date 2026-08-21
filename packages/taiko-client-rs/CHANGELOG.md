@@ -1,5 +1,38 @@
 # Changelog
 
+## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.2.0...taiko-alethia-client-rs-v2.3.0) (2026-08-21)
+
+
+### Features
+
+* **taiko-client-rs:** harden event scanner against transient L1 stalls ([#21969](https://github.com/taikoxyz/taiko-mono/issues/21969)) ([9ef35dd](https://github.com/taikoxyz/taiko-mono/commit/9ef35dd36a7de9092ac5ceeedac092145456f20f))
+* **taiko-client-rs:** optimize discv5 discovery + 20–30 peer management for the whitelist driver ([#21971](https://github.com/taikoxyz/taiko-mono/issues/21971)) ([c1d4b3c](https://github.com/taikoxyz/taiko-mono/commit/c1d4b3cf909ecb4b5d721048172aab0188392ebf))
+
+
+### Bug Fixes
+
+* **taiko-client-rs:** extend preconfirmation timeout ([#21992](https://github.com/taikoxyz/taiko-mono/issues/21992)) ([ce7c2e8](https://github.com/taikoxyz/taiko-mono/commit/ce7c2e89580fcb181a3a76a4ca97d759eae337c7))
+* **taiko-client-rs:** support SP1 fixed-k signer ([#21990](https://github.com/taikoxyz/taiko-mono/issues/21990)) ([4dbf352](https://github.com/taikoxyz/taiko-mono/commit/4dbf3522c5b2e2daa3e5de8045cc4a6b60aae118))
+
+
+### Chores
+
+* **clients:** bump execution client dependencies ([#21995](https://github.com/taikoxyz/taiko-mono/issues/21995)) ([d40a645](https://github.com/taikoxyz/taiko-mono/commit/d40a6455c4ad6ade7121905030ccd8b7119ced67))
+* **taiko-client-rs:** bump execution client dependencies ([#22028](https://github.com/taikoxyz/taiko-mono/issues/22028)) ([792a268](https://github.com/taikoxyz/taiko-mono/commit/792a2684b8b4b0f66b64dd79ca69ce5ac86db587))
+* **taiko-client-rs:** expose FixedKSigner without the net feature ([#21981](https://github.com/taikoxyz/taiko-mono/issues/21981)) ([fbe6716](https://github.com/taikoxyz/taiko-mono/commit/fbe6716c43c833b1bd9dfa80c784f67ed44df273))
+* **taiko-client-rs:** use standard preconfirmation signer ([#22011](https://github.com/taikoxyz/taiko-mono/issues/22011)) ([c4eaf44](https://github.com/taikoxyz/taiko-mono/commit/c4eaf44c02134c63f577b1be70f8f0bf98f614ee))
+* **taiko-client,taiko-client-rs:** refuse shutdown ahead of imminent sequencing windows ([#22000](https://github.com/taikoxyz/taiko-mono/issues/22000)) ([7684747](https://github.com/taikoxyz/taiko-mono/commit/76847471d067509c3d137c29a2b6abe4dd7bbd2d))
+
+
+### Performance Improvements
+
+* **protocol:** avoid redundant fixed-k scalar multiplication ([#22009](https://github.com/taikoxyz/taiko-mono/issues/22009)) ([170f50b](https://github.com/taikoxyz/taiko-mono/commit/170f50bbdf85b642d987de6df07b02783a9b8c48))
+
+
+### Tests
+
+* **taiko-client-rs:** stabilize the e2e lane and harden the test suite ([#21967](https://github.com/taikoxyz/taiko-mono/issues/21967)) ([abbc29d](https://github.com/taikoxyz/taiko-mono/commit/abbc29d0e9a521481fe259fa47713b0b03ad3501))
+
 ## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.1.0...taiko-alethia-client-rs-v2.2.0) (2026-07-15)
 
 
