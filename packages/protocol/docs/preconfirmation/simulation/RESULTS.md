@@ -260,6 +260,9 @@ code 0:
 | Bound (`NEPOCHS × MAXCLOCK`, `W_ANARCHY`) | Reachable states | Terminal (all-sealed) states | Safety violations | Permanent halts (standard / outage-robust) |
 | --- | ---: | ---: | :---: | :---: |
 | 3 × 4, `W = 0` (lane off — v10-equivalence check) | 2,339,418 | 1,130,952 | 0 | 0 / 0 |
+| 3 × 4, `W = 1` (default) | 2,384,366 | 1,167,068 | 0 | 0 / 0 |
+| 3 × 5, `W = 1` | 3,744,298 | 2,143,784 | 0 | 0 / 0 |
+| 3 × 5, `W = 2` (ownership truncation binds) | 3,730,066 | 2,144,630 | 0 | 0 / 0 |
 
 The `W = 0` row **exactly reproduces the pre-v11 model's documented `3 × 4` counts**
 (2,339,418 / 1,130,952) — the same bit-for-bit determinism check the v8 revert used, here run
