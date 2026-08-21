@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Documentation Consistency — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.9rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.fact{background:#fdecea;color:#8a1f11;font-weight:700;padding:0 .3rem}
+.wording{background:#fdf8e1;color:#6e5c0a;font-weight:700;padding:0 .3rem}
+.stale{background:#fdf3e7;color:#8a4b11;font-weight:700;padding:0 .3rem}
+.ok{background:#e8f5e9;color:#1e6e2e;font-weight:700;padding:0 .3rem}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>Documentation Consistency Audit</h1>
+<p><strong>Aspect 6 of the DeepSeek independent adversarial review</strong> of PR #22034 (v14 design). Review date 2026-08-21.
+Eleven files audited line-by-line against each other and against the deployed contracts and the model checker.
+Companions: <a href="index.html">index</a> · <a href="01-protocol-soundness.html">soundness</a> ·
+<a href="02-adversarial-attack-catalog.html">attacks</a> · <a href="03-auction-bidder-simulations.html">auction sims</a> ·
+<a href="04-l2-l1-timestamps.html">L2 vs L1 timestamps</a> · <a href="05-economic-analysis.html">economics</a> ·
+<a href="07-model-checker-assessment.html">model checker</a>.</p>
+
+<div class="verdict"><b>Verdict:</b> remarkably consistent for a 14-revision document. <b>Every arithmetic claim checks out</b>
+(77-min tail, 225 epochs/day, 7-slot ≈ 22%, 55+margin freshness floor, W_a+2 ≤ K, the 30 d vs 18 d retention infeasibility),
+<b>every parameter value is stable across all eleven files</b>, and the PR-number cross-references verify against GitHub.
+The inconsistencies that exist are the classic residue of a long revision chain: one invariant-vs-definition disagreement
+(the r12-5 tuple fix applied to only 1 of 6 sites), one genuinely stale artifact (the slides deck, correctly labeled v9 but
+with materially outdated content), two stale section numbers from the v13 renumbering, and an absent v1–v6 baseline that the
+doc leans on with "as v3" forward references.</div>
+
+<h2>6.1 The load-bearing inconsistency: r12-5 applied to I1 only</h2>
+<div class="finding"><span class="fact">FACTUAL / SPEC — the one inconsistency that matters</span>
+<p>Round 12 (r12-5) added "the finalized canonical L1 chain up to slot ≤ slot(T_N) − D_anchor" to the default-derivation
+input tuple — but only at <b>I1</b> (proposal line 139–140). The normative definition and four restatements still carry the
+5-term tuple:</p>
+<table><tr><th>Site</th><th>Text</th><th>Has the finalized-L1-chain term?</th></tr>
+<tr><td>I1 (line 139)</td><td>"…canonical parent, forced snapshot, <b>and the finalized canonical L1 chain…</b>"</td><td class="ok">yes (fixed)</td></tr>
+<tr><td><b>§6.8 (lines 943–945) — normative definition</b></td><td>"a pure function of (chainId, N, intraEpochIndex, canonical parent chain, forced snapshot)"</td><td class="fact">no — yet §6.8's own F(N) (line 956) reads exactly that chain</td></tr>
+<tr><td>I6 (line 216)</td><td>"…canonical parent, forced snapshot)"</td><td class="fact">no</td></tr>
+<tr><td>Appendix A #36 (line 1765)</td><td>same 5-term tuple</td><td class="fact">no</td></tr>
+<tr><td>Appendix C class D (line 2009)</td><td>"a pure function of (chainId, epoch, index, canonical parent, forced snapshot)"</td><td class="fact">no</td></tr>
+<tr><td>Appendix B r10H-1 (line 1966)</td><td>same 5-term tuple</td><td class="fact">no</td></tr>
+</table>
+<p>Determinism is unaffected (r12-5 itself notes the term is inclusion-independent at finalized depth), so this is a
+spec-hygiene defect, not a soundness bug — but the <i>normative definition</i> and the <i>invariant</i> disagree about the
+pure function's inputs, which is precisely the kind of drift the header's own normative-precedence rule is meant to prevent.</p></div>
+
+<h2>6.2 Other internal inconsistencies</h2>
+<table>
+<tr><th>#</th><th>Location</th><th>Issue</th><th>Severity</th></tr>
+<tr><td>C2</td><td>§5.2 line 651–652 vs line 559 / §11.5 line 1451</td><td>"the 32-slot in-epoch streaming span plus the κ-slot re-post grace" omits Γc — states 32+3=35 instead of the correct 32+7=39 slots (the same section's other sentence and §11.5 are right)</td><td class="wording">wording</td></tr>
+<tr><td>C3</td><td>RESULTS.md:119</td><td>r12-4's nullifier relabel applied at RESULTS.md:488 but missed line 119 ("the §6.4 bridge handshake relies on" → should be §6.5 seal-vs-refund exclusion nullifier)</td><td class="wording">incomplete fix</td></tr>
+<tr><td>C4</td><td>Appendix B r3a-F3 (line 1794)</td><td>"≈ K+d+s epochs" uses the retired v6 d,s notation (number coincidentally matches since d+s=S=4)</td><td class="wording">stale notation</td></tr>
+<tr><td>C5</td><td>§6.7 line 853</td><td>Stray markdown backtick placement in "T_exp = ` (its decision-final instant) `+ H_cancel`" — cosmetic rendering artifact only; the sentence reads correctly (round-3 re-diagnosis)</td><td class="wording">typo</td></tr>
+<tr><td>C6</td><td>I1 vs §6.8 vs App.C</td><td>Inconsistent tokens for the same tuple: (epoch, index) vs (N, intraEpochIndex)</td><td class="wording">naming</td></tr>
+</table>
+
+<h2>6.3 Stale references</h2>
+<table>
+<tr><th>#</th><th>Location</th><th>Issue</th></tr>
+<tr><td>R1</td><td>round10-anarchy-content-review.md:307, 383</td><td>"§13-S.18 [Phase B]" for the anarchy artifact spec — in v14 it is §13-S.19; §13-S.18 is now the default-derivation handoff vectors [Phase A] (renumbered at the v13 merge)</td></tr>
+<tr><td>R2</td><td>proposal lines 290, 424, 660, 713, 1020, 1063, 1292, 1359, 1693, 1786</td><td>"As v3" / "see v2/v3 changelogs" reference a baseline that exists in no file in the PR — the auction mechanics (§4), §6.1–6.6 baseline, §7, §10.2, Appendix A items 1–8 are defined only by this absent text. For a normative record this is a real self-containment gap (see also aspect 3, §3.4)</td></tr>
+<tr><td>R3</td><td>status-quo.md:215</td><td>"Open draft PR #22019" — PR is now CLOSED (point-in-time staleness as of 2026-08-20, not an error)</td></tr>
+</table>
+
+<h2>6.4 The slides deck — correctly labeled, materially stale</h2>
+<div class="finding"><span class="stale">STALE ARTIFACT (documented in README, still wrong)</span>
+<p>The deck self-labels "v9" everywhere; README:16 documents that the proposal governs. But its content is a genuine v9
+snapshot carrying six v10+ reversals — a reader of the deck learns the <i>opposite</i> of the current design on:</p>
+<ul>
+<li><b>T_max framed as "the complete idleness/censorship bound"</b> (slides 6:214, 20:608, 22:653) — v10 renamed it the tenure-renewal/re-pricing bound (r9-F1);</li>
+<li><b>"No discretionary content" in Total Anarchy</b> (slide 19:575) — reversed by v11 §9;</li>
+<li><b>Bridge refund via "the bridge's unprocessed-message path"</b> (slide 19:583) — superseded by the terminal-cancellation handshake (v10→v14);</li>
+<li><b>Withdrawal gate "no in-flight verdicts"</b> (slide 16:512) — superseded by the single challenge horizon (v12);</li>
+<li><b>"Forgiveness never covers whoever drove the stall"</b> (slide 18:561) — replaced by the data-established-epochs tolling rule (v10);</li>
+<li><b>Verification numbers</b> (slide 21): "8 rounds / 6.0 M states / 11/11 mutants / 3×4, 3×5" — now 24 mutants, default 2×6 ≈1.4 M states.</li>
+</ul>
+<p>Re-syncing is tracked as §13-T.13; until then the deck misleads. (Removed mechanisms — H_force, the seal window, "awaits
+max-tenure decision" — are correctly absent; r8-W4's fixes hold.)</p></div>
+
+<h2>6.5 What is consistent (verified, not assumed)</h2>
+<ul>
+<li>All parameters stable across eleven files: E=384, S=4, q=2, Γc=4, κ=3, R=16, F_delay=576, Λ=2, D_anchor=32, K/K'=8/4,
+K_empty=16, W_a=4, H_cancel=10 d, H_toll_max=20 d, parse caps.</li>
+<li>All arithmetic correct (list in the verdict; 55+margin = 32+4+3+16+margin confirmed).</li>
+<li>status-quo.md's description of the deployed whitelist matches PreconfWhitelist.sol exactly (one operator per 384 s
+epoch via 2-epoch-delayed beacon-root randomness; checkProposer requires proposer == current-epoch operator; no lookahead).</li>
+<li>RESULTS.md and model_checker.py agree on "v14"; the checker reproduces RESULTS.md's numbers bit-for-bit.</li>
+<li>PR cross-references (#22034 OPEN on this branch; #22038 MERGED; #22012 OPEN; #22019 CLOSED) verified via gh.</li>
+<li>The PR body's "v9" summary is stale by construction (written at PR creation); the header's normative-precedence rule
+(the proposal governs) correctly contains it.</li>
+</ul>
+
+<h2>6.6 Recommended fixes (small, mechanical)</h2>
+<ol>
+<li>Propagate the r12-5 finalized-L1-chain term to §6.8, I6, Appendix A #36, Appendix C class D, Appendix B r10H-1.</li>
+<li>§5.2 line 651: "κ-slot re-post grace" → "Γc+κ-slot post-boundary window".</li>
+<li>RESULTS.md:119: relabel the nullifier to §6.5.</li>
+<li>round10 review: §13-S.18 → §13-S.19 (both sites).</li>
+<li>Either inline the v1–v6 "as v3" baseline (at least §4's auction mechanics and §6's state-machine baseline) or
+explicitly archive them; a normative record must not lean on absent text.</li>
+<li>Re-render the slides from v14 (already tracked §13-T.13) or add a per-slide "superseded by v14" banner.</li>
+</ol>
+<p class="note">Full per-line evidence is in the round-1 consistency audit (subagent report); the findings above are the
+consolidated, severity-ranked subset.</p>
+</body></html>

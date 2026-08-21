@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Adversarial Attack Catalog — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.9rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.closed{background:#e8f5e9;color:#1e6e2e;font-weight:700}
+.open{background:#fdecea;color:#8a1f11;font-weight:700}
+.residual{background:#fdf8e1;color:#6e5c0a;font-weight:700}
+.info{background:#e3f2fd;color:#0d47a1;font-weight:700}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>Adversarial Attack Catalog — Malicious-Advisor Pass</h1>
+<p><strong>Aspect 2 of the DeepSeek independent adversarial review</strong> of PR #22034 (v14 design). Review date 2026-08-21.
+Companions: <a href="index.html">index</a> · <a href="01-protocol-soundness.html">soundness</a> ·
+<a href="03-auction-bidder-simulations.html">auction sims</a> · <a href="04-l2-l1-timestamps.html">L2 vs L1 timestamps</a> ·
+<a href="05-economic-analysis.html">economics</a> · <a href="06-doc-consistency.html">doc consistency</a> ·
+<a href="07-model-checker-assessment.html">model checker</a>.</p>
+
+<div class="verdict"><b>Adversarial summary:</b> the design has clearly been hardened by genuinely adversarial rounds; most
+classic attacks (front-run rewards, one-shot burning, empty-front-running, seal/cancel races, poke-censorship exits,
+recall-then-deliver double-spend) are <b>closed</b>, several with elegant mechanisms (I8 precommitted payees, the two-sided
+cutoff, the terminal <code>FAILED</code> bridge mark). The remaining open surface concentrates in four places:
+(1) <b>watchtower-dependent deterrence</b> (preconf-vs-record equivocation — the only theft class that needs an accuser);
+(2) <b>L1-builder-cartel censorship corridors</b> (7-slot tail slice / EBC / AC suppression — priced, not eliminated);
+(3) <b>the anchor and timestamp levers</b> (staleness ratchet, freeze/future windows — <a href="04-l2-l1-timestamps.html">aspect 4</a>);
+(4) <b>unspecified auction mechanics</b> (grief-bid funding forfeit — <a href="03-auction-bidder-simulations.html">aspect 3</a>).
+As a malicious advisor I would not attack the liveness structure at all — it is the strongest part. I would attack the
+<i>soft</i> layer: preconf trust, censorship pricing, and governance-estimated bonds.</div>
+
+<h2>2.1 Theft-class attacks</h2>
+<table>
+<tr><th>#</th><th>Attack</th><th>Vector</th><th>Defense (v14)</th><th>Status</th></tr>
+<tr><td>A1</td><td>Double-EBC equivocation</td><td>Holder signs two byte-distinct EBCs (A at deadline, B in grace); one consumes the one-shot, the other is evidence; steal = renege on committed content</td><td>§3.1 equivocation-evidence predicate (i+ii+byte-distinct); L1-direct safety settlement at D+κ, zero adjudication latency; tenure termination; ≥80% burn</td><td class="closed">CLOSED (self-materializing; no watchtower needed)</td></tr>
+<tr><td>A2</td><td>Preconf-vs-record equivocation</td><td>Holder sells signed preconfs promising block A during the epoch, streams/commits slices B; users act on A, canonical outcome B (MEV harvested from A's ordering)</td><td>L2-evidence safety slash, L_safety ≥ Λ × per-epoch MEV, funded accuser reward, precommitted payee (I8)</td><td class="residual">RESIDUAL: needs an accuser within the challenge horizon; sizing assumes watchtower p = 1 (see 2.3). No user restitution by design</td></tr>
+<tr><td>A3</td><td>Last-look (7-slot) front-run</td><td>Predecessor withholds its ready EBC until slot 7, keeping content-or-empty optionality while the successor preconfirms on an undetermined parent</td><td>Soft-vs-hard preconf split; successor's first ~7 slots explicitly parent-provisional; hard upgrade keyed on contract-legible materialization</td><td class="residual">BOUNDED residual: exposure = the 7-slot soft window, priced as such (§5.2, §11.5); drive-to-zero lever is §13-T.1</td></tr>
+<tr><td>A4</td><td>Reward front-running (copy a proof / poke / fill)</td><td>Searcher copies a mempool proof/poke/slice and re-points the payout to itself</td><td>I8: payout address is a proof public input; poke/fill beneficiaries pre-registered; fill registration binds slice bytes (§13-S.12)</td><td class="closed">CLOSED (note: fill-reward <i>trigger</i> still uncomputable — soundness S4)</td></tr>
+<tr><td>A5</td><td>Orphan-fork verdict replay</td><td>After a >κ reorg, replay a pre-reorg slashing verdict whose logical id reads unconsumed</td><td>Verdict incarnation + finalized-origin binding (r4c-8, §13-S.11)</td><td class="closed">CLOSED (design level; joint-rewind semantics are §13-S.1 Phase-A work)</td></tr>
+</table>
+
+<h2>2.2 Censorship / availability attacks</h2>
+<table>
+<tr><th>#</th><th>Attack</th><th>Cost to attacker</th><th>Defense</th><th>Status</th></tr>
+<tr><td>B1</td><td>Suppress the last-produced blob slice (weakest link, ≥7-slot corridor)</td><td>full builder/proposer coalition excluding one blob tx from every block for 7 slots</td><td>Min-span corridor pricing C_cen; any-data-holder re-post; Γpre sequencing margin; graduation cost test (§13-T.6)</td><td class="residual">PRICED RESIDUAL — one L_slash per successful suppression; corridor economics unquantified until graduation</td></tr>
+<tr><td>B2</td><td>Suppress the EBC (7 slots) or the AC (16 slots)</td><td>coalition against every possible sender of a tiny calldata tx</td><td>Sender-free + fee-bumpable artifacts; AC suppression can only flip materialization (CONTENT info-final → EMPTY materialized), never slash the successor (soft→hard keying)</td><td class="residual">PRICED RESIDUAL (r11-N4 handled correctly)</td></tr>
+<tr><td>B3</td><td>Censor discretionary user traffic while holding the seat</td><td>≈ 0 (just omit content)</td><td>Forced queue (I6) — inclusion floor independent of the seat; T_max tenure bound; K_empty nuisance term; recovery-only at K lag</td><td class="closed">CLOSED as a floor; service-level censorship is the accepted cost of the seat model</td></tr>
+<tr><td>B4</td><td>Win every anarchy race to keep discretionary content out (censor race)</td><td>proof cost − forced-fee subsidy (net ≈ +0.02 ETH/epoch, falling to ≈ −0.01 — net-subsidized — when forced fees over-cover; round-3 corrected figures)</td><td>I6 floor: forced prefix mandatory in every winning proposal; exit-by-bidding (G5); priced service-level residual (r10-4, §11.8)</td><td class="residual">ACCEPTED residual — quantified in <a href="03-auction-bidder-simulations.html">aspect 3</a> §3.3</td></tr>
+<tr><td>B5</td><td>Stuffing evasion of K_empty (self-dealing blobs to look busy)</td><td>real blob fees + per-epoch protocol fee per epoch</td><td>K_empty demoted to nuisance bound; T_max is the binding tenure bound</td><td class="closed">CLOSED (honestly stated as stuffing-evadable)</td></tr>
+</table>
+
+<h2>2.3 Liveness / freeze attacks</h2>
+<table>
+<tr><th>#</th><th>Attack</th><th>Defense</th><th>Status</th></tr>
+<tr><td>C1</td><td>Withhold the seal (10-day hostage)</td><td>Seal-deadline fault (S=4 tolled) → permissionless fault-paid recovery within ~κ; H_cancel only as the disaster floor</td><td class="closed">CLOSED (v7 folded H_force into the seal deadline)</td></tr>
+<tr><td>C2</td><td>Self-triggered global freeze (old brake design)</td><td>Degradation ladder: no global pause below attested systemic outage; never triggered by openEpoch age alone</td><td class="closed">CLOSED (r4b-H4)</td></tr>
+<tr><td>C3</td><td>Permanent proving outage (adversary never ends it)</td><td>Expiry-cancellation floor: one cascade per H_cancel; forced items re-queue then void-with-refund at blob expiry (~18 d); bridge principals recallable (conditional on proving resumption, v14)</td><td class="closed">CLOSED (checker-verified deadlock-freedom; four-guarantee liveness split is honest)</td></tr>
+<tr><td>C4</td><td>Poke-censorship to buy a withdrawal (never materialize a fault)</td><td>I2: withdrawal itself computes+materializes maturity; retry re-materializes; ≥2-week floor out-waits censorship</td><td class="closed">CLOSED</td></tr>
+<tr><td>C5</td><td>Serial re-opening of accusations to freeze an honest ex-holder's withdrawal</td><td>Single per-tenure equivocation-challenge horizon; bounded per-verdict deadline; dismissed-on-timeout; bonded accusation recommended (§13-T.12)</td><td class="closed">CLOSED (v12, r11-N2)</td></tr>
+<tr><td>C6</td><td>Recovery-lane seal-race crowding</td><td>Losing seals revert wasting the racers' gas; chain advances one seal/block regardless; compensation cost-capped</td><td class="residual">GRIEFING-COST ONLY — no halt (11.3); income concentration admitted</td></tr>
+<tr><td>C7</td><td>Empty-front-running of anarchy proposals (horn 2)</td><td>Two-sided cutoff: proof-free empty valid only at/after T_prop; proposals strictly before; no overlap</td><td class="closed">CLOSED (the v8-audit revert's repair, executed in v11)</td></tr>
+<tr><td>C8</td><td>Blob-expiry cancellation misuse</td><td>Mechanical slot-arithmetic cutoff; re-queued forced items retain data (outlive H_cancel); void-with-refund</td><td class="residual">Minor: the rule fires even if bytes were re-posted (same KZG commitment, indistinguishable), so an actually-sealable CONTENT epoch becomes cancellable — conservative direction, but the stated justification ("can never seal") is technically false in the re-post case</td></tr>
+<tr><td>C9</td><td>Invalidate in-flight anarchy proposals via recovery-only mode entry</td><td>Mode entry is deterministic from L1 state (lag &gt; K), but it is a wall-clock event the proposer does not control</td><td class="residual">Minor: §9.1 says the cutoff is "fixed once… never retroactively re-evaluated", yet recovery-only mode collapses proposal validity to now — a proposer's 10–15-minute pipelined proof can be torched by a lag spike it did not cause (its cost, not the protocol's). Semantically the collapse is a validity overlay, not a cutoff re-fix, but the "never retroactively re-evaluated" claim should be qualified; proposers must price mode-entry risk (round-2 precision finding)</td></tr>
+</table>
+
+<h2>2.4 Funds / bridge attacks</h2>
+<table>
+<tr><th>#</th><th>Attack</th><th>Defense</th><th>Status</th></tr>
+<tr><td>D1</td><td>Recall-then-deliver double-spend (void the forced carrier, recall L1 principal, then processMessage → DONE)</td><td>v14 terminal destination-side FAILED mark (proof of carrier's refunded state), FAILED⊥DONE, processMessage accepts only NEW; msgHash in nullifier; source recall = existing FAILED-signal path</td><td class="closed">CLOSED at design level — verified against deployed Bridge.sol semantics; requires the new destination transition (§13-S.16)</td></tr>
+<tr><td>D2</td><td>Free recall (caller-supplied msgHash)</td><td>Only the item's own nullifier-stored msgHash cancellable (r12-1)</td><td class="closed">CLOSED</td></tr>
+<tr><td>D3</td><td>Seal-vs-refund double-spend (snapshot commits, then claim refund)</td><td>Lifecycle nullifier queued→snapshotted→{consumed|refunded}; seal proof rejects refunded/consumed items; refund kills live commitments atomically</td><td class="closed">CLOSED (checker: inv_forced_order terminal exclusivity)</td></tr>
+<tr><td>D4</td><td>Fault-and-recovery Sybil pair draining the shared pool</td><td>Senior per-tenure recovery tranche pays deliberate faults first; pool is a thin residual; ETH-denominated caps; ≥80% burn keeps self-recovery unprofitable</td><td class="closed">CLOSED (r4c-5, r4a-H6)</td></tr>
+<tr><td>D5</td><td>Self-slashing (accuse yourself, collect the accuser share)</td><td>Burn-dominance: <20% recovered of own bond; termination + re-admission cost</td><td class="closed">CLOSED</td></tr>
+</table>
+
+<h2>2.5 Timestamp / anchor manipulation (summary)</h2>
+<p>Forward-stamp (+383 s) freedom with unpinned client rule; freeze window (383 s); anchor staleness ratchet
+(≥11 min at minimal ceiling); lag band 33–51 min; forced-inclusion time-travel <b>provably impossible</b>; L1-side
+slot-robustness verified. Full analysis: <a href="04-l2-l1-timestamps.html">aspect 4</a>.</p>
+
+<h2>2.6 Auction / governance attacks (summary)</h2>
+<p>Grief-bid-then-refuse-funding (forfeit unspecified — v3 text absent); Sybil standby self-promotion at reserve;
+T_max incumbency persistence (57→100% renewal as advantage grows); reserve-floor rent capture with a single bidder;
+attested-outage self-labeling excluded (independent attestation only). Full analysis:
+<a href="03-auction-bidder-simulations.html">aspect 3</a> and <a href="05-economic-analysis.html">aspect 5</a>.</p>
+
+<h2>2.7 What a sophisticated adversary would actually do</h2>
+<ol>
+<li><b>Exploit the watchtower gap:</b> equivocate via preconf-vs-record (not double-EBC) in epochs where MEV spikes
+(CEX-DEX gaps, liquidations), betting no accuser acts within the horizon; sizing at p=1 means positive EV at any p&lt;1. The
+double-EBC variant self-materializes, so the adversary avoids it.</li>
+<li><b>Bid the reserve, censor selectively, look busy:</b> stuff K_empty with self-dealing blobs, serve only own MEV-friendly
+flow, extract the rest via the forced queue's delayed service. Bounded by T_max but renewable.</li>
+<li><b>Race the anarchy lane as a censor</b> when the forced-fee subsidy makes racing cheap (net ≈ +0.02 to −0.01 ETH/epoch) —
+keeps discretionary content out at near-zero cost until a real bidder appears.</li>
+<li><b>Use the anchor ratchet</b> to keep L1→L2 signals (oracle updates, bond/removal signals) ~11+ min stale while appearing
+to serve, delaying competitors' reactions and bridge ingestion.</li>
+<li><b>Avoid everything structural:</b> the liveness machinery, the bridge handshake (post-fix), the one-shot, and the
+nullifiers are all closed; attacking them costs the attacker, not the protocol.</li>
+</ol>
+
+<p class="note">Every closure above was re-derived from the normative text and, where load-bearing, cross-checked against the
+deployed contracts (<code>Bridge.sol:199-240, 247-344, 483-485</code>; <code>SignalService.sol:220-237</code>;
+<code>Inbox.sol:613</code>) and the model checker's invariants.</p>
+</body></html>

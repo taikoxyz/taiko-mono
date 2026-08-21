@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Protocol Soundness — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.92rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.sev-crit{background:#fdecea;color:#8a1f11;font-weight:700;padding:0 .3rem}
+.sev-high{background:#fdf3e7;color:#8a4b11;font-weight:700;padding:0 .3rem}
+.sev-med{background:#fdf8e1;color:#6e5c0a;font-weight:700;padding:0 .3rem}
+.sev-low{background:#e8f5e9;color:#1e6e2e;font-weight:700;padding:0 .3rem}
+.sev-info{background:#e3f2fd;color:#0d47a1;font-weight:700;padding:0 .3rem}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>Protocol Soundness — Does the Design Work?</h1>
+<p><strong>Aspect 1 of the DeepSeek independent adversarial review</strong> of the permissionless based-preconfirmation
+redesign (PR #22034; branch <code>claude/taiko-preconfirmation-redesign-i0c4ls</code>; normative doc
+<code>redesign-proposal.md</code> v14). Review date 2026-08-21. Companions: <a href="index.html">index</a> ·
+<a href="02-adversarial-attack-catalog.html">attacks</a> · <a href="03-auction-bidder-simulations.html">auction sims</a> ·
+<a href="04-l2-l1-timestamps.html">L2 vs L1 timestamps</a> · <a href="05-economic-analysis.html">economics</a> ·
+<a href="06-doc-consistency.html">doc consistency</a> · <a href="07-model-checker-assessment.html">model checker</a>.</p>
+
+<div class="verdict"><b>Frank verdict:</b> as a <i>mechanism design</i>, the v14 design is <b>logically coherent and largely
+works</b>: the epoch state machine is sound, the single-decision structure is consistent, the liveness story (degradation
+ladder + cancellation floor) survives adversarial proving outages in the bounded model check, and the fourteen rounds of
+dispositions are real and mostly correct — I verified the checker myself (1,408,548 states, 0 violations, 24/24 mutants
+caught). As an <i>implementable protocol</i>, it <b>does not yet exist</b>: the PR is documentation-only and the doc itself
+lists 19 structural items, <b>15 of them Phase-A-blocking</b> (plus 4 Phase-B). Beyond those, this review finds <b>three load-bearing mechanisms that are
+specified in prose but have no L1-evaluable implementation named</b> (S2–S4), one consensus-exactness gap (S5 — the
+timestamp decoupling, detailed in aspect 4), and one economic deterrence claim that only holds at watchtower probability 1
+(S7). Nothing found is an unfixable contradiction;
+two things would break the chain if implemented as literally written (§6.8's default-anchor binding, §9.2's anchor
+eligibility check) and must be pinned before any code.</div>
+
+<h2>S1. What is verifiably sound</h2>
+<table>
+<tr><th>Property</th><th>Evidence</th><th>Assessment</th></tr>
+<tr><td>Single decision per epoch, monotone <code>openEpoch</code>, no double-debit, bond non-negativity, no-frame, seal immutability</td><td>Model checker, exhaustive BFS from curated seeds, 2×6 bound: 1,408,548 states, zero violations; independent re-run reproduced RESULTS.md bit-for-bit</td><td class="sev-info">VERIFIED (logical state machine)</td></tr>
+<tr><td>No permanent halt, even under a proving outage that never lifts (deadlock-freedom)</td><td>Checker liveness pass (standard + outage-robust relations); exit code 0 reproduced</td><td class="sev-info">VERIFIED within bounds — see scoping caveats in <a href="07-model-checker-assessment.html">checker report</a></td></tr>
+<tr><td>I2 read-time fault materialization; poke-censorship cannot buy a withdrawal</td><td>Logic audit + checker's <code>edge_maturity_materialized</code>; withdrawal gate re-verified</td><td class="sev-info">SOUND</td></tr>
+<tr><td>I1 content-addressed origin ("shifts when, never what")</td><td>Origin is a field of committed bytes; inclusion-independence argument holds by construction; Appendix C enumerates all inputs</td><td class="sev-info">SOUND (modulo the I1-vs-§6.8 tuple inconsistency, <a href="06-doc-consistency.html">doc report</a>)</td></tr>
+<tr><td>I6 forced inclusions censorship-proof vs the seat; deterministic forced-only outcome</td><td>Default derivation rule (§6.8) closes the range-only timestamp-option hole (r10H-1); forced time-travel provably impossible (F_delay ≥ E+margin) — see <a href="04-l2-l1-timestamps.html">timestamps</a> §4.4</td><td class="sev-info">SOUND at design level; L1 binding gap S4 below</td></tr>
+<tr><td>Two-sided anarchy cutoff closes both horns of the empty-front-running finding</td><td>Mechanical <code>T_prop</code> with proposal-before / resolution-at-after; W_a=0 recovers v10 byte-for-byte; lag-band arithmetic verified (5.22 epochs)</td><td class="sev-info">SOUND</td></tr>
+<tr><td>Bridge terminal-cancellation handshake (v14)</td><td>Re-verified against deployed <code>Bridge.sol</code>/<code>SignalService.sol</code>: <code>recallMessage</code> needs <code>NEW</code> + proof of <code>signalForFailedMessage</code>; <code>processMessage</code> is permissionless; signals are append-only — the v12 not-DONE snapshot was indeed unsound and the v14 terminal <code>FAILED</code> mark does restore <code>FAILED</code>⊥<code>DONE</code> exclusion, <i>given</i> the new destination-side transition (named §13-S.16)</td><td class="sev-info">SOUND (requires the new Bridge transition — explicitly Phase-A blocking)</td></tr>
+<tr><td>Seal-vs-refund nullifier; forced-item lifecycle</td><td>Ordered queue + terminal-state exclusivity checked (<code>inv_forced_order</code>); consistent with §6.5</td><td class="sev-info">SOUND</td></tr>
+</table>
+
+<h2>S2. The default-anchor L1 binding is unspecified — and it is load-bearing (new finding)</h2>
+<div class="finding"><span class="sev-high">HIGH — would break I3/I6 if implemented naively</span>
+<p>§6.8 defines the default anchor <code>F(N)</code> = "the highest canonical L1 execution block whose slot is ≤
+slot(T_N) − D_anchor", and the DEFAULT-mode seal circuit must verify the forced-only block sequence against
+<code>F(N)</code>'s state root. <b>But an L1 contract cannot map a past slot to a block number</b>: it only sees the current
+block. If the seal transaction claims "F(N) = (number n, hash h)", nothing named in the doc lets the contract check that n is
+the deepest block ≤ slot(T_N) − D_anchor, or even that h is authentic. There is a viable path — the same machinery §5.2 already
+adds: an EIP-4788 beacon-root SSZ proof of the execution payload (or <code>latest_execution_payload_header</code> in beacon
+state) at the relevant slot, recorded in the spine while the 8191-slot root buffer is still fresh (a seal can land up to S·E +
+tolling later, but a cancellation re-resolution can land ~10 days later, long past the buffer — so the record must be made at
+decision time, not at seal time). <b>The design names none of this</b>: §13-S.18 pins the "decision-record" for mode selection
+but not the anchor-binding record. Consequences of the gap: (a) a forced-only/DEFAULT seal is unconstructible on-chain →
+holderless epochs stall → I3/I6 violated; (b) or an implementation accepts a caller-claimed anchor → first-landed sealer gets
+a retrospective anchor option — exactly the r10H-1 hole §6.8 was written to close. This is the single most important
+implementation-blocking gap this review found.</p></div>
+
+<h2>S3. The anarchy-proposal anchor eligibility check has no named L1 mechanism (new finding)</h2>
+<div class="finding"><span class="sev-high">HIGH — Phase-A-blocking only if W_a &gt; 0 at launch; otherwise Phase-B per §13-S.19 (round-3 corrected phase tag)</span>
+<p>§9.2 requires an anarchy proposal's committed anchor to satisfy §6.6's depth/freshness/advancement "measured against N's
+own schedule — epoch-relative, never landing-relative". But the proposal lands up to <code>W_a·E</code> (≈25.6 min) after
+<code>D_N</code>. The L1 contract at landing time can only compare the claimed anchor block number against <i>the landing
+block</i> — which enforces depth-at-landing (trivially true) and cannot enforce "≥ D_anchor deep at D_N" or "not older than
+T_N − freshness_ceiling" without historical block-number/timestamp lookup that L1 does not have. For <i>owned</i> epochs the
+check works because the EBC is accepted within κ of the deadline (acceptance-time <code>block.number</code> is the reference).
+For anarchy proposals the design needs one of: an EIP-4788-based anchor record (S2's machinery), a spine record of
+<code>blockAt(slot(D_N))</code> made at each decision, or a circuit-side L1 header proof — none is named. Same family as S2;
+both are "works in prose, needs a mechanism" gaps.</p></div>
+
+<h2>S4. The fill-reward trigger is not L1-evaluable as written (new finding)</h2>
+<div class="finding"><span class="sev-med">MEDIUM — incentive element silently unimplementable</span>
+<p>§5.2: "A fill reward exists only when the holder failed to make its own referenced data available, funded from the failing
+holder's working tranche." But blob KZG commitments are content-addressed: the availability certificate proves
+<i>commitment inclusion</i>, not <i>who posted it</i>. A holder's own slice and a filler's identical re-post are the same
+commitment — "the holder failed to post" is not a computable L1 predicate unless the EBC additionally binds the holder's own
+blob-transaction hashes (or equivalent per-sender registration), which the design does not specify. §13-S.12 fixes the payee
+binding (bytes vs hash) but not the <b>trigger</b>. If unimplementable, the r4b-H2 fix silently degrades to v4's zero-fill
+reward, and the successor-self-protection argument must carry the availability incentive alone. Recommend: state the
+trigger-binding (holder's own slice-post registration in the EBC) or explicitly drop the fill reward.</p></div>
+
+<h2>S5. Timestamp/anchor decoupling: consensus-exactness gaps</h2>
+<p>Summarized here; full analysis in <a href="04-l2-l1-timestamps.html">aspect 4</a>: (a) +383 s forward-stamp freedom with no
+pinned client-acceptance rule (future-block rejection); (b) <code>T_N</code>'s origin undefined; (c) anchor-staleness ratchet
+bounded only by a governance-set ceiling with a lower-but-no-upper setter bound; (d) slot-mapping rounding rules unspecified.
+All four are Phase-A consensus-exactness items.</p>
+
+<h2>S6. Availability-certificate censorship residual — correctly priced, one sharp edge</h2>
+<div class="finding"><span class="sev-low">LOW — admitted, correctly keyed; re-checked in round 2</span>
+<p>The AC is small, sender-free, fee-bumpable; suppressing it for R=16 slots requires a builder/proposer coalition against
+every possible sender; the successor keys its hard-preconf upgrade on the <b>contract-legible</b> materialization, so an
+AC-suppressed CONTENT→EMPTY flip orphans only soft preconfs (never slashable). This is well-designed. Round-2 re-check
+retracted an earlier version of this note: the R window (≈3.2 min) does <i>not</i> sit on the recovery path — it closes
+long before the seal deadline (S·E = 4 epochs), so §6.7's "resolves within ~κ of the deadline" is accurate as written.
+The only place the materialization lag binds is the <i>earliest possible</i> early seal (no seal before the decision
+materializes) and the successor's soft→hard upgrade — both as designed.</p></div>
+
+<h2>S7. Equivocation deterrence holds only at watchtower probability 1</h2>
+<div class="finding"><span class="sev-med">MEDIUM (economic) — quantified</span>
+<p>No clawback of stolen MEV exists (restitution out of scope): the equivocator keeps the gain and loses <code>L_safety</code>
+only if caught. Expected profit = <code>Λ·MEV − p·L_safety</code>; the design sizes <code>L_safety ≥ Λ·MEV</code>, which
+deters <b>only at p = 1</b>. For the double-EBC variant p→1 mechanically (self-materializing L1 evidence — good), but for
+preconf-vs-record, p is the probability a watchtower acts within the challenge horizon: at p = 0.5 the bond must be 2× the
+stated size, at p = 0.1 ten-fold (simulation table in <a href="05-economic-analysis.html">economics</a> §5.3). The doc admits
+watchtower-dependence (r11-N2) but the <i>sizing</i> claim silently assumes p = 1. Moreover "Λ × per-epoch MEV" requires an
+ETH-denominated MEV estimate set by governance with no oracle (I9) — the deterrence guarantee is as good as a governance
+guess, with the spike residual already admitted. See economics §5.3.</p></div>
+
+<h2>S8. Structural status</h2>
+<table><tr><th>Gate</th><th>Status</th></tr>
+<tr><td>Normative invariants I1–I9 internally coherent</td><td class="sev-info">Yes (one tuple inconsistency, doc report C-1)</td></tr>
+<tr><td>Phase-A-blocking structural items (§13-S)</td><td class="sev-high">19 items — <b>15 Phase-A</b> (incl. AC spec S.15, bridge handshake S.16, forced-snapshot membership S.17, default-derivation completion S.18) <b>+ 4 Phase-B</b> (S.7 outage predicate, S.8 DAO SLA, S.14 graduation, S.19 anarchy artifact spec — S.19 becomes Phase-A only if W_a &gt; 0 at launch) — the design honestly does not claim implementability</td></tr>
+<tr><td>Logical state machine validated</td><td class="sev-info">Yes, bounded (2 epochs), with the gaps in the checker report</td></tr>
+<tr><td>L1-evaluability of every decision</td><td class="sev-high">No — S2/S3/S4 gaps above</td></tr>
+<tr><td>Consensus-exactness (client/circuit)</td><td class="sev-high">No — S5 (timestamps) + §13-S.5 (parse caps) unpinned</td></tr></table>
+
+<p class="note">Method: full read of <code>redesign-proposal.md</code> (2,038 lines, v14); independent re-run of
+<code>simulation/model_checker.py</code> (default and <code>--mutate</code>; both exit 0, results reproduced); grounding
+against deployed contracts (<code>Inbox.sol</code>, <code>Bridge.sol</code>, <code>SignalService.sol</code>,
+<code>PreconfWhitelist.sol</code>, Go/Rust derivation drivers); original quantitative simulations in
+<a href="simulation/auction_sim.py">simulation/auction_sim.py</a>.</p>
+</body></html>

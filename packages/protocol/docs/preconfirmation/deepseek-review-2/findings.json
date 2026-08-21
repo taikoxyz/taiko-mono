@@ -1,0 +1,92 @@
+{
+  "review": "deepseek-review-2 — FINAL (rounds 1-3 complete)",
+  "verdict": "Design logically coherent; three prose-only mechanisms need L1-evaluable implementations; timestamp decoupling has bounded but real attack surface; economics coherent but relies on governance MEV estimates and watchtower p=1 sizing",
+  "rounds": {
+    "round1": "7 HTML reports + Questions.md + simulations (0/1/2/3/5 bidders, anarchy races, equivocation, timestamps)",
+    "round2": "Independent verifier: all 10 headline claims verified TRUE; checker re-runs reproduced; self-corrections applied",
+    "round3": "Independent attacker audit: 6 corrections applied (phase counts 15+4, sign error, censor figures +0.02/-0.01, overclaim count, typo re-diagnosis, precision fixes)"
+  },
+  "findings": [
+    {
+      "id": "S2",
+      "sev": "HIGH",
+      "phase": "Phase-A",
+      "title": "Default-anchor F(N) L1 binding unnamed"
+    },
+    {
+      "id": "S3",
+      "sev": "HIGH",
+      "phase": "Phase-B (Phase-A only if W_a>0 at launch)",
+      "title": "Anarchy-proposal anchor eligibility check has no L1 mechanism at late landing"
+    },
+    {
+      "id": "A1",
+      "sev": "HIGH",
+      "phase": "unspecified (v3 text absent)",
+      "title": "No funding-forfeit rule; zero-cost grief-bids"
+    },
+    {
+      "id": "T1",
+      "sev": "HIGH",
+      "phase": "consensus-exactness",
+      "title": "+383s forward-stamp freedom; client acceptance rule unpinned"
+    },
+    {
+      "id": "T4",
+      "sev": "HIGH",
+      "phase": "spec gap",
+      "title": "Epoch clock origin T_N undefined"
+    },
+    {
+      "id": "S4",
+      "sev": "MEDIUM",
+      "phase": "Phase-A",
+      "title": "Fill-reward trigger not L1-computable"
+    },
+    {
+      "id": "E3",
+      "sev": "MEDIUM",
+      "title": "L_safety sized at p=1 only; 2x undersized at p=0.5"
+    },
+    {
+      "id": "T3",
+      "sev": "MEDIUM",
+      "title": "Anchor staleness ratchet bounded only by un-capped freshness_ceiling"
+    },
+    {
+      "id": "C1",
+      "sev": "MEDIUM",
+      "title": "r12-5 tuple fix applied to I1 only (5 sites stale)"
+    },
+    {
+      "id": "M1",
+      "sev": "MEDIUM",
+      "title": "Checker omits blob-expiry/T_max/K_empty/auction; W_a=4 uncheckable"
+    },
+    {
+      "id": "B4",
+      "sev": "MEDIUM",
+      "title": "Censor race marginal cost net +0.02 to -0.01 ETH/epoch"
+    },
+    {
+      "id": "C9",
+      "sev": "LOW",
+      "title": "Recovery-only collapse vs 'cutoff never re-evaluated'"
+    },
+    {
+      "id": "D1+",
+      "sev": "POSITIVE",
+      "title": "v14 bridge FAILED-mark fix verified against deployed Bridge.sol"
+    },
+    {
+      "id": "T+",
+      "sev": "POSITIVE",
+      "title": "Forced-inclusion time-travel provably impossible (F_delay>=E+margin)"
+    },
+    {
+      "id": "T+2",
+      "sev": "POSITIVE",
+      "title": "Slot-indexed decisions neutralize L1 timestamp manipulation"
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>L2 vs L1 Timestamps — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.92rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.sev-crit{background:#fdecea;color:#8a1f11;font-weight:700;padding:0 .3rem}
+.sev-high{background:#fdf3e7;color:#8a4b11;font-weight:700;padding:0 .3rem}
+.sev-med{background:#fdf8e1;color:#6e5c0a;font-weight:700;padding:0 .3rem}
+.sev-low{background:#e8f5e9;color:#1e6e2e;font-weight:700;padding:0 .3rem}
+.sev-info{background:#e3f2fd;color:#0d47a1;font-weight:700;padding:0 .3rem}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>L2 vs L1 Timestamp Manipulation — Attack Surface Analysis</h1>
+<p><strong>Aspect 4 of the DeepSeek independent adversarial review of the permissionless based-preconfirmation redesign (PR #22034, branch <code>claude/taiko-preconfirmation-redesign-i0c4ls</code>, normative doc v14).</strong>
+Review date 2026-08-21. Companion reports: <a href="index.html">index</a> ·
+<a href="01-protocol-soundness.html">soundness</a> · <a href="02-adversarial-attack-catalog.html">attacks</a> ·
+<a href="03-auction-bidder-simulations.html">auction sims</a> · <a href="05-economic-analysis.html">economics</a> ·
+<a href="06-doc-consistency.html">doc consistency</a> · <a href="07-model-checker-assessment.html">model checker</a>.</p>
+
+<div class="verdict"><b>Bottom line:</b> the redesign <b>decouples the L2 clock from L1 inclusion time</b> and replaces it with an
+epoch-schedule window <code>[T_N, T_N+E)</code>. That buys precomputability and sender-independence (I1/I7) at a real,
+bounded cost: <b>forward-stamping freedom (+383 s) that does not exist today</b>, a ratchet-able <b>anchor-staleness window</b>,
+and a wall-clock <b>lag band of ≈33–51 min</b> in degraded modes. Several of the obvious attacks are provably closed by the
+design (forced-inclusion time-travel; L1-builder influence on the default anchor). Two load-bearing rules are
+<b>under-specified</b>: the origin of <code>T_N</code> itself, and the client-side acceptance rule for future-stamped blocks.
+Nothing found here is fatal; everything found here is consensus-critical.</div>
+
+<h2>4.1 What exists today (grounded in this repo)</h2>
+<p>Today's rules are <b>derivation-level</b>, not L1-contract-level (verified against <code>packages/protocol/contracts</code>
+and the Go/Rust drivers — L1 <code>Inbox.propose()</code> records <code>proposal.timestamp = block.timestamp</code> and enforces
+nothing about the L2 timestamp):</p>
+<table>
+<tr><th>Property</th><th>Today (Shasta derivation)</th><th>Redesign v14</th></tr>
+<tr><td>Upper bound</td><td><code>ts ≤ L1_ts</code> (timestamp of the L1 block including the proposal) — <b>can never be ahead of L1</b></td><td><code>ts ∈ [T_N, T_N+E)</code> — <b>up to E−1 = 383 s ahead of the L1 time at which the block is built</b> (epoch window), and up to ~Γc past the L1 time of the EBC</td></tr>
+<tr><td>Lower bound / staleness</td><td><code>ts ≥ max(parent+1, L1_ts − TIMESTAMP_MAX_OFFSET, fork)</code>; Hoodi offset 1536 s, Mainnet 6144 s</td><td><code>ts ≥ T_N</code> (content epochs, holder-chosen within window); default: <code>t_i = max(T_N, parent+1)+i</code></td></tr>
+<tr><td>Monotonicity</td><td>strictly increasing (parent+1)</td><td>strictly increasing; cross-epoch monotone by induction (verified sound)</td></tr>
+<tr><td>Anchor</td><td>holder-chosen recent L1 block, <code>MAX_ANCHOR_OFFSET</code> 128/512 slots (25.6 / 102.4 min staleness cap)</td><td>committed content, ≥ <code>D_anchor</code>=32 slots deep, within <code>freshness_ceiling ≥ 55 slots + margin</code> (≈11 min minimum); default epochs: fixed 32-slot staleness</td></tr>
+<tr><td>Who enforces</td><td>Go (<code>source_fetcher.go:317-339</code>) and Rust (<code>validation.rs:124-142</code>) drivers</td><td>circuit-canonical + client-identical (§13-S.5) — not yet implemented</td></tr>
+</table>
+
+<h2>4.2 The new attack surface: forward-stamping (F1)</h2>
+<div class="finding"><span class="sev-high">HIGH (consensus-exactness, not exploitable for theft)</span>
+<p>Because the bound is the <b>epoch window</b> and not the including L1 block, a seat holder (or anarchy proposer) can
+stamp blocks up to <b>383 s in the future</b> relative to real time — something today's <code>ts ≤ L1_ts</code> rule makes
+impossible. Consequences:</p>
+<ul>
+<li><b>Client acceptance divergence.</b> Execution clients reject blocks stamped beyond a small tolerance into the future
+relative to the local clock (geth-class clients use an <code>allowedFutureBlockTime</code>-style rule; taiko-geth is not
+vendored in this repo so its exact tolerance is unverifiable here). A block stamped +300 s is <i>valid per protocol</i>
+but <i>rejected per node</i>. The normative doc names <b>no replacement rule</b> — today the objective
+<code>ts ≤ L1_ts</code> bound made future stamps impossible; the redesign removes it and the client-side rule is unpinned.
+This is a consensus-exactness gap adjacent to §13-S.5: either a tolerance must be pinned as a consensus rule (identical in
+circuit, Go client, Rust client), or the design must state that holders may not stamp ahead of their local clock (a soft,
+non-objective rule).</li>
+<li><b>L2 apps comparing clocks.</b> Contracts that compare <code>block.timestamp</code> against L1-sourced timestamps
+(bridge-relayed oracle prices with L1 timestamps, cross-chain deadlines) will observe an L2 clock up to
+<b>≈5.6 min ahead</b> of the shallowest legal anchor (max ts = T_N + 383 s; shallowest anchor allowed at commit time is
+slot(T_N) + Γc + E − D_anchor = slot(T_N) + 4 ≈ T_N + 48 s); conversely the <b>anchored L1 state can lag the L2 clock by up
+to ≈11+ min</b> (freshness_ceiling) — round-3 corrected sign (the L2 clock is ahead of the anchor, not behind it).</li>
+<li><b>Self-limiting in practice.</b> A rational holder cannot exploit this without delaying its own blocks (nodes reject
+future-stamped blocks until wall time catches up), so the practical attack is the <i>opposite direction</i> (4.3).</li>
+</ul></div>
+
+<h2>4.3 Backward / freeze window (F2)</h2>
+<div class="finding"><span class="sev-med">MEDIUM — bounded, and smaller than today for on-time chains</span>
+<p>A content-epoch holder may stamp the epoch's blocks anywhere in <code>[T_N, T_N+E)</code>: all at the start (clock runs
+~6.4 min slow for the rest of the epoch) or stretched. <b>Numerically the redesign <i>tightens</i> today's backward window</b>
+for an on-time chain: 383 s vs today's 1536 s (Hoodi) / 6144 s (Mainnet). It is a TWAP/oracle-time manipulation vector bounded
+by <code>E</code>, same class as Ethereum's own ±seconds-per-slot freedom but ~30× larger in span. Under lag (4.5) the
+backward displacement grows to the lag band — the honest bound the doc already states for anarchy.</p></div>
+
+<h2>4.4 Forced-inclusion time-travel — provably closed (positive result)</h2>
+<div class="finding"><span class="sev-info">VERIFIED CLOSED</span>
+<p>Concern: under chain lag, a forced transaction executes at a timestamp <i>earlier than its submission</i> (deadline
+circumvention: submit after deadline D, execute at ts &lt; D). Analysis: an item submitted at wall time <code>w</code> is due
+at <code>d = w + F_delay</code> and belongs to the snapshot of the epoch containing <code>d</code>; its earliest stamped
+timestamp is <code>T_N ≥ d − E = w + F_delay − E</code>. With the design's consensus constraint
+<code>F_delay ≥ E + F_margin</code> (r9-C1), <code>T_N − w ≥ F_margin &gt; 0</code> — <b>forced items always execute at a
+timestamp strictly after their submission</b>, regardless of lag:</p>
+<table><tr><th>F_delay</th><th>min(T_N − w)</th><th>backward execution possible?</th></tr>
+<tr><td>384 s (= E)</td><td>0 s</td><td>no (boundary)</td></tr>
+<tr><td>576 s (current mainnet)</td><td>+192 s</td><td>no</td></tr>
+<tr><td>700 s</td><td>+316 s</td><td>no</td></tr></table>
+<p>This is a genuine, non-obvious consequence of the r9-C1 constraint and deserves credit. <b>Residual:</b> the same guarantee
+does <i>not</i> cover discretionary traffic — a holder can stamp a normal user's tx up to 383 s before the wall-clock time the
+user signed it (4.3), and under lag the whole chain executes ~33–51 min in the past (4.5), which is the doc's stated "lag band".</p></div>
+
+<h2>4.5 Lag band: L2 clock runs behind wall clock in degraded modes</h2>
+<table><tr><th>Mode</th><th>Timestamps behind wall clock</th><th>Source</th></tr>
+<tr><td>Healthy content chain</td><td>0 to −383 s (holder choice within epoch)</td><td>epoch window</td></tr>
+<tr><td>Sustained anarchy (content at proof cadence)</td><td>≈ 1 + (Γc+κ)/E + W_a = <b>5.22 epochs ≈ 33.4 min</b></td><td>§9.1 lag band (verified arithmetic)</td></tr>
+<tr><td>Recovery-only mode (lag = K)</td><td><b>8 epochs ≈ 51.2 min</b></td><td>I5</td></tr>
+<tr><td>Permanent outage tail (forced-only drain)</td><td>grows until blob expiry (~18 d) voids items</td><td>§6.7/§9 (refund path)</td></tr></table>
+<p>L2 contracts using <code>block.timestamp</code> as a proxy for real time (expiry clocks, TWAP oracles, freshness checks on
+L1-synced prices) misbehave in these modes — timestamps are 33–51 min stale, then jump forward ~1 epoch per sealed epoch.
+The doc states the anarchy band honestly; it does <b>not</b> state the recovery-mode figure or the jump-forward dynamics,
+and it nowhere states that <i>time-based L2 applications degrade during the band</i> — an operational caveat for the
+ecosystem, not a protocol bug.</p>
+
+<h2>4.6 Anchor gaming: the staleness ratchet (F3)</h2>
+<div class="finding"><span class="sev-med">MEDIUM — bounded lever, ratchet-able</span>
+<p>The EBC-committed anchor must be ≥ <code>D_anchor</code> (32 slots) deep and within
+<code>freshness_ceiling</code> of <code>T_N</code>. The setter invariant only enforces
+<code>freshness_ceiling ≥ D_anchor + Γc + κ + R + margin = 55 slots + margin</code> (≈11 min minimum) — governance may set it
+higher. The holder therefore chooses, per epoch, <b>which ~[11 min, 6.4 min]-old L1 state the L2 sees</b>, and the
+advancement rule does not stop a ratchet: anchoring at max staleness each epoch advances the anchor at exactly wall speed,
+so <b>the holder can keep every L1→L2 signal (bridge message, L1 oracle update, forced-removal) ~<code>freshness_ceiling</code>
+(≥11 min) stale indefinitely</b>, per signal. Default (holderless) epochs fix staleness at ≥ 32 slots ≈ 6.4 min
+(a few slots more across empty L1 slots) — deterministic, better, and the doc never states that number (round-3 precision
+fix). Today's <code>MAX_ANCHOR_OFFSET</code> caps staleness at 25.6/102.4 min, so the redesign improves the worst case
+<i>only if</i> governance keeps the ceiling at its legal minimum;
+nothing in the setter invariant does that automatically. Recommend: an explicit upper bound on <code>freshness_ceiling</code>
+in the setter (e.g. ≤ 2·D_anchor + Γc + κ + R + margin) so the gaming window stays ~one epoch.</p></div>
+
+<h2>4.7 Robustness against L1-side timestamp manipulation (positive result)</h2>
+<div class="finding"><span class="sev-info">VERIFIED ROBUST</span>
+<ul>
+<li>The default anchor <code>F(N)</code> is defined over L1 <b>slots</b>, not L1 block timestamps: L1 proposers cannot move it
+by skewing their block timestamps. ✓</li>
+<li>The decision <code>D+κ</code> and the AC's commitment-inclusion proof are slot-indexed (EIP-4788 beacon roots). ✓
+(Precision note: §3.1's generic "presence at D+κ" should be pinned to <i>inclusion in a canonical block with
+slot ≤ slot(D+κ)</i> — the doc says this explicitly for slices/AC (§5.2) but not for the EBC itself.)</li>
+<li>All derivation inputs are EBC-committed content or epoch-schedule quantities; no L1 inclusion-time observation (I1). ✓</li>
+<li>L1 contracts measuring deadlines (<code>T_exp</code>, seal deadlines) via <code>block.timestamp</code> inherit the usual
+few-seconds L1 proposer timestamp skew — negligible, and common to every L1 deadline contract.</li>
+</ul></div>
+
+<h2>4.8 Undefined: the origin of the epoch clock T_N (F4)</h2>
+<div class="finding"><span class="sev-high">HIGH (spec gap)</span>
+<p>Every bound in the design is epoch-relative, yet <b>the doc never defines where <code>T_N</code> comes from</b>
+(presumably <code>T_N = T_0 + N·E</code> with <code>T_0</code> fixed at deployment; Appendix C calls E "epoch schedule (known
+before T_N)" but nothing states the schedule). Load-bearing consequences of the choice: (a) slot alignment — <code>E</code> =
+384 s = 32 L1 slots, but if <code>T_0</code> is an arbitrary deployment timestamp, epochs are not slot-aligned and every
+slot-mapping (<code>slot(T_N)</code>, <code>F(N)</code>, <code>D+κ</code>) needs a rounding rule; (b) the mapping from the
+epoch schedule (wall clock) to L1 slots must be L1-genesis-relative, not local-clock-relative, or clients fork; (c) whether
+lag ever re-bases the schedule. Must be pinned in Phase A (§13-S.3 adjacent).</p></div>
+
+<h2>4.9 Recommendations (timestamp/anchor)</h2>
+<ol>
+<li>Pin a consensus rule for the client-side future-block acceptance (or an objective replacement: e.g. forbid
+<code>ts &gt; max(T_N, L1_ts_of_EBC − Γc·12)</code>-style bound that preserves precomputability).</li>
+<li>Add the missing setter upper bound on <code>freshness_ceiling</code> to cap the anchor-ratchet window.</li>
+<li>Define <code>T_N</code>'s origin and the slot-mapping rounding rule normatively.</li>
+<li>State the recovery-mode lag (51.2 min) and the time-jump dynamics next to the anarchy band (33.4 min).</li>
+<li>Document that time-sensitive L2 apps degrade during lag bands (ecosystem guidance).</li>
+</ol>
+
+<p class="note">Sources: <code>packages/protocol/docs/Derivation.md:218-224</code>; driver code
+<code>packages/taiko-client/driver/chain_syncer/event/derivation/source_fetcher.go:300</code> (upper bound) and
+<code>:317-339</code> (lower bound); <code>packages/taiko-client-rs/crates/driver/src/derivation/pipeline/shasta/validation.rs:114-142</code>;
+<code>redesign-proposal.md</code> §3/§5/§6.6/§6.8/§9/App.C. Simulation: <a href="simulation/auction_sim.py">auction_sim.py</a>.
+Round-2 verification: all ten headline claims re-verified TRUE by an independent verifier (2026-08-21).</p>
+
+</body></html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Auction Simulations (0/1/N bidders) — DeepSeek Review of PR #22034</title>
+<style>
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:960px;margin:2rem auto;padding:0 1.2rem;color:#1a1f2e;line-height:1.55;background:#fafbfc}
+h1{font-size:1.7rem;border-bottom:3px solid #224;padding-bottom:.4rem}
+h2{font-size:1.25rem;margin-top:2.2rem;border-left:5px solid #224;padding-left:.6rem}
+table{border-collapse:collapse;width:100%;margin:.8rem 0;font-size:.9rem}
+th,td{border:1px solid #ccd;padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef0f6}
+.sev-high{background:#fdf3e7;color:#8a4b11;font-weight:700;padding:0 .3rem}
+.sev-med{background:#fdf8e1;color:#6e5c0a;font-weight:700;padding:0 .3rem}
+.sev-info{background:#e3f2fd;color:#0d47a1;font-weight:700;padding:0 .3rem}
+code{background:#f0f1f5;padding:.05rem .3rem;border-radius:3px;font-size:.9em}
+.finding{border:1px solid #d8dbe6;border-radius:6px;padding:.7rem 1rem;margin:1rem 0;background:#fff}
+.verdict{background:#f0f4ff;border:1px solid #b8c4e8;border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0}
+.note{font-size:.85rem;color:#555}
+a{color:#16437e}
+</style></head><body>
+
+<h1>Auction Simulations — 0, 1, and Multiple Competing Bidders</h1>
+<p><strong>Aspect 3 of the DeepSeek independent adversarial review</strong> of PR #22034 (v14 design). Review date 2026-08-21.
+Companions: <a href="index.html">index</a> · <a href="01-protocol-soundness.html">soundness</a> ·
+<a href="02-adversarial-attack-catalog.html">attacks</a> · <a href="04-l2-l1-timestamps.html">L2 vs L1 timestamps</a> ·
+<a href="05-economic-analysis.html">economics</a> · <a href="06-doc-consistency.html">doc consistency</a> ·
+<a href="07-model-checker-assessment.html">model checker</a>.</p>
+
+<div class="verdict"><b>Verdict:</b> the auction behaves sensibly in all three regimes — but the PR cannot be audited for
+auction soundness beyond that, because <b>the auction mechanics are "as v3" and the v3 text is not in the PR</b> (§4 is a
+one-paragraph delta). The one structural gap this exposes: the <b>funding-forfeit rule for a bidder that wins and then fails
+to fund</b> is nowhere specified, and without one, a zero-cost grief-bid can displace a serving incumbent every T_max (or at
+will, depending on the unspecified transition rule). Simulations below use stated assumptions.</p>
+
+<h2>3.1 Method & assumptions</h2>
+<p>Event simulation in <a href="simulation/auction_sim.py">simulation/auction_sim.py</a> (stdlib-only, seeded,
+reproducible: <code>python3 auction_sim.py --seed 42</code>). Assumptions, stated because the v3 text is absent:
+ascending-bid auction with ≥10% increments and a reserve floor; the winner's per-epoch payment is its bid (ETH fee rate);
+tenures of <code>T_max</code> = 14 days (~3,150 epochs); per-epoch seat value ~ N(0.20, 0.12) ETH (illustrative);
+the incumbent observes realized value (information edge), challengers estimate with 18% noise (winner's-curse); an
+overbidding winner quits after <code>q</code> = 2 epochs (churn).</p>
+
+<h2>3.2 The N-bidder results</h2>
+<table>
+<tr><th>Bidders</th><th>Avg price (ETH/epoch)</th><th>Median</th><th>Seat utilization</th><th>Winner's-curse quits /12</th><th>Incumbent renewal</th><th>Protocol revenue per 14-day tenure (ETH)</th></tr>
+<tr><td><b>0</b></td><td>— (seat never clears)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0 — chain lives in Total Anarchy (3.3)</td></tr>
+<tr><td><b>1</b></td><td><b>0.010</b> (reserve)</td><td>0.010</td><td>100%</td><td>0</td><td><b>100%</b></td><td>378</td></tr>
+<tr><td><b>2</b></td><td>0.150</td><td>0.191</td><td>67%</td><td>4</td><td>29%</td><td>2,729</td></tr>
+<tr><td><b>3</b></td><td>0.219</td><td>0.242</td><td>50%</td><td>6</td><td>80%</td><td>3,502</td></tr>
+<tr><td><b>5</b></td><td>0.276</td><td>0.275</td><td>75%</td><td>3</td><td>25%</td><td>7,265</td></tr>
+</table>
+<div class="finding"><span class="sev-info">READOUT</span>
+<ul>
+<li><b>1 bidder = permanent reserve-floor monopoly:</b> the seat sells for 5% of its mean value (0.010 vs 0.20) and the
+monopolist keeps ~95% of the rent, renewing every T_max at the reserve. This is the design's explicitly "accepted economic
+property" (§4) — but it means <b>the reserve floor is the entire price of the sequencing monopoly when competition is
+absent</b>, so the reserve must be set ≈ the expected seat value. That requires exactly the same unmeasurable MEV estimate
+as <code>L_safety</code> (economics §5.3) — the two sizing problems are one problem.</li>
+<li><b>Competition dissipates rent</b> (price → true value as N grows) <b>and induces churn</b>: with noise, winners
+overbid 25–50% of the time and quit after q epochs, so the chain oscillates between service and anarchy windows. Under the
+stated assumptions the equilibrium price converges ≈ the mean value (0.20) — protocol revenue scales ~linearly with N
+(378 → 7,265 ETH/tenure). <b>Service-gap frequency:</b> 4–6 of 12 tenures ended in an early quit (N2–N3), i.e. roughly one
+q-epoch service gap every 2 tenures (~4 weeks) plus re-auction latency — a preconf-service reliability cost the design's
+"overbidding winner quits after q epochs" rule accepts but never quantifies.</li>
+<li><b>Incumbency survives T_max:</b> renewal rate rises 57% → 100% as the incumbent's information advantage grows 0 → 0.7
+(sweep below). T_max re-prices occupancy but does not rotate it; the design's own §4/§13-T.2 admits this — the simulation
+just quantifies it.</li>
+</ul>
+<table><tr><th>Incumbent advantage</th><th>0.0</th><th>0.1</th><th>0.2</th><th>0.4</th><th>0.7</th></tr>
+<tr><td>Renewal rate (3 bidders)</td><td>57%</td><td>67%</td><td>80%</td><td>80%</td><td><b>100%</b></td></tr></table></div>
+
+<h2>3.3 Zero bidders — the Total-Anarchy equilibrium</h2>
+<table>
+<tr><th>Regime</th><th>Expected profit per race</th><th>Discretionary content cadence</th><th>Torched proof cost /2000 epochs</th></tr>
+<tr><td>Profitable racing (F+M)/n &gt; C</td><td>+0.010 ETH</td><td>≈ every epoch</td><td>80 ETH (racers' own loss)</td></tr>
+<tr><td>Unprofitable racing (F+M)/n &lt; C</td><td>−0.023 ETH</td><td>≈ every <b>16.4 epochs (~105 min)</b> — chain degrades to forced-only cadence</td><td>4.9 ETH</td></tr>
+</table>
+<div class="finding"><span class="sev-info">READOUT</span>
+<ul>
+<li><b>With symmetric racers the lane self-extinguishes when unprofitable</b> — no discretionary content, forced-only +
+empty cadence only. That is the design's fallback working as intended, but it means <b>anarchy service quality depends on
+a positive-sum race</b>, which in turn requires MEV or forced-fee income to exceed proof cost. On a quiet chain: no anarchy
+content, ever.</li>
+<li><b>The censor race is cheap.</b> A determined censor pays ~proof cost per epoch and recovers the forced-fee share
+(it must include the forced prefix — §9.2/§11.8): net marginal censorship cost ≈ <b>+0.02 ETH/epoch</b> under partial
+forced-fee coverage, falling to <b>≈ −0.01 (net-subsidized)</b> when forced fees over-cover the work (round-3 corrected
+figures; the sim emits exactly these two endpoints). Discretionary anarchy content is thus suppressible at near-zero cost
+by any actor willing to out-race everyone — the priced service-level residual r10-4 names, quantified.</li>
+<li><b>Bidding dominates racing</b> whenever the seat has real value: seat value 0.20 − reserve 0.01 = <b>+0.19</b> vs
+expected race profit <b>−0.01</b> — the lane does not cannibalize the auction (r10-8 confirmed under these parameters).</li>
+<li><b>Heterogeneous racers concentrate income, not power</b> (round-3 addition): with prover skill shares 0.6/0.25/0.15
+the fastest prover wins ~61% of races — the §11.3 texture, income capped at indexed cost, no censorship lever (declining
+an epoch hands it to anyone else or to the empty resolution).</li>
+</ul></div>
+
+<h2>3.4 Auction-adjacent gaps the PR leaves open (new findings)</h2>
+<div class="finding"><span class="sev-high">HIGH — unspecified mechanics with adversarial leverage</span>
+<ol>
+<li><b>No funding-forfeit rule.</b> "Funding rule as automatic quit notice" (§4) is the entire specification of what happens
+when the winning bidder cannot or will not post its bond/deposit/fee. If failing to fund merely quits, a griefer can displace
+a serving incumbent with a phantom high bid at ~zero cost, repeatedly (each cycle: incumbent churn + q-epoch transition +
+service interruption). The design must specify: forfeiture of a bid deposit, or binding-funding-at-bid, or a bid bond that is
+slashed on failure to fund. This is the most consequential missing sentence in the PR's auction.</li>
+<li><b>Seat-fee destination not restated.</b> The owner decision (status-quo.md §6.1) sends the per-epoch ETH fee to the
+treasury/DAO — making the auction protocol revenue — but the proposal's §4 never restates it, so the normative record
+depends on a companion file (economics §5.1).</li>
+<li><b>No transition-service rule.</b> During the q-epoch transition after an outbid/termination, who sequences the
+still-assigned epochs and the gap is "as v3" (absent). An angry exiting incumbent plus an unfunded successor yields a
+service hole whose length is unpinned.</li>
+<li><b>No bootstrap rule.</b> At deployment (or after all tenures terminate) the chain starts in anarchy until the first
+auction clears — presumably intended, never stated (§10 "as v3").</li>
+<li><b>No bid-retraction / collusion treatment.</b> Standard auction-hygiene items (bid bonds against retraction, minimum
+bid duration, anti-collusion between the incumbent and standby bidders) are not addressed even at the "existence" level.</li>
+</ol></div>
+
+<h2>3.5 What the simulations do NOT cover (honesty)</h2>
+<ul>
+<li>Strategic bid timing (sniping at T_max re-auctions) — needs the unspecified auction clock rules.</li>
+<li>Standby-bond auto-promotion dynamics (highest standby promoted on termination) — underspecified; a Sybil standby at
+reserve could inherit the seat at a below-market price if promotion doesn't re-run the auction (only T_max expiry re-auctions;
+<code>K_empty</code>/fault terminations promote the standby). Flagged, not simulated.</li>
+<li>ETH/TAIKO price dynamics — the split bond's liveness tranche erodes with TAIKO price (economics §5.4).</li>
+</ul>
+
+<p class="note">Simulation source: <a href="simulation/auction_sim.py">simulation/auction_sim.py</a>; full output:
+<a href="simulation/results_round1.json">simulation/results_round1.json</a>.</p>
+</body></html>
