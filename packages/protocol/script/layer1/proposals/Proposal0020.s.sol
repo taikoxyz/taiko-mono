@@ -45,9 +45,12 @@ contract Proposal0020 is BuildDirectProposal {
     uint32 public constant PROPOSAL_EXPIRATION_PERIOD = 1_209_600; // 14 days
 
     /// @dev Contract-enforced ordering: the minSignerListLength floor (currently 8) must
-    /// drop before removeSigners, or action 3 reverts. Placing the threshold updates
-    /// after the list reaches its final size is defensive: the new minApprovals (3, 4)
-    /// satisfy the `<= addresslistLength()` check at every intermediate size.
+    /// drop before removeSigners (action 1 before action 3), and addSigners must land
+    /// before removeSigners (action 2 before action 3) — removing 6 from the current 9
+    /// would leave 3, below even the new floor of 4; from 11 the list lands at 5.
+    /// Placing the threshold updates after the list reaches its final size is defensive:
+    /// the new minApprovals (3, 4) satisfy the `<= addresslistLength()` check at every
+    /// intermediate size.
     function buildDaoActions() internal pure override returns (Action[] memory actions_) {
         address[] memory toAdd = new address[](2);
         toAdd[0] = L1.SC_GUSTAVO_GONZALEZ;
@@ -172,7 +175,7 @@ contract Proposal0020 is BuildDirectProposal {
         for (uint256 i; i < current.length; ++i) {
             check(signerList.isListed(current[i]), "expected current member not listed");
         }
-        address[2] memory added = [L1.SC_GUSTAVO_GONZALEZ, L1.SC_DANIEL_WANG];
+        address[2] memory added = _newSeats();
         for (uint256 i; i < added.length; ++i) {
             check(!signerList.isListed(added[i]), "new member already listed");
             check(added[i].code.length == 0, "new member is not an EOA");
@@ -185,7 +188,7 @@ contract Proposal0020 is BuildDirectProposal {
     /// hold no appointment, as is the case today.
     function simulatePreExecution() internal override {
         IEncryptionRegistry registry = IEncryptionRegistry(L1.DAO_ENCRYPTION_REGISTRY);
-        address[2] memory added = [L1.SC_GUSTAVO_GONZALEZ, L1.SC_DANIEL_WANG];
+        address[2] memory added = _newSeats();
         for (uint256 i; i < added.length; ++i) {
             address appointer = registry.appointerOf(added[i]);
             if (appointer != address(0)) {
@@ -234,7 +237,7 @@ contract Proposal0020 is BuildDirectProposal {
 
         // Once listed, a new seat address must not be any seat's appointed agent: its
         // approvals would credit its own seat, stranding the appointing seat.
-        address[2] memory added = [L1.SC_GUSTAVO_GONZALEZ, L1.SC_DANIEL_WANG];
+        address[2] memory added = _newSeats();
         for (uint256 i; i < added.length; ++i) {
             check(
                 registry.appointerOf(added[i]) == address(0),
@@ -276,5 +279,13 @@ contract Proposal0020 is BuildDirectProposal {
                 && emergencyExpiration == PROPOSAL_EXPIRATION_PERIOD,
             "emergency settings not preserved"
         );
+    }
+
+    /// @dev The two seats this proposal adds, shared by the baseline, pre-execution and
+    /// post-state checks so those sites cannot diverge. buildDaoActions restates the pair
+    /// explicitly on purpose: the assertions cross-check the action payload, not vice versa.
+    /// @return seats_ The new seat addresses.
+    function _newSeats() internal pure returns (address[2] memory seats_) {
+        seats_ = [L1.SC_GUSTAVO_GONZALEZ, L1.SC_DANIEL_WANG];
     }
 }

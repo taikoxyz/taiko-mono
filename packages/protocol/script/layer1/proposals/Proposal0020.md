@@ -44,11 +44,13 @@ settings change and the 2025-06-02 / 2026-01-19 membership changes all executed 
 from the DAO). `allowFailureMap` is fixed to 0 by the multisig, so any reverting action
 aborts execution.
 
-Ordering: the contract-enforced dependency is Action 1 before Action 3 (`removeSigners`
-reverts if the list would drop below `minSignerListLength`, currently 8). Actions 4–5 are
-placed after Action 3 defensively: `minApprovals ≤ addresslistLength()` is checked against
-the then-current list, which the new thresholds (3, 4) satisfy at every intermediate size
-(9 → 11 after Action 2 → 5 after Action 3).
+Ordering: two dependencies are contract-enforced. Action 1 must precede Action 3
+(`removeSigners` reverts if the list would drop below `minSignerListLength`, currently 8),
+and Action 2 must precede Action 3 (removing 6 of the current 9 members would leave 3,
+below even the new floor of 4; adding first takes the list to 11, so the removals land at
+5). Actions 4–5 are placed after Action 3 defensively: `minApprovals ≤
+addresslistLength()` is checked against the then-current list, which the new thresholds
+(3, 4) satisfy at every intermediate size (9 → 11 after Action 2 → 5 after Action 3).
 
 | #   | Target                                                          | Call                                                                                                   |
 | --- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
