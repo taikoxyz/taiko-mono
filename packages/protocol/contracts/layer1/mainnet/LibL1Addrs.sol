@@ -18,10 +18,12 @@ library LibL1Addrs {
     address public constant SC_TAIKO_LABS = 0xb47fE76aC588101BFBdA9E68F66433bA51E8029a;
     address public constant SC_L2BEAT = 0xf1cF63589A1e012F9124182c9eAa36B5333e5f06;
     address public constant SC_ARAGON = 0xb284810536C0dAB6A8e48153B58588A9B9e0F701;
-    address public constant SC_NETHERMIND = 0x5353c607e6eca6C63FEC5c6C0F5CC3a5348d5c95;
     // Independent seat (EOA) added by Proposal0020
     address public constant SC_GUSTAVO_GONZALEZ = 0xe63E61BbB3aa1b82d44471AbcAb490102C17c986;
+    // Daniel Wang's seat (EOA) added by Proposal0020
+    address public constant SC_DANIEL_WANG = 0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A;
     // Seats removed by Proposal0020
+    address public constant SC_NETHERMIND = 0x5353c607e6eca6C63FEC5c6C0F5CC3a5348d5c95;
     address public constant SC_CHAINBOUND = 0x436a1075099A145417EBFc74BBaC9605e3e4f1A7;
     address public constant SC_HALBORN = 0x0F40268Ec0Dc8D88CF2f22E227A29a0b478b6351;
     address public constant SC_DREW_VAN_DER_WERFF = 0x25d3E89bAcE2040Ed3aF7c4c7B505cfBB72fD6f1;
