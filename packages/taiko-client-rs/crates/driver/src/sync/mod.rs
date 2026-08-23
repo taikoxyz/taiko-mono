@@ -7,20 +7,18 @@ pub(crate) const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
 
 /// Geth error fragment returned when a node cannot serve state at the requested block.
 ///
-/// Path-scheme geth keeps only ~128 recent blocks of live state and answers older state reads
-/// with "historical state <root> is not available" unless state-history indexing
-/// (`--gcmode archive`) is enabled, so finalized-block reads hit this whenever L1 finality
-/// lags beyond that window.
-pub(crate) const HISTORICAL_STATE_UNAVAILABLE: &str = "historical state";
-
-/// Hash-scheme geth error fragment for state pruned below the recent-trie window.
-pub(crate) const MISSING_TRIE_NODE: &str = "missing trie node";
+/// Path-scheme geth keeps only ~128 recent blocks of live state; older reads go through its
+/// history reader, and geth >= 1.17 reports every way that can fail (state history disabled,
+/// history index still backfilling, root outside the `--history.state` window) as
+/// "historical state <root> is not available". Finalized-block reads hit this whenever L1
+/// finality lags beyond the live window on a node without `--gcmode archive` state history.
+const HISTORICAL_STATE_UNAVAILABLE: &str = "historical state";
 
 /// Whether an RPC error message indicates the endpoint cannot serve state at the requested
 /// block (a non-archive node asked below its retained-state window), rather than a transport
 /// or endpoint failure.
 pub(crate) fn is_historical_state_unavailable(message: &str) -> bool {
-    message.contains(HISTORICAL_STATE_UNAVAILABLE) || message.contains(MISSING_TRIE_NODE)
+    message.contains(HISTORICAL_STATE_UNAVAILABLE)
 }
 
 use async_trait::async_trait;
@@ -113,15 +111,18 @@ mod tests {
     }
 
     #[test]
-    fn historical_state_matcher_covers_both_geth_state_schemes() {
+    fn historical_state_matcher_recognizes_only_the_geth_history_message() {
+        // Geth formats the root with `%x`: bare hex, no `0x` prefix.
         assert!(is_historical_state_unavailable(
             "server returned an error response: error code -32000: historical state \
-             0xdeadbeef is not available"
-        ));
-        assert!(is_historical_state_unavailable(
-            "missing trie node 0xdeadbeef (path 0x01) not found"
+             3f1c0b9e2d7a4c6580f1e2d3c4b5a69788796a5b4c3d2e1f0a9b8c7d6e5f4a3b is not available"
         ));
         assert!(!is_historical_state_unavailable("finalized block not found"));
+        // On modern geth a bare `missing trie node` means an incomplete or corrupt state DB,
+        // not pruned history, so it must stay on the fatal path.
+        assert!(!is_historical_state_unavailable(
+            "missing trie node 0xdeadbeef (path 0x01) not found"
+        ));
         assert!(!is_historical_state_unavailable("connection refused"));
     }
 }

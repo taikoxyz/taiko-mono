@@ -37,12 +37,10 @@ Event sync startup must use checkpoint resume head or local `head_l1_origin` rec
   - Checkpoint mode trusts the checkpoint head actually reached by local beacon sync.
   - Non-checkpoint mode requires local `head_l1_origin` and must fail closed if missing.
   - Degraded L1 endpoints (non-archive nodes once L1 finality lags beyond their retained-state
-    window, and pre-finality devnets) downgrade the beacon target to a latest-block read of the
-    inbox core state. The imported checkpoint is then advertised to the engine as head/safe only
-    (finalized stays zero). A latest-read target must never be advertised as engine-finalized:
-    that would block the rewind event sync needs if an L1 reorg drops the target's proposal.
-    That withholding is latched for the life of the stage, because execution clients expect the
-    finalized marking to be monotone.
+    window, and pre-finality devnets) read the beacon target from the latest inbox core state
+    instead. The target is still a proof-finalized proposal recorded on L1; only the read loses
+    its reorg-proof anchoring, and the checkpoint import advertises it to the engine exactly as
+    a finalized-block read would.
   - Only a chain that has never finalized replays event sync from the inbox activation block.
     An endpoint that cannot serve state at an existing finalized block keeps the finalized block
     anchor (the header needs no state) and loses only the finalized-safe proposal clamp, so the

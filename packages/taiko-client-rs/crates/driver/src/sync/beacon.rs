@@ -2,8 +2,7 @@
 //!
 //! The sync target is read trustlessly from the L1 inbox core state
 //! (`lastFinalizedProposalId` / `lastFinalizedBlockHash`) at the finalized L1 block whenever
-//! the endpoint can serve it, so the target is final on both layers; degraded latest-block reads
-//! import the target without the engine's finalized marking. The optional checkpoint node
+//! the endpoint can serve it, so the target is final on both layers. The optional checkpoint node
 //! only serves block bodies and is consulted only when the target body is not already stored
 //! locally: every fetched block is verified against the L1-recorded hash before submission, and the
 //! execution engine backfills its hash-linked ancestors over P2P.
@@ -44,55 +43,6 @@ struct FinalizedSyncTarget {
     proposal_id: u64,
     /// L2 block hash recorded on L1 for that finalized proposal.
     block_hash: B256,
-    /// Whether the core state was read at a finalized L1 block. Latest-read fallbacks clear
-    /// this so checkpoint import withholds the engine's finalized advertisement (WLP-INV-001).
-    l1_finalized: bool,
-}
-
-/// Forkchoice state advertised when importing a checkpoint block.
-///
-/// A target read at a finalized L1 block is final on both layers, so it is advertised as head,
-/// safe, and finalized. A target from the degraded latest-block fallback is advertised as head
-/// and safe only: the L1 transactions recording it are not yet final, and telling the engine it
-/// is finalized would block the rewind event sync needs if an L1 reorg drops the target's
-/// proposal.
-///
-/// The engine's finalized marking is then left for derivation to advance, via the promotion
-/// forkchoice in [`crate::sync::engine`]. Note that is not guaranteed to happen promptly: the
-/// finalized hint behind it is itself read from inbox core state at a proposal's own L1 block,
-/// so on the same non-archive endpoints it stays unresolved for any proposal older than the
-/// retained-state window, and already-canonical proposals submit no forkchoice at all. A zero
-/// finalized marking is safe in both target execution clients — it costs freezer layout on geth
-/// and nothing on reth, whose backfill targets the head — so the marking may simply stay unset
-/// until derivation catches up to within that window.
-fn checkpoint_forkchoice_state(block_hash: B256, l1_finalized: bool) -> ForkchoiceState {
-    ForkchoiceState {
-        head_block_hash: block_hash,
-        safe_block_hash: block_hash,
-        finalized_block_hash: if l1_finalized { block_hash } else { B256::ZERO },
-    }
-}
-
-/// Tracks whether any sync target read in this stage fell back to the latest L1 block.
-///
-/// The read mode is recomputed every tick, and the trigger boundary (a finality lag past the
-/// endpoint's retained-state window) sits close to the normal finality lag, so a marginal
-/// finality incident would otherwise flap the engine's finalized advertisement tick by tick.
-/// Execution clients expect that marking to be monotone — geth's skeleton records a finalized
-/// height and never clears it — so once a read degrades, the stage stays degraded.
-#[derive(Debug, Default)]
-struct TargetReadMode {
-    /// Whether any read so far fell back to the latest L1 block. Sticky for the stage's life.
-    degraded: bool,
-}
-
-impl TargetReadMode {
-    /// Record one target read and return whether the engine may still be told the target is
-    /// finalized.
-    fn observe(&mut self, l1_finalized: bool) -> bool {
-        self.degraded |= !l1_finalized;
-        !self.degraded
-    }
 }
 
 /// Drives the L2 execution engine toward the proof-finalized block recorded on L1.
@@ -128,59 +78,50 @@ impl BeaconSyncer {
     /// chains without L1 finality yet (fresh devnets), and endpoints that cannot serve state at
     /// the finalized block (non-archive nodes once L1 finality lags beyond their retained-state
     /// window). The target itself stays a proof-finalized proposal recorded on L1 either way;
-    /// only the read loses its reorg-proof anchoring, which the returned `l1_finalized` flag
-    /// records so checkpoint import can withhold the engine's finalized advertisement.
+    /// only the read loses its reorg-proof anchoring.
     #[instrument(skip(self), level = "debug")]
     async fn finalized_sync_target(&self) -> Result<FinalizedSyncTarget, SyncError> {
-        let (core_state, l1_finalized) =
-            match self
-                .rpc
-                .shasta
-                .inbox
-                .getCoreState()
-                .block(BlockId::Number(BlockNumberOrTag::Finalized))
-                .call()
-                .await
-            {
-                Ok(core_state) => (core_state, true),
-                Err(err)
-                    if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) ||
-                        is_historical_state_unavailable(&err.to_string()) =>
-                {
-                    let message = err.to_string();
-                    if is_historical_state_unavailable(&message) {
-                        warn!(
-                            error = %message,
-                            "L1 endpoint cannot serve state at the finalized block; reading the \
-                             sync target from the latest core state"
-                        );
-                    }
-                    let core_state =
-                        self.rpc.shasta.inbox.getCoreState().call().await.map_err(|err| {
-                            SyncError::Rpc(RpcClientError::Provider(err.to_string()))
-                        })?;
-                    (core_state, false)
+        let core_state = match self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Number(BlockNumberOrTag::Finalized))
+            .call()
+            .await
+        {
+            Ok(core_state) => core_state,
+            Err(err) => {
+                let message = err.to_string();
+                if is_historical_state_unavailable(&message) {
+                    warn!(
+                        error = %message,
+                        "L1 endpoint cannot serve state at the finalized block; reading the \
+                         sync target from the latest core state"
+                    );
+                } else if !message.contains(FINALIZED_BLOCK_NOT_FOUND) {
+                    return Err(SyncError::Rpc(RpcClientError::Provider(message)));
                 }
-                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
-            };
+                self.rpc
+                    .shasta
+                    .inbox
+                    .getCoreState()
+                    .call()
+                    .await
+                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+            }
+        };
 
         Ok(FinalizedSyncTarget {
             proposal_id: core_state.lastFinalizedProposalId.to::<u64>(),
             block_hash: core_state.lastFinalizedBlockHash,
-            l1_finalized,
         })
     }
 
     /// Submit a proof-finalized block body (from either the local store or the checkpoint node)
     /// to the execution engine, starting or advancing the engine's backfill toward it.
-    /// `l1_finalized` carries whether the target was read at a finalized L1 block; see
-    /// [`checkpoint_forkchoice_state`].
     #[instrument(skip(self, block), level = "debug")]
-    async fn submit_target_block(
-        &self,
-        block: RpcBlock<TxEnvelope>,
-        l1_finalized: bool,
-    ) -> Result<(), DriverError> {
+    async fn submit_target_block(&self, block: RpcBlock<TxEnvelope>) -> Result<(), DriverError> {
         let block_number = block.header.number;
         let block_hash = block.hash();
         let tx_root = block.header.transactions_root;
@@ -223,7 +164,16 @@ impl BeaconSyncer {
             }
         }
 
-        let forkchoice_state = checkpoint_forkchoice_state(block_hash, l1_finalized);
+        // The submitted block is proof-finalized on L1 and normally read at a finalized L1
+        // block. The latest-block fallback in `finalized_sync_target` could in principle still be
+        // reorged away, but the engine does not gate rewinds on its finalized marking, and
+        // derivation advertises finalized from equally non-final core-state reads on every
+        // proposal, so advertising it here matches the production path.
+        let forkchoice_state = ForkchoiceState {
+            head_block_hash: block_hash,
+            safe_block_hash: block_hash,
+            finalized_block_hash: block_hash,
+        };
 
         let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
         resolve_checkpoint_forkchoice_status(&forkchoice.payload_status.status, block_number)?;
@@ -290,7 +240,6 @@ impl SyncStage for BeaconSyncer {
         // immediately, preserving fail-fast timing at startup.
         let mut target_seen_once = false;
         let mut checkpoint_seen_once = false;
-        let mut target_read_mode = TargetReadMode::default();
 
         loop {
             ticker.tick().await;
@@ -318,9 +267,6 @@ impl SyncStage for BeaconSyncer {
                     continue;
                 }
             };
-            // Observed here rather than at the submission below, so a degraded read still
-            // latches on ticks that bail out before reaching it.
-            let advertise_finalized = target_read_mode.observe(target.l1_finalized);
 
             // A zero hash means the inbox has finalized nothing and recorded no genesis
             // checkpoint yet; event sync will derive everything from the activation block.
@@ -435,7 +381,7 @@ impl SyncStage for BeaconSyncer {
                 target_block_number, local_head, "syncing execution engine toward finalized target"
             );
 
-            match self.submit_target_block(block, advertise_finalized).await {
+            match self.submit_target_block(block).await {
                 Ok(()) => DriverMetrics::beacon_sync_remote_submissions_total().inc(),
                 // An INVALID verdict is not transient: the block hashes to the L1 checkpoint yet
                 // the engine rejects it, which needs operator attention rather than retries.
@@ -507,11 +453,10 @@ mod tests {
 
         assert_eq!(target.proposal_id, 7);
         assert_eq!(target.block_hash, B256::from([9u8; 32]));
-        assert!(!target.l1_finalized, "latest-read targets must not claim finalized anchoring");
     }
 
     #[tokio::test]
-    async fn finalized_sync_target_marks_target_finalized_when_read_at_finalized_block() {
+    async fn finalized_sync_target_reads_finalized_core_state() {
         let asserter = Asserter::new();
         let core_state = core_state_with_finalized(5, B256::from([6u8; 32]));
         asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&core_state)));
@@ -523,7 +468,6 @@ mod tests {
 
         assert_eq!(target.proposal_id, 5);
         assert_eq!(target.block_hash, B256::from([6u8; 32]));
-        assert!(target.l1_finalized);
     }
 
     #[tokio::test]
@@ -542,47 +486,6 @@ mod tests {
 
         assert_eq!(target.proposal_id, 3);
         assert_eq!(target.block_hash, B256::from([4u8; 32]));
-        assert!(!target.l1_finalized, "latest-read targets must not claim finalized anchoring");
-    }
-
-    #[test]
-    fn target_read_mode_latches_degraded_across_later_finalized_reads() {
-        let mut mode = TargetReadMode::default();
-
-        // A marginal finality incident straddles the retained-state boundary, so reads alternate.
-        assert!(mode.observe(true), "a finalized read may advertise finalized");
-        assert!(!mode.observe(false), "a latest-read target must withhold it");
-        assert!(
-            !mode.observe(true),
-            "the engine's finalized marking must stay monotone for the life of the stage, so a \
-             recovered read must not re-advertise after a degraded one"
-        );
-        assert!(!mode.observe(false));
-    }
-
-    #[test]
-    fn target_read_mode_advertises_finalized_while_every_read_is_finalized() {
-        let mut mode = TargetReadMode::default();
-        assert!(mode.observe(true));
-        assert!(mode.observe(true));
-    }
-
-    #[test]
-    fn checkpoint_forkchoice_advertises_finalized_target_on_finalized_read() {
-        let hash = B256::from([8u8; 32]);
-        let state = checkpoint_forkchoice_state(hash, true);
-        assert_eq!(state.head_block_hash, hash);
-        assert_eq!(state.safe_block_hash, hash);
-        assert_eq!(state.finalized_block_hash, hash);
-    }
-
-    #[test]
-    fn checkpoint_forkchoice_withholds_finalized_for_latest_read_target() {
-        let hash = B256::from([8u8; 32]);
-        let state = checkpoint_forkchoice_state(hash, false);
-        assert_eq!(state.head_block_hash, hash);
-        assert_eq!(state.safe_block_hash, hash);
-        assert_eq!(state.finalized_block_hash, B256::ZERO);
     }
 
     #[tokio::test]
@@ -596,6 +499,8 @@ mod tests {
             .expect_err("unrelated rpc failures must stay fatal");
 
         assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
+        // The original error must surface, not a second read against the exhausted mock queue.
+        assert!(err.to_string().contains("boom"), "unexpected error: {err}");
     }
 
     #[test]
