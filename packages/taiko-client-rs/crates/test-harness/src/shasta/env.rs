@@ -198,7 +198,7 @@ impl AsyncTestContext for ShastaEnv {
             .unwrap_or_else(|err| panic!("failed to load ShastaEnv: {err:#}"))
     }
 
-    /// Teardown the ShastaEnv after each test.
+    /// Tear down the ShastaEnv after each test.
     async fn teardown(self) {
         self.shutdown().await.unwrap_or_else(|err| panic!("ShastaEnv teardown failed: {err:?}"));
     }
