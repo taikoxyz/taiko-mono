@@ -87,7 +87,10 @@ jobs:
           # tail (mdbx C build script included) on every run. Saved by lint itself
           # on main pushes, restored by PR lint runs.
           shared-key: "taiko-client-rs-lint"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # TEMP(pre-merge verification): let this PR save the lint cache under its
+          # own merge ref so the restore path can be exercised before merge.
+          # Revert to main-only before merging.
+          save-if: "true"
           workspaces: |
             packages/taiko-client-rs -> target
 
