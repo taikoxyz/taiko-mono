@@ -13,9 +13,9 @@ Whitelist-specific importer paths are included as concrete examples where those 
    - checkpoint mode: checkpoint head published by beacon stage;
    - no checkpoint mode: local `head_l1_origin`.
 3. Event stage reads a finalized L1 header/state pair, computes a finalized-bounded target proposal,
-   and starts scanner replay from a safe anchor. If geth temporarily cannot serve that historical
-   state, event sync re-reads the finalized header/state pair after the retry interval instead of
-   substituting latest state.
+   and starts scanner replay from a safe anchor. If the L1 client temporarily cannot serve that
+   historical state, event startup re-reads the finalized header/state pair after the retry
+   interval instead of substituting latest state.
 4. Event scanner processes proposal events through canonical derivation.
 5. Preconf ingress only opens after both scanner-live and confirmed-sync readiness are true.
 6. Every preconf ingress path enforces stale boundary: `block_number <= head_l1_origin` is stale.
@@ -39,7 +39,10 @@ Rules:
 - Resume source is fail-closed, never `Latest` fallback.
 - Finalized-safe proposal context bounds event startup.
 - An existing finalized header whose state is temporarily unavailable keeps beacon/event startup
-  in retry; `Latest` compatibility is limited to the explicit pre-first-finality devnet response.
+  in retry; `Latest` compatibility is limited to a client-specific pre-first-finality response
+  (geth's explicit error or reth's `null` finalized-block result).
+- A scanner reconnect only probes finalized state once; on failure it rewinds to the original
+  finalized-safe startup anchor so replay remains conservative without wedging reconnection.
 - Batch-to-last-block mapping plus anchor metadata determines scanner start point.
 
 ## Confirmed-Sync Readiness And Ingress Gate

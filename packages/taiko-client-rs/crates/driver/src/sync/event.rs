@@ -1369,71 +1369,77 @@ impl EventSyncer {
 
     /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
     ///
-    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets). When geth
-    /// temporarily cannot serve the state for an existing finalized block, this method waits and
-    /// retries from a fresh finalized header instead of substituting reorg-unsafe latest state.
+    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets), and surfaces a
+    /// recognized historical-state gap so each caller can apply the retry policy appropriate to
+    /// its lifecycle phase.
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
-        loop {
-            let finalized_block =
-                match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
-                    Ok(block) => block,
-                    // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh
-                    // devnets before the beacon chain has finalized its first block. Treat this
-                    // specific error as "not yet available" rather than a fatal failure.
-                    Err(err)
-                        if err.as_error_resp().is_some_and(|payload| {
-                            is_finalized_block_not_found(payload.code, payload.message.as_ref())
-                        }) =>
-                    {
-                        return Ok(None);
-                    }
-                    Err(err) => {
-                        return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string())))
-                    }
-                };
-
-            let Some(finalized_block) = finalized_block else {
-                return Err(SyncError::UnexpectedMissingFinalizedBlock);
-            };
-
-            let block_hash = finalized_block.header.hash;
-            let block_number = finalized_block.header.number;
-            let core_state = match self
-                .rpc
-                .shasta
-                .inbox
-                .getCoreState()
-                .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
-                .call()
-                .await
-            {
-                Ok(core_state) => core_state,
-                Err(err) => {
-                    if contract_rpc_error(&err).is_some_and(|(code, message)| {
-                        is_historical_state_unavailable(code, message)
-                    }) {
-                        warn!(
-                            block_number,
-                            ?block_hash,
-                            error = %err,
-                            retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
-                            "finalized L1 state is temporarily unavailable; retrying"
-                        );
-                        sleep(self.cfg.retry_interval).await;
-                        continue;
-                    }
-                    return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string())));
+        let finalized_block =
+            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block,
+                // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh
+                // devnets before the beacon chain has finalized its first block. Reth represents
+                // the same state as a successful `null` block response handled below.
+                Err(err)
+                    if err.as_error_resp().is_some_and(|payload| {
+                        is_finalized_block_not_found(payload.code, payload.message.as_ref())
+                    }) =>
+                {
+                    return Ok(None);
                 }
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
             };
-            let finalized_safe_proposal_id =
-                core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
-            return Ok(Some(FinalizedL1Snapshot {
-                block_number,
-                block_hash,
-                finalized_safe_proposal_id,
-            }));
+        let Some(finalized_block) = finalized_block else {
+            return Ok(None);
+        };
+
+        let block_hash = finalized_block.header.hash;
+        let block_number = finalized_block.header.number;
+        let core_state = match self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+            .call()
+            .await
+        {
+            Ok(core_state) => core_state,
+            Err(err) => {
+                if let Some((_, message)) = contract_rpc_error(&err)
+                    .filter(|(code, message)| is_historical_state_unavailable(*code, message))
+                {
+                    return Err(SyncError::HistoricalStateUnavailable {
+                        message: message.to_owned(),
+                    });
+                }
+                return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string())));
+            }
+        };
+        let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+
+        Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
+    }
+
+    /// Resolve the finalized snapshot used for initial event-sync bootstrap.
+    ///
+    /// Startup must remain finalized-safe, so a recognized temporary state gap retries a freshly
+    /// resolved finalized header instead of substituting a latest-state boundary.
+    async fn finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
+        loop {
+            match self.try_finalized_l1_snapshot().await {
+                Err(err @ SyncError::HistoricalStateUnavailable { .. }) => {
+                    DriverMetrics::event_sync_finalized_state_unavailable_total().inc();
+                    warn!(
+                        error = %err,
+                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        "finalized L1 state is temporarily unavailable; retrying"
+                    );
+                    sleep(self.cfg.retry_interval).await;
+                }
+                result => return result,
+            }
         }
     }
 
@@ -1456,7 +1462,7 @@ impl EventSyncer {
 
         // Try to get finalized snapshot. When unavailable, replay proposal zero from the inbox
         // activation block, which is safe because derivation is idempotent.
-        let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
+        let finalized_snapshot = self.finalized_l1_snapshot().await?;
 
         let (target_proposal_id, finalized_safe_proposal_id) =
             resolve_target_with_optional_finalization(
@@ -1875,6 +1881,9 @@ impl SyncStage for EventSyncer {
                 {
                     Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
                     Err(err) => {
+                        if matches!(err, SyncError::HistoricalStateUnavailable { .. }) {
+                            DriverMetrics::event_sync_finalized_state_unavailable_total().inc();
+                        }
                         warn!(
                             ?err,
                             fallback_start_block = startup_anchor_block_number,
@@ -2212,9 +2221,17 @@ mod tests {
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 " is not available"
             ),
+            concat!(
+                "historical state ",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                " is not available"
+            ),
+            "state histories haven't been fully indexed yet",
         ];
 
         for (attempt, error_message) in historical_state_errors.into_iter().enumerate() {
+            let unavailable_before =
+                DriverMetrics::event_sync_finalized_state_unavailable_total().get();
             let asserter = Asserter::new();
             let first_hash = B256::from([(attempt + 1) as u8; 32]);
             let retried_hash = B256::from([(attempt + 11) as u8; 32]);
@@ -2226,7 +2243,7 @@ mod tests {
 
             let (rpc, recorded_requests) = mock_client_with_recording_l1(asserter.clone());
             let syncer = EventSyncer { rpc, ..build_syncer().await };
-            let snapshot_read = syncer.try_finalized_l1_snapshot();
+            let snapshot_read = syncer.finalized_l1_snapshot();
             tokio::pin!(snapshot_read);
 
             assert!(
@@ -2243,6 +2260,11 @@ mod tests {
             assert_eq!(snapshot.block_number, 101);
             assert_eq!(snapshot.block_hash, retried_hash);
             assert_eq!(snapshot.finalized_safe_proposal_id, 7);
+            assert!(
+                DriverMetrics::event_sync_finalized_state_unavailable_total().get() >
+                    unavailable_before,
+                "event sync must expose the degraded finalized-state read"
+            );
             assert!(asserter.read_q().is_empty(), "retry must re-read the finalized block");
 
             let recorded_requests =
@@ -2284,10 +2306,26 @@ mod tests {
     }
 
     #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_snapshot_probe_surfaces_historical_state_gap_without_retrying() {
+        let asserter = Asserter::new();
+        asserter.push_success(&l1_block_at(100, B256::from([1u8; 32]), B256::ZERO));
+        push_geth_server_error(&asserter, "historical state is not available");
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let result = timeout(Duration::from_millis(100), syncer.try_finalized_l1_snapshot())
+            .await
+            .expect("a single finalized snapshot probe must not wait for a retry")
+            .expect_err("the historical-state gap must be surfaced to the caller");
+
+        assert!(matches!(result, SyncError::HistoricalStateUnavailable { .. }));
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
     async fn finalized_snapshot_does_not_retry_unrelated_historical_state_errors() {
         let asserter = Asserter::new();
         asserter.push_success(&l1_block_at(100, B256::from([1u8; 32]), B256::ZERO));
-        asserter.push_failure_msg("historical state database is not available");
+        push_geth_server_error(&asserter, "historical state database is not available");
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
 
@@ -2299,15 +2337,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn finalized_snapshot_fails_closed_on_unexpected_null_block() {
+    async fn finalized_snapshot_treats_null_block_as_pre_finality() {
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
 
-        let result = syncer.try_finalized_l1_snapshot().await;
+        let snapshot = syncer
+            .try_finalized_l1_snapshot()
+            .await
+            .expect("reth returns null when no finalized block exists yet");
 
-        assert!(matches!(result, Err(SyncError::UnexpectedMissingFinalizedBlock)));
+        assert!(snapshot.is_none());
     }
 
     #[tokio::test]

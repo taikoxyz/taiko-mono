@@ -83,10 +83,6 @@ pub enum SyncError {
         message: String,
     },
 
-    /// L1 provider returned `null` for the finalized block without an explicit no-finality error.
-    #[error("L1 provider unexpectedly returned no finalized block")]
-    UnexpectedMissingFinalizedBlock,
-
     /// Event sync: RPC error.
     #[error(transparent)]
     Rpc(#[from] RpcClientError),

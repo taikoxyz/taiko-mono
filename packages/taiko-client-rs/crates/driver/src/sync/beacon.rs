@@ -258,6 +258,7 @@ impl SyncStage for BeaconSyncer {
                     target
                 }
                 Err(err @ SyncError::HistoricalStateUnavailable { .. }) => {
+                    DriverMetrics::beacon_sync_finalized_state_unavailable_total().inc();
                     warn!(error = %err, "finalized L1 state is temporarily unavailable; retrying");
                     continue;
                 }
@@ -434,10 +435,19 @@ mod tests {
 
     #[test_log::test(tokio::test(start_paused = true))]
     async fn run_retries_historical_state_gap_before_first_finalized_target() {
+        let unavailable_before =
+            DriverMetrics::beacon_sync_finalized_state_unavailable_total().get();
         let l1_asserter = Asserter::new();
         let l2_asserter = Asserter::new();
         l2_asserter.push_success(&0u64);
-        push_geth_server_error(&l1_asserter, "historical state is not available");
+        push_geth_server_error(
+            &l1_asserter,
+            concat!(
+                "historical state ",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                " is not available"
+            ),
+        );
         l2_asserter.push_success(&0u64);
         l1_asserter
             .push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&empty_core_state())));
@@ -472,6 +482,11 @@ mod tests {
             .expect("beacon sync should accept the retried finalized target");
 
         assert_eq!(checkpoint_resume_head.get(), Some(0));
+        assert!(
+            DriverMetrics::beacon_sync_finalized_state_unavailable_total().get() >
+                unavailable_before,
+            "beacon sync must expose the degraded finalized-state read"
+        );
         assert!(l1_asserter.read_q().is_empty());
         assert!(l2_asserter.read_q().is_empty());
     }
@@ -481,7 +496,7 @@ mod tests {
         let l1_asserter = Asserter::new();
         let l2_asserter = Asserter::new();
         l2_asserter.push_success(&0u64);
-        l1_asserter.push_failure_msg("historical state database is not available");
+        push_geth_server_error(&l1_asserter, "historical state database is not available");
 
         let syncer = BeaconSyncer {
             retry_interval: Duration::from_secs(1),

@@ -25,15 +25,18 @@ pub(crate) fn contract_rpc_error(error: &ContractError) -> Option<(i64, &str)> {
 
 /// Return whether a structured RPC error is one of geth's known historical-state failures.
 ///
-/// Geth has emitted both a state-path form and a re-execution form across versions. Some RPC
-/// deployments also include the requested state root between `historical state` and
-/// `is not available`. The root-bearing form is accepted only when the middle token is exactly a
-/// 32-byte hexadecimal root so unrelated errors mentioning historical state remain fail-fast.
+/// Geth has emitted state-path, re-execution, state-index backfill, and root-bearing forms across
+/// versions. `%x` formats the root without `0x`, while some deployments add the prefix. The
+/// root-bearing form is accepted only when the middle token is exactly a 32-byte hexadecimal root
+/// so unrelated errors mentioning historical state remain fail-fast.
 pub(crate) fn is_historical_state_unavailable(code: i64, message: &str) -> bool {
     if code != GETH_SERVER_ERROR_CODE {
         return false;
     }
     if message == "historical state is not available" {
+        return true;
+    }
+    if message == "state histories haven't been fully indexed yet" {
         return true;
     }
 
@@ -46,13 +49,12 @@ pub(crate) fn is_historical_state_unavailable(code: i64, message: &str) -> bool 
 
     const ROOT_PREFIX: &str = "historical state ";
     const ROOT_SUFFIX: &str = " is not available";
-    let Some(root) = message
-        .strip_prefix(ROOT_PREFIX)
-        .and_then(|rest| rest.strip_suffix(ROOT_SUFFIX))
-        .and_then(|root| root.strip_prefix("0x"))
+    let Some(root) =
+        message.strip_prefix(ROOT_PREFIX).and_then(|rest| rest.strip_suffix(ROOT_SUFFIX))
     else {
         return false;
     };
+    let root = root.strip_prefix("0x").unwrap_or(root);
     root.len() == 64 && root.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
@@ -167,6 +169,26 @@ mod tests {
         assert!(!is_unavailable("required historical state unavailable (reexec=abc)"));
         assert!(!is_unavailable("required historical state unavailable (reexec=128) extra"));
         assert!(!is_unavailable("missing trie node"));
+    }
+
+    #[test]
+    fn historical_state_error_matcher_accepts_geth_bare_state_root() {
+        assert!(is_historical_state_unavailable(
+            GETH_SERVER_ERROR_CODE,
+            concat!(
+                "historical state ",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                " is not available"
+            ),
+        ));
+    }
+
+    #[test]
+    fn historical_state_error_matcher_accepts_geth_state_history_backfill() {
+        assert!(is_historical_state_unavailable(
+            GETH_SERVER_ERROR_CODE,
+            "state histories haven't been fully indexed yet",
+        ));
     }
 
     #[test]
