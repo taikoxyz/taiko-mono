@@ -153,14 +153,28 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("latest L2 block missing"))?
         .map_transactions(|tx: RpcTransaction| tx.into());
 
-    if head.header.number == 1 {
+    // The l1_origin row for block 1 carries the canonical base-block hash; without it
+    // there is nothing to reset against (fresh genesis chain).
+    let Some(l1_origin) = client.l1_origin_by_id(U256::from(1u64)).await? else {
+        warn!("L1 origin for block 1 missing; skipping L2 head reset");
+        return Ok(());
+    };
+
+    // "Already at base" is only trustworthy when the hash matches: an interrupted reset
+    // (a transient engine failure between the two fork_to calls below, retried by
+    // ShastaEnv setup or by the next test in the serialized lane) leaves the temporary
+    // random-coinbase sibling canonical at height 1, which a bare height check would
+    // silently accept.
+    if head.header.number == 1 && head.header.hash == l1_origin.l2_block_hash {
         info!(head_number = head.header.number, "L2 chain already at base block");
         return Ok(());
     }
 
+    // Fetch the base block by the origin row's hash, not by number: in the
+    // interrupted-reset state height 1 is owned by the sibling.
     let Some(block_one) = client
         .l2_provider
-        .get_block_by_number(BlockNumberOrTag::Number(1))
+        .get_block_by_hash(l1_origin.l2_block_hash)
         .full()
         .await?
         .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
@@ -169,24 +183,25 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         return Ok(());
     };
 
-    let Some(l1_origin) = client.l1_origin_by_id(U256::from(1u64)).await? else {
-        warn!("L1 origin for block 1 missing; skipping L2 head reset");
-        return Ok(());
-    };
-
     let parent_hash = block_one.header.parent_hash;
     let original_coinbase = block_one.header.beneficiary;
 
     info!(
         head_number = head.header.number,
+        head_hash = ?head.header.hash,
         target_number = 1,
         parent_hash = ?parent_hash,
         "resetting L2 head to base block via engine API"
     );
 
-    // Fork to a sibling block at height 1 to force reorg, then back to canonical block 1.
-    let temp_coinbase = Address::random();
-    fork_to(client, &block_one, &l1_origin, parent_hash, temp_coinbase).await?;
+    // Fork to a sibling block at height 1 to force reorg, then back to canonical block
+    // 1. The sibling hop is what demotes a taller chain (block 1 is an ancestor of its
+    // head); when a sibling already owns height 1, promoting the original directly is
+    // that same height-1 swap.
+    if head.header.number != 1 {
+        let temp_coinbase = Address::random();
+        fork_to(client, &block_one, &l1_origin, parent_hash, temp_coinbase).await?;
+    }
     fork_to(client, &block_one, &l1_origin, parent_hash, original_coinbase).await?;
 
     let new_head: RpcBlock<TxEnvelope> = client
