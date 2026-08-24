@@ -45,7 +45,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       # For issue_comment events on a PR, github.event.issue.number IS the PR
       # number (GitHub shares one numbering space for issues and PRs), so no

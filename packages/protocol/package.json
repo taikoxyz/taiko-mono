@@ -57,10 +57,10 @@
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
-    "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
+    "p256-verifier": "https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da",
     "risc0-ethereum": "github:risc0/risc0-ethereum#v3.0.1",
     "solady": "github:Vectorized/solady#v0.1.26",
-    "urc": "github:eth-fabric/urc#main",
+    "urc": "https://codeload.github.com/eth-fabric/urc/tar.gz/132bc796a27721252984923a76760bed24643205",
     "sp1-contracts": "github:succinctlabs/sp1-contracts#v6.1.1"
   }
 }

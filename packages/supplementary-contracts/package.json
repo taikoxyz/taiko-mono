@@ -36,7 +36,7 @@
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
     "merkletreejs": "^0.4.0",
-    "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
+    "p256-verifier": "https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da",
     "solady": "github:Vectorized/solady#v0.0.167"
   }
 }
