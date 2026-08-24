@@ -14,7 +14,6 @@
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/aGZYtKqMjj)
-[![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
