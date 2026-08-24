@@ -8,7 +8,15 @@ and — in this revision — extended again with the **round-12 Codex fidelity f
 "v14 round-12" note below): the availability-certificate CONTENT/EMPTY resolution branch (§5.2 /
 §6.8 F2), the per-tenure equivocation-challenge withdrawal horizon (§8 / r11-N2), and the
 machine-checked no-false-successor-slash tolling property (§7.1 / I4). It tracks the proposal
-through **v14**.
+through **v15**. The v15 round-13 fixes are design/spec-level (L1-authoritative bridge `msgHash`
++ `NEW`-guard §6.4; the single-valued `T_exp_eff = min(T_exp, blob_slot+retention)` §6.7; the
+equivocation-challenge horizon tolling during attested outages §8/§10.4) and lie at or below
+this checker's abstraction — they change no reachable state in the modelled state machine. One
+**tracked checker-fidelity follow-up** (non-gating, §13-T.10): the `safety_settle_late` action
+carries no `s.outage` guard and the withdrawal-freeze is unmodelled, so `inv_withdraw_gated` is
+exercised only outage-free; the v15 §8/§10.4 challenge-horizon toll (which prevents the
+outage-escape) is normative in the proposal but not yet mirrored here. No safety result depends
+on it.
 
 > **Scope of the v11/v12/v14 additions (r11-N5; updated v14 round-12).** The round-10 **anarchy
 > proposal phase** (§9) *is* in the checker (the `anarchy_propose` action, the two-sided
