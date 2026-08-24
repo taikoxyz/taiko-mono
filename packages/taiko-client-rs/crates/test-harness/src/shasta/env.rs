@@ -1,4 +1,10 @@
-use std::{env, path::PathBuf, str::FromStr, time::Instant};
+use std::{
+    env,
+    future::Future,
+    path::PathBuf,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 
 use crate::init_tracing;
 use alloy::transports::http::reqwest::Url as RpcUrl;
@@ -10,7 +16,7 @@ use rpc::{
     client::{Client, ClientConfig, connect_provider_with_timeout},
 };
 use test_context::AsyncTestContext;
-use tracing::info;
+use tracing::{info, warn};
 
 use super::helpers::{
     align_l1_time_past_l2_head, create_snapshot, ensure_preconf_whitelist_active,
@@ -145,10 +151,49 @@ impl ShastaEnv {
     }
 }
 
+/// Bootstrap attempts before a test gives up on the shared docker stack.
+const SETUP_ATTEMPTS: usize = 3;
+/// Pause between bootstrap attempts, giving a briefly stalled node time to recover.
+const SETUP_RETRY_DELAY: Duration = Duration::from_secs(2);
+
+/// Runs the fallible async `op` up to `attempts` times, pausing `delay` between failures
+/// and returning the last error once the budget is exhausted.
+///
+/// Env bootstrap reaches the docker nodes through the production client's one-shot 12s
+/// HTTP budget, so a single transient stall — observed on the first authenticated engine
+/// call against a freshly started node — would otherwise fail the whole serialized e2e
+/// lane. `load_from_env` is idempotent (resets are condition-guarded and re-mining only
+/// advances L1 further), and deterministic failures such as the leaked-proposal guard
+/// just repeat cheaply before surfacing after the final attempt.
+async fn retry_async<T, F, Fut>(attempts: usize, delay: Duration, mut op: F) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T>>,
+{
+    let attempts = attempts.max(1);
+    let mut attempt = 0;
+    loop {
+        attempt += 1;
+        match op().await {
+            Ok(value) => return Ok(value),
+            Err(err) if attempt < attempts => {
+                warn!(
+                    attempt,
+                    attempts,
+                    error = format!("{err:#}"),
+                    "env bootstrap attempt failed; retrying"
+                );
+                tokio::time::sleep(delay).await;
+            }
+            Err(err) => return Err(err),
+        }
+    }
+}
+
 impl AsyncTestContext for ShastaEnv {
     /// Setup the ShastaEnv before each test.
     async fn setup() -> Self {
-        ShastaEnv::load_from_env()
+        retry_async(SETUP_ATTEMPTS, SETUP_RETRY_DELAY, ShastaEnv::load_from_env)
             .await
             .unwrap_or_else(|err| panic!("failed to load ShastaEnv: {err:#}"))
     }
@@ -161,10 +206,14 @@ impl AsyncTestContext for ShastaEnv {
 
 #[cfg(test)]
 mod tests {
-    use super::{ShastaEnv, SubscriptionSource};
+    use super::{ShastaEnv, SubscriptionSource, retry_async};
     use std::{
         env,
-        sync::{LazyLock, Mutex},
+        sync::{
+            LazyLock, Mutex,
+            atomic::{AtomicUsize, Ordering},
+        },
+        time::Duration,
     };
 
     static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
@@ -263,5 +312,56 @@ mod tests {
 
         assert!(matches!(source, SubscriptionSource::Http(_)));
         assert_eq!(source.url().as_str(), "http://localhost:18545/");
+    }
+
+    #[tokio::test]
+    async fn retry_async_returns_first_success_without_further_attempts() {
+        let calls = AtomicUsize::new(0);
+
+        let result = retry_async(3, Duration::ZERO, || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            async { Ok(7u32) }
+        })
+        .await;
+
+        assert_eq!(result.unwrap(), 7);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn retry_async_absorbs_transient_failures_within_attempt_budget() {
+        let calls = AtomicUsize::new(0);
+
+        let result = retry_async(3, Duration::ZERO, || {
+            let attempt = calls.fetch_add(1, Ordering::SeqCst) + 1;
+            async move {
+                if attempt < 3 {
+                    anyhow::bail!("transient stall on attempt {attempt}");
+                }
+                Ok(attempt)
+            }
+        })
+        .await;
+
+        assert_eq!(result.unwrap(), 3);
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn retry_async_surfaces_last_error_after_exhausting_attempts() {
+        let calls = AtomicUsize::new(0);
+
+        let result: anyhow::Result<()> = retry_async(3, Duration::ZERO, || {
+            let attempt = calls.fetch_add(1, Ordering::SeqCst) + 1;
+            async move { anyhow::bail!("bootstrap failed on attempt {attempt}") }
+        })
+        .await;
+
+        let err = result.unwrap_err();
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        assert!(
+            err.to_string().contains("attempt 3"),
+            "expected the last attempt's error, got: {err:#}"
+        );
     }
 }
