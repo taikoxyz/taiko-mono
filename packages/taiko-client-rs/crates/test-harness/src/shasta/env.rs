@@ -191,7 +191,7 @@ where
 }
 
 impl AsyncTestContext for ShastaEnv {
-    /// Setup the ShastaEnv before each test.
+    /// Set up the ShastaEnv before each test.
     async fn setup() -> Self {
         retry_async(SETUP_ATTEMPTS, SETUP_RETRY_DELAY, ShastaEnv::load_from_env)
             .await
