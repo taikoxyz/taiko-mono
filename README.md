@@ -14,14 +14,13 @@
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/aGZYtKqMjj)
-[![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
 </div>
 
 > [!WARNING]
-> The `main` branch is under active development. For the latest version of the Taiko Alethia protocol contracts (Shasta fork), please use the [`taiko-alethia-protocol-v3.0.0`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v3.0.0) branch. The release process involves security measures that the `main` branch does not guarantee.
+> The `main` branch is under active development. For the latest version of the Taiko Alethia protocol contracts (Unzen fork), please use the [`taiko-alethia-protocol-v3.0.0`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v3.0.0) branch. The release process involves security measures that the `main` branch does not guarantee.
 
 ## Documentation
 

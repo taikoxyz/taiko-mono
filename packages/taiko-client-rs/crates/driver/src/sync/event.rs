@@ -31,10 +31,12 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage,
+    SyncError, SyncStage,
     checkpoint_resume_head::CheckpointResumeHead,
     confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
+    contract_rpc_error,
     error::EngineSubmissionError,
+    is_finalized_block_not_found, is_historical_state_unavailable,
 };
 use crate::{
     config::DriverConfig,
@@ -790,7 +792,13 @@ impl EventSyncer {
         let finalized_block =
             match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
                 Ok(block) => block,
-                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => None,
+                Err(err)
+                    if err.as_error_resp().is_some_and(|payload| {
+                        is_finalized_block_not_found(payload.code, payload.message.as_ref())
+                    }) =>
+                {
+                    None
+                }
                 Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
             };
         let Some(finalized_block) = finalized_block else {
@@ -1361,16 +1369,24 @@ impl EventSyncer {
 
     /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
     ///
-    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
+    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets), and surfaces a
+    /// recognized historical-state gap so each caller can apply the retry policy appropriate to
+    /// its lifecycle phase.
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
         let finalized_block =
             match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
                 Ok(block) => block,
                 // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh
-                // devnets before the beacon chain has finalized its first block. Treat this
-                // specific error as "not yet available" rather than a fatal failure.
-                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => return Ok(None),
+                // devnets before the beacon chain has finalized its first block. Reth represents
+                // the same state as a successful `null` block response handled below.
+                Err(err)
+                    if err.as_error_resp().is_some_and(|payload| {
+                        is_finalized_block_not_found(payload.code, payload.message.as_ref())
+                    }) =>
+                {
+                    return Ok(None);
+                }
                 Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
             };
 
@@ -1380,7 +1396,7 @@ impl EventSyncer {
 
         let block_hash = finalized_block.header.hash;
         let block_number = finalized_block.header.number;
-        let core_state = self
+        let core_state = match self
             .rpc
             .shasta
             .inbox
@@ -1388,10 +1404,43 @@ impl EventSyncer {
             .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
             .call()
             .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        {
+            Ok(core_state) => core_state,
+            Err(err) => {
+                if let Some((_, message)) = contract_rpc_error(&err)
+                    .filter(|(code, message)| is_historical_state_unavailable(*code, message))
+                {
+                    return Err(SyncError::HistoricalStateUnavailable {
+                        message: message.to_owned(),
+                    });
+                }
+                return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string())));
+            }
+        };
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
         Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
+    }
+
+    /// Resolve the finalized snapshot used for initial event-sync bootstrap.
+    ///
+    /// Startup must remain finalized-safe, so a recognized temporary state gap retries a freshly
+    /// resolved finalized header instead of substituting a latest-state boundary.
+    async fn finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
+        loop {
+            match self.try_finalized_l1_snapshot().await {
+                Err(err @ SyncError::HistoricalStateUnavailable { .. }) => {
+                    DriverMetrics::event_sync_finalized_state_unavailable_total().inc();
+                    warn!(
+                        error = %err,
+                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        "finalized L1 state is temporarily unavailable; retrying"
+                    );
+                    sleep(self.cfg.retry_interval).await;
+                }
+                result => return result,
+            }
+        }
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
@@ -1413,7 +1462,7 @@ impl EventSyncer {
 
         // Try to get finalized snapshot. When unavailable, replay proposal zero from the inbox
         // activation block, which is safe because derivation is idempotent.
-        let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
+        let finalized_snapshot = self.finalized_l1_snapshot().await?;
 
         let (target_proposal_id, finalized_safe_proposal_id) =
             resolve_target_with_optional_finalization(
@@ -1832,6 +1881,9 @@ impl SyncStage for EventSyncer {
                 {
                     Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
                     Err(err) => {
+                        if matches!(err, SyncError::HistoricalStateUnavailable { .. }) {
+                            DriverMetrics::event_sync_finalized_state_unavailable_total().inc();
+                        }
                         warn!(
                             ?err,
                             fallback_start_block = startup_anchor_block_number,
@@ -1862,6 +1914,7 @@ mod tests {
     use std::{
         path::PathBuf,
         sync::{Arc as StdArc, Mutex},
+        task::{Context, Poll},
         time::Duration,
     };
 
@@ -1871,9 +1924,19 @@ mod tests {
         primitives::{Address, B256, Bytes, FixedBytes, U256, aliases::U48},
         transports::http::reqwest::Url,
     };
-    use alloy_transport::mock::Asserter;
-    use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
+    use alloy_json_rpc::{RequestPacket, ResponsePacket};
+    use alloy_provider::ProviderBuilder;
+    use alloy_rpc_client::RpcClient;
+    use alloy_transport::{
+        TransportError, TransportFut,
+        mock::{Asserter, MockTransport},
+    };
+    use bindings::inbox::{
+        IInbox::CoreState,
+        Inbox::{InboxInstance, getCoreStateCall},
+    };
     use rpc::{SubscriptionSource, blob::BlobDataSource, client::ClientConfig};
+    use tower::Service;
 
     use crate::{
         production::{BlockProductionPath, ProductionRouter},
@@ -1882,6 +1945,59 @@ mod tests {
             sample_derivation_source, sample_payload,
         },
     };
+
+    fn push_geth_server_error(asserter: &Asserter, message: &str) {
+        asserter.push_failure(alloy_json_rpc::ErrorPayload {
+            code: -32000,
+            message: message.to_owned().into(),
+            data: None,
+        });
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct RecordedRpcRequest {
+        method: String,
+        params: Option<String>,
+    }
+
+    #[derive(Debug, Clone)]
+    struct RecordingTransport {
+        inner: MockTransport,
+        requests: StdArc<Mutex<Vec<RecordedRpcRequest>>>,
+    }
+
+    impl Service<RequestPacket> for RecordingTransport {
+        type Response = ResponsePacket;
+        type Error = TransportError;
+        type Future = TransportFut<'static>;
+
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, request: RequestPacket) -> Self::Future {
+            self.requests.lock().expect("recording lock should not be poisoned").extend(
+                request.requests().iter().map(|request| RecordedRpcRequest {
+                    method: request.method().to_owned(),
+                    params: request.params().map(|params| params.get().to_owned()),
+                }),
+            );
+            self.inner.call(request)
+        }
+    }
+
+    fn mock_client_with_recording_l1(
+        asserter: Asserter,
+    ) -> (Client, StdArc<Mutex<Vec<RecordedRpcRequest>>>) {
+        let requests = StdArc::new(Mutex::new(Vec::new()));
+        let transport =
+            RecordingTransport { inner: MockTransport::new(asserter), requests: requests.clone() };
+        let l1_provider = ProviderBuilder::new().connect_client(RpcClient::new(transport, true));
+        let mut client = mock_client_with_l1_asserter(Asserter::new());
+        client.l1_provider = l1_provider.clone();
+        client.shasta.inbox = InboxInstance::new(Address::ZERO, l1_provider);
+        (client, requests)
+    }
 
     async fn build_syncer() -> EventSyncer {
         let client_config = ClientConfig {
@@ -2093,6 +2209,164 @@ mod tests {
             lastCheckpointTimestamp: U48::ZERO,
             lastFinalizedBlockHash: FixedBytes::ZERO,
         }
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_snapshot_retries_only_known_historical_state_unavailable_errors() {
+        let historical_state_errors = [
+            "historical state is not available",
+            "required historical state unavailable (reexec=128)",
+            concat!(
+                "historical state 0x",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                " is not available"
+            ),
+            concat!(
+                "historical state ",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                " is not available"
+            ),
+            "state histories haven't been fully indexed yet",
+        ];
+
+        for (attempt, error_message) in historical_state_errors.into_iter().enumerate() {
+            let unavailable_before =
+                DriverMetrics::event_sync_finalized_state_unavailable_total().get();
+            let asserter = Asserter::new();
+            let first_hash = B256::from([(attempt + 1) as u8; 32]);
+            let retried_hash = B256::from([(attempt + 11) as u8; 32]);
+            asserter.push_success(&l1_block_at(100, first_hash, B256::ZERO));
+            push_geth_server_error(&asserter, error_message);
+            asserter.push_success(&l1_block_at(101, retried_hash, first_hash));
+            let core_state = sample_core_state(8);
+            asserter.push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&core_state)));
+
+            let (rpc, recorded_requests) = mock_client_with_recording_l1(asserter.clone());
+            let syncer = EventSyncer { rpc, ..build_syncer().await };
+            let snapshot_read = syncer.finalized_l1_snapshot();
+            tokio::pin!(snapshot_read);
+
+            assert!(
+                timeout(Duration::from_millis(100), &mut snapshot_read).await.is_err(),
+                "known historical-state gap must remain pending for retry: {error_message}",
+            );
+            tokio::time::advance(syncer.cfg.retry_interval).await;
+            let snapshot = timeout(Duration::from_millis(100), &mut snapshot_read)
+                .await
+                .expect("retry should complete after the configured interval")
+                .expect("retry should succeed")
+                .expect("finalized block should be available after retry");
+
+            assert_eq!(snapshot.block_number, 101);
+            assert_eq!(snapshot.block_hash, retried_hash);
+            assert_eq!(snapshot.finalized_safe_proposal_id, 7);
+            assert!(
+                DriverMetrics::event_sync_finalized_state_unavailable_total().get() >
+                    unavailable_before,
+                "event sync must expose the degraded finalized-state read"
+            );
+            assert!(asserter.read_q().is_empty(), "retry must re-read the finalized block");
+
+            let recorded_requests =
+                recorded_requests.lock().expect("recording lock should not be poisoned");
+            let finalized_header_params = recorded_requests
+                .iter()
+                .filter(|request| request.method == "eth_getBlockByNumber")
+                .map(|request| {
+                    request.params.as_deref().expect("eth_getBlockByNumber should carry params")
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                finalized_header_params.len(),
+                2,
+                "retry must fetch a fresh finalized header"
+            );
+            assert!(
+                finalized_header_params.iter().all(|params| params.contains("\"finalized\"")),
+                "every retry header lookup must use the finalized tag"
+            );
+            assert!(
+                finalized_header_params.iter().all(|params| !params.contains("\"latest\"")),
+                "historical-state retry must never fetch a latest header"
+            );
+
+            let eth_call_params = recorded_requests
+                .iter()
+                .filter(|request| request.method == "eth_call")
+                .map(|request| request.params.as_deref().expect("eth_call should carry params"))
+                .collect::<Vec<_>>();
+            assert_eq!(eth_call_params.len(), 2, "each finalized header needs one state read");
+            assert!(eth_call_params[0].contains(&first_hash.to_string()));
+            assert!(eth_call_params[1].contains(&retried_hash.to_string()));
+            assert!(
+                eth_call_params.iter().all(|params| !params.contains("\"latest\"")),
+                "historical-state retry must never issue a latest-state eth_call"
+            );
+        }
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_snapshot_probe_surfaces_historical_state_gap_without_retrying() {
+        let asserter = Asserter::new();
+        asserter.push_success(&l1_block_at(100, B256::from([1u8; 32]), B256::ZERO));
+        push_geth_server_error(&asserter, "historical state is not available");
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let result = timeout(Duration::from_millis(100), syncer.try_finalized_l1_snapshot())
+            .await
+            .expect("a single finalized snapshot probe must not wait for a retry")
+            .expect_err("the historical-state gap must be surfaced to the caller");
+
+        assert!(matches!(result, SyncError::HistoricalStateUnavailable { .. }));
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn finalized_snapshot_does_not_retry_unrelated_historical_state_errors() {
+        let asserter = Asserter::new();
+        asserter.push_success(&l1_block_at(100, B256::from([1u8; 32]), B256::ZERO));
+        push_geth_server_error(&asserter, "historical state database is not available");
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let result = timeout(Duration::from_millis(100), syncer.try_finalized_l1_snapshot())
+            .await
+            .expect("unrelated RPC error must fail without entering the retry loop");
+
+        assert!(matches!(result, Err(SyncError::Rpc(RpcClientError::Provider(_)))));
+    }
+
+    #[tokio::test]
+    async fn finalized_snapshot_treats_null_block_as_pre_finality() {
+        let asserter = Asserter::new();
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+
+        let snapshot = syncer
+            .try_finalized_l1_snapshot()
+            .await
+            .expect("reth returns null when no finalized block exists yet");
+
+        assert!(snapshot.is_none());
+    }
+
+    #[tokio::test]
+    async fn finalized_snapshot_returns_none_only_for_explicit_pre_finality_error() {
+        let asserter = Asserter::new();
+        push_geth_server_error(&asserter, crate::sync::FINALIZED_BLOCK_NOT_FOUND);
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+
+        let snapshot = syncer
+            .try_finalized_l1_snapshot()
+            .await
+            .expect("explicit geth no-finality response should remain compatible");
+
+        assert!(snapshot.is_none());
+        assert!(asserter.read_q().is_empty());
     }
 
     #[tokio::test]
@@ -2339,7 +2613,7 @@ mod tests {
         // Fresh chains report "finalized block not found" until the first finalized epoch;
         // treat it as "finality unavailable" rather than an error, keeping the log retryable.
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
-        asserter.push_failure_msg(FINALIZED_BLOCK_NOT_FOUND);
+        push_geth_server_error(&asserter, crate::sync::FINALIZED_BLOCK_NOT_FOUND);
 
         let is_orphaned = check_orphaned_proposal_log(asserter, B256::from([12u8; 32]), Some(1))
             .await

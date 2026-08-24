@@ -33,6 +33,16 @@ impl DriverMetrics {
         &METRICS.beacon_sync_remote_submissions_total
     }
 
+    /// Return the beacon-sync finalized-state unavailability counter.
+    pub(crate) fn beacon_sync_finalized_state_unavailable_total() -> &'static IntCounter {
+        &METRICS.beacon_sync_finalized_state_unavailable_total
+    }
+
+    /// Return the event-sync finalized-state unavailability counter.
+    pub(crate) fn event_sync_finalized_state_unavailable_total() -> &'static IntCounter {
+        &METRICS.event_sync_finalized_state_unavailable_total
+    }
+
     /// Return the event scanner batch counter.
     pub(crate) fn event_scanner_batches_total() -> &'static IntCounter {
         &METRICS.event_scanner_batches_total
@@ -172,6 +182,10 @@ struct DriverMetricHandles {
     beacon_sync_head_lag_blocks: Gauge,
     /// Submitted checkpoint blocks.
     beacon_sync_remote_submissions_total: IntCounter,
+    /// Finalized-state reads unavailable during beacon sync.
+    beacon_sync_finalized_state_unavailable_total: IntCounter,
+    /// Finalized-state reads unavailable during event sync.
+    event_sync_finalized_state_unavailable_total: IntCounter,
     /// Batches of proposal logs received from the scanner.
     event_scanner_batches_total: IntCounter,
     /// Scanner stream errors.
@@ -243,6 +257,14 @@ impl DriverMetricHandles {
             beacon_sync_remote_submissions_total: counter(
                 "driver_beacon_sync_remote_submissions_total",
                 "Checkpoint blocks submitted during beacon sync",
+            ),
+            beacon_sync_finalized_state_unavailable_total: counter(
+                "driver_beacon_sync_finalized_state_unavailable_total",
+                "Finalized L1 state reads unavailable during beacon sync",
+            ),
+            event_sync_finalized_state_unavailable_total: counter(
+                "driver_event_sync_finalized_state_unavailable_total",
+                "Finalized L1 state reads unavailable during event sync",
             ),
             event_scanner_batches_total: counter(
                 "driver_event_scanner_batches_total",
@@ -373,5 +395,21 @@ mod tests {
                 .any(|bucket| bucket.get_upper_bound() >= 120.0),
             "duration histograms should retain precision above the default 10s bucket"
         );
+    }
+
+    #[test]
+    fn finalized_state_unavailable_counters_are_exported() {
+        DriverMetrics::init();
+
+        let families = prometheus::gather();
+        for name in [
+            "driver_beacon_sync_finalized_state_unavailable_total",
+            "driver_event_sync_finalized_state_unavailable_total",
+        ] {
+            assert!(
+                families.iter().any(|family| family.get_name() == name),
+                "missing finalized-state degraded-path counter: {name}",
+            );
+        }
     }
 }
