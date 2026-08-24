@@ -4,6 +4,12 @@ on:
   push:
     paths:
       - "packages/bridge-ui/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/bridge-ui--ci.yml"
+      - ".github/workflows/bridge-ui.yml"
     branches-ignore:
       - dependabot/**
       - release-please--branches--**
@@ -12,6 +18,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/bridge-ui/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/bridge-ui--ci.yml"
+      - ".github/workflows/bridge-ui.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

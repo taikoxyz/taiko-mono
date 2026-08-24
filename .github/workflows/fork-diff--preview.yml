@@ -9,6 +9,11 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/fork-diff/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/fork-diff--preview.yml"
     branches-ignore:
       - release-please--branches--**
 

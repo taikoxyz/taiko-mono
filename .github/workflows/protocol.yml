@@ -5,6 +5,11 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/protocol/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/protocol.yml"
       - "!packages/protocol/contract_layout_*"
       - "!packages/protocol/audit/**"
       - "!packages/protocol/docs/**"

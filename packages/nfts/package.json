@@ -72,13 +72,13 @@
     "convert-csv-to-json": "^2.46.0",
     "dotenv": "^16.4.5",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
-    "forge-std": "github:foundry-rs/forge-std",
+    "forge-std": "https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae",
     "ipfs-http-client": "^60.0.1",
     "merkletreejs": "^0.4.0",
-    "murky": "github:dmfxyz/murky",
+    "murky": "https://codeload.github.com/dmfxyz/murky/tar.gz/991e371eb1dfa9f86701869eb08ec4e98c3cc0b0",
     "p256-verifier": "https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da",
     "sharp": "^0.33.3",
     "solady": "github:Vectorized/solady#v0.0.167",
-    "solidity-stringutils": "github:Arachnid/solidity-stringutils"
+    "solidity-stringutils": "https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461"
   }
 }

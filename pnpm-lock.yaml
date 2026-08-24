@@ -209,7 +209,7 @@ importers:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
         version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
-        specifier: github:foundry-rs/forge-std
+        specifier: https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae
       ipfs-http-client:
         specifier: ^60.0.1
@@ -218,7 +218,7 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0
       murky:
-        specifier: github:dmfxyz/murky
+        specifier: https://codeload.github.com/dmfxyz/murky/tar.gz/991e371eb1dfa9f86701869eb08ec4e98c3cc0b0
         version: https://codeload.github.com/dmfxyz/murky/tar.gz/991e371eb1dfa9f86701869eb08ec4e98c3cc0b0
       p256-verifier:
         specifier: https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
@@ -230,7 +230,7 @@ importers:
         specifier: github:Vectorized/solady#v0.0.167
         version: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d
       solidity-stringutils:
-        specifier: github:Arachnid/solidity-stringutils
+        specifier: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
         version: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
     devDependencies:
       '@types/node':
@@ -6865,7 +6865,7 @@ packages:
     version: 1.7.5
 
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae}
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae}
     version: 1.11.0
 
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/b93cf4bc34ff214c099dc970b153f85ade8c9f66:
@@ -8315,7 +8315,7 @@ packages:
     resolution: {integrity: sha512-HoMUjhH9T8DDBNT+6xzkrd9ga/XiBI4xLr58LJACwK6G3HTOPeMz4nB4KJs33L2BelrIJa7P0VuNaVF3hMYfjg==}
 
   murky@https://codeload.github.com/dmfxyz/murky/tar.gz/991e371eb1dfa9f86701869eb08ec4e98c3cc0b0:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/dmfxyz/murky/tar.gz/991e371eb1dfa9f86701869eb08ec4e98c3cc0b0}
+    resolution: {tarball: https://codeload.github.com/dmfxyz/murky/tar.gz/991e371eb1dfa9f86701869eb08ec4e98c3cc0b0}
     version: 0.1.0
 
   mz@2.7.0:
@@ -9610,7 +9610,7 @@ packages:
     hasBin: true
 
   solidity-stringutils@https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
+    resolution: {tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
     version: 0.0.0
 
   sonic-boom@2.8.0:

@@ -5,12 +5,22 @@ on:
     branches: [main]
     paths:
       - "packages/taiko-client/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/taiko-client--test.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/taiko-client--test.yml"
       - "!**/*.md"
     branches-ignore:
       - release-please--branches--**

@@ -7,10 +7,20 @@ on:
     branches: [main]
     paths:
       - "packages/taiko-client-rs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/taiko-client-rs--test.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taiko-client-rs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/actions/install-pnpm-dependencies/**"
+      - ".github/workflows/taiko-client-rs--test.yml"
       - "!**/*.md"
 
 concurrency:
