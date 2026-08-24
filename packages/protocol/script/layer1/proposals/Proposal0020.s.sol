@@ -17,10 +17,11 @@ import {
 // To dryrun the proposal on an L1 fork: `SENDER=<a member or agent> P=0020 pnpm proposal:dryrun:l1`
 contract Proposal0020 is BuildDirectProposal {
     // All seat addresses live in LibL1Addrs ("Security Council seats" section): the new
-    // seats L1.SC_GUSTAVO_GONZALEZ (independent, EOA) and L1.SC_DANIEL_WANG (EOA); the
-    // removed L1.SC_CHAINBOUND, L1.SC_HALBORN, L1.SC_DREW_VAN_DER_WERFF,
-    // L1.SC_TONI_WAHRSTATTER, L1.SC_GATTACA, L1.SC_NETHERMIND; and the retained
-    // L1.SC_TAIKO_LABS, L1.SC_L2BEAT, L1.SC_ARAGON (dryrun assertions only).
+    // seats L1.SC_GUSTAVO_GONZALEZ (independent, EOA) and L1.SC_DANIEL_WANG (Taiko
+    // co-founder, EOA); the removed L1.SC_CHAINBOUND, L1.SC_HALBORN,
+    // L1.SC_DREW_VAN_DER_WERFF, L1.SC_TONI_WAHRSTATTER, L1.SC_GATTACA, L1.SC_NETHERMIND;
+    // and the retained L1.SC_TAIKO_LABS, L1.SC_L2BEAT, L1.SC_ARAGON (dryrun assertions
+    // only).
     //
     // IMPORTANT: neither SC_GUSTAVO_GONZALEZ nor SC_DANIEL_WANG may be any seat's
     // appointed encryption agent when this proposal EXECUTES: only the appointed agent

@@ -8,12 +8,17 @@ This proposal restructures the Security Council:
   Nethermind
 - **Retained (3):** Taiko Labs, L2BEAT, Aragon
 - **Added (2):** Gustavo Gonzalez (independent member), seat
-  `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986` (EOA); Daniel Wang, seat
-  `0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A` (EOA)
+  `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986` (EOA); Daniel Wang (Taiko co-founder),
+  seat `0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A` (EOA)
 - **Standard proposal threshold:** 5/9 → **3/5**
 - **Emergency proposal threshold:** 7/9 → **4/5**
 - **SignerList `minSignerListLength`:** 8 → **4** (contract-documented floor: must be ≥ the
   emergency `minApprovals`; 4 preserves the current one-removal headroom pattern)
+- **Resulting composition:** two of the five seats are Taiko-affiliated — the Taiko Labs
+  seat and Daniel Wang (Taiko co-founder). This is intentional; the Taiko-affiliated
+  seats alone meet neither threshold. The other three seats (L2BEAT, Aragon, Gustavo
+  Gonzalez) can meet the standard 3/5 threshold on their own; the emergency 4/5 threshold
+  requires approvals from both groups.
 
 ## Prerequisites
 
@@ -80,7 +85,7 @@ Member addresses (from the on-chain SignerList census, cross-checked against
 | L2BEAT                         | `0xf1cF63589A1e012F9124182c9eAa36B5333e5f06`       | retained    |
 | Aragon                         | `0xb284810536C0dAB6A8e48153B58588A9B9e0F701`       | retained    |
 | Gustavo Gonzalez (independent) | `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986` (EOA) | added       |
-| Daniel Wang                    | `0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A` (EOA) | added       |
+| Daniel Wang (Taiko co-founder) | `0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A` (EOA) | added       |
 | Nethermind                     | `0x5353c607e6eca6C63FEC5c6C0F5CC3a5348d5c95`       | removed     |
 | Chainbound                     | `0x436a1075099A145417EBFc74BBaC9605e3e4f1A7`       | removed     |
 | Halborn                        | `0x0F40268Ec0Dc8D88CF2f22E227A29a0b478b6351`       | removed     |
@@ -160,7 +165,9 @@ Council and, during the veto window, TAIKO holders read. Paste them exactly:
 - **Description:** Removes Chainbound, Halborn, Drew Van der Werff, Toni Wahrstätter,
   Gattaca and Nethermind; retains Taiko Labs, L2BEAT and Aragon; adds Gustavo Gonzalez as
   an independent member (seat `0xe63E61BbB3aa1b82d44471AbcAb490102C17c986`) and Daniel
-  Wang (seat `0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A`). Lowers the SignerList
+  Wang, Taiko co-founder (seat `0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A`) — two of the
+  five resulting seats are thus Taiko-affiliated (the Taiko Labs seat and Daniel Wang),
+  and they alone meet neither approval threshold. Lowers the SignerList
   `minSignerListLength` from 8 to 4, the standard multisig `minApprovals` from 5 to 3,
   and the emergency multisig `minApprovals` from 7 to 4. All other settings (the 10-day
   veto duration and 14-day proposal expiration) are unchanged. Full technical
