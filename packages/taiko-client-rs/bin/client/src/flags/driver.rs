@@ -7,14 +7,16 @@ use url::Url;
 /// Driver-specific CLI arguments.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct DriverArgs {
-    /// Maximum interval in seconds between retry attempts when sync operations fail; the
-    /// event scanner reconnect backs off exponentially from one second up to this cap.
+    /// Maximum interval in seconds between retry attempts when sync operations fail; must be at
+    /// least one second. The event scanner reconnect backs off exponentially up to this cap.
     #[clap(
         long = "driver.retryInterval",
         env = "DRIVER_RETRY_INTERVAL",
         default_value = "12",
+        value_parser = clap::value_parser!(u64).range(1..),
         help = "Maximum interval in seconds between retry attempts when sync operations fail; \
-                the event scanner reconnect backs off exponentially from one second up to this cap"
+                must be at least one second. The event scanner reconnect backs off exponentially \
+                up to this cap"
     )]
     retry_interval_seconds: u64,
     /// HTTP endpoint of the L1 beacon node.
@@ -47,5 +49,25 @@ impl DriverArgs {
     /// Retry interval as a [`Duration`].
     pub fn retry_interval(&self) -> Duration {
         Duration::from_secs(self.retry_interval_seconds)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DriverArgs;
+    use clap::{Parser, error::ErrorKind};
+
+    #[test]
+    fn rejects_zero_retry_interval() {
+        let error = DriverArgs::try_parse_from([
+            "client",
+            "--driver.retryInterval",
+            "0",
+            "--l1.beacon",
+            "http://localhost:5052",
+        ])
+        .expect_err("a zero retry interval must be rejected");
+
+        assert_eq!(error.kind(), ErrorKind::ValueValidation);
     }
 }
