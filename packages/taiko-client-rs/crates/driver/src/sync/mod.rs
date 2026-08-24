@@ -2,8 +2,59 @@
 
 use std::sync::Arc;
 
+use alloy_contract::Error as ContractError;
+
+/// Geth JSON-RPC server error code used for chain-data availability errors.
+const GETH_SERVER_ERROR_CODE: i64 = -32000;
+
 /// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
 pub(crate) const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
+
+/// Return whether a structured RPC error is geth's explicit pre-first-finality response.
+pub(crate) fn is_finalized_block_not_found(code: i64, message: &str) -> bool {
+    code == GETH_SERVER_ERROR_CODE && message == FINALIZED_BLOCK_NOT_FOUND
+}
+
+/// Extract the structured JSON-RPC code and message from an Alloy contract-call error.
+pub(crate) fn contract_rpc_error(error: &ContractError) -> Option<(i64, &str)> {
+    let ContractError::TransportError(error) = error else {
+        return None;
+    };
+    error.as_error_resp().map(|payload| (payload.code, payload.message.as_ref()))
+}
+
+/// Return whether a structured RPC error is one of geth's known historical-state failures.
+///
+/// Geth has emitted both a state-path form and a re-execution form across versions. Some RPC
+/// deployments also include the requested state root between `historical state` and
+/// `is not available`. The root-bearing form is accepted only when the middle token is exactly a
+/// 32-byte hexadecimal root so unrelated errors mentioning historical state remain fail-fast.
+pub(crate) fn is_historical_state_unavailable(code: i64, message: &str) -> bool {
+    if code != GETH_SERVER_ERROR_CODE {
+        return false;
+    }
+    if message == "historical state is not available" {
+        return true;
+    }
+
+    const REEXEC_PREFIX: &str = "required historical state unavailable (reexec=";
+    if let Some(reexec) =
+        message.strip_prefix(REEXEC_PREFIX).and_then(|rest| rest.strip_suffix(')'))
+    {
+        return !reexec.is_empty() && reexec.bytes().all(|byte| byte.is_ascii_digit());
+    }
+
+    const ROOT_PREFIX: &str = "historical state ";
+    const ROOT_SUFFIX: &str = " is not available";
+    let Some(root) = message
+        .strip_prefix(ROOT_PREFIX)
+        .and_then(|rest| rest.strip_suffix(ROOT_SUFFIX))
+        .and_then(|root| root.strip_prefix("0x"))
+    else {
+        return false;
+    };
+    root.len() == 64 && root.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
 
 use async_trait::async_trait;
 use rpc::client::Client;
@@ -86,11 +137,45 @@ impl SyncPipeline {
 
 #[cfg(test)]
 mod tests {
-    use super::retryable_after_first_success;
+    use super::{
+        FINALIZED_BLOCK_NOT_FOUND, GETH_SERVER_ERROR_CODE, is_finalized_block_not_found,
+        is_historical_state_unavailable, retryable_after_first_success,
+    };
 
     #[test]
     fn poll_errors_fail_fast_only_before_first_success() {
         assert_eq!(retryable_after_first_success(false, "boom"), Err("boom"));
         assert_eq!(retryable_after_first_success(true, "boom"), Ok("boom"));
+    }
+
+    #[test]
+    fn historical_state_error_matcher_is_allowlist_only() {
+        let is_unavailable =
+            |message| is_historical_state_unavailable(GETH_SERVER_ERROR_CODE, message);
+
+        assert!(is_unavailable("historical state is not available"));
+        assert!(is_unavailable("required historical state unavailable (reexec=128)"));
+        assert!(is_unavailable(concat!(
+            "historical state 0x",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            " is not available"
+        )));
+        assert!(!is_historical_state_unavailable(-32603, "historical state is not available"));
+        assert!(!is_unavailable("historical state database is not available"));
+        assert!(!is_unavailable("historical state 0x1234 is not available"));
+        assert!(!is_unavailable("execution reverted: historical state is not available"));
+        assert!(!is_unavailable("required historical state unavailable (reexec=abc)"));
+        assert!(!is_unavailable("required historical state unavailable (reexec=128) extra"));
+        assert!(!is_unavailable("missing trie node"));
+    }
+
+    #[test]
+    fn finalized_block_not_found_matcher_requires_exact_structured_error() {
+        assert!(is_finalized_block_not_found(GETH_SERVER_ERROR_CODE, FINALIZED_BLOCK_NOT_FOUND));
+        assert!(!is_finalized_block_not_found(-32603, FINALIZED_BLOCK_NOT_FOUND));
+        assert!(!is_finalized_block_not_found(
+            GETH_SERVER_ERROR_CODE,
+            "proxy: finalized block not found"
+        ));
     }
 }
