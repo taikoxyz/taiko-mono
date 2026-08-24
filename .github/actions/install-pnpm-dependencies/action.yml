@@ -14,17 +14,17 @@ runs:
       run: |
         git config --global url."https://github.com/".insteadOf "git@github.com:"
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v6
-      with:
-        run_install: false
-
     - name: Install Node.js
       uses: actions/setup-node@v7
       with:
         node-version: 24
-        cache: pnpm
-        cache-dependency-path: ${{ inputs.cache-dependency-path || '' }}
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v6
+      with:
+        run_install: false
+        cache: true
+        cache_dependency_path: ${{ inputs.cache-dependency-path || 'pnpm-lock.yaml' }}
 
     - name: Install dependencies
       shell: bash
