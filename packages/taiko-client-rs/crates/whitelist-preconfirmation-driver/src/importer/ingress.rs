@@ -65,19 +65,27 @@ impl WhitelistPreconfirmationImporter {
                 None
             }
         };
+        // Cache first, judge after. The confirmed tip is read from local state and can be sitting
+        // on a branch the network has already abandoned, so a payload that looks stale against it
+        // may be the first block of the branch that wins. Dropping it here destroys the only
+        // evidence that the chain runs ahead of this node, and once the tip rewinds below it
+        // `/status` reports parity with the rewound head. The drain re-reads the boundary and
+        // still refuses to insert anything at or below it (WLP-INV-003); it just no longer decides
+        // that permanently on one reading.
+        self.cache.insert(envelope.clone());
+        self.update_pending_cache_gauge();
+
         if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {
             debug!(
                 block_number = envelope.execution_payload.block_number,
                 block_hash = %envelope.execution_payload.block_hash,
                 ?confirmed_tip,
                 ingress_source,
-                "ignoring stale whitelist preconfirmation envelope"
+                "whitelist preconfirmation envelope is stale against the confirmed tip; cached for re-evaluation"
             );
             return;
         }
 
-        self.cache.insert(envelope.clone());
-        self.update_pending_cache_gauge();
         self.state.insert_recent(envelope.clone()).await;
         self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
     }

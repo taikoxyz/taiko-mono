@@ -1179,6 +1179,52 @@ func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
 }
 
+func (s *DriverTestSuite) TestOnUnsafeL2PayloadCachesBeforeFallibleRPCs() {
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
+
+	head, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	baseFee, overflow := uint256.FromBig(head.BaseFee())
+	s.False(overflow)
+
+	b, err := utils.EncodeAndCompressTxList(head.Transactions())
+	s.Nil(err)
+
+	// A well-formed payload well above the current head, so it cannot be applied and its only
+	// trace is the cache.
+	ahead := head.Number().Uint64() + 500
+	payload := &eth.ExecutionPayload{
+		BlockHash:     testutils.RandomHash(),
+		ParentHash:    testutils.RandomHash(),
+		FeeRecipient:  head.Coinbase(),
+		PrevRandao:    eth.Bytes32(head.MixDigest()),
+		BlockNumber:   eth.Uint64Quantity(ahead),
+		GasLimit:      eth.Uint64Quantity(head.GasLimit()),
+		Timestamp:     eth.Uint64Quantity(head.Time()),
+		ExtraData:     head.Extra(),
+		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+		Transactions:  []eth.Data{b},
+		Withdrawals:   &types.Withdrawals{},
+	}
+
+	// Every RPC after validation fails under a cancelled context, standing in for a flaky L2
+	// endpoint. Gossipsub will not redeliver the message, so if the envelope is only cached after
+	// those calls it is gone for good, and `/status` goes back to reporting parity with a head it
+	// has no reason to believe is current.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	s.NotNil(s.d.preconfBlockServer.OnUnsafeL2Payload(
+		ctx,
+		peer.ID(testutils.RandomBytes(32)),
+		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload, HeaderDifficulty: head.Difficulty()},
+	), "the failing RPC is still reported")
+
+	s.Equal(ahead, s.preconfStatus().HighestUnsafeL2PayloadBlockID,
+		"a validated payload is recorded even when the import path cannot run")
+}
+
 // preconfStatus fetches /status the same way a preconfer client does.
 func (s *DriverTestSuite) preconfStatus() *preconfblocks.Status {
 	var status preconfblocks.Status

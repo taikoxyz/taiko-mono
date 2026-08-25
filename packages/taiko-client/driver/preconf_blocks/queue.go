@@ -165,6 +165,34 @@ func (q *envelopeQueue) highestBlockID() (uint64, bool) {
 	return highest, found
 }
 
+// highestEnvelopeAbove returns the cached envelope with the greatest block ID above the given
+// one, or nil when the queue holds nothing above it.
+//
+// This is the head of the unresolved backlog, which is what a retry has to be driven from. The
+// most *recently inserted* envelope is a different thing entirely: a backfill response for a low
+// missing parent is inserted last while the backlog reaches far higher, and replaying an envelope
+// that is already applied returns at the already-exists check without ever reaching the walk.
+func (q *envelopeQueue) highestEnvelopeAbove(id uint64) *preconf.Envelope {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+
+	var highest *envelopeQueueItem
+	for _, item := range q.envelopes {
+		if item == nil {
+			break // no more items
+		}
+		if item.id > id && (highest == nil || item.id > highest.id) {
+			highest = item
+		}
+	}
+
+	if highest == nil {
+		return nil
+	}
+
+	return highest.envelope
+}
+
 // getTotalCached retrieves the total number of cached envelopes after the initialization of the queue.
 func (q *envelopeQueue) getTotalCached() uint64 {
 	q.lock.RLock()

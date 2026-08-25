@@ -346,6 +346,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
+	// Record the envelope before anything that can fail. Everything below this line can return on
+	// a transient RPC error, and gossipsub will not redeliver the message, so caching later would
+	// let a flaky L2 endpoint silently discard the only evidence that the chain runs ahead of this
+	// node -- leaving `/status` reporting parity with a stale head, which is the failure this
+	// whole path exists to prevent. Caching is idempotent, so the import paths below are free to
+	// treat the envelope as theirs.
+	s.tryPutEnvelopeIntoCache(msg, from)
+
 	// Check if we are ready to insert preconfirmation blocks.
 	if !s.syncReady {
 		log.Info(
@@ -355,7 +363,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 		)
-		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -366,7 +373,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if progress.IsSyncing() {
-		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -384,8 +390,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	if quit {
 		return nil
 	}
-
-	s.tryPutEnvelopeIntoCache(msg, from)
 
 	// If the envelope is an end of sequencing message, we need to notify the clients.
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
@@ -454,6 +458,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return nil
 	}
 
+	// Record the envelope before anything that can fail, for the same reason as the payload path:
+	// a transient RPC error below would otherwise discard a backfill response that gossipsub will
+	// never resend, and this response is very likely the block closing the gap.
+	s.tryPutEnvelopeIntoCache(msg, from)
+
 	// Check if we are ready to insert preconfirmation blocks.
 	if !s.syncReady {
 		log.Info(
@@ -463,7 +472,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 		)
-		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -479,7 +487,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
 		)
-		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -501,14 +508,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		return fmt.Errorf("failed to check message block number: %w", err)
 	}
 
-	// Try to import the payload into the L2 EE chain, if can't, cache it.
-	cached, err := s.TryImportingPayload(ctx, headL1Origin, msg, from)
-	if err != nil {
+	// Try to import the payload into the L2 EE chain; it is already cached either way.
+	if _, err := s.TryImportingPayload(ctx, headL1Origin, msg, from); err != nil {
 		return fmt.Errorf("failed to try importing payload: %w", err)
-	}
-
-	if !cached {
-		s.tryPutEnvelopeIntoCache(msg, from)
 	}
 
 	return nil
@@ -1045,22 +1047,33 @@ func (s *PreconfBlockAPIServer) RetryBackfillEventLoop(ctx context.Context) {
 // counter reset can make two counters agree while the cache still holds envelopes that were never
 // applied, which would silence the retry exactly when it is needed.
 func (s *PreconfBlockAPIServer) RetryBackfill(ctx context.Context) {
-	highestCached, ok := s.envelopesCache.highestBlockID()
-	if !ok {
-		return
-	}
-
 	head, err := s.rpc.L2.BlockNumber(ctx)
 	if err != nil {
 		log.Debug("Failed to fetch L2 head for preconfirmation backfill retry", "error", err)
 		return
 	}
 
-	if highestCached <= head {
+	// The same envelope decides both that there is a backlog and what to retry. Deciding from the
+	// highest cached block but retrying the most recently cached one lets the tick replay an
+	// already-applied envelope forever while the backlog above it is never touched.
+	pending := s.envelopesCache.highestEnvelopeAbove(head)
+	if pending == nil {
 		return
 	}
 
-	if err := s.ImportPendingBlocksFromCache(ctx); err != nil {
+	log.Debug(
+		"Retrying preconfirmation backfill",
+		"blockID", uint64(pending.Payload.BlockNumber),
+		"hash", pending.Payload.BlockHash.Hex(),
+		"head", head,
+	)
+
+	if err := s.OnUnsafeL2Payload(ctx, "", &eth.ExecutionPayloadEnvelope{
+		ExecutionPayload:  pending.Payload,
+		Signature:         pending.Signature,
+		IsForcedInclusion: &pending.IsForcedInclusion,
+		HeaderDifficulty:  pending.HeaderDifficulty,
+	}); err != nil {
 		log.Debug("Preconfirmation backfill retry did not complete", "error", err)
 	}
 }

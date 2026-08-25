@@ -104,3 +104,48 @@ func (s *PreconfBlockAPIServerTestSuite) TestQueueHighestBlockID() {
 	s.True(ok)
 	s.Equal(uint64(100), highest)
 }
+
+func (s *PreconfBlockAPIServerTestSuite) TestQueueHighestEnvelopeAbove() {
+	var (
+		queue   = newEnvelopeQueue()
+		backlog = testutils.RandomHash()
+		lastPut = testutils.RandomHash()
+	)
+
+	put := func(id uint64, hash common.Hash) {
+		queue.put(id, &preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(id),
+				BlockHash:   hash,
+			},
+			HeaderDifficulty: common.Big1,
+		})
+	}
+
+	s.Nil(queue.highestEnvelopeAbove(0), "an empty queue has no backlog head")
+
+	// The unresolved backlog is cached first; a backfill response for a low block lands after it,
+	// which is the ordinary shape while catching up.
+	put(200, backlog)
+	put(100, lastPut)
+
+	// The head has to sit below both for this to mean anything: query from 100 and the newest
+	// entry is not above it either way, so a "first match in newest-first order" implementation
+	// would look correct.
+	pending := queue.highestEnvelopeAbove(50)
+	s.NotNil(pending)
+	s.Equal(
+		uint64(200),
+		uint64(pending.Payload.BlockNumber),
+		"retry drives from the backlog head, not the most recently cached envelope",
+	)
+	s.Equal(backlog, pending.Payload.BlockHash)
+
+	// Once the chain passes the lower entry the backlog head is unchanged.
+	pending = queue.highestEnvelopeAbove(100)
+	s.NotNil(pending)
+	s.Equal(uint64(200), uint64(pending.Payload.BlockNumber))
+
+	s.Nil(queue.highestEnvelopeAbove(200), "nothing above the head means no backlog")
+	s.Nil(queue.highestEnvelopeAbove(1000))
+}

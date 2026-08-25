@@ -128,14 +128,21 @@ impl WhitelistPreconfirmationImporter {
         let block_hash = payload.block_hash;
         let end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false);
 
+        // Below the confirmed boundary this payload must not be inserted (WLP-INV-003), but it is
+        // deferred rather than dropped. The boundary is read from local state, so it can still be
+        // sitting on a branch the network has already abandoned; dropping on that reading destroys
+        // the envelope permanently, and when the boundary later rewinds below it there is nothing
+        // left to show the chain runs ahead of this node -- `/status` reports parity with the
+        // rewound head and a lagging node reads as synced. Keeping it costs one bounded cache slot
+        // and a comparison per pass, and a genuinely confirmed payload is evicted by the ring.
         if block_number <= head_l1_origin_block_id {
             debug!(
                 block_number,
                 block_hash = %block_hash,
                 head_l1_origin_block_id,
-                "dropping outdated cached whitelist preconfirmation payload"
+                "deferring cached whitelist preconfirmation payload at or below the confirmed boundary"
             );
-            return Ok(true);
+            return Ok(false);
         }
 
         if self.block_hash_by_number(block_number).await? == Some(block_hash) {
