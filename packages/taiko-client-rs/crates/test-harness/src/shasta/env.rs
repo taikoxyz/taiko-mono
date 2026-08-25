@@ -110,7 +110,7 @@ impl ShastaEnv {
         );
 
         // Reset both L2 nodes to a known base block before tests run.
-        reset_to_base_block(&client).await?;
+        reset_to_base_block(&client, l2_suggested_fee_recipient).await?;
         reset_head_l1_origin(&client).await?;
 
         let secondary_config = ClientConfig {
@@ -121,7 +121,7 @@ impl ShastaEnv {
             inbox_address,
         };
         let secondary_client = Client::new(secondary_config).await?;
-        reset_to_base_block(&secondary_client).await?;
+        reset_to_base_block(&secondary_client, l2_suggested_fee_recipient).await?;
         reset_head_l1_origin(&secondary_client).await?;
 
         // Restore the real-chain invariant that L1 time is ahead of every persisted L2

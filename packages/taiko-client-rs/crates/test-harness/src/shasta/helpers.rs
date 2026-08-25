@@ -144,7 +144,14 @@ fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
 }
 
 /// Reset the L2 chain head to the base block (height 1) using the engine API.
-pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
+///
+/// `base_coinbase` is the beneficiary every driver-built block carries
+/// (`L2_SUGGESTED_FEE_RECIPIENT`) and is the only base-block identity a reset cannot
+/// corrupt: the engine's `fork_choice_updated_v2` persists block 1's l1_origin row with
+/// the hash of whichever payload was just built, so after an interrupted reset both the
+/// canonical block at height 1 and the row can point at the temporary random-coinbase
+/// sibling — only the coinbase still tells the two apart.
+pub(crate) async fn reset_to_base_block(client: &Client, base_coinbase: Address) -> Result<()> {
     let head: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)
@@ -153,28 +160,20 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("latest L2 block missing"))?
         .map_transactions(|tx: RpcTransaction| tx.into());
 
-    // The l1_origin row for block 1 carries the canonical base-block hash; without it
-    // there is nothing to reset against (fresh genesis chain).
-    let Some(l1_origin) = client.l1_origin_by_id(U256::from(1u64)).await? else {
-        warn!("L1 origin for block 1 missing; skipping L2 head reset");
-        return Ok(());
-    };
-
-    // "Already at base" is only trustworthy when the hash matches: an interrupted reset
-    // (a transient engine failure between the two fork_to calls below, retried by
-    // ShastaEnv setup or by the next test in the serialized lane) leaves the temporary
-    // random-coinbase sibling canonical at height 1, which a bare height check would
-    // silently accept.
-    if head.header.number == 1 && head.header.hash == l1_origin.l2_block_hash {
+    // "Already at base" is only trustworthy when the coinbase matches: a bare height
+    // check (or a comparison against the engine-rewritten l1_origin row) would accept
+    // the sibling left canonical by an interrupted earlier reset.
+    if head.header.number == 1 && head.header.beneficiary == base_coinbase {
         info!(head_number = head.header.number, "L2 chain already at base block");
         return Ok(());
     }
 
-    // Fetch the base block by the origin row's hash, not by number: in the
-    // interrupted-reset state height 1 is owned by the sibling.
+    // By number, not by the l1_origin row's hash: the row follows whichever payload the
+    // engine built last, so after an interrupted reset it can name a sibling that was
+    // never imported — by-number always returns the imported canonical block.
     let Some(block_one) = client
         .l2_provider
-        .get_block_by_hash(l1_origin.l2_block_hash)
+        .get_block_by_number(BlockNumberOrTag::Number(1))
         .full()
         .await?
         .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
@@ -183,26 +182,36 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         return Ok(());
     };
 
+    let Some(l1_origin) = client.l1_origin_by_id(U256::from(1u64)).await? else {
+        warn!("L1 origin for block 1 missing; skipping L2 head reset");
+        return Ok(());
+    };
+
     let parent_hash = block_one.header.parent_hash;
-    let original_coinbase = block_one.header.beneficiary;
+    // When block 1 is the leftover sibling, its fields differ from the original base
+    // block only in the coinbase, so rebuilding with `base_coinbase` (never the
+    // canonical block's own beneficiary) restores the original bit-for-bit and lets the
+    // engine repair the l1_origin row along the way.
+    let clean_base = block_one.header.beneficiary == base_coinbase;
 
     info!(
         head_number = head.header.number,
         head_hash = ?head.header.hash,
         target_number = 1,
         parent_hash = ?parent_hash,
+        clean_base,
         "resetting L2 head to base block via engine API"
     );
 
-    // Fork to a sibling block at height 1 to force reorg, then back to canonical block
-    // 1. The sibling hop is what demotes a taller chain (block 1 is an ancestor of its
-    // head); when a sibling already owns height 1, promoting the original directly is
-    // that same height-1 swap.
+    // Fork to a sibling block at height 1 to force reorg, then back to the base block.
+    // The sibling hop is what demotes a taller chain (block 1 is an ancestor of its
+    // head); when the chain already sits at height 1 on a wrong-coinbase sibling, the
+    // direct promotion is that same height-1 swap.
     if head.header.number != 1 {
         let temp_coinbase = Address::random();
         fork_to(client, &block_one, &l1_origin, parent_hash, temp_coinbase).await?;
     }
-    fork_to(client, &block_one, &l1_origin, parent_hash, original_coinbase).await?;
+    fork_to(client, &block_one, &l1_origin, parent_hash, base_coinbase).await?;
 
     let new_head: RpcBlock<TxEnvelope> = client
         .l2_provider
@@ -217,17 +226,27 @@ pub(crate) async fn reset_to_base_block(client: &Client) -> Result<()> {
         "failed to reset L2 head to block 1 (current {})",
         new_head.header.number
     );
-    // The reset relies on the execution client rebuilding a byte-identical base block;
-    // stale custom-table rows (l1_origin) keep the ORIGINAL hash, so a divergent rebuild
-    // (e.g. a payload-construction change in a new alethia-reth image) would silently
-    // poison every later test. Fail loudly instead.
     ensure!(
-        new_head.header.hash == block_one.header.hash,
-        "rebuilt base block hash {} != original {}; the L2 execution image no longer \
-         rebuilds block 1 byte-identically — recreate the docker env (rerun `just test`)",
-        new_head.header.hash,
-        block_one.header.hash
+        new_head.header.beneficiary == base_coinbase,
+        "rebuilt base block beneficiary {} != expected {}; the sibling swap did not \
+         restore the original base block — recreate the docker env (rerun `just test`)",
+        new_head.header.beneficiary,
+        base_coinbase
     );
+    // The reset relies on the execution client rebuilding a byte-identical base block;
+    // a divergent rebuild (e.g. a payload-construction change in a new alethia-reth
+    // image) would silently poison every later test. Only checkable against a clean
+    // chain — when block 1 was the sibling, the original hash is not known beforehand
+    // and the beneficiary check above is the authority.
+    if clean_base {
+        ensure!(
+            new_head.header.hash == block_one.header.hash,
+            "rebuilt base block hash {} != original {}; the L2 execution image no longer \
+             rebuilds block 1 byte-identically — recreate the docker env (rerun `just test`)",
+            new_head.header.hash,
+            block_one.header.hash
+        );
+    }
 
     Ok(())
 }
