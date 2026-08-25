@@ -5,6 +5,17 @@ import { type NFT, type Token, TokenAttributeKey } from '../../src/libs/token/ty
 import { PluginLogger } from './PluginLogger';
 
 const ajv = new Ajv({ strict: false });
+ajv.addFormat('http-url', {
+  type: 'string',
+  validate: (value: string) => {
+    try {
+      const url = new URL(value);
+      return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  },
+});
 
 type SchemaWithId = Schema & { $id?: string };
 

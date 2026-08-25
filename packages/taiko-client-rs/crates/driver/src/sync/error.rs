@@ -76,6 +76,13 @@ pub enum SyncError {
     #[error("failed to create event scanner: {0}")]
     EventScannerInit(String),
 
+    /// L1 RPC temporarily cannot serve the historical state for a finalized block.
+    #[error("L1 finalized state is temporarily unavailable: {message}")]
+    HistoricalStateUnavailable {
+        /// Original RPC error message used for operator diagnostics.
+        message: String,
+    },
+
     /// Event sync: RPC error.
     #[error(transparent)]
     Rpc(#[from] RpcClientError),
