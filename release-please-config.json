@@ -149,7 +149,6 @@
           "jsonpath": "$.package[?(@.name == \"test-harness\")].version"
         }
       ]
-    },
-    "packages/ui-lib": {}
+    }
   }
 }
