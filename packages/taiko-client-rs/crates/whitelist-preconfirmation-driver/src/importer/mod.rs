@@ -194,6 +194,20 @@ impl WhitelistPreconfirmationImporter {
         Ok(())
     }
 
+    /// Re-read the L1-confirmed tip and fold it into the shared state.
+    ///
+    /// The tip is otherwise only observed when an envelope arrives, so a rewind that happens while
+    /// gossip is quiet -- an operator hand-over, or this node reporting itself behind and the
+    /// incoming operator declining to sequence -- would leave the seen counter pinned to a height
+    /// on the discarded branch, and `/status` reporting a mismatch that nothing can clear.
+    pub(crate) async fn refresh_confirmed_tip(&mut self) -> Result<()> {
+        if let Some(tip) = self.head_l1_origin_block_id().await? {
+            self.state.note_confirmed_tip(tip);
+        }
+
+        Ok(())
+    }
+
     /// Refresh whether sync is ready.
     ///
     /// Ready when the confirmed head-origin pointer is written, or — at genesis only —

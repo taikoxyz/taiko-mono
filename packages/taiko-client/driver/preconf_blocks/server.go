@@ -1549,10 +1549,11 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	// `recordLatestSeenProposal` lowers it, because there the height comes from an L1 proposal
 	// event and is authoritative.
 	//
-	// The cost is that a reorg leaves this node reporting itself behind for roughly (reorg depth
-	// x block time) until the new branch grows past the discarded one. That is bounded and
-	// self-healing, and this branch replaces a block at its own height, so in practice the depth
-	// is small.
+	// The cost is that this node reports itself behind until the new branch grows past the
+	// discarded one -- which is not guaranteed to happen, if the replacement branch settles at a
+	// lower height. What does bound it is `anchorHighestSeenL2Payload`: the counter is pulled to
+	// one envelope-cache span above the live head and pinned there, so the report converges once
+	// the chain advances that far. Call it bounded by one cache span, not self-healing.
 	if header != nil && uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
 		log.Info(
 			"Preconfirmation block is reorging",
@@ -1610,28 +1611,14 @@ func (s *PreconfBlockAPIServer) updateHighestImportedL2Payload(blockID uint64) {
 // well-formed, signature-valid payload this node receives regardless of whether it could be
 // imported. It only ever moves forward; `recordLatestSeenProposal` moves it back on a reorg.
 //
-// The value is anchored one envelope-cache span above the highest imported block. That has to
-// happen here rather than where the value is published: clamping at the publishing end leaves
-// this counter holding the absurd height, so the reported value tracks `head + span` as the head
-// advances and never returns to equality -- one signature-valid payload carrying a wrong or
-// hostile block number would keep the preconfer client from ever starting. Anchoring here parks
-// the counter at a fixed height the chain eventually passes.
-//
-// The anchor is deliberately loose. The highest imported block is not the execution head -- L1
-// derivation advances the chain without touching it -- so it is only trustworthy as a sanity
-// bound, not as the ceiling for the reported value. A backlog deeper than one cache span still
-// reports as behind; it just reports a floor on how far behind, which is all that matters,
-// because clearing a backlog that deep needs L1 derivation either way.
+// Nothing is bounded here. Every bound available at this point -- the highest imported block in
+// particular -- can lag the live execution head by more than one envelope-cache span, because L1
+// derivation advances the chain without touching those counters. Bounding against a lagging
+// anchor would pull this counter *below* the live head, and `/status` floors at the head, so a
+// node holding an unimported backlog would report parity and read as synced. That is the
+// fail-open this counter exists to close. The bound is applied by `anchorHighestSeenL2Payload`,
+// where the live head is known.
 func (s *PreconfBlockAPIServer) updateHighestSeenL2Payload(blockID uint64) {
-	if ceiling := s.highestImportedL2PayloadBlockID.Load() + maxTrackedPayloads; blockID > ceiling {
-		log.Warn(
-			"Anchoring highest seen L2 payload block ID",
-			"blockID", blockID,
-			"ceiling", ceiling,
-		)
-		blockID = ceiling
-	}
-
 	// Read-then-write rather than a compare-and-swap loop: every caller holds s.mutex, so no
 	// other writer can interleave here.
 	current := s.highestSeenL2PayloadBlockID.Load()

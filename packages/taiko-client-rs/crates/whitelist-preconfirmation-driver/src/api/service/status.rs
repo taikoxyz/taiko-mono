@@ -17,7 +17,7 @@ impl WhitelistApiService {
             .map(|block| block.header.number);
 
         let observed_head = self.state.reconcile_observed_head(l2_head);
-        let highest_unsafe = self.state.highest_unsafe_floored_at(observed_head);
+        let highest_unsafe = self.state.highest_unsafe_for_head(observed_head);
         if l2_head.is_none() {
             warn!(observed_head, highest_unsafe, "L2 head unreadable; using last observed head");
         }

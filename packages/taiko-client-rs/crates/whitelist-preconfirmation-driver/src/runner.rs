@@ -19,7 +19,7 @@ use crate::{
         WhitelistApiServer, WhitelistApiServerConfig, WhitelistApiService,
         WhitelistApiServiceParams,
     },
-    cache::{L1_EPOCH_DURATION_SECS, SharedPreconfState},
+    cache::{BACKFILL_RETRY_INTERVAL_SECS, SharedPreconfState},
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
@@ -161,12 +161,11 @@ impl WhitelistPreconfirmationDriverRunner {
                 state,
                 beacon_client,
             });
-        let mut sync_ready_interval =
-            tokio::time::interval(tokio::time::Duration::from_secs(L1_EPOCH_DURATION_SECS));
-        // Consume the immediate first tick so the periodic cache poll starts one
-        // full epoch later; event-driven imports still call maybe_import_from_cache
-        // on every inbound network event.
-        sync_ready_interval.tick().await;
+        let mut backfill_retry_interval =
+            tokio::time::interval(tokio::time::Duration::from_secs(BACKFILL_RETRY_INTERVAL_SECS));
+        // Consume the immediate first tick so the first poll lands one interval in; event-driven
+        // imports still call maybe_import_from_cache on every inbound network event.
+        backfill_retry_interval.tick().await;
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
         let mut event_syncer_handle = preconf_ingress_sync.handle_mut();
@@ -206,11 +205,17 @@ impl WhitelistPreconfirmationDriverRunner {
                         );
                     }
                 }
-                _ = sync_ready_interval.tick() => {
+                _ = backfill_retry_interval.tick() => {
+                    // Both of these exist to survive gossip going quiet: nothing else re-drives a
+                    // request whose cooldown has elapsed, and nothing else notices a confirmed-tip
+                    // rewind, once inbound events stop arriving.
+                    if let Err(err) = importer.refresh_confirmed_tip().await {
+                        warn!(error = %err, "failed to refresh confirmed tip on backfill retry");
+                    }
                     if let Err(err) = importer.maybe_import_from_cache().await {
                         warn!(
                             error = %err,
-                            "failed to import cached whitelist preconfirmation payloads on sync-ready poll"
+                            "failed to import cached whitelist preconfirmation payloads on backfill retry"
                         );
                     }
                 }

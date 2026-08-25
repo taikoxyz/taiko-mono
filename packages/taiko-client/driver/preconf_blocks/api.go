@@ -346,6 +346,40 @@ type Status struct {
 	CanShutdown bool `json:"canShutdown"`
 }
 
+// anchorHighestSeenL2Payload bounds the seen counter to one envelope-cache span above the live
+// execution head and writes the bound back, returning the value to report.
+//
+// Writing it back is the point. A payload further ahead than the cache can bridge needs L1
+// derivation to clear either way, but leaving the raw height in the counter means the reported
+// value tracks `head + span` upwards forever and can never return to equality: one
+// signature-valid payload carrying a wrong or hostile block number would keep the preconfer
+// client from ever starting. Pinning the counter at a concrete height lets the chain pass it.
+//
+// The live head is the only safe anchor. Every counter maintained inside this server can lag it
+// -- L1 derivation advances the chain without touching them -- and bounding against a lagging
+// anchor would pull the counter below the head, which reads as synced. Anchored here, the stored
+// value is always `head + span`, strictly above the head, so a real backlog always reports as
+// one.
+func (s *PreconfBlockAPIServer) anchorHighestSeenL2Payload(head uint64) uint64 {
+	seen := s.highestSeenL2PayloadBlockID.Load()
+
+	ceiling := head + maxTrackedPayloads
+	if seen <= ceiling {
+		return seen
+	}
+
+	log.Warn(
+		"Anchoring highest seen L2 payload block ID to the execution head",
+		"highestSeenL2PayloadBlockID", seen,
+		"ceiling", ceiling,
+	)
+	// A concurrent writer holding s.mutex may have advanced the counter since the load; leave its
+	// value alone and let the next poll re-anchor.
+	s.highestSeenL2PayloadBlockID.CompareAndSwap(seen, ceiling)
+
+	return ceiling
+}
+
 // reportedHighestUnsafeL2Payload is the value `/status` publishes as
 // highestUnsafeL2PayloadBlockID: the highest payload this node has seen, floored at the
 // execution head.
@@ -379,7 +413,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	if head, err := s.rpc.L2.BlockNumber(c.Request().Context()); err != nil {
 		log.Warn("Failed to fetch L2 head for preconfirmation status, reporting highest seen", "error", err)
 	} else {
-		highestUnsafe = reportedHighestUnsafeL2Payload(highestUnsafe, head)
+		highestUnsafe = reportedHighestUnsafeL2Payload(s.anchorHighestSeenL2Payload(head), head)
 	}
 
 	s.lookaheadMutex.Lock()

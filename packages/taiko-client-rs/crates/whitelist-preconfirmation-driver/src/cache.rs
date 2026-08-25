@@ -27,6 +27,14 @@ const EOS_CACHE_CAPACITY: usize = PENDING_ENVELOPE_CAPACITY;
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
 /// One L1 epoch (32 slots x 12 seconds).
 pub(crate) const L1_EPOCH_DURATION_SECS: u64 = 12 * 32;
+/// How often the driver re-drives cached imports and re-reads the confirmed tip without waiting
+/// for an inbound network event.
+///
+/// This has to stay well inside the preconfer client's tolerance for a continuous `/status`
+/// mismatch, which is half an L2 epoch: it cancels and exits past that. A poll on the order of an
+/// L1 epoch would arrive after the client had already given up, so a dropped final response with
+/// no further gossip would take the process down before the first autonomous retry.
+pub(crate) const BACKFILL_RETRY_INTERVAL_SECS: u64 = 4;
 
 /// Shared mutable state for the whitelist preconfirmation driver.
 ///
@@ -165,22 +173,13 @@ impl SharedPreconfState {
     /// recover either way, so letting a malformed or hostile block number park the counter
     /// arbitrarily high would only keep the node reporting itself out of sync forever.
     pub(crate) fn record_seen_block(&self, block_number: u64) {
-        // Anchor the value one pending-cache span above the last observed head *here*, not where
-        // it is reported. Clamping the reported value instead leaves the raw counter holding the
-        // absurd height, so the report tracks `head + capacity` as the head advances and never
-        // returns to equality — a single signature-valid payload with a wrong or hostile block
-        // number would keep the preconfer client from ever starting. Anchoring at record time
-        // parks the counter at a fixed height that the head eventually passes, at which point the
-        // node reads as synced again.
-        //
-        // A payload beyond this span cannot be bridged from the pending cache anyway; recovering
-        // from a backlog that deep needs L1 confirmation.
-        let ceiling = self
-            .last_observed_l2_head
-            .load(Ordering::Relaxed)
-            .saturating_add(PENDING_ENVELOPE_CAPACITY as u64);
-        let block_number = block_number.min(ceiling);
-
+        // Nothing is bounded here. Every bound available at this point can lag the live execution
+        // head -- `last_observed_l2_head` only moves on a status poll or a local insert, and the
+        // engine syncs forward between them -- and bounding against a lagging anchor would pull
+        // this counter *below* the live head. `/status` floors at the head, so a node holding an
+        // unimported backlog would report parity and read as synced: the fail-open this counter
+        // exists to close. The bound is applied by [`Self::highest_unsafe_for_head`], where the
+        // live head is known.
         let previous = self.highest_seen_block.fetch_max(block_number, Ordering::Relaxed);
         if block_number > previous {
             WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(block_number);
@@ -217,6 +216,10 @@ impl SharedPreconfState {
     }
 
     /// Highest block number received from the P2P network, imported or not.
+    ///
+    /// Test-only: production reads go through [`Self::highest_unsafe_for_head`], which applies the
+    /// bound the raw counter deliberately does not.
+    #[cfg(test)]
     pub(crate) fn highest_seen_block(&self) -> u64 {
         self.highest_seen_block.load(Ordering::Relaxed)
     }
@@ -229,10 +232,38 @@ impl SharedPreconfState {
     /// beacon sync, for example — and must not report a spurious backlog, because the preconfer
     /// client exits after roughly half an L2 epoch of continuous mismatch.
     ///
-    /// No cap is applied here: [`Self::record_seen_block`] already anchors the counter, and a cap
-    /// at this end would track the head upwards and so could never return to equality.
-    pub(crate) fn highest_unsafe_floored_at(&self, head: u64) -> u64 {
-        self.highest_seen_block().max(head)
+    /// The counter is first bounded to one pending-cache span above `head`, with the bound written
+    /// back. Writing it back is the point: a payload beyond that span needs L1 confirmation to
+    /// clear either way, but leaving the raw height in the counter means the reported value tracks
+    /// `head + span` upwards forever and can never return to equality, so one signature-valid
+    /// payload carrying a wrong or hostile block number would keep the preconfer client from ever
+    /// starting. Pinned at a concrete height, the chain can pass it.
+    ///
+    /// The live head is the only safe anchor -- every counter this driver maintains can lag it --
+    /// so the stored bound is always strictly above the head and a real backlog always reports as
+    /// one.
+    pub(crate) fn highest_unsafe_for_head(&self, head: u64) -> u64 {
+        let ceiling = head.saturating_add(PENDING_ENVELOPE_CAPACITY as u64);
+
+        let mut seen = self.highest_seen_block.load(Ordering::Relaxed);
+        if seen > ceiling {
+            tracing::warn!(
+                highest_seen = seen,
+                ceiling,
+                "anchoring highest seen preconfirmation block to the execution head"
+            );
+            // A concurrent ingress may have advanced the counter since the load; leave its value
+            // alone and let the next poll re-anchor.
+            let _ = self.highest_seen_block.compare_exchange(
+                seen,
+                ceiling,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            );
+            seen = ceiling;
+        }
+
+        seen.max(head)
     }
 }
 

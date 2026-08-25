@@ -308,38 +308,47 @@ func (s *PreconfBlockAPIServerTestSuite) TestReportedHighestUnsafeL2Payload() {
 	}
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestUpdateHighestSeenL2PayloadAnchorsAndReleases() {
-	s.s.highestImportedL2PayloadBlockID.Store(1000)
-	s.s.highestSeenL2PayloadBlockID.Store(1000)
+func (s *PreconfBlockAPIServerTestSuite) TestAnchorHighestSeenL2PayloadReleasesAsHeadAdvances() {
+	s.s.highestSeenL2PayloadBlockID.Store(1 << 40)
 
 	// A signature-valid payload carrying a wrong or hostile block number must not keep the node
 	// out of sync forever, or it keeps the preconfer client from ever starting.
-	s.s.updateHighestSeenL2Payload(1 << 40)
-
 	anchored := uint64(1000 + maxTrackedPayloads)
-	s.Equal(anchored, s.s.highestSeenL2PayloadBlockID.Load(), "anchored when recorded, not when reported")
+	s.Equal(anchored, s.s.anchorHighestSeenL2Payload(1000))
+	s.Equal(anchored, s.s.highestSeenL2PayloadBlockID.Load(), "the bound is written back, not just returned")
 	s.NotEqual(uint64(1000), reportedHighestUnsafeL2Payload(anchored, 1000), "still reads as behind for now")
 
-	// The anchor is a fixed height rather than one that tracks the head, so the chain catching up
-	// to it restores equality. Capping the reported value instead would return head+span forever.
+	// Pinned at a concrete height rather than one that tracks the head, so the chain catching up
+	// restores equality. Returning the bound without storing it would report head+span forever.
+	s.Equal(anchored, s.s.anchorHighestSeenL2Payload(anchored))
 	s.Equal(anchored, reportedHighestUnsafeL2Payload(anchored, anchored), "synced again")
-	s.Equal(anchored+10, reportedHighestUnsafeL2Payload(anchored, anchored+10))
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestUpdateHighestSeenL2PayloadKeepsDeepBacklogVisible() {
+func (s *PreconfBlockAPIServerTestSuite) TestAnchorHighestSeenL2PayloadIgnoresLaggingCounters() {
+	// Regression for the anchor being taken from a counter that trails the live execution head.
+	// After a beacon sync the chain advances by L1 derivation without touching highestImported,
+	// so anchoring on it would bound the seen counter far below the head; `/status` floors at the
+	// head, and the node would report parity while holding an unimported payload -- the incident.
 	s.s.highestImportedL2PayloadBlockID.Store(1000)
-	s.s.highestSeenL2PayloadBlockID.Store(1000)
+	s.s.highestSeenL2PayloadBlockID.Store(5001)
 
-	// The anchor must not turn a real backlog into a synced report: a node returning from long
+	const liveHead = uint64(5000)
+	reported := reportedHighestUnsafeL2Payload(s.s.anchorHighestSeenL2Payload(liveHead), liveHead)
+
+	s.Equal(uint64(5001), reported)
+	s.NotEqual(liveHead, reported, "a node holding an unimported payload must not read as synced")
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestAnchorHighestSeenL2PayloadKeepsDeepBacklogVisible() {
+	// The bound must not turn a real backlog into a synced report: a node returning from long
 	// downtime is behind by more than the cache can bridge, and still has to say so.
-	s.s.updateHighestSeenL2Payload(1000 + maxTrackedPayloads*4)
+	s.s.highestSeenL2PayloadBlockID.Store(1000 + maxTrackedPayloads*4)
 
-	seen := s.s.highestSeenL2PayloadBlockID.Load()
-	s.NotEqual(uint64(1000), reportedHighestUnsafeL2Payload(seen, 1000))
+	reported := reportedHighestUnsafeL2Payload(s.s.anchorHighestSeenL2Payload(1000), 1000)
+	s.NotEqual(uint64(1000), reported)
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestUpdateHighestSeenL2PayloadIsMonotonic() {
-	s.s.highestImportedL2PayloadBlockID.Store(100)
 	s.s.highestSeenL2PayloadBlockID.Store(100)
 
 	s.s.updateHighestSeenL2Payload(150)
