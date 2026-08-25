@@ -53,6 +53,8 @@ struct Metrics {
     cache_pending: Gauge,
     /// Recent cache size.
     cache_recent: Gauge,
+    /// Highest preconfirmation block received from the P2P network, imported or not.
+    highest_seen_block: Gauge,
 }
 
 impl Metrics {
@@ -135,6 +137,10 @@ impl Metrics {
                 "Pending cache size",
             ),
             cache_recent: gauge("whitelist_preconf_driver_cache_recent_count", "Recent cache size"),
+            highest_seen_block: gauge(
+                "whitelist_preconf_driver_highest_seen_block",
+                "Highest preconfirmation block received from the P2P network, imported or not",
+            ),
         }
     }
 }
@@ -231,6 +237,12 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Set the recent cache gauge.
     pub(crate) fn set_cache_recent_count(count: usize) {
         METRICS.cache_recent.set(count as f64);
+    }
+
+    /// Set the highest-seen-block gauge. Its gap to the node's execution head is the
+    /// preconfirmation backlog, which is the signal a lagging follower has no other way to emit.
+    pub(crate) fn set_highest_seen_block(block_number: u64) {
+        METRICS.highest_seen_block.set(block_number as f64);
     }
 }
 

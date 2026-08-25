@@ -50,9 +50,20 @@ pub struct BuildPreconfBlockResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStatus {
-    /// Highest unsafe payload block ID tracked by this node.
+    /// Highest preconfirmation block ID received from the P2P network, whether or not it could
+    /// be imported, floored at the current L2 execution head. A consumer that requires this to
+    /// equal the execution head before sequencing therefore sees a mismatch whenever this node
+    /// is behind.
     #[serde(rename = "highestUnsafeL2PayloadBlockID")]
     pub highest_unsafe_l2_payload_block_id: u64,
+    /// The block height this node has locally applied, as this driver observes it. The gap to
+    /// `highest_unsafe_l2_payload_block_id` is this node's preconfirmation backlog.
+    ///
+    /// Observability only — no consumer gates on it. The Go driver derives the same field from
+    /// the blocks its preconfirmation server imported, which can trail the execution head when
+    /// blocks arrive through L1 derivation instead; this driver reports the observed head.
+    #[serde(rename = "highestImportedL2PayloadBlockID")]
+    pub highest_imported_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (zero hash when unknown).
     pub end_of_sequencing_block_hash: String,
     /// True when SIGTERM is safe — no `build_preconf_block` request has been
@@ -105,6 +116,7 @@ mod tests {
     fn status_serializes_fields_in_camel_case() {
         let status = ApiStatus {
             highest_unsafe_l2_payload_block_id: 1,
+            highest_imported_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
             can_shutdown: true,
         };
@@ -119,6 +131,12 @@ mod tests {
             1
         );
         assert!(json.get("highestUnsafeL2PayloadBlockId").is_none());
+        assert_eq!(
+            json["highestImportedL2PayloadBlockID"]
+                .as_u64()
+                .expect("missing highest imported block ID"),
+            1
+        );
         assert!(
             json["endOfSequencingBlockHash"].as_str().expect("missing EOS hash").starts_with("0x")
         );

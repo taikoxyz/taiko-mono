@@ -210,9 +210,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	header := headers[0]
 
-	// always update the highest unsafe L2 payload block ID.
+	// always update the highest imported L2 payload block ID.
 	// it's either higher than the existing one, or we reorged.
-	s.updateHighestUnsafeL2Payload(header.Number.Uint64())
+	s.updateHighestImportedL2Payload(header.Number.Uint64())
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
 	// connects to the P2P network.
@@ -331,14 +331,41 @@ type Status struct {
 	// @param totalCached uint64 the total number of cached envelopes after the start of the server.
 	TotalCached uint64 `json:"totalCached"`
 	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
-	// @param has received from the P2P network, if its zero, it means the current server has not received
-	// @param any preconfirmation block from the P2P network yet.
+	// @param has received from the P2P network, whether or not it could be imported, floored at the
+	// @param current L2 execution engine head. A consumer that requires this to equal the execution
+	// @param head before sequencing therefore sees a mismatch whenever this node is behind.
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
+	// @param highestImportedL2PayloadBlockID uint64 the highest preconfirmation block the server has
+	// @param actually inserted into its L2 execution engine. The gap to highestUnsafeL2PayloadBlockID
+	// @param is this node's preconfirmation backlog.
+	HighestImportedL2PayloadBlockID uint64 `json:"highestImportedL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
 	// CanShutdown is true when the server is safe to receive SIGTERM, i.e.,
 	// not the active or imminent preconfer for the current L1 slot.
 	CanShutdown bool `json:"canShutdown"`
+}
+
+// reportedHighestUnsafeL2Payload is the value `/status` publishes as
+// highestUnsafeL2PayloadBlockID: the highest payload this node has seen, floored at the
+// execution head and capped one envelope-cache span above it.
+//
+// The floor keeps a node whose execution head runs ahead of the gossip it has seen -- right
+// after a beacon sync, before the next proposal event lands -- from reporting a backlog it does
+// not have. That matters because the preconfer client exits the process after roughly half an
+// L2 epoch of continuous mismatch.
+//
+// The cap keeps a malformed or hostile block number from parking the node out of sync
+// indefinitely: a payload further ahead than the envelope cache can bridge needs L1 derivation
+// to clear either way.
+func reportedHighestUnsafeL2Payload(highestSeen, head uint64) uint64 {
+	if highestSeen < head {
+		return head
+	}
+	if ceiling := head + maxTrackedPayloads; highestSeen > ceiling {
+		return ceiling
+	}
+	return highestSeen
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -349,6 +376,16 @@ type Status struct {
 //	@Success		200	{object} Status
 //	@Router			/status [get]
 func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
+	// Read the execution head before taking any lock. A failed read reports the raw seen
+	// counter, which errs toward reporting a mismatch.
+	highestImported := s.highestImportedL2PayloadBlockID.Load()
+	highestUnsafe := s.highestSeenL2PayloadBlockID.Load()
+	if head, err := s.rpc.L2.BlockNumber(c.Request().Context()); err != nil {
+		log.Warn("Failed to fetch L2 head for preconfirmation status, reporting highest seen", "error", err)
+	} else {
+		highestUnsafe = reportedHighestUnsafeL2Payload(highestUnsafe, head)
+	}
+
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
@@ -375,7 +412,8 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 			"currRanges", s.lookahead.CurrRanges,
 			"nextRanges", s.lookahead.NextRanges,
 			"totalCached", s.envelopesCache.getTotalCached(),
-			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"highestUnsafeL2PayloadBlockID", highestUnsafe,
+			"highestImportedL2PayloadBlockID", highestImported,
 			"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
 			"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
 			"canShutdown", canShutdown,
@@ -383,11 +421,12 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, Status{
-		Lookahead:                     s.lookahead,
-		TotalCached:                   s.envelopesCache.getTotalCached(),
-		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
-		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
-		CanShutdown:                   canShutdown,
+		Lookahead:                       s.lookahead,
+		TotalCached:                     s.envelopesCache.getTotalCached(),
+		HighestUnsafeL2PayloadBlockID:   highestUnsafe,
+		HighestImportedL2PayloadBlockID: highestImported,
+		EndOfSequencingBlockHash:        endOfSequencingBlockHash.Hex(),
+		CanShutdown:                     canShutdown,
 	})
 }
 

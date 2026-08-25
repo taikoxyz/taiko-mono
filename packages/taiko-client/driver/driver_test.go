@@ -970,6 +970,16 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number().Uint64(), l2Head4.Number().Uint64())
 
+	// The node is now sitting on a backlog of valid envelopes it cannot import, with its
+	// execution head pinned. It must report that it is behind: a preconfer client comparing the
+	// reported block ID against the execution head has to see a mismatch, not parity between two
+	// equally stale values.
+	status := s.preconfStatus()
+	s.Greater(status.HighestUnsafeL2PayloadBlockID, l2Head4.Number().Uint64())
+	// The imported counter tracks only what this server applied; blocks that arrived through L1
+	// derivation advance the chain without touching it, so it can trail the execution head.
+	s.LessOrEqual(status.HighestImportedL2PayloadBlockID, l2Head4.Number().Uint64())
+
 	// Insert the only two missing ancient blocks
 	block := getBlock(l2Head1.Number().Uint64() + 1)
 	s.NotNil(block)
@@ -1004,6 +1014,12 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(l2Head2.Number.Uint64(), l2Head5.Number().Uint64())
+
+	// Backlog drained: the reported block ID meets the execution head again, so the preconfer
+	// client's parity check passes.
+	status = s.preconfStatus()
+	s.Equal(l2Head5.Number().Uint64(), status.HighestUnsafeL2PayloadBlockID)
+	s.Equal(l2Head5.Number().Uint64(), status.HighestImportedL2PayloadBlockID)
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
@@ -1133,6 +1149,15 @@ func (s *DriverTestSuite) InitProposer() {
 
 func TestDriverTestSuite(t *testing.T) {
 	suite.Run(t, new(DriverTestSuite))
+}
+
+// preconfStatus fetches /status the same way a preconfer client does.
+func (s *DriverTestSuite) preconfStatus() *preconfblocks.Status {
+	var status preconfblocks.Status
+	res, err := resty.New().R().SetResult(&status).Get(s.preconfServerURL.String() + "/status")
+	s.Nil(err)
+	s.True(res.IsSuccess())
+	return &status
 }
 
 // insertPreconfBlock inserts a preconfirmation block with the given parameters.

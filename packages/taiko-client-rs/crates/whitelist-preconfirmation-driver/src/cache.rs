@@ -42,7 +42,13 @@ pub(crate) struct SharedPreconfState {
     recent_envelopes: Arc<Mutex<EnvelopeCache>>,
     /// Most recent L2 head observed by `/status` or advanced by locally inserted blocks,
     /// reported as a fallback when the head is unreadable. Seeded with the head at startup.
-    last_reported_l2_head: Arc<AtomicU64>,
+    last_observed_l2_head: Arc<AtomicU64>,
+    /// Highest block number of any well-formed, signature-valid envelope this node has
+    /// *received*, whether or not it could be imported. Seeded with the head at startup.
+    highest_seen_block: Arc<AtomicU64>,
+    /// Latest L1-confirmed canonical tip observed at envelope admission, used only to detect a
+    /// tip moving backwards. Starts at zero so the first observation reads as an advance.
+    last_confirmed_tip: Arc<AtomicU64>,
 }
 
 impl SharedPreconfState {
@@ -53,7 +59,9 @@ impl SharedPreconfState {
             recent_envelopes: Arc::new(Mutex::new(EnvelopeCache::with_capacity(
                 RECENT_ENVELOPE_CAPACITY,
             ))),
-            last_reported_l2_head: Arc::new(AtomicU64::new(initial_l2_head)),
+            last_observed_l2_head: Arc::new(AtomicU64::new(initial_l2_head)),
+            highest_seen_block: Arc::new(AtomicU64::new(initial_l2_head)),
+            last_confirmed_tip: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -101,18 +109,19 @@ impl SharedPreconfState {
     /// Record a freshly observed L2 head and return it; when the head is `None` (a failed RPC
     /// read) return the most recently recorded value instead.
     ///
-    /// The Catalyst sync gate only opens when the reported value equals the execution head
-    /// exactly, and every canonical block is inserted by this driver, so the live head is
-    /// always the honest answer. The stored value exists purely to keep `/status` answering
-    /// through transient L2 RPC failures; [`Self::record_inserted_block`] keeps it fresh for
-    /// blocks inserted between polls.
-    pub(crate) fn reconcile_reported_head(&self, head: Option<u64>) -> u64 {
+    /// This is the node's own execution head, which `/status` floors its report at rather than
+    /// reporting directly — see [`Self::highest_unsafe_floored_at`]. Reporting it directly made
+    /// the preconfer client's sync gate, which opens when the reported value equals the execution
+    /// head exactly, a tautology: a node that had fallen behind still read as synced. The stored
+    /// value keeps `/status` answering through transient L2 RPC failures, and
+    /// [`Self::record_inserted_block`] keeps it fresh for blocks inserted between polls.
+    pub(crate) fn reconcile_observed_head(&self, head: Option<u64>) -> u64 {
         match head {
             Some(head) => {
-                self.last_reported_l2_head.store(head, Ordering::Relaxed);
+                self.last_observed_l2_head.store(head, Ordering::Relaxed);
                 head
             }
-            None => self.last_reported_l2_head.load(Ordering::Relaxed),
+            None => self.last_observed_l2_head.load(Ordering::Relaxed),
         }
     }
 
@@ -123,7 +132,74 @@ impl SharedPreconfState {
     /// insert sequentially, and any successful status poll overwrites the value with the
     /// live head anyway.
     pub(crate) fn record_inserted_block(&self, block_number: u64) {
-        self.last_reported_l2_head.store(block_number, Ordering::Relaxed);
+        self.last_observed_l2_head.store(block_number, Ordering::Relaxed);
+    }
+
+    /// Advance the highest seen block number, monotonically.
+    ///
+    /// Called for every envelope that passes payload validation, before any decision about
+    /// whether it can be imported. A node holding a backlog it cannot apply therefore reports a
+    /// value above its execution head, which is what lets the preconfer client's parity check
+    /// fail closed instead of comparing two equally stale values.
+    ///
+    /// The value is clamped to [`PENDING_ENVELOPE_CAPACITY`] beyond the last observed head: an
+    /// envelope further ahead than the pending cache can ever bridge needs L1 confirmation to
+    /// recover either way, so letting a malformed or hostile block number park the counter
+    /// arbitrarily high would only keep the node reporting itself out of sync forever.
+    pub(crate) fn record_seen_block(&self, block_number: u64) {
+        let previous = self.highest_seen_block.fetch_max(block_number, Ordering::Relaxed);
+        if block_number > previous {
+            WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(block_number);
+        }
+    }
+
+    /// Record the latest L1-confirmed canonical tip, pulling the highest seen block back down
+    /// when that tip moves *backwards* — an L1 reorg rewinding the chain past envelopes this node
+    /// had already counted.
+    ///
+    /// Without this, an envelope from the discarded branch keeps `/status` reporting a height the
+    /// chain no longer reaches, and the node reports a permanent mismatch until the new branch
+    /// grows past it — the preconfer client exits after roughly half an L2 epoch of that.
+    ///
+    /// Only a backwards move resets. In steady state the highest seen block runs *ahead* of the
+    /// confirmed tip, because preconfirmations outpace L1 confirmation by design; resetting on
+    /// every observation would destroy the counter. The confirmed tip is also the only authority
+    /// safe to reset against — resetting to the local execution head would let a node that is
+    /// genuinely behind declare itself synced, the exact failure this counter exists to prevent.
+    pub(crate) fn note_confirmed_tip(&self, confirmed_tip: u64) {
+        let previous = self.last_confirmed_tip.swap(confirmed_tip, Ordering::Relaxed);
+        if confirmed_tip >= previous {
+            return;
+        }
+
+        let seen = self.highest_seen_block.swap(confirmed_tip, Ordering::Relaxed);
+        WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(confirmed_tip);
+        tracing::info!(
+            previous_confirmed_tip = previous,
+            confirmed_tip,
+            previous_highest_seen = seen,
+            "confirmed tip rewound; reset highest seen preconfirmation block"
+        );
+    }
+
+    /// Highest block number received from the P2P network, imported or not.
+    pub(crate) fn highest_seen_block(&self) -> u64 {
+        self.highest_seen_block.load(Ordering::Relaxed)
+    }
+
+    /// The value `/status` reports as `highestUnsafeL2PayloadBlockID`: the highest envelope seen,
+    /// floored at `head` as returned by [`Self::reconcile_observed_head`].
+    ///
+    /// Above the head, this node is holding envelopes it has not applied and must read as out of
+    /// sync. At or below it, the node is merely ahead of the gossip it has seen — right after a
+    /// beacon sync, for example — and must not report a spurious backlog, because the preconfer
+    /// client exits after roughly half an L2 epoch of continuous mismatch.
+    ///
+    /// The value is also capped one pending-cache span above the head, so a malformed or hostile
+    /// block number cannot park the node out of sync indefinitely: past that span the backlog
+    /// needs L1 confirmation to clear either way.
+    pub(crate) fn highest_unsafe_floored_at(&self, head: u64) -> u64 {
+        self.highest_seen_block().clamp(head, head.saturating_add(PENDING_ENVELOPE_CAPACITY as u64))
     }
 }
 
@@ -368,7 +444,7 @@ mod tests {
         let state = SharedPreconfState::new(7);
         let hash = B256::from([0x77u8; 32]);
 
-        assert_eq!(state.reconcile_reported_head(None), 7, "seed backs the fallback");
+        assert_eq!(state.reconcile_observed_head(None), 7, "seed backs the fallback");
         assert!(state.get_recent(&hash).await.is_none());
 
         state.insert_recent(Arc::new(sample_envelope(hash, 8))).await;

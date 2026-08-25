@@ -29,9 +29,14 @@ var (
 	DriverL1CurrentHeightGauge             = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l1Current_height"})
 	DriverL2HeadIDGauge                    = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_l2Head_id"})
 	DriverHighestPreconfUnsafePayloadGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_highest_unsafe_payload"})
-	DriverReorgsByProposalCounter          = factory.NewCounter(prometheus.CounterOpts{Name: "driver_reorgs_by_proposal"})
-	DriverPreconfEnvelopeCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
-	DriverLastSeenBlockInProposalGauge     = factory.NewGauge(prometheus.GaugeOpts{
+	// DriverHighestPreconfSeenPayloadGauge tracks the highest preconfirmation block received from
+	// the P2P network, imported or not; driver_highest_unsafe_payload above tracks the highest one
+	// actually imported, its name predating the split. The gap between the two is the node's
+	// preconfirmation backlog.
+	DriverHighestPreconfSeenPayloadGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "driver_highest_seen_payload"})
+	DriverReorgsByProposalCounter        = factory.NewCounter(prometheus.CounterOpts{Name: "driver_reorgs_by_proposal"})
+	DriverPreconfEnvelopeCounter         = factory.NewCounter(prometheus.CounterOpts{Name: "driver_p2p_envelope"})
+	DriverLastSeenBlockInProposalGauge   = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "driver_last_seen_block_in_proposal",
 	})
 	DriverL2PreconfBlocksFromRPCGauge = factory.NewGauge(prometheus.GaugeOpts{

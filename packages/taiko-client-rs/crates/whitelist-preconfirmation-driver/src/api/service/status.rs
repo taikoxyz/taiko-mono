@@ -16,9 +16,10 @@ impl WhitelistApiService {
             .flatten()
             .map(|block| block.header.number);
 
-        let highest_unsafe = self.state.reconcile_reported_head(l2_head);
+        let observed_head = self.state.reconcile_observed_head(l2_head);
+        let highest_unsafe = self.state.highest_unsafe_floored_at(observed_head);
         if l2_head.is_none() {
-            warn!(reported = highest_unsafe, "L2 head unreadable; reporting last observed head");
+            warn!(observed_head, highest_unsafe, "L2 head unreadable; using last observed head");
         }
 
         let current_epoch = self.beacon_client.current_epoch();
@@ -32,6 +33,7 @@ impl WhitelistApiService {
 
         Ok(ApiStatus {
             highest_unsafe_l2_payload_block_id: highest_unsafe,
+            highest_imported_l2_payload_block_id: observed_head,
             end_of_sequencing_block_hash,
             can_shutdown,
         })

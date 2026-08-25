@@ -11,7 +11,7 @@ use crate::{
         HAND_OVER_WINDOW_SLOTS, SHUTDOWN_BLOCK_WINDOW, SHUTDOWN_IMMINENCE_MARGIN_SLOTS,
         WhitelistApiService, can_shutdown_for,
     },
-    cache::SharedPreconfState,
+    cache::{PENDING_ENVELOPE_CAPACITY, SharedPreconfState},
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
 };
@@ -129,34 +129,100 @@ fn shutdown_block_window_is_one_hundred_forty_four_seconds() {
 }
 
 #[test]
-fn reported_head_prefers_live_head_and_records_it_as_fallback() {
+fn observed_head_prefers_live_head_and_records_it_as_fallback() {
     let state = SharedPreconfState::new(5_811_208);
-    // The live head always wins — the Catalyst sync gate compares the reported value
-    // against the execution head exactly, and reporting anything else wedges it in a
-    // restart loop. This covers both the L1-reorg (head rewound) and the catch-up
-    // (head advanced via canonical derivation with no gossip) directions.
-    assert_eq!(state.reconcile_reported_head(Some(5_811_227)), 5_811_227);
-    assert_eq!(state.reconcile_reported_head(Some(5_811_190)), 5_811_190);
+    // This is the node's own execution head, which `/status` floors its report at rather than
+    // reporting directly. The live head always wins here, covering both the L1-reorg (head
+    // rewound) and the catch-up (head advanced via canonical derivation with no gossip)
+    // directions.
+    assert_eq!(state.reconcile_observed_head(Some(5_811_227)), 5_811_227);
+    assert_eq!(state.reconcile_observed_head(Some(5_811_190)), 5_811_190);
     // A later failed read reports the most recently observed head, not the startup seed.
-    assert_eq!(state.reconcile_reported_head(None), 5_811_190);
+    assert_eq!(state.reconcile_observed_head(None), 5_811_190);
 }
 
 #[test]
-fn reported_head_falls_back_to_seed_before_first_observation() {
+fn observed_head_falls_back_to_seed_before_first_observation() {
     // Best-effort: a failed head read before any successful observation reports the
     // startup seed.
     let state = SharedPreconfState::new(5_811_208);
-    assert_eq!(state.reconcile_reported_head(None), 5_811_208);
+    assert_eq!(state.reconcile_observed_head(None), 5_811_208);
 }
 
 #[test]
-fn reported_head_covers_locally_inserted_blocks_when_head_unreadable() {
+fn observed_head_covers_locally_inserted_blocks_when_head_unreadable() {
     // Blocks inserted by this process (cached import or local build) must survive a failed
     // head read even before any successful status poll observed them.
     let state = SharedPreconfState::new(5_811_208);
     state.record_inserted_block(5_811_209);
-    assert_eq!(state.reconcile_reported_head(None), 5_811_209);
+    assert_eq!(state.reconcile_observed_head(None), 5_811_209);
     // A successful poll still overwrites the fallback with the live head.
-    assert_eq!(state.reconcile_reported_head(Some(5_811_210)), 5_811_210);
-    assert_eq!(state.reconcile_reported_head(None), 5_811_210);
+    assert_eq!(state.reconcile_observed_head(Some(5_811_210)), 5_811_210);
+    assert_eq!(state.reconcile_observed_head(None), 5_811_210);
+}
+
+#[test]
+fn reported_value_exceeds_head_while_a_backlog_is_pending() {
+    // The incident: a restarted follower held 156 blocks of valid, signature-checked envelopes
+    // it could not apply. Reporting its own stale execution head made the preconfer client's
+    // parity check compare stale against stale, match, and sequence from the stale head.
+    let state = SharedPreconfState::new(10_522_943);
+    state.record_seen_block(10_523_099);
+
+    let head = state.reconcile_observed_head(Some(10_522_943));
+    assert_eq!(state.highest_unsafe_floored_at(head), 10_523_099);
+    assert_ne!(
+        state.highest_unsafe_floored_at(head),
+        head,
+        "a lagging node must not read as synced"
+    );
+}
+
+#[test]
+fn reported_value_matches_head_when_ahead_of_gossip() {
+    // Right after a beacon sync the execution head runs ahead of anything seen over gossip.
+    // That is not a backlog, and reporting it as one would exit the preconfer client.
+    let state = SharedPreconfState::new(10_522_943);
+
+    let head = state.reconcile_observed_head(Some(10_523_500));
+    assert_eq!(state.highest_unsafe_floored_at(head), head);
+}
+
+#[test]
+fn seen_block_advances_monotonically() {
+    let state = SharedPreconfState::new(1_000);
+
+    state.record_seen_block(1_050);
+    assert_eq!(state.highest_seen_block(), 1_050);
+
+    // Never moves backwards on a late or out-of-order envelope.
+    state.record_seen_block(1_010);
+    assert_eq!(state.highest_seen_block(), 1_050);
+}
+
+#[test]
+fn reported_value_is_capped_one_cache_span_above_the_head() {
+    // A malformed or hostile block number must not park the node out of sync indefinitely.
+    let state = SharedPreconfState::new(1_000);
+    state.record_seen_block(u64::MAX);
+
+    assert_eq!(state.highest_unsafe_floored_at(1_000), 1_000 + PENDING_ENVELOPE_CAPACITY as u64);
+}
+
+#[test]
+fn confirmed_tip_resets_seen_only_when_it_moves_backwards() {
+    let state = SharedPreconfState::new(1_000);
+    state.record_seen_block(1_100);
+
+    // Steady state: preconfirmations outpace L1 confirmation by design, so an advancing tip
+    // below the highest seen block must leave the counter alone.
+    state.note_confirmed_tip(1_000);
+    state.note_confirmed_tip(1_040);
+    assert_eq!(state.highest_seen_block(), 1_100, "an advancing tip must not reset the counter");
+
+    // An L1 reorg rewinds the chain past envelopes already counted: without the reset the node
+    // reports a height the chain no longer reaches and never reads as synced again.
+    state.note_confirmed_tip(1_020);
+    assert_eq!(state.highest_seen_block(), 1_020);
+    assert_eq!(state.highest_unsafe_floored_at(1_020), 1_020, "node reads as synced again");
 }

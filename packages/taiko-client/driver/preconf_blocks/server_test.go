@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -234,6 +235,92 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 
 	s.s.tryPutEnvelopeIntoCache(msg, *peerID)
 	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestGetStatusReportsHighestSeen() {
+	head, err := s.s.rpc.L2.BlockNumber(context.Background())
+	s.Nil(err)
+
+	tests := []struct {
+		name             string
+		seen             uint64
+		imported         uint64
+		wantUnsafe       uint64
+		wantSyncedWithEE bool
+	}{
+		{
+			name: "in sync", seen: head, imported: head,
+			wantUnsafe: head, wantSyncedWithEE: true,
+		},
+		{
+			// The incident: a backlog of cached envelopes the node could not import. Reporting
+			// the imported head here is what let a stale node pass a preconfer client's parity
+			// check and sequence from a 156-block-stale head.
+			name: "behind the network", seen: head + 156, imported: head,
+			wantUnsafe: head + 156, wantSyncedWithEE: false,
+		},
+		{
+			// Right after a beacon sync the execution head can run ahead of anything seen over
+			// gossip. That is not a backlog, and must not be reported as one.
+			name: "ahead of gossip", seen: head / 2, imported: head,
+			wantUnsafe: head, wantSyncedWithEE: true,
+		},
+	}
+
+	for _, tt := range tests {
+		s.T().Run(tt.name, func(t *testing.T) {
+			s.s.highestSeenL2PayloadBlockID.Store(tt.seen)
+			s.s.highestImportedL2PayloadBlockID.Store(tt.imported)
+
+			rec := httptest.NewRecorder()
+			c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/status", nil), rec)
+			s.Nil(s.s.GetStatus(c))
+			s.Equal(http.StatusOK, rec.Code)
+
+			var status Status
+			s.Nil(json.Unmarshal(rec.Body.Bytes(), &status))
+
+			s.Equal(tt.wantUnsafe, status.HighestUnsafeL2PayloadBlockID)
+			s.Equal(tt.imported, status.HighestImportedL2PayloadBlockID)
+			s.Equal(tt.wantSyncedWithEE, status.HighestUnsafeL2PayloadBlockID == head)
+		})
+	}
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestReportedHighestUnsafeL2Payload() {
+	tests := []struct {
+		name        string
+		highestSeen uint64
+		head        uint64
+		want        uint64
+	}{
+		{name: "in sync", highestSeen: 100, head: 100, want: 100},
+		{name: "behind the network", highestSeen: 256, head: 100, want: 256},
+		// Right after a beacon sync the execution head runs ahead of anything seen over gossip.
+		// That is not a backlog, and reporting it as one would exit the preconfer client.
+		{name: "ahead of gossip", highestSeen: 40, head: 100, want: 100},
+		// A payload further ahead than the envelope cache can bridge would otherwise keep the
+		// node reporting itself out of sync forever.
+		{name: "runaway block number", highestSeen: 1 << 40, head: 100, want: 100 + maxTrackedPayloads},
+		{name: "exactly at the cap", highestSeen: 100 + maxTrackedPayloads, head: 100, want: 100 + maxTrackedPayloads},
+	}
+
+	for _, tt := range tests {
+		s.T().Run(tt.name, func(t *testing.T) {
+			s.Equal(tt.want, reportedHighestUnsafeL2Payload(tt.highestSeen, tt.head))
+		})
+	}
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestUpdateHighestSeenL2PayloadIsMonotonic() {
+	s.s.highestSeenL2PayloadBlockID.Store(100)
+
+	s.s.updateHighestSeenL2Payload(150)
+	s.Equal(uint64(150), s.s.highestSeenL2PayloadBlockID.Load())
+
+	// A late or out-of-order envelope never drags it back; only a proposal reorg does.
+	s.s.updateHighestSeenL2Payload(120)
+	s.Equal(uint64(150), s.s.highestSeenL2PayloadBlockID.Load())
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {

@@ -38,6 +38,7 @@ impl WhitelistApi for MockApi {
     async fn get_status(&self) -> Result<ApiStatus> {
         Ok(ApiStatus {
             highest_unsafe_l2_payload_block_id: 100,
+            highest_imported_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
             can_shutdown: true,
         })
@@ -72,6 +73,7 @@ impl WhitelistApi for SyncReadyApi {
     async fn get_status(&self) -> Result<ApiStatus> {
         Ok(ApiStatus {
             highest_unsafe_l2_payload_block_id: 100,
+            highest_imported_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
             can_shutdown: true,
         })
