@@ -64,6 +64,10 @@ type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
 }
 
+type gossipSubTopicPeerLister interface {
+	ListPeers(string) []peer.ID
+}
+
 // @title Taiko Preconfirmation Block Server API
 // @version 1.0
 // @termsOfService http://swagger.io/terms/
@@ -82,8 +86,9 @@ type PreconfBlockAPIServer struct {
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
-	p2pNode   *p2p.NodeP2P
-	p2pSigner p2p.Signer
+	p2pNode             *p2p.NodeP2P
+	p2pSigner           p2p.Signer
+	gossipSubTopicPeers gossipSubTopicPeerLister
 	// WebSocket server for preconfirmation block notifications
 	ws *webSocketSever
 	// Lookahead information for the current and next operator
@@ -179,6 +184,7 @@ func New(
 // SetP2PNode sets the P2P node for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 	s.p2pNode = p2pNode
+	s.gossipSubTopicPeers = p2pNode.GossipSub()
 }
 
 // SetP2PSigner sets the P2P signer for the preconfirmation block server.
@@ -783,6 +789,19 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
+				if !s.hasPreconfBlockRequestPeers() {
+					log.Info(
+						"No peers on preconfirmation block request topic, skip publishing L2Request",
+						"blockID", parentNum,
+						"hash", currentPayload.Payload.ParentHash.Hex(),
+					)
+					return fmt.Errorf(
+						"failed to find parent payload in the cache, number %d, hash %s",
+						currentPayload.Payload.BlockNumber-1,
+						currentPayload.Payload.ParentHash.Hex(),
+					)
+				}
+
 				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 				if err != nil {
 					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
@@ -881,6 +900,15 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	metrics.DriverImportedPreconBlocksFromCacheCounter.Add(float64(len(payloadsToImport)))
 
 	return nil
+}
+
+func (s *PreconfBlockAPIServer) hasPreconfBlockRequestPeers() bool {
+	if s.gossipSubTopicPeers == nil || s.rpc == nil || s.rpc.L2 == nil || s.rpc.L2.ChainID == nil {
+		return false
+	}
+
+	topic := fmt.Sprintf("/taiko/%s/0/requestPreconfBlocks", s.rpc.L2.ChainID.String())
+	return len(s.gossipSubTopicPeers.ListPeers(topic)) > 0
 }
 
 // ImportChildBlocksFromCache tries to import the longest cached child envelopes from the cached payload queue.
@@ -1496,6 +1524,9 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloadEnvelope, from peer.ID) {
 	id := uint64(msg.ExecutionPayload.BlockNumber)
 	h := msg.ExecutionPayload.BlockHash
+	if id > s.highestUnsafeL2PayloadBlockID {
+		s.updateHighestUnsafeL2Payload(id)
+	}
 	if s.envelopesCache.hasExact(id, h) {
 		return
 	}

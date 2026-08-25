@@ -2,6 +2,7 @@ package preconfblocks
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -12,17 +13,29 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type PreconfBlockAPIServerTestSuite struct {
 	testutils.ClientTestSuite
 	s *PreconfBlockAPIServer
+}
+
+type stubTopicPeerLister struct {
+	peers     []peer.ID
+	lastTopic string
+}
+
+func (s *stubTopicPeerLister) ListPeers(topic string) []peer.ID {
+	s.lastTopic = topic
+	return s.peers
 }
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
@@ -234,6 +247,89 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 
 	s.s.tryPutEnvelopeIntoCache(msg, *peerID)
 	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
+}
+
+func TestStatusReportsHighestCachedPayload(t *testing.T) {
+	const (
+		initialBlockID = uint64(100)
+		cachedBlockID  = uint64(101)
+	)
+	server := &PreconfBlockAPIServer{
+		echo:                          echo.New(),
+		rpc:                           new(rpc.Client),
+		envelopesCache:                newEnvelopeQueue(),
+		highestUnsafeL2PayloadBlockID: initialBlockID,
+	}
+	msg := &eth.ExecutionPayloadEnvelope{
+		ExecutionPayload: &eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(cachedBlockID),
+			BlockHash:   common.BytesToHash(testutils.RandomBytes(32)),
+		},
+	}
+
+	server.tryPutEnvelopeIntoCache(msg, peer.ID("remote"))
+	server.tryPutEnvelopeIntoCache(&eth.ExecutionPayloadEnvelope{
+		ExecutionPayload: &eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(initialBlockID - 1),
+			BlockHash:   common.BytesToHash(testutils.RandomBytes(32)),
+		},
+	}, peer.ID("remote"))
+
+	recorder := httptest.NewRecorder()
+	ctx := server.echo.NewContext(httptest.NewRequest(http.MethodGet, "/status", nil), recorder)
+	if err := server.GetStatus(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var status Status
+	if err := json.Unmarshal(recorder.Body.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.HighestUnsafeL2PayloadBlockID != cachedBlockID {
+		t.Fatalf("highest unsafe L2 payload block ID = %d, want %d", status.HighestUnsafeL2PayloadBlockID, cachedBlockID)
+	}
+}
+
+func TestImportMissingAncientsDoesNotConsumeRequestWithoutTopicPeers(t *testing.T) {
+	requests, err := lru.New[common.Hash, struct{}](maxTrackedPayloads)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parentHash := common.HexToHash("0x1234")
+	topicPeers := new(stubTopicPeerLister)
+	server := &PreconfBlockAPIServer{
+		rpc:                 &rpc.Client{L2: &rpc.EthClient{ChainID: big.NewInt(167)}},
+		envelopesCache:      newEnvelopeQueue(),
+		blockRequestsCache:  requests,
+		gossipSubTopicPeers: topicPeers,
+	}
+	payload := &preconf.Envelope{Payload: &eth.ExecutionPayload{
+		BlockNumber: eth.Uint64Quantity(2),
+		ParentHash:  parentHash,
+	}}
+
+	if err := server.ImportMissingAncientsFromCache(context.Background(), payload, nil); err == nil {
+		t.Fatal("expected missing parent error")
+	}
+	if requests.Contains(parentHash) {
+		t.Fatal("request without topic peers was added to the de-duplication cache")
+	}
+	if topicPeers.lastTopic != "/taiko/167/0/requestPreconfBlocks" {
+		t.Fatalf("request topic = %q, want %q", topicPeers.lastTopic, "/taiko/167/0/requestPreconfBlocks")
+	}
+}
+
+func TestHasPreconfBlockRequestPeers(t *testing.T) {
+	server := &PreconfBlockAPIServer{
+		rpc: &rpc.Client{L2: &rpc.EthClient{ChainID: big.NewInt(167)}},
+		gossipSubTopicPeers: &stubTopicPeerLister{
+			peers: []peer.ID{"peer"},
+		},
+	}
+
+	if !server.hasPreconfBlockRequestPeers() {
+		t.Fatal("expected request topic with a connected peer to be ready")
+	}
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
