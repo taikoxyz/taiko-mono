@@ -178,6 +178,19 @@ pub(crate) async fn reset_to_base_block(client: &Client, base_coinbase: Address)
         .await?
         .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
     else {
+        // Distinguish a fresh-genesis chain from an interrupted earlier reset: a fresh
+        // chain never has a block-1 l1_origin row (the genesis bootstrap below only
+        // writes row 0), while fork_to's first engine call persists row 1 — so a row
+        // with no fetchable block means a reset died between that call and newPayload,
+        // parking the head at genesis. Absorbing that as "fresh" would silently restart
+        // the shared chain mid-suite; fail loudly instead. (A death in the sliver after
+        // the head moves but before the row persists is indistinguishable from fresh
+        // and still gets absorbed — both chains are consistent, L1 included.)
+        ensure!(
+            client.l1_origin_by_id(U256::from(1u64)).await?.is_none(),
+            "block 1 is unfetchable but its l1_origin row exists; an earlier reset was \
+             interrupted mid-fork — recreate the docker env (rerun `just test`)"
+        );
         warn!("block 1 missing; skipping L2 head reset");
         return Ok(());
     };
