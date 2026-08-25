@@ -36,8 +36,18 @@ Event sync startup must use checkpoint resume head or local `head_l1_origin` rec
 - Assumptions:
   - Checkpoint mode trusts the checkpoint head actually reached by local beacon sync.
   - Non-checkpoint mode requires local `head_l1_origin` and must fail closed if missing.
+  - Once L1 exposes a finalized header, temporary unavailability of that header's historical
+    state pauses startup and retries a fresh finalized header/state pair; it must never substitute
+    `Latest`. A client's explicit pre-finality response—geth's `finalized block not found` error or
+    reth's `null` finalized-block result—is the only fresh-devnet exception before the chain has
+    produced its first finalized block.
+  - Scanner reconnect probes finalized state once. If that probe fails, replay rewinds to the
+    original finalized-safe startup anchor instead of blocking the disconnected scanner forever.
 - Failure mode if broken:
   - Starting from `Latest` or another unsafe point can include local-only preconf chain state and skip required historical event replay.
+  - Replacing an unreadable finalized-state boundary with an unfinalized resume proposal can skip
+    canonical replacement proposals after an L1 reorg and leave engine/custom-table state on the
+    orphaned branch.
 
 ### WLP-INV-002
 

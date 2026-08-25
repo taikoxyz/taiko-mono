@@ -77,23 +77,27 @@ jobs:
           toolchain: 1.95.0
           components: clippy
 
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          # Lint keeps its own key instead of consuming the Tests one: clippy's
+          # --all-features check units fingerprint differently from the nextest
+          # build, so the shared cache still recompiled the heavy reth-db/libmdbx
+          # tail (mdbx C build script included) on every run. Saved by lint itself
+          # on main pushes, restored by PR lint runs.
+          shared-key: "taiko-client-rs-lint"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: |
+            packages/taiko-client-rs -> target
+
+      # Deliberately after rust-cache: keeping the pinned nightly out of the
+      # cache key means bumping it doesn't invalidate the lint cache.
       - name: Install Rust nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2025-09-27
           components: rustfmt
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-          shared-key: "taiko-client-rs"
-          # Only the Tests job saves this shared key; lint just consumes it.
-          # (immutable cache keys mean the first saver wins, and lint compiles
-          # less than nextest — see clippy's --exclude test-harness)
-          save-if: "false"
-          workspaces: |
-            packages/taiko-client-rs -> target
 
       - name: Setup just
         uses: extractions/setup-just@v4

@@ -6,11 +6,29 @@ pragma solidity ^0.8.24;
 library LibL1Addrs {
     address public constant DAO = 0x9CDf589C941ee81D75F34d3755671d614f7cf261;
     address public constant DAO_SIGNER_LIST = 0x0F95E6968EC1B28c794CF1aD99609431de5179c2;
+    address public constant DAO_ENCRYPTION_REGISTRY = 0x2eFDb93a3B87b930E553d504db67Ee41c69C42d1;
     address public constant DAO_STANDARD_MULTISIG = 0xD7dA1C25E915438720692bC55eb3a7170cA90321;
     address public constant DAO_EMERGENCY_MULTISIG = 0x2AffADEb2ef5e1F2a7F58964ee191F1e88317ECd;
     address public constant DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a;
     address public constant DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN =
         0x989E348275b659d36f8751ea1c10D146211650BE;
+
+    // Security Council seat addresses (DAO_SIGNER_LIST membership before/after Proposal0020)
+    // Seats retained by Proposal0020
+    address public constant SC_TAIKO_LABS = 0xb47fE76aC588101BFBdA9E68F66433bA51E8029a;
+    address public constant SC_L2BEAT = 0xf1cF63589A1e012F9124182c9eAa36B5333e5f06;
+    address public constant SC_ARAGON = 0xb284810536C0dAB6A8e48153B58588A9B9e0F701;
+    // Independent seat (EOA) added by Proposal0020
+    address public constant SC_GUSTAVO_GONZALEZ = 0xe63E61BbB3aa1b82d44471AbcAb490102C17c986;
+    // Taiko-affiliated seat (EOA; Daniel Wang, Taiko co-founder) added by Proposal0020
+    address public constant SC_DANIEL_WANG = 0xF74F2bBaEd41e3e4AbAcbA24563a5Ce5aB071C8A;
+    // Seats removed by Proposal0020
+    address public constant SC_NETHERMIND = 0x5353c607e6eca6C63FEC5c6C0F5CC3a5348d5c95;
+    address public constant SC_CHAINBOUND = 0x436a1075099A145417EBFc74BBaC9605e3e4f1A7;
+    address public constant SC_HALBORN = 0x0F40268Ec0Dc8D88CF2f22E227A29a0b478b6351;
+    address public constant SC_DREW_VAN_DER_WERFF = 0x25d3E89bAcE2040Ed3aF7c4c7B505cfBB72fD6f1;
+    address public constant SC_TONI_WAHRSTATTER = 0xa384E224A3F3D664F43eBE33395eF0DCcE67e894;
+    address public constant SC_GATTACA = 0x6268d189E011Aa53A2f09A1FE159445BeB3d878E;
 
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
     // Kept for legacy governance scripts (e.g. Proposal0009)
