@@ -82,3 +82,25 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {
 		s.Equal(longestFork[i].Payload.BlockHash, fork3[i].Payload.BlockHash)
 	}
 }
+
+func (s *PreconfBlockAPIServerTestSuite) TestQueueHighestBlockID() {
+	queue := newEnvelopeQueue()
+
+	_, ok := queue.highestBlockID()
+	s.False(ok, "an empty queue reports no evidence")
+
+	for _, id := range []uint64{40, 100, 70} {
+		queue.put(id, &preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(id),
+				BlockHash:   testutils.RandomHash(),
+			},
+			HeaderDifficulty: common.Big1,
+		})
+	}
+
+	// The highest id, not the most recently inserted one: gossip can arrive out of order.
+	highest, ok := queue.highestBlockID()
+	s.True(ok)
+	s.Equal(uint64(100), highest)
+}

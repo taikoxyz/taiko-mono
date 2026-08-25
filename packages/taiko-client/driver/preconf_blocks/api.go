@@ -346,56 +346,26 @@ type Status struct {
 	CanShutdown bool `json:"canShutdown"`
 }
 
-// anchorHighestSeenL2Payload bounds the seen counter to one envelope-cache span above the live
-// execution head and writes the bound back, returning the value to report.
-//
-// Writing it back is the point. A payload further ahead than the cache can bridge needs L1
-// derivation to clear either way, but leaving the raw height in the counter means the reported
-// value tracks `head + span` upwards forever and can never return to equality: one
-// signature-valid payload carrying a wrong or hostile block number would keep the preconfer
-// client from ever starting. Pinning the counter at a concrete height lets the chain pass it.
-//
-// The live head is the only safe anchor. Every counter maintained inside this server can lag it
-// -- L1 derivation advances the chain without touching them -- and bounding against a lagging
-// anchor would pull the counter below the head, which reads as synced. Anchored here, the stored
-// value is always `head + span`, strictly above the head, so a real backlog always reports as
-// one.
-func (s *PreconfBlockAPIServer) anchorHighestSeenL2Payload(head uint64) uint64 {
-	seen := s.highestSeenL2PayloadBlockID.Load()
-
-	ceiling := head + maxTrackedPayloads
-	if seen <= ceiling {
-		return seen
-	}
-
-	log.Warn(
-		"Anchoring highest seen L2 payload block ID to the execution head",
-		"highestSeenL2PayloadBlockID", seen,
-		"ceiling", ceiling,
-	)
-	// A concurrent writer holding s.mutex may have advanced the counter since the load; leave its
-	// value alone and let the next poll re-anchor.
-	s.highestSeenL2PayloadBlockID.CompareAndSwap(seen, ceiling)
-
-	return ceiling
-}
-
 // reportedHighestUnsafeL2Payload is the value `/status` publishes as
-// highestUnsafeL2PayloadBlockID: the highest payload this node has seen, floored at the
-// execution head.
+// highestUnsafeL2PayloadBlockID: the execution head, raised to the highest preconfirmation block
+// this node has validated but not applied.
 //
-// The floor keeps a node whose execution head runs ahead of the gossip it has seen -- right
-// after a beacon sync, before the next proposal event lands -- from reporting a backlog it does
-// not have. That matters because the preconfer client exits the process after roughly half an
-// L2 epoch of continuous mismatch.
+// The backlog is read from the envelope cache rather than tracked in a counter. A cached envelope
+// above the head *is* an unresolved backlog, by definition, so the answer cannot drift from the
+// evidence -- and the cache is a bounded ring, so a payload carrying a wrong or hostile block
+// number ages out on its own instead of needing a cap that would have to be reset, bounded, and
+// written back, each of which can erase a real backlog and report parity with a stale head.
 //
-// No cap is applied here. `updateHighestSeenL2Payload` already anchors the counter, and a cap at
-// this end would track the head upwards and so could never return to equality.
-func reportedHighestUnsafeL2Payload(highestSeen, head uint64) uint64 {
-	if highestSeen < head {
-		return head
+// Raising to the head keeps a node whose execution head runs ahead of the gossip it has seen --
+// right after a beacon sync -- from reporting a backlog it does not have. The preconfer client
+// exits the process after roughly half an L2 epoch of continuous mismatch, so a false "behind" is
+// expensive too.
+func reportedHighestUnsafeL2Payload(head, highestCached uint64, hasCached bool) uint64 {
+	if hasCached && highestCached > head {
+		return highestCached
 	}
-	return highestSeen
+
+	return head
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -406,15 +376,20 @@ func reportedHighestUnsafeL2Payload(highestSeen, head uint64) uint64 {
 //	@Success		200	{object} Status
 //	@Router			/status [get]
 func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
-	// Read the execution head before taking any lock. A failed read reports the raw seen
-	// counter, which errs toward reporting a mismatch.
+	// Read the execution head before taking any lock. A failed read falls back to the last head
+	// this server saw, which can only under-report the head and so errs toward reporting a
+	// mismatch.
 	highestImported := s.highestImportedL2PayloadBlockID.Load()
-	highestUnsafe := s.highestSeenL2PayloadBlockID.Load()
-	if head, err := s.rpc.L2.BlockNumber(c.Request().Context()); err != nil {
-		log.Warn("Failed to fetch L2 head for preconfirmation status, reporting highest seen", "error", err)
+	head, err := s.rpc.L2.BlockNumber(c.Request().Context())
+	if err != nil {
+		head = s.lastObservedL2Head.Load()
+		log.Warn("Failed to fetch L2 head for preconfirmation status, using last observed", "head", head, "error", err)
 	} else {
-		highestUnsafe = reportedHighestUnsafeL2Payload(s.anchorHighestSeenL2Payload(head), head)
+		s.lastObservedL2Head.Store(head)
 	}
+
+	highestCached, hasCached := s.envelopesCache.highestBlockID()
+	highestUnsafe := reportedHighestUnsafeL2Payload(head, highestCached, hasCached)
 
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()

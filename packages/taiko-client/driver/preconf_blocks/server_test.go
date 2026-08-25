@@ -2,7 +2,6 @@ package preconfblocks
 
 import (
 	"context"
-	"encoding/json"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -237,126 +236,51 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestGetStatusReportsHighestSeen() {
-	head, err := s.s.rpc.L2.BlockNumber(context.Background())
-	s.Nil(err)
-
-	tests := []struct {
-		name             string
-		seen             uint64
-		imported         uint64
-		wantUnsafe       uint64
-		wantSyncedWithEE bool
-	}{
-		{
-			name: "in sync", seen: head, imported: head,
-			wantUnsafe: head, wantSyncedWithEE: true,
-		},
-		{
-			// The incident: a backlog of cached envelopes the node could not import. Reporting
-			// the imported head here is what let a stale node pass a preconfer client's parity
-			// check and sequence from a 156-block-stale head.
-			name: "behind the network", seen: head + 156, imported: head,
-			wantUnsafe: head + 156, wantSyncedWithEE: false,
-		},
-		{
-			// Right after a beacon sync the execution head can run ahead of anything seen over
-			// gossip. That is not a backlog, and must not be reported as one.
-			name: "ahead of gossip", seen: head / 2, imported: head,
-			wantUnsafe: head, wantSyncedWithEE: true,
-		},
-	}
-
-	for _, tt := range tests {
-		s.T().Run(tt.name, func(t *testing.T) {
-			s.s.highestSeenL2PayloadBlockID.Store(tt.seen)
-			s.s.highestImportedL2PayloadBlockID.Store(tt.imported)
-
-			rec := httptest.NewRecorder()
-			c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/status", nil), rec)
-			s.Nil(s.s.GetStatus(c))
-			s.Equal(http.StatusOK, rec.Code)
-
-			var status Status
-			s.Nil(json.Unmarshal(rec.Body.Bytes(), &status))
-
-			s.Equal(tt.wantUnsafe, status.HighestUnsafeL2PayloadBlockID)
-			s.Equal(tt.imported, status.HighestImportedL2PayloadBlockID)
-			s.Equal(tt.wantSyncedWithEE, status.HighestUnsafeL2PayloadBlockID == head)
-		})
-	}
-}
-
 func (s *PreconfBlockAPIServerTestSuite) TestReportedHighestUnsafeL2Payload() {
 	tests := []struct {
-		name        string
-		highestSeen uint64
-		head        uint64
-		want        uint64
+		name          string
+		head          uint64
+		highestCached uint64
+		hasCached     bool
+		want          uint64
 	}{
-		{name: "in sync", highestSeen: 100, head: 100, want: 100},
-		{name: "behind the network", highestSeen: 256, head: 100, want: 256},
+		{name: "nothing cached", head: 100, hasCached: false, want: 100},
+		{name: "in sync", head: 100, highestCached: 100, hasCached: true, want: 100},
+		{name: "behind the network", head: 100, highestCached: 256, hasCached: true, want: 256},
 		// Right after a beacon sync the execution head runs ahead of anything seen over gossip.
 		// That is not a backlog, and reporting it as one would exit the preconfer client.
-		{name: "ahead of gossip", highestSeen: 40, head: 100, want: 100},
+		{name: "ahead of gossip", head: 100, highestCached: 40, hasCached: true, want: 100},
+		// The evidence is the cache itself, so an arbitrarily deep backlog stays visible however
+		// far the head advances -- there is no watermark for the head to overtake.
+		{name: "backlog far beyond one cache span", head: 1000, highestCached: 1 << 20, hasCached: true, want: 1 << 20},
 	}
 
 	for _, tt := range tests {
 		s.T().Run(tt.name, func(t *testing.T) {
-			s.Equal(tt.want, reportedHighestUnsafeL2Payload(tt.highestSeen, tt.head))
+			s.Equal(tt.want, reportedHighestUnsafeL2Payload(tt.head, tt.highestCached, tt.hasCached))
 		})
 	}
 }
 
-func (s *PreconfBlockAPIServerTestSuite) TestAnchorHighestSeenL2PayloadReleasesAsHeadAdvances() {
-	s.s.highestSeenL2PayloadBlockID.Store(1 << 40)
+func (s *PreconfBlockAPIServerTestSuite) TestDeepBacklogSurvivesTheHeadAdvancing() {
+	// Regression for bounding the report with a stored watermark. A cap written back at
+	// `head + span` reads correctly once, then reports parity as soon as the head reaches that
+	// artificial height -- while the original payload is still cached and unapplied.
+	const (
+		unimported = uint64(4000)
+		firstHead  = uint64(1000)
+	)
 
-	// A signature-valid payload carrying a wrong or hostile block number must not keep the node
-	// out of sync forever, or it keeps the preconfer client from ever starting.
-	anchored := uint64(1000 + maxTrackedPayloads)
-	s.Equal(anchored, s.s.anchorHighestSeenL2Payload(1000))
-	s.Equal(anchored, s.s.highestSeenL2PayloadBlockID.Load(), "the bound is written back, not just returned")
-	s.NotEqual(uint64(1000), reportedHighestUnsafeL2Payload(anchored, 1000), "still reads as behind for now")
+	for _, head := range []uint64{firstHead, firstHead + maxTrackedPayloads, unimported - 1} {
+		s.Equal(
+			unimported,
+			reportedHighestUnsafeL2Payload(head, unimported, true),
+			"an unapplied payload stays visible at head %d", head,
+		)
+	}
 
-	// Pinned at a concrete height rather than one that tracks the head, so the chain catching up
-	// restores equality. Returning the bound without storing it would report head+span forever.
-	s.Equal(anchored, s.s.anchorHighestSeenL2Payload(anchored))
-	s.Equal(anchored, reportedHighestUnsafeL2Payload(anchored, anchored), "synced again")
-}
-
-func (s *PreconfBlockAPIServerTestSuite) TestAnchorHighestSeenL2PayloadIgnoresLaggingCounters() {
-	// Regression for the anchor being taken from a counter that trails the live execution head.
-	// After a beacon sync the chain advances by L1 derivation without touching highestImported,
-	// so anchoring on it would bound the seen counter far below the head; `/status` floors at the
-	// head, and the node would report parity while holding an unimported payload -- the incident.
-	s.s.highestImportedL2PayloadBlockID.Store(1000)
-	s.s.highestSeenL2PayloadBlockID.Store(5001)
-
-	const liveHead = uint64(5000)
-	reported := reportedHighestUnsafeL2Payload(s.s.anchorHighestSeenL2Payload(liveHead), liveHead)
-
-	s.Equal(uint64(5001), reported)
-	s.NotEqual(liveHead, reported, "a node holding an unimported payload must not read as synced")
-}
-
-func (s *PreconfBlockAPIServerTestSuite) TestAnchorHighestSeenL2PayloadKeepsDeepBacklogVisible() {
-	// The bound must not turn a real backlog into a synced report: a node returning from long
-	// downtime is behind by more than the cache can bridge, and still has to say so.
-	s.s.highestSeenL2PayloadBlockID.Store(1000 + maxTrackedPayloads*4)
-
-	reported := reportedHighestUnsafeL2Payload(s.s.anchorHighestSeenL2Payload(1000), 1000)
-	s.NotEqual(uint64(1000), reported)
-}
-
-func (s *PreconfBlockAPIServerTestSuite) TestUpdateHighestSeenL2PayloadIsMonotonic() {
-	s.s.highestSeenL2PayloadBlockID.Store(100)
-
-	s.s.updateHighestSeenL2Payload(150)
-	s.Equal(uint64(150), s.s.highestSeenL2PayloadBlockID.Load())
-
-	// A late or out-of-order envelope never drags it back; only a proposal reorg does.
-	s.s.updateHighestSeenL2Payload(120)
-	s.Equal(uint64(150), s.s.highestSeenL2PayloadBlockID.Load())
+	// Only the chain actually reaching it clears the backlog.
+	s.Equal(unimported, reportedHighestUnsafeL2Payload(unimported, unimported, true))
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {

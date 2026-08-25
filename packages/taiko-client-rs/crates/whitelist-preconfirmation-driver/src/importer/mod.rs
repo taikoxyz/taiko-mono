@@ -194,20 +194,6 @@ impl WhitelistPreconfirmationImporter {
         Ok(())
     }
 
-    /// Re-read the L1-confirmed tip and fold it into the shared state.
-    ///
-    /// The tip is otherwise only observed when an envelope arrives, so a rewind that happens while
-    /// gossip is quiet -- an operator hand-over, or this node reporting itself behind and the
-    /// incoming operator declining to sequence -- would leave the seen counter pinned to a height
-    /// on the discarded branch, and `/status` reporting a mismatch that nothing can clear.
-    pub(crate) async fn refresh_confirmed_tip(&mut self) -> Result<()> {
-        if let Some(tip) = self.head_l1_origin_block_id().await? {
-            self.state.note_confirmed_tip(tip);
-        }
-
-        Ok(())
-    }
-
     /// Refresh whether sync is ready.
     ///
     /// Ready when the confirmed head-origin pointer is written, or — at genesis only —
@@ -263,9 +249,16 @@ impl WhitelistPreconfirmationImporter {
             .map_err(WhitelistPreconfirmationDriverError::provider)
     }
 
-    /// Update the pending-cache gauge after pending-cache mutations.
+    /// Republish everything derived from the pending cache, after every mutation of it.
+    ///
+    /// The high-water mark is what `/status` reports a backlog from, and the API service cannot
+    /// reach this cache directly. Recomputing it here, rather than maintaining a counter beside
+    /// it, is what keeps the reported value from drifting away from the evidence: there is no
+    /// separate value to reset on a reorg or bound against a runaway block number, and so no write
+    /// that can erase a real backlog.
     pub(super) fn update_pending_cache_gauge(&self) {
         WhitelistPreconfirmationDriverMetrics::set_cache_pending_count(self.cache.len());
+        self.state.set_pending_high_water(self.cache.highest_block_number());
     }
 }
 

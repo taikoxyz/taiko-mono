@@ -51,12 +51,14 @@ pub(crate) struct SharedPreconfState {
     /// Most recent L2 head observed by `/status` or advanced by locally inserted blocks,
     /// reported as a fallback when the head is unreadable. Seeded with the head at startup.
     last_observed_l2_head: Arc<AtomicU64>,
-    /// Highest block number of any well-formed, signature-valid envelope this node has
-    /// *received*, whether or not it could be imported. Seeded with the head at startup.
-    highest_seen_block: Arc<AtomicU64>,
-    /// Latest L1-confirmed canonical tip observed at envelope admission, used only to detect a
-    /// tip moving backwards. Starts at zero so the first observation reads as an advance.
-    last_confirmed_tip: Arc<AtomicU64>,
+    /// Highest block number held in the importer's pending cache, republished by the importer
+    /// after every mutation of it, or zero when that cache is empty.
+    ///
+    /// This is a projection of the cache, never an independent counter: it is recomputed from the
+    /// cache rather than written to on reorgs or bounded against runaway block numbers. Those
+    /// writes are what let a watermark drift away from the evidence and report parity with a stale
+    /// head. The API service cannot reach the importer's cache directly, hence the projection.
+    pending_high_water: Arc<AtomicU64>,
 }
 
 impl SharedPreconfState {
@@ -68,8 +70,7 @@ impl SharedPreconfState {
                 RECENT_ENVELOPE_CAPACITY,
             ))),
             last_observed_l2_head: Arc::new(AtomicU64::new(initial_l2_head)),
-            highest_seen_block: Arc::new(AtomicU64::new(initial_l2_head)),
-            last_confirmed_tip: Arc::new(AtomicU64::new(0)),
+            pending_high_water: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -143,127 +144,28 @@ impl SharedPreconfState {
         self.last_observed_l2_head.store(block_number, Ordering::Relaxed);
     }
 
-    /// Record one envelope observed at ingress, together with the confirmed tip read alongside
-    /// it.
+    /// Republish the importer's pending-cache high-water mark.
     ///
-    /// This exists so the two steps cannot be ordered wrongly at the call site. The rewind check
-    /// lowers the counter unconditionally, so it has to run first: recording first would let a
-    /// rewind erase the very payload that arrived with it, `/status` would fall back to the
-    /// rewound head, and the preconfer client's equality check would read a node holding an
-    /// unimported block as synced.
-    pub(crate) fn observe_envelope(&self, block_number: u64, confirmed_tip: Option<u64>) {
-        if let Some(tip) = confirmed_tip {
-            self.note_confirmed_tip(tip);
-        }
-
-        self.record_seen_block(block_number);
+    /// Called after every mutation of that cache -- insert, drain, or branch removal -- so the
+    /// reported value always follows the evidence rather than a counter that has to be separately
+    /// corrected.
+    pub(crate) fn set_pending_high_water(&self, highest_block_number: Option<u64>) {
+        let value = highest_block_number.unwrap_or(0);
+        self.pending_high_water.store(value, Ordering::Relaxed);
+        WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(value);
     }
 
-    /// Advance the highest seen block number, monotonically.
+    /// The value `/status` reports as `highestUnsafeL2PayloadBlockID`: the execution head, raised
+    /// to the highest preconfirmation block this node has validated but not applied.
     ///
-    /// Prefer [`Self::observe_envelope`] at ingress; this is the bare primitive.
-    ///
-    /// Called for every envelope that passes payload validation, before any decision about
-    /// whether it can be imported. A node holding a backlog it cannot apply therefore reports a
-    /// value above its execution head, which is what lets the preconfer client's parity check
-    /// fail closed instead of comparing two equally stale values.
-    ///
-    /// The value is clamped to [`PENDING_ENVELOPE_CAPACITY`] beyond the last observed head: an
-    /// envelope further ahead than the pending cache can ever bridge needs L1 confirmation to
-    /// recover either way, so letting a malformed or hostile block number park the counter
-    /// arbitrarily high would only keep the node reporting itself out of sync forever.
-    pub(crate) fn record_seen_block(&self, block_number: u64) {
-        // Nothing is bounded here. Every bound available at this point can lag the live execution
-        // head -- `last_observed_l2_head` only moves on a status poll or a local insert, and the
-        // engine syncs forward between them -- and bounding against a lagging anchor would pull
-        // this counter *below* the live head. `/status` floors at the head, so a node holding an
-        // unimported backlog would report parity and read as synced: the fail-open this counter
-        // exists to close. The bound is applied by [`Self::highest_unsafe_for_head`], where the
-        // live head is known.
-        let previous = self.highest_seen_block.fetch_max(block_number, Ordering::Relaxed);
-        if block_number > previous {
-            WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(block_number);
-        }
-    }
-
-    /// Record the latest L1-confirmed canonical tip, pulling the highest seen block back down
-    /// when that tip moves *backwards* — an L1 reorg rewinding the chain past envelopes this node
-    /// had already counted.
-    ///
-    /// Without this, an envelope from the discarded branch keeps `/status` reporting a height the
-    /// chain no longer reaches, and the node reports a permanent mismatch until the new branch
-    /// grows past it — the preconfer client exits after roughly half an L2 epoch of that.
-    ///
-    /// Only a backwards move resets. In steady state the highest seen block runs *ahead* of the
-    /// confirmed tip, because preconfirmations outpace L1 confirmation by design; resetting on
-    /// every observation would destroy the counter. The confirmed tip is also the only authority
-    /// safe to reset against — resetting to the local execution head would let a node that is
-    /// genuinely behind declare itself synced, the exact failure this counter exists to prevent.
-    pub(crate) fn note_confirmed_tip(&self, confirmed_tip: u64) {
-        let previous = self.last_confirmed_tip.swap(confirmed_tip, Ordering::Relaxed);
-        if confirmed_tip >= previous {
-            return;
-        }
-
-        let seen = self.highest_seen_block.swap(confirmed_tip, Ordering::Relaxed);
-        WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(confirmed_tip);
-        tracing::info!(
-            previous_confirmed_tip = previous,
-            confirmed_tip,
-            previous_highest_seen = seen,
-            "confirmed tip rewound; reset highest seen preconfirmation block"
-        );
-    }
-
-    /// Highest block number received from the P2P network, imported or not.
-    ///
-    /// Test-only: production reads go through [`Self::highest_unsafe_for_head`], which applies the
-    /// bound the raw counter deliberately does not.
-    #[cfg(test)]
-    pub(crate) fn highest_seen_block(&self) -> u64 {
-        self.highest_seen_block.load(Ordering::Relaxed)
-    }
-
-    /// The value `/status` reports as `highestUnsafeL2PayloadBlockID`: the highest envelope seen,
-    /// floored at `head` as returned by [`Self::reconcile_observed_head`].
-    ///
-    /// Above the head, this node is holding envelopes it has not applied and must read as out of
-    /// sync. At or below it, the node is merely ahead of the gossip it has seen — right after a
-    /// beacon sync, for example — and must not report a spurious backlog, because the preconfer
-    /// client exits after roughly half an L2 epoch of continuous mismatch.
-    ///
-    /// The counter is first bounded to one pending-cache span above `head`, with the bound written
-    /// back. Writing it back is the point: a payload beyond that span needs L1 confirmation to
-    /// clear either way, but leaving the raw height in the counter means the reported value tracks
-    /// `head + span` upwards forever and can never return to equality, so one signature-valid
-    /// payload carrying a wrong or hostile block number would keep the preconfer client from ever
-    /// starting. Pinned at a concrete height, the chain can pass it.
-    ///
-    /// The live head is the only safe anchor -- every counter this driver maintains can lag it --
-    /// so the stored bound is always strictly above the head and a real backlog always reports as
-    /// one.
+    /// Raising to the head keeps a node whose execution head runs ahead of the gossip it has seen
+    /// -- right after a beacon sync -- from reporting a backlog it does not have; the preconfer
+    /// client exits after roughly half an L2 epoch of continuous mismatch, so a false "behind" is
+    /// expensive too. Reading the backlog from the cache rather than a counter is what keeps an
+    /// arbitrarily deep one visible: there is no artificial height for the head to overtake, and a
+    /// payload carrying a wrong or hostile block number ages out of the bounded cache on its own.
     pub(crate) fn highest_unsafe_for_head(&self, head: u64) -> u64 {
-        let ceiling = head.saturating_add(PENDING_ENVELOPE_CAPACITY as u64);
-
-        let mut seen = self.highest_seen_block.load(Ordering::Relaxed);
-        if seen > ceiling {
-            tracing::warn!(
-                highest_seen = seen,
-                ceiling,
-                "anchoring highest seen preconfirmation block to the execution head"
-            );
-            // A concurrent ingress may have advanced the counter since the load; leave its value
-            // alone and let the next poll re-anchor.
-            let _ = self.highest_seen_block.compare_exchange(
-                seen,
-                ceiling,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            );
-            seen = ceiling;
-        }
-
-        seen.max(head)
+        self.pending_high_water.load(Ordering::Relaxed).max(head)
     }
 }
 
@@ -317,6 +219,14 @@ impl EnvelopeCache {
     /// Get a cached envelope by block hash.
     pub fn get(&self, hash: &B256) -> Option<&Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.get(hash)
+    }
+
+    /// Highest block number held, or `None` when empty.
+    ///
+    /// This is the driver's evidence that the chain reaches beyond its own execution head: an
+    /// envelope cached above the head is one it has validated but not applied.
+    pub fn highest_block_number(&self) -> Option<u64> {
+        self.entries.values().map(|envelope| envelope.execution_payload.block_number).max()
     }
 
     /// Returns true when the cache is empty.
@@ -473,6 +383,25 @@ mod tests {
         assert!(cache.get(&h2).is_none());
         assert!(cache.get(&h3).is_some());
         assert_eq!(cache.sorted_hashes_by_block_number().len(), 2);
+    }
+
+    #[test]
+    fn highest_block_number_tracks_the_cache_contents() {
+        let mut cache = EnvelopeCache::with_capacity(4);
+        assert_eq!(cache.highest_block_number(), None, "an empty cache reports no evidence");
+
+        let low = B256::from([0x11u8; 32]);
+        let high = B256::from([0x22u8; 32]);
+        cache.insert(Arc::new(sample_envelope(low, 40)));
+        cache.insert(Arc::new(sample_envelope(high, 100)));
+        // Gossip arrives out of order, so the answer is the highest block number held, not the
+        // most recently inserted one.
+        cache.insert(Arc::new(sample_envelope(B256::from([0x33u8; 32]), 70)));
+        assert_eq!(cache.highest_block_number(), Some(100));
+
+        // Draining the backlog is what lowers the report; there is no separate value to correct.
+        cache.remove(&high);
+        assert_eq!(cache.highest_block_number(), Some(70));
     }
 
     #[test]

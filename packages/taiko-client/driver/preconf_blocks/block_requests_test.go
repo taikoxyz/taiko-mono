@@ -89,3 +89,37 @@ func (s *BlockRequestTrackerTestSuite) TestExpiredEntriesArePruned() {
 	s.True(tracker.shouldRequest(testutils.RandomHash(), now.Add(10*time.Second)))
 	s.Empty(tracker.requestedAt)
 }
+
+func (s *BlockRequestTrackerTestSuite) TestDroppedResponseLifecycle() {
+	// The whole point of the cooldown, end to end at the tracker level: a request goes out, the
+	// response is dropped, and the next re-drive -- whether an inbound payload or the retry
+	// ticker -- publishes again once the window has elapsed, rather than being suppressed for the
+	// lifetime of the process.
+	var (
+		tracker = newBlockRequestTracker(blockRequestCooldown)
+		missing = testutils.RandomHash()
+		now     = time.Now()
+		publish = func(at time.Time) bool {
+			if !tracker.shouldRequest(missing, at) {
+				return false
+			}
+			tracker.markPublished(missing, at)
+			return true
+		}
+	)
+
+	s.True(publish(now), "first request goes out")
+
+	// Every re-drive inside the window is suppressed, however many arrive.
+	for _, elapsed := range []time.Duration{0, time.Second, blockRequestCooldown - time.Nanosecond} {
+		s.False(publish(now.Add(elapsed)))
+	}
+
+	// The response never arrives; the ticker fires past the window and the request is retried.
+	retriedAt := now.Add(blockRequestCooldown)
+	s.True(publish(retriedAt), "an unanswered request is retried, not suppressed forever")
+
+	// This time it is answered, which retires the request rather than making the next one wait.
+	tracker.markAnswered(missing)
+	s.True(tracker.shouldRequest(missing, retriedAt))
+}

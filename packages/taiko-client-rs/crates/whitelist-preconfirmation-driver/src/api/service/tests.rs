@@ -179,11 +179,11 @@ fn observed_head_covers_locally_inserted_blocks_when_head_unreadable() {
 
 #[test]
 fn reported_value_exceeds_head_while_a_backlog_is_pending() {
-    // The incident: a restarted follower held 156 blocks of valid, signature-checked envelopes
-    // it could not apply. Reporting its own stale execution head made the preconfer client's
-    // parity check compare stale against stale, match, and sequence from the stale head.
+    // The incident: a restarted follower held 156 blocks of valid, signature-checked envelopes it
+    // could not apply. Reporting its own stale execution head made the preconfer client's parity
+    // check compare stale against stale, match, and sequence from the stale head.
     let state = SharedPreconfState::new(10_522_943);
-    state.record_seen_block(10_523_099);
+    state.set_pending_high_water(Some(10_523_099));
 
     let head = state.reconcile_observed_head(Some(10_522_943));
     assert_eq!(state.highest_unsafe_for_head(head), 10_523_099);
@@ -192,8 +192,8 @@ fn reported_value_exceeds_head_while_a_backlog_is_pending() {
 
 #[test]
 fn reported_value_matches_head_when_ahead_of_gossip() {
-    // Right after a beacon sync the execution head runs ahead of anything seen over gossip.
-    // That is not a backlog, and reporting it as one would exit the preconfer client.
+    // Right after a beacon sync the execution head runs ahead of anything seen over gossip. That
+    // is not a backlog, and reporting it as one would exit the preconfer client.
     let state = SharedPreconfState::new(10_522_943);
 
     let head = state.reconcile_observed_head(Some(10_523_500));
@@ -201,103 +201,44 @@ fn reported_value_matches_head_when_ahead_of_gossip() {
 }
 
 #[test]
-fn seen_block_advances_monotonically() {
+fn a_deep_backlog_survives_the_head_advancing() {
+    // Regression for bounding the report with a stored watermark. A cap written back at
+    // `head + span` reads correctly once, then reports parity as soon as the head reaches that
+    // artificial height -- while the original payload is still cached and unapplied. Reading the
+    // backlog from the cache leaves no artificial height for the head to overtake.
     let state = SharedPreconfState::new(1_000);
+    state.set_pending_high_water(Some(4_000));
 
-    state.record_seen_block(1_050);
-    assert_eq!(state.highest_seen_block(), 1_050);
+    for head in [1_000, 1_000 + PENDING_ENVELOPE_CAPACITY as u64, 3_999] {
+        assert_eq!(
+            state.highest_unsafe_for_head(head),
+            4_000,
+            "an unapplied payload stays visible at head {head}"
+        );
+    }
 
-    // Never moves backwards on a late or out-of-order envelope.
-    state.record_seen_block(1_010);
-    assert_eq!(state.highest_seen_block(), 1_050);
+    // Only the chain actually reaching it, or the cache dropping it, clears the backlog.
+    assert_eq!(state.highest_unsafe_for_head(4_000), 4_000);
+    state.set_pending_high_water(None);
+    assert_eq!(state.highest_unsafe_for_head(1_000), 1_000, "an emptied cache reports the head");
 }
 
 #[test]
-fn absurd_block_number_is_anchored_and_eventually_releases() {
-    // A signature-valid payload with a wrong or hostile block number must not keep the node out
-    // of sync forever, or it keeps the preconfer client from ever starting.
-    let state = SharedPreconfState::new(1_000);
-    state.record_seen_block(u64::MAX);
-
-    let anchored = 1_000 + PENDING_ENVELOPE_CAPACITY as u64;
-    assert_eq!(state.highest_unsafe_for_head(1_000), anchored);
-    assert_eq!(
-        state.highest_seen_block(),
-        anchored,
-        "the bound is written back, not just returned"
-    );
-    assert_ne!(state.highest_unsafe_for_head(1_000), 1_000, "still reads as behind for now");
-
-    // Pinned at a concrete height rather than one that tracks the head, so the chain catching up
-    // restores equality. Returning the bound without storing it would report head+span forever.
-    assert_eq!(state.highest_unsafe_for_head(anchored), anchored, "synced again");
-    assert_eq!(state.highest_unsafe_for_head(anchored + 10), anchored + 10);
-}
-
-#[test]
-fn a_lagging_internal_counter_never_bounds_the_report() {
-    // Regression for bounding the counter against an anchor that trails the live execution head.
-    // `last_observed_l2_head` only moves on a status poll or a local insert, so the engine can
-    // sync far past it; bounding on it would pull the counter below the head, and `/status`
-    // floors at the head, so a node holding an unimported payload would read as synced.
-    let state = SharedPreconfState::new(1_000);
-    state.record_seen_block(5_001);
-
-    assert_eq!(state.highest_unsafe_for_head(5_000), 5_001);
-    assert_ne!(
-        state.highest_unsafe_for_head(5_000),
-        5_000,
-        "a node holding an unimported payload must not read as synced"
-    );
-}
-
-#[test]
-fn a_rewind_does_not_erase_the_envelope_that_arrived_with_it() {
-    // Ordering guard for the ingress path: the tip rewind lowers the counter unconditionally, so
-    // it has to run before the envelope in hand is counted. Recording first would forget the
-    // first block of the new branch, and `/status` would fall back to the rewound head — which
-    // equals the execution head, so the preconfer client would read a node holding an unimported
-    // block as synced.
+fn a_cached_envelope_survives_a_confirmed_tip_rewind() {
+    // Regression for resetting a watermark on a rewind. The tip is observed asynchronously, so a
+    // rewind can be seen *after* the first envelope of the new branch was already recorded; a
+    // reset that overwrites by height then erases it, and `/status` falls back to the rewound head
+    // while that envelope sits unapplied in the cache.
+    //
+    // Nothing overwrites by height any more: the report is recomputed from the cache, so an
+    // envelope that is still cached is still counted no matter when the rewind is noticed.
     let state = SharedPreconfState::new(90);
-    state.observe_envelope(150, Some(100));
+    state.set_pending_high_water(Some(120));
 
-    // An L1 reorg rewinds the confirmed tip, and the first new-branch payload arrives with it.
-    // `observe_envelope` is the single call the ingress path makes, so this is the real ordering.
-    state.observe_envelope(120, Some(90));
-
-    assert_eq!(state.highest_seen_block(), 120);
+    assert_eq!(state.highest_unsafe_for_head(90), 120);
     assert_ne!(
         state.highest_unsafe_for_head(90),
         90,
         "must not read as synced at the rewound head"
     );
-}
-
-#[test]
-fn a_backlog_deeper_than_one_cache_span_still_reads_as_behind() {
-    // The anchor must not silently turn a real backlog into a synced report: a node returning
-    // from long downtime is behind by more than the cache can bridge, and still has to say so.
-    let state = SharedPreconfState::new(1_000);
-    state.record_seen_block(1_000 + PENDING_ENVELOPE_CAPACITY as u64 * 4);
-
-    assert_ne!(state.highest_unsafe_for_head(1_000), 1_000);
-    assert_eq!(state.highest_seen_block(), 1_000 + PENDING_ENVELOPE_CAPACITY as u64);
-}
-
-#[test]
-fn confirmed_tip_resets_seen_only_when_it_moves_backwards() {
-    let state = SharedPreconfState::new(1_000);
-    state.record_seen_block(1_100);
-
-    // Steady state: preconfirmations outpace L1 confirmation by design, so an advancing tip
-    // below the highest seen block must leave the counter alone.
-    state.note_confirmed_tip(1_000);
-    state.note_confirmed_tip(1_040);
-    assert_eq!(state.highest_seen_block(), 1_100, "an advancing tip must not reset the counter");
-
-    // An L1 reorg rewinds the chain past envelopes already counted: without the reset the node
-    // reports a height the chain no longer reaches and never reads as synced again.
-    state.note_confirmed_tip(1_020);
-    assert_eq!(state.highest_seen_block(), 1_020);
-    assert_eq!(state.highest_unsafe_for_head(1_020), 1_020, "node reads as synced again");
 }

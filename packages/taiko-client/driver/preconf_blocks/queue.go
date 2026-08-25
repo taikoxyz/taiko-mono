@@ -137,6 +137,34 @@ func (q *envelopeQueue) getLatestEnvelope() *preconf.Envelope {
 	return q.envelopes[0].envelope
 }
 
+// highestBlockID returns the highest block ID held in the queue, and whether the queue holds
+// anything at all.
+//
+// This is the driver's evidence that the chain reaches beyond its own execution head: an envelope
+// cached above the head is one it has validated but not applied. Deriving the reported sync state
+// from it, rather than from a separate high-water counter, is what keeps the two from drifting --
+// a counter has to be reset on reorgs and bounded against runaway block numbers, and every such
+// write is a chance to erase evidence of a real backlog.
+func (q *envelopeQueue) highestBlockID() (uint64, bool) {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+
+	var (
+		highest uint64
+		found   bool
+	)
+	for _, item := range q.envelopes {
+		if item == nil {
+			break // no more items
+		}
+		if !found || item.id > highest {
+			highest, found = item.id, true
+		}
+	}
+
+	return highest, found
+}
+
 // getTotalCached retrieves the total number of cached envelopes after the initialization of the queue.
 func (q *envelopeQueue) getTotalCached() uint64 {
 	q.lock.RLock()

@@ -206,12 +206,8 @@ impl WhitelistPreconfirmationDriverRunner {
                     }
                 }
                 _ = backfill_retry_interval.tick() => {
-                    // Both of these exist to survive gossip going quiet: nothing else re-drives a
-                    // request whose cooldown has elapsed, and nothing else notices a confirmed-tip
-                    // rewind, once inbound events stop arriving.
-                    if let Err(err) = importer.refresh_confirmed_tip().await {
-                        warn!(error = %err, "failed to refresh confirmed tip on backfill retry");
-                    }
+                    // This exists to survive gossip going quiet: nothing else re-drives a request
+                    // whose cooldown has elapsed once inbound events stop arriving.
                     if let Err(err) = importer.maybe_import_from_cache().await {
                         warn!(
                             error = %err,

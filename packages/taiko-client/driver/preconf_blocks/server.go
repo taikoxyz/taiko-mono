@@ -95,15 +95,14 @@ type PreconfBlockAPIServer struct {
 	// highestImportedL2PayloadBlockID is the highest preconfirmation block this node has
 	// actually inserted into its L2 execution engine (or seen land on chain via a proposal).
 	highestImportedL2PayloadBlockID atomic.Uint64
-	// highestSeenL2PayloadBlockID is the highest well-formed, signature-valid preconfirmation
-	// block this node has *received*, whether it could be imported or only cached. A node with
-	// a backlog of cached envelopes has highestSeen > highestImported, which is what lets
-	// `/status` report "I am behind" instead of reporting its own stale head back at the
-	// preconfer client.
+	// lastObservedL2Head is the most recent execution head `/status` managed to read, used only
+	// as a fallback while the L2 RPC is failing.
 	//
-	// Both block IDs are written only under s.mutex; they are atomic so that GetStatus can
-	// read them without taking it.
-	highestSeenL2PayloadBlockID atomic.Uint64
+	// There is deliberately no "highest seen" counter beside it. How far the chain reaches beyond
+	// this node is read from the envelope cache, which is the evidence itself; a counter has to be
+	// reset on reorgs and bounded against runaway block numbers, and every such write is a chance
+	// to erase a real backlog and report parity with a stale head.
+	lastObservedL2Head atomic.Uint64
 	// P2P network for preconfirmation block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
@@ -181,10 +180,8 @@ func New(
 		syncReady:                    false,
 	}
 
-	// Both counters start at the current head: before any gossip is received the node is, as
-	// far as it knows, in sync with the network.
 	server.highestImportedL2PayloadBlockID.Store(head.NumberU64())
-	server.highestSeenL2PayloadBlockID.Store(head.NumberU64())
+	server.lastObservedL2Head.Store(head.NumberU64())
 
 	server.echo.HideBanner = true
 	server.configureMiddleware([]string{cors})
@@ -349,12 +346,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	// The payload is well-formed and its gossip signature has already been checked by the
-	// topic validator, so it counts as seen from here on, whatever happens to it below. This
-	// is what makes a node that cannot import report itself as behind rather than reporting
-	// its own stale head.
-	s.updateHighestSeenL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
-
 	// Check if we are ready to insert preconfirmation blocks.
 	if !s.syncReady {
 		log.Info(
@@ -462,10 +453,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 		metrics.DriverPreconfInvalidEnvelopeCounter.Inc()
 		return nil
 	}
-
-	// A backfill response is a payload like any other: seeing it means this node knows the
-	// chain reaches at least that height.
-	s.updateHighestSeenL2Payload(uint64(msg.ExecutionPayload.BlockNumber))
 
 	// Check if we are ready to insert preconfirmation blocks.
 	if !s.syncReady {
@@ -1054,10 +1041,22 @@ func (s *PreconfBlockAPIServer) RetryBackfillEventLoop(ctx context.Context) {
 // RetryBackfill re-enters the import walk for the newest cached envelope, which re-publishes a
 // backfill request whose cooldown has elapsed and applies whatever the cache can now bridge.
 //
-// It is a no-op unless this node has seen more than it has applied, so a healthy follower never
-// reaches the walk and never logs.
+// The gate is the cache against the live execution head, not a pair of internal counters: a
+// counter reset can make two counters agree while the cache still holds envelopes that were never
+// applied, which would silence the retry exactly when it is needed.
 func (s *PreconfBlockAPIServer) RetryBackfill(ctx context.Context) {
-	if s.highestSeenL2PayloadBlockID.Load() <= s.highestImportedL2PayloadBlockID.Load() {
+	highestCached, ok := s.envelopesCache.highestBlockID()
+	if !ok {
+		return
+	}
+
+	head, err := s.rpc.L2.BlockNumber(ctx)
+	if err != nil {
+		log.Debug("Failed to fetch L2 head for preconfirmation backfill retry", "error", err)
+		return
+	}
+
+	if highestCached <= head {
 		return
 	}
 
@@ -1344,17 +1343,15 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
 	}
 
-	// If the latest seen proposal is reorged, reset both payload block IDs. The seen counter
-	// must come back down with the imported one: a payload from the discarded branch would
-	// otherwise keep the node reporting itself behind a chain that no longer exists.
+	// If the latest seen proposal is reorged, reset the imported block ID to the canonical tip.
+	// Nothing else needs resetting: how far the chain reaches is read from the envelope cache, and
+	// envelopes on the discarded branch are dropped where the replacement is accepted.
 	if s.latestSeenProposal.PreconfChainReorged {
 		s.highestImportedL2PayloadBlockID.Store(proposal.LastBlockID)
-		s.highestSeenL2PayloadBlockID.Store(proposal.LastBlockID)
 		log.Info(
-			"Latest block ID seen in event is reorged, reset the highest L2 payload block IDs",
+			"Latest block ID seen in event is reorged, reset the highest imported L2 payload block ID",
 			"proposalId", proposal.Shasta().GetEventData().Id,
 			"highestImportedL2PayloadBlockID", proposal.LastBlockID,
-			"highestSeenL2PayloadBlockID", proposal.LastBlockID,
 		)
 
 		metrics.DriverReorgsByProposalCounter.Inc()
@@ -1367,7 +1364,6 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 			"newHighestImportedL2PayloadBlockID", proposal.LastBlockID,
 		)
 		s.highestImportedL2PayloadBlockID.Store(proposal.LastBlockID)
-		s.updateHighestSeenL2Payload(proposal.LastBlockID)
 	}
 }
 
@@ -1542,18 +1538,15 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	// returned above -- so this payload reorgs the chain and the imported counter moves back down
 	// with it.
 	//
-	// The seen counter deliberately does not follow it down. A single gossiped payload is not
-	// authoritative about how far the chain reaches: a node already holding a backlog would, on
-	// accepting a competing block below its head, forget every higher block it has seen and go
-	// back to reporting its own head -- the fail-open this counter exists to close. Only
-	// `recordLatestSeenProposal` lowers it, because there the height comes from an L1 proposal
-	// event and is authoritative.
+	// Envelopes on the replaced branch stay cached. They are not garbage: gossip delivers
+	// competing branches in arbitrary order, and a branch that loses at this height can win again
+	// once more of it arrives -- TestGossipMessagesRandomReorgs pins exactly that. Dropping them
+	// would leave the driver unable to rebuild the branch it is about to be asked for.
 	//
-	// The cost is that this node reports itself behind until the new branch grows past the
-	// discarded one -- which is not guaranteed to happen, if the replacement branch settles at a
-	// lower height. What does bound it is `anchorHighestSeenL2Payload`: the counter is pulled to
-	// one envelope-cache span above the live head and pinned there, so the report converges once
-	// the chain advances that far. Call it bounded by one cache span, not self-healing.
+	// The cost is that `/status` keeps reporting a backlog while they sit above the head, since
+	// they are validated envelopes this node has not applied -- which is what they are, and the
+	// network may well be on that branch. It clears when the chain reaches them or the bounded
+	// cache evicts them.
 	if header != nil && uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
 		log.Info(
 			"Preconfirmation block is reorging",
@@ -1602,41 +1595,16 @@ func (s *PreconfBlockAPIServer) updateHighestImportedL2Payload(blockID uint64) {
 	}
 	s.highestImportedL2PayloadBlockID.Store(blockID)
 	metrics.DriverHighestPreconfUnsafePayloadGauge.Set(float64(blockID))
-
-	// An imported block has by definition been seen.
-	s.updateHighestSeenL2Payload(blockID)
-}
-
-// updateHighestSeenL2Payload advances the highest seen L2 payload block ID, which tracks every
-// well-formed, signature-valid payload this node receives regardless of whether it could be
-// imported. It only ever moves forward; `recordLatestSeenProposal` moves it back on a reorg.
-//
-// Nothing is bounded here. Every bound available at this point -- the highest imported block in
-// particular -- can lag the live execution head by more than one envelope-cache span, because L1
-// derivation advances the chain without touching those counters. Bounding against a lagging
-// anchor would pull this counter *below* the live head, and `/status` floors at the head, so a
-// node holding an unimported backlog would report parity and read as synced. That is the
-// fail-open this counter exists to close. The bound is applied by `anchorHighestSeenL2Payload`,
-// where the live head is known.
-func (s *PreconfBlockAPIServer) updateHighestSeenL2Payload(blockID uint64) {
-	// Read-then-write rather than a compare-and-swap loop: every caller holds s.mutex, so no
-	// other writer can interleave here.
-	current := s.highestSeenL2PayloadBlockID.Load()
-	if blockID <= current {
-		return
-	}
-
-	s.highestSeenL2PayloadBlockID.Store(blockID)
-	log.Debug(
-		"Updating highest seen L2 payload block ID",
-		"blockID", blockID,
-		"previousHighestSeenL2PayloadBlockID", current,
-	)
-	metrics.DriverHighestPreconfSeenPayloadGauge.Set(float64(blockID))
 }
 
 // tryPutEnvelopeIntoCache tries to put the given payload into the cache, if it is not already cached.
 func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloadEnvelope, from peer.ID) {
+	defer func() {
+		if highest, ok := s.envelopesCache.highestBlockID(); ok {
+			metrics.DriverHighestPreconfSeenPayloadGauge.Set(float64(highest))
+		}
+	}()
+
 	id := uint64(msg.ExecutionPayload.BlockNumber)
 	h := msg.ExecutionPayload.BlockHash
 	if s.envelopesCache.hasExact(id, h) {
