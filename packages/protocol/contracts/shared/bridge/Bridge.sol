@@ -51,7 +51,11 @@ contract Bridge is EssentialResolverContract, IBridge {
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
     // - For Gnosis Safe wallet, gas used is about 28000
-    uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
+    // The cap only bounds recipient griefing; it must stay comfortably above the most expensive
+    // legitimate wallet receive path, including headroom for state-access repricing forks such as
+    // EIP-8038, which add thousands of gas to smart-wallet receive paths (see
+    // docs/gas_schedule_assumptions.md).
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 50_000;
 
     /// @dev Place holder value when not using transient storage
     uint256 private constant _PLACEHOLDER = type(uint256).max;
@@ -654,7 +658,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (offset to last bytes element of Message)
         // + 32 bytes (padded encoding of length of Message.data + dataLength
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-        // Non-zero calldata cost per byte is 16.
+        // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
+        // 40 gas per non-zero byte under the EIP-7623 floor, which this estimate ignores because
+        // processMessage transactions are execution-heavy (see docs/gas_schedule_assumptions.md).
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
