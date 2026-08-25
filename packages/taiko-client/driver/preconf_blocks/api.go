@@ -348,22 +348,18 @@ type Status struct {
 
 // reportedHighestUnsafeL2Payload is the value `/status` publishes as
 // highestUnsafeL2PayloadBlockID: the highest payload this node has seen, floored at the
-// execution head and capped one envelope-cache span above it.
+// execution head.
 //
 // The floor keeps a node whose execution head runs ahead of the gossip it has seen -- right
 // after a beacon sync, before the next proposal event lands -- from reporting a backlog it does
 // not have. That matters because the preconfer client exits the process after roughly half an
 // L2 epoch of continuous mismatch.
 //
-// The cap keeps a malformed or hostile block number from parking the node out of sync
-// indefinitely: a payload further ahead than the envelope cache can bridge needs L1 derivation
-// to clear either way.
+// No cap is applied here. `updateHighestSeenL2Payload` already anchors the counter, and a cap at
+// this end would track the head upwards and so could never return to equality.
 func reportedHighestUnsafeL2Payload(highestSeen, head uint64) uint64 {
 	if highestSeen < head {
 		return head
-	}
-	if ceiling := head + maxTrackedPayloads; highestSeen > ceiling {
-		return ceiling
 	}
 	return highestSeen
 }

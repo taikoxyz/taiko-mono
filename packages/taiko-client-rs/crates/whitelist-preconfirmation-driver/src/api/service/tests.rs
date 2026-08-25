@@ -201,12 +201,54 @@ fn seen_block_advances_monotonically() {
 }
 
 #[test]
-fn reported_value_is_capped_one_cache_span_above_the_head() {
-    // A malformed or hostile block number must not park the node out of sync indefinitely.
+fn absurd_block_number_is_anchored_and_eventually_releases() {
+    // A signature-valid payload with a wrong or hostile block number must not keep the node out
+    // of sync forever, or it keeps the preconfer client from ever starting.
     let state = SharedPreconfState::new(1_000);
     state.record_seen_block(u64::MAX);
 
-    assert_eq!(state.highest_unsafe_floored_at(1_000), 1_000 + PENDING_ENVELOPE_CAPACITY as u64);
+    let anchored = 1_000 + PENDING_ENVELOPE_CAPACITY as u64;
+    assert_eq!(state.highest_seen_block(), anchored, "anchored at record time, not at report time");
+    assert_ne!(state.highest_unsafe_floored_at(1_000), 1_000, "still reads as behind for now");
+
+    // The anchor is a fixed height rather than one that tracks the head, so the chain catching up
+    // to it restores equality. Clamping the reported value instead would return `head + capacity`
+    // forever, and the node could never read as synced again.
+    assert_eq!(state.highest_unsafe_floored_at(anchored - 1), anchored);
+    assert_eq!(state.highest_unsafe_floored_at(anchored), anchored, "synced again");
+    assert_eq!(state.highest_unsafe_floored_at(anchored + 10), anchored + 10);
+}
+
+#[test]
+fn a_rewind_does_not_erase_the_envelope_that_arrived_with_it() {
+    // Ordering guard for the ingress path: the tip rewind lowers the counter unconditionally, so
+    // it has to run before the envelope in hand is counted. Recording first would forget the
+    // first block of the new branch, and `/status` would fall back to the rewound head — which
+    // equals the execution head, so the preconfer client would read a node holding an unimported
+    // block as synced.
+    let state = SharedPreconfState::new(90);
+    state.observe_envelope(150, Some(100));
+
+    // An L1 reorg rewinds the confirmed tip, and the first new-branch payload arrives with it.
+    // `observe_envelope` is the single call the ingress path makes, so this is the real ordering.
+    state.observe_envelope(120, Some(90));
+
+    assert_eq!(state.highest_seen_block(), 120);
+    assert_ne!(
+        state.highest_unsafe_floored_at(90),
+        90,
+        "must not read as synced at the rewound head"
+    );
+}
+
+#[test]
+fn a_backlog_deeper_than_one_cache_span_still_reads_as_behind() {
+    // The anchor must not silently turn a real backlog into a synced report: a node returning
+    // from long downtime is behind by more than the cache can bridge, and still has to say so.
+    let state = SharedPreconfState::new(1_000);
+    state.record_seen_block(1_000 + PENDING_ENVELOPE_CAPACITY as u64 * 4);
+
+    assert_ne!(state.highest_unsafe_floored_at(1_000), 1_000);
 }
 
 #[test]

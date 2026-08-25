@@ -65,11 +65,14 @@ impl WhitelistPreconfirmationImporter {
                 None
             }
         };
-        // A confirmed tip that moved backwards means an L1 reorg rewound the chain past envelopes
-        // this node had already counted as seen.
-        if let Some(tip) = confirmed_tip {
-            self.state.note_confirmed_tip(tip);
-        }
+        // The envelope is well formed and its signature was checked at gossip acceptance, so it
+        // counts as seen from here on — including when it is dropped as stale just below, or
+        // parked in the pending cache for want of ancestors. This is what lets `/status` report a
+        // backlog instead of echoing this node's own execution head back at the preconfer client.
+        //
+        // The confirmed tip goes in with it so a tip that moved backwards — an L1 reorg — pulls
+        // the counter down before this envelope is counted, never after.
+        self.state.observe_envelope(envelope.execution_payload.block_number, confirmed_tip);
 
         if is_stale_at_confirmed_tip(envelope.execution_payload.block_number, confirmed_tip) {
             debug!(
@@ -153,12 +156,6 @@ impl WhitelistPreconfirmationImporter {
             envelope.execution_payload.timestamp,
             envelope.header_difficulty,
         )?;
-
-        // The envelope is well formed and its signature was checked at gossip acceptance, so it
-        // counts as seen from here on — including when it is dropped as stale or parked in the
-        // pending cache below. This is what lets `/status` report a backlog instead of echoing
-        // this node's own execution head back at the preconfer client.
-        self.state.record_seen_block(envelope.execution_payload.block_number);
 
         self.ingest_validated_envelope(Arc::new(envelope), ingress_source).await;
         Ok(())

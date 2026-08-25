@@ -135,7 +135,25 @@ impl SharedPreconfState {
         self.last_observed_l2_head.store(block_number, Ordering::Relaxed);
     }
 
+    /// Record one envelope observed at ingress, together with the confirmed tip read alongside
+    /// it.
+    ///
+    /// This exists so the two steps cannot be ordered wrongly at the call site. The rewind check
+    /// lowers the counter unconditionally, so it has to run first: recording first would let a
+    /// rewind erase the very payload that arrived with it, `/status` would fall back to the
+    /// rewound head, and the preconfer client's equality check would read a node holding an
+    /// unimported block as synced.
+    pub(crate) fn observe_envelope(&self, block_number: u64, confirmed_tip: Option<u64>) {
+        if let Some(tip) = confirmed_tip {
+            self.note_confirmed_tip(tip);
+        }
+
+        self.record_seen_block(block_number);
+    }
+
     /// Advance the highest seen block number, monotonically.
+    ///
+    /// Prefer [`Self::observe_envelope`] at ingress; this is the bare primitive.
     ///
     /// Called for every envelope that passes payload validation, before any decision about
     /// whether it can be imported. A node holding a backlog it cannot apply therefore reports a
@@ -147,6 +165,22 @@ impl SharedPreconfState {
     /// recover either way, so letting a malformed or hostile block number park the counter
     /// arbitrarily high would only keep the node reporting itself out of sync forever.
     pub(crate) fn record_seen_block(&self, block_number: u64) {
+        // Anchor the value one pending-cache span above the last observed head *here*, not where
+        // it is reported. Clamping the reported value instead leaves the raw counter holding the
+        // absurd height, so the report tracks `head + capacity` as the head advances and never
+        // returns to equality — a single signature-valid payload with a wrong or hostile block
+        // number would keep the preconfer client from ever starting. Anchoring at record time
+        // parks the counter at a fixed height that the head eventually passes, at which point the
+        // node reads as synced again.
+        //
+        // A payload beyond this span cannot be bridged from the pending cache anyway; recovering
+        // from a backlog that deep needs L1 confirmation.
+        let ceiling = self
+            .last_observed_l2_head
+            .load(Ordering::Relaxed)
+            .saturating_add(PENDING_ENVELOPE_CAPACITY as u64);
+        let block_number = block_number.min(ceiling);
+
         let previous = self.highest_seen_block.fetch_max(block_number, Ordering::Relaxed);
         if block_number > previous {
             WhitelistPreconfirmationDriverMetrics::set_highest_seen_block(block_number);
@@ -195,11 +229,10 @@ impl SharedPreconfState {
     /// beacon sync, for example — and must not report a spurious backlog, because the preconfer
     /// client exits after roughly half an L2 epoch of continuous mismatch.
     ///
-    /// The value is also capped one pending-cache span above the head, so a malformed or hostile
-    /// block number cannot park the node out of sync indefinitely: past that span the backlog
-    /// needs L1 confirmation to clear either way.
+    /// No cap is applied here: [`Self::record_seen_block`] already anchors the counter, and a cap
+    /// at this end would track the head upwards and so could never return to equality.
     pub(crate) fn highest_unsafe_floored_at(&self, head: u64) -> u64 {
-        self.highest_seen_block().clamp(head, head.saturating_add(PENDING_ENVELOPE_CAPACITY as u64))
+        self.highest_seen_block().max(head)
     }
 }
 

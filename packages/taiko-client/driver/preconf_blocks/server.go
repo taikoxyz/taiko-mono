@@ -50,6 +50,17 @@ const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid re
 // monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with on-chain state.
 const monitorLatestProposalOnChainInterval = 10 * time.Second
 
+// backfillRetryInterval is how often a node holding an unresolved preconfirmation backlog
+// re-drives the missing-ancestor walk on its own.
+//
+// The walk is otherwise driven only by inbound payloads, which is exactly the wrong assumption at
+// an epoch boundary: if the dropped message is the last request before end-of-sequencing, the
+// outgoing operator stops gossiping and the incoming one refuses to sequence because this node is
+// reporting itself behind, so nothing arrives to re-drive anything and the expired cooldown is
+// never consulted. Recovery would then wait for L1 derivation. This ticker is what makes a single
+// dropped gossip message non-terminal on its own.
+const backfillRetryInterval = 4 * time.Second
+
 // shutdownImminenceMarginSlots is the number of upcoming L1 slots CanShutdown
 // treats as already in-window: shutdown is refused not only while the current
 // slot is inside one of this operator's sequencing ranges, but also when a
@@ -822,8 +833,16 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				publishRequest := func() {
 					// A request published into a mesh that has not formed yet reaches nobody,
 					// and the publish still returns nil. Hold it back instead: the walk is
-					// re-driven by every inbound payload, so the retry costs nothing and does
-					// not consume the cooldown window.
+					// re-driven by inbound payloads and by RetryBackfillEventLoop, so the retry
+					// costs nothing and does not consume the cooldown window.
+					//
+					// This counts peers on the block topics, not on the request topic --
+					// AllBlockTopicsPeers combines the OP block topics, which Taiko does not
+					// use, with preconfBlocksV1. Every node joins all preconf topics together at
+					// startup, so it is a close proxy; an exact request-topic count would need a
+					// new method on the GossipTopicInfo interface in the taikoxyz/optimism fork.
+					// The approximation can still let a publish through to an empty request
+					// topic, which costs one cooldown window rather than the recovery.
 					if len(s.p2pNode.GossipOut().AllBlockTopicsPeers()) == 0 {
 						log.Info(
 							"No gossip peers yet, holding back preconfirmation block request",
@@ -1016,16 +1035,47 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	return nil
 }
 
+// RetryBackfillEventLoop periodically re-drives the missing-ancestor walk while this node holds
+// preconfirmation envelopes it has not been able to apply.
+func (s *PreconfBlockAPIServer) RetryBackfillEventLoop(ctx context.Context) {
+	ticker := time.NewTicker(backfillRetryInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.RetryBackfill(ctx)
+		}
+	}
+}
+
+// RetryBackfill re-enters the import walk for the newest cached envelope, which re-publishes a
+// backfill request whose cooldown has elapsed and applies whatever the cache can now bridge.
+//
+// It is a no-op unless this node has seen more than it has applied, so a healthy follower never
+// reaches the walk and never logs.
+func (s *PreconfBlockAPIServer) RetryBackfill(ctx context.Context) {
+	if s.highestSeenL2PayloadBlockID.Load() <= s.highestImportedL2PayloadBlockID.Load() {
+		return
+	}
+
+	if err := s.ImportPendingBlocksFromCache(ctx); err != nil {
+		log.Debug("Preconfirmation backfill retry did not complete", "error", err)
+	}
+}
+
 // ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
 // if there is no payload in the cache, it will skip the operation.
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
 	latestPayload := s.envelopesCache.getLatestEnvelope()
 	if latestPayload == nil {
-		log.Info("No envelopes in cache, skip importing from cache")
+		log.Debug("No envelopes in cache, skip importing from cache")
 		return nil
 	}
 
-	log.Info(
+	log.Debug(
 		"Found pending envelopes in the cache, try importing",
 		"latestPayloadNumber", uint64(latestPayload.Payload.BlockNumber),
 		"latestPayloadBlockHash", latestPayload.Payload.BlockHash.Hex(),
@@ -1489,7 +1539,20 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	// A header already occupies this block number with a different hash -- the equal-hash case
-	// returned above -- so this payload reorgs the chain and the counter moves back down with it.
+	// returned above -- so this payload reorgs the chain and the imported counter moves back down
+	// with it.
+	//
+	// The seen counter deliberately does not follow it down. A single gossiped payload is not
+	// authoritative about how far the chain reaches: a node already holding a backlog would, on
+	// accepting a competing block below its head, forget every higher block it has seen and go
+	// back to reporting its own head -- the fail-open this counter exists to close. Only
+	// `recordLatestSeenProposal` lowers it, because there the height comes from an L1 proposal
+	// event and is authoritative.
+	//
+	// The cost is that a reorg leaves this node reporting itself behind for roughly (reorg depth
+	// x block time) until the new branch grows past the discarded one. That is bounded and
+	// self-healing, and this branch replaces a block at its own height, so in practice the depth
+	// is small.
 	if header != nil && uint64(msg.ExecutionPayload.BlockNumber) <= header.Number.Uint64() {
 		log.Info(
 			"Preconfirmation block is reorging",
@@ -1547,11 +1610,28 @@ func (s *PreconfBlockAPIServer) updateHighestImportedL2Payload(blockID uint64) {
 // well-formed, signature-valid payload this node receives regardless of whether it could be
 // imported. It only ever moves forward; `recordLatestSeenProposal` moves it back on a reorg.
 //
-// The value is bounded where it is published, by `reportedHighestUnsafeL2Payload`, which has
-// the live execution head to bound it against. This counter is deliberately not bounded here:
-// the highest imported block is not the execution head -- blocks arriving through L1 derivation
-// advance the chain without touching it -- so it cannot supply a trustworthy ceiling.
+// The value is anchored one envelope-cache span above the highest imported block. That has to
+// happen here rather than where the value is published: clamping at the publishing end leaves
+// this counter holding the absurd height, so the reported value tracks `head + span` as the head
+// advances and never returns to equality -- one signature-valid payload carrying a wrong or
+// hostile block number would keep the preconfer client from ever starting. Anchoring here parks
+// the counter at a fixed height the chain eventually passes.
+//
+// The anchor is deliberately loose. The highest imported block is not the execution head -- L1
+// derivation advances the chain without touching it -- so it is only trustworthy as a sanity
+// bound, not as the ceiling for the reported value. A backlog deeper than one cache span still
+// reports as behind; it just reports a floor on how far behind, which is all that matters,
+// because clearing a backlog that deep needs L1 derivation either way.
 func (s *PreconfBlockAPIServer) updateHighestSeenL2Payload(blockID uint64) {
+	if ceiling := s.highestImportedL2PayloadBlockID.Load() + maxTrackedPayloads; blockID > ceiling {
+		log.Warn(
+			"Anchoring highest seen L2 payload block ID",
+			"blockID", blockID,
+			"ceiling", ceiling,
+		)
+		blockID = ceiling
+	}
+
 	// Read-then-write rather than a compare-and-swap loop: every caller holds s.mutex, so no
 	// other writer can interleave here.
 	current := s.highestSeenL2PayloadBlockID.Load()

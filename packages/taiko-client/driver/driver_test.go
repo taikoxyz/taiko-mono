@@ -1009,7 +1009,35 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 
 	block = getBlock(l2Head1.Number().Uint64() + 2)
 	s.NotNil(block)
-	insertPayloadFromBlock(block, false)
+	baseFee, overflow = uint256.FromBig(block.BaseFee())
+	s.False(overflow)
+
+	b, err = utils.EncodeAndCompressTxList(block.Transactions())
+	s.Nil(err)
+
+	s.d.preconfBlockServer.PutPayloadsCache(block.Number().Uint64(), &preconf.Envelope{
+		Payload: &eth.ExecutionPayload{
+			BlockHash:     block.Hash(),
+			ParentHash:    block.ParentHash(),
+			FeeRecipient:  block.Coinbase(),
+			PrevRandao:    eth.Bytes32(block.MixDigest()),
+			BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+			GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+			Timestamp:     eth.Uint64Quantity(block.Time()),
+			ExtraData:     block.Extra(),
+			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+			Transactions:  []eth.Data{b},
+			Withdrawals:   &types.Withdrawals{},
+		},
+		HeaderDifficulty: block.Difficulty(),
+	})
+
+	// No inbound payload from here on. The walk is otherwise driven only by arriving gossip,
+	// which is exactly what an epoch boundary takes away: the outgoing operator stops sequencing
+	// and the incoming one refuses to start while this node reports itself behind, so nothing
+	// would ever re-enter the walk and an expired request cooldown would never be consulted. The
+	// timed re-drive alone has to finish the recovery.
+	s.d.preconfBlockServer.RetryBackfill(context.Background())
 
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)

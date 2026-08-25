@@ -202,6 +202,12 @@ func (d *Driver) Start() error {
 			defer d.wg.Done()
 			d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
 		}()
+
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			d.preconfBlockServer.RetryBackfillEventLoop(d.ctx)
+		}()
 	}
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
 		log.Info("Start P2P discovery process")
