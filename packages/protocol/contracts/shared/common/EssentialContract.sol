@@ -14,6 +14,14 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
+    /// @dev Transient-storage slot for the reentry lock: keccak256("ownerUUPS.reentry_slot") + 1.
+    /// The addition prevents collisions with EIP-1967-style slots (derived as keccak256(x) - 1)
+    /// and SignalService slots (derived directly as keccak256(x)). This is the same slot used by
+    /// LibFasterReentryLock, so contracts overriding the lock with that library are identical in
+    /// behavior to this default.
+    bytes32 private constant _REENTRY_SLOT =
+        0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b;
+
     address internal immutable __resolver;
 
     // ---------------------------------------------------------------
@@ -22,7 +30,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     uint256[50] private __gapFromOldAddressResolver;
 
-    /// @dev Slot 1.
+    /// @dev Slot 1. __reentry is deprecated: the reentry lock lives in transient storage
+    /// (_REENTRY_SLOT); the storage slot is retained only for layout compatibility.
     uint8 internal __reentry;
     uint8 internal __paused;
 
@@ -201,14 +210,20 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     function _authorizePause(address, bool) internal virtual onlyOwner { }
 
-    // Stores the reentry lock
+    // Stores the reentry lock in transient storage (EIP-1153). All target chains run a
+    // Cancun-or-later EVM (both L1 and L2 profiles pin evm_version accordingly), and transient
+    // writes cost a flat 100 gas regardless of state-access repricing forks such as EIP-8038.
     function _storeReentryLock(uint8 _reentry) internal virtual {
-        __reentry = _reentry;
+        assembly {
+            tstore(_REENTRY_SLOT, _reentry)
+        }
     }
 
     // Loads the reentry lock
     function _loadReentryLock() internal view virtual returns (uint8 reentry_) {
-        reentry_ = __reentry;
+        assembly {
+            reentry_ := tload(_REENTRY_SLOT)
+        }
     }
 
     // ---------------------------------------------------------------

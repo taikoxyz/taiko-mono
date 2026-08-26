@@ -35,7 +35,7 @@ Reference deltas used below (EIP-8038 draft, subject to change while in peer rev
 | 3 | `shared/bridge/Bridge.sol` — `GAS_OVERHEAD = 120_000` | intrinsic cost + typical proof calldata under today's prices | drifts with intrinsic/calldata/state repricing → relayer over/under-compensation (bounded by `message.fee` cap) | recalibrate from `MessageProcessed` production stats |
 | 4 | `shared/bridge/Bridge.sol` — `_GAS_REFUND_PER_CACHE_OPERATION = 20_000` | one fresh SSTORE ≈ 22.1k | fresh-slot cost is ≈ unchanged under EIP-8038 (≈ 22k); other schedules may move it | keep tied to "cost of one cache write"; recheck per final schedule |
 | 5 | `shared/bridge/Bridge.sol` — `GAS_RESERVE = 800_000` | bridge-side overhead around message invocation | overhead grows by roughly +5k (L1, transient-storage variant) to +40k (L2, storage variant) per message under EIP-8038 | headroom is ample; verify with production stats, no logic change expected |
-| 6 | vanilla `Bridge.__ctx` + `EssentialContract.__reentry` (storage-based; used by the **L2** bridge deployment) | storage lock/context cheap enough | dirty-slot updates ≈ ×2.4 under EIP-8038 → ~+40k per L2 message | port the L1 `MainnetBridge`/`LibFasterReentryLock` transient-storage overrides to the L2 deployment |
+| 6 | `EssentialContract` reentry lock + `Bridge` call context (storage-based defaults; used by the **L2** deployments) | storage lock/context cheap enough | dirty-slot updates ≈ ×2.4 under EIP-8038 → ~+40k per L2 message | **applied: defaults moved to transient storage** (same slots as the Mainnet* overrides); L2 picks up the savings at its next upgrade |
 | 7 | `layer2/core/Anchor.sol` — `ANCHOR_GAS_LIMIT = 1_000_000` (consensus constant, enforced by node) | anchor tx fits in 1M | anchorV4 ≈ low-100k range today; ≈ +tens-of-k under EIP-8038-on-L2 → ~10× headroom remains | no change; re-verify (contracts + Go/Rust clients together) when L2 adopts the fork |
 | 8 | `Bridge` docs/`_checkForwardedGas` — 63/64 (EIP-150) math | EIP-150 unchanged | EIP-8038 does not touch call-gas forwarding | none; revisit only if a future EIP changes 63/64 |
 | 9 | economic parameters (`MainnetInbox` config: bonds, forced-inclusion fees; relayer/SDK recommended gas limits, incl. first-time `BridgedERC20` deployment messages) | priced against today's L1 cost basis | repricing shifts the cost basis | governance/ops recalibration, not contract code |
@@ -72,15 +72,21 @@ proof near `RELAYER_MAX_PROOF_BYTES = 200_000` is firmly floor-priced. The const
 raising the min-gas term retroactively *lowers* `_invocationGasLimit` for in-flight messages), so
 any change must be sequenced with in-flight message handling in mind.
 
-### 6. Transient storage on the L2 bridge
+### 6. Transient storage for the reentry lock and bridge context (applied)
 
-The L1 deployment (`MainnetBridge`, `MainnetInbox`) already uses EIP-1153 transient storage for
-the reentry lock and message context (`LibFasterReentryLock`, `tstore` context overrides) — those
-paths are immune to state repricing. The Taiko L2 bridge (`0x1670…0001`) runs the vanilla `Bridge`
-with a storage-based `__ctx` (2 slots × 2 writes per message) and `EssentialContract.__reentry`
-(2 writes per guarded call). Today that is ~17k per message; under EIP-8038-on-L2 it becomes
-~40k. Deploying the transient-storage variant on L2 removes the exposure entirely with
-already-written code.
+The L1 deployments (`MainnetBridge`, `MainnetInbox`, `MainnetERC20Vault`, …) already used
+EIP-1153 transient storage via per-contract overrides (`LibFasterReentryLock`, `tstore` context
+overrides) — those paths are immune to state repricing. The L2 deployments (bridge `0x1670…0001`,
+vaults, signal service) ran the storage-based defaults: `__ctx` (2 slots × 2 writes per message)
+plus `EssentialContract.__reentry` (2 writes per guarded call) — ~17k per message today, ~40k
+under EIP-8038-on-L2.
+
+The defaults themselves now use transient storage, at the same slots as the existing Mainnet*
+overrides (all target chains pin a Cancun-or-later EVM; the `__reentry`/`__ctx` storage slots are
+retained for layout compatibility). Every contract inheriting the defaults — the L2 bridge,
+vaults, and signal service among them — picks up the savings at its next routine upgrade, and the
+Mainnet* wrapper overrides are now behavior-identical duplicates of the defaults (candidates for
+removal in a follow-up).
 
 ### 7. `ANCHOR_GAS_LIMIT` is a cross-repo consensus constant
 
