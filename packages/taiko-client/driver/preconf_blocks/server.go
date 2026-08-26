@@ -45,12 +45,7 @@ var (
 	wsUpgrader                     = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
-const (
-	requestSyncMargin                         = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
-	preconfBlockRequestPeerPollInterval       = 500 * time.Millisecond
-	preconfBlockRequestPeerReadinessWaitLimit = 12 * time.Second
-)
-
+const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
 // monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with on-chain state.
 const monitorLatestProposalOnChainInterval = 10 * time.Second
 
@@ -794,12 +789,11 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
-				if !s.waitForPreconfBlockRequestPeers(ctx, preconfBlockRequestPeerReadinessWaitLimit) {
+				if !s.hasPreconfBlockRequestPeers() {
 					log.Info(
-						"Preconfirmation block request topic not ready, skip publishing L2Request",
+						"No peers on preconfirmation block request topic, skip publishing L2Request",
 						"blockID", parentNum,
 						"hash", currentPayload.Payload.ParentHash.Hex(),
-						"waitLimit", preconfBlockRequestPeerReadinessWaitLimit,
 					)
 					return fmt.Errorf(
 						"failed to find parent payload in the cache, number %d, hash %s",
@@ -915,31 +909,6 @@ func (s *PreconfBlockAPIServer) hasPreconfBlockRequestPeers() bool {
 
 	topic := fmt.Sprintf("/taiko/%s/0/requestPreconfBlocks", s.rpc.L2.ChainID.String())
 	return len(s.gossipSubTopicPeers.ListPeers(topic)) > 0
-}
-
-// waitForPreconfBlockRequestPeers waits for the request topic to gain a peer, up to the given limit.
-func (s *PreconfBlockAPIServer) waitForPreconfBlockRequestPeers(ctx context.Context, limit time.Duration) bool {
-	if s.hasPreconfBlockRequestPeers() {
-		return true
-	}
-
-	ticker := time.NewTicker(preconfBlockRequestPeerPollInterval)
-	defer ticker.Stop()
-	timer := time.NewTimer(limit)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-timer.C:
-			return false
-		case <-ticker.C:
-			if s.hasPreconfBlockRequestPeers() {
-				return true
-			}
-		}
-	}
 }
 
 // ImportChildBlocksFromCache tries to import the longest cached child envelopes from the cached payload queue.
