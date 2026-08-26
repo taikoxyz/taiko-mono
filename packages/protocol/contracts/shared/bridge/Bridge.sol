@@ -321,11 +321,19 @@ contract Bridge is EssentialResolverContract, IBridge {
                     // - need to have a buffer/small revenue to the realyer since it consumes
                     // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    // Taking into account the encoded message calldata cost, and can count with 16
-                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
+                    // The first max() operand is the standard-pricing estimate: measured execution
+                    // plus the message calldata at 16 gas per byte (vs. checking each and every
+                    // byte if zero or non-zero). The second is the EIP-7623 calldata floor, which
+                    // charges the whole transaction 21000 + 10 gas per token regardless of
+                    // execution, so a large proof combined with a light invocation undercuts the
+                    // standard estimate. It is mirrored here from this call's full calldata with
+                    // every byte priced as non-zero (4 tokens = 40 gas) — an upper bound that
+                    // needs no byte inspection and is exact for dense proof bytes — assuming the
+                    // relayer calls processMessage directly (msg.data then equals the transaction
+                    // calldata). No extra locals: processMessage sits at the stack-depth limit.
                     stats.gasUsedInFeeCalc = uint32(
-                        GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
-                            - gasleft()
+                        (GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
+                                - gasleft()).max(21_000 + msg.data.length * 40)
                     );
 
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
@@ -657,9 +665,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (offset to last bytes element of Message)
         // + 32 bytes (padded encoding of length of Message.data + dataLength
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-        // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
-        // 40 gas per non-zero byte under the EIP-7623 floor, which this estimate ignores because
-        // processMessage transactions are execution-heavy.
+        // Non-zero calldata cost per byte is 16 under standard EIP-7623 pricing; the calldata
+        // floor (up to 40 gas per non-zero byte) is handled at the fee-calculation site in
+        // processMessage, where the whole transaction's calldata size is known.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
