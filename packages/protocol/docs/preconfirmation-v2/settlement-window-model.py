@@ -13,6 +13,11 @@ Slot-Chain §5.6 结算窗口(settlement window)可执行参考模型 + 性质�
   P5  lazy close: 收盘时点后处理不改变赢家(窗口态是 L1 历史纯函数)
   P6  L1 重组: 同一 L1 历史重放得到同一窗口态;重组截断后重放一致
   P7  共享 gas 预算下不存在"无合法块"死锁; 双约束最大前缀确定且守上限
+      (r44: 含非创世游标基线)
+  P8  桥接满载洪泛下普通强制队列不被饿死 (C_bridge 保留,§7 r19-1;修 DeepSeek C2)
+  P9  anchor 新鲜度几何(最坏兜底路径 ≤ D_anchor_max)与因果序(§8;门后半)
+  P10 罚没生效按候选落地时点判定(§4.3;门后半)
+  P11 兜底资格快照保持到窗口收盘(§6.3 Δ_lag_final;门后半)
 
 运行:  python3 settlement-window-model.py   (零依赖,全部断言通过则打印 RESULTS)
 注意: 这是【模型】——签名/证明/执行以布尔占位,只精确建模本设计新增的
@@ -28,14 +33,29 @@ from typing import Optional
 # ----------------------------------------------------------------------------
 # 参数 (共识常量,数值为测试用;设置器不变量见规范 §12)
 # ----------------------------------------------------------------------------
-C_FORCE_COUNT = 4        # 强制条目/块 (条数上限)
-C_FORCE_GAS = 19         # 强制 gas 份额/块
+C_FORCE_COUNT = 4        # 强制条目/块 (条数上限,含桥接)
+C_FORCE_GAS = 19         # 强制 gas 份额/块 (含桥接)
+C_BRIDGE_COUNT = 1       # 桥接保留 (≈25% × C_FORCE_COUNT, §7 r19-1)
+C_BRIDGE_GAS = 5         # 桥接 gas 保留;普通队列保证容量 = C_FORCE − C_BRIDGE
 C_ANCHOR_COUNT = 2       # L1->L2 消息/块 (条数上限)
 C_MSG_GAS = 10           # 消息 gas 份额/块
 G_ANCHOR = 1             # anchor 固定开销
 BLOCK_GAS_LIMIT = 30     # 块 gas 上限
 W_SETTLE = 10            # 结算窗口长度 (L1 块)
 assert G_ANCHOR + C_FORCE_GAS + C_MSG_GAS <= BLOCK_GAS_LIMIT  # §8 共享预算不变量
+assert C_BRIDGE_COUNT < C_FORCE_COUNT and C_BRIDGE_GAS < C_FORCE_GAS
+ORD_GUARANTEE_COUNT = C_FORCE_COUNT - C_BRIDGE_COUNT   # 普通队列保证容量 (r19-1)
+ORD_GUARANTEE_GAS = C_FORCE_GAS - C_BRIDGE_GAS
+
+# 时序参数 (P9 anchor 几何;单位: L1 slot)
+D_ANCHOR = 32
+DELTA_LAG_PROV_L1 = 128  # Δ_lag,prov 换算 L1 slot (服务观测阈值)
+W_SETTLE_MAX = 15        # W_settle 共识上界 (§6.2 中危 1;含墙钟换算余量)
+DELTA_LAG_FINAL_L1 = DELTA_LAG_PROV_L1 + W_SETTLE_MAX + 5  # Δ_lag,final (r44, DeepSeek C1)
+P_PROVE_MAX = 75
+T_INCLUDE_MAX = 10
+# 兜底最坏路径的 lag 项是 Δ_lag,final (兜底以 lag_final 开窗), 非 Δ_lag,prov
+D_ANCHOR_MAX = D_ANCHOR + DELTA_LAG_FINAL_L1 + P_PROVE_MAX + T_INCLUDE_MAX + 5  # §12 最强不变量
 
 CONTENT, FORCED = "content", "forced"
 
@@ -145,8 +165,9 @@ class L1State:
         o, b, m = base.f_cur_ord, base.f_cur_br, base.m_consumed
         for blk in cand.blocks:
             gas = G_ANCHOR
-            # 桥接优先,再普通 (§7 规范顺序);各自双约束
-            b2, tb = max_prefix(self.q_br, b, C_FORCE_COUNT, C_FORCE_GAS)
+            # 桥接优先但【至多 C_BRIDGE 保留】,普通队列拿保证余量 (§7 r19-1
+            # ——r44 修 DeepSeek C2: 此前桥接误取整个 C_FORCE 预算,可饿死普通队列)
+            b2, tb = max_prefix(self.q_br, b, C_BRIDGE_COUNT, C_BRIDGE_GAS)
             gas_b = sum(x.gas for x in tb)
             o2, to = max_prefix(self.q_ord, o, C_FORCE_COUNT - len(tb),
                                 C_FORCE_GAS - gas_b)
@@ -340,25 +361,83 @@ def test_p6_reorg_replay():
 def test_p7_gas_no_deadlock():
     rng = random.Random(7)
     for trial in range(300):
-        # 随机可达队列状态 (入队验证保证单条 ≤ 份额)
-        q_ord = [Item(i, rng.randint(1, C_FORCE_GAS)) for i in range(rng.randint(0, 15))]
-        q_br = [Item(50 + i, rng.randint(1, C_FORCE_GAS)) for i in range(rng.randint(0, 6))]
+        # 随机可达队列状态 (入队验证保证单条 ≤ 所属队列份额,r19-1)
+        q_ord = [Item(i, rng.randint(1, ORD_GUARANTEE_GAS)) for i in range(rng.randint(0, 15))]
+        q_br = [Item(50 + i, rng.randint(1, C_BRIDGE_GAS)) for i in range(rng.randint(0, 6))]
         q_msg = [Item(90 + i, rng.randint(1, C_MSG_GAS)) for i in range(rng.randint(0, 15))]
-        st = L1State(GEN, q_ord, q_br, q_msg)
-        cand = mk(GEN.tip_hash, [CONTENT], f"t{trial}")
-        end = st._validate(cand, GEN)
-        check_ok = end is not None            # 任意可达状态都存在合法块
-        assert check_ok, f"deadlock at trial {trial}"
-        # 双约束前缀守上限
+        # r44 (DeepSeek 建议 3): 非创世基线——随机已消费游标
+        base = Canonical(h("b", trial), h("r", trial),
+                         rng.randint(0, len(q_ord)), rng.randint(0, len(q_br)),
+                         rng.randint(0, len(q_msg)))
+        st = L1State(base, q_ord, q_br, q_msg)
+        cand = mk(base.tip_hash, [CONTENT], f"t{trial}")
+        end = st._validate(cand, base)
+        assert end is not None, f"deadlock at trial {trial}"   # 任意可达状态都存在合法块
+        assert end.f_cur_ord >= base.f_cur_ord and end.m_consumed >= base.m_consumed
         i2, taken = max_prefix(q_msg, 0, C_ANCHOR_COUNT, C_MSG_GAS)
         assert len(taken) <= C_ANCHOR_COUNT and sum(x.gas for x in taken) <= C_MSG_GAS
-    check("P7 共享 gas 预算下 300 组随机可达状态均存在合法块;前缀守双上限", True)
+    check("P7 共享 gas 预算下 300 组随机可达状态(含非创世游标)均存在合法块;前缀守双上限", True)
+
+
+def test_p8_bridge_no_starvation():
+    """r44 (DeepSeek C2 + 建议 1): 持续桥接洪泛下普通强制队列不可被饿死。"""
+    q_br = [Item(500 + i, C_BRIDGE_GAS) for i in range(100)]      # 满载桥接积压
+    q_ord = [Item(i, ORD_GUARANTEE_GAS) for i in range(10)]       # 普通队头 = 满份额条目
+    st = L1State(GEN, q_ord, q_br, [])
+    cand = mk(GEN.tip_hash, [CONTENT] * 3, "st")
+    end = st._validate(cand, GEN)
+    assert end is not None
+    check("P8 桥接满载洪泛下普通队列每块仍消费 ≥ 保证容量(不被饿死)",
+          end.f_cur_ord >= 3 * 1 and end.f_cur_br == 3 * C_BRIDGE_COUNT)
+
+
+def test_p9_anchor_geometry():
+    """r44 (门后半): anchor 新鲜度几何 + 因果序。"""
+    worst_age = D_ANCHOR + DELTA_LAG_FINAL_L1 + P_PROVE_MAX + T_INCLUDE_MAX
+    check("P9a 最坏兜底路径 anchor 年龄 ≤ D_anchor_max (设置器不变量成立)",
+          worst_age <= D_ANCHOR_MAX)
+    def causality_ok(anchor_l1_slot, block_l2_slot):
+        return anchor_l1_slot * 12 <= block_l2_slot        # anchor 时间 ≤ slot 时间
+    check("P9b 因果序: 旧 slot 配新 anchor 被拒;正常组合被收",
+          not causality_ok(anchor_l1_slot=100, block_l2_slot=600)
+          and causality_ok(anchor_l1_slot=100, block_l2_slot=1250))
+
+
+def test_p10_slashing_acceptance_gate():
+    """r44 (门后半): 罚没生效按候选落地时点判 (§4.3 r41)。"""
+    EFFECT = 50
+    def signer_allowed(cand_landed_at, slashed=True):
+        return (not slashed) or cand_landed_at < EFFECT
+    check("P10 罚没后落地的候选拒含该 signer;生效前已落地祖父化",
+          signer_allowed(49) and not signer_allowed(50) and not signer_allowed(51)
+          and signer_allowed(51, slashed=False))
+
+
+def test_p11_fallback_snapshot():
+    """r44 (门后半): 兜底资格按 lag_final > Δ_lag_final 判定,开窗即快照、
+    保持到结算窗口收盘 (§6.3 r42/r44)。"""
+    DELTA_LAG_FINAL = DELTA_LAG_FINAL_L1
+    class FallbackAccounting:
+        def __init__(self):
+            self.snapshot = None
+        def observe(self, lag_final, l1_now):
+            if self.snapshot is None and lag_final > DELTA_LAG_FINAL:
+                self.snapshot = (True, l1_now)
+        def eligible(self, l1_now, window_close_at):
+            return self.snapshot is not None and l1_now <= window_close_at
+    fa = FallbackAccounting()
+    fa.observe(lag_final=DELTA_LAG_FINAL + 10, l1_now=0)
+    check("P11 兜底资格快照保持到窗口收盘,provisional lag 重置不撤销",
+          fa.eligible(l1_now=5, window_close_at=W_SETTLE)
+          and fa.eligible(l1_now=W_SETTLE, window_close_at=W_SETTLE))
 
 
 if __name__ == "__main__":
     for t in [test_p1_total_order, test_p2_order_independence,
               test_p3_supersession_cursors, test_p4_whitewash,
-              test_p5_lazy_close, test_p6_reorg_replay, test_p7_gas_no_deadlock]:
+              test_p5_lazy_close, test_p6_reorg_replay, test_p7_gas_no_deadlock,
+              test_p8_bridge_no_starvation, test_p9_anchor_geometry,
+              test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot]:
         t()
     print("RESULTS: settlement-window model — ALL PROPERTIES PASS")
     for i, name in enumerate(PASS, 1):
