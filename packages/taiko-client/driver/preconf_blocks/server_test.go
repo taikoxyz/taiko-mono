@@ -28,12 +28,18 @@ type PreconfBlockAPIServerTestSuite struct {
 }
 
 type stubTopicPeerLister struct {
-	peers     []peer.ID
-	lastTopic string
+	peers      []peer.ID
+	lastTopic  string
+	readyAfter int
+	listCalls  int
 }
 
 func (s *stubTopicPeerLister) ListPeers(topic string) []peer.ID {
 	s.lastTopic = topic
+	s.listCalls++
+	if s.readyAfter > 0 && s.listCalls >= s.readyAfter {
+		return []peer.ID{"peer"}
+	}
 	return s.peers
 }
 
@@ -266,7 +272,9 @@ func TestImportMissingAncientsDoesNotConsumeRequestWithoutTopicPeers(t *testing.
 		ParentHash:  parentHash,
 	}}
 
-	if err := server.ImportMissingAncientsFromCache(context.Background(), payload, nil); err == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if err := server.ImportMissingAncientsFromCache(ctx, payload, nil); err == nil {
 		t.Fatal("expected missing parent error")
 	}
 	if requests.Contains(parentHash) {
@@ -274,6 +282,46 @@ func TestImportMissingAncientsDoesNotConsumeRequestWithoutTopicPeers(t *testing.
 	}
 	if topicPeers.lastTopic != "/taiko/167/0/requestPreconfBlocks" {
 		t.Fatalf("request topic = %q, want %q", topicPeers.lastTopic, "/taiko/167/0/requestPreconfBlocks")
+	}
+}
+
+func TestWaitForPreconfBlockRequestPeersRetriesUntilReady(t *testing.T) {
+	topicPeers := &stubTopicPeerLister{readyAfter: 2}
+	server := &PreconfBlockAPIServer{
+		rpc:                 &rpc.Client{L2: &rpc.EthClient{ChainID: big.NewInt(167)}},
+		gossipSubTopicPeers: topicPeers,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if !server.waitForPreconfBlockRequestPeers(ctx, 12*time.Second) {
+		t.Fatal("expected request topic to become ready during the wait")
+	}
+	if topicPeers.listCalls != 2 {
+		t.Fatalf("topic peer checks = %d, want 2", topicPeers.listCalls)
+	}
+}
+
+func TestWaitForPreconfBlockRequestPeersStopsWhenContextIsCanceled(t *testing.T) {
+	server := &PreconfBlockAPIServer{
+		rpc:                 &rpc.Client{L2: &rpc.EthClient{ChainID: big.NewInt(167)}},
+		gossipSubTopicPeers: new(stubTopicPeerLister),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result := make(chan bool, 1)
+	go func() {
+		result <- server.waitForPreconfBlockRequestPeers(ctx, time.Second)
+	}()
+
+	select {
+	case ready := <-result:
+		if ready {
+			t.Fatal("expected canceled readiness wait to fail")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("readiness wait did not stop after context cancellation")
 	}
 }
 
