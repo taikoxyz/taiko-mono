@@ -29,6 +29,30 @@ contract Target is IMessageInvocable {
     receive() external payable { }
 }
 
+contract ReentrantProbe is IMessageInvocable {
+    Bridge private immutable bridge;
+    bool public wasInNonReentrant;
+    bytes4 public reentrancyError;
+
+    constructor(Bridge _bridge) {
+        bridge = _bridge;
+    }
+
+    function onMessageInvocation(bytes calldata) external payable {
+        wasInNonReentrant = bridge.inNonReentrant();
+
+        IBridge.Message memory message;
+        try bridge.processMessage(message, "") { }
+        catch (bytes memory reason) {
+            bytes4 selector;
+            assembly {
+                selector := mload(add(reason, 32))
+            }
+            reentrancyError = selector;
+        }
+    }
+}
+
 contract TestBridge2_processMessage is TestBridge2Base {
     function test_bridge2_processMessage_basic() public dealEther(Alice) assertSameTotalBalance {
         vm.startPrank(Alice);
@@ -426,5 +450,39 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         vm.expectRevert(Bridge.B_INVALID_CONTEXT.selector);
         eBridge.context();
+    }
+
+    function test_bridge2_processMessage__reentrancy_blocked_and_deprecated_slots_untouched()
+        public
+        transactBy(Carol)
+    {
+        ReentrantProbe probe = new ReentrantProbe(eBridge);
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.value = 1 ether;
+        message.destOwner = Alice;
+        message.to = address(probe);
+        message.data = abi.encodeCall(ReentrantProbe.onMessageInvocation, (""));
+
+        eBridge.processMessage(message, FAKE_PROOF);
+        assertTrue(eBridge.messageStatus(eBridge.hashMessage(message)) == IBridge.Status.DONE);
+
+        // The lock was engaged during the invocation and blocked the reentrant call.
+        assertTrue(probe.wasInNonReentrant());
+        assertEq(
+            bytes32(probe.reentrancyError()), bytes32(EssentialContract.REENTRANT_CALL.selector)
+        );
+        assertFalse(eBridge.inNonReentrant());
+
+        // The lock and context live in transient storage, so the deprecated persistent slots
+        // (see Bridge_Layout.sol) stay untouched: the former storage-backed implementation
+        // would have left the __reentry byte (slot 201, offset 0) and the __ctx slots (253-254)
+        // non-zero after processing.
+        assertEq(uint256(vm.load(address(eBridge), bytes32(uint256(201)))) & 0xff, 0);
+        assertEq(vm.load(address(eBridge), bytes32(uint256(253))), bytes32(0));
+        assertEq(vm.load(address(eBridge), bytes32(uint256(254))), bytes32(0));
     }
 }
