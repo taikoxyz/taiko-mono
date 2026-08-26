@@ -16,6 +16,14 @@ import "./Bridge_Layout.sol"; // DO NOT DELETE
 /// @notice See the documentation for {IBridge}.
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
 /// on L1 and L2 may be different.
+/// @notice On Taiko mainnet, the L1 bridge's initial balance at L2 genesis was 999,999,600 Ether.
+/// Additionally, two other addresses had non-zero balances:
+/// - 0x69AA0361Dbb0527d4F1e5312403Bd41788fe61Fe holds 199 Ether
+/// - 0x00000968bfe78aa27cd380d629d61c89bd6b03e8 holds 1 Ether
+/// Together, these three accounts back a total premint Ether balance of 999,999,800 on Taiko
+/// Alethia layer 2. Initially, the plan was to mint 1,000,000,000 Ether, but a minor error
+/// occurred. The combined balance of the L1 and L2 bridges must be no less than 999,999,800
+/// Ether.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialResolverContract, IBridge {
     using LibMath for uint256;
@@ -46,15 +54,26 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
-    /// @dev Gas limit for sending Ether.
+    /// @dev Gas limit for sending Ether, used as the CALL gas operand — a callee-only budget (a
+    /// value-bearing CALL additionally grants the callee the unchanged 2,300 stipend). The
+    /// figures below are historical transaction-level measurements that include the 21k intrinsic
+    /// cost (an EOA callee consumes ~0 gas), so the callee-side margin is far larger than they
+    /// suggest. State-access repricing forks such as EIP-8038 raise mostly caller-side costs
+    /// (value-transfer account write, cold-recipient access) that are paid by this contract
+    /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
     // - For Gnosis Safe wallet, gas used is about 28000
     uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
 
-    /// @dev Place holder value when not using transient storage
+    /// @dev Place holder value stored in the context slots between message invocations.
     uint256 private constant _PLACEHOLDER = type(uint256).max;
+
+    /// @dev The transient-storage slot of the call context: keccak256("bridge.ctx_slot"). The
+    /// context spans three consecutive transient slots (msgHash, from, srcChainId).
+    bytes32 private constant _CTX_SLOT =
+        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
     ISignalService public immutable signalService;
     IQuotaManager public immutable quotaManager;
@@ -72,7 +91,8 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev Slot 2.
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
-    /// @dev Slots 3 and 4
+    /// @dev Slots 3 and 4. Deprecated: the call context lives in transient storage (_CTX_SLOT);
+    /// the storage slots are retained only for layout compatibility.
     Context private __ctx;
 
     /// @dev Slot 5.
@@ -546,12 +566,16 @@ contract Bridge is EssentialResolverContract, IBridge {
         emit MessageStatusChanged(_msgHash, _status);
     }
 
-    /// @notice Stores the call context
+    /// @notice Stores the call context in transient storage (EIP-1153).
     /// @param _msgHash The message hash.
     /// @param _from The sender's address.
     /// @param _srcChainId The source chain ID.
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal virtual {
-        __ctx = Context(_msgHash, _from, _srcChainId);
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal {
+        assembly {
+            tstore(_CTX_SLOT, _msgHash)
+            tstore(add(_CTX_SLOT, 1), _from)
+            tstore(add(_CTX_SLOT, 2), _srcChainId)
+        }
     }
 
     /// @notice Checks if the signal was received and caches cross-chain data if requested.
@@ -591,8 +615,16 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
-    function _loadContext() internal view virtual returns (Context memory) {
-        return __ctx;
+    function _loadContext() internal view returns (Context memory) {
+        bytes32 msgHash;
+        address from;
+        uint64 srcChainId;
+        assembly {
+            msgHash := tload(_CTX_SLOT)
+            from := tload(add(_CTX_SLOT, 1))
+            srcChainId := tload(add(_CTX_SLOT, 2))
+        }
+        return Context(msgHash, from, srcChainId);
     }
 
     /// @notice Checks if the signal was received.
@@ -654,7 +686,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (offset to last bytes element of Message)
         // + 32 bytes (padded encoding of length of Message.data + dataLength
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-        // Non-zero calldata cost per byte is 16.
+        // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
+        // 40 gas per non-zero byte under the EIP-7623 floor. This estimate deliberately ignores
+        // the floor: processMessage transactions are usually execution-heavy, and an on-chain
+        // floor term would have to be derived from msg.data, which a contract relayer can pad
+        // almost for free to inflate its fee. Recalibrate the additive constants from
+        // MessageProcessed production stats instead.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
