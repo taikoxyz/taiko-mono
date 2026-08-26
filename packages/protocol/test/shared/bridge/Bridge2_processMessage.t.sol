@@ -385,4 +385,46 @@ contract TestBridge2_processMessage is TestBridge2Base {
         uint256 totalBalance2 = getBalanceForAccounts() + address(target).balance;
         assertEq(totalBalance2, totalBalance);
     }
+
+    function test_bridge2_processMessage__context_transient_lifecycle() public transactBy(Carol) {
+        Target target = new Target(eBridge);
+
+        // No context is readable outside a message invocation.
+        vm.expectRevert(Bridge.B_INVALID_CONTEXT.selector);
+        eBridge.context();
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.value = 1 ether;
+        message.destOwner = Alice;
+        message.to = address(target);
+        message.data = abi.encodeCall(Target.onMessageInvocation, (""));
+
+        eBridge.processMessage(message, FAKE_PROOF);
+        bytes32 hash1 = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash1) == IBridge.Status.DONE);
+
+        (bytes32 msgHash,,) = target.ctx();
+        assertEq(msgHash, hash1);
+
+        // The context is cleared as soon as the invocation returns, within the same
+        // transaction — the transient slots are reset per invocation, not per transaction.
+        vm.expectRevert(Bridge.B_INVALID_CONTEXT.selector);
+        eBridge.context();
+
+        // A second invocation in the same transaction observes its own context.
+        message.value = 2 ether;
+        eBridge.processMessage(message, FAKE_PROOF);
+        bytes32 hash2 = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash2) == IBridge.Status.DONE);
+        assertTrue(hash2 != hash1);
+
+        (msgHash,,) = target.ctx();
+        assertEq(msgHash, hash2);
+
+        vm.expectRevert(Bridge.B_INVALID_CONTEXT.selector);
+        eBridge.context();
+    }
 }

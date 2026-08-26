@@ -2,13 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 import "./MainnetInbox_Layout.sol"; // DO NOT DELETE
 
 /// @title MainnetInbox
-/// @dev This contract extends the base Inbox contract for Shasta mainnet deployment with an
-/// optimized reentrancy lock implementation.
+/// @dev This contract extends the base Inbox contract with the Shasta mainnet configuration.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is Inbox {
     // ---------------------------------------------------------------
@@ -53,16 +51,4 @@ contract MainnetInbox is Inbox {
                 permissionlessInclusionMultiplier: 160
             }))
     { }
-
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
-
-    function _storeReentryLock(uint8 _reentry) internal override {
-        LibFasterReentryLock.storeReentryLock(_reentry);
-    }
-
-    function _loadReentryLock() internal view override returns (uint8) {
-        return LibFasterReentryLock.loadReentryLock();
-    }
 }
