@@ -54,7 +54,13 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
-    /// @dev Gas limit for sending Ether.
+    /// @dev Gas limit for sending Ether, used as the CALL gas operand — a callee-only budget (a
+    /// value-bearing CALL additionally grants the callee the unchanged 2,300 stipend). The
+    /// figures below are historical transaction-level measurements that include the 21k intrinsic
+    /// cost (an EOA callee consumes ~0 gas), so the callee-side margin is far larger than they
+    /// suggest. State-access repricing forks such as EIP-8038 raise mostly caller-side costs
+    /// (value-transfer account write, cold-recipient access) that are paid by this contract
+    /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
@@ -680,7 +686,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (offset to last bytes element of Message)
         // + 32 bytes (padded encoding of length of Message.data + dataLength
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-        // Non-zero calldata cost per byte is 16.
+        // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
+        // 40 gas per non-zero byte under the EIP-7623 floor. This estimate deliberately ignores
+        // the floor: processMessage transactions are usually execution-heavy, and an on-chain
+        // floor term would have to be derived from msg.data, which a contract relayer can pad
+        // almost for free to inflate its fee. Recalibrate the additive constants from
+        // MessageProcessed production stats instead.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
