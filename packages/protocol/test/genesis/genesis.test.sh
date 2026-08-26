@@ -20,7 +20,7 @@ TESTNET_CONFIG="$DIR/testnet/docker-compose.yml"
 touch "$GENESIS_JSON"
 
 # The node only serves the generated genesis state over RPC; it does not produce blocks. Configure
-# it as post-Merge and activate Cancun at genesis so its EVM supports transient storage.
+# it as post-Merge and activate Osaka at genesis so its EVM matches the contracts' target.
 echo '
 {
   "config": {
@@ -43,7 +43,26 @@ echo '
     "terminalTotalDifficulty": 0,
     "terminalTotalDifficultyPassed": true,
     "shanghaiTime": 0,
-    "cancunTime": 0
+    "cancunTime": 0,
+    "pragueTime": 0,
+    "osakaTime": 0,
+    "blobSchedule": {
+      "cancun": {
+        "target": 3,
+        "max": 6,
+        "baseFeeUpdateFraction": 3338477
+      },
+      "prague": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      },
+      "osaka": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      }
+    }
   },
   "gasLimit": "30000000",
   "difficulty": "0",
@@ -91,17 +110,17 @@ function waitTestNode {
   done
 }
 
-function checkTransientStorage {
+function checkOsakaSupport {
   local rpcUrl="$1"
-  local initCode="0x600160005d60005c60005260206000f3"
-  local expected="0x0000000000000000000000000000000000000000000000000000000000000001"
+  local initCode="0x600160005d60005c1e60005260206000f3"
+  local expected="0x00000000000000000000000000000000000000000000000000000000000000ff"
   local actual
 
-  echo "Checking EIP-1153 support on test node: $rpcUrl"
+  echo "Checking Osaka support on test node: $rpcUrl"
 
-  # The init code stores 1 in transient slot 0, loads it, and returns the value.
+  # The init code stores 1 in transient slot 0, loads it, applies Osaka's CLZ opcode, and returns 255.
   if ! actual=$(cast rpc --rpc-url "$rpcUrl" eth_call "{\"data\":\"$initCode\"}" latest); then
-      echo "ERROR: test node does not support EIP-1153 transient storage"
+      echo "ERROR: test node does not support the Osaka EVM"
       return 1
   fi
 
@@ -109,7 +128,7 @@ function checkTransientStorage {
   actual="${actual%\"}"
 
   if [ "$actual" != "$expected" ]; then
-      echo "ERROR: unexpected EIP-1153 probe result: $actual"
+      echo "ERROR: unexpected Osaka probe result: $actual"
       return 1
   fi
 }
@@ -117,7 +136,7 @@ function checkTransientStorage {
 RPC_URL=http://localhost:18545
 
 waitTestNode "$RPC_URL"
-checkTransientStorage "$RPC_URL"
+checkOsakaSupport "$RPC_URL"
 
 FOUNDRY_PROFILE=genesis forge test \
   -vvv \
