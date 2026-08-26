@@ -30,7 +30,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     /// @dev Slot 1. __reentry is deprecated: the reentry lock lives in transient storage
     /// (_REENTRY_SLOT); the storage slot is retained only for layout compatibility.
-    uint8 internal __reentry;
+    uint8 private __reentry;
     uint8 internal __paused;
 
     uint256[49] private __gap;
