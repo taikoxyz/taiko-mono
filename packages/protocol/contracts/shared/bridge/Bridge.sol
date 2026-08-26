@@ -16,6 +16,14 @@ import "./Bridge_Layout.sol"; // DO NOT DELETE
 /// @notice See the documentation for {IBridge}.
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
 /// on L1 and L2 may be different.
+/// @notice On Taiko mainnet, the L1 bridge's initial balance at L2 genesis was 999,999,600 Ether.
+/// Additionally, two other addresses had non-zero balances:
+/// - 0x69AA0361Dbb0527d4F1e5312403Bd41788fe61Fe holds 199 Ether
+/// - 0x00000968bfe78aa27cd380d629d61c89bd6b03e8 holds 1 Ether
+/// Together, these three accounts back a total premint Ether balance of 999,999,800 on Taiko
+/// Alethia layer 2. Initially, the plan was to mint 1,000,000,000 Ether, but a minor error
+/// occurred. The combined balance of the L1 and L2 bridges must be no less than 999,999,800
+/// Ether.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialResolverContract, IBridge {
     using LibMath for uint256;
