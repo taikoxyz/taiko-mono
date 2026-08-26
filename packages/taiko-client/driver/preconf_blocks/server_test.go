@@ -2,6 +2,8 @@ package preconfblocks
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +14,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/suite"
@@ -248,46 +249,49 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
 }
 
-func TestImportMissingAncientsDoesNotConsumeRequestWithoutTopicPeers(t *testing.T) {
-	requests, err := lru.New[common.Hash, struct{}](maxTrackedPayloads)
-	if err != nil {
-		t.Fatal(err)
-	}
+func (s *PreconfBlockAPIServerTestSuite) TestImportMissingAncientsSkipsRequestWithoutTopicPeers() {
+	topicPeers := new(stubTopicPeerLister) // Nobody is subscribed to the request topic.
+	s.s.gossipSubTopicPeers = topicPeers
+
+	progress, err := s.RPCClient.L2ExecutionEngineSyncProgress(context.Background())
+	s.Nil(err)
+	s.False(progress.IsSyncing())
+
+	// Sit above the sync tip, so the very-old-block skip does not apply and the walk
+	// actually reaches the publish path.
+	tip := progress.HighestOriginBlockID.Uint64()
+	s.Less(tip, math.MaxUint64-requestSyncMargin-1)
+
 	parentHash := common.HexToHash("0x1234")
-	topicPeers := new(stubTopicPeerLister)
-	server := &PreconfBlockAPIServer{
-		rpc:                 &rpc.Client{L2: &rpc.EthClient{ChainID: big.NewInt(167)}},
-		envelopesCache:      newEnvelopeQueue(),
-		blockRequestsCache:  requests,
-		gossipSubTopicPeers: topicPeers,
-	}
-	payload := &preconf.Envelope{Payload: &eth.ExecutionPayload{
-		BlockNumber: eth.Uint64Quantity(2),
+	envelope := &preconf.Envelope{Payload: &eth.ExecutionPayload{
+		BlockNumber: eth.Uint64Quantity(tip + requestSyncMargin + 1),
 		ParentHash:  parentHash,
 	}}
 
-	if err := server.ImportMissingAncientsFromCache(context.Background(), payload, nil); err == nil {
-		t.Fatal("expected missing parent error")
-	}
-	if requests.Contains(parentHash) {
-		t.Fatal("request without topic peers was added to the de-duplication cache")
-	}
-	if topicPeers.lastTopic != "/taiko/167/0/requestPreconfBlocks" {
-		t.Fatalf("request topic = %q, want %q", topicPeers.lastTopic, "/taiko/167/0/requestPreconfBlocks")
-	}
+	s.NotNil(s.s.ImportMissingAncientsFromCache(context.Background(), envelope, nil))
+
+	// The publish was skipped, so the de-duplication slot must stay free: otherwise the
+	// `Contains` check would short-circuit every later payload asking for the same parent.
+	s.False(s.s.blockRequestsCache.Contains(parentHash))
+	s.Equal(s.requestTopic(), topicPeers.lastTopic)
 }
 
-func TestHasPreconfBlockRequestPeers(t *testing.T) {
-	server := &PreconfBlockAPIServer{
-		rpc: &rpc.Client{L2: &rpc.EthClient{ChainID: big.NewInt(167)}},
-		gossipSubTopicPeers: &stubTopicPeerLister{
-			peers: []peer.ID{"peer"},
-		},
-	}
+func (s *PreconfBlockAPIServerTestSuite) TestHasPreconfBlockRequestPeers() {
+	s.s.gossipSubTopicPeers = nil
+	s.False(s.s.hasPreconfBlockRequestPeers())
 
-	if !server.hasPreconfBlockRequestPeers() {
-		t.Fatal("expected request topic with a connected peer to be ready")
-	}
+	s.s.gossipSubTopicPeers = new(stubTopicPeerLister)
+	s.False(s.s.hasPreconfBlockRequestPeers())
+
+	topicPeers := &stubTopicPeerLister{peers: []peer.ID{"peer"}}
+	s.s.gossipSubTopicPeers = topicPeers
+	s.True(s.s.hasPreconfBlockRequestPeers())
+	s.Equal(s.requestTopic(), topicPeers.lastTopic)
+}
+
+// requestTopic returns the preconfirmation block request topic for the test chain.
+func (s *PreconfBlockAPIServerTestSuite) requestTopic() string {
+	return fmt.Sprintf("/taiko/%s/0/requestPreconfBlocks", s.RPCClient.L2.ChainID.String())
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {

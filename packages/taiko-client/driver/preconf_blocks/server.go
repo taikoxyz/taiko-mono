@@ -789,19 +789,6 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
-				if !s.hasPreconfBlockRequestPeers() {
-					log.Info(
-						"No peers on preconfirmation block request topic, skip publishing L2Request",
-						"blockID", parentNum,
-						"hash", currentPayload.Payload.ParentHash.Hex(),
-					)
-					return fmt.Errorf(
-						"failed to find parent payload in the cache, number %d, hash %s",
-						currentPayload.Payload.BlockNumber-1,
-						currentPayload.Payload.ParentHash.Hex(),
-					)
-				}
-
 				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 				if err != nil {
 					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
@@ -813,6 +800,17 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				}
 
 				publishRequest := func() {
+					// Skipping here leaves `blockRequestsCache` untouched on purpose, so a later
+					// inbound payload can drive this walk again once a peer can answer.
+					if !s.hasPreconfBlockRequestPeers() {
+						log.Info(
+							"No peers on preconfirmation block request topic, skip publishing L2Request",
+							"blockID", parentNum,
+							"hash", currentPayload.Payload.ParentHash.Hex(),
+						)
+						return
+					}
+
 					log.Info(
 						"Publishing preconfirmation block request",
 						"blockID", parentNum,
