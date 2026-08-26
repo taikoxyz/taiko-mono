@@ -46,15 +46,18 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
-    /// @dev Gas limit for sending Ether.
+    /// @dev Gas limit for sending Ether, used as the CALL gas operand — a callee-only budget (a
+    /// value-bearing CALL additionally grants the callee the unchanged 2,300 stipend). The
+    /// figures below are historical transaction-level measurements that include the 21k intrinsic
+    /// cost (an EOA callee consumes ~0 gas), so the callee-side margin is far larger than they
+    /// suggest. State-access repricing forks such as EIP-8038 raise mostly caller-side costs
+    /// (value-transfer account write, cold-recipient access) that are paid by this contract
+    /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
     // - For Gnosis Safe wallet, gas used is about 28000
-    // The cap only bounds recipient griefing; it must stay comfortably above the most expensive
-    // legitimate wallet receive path, including headroom for state-access repricing forks such as
-    // EIP-8038, which add thousands of gas to smart-wallet receive paths.
-    uint256 private constant _SEND_ETHER_GAS_LIMIT = 50_000;
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
 
     /// @dev Place holder value when not using transient storage
     uint256 private constant _PLACEHOLDER = type(uint256).max;
