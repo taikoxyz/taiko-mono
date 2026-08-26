@@ -658,8 +658,11 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (padded encoding of length of Message.data + dataLength
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
         // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
-        // 40 gas per non-zero byte under the EIP-7623 floor, which this estimate ignores because
-        // processMessage transactions are execution-heavy.
+        // 40 gas per non-zero byte under the EIP-7623 floor. This estimate deliberately ignores
+        // the floor: processMessage transactions are usually execution-heavy, and an on-chain
+        // floor term would have to be derived from msg.data, which a contract relayer can pad
+        // almost for free to inflate its fee. Recalibrate the additive constants from
+        // MessageProcessed production stats instead.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
