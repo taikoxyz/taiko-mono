@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 """Generate slot-chain-spec.html from slot-chain-spec.md.
 
-Usage: python3 build-html.py   (requires: pip install markdown pymdown-extensions)
+Usage:
+    python3 build-html.py            # regenerate slot-chain-spec.html
+    python3 build-html.py --check    # regenerate and exit 1 if the committed
+                                     # HTML differs from the markdown (drift guard;
+                                     # run after every edit to slot-chain-spec.md)
+
+Requires: pip install markdown pymdown-extensions
+(authored against markdown==3.10.x, pymdown-extensions==10.x; newer versions
+should work — the --check diff will surface any rendering change).
+
 Mermaid diagrams are emitted as <pre class="mermaid"> and rendered client-side
 by mermaid.js (loaded from CDN when the page is opened; diagram source stays
 readable even offline).
 """
 import html
 import re
+import sys
 
 import markdown
 from pymdownx.superfences import SuperFencesCodeExtension
@@ -20,7 +30,8 @@ def mermaid_fence(source, language, css_class, options, md, **kwargs):
 SRC = "slot-chain-spec.md"
 OUT = "slot-chain-spec.html"
 
-text = open(SRC, encoding="utf-8").read()
+with open(SRC, encoding="utf-8") as f:
+    text = f.read()
 
 md = markdown.Markdown(
     extensions=[
@@ -105,5 +116,17 @@ page = f"""<!DOCTYPE html>
 </html>
 """
 
-open(OUT, "w", encoding="utf-8").write(page)
-print(f"wrote {OUT}: {len(page)} bytes")
+if "--check" in sys.argv[1:]:
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            current = f.read()
+    except FileNotFoundError:
+        current = None
+    if current != page:
+        print(f"DRIFT: {OUT} is stale — run `python3 build-html.py` and commit it")
+        sys.exit(1)
+    print(f"{OUT} is up to date with {SRC}")
+else:
+    with open(OUT, "w", encoding="utf-8") as f:
+        f.write(page)
+    print(f"wrote {OUT}: {len(page)} bytes")

@@ -15,9 +15,10 @@ Slot-Chain §5.6 结算窗口(settlement window)可执行参考模型 + 性质�
   P7  共享 gas 预算下不存在"无合法块"死锁; 双约束最大前缀确定且守上限
       (r44: 含非创世游标基线)
   P8  桥接满载洪泛下普通强制队列不被饿死 (C_bridge 保留,§7 r19-1;修 DeepSeek C2)
-  P9  anchor 新鲜度几何(最坏兜底路径 ≤ D_anchor_max)与因果序(§8;门后半)
+  P9  设置器不变量在独立声明的部署值间互检(r46 非空化)与因果序(§8;门后半)
   P10 罚没生效按候选落地时点判定(§4.3;门后半)
   P11 兜底资格快照保持到窗口收盘(§6.3 Δ_lag_final;门后半)
+  P12 窗口中途入队: 队列 append-only 按序号引用,基线只冻结游标/状态(r46)
 
 运行:  python3 settlement-window-model.py   (零依赖,全部断言通过则打印 RESULTS)
 注意: 这是【模型】——签名/证明/执行以布尔占位,只精确建模本设计新增的
@@ -47,15 +48,19 @@ assert C_BRIDGE_COUNT < C_FORCE_COUNT and C_BRIDGE_GAS < C_FORCE_GAS
 ORD_GUARANTEE_COUNT = C_FORCE_COUNT - C_BRIDGE_COUNT   # 普通队列保证容量 (r19-1)
 ORD_GUARANTEE_GAS = C_FORCE_GAS - C_BRIDGE_GAS
 
-# 时序参数 (P9 anchor 几何;单位: L1 slot)
-D_ANCHOR = 32
-DELTA_LAG_PROV_L1 = 128  # Δ_lag,prov 换算 L1 slot (服务观测阈值)
-W_SETTLE_MAX = 15        # W_settle 共识上界 (§6.2 中危 1;含墙钟换算余量)
-DELTA_LAG_FINAL_L1 = DELTA_LAG_PROV_L1 + W_SETTLE_MAX + 5  # Δ_lag,final (r44, DeepSeek C1)
-P_PROVE_MAX = 75
-T_INCLUDE_MAX = 10
-# 兜底最坏路径的 lag 项是 Δ_lag,final (兜底以 lag_final 开窗), 非 Δ_lag,prov
-D_ANCHOR_MAX = D_ANCHOR + DELTA_LAG_FINAL_L1 + P_PROVE_MAX + T_INCLUDE_MAX + 5  # §12 最强不变量
+# 时序参数——规范参数表的【建议部署值】(单位: L1 slot; 1 epoch = 32 L1 slot)。
+# 每个常量都是独立声明的字面量(照抄 §12 参数表),P9a 用不等式把它们互相校验;
+# 绝不由公式互相推导——推导式断言恒真、失去检验力 (r46, DeepSeek-on-v1.45 W1;
+# 该非空化立刻抓出 v1.44 的一处数值松弛: 8 epoch 的 Δ_lag,final 初值低于
+# Δ_lag,prov + W_settle_max = 128+150 L1 slot,规范同步改为 9 epoch)。
+D_ANCHOR = 32              # 锚定深度
+DELTA_LAG_PROV_L1 = 128    # Δ_lag,prov = 4 epoch (服务观测阈值)
+W_SETTLE_L1 = 100          # W_settle ≈ 20 min (真实建议值;窗口状态机测试用上面的玩具 W_SETTLE)
+W_SETTLE_MAX_L1 = 150      # W_settle_max ≈ 1.5 × W_settle (§6.2 中危 1 共识上界)
+DELTA_LAG_FINAL_L1 = 288   # Δ_lag,final = 9 epoch ≈ 57.6 min (参数表声明值,r46 重校)
+P_PROVE_MAX = 75           # 最坏证明时延 ≈ 15 min
+T_INCLUDE_MAX = 10         # §1 有界纳入界 ≈ 2 min
+D_ANCHOR_MAX = 420         # anchor 新鲜度上限 ≈ 84 min (参数表声明值,r46 重校)
 
 CONTENT, FORCED = "content", "forced"
 
@@ -392,14 +397,24 @@ def test_p8_bridge_no_starvation():
 
 
 def test_p9_anchor_geometry():
-    """r44 (门后半): anchor 新鲜度几何 + 因果序。"""
-    worst_age = D_ANCHOR + DELTA_LAG_FINAL_L1 + P_PROVE_MAX + T_INCLUDE_MAX
-    check("P9a 最坏兜底路径 anchor 年龄 ≤ D_anchor_max (设置器不变量成立)",
-          worst_age <= D_ANCHOR_MAX)
+    """r44 (门后半) / r46 非空化: 设置器不变量在【独立声明的】部署值之间互检——
+    改动任一分量而不更新声明值即失败,不再是由公式推导的恒真断言 (DeepSeek W1)。"""
+    check("P9a 设置器不变量互检: Δ_lag,final ≥ prov+W_settle_max; D_anchor_max ≥ 最坏路径; W_settle ≥ 证明+纳入",
+          DELTA_LAG_FINAL_L1 >= DELTA_LAG_PROV_L1 + W_SETTLE_MAX_L1
+          and D_ANCHOR + DELTA_LAG_FINAL_L1 + P_PROVE_MAX + T_INCLUDE_MAX <= D_ANCHOR_MAX
+          and W_SETTLE_L1 >= P_PROVE_MAX + T_INCLUDE_MAX
+          and W_SETTLE_MAX_L1 >= W_SETTLE_L1)
+    # §8 规范关系 anchor.L1_timestamp ≤ L2_timestamp(slot),按各自时基显式建模
+    # (r46 强化, DeepSeek 建议 3): L1 slot = 12 s, L2 slot = 1 s, 同创世原点。
+    def l1_timestamp(l1_slot):
+        return 12 * l1_slot
+    def l2_timestamp(l2_slot):
+        return 1 * l2_slot
     def causality_ok(anchor_l1_slot, block_l2_slot):
-        return anchor_l1_slot * 12 <= block_l2_slot        # anchor 时间 ≤ slot 时间
-    check("P9b 因果序: 旧 slot 配新 anchor 被拒;正常组合被收",
-          not causality_ok(anchor_l1_slot=100, block_l2_slot=600)
+        return l1_timestamp(anchor_l1_slot) <= l2_timestamp(block_l2_slot)
+    check("P9b 因果序 anchor.L1_time ≤ L2_time(slot): 旧 slot 配新 anchor 被拒;等号允许;正常组合被收",
+          not causality_ok(anchor_l1_slot=100, block_l2_slot=1199)
+          and causality_ok(anchor_l1_slot=100, block_l2_slot=1200)
           and causality_ok(anchor_l1_slot=100, block_l2_slot=1250))
 
 
@@ -432,12 +447,37 @@ def test_p11_fallback_snapshot():
           and fa.eligible(l1_now=W_SETTLE, window_close_at=W_SETTLE))
 
 
+def test_p12_midwindow_enqueue():
+    """r46 (DeepSeek-on-v1.45 W2): 基线冻结的对象是【游标与状态】,不含队列内容——
+    强制/消息队列在 L1 上 append-only、条目按序号引用且内容不可变,窗口中途入队的
+    新条目对能覆盖到它的后续候选可见且确定;先前候选已记账的终局不受影响,
+    窗口态仍是 L1 历史(含入队事件)的纯函数。"""
+    q_ord0 = [Item(i, 2) for i in range(4)]
+    st = L1State(GEN, list(q_ord0), [], [])
+    c1 = mk(GEN.tip_hash, [CONTENT] * 2, "p12a")
+    assert st.accept_candidate(c1, l1_now=0, cand_id="c1")
+    end1 = st.best[1]
+    st.q_ord.append(Item(99, 2))            # 窗口中途 L1 入队 (append-only)
+    c2 = mk(GEN.tip_hash, [CONTENT] * 3, "p12b")
+    assert st.accept_candidate(c2, l1_now=3, cand_id="c2")
+    end2 = st.best[1]
+    check("P12a 中途入队: 先前候选终局不变,更重候选对同一冻结游标基线可消费新条目,canonical 不动",
+          st.best[2] == "c2" and end2.f_cur_ord > end1.f_cur_ord
+          and st.canonical == GEN)
+    st2 = L1State(GEN, list(q_ord0) + [Item(99, 2)], [], [])
+    st2.accept_candidate(c1, 0, "c1")
+    st2.accept_candidate(c2, 3, "c2")
+    check("P12b append-only ⇒ 位置稳定: 条目入队时点不影响验证结果(同赢家同终局)",
+          st2.best[2] == "c2" and st2.best[1] == end2)
+
+
 if __name__ == "__main__":
     for t in [test_p1_total_order, test_p2_order_independence,
               test_p3_supersession_cursors, test_p4_whitewash,
               test_p5_lazy_close, test_p6_reorg_replay, test_p7_gas_no_deadlock,
               test_p8_bridge_no_starvation, test_p9_anchor_geometry,
-              test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot]:
+              test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot,
+              test_p12_midwindow_enqueue]:
         t()
     print("RESULTS: settlement-window model — ALL PROPERTIES PASS")
     for i, name in enumerate(PASS, 1):

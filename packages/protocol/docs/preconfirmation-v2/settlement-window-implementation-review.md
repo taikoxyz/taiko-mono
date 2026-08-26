@@ -9,13 +9,13 @@
 
 ## 1. 模型未覆盖项的闭合（r43 边界 → r44）
 
-r43 交付时如实标注了四个模型外项,r44 全部入模型（19 项断言全过,见
+r43 交付时如实标注了四个模型外项,r44 全部入模型,r46 又加 P12 与 P9a 非空化（21 项断言全过,见
 [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md)）:
 
 | r43 未覆盖项 | r44 处置 | 性质 |
 | --- | --- | --- |
 | 桥接预留（r19-1 `C_bridge`） | 模型曾把 `C_force` 全额给桥接队列（DeepSeek-on-v1.43 C2,模型自身的 bug）;修为桥接前缀先按 `C_bridge` 封顶、普通队列拿余量 | P8:桥接满载洪泛下普通队列每块仍消费 ≥ 保证容量 |
-| anchor 新鲜度/因果序 | 时序几何入模型:最坏兜底路径年龄 = `D_anchor + Δ_lag,final + P_prove,max + T_include,max`;因果序 = anchor 的 L1 时间 ≤ 块的 slot 时间 | P9a/P9b |
+| anchor 新鲜度/因果序 | 时序几何入模型：设置器不变量在独立声明的部署值间互检（r46 非空化，当即抓出 Δ_lag,final 8-epoch 初值与自身公式的矛盾并重校为 9 epoch）；因果序按显式时基检验（含等号边界） | P9a/P9b |
 | 罚没生效 | §4.3 r41 规则入模型:判据是**候选的 L1 落地时点**（L1 自己的记账,不可伪造）——生效后落地拒含该 signer,生效前已落地祖父化 | P10 |
 | 兜底会计快照 | §6.3 r42/r44 规则入模型:资格按 `lag_final > Δ_lag,final` 开窗即快照、保持到窗口收盘;恶意同伙落短候选清零 `lag_prov` 不撤销资格 | P11 |
 
@@ -36,6 +36,10 @@ struct WindowState {
     // -- 冻结基线 (openWindow 一次写入) --
     bytes32 baseCommit;    // = keccak(F.tipHash, F.stateRoot, F_consumed, m_consumed)
                            //   候选证明的公共输入必须等于它 (基线冻结 §5.6)
+                           //   注意: 冻结的是游标, 不是队列内容快照 (r46, §5.6 澄清)——
+                           //   队列承诺须逐条/append-only (哈希链或 MMR), 证明按序号引用
+                           //   条目; 不得把"落地时刻的单一可变队列根"做公共输入, 否则
+                           //   窗口内先后候选的公共输入漂移 (模型 P12)
     // -- 窗口与最优候选 (打包进两个词) --
     uint48  closeAtL1Block; // 收盘高度; 0 = 无开启窗口
     uint8   bestLane;       // 1 bit 即够

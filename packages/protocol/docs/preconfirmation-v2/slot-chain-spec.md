@@ -1,4 +1,4 @@
-# Slot-Chain：基于槽位签名链的预确认协议（v2 设计规范，草案 v1.45）
+# Slot-Chain：基于槽位签名链的预确认协议（v2 设计规范，草案 v1.46）
 
 > **文档定位。** 这是 Taiko 预确认协议的**后继设计**（successor design），取代此前的
 > v15 设计线（永续拍卖 + epoch 判定；其全文与评审记录保留在 git 历史中，可保留结论
@@ -688,7 +688,13 @@ flowchart TD
   closeWindow():        requires L1.now ≥ close_at ∧ best ≠ ⊥;
                         canonical ← best.end                    # 唯一一次原子提交
   ```
-  （`closeWindow` 可由任何人调用或并入下一窗口首个交易的 lazy close;**同一 L1 高度的判定序
+  （**基线冻结的对象是【游标与状态】，不含队列内容（r46 澄清，DeepSeek-on-v1.45 W2）**：
+  强制/消息队列在 L1 上 append-only，条目按全局序号引用、内容一经入队不可变——故无须"冻结
+  队列快照"：两个候选从同一冻结游标起步，读到的每个序号位置必然相同；窗口中途入队的新条目
+  对"其块能覆盖到它"的后续候选可见且确定（更重候选合法地多消费），窗口态仍是 L1 历史——
+  含入队事件——的纯函数。实现上这要求队列承诺按**逐条/append-only**（哈希链或 MMR）组织、
+  证明按序号引用条目，**不得**用"落地时刻的单一可变队列根"做公共输入——否则窗口内先后候选
+  的公共输入漂移。模型性质 P12。`closeWindow` 可由任何人调用或并入下一窗口首个交易的 lazy close;**同一 L1 高度的判定序
   规范化为"收盘先于接受"**——`close_at` 高度及之后到达的候选不参与本窗口、只能作为下一窗口的
   首候选，任何实现（含 lazy close）必须与该语义一致（r44,W2；可执行模型的 `replay` 即此语义，
   附录 C P5b/P6）；窗口态与 `best` 都是 L1
@@ -761,7 +767,7 @@ flowchart TD
       P2 -->|"+ W_settle ≈ 20 min"| P3["window-final<br/>提款/桥接从此执行<br/>稳态 lag_final ≈ 35–40 min"]
       P3 -->|"+ F_l1（分钟级）"| P4["L1-final<br/>绝对最终"]
       P2 -.->|"服务观测阈值 Δ_lag,prov = 4 epoch ≈ 25.6 min"| P2
-      P3 -.->|"兜底/计次阈值 Δ_lag,final ≈ 8 epoch ≈ 51.2 min<br/>= Δ_lag,prov + W_settle_max + 余量"| P3
+      P3 -.->|"兜底/计次阈值 Δ_lag,final ≈ 9 epoch ≈ 57.6 min<br/>= Δ_lag,prov + W_settle_max + 余量"| P3
   ```
 - L2→L1 桥（提款）延迟 = 落地节奏 + `W_settle`（提款只从 window-final 状态执行，§6.1）。
 - **不设快速收盘（fast path）**：即便窗口内只有一个候选也等满 `W_settle` 再最终——"提前收盘"
@@ -773,7 +779,10 @@ flowchart TD
   敞口核算与兜底会计**（下条与 §6.3）。**两个阈值，一一对应（r44,DeepSeek-on-v1.43 C1——只拆
   判定量不拆阈值，兜底窗口会常开）**：`Δ_lag,prov`（= 旧 `Δ_lag`，初始 4 epoch ≈ 25.6 min,
   设置器不变量 `≥ 正常 provisional 滞后带上界`,r10-2）作用于 `lag_prov`;
-  **`Δ_lag,final = Δ_lag,prov + W_settle_max(墙钟换算) + 余量`**（初始 ≈ 8 epoch ≈ 51.2 min）
+  **`Δ_lag,final = Δ_lag,prov + W_settle_max(墙钟换算) + 余量`**（初始 ≈ **9 epoch ≈ 57.6 min**
+  ——r46 重校：r44 曾写 8 epoch ≈ 51.2 min，但 `Δ_lag,prov + W_settle_max` = 128 + 150 L1 slot
+  = 55.6 min 已超过它，8 epoch 违反本行自己的公式；模型 P9a 非空化后（部署值独立声明、
+  不等式互检）当即抓出，改为 9 epoch = 288 L1 slot，余量 2 min）
   作用于 `lag_final`。理由：窗口最终性下稳态 `lag_final ≈ lag_prov + W_settle ≈ 35–40 min`,
   **本身就高于旧阈值 25.6 min**——若兜底/计次以 `lag_final` 判定却沿用旧阈值，兜底窗口在完全
   健康的系统里永久开启、"成本+加成"报酬承诺永续有效、尽责聚合者被持续计次直至终止；r42 只换
@@ -818,8 +827,8 @@ flowchart TD
       T -->|"否"| W
   ```
 
-- **兜底窗口是状态条件，不是计时器**：只要 **`lag_final > Δ_lag,final`**（初始 ≈ **8 epoch
-  ≈ 51.2 分钟** = `Δ_lag,prov + W_settle_max + 余量`,r44——阈值必须随判定量一起抬，推导见
+- **兜底窗口是状态条件，不是计时器**：只要 **`lag_final > Δ_lag,final`**（初始 ≈ **9 epoch
+  ≈ 57.6 分钟** = `Δ_lag,prov + W_settle_max + 余量`，r44 引入、r46 数值重校——阈值必须随判定量一起抬，推导见
   §6.2;`Δ_lag,prov` 初始 = **4 epoch ≈ 25.6 分钟**；评审 r10-2 的校准——v1.9 及之前初始值为 3 epoch ≈ 19.2 分钟，
   **低于** §6.2 自己声明的 15–20 分钟正常滞后带上界，违反 r6-2 的设置器不变量
   `Δ_lag ≥ 正常滞后带上界`：正常运行中窗口就会打开、误罚诚实聚合者，"零误伤"
@@ -1301,7 +1310,7 @@ sequenceDiagram
       T0["块产生<br/>anchor 已老 ≤ D_anchor<br/>（32 L1 slot）"] -->|"聚合者扣落地拖延<br/>≤ Δ_lag,final（兜底开窗阈值）"| T1["兜底被授权"]
       T1 -->|"证明 ≤ P_prove,max"| T2["证明完成"]
       T2 -->|"L1 纳入 ≤ T_include,max"| T3["候选落地<br/>anchor 新鲜度在此校验"]
-      T3 --> INV["不变量：D_anchor_max ≥ D_anchor + Δ_lag,final + P_prove,max + T_include,max + 余量<br/>≈ 380 L1 slot ≈ 76 分钟 —— 罩住兜底授权全程，死锁不存在"]
+      T3 --> INV["不变量：D_anchor_max ≥ D_anchor + Δ_lag,final + P_prove,max + T_include,max + 余量<br/>≈ 420 L1 slot ≈ 84 分钟 —— 罩住兜底授权全程，死锁不存在"]
   ```
 
 - **陈旧-anchor 尾巴死锁的解——`D_anchor_max` 覆盖兜底授权期（r41，取代 v1.40 的承诺时间豁免
@@ -1313,7 +1322,7 @@ sequenceDiagram
   它，否则 C1 修复会反过来把这条几何解打穿）——即新鲜度窗口
   必须罩住"从块产生，到 `lag_final` 越阈开启兜底，到兜底证明并落地"的全程。于是**凡兜底被授权落
   的尾巴（`lag_final ≤ Δ_lag,final` 时产生、越阈后被兜底落）其 anchor 必然仍新鲜**，死锁不存在。
-  按初始参数粗算:32 + 256 + 75 + 10 + 余量 ≈ **380 L1 slot（≈76 分钟）**，仍是可部署的值。超出该窗口的
+  按初始参数粗算：32 + 288 + 75 + 10 + 余量 ≈ **420 L1 slot（≈84 分钟）**（r46 随 `Δ_lag,final` 重校同步抬升），仍是可部署的值。超出该窗口的
   情形（兜底也持续缺位 > D_anchor_max），陈旧前缀不可再落，链从窗口最终头重建——与 §6.3 兜底
   可行性是同一条件性残留，如实标注。因果序不变量（上条）不受影响。
 - 因为每秒都有块（正常情况下），L1→L2 消息的摄入节奏是秒级的——优于 v15 中
@@ -1507,7 +1516,7 @@ L1 直接验签（双签）、要么是 L1 时钟与 L1 事实的机械判定（
     廉价拒绝路径（提交者付费），或把验证下放到更便宜的域。
 15. **lag 阈值余量的最坏情形校准**（评审 r27-5，DeepSeek 第 6 轮 W5；r44 起覆盖两个阈值）：
     `Δ_lag,prov`（4 epoch ≈25.6 min）对正常 provisional 滞后带上界（20 min）只余 ≈5.6 min；
-    `Δ_lag,final`（≈8 epoch ≈51.2 min）对稳态 `lag_final` 带（≈35–40 min）的余量由
+    `Δ_lag,final`（≈9 epoch ≈57.6 min，r46 重校）对稳态 `lag_final` 带（≈35–40 min）的余量由
     `W_settle_max` 的余量项承担。证明尖峰 + L1 最终性抖动叠加下可能把尽责聚合者推过阈值、
     误开兜底窗口。需评估是否加宽。
 16. **强制包含数据载体迁移**（评审 r36，DeepSeek 警告）：§7 把强制条目载荷从 blob
@@ -1554,14 +1563,14 @@ L1 直接验签（双签）、要么是 L1 时钟与 L1 事实的机械判定（
 | `Δ_prop` 落地传播沉淀 | 待定（<< `Δ_lag,prov`） | slot | §5.2 落地深度，r33 |
 | `δ_slash` 罚没生效延迟 | 64 | slot | §4.3 |
 | `Δ_lag,prov` 服务观测阈值 | 4 | epoch（≈25.6 min） | `≥ 正常 provisional 滞后带上界`，§6.2 r10-2/r44；不进入罚则 |
-| `Δ_lag,final` 兜底/计次阈值 | ≈8（= `Δ_lag,prov` + `W_settle_max` + 余量） | epoch（≈51.2 min） | 稳态 `lag_final ≈ lag_prov + W_settle（35–40 min）> 旧阈值`，不抬则兜底永开（r44,DeepSeek C1）；§6.2/§6.3 |
+| `Δ_lag,final` 兜底/计次阈值 | ≈9（= `Δ_lag,prov` 128 + `W_settle_max` 150 + 余量 10，L1 slot 计 = 288；r46 重校，8 epoch 违反本公式） | epoch（≈57.6 min） | 稳态 `lag_final ≈ lag_prov + W_settle（35–40 min）> 旧阈值`，不抬则兜底永开（r44,DeepSeek C1）；§6.2/§6.3 |
 | `W_settle_max` 窗口共识上界 | 待定（≈1.5×`W_settle`） | L1 块（含墙钟换算余量） | 钉住可撤销敞口与 `Δ_lag,final`，§6.2 r42 中危 1 |
 | `G_strike` 计次限速 | 1 | epoch | §6.3 r13-1 |
 | `m_agg` / `m_agg'` | 2 / 4 | 次 | 终止阈值，§6.3 |
 | `F_delay` 强制到期延迟 | 待定 | slot | **唯一到期谓词** `due_slot = submission_slot + F_delay`，**`submission_slot := L2_slot(入队交易所在 canonical L1 块 timestamp)`**（不取 L2 头——巨大停摆下两解分叉，r42 中危 2；随 L1 重组回滚） |
 | `H_force` 逾期兜底阈值 | 1 | epoch | §9 事件用：到期后再逾 `H_force` 触发任意密钥仅强制块，非第二套到期判据，r39 |
 | `C_force` / `C_bridge` | 待定 / 25%×`C_force` | gas+条目 | 单条目份额 = 扣对方保留后，§7 r19-1 |
-| `D_anchor` / `D_anchor_max` | 32 / 待定（≈380,r44 随 `Δ_lag,final` 抬升） | L1 slot | 锚定深度/新鲜度上限；`D_anchor_max ≥ D_anchor + Δ_lag,final(L1 slot) + P_prove,max + T_include,max + 余量`（r42 全文统一最强式，r44 lag 项升 final） |
+| `D_anchor` / `D_anchor_max` | 32 / 待定（≈420，r46 随 `Δ_lag,final` 重校抬升） | L1 slot | 锚定深度/新鲜度上限；`D_anchor_max ≥ D_anchor + Δ_lag,final(L1 slot) + P_prove,max + T_include,max + 余量`（r42 全文统一最强式，r44 lag 项升 final） |
 | `W_settle` 结算窗口 | 待定（≈100 L1 slot ≈20 min） | L1 块 | §5.6：`≥ P_prove,max + T_include,max + 余量`，r41 option C |
 | gas 份额 `G_anchor`/`C_force`gas/`C_l1msg`gas | 待定 | gas | §8：三者和 ≤ `block_gas_limit` + 单条准入上限 + 水位线，r39 |
 
@@ -1632,9 +1641,10 @@ L1 直接验签（双签）、要么是 L1 时钟与 L1 事实的机械判定（
 | P6 | 窗口态是 L1 历史纯函数；浅重组截断后重放一致、被重组候选原子消失 | L1 重组 |
 | P7 | 共享 gas 预算 + 单条准入下，300 组随机可达队列状态（含非创世游标）均存在合法块；双约束最大前缀守上限 | 第 4/5 轮 gas 死锁 |
 | P8 | 桥接队列满载洪泛下，普通强制队列每块仍消费 ≥ 保证容量（`C_bridge` 预留生效，不被饿死） | r19-1;DeepSeek-on-v1.43 C2（r44） |
-| P9 | anchor 新鲜度几何：最坏兜底路径年龄 ≤ `D_anchor_max`（lag 项 = `Δ_lag,final`）；因果序 anchor 时间 ≤ slot 时间 | §8 几何解；门后半（r44） |
+| P9 | 设置器不变量在**独立声明的部署值**间互检（`Δ_lag,final ≥ prov+W_settle_max`、`D_anchor_max ≥` 最坏路径、`W_settle ≥` 证明+纳入——r46 非空化，推导式断言恒真无检验力）；因果序 `anchor.L1_time ≤ L2_time(slot)`（显式时基，含等号边界） | §8/§12；r44 引入，r46 非空化（DeepSeek W1/建议 3） |
 | P10 | 罚没生效按**候选 L1 落地时点**判：生效后落地拒含该 signer，生效前已落地祖父化 | §4.3 r41；门后半（r44） |
 | P11 | 兜底资格按 `lag_final > Δ_lag,final` 开窗即快照、保持到窗口收盘；provisional 短候选清零 lag_prov 不撤销资格 | §6.3 r42/r44 高危 2 |
+| P12 | 窗口中途入队：队列 append-only 按序号引用，基线只冻结游标/状态——先前候选终局不变、更重候选可确定地消费新条目、入队时点不影响验证结果 | §5.6 r46 澄清（DeepSeek W2） |
 
 **模型边界（如实）**：签名/证明/执行合法性为占位（模型只精确建模本设计**新增**的共识对象:
 全序 key、窗口状态机、游标算术、gas 份额、时序几何）。r44 起 anchor 几何/因果序、罚没生效
@@ -1649,6 +1659,22 @@ L1 直接验签（双签）、要么是 L1 时钟与 L1 事实的机械判定（
 > 逐版本记录每一轮对抗评审的发现与修复（新在前、旧在后）。这是设计的完整论证轨迹，
 > 非规范性；正文与之冲突时以正文为准。
 
+> **草案 v1.46，2026-08-26——DeepSeek-on-v1.45 批次：模型检验力修复 + 一处真实数值矛盾重校。**
+> **(W1) P9a 非空化——并当即抓出 r44 的数值松弛**：模型此前把 `D_ANCHOR_MAX` 定义为
+> "最坏路径 + 5"再断言"最坏路径 ≤ D_ANCHOR_MAX"，恒真、无检验力。修：时序参数全部改为
+> **独立声明的部署值字面量**（照抄参数表），P9a 用不等式互检。非空化后立即失败——r44 的
+> `Δ_lag,final` 初值 8 epoch（51.2 min）**低于其自身公式** `Δ_lag,prov + W_settle_max`
+> = 128 + 150 L1 slot（55.6 min）。重校：`Δ_lag,final` 初值 **9 epoch = 288 L1 slot ≈
+> 57.6 min**；连带 `D_anchor_max` 初值估算 380 → **≈420 L1 slot（≈84 分钟）**（§6.2/§6.3/
+> §8/§12/参数表/两幅图同步）。**(W2) 基线冻结语义澄清 + P12**：冻结对象是【游标与状态】，
+> 不含队列内容——队列 append-only、按序号引用、内容不可变，故窗口中途入队对能覆盖到它的
+> 后续候选可见且确定；实现上队列承诺须逐条/append-only（哈希链或 MMR），不得用落地时刻的
+> 单一可变队列根做公共输入（§5.6 新条 + 实现前复核文档 `baseCommit` 一节同步）。模型新增
+> P12a/P12b（中途入队不改先前候选终局；入队时点不影响验证结果），**21 项断言全过**。
+> **(W3) HTML 再生成纪律**：`build-html.py` 加 `--check` 模式（再生成并 diff，脏则非零退出），
+> README 写明"改 md → 重新生成 + check"约定；monorepo CI 工作流不在本 docs 分支范围，列为
+> 合入时的仓库级跟进。**(建议)** P9b 强化为按显式时基函数检验 `anchor.L1_timestamp ≤
+> L2_timestamp(slot)`（含等号边界）；`build-html.py` 用 with 管理文件、注明依赖版本。
 > **草案 v1.45，2026-08-26——可读性修订（所有者指令：五轮自审，零规范语义变更）。**
 > 第 1 轮（结构）：约 400 行版本变更历史从文档顶部移入本附录，正文前新增"如何读这份
 > 文档"导读（含评审括注的阅读约定）与目录。第 2 轮（排版）：中文语境内的半角逗号/分号/

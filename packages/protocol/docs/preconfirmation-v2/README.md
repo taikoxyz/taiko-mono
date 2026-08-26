@@ -16,16 +16,21 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| [`slot-chain-spec.md`](slot-chain-spec.md) | **主规范（草案 v1.45，中文，含 10 幅 mermaid 图）**。核心机制：1 秒一个 slot 的构建者排班表（lookahead）、逐块签名并以父块哈希串联的签名链（signature chain）、原子落地 + 结算窗口最终性（数据 + 有效性证明一笔交易落为候选,窗口内最重已证明候选收盘即最终,option C）、基于 L1 可观测滞后量（lag）的无许可兜底落地与失职计次（聚合者无论掉线还是恶意拖延都不是活性单点）、逐块电路强制的强制包含（forced inclusion，任意密钥仅强制块逃生阀）、双签的 L1 直接验签罚没（窗口累积敞口定价）。相对 v15 删除了 EBC/epoch 判定、默认派生、完全无政府模式与取消级联等整套机制；§9 的活性核算表给出各角色（含 Byzantine 聚合者）故障下的恢复界。 |
-| [`settlement-window-model.py`](settlement-window-model.py) | **结算窗口可执行参考模型**（零依赖 Python）：§5.2 全序 key、§5.6 窗口状态机、§7/§8 双约束游标 + 时序几何/罚没时点/兜底快照的可运行版本,19 项性质断言（P1–P11,附录 C）。改规则必须同步改模型重跑。 |
-| [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（P1–P11 共 19 项全过）与覆盖对照。 |
+| [`slot-chain-spec.md`](slot-chain-spec.md) | **主规范（草案 v1.46，中文，含 10 幅 mermaid 图）**。核心机制：1 秒一个 slot 的构建者排班表（lookahead）、逐块签名并以父块哈希串联的签名链（signature chain）、原子落地 + 结算窗口最终性（数据 + 有效性证明一笔交易落为候选,窗口内最重已证明候选收盘即最终,option C）、基于 L1 可观测滞后量（lag）的无许可兜底落地与失职计次（聚合者无论掉线还是恶意拖延都不是活性单点）、逐块电路强制的强制包含（forced inclusion，任意密钥仅强制块逃生阀）、双签的 L1 直接验签罚没（窗口累积敞口定价）。相对 v15 删除了 EBC/epoch 判定、默认派生、完全无政府模式与取消级联等整套机制；§9 的活性核算表给出各角色（含 Byzantine 聚合者）故障下的恢复界。 |
+| [`settlement-window-model.py`](settlement-window-model.py) | **结算窗口可执行参考模型**（零依赖 Python）：§5.2 全序 key、§5.6 窗口状态机、§7/§8 双约束游标 + 时序几何/罚没时点/兜底快照/窗口中途入队的可运行版本，21 项性质断言（P1–P12，附录 C；时序参数为独立声明的部署值，P9a 以不等式互检——不由公式推导，保持检验力）。改规则必须同步改模型重跑。 |
+| [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（P1–P12 共 21 项全过）与覆盖对照。 |
 | [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md) | **实现前复核（§12 第 18 项后半,r44）**：模型未覆盖项闭合对照、Solidity 级 `acceptCandidate` 存储布局（固定 4 词复用）与 gas 分析（边际 O(1),≈20–25k/候选）、Inbox 对接路径、仍开放项清单。非规范性;最终判定 = 所有者 + 人类安全评审。 |
-| [`slot-chain-spec.html`](slot-chain-spec.html) | 主规范的 **HTML 版**（由 markdown 生成，mermaid 图客户端渲染；浏览器直接打开阅读）。内容与 `slot-chain-spec.md` 同步，以 md 为源，改 md 后用 `python3 build-html.py` 重新生成。 |
+| [`slot-chain-spec.html`](slot-chain-spec.html) | 主规范的 **HTML 版**（由 markdown 生成，mermaid 图客户端渲染；浏览器直接打开阅读）。内容与 `slot-chain-spec.md` 同步，以 md 为源，改 md 后用 `python3 build-html.py` 重新生成；`python3 build-html.py --check` 校验是否漂移（r46 纪律：每次改 md 必须重新生成 + check；合入主干时建议加 CI 检查同跑 `--check` 与 `settlement-window-model.py`，属仓库级跟进，不在本 docs 分支内改 CI）。 |
 | [`legacy-summary.md`](legacy-summary.md) | 既往工作摘要（非规范性）：v15 线一段话、保留的关键结论（v15 活性事实、强制包含不可删的论证、拆分评估的坑与 v2 解法对照、在线核实过的外部先例）、原始文档的 git 历史索引。 |
 
 ## 状态
 
-草案 v1.45（2026-08-26）：可读性修订（五轮自审，零语义变更）——变更历史移入附录 D、新增导读/目录、全角标点规范、10 幅 mermaid 图嵌入正文、新增 HTML 版。
+草案 v1.46（2026-08-26）：DeepSeek-on-v1.45 批次——模型 P9a 非空化（部署值独立声明、不等式互检），
+并当即抓出 r44 的真实数值矛盾：`Δ_lag,final` 8-epoch 初值低于其自身公式（128+150 L1 slot），
+重校为 **9 epoch ≈ 57.6 min**、`D_anchor_max` 估算 380→**≈420 L1 slot**；§5.6 澄清基线冻结 =
+游标/状态（队列 append-only 按序号引用，勿用可变队列根做公共输入）+ 模型 P12；`build-html.py`
+加 `--check` 漂移防护；P9b 显式时基。21 项断言全过。
+v1.45：可读性修订（五轮自审，零语义变更）——变更历史移入附录 D、新增导读/目录、全角标点规范、10 幅 mermaid 图嵌入正文、新增 HTML 版。
 v1.44：**§12"实现前的门"两半均已交付** + DeepSeek-on-v1.43 批次修复。
 后半（r44）:模型补 P8–P11（桥接预留饿死抵抗、anchor 几何/因果序、罚没按候选落地时点、兜底
 资格快照）共 19 项断言全过 + 实现前复核文档（Solidity 存储/gas 分析与 Inbox 对接）;批次修复:
