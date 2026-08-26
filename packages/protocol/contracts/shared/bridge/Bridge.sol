@@ -559,7 +559,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _msgHash The message hash.
     /// @param _from The sender's address.
     /// @param _srcChainId The source chain ID.
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal virtual {
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal {
         assembly {
             tstore(_CTX_SLOT, _msgHash)
             tstore(add(_CTX_SLOT, 1), _from)
@@ -604,7 +604,7 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
-    function _loadContext() internal view virtual returns (Context memory) {
+    function _loadContext() internal view returns (Context memory) {
         bytes32 msgHash;
         address from;
         uint64 srcChainId;
