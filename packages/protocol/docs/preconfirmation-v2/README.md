@@ -16,15 +16,17 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| [`slot-chain-spec.md`](slot-chain-spec.md) | **主规范（草案 v1.44，中文）**。核心机制：1 秒一个 slot 的构建者排班表（lookahead）、逐块签名并以父块哈希串联的签名链（signature chain）、原子落地 + 结算窗口最终性（数据 + 有效性证明一笔交易落为候选,窗口内最重已证明候选收盘即最终,option C）、基于 L1 可观测滞后量（lag）的无许可兜底落地与失职计次（聚合者无论掉线还是恶意拖延都不是活性单点）、逐块电路强制的强制包含（forced inclusion，任意密钥仅强制块逃生阀）、双签的 L1 直接验签罚没（窗口累积敞口定价）。相对 v15 删除了 EBC/epoch 判定、默认派生、完全无政府模式与取消级联等整套机制；§9 的活性核算表给出各角色（含 Byzantine 聚合者）故障下的恢复界。 |
+| [`slot-chain-spec.md`](slot-chain-spec.md) | **主规范（草案 v1.45，中文，含 10 幅 mermaid 图）**。核心机制：1 秒一个 slot 的构建者排班表（lookahead）、逐块签名并以父块哈希串联的签名链（signature chain）、原子落地 + 结算窗口最终性（数据 + 有效性证明一笔交易落为候选,窗口内最重已证明候选收盘即最终,option C）、基于 L1 可观测滞后量（lag）的无许可兜底落地与失职计次（聚合者无论掉线还是恶意拖延都不是活性单点）、逐块电路强制的强制包含（forced inclusion，任意密钥仅强制块逃生阀）、双签的 L1 直接验签罚没（窗口累积敞口定价）。相对 v15 删除了 EBC/epoch 判定、默认派生、完全无政府模式与取消级联等整套机制；§9 的活性核算表给出各角色（含 Byzantine 聚合者）故障下的恢复界。 |
 | [`settlement-window-model.py`](settlement-window-model.py) | **结算窗口可执行参考模型**（零依赖 Python）：§5.2 全序 key、§5.6 窗口状态机、§7/§8 双约束游标 + 时序几何/罚没时点/兜底快照的可运行版本,19 项性质断言（P1–P11,附录 C）。改规则必须同步改模型重跑。 |
 | [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（P1–P11 共 19 项全过）与覆盖对照。 |
 | [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md) | **实现前复核（§12 第 18 项后半,r44）**：模型未覆盖项闭合对照、Solidity 级 `acceptCandidate` 存储布局（固定 4 词复用）与 gas 分析（边际 O(1),≈20–25k/候选）、Inbox 对接路径、仍开放项清单。非规范性;最终判定 = 所有者 + 人类安全评审。 |
+| [`slot-chain-spec.html`](slot-chain-spec.html) | 主规范的 **HTML 版**（由 markdown 生成，mermaid 图客户端渲染；浏览器直接打开阅读）。内容与 `slot-chain-spec.md` 同步，以 md 为源，改 md 后用 `python3 build-html.py` 重新生成。 |
 | [`legacy-summary.md`](legacy-summary.md) | 既往工作摘要（非规范性）：v15 线一段话、保留的关键结论（v15 活性事实、强制包含不可删的论证、拆分评估的坑与 v2 解法对照、在线核实过的外部先例）、原始文档的 git 历史索引。 |
 
 ## 状态
 
-草案 v1.44（2026-08-26）：**§12"实现前的门"两半均已交付** + DeepSeek-on-v1.43 批次修复。
+草案 v1.45（2026-08-26）：可读性修订（五轮自审，零语义变更）——变更历史移入附录 D、新增导读/目录、全角标点规范、10 幅 mermaid 图嵌入正文、新增 HTML 版。
+v1.44：**§12"实现前的门"两半均已交付** + DeepSeek-on-v1.43 批次修复。
 后半（r44）:模型补 P8–P11（桥接预留饿死抵抗、anchor 几何/因果序、罚没按候选落地时点、兜底
 资格快照）共 19 项断言全过 + 实现前复核文档（Solidity 存储/gas 分析与 Inbox 对接）;批次修复:
 **拆 `Δ_lag,prov`/`Δ_lag,final` 阈值**（r42 换判定量未抬阈值,稳态 `lag_final ≈35–40 min` 高于
