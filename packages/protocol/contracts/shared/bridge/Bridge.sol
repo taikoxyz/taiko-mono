@@ -53,8 +53,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     // - For Gnosis Safe wallet, gas used is about 28000
     // The cap only bounds recipient griefing; it must stay comfortably above the most expensive
     // legitimate wallet receive path, including headroom for state-access repricing forks such as
-    // EIP-8038, which add thousands of gas to smart-wallet receive paths (see
-    // docs/gas_schedule_assumptions.md).
+    // EIP-8038, which add thousands of gas to smart-wallet receive paths.
     uint256 private constant _SEND_ETHER_GAS_LIMIT = 50_000;
 
     /// @dev Place holder value stored in the context slots between message invocations.
@@ -678,7 +677,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
         // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
         // 40 gas per non-zero byte under the EIP-7623 floor, which this estimate ignores because
-        // processMessage transactions are execution-heavy (see docs/gas_schedule_assumptions.md).
+        // processMessage transactions are execution-heavy.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
