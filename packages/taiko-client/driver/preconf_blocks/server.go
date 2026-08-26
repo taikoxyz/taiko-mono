@@ -902,6 +902,13 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	return nil
 }
 
+// hasPreconfBlockRequestPeers reports whether any connected peer is subscribed to the
+// preconfirmation block request topic. Publishing to a topic nobody listens on still succeeds,
+// and would consume the `blockRequestsCache` slot for that parent hash, so the caller skips the
+// request instead of burning it on a message no one receives.
+//
+// The topic string mirrors `preconfBlocksRequestTopic` in the op-node fork, which does not
+// export it.
 func (s *PreconfBlockAPIServer) hasPreconfBlockRequestPeers() bool {
 	if s.gossipSubTopicPeers == nil || s.rpc == nil || s.rpc.L2 == nil || s.rpc.L2.ChainID == nil {
 		return false
