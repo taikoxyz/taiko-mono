@@ -1,0 +1,13 @@
+# 生成物：main.tex 由 build-pdf.py 从 markdown 生成，编译中间件不入库。
+# 入库的只有手写的 figures.tex 与最终的 ../slot-chain-spec.pdf。
+main.tex
+*.aux
+*.log
+*.out
+*.toc
+*.pdf
+measure.tex
+test-figures.*
+measure.*
+test-figures.*
+tw.*
