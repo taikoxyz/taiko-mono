@@ -44,15 +44,16 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, text width=54mm] (B) {Builder (rotates by lookahead)\\produces and signs a block each slot};
-  \node[scnode, text width=54mm, below=12mm of B] (SC)
+  \node[scnode, text width=58mm] (B)
+        {Builder (rotates by lookahead)\\produces and signs a block each slot};
+  \node[scnode, text width=58mm, below=12mm of B] (SC)
         {Signature chain (P2P, not on chain)\\a signed block is itself the preconfirmation};
-  \node[scnode, scfill, text width=54mm, below=14mm of SC] (CAND) {L1 candidate batch};
-  \node[scnode, text width=54mm, below=9mm of CAND] (WIN)
-        {Settlement window $W_{\mathrm{settle}}$\\heaviest proven candidate in the window wins};
-  \node[scnode, scfill, text width=54mm, below=10mm of WIN] (WF)
-        {window-final\\withdrawals and bridging execute from this state};
-  \node[scnode, scfillb, text width=54mm, below=10mm of WF] (LF)
+  \node[scnode, scfill, text width=58mm, below=14mm of SC] (CAND) {L1 candidate batch};
+  \node[scnode, text width=58mm, below=9mm of CAND] (WIN)
+        {Settlement window $W_{\mathrm{settle}}$\\heaviest proven candidate\\in the window wins};
+  \node[scnode, scfill, text width=58mm, below=10mm of WIN] (WF)
+        {window-final\\withdrawals and bridging\\execute from this state};
+  \node[scnode, scfillb, text width=58mm, below=10mm of WF] (LF)
         {L1-final};
 
   \node[scsm, text width=22mm] (AGG) at ($(CAND.west)+(-4.0,1.0)$) {Aggregator\\(untrusted)};
@@ -95,7 +96,7 @@
 
   \draw[scdarr] (b2.north) to[bend left=26]
         node[sclab, above=0.5mm, text width=76mm]
-        {Gap: no proof required, nobody is slashed; the \texttt{parent\_hash} of $s{+}3$ points straight at the block of $s{+}1$}
+        {Gap: no proof required, nobody is slashed; the \texttt{parent\_hash}\\of $s{+}3$ points straight at the block of $s{+}1$}
         (b3.north);
 \end{tikzpicture}
 \caption{A single builder going offline leaves nothing but a one-slot gap in the timeline: the next builder takes the last visible block as its parent and carries on, so the chain never stalls.}
@@ -113,9 +114,9 @@
   \foreach \x in {2.2,7.4,12.6}{\draw[scline] (\x,-0.16) -- (\x,0.16);}
 
   % below the axis: three instants
-  \node[scnote, text width=40mm, anchor=north] at (2.2,-0.35)
+  \node[scnote, text width=52mm, anchor=north] at (2.2,-0.35)
         {Snapshot point $H_{\mathrm{snap}}(W)$\\$=$ start of window $W$ $-\,D_{\mathrm{snap}}$\\
-         takes the RANDAO seed $+$ registry snapshot\\(already L1-final, immune to reorgs)};
+         takes the RANDAO seed\\$+$ registry snapshot\\(already L1-final, immune to reorgs)};
   \node[scsm, text width=34mm, anchor=north] at (7.4,-0.35)
         {Start of window $W$\\slot $= W \times W_{\mathrm{size}}$};
   \node[scsm, text width=26mm, anchor=north] at (12.6,-0.35)
@@ -127,12 +128,12 @@
         {$D_{\mathrm{snap}} \ge H_{\mathrm{look}} + F_{\mathrm{final}} +$ margin\\($=5$ L1 epoch)};
   \draw[scdim] (7.4,0.55) -- (12.6,0.55);
   \node[sclab, text width=48mm, anchor=south] at (10.0,0.65)
-        {$W_{\mathrm{size}} = 768$ slot\\fixed aligned partition, not a sliding window};
+        {$W_{\mathrm{size}} = 768$ slot\\fixed aligned partition,\\not a sliding window};
 
   % lookahead horizon (dashed)
-  \draw[scdarr] (7.4,-2.55) -- (12.6,-2.55);
-  \node[sclab, text width=56mm, anchor=north] at (10.0,-2.65)
-        {Lookahead is fixed before it is used: at every instant at least $H_{\mathrm{look}} = 768$ slot are computable};
+  \draw[scdarr] (7.4,-2.75) -- (12.6,-2.75);
+  \node[sclab, text width=56mm, anchor=north] at (10.0,-2.85)
+        {Lookahead is fixed before it is used:\\at every instant at least\\$H_{\mathrm{look}} = 768$ slot are computable};
 \end{tikzpicture}
 \caption{The time geometry of the snapshot point, the lookahead window and the lookahead horizon: entropy and the registry are frozen once and for all at $D_{\mathrm{snap}}$ before the window starts, so at every instant at least one full window of lookahead can be computed by anyone.}
 \label{fig:3}
@@ -154,18 +155,18 @@
          of the signature chain\\
          landing status is irrelevant: unlanded,\\
          landed or already final all qualify};
-  \node[scsm, scfill, text width=76mm, below=18mm of G] (T2)
+  \node[scsm, scfill, text width=90mm, below=18mm of G] (T2)
         {Tier (ii), recovery (a true stall)\\
          $P$ must satisfy both:\\
          (1) window-final (its candidate has closed)\\
          (2) L1-final (landing tx at $F_{\mathrm{l1}}$ depth)};
-  \node[scsm, text width=76mm, below=7mm of T2] (FR)
+  \node[scsm, text width=90mm, below=7mm of T2] (FR)
         {The header carries \texttt{final\_ref} ($\le$ this block's anchor)\\
          proving that $P$ was already $F_{\mathrm{l1}}$-final \emph{at signing time}\\
          (this closes the pre-sign / race-to-land loop at the $F_{\mathrm{l1}}$ boundary)};
-  \node[scsm, text width=76mm, below=7mm of FR] (LAND)
+  \node[scsm, text width=90mm, below=7mm of FR] (LAND)
         {Also checked at landing: $P$ must be the current canonical landed tip\\
-         tip already advanced $\Rightarrow$ the recovery block is benignly stranded, just rebuild};
+         tip already advanced $\Rightarrow$ benign stranding, rebuild and retry};
 
   \draw[scarr] (S) -- (G);
   \draw[scarr] (G) -- node[sclab, above=0.4mm] {yes} (T1);
@@ -193,27 +194,27 @@
 
   % main transitions (labels on the left)
   \draw[scarr] (IDLE) -- node[sclab, left=1.5mm, text width=44mm]
-        {first valid candidate extending $F$ lands:\\
+        {first valid candidate\\extending $F$ lands:\\
          frozen baseline base $=$\\
          $(F,\ \mathrm{stateRoot},$\\
          $F_{\mathrm{consumed}},\ m_{\mathrm{consumed}})$\\
          \texttt{close\_at} $=$ L1 height $+\ W_{\mathrm{settle}}$} (OPEN);
   \draw[scarr] (OPEN) -- node[sclab, left=1.5mm, text width=44mm]
-        {L1 height reaches \texttt{close\_at}\\(same height: close first, admit after)} (CLOSE);
+        {L1 height reaches \texttt{close\_at}\\(same height:\\close first, admit after)} (CLOSE);
 
   % IDLE dashed self-loop (right)
   \draw[scdarr] ($(IDLE.east)+(0,0.22)$) -- ++(0.8,0) |- ($(IDLE.east)+(0,-0.22)$);
   \node[sclab, text width=40mm, anchor=west] at (3.8,0)
-        {a candidate arriving after the close can only be the first candidate of the next window};
+        {arriving after the close $\Rightarrow$\\it can only be the first\\candidate of the next window};
 
   % OPEN self-loop 1
   \draw[scarr] ($(OPEN.east)+(0,0.46)$) -- ++(0.8,0) |- ($(OPEN.east)+(0,0.16)$);
   \node[sclab, text width=40mm, anchor=west] at ($(OPEN.east)+(1.2,0.95)$)
-        {heavier valid candidate: verified against the same frozen base, key strictly greater $\Rightarrow$ supersedes best (bookkeeping only)};
+        {heavier valid candidate,\\verified against the same\\frozen base, key strictly\\greater $\Rightarrow$ supersedes best\\(bookkeeping only)};
   % OPEN self-loop 2
   \draw[scarr] ($(OPEN.east)+(0,-0.16)$) -- ++(0.8,0) |- ($(OPEN.east)+(0,-0.46)$);
-  \node[sclab, text width=40mm, anchor=west] at ($(OPEN.east)+(1.2,-0.90)$)
-        {worse candidate arrives $\Rightarrow$ revert, zero state change};
+  \node[sclab, text width=40mm, anchor=west] at ($(OPEN.east)+(1.2,-0.95)$)
+        {worse candidate arrives $\Rightarrow$\\revert, zero state change};
 
   % back to idle after the close
   \draw[scarr] (CLOSE.west) -- ++(-3.4,0) |- (IDLE.west);
@@ -230,10 +231,10 @@
   \node[scnode, text width=56mm] (P1)
         {Levels 1 and 2: preconfirmation\\builder signature, seconds};
   \node[scnode, text width=56mm, below=14mm of P1] (P2)
-        {provisional landing\\the candidate is on L1,\\a heavier one may still supersede it in the window\\
+        {provisional landing\\the candidate is on L1,\\a heavier one may still supersede it\\within the window\\
          steady state $\mathrm{lag}_{\mathrm{prov}} \approx 15$--$20$ min};
   \node[scnode, scfill, text width=56mm, below=14mm of P2] (P3)
-        {window-final\\withdrawals and bridging execute from here\\
+        {window-final\\withdrawals and bridging\\execute from here\\
          steady state $\mathrm{lag}_{\mathrm{final}} \approx 35$--$40$ min};
   \node[scnode, scfillb, text width=56mm, below=14mm of P3] (P4)
         {L1-final\\absolute finality};
@@ -262,27 +263,27 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, text width=58mm] (W)
-        {Observe $\mathrm{lag}_{\mathrm{final}}$ (a pure function of L1 state)};
+  \node[scnode, text width=62mm] (W)
+        {Observe $\mathrm{lag}_{\mathrm{final}}$\\(a pure function of L1 state)};
   \node[scdec, text width=28mm, below=10mm of W] (C)
         {$\mathrm{lag}_{\mathrm{final}} > \Delta_{\mathrm{lag,final}}$ ?};
-  \node[scsm, text width=34mm, right=10mm of C] (N)
-        {Fallback window closed\\normal case: only the aggregator lands};
-  \node[scnode, scfill, text width=58mm, below=14mm of C] (O)
-        {Fallback window open (a state condition, not a timer)\\
-         eligibility and the reward commitment are \emph{snapshotted} until the settlement window closes};
-  \node[scnode, text width=58mm, below=8mm of O] (A)
+  \node[scsm, text width=38mm, right=10mm of C] (N)
+        {Fallback window closed\\normal case: only\\the aggregator lands};
+  \node[scnode, scfill, text width=62mm, below=14mm of C] (O)
+        {Fallback window open\\(a state condition, not a timer)\\
+         eligibility and reward commitment are\\\emph{snapshotted} until the window closes};
+  \node[scnode, text width=62mm, below=8mm of O] (A)
         {Anyone may land a valid candidate\\
-         reward $=$ cost $+$ premium, paid out of the aggregator's bond};
+         reward $=$ cost $+$ premium,\\paid out of the aggregator's bond};
   \node[scdec, text width=30mm, below=14mm of A] (S)
         {who supplied the batch\\accepted while open?};
-  \node[scsm, text width=36mm] (K1) at ($(S.south)+(-4.9,-1.6)$)
-        {fallback strike\\accrues rate-limited by $G_{\mathrm{strike}}$};
-  \node[scsm, text width=36mm] (K2) at ($(S.south)+(4.9,-1.6)$)
-        {late fee (priced on the overshoot)\\$+$ late count (rate-limited apart)};
+  \node[scsm, text width=40mm] (K1) at ($(S.south)+(-4.9,-1.6)$)
+        {fallback strike\\(rate-limited by $G_{\mathrm{strike}}$)};
+  \node[scsm, text width=40mm] (K2) at ($(S.south)+(4.9,-1.6)$)
+        {late fee $+$ late count\\(each rate-limited)};
   \node[scdec, text width=32mm] (T) at ($(S.south)+(0,-4.2)$)
         {reached $m_{\mathrm{agg}} = 2$\\or $m'_{\mathrm{agg}} = 4$ ?};
-  \node[scnode, scfillb, text width=50mm, below=8mm of T] (E)
+  \node[scnode, scfillb, text width=62mm, below=8mm of T] (E)
         {seat terminated $\Rightarrow$ top standby promoted};
 
   \draw[scarr] (W) -- (C);
@@ -298,7 +299,7 @@
   \draw[scarr] (T.west) -- ++(-5.0,0)
         node[sclab, above=0.4mm, pos=0.75] {no} |- (W.west);
 \end{tikzpicture}
-\caption{The causal chain of the permissionless fallback window and of seat strikes: fallback eligibility is opened by a state condition, namely $\mathrm{lag}_{\mathrm{final}}$ crossing its threshold as observed on L1; who lands while the window is open decides whether a fallback strike or a late fee is recorded; and strikes accumulating to the threshold terminate the seat.}
+\caption{The causal chain of the permissionless fallback window and of seat strikes: fallback eligibility is opened by a state condition, namely $\mathrm{lag}_{\mathrm{final}}$ crossing its threshold as observed on L1. Who lands while the window is open decides what is recorded: a fallback strike, accrued at a rate limited by $G_{\mathrm{strike}}$, or a late fee priced on the overshoot together with a separately rate-limited late count. Strikes accumulating to the threshold terminate the seat.}
 \label{fig:7}
 \end{figure}
 % ==== END FIGURE 7 ====
@@ -310,46 +311,46 @@
   \def\pL{0}\def\pO{4.0}\def\pB{8.0}\def\pP{11.6}
 
   % participants
-  \node[scnote, text width=24mm, anchor=north] at (\pL,0) {Lander\\(aggregator or anyone)};
+  \node[scnote, text width=24mm, anchor=north] at (\pL,0) {Lander\\(aggregator\\or anyone)};
   \node[scnote, text width=24mm, anchor=north] at (\pO,0) {L1 contract};
   \node[scnote, text width=24mm, anchor=north] at (\pB,0) {Any returning\\scheduled builder};
   \node[scnote, text width=24mm, anchor=north] at (\pP,0) {P2P network};
 
   % lifelines
-  \foreach \x in {\pL,\pO,\pB,\pP}{\draw[sclife] (\x,-1.15) -- (\x,-11.0);}
+  \foreach \x in {\pL,\pO,\pB,\pP}{\draw[sclife] (\x,-1.3) -- (\x,-12.2);}
 
   % Note over Lander..P2P
-  \node[scnote, text width=110mm] at (5.8,-1.65)
-        {A stall happens: the gap exceeds $G_{\max}$ and the wall clock runs far ahead of the chain head};
+  \node[scnote, text width=110mm] at (5.8,-2.0)
+        {A stall happens: the gap exceeds $G_{\max}$,\\the wall clock runs far ahead of the chain head};
 
   % (1)
-  \draw[scarr] (\pL,-3.5) -- (\pO,-3.5);
-  \node[sclab, text width=46mm, anchor=south] at (2.0,-3.42)
-        {(1) first land the best pre-stall tail\\(frozen long tail included) as a candidate, with its proof};
+  \draw[scarr] (\pL,-4.1) -- (\pO,-4.1);
+  \node[sclab, text width=48mm, anchor=south] at (2.0,-4.02)
+        {(1) first land the best pre-stall tail\\(frozen long tail included),\\as a candidate with its proof};
 
   % (2) L1 self-message (dashed)
-  \draw[scdarr] (\pO,-4.5) -- ++(0.85,0) -- ++(0,-0.55) -- (\pO,-5.05);
-  \node[sclab, text width=46mm, anchor=west] at (\pO+1.05,-4.78)
+  \draw[scdarr] (\pO,-5.1) -- ++(0.85,0) -- ++(0,-0.55) -- (\pO,-5.65);
+  \node[sclab, text width=48mm, anchor=west] at (\pO+1.05,-5.38)
         {(2) the settlement window closes $\Rightarrow$\\the tail is window-final, final head $=F$};
 
   % (3) builder self-message
-  \draw[scarr] (\pB,-6.2) -- ++(0.85,0) -- ++(0,-0.55) -- (\pB,-6.75);
-  \node[sclab, text width=36mm, anchor=west] at (\pB+1.05,-6.48)
-        {(3) wait for $F$'s landing tx to reach $F_{\mathrm{l1}}$ depth (minutes)};
+  \draw[scarr] (\pB,-6.9) -- ++(0.85,0) -- ++(0,-0.55) -- (\pB,-7.45);
+  \node[sclab, text width=38mm, anchor=west] at (\pB+1.05,-7.18)
+        {(3) wait for $F$'s landing tx\\to reach $F_{\mathrm{l1}}$ depth (minutes)};
 
   % (4)
-  \draw[scarr] (\pB,-8.2) -- (\pP,-8.2);
-  \node[sclab, text width=52mm, anchor=south] at (9.8,-8.12)
-        {(4) sign a tier (ii) recovery block on parent $F$\\(\texttt{final\_ref} witnesses that the parent is final)};
+  \draw[scarr] (\pB,-9.3) -- (\pP,-9.3);
+  \node[sclab, text width=60mm, anchor=south] at (9.8,-9.22)
+        {(4) sign a tier (ii) recovery block\\on parent $F$ (\texttt{final\_ref} witnesses\\that the parent is final)};
 
   % Note over builder..P2P
-  \node[scnote, text width=60mm] at (9.8,-9.2)
-        {one hop back to the wall clock; from here on, normal tier (i) blocks, whatever the stall lasted};
+  \node[scnote, text width=62mm] at (9.8,-10.3)
+        {one hop back to the wall clock; from here on,\\normal tier (i) blocks, whatever the stall lasted};
 
   % (5)
-  \draw[scarr] (\pL,-10.7) -- (\pO,-10.7);
-  \node[sclab, text width=58mm, anchor=south] at (2.0,-10.62)
-        {(5) the recovery batch is proven, landed and opens a new window as usual};
+  \draw[scarr] (\pL,-11.9) -- (\pO,-11.9);
+  \node[sclab, text width=58mm, anchor=south] at (2.0,-11.82)
+        {(5) the recovery batch is proven, landed\\and opens a new window as usual};
 \end{tikzpicture}
 \caption{Recovery after a stall of hours or even days: first land the best pre-stall tail and let it close into the final head $F$, then let any returning builder sign a tier (ii) recovery block on parent $F$, which reattaches the ordering to the wall clock in a single hop. Recovery involves no separate sub-protocol.}
 \label{fig:8}
@@ -372,9 +373,9 @@
          and cumulative gas $\le$ the $C_{\mathrm{force}}$ gas share $-$ gas already used by the bridge};
   \node[scnode, text width=108mm, below=8mm of OR] (R)
         {Taking the longest prefix is valid; taking less than it is not\\
-         (the rule is not ``exactly so many entries''); the remainder overflows deterministically into later blocks};
+         (the rule is not ``exactly so many entries''); the remainder\\overflows deterministically into later blocks};
   \node[scnode, scfill, text width=108mm, below=8mm of R] (D)
-        {An entry invalid against the pre-state: consume and discard\\
+        {An entry invalid against the pre-state: consume-and-discard\\
          the cursor advances as usual, the entry is not executed};
 
   \draw[scarr] (Q) -- (BR);
@@ -382,7 +383,7 @@
   \draw[scarr] (OR) -- (R);
   \draw[scarr] (R) -- (D);
 \end{tikzpicture}
-\caption{How forced entries are consumed at the head of every L2 block: the bridge queue first takes its longest prefix within the reserved quota, the ordinary forced-inclusion queue then takes its longest prefix within the remaining count and gas quota, and entries that are invalid against the pre-state are consumed and discarded so that the head of the queue cannot deadlock.}
+\caption{How forced entries are consumed at the head of every L2 block: the bridge queue first takes its longest prefix within the reserved quota, the ordinary forced-inclusion queue then takes its longest prefix within the remaining count and gas quota, and entries that are invalid against the pre-state are handled by consume-and-discard so that the head of the queue cannot deadlock.}
 \label{fig:9}
 \end{figure}
 % ==== END FIGURE 9 ====
@@ -398,15 +399,15 @@
   \node[scsm, text width=32mm, anchor=north] at (1.2,-0.35)
         {Block produced\\anchor age $\le D_{\mathrm{anchor}}$\\($32$ L1 slot)};
   \node[scsm, text width=26mm, anchor=north] at (5.0,-0.35)
-        {Fallback authorised};
+        {Fallback authorized};
   \node[scsm, text width=24mm, anchor=north] at (8.5,-0.35)
         {Proof completed};
   \node[scsm, scfill, text width=32mm, anchor=north] at (12.0,-0.35)
-        {Candidate lands\\anchor freshness checked here};
+        {Candidate lands\\anchor freshness\\checked here};
 
   % above the axis: three spans
   \draw[scdim] (1.2,0.5) -- (5.0,0.5);
-  \node[sclab, text width=36mm, anchor=south] at (3.1,0.6)
+  \node[sclab, text width=40mm, anchor=south] at (3.1,0.6)
         {aggregator withholds landing\\$\le \Delta_{\mathrm{lag,final}}$\\(fallback-window threshold)};
   \draw[scdim] (5.0,0.5) -- (8.5,0.5);
   \node[sclab, text width=28mm, anchor=south] at (6.75,0.6)
@@ -417,12 +418,12 @@
 
   % whole span + invariant
   \draw[scdim] (1.2,-2.55) -- (12.0,-2.55);
-  \node[scnote, text width=122mm, anchor=north] at (6.4,-2.7)
+  \node[scnote, text width=126mm, anchor=north] at (6.4,-2.7)
         {Invariant: $D_{\mathrm{anchor,max}} \ge D_{\mathrm{anchor}} + \Delta_{\mathrm{lag,final}}
          + P_{\mathrm{prove,max}} + T_{\mathrm{include,max}} +$ margin\\
-         $\approx 420$ L1 slot $\approx 84$ minutes, which covers the whole fallback-authorisation path, so the deadlock cannot arise};
+         $\approx 420$ L1 slot $\approx 84$ minutes, covering the whole fallback-authorization path, so no deadlock exists};
 \end{tikzpicture}
-\caption{The time geometry of anchor age along the worst-case path: the freshness window $D_{\mathrm{anchor,max}}$ must cover the whole route from block production, through the aggregator's withholding until the threshold authorises fallback, and on to proving and L1 inclusion. This relation between parameters is exactly the solution to the stale-anchor tail deadlock.}
+\caption{The time geometry of anchor age along the worst-case path: the freshness window $D_{\mathrm{anchor,max}}$ must cover the whole route from block production, through the aggregator's withholding until the threshold authorizes fallback, and on to proving and L1 inclusion. This relation between parameters is exactly the solution to the stale-anchor tail deadlock.}
 \label{fig:10}
 \end{figure}
 % ==== END FIGURE 10 ====

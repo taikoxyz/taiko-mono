@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""从 slot-chain-spec.md 生成学术论文式 LaTeX 与 PDF（XeLaTeX + ctex，单栏）。
+"""从 slot-chain-spec.en.md 生成学术论文式 LaTeX 与 PDF（XeLaTeX，单栏，Palatino）。
+
+规范源是中文的 `slot-chain-spec.md`；`slot-chain-spec.en.md` 是它的英文版，也是 PDF 的
+排版输入。两者的同步靠英文版头部记录的中文源 sha256，`--check` 会比对（见下）。
 
 用法:
     python3 build-pdf.py            # 生成 tex/main.tex 并编译出 slot-chain-spec.pdf
     python3 build-pdf.py --tex-only # 只生成 tex，不编译
-    python3 build-pdf.py --check    # 重新生成并比对，tex 与 markdown 不一致则非零退出
-                                    # （漂移防护：改 md 后必须重新生成并提交）
+    python3 build-pdf.py --check    # 两道漂移防护，任一不一致则非零退出：
+                                    #   (a) 英文版头部 sha256 vs 中文源实际 sha256
+                                    #   (b) tex/main.tex vs 由英文版重新生成的结果
+                                    # 改 md 后必须重新生成并提交
 
 两项结构性转换（其余为纯排版）：
   1. 评审注记外置——正文中形如"（评审 r39）""（独立审核第 5 轮高危 1——…）"的出处括注
@@ -14,6 +19,7 @@
   2. mermaid 图 → TikZ 灰阶图（tex/figures.tex，按出现顺序 1..10 对应 fig:1..fig:10）。
 """
 
+import hashlib
 import os
 import re
 import shutil
@@ -21,7 +27,8 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "slot-chain-spec.md")
+SRC = os.path.join(HERE, "slot-chain-spec.en.md")
+SRC_ZH = os.path.join(HERE, "slot-chain-spec.md")
 TEXDIR = os.path.join(HERE, "tex")
 MAIN = os.path.join(TEXDIR, "main.tex")
 FIGS = os.path.join(TEXDIR, "figures.tex")
@@ -32,8 +39,10 @@ PDF_OUT = os.path.join(HERE, "slot-chain-spec.pdf")
 # ---------------------------------------------------------------------------
 # 出处标记：评审轮次 rNN、独立审核轮次、外部评审者名、所有者决定、版本号
 MARK = re.compile(
-    r"评审|独立审核|DeepSeek|Codex|所有者|"
-    r"(?<![A-Za-z])r\d{1,2}(?:-\d)?(?![\d])|v1\.\d+"
+    r"review\s+r\d|independent review|the owner|owner's|DeepSeek|Codex|"
+    r"finding \d|warning \d|option C|"
+    r"(?<![A-Za-z])r\d{1,2}(?:-\d)?(?![\d])|v1\.\d+|v15",
+    re.I,
 )
 # 出处从这里开始：标记本身，或"标记前最近的分隔符"
 SEPS = "，；,;：:—"
@@ -73,7 +82,7 @@ class NoteStore:
 
     def __init__(self):
         self.notes = []       # (section_label, text)
-        self.section = "前言"
+        self.section = "Front matter"
 
     def add(self, text: str) -> str:
         self.notes.append((self.section, text.strip()))
@@ -106,6 +115,25 @@ SPECIALS = {
 }
 
 
+# 英文版不加载 CJK 字体：注记抽取之后，残留的全角标点必须归一化为 ASCII，
+# 否则 XeLaTeX 会报 Missing character（抽取本身要靠全角 （） 识别出处，故顺序不能反）。
+CJK_PUNCT = {
+    "（": "(", "）": ")", "【": "[", "】": "]", "《": "<", "》": ">",
+    "〔": "[", "〕": "]", "「": "\u201c", "」": "\u201d", "『": "\u201c", "』": "\u201d",
+    "：": ": ", "；": "; ", "，": ", ", "。": ". ", "、": ", ",
+    "！": "!", "？": "?", "％": "%", "　": " ",
+    "“": "``", "”": "''", "‘": "`", "’": "'",
+    "——": "---", "—": "---", "…": r"\ldots{}",
+}
+
+
+def normalize_punct(s: str) -> str:
+    s = s.replace("——", "---")
+    for k, v in CJK_PUNCT.items():
+        s = s.replace(k, v)
+    return re.sub(r"  +", " ", s)
+
+
 def esc(s: str) -> str:
     return "".join(SPECIALS.get(c, c) for c in s)
 
@@ -127,6 +155,7 @@ def sec_ref(m):
 def inline(text: str, store: NoteStore = None) -> str:
     if store is not None:
         text = extract_annotations(text, store)
+    text = normalize_punct(text)
     # 保护行内代码
     spans = []
 
@@ -151,8 +180,8 @@ def inline(text: str, store: NoteStore = None) -> str:
     text = re.sub(r"\*\*([^*]+?)\*\*", r"\\textbf{\1}", text)
     # 章节引用
     text = re.sub(r"§\s*(\d+(?:\.\d+)?)", sec_ref, text)
-    text = re.sub(r"附录 ([A-E])(?![\w-])",
-                  lambda m: "\\hyperref[app:%s]{附录~%s}" % (m.group(1), m.group(1)), text)
+    text = re.sub(r"Appendix ([A-E])(?![\w-])",
+                  lambda m: "\\hyperref[app:%s]{Appendix~%s}" % (m.group(1), m.group(1)), text)
     # 还原
     text = re.sub(r"\x02([^\x02]*)\x02", lambda m: code_inline(m.group(1)), text)
     text = re.sub(r"\x01(\d+)\x01", lambda m: notes[int(m.group(1))], text)
@@ -172,7 +201,7 @@ def code_block(lines):
         lines = lines[:-1]
     body = []
     for ln in lines:
-        e = esc(ln).replace(" ", "~")
+        e = esc(normalize_punct(ln)).replace(" ", "~")
         body.append("\\mbox{}" + e + r"\\")
     return "\\begin{codeblock}\n" + "\n".join(body) + "\n\\end{codeblock}\n"
 
@@ -225,6 +254,13 @@ def convert(md: str, store: NoteStore, figures_present: int):
         ln = lines[i]
         stripped = ln.strip()
 
+        # --- HTML 注释（源文件元信息）：不进正文 ---
+        if stripped.startswith("<!--"):
+            while i < len(lines) and "-->" not in lines[i]:
+                i += 1
+            i += 1
+            continue
+
         # --- 代码围栏 ---
         if stripped.startswith("```"):
             lang = stripped[3:].strip()
@@ -252,14 +288,14 @@ def convert(md: str, store: NoteStore, figures_present: int):
                 continue
             level, title = len(m.group(1)), m.group(2)
             num = re.match(r"^(\d+(?:\.\d+)?)[.、．]?\s+(.*)$", title)
-            app = re.match(r"^附录 ([A-E])[:：]\s*(.*)$", title)
+            app = re.match(r"^Appendix ([A-E])[:：]\s*(.*)$", title)
             if app:
                 letter, rest = app.group(1), app.group(2)
-                store.section = "附录 " + letter
+                store.section = "Appendix " + letter
                 full, clean = heading_pair(rest, store)
-                out.append("\\clearpage\\section*{附录 %s：%s}\\label{app:%s}"
+                out.append("\\clearpage\\section*{Appendix %s: %s}\\label{app:%s}"
                            % (letter, full, letter))
-                out.append("\\addcontentsline{toc}{section}{附录 %s：%s}"
+                out.append("\\addcontentsline{toc}{section}{Appendix %s: %s}"
                            % (letter, clean))
                 out.append("\\markboth{}{}")
             elif num:
@@ -345,7 +381,7 @@ def convert(md: str, store: NoteStore, figures_present: int):
             continue
 
         # --- markdown 版目录：LaTeX 自带 \tableofcontents，跳过 ---
-        if stripped.startswith("**目录**："):
+        if re.match(r"\*\*(目录|Contents)\*\*[:：]", stripped):
             while i < len(lines) and lines[i].strip():
                 i += 1
             continue
@@ -380,9 +416,11 @@ def merge_paragraph(lines):
 # ---------------------------------------------------------------------------
 # 4. 装配
 # ---------------------------------------------------------------------------
-PREAMBLE = r"""\documentclass[a4paper,11pt]{ctexart}
+PREAMBLE = r"""\documentclass[a4paper,11pt]{article}
 \usepackage[margin=2.6cm,bottom=3cm]{geometry}
-\usepackage{fontspec}
+\usepackage[T1]{fontenc}
+\usepackage{mathpazo}          % Palatino text + matching math: classic paper face
+\usepackage{microtype}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{tabularx}
@@ -392,92 +430,107 @@ PREAMBLE = r"""\documentclass[a4paper,11pt]{ctexart}
 \usepackage{enumitem}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
+\usepackage{textcomp}
 \usepackage[hidelinks,bookmarks=true]{hyperref}
 \usepackage{newunicodechar}
 
-% 拉丁正文字体缺这些符号：映射到数学模式（学术排版本就该如此）
-\newunicodechar{≥}{\ensuremath{\geq}}
-\newunicodechar{≤}{\ensuremath{\leq}}
+% Palatino/T1 has no glyph for these; route them through math (which is also
+% the typographically correct rendering for a paper).
 \newunicodechar{≈}{\ensuremath{\approx}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{≥}{\ensuremath{\geq}}
 \newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{←}{\ensuremath{\leftarrow}}
 \newunicodechar{⇒}{\ensuremath{\Rightarrow}}
 \newunicodechar{⇔}{\ensuremath{\Leftrightarrow}}
 \newunicodechar{∨}{\ensuremath{\vee}}
 \newunicodechar{∧}{\ensuremath{\wedge}}
 \newunicodechar{∞}{\ensuremath{\infty}}
 \newunicodechar{×}{\ensuremath{\times}}
-\newunicodechar{①}{\ensuremath{\circled{1}}}
-\newunicodechar{②}{\ensuremath{\circled{2}}}
-\newunicodechar{③}{\ensuremath{\circled{3}}}
-\newunicodechar{④}{\ensuremath{\circled{4}}}
-\newunicodechar{⑤}{\ensuremath{\circled{5}}}
-\newunicodechar{⑥}{\ensuremath{\circled{6}}}
-\newcommand{\circled}[1]{\text{\raisebox{0.2pt}{\textcircled{\raisebox{-0.7pt}{\scriptsize #1}}}}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{⊥}{\ensuremath{\bot}}
+\newunicodechar{′}{\ensuremath{{}^{\prime}}}
+\newunicodechar{✓}{\ensuremath{\checkmark}}
+\newunicodechar{–}{\textendash}
+\newunicodechar{—}{\textemdash}
+\newunicodechar{…}{\ldots}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{Σ}{\ensuremath{\Sigma}}
+\newunicodechar{φ}{\ensuremath{\varphi}}
+\newunicodechar{δ}{\ensuremath{\delta}}
+\newunicodechar{θ}{\ensuremath{\theta}}
+\newunicodechar{①}{\circled{1}}
+\newunicodechar{②}{\circled{2}}
+\newunicodechar{③}{\circled{3}}
+\newunicodechar{④}{\circled{4}}
+\newunicodechar{⑤}{\circled{5}}
+\newunicodechar{⑥}{\circled{6}}
+\newcommand{\circled}[1]{\textcircled{\raisebox{-0.4pt}{\scriptsize #1}}}
 
-\setCJKmainfont{WenQuanYi Zen Hei}
-\setCJKsansfont{WenQuanYi Zen Hei}
-\setCJKmonofont{WenQuanYi Zen Hei}
-\setmonofont{DejaVu Sans Mono}[Scale=0.85]
-
-% --- 学术论文式版面 ---
-\linespread{1.15}
+% --- academic page discipline ---
+\linespread{1.06}
 \setlength{\parskip}{0.35em}
-\setlist{itemsep=0.15em,parsep=0.15em,topsep=0.3em,leftmargin=1.4em}
+\setlength{\parindent}{0pt}
+\setlist{itemsep=0.2em,parsep=0.2em,topsep=0.35em,leftmargin=1.5em}
 \titleformat{\section}{\normalfont\large\bfseries}{\thesection}{0.7em}{}
 \titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{0.6em}{}
-\titlespacing*{\section}{0pt}{1.6em}{0.7em}
-\titlespacing*{\subsection}{0pt}{1.1em}{0.5em}
+\titlespacing*{\section}{0pt}{1.7em}{0.7em}
+\titlespacing*{\subsection}{0pt}{1.2em}{0.5em}
 
 \pagestyle{fancy}\fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}
-\fancyhead[L]{\footnotesize Slot-Chain：基于槽位签名链的预确认协议}
-\fancyhead[R]{\footnotesize 草案 @VERSION@}
+\fancyhead[L]{\footnotesize\itshape Slot-Chain: A Preconfirmation Protocol}
+\fancyhead[R]{\footnotesize Draft @VERSION@}
 \fancyfoot[C]{\footnotesize\thepage}
 
-% --- 代码块 ---
+% --- verbatim-ish code block ---
 \newenvironment{codeblock}
   {\par\smallskip\begingroup\ttfamily\scriptsize
    \begin{list}{}{\leftmargin=1.2em\rightmargin=0pt\parsep=0pt\itemsep=0pt
-                  \topsep=0pt\partopsep=0pt\baselineskip=1.15\baselineskip}%
+                  \topsep=0pt\partopsep=0pt}%
    \item[]\raggedright}
   {\end{list}\endgroup\smallskip}
 
-% --- 设计说明（原 markdown 引用块）---
+% --- design note (was a markdown blockquote) ---
 \newenvironment{designnote}
   {\par\smallskip\begin{list}{}{\leftmargin=1.1em\rightmargin=0.4em
       \parsep=0.3em\itemsep=0pt\topsep=0.3em}\item[]\small\itshape}
   {\end{list}\smallskip}
 
-% --- 评审尾注标记 ---
+% --- review endnote marker ---
 \newcommand{\revnote}[1]{\textsuperscript{\textnormal{[#1]}}}
 """
 
 TITLEBLOCK = r"""
 \begin{document}
-\begin{titlepage}
-\centering
-\vspace*{3.5cm}
-{\LARGE\bfseries Slot-Chain：基于槽位签名链的预确认协议\par}
-\vspace{0.8em}
-{\large v2 设计规范\par}
-\vspace{2.2cm}
-{\large 草案 @VERSION@\par}
-\vspace{0.5em}
-{\normalsize 2026 年 8 月\par}
-\vspace{3cm}
-\begin{minipage}{0.82\linewidth}
-\small
-\noindent\textbf{摘要}\quad
-本文给出 Taiko 预确认协议的后继设计（v2）。L2 时间被切成 1 秒的槽位（slot），
-提前两个 epoch 公布的排班表（lookahead）为每个槽位指定唯一构建者；构建者出块并签名，
-签名覆盖父块哈希，未上链的块因此串成一条签名链（signature chain）。把这条链连同有效性
-证明提交上 L1 的动作称为落地（landing）：常态由拍卖产生的聚合者执行，聚合者掉线时任何人
-都可以执行——块的权威来自构建者签名，不来自落地者。最终性由证明系统与确定性的结算窗口
-共同给出：窗口内最重的已证明候选于收盘时最终化。本文同时给出该设计的信任模型、活性核算、
-强制包含底线、罚没规则与参数几何，并如实标注全部已接受的残留风险与仍开放的待定项。
-\end{minipage}
-\vfill
-\end{titlepage}
+
+\title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.15em]
+Built on Per-Slot Signature Chains\\[0.5em]
+\large\mdseries v2 Design Specification}
+\author{}
+\date{Draft @VERSION@ \quad\textperiodcentered\quad August 2026}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+\noindent
+This document specifies the successor design (v2) of the Taiko preconfirmation
+protocol. L2 time is divided into one-second slots; a lookahead schedule,
+published two epochs in advance, assigns each slot to a unique builder. The
+builder produces a block and signs it, and because each signature covers the
+parent hash, the not-yet-landed blocks form a \emph{signature chain}. Submitting
+such a chain to L1 together with a validity proof is called \emph{landing}: an
+aggregator elected by a perpetual auction performs it in the normal case, but
+anyone may perform it when the aggregator is absent, because a block's authority
+comes from its builder's signature rather than from whoever lands it. Finality
+is given by the proof system together with a deterministic \emph{settlement
+window}: among the candidates that have landed and been proven, the heaviest one
+is finalized when the window closes at a predetermined L1 height. We give the
+trust model, the liveness accounting, the forced-inclusion floor, the slashing
+rules and the parameter geometry, and we state the accepted residual risks and
+the remaining open items explicitly rather than eliding them.
+\end{abstract}
 
 \tableofcontents
 \clearpage
@@ -487,7 +540,8 @@ TITLEBLOCK = r"""
 
 def build():
     md = open(SRC, encoding="utf-8").read()
-    ver = re.search(r"草案 (v1\.\d+)", md.split("\n", 1)[0])
+    # 版本号取自文档标题（中文"草案 v1.NN"或英文"Draft v1.NN"）
+    ver = re.search(r"(?:草案|Draft),? (v1\.\d+)", md[:2000])
     version = ver.group(1) if ver else "v?"
 
     figures_src = ""
@@ -513,13 +567,15 @@ def build():
     body = re.sub(r"\\FIGUREPLACEHOLDER\d+", "", body)
 
     # 附录 E：评审注记
-    notes_tex = ["\\clearpage\\section*{附录 E：评审注记索引}\\label{app:E}",
-                 "\\addcontentsline{toc}{section}{附录 E：评审注记索引}",
-                 "本附录汇集正文中以 \\revnote{n} 标出的全部出处注记——它们记录每条规则由哪一轮"
-                 "对抗评审、哪位评审者或所有者的哪次决定促成。正文因此只承载规范性陈述；"
-                 "追溯某条规则的来龙去脉时查阅本附录。完整的逐版本修订记录另见"
-                 "\\hyperref[app:D]{附录~D}。",
-                 "\\begin{enumerate}[leftmargin=2.6em,itemsep=0.12em]"]
+    notes_tex = ["\\clearpage\\section*{Appendix E: Index of Review Notes}\\label{app:E}",
+                 "\\addcontentsline{toc}{section}{Appendix E: Index of Review Notes}",
+                 "This appendix collects every provenance note marked \\revnote{n} in the body. "
+                 "Each records which adversarial review round, which external reviewer, or which "
+                 "decision by the owner produced the rule it is attached to. The body therefore "
+                 "carries only normative statements; consult this appendix when tracing where a "
+                 "rule came from. The full per-version revision record is separate, in "
+                 "\\hyperref[app:D]{Appendix~D}.",
+                 "\\begin{enumerate}[leftmargin=2.8em,itemsep=0.12em]"]
     for k, (sec, txt) in enumerate(store.notes, 1):
         notes_tex.append("\\item[{[%d]}] \\textbf{%s}\\quad %s"
                          % (k, esc_sec(sec), inline(txt)))
@@ -538,13 +594,15 @@ def build():
 
     os.makedirs(TEXDIR, exist_ok=True)
     if "--check" in sys.argv[1:]:
+        ok = check_translation_sync()
         current = open(MAIN, encoding="utf-8").read() if os.path.exists(MAIN) else None
         if current != tex:
             print("DRIFT: %s 与 markdown 不一致 —— 运行 `python3 build-pdf.py` 并提交"
                   % os.path.relpath(MAIN, HERE))
-            sys.exit(1)
-        print("%s 与 markdown 一致" % os.path.relpath(MAIN, HERE))
-        sys.exit(0)
+            ok = False
+        else:
+            print("%s 与 markdown 一致" % os.path.relpath(MAIN, HERE))
+        sys.exit(0 if ok else 1)
     open(MAIN, "w", encoding="utf-8").write(tex)
     print("wrote %s (%d bytes, %d review notes, %d figures)"
           % (MAIN, len(tex), len(store.notes), n_figs))
@@ -553,6 +611,32 @@ def build():
 
 def esc_sec(s):
     return s if s.startswith("\\S") else esc(s)
+
+
+def check_translation_sync():
+    """规范源（中文）与英文版的同步防护。
+
+    英文版头部有一行 `<!-- generated-from: slot-chain-spec.md  sha256:… -->`，记录翻译
+    时中文源的摘要。改了中文源却没重译，这里就会失配 —— 否则 PDF 会静默停在旧语义上，
+    而中文版才是规范的那一份。重译后把新摘要写回该行即可。
+    """
+    en = open(SRC, encoding="utf-8").read()
+    m = re.search(r"generated-from:\s*slot-chain-spec\.md\s+sha256:([0-9a-f]+)", en)
+    if not m:
+        print("DRIFT: %s 头部缺少 `generated-from … sha256:` 同步标记"
+              % os.path.relpath(SRC, HERE))
+        return False
+    stored = m.group(1)
+    zh = open(SRC_ZH, encoding="utf-8").read()
+    live = hashlib.sha256(zh.encode("utf-8")).hexdigest()[:len(stored)]
+    if stored != live:
+        print("DRIFT: 中文规范源已改动但英文版未重译 —— %s 记录 sha256:%s，"
+              "%s 实际为 sha256:%s。请重译英文版并更新该标记。"
+              % (os.path.relpath(SRC, HERE), stored,
+                 os.path.relpath(SRC_ZH, HERE), live))
+        return False
+    print("%s 与规范源同步（sha256:%s）" % (os.path.relpath(SRC, HERE), stored))
+    return True
 
 
 def compile_pdf():
