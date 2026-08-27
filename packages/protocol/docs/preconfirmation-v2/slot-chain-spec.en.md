@@ -1,10 +1,10 @@
-<!-- generated-from: slot-chain-spec.md  sha256:58a295441ec31a38 -->
+<!-- generated-from: slot-chain-spec.md  sha256:bf4dda5657c5d8f5 -->
 <!-- English edition, translated from the Chinese source. The Chinese edition is
      normative: where the two disagree, the Chinese text governs. After editing the
      Chinese source, re-translate this file and update the sha256 above; the drift
      check in build-pdf.py compares them. -->
 
-# Slot-Chain: A Preconfirmation Protocol Built on Slot Signature Chains (v2 Design Specification, Draft v1.49)
+# Slot-Chain: A Preconfirmation Protocol Built on Slot Signature Chains (v2 Design Specification, Draft v1.50)
 
 > **Status of this document.** This is the successor design to the Taiko preconfirmation
 > protocol, superseding the earlier v15 design line (perpetual auction plus epoch-level
@@ -740,8 +740,9 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   plus bounded depth, not absolute — the user-facing semantics of §5.4 are worded accordingly.
   Keeping the tail short (§6.3) is the principal means of shrinking the payoff of this class of
   attack.
-- **Canonicality is still determined by L1 alone (G2) — but "which chain ought to be landed" is now a
-  slashable obligation**: off-chain fork choice gives honest nodes convergence (the total order
+- **Canonicality is still determined by L1 alone (G2) — but L1 does not adjudicate "which chain ought
+  to be landed"; the settlement window selects it mechanically**: off-chain fork choice gives honest
+  nodes convergence (the total order
   above), while "the best chain wins" is delivered mechanically by the §5.6 settlement window — L1
   does not adjudicate "who ought to land what", it only lets the heaviest proven candidate inside the
   window become final. This design is therefore not "L1 enforces the longest chain" (that would
@@ -2089,6 +2090,8 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 
 > A version-by-version record of the findings and fixes of every round of adversarial review（newest first, oldest last）. This is the complete
 > argumentative trail of the design; it is non-normative, and where the main text conflicts with it, the main text governs.
+
+> **Draft v1.50, 2026-08-27 — a stale bold lead-in that contradicted option C is corrected.** The lead-in of the last bullet of §5.2 read "'which chain ought to be landed' is now a slashable obligation". That is a leftover from the v1.39/v1.40 challenge-layer era: those layers were falsified in rounds 3 and 4 of the independent review and deleted wholesale by option C (v1.41), at which point §6.3 and §10 withdrew "landing the wrong chain is slashable" as well. The lead-in contradicted **the body of its own bullet** (which says L1 "does not adjudicate who ought to land what … no DA, no ex post adjudication"), the v1.47 characterization earlier in §5.2 (landing the longest visible chain is "the rational choice under economic incentives, not a slashable obligation"), and the slashing inventory of §10 — under the current design the only mechanically adjudicable slashable faults are double-signing (§4.3) and landing-timeout strikes (§6.3). The lead-in now reads "L1 does not adjudicate 'which chain ought to be landed'; the settlement window selects it mechanically", in agreement with the bullet it heads. A pure consistency fix: no new rule, no parameter change, both executable models untouched.
 
 > **Draft v1.49, 2026-08-27 — the paper becomes an English edition, set in an academic serif face.** The owner's instruction was that the Chinese in the PDF looked poor and that the document should be converted to English with typography closer to an academic paper. Three changes: (1) `slot-chain-spec.en.md` is added, a complete English translation of the Chinese specification (translated in eight parallel slices against a shared glossary derived from Appendix B; inline identifiers, §-references, list indentation and table structure were each verified against the source). The Chinese edition remains normative; the English file records the sha256 of the Chinese source in its header, and `build-pdf.py --check` reports when the two have fallen out of step. (2) The PDF is now generated from the English edition: the document class moves from `ctexart` to `article`, the type is Palatino (`mathpazo`, text and math matched) with `microtype`, and the CJK font dependency is gone; the title page becomes a conventional `\maketitle` plus `abstract`; 26 Unicode symbol mappings were added (≈ ≤ → ⊥ ✓ Δ φ and the rest routed through math mode) together with a full-width punctuation normalization pass. (3) The labels and captions of all 10 TikZ figures were translated and re-tuned for width, English running 1.6–2× wider than the Chinese it replaces; both pdflatex and xelatex verify zero overfull boxes, zero missing glyphs, and a widest picture of 145 mm. Specification semantics, parameters and both executable models are unchanged.
 > **Draft v1.48, 2026-08-27 — the typesetting pipeline switched to LaTeX: a single-column, academic-paper-style PDF, with review annotations externalized into Appendix E.**

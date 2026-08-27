@@ -63,7 +63,7 @@
 \pagestyle{fancy}\fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}
 \fancyhead[L]{\footnotesize\itshape Slot-Chain: A Preconfirmation Protocol}
-\fancyhead[R]{\footnotesize Draft v1.49}
+\fancyhead[R]{\footnotesize Draft v1.50}
 \fancyfoot[C]{\footnotesize\thepage}
 
 % --- verbatim-ish code block ---
@@ -131,7 +131,7 @@
 Built on Per-Slot Signature Chains\\[0.5em]
 \large\mdseries v2 Design Specification}
 \author{}
-\date{Draft v1.49 \quad\textperiodcentered\quad August 2026}
+\date{Draft v1.50 \quad\textperiodcentered\quad August 2026}
 \maketitle
 \thispagestyle{fancy}
 
@@ -535,7 +535,7 @@ A block is valid if and only if all of the following hold (all of them circuit-v
 \begin{itemize}
 \item landing ≈ 10–15 min ≈ 2–3 epochs), and it can be stretched further by sustained L1-level censorship of the fallback transaction --- the latter being the most expensive censorship class, already priced in \hyperref[sec:6.3]{\S6.3}. This is a soft upper bound plus an explicitly stated response-time assumption, not a hard cap. Therefore the safety of a preconfirmation before landing is deterrence plus bounded depth, not absolute --- the user-facing semantics of \hyperref[sec:5.4]{\S5.4} are worded accordingly. Keeping the tail short (\hyperref[sec:6.3]{\S6.3}) is the principal means of shrinking the payoff of this class of attack.
 \end{itemize}
-\item \textbf{Canonicality is still determined by L1 alone (G2) --- but "which chain ought to be landed" is now a slashable obligation}: off-chain fork choice gives honest nodes convergence (the total order above), while "the best chain wins" is delivered mechanically by the \hyperref[sec:5.6]{\S5.6} settlement window --- L1 does not adjudicate "who ought to land what", it only lets the heaviest proven candidate inside the window become final. This design is therefore not "L1 enforces the longest chain" (that would require protocol-level DA in order to see the unlanded tail) but "L1 picks the heaviest among the already-landed, already-proven candidates" --- no DA, no ex post adjudication; it is the mechanical middle point chosen by the owner under the \hyperref[sec:1]{\S1} constraints\revnote{68}.
+\item \textbf{Canonicality is still determined by L1 alone (G2) --- but L1 does not adjudicate "which chain ought to be landed"; the settlement window selects it mechanically}: off-chain fork choice gives honest nodes convergence (the total order above), while "the best chain wins" is delivered mechanically by the \hyperref[sec:5.6]{\S5.6} settlement window --- L1 does not adjudicate "who ought to land what", it only lets the heaviest proven candidate inside the window become final. This design is therefore not "L1 enforces the longest chain" (that would require protocol-level DA in order to see the unlanded tail) but "L1 picks the heaviest among the already-landed, already-proven candidates" --- no DA, no ex post adjudication; it is the mechanical middle point chosen by the owner under the \hyperref[sec:1]{\S1} constraints\revnote{68}.
 \end{itemize}
 \subsection[Gaps]{Gaps}\label{sec:5.3}
 \begin{itemize}
@@ -1149,6 +1149,10 @@ P12 & Enqueueing in mid-window: the queue is append-only and referenced by seque
 \markboth{}{}
 \begin{designnote}
 A version-by-version record of the findings and fixes of every round of adversarial review(newest first, oldest last). This is the complete argumentative trail of the design; it is non-normative, and where the main text conflicts with it, the main text governs.
+\end{designnote}
+
+\begin{designnote}
+\textbf{Draft v1.50, 2026-08-27 --- a stale bold lead-in that contradicted option C is corrected.} The lead-in of the last bullet of \hyperref[sec:5.2]{\S5.2} read "'which chain ought to be landed' is now a slashable obligation". That is a leftover from the v1.39/v1.40 challenge-layer era: those layers were falsified in rounds 3 and 4 of the independent review and deleted wholesale by option C (v1.41), at which point \hyperref[sec:6.3]{\S6.3} and \hyperref[sec:10]{\S10} withdrew "landing the wrong chain is slashable" as well. The lead-in contradicted \textbf{the body of its own bullet} (which says L1 "does not adjudicate who ought to land what \textbackslash{}ldots\{\} no DA, no ex post adjudication"), the v1.47 characterization earlier in \hyperref[sec:5.2]{\S5.2} (landing the longest visible chain is "the rational choice under economic incentives, not a slashable obligation"), and the slashing inventory of \hyperref[sec:10]{\S10} --- under the current design the only mechanically adjudicable slashable faults are double-signing (\hyperref[sec:4.3]{\S4.3}) and landing-timeout strikes (\hyperref[sec:6.3]{\S6.3}). The lead-in now reads "L1 does not adjudicate 'which chain ought to be landed'; the settlement window selects it mechanically", in agreement with the bullet it heads. A pure consistency fix: no new rule, no parameter change, both executable models untouched.
 \end{designnote}
 
 \begin{designnote}
