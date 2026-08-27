@@ -154,7 +154,7 @@ func parseIgnoredMsgHashes(value string) (map[common.Hash]struct{}, error) {
 
 	hashes := make(map[common.Hash]struct{})
 
-	for _, raw := range strings.Split(value, ",") {
+	for raw := range strings.SplitSeq(value, ",") {
 		msgHash := strings.TrimSpace(raw)
 		if msgHash == "" {
 			continue

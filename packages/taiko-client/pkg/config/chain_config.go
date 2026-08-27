@@ -33,7 +33,7 @@ func NewChainConfig(chainID *big.Int, _ uint64) *ChainConfig {
 
 	log.Info("")
 	log.Info(strings.Repeat("-", 153))
-	for _, line := range strings.Split(cfg.Description(), "\n") {
+	for line := range strings.SplitSeq(cfg.Description(), "\n") {
 		log.Info(line)
 	}
 	log.Info(strings.Repeat("-", 153))
