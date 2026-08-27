@@ -136,32 +136,36 @@
 \end{figure}
 % ==== END FIGURE 3 ====
 
+
 % ==== FIGURE 4 ====
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, text width=52mm] (S) at (-2.2,0)
+  \node[scsm, text width=62mm] (S)
         {slot $s$ 的构建者选父块 $P$\\（要求 $P.\mathrm{slot} < s$）};
-  \node[scdec, text width=26mm] (G) at (-2.2,-2.1)
-        {缺口 $s - P.\mathrm{slot}$\\$\le G_{\max}$ ?\\（$G_{\max}=64$ slot）};
-  \node[scnode, scfill, text width=44mm] (T1) at (4.6,-2.1)
-        {档 (i) 正常出块\\$P$ 只需是签名链中的真实前块\\落地状态无关：未落地 / 已落地 /\\已 final 均可};
-  \node[scnode, scfill, text width=52mm] (T2) at (-2.2,-4.6)
-        {档 (ii) 恢复（真停摆）\\$P$ 必须同时满足：\\
+  \node[scdec, text width=26mm, below=11mm of S] (G)
+        {缺口 $s - P.\mathrm{slot}$\\$\le G_{\max}$ ?\\（$G_{\max} = 64$ slot）};
+  \node[scsm, scfill, text width=52mm, right=14mm of G] (T1)
+        {档 (i) 正常出块\\
+         $P$ 只需是签名链中的真实前块\\
+         落地状态无关：未落地、已落地、\\
+         已 final 均可};
+  \node[scsm, scfill, text width=62mm, below=15mm of G] (T2)
+        {档 (ii) 恢复（真停摆）\\
+         $P$ 必须同时满足：\\
          (1) window-final（所在候选已收盘）\\
          (2) L1-final（落地交易达 $F_{\mathrm{l1}}$ 深度）};
-  \node[scnode, text width=52mm] (FR) at (-2.2,-6.7)
+  \node[scsm, text width=62mm, below=7mm of T2] (FR)
         {块头携带 \texttt{final\_ref}（$\le$ 本块 anchor）\\
          证明【签名时】$P$ 已 $F_{\mathrm{l1}}$-final\\
          （堵住 $F_{\mathrm{l1}}$ 边界的预签抢落循环）};
-  \node[scnode, text width=52mm] (LAND) at (-2.2,-8.7)
-        {落地时另验：$P =$ 当前 canonical 落地尖端\\
+  \node[scsm, text width=62mm, below=7mm of FR] (LAND)
+        {落地时另验：$P$ 须是当前 canonical 落地尖端\\
          尖端已被推进 $\Rightarrow$ 恢复块良性搁浅，重建即可};
 
   \draw[scarr] (S) -- (G);
-  \draw[scarr] (G) -- node[sclab, above=0.5mm] {是} (T1);
-  \draw[scarr] (G) -- node[sclab, left=1mm, align=flush right, inner sep=1.5pt]
-        {否\\（档 (i) 不可用）} (T2);
+  \draw[scarr] (G) -- node[sclab, above=0.4mm] {是} (T1);
+  \draw[scarr] (G) -- node[sclab, left=1mm, align=flush right] {否\\（档 (i) 不可用）} (T2);
   \draw[scarr] (T2) -- (FR);
   \draw[scarr] (FR) -- (LAND);
 \end{tikzpicture}
@@ -174,43 +178,40 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, text width=50mm] (IDLE) at (-1.8,0)
+  \node[scnode, text width=46mm] (IDLE)
         {无开启窗口\\当前窗口最终头 $= F$};
-  \node[scnode, scfill, text width=50mm] (OPEN) at (-1.8,-3.3)
+  \node[scnode, scfill, text width=46mm, below=22mm of IDLE] (OPEN)
         {窗口开启\\best $=$ 当前最重候选\\（provisional，可被取代）};
-  \node[scnode, scfillb, text width=50mm] (CLOSE) at (-1.8,-6.3)
-        {收盘：唯一一次原子提交\\把 best 的终局元组写为新 canonical\\（推进游标，tip 成为新最终头 $F'$）};
+  \node[scnode, scfillb, text width=46mm, below=14mm of OPEN] (CLOSE)
+        {收盘：唯一一次原子提交\\把 best 的终局元组\\写为新 canonical\\
+         （推进游标，tip 成为\\新最终头 $F'$）};
 
-  \draw[scarr] (IDLE) -- node[sclabl, right=1mm, text width=46mm]
+  % 主转移（标签置于左侧）
+  \draw[scarr] (IDLE) -- node[sclab, left=1.5mm, text width=38mm]
         {首个延伸 $F$ 的合法候选落地：\\
-         冻结基线 base $=(F,\ \mathrm{stateRoot},$\\
-         \hspace*{6mm}$F_{\mathrm{consumed}},\ m_{\mathrm{consumed}})$\\
-         \texttt{close\_at} $=$ 当前 L1 高度 $+\ W_{\mathrm{settle}}$} (OPEN);
-  \draw[scarr] (OPEN) -- node[sclabl, right=1mm, text width=46mm]
+         冻结基线 base $=$\\
+         $(F,\ \mathrm{stateRoot},$\\
+         $F_{\mathrm{consumed}},\ m_{\mathrm{consumed}})$\\
+         \texttt{close\_at} $=$ L1 高度 $+\ W_{\mathrm{settle}}$} (OPEN);
+  \draw[scarr] (OPEN) -- node[sclab, left=1.5mm, text width=38mm]
         {L1 高度到达 \texttt{close\_at}\\（同一高度：先收盘、后受理）} (CLOSE);
 
+  % IDLE 虚线自环（右侧）
+  \draw[scdarr] ($(IDLE.east)+(0,0.22)$) -- ++(0.8,0) |- ($(IDLE.east)+(0,-0.22)$);
+  \node[sclab, text width=36mm, anchor=west] at (3.6,0)
+        {收盘后才到的候选\\只能作为下一窗口的首候选};
+
   % OPEN 自环 1
-  \coordinate (a1) at ($(OPEN.east)+(0,0.42)$);
-  \coordinate (b1) at ($(OPEN.east)+(0,0.14)$);
-  \draw[scarr] (a1) -- ++(0.9,0) |- (b1);
-  \node[sclabl, text width=40mm, anchor=west] at ($(a1)+(1.1,-0.14)$)
-        {更重合法候选：对同一冻结 base 验证，key 严格更大 $\Rightarrow$ 取代 best（只记账，不改 canonical）};
+  \draw[scarr] ($(OPEN.east)+(0,0.46)$) -- ++(0.8,0) |- ($(OPEN.east)+(0,0.16)$);
+  \node[sclab, text width=36mm, anchor=west] at ($(OPEN.east)+(1.2,0.78)$)
+        {更重合法候选：对同一冻结\\base 验证，key 严格更大\\$\Rightarrow$ 取代 best（只记账）};
   % OPEN 自环 2
-  \coordinate (a2) at ($(OPEN.east)+(0,-0.14)$);
-  \coordinate (b2) at ($(OPEN.east)+(0,-0.42)$);
-  \draw[scarr] (a2) -- ++(0.9,0) |- (b2);
-  \node[sclabl, text width=40mm, anchor=west] at ($(a2)+(1.1,-1.05)$)
-        {更差候选到达 $\Rightarrow$ revert，零状态变化};
+  \draw[scarr] ($(OPEN.east)+(0,-0.16)$) -- ++(0.8,0) |- ($(OPEN.east)+(0,-0.46)$);
+  \node[sclab, text width=36mm, anchor=west] at ($(OPEN.east)+(1.2,-0.80)$)
+        {更差候选到达 $\Rightarrow$ revert，\\零状态变化};
 
-  % IDLE 虚线自环
-  \coordinate (c1) at ($(IDLE.east)+(0,0.20)$);
-  \coordinate (c2) at ($(IDLE.east)+(0,-0.20)$);
-  \draw[scdarr] (c1) -- ++(0.9,0) |- (c2);
-  \node[sclabl, text width=40mm, anchor=west] at ($(c1)+(1.1,-0.20)$)
-        {收盘后才到的候选只能作为下一窗口的首候选};
-
-  % CLOSE -> IDLE 回边
-  \draw[scarr] (CLOSE.west) -- ++(-1.0,0) |- (IDLE.west);
+  % 收盘后回到空闲
+  \draw[scarr] (CLOSE.west) -- ++(-4.4,0) |- (IDLE.west);
 \end{tikzpicture}
 \caption{结算窗口的生命周期状态机：窗口开启即冻结基线，窗口内所有候选对同一基线验证且只记账，直到收盘时才把最重候选的终局元组一次性原子提交为新的 canonical 状态。}
 \label{fig:5}
@@ -221,31 +222,31 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, text width=48mm] (P1) at (-2.2,0)
+  \node[scnode, text width=48mm] (P1)
         {第 1/2 档：预确认\\构建者签名，秒级};
-  \node[scnode, text width=48mm] (P2) at (-2.2,-2.3)
-        {provisional 落地\\候选已上 L1，窗口内仍可被更重者取代\\
+  \node[scnode, text width=48mm, below=13mm of P1] (P2)
+        {provisional 落地\\候选已上 L1，\\窗口内仍可被更重者取代\\
          稳态 $\mathrm{lag}_{\mathrm{prov}} \approx 15$--$20$ min};
-  \node[scnode, scfill, text width=48mm] (P3) at (-2.2,-4.7)
+  \node[scnode, scfill, text width=48mm, below=13mm of P2] (P3)
         {window-final\\提款/桥接从此执行\\
          稳态 $\mathrm{lag}_{\mathrm{final}} \approx 35$--$40$ min};
-  \node[scnode, scfillb, text width=48mm] (P4) at (-2.2,-6.8)
+  \node[scnode, scfillb, text width=48mm, below=13mm of P3] (P4)
         {L1-final\\绝对最终};
 
   \draw[scarr] (P1) -- (P2);
-  \draw[scarr] (P2) -- node[sclab, left=1mm, text width=24mm]
+  \draw[scarr] (P2) -- node[sclab, left=1.5mm, text width=24mm]
         {$+\ W_{\mathrm{settle}}$\\$\approx 20$ min} (P3);
-  \draw[scarr] (P3) -- node[sclab, left=1mm, text width=24mm]
+  \draw[scarr] (P3) -- node[sclab, left=1.5mm, text width=24mm]
         {$+\ F_{\mathrm{l1}}$\\（分钟级）} (P4);
 
-  \node[scdnote, text width=42mm, anchor=west] (N1) at (1.2,-2.3)
+  \node[scdnote, text width=42mm, anchor=west] (N1) at (3.4,-3.0)
         {服务观测阈值\\$\Delta_{\mathrm{lag,prov}} = 4$ epoch $\approx 25.6$ min};
-  \node[scdnote, text width=42mm, anchor=west] (N2) at (1.2,-4.7)
+  \node[scdnote, text width=42mm, anchor=west] (N2) at (3.4,-6.1)
         {兜底/计次阈值\\$\Delta_{\mathrm{lag,final}} \approx 9$ epoch $\approx 57.6$ min\\
          $=\Delta_{\mathrm{lag,prov}} + W_{\mathrm{settle,max}} +$ 余量};
 
-  \draw[scdarr] (P2.east) -- (N1.west);
-  \draw[scdarr] (P3.east) -- (N2.west);
+  \draw[scdarr] (P2.east) -- (P2.east -| N1.west);
+  \draw[scdarr] (P3.east) -- (P3.east -| N2.west);
 \end{tikzpicture}
 \caption{四级确定性阶梯与两个滞后量：预确认为秒级，provisional 落地与 window-final 之间相差一个结算窗口；$\mathrm{lag}_{\mathrm{prov}}$ 只用于服务节奏观测，$\mathrm{lag}_{\mathrm{final}}$ 才进入兜底与罚则会计。}
 \label{fig:6}
@@ -256,39 +257,41 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, text width=52mm] (W) at (0,0)
+  \node[scnode, text width=52mm] (W)
         {观测 $\mathrm{lag}_{\mathrm{final}}$（L1 状态的纯函数）};
-  \node[scdec, text width=26mm] (C) at (0,-1.9)
+  \node[scdec, text width=26mm, below=10mm of W] (C)
         {$\mathrm{lag}_{\mathrm{final}} > \Delta_{\mathrm{lag,final}}$ ?};
-  \node[scnode, text width=30mm] (N) at (4.7,-1.9)
+  \node[scsm, text width=30mm, right=12mm of C] (N)
         {兜底窗口关闭\\常态：只有聚合者落地};
-  \node[scnode, scfill, text width=52mm] (O) at (0,-4.0)
-        {兜底窗口开启（状态条件，非计时器）\\资格与报酬承诺【快照】保持到结算窗口收盘};
-  \node[scnode, text width=52mm] (A) at (0,-5.9)
-        {任何人可落地合法候选\\报酬 $=$ 成本 $+$ 加成，从聚合者保证金支付};
-  \node[scdec, text width=28mm] (S) at (0,-8.0)
+  \node[scnode, scfill, text width=52mm, below=12mm of C] (O)
+        {兜底窗口开启（状态条件，非计时器）\\
+         资格与报酬承诺【快照】保持到结算窗口收盘};
+  \node[scnode, text width=52mm, below=8mm of O] (A)
+        {任何人可落地合法候选\\
+         报酬 $=$ 成本 $+$ 加成，从聚合者保证金支付};
+  \node[scdec, text width=28mm, below=12mm of A] (S)
         {开窗期内被接受的\\批次来自谁？};
-  \node[scnode, text width=32mm] (K1) at (-3.6,-10.1)
+  \node[scsm, text width=34mm] (K1) at ($(S.south)+(-4.6,-1.5)$)
         {兜底计次 strike\\按 $G_{\mathrm{strike}}$ 限速累积};
-  \node[scnode, text width=32mm] (K2) at (3.6,-10.1)
+  \node[scsm, text width=34mm] (K2) at ($(S.south)+(4.6,-1.5)$)
         {迟到罚金（按超出量定价）\\$+$ 迟到计数（独立限速）};
-  \node[scdec, text width=30mm] (T) at (0,-12.1)
-        {累计 $m_{\mathrm{agg}}=2$ 次\\或 $m'_{\mathrm{agg}}=4$ 次？};
-  \node[scnode, scfillb, text width=44mm] (E) at (0,-13.9)
+  \node[scdec, text width=30mm] (T) at ($(S.south)+(0,-3.9)$)
+        {累计 $m_{\mathrm{agg}} = 2$ 次\\或 $m'_{\mathrm{agg}} = 4$ 次？};
+  \node[scnode, scfillb, text width=44mm, below=8mm of T] (E)
         {席位终止 $\Rightarrow$ 最高候补者晋升};
 
   \draw[scarr] (W) -- (C);
-  \draw[scarr] (C) -- node[sclab, above=0.5mm] {否} (N);
+  \draw[scarr] (C) -- node[sclab, above=0.4mm] {否} (N);
   \draw[scarr] (C) -- node[sclab, left=1mm] {是} (O);
   \draw[scarr] (O) -- (A);
   \draw[scarr] (A) -- (S);
-  \draw[scarr] (S.west) -| node[sclab, pos=0.25, above=0.5mm] {非聚合者} (K1.north);
-  \draw[scarr] (S.east) -| node[sclab, pos=0.25, above=0.5mm] {聚合者自己（迟到）} (K2.north);
-  \draw[scarr] (K1.south) |- ($(T.west)+(-0.0,0)$);
-  \draw[scarr] (K2.south) |- ($(T.east)+(0.0,0)$);
+  \draw[scarr] (S.west) -- node[sclab, midway] {非聚合者} (K1.north);
+  \draw[scarr] (S.east) -- node[sclab, midway] {聚合者自己（迟到）} (K2.north);
+  \draw[scarr] (K1.south) -- (T.west);
+  \draw[scarr] (K2.south) -- (T.east);
   \draw[scarr] (T) -- node[sclab, left=1mm] {是} (E);
-  \draw[scarr] (T.west) -- ++(-1.1,0) node[sclab, above=0.5mm, pos=0.6] {否}
-        |- (W.west);
+  \draw[scarr] (T.west) -- ++(-4.8,0)
+        node[sclab, above=0.4mm, pos=0.75] {否} |- (W.west);
 \end{tikzpicture}
 \caption{无许可兜底窗口与席位计次的因果链：兜底资格由 L1 可观测的 $\mathrm{lag}_{\mathrm{final}}$ 越阈这一状态条件开启，开窗期内谁落地决定计入兜底计次还是迟到罚金，计次累积到阈值即触发席位终止。}
 \label{fig:7}
@@ -300,48 +303,47 @@
 \centering
 \begin{tikzpicture}[font=\scriptsize]
   \def\pL{0}\def\pO{3.6}\def\pB{7.2}\def\pP{10.6}
-  \def\ytop{0}\def\ybot{-8.6}
 
   % 参与者
-  \node[scnote, text width=22mm, anchor=north] (hL) at (\pL,\ytop) {落地者\\（聚合者或任何人）};
-  \node[scnote, text width=22mm, anchor=north] (hO) at (\pO,\ytop) {L1 合约};
-  \node[scnote, text width=22mm, anchor=north] (hB) at (\pB,\ytop) {任一回归的\\排班构建者};
-  \node[scnote, text width=22mm, anchor=north] (hP) at (\pP,\ytop) {P2P 网络};
+  \node[scnote, text width=22mm, anchor=north] at (\pL,0) {落地者\\（聚合者或任何人）};
+  \node[scnote, text width=22mm, anchor=north] at (\pO,0) {L1 合约};
+  \node[scnote, text width=22mm, anchor=north] at (\pB,0) {任一回归的\\排班构建者};
+  \node[scnote, text width=22mm, anchor=north] at (\pP,0) {P2P 网络};
 
   % 生命线
-  \foreach \x in {\pL,\pO,\pB,\pP}{\draw[sclife] (\x,-1.05) -- (\x,\ybot);}
+  \foreach \x in {\pL,\pO,\pB,\pP}{\draw[sclife] (\x,-1.05) -- (\x,-9.5);}
 
   % Note over 落地者..P2P
-  \node[scnote, text width=104mm] at (5.3,-1.6)
+  \node[scnote, text width=104mm] at (5.3,-1.7)
         {停摆发生，缺口 $> G_{\max}$，墙钟远超链头};
 
-  % (1) 落地者 -> L1
-  \draw[scarr] (\pL,-2.7) -- (\pO,-2.7);
-  \node[sclab, text width=48mm, anchor=south] at (1.8,-2.62)
-        {(1) 先把停摆前的最优尾巴（含冻结长尾）带证明落为候选};
+  % (1)
+  \draw[scarr] (\pL,-3.1) -- (\pO,-3.1);
+  \node[sclab, text width=42mm, anchor=south] at (1.8,-3.02)
+        {(1) 先把停摆前的最优尾巴\\（含冻结长尾）带证明落为候选};
 
   % (2) L1 自消息（虚线）
-  \draw[scdarr] (\pO,-3.6) -- ++(0.85,0) -- ++(0,-0.5) -- (\pO,-4.1);
-  \node[sclabl, text width=38mm, anchor=west] at (\pO+1.05,-3.85)
-        {(2) 结算窗口收盘 $\Rightarrow$ 尾巴 window-final，最终头 $=F$};
+  \draw[scdarr] (\pO,-4.1) -- ++(0.85,0) -- ++(0,-0.55) -- (\pO,-4.65);
+  \node[sclab, text width=40mm, anchor=west] at (\pO+1.05,-4.38)
+        {(2) 结算窗口收盘 $\Rightarrow$\\尾巴 window-final，最终头 $=F$};
 
   % (3) 构建者自消息
-  \draw[scarr] (\pB,-5.0) -- ++(0.85,0) -- ++(0,-0.5) -- (\pB,-5.5);
-  \node[sclabl, text width=38mm, anchor=west] at (\pB+1.05,-5.25)
-        {(3) 等 $F$ 的落地交易达 $F_{\mathrm{l1}}$ 深度（分钟级）};
+  \draw[scarr] (\pB,-5.7) -- ++(0.85,0) -- ++(0,-0.55) -- (\pB,-6.25);
+  \node[sclab, text width=36mm, anchor=west] at (\pB+1.05,-5.98)
+        {(3) 等 $F$ 的落地交易达\\$F_{\mathrm{l1}}$ 深度（分钟级）};
 
-  % (4) 构建者 -> P2P
-  \draw[scarr] (\pB,-6.4) -- (\pP,-6.4);
-  \node[sclab, text width=44mm, anchor=south] at (8.9,-6.32)
-        {(4) 以 $F$ 为父签档 (ii) 恢复块（\texttt{final\_ref} 见证父已 final）};
+  % (4)
+  \draw[scarr] (\pB,-7.2) -- (\pP,-7.2);
+  \node[sclab, text width=46mm, anchor=south] at (8.9,-7.12)
+        {(4) 以 $F$ 为父签档 (ii) 恢复块\\（\texttt{final\_ref} 见证父已 final）};
 
   % Note over 构建者..P2P
-  \node[scnote, text width=58mm] at (8.9,-7.35)
+  \node[scnote, text width=56mm] at (8.9,-8.25)
         {一跳接回墙钟；此后按档 (i) 正常出块，与停摆时长无关};
 
-  % (5) 落地者 -> L1
-  \draw[scarr] (\pL,-8.2) -- (\pO,-8.2);
-  \node[sclab, text width=44mm, anchor=south] at (1.8,-8.12)
+  % (5)
+  \draw[scarr] (\pL,-9.3) -- (\pO,-9.3);
+  \node[sclab, text width=48mm, anchor=south] at (1.8,-9.22)
         {(5) 恢复批次照常证明、落地、开新窗口};
 \end{tikzpicture}
 \caption{数小时乃至数天停摆后的恢复时序：先把停摆前的最优尾巴落地并收盘为最终头 $F$，再由任一回归构建者以 $F$ 为父出一个档 (ii) 恢复块，一跳把排序接回墙钟，恢复过程不含独立子协议。}
@@ -353,11 +355,12 @@
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-  \node[scnode, scfill, text width=80mm] (Q) at (0,0)
+  \node[scnode, scfill, text width=80mm] (Q)
         {块首消费：两条 FIFO 队列，逐块义务};
   \node[scnode, text width=80mm, below=8mm of Q] (BR)
         {桥接队列前缀：\\
-         同时满足 条数 $\le C_{\mathrm{bridge}}$ 且 累计声明 gas $\le C_{\mathrm{bridge}}$ gas 份额\\
+         同时满足：条数 $\le C_{\mathrm{bridge}}$\\
+         且累计声明 gas $\le C_{\mathrm{bridge}}$ gas 份额\\
          的最长前缀（保留配额）};
   \node[scnode, text width=80mm, below=8mm of BR] (OR)
         {普通强制队列前缀：\\
@@ -389,19 +392,19 @@
   \foreach \x in {0.9,4.3,7.1,10.3}{\draw[scline] (\x,-0.15) -- (\x,0.15);}
 
   % 轴下：四个时点
-  \node[scsm, text width=26mm, anchor=north] at (0.9,-0.35)
+  \node[scsm, text width=30mm, anchor=north] at (0.9,-0.35)
         {块产生\\anchor 已老 $\le D_{\mathrm{anchor}}$\\（32 L1 slot）};
   \node[scsm, text width=20mm, anchor=north] at (4.3,-0.35)
         {兜底被授权};
   \node[scsm, text width=18mm, anchor=north] at (7.1,-0.35)
         {证明完成};
-  \node[scsm, scfill, text width=28mm, anchor=north] at (10.3,-0.35)
+  \node[scsm, scfill, text width=30mm, anchor=north] at (10.3,-0.35)
         {候选落地\\anchor 新鲜度在此校验};
 
   % 轴上：三段
   \draw[scdim] (0.9,0.5) -- (4.3,0.5);
   \node[sclab, text width=34mm, anchor=south] at (2.6,0.6)
-        {聚合者扣落地拖延\\$\le \Delta_{\mathrm{lag,final}}$（兜底开窗阈值）};
+        {聚合者扣落地拖延\\$\le \Delta_{\mathrm{lag,final}}$\\（兜底开窗阈值）};
   \draw[scdim] (4.3,0.5) -- (7.1,0.5);
   \node[sclab, text width=24mm, anchor=south] at (5.7,0.6)
         {证明\\$\le P_{\mathrm{prove,max}}$};
@@ -410,10 +413,10 @@
         {L1 纳入\\$\le T_{\mathrm{include,max}}$};
 
   % 全程跨度 + 不变量
-  \draw[scdim] (0.9,-2.05) -- (10.3,-2.05);
-  \node[scnote, text width=108mm, anchor=north] at (5.6,-2.2)
+  \draw[scdim] (0.9,-2.35) -- (10.3,-2.35);
+  \node[scnote, text width=104mm, anchor=north] at (5.6,-2.5)
         {不变量：$D_{\mathrm{anchor,max}} \ge D_{\mathrm{anchor}} + \Delta_{\mathrm{lag,final}}
-         + P_{\mathrm{prove,max}} + T_{\mathrm{include,max}} +$ 余量
+         + P_{\mathrm{prove,max}} + T_{\mathrm{include,max}} +$ 余量\\
          $\approx 420$ L1 slot $\approx 84$ 分钟，罩住兜底授权全程，死锁不存在};
 \end{tikzpicture}
 \caption{最坏路径下 anchor 年龄的时间几何：新鲜度窗口 $D_{\mathrm{anchor,max}}$ 必须罩住从块产生、经聚合者拖延至越阈授权兜底、再到证明与 L1 纳入的全程，这一参数关系即为陈旧-anchor 尾巴死锁的解。}

@@ -22,7 +22,8 @@
 | [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（P1–P12 共 21 项全过）与覆盖对照。 |
 | [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md) | **实现前复核（§12 第 18 项后半,r44）**：模型未覆盖项闭合对照、Solidity 级 `acceptCandidate` 存储布局（固定 4 词复用）与 gas 分析（边际 O(1),≈20–25k/候选）、Inbox 对接路径、仍开放项清单。非规范性;最终判定 = 所有者 + 人类安全评审。 |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **主规范的 PDF 版**（A4 单栏、学术论文式排版，68 页）：标题页 + 摘要 + 目录，10 幅 TikZ 灰阶图，§/附录交叉引用可点击，评审出处注记集中在附录 E。由 `build-pdf.py` 生成。 |
-| [`build-pdf.py`](build-pdf.py) / [`tex/figures.tex`](tex/figures.tex) | PDF 生成器（Markdown → XeLaTeX + ctex）与手写的 TikZ 图源。改 md 后运行 `python3 build-pdf.py` 重新生成；`tex/main.tex` 与编译中间件不入库。需要 `texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-pictures`。 |
+| [`build-pdf.py`](build-pdf.py) | PDF 生成器（Markdown → XeLaTeX + ctex → PDF）。改 md 后运行 `python3 build-pdf.py` 重新生成并提交；`python3 build-pdf.py --check` 校验 `tex/main.tex` 是否与 markdown 漂移。需要 `texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-pictures`。 |
+| [`tex/main.tex`](tex/main.tex) / [`tex/figures.tex`](tex/figures.tex) | 论文的 LaTeX 源：`main.tex` 由生成器从 markdown 产出（一并入库，便于不装生成器也能直接编译审阅），`figures.tex` 是手写的 10 幅 TikZ 灰阶图源。编译中间件（aux/log/toc/out）不入库。 |
 | [`legacy-summary.md`](legacy-summary.md) | 既往工作摘要（非规范性）：v15 线一段话、保留的关键结论（v15 活性事实、强制包含不可删的论证、拆分评估的坑与 v2 解法对照、在线核实过的外部先例）、原始文档的 git 历史索引。 |
 
 ## 状态
@@ -36,9 +37,10 @@ HTML 嵌套列表/§ 锚点链接/粗体减重修复。
 v1.46（2026-08-26）：DeepSeek-on-v1.45 批次——模型 P9a 非空化（部署值独立声明、不等式互检），
 并当即抓出 r44 的真实数值矛盾：`Δ_lag,final` 8-epoch 初值低于其自身公式（128+150 L1 slot），
 重校为 **9 epoch ≈ 57.6 min**、`D_anchor_max` 估算 380→**≈420 L1 slot**；§5.6 澄清基线冻结 =
-游标/状态（队列 append-only 按序号引用，勿用可变队列根做公共输入）+ 模型 P12；`build-html.py`
-加 `--check` 漂移防护；P9b 显式时基。21 项断言全过。
-v1.45：可读性修订（五轮自审，零语义变更）——变更历史移入附录 D、新增导读/目录、全角标点规范、10 幅 mermaid 图嵌入正文、新增 HTML 版。
+游标/状态（队列 append-only 按序号引用，勿用可变队列根做公共输入）+ 模型 P12；为当时的 HTML
+生成器加 `--check` 漂移防护（该防护在 v1.48 随排版线迁移到 `build-pdf.py`）；P9b 显式时基。
+21 项断言全过。
+v1.45：可读性修订（五轮自审，零语义变更）——变更历史移入附录 D、新增导读/目录、全角标点规范、10 幅图嵌入正文、新增 HTML 版（该 HTML 线已于 v1.48 删除，由 LaTeX/PDF 取代）。
 v1.44：**§12"实现前的门"两半均已交付** + DeepSeek-on-v1.43 批次修复。
 后半（r44）:模型补 P8–P11（桥接预留饿死抵抗、anchor 几何/因果序、罚没按候选落地时点、兜底
 资格快照）共 19 项断言全过 + 实现前复核文档（Solidity 存储/gas 分析与 Inbox 对接）;批次修复:

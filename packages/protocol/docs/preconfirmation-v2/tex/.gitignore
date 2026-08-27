@@ -1,13 +1,11 @@
-# 生成物：main.tex 由 build-pdf.py 从 markdown 生成，编译中间件不入库。
-# 入库的只有手写的 figures.tex 与最终的 ../slot-chain-spec.pdf。
-main.tex
+# 入库：figures.tex（手写 TikZ 图源）与 main.tex（由 build-pdf.py 生成的论文源）。
+# main.tex 是生成物但一并入库，便于不装生成器也能直接编译/审阅；
+# 用 `python3 build-pdf.py --check` 校验它与 markdown 是否漂移。
 *.aux
 *.log
 *.out
 *.toc
 *.pdf
-measure.tex
-test-figures.*
 measure.*
 test-figures.*
 tw.*

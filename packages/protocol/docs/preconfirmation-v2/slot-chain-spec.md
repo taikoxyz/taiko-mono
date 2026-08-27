@@ -1794,7 +1794,8 @@ L1 直接验签（双签）、要么是 L1 时钟与 L1 事实的机械判定（
 > 后续候选可见且确定；实现上队列承诺须逐条/append-only（哈希链或 MMR），不得用落地时刻的
 > 单一可变队列根做公共输入（§5.6 新条 + 实现前复核文档 `baseCommit` 一节同步）。模型新增
 > P12a/P12b（中途入队不改先前候选终局；入队时点不影响验证结果），21 项断言全过。
-> **(W3) HTML 再生成纪律**：`build-html.py` 加 `--check` 模式（再生成并 diff，脏则非零退出），
+> **(W3) 再生成纪律**：当时的 HTML 生成器加 `--check` 模式（再生成并 diff，脏则非零退出；
+> v1.48 排版线迁移到 LaTeX 后，该防护由 `build-pdf.py --check` 承担），
 > README 写明"改 md → 重新生成 + check"约定；monorepo CI 工作流不在本 docs 分支范围，列为
 > 合入时的仓库级跟进。(建议) P9b 强化为按显式时基函数检验 `anchor.L1_timestamp ≤
 > L2_timestamp(slot)`（含等号边界）；`build-html.py` 用 with 管理文件、注明依赖版本。
@@ -1807,7 +1808,8 @@ L1 直接验签（双签）、要么是 L1 时钟与 L1 事实的机械判定（
 > 因果链、§6.4 停摆恢复时序、§7 双队列最大前缀消费、§8 anchor 新鲜度几何——全部以
 > diagram-as-code 形式（GitHub 原生渲染，非贴图），并经 mermaid-cli 逐幅渲染验证。
 > §0 摘要句拆分润色，正文对旧"变更记录"的引用改指本附录。第 5 轮（终读）：全文复读、
-> 残留修补，并新增 HTML 版 `slot-chain-spec.html`（由本 markdown 生成，mermaid
+> 残留修补，并新增 HTML 版 `slot-chain-spec.html`（该 HTML 线已于 v1.48 删除，由 LaTeX/PDF
+> 取代；下述为当时的做法：由本 markdown 生成，mermaid
 > 客户端渲染，便于浏览器阅读）。规范语义、参数、模型（19 项断言）均未改动。
 > **草案 v1.44，2026-08-26——DeepSeek-on-v1.43 批次修复 + §12 第 18 项"实现前的门"后半交付。**
 > **(C1，高危) 拆阈值:`Δ_lag,prov` / `Δ_lag,final`**——r42 把兜底/计次判定量换成 `lag_final`

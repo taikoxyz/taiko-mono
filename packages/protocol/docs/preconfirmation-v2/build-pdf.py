@@ -4,6 +4,8 @@
 用法:
     python3 build-pdf.py            # 生成 tex/main.tex 并编译出 slot-chain-spec.pdf
     python3 build-pdf.py --tex-only # 只生成 tex，不编译
+    python3 build-pdf.py --check    # 重新生成并比对，tex 与 markdown 不一致则非零退出
+                                    # （漂移防护：改 md 后必须重新生成并提交）
 
 两项结构性转换（其余为纯排版）：
   1. 评审注记外置——正文中形如"（评审 r39）""（独立审核第 5 轮高危 1——…）"的出处括注
@@ -519,7 +521,22 @@ def build():
            + "\n".join(notes_tex) + "\n\\end{document}\n")
     tex = tex.replace("@VERSION@", version)
 
+    # 一致性：markdown 里的 mermaid 块是图的位置标记，数量必须与 figures.tex 对齐，
+    # 否则会出现"图排错位置"或"图丢失"这类静默错误。
+    n_marks = len(re.findall(r"^\s*```mermaid\s*$", md, re.M))
+    if n_marks != n_figs:
+        print("WARNING: markdown 有 %d 个图位标记，figures.tex 有 %d 幅图"
+              % (n_marks, n_figs))
+
     os.makedirs(TEXDIR, exist_ok=True)
+    if "--check" in sys.argv[1:]:
+        current = open(MAIN, encoding="utf-8").read() if os.path.exists(MAIN) else None
+        if current != tex:
+            print("DRIFT: %s 与 markdown 不一致 —— 运行 `python3 build-pdf.py` 并提交"
+                  % os.path.relpath(MAIN, HERE))
+            sys.exit(1)
+        print("%s 与 markdown 一致" % os.path.relpath(MAIN, HERE))
+        sys.exit(0)
     open(MAIN, "w", encoding="utf-8").write(tex)
     print("wrote %s (%d bytes, %d review notes, %d figures)"
           % (MAIN, len(tex), len(store.notes), n_figs))
