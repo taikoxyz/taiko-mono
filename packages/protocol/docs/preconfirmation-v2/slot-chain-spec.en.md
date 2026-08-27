@@ -125,9 +125,9 @@ is paid out of the aggregator's bond (§6.3).
   "unconditional" guarantee currently carries one blocking-level gap （review r27-1,
   DeepSeek round 6 Critical 1）: forced entries use ordinary L2 nonces, so a censoring party can
   accept a conflicting transaction bearing the same nonce and thereby have the entry consumed and
-  discarded (the nonce pre-emption of §7, item 12 of §12). Until this open item is settled by one of
+  discarded (the nonce preemption of §7, item 12 of §12). Until this open item is settled by one of
   the three candidate remedies in §7, the "unconditional" character of the forced path holds only
-  for entries that cannot be pre-empted by nonce — bridging and exit messages, which are constructed
+  for entries that cannot be preempted by nonce — bridging and exit messages, which are constructed
   by the bridge contract and do not go through a user nonce, are of this kind, whereas an ordinary
   user's forced transaction is for now not. Wherever §0, §1 and §7 speak of an "unconditional
   floor", the phrase is to be read subject to this note.
@@ -1823,7 +1823,7 @@ sequenceDiagram
 | Aggregator offline + no standby | As above | Fallback landing remains available throughout (no seat is required); the normal cadence resumes once the auction has cleared | 0 interruption of the sequencing service |
 | All builders at once (catastrophe or cartel) — **out-of-model** (§1 trust model) | No new preconfirmations | Once a forced entry is `H_force` past due, **anyone may produce a forced-only block with any key** (§4.2 tier (ii) built on the landed head + §7, defense in depth, no episode); new builders may join the registry at any time | Forced path ≈ the per-queue backlog-aware bound (§7); discretionary service waits for new builders to join |
 | Builders and aggregator colluding as a whole (block bodies kept private) — **out-of-model** (§1 trust model; the owner's decision is not to solve this inside the protocol) | Preconfirmations are still issued but cannot be trusted; finality stalls, and **correctly** no aggregator strike is produced (the stall is attributed to the cartel) | The forced path is the defense-in-depth exit; any single builder defecting from the collusion immediately produces a landable fork (§5.5, self-healing), which returns the system to the model | Forced path ≈ the per-queue backlog-aware bound (§7); everything else waits for the collusion to break down |
-| Proving-system failure | Preconfirmations proceed as usual; no new finality | **Zero false positives for fallback strikes holds** (nobody can land ⇒ no strike is recorded, §6.3); but the exemption for late fees and late counts **does not yet exist** — until §12 item 8 （blocking） is complete, the first batch landed after recovery is charged under the current rules （r14-1, stated honestly; the exemption is expected to take the form of v15 §10.4 level 3） | Equal to the duration of the failure; the mis-penalization exposure of the recovery batch remains open until §12 item 8 is closed |
+| Proving-system failure | Preconfirmations proceed as usual; no new finality | **Zero false positives for fallback strikes holds** (nobody can land ⇒ no strike is recorded, §6.3); but the exemption for late fees and late counts **does not yet exist** — until §12 item 8 （blocking） is complete, the first batch landed after recovery is charged under the current rules （r14-1, stated honestly; the exemption is expected to take the form of v15 §10.4 level 3） | Equal to the duration of the failure; the risk of wrongly penalizing the recovery batch remains open until §12 item 8 is closed |
 
 By comparison with v15: there, "one seat goes offline" = a 20–26 minute service interruption (when a standby exists); here the same class of event costs
 1 second (a builder) or 0 seconds (an aggregator, which affects only the cadence of finality). This is the reason this design exists.
