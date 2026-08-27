@@ -640,9 +640,14 @@ def check_translation_sync():
 
 
 def compile_pdf():
+    # -V 4 让 xdvipdfmx 输出 PDF 1.4：经典 xref 表 + trailer 字典，不用对象流
+    # (/ObjStm) 和交叉引用流 (/XRef)。后者是 PDF 1.5 的默认结构，体积小约 28%，
+    # 但只实现 PDF 1.4 的老解析器（不少电子书阅读器、电纸书固件属于此类）找不到
+    # `trailer` 关键字就报"文件已损坏"。这里用体积换可打开性。
     for run in range(3):
         r = subprocess.run(["xelatex", "-interaction=nonstopmode",
-                            "-halt-on-error", "main.tex"],
+                            "-halt-on-error",
+                            "-output-driver=xdvipdfmx -V 4 -q", "main.tex"],
                            cwd=TEXDIR, capture_output=True, text=True)
         if r.returncode != 0:
             log = os.path.join(TEXDIR, "main.log")

@@ -22,7 +22,7 @@
 | [`lookahead-model.py`](lookahead-model.py) | **排班表可执行参考实现**（零依赖 Python，§3.2 代码化）：窗口对齐/唯一快照/种子/加权抽样的完整计算 + 6 项性质断言；抽样算子为 §12-18(b) 定形候选。 |
 | [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（P1–P12 共 21 项全过）与覆盖对照。 |
 | [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md) | **实现前复核（§12 第 18 项后半,r44）**：模型未覆盖项闭合对照、Solidity 级 `acceptCandidate` 存储布局（固定 4 词复用）与 gas 分析（边际 O(1),≈20–25k/候选）、Inbox 对接路径、仍开放项清单。非规范性;最终判定 = 所有者 + 人类安全评审。 |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **主规范的 PDF 版**（英文、A4 单栏、学术论文式排版，90 页）：标题页 + 摘要 + 目录，正文与公式统一用 Palatino（`mathpazo`），10 幅 TikZ 灰阶图，§/附录交叉引用可点击，评审出处注记集中在附录 E。由 `build-pdf.py` 从 `slot-chain-spec.en.md` 生成。 |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **主规范的 PDF 版**（英文、A4 单栏、学术论文式排版，90 页）：标题页 + 摘要 + 目录，正文与公式统一用 Palatino（`mathpazo`），10 幅 TikZ 灰阶图，§/附录交叉引用可点击，评审出处注记集中在附录 E。由 `build-pdf.py` 从 `slot-chain-spec.en.md` 生成，**刻意输出为 PDF 1.4**（经典 xref 表 + `trailer`，不用对象流/交叉引用流）——PDF 1.5 结构小约 28%，但只实现 1.4 的老解析器（不少电子书阅读器、电纸书固件）会误报"文件已损坏"。 |
 | [`build-pdf.py`](build-pdf.py) | PDF 生成器（`slot-chain-spec.en.md` → LaTeX → PDF）。改 md 后运行 `python3 build-pdf.py` 重新生成并提交；`python3 build-pdf.py --check` 跑两道漂移防护——英文版是否落后于中文规范源（比对头部 sha256）、`tex/main.tex` 是否落后于英文版。需要 `texlive-xetex texlive-latex-extra texlive-pictures`（v1.49 起不再依赖 `texlive-lang-chinese`；生成器调 `xelatex`，`pdflatex` 也能直接编译 `tex/main.tex`）。 |
 | [`tex/main.tex`](tex/main.tex) / [`tex/figures.tex`](tex/figures.tex) | 论文的 LaTeX 源：`main.tex` 由生成器从 markdown 产出（一并入库，便于不装生成器也能直接编译审阅），`figures.tex` 是手写的 10 幅 TikZ 灰阶图源。编译中间件（aux/log/toc/out）不入库。 |
 | [`legacy-summary.md`](legacy-summary.md) | 既往工作摘要（非规范性）：v15 线一段话、保留的关键结论（v15 活性事实、强制包含不可删的论证、拆分评估的坑与 v2 解法对照、在线核实过的外部先例）、原始文档的 git 历史索引。 |
