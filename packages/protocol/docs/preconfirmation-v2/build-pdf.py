@@ -110,6 +110,14 @@ def esc(s: str) -> str:
     return "".join(SPECIALS.get(c, c) for c in s)
 
 
+def code_inline(s: str) -> str:
+    """行内等宽片段：在分隔符后插入零宽断点，避免长公式撑破版心。"""
+    e = esc(s)
+    for tok in (r"\_", ",", "/", "(", "+", "-"):
+        e = e.replace(tok, tok + r"\allowbreak{}")
+    return "\\texttt{%s}" % e
+
+
 def sec_ref(m):
     """§5.6 / §12 → 可点击交叉引用。"""
     num = m.group(1)
@@ -146,10 +154,10 @@ def inline(text: str, store: NoteStore = None) -> str:
     text = re.sub(r"附录 ([A-E])(?![\w-])",
                   lambda m: "\\hyperref[app:%s]{附录~%s}" % (m.group(1), m.group(1)), text)
     # 还原
-    text = re.sub(r"\x02([^\x02]*)\x02", lambda m: "\\texttt{%s}" % esc(m.group(1)), text)
+    text = re.sub(r"\x02([^\x02]*)\x02", lambda m: code_inline(m.group(1)), text)
     text = re.sub(r"\x01(\d+)\x01", lambda m: notes[int(m.group(1))], text)
     text = re.sub(r"\x00(\d+)\x00",
-                  lambda m: "\\texttt{%s}" % esc(spans[int(m.group(1))]), text)
+                  lambda m: code_inline(spans[int(m.group(1))]), text)
     text = text.replace("**", "")          # 注记外置后可能留下的孤立粗体标记
     return text
 

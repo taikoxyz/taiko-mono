@@ -180,7 +180,7 @@
 \begin{tikzpicture}
   \node[scnode, text width=46mm] (IDLE)
         {无开启窗口\\当前窗口最终头 $= F$};
-  \node[scnode, scfill, text width=46mm, below=22mm of IDLE] (OPEN)
+  \node[scnode, scfill, text width=46mm, below=27mm of IDLE] (OPEN)
         {窗口开启\\best $=$ 当前最重候选\\（provisional，可被取代）};
   \node[scnode, scfillb, text width=46mm, below=14mm of OPEN] (CLOSE)
         {收盘：唯一一次原子提交\\把 best 的终局元组\\写为新 canonical\\
@@ -311,7 +311,7 @@
   \node[scnote, text width=22mm, anchor=north] at (\pP,0) {P2P 网络};
 
   % 生命线
-  \foreach \x in {\pL,\pO,\pB,\pP}{\draw[sclife] (\x,-1.05) -- (\x,-9.5);}
+  \foreach \x in {\pL,\pO,\pB,\pP}{\draw[sclife] (\x,-1.05) -- (\x,-10.1);}
 
   % Note over 落地者..P2P
   \node[scnote, text width=104mm] at (5.3,-1.7)
@@ -324,26 +324,26 @@
 
   % (2) L1 自消息（虚线）
   \draw[scdarr] (\pO,-4.1) -- ++(0.85,0) -- ++(0,-0.55) -- (\pO,-4.65);
-  \node[sclab, text width=40mm, anchor=west] at (\pO+1.05,-4.38)
+  \node[sclab, text width=44mm, anchor=west] at (\pO+1.05,-4.38)
         {(2) 结算窗口收盘 $\Rightarrow$\\尾巴 window-final，最终头 $=F$};
 
   % (3) 构建者自消息
-  \draw[scarr] (\pB,-5.7) -- ++(0.85,0) -- ++(0,-0.55) -- (\pB,-6.25);
-  \node[sclab, text width=36mm, anchor=west] at (\pB+1.05,-5.98)
+  \draw[scarr] (\pB,-5.75) -- ++(0.85,0) -- ++(0,-0.55) -- (\pB,-6.30);
+  \node[sclab, text width=36mm, anchor=west] at (\pB+1.05,-6.02)
         {(3) 等 $F$ 的落地交易达\\$F_{\mathrm{l1}}$ 深度（分钟级）};
 
   % (4)
-  \draw[scarr] (\pB,-7.2) -- (\pP,-7.2);
-  \node[sclab, text width=46mm, anchor=south] at (8.9,-7.12)
+  \draw[scarr] (\pB,-7.6) -- (\pP,-7.6);
+  \node[sclab, text width=46mm, anchor=south] at (8.9,-7.52)
         {(4) 以 $F$ 为父签档 (ii) 恢复块\\（\texttt{final\_ref} 见证父已 final）};
 
   % Note over 构建者..P2P
-  \node[scnote, text width=56mm] at (8.9,-8.25)
+  \node[scnote, text width=56mm] at (8.9,-8.6)
         {一跳接回墙钟；此后按档 (i) 正常出块，与停摆时长无关};
 
   % (5)
-  \draw[scarr] (\pL,-9.3) -- (\pO,-9.3);
-  \node[sclab, text width=48mm, anchor=south] at (1.8,-9.22)
+  \draw[scarr] (\pL,-9.9) -- (\pO,-9.9);
+  \node[sclab, text width=54mm, anchor=south] at (1.8,-9.82)
         {(5) 恢复批次照常证明、落地、开新窗口};
 \end{tikzpicture}
 \caption{数小时乃至数天停摆后的恢复时序：先把停摆前的最优尾巴落地并收盘为最终头 $F$，再由任一回归构建者以 $F$ 为父出一个档 (ii) 恢复块，一跳把排序接回墙钟，恢复过程不含独立子协议。}
