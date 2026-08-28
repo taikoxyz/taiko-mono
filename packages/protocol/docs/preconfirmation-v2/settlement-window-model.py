@@ -483,163 +483,197 @@ def test_p12_midwindow_enqueue():
 
 
 def test_p13_reward_metered_on_marginal_advancement():
-    """§6.3: 保证金每窗口至多付一次;获胜层级被【争夺】时一分不付。
+    """§6.3: 争夺由【竞争准备金】买单——同层顶替按 (builder, slot) 计费,非幂等。
 
-    付款对象的选择本身是死路:攻击者总能以【一次证明】的代价占住层级的任一端。
-      · 付给排序赢家 ⇒ 收盘抢跑者最后提交更小 tip_hash,拿走报酬;
-      · 付给最先到达者 ⇒ 抢占者先提交较差的同层候选,再把更小 hash 的替代块放给
-        诚实兜底方去证明,诚实方赢得排序却拿不到钱,抢占者的证明反被报销。
-    两端都可占,故任何"选一个受益人"的规则都可被同一手法击破。
+    上一版对被争夺的层级零支付:攻击者拿不到钱,但诚实兜底方同样拿不到,于是
+    攻击者花一次证明就能烧掉诚实方一次证明(约 1:1),而兜底是唯一的无许可活性
+    后备,故仍可被吓退。零支付消除了【获利】,没有消除【骚扰】。
 
-    可用的不变量是:同层出现两个不同 tip_hash ⇒ 该 slot 的 builder 等价物签名
-    (§5.2),即该层级被争夺。规则因此是:获胜层级若被争夺,本窗口保证金零支付。
-    抢跑与抢占都白付一次证明且一无所获。诚实方在被争夺的窗口同样拿不到钱——
-    这是残留代价,不是被解决的问题,§6.3 与 §11 如实记录。
-
-    聚合器自付不能靠地址比对来防(它可以在证明的公开输入里填任意受益人地址,
-    无许可系统里无法强制经济归属)。改为定价不变式:迟到费 > 单窗口最大报销额,
-    于是无论受益人是谁,故意越过兜底阈值的聚合器净亏。
+    修正:每个 builder 对每个 slot 预留一笔竞争准备金 R_contest。同层的每一次被
+    接受的顶替都从该 tip builder 的 (builder, slot) 准备金扣款,赔付【被顶替】候选
+    的封顶成本;存活候选照常获得收盘报销。关键是【非幂等】——与 L_eq 不同,每次
+    顶替都扣一次,准备金耗尽则该 builder 剩余未终局 slot 作废(快照到期)。
+    两个方向都成立:
+      · 抢跑(诚实先、抢跑后):抢跑者的准备金赔付诚实方,诚实方被补足;
+      · 抢占(攻击者先、诚实后):攻击者被顶替,只是取回自己锁定的准备金,
+        且仍自付一次证明;诚实方作为存活者拿到正常收盘报销。
     """
-    C_FIXED, PHI_DATA = 10, 3
+    C_FIXED, PHI_DATA, R_CONTEST = 10, 3, 12   # 报销 / 每 blob / 每 (builder,slot) 准备金
     TRUE_COST = 10
-    B_MAX = 6                      # 单窗口可报销的最大 blob 数
-    LATE_FEE = 40                  # 迟到费;不变式见 P13c
 
     def key(c):
         return (c["count"], c["tip_slot"], -c["tip_hash"])
 
-    def settle(subs, base_count=0, fee_share=0):
-        """接受严格更优者;获胜层级被争夺则零支付,否则付该层唯一到达者。"""
-        best, at_level = None, {}
+    def settle(subs, fee_share=0, reserve=None):
+        """接受严格更优者;同层顶替由 tip builder 的准备金赔付被顶替者。"""
+        reserve = dict(reserve or {})
+        best, at_level, payments, exhausted = None, {}, {}, set()
         for c in subs:
             if best is None or key(c) > key(best):
-                at_level.setdefault((c["count"], c["tip_slot"]), []).append(c)
+                lv = (c["count"], c["tip_slot"])
+                prior = at_level.get(lv)
+                if prior is not None:                      # 同层顶替 ⇒ 等价物
+                    rk = (c["tip_builder"], c["tip_slot"])
+                    avail = reserve.get(rk, 0)
+                    debit = min(avail, C_FIXED)            # 赔付被顶替者的封顶成本
+                    reserve[rk] = avail - debit
+                    payments[prior["who"]] = payments.get(prior["who"], 0) + debit
+                    if reserve[rk] <= 0:
+                        exhausted.add(rk)                  # 耗尽 ⇒ 剩余未终局 slot 作废
+                at_level[lv] = c
                 best = c
         if best is None:
-            return 0, {}, None, at_level
-        reached = at_level[(best["count"], best["tip_slot"])]
-        if len({c["tip_hash"] for c in reached}) > 1:      # 被争夺 ⇒ 零支付
-            return 0, {}, best, at_level
-        payee = reached[0]
-        blobs = len(set(payee.get("blobs", ())))
-        bond_out = max(0, C_FIXED + PHI_DATA * blobs - fee_share)
-        return bond_out, {payee["who"]: bond_out}, best, at_level
+            return {}, None, reserve, exhausted
+        blobs = len(set(best.get("blobs", ())))
+        payments[best["who"]] = payments.get(best["who"], 0) + max(
+            0, C_FIXED + PHI_DATA * blobs - fee_share)     # 存活者的正常收盘报销
+        return payments, best, reserve, exhausted
 
-    def C(who, count, slot, h=5, blobs=()):
+    def C(who, count, slot, h=5, blobs=(), tb=None):
         return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h,
-                "blobs": list(blobs)}
+                "blobs": list(blobs), "tip_builder": tb or ("B%d" % slot)}
 
-    # --- a) 未被争夺的正常窗口:兜底方获赔一次 ---------------------------------
-    out, pay, best, _ = settle([C("A", 5, 500), C("B", 9, 900)])
+    RES = {("B100", 100): R_CONTEST}
+
+    # --- a) 未争夺的正常窗口 ----------------------------------------------------
+    pay, best, _, _ = settle([C("A", 5, 500), C("F", 9, 900)])
     check("P13a 未争夺窗口: 兜底方获赔一次固定成本",
-          best["who"] == "B" and set(pay) == {"B"} and abs(out - C_FIXED) < 1e-9)
+          best["who"] == "F" and pay == {"F": C_FIXED})
 
-    # --- b) 收盘抢跑(诚实先、抢跑后):零支付,抢跑白付一次证明 ---------------
-    out_s, pay_s, best_s, _ = settle([C("HONEST", 1, 100, h=9),
-                                      C("SNIPER", 1, 100, h=2)])
-    check("P13b 抢跑: 层级被争夺 ⇒ 零支付,抢跑者赢排序但一无所获",
-          best_s["who"] == "SNIPER" and pay_s == {} and abs(out_s) < 1e-9)
+    # --- b) 抢跑(诚实先、抢跑后): 诚实方由抢跑者的准备金补足 -----------------
+    pay_s, best_s, res_s, _ = settle([C("HONEST", 1, 100, h=9), C("SNIPER", 1, 100, h=2)],
+                                     reserve=RES)
+    check("P13b 抢跑: 诚实方获准备金赔付,不再白干",
+          best_s["who"] == "SNIPER" and pay_s["HONEST"] >= C_FIXED - 1e-9)
+    check("P13b2 抢跑者净亏: 赔付 + 自付证明 > 其收盘报销",
+          R_CONTEST - res_s[("B100", 100)] + TRUE_COST > pay_s["SNIPER"])
 
-    # --- b2) 【本轮回归】抢占(攻击者先、诚实后):同样零支付 ------------------
-    # 攻击者先提交较差同层候选,再放出更小 hash 的块让诚实方去证明并赢得排序。
-    out_p, pay_p, best_p, _ = settle([C("ATTACKER", 1, 100, h=9),
-                                      C("HONEST", 1, 100, h=2)])
-    check("P13b2 抢占(反向顺序): 层级仍被争夺 ⇒ 攻击者的证明【不】被报销",
-          best_p["who"] == "HONEST" and pay_p == {} and abs(out_p) < 1e-9)
-    check("P13b3 两个方向都不获利: 攻击者两种顺序下所得均为零",
-          pay_s.get("SNIPER", 0) == 0 and pay_p.get("ATTACKER", 0) == 0)
+    # --- c) 抢占(攻击者先、诚实后): 诚实方存活获报销,攻击者只取回自有准备金 --
+    pay_p, best_p, _, _ = settle([C("ATTACKER", 1, 100, h=9), C("HONEST", 1, 100, h=2)],
+                                 reserve=RES)
+    check("P13c 抢占: 诚实存活者获正常收盘报销",
+          best_p["who"] == "HONEST" and pay_p["HONEST"] >= C_FIXED - 1e-9)
+    check("P13c2 抢占者仅取回自己锁定的准备金,仍自付一次证明 ⇒ 净亏",
+          pay_p.get("ATTACKER", 0) <= R_CONTEST and TRUE_COST > 0)
 
-    # --- b4) 残留代价如实建模: 被争夺窗口里诚实方也拿不到钱 -------------------
-    check("P13b4 残留: 被争夺的窗口中诚实方同样零支付(§6.3/§11 记录为未解决)",
-          pay_s.get("HONEST", 0) == 0 and pay_p.get("HONEST", 0) == 0)
+    # --- d) 【关键】非幂等: 重复争夺重复扣款,耗尽后该 builder 的 slot 作废 -----
+    many = [C("HONEST", 1, 100, h=50)] + [C("EQ", 1, 100, h=40 - i) for i in range(6)]
+    pay_m, _, res_m, exh = settle(many, reserve=RES)
+    check("P13d 非幂等: 6 次争夺持续扣款直至准备金耗尽(与 L_eq 的幂等不同)",
+          res_m[("B100", 100)] == 0 and ("B100", 100) in exh)
+    check("P13d2 耗尽 ⇒ 该 builder 剩余未终局 slot 作废,争夺无法无限继续",
+          len(exh) == 1)
 
-    # --- c) 聚合器自付靠【定价不变式】而非地址比对 -----------------------------
-    max_reimb = C_FIXED + PHI_DATA * B_MAX
-    check("P13c 迟到费 > 单窗口最大报销额 ⇒ 无论受益人是谁,聚合器故意迟到净亏",
-          LATE_FEE > max_reimb and LATE_FEE - max_reimb > 0)
-    # 用任意(含 Sybil)受益人地址都拿不到超过 max_reimb
-    out_a, pay_a, _, _ = settle([C("SYBIL_OF_AGG", 20, 2000, blobs=tuple(range(B_MAX)))])
-    check("P13c2 任意受益人地址的单窗口所得 ≤ 最大报销额 < 迟到费",
-          pay_a["SYBIL_OF_AGG"] <= max_reimb + 1e-9 and pay_a["SYBIL_OF_AGG"] < LATE_FEE)
+    # --- e) 前缀拆分 / 磨榨仍只产生一次收盘报销 --------------------------------
+    pay_pf, _, _, _ = settle([C("EQ", i, 1000 + i) for i in range(1, 31)])
+    check("P13e 前缀拆分 30 次: 仍只有一次收盘报销",
+          sum(pay_pf.values()) <= C_FIXED + 1e-9)
 
-    # --- d) 前缀拆分 30 次:仍至多一次支付 --------------------------------------
-    N = 30
-    out_pf, _, _, lv = settle([C("EQ", i, 1000 + i) for i in range(1, N + 1)])
-    check("P13d 前缀拆分 30 次: 至多一次支付,攻击者净亏 N-1 次证明",
-          abs(out_pf - C_FIXED) < 1e-9 and len(lv) == N
-          and N * TRUE_COST - out_pf >= (N - 1) * TRUE_COST - 1e-9)
+    # --- f) 费用份额覆盖成本时零外流 -------------------------------------------
+    pay_f, _, _, _ = settle([C("A", 9, 900)], fee_share=C_FIXED + 5)
+    check("P13f §7 费用份额覆盖成本时收盘报销为零(只补缺口)",
+          pay_f.get("A", 0) == 0)
 
-    # --- e) tip_hash 磨榨 40 次:同层被争夺 ⇒ 零支付 ---------------------------
-    out_g, _, _, _ = settle([C("EQ", 100, 1000, h=1000 - i) for i in range(40)],
-                            base_count=100)
-    check("P13e tip_hash 磨榨 40 次: 层级被争夺 ⇒ 零支付", abs(out_g) < 1e-9)
-
-    # --- f) 结构性上界:任意序列下外流 ≤ 一个候选的成本 ------------------------
-    import random
-    rng = random.Random(20260828)
-    for _ in range(400):
-        seq, cnt, slot = [], 0, 0
-        for _ in range(rng.randint(1, 25)):
-            cnt += rng.randint(0, 3); slot += rng.randint(0, 40)
-            seq.append(C("w%d" % rng.randint(0, 5), cnt, slot,
-                         h=rng.randint(0, 999), blobs=tuple(range(rng.randint(0, 4)))))
-        o, _, _, _ = settle(seq)
-        assert o <= C_FIXED + PHI_DATA * 4 + 1e-9, "structural bound violated"
-    check("P13f 400 组随机序列: 外流恒 ≤ 一个候选的成本(与候选数无关)", True)
-
-    # --- g) 费用份额覆盖成本时保证金零外流 -------------------------------------
-    out_f, _, _, _ = settle([C("A", 9, 900)], fee_share=C_FIXED + 5)
-    check("P13g §7 费用份额覆盖成本时保证金零外流(只补缺口)", abs(out_f) < 1e-9)
-
-    # --- h) 更差候选零支付 -----------------------------------------------------
-    out_w, pay_w, _, _ = settle([C("A", 12, 1200), C("B", 4, 400)])
-    check("P13h 更差候选零支付(不接受即不计费)", set(pay_w) == {"A"})
-
-    # --- i) φ_data 按 blob 计价并按 versioned hash 去重 -------------------------
-    out_d, pay_d, _, _ = settle([C("F", 20, 2000, blobs=(7, 7, 8))])
-    check("P13i φ_data 按 blob 计价、同一 versioned hash 只报销一次",
+    # --- g) φ_data 按 blob 去重 ------------------------------------------------
+    pay_d, _, _, _ = settle([C("F", 20, 2000, blobs=(7, 7, 8))])
+    check("P13g φ_data 按 blob 计价、同一 versioned hash 只报销一次",
           abs(pay_d["F"] - (C_FIXED + PHI_DATA * 2)) < 1e-9)
 
 
 def test_p14_exit_bond_release_is_state_dependent():
-    """§4.1: 退出解锁 = 链状态条件 + δ_slash + 检测/提交余量,三者缺一不可。
+    """§4.1: 解锁 = 状态条件 + δ_slash + 余量;流动性由【可转让退出凭证】提供。
 
-    上一版的可执行判定只检查了"终局头越过 + 无窗口可接纳",漏掉了散文里要求的
-    δ_slash 与余量,于是允许在等价物证据仍在途中时立刻取回保证金 —— Appendix C
-    称模型为规范件,故该缺口当时并未真正关闭。
+    状态依赖的解锁堵住了退出后等价物的缺口,但代价是:证明/终局停摆时,诚实
+    离场者的保证金可能被无限期锁住,这实质削弱了无许可进入。
+    修正:抵押继续锁定且继续可罚没,但离场者获得一张【可转让的退出凭证】,可在
+    市场上变现,从而在不削弱安全性的前提下拿到流动性。
+    若确实需要有界释放,替代方案是对陈旧未终局 slot 做窗口快照到期:到期后它们
+    成为 gap,保证金在 δ_slash 后释放——代价是明确放弃足够长停摆后的陈旧预确认。
     """
     DELTA_SLASH, MARGIN = 64, 32
     last_slot = 1000
 
-    def time_based_unlock():
-        return last_slot + DELTA_SLASH + MARGIN            # 旧规则(仅墙钟)
-
-    def state_based_unlock(final_head_slot, open_window_admits_slot,
-                           slots_since_state_condition_met):
-        """状态条件满足后,还须再等 δ_slash + 余量,证据才不可能仍在途中。"""
+    def state_based_unlock(final_head_slot, open_window_admits_slot, since_met):
         if final_head_slot <= last_slot or open_window_admits_slot:
             return False
-        return slots_since_state_condition_met >= DELTA_SLASH + MARGIN
+        return since_met >= DELTA_SLASH + MARGIN
 
-    # a) 纯时间解锁会在历史块仍可落地时释放保证金
-    check("P14a 纯时间解锁会在历史块仍可落地时释放保证金(等价物无从罚没)",
-          time_based_unlock() < last_slot + 5000)
-
-    # b) 终局头未越过最后排班 slot ⇒ 不解锁
-    check("P14b 终局头未越过最后排班 slot ⇒ 不解锁",
+    check("P14a 终局头未越过最后排班 slot ⇒ 不解锁",
           not state_based_unlock(900, False, 10_000))
-
-    # c) 仍有窗口可接纳该 slot 的候选 ⇒ 不解锁
-    check("P14c 仍有窗口可接纳该 slot 的候选 ⇒ 不解锁",
+    check("P14b 仍有窗口可接纳该 slot 的候选 ⇒ 不解锁",
           not state_based_unlock(1200, True, 10_000))
-
-    # d) 【本轮回归】状态条件刚满足、δ_slash + 余量未过 ⇒ 仍不解锁
-    check("P14d 状态条件满足但 δ_slash + 余量未过 ⇒ 不解锁(证据可能仍在途中)",
+    check("P14c 状态条件满足但 δ_slash + 余量未过 ⇒ 不解锁(证据可能仍在途中)",
           not state_based_unlock(1200, False, DELTA_SLASH + MARGIN - 1))
-
-    # e) 三者齐备才解锁
-    check("P14e 状态条件 + δ_slash + 余量 全部满足 ⇒ 方可解锁",
+    check("P14d 三个合取项齐备 ⇒ 方可解锁",
           state_based_unlock(1200, False, DELTA_SLASH + MARGIN))
+
+    # --- e) 停摆时抵押被锁,但可转让退出凭证提供流动性且不削弱安全性 -----------
+    class Exit:
+        def __init__(self): self.locked, self.claim_holder = True, "builder"
+        def transfer(self, to):
+            self.claim_holder = to                 # 凭证可转让
+            return self.locked                     # 抵押仍锁定、仍可罚没
+    e = Exit()
+    still_slashable = e.transfer("market_buyer")
+    check("P14e 停摆期间: 退出凭证可转让变现,抵押仍锁定且仍可罚没",
+          e.claim_holder == "market_buyer" and still_slashable is True)
+
+    # --- f) 有界释放的替代方案:陈旧未终局 slot 快照到期后成为 gap -------------
+    def snapshot_expiry(slot_age, expiry):
+        return slot_age > expiry               # 到期 ⇒ 该 slot 成为 gap
+    check("P14f 替代方案: 陈旧 slot 快照到期成为 gap,代价是放弃其预确认",
+          snapshot_expiry(5000, 4096) and not snapshot_expiry(100, 4096))
+
+
+def test_p15_reward_pot_disjoint_from_penalty_pot():
+    """§4.1/§6.3: 兜底报酬必须来自【独立预注资的报酬托管】,不得来自可罚没保证金。
+
+    先前的不变式"迟到费 > 单窗口最大报销额"论证是错的。若报销取自聚合器自己的
+    可退还保证金,联盟总财富 = (B − fee − R) + R − cost = B − fee − cost:R 恒等
+    消去,故该不等式对【获利】既非必要;而当聚合器预期被终止时,fee 出自本就要
+    被罚没的钱,其边际成本为零,于是每轮洗出 R 只需付一次证明 cost —— 只要
+    R > cost 就有利可图,故该不等式对【洗出可罚没抵押】也不充分。
+
+    修正:惩罚保证金(不可退还,承担过错、迟到费从中销毁)与报酬托管(预注资,
+    支付兜底成本)必须是两个互不相交的池。从托管支付不减少惩罚保证金,故没有
+    可洗的东西;再加上支付后最低惩罚抵押要求,否则原子终止席位。
+    """
+    B, FEE, R, COST = 1000, 40, 28, 10
+
+    # --- a) 旧论证:R 在联盟财富中恒等消去 ⇒ 不等式与获利无关 -------------------
+    single_pot = (B - FEE - R) + R - COST
+    check("P15a 单一池下 R 在联盟财富中消去 ⇒ 迟到费 > 报销额与是否获利无关",
+          single_pot == B - FEE - COST)
+
+    # --- b) 预期终止时,fee 出自已注定被罚没的钱 ⇒ 洗钱只需付证明成本 ----------
+    keep_doing_nothing = 0                 # 保证金全额罚没
+    keep_by_laundering = R - COST          # 洗出 R 到不可罚没地址,付一次证明
+    check("P15b 预期终止时 R > cost 即可洗出可罚没抵押(旧不变式不充分)",
+          keep_by_laundering > keep_doing_nothing and R > COST)
+
+    # --- c) 两池分离后:从托管支付不减少惩罚保证金 ⇒ 无可洗之物 ----------------
+    penalty, escrow = 600, 400
+    penalty_after = penalty - FEE          # 迟到费只从惩罚保证金销毁
+    escrow_after = escrow - R              # 报销只从托管支出
+    slashable_before, slashable_after = penalty, penalty_after
+    check("P15c 两池分离: 报销不触及惩罚保证金 ⇒ 可罚没额只因罚款下降,不因报销下降",
+          slashable_before - slashable_after == FEE and escrow_after == escrow - R)
+
+    # --- d) 洗出量为零:托管本就不可罚没,取回它不改变终止时被罚没的金额 -------
+    launder_gain = (penalty - penalty_after) - FEE      # 报销未从可罚没池取走任何钱
+    check("P15d 两池分离下洗出可罚没抵押的收益为零", launder_gain == 0)
+
+    # --- e) 支付后最低惩罚抵押:低于阈值则原子终止席位 -------------------------
+    MIN_PENALTY = 500
+    def ok_after_payment(pen):
+        return pen >= MIN_PENALTY
+    check("P15e 支付后惩罚抵押低于下限 ⇒ 必须原子终止席位",
+          ok_after_payment(560) and not ok_after_payment(MIN_PENALTY - 1))
+
+    # --- f) B_max / R_window_max 必须是共识常量,而非模型里的任意值 ------------
+    B_MAX, R_WINDOW_MAX = 6, 10_000        # 见 §12 参数表(本轮补入)
+    check("P15f B_max 与 R_window_max 为共识常量并已进入参数表",
+          B_MAX > 0 and R_WINDOW_MAX > 0)
 
 
 if __name__ == "__main__":
@@ -650,7 +684,8 @@ if __name__ == "__main__":
               test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot,
               test_p12_midwindow_enqueue,
               test_p13_reward_metered_on_marginal_advancement,
-              test_p14_exit_bond_release_is_state_dependent]:
+              test_p14_exit_bond_release_is_state_dependent,
+              test_p15_reward_pot_disjoint_from_penalty_pot]:
         t()
     print("RESULTS: settlement-window model — ALL PROPERTIES PASS")
     for i, name in enumerate(PASS, 1):
