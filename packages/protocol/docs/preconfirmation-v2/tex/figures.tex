@@ -197,7 +197,7 @@
         {first valid candidate\\extending $F$ lands:\\
          frozen baseline base $=$\\
          $(F,\ \mathrm{stateRoot},$\\
-         $F_{\mathrm{consumed}},\ m_{\mathrm{consumed}})$\\
+         $m_{\mathrm{consumed}})$\\
          \texttt{close\_at} $=$ L1 height $+\ W_{\mathrm{settle}}$} (OPEN);
   \draw[scarr] (OPEN) -- node[sclab, left=1.5mm, text width=44mm]
         {L1 height reaches \texttt{close\_at}\\(same height:\\close first, admit after)} (CLOSE);
@@ -366,7 +366,7 @@
 
   % below the axis: four instants
   \node[scsm, text width=32mm, anchor=north] at (1.2,-0.35)
-        {Block produced\\anchor age $\le D_{\mathrm{anchor}}$\\($32$ L1 slot)};
+        {Block produced\\anchor age $=D_{\mathrm{anchor}}$, freshest allowed\\($32$ L1 slot)};
   \node[scsm, text width=26mm, anchor=north] at (5.0,-0.35)
         {Fallback authorized};
   \node[scsm, text width=24mm, anchor=north] at (8.5,-0.35)

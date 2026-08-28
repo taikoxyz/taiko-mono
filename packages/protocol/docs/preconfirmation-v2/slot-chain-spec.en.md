@@ -151,7 +151,7 @@ is paid out of the aggregator's bond (§6.3).
   round 5, high 1 — a fixed `W_settle` close and the `D_anchor_max` freshness deadline cannot be
   shown robust from "it will eventually be included" alone）: a candidate or landing transaction that pays a
   sufficient fee is included within `T_include,max` L1 blocks, and the parameters satisfy
-  `T_include,max < min(W_settle − P_prove,max − margin, D_anchor_max − D_anchor − Δ_lag − P_prove,max)`
+  `T_include,max < min(W_settle − P_prove,max − margin, D_anchor_max − D_anchor − Δ_lag,final − P_prove,max)`
   (the setter relations of §11). Targeted L1 censorship exceeding that bound is out-of-model — in
   that case a better candidate may miss the close and a recovery block's anchor may expire — and
   every statement that relies on "robustness under temporary censorship" (including the recovery
@@ -188,8 +188,7 @@ from being quietly strengthened):
   inclusion, this case has **no defense in depth left**: the former guarantee that "even if the
   assumption is broken, forced transactions and bridge messages still operate independently on L1
   data alone" no longer holds, and a user's inclusion and exit depend entirely on the honesty of the
-  scheduled builders. The user's right
-  to exit does not lapse with the model;
+  scheduled builders;
 - **Preconfirmation safety for the tail additionally depends on the completeness of the lander's
   view （review r33; the third non-pure-protocol dependency, standing alongside "honesty"）**: a
   lander that is honest but eclipsed or blinded will land the wrong tail and revoke the
@@ -224,10 +223,10 @@ from being quietly strengthened):
   constrained by deadlines and by permissionless fallback (§6).
 - **Fallback lander**: anyone. A fallback lander appears once the aggregator has timed out and is
   paid under the fault-paid model. This is not a registered role.
-- **User**: submits transactions to builders in exchange for preconfirmations; when censored, goes
-  by way of the forced-inclusion queue.
-- **L1 contracts**: the builder registry, the aggregator auction, the forced-inclusion queue, the
-  batch entry point (which verifies proofs), and the slashing entry point.
+- **User**: submits transactions to builders in exchange for preconfirmations. Since v1.51 removed
+  forced inclusion, a censored user has no in-protocol remedy.
+- **L1 contracts**: the builder registry, the aggregator auction, the candidate entry point (which
+  verifies proofs), and the slashing entry point.
 - **The proof system**: the circuit that verifies "this segment of the chain is legal and its state
   transition is correct". It is the arbiter of this design.
 
@@ -297,7 +296,7 @@ from being quietly strengthened):
   ```python
   W_SIZE = 768              # lookahead window = 768 L2 slots (fixed aligned partition, not a sliding horizon)
   H_LOOK = 768              # lookahead horizon
-  D_SNAP_L1 = 5 * 32        # snapshot delay (L1 slots); invariant D_snap ≥ H_look + F_final + margin
+  D_SNAP_L1 = 5 * 32        # snapshot delay (L1 slots); invariant D_snap ≥ H_look/12 + F_final + margin
   W_MAX = 0.20              # cap on a single address's effective weight (operational hygiene; no defense against a bond-splitting Sybil)
 
   def window_of(slot):
@@ -475,7 +474,7 @@ from being quietly strengthened):
     2）: that the parent "is final and is the current canonical landing tip" is checked by the §5.6 landing rule at landing time, not
     at the moment of signing. Consequently, if a stall begins shortly after a landing and the current landing tip has not yet reached `F_l1`, the recovery block must wait
     for the current tip to become final (an extra ≤ `F_l1`, on the order of minutes) before it can land — building on an older final head would fork off the newer
-    tip and be rejected by §7. A steady-state catastrophic stall (where the last landing became final long ago) incurs no such wait. Determinism likewise falls back on the landing rule:
+    tip and be rejected by the §5.6 landing rule. A steady-state catastrophic stall (where the last landing became final long ago) incurs no such wait. Determinism likewise falls back on the landing rule:
     a batch may only extend the current canonical landing tip (§5.6), and a recovery block built on an old tip, if the tip has since advanced, is
     benignly stranded and can simply be rebuilt (there is no episode or deposit that could get out of order; during a true stall the tip does not move, so the recovery block is certain to land). `F_l1` makes
     the predicate "final landed block" stable under shallow L1 reorgs (linked to L1 reorgs in §11).
@@ -878,8 +877,8 @@ The parent-block-hash chaining fix raised by the owner has precisely the followi
   automatically bypassed as soon as the first non-colluding builder's turn comes (it has no choice
   but to attach to the last available block), producing an available fork that anyone can land. For a
   withheld-body chain to hold up the finality of the whole chain, every scheduled builder after it
-  would have to keep colluding to share the bodies privately — that is the full-cartel case, governed
-  by the backstop clause of §7.
+  would have to keep colluding to share the bodies privately — that is the full-cartel case. Since
+  v1.51 removed forced inclusion there is no backstop clause left in the protocol for it; see §8.
 - **The characterization, stated explicitly**: this is not a slashable fault — "it has the body but
   does not publish it" is unprovable inside the protocol (the same undecidability as "skipping" has
   at its root). This design does not pretend to solve it; the handling is:
@@ -929,7 +928,7 @@ The window lifecycle in a single diagram (in one-to-one correspondence with the 
 
 ```mermaid
 flowchart TD
-    IDLE["No window open<br/>current window-final head = F"] -->|"The first valid candidate extending F lands:<br/>freeze the baseline base = (F, stateRoot, F_consumed, m_consumed)<br/>close_at = current L1 height + W_settle"| OPEN["Window open<br/>best = current heaviest candidate (provisional, may be superseded)"]
+    IDLE["No window open<br/>current window-final head = F"] -->|"The first valid candidate extending F lands:<br/>freeze the baseline base = (F, stateRoot, m_consumed)<br/>close_at = current L1 height + W_settle"| OPEN["Window open<br/>best = current heaviest candidate (provisional, may be superseded)"]
     OPEN -->|"A heavier valid candidate arrives:<br/>verified against the same frozen base, key strictly greater → supersedes best<br/>(bookkeeping only, no canonical state is changed)"| OPEN
     OPEN -->|"A worse candidate arrives → revert, zero state change"| OPEN
     OPEN -->|"L1 height reaches close_at<br/>(same height: close first, accept afterwards)"| CLOSE["Close: the single atomic commit<br/>write best's end tuple as the new canonical<br/>(advance the cursors; tip becomes the new final head F′)"]
@@ -940,15 +939,15 @@ flowchart TD
 - **Candidates and the settlement window — including the 【baseline freeze + candidate versioning + close commit】
   state machine （r42 fixes independent review round 5 severe 2: v1.41 had the first provisional candidate immediately advance the canonical cursors/
   state, so that a second, heavier candidate's starting cursor would not match and it could not even enter the contest — a restoration of "the first to land wins permanently"）**: let the current window-final
-  head be `F`. Opening the window immediately freezes the baseline tuple `base = (F, F.stateRoot, F_consumed, m_consumed)`;
-  every candidate inside the window is verified against the same frozen `base` (the proof's starting cursors/state root = `base`, consuming the same queue heads),
-  and passing verification records only that candidate's own end tuple `end_i = (tip_i, stateRoot_i, F_consumed_i,
+  head be `F`. Opening the window immediately freezes the baseline tuple `base = (F, F.stateRoot, m_consumed)`;
+  every candidate inside the window is verified against the same frozen `base` (the proof's starting cursor/state root = `base`, consuming the same queue head),
+  and passing verification records only that candidate's own end tuple `end_i = (tip_i, stateRoot_i,
   m_consumed_i)` together with its §5.2 weight `key_i` — provisional acceptance changes no canonical state (it does not advance
   cursors, does not switch parents, and does not execute bridge effects). At window close, only the `end` tuple of the current heaviest candidate (the one with the largest `key`)
   is committed atomically, in one step, as the new canonical state; its tip becomes `F'`, and the next window starts from the new `base` derived from `F'`. Pseudocode:
 
   ```text
-  openWindow(F):        base ← (F, F.stateRoot, F_consumed, m_consumed); best ← ⊥; close_at ← L1.now + W_settle
+  openWindow(F):        base ← (F, F.stateRoot, m_consumed); best ← ⊥; close_at ← L1.now + W_settle
   acceptCandidate(c):   requires best=⊥ ∨ L1.now < close_at; # close precedes acceptance (r44 normalization, W2):
                                                                 # at the same L1 height, closeWindow is evaluated first, acceptance afterwards;
                                                                 # a candidate arriving after that point can only open the next window
@@ -1002,8 +1001,7 @@ flowchart TD
   by a heavier one, so the temporary head that L2 nodes follow is mutable within the window — this corresponds precisely to the existing tier-2 preconfirmation semantics (revocable, decided by window
   close); it adds no new exposure and merely makes that exposure explicit; withdrawals and bridging execute only from window-final state (§6.1/§6.2).
   (b) **Fallback for excluded blocks**: if the heaviest candidate still excludes certain genuine blocks (for example, an attacker wins some window with a sparse
-  branch built on enough slots of its own in the lookahead — under an honest majority this requires a coalition with dense lookahead scheduling, bounded as in §5.4), the excluded transactions return to the mempool/forced-inclusion
-  queue as before and are repacked in the next window — the worst-case depth is still ≤ the unlanded tail, the same bound as the existing residual risk of §5.4, and C does not widen it.
+  branch built on enough slots of its own in the lookahead — under an honest majority this requires a coalition with dense lookahead scheduling, bounded as in §5.4), the excluded transactions return to the mempool as before and are repacked in the next window — the worst-case depth is still ≤ the unlanded tail, the same bound as the existing residual risk of §5.4, and C does not widen it.
   (c) **Finality + `W_settle`**: this is the real cost of option C, and the owner accepts it explicitly (accounted for in §6.2).
 
 ## 6. Landing
@@ -1369,8 +1367,9 @@ sequenceDiagram
   deep, so the L1 block that witnesses the parent's finality must age a further `D_anchor` before it can be
   referenced; the earliest signable point = parent landing + `F_l1` + `D_anchor`）: a steady-state disaster
   stall (in which the last landing is long past that point) degenerates to a pure one hop, while the worst
-  transient, a stall starting immediately after a landing, adds a wait of ≤ `F_l1` + `D_anchor` (≈ 19.2
-  minutes, on the order of minutes). In either case this is independent of the total stall duration (it
+  transient, a stall starting immediately after a landing, adds a wait of ≤ `max(W_settle, F_l1)` + `D_anchor`
+  (≈ 26.4 minutes at the initial values, on the order of minutes — the parent must be both window-final and
+  L1-final, so the two waits overlap rather than add, and §4.2 states the same bound). In either case this is independent of the total stall duration (it
   does not grow with 2 hours or 2 days).
 - **The constraint anchor freshness places on the recovery block — "never expires" needs a qualifier
   （review r38, Codex P1）**: what tier (ii) eliminates is gap expiry (no gap cap, so `R` is valid however
@@ -1504,7 +1503,7 @@ sequenceDiagram
 
   ```mermaid
   flowchart LR
-      T0["Block produced<br/>anchor already aged ≤ D_anchor<br/>(32 L1 slot)"] -->|"aggregator withholds landing and delays<br/>≤ Δ_lag,final (the fallback window-opening threshold)"| T1["fallback authorized"]
+      T0["Block produced<br/>anchor age = D_anchor, the freshest allowed<br/>(32 L1 slot)"] -->|"aggregator withholds landing and delays<br/>≤ Δ_lag,final (the fallback window-opening threshold)"| T1["fallback authorized"]
       T1 -->|"proving ≤ P_prove,max"| T2["proof complete"]
       T2 -->|"L1 inclusion ≤ T_include,max"| T3["candidate lands<br/>anchor freshness is checked here"]
       T3 --> INV["Invariant: D_anchor_max ≥ D_anchor + Δ_lag,final + P_prove,max + T_include,max + margin<br/>≈ 420 L1 slot ≈ 84 minutes — covers the whole fallback authorization period, so no deadlock exists"]
@@ -1541,7 +1540,7 @@ sequenceDiagram
     split or leave no legal block）: L1→L2 messages form a public FIFO queue (the contract maintains a queue root + tail cursor, kept separate from
     `m_consumed`); every block must consume the longest prefix of that FIFO that satisfies both "entry count ≤ `C_anchor`" and "cumulative declared gas
     ≤ the L1→L2 message gas share" (restricted to those that have arrived within the height referenced by this block's anchor and are unconsumed; taking
-    that longest prefix is legal, and only taking less than it is illegal — as in §5.1 rule 5, with no second "exactly some entry count" criterion). A recovery block
+    that longest prefix is legal, and only taking less than it is illegal — as in §5.1 rule 4, with no second "exactly some entry count" criterion). A recovery block
     references a fresh anchor (spanning days of L1), each block digests this prefix, and the remainder is continued by subsequent blocks (`m_consumed` advances
     monotonically). The backlog catch-up bound is correspondingly two-constraint: `backlog drain time = max(ceil(entry count / C_anchor),
     ceil(cumulative gas / the G_l1msg share))` blocks （the bounds of §6.4/§8 are to be read this way; r41 fixed "dividing by entry count alone underestimates the gas bottleneck"）. Without this lower bound, `m_consumed`
@@ -1569,8 +1568,11 @@ sequenceDiagram
   findings 1/5 — severe; contracted from three parties to two in v1.51 along with the removal of forced inclusion）**: the original risk was that
   the "forced prefix" and "L1→L2 message consumption", two mandatory obligations each with its own quantity, could together burst the block gas
   cap and leave no legal block even with everyone honest. With the forced prefix gone that combination disappears, but **one side alone can still
-  reproduce the same shape of deadlock**: if the head of `m_consumed` is an inbound message whose execution cost exceeds "the block cap minus the
-  fixed anchor overhead", rule 4 requires it to be consumed and it does not fit, so no legal state transition exists and the chain dies permanently.
+  reproduce a permanent stall, in a milder form**: if the head of `m_consumed` is an inbound message whose declared gas exceeds "the block cap minus
+  the fixed anchor overhead", the maximum prefix that fits is empty at every subsequent block. Blocks stay legal — rule 4 asks for the longest prefix
+  that fits, not for a fixed count — but `m_consumed` can never advance past that message, so the inbound message queue is blocked for good while the
+  chain itself continues. The damage is confined to the bridge rather than to liveness, which is why the per-message admission cap below is the clause
+  that carries the weight (model property P7b constructs exactly this state and confirms the cursor stalls).
   The first two clauses below are therefore retained, and clauses 3/4 restated for two parties (fully deterministic, verifiable by both the circuit and L1):
   1. **A per-item admission gas cap**: inbound L1→L2 messages get a per-item gas cap at enqueue time, and an over-cap item is refused admission —
      this is the load-bearing clause against one-sided deadlock, and it is not relaxed just because the forced queue is gone;
@@ -1582,7 +1584,7 @@ sequenceDiagram
   4. **A watermark for lowering parameters**: when `C_anchor` or the message gas share is lowered, the new share must be ≥ the maximum gas among the
      unconsumed entries of the message queue, guaranteeing that in any reachable state there is no item that is "already enqueued yet unable to fit
      within the guaranteed capacity".
-  The three separately rate-limited obligations are thereby coordinated by one shared budget, and can no longer be combined into a "no legal block" deadlock. The numerical gas shares
+  The two separately rate-limited obligations are thereby coordinated by one shared budget, and can no longer be combined into a "no legal block" deadlock. The numerical gas shares
   are folded into §11.
 
 ---
@@ -1663,7 +1665,7 @@ transfer of a single slot), and its frequency is constrained by the honest-major
    **`D_anchor_max` setter invariant （introduced in review r38, with r39 correcting a term missing from the formula — independent review round 2, finding 4）:
    `D_anchor_max ≥ D_anchor + Δ_lag,final(converted to L1 slots) + P_prove,max + T_include,max + queue/clock margin`**
    （r44: the lag term is `Δ_lag,final`, in sync with §7）
-   （r42 adds the `Δ_lag` term and requires every addend to be converted to L1 slots first — independent review round 5, high-severity finding 3: this line previously omitted `Δ_lag`, so a legal parameter set such as 130 would make an honest tail that is withheld from landing until the fallback window opens expire with certainty; the contract setter implements only this single strongest invariant. `D_anchor`=32 L1 slot; `P_prove,max`=the worst-case proving latency; `T_include,max`=the bounded-inclusion bound of §1. The other setter relation （§1, r42）: `T_include,max < min(W_settle − P_prove,max − margin, D_anchor_max − D_anchor − Δ_lag − P_prove,max)`） —
+   （r42 adds the `Δ_lag` term and requires every addend to be converted to L1 slots first — independent review round 5, high-severity finding 3: this line previously omitted `Δ_lag`, so a legal parameter set such as 130 would make an honest tail that is withheld from landing until the fallback window opens expire with certainty; the contract setter implements only this single strongest invariant. `D_anchor`=32 L1 slot; `P_prove,max`=the worst-case proving latency; `T_include,max`=the bounded-inclusion bound of §1. The other setter relation （§1, r42）: `T_include,max < min(W_settle − P_prove,max − margin, D_anchor_max − D_anchor − Δ_lag,final − P_prove,max)`） —
    v1.38 once omitted the term expressing that an anchor is already at least `D_anchor` old at signing time; writing merely "≥ proving + landing" yields a
    parameter set that fails permanently even with no attacker present (the reviewer's counterexample: 70 configured, 102 actually required). Otherwise the recovery block (and any block) would have its
    anchor expire inside the proving-plus-landing window and would have to be re-signed and re-proven (§6.4, anchor freshness clause); this is the precondition for recovery "not expiring
@@ -1733,7 +1735,7 @@ transfer of a single slot), and its frequency is constrained by the honest-major
     **(delivered, r43)** an executable reference model of the §5.2 total order and the §5.6 window state machine, plus property tests （P1–P7, covering every invariant of the two
     blocking findings of round 5） — see Appendix C and `settlement-window-model.py`/`settlement-window-
     RESULTS.md`; any change to the rules must be mirrored in the model and the model re-run. (delivered, r44) The second half: the model gains P8–P11 (bridge reservation,
-    anchor geometry and causal ordering, the moment a slashing takes effect, the fallback accounting snapshot; all 19 assertions pass), plus the pre-implementation review document
+    anchor geometry and causal ordering, the moment a slashing takes effect, the fallback accounting snapshot; all 20 assertions pass), plus the pre-implementation review document
     [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md)
     (Solidity-level `acceptCandidate` storage and gas, the Inbox integration path, an item-by-item disposition of (a)/(b)/(c) below and
     a list of what remains open — of which (b), the precise definition of the lookahead sampling operator, is still open and must be closed before electing is implemented;
@@ -1741,9 +1743,9 @@ transfer of a single slot), and its frequency is constrained by the honest-major
     parent selection / the best-chain total order （the §5.2 triple, including irreflexivity, totality and transitivity property tests — r42/v1.51） / the settlement-window
     `openWindow/acceptCandidate/replaceCandidate/closeWindow` state machine （§5.6, including double-candidate supersession,
     baseline freezing when the forced or message queue is non-empty, and L1-reorg and lazy-close tests — r42 blocking, must be completed before implementation） /
-    landing / forced inclusion / the window
+    landing / the window
     `challenge` (§5.6) / the shared gas budget and overflow (§7) / atomic rollback of `landed head` + state root +
-    `F_consumed`/`m_consumed` + lag under an L1 reorg (§11 item 9) (the current prose
+    `m_consumed` + lag under an L1 reorg (§11 item 9) (the current prose
     relies heavily on review notes and cross-references, and the P1-level parent-block / fork-choice / lander interactions are easily missed by a reader); (b)
     the precise definition of the deterministic weighted sampling algorithm for the `lookahead` — from r47 onwards §3.2 gives a complete executable candidate operator
     (Python code using a capped weight prefix sum plus positioning by seed modulo total weight, verifiable by running `lookahead-model.py`),
@@ -1757,7 +1759,7 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 | slot | 1 | second | §3.1 |
 | epoch | 384 | slot | §3.1 |
 | `H_look`, lookahead horizon | 768 | slot (≈2 L1 epoch) | §3.2 |
-| `D_snap`, snapshot delay | 5 | L1 epoch | `≥ H_look + F_final + margin`, §3.2 r8-1 |
+| `D_snap`, snapshot delay | 5 | L1 epoch | `≥ H_look/12 + F_final + margin`, §3.2 r8-1 |
 | `w_max`, weight cap | 20% | — | §3.2 |
 | `N_max`, registry capacity | 64 | addresses | §4.1 |
 | `G_max`, gap cap （tier (i): gap ≤ G_max, independent of the parent's landing status, r35） | 64 | slot | §4.2; a depth knob, not a hard cap, r20-1 |

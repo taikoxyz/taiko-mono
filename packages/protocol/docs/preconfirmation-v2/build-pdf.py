@@ -146,9 +146,17 @@ def code_inline(s: str) -> str:
     return "\\texttt{%s}" % e
 
 
+# 本文实际存在的节号，convert() 开头填充。只有它们才生成可点击引用——
+# 指向 v15 或已删除小节的 §N（如 v15 §6.8、旧 §5.7）若一律加 \hyperref，
+# 会产出没有 \label 的死链接（PDF 里点击无反应，且 LaTeX 静默不报错）。
+KNOWN_SECS = set()
+
+
 def sec_ref(m):
-    """§5.6 / §12 → 可点击交叉引用。"""
+    """§5.6 → 可点击交叉引用；指向不存在的小节时退化为纯文本。"""
     num = m.group(1)
+    if num not in KNOWN_SECS:
+        return "\\S%s" % num
     return "\\hyperref[sec:%s]{\\S%s}" % (num, num)
 
 
@@ -239,6 +247,8 @@ def heading_pair(title: str, store: NoteStore):
 
 
 def convert(md: str, store: NoteStore, figures_present: int):
+    KNOWN_SECS.clear()
+    KNOWN_SECS.update(re.findall(r"^#{2,3} (\d+(?:\.\d+)?)[.．]?\s", md, re.M))
     lines = md.split("\n")
     out = []
     i = 0
@@ -517,7 +527,7 @@ Built on Per-Slot Signature Chains\\[0.5em]
 \noindent
 This document specifies the successor design (v2) of the Taiko preconfirmation
 protocol. L2 time is divided into one-second slots; a lookahead schedule,
-published two epochs in advance, assigns each slot to a unique builder. The
+published an epoch in advance, assigns each slot to a unique builder. The
 builder produces a block and signs it, and because each signature covers the
 parent hash, the not-yet-landed blocks form a \emph{signature chain}. Submitting
 such a chain to L1 together with a validity proof is called \emph{landing}: an
@@ -527,9 +537,10 @@ comes from its builder's signature rather than from whoever lands it. Finality
 is given by the proof system together with a deterministic \emph{settlement
 window}: among the candidates that have landed and been proven, the heaviest one
 is finalized when the window closes at a predetermined L1 height. We give the
-trust model, the liveness accounting, the forced-inclusion floor, the slashing
-rules and the parameter geometry, and we state the accepted residual risks and
-the remaining open items explicitly rather than eliding them.
+trust model, the liveness accounting, the slashing rules and the parameter
+geometry, and we state the accepted residual risks and the remaining open items
+explicitly rather than eliding them --- including the deliberate absence of a
+censorship-resistance floor, which this design does not provide.
 \end{abstract}
 
 \tableofcontents
