@@ -1,10 +1,10 @@
-<!-- generated-from: slot-chain-spec.md  sha256:bf4dda5657c5d8f5 -->
+<!-- generated-from: slot-chain-spec.md  sha256:8bb271a41ddc9c0a -->
 <!-- English edition, translated from the Chinese source. The Chinese edition is
      normative: where the two disagree, the Chinese text governs. After editing the
      Chinese source, re-translate this file and update the sha256 above; the drift
      check in build-pdf.py compares them. -->
 
-# Slot-Chain: A Preconfirmation Protocol Built on Slot Signature Chains (v2 Design Specification, Draft v1.50)
+# Slot-Chain: A Preconfirmation Protocol Built on Slot Signature Chains (v2 Design Specification, Draft v1.51)
 
 > **Status of this document.** This is the successor design to the Taiko preconfirmation
 > protocol, superseding the earlier v15 design line (perpetual auction plus epoch-level
@@ -14,9 +14,9 @@
 > which rotating builders produce and sign one block per slot, the signatures are strung into a
 > chain, and the result is verified by the proof system. This document is the English edition; the Chinese edition is the normative source (see the note at the head of this file).
 
-> **How to read this document.** The main text (§0–§12 together with Appendices A–C) is the
+> **How to read this document.** The main text (§0–§11 together with Appendices A–C) is the
 > specification proper and can simply be read in order; a reader in a hurry to grasp the trunk can
-> build a full picture from the §0 one-page summary and the §9 liveness accounting table. The many
+> build a full picture from the §0 one-page summary and the §8 liveness accounting table. The many
 > parenthetical notes in the main text of the form "（review r39）" or "（independent review round 4,
 > finding 2）" are audit traces of the design process — they record which round of adversarial
 > review prompted a given rule — and a first reading may skip them outright without any loss of
@@ -27,9 +27,8 @@
 **Contents**: §0 One-page summary · §1 Design goals and non-goals · §2 Roles · §3 Time and
 scheduling · §4 Builders (registration / block signing / equivocation slashing) · §5 The signature
 chain (legality / canonicality / gaps / deletion residue / body withholding / settlement-window
-finality) · §6 Landing (batches / cadence / fallback / recovery / seat economics) · §7 Forced
-inclusion · §8 Anchoring and the bridge · §9 Liveness accounting table · §10 Master slashing table ·
-§11 Comparison with v15 · §12 Open items and master parameter table · Appendix A Points of
+finality) · §6 Landing (batches / cadence / fallback / recovery / seat economics) · §7 Anchoring and the bridge · §8 Liveness accounting table · §9 Master slashing table ·
+§10 Comparison with v15 · §11 Open items and master parameter table · Appendix A Points of
 divergence · Appendix B Glossary · Appendix C Executable reference model · Appendix D Change history
 
 ---
@@ -77,8 +76,9 @@ flowchart LR
 | Kept | Removed |
 | --- | --- |
 | The perpetual auction skeleton for the aggregator seat | Epoch boundary commitments (EBC) and the once-per-epoch irreversible determination |
-| The forced-inclusion queue, with greatly simplified rules (§7) | The default derivation rule (§6.8 default derivation) |
-| The "party at fault pays, permissionless substitution" model (fault-paid permissionless fallback) | Total Anarchy mode (§9) — landing itself can already be backstopped permissionlessly, so it is no longer needed |
+| The per-block signature chain and the two-tier parent rule (new here, not inherited from v15) | The default derivation rule (§6.8 default derivation) |
+| — | **The forced-inclusion queue** — removed wholesale in v1.51 by the owner's decision (simplification), together with forced-only blocks, `P_forced`, the dual queues and `C_force`/`C_bridge`/`F_delay`/`H_force` |
+| The "party at fault pays, permissionless substitution" model (fault-paid permissionless fallback) | Total Anarchy mode (§8) — landing itself can already be backstopped permissionlessly, so it is no longer needed |
 | The tiered bond / slashing concept | `K_empty`, availability certificates (AC), the `H_cancel` cancellation cascade, and the rest of the machinery supporting the epoch determination |
 | The per-block anchor approach to L1→L2 bridging | Handover and seat-switching arbitration mechanisms (replaced by circuit rules) |
 
@@ -120,17 +120,15 @@ is paid out of the aggregator's bond (§6.3).
   and there is no intermediate "proposed but unproven" state, so the entire body of machinery built
   around such an intermediate state (sealing deadlines, cancellation cascades, and most of the
   timing exemptions) is unnecessary.
-- **[G5] The inclusion floor is retained.** The forced-inclusion queue is retained: even if all
-  builders collude to censor, users and bridge messages still have an L1 forced path (§7). This
-  "unconditional" guarantee currently carries one blocking-level gap （review r27-1,
-  DeepSeek round 6 Critical 1）: forced entries use ordinary L2 nonces, so a censoring party can
-  accept a conflicting transaction bearing the same nonce and thereby have the entry consumed and
-  discarded (the nonce preemption of §7, item 12 of §12). Until this open item is settled by one of
-  the three candidate remedies in §7, the "unconditional" character of the forced path holds only
-  for entries that cannot be preempted by nonce — bridging and exit messages, which are constructed
-  by the bridge contract and do not go through a user nonce, are of this kind, whereas an ordinary
-  user's forced transaction is for now not. Wherever §0, §1 and §7 speak of an "unconditional
-  floor", the phrase is to be read subject to this note.
+- **[G5] (withdrawn) An inclusion floor is no longer a goal of this design.** In v1.51 the owner
+  decided to remove forced inclusion wholesale, for simplicity. There is therefore **no** entry path
+  to L1 that does not depend on builders: whether a transaction gets included depends on whether the
+  scheduled builder is willing to include it. If the entire set colludes to censor an address, the
+  protocol offers no remedy whatsoever, and that address's funds have no exit path independent of
+  the builders. This is an explicitly accepted cost; see the all-cartel row of §8 and the trust model
+  below. One thing closes along with it: the blocking-level nonce-preemption gap of r27-1 (DeepSeek
+  round 6 Critical 1). With no forced path, the gap has nothing to apply to, and item 12 of §11 is
+  retired with it.
 - **[G6] A low barrier to entry.** The builder bond is priced at the order of magnitude of "the
   extractable value of a single slot", far below the full collateral for one seat in v15.
 
@@ -141,8 +139,8 @@ is paid out of the aggregator's bond (§6.3).
   broadcasting block headers and block bodies, and extending the highest available chain head).
 - **Aggregators: untrusted.** An aggregator may misbehave arbitrarily — delaying, truncating,
   choosing among forks, colluding with a minority of builders — and the protocol must, under such
-  conditions, still hold the bounds given in the §9 table. The scope of those bounds （review
-  r12-4's refinement + r20-1's correction of the depth）: the bounds in §9 are liveness bounds
+  conditions, still hold the bounds given in the §8 table. The scope of those bounds （review
+  r12-4's refinement + r20-1's correction of the depth）: the bounds in §8 are liveness bounds
   (advancing finality, seat turnover); the exposure of preconfirmation safety to collusion between
   the aggregator and malicious builders — isolation without slashing, a single-block deep skip of
   depth ≤ `G_max − 1`, and a minority coalition relaying a sparse branch to a depth that can reach
@@ -154,7 +152,7 @@ is paid out of the aggregator's bond (§6.3).
   shown robust from "it will eventually be included" alone）: a candidate or landing transaction that pays a
   sufficient fee is included within `T_include,max` L1 blocks, and the parameters satisfy
   `T_include,max < min(W_settle − P_prove,max − margin, D_anchor_max − D_anchor − Δ_lag − P_prove,max)`
-  (the setter relations of §12). Targeted L1 censorship exceeding that bound is out-of-model — in
+  (the setter relations of §11). Targeted L1 censorship exceeding that bound is out-of-model — in
   that case a better candidate may miss the close and a recovery block's anchor may expire — and
   every statement that relies on "robustness under temporary censorship" (including the recovery
   bound of §6.4) is uniformly conditional on this assumption. This gathers the same timing
@@ -169,7 +167,7 @@ chain. This design does not claim that the builder role is entirely trustless or
 permissionless; this is the trust model explicitly accepted by the owner (2026-08-25), and what is
 bought in exchange is not paying the cost of protocol-level DA to cover collusion by all
 participants (the cost identity is given in Appendix A-3). Each promise is calibrated accordingly: the in-model bounds are
-given in the §9 table, while out-of-model only the forced path is guaranteed. A note on the
+given in the §8 table; out-of-model, after v1.51 removed forced inclusion, nothing is guaranteed. A note on the
 acceptance criterion （r7-7）: if the acceptance criterion is "no role may be trusted, everything
 fully permissionless", this design neither satisfies it nor attempts to — the acceptance criterion
 is the trust model accepted by the owner in this section; the user-facing promises, graded into
@@ -186,9 +184,11 @@ from being quietly strengthened):
   unprofitable;
 - Collusion of the entire builder set together with the aggregator (block bodies kept private, the
   chain landable by no one) lies outside the model: the protocol provides no finality guarantee in
-  that case （the owner's decision: no in-protocol solution is required）. The forced path (§7) is
-  nevertheless retained as out-of-model defense in depth — even if the assumption is broken, forced
-  transactions and bridge messages still operate independently on L1 data alone, so the user's right
+  that case （the owner's decision: no in-protocol solution is required）. After v1.51 removed forced
+  inclusion, this case has **no defense in depth left**: the former guarantee that "even if the
+  assumption is broken, forced transactions and bridge messages still operate independently on L1
+  data alone" no longer holds, and a user's inclusion and exit depend entirely on the honesty of the
+  scheduled builders. The user's right
   to exit does not lapse with the model;
 - **Preconfirmation safety for the tail additionally depends on the completeness of the lander's
   view （review r33; the third non-pure-protocol dependency, standing alongside "honesty"）**: a
@@ -206,8 +206,8 @@ from being quietly strengthened):
 - Resistance to deep L1 reorgs: as with any L2, a deep L1 reorg can roll back L2 state.
 - A built-in prover market: the aggregator either brings its own proving capability or procures it.
 - **Collusion of the entire builder set plus the aggregator**: under the trust model above this is
-  an out-of-model situation; only the forced path is retained as defense in depth, and no finality
-  bound is offered.
+  an out-of-model situation. After v1.51 removed forced inclusion there is neither a finality bound
+  nor any defense in depth for entry or exit.
 
 ---
 
@@ -292,7 +292,7 @@ from being quietly strengthened):
     a promise of decentralization.
 - The full codification of the computation above (the constraint at each step is in the comments;
   for a runnable version with property tests see [`lookahead-model.py`](lookahead-model.py), and the
-  sampling operator is the candidate for settling item 18(b) of §12):
+  sampling operator is the candidate for settling item 18(b) of §11):
 
   ```python
   W_SIZE = 768              # lookahead window = 768 L2 slots (fixed aligned partition, not a sliding horizon)
@@ -330,7 +330,7 @@ from being quietly strengthened):
       return weighted_pick(reg, r)
 
   def weighted_pick(registry, r):
-      # deterministic weighted sampling (the candidate operator for settling §12-18(b)):
+      # deterministic weighted sampling (the candidate operator for settling §11-18(b)):
       #  1. addresses in a fixed order by registration index (an order intrinsic to the snapshot, preventing grinding on the registered name);
       #  2. prefix sums of the capped weights (fixed-point integer wei, no floating point);
       #  3. x = r mod total weight; whichever prefix interval x falls into determines the address selected.
@@ -388,7 +388,7 @@ from being quietly strengthened):
     cannot be counted over a single window alone）. Computed with `w_max` = 20% and a window of 768 slot, the magnitude is a cumulative
     exposure on the order of one to two hundred slots. The legitimate way to push this number down is to shorten the slashing-effectiveness
     delay and the detection latency, not to pretend that the exposure is only one slot.
-    The concrete valuation method is calibration content under item 2 of §12.
+    The concrete valuation method is calibration content under item 2 of §11.
   - **Nuisance buffer**: a small amount covering the handling cost of sporadic violations.
   - **The honest upper bound of `L_eq` （review r5-5）**: `L_eq` is priced against an estimate of the extractable value visible to the protocol;
     for value external to the protocol (bribes, cross-domain positions, downstream value on the bridge) the protocol can give no upper bound — so
@@ -409,7 +409,7 @@ from being quietly strengthened):
   the same formula as the exposure horizon of `L_eq` above. Otherwise a builder could equivocate in bulk shortly before exiting and reclaim its
   bond ahead of the evidence being submitted and taking effect, zeroing out the deterrent.
 - Registry capacity cap `N_max` (initially 64): decentralized enough, while keeping lookahead verification inside the circuit cheap.
-  Applicants beyond the cap compete for seats ranked by bond (detailed rules pending, §12).
+  Applicants beyond the cap compete for seats ranked by bond (detailed rules pending, §11).
 
 ### 4.2 Block production and signing
 
@@ -417,26 +417,25 @@ from being quietly strengthened):
 
   ```text
   header = (chainId, slot, parent_hash, anchor, final_ref(tier (ii) blocks only, zero otherwise),
-            txs_root, state_root_claim(optional), forced_root, coinbase, gas_used, ...)
+            txs_root, state_root_claim(optional), coinbase, gas_used, ...)
   sig    = the builder's signature over keccak(header)
   ```
 
   Key fields:
   - `slot`: the slot number of this block; `timestamp` is uniquely determined by it and does not exist separately.
-  - `anchor`: the L1 block referenced by this block （the freshness baseline and the L1→L2 consumption point, §8; added to the field list by review r36,
-    a DeepSeek warning — both the per-block forced-inclusion obligation of r30-1 in §7 and `m_consumed` in §8 are determined by the block header's anchor,
+  - `anchor`: the L1 block referenced by this block （the freshness baseline and the L1→L2 consumption point, §7; added to the field list by review r36,
+    a DeepSeek warning — `m_consumed` in §7 is determined by the block header's anchor,
     so it must be a block-header field covered by the signature rather than a batch-level implicit quantity）.
   - `parent_hash`: the hash of the parent block header. Having the signature cover parent_hash is a central element of this design:
     the choice of parent (including "whom to skip") is an explicit act that the builder has signed, not a fuzzy state that can be repudiated afterwards
     （the owner's suggested fix, 2026-08-25; for the analysis see §5.4）. The link uses the hash of the parent block header rather than the parent's signature —
     the hash is structurally necessary (it defines the chain), whereas putting the parent's signature into the child block as well is redundant (the circuit
     verifies every block's signature anyway); it may serve as an evidence-packaging convention at the P2P layer, but it is not a consensus rule.
-  - `forced_root`: the commitment to the forced entries contained in this block (§7).
 - **Signing-domain uniqueness invariant （the fix from review r1-8）**: the canonical digest of the block header
   and the signature scheme must be one shared object — the direct verification by the L1 slashing contract (§4.3) and the validity verification
   in the circuit (§5.1) verify exactly the same bytes, the same hash, and the same curve. If BLS (via the EIP-2537 precompile) or a SNARK-friendly
   hash is adopted to reduce circuit cost, both sides must be switched at the same time. The choice of key system is therefore
-  a blocking open item (item 6 of §12) that must be settled before the remaining parameters.
+  a blocking open item (item 6 of §11) that must be settled before the remaining parameters.
 - The builder broadcasts (block header + signature + block body) over P2P. This signed block is itself the preconfirmation: the receipt given to the
   user = (block header, builder's signature, inclusion proof of the transaction) — the receipt contains the block header hash and `txs_root`, and
   is publicly forwardable evidence (used in §5.5).
@@ -448,7 +447,7 @@ from being quietly strengthened):
       G -->|"yes → tier (i) normal block production"| T1["P need only be a real earlier block in the signature chain<br/>landing status irrelevant: not landed / landed / already final are all fine<br/>(the next block after every landing also takes this tier)"]
       G -->|"no → tier (ii) recovery (a true stall)"| T2["P must satisfy both:<br/>① window-final (its candidate has closed, §5.6)<br/>② L1-final (the landing transaction has reached F_l1 depth)"]
       T2 --> FR["the block header carries final_ref (≤ this block's anchor)<br/>proving that, at signing time, P was already F_l1-final<br/>(closes the pre-signing / race-to-land loop at the F_l1 boundary)"]
-      FR --> LAND["at landing time §7 additionally checks: P = the current canonical landing tip<br/>tip already advanced → the recovery block is benignly stranded, just rebuild it"]
+      FR --> LAND["at landing time §5.6 additionally checks: P = the current canonical landing tip<br/>tip already advanced → the recovery block is benignly stranded, just rebuild it"]
   ```
 
 - **The parent rule — two tiers, with the criterion being [the size of the gap] rather than the parent's landing status （review r6-1 → reworked in r32, direction B
@@ -469,17 +468,17 @@ from being quietly strengthened):
     and [`L1-final`] （`L1-final`, i.e. its landing L1 transaction has reached `F_l1` depth; terminology distinction, review r38 DeepSeek warning
     3: "final" here refers specifically to `L1-final` = having reached `F_l1` depth on L1, as distinct from `landed-final` in §6.1
     = the window-final finality of an L2 batch that has passed the close of the settlement window （r41） — the two-tier parent rule always takes `L1-final` as its criterion; for the
-    unification of terminology throughout the document see open item 18(c) of §12）. It is entered only when the gap > `G_max` (tier (i) is unavailable, i.e. a true
+    unification of terminology throughout the document see open item 18(c) of §11）. It is entered only when the gap > `G_max` (tier (i) is unavailable, i.e. a true
     stall). Why a large gap may be unbounded: by §5.2 a final landed block can no longer be reorged, so building on top of it
     cannot reorg any landed block; it is therefore safe by construction and needs no `G_max`. This tier is the only
     mechanism for recovery (it replaces the entire old re-anchoring episode machinery, see §6.4). The point of evaluation and the `F_l1` wait （DeepSeek critical
-    2）: that the parent "is final and is the current canonical landing tip" is checked by the §7 landing rule at landing time, not
+    2）: that the parent "is final and is the current canonical landing tip" is checked by the §5.6 landing rule at landing time, not
     at the moment of signing. Consequently, if a stall begins shortly after a landing and the current landing tip has not yet reached `F_l1`, the recovery block must wait
     for the current tip to become final (an extra ≤ `F_l1`, on the order of minutes) before it can land — building on an older final head would fork off the newer
     tip and be rejected by §7. A steady-state catastrophic stall (where the last landing became final long ago) incurs no such wait. Determinism likewise falls back on the landing rule:
-    a batch may only extend the current canonical landing tip (§7), and a recovery block built on an old tip, if the tip has since advanced, is
+    a batch may only extend the current canonical landing tip (§5.6), and a recovery block built on an old tip, if the tip has since advanced, is
     benignly stranded and can simply be rebuilt (there is no episode or deposit that could get out of order; during a true stall the tip does not move, so the recovery block is certain to land). `F_l1` makes
-    the predicate "final landed block" stable under shallow L1 reorgs (linked to L1 reorgs in §12).
+    the predicate "final landed block" stable under shallow L1 reorgs (linked to L1 reorgs in §11).
   - **A tier (ii) block header must carry an L1 reference attesting that [at signing time the parent was already `F_l1`-final] — closing the pre-signing loop at the `F_l1` boundary （review
     r40, independent review round 3 finding 5）**: checking the parent's finality only at landing time hands the aggregator a loop: pre-sign and pre-prove a tier-(ii) block while the tip is not yet
     final, then race to land it in the first L1 block at which the tip has just become final; this gives one iteration every `F_l1`, the
@@ -493,7 +492,7 @@ from being quietly strengthened):
   cap because the reorg exposure through a landed head is naturally bounded by the length of the unlanded tail, and the tail length is bounded by `Δ_lag`
   — a tail older than `Δ_lag` has already been landed by the fallback, is final, and can no longer be reorged. "Unbounded" therefore does not increase
   the worst-case reorg depth (still ≤ `Δ_lag`, the same bound as the existing residual risk in §5.4), yet it lets a stall of arbitrary duration be recovered in a single hop
-  (see §9). A finite value loses at both ends: below the proving latency it can never catch up with a long stall, and set equal to `Δ_lag` the tightening
+  (see §8). A finite value loses at both ends: below the proving latency it can never catch up with a long stall, and set equal to `Δ_lag` the tightening
   is an illusion (nature already gives `Δ_lag`) — for the full argument see Appendix D, entry v1.31.
 - **"tail ≤ `Δ_lag`" is conditional, not unconditional （review r36, Codex line 475 P1 — must be stated explicitly）**:
   the claim above that "the tail length is bounded by `Δ_lag`" holds only when permissionless fallback can land an old tail within ≈`Δ_lag`,
@@ -549,7 +548,7 @@ from being quietly strengthened):
   the time to prove the first batch, every candidate that contains it after the effective time is rejected). This still falls within the already-accepted residual risk of "slashable equivocation + ≤ the actual tail depth",
   but the pricing of `L_eq` and the user-facing semantics must acknowledge this successor-cascade exposure; no `δ_land` grace parameter is needed (deleted).
 - This class of fault is submitted by a challenger and verified mechanically by L1: one level stronger than the
-  preconf-vs-record variant in v15 (§8b) that relied on an L2 evidence chain — zero delay after submission, no watchtower needs to run a proof, and all that is required is
+  preconf-vs-record variant in v15 (§7b) that relied on an L2 evidence chain — zero delay after submission, no watchtower needs to run a proof, and all that is required is
   that someone be willing to submit (there is a bounty, so it is paid permissionless work).
 
 ---
@@ -561,12 +560,10 @@ from being quietly strengthened):
 A block is valid if and only if all of the following hold (all of them circuit-verifiable):
 
 1. The signature is valid and the signer = `lookahead(slot)` (the lookahead is recomputed inside the
-   circuit from L1-anchored data) — the sole exception: a forced-only block that satisfies the §7
-   validity predicate `P_forced` is exempt from this lookahead check — `P_forced` is a precise,
-   circuit-verifiable admission test（any key + the parent is a window-final header [tier (ii)
-   re-rooting] or the preceding forced-only block [tier (i) same-lane continuation, r37/r42, filled
-   in in this summary] + `slot ≤ wall clock` + a non-empty forced prefix whose maturity is
-   re-verified block by block + maximum message consumption; see §7 for details）, replacing the old
+   circuit from L1-anchored data). There is no exception to this rule (after v1.51 removed forced
+   inclusion, the `P_forced` forced-only-block exemption went with it — the right to produce a block
+   belongs to the scheduled builder alone; the cost is that under a full cartel there is no longer an
+   any-key escape path for block production, see §8 and §1). This replaces the old
    "three conditions" formulation that was already deleted before v1.31（review r3-3, Codex
    introduced the exception; r35 updated the citation to DeepSeek warning 1; r36 fixed it as a
    precise predicate, Codex line 517 / DeepSeek）;
@@ -578,28 +575,18 @@ A block is valid if and only if all of the following hold (all of them circuit-v
    requires a valid `final_ref`（r41 folds this into the validity rules — independent review round 4,
    consistency 1: v1.40 described it only in §4.2 and did not list it in this section）: `final_ref`
    witnesses that the parent has reached `F_l1`-final and that `final_ref` ≤ this block's anchor
-   (§4.2); that the parent "is the current canonical tip" is still checked by §7 at landing time (the
-   two predicates are kept separate: at signing time finality is proved by `final_ref`, at landing
-   time canonicality is verified by the entry point);
+   (§4.2); that the parent "is the current canonical tip" is still checked by §5.6 at landing time
+   (every candidate is verified against the frozen window baseline; the two predicates are kept
+   separate: at signing time finality is proved by `final_ref`, at landing time canonicality is
+   verified by the entry point);
 3. `slot` does not run past the range declared by the batch that lands it; the timestamp rule is
    automatically satisfied (= slot);
-4. It includes, under the per-block capacity rule of §7, those forced entries that are due and not
-   yet included on chain — a unified "maximum prefix" definition（review r40 eliminates independent
-   review finding 4: the earlier "up to the `C_force` cap" rule and the newly added "overflow as soon
-   as gas is full" rule negated each other）: the forced prefix at the head of the block = the longest
-   prefix of the queue's FIFO order that simultaneously satisfies "both the entry count and the gas
-   stay within the `C_force`/`C_bridge` share" (`C_force` is a double cap on entry count and gas,
-   whichever is hit first; the bridge queue works the same way under `C_bridge`); taking that longest
-   prefix is valid, and only taking less than it is invalid (it is not "exactly some particular
-   count"). The remainder overflows deterministically into subsequent blocks. Consumption is not
-   execution — an entry that is invalid against the preceding state is consumed and
-   discarded（r9-2）;
-5. The execution of the transactions in the block is valid (ordinary state-transition verification);
-   the anchor tx satisfies the freshness rule (§8) and satisfies the §8 causal-ordering invariant
+4. The execution of the transactions in the block is valid (ordinary state-transition verification);
+   the anchor tx satisfies the freshness rule (§7) and satisfies the §7 causal-ordering invariant
    `anchor.L1_timestamp ≤ L2 timestamp(slot)`（review r37）; and inbound L1→L2 messages are consumed
-   per §8 up to the [unified maximum prefix] — the longest prefix of the FIFO order that
+   per §7 up to the [unified maximum prefix] — the longest prefix of the FIFO order that
    simultaneously satisfies "count ≤ `C_anchor`" and "cumulative declared gas ≤ the L1→L2 message gas
-   share"（review r40, isomorphic to rule 4, eliminating finding 4's contradiction between "exactly
+   share"（review r40, the sole maximum-prefix rule in a block since v1.51 (the forced prefix of the former rule 4 went with §7), eliminating finding 4's contradiction between "exactly
    `min(C_anchor)`" and "overflow as soon as gas is full"）; taking that longest prefix is valid, and
    only taking less than it is invalid（this rules out the indefinite censorship of "using a fresh
    anchor while processing zero inbound messages", r36）.
@@ -617,7 +604,7 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   formulation, independent review consistency 1）**: honest builders/nodes build on the chain head
   that is best under the total order of the next bullet (the old text's "most blocks + highest slot +
   hash" has been folded into levels 2/3/4 of the total order and is no longer listed separately, so
-  that it cannot conflict with the total order's lane priority). Positioning of its effect（review
+  that it cannot conflict with the total order). Positioning of its effect（review
   r12-4, still holds）: this is an off-chain P2P coordination convention, not a circuit rule or an L1
   entry-point rule — it constrains only the convergence of honest P2P nodes, and cannot constrain the
   fork choice of a malicious aggregator / fallback lander / private relay / L1 proposer; the real
@@ -625,7 +612,7 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   candidate is mechanically overridden by a heavier one), and the bounding of the residual deep-skip
   exposure is still found in §5.4.
 - **The best-chain total order — shared by three places: fork choice, landing strategy, and the §5.6
-  window candidate comparison（introduced in review r39; r40 fixed lane whitewashing; from r41 on it
+  window candidate comparison（introduced in review r39; r40 fixed lane whitewashing, and v1.51 retired the lane; from r41 on it
   serves the settlement window's mechanical comparison）**. This bullet supersedes the v1.35
   "recovery first / frozen dead tail yields" rule — the independent review (rounds 1/2) pointed out
   that that rule would order an honest lander to discard a fully visible, landable, healthy long
@@ -636,28 +623,28 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   to determine the lane" was a pairwise criterion, and a non-transitive cycle `A>B>C>A` can be
   constructed: A=[X,a] vs B=[X,b1..b3] diverge at a/b1, so content wins; B vs C=[Y,c1,c2] diverge at
   X/Y, so block count decides; C vs A again diverge at Y/X, so block count decides — a cycle. Fix:
-  lane is each candidate's** own invariant scalar, relative to the fixed baseline `F` and independent
-  of the object of comparison）. Each candidate chain extending `F` independently computes the
-  4-tuple `key = (lane, count, tip_slot, tip_hash)`:
-  1. **`lane`（candidate-local, r42）**: = the category of the candidate's first block starting from
-     `F` — a discretionary block = the content lane (larger), a forced-only block = the forced-only
-     lane (smaller). Once the first block has fixed it, the whole candidate inherits it and later
-     blocks do not change it（this still prevents the whitewash of r40 finding 3: no matter how many
-     ordinary blocks are appended after it, a chain whose first block is forced-only still has lane =
-     forced-only）;
-  2. **`count`**: the number of valid blocks starting from `F`;
-  3. **`tip_slot`**: the slot of the tip;
-  4. **`tip_hash`**: the block-header hash of the tip（the smaller one wins; this is the last level
+  the quantities compared must be each candidate's** own invariant scalars, relative to the fixed
+  baseline `F` and independent of the object of comparison）. Each candidate chain extending `F`
+  independently computes the triple `key = (count, tip_slot, tip_hash)`:
+  1. **`count`**: the number of valid blocks starting from `F`;
+  2. **`tip_slot`**: the slot of the tip;
+  3. **`tip_hash`**: the block-header hash of the tip（the smaller one wins; this is the last level
      and settles the tie-break — r42 abandons "the hash of the first differing child block", which is
      a pairwise quantity, in favor of a scalar belonging to the candidate itself, which guarantees a
      total order）.
-  Comparison = the lexicographic order of the 4-tuple (lane descending, count descending, tip_slot
-  descending, tip_hash ascending) — a lexicographic order over scalars is naturally reflexive, total
+  Comparison = the lexicographic order of the triple (count descending, tip_slot descending,
+  tip_hash ascending) — a lexicographic order over scalars is naturally reflexive, total
   and transitive, so §5.6's "strictly heavier" relation and the winner at the close are thereby
   well-defined and independent of submission order. (The formalized property test is listed as item
-  18 of §12.) The rationale for content-lane priority is unchanged: forced-only is merely the
-  censorship floor, a content block already bears the forced-prefix obligation, and preferring
-  content sacrifices no censorship resistance.
+  18 of §11.)
+  **`lane` retires in v1.51**: r42 had put `lane` (the class of the first block: a discretionary
+  block = content lane, larger; a forced-only block = forced-only lane, smaller) in the leading
+  position of the key, so that content chains would outrank forced-only chains and the whitewash of
+  r40 finding 3 would be resisted. With forced inclusion removed there are no forced-only blocks, all
+  candidates are of the content class, `lane` is constant and draws no distinction at all, so the
+  component is dropped. The non-transitive cycle (`A>B>C>A`) that r42 fixed does not come back: its
+  root cause was that `lane` had been a pairwise criterion, whereas the three remaining components
+  were always scalars belonging to the candidate itself.
   **A "frozen long tail" is no longer discarded**: a long tail whose head lags the wall clock by more
   than `G_max` and can no longer be extended over P2P (no tier-(i) child, and, not being final, no
   tier-(ii) child either) is still the best chain among the candidates — the lander should land it
@@ -687,7 +674,7 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   is still required that at least one participant inside the window has a complete view and is
   willing to land — normal P2P propagation takes seconds and the pending frontier has long since
   spread everywhere, so this condition is naturally satisfied under the §6.3 fallback feasibility;
-  network-wide eclipse-grade blinding is delegated to the §12 P2P spec.
+  network-wide eclipse-grade blinding is delegated to the §11 P2P spec.
 - **The visibility assumption and the "economic only, not enforced" characterization（r47, the
   wording confirmed by the owner）**: this design assumes that, under normal P2P propagation, the
   aggregator (and any lander) can in most cases see the currently longest available signature chain —
@@ -759,7 +746,7 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   inheriting the principle of v15 §9.3, but now applying to every slot).
 - The cost of a gap is absorbed by incentives: a skipped slot earns no fees, and users who hold
   preconfirmations settle accounts with that builder's reputation. Nuisance-level chronic absence is
-  handled by the registry's liveness rules (an optional item, §12).
+  handled by the registry's liveness rules (an optional item, §11).
 
 ### 5.4 Deletion vs. gaps: what the signature chain fixes and what remains (stated explicitly)
 
@@ -810,7 +797,7 @@ The parent-block-hash chaining fix raised by the owner has precisely the followi
     branch that isolates up to the entire unlanded tail, with no coalition density required.
     **Precondition（review r35, DeepSeek warning 4）**: for that branch to be landable on L1 by a
     colluding lander, its final parent block must at the same time be the current canonical landed
-    tip (§7 only lets batches that extend the current tip land) — that is, the current tip must
+    tip (§5.6 only lets candidates that extend the current tip land) — that is, the current tip must
     itself already be final. In steady state the tip is usually already final, so the precondition
     usually holds and the threat is not weakened; the point here is only to state the residual risk
     accurately (when the tip is not final, this single-block attack must first wait for the tip to
@@ -819,7 +806,7 @@ The parent-block-hash chaining fix raised by the owner has precisely the followi
     of a fully isolating branch from "a dense coalition" to "one person, one block"; the worst-case
     depth and the binding constraint that "a lander must collude" both stay unchanged — this is the
     price accepted for `G_max_landed = ∞`, in exchange for one-hop recovery from a stall of arbitrary
-    length (§6.4/§9). "≈ `Δ_lag`" is a conditional upper bound（review r36, Codex line 475 P1）: the
+    length (§6.4/§8). "≈ `Δ_lag`" is a conditional upper bound（review r36, Codex line 475 P1）: the
     tail length is ≈ `Δ_lag` only if permissionless fallback lands on schedule (the same condition as
     the §6.3 liveness bound under a Byzantine aggregator); when fallback stalls, or the landing
     transaction is censored by L1, the tail grows without bound along with the stall, and a single
@@ -844,7 +831,7 @@ The parent-block-hash chaining fix raised by the owner has precisely the followi
   (3) the harm to users is layered: pure "inclusion"-class commitments are usually honored in the
   next slot via repacking (the skipper has exactly the incentive to collect the fees of those
   transactions), while what is genuinely broken are the "ordering / exact state"-class commitments;
-  (4) the handling = public attribution + the registry's liveness/reputation rules (item 1 of §12) +
+  (4) the handling = public attribution + the registry's liveness/reputation rules (item 1 of §11) +
   users penalizing repeat offenders with their flow. This is a deterrence-grade residual risk, which
   this design accepts and states explicitly; structural elimination requires protocol-level DA /
   availability proofs (for the cost identity see Appendix A-3).
@@ -904,7 +891,7 @@ The parent-block-hash chaining fix raised by the owner has precisely the followi
      off-chain accountability;
   3. The withholder itself gains nothing (its block earns no fees and is bound to be skipped), so
      this is purely spiteful behavior, and deterrence rests on reputation and the registry's liveness
-     rules (item 1 of §12).
+     rules (item 1 of §11).
 - The honest conclusion of this design is therefore（updated in r41 — option C withdraws "landing the
   wrong chain is slashable" and replaces it with mechanical competition inside the window）: **the
   slashable faults are the two classes that L1 can adjudicate mechanically — equivocation (§4.3) and
@@ -912,7 +899,7 @@ The parent-block-hash chaining fix raised by the owner has precisely the followi
   "self-defeating"（inside the §5.6 window it is overridden by a heavier proven candidate and its
   cost is spent for nothing — there is neither a need nor an ability to adjudicate "what ought to be
   landed" mechanically; this is the conclusion of independent review rounds 3/4）; skipping and
-  withholding bodies at the builder level remain non-slashable. The wording of §10 and §11 is updated
+  withholding bodies at the builder level remain non-slashable. The wording of §9 and §10 is updated
   accordingly.
   An honest inventory of the weak-enforcement class（the review r12-6 correction — this passage once
   retained the pre-r5-3 conclusion that "the weak-enforcement class contains no profitable attack",
@@ -967,7 +954,7 @@ flowchart TD
                                                                 # a candidate arriving after that point can only open the next window
                         if best=⊥: openWindow(current window-final head);   # the first candidate opens the window
                         verify(c.proof, from = base);                       # all candidates share one frozen baseline
-                        requires best = ⊥ ∨ key(c) > key(best);             # §5.2 quadruple lexicographic order, strictly heavier
+                        requires best = ⊥ ∨ key(c) > key(best);             # §5.2 triple lexicographic order, strictly heavier
                         best ← (c.end, key(c))                              # bookkeeping only, canonical untouched
   closeWindow():        requires L1.now ≥ close_at ∧ best ≠ ⊥;
                         canonical ← best.end;                               # the single atomic commit
@@ -984,9 +971,9 @@ flowchart TD
   normalized to "close precedes acceptance" — candidates arriving at or after the `close_at` height do not take part in this window and can only be the first candidate of the next
   window, and any implementation (including lazy close) must be consistent with that semantics （r44, W2; the `replay` of the executable model is exactly this semantics,
   Appendix C P5b/P6）; the window state and `best` are both pure functions of L1
-  history, and under a shallow L1 reorg they roll back together with L1 — folded into item 9 of §12.) Stated honestly: this is a small window
+  history, and under a shallow L1 reorg they roll back together with L1 — folded into item 9 of §11.) Stated honestly: this is a small window
   state machine (three actions: baseline freeze / candidate versioning / close commit) — far smaller than challenge/deposit/DA or the old episode, but
-  v1.41's claim of "no extra state machine" was inaccurate, and r42 corrects it. The atomic cursor-advance rule of §7 is correspondingly re-read: both the starting check and the advance
+  v1.41's claim of "no extra state machine" was inaccurate, and r42 corrects it. The atomic advance rule for the `m_consumed` cursor of §7 is correspondingly re-read: both the starting check and the advance
   are relative to the window baseline and the close commit, and no longer to "whoever lands first advances".
 - **Why "the heaviest proven batch" is by itself a mechanical protection of the tail**: an honest lander brings the complete honest tail (necessarily the heaviest under the §5.2 total order —
   under an honest majority, any branch that excludes honest blocks contains fewer blocks, see §5.4) onto L1 together with its proof, and it wins outright.
@@ -1006,11 +993,11 @@ flowchart TD
   single candidate, and nobody spends an extra cent — the competition mechanism is exercised only when the system is under attack.
 - **The window state is a pure function of L1 history**: candidates are all L1 transactions, window opening and close are L1 heights, and the current best is the deterministic result of
   transaction-by-transaction comparison — any node that replays L1 obtains the same window state; under a shallow L1 reorg it rolls back together with L1 (folded into
-  the atomic-rollback list of item 9 of §12, with no extra state machine).
+  the atomic-rollback list of item 9 of §11, with no extra state machine).
 - **Liveness and anti-spam （self-review rounds 5 and 7）**: superseding requires a strictly greater weight plus a valid proof, so a candidate spammer must pay a real
   proving fee every time and is capped by the length of the real tail — there is no livelock; a candidate arriving after window close is benignly stranded (it targets the old `F`,
   and it suffices to rebuild it onto the new `F'`, the same stranding semantics as in §6.4). The candidate's beneficiary (the reward/refund address) is built into the proof's public inputs,
-  so mempool copying cannot change where it points （v15 I8, as with forced-only blocks in §7）.
+  so mempool copying cannot change where it points （v15 I8）.
 - **Explicitly stated residual risks (stated honestly)**: (a) temporary ordering swings during the window: the "current best candidate" inside a window may be superseded
   by a heavier one, so the temporary head that L2 nodes follow is mutable within the window — this corresponds precisely to the existing tier-2 preconfirmation semantics (revocable, decided by window
   close); it adds no new exposure and merely makes that exposure explicit; withdrawals and bridging execute only from window-final state (§6.1/§6.2).
@@ -1044,7 +1031,7 @@ flowchart TD
   L1 wall-clock time — observable on L1, referring to no P2P state; r41: `lag` is measured on the provisional candidate, so that the liveness
   determination is not dragged down by window delay） within `Δ_lag`. A proving latency of about 10–15 minutes means that in steady state provisional
   landing trails the live chain head by about 15–20 minutes; window-final finality adds one further `W_settle` （≈ one round of proving plus landing,
-  §5.6/§12, the explicitly accepted cost of r41 option C） — the decoupling of the preconfirmation experience (seconds-scale) from the finality cadence (minutes-scale) is unchanged,
+  §5.6/§11, the explicitly accepted cost of r41 option C） — the decoupling of the preconfirmation experience (seconds-scale) from the finality cadence (minutes-scale) is unchanged,
   and it is the former that users perceive. The ladder of four levels of certainty, and the two lags:
 
   ```mermaid
@@ -1057,7 +1044,7 @@ flowchart TD
   ```
 - L2→L1 bridge (withdrawal) delay = landing cadence + `W_settle` (withdrawals execute only from window-final state, §6.1).
 - **No fast close (fast path)**: even when a window contains only a single candidate, the full `W_settle` is awaited before finality — a test for "closing early"
-  would reintroduce gameable timing, and v1 does not do it; it is listed in §12 as an optimization (for example, "a candidate covering all known signature-chain heads may
+  would reintroduce gameable timing, and v1 does not do it; it is listed in §11 as an optimization (for example, "a candidate covering all known signature-chain heads may
   close early" may be introduced only after it has been proven not to be manipulable by block withholding).
 - **Two lags, each with its own role （r42, independent review round 5 high 2 / medium 1 — conflating them first switches off the error-correction reward and then understates the revocable
   exposure）**: `lag_prov` = the amount by which the tip of the best provisional candidate trails — used only for observing service cadence
@@ -1077,7 +1064,7 @@ flowchart TD
   increment within the window, and the true bound = `Δ_lag,prov` + `W_settle` (wall clock) + fallback response ≈ `Δ_lag,final` + fallback response
   — it can no longer be written as "≈ `Δ_lag`" on its own; elsewhere in this document, the `Δ_lag` appearing in depth bounds of the form "depth ≈ `Δ_lag` + fallback response" is, per
   r44, to be read as the fallback-window-opening threshold `Δ_lag,final` (a new name for the same quantity; the bound is unchanged, only the naming is made honest). In order to pin
-  this bound down, `W_settle` is given, besides its lower bound, a consensus upper bound `W_settle_max` (§12; including the margin for wall-clock conversion when L1 slots are missed),
+  this bound down, `W_settle` is given, besides its lower bound, a consensus upper bound `W_settle_max` (§11; including the margin for wall-clock conversion when L1 slots are missed),
   which is folded into the user-facing semantics and the wording of §5.4.
 
 ### 6.3 Landing Obligation and Permissionless Fallback (This Is the Aggregator's Only Obligation)
@@ -1171,7 +1158,7 @@ flowchart TD
   fallback lander drip-feeds micro-batches to invalidate the aggregator's catch-up proofs and to run up
   strikes on its behalf) is met as follows: the aggregator's own batches never incur a strike and it may
   bid arbitrarily high to get in first, and batch proofs must support incremental continuation/aggregation
-  from an already-proved prefix (an engineering requirement, folded into §12 item 6) — once a micro-batch
+  from an already-proved prefix (an engineering requirement, folded into §11 item 6) — once a micro-batch
   that advances the chain head no longer forces anyone to re-prove from scratch, the drip-feed's teeth are
   pulled; the residual risk is still "sustained L1-level censorship of the aggregator's landing
   transactions" (the most expensive censorship category, already priced in v15 §11.5), and is explicitly
@@ -1203,20 +1190,20 @@ flowchart TD
   aggregator's own late batches was accepted, at most one is counted — r13-1 corrected the granularity of
   both counters together, away from "once per open-window period"; otherwise an aggregator riding the
   threshold with its own micro-batches could likewise pin `m_agg'` at 1）. Fix two:
-  the exemption mechanism for systemic proving outages is elevated to a blocking open item (§12 item 8) —
+  the exemption mechanism for systemic proving outages is elevated to a blocking open item (§11 item 8) —
   until it is fully defined and mechanically verifiable, the "zero false positives" claim is limited to the
   fallback strike and does not cover the late fee. The landing gas lost by a front-run fallback lander is
   compensated out of the late fee according to a pre-registered intent (the detailed rules are folded into
-  §12 item 3).
+  §11 item 3).
 - **Closing the zero-penalty reset of "self-wiping the lag + landing a worse chain" （review r39,
   independent review round 2, finding 3-i）**: charging solely on "whether `lag` is `> Δ_lag` at acceptance
   time" gives the aggregator a threshold-pinning loop: it can time its landing exactly at `lag = Δ_lag`
-  (not `>`) and land a forced-only/short chain of its own that overrides the healthy content tail;
+  (not `>`) and land a short chain of its own that overrides the healthy tail;
   acceptance then carries a zero late fee, the lag drops back after landing, and the cycle repeats every
   proving period — finality is suppressed indefinitely at zero penalty and the seat is never replaced. Two
   closures:
   (a) **Landing a worse chain is self-defeating （the main closure, r41 §5.6 settlement window）**: each
-     worse forced-only/short chain it lands is merely one candidate inside the window — anyone can land
+     worse short chain it lands is merely one candidate inside the window — anyone can land
      that healthy content tail with a proof into the same window, and by the total order it directly
      overrides the malicious candidate; the malicious candidate wastes gas + proving fees and suppresses
      nothing. "Zero penalty, repeatable" becomes "zero revenue, guaranteed loss", and no evidence
@@ -1238,7 +1225,7 @@ flowchart TD
      ambiguity in which "a count of L1 slots is used directly as L2 epochs", which causes a factor-of-12
      discrepancy. The two act together: the self-wiping-lag loop either lands the genuinely better tail
      (harmless) or is overridden inside the window at a pure loss plus a late fee, and the "Byzantine
-     aggregator is bounded" claim of §6.3/§9 is restored （under the same fallback-feasibility condition
+     aggregator is bounded" claim of §6.3/§8 is restored （under the same fallback-feasibility condition
      that someone within the window is willing to land the honest tail）.
 - **Termination and replacement**: an accumulated `m_agg` fallback strikes (initially 2) or `m_agg'` of the
   aggregator's own late batches (initially 4) → the seat is terminated and the highest standby is promoted,
@@ -1252,13 +1239,13 @@ flowchart TD
   fallback window. If the aggregator silently stops landing and nobody performs a fallback landing —
   because the proving cost exceeds the reward, because of an L1 fee spike, or because no prover is
   available at all — then no strike is produced, the seat does not change hands, and finality may stall
-  indefinitely. The bound on the "Byzantine aggregator is bounded" row of the §9 table is therefore
+  indefinitely. The bound on the "Byzantine aggregator is bounded" row of the §8 table is therefore
   conditional: it holds if and only if permissionless fallback is economically feasible (someone is willing
   and able to bear the proving and gas cost of the fallback). This is an economic/engineering assumption,
   not protocol-enforced liveness; stating it explicitly is an honesty clause of the same kind as §1's
   "honest majority is an economic assumption". The indexed-cost cap on the fallback reward and the fallback
-  incentive under extreme congestion are listed as calibration items in §12 items 3 and 7, and the
-  availability/cost of fallback provers is formally folded into the §1 threat model and §12.
+  incentive under extreme congestion are listed as calibration items in §11 items 3 and 7, and the
+  availability/cost of fallback provers is formally folded into the §1 threat model and §11.
 - **The availability precondition for fallback （the fix from review r2-1 — this item must be stated
   explicitly）**: a fallback landing requires the block bodies in hand, and before landing, block-body
   availability is only best-effort guaranteed by P2P (§5.5). The exact condition for "the Byzantine
@@ -1271,9 +1258,10 @@ flowchart TD
   whole (bodies kept private, nobody able to land anything), the strike mechanism indeed does not fire —
   which is the correct behavior of the zero-false-positive principle (the stall is then attributable to the
   cartel, not to the individual aggregator); by the §1 trust model that case is out-of-model, the protocol
-  offers it no finality guarantee, and only the §7 forced path is retained as defense in depth: a user
-  submits a forced entry → the deadline passes and the lag exceeds its limit → anyone advances finality
-  with a forced-only block.
+  offers it no finality guarantee, and after v1.51 removed forced inclusion there is no defense in
+  depth either — the former route "a user submits a forced entry → the deadline passes and the lag
+  exceeds its limit → anyone advances finality
+  with a forced-only block" no longer exists.
 - **Key property**: because landing requires no authority (§0 item 3), the fallback requires no new trust.
   Aggregator offline: the sequencing service is entirely unaffected (builders keep producing blocks and
   preconfirmations keep being issued), and finality is maintained near `Δ_lag` by fallback landers.
@@ -1281,7 +1269,7 @@ flowchart TD
   exceeds the limit the fallback opens, once a fallback landing occurs a strike is counted, and after
   `m_agg` strikes the aggregator is replaced; under the availability precondition of the previous item, the
   worst-case finality lag is pinned at `Δ_lag` + the fallback response time, and is bounded. These two
-  cases are listed separately from the full-cartel case in the table of §9.
+  cases are listed separately from the full-cartel case in the table of §8.
 
 ### 6.4 Stall and Gap Recovery — Ordinary Block Production Takes Over in One Hop via the Landing Head, with No Episode (v1.31, Direction B Redesign)
 
@@ -1317,8 +1305,7 @@ sequenceDiagram
 - **The mechanism (just one rule)**: when the gap > `G_max` (consecutive absences exceed the cap), or when
   the aggregator withholds landing so that normal block production cannot continue on the unlanded tail —
   any lookahead builder of the current turn takes the current final L1 landing head as parent and produces
-  an ordinary block under tier (ii) of §4.2 (a content block; under a full cartel, a forced-only block from
-  any key, §7). That block's `slot` = the wall-clock slot of its turn, and the parent distance is arbitrary
+  an ordinary block under tier (ii) of §4.2 (a content block). That block's `slot` = the wall-clock slot of its turn, and the parent distance is arbitrary
   (tier (ii) has no cap). L2 sequencing thereby recovers: the landing head is reconnected to near the wall
   clock, and subsequent builders produce blocks on top of it normally (tier (i)). The production/landing of
   the recovery block itself has no announcement, deposit, freshness window, or state machine — it is merely
@@ -1358,10 +1345,9 @@ sequenceDiagram
   landing head has not moved, and each attempt re-roots from the same point); once participation returns
   above the `G_max` floor, some `R` is extended, lands, and recovery completes. This floor is identical to
   the normal block-production floor and is not a new requirement specific to recovery; a genuine long-term
-  outage of all participants is a matter for social recovery and is out-of-model. Forced-only continuation
-  is analogous: under a full cartel, forced-only blocks from any key must likewise be produced continuously
-  at a density of ≥ 1 per `G_max` in order to drain the backlog, and a single block is not enough to
-  sustain progress.
+  outage of all participants is a matter for social recovery and is out-of-model. (After v1.51 removed
+  forced inclusion there is no longer a parallel "any-key forced-only block" route here — the `G_max`
+  density floor can only be met by scheduled builders.)
 - **Why a stall of any duration can be recovered in one hop (this is the fundamental improvement over the
   old design)**: tier (ii) imposes no cap in the gap dimension, so a recovery block does not expire because
   its parent distance is too large (there is no "expiry" in the gap dimension). Whether the stall lasted 2
@@ -1369,14 +1355,14 @@ sequenceDiagram
   proving → landing". The whole family of problems from the old design in which "proving latency blows
   through the gap freshness window" (r28 / round 7 P1) therefore disappears. Note the distinction of
   dimensions: what is stated here is that the gap does not expire; the other dimension, anchor freshness,
-  still applies (see the next item + §8) — "never expires" refers precisely to the former, not the latter,
+  still applies (see the next item + §7) — "never expires" refers precisely to the former, not the latter,
   and the two are not in conflict.
 - **The precise boundary of "one hop" — the transient `F_l1` wait （review r35, DeepSeek critical 2）**: the
-  parent of a tier (ii) block must be a final landing head, whereas §7 lets only batches that extend the
+  parent of a tier (ii) block must be a final landing head, whereas §5.6 lets only candidates that extend the
   current canonical landing tip land. The two fail to coincide in exactly one transient: the stall begins
   shortly after a landing and the current tip has not yet reached `F_l1`. In that case the recovery block
   can only wait for the current tip to become final (an extra ≤ `F_l1`, on the order of minutes) —
-  building on an older final head would fork off the newer tip and §7 would refuse the landing. The precise
+  building on an older final head would fork off the newer tip and §5.6 would refuse the landing. The precise
   recovery bound is therefore max(0, `F_l1` + `D_anchor` − the time the current tip has already existed) +
   one round of proving and landing （r41 added the `D_anchor` term — independent review round 4, medium 2:
   the `final_ref` of a tier (ii) block header must be ≤ the anchor, and the anchor is at least `D_anchor`
@@ -1388,19 +1374,19 @@ sequenceDiagram
   does not grow with 2 hours or 2 days).
 - **The constraint anchor freshness places on the recovery block — "never expires" needs a qualifier
   （review r38, Codex P1）**: what tier (ii) eliminates is gap expiry (no gap cap, so `R` is valid however
-  far its parent is), but anchor freshness (§8, `D_anchor_max`) still applies: `R` pins its anchor at
+  far its parent is), but anchor freshness (§7, `D_anchor_max`) still applies: `R` pins its anchor at
   signing time and must land within `landing L1 block height − anchor ≤ D_anchor_max`, failing which `R`'s
-  anchor is too stale, does not pass §8, and must be re-signed and re-proved against a fresh anchor. The
+  anchor is too stale, does not pass §7, and must be re-signed and re-proved against a fresh anchor. The
   precise statement is therefore: "a recovery block never expires because of the gap" holds, but it must be
   proved and landed within the `D_anchor_max` freshness window of its anchor. The key difference from the
   old re-anchor s_ra: the old `s_ra` freshness window was structurally pinned to `G_max` (a 64-second
   wall-clock window), which proving latency (10–15 minutes) necessarily blows through, whereas
-  `D_anchor_max` is a freely settable parameter, and its setter invariant （the full formula is in §12;
+  `D_anchor_max` is a freely settable parameter, and its setter invariant （the full formula is in §11;
   r40 corrected it to `D_anchor_max ≥ D_anchor + P_prove,max + T_include,max + margin` — independent review
   round 3 pointed out that the old formulation omitted the term for the anchor already being `D_anchor` old
   at signing time） guarantees that a recovery block does not expire under normal L1 liveness — the old
   design lost because its window was structurally too small, not because of the mechanism itself. Since
-  r41, the stale-anchor tail deadlock is resolved by the window geometry of §8 （`D_anchor_max ≥ D_anchor +
+  r41, the stale-anchor tail deadlock is resolved by the window geometry of §7 （`D_anchor_max ≥ D_anchor +
   Δ_lag,final + P_prove,max + T_include,max + margin`, with r44 raising the lag term to the final
   threshold, so that it covers the entire span of fallback authorization — any tail a fallback lander is
   authorized to land necessarily still has a fresh anchor）. If L1 censors `R`'s landing transaction
@@ -1409,7 +1395,7 @@ sequenceDiagram
   occur under the §1 assumption that L1 is safe and live.
 - **Determinism and benign stranding （designer self-review round 1）**: the parent of a tier (ii) block = a
   final landing block (having reached the `F_l1` finality depth, so the predicate is stable under shallow
-  L1 reorgs; linked to the L1-reorg item of §12); determinism at landing time is backstopped by the §7
+  L1 reorgs; linked to the L1-reorg item of §11); determinism at landing time is backstopped by the §5.6
   landing rule — a batch may only extend the current canonical landing tip. If a recovery block built on an
   old tip finds that the tip has already been advanced → benign stranding, and it need only be rebuilt
   (there is no episode or deposit that can go wrong). And the tip being advanced ⇔ a new landing occurred ⇔
@@ -1418,11 +1404,11 @@ sequenceDiagram
 - **L1-sync and the forced backlog catch up under per-block caps （designer self-review rounds 4/5; r39
   corrected the wording of the `C_anchor` binding — independent review, consistency 2）**: "one-hop
   recovery" refers precisely to L2 sequencing recovering in one hop; the L1→L2 messages and the forced-entry
-  backlog accumulated during a long stall catch up under per-block caps: `C_force` forced entries per block
-  (`C_bridge` for the bridge, §7), and the L1→L2 message-processing cursor `m_consumed` advancing by
-  ≤ `C_anchor` messages per block (§8 — `C_anchor` is bound to the message cursor; the anchor reference
+  backlog accumulated during a long stall catches up under a per-block cap (v1.51 dropped the forced-entry
+  side): the L1→L2 message-processing cursor `m_consumed` advances by
+  ≤ `C_anchor` messages per block (§7 — `C_anchor` is bound to the message cursor; the anchor reference
   itself has no per-block advancement cap and may jump to a fresh height in one hop; the earlier text of
-  this line, "the anchor's L1 advancement is ≤ C_anchor per block", was a leftover in conflict with §8 and
+  this line, "the anchor's L1 advancement is ≤ C_anchor per block", was a leftover in conflict with §7 and
   has been corrected). The full accounting is therefore: sequencing = 1 hop; L1-sync and the forced backlog
   = `backlog / per-block cap` blocks (after recovery, at 1 block per second, this is usually cleared in
   seconds to minutes).
@@ -1432,9 +1418,10 @@ sequenceDiagram
   requires `signer = lookahead(slot)`, so the exact precondition for discretionary recovery = lookahead
   builders keep returning at a density of ≥ 1 per `G_max` window (= the `G_max` liveness floor of normal
   block production, not something specific to recovery; a single sparsely returning builder can only
-  re-root and cannot sustain progress, see the "'One hop' means re-rooting" item below); the censorship
-  floor is backstopped by forced-only blocks (from any key), so forced content can be pushed even if all
-  builders are down. An outage of all participants (for example a network-wide client bug) is a matter for
+  re-root and cannot sustain progress, see the "'One hop' means re-rooting" item below). After v1.51
+  removed forced inclusion **there is no censorship floor left**: the former backstop by any-key
+  forced-only blocks no longer holds, and recovery depends entirely on scheduled builders returning.
+  An outage of all participants (for example a network-wide client bug) is a matter for
   social recovery and is out-of-model, as it is for any chain. A targeted DoS against near-future lookahead
   builders merely postpones recovery by `≈1/p` slots, which is of the same order as the normal residual
   risk of §3.2 and is not a new hole.
@@ -1444,8 +1431,8 @@ sequenceDiagram
   to-dos that disappear with it: r28 (freshness cannot keep up with landing), round 7 P1 (`Δ_cont` shorter
   than proving), and r29-P2 (three contradictions in deposit settlement / no unique winner with multiple
   `H_ch` / a second settlement after `Executed`) — these mechanisms no longer exist, so the problems no
-  longer apply. §12 is amended accordingly.
-- **The recovery accounting is given in §9** (one hop + one round of proving, including a single hop for a
+  longer apply. §11 is amended accordingly.
+- **The recovery accounting is given in §8** (one hop + one round of proving, including a single hop for a
   long stall; L1-sync catches up according to the backlog). The residual risk is given in §5.4
   (single-block orphaning via the landing head ≤ the unlanded tail ≤ `Δ_lag`, which takes effect only under
   a colluding lander and has the same bound as the existing worst case). The lander's tail-selection
@@ -1460,7 +1447,7 @@ sequenceDiagram
   comes from the protocol fee stream, then when the chain is idle the fee stream dries up and creates the
   loop "underpayment → rationally going offline → dependence on the fallback"; the fallback reward is
   therefore paid solely from the aggregator's bond (already the case, §6.3), and the design of the
-  service-fee source (§12 item 4) must guarantee that the aggregator still breaks even when the fee stream
+  service-fee source (§11 item 4) must guarantee that the aggregator still breaks even when the fee stream
   is insufficient (for example, a minimum service fee backstopped by the treasury). The combination of
   winning the seat cheaply and then slacking off is already closed off by the strike mechanism of §6.3
   (slacking off = strikes = replacement), so all that needs to be handled here is the "honest but underpaid"
@@ -1470,11 +1457,11 @@ sequenceDiagram
   gas), and what is auctioned is the lowest service fee rate (a reverse auction, with the service fee paid
   out of protocol fee revenue), with the bond accounted for separately. The bidding dimensions are the pair
   (service fee rate, bond): the lower rate wins, and at equal rates the higher bond wins. Refinement is a
-  calibration item of §12.
+  calibration item of §11.
 - MEV and priority fees go to the builder of each slot (coinbase). The aggregator does not touch sequencing
   and therefore structurally has no MEV position — this is intentional.
 - **Base-fee share — a positive incentive to land a longer chain （r47, raised by the owner）**: a fixed
-  proportion `φ_land` (a §12 calibration item) of the sum of the base fees of all blocks in the candidate
+  proportion `φ_land` (a §11 calibration item) of the sum of the base fees of all blocks in the candidate
   batch serves as the landing reward and is credited, in the atomic commit at the §5.6 window close, to the
   beneficiary address of the closing winner (the beneficiary is part of the proof's public inputs, per the
   anti-plagiarism clause of §5.6, so mempool plagiarism cannot change where it points); the remaining base
@@ -1497,228 +1484,15 @@ sequenceDiagram
 
 ---
 
-## 7. Forced inclusion: retained, with the rules simplified to a per-block obligation
-
-- **The queue semantics are carried over, but the data carrier changes to calldata （review r3-2, Codex — P1）**: users submit forced entries (transactions or bridge messages) to the L1 contract via
-  `saveForcedInclusion` and pay a base fee; the semantics of fees, size caps and
-  per-source isolation are carried over from the current deployment. The data carrier, however, must change: the current queue stores only a blob reference
-  (`LibBlobs.BlobReference`), and blobs expire after roughly 18 days — the `init3` of the deployed contract had to void old entries precisely because
-  blobs expire. The §7 escape path of this design is meant to serve as a fallback exactly during a long stall (possibly longer than
-  the blob retention period), so the payload of a forced entry is instead carried as calldata on the submitting transaction, and the contract stores its content hash at
-  enqueue time: the payload is permanently reconstructible from L1 history (calldata is part of
-  chain history and does not expire), the proof of a forced-only block need only open the payload against the stored hash, and the bound
-  `≤ F_delay + H_force` no longer depends on the blob retention period. Forced entries are usually very small (a single transaction or a single bridge message), so the calldata
-  cost can be covered by the base fee; for entries that genuinely require a large payload, a secondary channel can be added along the lines of "blob carrier + must be included before expiry, otherwise
-  voided and refunded" (whether this is needed is a §12 calibration item). This is the same technique that v15 §6.4 applies to bridge entries with
-  "L1-authoritative calldata + on-chain hash", and it incidentally removes the main trigger surface of the whole voiding/refund/recall machinery that existed in v15
-  because of blob expiry.
-- **Inclusion rule (circuit-enforced, per block, with a capacity cap)**: an entry becomes due `F_delay` after submission. Any
-  block whose slot is `s` must include, in queue order and as a prefix at the head of the block, those entries that are "due at slot ≤ s and not yet included on this chain"
-  — up to that block's forced-inclusion capacity cap `C_force` (a consensus constant capped jointly by gas and by entry count); the remainder that does not fit stays due and is consumed in order by subsequent blocks (including forced-only blocks).
-  **A block whose head prefix is below the cap yet omits a due entry is invalid** (the precise form of §5.1 rule 4) — a block produced by a builder that
-  censors forced entries is simply void, which is equivalent to abstaining and creating a gap. Why a cap is mandatory
-  （review r4-1, DeepSeek — severe）: v1.3 stated "must include all of them", with no cap — an attacker
-  need only accumulate, before some slot, more due entries than a single block's capacity in order to make every block (including forced-only blocks,
-  to which §5.1 rule 4 applies equally) permanently unable to "include all of them" and therefore collectively invalid, so that the chain stalls
-  permanently after `F_delay`. The cap plus deterministic overflow is exactly the per-snapshot capacity cap and overflow rule of v15 §6.5/§6.8
-  ("the excess deterministically overflows into the next epoch") transplanted to per-block granularity — v1.3 dropped this half of the rule when transplanting it.
-  The lower bound on the drain rate of the backlog is `C_force` per block, so piling up a backlog only buys the attacker delay; it cannot buy a stall.
-  The time bound is backlog-aware, not constant （the fix from review r7-2 — once `C_force` is introduced, the
-  fixed upper bound "≤ `F_delay + H_force`" no longer holds）: the execution time bound of entry `i` =
-  `time of becoming due + ceil(number of due, unconsumed entries ahead of it / C_force) × landing cadence` — when the backlog is bounded it degenerates back to
-  a constant bound; an attacker who keeps enqueueing at high speed and paying for it can lengthen the wait of later entries (economic DoS resistance: the cost grows linearly with the
-  number of entries and buys no stall, only in-order delay). Reserved quota for safety messages — a two-queue implementation （the fix from review
-  r8-2 — under a single FIFO cursor a "reserved quota" is vacuous: a bridge entry still has to wait for every ordinary entry ahead of it
-  to drain before its turn comes, so a paid flood can postpone it without bound）: the forced-inclusion queue is split into two independent FIFOs —
-  an ordinary queue (cursor `f_cur_ord`) and a bridge/exit queue (cursor `f_cur_br`), with membership determined at enqueue time by entry
-  type (bridge messages are recognized via the L1-authoritative entry point). The canonical order of the forced prefix of each block: first take due entries from the bridge
-  queue up to `C_bridge` (initially = 25% × `C_force`), then take due entries from the ordinary queue to
-  fill up to `C_force`; each of the two cursors advances under the atomic rule of r7-3, and determinism and circuit-verifiability are unchanged.
-  The time bound of a bridge entry therefore depends only on the backlog of the bridge queue itself, and is unaffected by a flood of ordinary entries; this works together with
-  the existing per-source isolation and base fee. All time bounds in the §9 table that involve the forced path are to be read according to the backlog-aware
-  formula (for the respective queue). Queue cursor semantics （the formalization of review r5-6）: "not yet included on this chain" is stated precisely via the queue cursor
-  `f_cursor` (the total number of entries this chain has consumed): the cursor is part of the proven chain state; the forced prefix of each
-  block consumes exactly the due entries at queue positions `[f_cursor, f_cursor + k)` (`k` takes
-  the maximum value that is "due and permitted by capacity", `k ≤ C_force`) and advances the cursor — a later block within the same batch reads
-  the cursor as advanced by the earlier blocks, not the L1 snapshot taken at the start of the batch, so there is neither double-counting of an obligation nor a missed
-  determination within a batch. Atomic state transition （the formalization of review r7-3; reconciled by r10-3 into a cursor pair — after r8-2 split the queue in two, this item
-  still spoke of a single cursor, and "each of the two cursors advances under r7-3" lacked a formal definition, so implementations would diverge on the
-  batch start/end checks）: the L1 contract maintains the canonical pair of consumed cursors
-  `F_consumed = (f_cur_ord, f_cur_br)` (kept separate from the enqueue tail cursors of the two queues).
-  At landing time: (1) the starting cursor pair declared by the batch must equal the contract's current `F_consumed` componentwise;
-  (2) the public input of the proof is the queue snapshot = (the two queue roots, the two tail cursors). The net rule （implement exactly this one sentence; clarification of review
-  r35, DeepSeek warning 3 — the r18-2 → r30-1 material below is evolutionary history, not a second, parallel binding）:
-  **the forced-inclusion obligation of each block is computed per block and proven per block against [the anchor already committed to in that block's signed header]**; the "batch-level
-  snapshot" here refers specifically to the pair of consumed cursors `F_consumed` (matched componentwise at the start when landing on L1, and advanced atomically to the end
-  value), not a second due-determination scheme independent of the per-block anchor — dueness is always judged against each block's own anchor, and the cursor
-  pair records only "how far consumption has reached". The snapshot binding is changed to be per block and
-   written into the signed block header （review r18-2 → r30-1 redo）: previously r18-2 fixed the snapshot as "the
-   anchor height `H_batch` of the first block of the batch" (unique per batch), but Codex pointed out in round 18 that this makes the forced-inclusion obligation of an already-signed
-   block depend on the batch boundary the lander ultimately chooses — a signed P2P tail can be split and
-   landed at any prefix, and if `B2`'s `forced_root`/state transition was signed against snapshot `H1` while the lander lands only `B1`, making
-   `B2` the first block of the next batch (whose snapshot becomes `H2`), then `B2` either omits the entries that became due in `H1→H2`, or
-   cannot be proven within a batch that starts at `B1`; and since `forced_root` is already signed and immutable, the tail cannot be repaired, so
-   landing an ordinary prefix would strand a block that was otherwise legal. The fix: the forced-inclusion obligation of each block is computed against the anchor it has itself
-   committed to in its signed block header (the §4.2 block header already contains an anchor reference) — the obligation is fixed at signing
-   time and is independent of batch boundaries; the batch proof verifies the forced prefix of each block against that block's own anchor. Because the anchor is non-decreasing along the
-   chain, `F_consumed` still advances monotonically (each block consumes the prefix that is "due against this block's anchor and beyond the cursor").
-   The freshness check at the L1 entry point must be performed per block （review r38, DeepSeek Critical — the old shortcut "or the last block of the batch,
-   whose anchor is the highest" is deleted: the anchor is only non-decreasing, so a batch may have a fresh anchor on its last block while earlier blocks carry stale anchors;
-   checking only the last block would wave those earlier blocks through even though their forced-inclusion obligation and `m_consumed` were computed against a stale L1 view,
-   and forced inclusion, being the unconditionally safe path, cannot tolerate such a hole）, against
-   `landing L1 block height − block anchor ≤ D_anchor_max`, which still seals off "hiding due entries behind a stale anchor",
-   and now the same signed block has the same obligation no matter which batch boundary it lands at, and cannot be stranded. The exit time bound remains
-   the §7 backlog formula `+ D_anchor_max` (bounded). (3) Once verification passes, the contract atomically advances the whole `F_consumed`
-   pair to the end cursor pair of the batch — as amended by r42: both the check and the advance follow the §5.6 window state machine: candidate
-   verification is against the cursor pair of the window's frozen baseline (all candidates in the same window share the same starting point), verification records only the candidate's own end cursor pair,
-   and at window close only the winner's end cursor pair is committed atomically; (4) concurrent candidates are no longer resolved by "the first to land wins", but by the §5.2
-   total order within the same window superseding one another, with the winner determined at window close. The single-cursor phrasing of r5-6 above is to be read componentwise
-   (each queue "consumes its due prefix and advances its own cursor").
-- The forced consumption at the head of every block, in one diagram (the "uniform maximum prefix" rule, consistent with §5.1 rule 4 and the model in Appendix C):
-
-  ```mermaid
-  flowchart TD
-      Q["Head-of-block consumption: two FIFO queues, a per-block obligation"] --> BR["Bridge queue prefix:<br/>the longest prefix satisfying both entry count ≤ C_bridge and cumulative declared gas ≤ the C_bridge gas share<br/>（r19-1 reserved quota）"]
-      BR --> OR["Ordinary forced-inclusion queue prefix:<br/>the longest prefix with entry count ≤ C_force − bridge entries already taken<br/>and cumulative gas ≤ the C_force gas share − gas already used by the bridge"]
-      OR --> R["Taking the longest prefix is legal; only taking less than it is illegal<br/>(not 'exactly some entry count'); the remainder deterministically overflows into subsequent blocks"]
-      R --> D["Entries that are illegal against the preceding state: consume-and-discard<br/>the cursor advances as usual, the entry is not executed （r9-2）"]
-  ```
-
-- **Admission of illegal entries and consume-and-discard （review r9-2, Codex — P1）**: the v1.8 rule creates a dilemma for a malformed or
-  state-illegal entry — including it violates §5.1 rule 5 (execution legality), and not including it violates rule 4
-  (completeness of the forced prefix) — so a single paid submission could make all ordinary blocks and all forced-only blocks permanently illegal and stall the chain.
-  The fix is two lines of defence, with all determinations deterministic:
-  1. **Enqueue validation (executed by the L1 contract)**: the payload has been changed to calldata carried by the submitting transaction (the first item of this section), so the contract
-     is able to validate directly at `saveForcedInclusion` time: that it decodes to a well-formed signed transaction, that the
-     signature is recoverable, that `chainId` is correct, and that the entry's gas cap does not exceed the per-entry share of the queue it belongs to
-     — computed as `C_force − C_bridge` for ordinary entries and as `C_bridge` for bridge entries （review r16-2 introduced
-     per-queue share validation, and r19-1 corrected the ordinary share: if bridge entries were validated against `C_force` alone, an entry whose gas falls in
-     `(C_bridge, C_force]` could be enqueued yet never fit into the `C_bridge` bridge prefix and would deadlock at the head of the queue;
-     and if the ordinary share were taken to be `C_force`, then whenever every block has due bridge entries taking up to `C_bridge`,
-     an ordinary queue head that fills all of `C_force` would forever have only `C_force − C_bridge` available and would never fit,
-     so a sustained bridge flow could starve ordinary forced inclusion indefinitely — the per-entry share of both queues must therefore be taken as its
-     "guaranteed capacity after deducting the other side's reserved quota": ordinary = `C_force − C_bridge`, bridge =
-     `C_bridge`, so that each queue head fits into the current block under any volume of traffic on the other side）. Failing validation means the enqueue is rejected; the cap on bridge entries is enforced in step by the bridge contract when it constructs the message (a setter
-     invariant: the maximum gas of a bridge message ≤ the `C_bridge` per-entry share). The setter invariant for lowering capacity
-     parameters （review r17-2 supersedes the borrowed-allowance relief rule of v1.16 — a borrowed allowance covers only bridge entries with
-     `≤ the C_force share`, and cannot save an ordinary queue-head entry that exceeds the new share after `C_force` is lowered,
-     so the forced-prefix obligation would make every block illegal and the deadlock would reappear）: a lowering of
-     `C_force`/`C_bridge` is refused unless the new per-entry share is ≥ the maximum gas among the unconsumed entries of the corresponding queue.
-     The implementation uses a watermark: each queue maintains, at enqueue time, the maximum gas among its unconsumed entries
-     (reset when the queue drains), and the setter checks against the watermark — conservative but O(1) and directly readable on L1. Consequently, in any
-     reachable state there is no entry that is "already enqueued yet unable to fit within its quota", and no borrowed-allowance special case is needed. Bridge queue
-     entries are constructed by the bridge contract, so well-formedness is guaranteed by construction.
-  2. **Discard at consumption time (consume-and-discard, a circuit rule)**: enqueue validation cannot stop state-dependent
-     illegality (nonce mismatch, or a balance insufficient to cover the gas cap × the fee-rate cap — state changes after enqueue).
-     The rule: when a block's forced prefix reaches an entry, if that entry does not satisfy the deterministic executability test against the state preceding the point of
-     consumption, then the entry is consumed as usual (the cursor advances as usual and it counts towards `f_consumed`) but is not executed
-     (nothing changes state except the consumption record). The test is a pure function of the preceding state, so it is circuit-verifiable and identical across all nodes;
-     the legality of a block is thereby decoupled from the content of the entries — rule 4 requires "consumption in order", not "successful execution".
-  This is the only part of the "per-source default disposition" duty of v15's default derivation rule that must be retained: v2 deletes the entire default-derivation
-  mechanism (the §0 table), but "deterministic discard of illegal input" is not a derivation policy, it is a completeness requirement, and it is recovered here in minimal
-  form. User-side semantics: the forced-inclusion fee is charged at enqueue time and is not refunded on discard — format and signature have already been validated at enqueue
-  time, so the remaining discard cases can only stem from the submitter having changed its own nonce or balance after enqueueing.
-  **Nonce preemption weakens the forced path — a blocking open item （review r24-5, DeepSeek round 5, W5）**:
-  a forced entry uses the ordinary L2 account nonce, and a discard is not refunded. If the user subsequently (for example, to keep operating during a period of censorship) sends another transaction with
-  the same nonce and it gets included first, the forced entry will be discarded at its point of consumption because of the nonce conflict —
-  a censoring party can deliberately accept a conflicting transaction in order to void the victim's forced entry, weakening a path that ought to be unconditional
-  (the §5 bridge/exit messages are especially sensitive to this). This is not merely user error; it is a real attack surface against the censorship-resistance floor.
-  Candidate fixes (choose one; requires design work): (i) forced entries occupy a separate per-source forced nonce/counter, disjoint from the ordinary
-  nonce space; (ii) enqueueing freezes that nonce, and ordinary transactions may not preempt it until the forced entry has been consumed;
-  (iii) bridge/exit messages are already constructed by the bridge contract and do not use the user's nonce (the §7 bridge queue), so extend that protection
-  to a broader forced class. Raised to a blocking open item (§12, item 12): until one is chosen and formalized, the unconditionality of the forced path
-  against nonce preemption does not hold, and the forced-inclusion promise made to users must be discounted accordingly.
-- **Forced-only block — the censorship floor under a total cartel, now a direct
-  application of §4.2 tier (ii) (the v1.31 direction-B simplification: the two-sided `lag > Δ_stall` condition, the announce/challenge/`Δ_ra` windows,
-  `s_base`/`s_ra` and `Δ_cont` continuation are all deleted — these go away together with the §6.4 episode)**:
-  - **Scenario**: every builder colludes and produces no discretionary block at all (the out-of-model case of §9). Forced content still needs a
-    path in.
-  - **Definition**: a forced-only block = anchor (a system-level implicit transaction, §8) + due forced entries (in queue order,
-    up to the per-block caps `C_force`/`C_bridge`, §7), with no other discretionary content; signed by an arbitrary key (the circuit verifies
-    validity and waives the lookahead check); the parent rule is given by predicate 2 （re-rooting uses a tier (ii) final landed head, and subsequent blocks use
-    tier (i) to chain onto the previous forced-only block — the r37-2 correction, since the original "tier (ii) only" would be rate-limited by `F_l1`）.
-    `coinbase` = a beneficiary address of the producer's own choosing (which collects the forced-inclusion fees), carried as a public input of the batch proof, so that mempool copying cannot
-    redirect it (the v15 I8 pre-committed beneficiary).
-  - **The legality predicate `P_forced` （precise and circuit-verifiable, replacing the old "three conditions" reference of §5.1; review r36, Codex
-    line 517 P2 / DeepSeek warning）**: a block is accepted by the circuit as a forced-only block if and only if all of the following hold:
-    1. **The signature is valid** (an arbitrary key, waiving the `signer = lookahead(slot)` lookahead check — this is its only
-       waiver relative to §5.1 rule 1; the signature must still cover the block header and be directly verifiable on L1);
-    2. **The parent satisfies one of the following （review r37-2, Codex "Allow forced-only blocks to continue
-       after landing" P1 — the original "tier (ii) only" is rate-limited by `F_l1` under a total cartel, which contradicts the per-block drain at
-       `backlog/C_force` claimed in §7）**:
-       - **(re-rooting) tier (ii)**: the parent is a final L1-landed block (at `F_l1` depth), and at landing time it must be the current
-         canonical landed tip (§7) — used as the starting point of a forced-only chain, or for re-rooting after the previous forced-only chain has frozen
-         (> `G_max`);
-       - **(same-lane continuation) tier (i)**: the parent is a previous forced-only block with `slot − parent.slot ≤ G_max`
-         (the parent itself satisfies `P_forced`) — this lets forced-only blocks be chained under a total cartel at a density of `C_force`
-         per block, continuing to the next block without waiting for each block's `F_l1` finalization, which is what makes the per-block drain at `backlog/C_force`
-         hold. The parent is restricted to be a forced-only block (not an arbitrary tier (i) parent) in order to prevent an arbitrary key from injecting itself, via tier (i), into
-         an honest lookahead tail — forced-only blocks chain only within the forced-only lane, and an honest content tail is still extended only by lookahead builders
-         under §5.1 rule 1; the two lanes are separated by "whether the parent satisfies `P_forced`", and since under the §5.2 total order the content lane
-         globally takes priority over the forced-only lane, even a heavier forced-only chain cannot beat a healthy content tail （r39; a lander that skips the content
-         tail in order to land the forced-only chain is directly overridden by a content candidate within the same §5.6 window, r41）.
-    3. **`slot` is legal**: `parent.slot < slot` and `slot ≤ L2_slot(timestamp of the L1 block in which it lands)`
-       (per §6.1, a future slot may not be landed; the L1 entry point and the circuit both prove this) — this is the mechanically verifiable form of
-       "= the current wall-clock slot", and depends on no registered identity;
-    4. **Content is forced-only, and this is opened up only after `H_force` has elapsed （review r40 adds `H_force`, independent review round 3, finding 9:
-       previously the predicate required only a "non-empty due prefix", which opened the door to arbitrary keys at `due_slot = submission + F_delay`, that is `H_force`
-       earlier than the `due + H_force` announced in the parameter table, prematurely enlarging the arbitrary-key forking surface）**: the block body = anchor (§8) +
-       the forced prefix in §7 queue order up to the `C_force`/`C_bridge` shares, with no other discretionary transaction; that prefix
-       is non-empty and its queue-head entry is overdue by ≥ `H_force` (that is, `slot ≥ due_slot(queue head) + H_force`)
-       — this gives the lookahead builders a window of `H_force` in which to include it first, and an arbitrary-key forced-only block is legal only thereafter, consistent with the
-       "overdue fallback" time bounds of §9/§12. This is re-verified per block, and lane continuation does not inherit maturity eligibility （r41, independent review round 4, medium 1
-       — "it suffices that the first block satisfies it" would let one old entry renew arbitrary-key permission indefinitely）: every forced-only block (including a same-lane
-       continuation block) must satisfy `slot ≥ due_slot(that queue head) + H_force` for the queue head it itself consumes; lane continuation
-       waives only the parent's final check, not the per-block entry-maturity check;
-    5. **Message consumption + causal ordering**: L1→L2 messages are consumed under the uniform maximum prefix of §8 （entry count ≤ `C_anchor` and cumulative gas ≤ the share,
-       r40）; and the §8 causal-ordering invariant `anchor.L1_timestamp ≤ L2 timestamp(slot)` is satisfied.
-    **How is slot uniqueness guaranteed （DeepSeek warning — arbitrary keys carry no equivocation slashing）**: because a forced-only block is signed with an arbitrary key,
-    it does not rely on equivocation slashing to guarantee "at most one block per slot" (there is no registered identity to slash). Several legal forced-only
-    blocks may appear in the same slot = competing branches, resolved by the §5.2 fork choice + atomic landing picking one (the first to land is canonical, §5.2) — the same resolution path as an ordinary
-    fork, so slot uniqueness is not needed as a circuit invariant. The non-empty prefix of predicate 4 together with the
-    `slot ≤ wall clock` of predicate 3 ensures that it is legal only when "there is due forced content and it does not run ahead of the future".
-  - **Legality and competition, folded uniformly into the §5.4 residual risk (eliminating the old design's two-sided condition and the finding-6 front-running concern)**:
-    a forced-only block behaves like any tier (ii) block — in normal operation it is a short branch off the final landed head, and an honest lander
-    does not follow it and does not land it under the §5.2 fork choice, so it does not compete for position with normal content blocks in flight (this is exactly the mutual exclusion that the old design
-    laboriously maintained with the two-sided `lag > Δ_stall` condition, now given naturally by the fork choice, with no extra
-    switch needed); only a colluding lander would land its isolated tail = the explicitly accepted residual risk of §5.4 (same bound). Under a total cartel it is the
-    only chain making progress, and finality is advanced by permissionless landing.
-  - **A unilateral Byzantine aggregator can source an isolating branch by itself — a tightening of the residual risk that must be stated explicitly （review r36, Codex line
-    1102 P1）**: the arbitrary-key waiver means that a malicious aggregator can itself construct this tier-(ii) forced-only branch (it first enqueues a forced
-    entry of its own and waits for `F_delay` to elapse, at which point it has a legal non-empty prefix), without suborning any lookahead builder and without producing
-    any slashable equivocation. Hence the "requires lander collusion" residual risk of §5.4 can have its "collusion" collapse to a single untrusted
-    aggregator acting alone (it is both the branch author and the lander), rather than the two parties "a malicious builder + another colluding lander".
-    **As of r41, this attack is self-defeating rather than a residual risk**: (a) it cannot move a healthy tail — under the §5.2 total order the content
-    lane globally takes priority over the forced-only lane (and the lane is fixed at the first block of the fork, so ordinary child blocks cannot whitewash it); (b) the forced-only
-    candidate it races to land is merely one candidate within a §5.6 window — a healthy content tail landed into the same window by anyone with a proof simply wins on the total order,
-    and the malicious candidate has wasted its gas + proving fee. "A unilateral, unslashable, repeatable attack" becomes "repeating it necessarily loses money". The residual risk narrows to a single condition:
-    **nobody lands an honest tail within the window** (fallback feasibility, the same condition as §6.3). The discretionary transactions of an isolated tail return to
-    the mempool as usual and are not destroyed.
-  - **Censorship time bound**: a forced entry is included within `backlog / C_force` blocks after "somebody produces a block containing it"; the block containing it
-    may be an ordinary block (the forced-prefix obligation, §7) or a forced-only block (under a total cartel). When
-    that containing block is a tier (ii) block off the landed head (the total-cartel recovery path), its production inherits the §6.4 recovery bound, including
-    a tip-finality wait of ≤ `F_l1` that stacks in the worst case of a stop-start immediately after landing （r35, DeepSeek suggestion 2） — this term is absent in steady state. The forced-only
-    path is permissionless — under a total cartel anyone holding an arbitrary key can produce a forced-only block and make progress, so the censorship floor
-    does not depend on any registered identity or on any aggregator. This inherits the intuition of the current deployment's `permissionlessInclusionMultiplier` and of v15 I6
-    (forced content always flows), replacing v15's entire anarchy mode with the two-tier parent rule + the forced-prefix obligation.
-- **Why the queue is retained** (the conclusion of §6 of the assessment document still holds under this design, and is cheaper here): rotation gives a bounded wait when there is
-  "≥ 1 honest builder", but gives zero guarantee against a total cartel, and a cartel cannot be detected on-chain;
-  bridge messages need a path in that does not depend on any operator. In this design the day-to-day cost of the queue is close to zero (it is just
-  one rule in §5.1), and the disaster tail (the bridge recall handshake of v15 §6.4, and the like) shrinks dramatically because there is no "void and refund" path:
-  an entry is either included, or included by anyone after waiting `H_force` — with no voiding branch, no termination/cancellation handshake is needed either.
-  (The blob expiry problem does not exist: the data of a forced entry is on L1 to begin with.)
-
----
-
-## 8. Anchoring and the bridge (L1 → L2)
+## 7. Anchoring and the bridge (L1 → L2)
 
 - The current per-block anchoring pattern is carried over: the first transaction of every block is the anchor transaction (anchor tx), which references an L1 block at depth
   ≥ `D_anchor` (32 L1 slot), is non-decreasing relative to the previous anchor, and whose freshness does not exceed the cap
   (the numerical values carry over the shape of the v15 §6.6 constraints).
 - **The anchor may not be later than this block's slot time — the L1→L2 causal-ordering invariant （review r37, Codex line 598 P1）**:
   in addition to being non-decreasing and fresh, it must also hold that `the anchor's L1 timestamp ≤ the L2 timestamp corresponding to this block's slot`
-  (equivalently, `L2_slot(anchor.L1_timestamp) ≤ slot`), and this applies to ordinary blocks and forced-only blocks alike. Why it is
-  necessary: §6.1 rule 3 only blocks "future slots", and §8 only blocks "an anchor that is too old", and neither blocks "an old slot paired with a new
+  (equivalently, `L2_slot(anchor.L1_timestamp) ≤ slot`), and this applies to all blocks alike. Why it is
+  necessary: §6.1 rule 3 only blocks "future slots", and §7 only blocks "an anchor that is too old", and neither blocks "an old slot paired with a new
   anchor" — a builder could hold back an old slot, then pick after the fact a fresh anchor that has just arrived and that already contains some new L1→L2 message,
   and sign a tier (i) continuation that consumes that message into an L2 block whose slot timestamp is earlier than the L1 block the message originated in; a
   Byzantine aggregator lands it ahead of honest recovery → L1→L2 causal ordering is broken, and the bridge/message deadline semantics based on `block.timestamp`
@@ -1749,7 +1523,9 @@ sequenceDiagram
   beyond that window (the fallback too is persistently absent for > D_anchor_max), the stale prefix can no longer be landed and the chain is rebuilt from the window-final head — the same conditional residual risk as
   §6.3 fallback feasibility, stated honestly. The causal-ordering invariant (the previous item) is unaffected.
 - Because there is a block every second (under normal conditions), the intake cadence of L1→L2 messages is on the order of seconds — better than the fallback path
-  of the forced-only cadence in v15. In the gap and cartel cases, bridge messages take the forced path of §7.
+  of the forced-only cadence in v15. During a gap, messages are consumed by the next honest block; after v1.51
+  removed forced inclusion, inbound messages have no alternative entry route under a full cartel and can only
+  wait for scheduled builders to resume producing blocks (§8).
 - **The L1→L2 message-processing cap `C_anchor` — bound to the [processing cursor], not to the anchor reference （introduced in review
   r32, self-review round 5; r34 corrected what it is bound to — Codex pointed out that binding it to the anchor would conflict with freshness）**:
   distinguish two independent quantities:
@@ -1760,7 +1536,7 @@ sequenceDiagram
   - **The L1→L2 message-processing cursor `m_consumed`** （a global message sequence number, not an L1 height — review r39, independent
     review consistency 3: a single L1 height may contain several messages, so a cursor that records only the height would consume messages twice or skip them within that height, and could not
     uniquely prove a "maximum prefix"; hence `m_consumed` = the global sequence number in the inbound message queue, or the equivalent `(L1 height, tx index,
-    log index)` triple, of the same kind as the §7 forced-inclusion cursor）: the unique canonical algorithm = [the uniform maximum prefix] （r41 cleaned out the residual text "exactly
+    log index)` triple）: the unique canonical algorithm = [the uniform maximum prefix] （r41 cleaned out the residual text "exactly
     min(entry count)" — independent review round 4, severe 3 pointed out that this residual text and the two-constraint prefix of §5.1 negate each other, which could cause a consensus
     split or leave no legal block）: L1→L2 messages form a public FIFO queue (the contract maintains a queue root + tail cursor, kept separate from
     `m_consumed`); every block must consume the longest prefix of that FIFO that satisfies both "entry count ≤ `C_anchor`" and "cumulative declared gas
@@ -1768,9 +1544,9 @@ sequenceDiagram
     that longest prefix is legal, and only taking less than it is illegal — as in §5.1 rule 5, with no second "exactly some entry count" criterion). A recovery block
     references a fresh anchor (spanning days of L1), each block digests this prefix, and the remainder is continued by subsequent blocks (`m_consumed` advances
     monotonically). The backlog catch-up bound is correspondingly two-constraint: `backlog drain time = max(ceil(entry count / C_anchor),
-    ceil(cumulative gas / the G_l1msg share))` blocks （the bounds of §6.4/§9 are to be read this way; r41 fixed "dividing by entry count alone underestimates the gas bottleneck"）. Without this lower bound, `m_consumed`
+    ceil(cumulative gas / the G_l1msg share))` blocks （the bounds of §6.4/§8 are to be read this way; r41 fixed "dividing by entry count alone underestimates the gas bottleneck"）. Without this lower bound, `m_consumed`
     is monotone yet may stagnate: a builder that keeps processing 0 messages while still using a fresh anchor could censor L1→L2 messages indefinitely,
-    invalidating the `backlog / C_anchor` catch-up bound of §6.4/§9 （Codex line 1031）. With the lower bound added, the catch-up bound
+    invalidating the `backlog / C_anchor` catch-up bound of §6.4/§8 （Codex line 1031）. With the lower bound added, the catch-up bound
     is circuit-enforced and redeemable. Consumption is not execution — an inbound message that is illegal against the preceding state is consumed-and-discarded under the same
     consume-and-discard rule as §7.
     **The real anti-censorship bound is `D_anchor_max`, not `C_anchor` alone （review r38, DeepSeek warning 1
@@ -1786,52 +1562,51 @@ sequenceDiagram
   Why it is split this way （r34）: the §4.2 tier (ii) recovery block has to reconnect to the wall clock in one jump from a landed head days old. If
   `C_anchor` were imposed on the anchor reference (the error in the original v1.31 text), then the anchor of a recovery block could advance only `C_anchor` from its stale
   parent anchor, would still be stale, and would fail the freshness check — failing precisely on the long stall it is meant to support （Codex r34-1）. Once it is rebound to the
-  message-processing cursor: the anchor reference is fresh (satisfying §8) and L2 ordering recovers in one jump; while a huge volume of L1→L2 messages is processed block by block at
+  message-processing cursor: the anchor reference is fresh (satisfying §7) and L2 ordering recovers in one jump; while a huge volume of L1→L2 messages is processed block by block at
   `C_anchor` per block, so a full sync takes `message backlog / C_anchor` blocks (after recovery, 1 block/second, which is fast). This is the same technique and the same shape as
-  the per-block `C_force` amortization of the backlog for §7 forced entries (a fresh reference + a rate-limited cursor). `C_anchor` is a §12 calibration item.
+  a fresh reference plus a rate-limited cursor. `C_anchor` is a §11 calibration item.
 - **A shared block-level gas budget + a per-message gas cap — sealing off the combined-gas chain stall （review r39, independent review rounds 1/2,
-  findings 1/5 — severe）**: the forced prefix of §7 (`C_force`/`C_bridge`) and the L1→L2 message consumption of this section
-  (`min(C_anchor, ...)`) are two mandatory obligations each with its own quantity, but until now there was no shared block gas budget and no
-  per-message gas cap. Counterexample: block gas 30M, the due forced prefix takes exactly 20M, and the head of `m_consumed` is an inbound message that is legal against the
-  preceding state and requires 11M to execute — rule 4 requires the block to take the full forced prefix and rule 5 requires it to consume that message, for a total of
-  31M + the fixed anchor overhead > the block cap, while consuming less on either side is also illegal → for ordinary, recovery and forced-only blocks alike there exists no
-  legal state transition, so the chain stalls permanently even with everyone honest, and the bridge/exit cursors die along with it. The fix (fully deterministic, verifiable by both the circuit and L1):
-  1. **A per-item admission gas cap**: inbound L1→L2 messages and forced entries each get a per-item gas cap at enqueue time, and an over-cap item is refused
-     admission （newly added on the message side; on the forced side this carries over the per-queue shares of §7 r16-2/r19-1）;
-  2. **A shared block-level budget invariant**: `the fixed anchor overhead G_anchor + the C_force (including C_bridge) gas share +
-     the L1→L2 message gas share ≤ block_gas_limit`, as a setter invariant on the consensus constants; each of the three parties'
-     "guaranteed capacity after deducting the others' reserved quotas" fits into the current block under any volume of traffic from the others (carrying over the same technique as the §7 two-queue reserved
-     quota, extended to three parties);
-  3. **Deterministic priority and overflow**: the enforced execution order within a block = anchor → forced prefix (bridge first, §7) → L1→L2
-     message prefix; each party, following its own cursor, "consumes up to its guaranteed capacity in this block, and the remainder deterministically overflows into subsequent blocks" — every cursor is advanced only
-     by legal blocks, so a backlog buys delay and cannot buy a chain stall;
-  4. **A watermark for lowering parameters**: when `C_force`/`C_anchor`/any gas share is lowered, the §7 watermark invariant carries over (the new share
-     ≥ the maximum gas among the unconsumed entries of the corresponding queue), guaranteeing that in any reachable state there is no item that is "already enqueued yet unable to fit within the guaranteed capacity".
+  findings 1/5 — severe; contracted from three parties to two in v1.51 along with the removal of forced inclusion）**: the original risk was that
+  the "forced prefix" and "L1→L2 message consumption", two mandatory obligations each with its own quantity, could together burst the block gas
+  cap and leave no legal block even with everyone honest. With the forced prefix gone that combination disappears, but **one side alone can still
+  reproduce the same shape of deadlock**: if the head of `m_consumed` is an inbound message whose execution cost exceeds "the block cap minus the
+  fixed anchor overhead", rule 4 requires it to be consumed and it does not fit, so no legal state transition exists and the chain dies permanently.
+  The first two clauses below are therefore retained, and clauses 3/4 restated for two parties (fully deterministic, verifiable by both the circuit and L1):
+  1. **A per-item admission gas cap**: inbound L1→L2 messages get a per-item gas cap at enqueue time, and an over-cap item is refused admission —
+     this is the load-bearing clause against one-sided deadlock, and it is not relaxed just because the forced queue is gone;
+  2. **A shared block-level budget invariant**: `the fixed anchor overhead G_anchor + the L1→L2 message gas share ≤ block_gas_limit`, as a setter
+     invariant on the consensus constants; the message side's "guaranteed capacity after deducting the anchor overhead" always fits into the block;
+  3. **Deterministic priority and overflow**: the enforced execution order within a block = anchor → L1→L2 message prefix; following `m_consumed`,
+     the block "consumes up to its guaranteed capacity, and the remainder deterministically overflows into subsequent blocks" — the cursor is
+     advanced only by legal blocks, so a backlog buys delay and cannot buy a chain stall;
+  4. **A watermark for lowering parameters**: when `C_anchor` or the message gas share is lowered, the new share must be ≥ the maximum gas among the
+     unconsumed entries of the message queue, guaranteeing that in any reachable state there is no item that is "already enqueued yet unable to fit
+     within the guaranteed capacity".
   The three separately rate-limited obligations are thereby coordinated by one shared budget, and can no longer be combined into a "no legal block" deadlock. The numerical gas shares
-  are folded into §12.
+  are folded into §11.
 
 ---
 
-## 9. What happens when each role goes offline (liveness accounting, in a single table)
+## 8. What happens when each role goes offline (liveness accounting, in a single table)
 
 | Who goes offline | What the user sees | Recovery mechanism | Recovery time |
 | --- | --- | --- | --- |
 | A single builder | Its slot becomes a gap; every other slot proceeds as usual | No recovery is needed; the next slot continues naturally | ~1 second |
 | Consecutive absences ≤ `G_max − 1` (63 slots, so the next block's parent distance is ≤ `G_max`) | No new blocks for a few seconds | The next builder resumes under §4.2 tier (i); an absentee that supplies its signature after the fact can also bridge the interval | ~number of offline builders × 1 second |
-| Consecutive absences ≥ `G_max` slots, extending to hours or days (catastrophic stall) | No new blocks for the duration of the stall | **Land the best chain first, then recover from its final tip （§5.2/§6.4, r39 correction — the frozen long tail is not lost）**: if a frozen long tail existed before the stall, the lander lands it first (thereby honoring its preconfirmations), and once it has reached `F_l1` the recovery block takes its tip as parent and is produced under §4.2 tier (ii); where there is demonstrably no better chain, the recovery block is itself the best chain and lands directly. Landing a worse candidate is superseded inside the §5.6 window by a heavier one （self-defeating, r41） | **Ordering ≈ one round of proving + landing (≈10–15 minutes, independent of the length of the stall) + the `W_settle` window close （r41） + in the worst case an additional wait of ≤ `F_l1` + `D_anchor` when the stall begins immediately after a landing （r35/r41; this term is absent in steady state）**; where a frozen long tail exists, this includes one round of proving to "land the tail first"; L1-sync and forced-inclusion backlogs catch up at `C_anchor`/`C_force` per block; **sustained progress requires scheduled builders to keep returning at a window density of ≥1/`G_max` （the normal-mode `G_max` liveness floor, r36）** or the forced-only floor (at the same density) |
+| Consecutive absences ≥ `G_max` slots, extending to hours or days (catastrophic stall) | No new blocks for the duration of the stall | **Land the best chain first, then recover from its final tip （§5.2/§6.4, r39 correction — the frozen long tail is not lost）**: if a frozen long tail existed before the stall, the lander lands it first (thereby honoring its preconfirmations), and once it has reached `F_l1` the recovery block takes its tip as parent and is produced under §4.2 tier (ii); where there is demonstrably no better chain, the recovery block is itself the best chain and lands directly. Landing a worse candidate is superseded inside the §5.6 window by a heavier one （self-defeating, r41） | **Ordering ≈ one round of proving + landing (≈10–15 minutes, independent of the length of the stall) + the `W_settle` window close （r41） + in the worst case an additional wait of ≤ `F_l1` + `D_anchor` when the stall begins immediately after a landing （r35/r41; this term is absent in steady state）**; where a frozen long tail exists, this includes one round of proving to "land the tail first"; the L1-sync backlog catches up at `C_anchor` per block; **sustained progress requires scheduled builders to keep returning at a window density of ≥1/`G_max` （the normal-mode `G_max` liveness floor, r36）** — after v1.51 removed forced inclusion there is no forced-only floor to serve as an alternative |
 | Aggregator goes offline (honest but offline) | **Nothing perceptible** (preconfirmations proceed as usual); finality is deferred | `lag > Δ_lag` → the fallback window opens, anyone may land and a strike is recorded; `m_agg` strikes → the standby is promoted | Finality lag is pinned at `Δ_lag` + the fallback response; 0 interruption of the sequencing service |
 | Aggregator online but maliciously stalling (Byzantine, landing micro-batches) | As above | Micro-batches cannot hold lag down → the fallback window opens, strikes are recorded and the seat changes hands exactly as before (§6.3) | As above （**bounded — but conditional on permissionless fallback being economically viable**, r24-4: if nobody performs the fallback, no strike is recorded and the stall can continue indefinitely）; the seat changes hands within `m_agg` strikes |
 | Aggregator offline + no standby | As above | Fallback landing remains available throughout (no seat is required); the normal cadence resumes once the auction has cleared | 0 interruption of the sequencing service |
-| All builders at once (catastrophe or cartel) — **out-of-model** (§1 trust model) | No new preconfirmations | Once a forced entry is `H_force` past due, **anyone may produce a forced-only block with any key** (§4.2 tier (ii) built on the landed head + §7, defense in depth, no episode); new builders may join the registry at any time | Forced path ≈ the per-queue backlog-aware bound (§7); discretionary service waits for new builders to join |
-| Builders and aggregator colluding as a whole (block bodies kept private) — **out-of-model** (§1 trust model; the owner's decision is not to solve this inside the protocol) | Preconfirmations are still issued but cannot be trusted; finality stalls, and **correctly** no aggregator strike is produced (the stall is attributed to the cartel) | The forced path is the defense-in-depth exit; any single builder defecting from the collusion immediately produces a landable fork (§5.5, self-healing), which returns the system to the model | Forced path ≈ the per-queue backlog-aware bound (§7); everything else waits for the collusion to break down |
-| Proving-system failure | Preconfirmations proceed as usual; no new finality | **Zero false positives for fallback strikes holds** (nobody can land ⇒ no strike is recorded, §6.3); but the exemption for late fees and late counts **does not yet exist** — until §12 item 8 （blocking） is complete, the first batch landed after recovery is charged under the current rules （r14-1, stated honestly; the exemption is expected to take the form of v15 §10.4 level 3） | Equal to the duration of the failure; the risk of wrongly penalizing the recovery batch remains open until §12 item 8 is closed |
+| All builders at once (catastrophe or cartel) — **out-of-model** (§1 trust model) | No new preconfirmations; **transactions already in the pool have no entry path at all** | **After v1.51 removed forced inclusion there is no in-protocol remedy**: the "any-key forced-only block" escape valve is gone and the right to produce a block belongs to scheduled builders alone. The only way out is new builders entering the registry, but they reach the lookahead only after the `D_snap` (5 epoch) snapshot delay plus window alignment, during which the chain is fully stopped | **Unbounded** (it depends on when the cartel breaks up, or when new builders are scheduled in); the latter alone is ≥ `D_snap` + window alignment |
+| Builders and aggregator colluding as a whole (block bodies kept private) — **out-of-model** (§1 trust model; the owner's decision is not to solve this inside the protocol) | Preconfirmations are still issued but cannot be trusted; finality stalls, and **correctly** no aggregator strike is produced (the stall is attributed to the cartel) | **No defense-in-depth exit** (v1.51 removed forced inclusion); the only self-healing route is a single builder defecting from the collusion and producing a landable fork (§5.5) | **Unbounded**; everything waits for the collusion to break down |
+| Proving-system failure | Preconfirmations proceed as usual; no new finality | **Zero false positives for fallback strikes holds** (nobody can land ⇒ no strike is recorded, §6.3); but the exemption for late fees and late counts **does not yet exist** — until §11 item 8 （blocking） is complete, the first batch landed after recovery is charged under the current rules （r14-1, stated honestly; the exemption is expected to take the form of v15 §10.4 level 3） | Equal to the duration of the failure; the risk of wrongly penalizing the recovery batch remains open until §11 item 8 is closed |
 
 By comparison with v15: there, "one seat goes offline" = a 20–26 minute service interruption (when a standby exists); here the same class of event costs
 1 second (a builder) or 0 seconds (an aggregator, which affects only the cadence of finality). This is the reason this design exists.
 
 ---
 
-## 10. Master table of slashing and bonds
+## 9. Master table of slashing and bonds
 
 | Fault | How it is adjudicated | Consequence |
 | --- | --- | --- |
@@ -1852,12 +1627,13 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 
 ---
 
-## 11. Detailed comparison with v15 (for readers who have read v15)
+## 10. Detailed comparison with v15 (for readers who have read v15)
 
 - **What became of v15's nine invariants**: I1 (derivation is a pure function) is inherited and strengthened (timestamps and the lookahead are all pure functions);
   the spirit of I2 (a single adjudication / computed-state certificate) is inherited by the landing-timeout adjudication, but there is no longer an epoch adjudication object;
-  I3 (the epoch always advances) is replaced by "the L1 chain head can always be advanced by anyone (fallback landing + forced-only blocks)";
-  I6 (forced content always flows) is inherited (§7, and enforced more strongly: a per-block circuit obligation); I7 (sealing is sender-agnostic)
+  I3 (the epoch always advances) is replaced by "the L1 chain head can always be advanced by anyone (fallback landing)" — after v1.51 removed
+  forced-only blocks this replacement holds only where there is landable content; under a full cartel there is no route anyone can advance;
+  I6 (forced content always flows) is **no longer inherited** — v1.51 removed forced inclusion, so this invariant has no counterpart here; I7 (sealing is sender-agnostic)
   is generalized into "landing carries no authority"; I8 (pre-committed beneficiary) is inherited (the recipients of the fallback reward and of the slashing bounty are made
   public inputs of the proof); I9 (safety slashing is denominated in ETH) is inherited by `L_eq`.
 - **v15's review legacy is not voided**: the auction skeleton (§4), the at-fault-pays model (§6.7), the anchor freshness constraint
@@ -1873,20 +1649,20 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 
 ---
 
-## 12. Open items
+## 11. Open items
 
 1. **Builder-set size and admission rules**: `N_max`, the weight cap `w_max` on the bond-weighted sampling, the rules for excess
    competition, and liveness requirements (whether prolonged absence should reduce weight).
 2. **Pricing of `L_eq`**: a method for estimating the worst-case extractable value of a single slot, and whether governance should adjust it as market conditions change.
 3. **Landing parameters**: `Δ_lag,prov`/`Δ_lag,final` （split in r44; defined in §6.2）, `m_agg`, `δ_slash`,
-   `H_force`, and the exponential cost cap on the fallback reward;
+   and the exponential cost cap on the fallback reward;
    **recovery parameters (after the v1.31 direction-B redesign)**: `F_l1` (the L1 finality
-   depth of the final landed block in tier (ii)), `C_anchor` （the per-block cap on the number of entries consumed by the §8 message-processing cursor `m_consumed` — not a cap on
+   depth of the final landed block in tier (ii)), `C_anchor` （the per-block cap on the number of entries consumed by the §7 message-processing cursor `m_consumed` — not a cap on
    anchor advancement, since anchor references have no per-block cap; r41 corrects the stale text on this line, independent review round 4, consistency item 7）, `Δ_prop` (the propagation
    settling amount of the §5.2 landing depth, normally << `Δ_lag`) and `D_anchor_max` （the anchor freshness cap, r18-2/r30-1）.
    **`D_anchor_max` setter invariant （introduced in review r38, with r39 correcting a term missing from the formula — independent review round 2, finding 4）:
    `D_anchor_max ≥ D_anchor + Δ_lag,final(converted to L1 slots) + P_prove,max + T_include,max + queue/clock margin`**
-   （r44: the lag term is `Δ_lag,final`, in sync with §8）
+   （r44: the lag term is `Δ_lag,final`, in sync with §7）
    （r42 adds the `Δ_lag` term and requires every addend to be converted to L1 slots first — independent review round 5, high-severity finding 3: this line previously omitted `Δ_lag`, so a legal parameter set such as 130 would make an honest tail that is withheld from landing until the fallback window opens expire with certainty; the contract setter implements only this single strongest invariant. `D_anchor`=32 L1 slot; `P_prove,max`=the worst-case proving latency; `T_include,max`=the bounded-inclusion bound of §1. The other setter relation （§1, r42）: `T_include,max < min(W_settle − P_prove,max − margin, D_anchor_max − D_anchor − Δ_lag − P_prove,max)`） —
    v1.38 once omitted the term expressing that an anchor is already at least `D_anchor` old at signing time; writing merely "≥ proving + landing" yields a
    parameter set that fails permanently even with no attacker present (the reviewer's counterexample: 70 configured, 102 actually required). Otherwise the recovery block (and any block) would have its
@@ -1901,12 +1677,13 @@ transfer of a single slot), and its frequency is constrained by the honest-major
    rollback of window state is folded into item 9. The semantics of `final_ref` (a §4.2 tier-(ii) block-header field, attesting that the parent was already
    `F_l1`-final at signing time, already part of the block-header tuple and of §5.1). `Δ_prop` is demoted to an off-chain strategy reference for the completeness of a lander's view (§5.2,
    not an on-chain attribution parameter). (The `W_chal`/`L_land`/`L_chal`/`L_commit`/`δ_land` of v1.39/v1.40 were removed together with the challenge
-   and commitment layers and are no longer parameters.) Shared gas shares (§8): `G_anchor`, the `C_force`/`C_bridge` gas
-   shares and the L1→L2 message gas share, subject to `sum of the three ≤ block_gas_limit` + a per-entry admission cap + a watermark （the "lower it vs. keep it
+   and commitment layers and are no longer parameters; `C_force`/`C_bridge`/`F_delay`/`H_force` left with the removal of
+   forced inclusion in v1.51.) Shared gas shares (§7): `G_anchor` and the L1→L2 message gas share, subject to
+   `sum of the two ≤ block_gas_limit` + a per-entry admission cap + a watermark （the "lower it vs. keep it
    O(1)" tension in the watermark is discussed in independent review consistency item 7 and is listed as an implementation refinement）.
    (The `Δ_ra`/`Δ_ra_ext`/`B_ra`/`B_ch`/`Δ_cont` of the old re-anchor episode were removed together with the episode and
    are no longer parameters.) The behavior of the strike mechanism under extreme congestion (an L1 fee spike that leaves nobody willing to perform the fallback).
-   **The concrete bounds given around these parameters in §8 and §9 (`backlog/C_anchor`, recovery time, the `D_anchor_max` anti-censorship
+   **The concrete bounds given around these parameters in §7 and §8 (`backlog/C_anchor`, recovery time, the `D_anchor_max` anti-censorship
    bound and so on) are all [provisional values] until the parameters have been calibrated （review r38, DeepSeek warning 4）** — the form is settled, the numbers are not.
 4. **Details of the aggregator reverse auction**: the funding source for the service fee rate (protocol fees or the treasury), the bid-evaluation function over
    rate and bond, and the bindingness of the standby queue.
@@ -1926,12 +1703,13 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 9. **Handling of L1 reorgs**: the rollback semantics for a landed batch that meets an L1 reorg (expected to be considerably simpler than v15 §3.1/§13-S.1,
    because there is no cross-transaction certificate state machine, but it still has to be written down).
 10. **Migration path**: the upgrade ordering from the current deployment, and from v15, to this design.
-11. **Interaction sequence diagram** （review r2-8）: the interaction of batch landing, equal-height fork resolution, the fallback window and the forced-only-block escape hatch
+11. **Interaction sequence diagram** （review r2-8）: the interaction of batch landing, equal-height fork resolution and the fallback window
     is currently spread across §5–§7, and deserves a single normative sequence diagram.
-12. **Protection of forced entries against nonce preemption （blocking, r24-5）**: see §7; until one of the three options — a per-source forced nonce, nonce
-    freezing, or a bridge-contract construction — has been selected and formalized, the forced path is not unconditional against nonce preemption.
+12. ~~**Protection of forced entries against nonce preemption （blocking, r24-5）**~~ — **closed with v1.51**: forced inclusion was removed
+    wholesale, so nonce preemption (r27-1 / DeepSeek round 6 Critical 1) disappears with it. The item number is kept so that references to
+    "item N" elsewhere in the document are not disturbed.
 13. **Availability and cost of fallback provers** （review r24-4, DeepSeek round 5）: to be folded into the threat model —
-    the Byzantine-aggregator liveness bound of §9 is conditional on it; and the design of fallback incentives under extreme congestion or when the proving cost exceeds the reward.
+    the Byzantine-aggregator liveness bound of §8 is conditional on it; and the design of fallback incentives under extreme congestion or when the proving cost exceeds the reward.
 14. **Upper bound on the L1 cost of the `saveForcedInclusion` enqueue validation** （review r27-5, DeepSeek round 6,
     W4）: decoding a signed L2 transaction on L1, verifying its signature and checking `chainId` and the share all carry non-trivial gas costs,
     and they expose a griefing surface against malformed calldata. A gas cap on the validation itself and a cheap rejection path for unparsable submissions
@@ -1941,8 +1719,11 @@ transfer of a single slot), and its frequency is constrained by the honest-major
     for `Δ_lag,final` （≈9 epoch ≈57.6 min, recalibrated in r46）, the margin over the steady-state `lag_final` band (≈35–40 min) is carried by
     the margin term of `W_settle_max`. A proving spike compounded by jitter in L1 finality could push a conscientious aggregator past the threshold and
     open the fallback window in error. Whether to widen it needs to be assessed.
-16. **Migration of the forced-inclusion data carrier** （review r36, DeepSeek warning）: §7 changes the payload of a forced entry from a blob
-    reference to calldata (permanently reconstructible), but the current `MainnetInbox` stores a `LibBlobs.BlobReference`.
+16. ~~**Migration of the forced-inclusion data carrier** （review r36, DeepSeek warning）~~ — **closed with v1.51**: forced inclusion was removed
+    wholesale, so there is no forced-entry carrier problem left. But **the migration side gains a new problem**, folded into item 10: the current
+    `MainnetInbox` already holds enqueued forced entries (`LibBlobs.BlobReference`), and the upgrade must define what becomes of them (drain before
+    switching, or void and refund), or those enqueued entries are stranded permanently at the moment of the upgrade. The original text follows:
+    the current `MainnetInbox` stores a `LibBlobs.BlobReference`.
     A migration or compatibility path is needed: how already-enqueued blob-ref entries are handled at the switchover (replayed as calldata,
     both carriers accepted during a grace period, or the switch deferred until the old queue has drained) — otherwise entries sitting in the queue at the instant of the upgrade could be stranded.
 17. **Genesis and bootstrap semantics** （review r36, DeepSeek warning）: the initial `lag` (with no landed head, `lag` may be
@@ -1961,8 +1742,8 @@ transfer of a single slot), and its frequency is constrained by the honest-major
     `openWindow/acceptCandidate/replaceCandidate/closeWindow` state machine （§5.6, including double-candidate supersession,
     baseline freezing when the forced or message queue is non-empty, and L1-reorg and lazy-close tests — r42 blocking, must be completed before implementation） /
     landing / forced inclusion / the window
-    `challenge` (§5.6) / the shared gas budget and overflow (§8) / atomic rollback of `landed head` + state root +
-    `F_consumed`/`m_consumed` + lag under an L1 reorg (§12 item 9) (the current prose
+    `challenge` (§5.6) / the shared gas budget and overflow (§7) / atomic rollback of `landed head` + state root +
+    `F_consumed`/`m_consumed` + lag under an L1 reorg (§11 item 9) (the current prose
     relies heavily on review notes and cross-references, and the P1-level parent-block / fork-choice / lander interactions are easily missed by a reader); (b)
     the precise definition of the deterministic weighted sampling algorithm for the `lookahead` — from r47 onwards §3.2 gives a complete executable candidate operator
     (Python code using a capped weight prefix sum plus positioning by seed modulo total weight, verifiable by running `lookahead-model.py`),
@@ -1982,7 +1763,7 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 | `G_max`, gap cap （tier (i): gap ≤ G_max, independent of the parent's landing status, r35） | 64 | slot | §4.2; a depth knob, not a hard cap, r20-1 |
 | `G_max_landed` (tier (ii): no cap on the gap, but the parent must be an L1-final landed block) | ∞ (no cap) | — | §4.2 direction B; the argument is in the v1.31 record |
 | `F_l1`, final depth | TBD | L1 slot | the finality depth of a tier (ii) parent block, §4.2 |
-| `C_anchor`, cap on L1→L2 message processing | TBD | messages/block | bound to the `m_consumed` cursor in §8, r34 |
+| `C_anchor`, cap on L1→L2 message processing | TBD | messages/block | bound to the `m_consumed` cursor in §7, r34 |
 | `Δ_prop`, landing propagation settling | TBD (<< `Δ_lag,prov`) | slot | the §5.2 landing depth, r33 |
 | `δ_slash`, delay before a slashing takes effect | 64 | slot | §4.3 |
 | `Δ_lag,prov`, service observation threshold | 4 | epoch (≈25.6 min) | `≥ upper bound of the normal provisional lag band`, §6.2 r10-2/r44; does not enter the penalty rules |
@@ -1990,15 +1771,12 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 | `W_settle_max`, consensus upper bound on the window | TBD (≈1.5×`W_settle`) | L1 block (including a wall-clock conversion margin) | pins down the revocable exposure and `Δ_lag,final`, §6.2 r42 medium-severity finding 1 |
 | `G_strike`, strike rate limit | 1 | epoch | §6.3 r13-1 |
 | `m_agg` / `m_agg'` | 2 / 4 | strikes | termination thresholds, §6.3 |
-| `F_delay`, forced-inclusion due delay | TBD | slot | **the sole due predicate** `due_slot = submission_slot + F_delay`, **`submission_slot := L2_slot(timestamp of the canonical L1 block containing the enqueue transaction)`** （not the L2 head — under a massive stall that admits two solutions and forks, r42 medium-severity finding 2; it rolls back with an L1 reorg） |
-| `H_force`, overdue fallback threshold | 1 | epoch | used for the §9 event: once an entry is a further `H_force` past due, any-key forced-only blocks are triggered; this is not a second due predicate, r39 |
-| `C_force` / `C_bridge` | TBD / 25%×`C_force` | gas + entries | the single-entry share is what remains after the other side's reservation is deducted, §7 r19-1 |
 | `D_anchor` / `D_anchor_max` | 32 / TBD （≈420, raised in r46 in step with the recalibration of `Δ_lag,final`） | L1 slot | anchoring depth / freshness cap; `D_anchor_max ≥ D_anchor + Δ_lag,final(L1 slot) + P_prove,max + T_include,max + margin` （r42 unified the whole document on the strongest form, r44 raised the lag term to final） |
 | `W_settle`, settlement window | TBD (≈100 L1 slot ≈20 min) | L1 block | §5.6: `≥ P_prove,max + T_include,max + margin`, r41 option C |
 | `φ_land`, base-fee share ratio | TBD | — | the sum of the base fees of the candidate chain × `φ_land` is credited to the winner's beneficiary at the close, §5.6/§6.5 （r47） |
-| gas shares `G_anchor`/`C_force`gas/`C_l1msg`gas | TBD | gas | §8: the sum of the three ≤ `block_gas_limit` + a per-entry admission cap + a watermark, r39 |
+| gas shares `G_anchor`/`C_l1msg`gas | TBD | gas | §7: the sum of the two ≤ `block_gas_limit` + a per-entry admission cap + a watermark, r39 (v1.51 dropped the `C_force` term) |
 
-(The values are initial suggestions; those marked "TBD" are calibration items under §12. Unit conversion: 1 L1 slot = 12 s = 12 L2 slot.)
+(The values are initial suggestions; those marked "TBD" are calibration items under §11. Unit conversion: 1 L1 slot = 12 s = 12 L2 slot.)
 
 ---
 
@@ -2039,13 +1817,12 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 | gap | A slot with no legal block |
 | skip | A builder's signed choice not to build on the immediately preceding block that does exist |
 | fallback landing | Anyone landing, and claiming compensation, once the aggregator has timed out |
-| forced-only block | A block that is exempt from the lookahead and contains only due forced entries |
 | equivocation | Signing two different block headers for the same slot; slashed by direct verification on L1 |
 | two-tier parent rule | The criterion is the gap: (i) a gap `≤ G_max` (independent of the parent's landing status); (ii) no cap on the gap, but the parent must be an L1-final landed head （§4.2, v1.31/r35） |
-| recovery block | A normal or forced-only block that, during a stall, is built on an L1-final landed head under tier (ii) and reconnects to wall-clock time (§6.4) |
+| recovery block | A block that, during a stall, is built on an L1-final landed head under tier (ii) and reconnects to wall-clock time (§6.4) |
 | benign stranding | When the parent tip of a recovery block is advanced, that block is voided and simply has to be rebuilt; no state is damaged (§6.4) |
-| consume-and-discard | A forced or inbound entry that is illegal against the preceding state still advances the cursor but is not executed (§7/§8, r9-2) |
-| best-chain total order | Lexicographic order on the candidate's own quadruple `(lane, count, tip_slot, tip_hash)`; the lane is the class of the candidate's first block counted from the frozen baseline (content 1 > forced-only 0) and is inherited by the whole chain, so it cannot be whitewashed （§5.2, r42） |
+| consume-and-discard | An inbound message that is illegal against the preceding state still advances the cursor but is not executed (§7, r9-2) |
+| best-chain total order | Lexicographic order on the candidate's own triple `(count, tip_slot, tip_hash)`; the `lane` component retired in v1.51 together with forced-only blocks （§5.2） |
 | best-chain landing strategy | The lander lands the best chain under the §5.2 total order — not an obligation: landing a worse chain is superseded inside the §5.6 window by a heavier candidate and is self-defeating （r41/r42） |
 | settlement window | Opens once the first candidate extending the window-final head has landed, and closes deterministically `W_settle` L1 blocks later （§5.6, r41 option C） |
 | candidate batch | A landed batch that extends the window-final head and carries a validity proof; inside the window it can be superseded by one that is strictly heavier under the §5.2 total order (§5.6) |
@@ -2055,10 +1832,10 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 
 ## Appendix C: Executable reference model of the settlement window (normative pseudocode + property verification)
 
-> **The delivery of §12 item 18, "the pre-implementation gate" （first half r43, second half r44）**. The normative pseudocode is that of this appendix and the body of §5.6;
+> **The delivery of §11 item 18, "the pre-implementation gate" （first half r43, second half r44）**. The normative pseudocode is that of this appendix and the body of §5.6;
 > the **executable version** is in [`settlement-window-model.py`](settlement-window-model.py) (dependency-free Python,
 > runs directly), and the verification results are in [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md).
-> **Discipline**: any change to the §5.2 total order, the §5.6 window state machine or the §7/§8 cursor and gas rules must be mirrored in the model, the model re-run and
+> **Discipline**: any change to the §5.2 total order, the §5.6 window state machine or the §7 cursor and gas rules must be mirrored in the model, the model re-run and
 > RESULTS updated — the three being out of sync counts as a specification defect (the same practice as the v15 model_checker).
 
 **Properties that have been verified （against the blocking findings and requirements of independent review round 5）**:
@@ -2067,13 +1844,12 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 | --- | --- | --- |
 | P1 | The total-order key `(lane, count, tip_slot, tip_hash)` is irreflexive, total and transitive; the round-5 `A>B>C>A` cycle resolves to `B>C>A` | Severe 1 |
 | P2 | The winner at the close is independent of the order in which candidates were submitted (verified over all permutations) | Corollary of severe 1 |
-| P3 | When the forced or message queue is non-empty: a provisional landing does not change what is canonical; a heavier candidate can be verified against the same frozen baseline and supersede it; the close commits the winner's outcome exactly once; the cursor is monotone with no double consumption | Severe 2 |
-| P4 | Resistance to lane whitewashing: a 13-block chain whose first block is forced-only ranks below a 3-block content chain | Round 3, finding 3 |
+| P3 | When the message queue is non-empty: a provisional landing does not change what is canonical; a heavier candidate can be verified against the same frozen baseline and supersede it; the close commits the winner's outcome exactly once; the cursor is monotone with no double consumption | Severe 2 |
 | P5 | A lazy close does not change the winner; after the close, a candidate can only open the next window | Close boundary |
 | P6 | Window state is a pure function of L1 history; after truncation by a shallow reorg, replay is consistent and reorged-out candidates disappear atomically | L1 reorg |
 | P7 | Under the shared gas budget plus per-entry admission, a legal block exists for all 300 randomly generated reachable queue states (including non-genesis cursors); the maximum prefix under both constraints respects the caps | Rounds 4/5, gas deadlock |
-| P8 | Under a saturating flood of the bridge queue, the ordinary forced-inclusion queue still consumes ≥ its guaranteed capacity every block (the `C_bridge` reservation takes effect and it is not starved) | r19-1; DeepSeek-on-v1.43 C2 （r44） |
-| P9 | The setter invariants are cross-checked between **independently declared deployment values** (`Δ_lag,final ≥ prov+W_settle_max`, `D_anchor_max ≥` the worst-case path, `W_settle ≥` proving + inclusion — made non-vacuous in r46, since an assertion over derived expressions is always true and therefore has no discriminating power); causal ordering `anchor.L1_time ≤ L2_time(slot)` (an explicit time base, including the equality boundary) | §8/§12; introduced in r44, made non-vacuous in r46 （DeepSeek W1 / suggestion 3） |
+| P7b | **The per-message gas cap is load-bearing** (added in v1.51): with the forced queue gone it is the only thing standing between the chain and "no legal block" — an over-cap entry would stall `m_consumed` permanently, so enqueue must refuse it | v1.51 one-sided deadlock |
+| P9 | The setter invariants are cross-checked between **independently declared deployment values** (`Δ_lag,final ≥ prov+W_settle_max`, `D_anchor_max ≥` the worst-case path, `W_settle ≥` proving + inclusion — made non-vacuous in r46, since an assertion over derived expressions is always true and therefore has no discriminating power); causal ordering `anchor.L1_time ≤ L2_time(slot)` (an explicit time base, including the equality boundary) | §7/§11; introduced in r44, made non-vacuous in r46 （DeepSeek W1 / suggestion 3） |
 | P10 | Whether a slashing has taken effect is judged at the **L1 landing time of the candidate**: a candidate landing after it takes effect is rejected if it contains that signer, while one already landed before it takes effect is grandfathered | §4.3 r41; second half of the gate （r44） |
 | P11 | Fallback eligibility is snapshotted the moment the window opens on `lag_final > Δ_lag,final` and is held until the window closes; a short provisional candidate that resets lag_prov to zero does not revoke eligibility | §6.3 r42/r44, high-severity finding 2 |
 | P12 | Enqueueing in mid-window: the queue is append-only and referenced by sequence number, and the baseline freezes only the cursor and state — the outcome of earlier candidates is unchanged, a heavier candidate can consume the new entries deterministically, and the moment of enqueueing does not affect the verification result | §5.6, clarified in r46 （DeepSeek W2） |
@@ -2090,6 +1866,57 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 
 > A version-by-version record of the findings and fixes of every round of adversarial review（newest first, oldest last）. This is the complete
 > argumentative trail of the design; it is non-normative, and where the main text conflicts with it, the main text governs.
+
+> **On the section numbers in historical entries**: the entries below cite section numbers as they stood when each was written (at that time §7 = forced inclusion, and §8–§12 were anchoring and the bridge, liveness accounting, the slashing master table, the v15 comparison and the open items). After v1.51 removed forced inclusion, §8–§12 were renumbered to §7–§11. Historical entries are not retrofitted: they record the state of the document at the time.
+
+> **Draft v1.51, 2026-08-28 — the owner's decision: remove forced inclusion wholesale.** The instruction
+> was "for simplicity, let's remove forced inclusion entirely". This is the first time on this design line
+> that **a safety property is given up deliberately**, so this entry states the cost rather than only the
+> simplification.
+>
+> **What was removed**: the whole of §7 (forced inclusion) — the `saveForcedInclusion` enqueue interface,
+> the forced queues (the ordinary/bridge dual FIFOs with their `f_cur_ord`/`f_cur_br` cursors), the maturity
+> predicate `F_delay`, the per-block capacities `C_force`/`C_bridge`, the overdue threshold `H_force`, and
+> **forced-only blocks together with their validity predicate `P_forced`**. §8–§12 were renumbered to §7–§11.
+>
+> **The cost, stated plainly**: (1) **the censorship-resistance floor is gone**. The any-key forced-only
+> block was the only escape valve under a full cartel that did not depend on a registered identity, and it
+> was the inheritor of v15 invariant I6 (forced content always flows) and of the current deployment's
+> `permissionlessInclusionMultiplier`. Block production now belongs to scheduled builders alone; if the whole
+> set colludes to censor an address, the protocol offers **no remedy at all**, and that address's funds have
+> no exit path independent of the builders. (2) Two rows of the §8 liveness table change from bounded to
+> **unbounded**: the full-cartel case and the "builders plus aggregator colluding as a whole" case no longer
+> have a defense-in-depth exit, and can only wait for the cartel to break up, or for new builders to enter the
+> registry — and the latter still needs the `D_snap` (5 epoch) snapshot delay plus window alignment before
+> they reach the lookahead. (3) §1 [G5] "the inclusion floor is retained" changes from a design goal to
+> **withdrawn**.
+>
+> **Closed or simplified along the way**: (a) the blocking nonce-preemption item of r27-1 (DeepSeek round 6
+> Critical 1) closes, because the forced path it applied to is gone (§11 item 12); (b) §11 item 16, the forced
+> data-carrier migration, closes — but **the migration side gains a new problem**, folded into item 10: the
+> current deployment already holds enqueued blob-ref forced entries, and the upgrade must define what becomes
+> of them or they are stranded permanently; (c) §5.1 drops from five validity rules to four (the old rule 4,
+> the forced prefix, is deleted, and so is the `P_forced` exception in rule 1); (d) **the §5.2 total-order key
+> contracts from the 4-tuple `(lane, count, tip_slot, tip_hash)` to the triple `(count, tip_slot, tip_hash)`** —
+> with no forced-only blocks, `lane` is constant and draws no distinction. The non-transitive cycle that r42
+> fixed does not come back: its root cause was that `lane` had been a pairwise criterion, whereas the three
+> remaining components were always scalars belonging to the candidate itself. (e) the §5.6 frozen baseline
+> tuple loses the forced cursor, becoming `base = (F, stateRoot, m_consumed)`; (f) the §7 shared block-level
+> gas budget contracts from three parties (anchor / forced prefix / L1→L2 messages) to two.
+>
+> **One thing that must stay vigilant**: the "combined-gas chain stall" risk of §7 did not leave with the
+> forced prefix. **One side alone can still reproduce the same shape of deadlock** — if the head of
+> `m_consumed` is an inbound message whose execution cost exceeds "the block cap minus the fixed anchor
+> overhead", rule 4 requires it to be consumed and it does not fit, so no legal state transition exists and
+> the chain dies permanently. The per-message gas cap is therefore **promoted from one of two parallel enqueue
+> checks to the single load-bearing clause**, and the model gains P7b specifically to verify that it is
+> load-bearing (construct an over-cap message and confirm the cursor really does stall permanently).
+>
+> **Model and figures**: `settlement-window-model.py` was rewritten accordingly — ~~P4~~ (lane whitewash
+> resistance) and ~~P8~~ (bridge-queue `C_bridge` starvation resistance) are retired for want of an object,
+> P7b is added, and the numbers are not reused so that existing references are not disturbed; **20 assertions
+> now pass**. Figure 9 (forced-entry consumption) was deleted and the former figure 10 (anchor-age geometry)
+> renumbered to 9, taking the document from 10 figures to 9. `lookahead-model.py` (6 assertions) is unaffected.
 
 > **Draft v1.50, 2026-08-27 — a stale bold lead-in that contradicted option C is corrected.** The lead-in of the last bullet of §5.2 read "'which chain ought to be landed' is now a slashable obligation". That is a leftover from the v1.39/v1.40 challenge-layer era: those layers were falsified in rounds 3 and 4 of the independent review and deleted wholesale by option C (v1.41), at which point §6.3 and §10 withdrew "landing the wrong chain is slashable" as well. The lead-in contradicted **the body of its own bullet** (which says L1 "does not adjudicate who ought to land what … no DA, no ex post adjudication"), the v1.47 characterization earlier in §5.2 (landing the longest visible chain is "the rational choice under economic incentives, not a slashable obligation"), and the slashing inventory of §10 — under the current design the only mechanically adjudicable slashable faults are double-signing (§4.3) and landing-timeout strikes (§6.3). The lead-in now reads "L1 does not adjudicate 'which chain ought to be landed'; the settlement window selects it mechanically", in agreement with the bullet it heads. A pure consistency fix: no new rule, no parameter change, both executable models untouched.
 
@@ -2150,7 +1977,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > blocks and inline code untouched）. Rounds 3/4（figures）: 10 mermaid figures were added to the body — §0 the end-to-end path and the gap
 > timeline, §3.2 the lookahead snapshot geometry, §4.2 the decision flow of the two-tier parent rule, §5.6 the settlement-window lifecycle,
 > §6.2 the four-level certainty ladder and the two thresholds, §6.3 the causal chain of fallback and strikes, §6.4 the stall-recovery timing,
-> §7 maximum-prefix consumption over the two queues, §8 the anchor freshness geometry — all in diagram-as-code form（rendered natively by GitHub,
+> «FORCED» maximum-prefix consumption over the two queues, §8 the anchor freshness geometry — all in diagram-as-code form（rendered natively by GitHub,
 > not pasted images）, and each one validated by rendering it through mermaid-cli. The §0 abstract sentences were split and polished, and
 > references in the body to the old "change log" now point to this appendix. Round 5（final read）: a full re-read of the document, residual
 > patching, and the addition of an HTML edition `slot-chain-spec.html`（that HTML pipeline was deleted in v1.48 and replaced by LaTeX/PDF;
@@ -2176,7 +2003,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > **Draft v1.43, 2026-08-26 — delivery of the first half of §12 item 18, "the gate before implementation": an executable reference model of the
 > settlement window + property verification（Appendix C）.** New files `settlement-window-model.py`（runnable with zero dependencies）and
 > `settlement-window-RESULTS.md`: the §5.2 total-order key, the §5.6 window state machine（frozen baseline/candidate versioning/close-time
-> commit/lazy close/L1 replay）and the two-constraint cursor arithmetic of §7/§8 are written out as an executable model, and all 14 assertions
+> commit/lazy close/L1 replay）and the two-constraint cursor arithmetic of «FORCED»/§8 are written out as an executable model, and all 14 assertions
 > P1–P7 pass — including every invariant of the two blocking findings of round 5（dissolving the A/B/C cycle, independence from submission order,
 > provisional does not change canonical, no double consumption）, lane-whitewash resistance, lazy close, the L1-reorg pure function, and the
 > absence of gas deadlock across 300 randomized queue states. Discipline: any change to the rules must be mirrored in the model and re-run
@@ -2196,7 +2023,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > window freezes `base=(F,stateRoot,F_consumed,m_consumed)`, all candidates are verified against that same base and each stores its own end
 > tuple, and the close commits only the winner's end tuple in a single atomic write; the `openWindow/acceptCandidate/closeWindow` pseudocode
 > enters the body; it is honestly acknowledged that this is a small window state machine, correcting v1.41's "no extra state machine"
-> wording）, the §7 cursor rules are re-read accordingly, and the leftover text "first to land is canonical" in §5.2 is deleted. (high 1) The
+> wording）, the «FORCED» cursor rules are re-read accordingly, and the leftover text "first to land is canonical" in §5.2 is deleted. (high 1) The
 > bounded-inclusion assumption is made explicit — a fixed `W_settle`/`D_anchor_max` deadline does not entail unconditional robustness against
 > temporary censorship; §1 explicitly adds the `T_include,max` assumption + the setter relations, and the affected statements are made
 > conditional. (high 2) Fallback accounting decides on `lag_final` and keeps a snapshot until the close — this prevents a short candidate from
@@ -2209,7 +2036,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > parent must be both window-final and L1-final（waiting bound `max(W_settle,F_l1)+D_anchor`）, the §5.1 `P_forced` summary gains the tier (i)
 > continuation case, the §4.3 "no collateral damage" wording is changed to acknowledge the cascade exposure of the successors of an
 > equivocation, and the `δ_land` table row/the challenge leftovers/the glossary are cleaned up. Sections touched: §1, §4.2, §4.3, §5.1, §5.2,
-> §5.6, §6.2, §6.3, §7, §9, §12, Appendix B.
+> §5.6, §6.2, §6.3, «FORCED», §9, §12, Appendix B.
 > **Draft v1.41, 2026-08-26 — the owner's decision, option C: settlement-window finality, wholly replacing the challenge/commitment layer +
 > fixes from independent review round 4.** Round 4 proved that v1.40's "lightweight commitment" still does not hold: a chain-head commitment
 > cannot prove that the block body is available（commit the head then withhold the body → the honest lander lands the only chain it can land →
@@ -2236,7 +2063,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > eligibility（medium 1）; the recovery bound gains a `+D_anchor` term（medium 2）; `final_ref` enters the block-header tuple and §5.1
 > （consistency 1）; the three-tier depths of §10 are made conditional; and the §12 `C_anchor` wording is corrected（consistency 7）. Six rounds
 > of self-review have been folded into the body of §5.6（sniping is benign/fixed window/parameter invariants/L1 pure function/anti-spam/three
-> residual risks）. Sections touched: §4.2, §4.3, §5.1, §5.2, §5.4, §5.5, §5.6（rewritten as a whole）, §6.1, §6.2, §6.3, §6.4, §7, §8, §9,
+> residual risks）. Sections touched: §4.2, §4.3, §5.1, §5.2, §5.4, §5.5, §5.6（rewritten as a whole）, §6.1, §6.2, §6.3, §6.4, «FORCED», §8, §9,
 > §10, §12, Appendix B（§5.7 deleted）.
 > **Draft v1.40, 2026-08-25 — the owner's decision, option B: add a lightweight 【chain-head commitment layer】 so that challenges become
 > mechanically enforceable + fixes from independent review round 3.** Round 3 proved that v1.39's challenge（pure signature verification）can
@@ -2258,13 +2085,13 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > whole branch, so a single ordinary block cannot whitewash a forced-only scaffold（§5.2）; finding 4, the gas-prefix contradiction — unified as
 > "the longest FIFO prefix whose entry count ≤ the cap and whose cumulative gas ≤ the share", deleting "exactly min(entry count)"（§5.1/§8）;
 > finding 8, integer threshold-riding — `late_units = max(0, preLag−(Δ_lag−1))`, with the minimum non-zero penalty at equality（§6.3）; finding
-> 9, `H_force` — folded into `P_forced` predicate 4（an any-key block must be overdue by ≥ `H_force`, §7）. Consistency: the old standalone
+> 9, `H_force` — folded into `P_forced` predicate 4（an any-key block must be overdue by ≥ `H_force`, «FORCED»）. Consistency: the old standalone
 > statement "block count takes priority" in §5.2 is deleted and folded into the total order; the §5.5/§10 conclusions are taken up as the third
 > class of slashable fault in §5.6; the §6.4 D_anchor formula is corrected; and "never expires" is scoped to the gap dimension.
 > **Stated residual risk（§5.7）**: the authenticity of `HC` depends on "≥1 honest committer"; a commitment proves only that the head exists, not
 > that the block body is available（a body-withholding chain can still contest）; this layer is the minimal reflux of the chain-head
 > commitment/DA that was originally deleted to save cost, and option B accepts it explicitly. Sections touched: §4.2, §4.3, §5.1, §5.2, §5.5,
-> §5.6, §5.7（new）, §6.3, §6.4, §7, §8, §10, §12, Appendix B.
+> §5.6, §5.7（new）, §6.3, §6.4, «FORCED», §8, §10, §12, Appendix B.
 > **Draft v1.39, 2026-08-25 — the owner's decision to introduce a "challenge-and-slash" layer + fixes for the severe findings of independent review rounds 1/2.**
 > A deep independent AI review（of v1.34/v1.38）proved that under "landers are entirely untrusted + no protocol-level DA per §1", pure off-chain
 > fork choice cannot stop a malicious lander from skipping a healthy tail and landing a worse chain, nor stop a single aggregator from resetting
@@ -2298,7 +2125,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > landing delay` is added（§12）; the crucial difference is that `D_anchor_max` is a freely settable parameter, not the 64-second window that the
 > old `s_ra` pinned down structurally. (DeepSeek Critical) The last-block-of-the-batch freshness shortcut does not hold — the anchor is only
 > monotonically non-decreasing, so a fresh last block does not imply that earlier blocks are fresh, and checking only the last block would let
-> earlier blocks discharge forced-inclusion obligations against a stale L1 view. Fix: §7 now requires freshness to be checked block by block, and
+> earlier blocks discharge forced-inclusion obligations against a stale L1 view. Fix: «FORCED» now requires freshness to be checked block by block, and
 > the "or the last block of the batch" shortcut is deleted. (DeepSeek W1) The censorship-resistance bound is `D_anchor_max`, not `C_anchor`
 > alone — correcting the over-strong claim "consuming fewer entries makes the block illegal": the freshness lower bound forces the anchor
 > frontier to advance as landing proceeds, so the worst-case message delay is ≈ `D_anchor_max` +`backlog/C_anchor`（§8）. (DeepSeek W2) A tie
@@ -2306,7 +2133,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > §5.2 adds "at the same slot/parent a lookahead block takes priority over a forced-only block, unless the ordinary tail is already frozen".
 > **(DeepSeek W3) "final" is overloaded** — §4.2 is annotated `L1-final` versus §6.1 `landed-final`（a document-wide unification is listed as
 > 18(c)）. (DeepSeek W4) The bounds depend on undetermined parameters — the concrete bounds in §8/§9 are marked provisional（§12）. Also fixed:
-> the nested backticks in the Markdown of `P_forced` predicate 3. Sections touched: §4.2, §5.2, §6.4, §7, §8, §12.
+> the nested backticks in the Markdown of `P_forced` predicate 3. Sections touched: §4.2, §5.2, §6.4, «FORCED», §8, §12.
 > **Draft v1.37, 2026-08-25**: Codex（14:43）one P1 — a forced-only block cannot be continued after it lands, so the `F_l1` rate limit
 > contradicts the per-block draining at `backlog/C_force` of §7. The original `P_forced` predicate 2 required every forced-only block to use
 > tier (ii)（a final landed parent）: under a total cartel the first forced-only block becomes the canonical head once landed but is not yet
@@ -2318,14 +2145,14 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > blocks can therefore chain and drain at a density of `C_force` per block even under a cartel; restricting the parent to be a forced-only block
 > → an any-key holder cannot inject into an honest lookahead tail via tier (i)（the two lanes are separated by "whether the parent satisfies
 > `P_forced`", and a malicious forced-only block remains constrained by the §5.2 recovery priority with respect to a healthy content tail）.
-> Sections touched: §7 `P_forced`.
+> Sections touched: «FORCED» `P_forced`.
 > **Draft v1.36, 2026-08-25**: Codex third batch（14:38）one P1（line 598）— the L1→L2 causal-ordering invariant that the anchor must not be
 > later than the block's own slot time. §6.1 rule 3 only blocks future slots and §8 only blocks an anchor that is too old; neither blocks "an old
 > slot paired with a new anchor": a builder can withhold an old slot, afterwards pick a fresh anchor that already contains a new L1→L2 message,
 > and sign a tier (i) continuation that consumes that message into an L2 block whose slot timestamp precedes the L1 block the message came from,
 > with a Byzantine aggregator racing it into a landing → breaking L1→L2 causal ordering and distorting the bridge-deadline semantics that are
 > based on `block.timestamp`. Fix: §8 adds the invariant `anchor.L1_timestamp ≤ L2 timestamp(slot)`（applying uniformly to ordinary blocks and
-> forced-only blocks, with §5.1 rule 5 and §7 `P_forced` predicate 5 synchronized）. Recovery is unaffected（a recovery block's anchor is at depth
+> forced-only blocks, with §5.1 rule 5 and «FORCED» `P_forced` predicate 5 synchronized）. Recovery is unaffected（a recovery block's anchor is at depth
 > ≥ `D_anchor` ≈6.4 minutes back and its timestamp is always ≤ the wall-clock slot time, so it satisfies the invariant naturally）; only the
 > malformed "old slot + new anchor" combination is rejected.
 > **Sections touched**: §8, §5.1, §7.（The two items at line 855/1036 in the same batch = resends, against the new head, of cHR4b/cHR4c already
@@ -2344,7 +2171,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > recovery priority (it is followed only when the tail is frozen), its depth is still ≤ the unlanded tail, it reaches only tier-2 revocable
 > preconfirmations, and its content is forced-only (discretionary transactions return to the mempool). Corrected wording: the frequency of the
 > forced-only path is not constrained by "the number of malicious lookahead slots", and the harm is bounded by the three limits above; this is
-> explicitly folded into the untrusted-aggregator residual risk of §1/§5.4. Sections touched: §5.4, §6.4, §7, §9.
+> explicitly folded into the untrusted-aggregator residual risk of §1/§5.4. Sections touched: §5.4, §6.4, «FORCED», §9.
 > **Draft v1.34, 2026-08-25**: reviews by Codex and DeepSeek of the new direction-B design（Codex 3×P1 + 1×P2; DeepSeek 1 Critical + 6 warnings
 > + 4 suggestions）— four genuinely new holes（not old mechanisms resurfacing）have been fixed:
 > **(P1) Recovery/fork-choice deadlock（Codex line 822）**: after a true stall, the long tail from before the stall has the greater block count
@@ -2355,17 +2182,17 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > clock）. §6.4 references it accordingly. (P1) `m_consumed` has only an upper bound and no lower bound（Codex line 1031 / DeepSeek）: a pure
 > upper bound lets a builder keep processing 0 L1→L2 messages while still using a fresh anchor, censoring inbound messages indefinitely and
 > invalidating the `backlog/C_anchor` catch-up bound. Fix: §8 adds mandatory maximum-prefix consumption `min(C_anchor, pending)`（a public FIFO
-> queue + a queue root + a new legality obligation in §5.1 rule 5, exactly the same shape as the §7 forced-inclusion queue）. (P1) `≤ Δ_lag` is
+> queue + a queue root + a new legality obligation in §5.1 rule 5, exactly the same shape as the «FORCED» forced-inclusion queue）. (P1) `≤ Δ_lag` is
 > conditional（Codex line 475）: the tail is ≤ `Δ_lag` only if the fallback lands on time; if the fallback stalls or its landing is censored on
 > L1 the tail grows without bound, and a single tier-(ii) block can isolate a tail far longer than `Δ_lag`. Fix: §4.2/§5.4 honestly note that
 > this upper bound is conditional on the same condition as the §6.3 Byzantine liveness bound, and no unredeemable bound is claimed. (P2) The
 > admission predicate for forced-only blocks（Codex line 517 / DeepSeek）: §5.1's reference to the deleted "three conditions" is replaced by the
-> precise predicate `P_forced` of §7（any key + a tier-(ii) final parent + `slot ≤ wall clock` + a non-empty forced prefix up to capacity +
+> precise predicate `P_forced` of «FORCED»（any key + a tier-(ii) final parent + `slot ≤ wall clock` + a non-empty forced prefix up to capacity +
 > maximum message consumption）, together with an explanation that under any-key issuance slot uniqueness is resolved by fork choice + atomic
 > landing rather than by equivocation slashing. The rest: §4.2 adds the `anchor` field to the block header（DeepSeek）; §12 adds forced-carrier
 > migration (16), genesis bootstrap (17), and formal pseudocode/the lookahead sampling algorithm/terminological distinctions (18). DeepSeek's
-> "landed but not final" Critical and its "§7 three conditions" warning on v1.32 had already been fixed in v1.33（its review target was the old
-> v1.32 head）. Sections touched: §4.2, §5.1, §5.2, §5.4, §6.4, §7, §8, §12.
+> "landed but not final" Critical and its "«FORCED» three conditions" warning on v1.32 had already been fixed in v1.33（its review target was the old
+> v1.32 head）. Sections touched: §4.2, §5.1, §5.2, §5.4, §6.4, «FORCED», §8, §12.
 > **Draft v1.33, 2026-08-25**: DeepSeek's review of v1.32（2 Critical + 4 warnings + 3 suggestions, all directed at the new direction-B design
 > rather than old mechanisms resurfacing）— adopted, and converging. Key point 1（r35-1）: the criterion of the two-tier parent rule was misread
 > as "the landing status of the parent block", which made a parent that is "landed but not final" appear to fall into no tier at all and made the
@@ -2375,22 +2202,22 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > this tier）, and tier (ii) is an unbounded gap but the parent must have landed final. "Landed but not final" therefore leaves no gap in the
 > coverage（restated in §4.2/§5.1）. Key point 2（r35-2）: the "one hop" of one-hop recovery elided the `F_l1` transient — if the stall begins
 > shortly after a landing and the current landed tip has not yet reached `F_l1`, the recovery block must wait for the tip to become final（≤
-> `F_l1`）before it can land（otherwise it would fork away the newer tip and §7 would reject it）. Correction: the recovery bound is written out
+> `F_l1`）before it can land（otherwise it would fork away the newer tip and «FORCED» would reject it）. Correction: the recovery bound is written out
 > in full as max(0, `F_l1` − how long the tip has existed) + one round of proving, and in steady state a catastrophic stall degenerates to a pure
-> single hop（§4.2/§6.4/§9/§7 updated）. Warnings: §5.1 rule 1's stale reference to "the three conditions of §7" is changed to "a forced-only
-> block as defined in §7"（W1）; the §10 slashing table is completed with the tier (ii) path of isolating a single block via the landed head, with
-> the same bound across all three tiers（W2）; the §7 prose on cursors/snapshots gains a "net rule" sentence clarifying that the per-block anchor
+> single hop（§4.2/§6.4/§9/«FORCED» updated）. Warnings: §5.1 rule 1's stale reference to "the three conditions of «FORCED»" is changed to "a forced-only
+> block as defined in «FORCED»"（W1）; the §10 slashing table is completed with the tier (ii) path of isolating a single block via the landed head, with
+> the same bound across all three tiers（W2）; the «FORCED» prose on cursors/snapshots gains a "net rule" sentence clarifying that the per-block anchor
 > is the sole expiry criterion and that `F_consumed` only records consumption progress（W3）; and the tier (ii) residual risk of §5.4 gains the
 > premise "the current tip is already final"（W4）. Suggestion 3（marking deleted parameters as historical）is partly kept: the change-history
 > notes for `Δ_stall`/`s_base` and others are retained to preserve review provenance, and all are clearly labelled "deleted". Sections touched:
-> §4.2, §5.1, §5.4, §6.4, §7, §9, §10.
+> §4.2, §5.1, §5.4, §6.4, «FORCED», §9, §10.
 > **Draft v1.32, 2026-08-25**: Codex's first review of v1.31, one P1（r34-1）— `C_anchor` was bound to the wrong object: v1.31 applied it to the
 > per-block advance of the anchor reference, which conflicts with the §8 anchor freshness rule, so under a long stall (> `C_anchor +
 > D_anchor_max`) a recovery block's anchor could only advance `C_anchor` from the stale parent anchor, would still be stale, and would fail the
 > freshness check — failing precisely on the long stall it was meant to support. Fix: `C_anchor` is rebound to a separate L1→L2
 > message-processing cursor `m_consumed`（≤ `C_anchor` messages per block）, while the anchor reference itself remains monotonically
 > non-decreasing and must be fresh, with no per-block cap. A recovery block therefore references a fresh anchor（one-hop recovery of ordering,
-> preserving C1）, and a flood of inbound messages is processed block by block under `m_consumed`（the same shape as `f_consumed` in §7）.
+> preserving C1）, and a flood of inbound messages is processed block by block under `m_consumed`（the same shape as `f_consumed` in «FORCED»）.
 > §8/§12 updated.
 > **Draft v1.31, 2026-08-25 — the recovery subsystem redesigned as a whole（direction B）, and the freeze lifted.** The entire re-anchoring
 > episode is replaced by the two-tier parent rule: (i) an unlanded parent `≤ G_max`（deep-reorg protection unchanged）; (ii) **a final L1 landed
@@ -2411,13 +2238,13 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > long stall, L1-sync and the forced-inclusion backlog catch up per block at `C_anchor`/`C_force` (ordering in one hop, synchronization
 > amortized); ⑥（the owner's question in r33）the lander's tail-selection strategy = §5.2 fork choice + a landing depth ≥ `Δ_prop` of propagation
 > settling, and "the lander's view is complete" is added to the honesty clauses of §1. Sections touched: §4.2 the two-tier rule, §5.1 rule 2,
-> §5.2 the lander's strategy, §5.4 the three tiers of residual risk, §6.4 replaced wholesale, §7 forced-only blocks simplified, §8 `C_anchor`,
+> §5.2 the lander's strategy, §5.4 the three tiers of residual risk, §6.4 replaced wholesale, «FORCED» forced-only blocks simplified, §8 `C_anchor`,
 > §9 the recovery row, §12 the parameters, Appendix B.
 > **Draft v1.30, 2026-08-25**: DeepSeek round 8 — r31-1（Critical 1, outside the freeze）: §4.2 still said "attach to the legal chain head with
 > the highest slot", contradicting the "most blocks" fork choice of §5.2 per r11-2; it now references §5.2 directly (otherwise an implementation
 > would reopen the vulnerability in which a deep skip is automatically followed). The rest: Critical 2（forced inclusion being "unconditional"
 > versus nonce preemption）belongs to pending decision ① (r27-1 has already added the qualification); Warnings 1/2/3 all land in the frozen
-> §6.4/§7 (the "exactly covers" wording for the proving lead time versus the lookahead, the uniqueness of the first forced-only block, and the
+> §6.4/«FORCED» (the "exactly covers" wording for the proving lead time versus the lookahead, the uniqueness of the first forced-only block, and the
 > Expired transition of the episode state table) — these will be dissolved together by the redesign of the recovery subsystem rather than patched
 > point by point.
 > **Draft v1.29, 2026-08-25**: Codex round 18, one P1（r30-1, outside the scope of the freeze — the determinism of the ordinary forced-inclusion
@@ -2425,30 +2252,30 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > already-signed block depend on the batch boundary chosen by the lander, so landing a prefix could strand a block that was otherwise legally
 > signed. Changed to **a per-block snapshot, checked against the anchor already committed in the block header** — the obligation is fixed at
 > signing time and is independent of batch boundaries.
-> （The re-anchoring parts of §6.4/§7 remain frozen; this item belongs to the ordinary landing path and is outside the scope of the freeze.）
-> **Draft v1.28, 2026-08-25**: the owner's decision — the §6.4/§7 recovery subsystem is frozen pending formalization（direction B）. No more
+> （The re-anchoring parts of §6.4/«FORCED» remain frozen; this item belongs to the ordinary landing path and is outside the scope of the freeze.）
+> **Draft v1.28, 2026-08-25**: the owner's decision — the §6.4/«FORCED» recovery subsystem is frozen pending formalization（direction B）. No more
 > point patches to this subsystem: what the last eight rounds of review (r18/r20/r21/r23/r24/r25/r28 and round 7's P1/P2) exposed is a single
 > family of "proving latency versus slot timing window" and deposit-settlement determinism problems, whose root-cause intersection leaves no room
 > for a simple rule and which should be solved in one pass by a human design retrospective + state-machine model checking. A DRAFT freeze note is
 > added at the top of §6.4 (listing the open items for the retrospective), and its mechanism description and numerical bounds are downgraded to
 > provisional. Reviews landing on other parts (incentives, forced inclusion, parameters, trust-model wording, and so on) continue to be handled as
 > usual.
-> **Draft v1.27, 2026-08-25**: DeepSeek round 6（reviewing v1.25）, 2 Critical + 5 warnings: Critical 2（the contradiction between §6.4 and §7
+> **Draft v1.27, 2026-08-25**: DeepSeek round 6（reviewing v1.25）, 2 Critical + 5 warnings: Critical 2（the contradiction between §6.4 and «FORCED»
 > over the slot of the first forced-only block）was already fixed by v1.26/r25-2; r27-1 qualifies the "unconditional" claim about forced
-> inclusion in §0/§1/§7 in light of the nonce-preemption gap of §12-12（Critical 1 is elevated into a correction of the wording of the claim）;
+> inclusion in §0/§1/«FORCED» in light of the nonce-preemption gap of §12-12（Critical 1 is elevated into a correction of the wording of the claim）;
 > r27-2 specifies the different destinations of `B_ra` under cancellation (a)/(b)/execution（under (b), when a genuine failure heals itself, the
 > diligent announcer is refunded in full, W3）; r27-3 adds the transition "the continuation state meets a normal batch" to the state table（W2）;
 > r27-4 requires `s_ra` to leave enough proving lead time, with the expected wait including one round of proving（W1）; and W4/W5（the L1 cost of
 > enqueue validation, and calibration of the `Δ_lag` margin）are folded into §12 items 14/15.
 > **Draft v1.26, 2026-08-25**: Codex round 16, two P1s（consistency propagation — my r24 fix to §6.4 was not synchronized to the remaining
-> normative locations）: r25-2, the §7 format rule for forced-only blocks still said "the first block = the execution baseline slot at window
+> normative locations）: r25-2, the «FORCED» format rule for forced-only blocks still said "the first block = the execution baseline slot at window
 > expiry", contradicting §6.4/r24-1's "the `G_max` window at the moment of acceptance"; these are now aligned（including item 3 of the §6.4
 > fourfold division）; and the Cancelled row of the state table gains r24-2's conjunct for cancellation (b), "no outstanding `H_ch`". Pure
 > consistency, no new mechanism.
 > **Draft v1.25, 2026-08-25**: Codex round 15, P1（r25-1）: r24-1 makes the first forced-only block bring the head up to the wall clock, dropping
-> `lag` to ≤ `G_max`, but §7 still requires `lag > Δ_stall` for a forced-only block, while `Δ_cont` is only a few L1 slots — so a continuation
+> `lag` to ≤ `G_max`, but «FORCED» still requires `lag > Δ_stall` for a forced-only block, while `Δ_cont` is only a few L1 slots — so a continuation
 > batch can never wait for `lag` to exceed `Δ_stall` again, r18-3's "one window drains the backlog" fails, and a cartel can impose a stall on
-> every batch. Fix: a continuation batch is exempted from the three valve-opening conditions of §7 and rides the forced-only authorization
+> every batch. Fix: a continuation batch is exempted from the three valve-opening conditions of «FORCED» and rides the forced-only authorization
 > already established in this episode and carried by the proven chain state（strictly bound to "it extends this episode's forced-only head +
 > `Δ_cont` has not elapsed empty + the queue still holds due entries", and lapsing as soon as the queue drains or the timeout hits）; only the
 > first batch still re-checks the three conditions.
@@ -2473,7 +2300,7 @@ The base-fee share （§6.5 `φ_land`, r47） is an economic action of the accou
 > clarification）: r22-1 clarifies that a "conflicting fork" does not reorg an already-landed pinned parent（the finality of §5.2）but extends it
 > and isolates the unlanded tail, and that "re-pinning" only moves the pointer forward; r22-2 aligns the definition of the re-anchoring parent in
 > §5.1 rule 2 with the pinned parent of §6.4; r22-3 changes §5.1 rule 4 from "all forced entries" to a reference to the `C_force` capacity rule
-> of §7; r22-4 deletes the old sentence in §5.4 about "capped at `G_max`" that contradicted r20-1; r22-6 clarifies the exit-delay wording of §4.1
+> of «FORCED»; r22-4 deletes the old sentence in §5.4 about "capped at `G_max`" that contradicted r20-1; r22-6 clarifies the exit-delay wording of §4.1
 > （an address that exits after the snapshot still has valid lookahead slots）; r22-7 states explicitly in §6.4 that after re-pinning a new proof
 > must be produced against the new pinned parent; and, as suggested, an episode state-transition table was added to §6.4.（The stale Appendix B
 > entry DeepSeek pointed out had already been updated in v1.21/r21-1.）

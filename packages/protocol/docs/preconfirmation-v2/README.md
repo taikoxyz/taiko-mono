@@ -16,20 +16,29 @@
 
 | 文档 | 说明 |
 | --- | --- |
-| [`slot-chain-spec.md`](slot-chain-spec.md) | **主规范（草案 v1.50，中文，规范性来源，含 10 幅图与排班表可执行代码）**——可读的排版版本见下方 PDF。核心机制：1 秒一个 slot 的构建者排班表（lookahead）、逐块签名并以父块哈希串联的签名链（signature chain）、原子落地 + 结算窗口最终性（数据 + 有效性证明一笔交易落为候选,窗口内最重已证明候选收盘即最终,option C）、基于 L1 可观测滞后量（lag）的无许可兜底落地与失职计次（聚合者无论掉线还是恶意拖延都不是活性单点）、逐块电路强制的强制包含（forced inclusion，任意密钥仅强制块逃生阀）、双签的 L1 直接验签罚没（窗口累积敞口定价）。相对 v15 删除了 EBC/epoch 判定、默认派生、完全无政府模式与取消级联等整套机制；§9 的活性核算表给出各角色（含 Byzantine 聚合者）故障下的恢复界。 |
+| [`slot-chain-spec.md`](slot-chain-spec.md) | **主规范（草案 v1.51，中文，规范性来源，含 9 幅图与排班表可执行代码）**——可读的排版版本见下方 PDF。核心机制：1 秒一个 slot 的构建者排班表（lookahead）、逐块签名并以父块哈希串联的签名链（signature chain）、原子落地 + 结算窗口最终性（数据 + 有效性证明一笔交易落为候选,窗口内最重已证明候选收盘即最终,option C）、基于 L1 可观测滞后量（lag）的无许可兜底落地与失职计次（聚合者无论掉线还是恶意拖延都不是活性单点）、双签的 L1 直接验签罚没（窗口累积敞口定价）。**v1.51 起不再有强制包含**——所有者为简化整体删除，连同仅强制块逃生阀；代价是审查抵抗底线消失，全卡特尔下协议内无补救，见 §8 活性表与 §1 [G5]（已撤销）。相对 v15 删除了 EBC/epoch 判定、默认派生、完全无政府模式与取消级联等整套机制；§9 的活性核算表给出各角色（含 Byzantine 聚合者）故障下的恢复界。 |
 | [`slot-chain-spec.en.md`](slot-chain-spec.en.md) | **主规范的英文版**，也是 PDF 的排版输入。**非规范性**：两版有出入时以中文版为准。文件头记录翻译时中文源的 sha256；改了中文源就必须重译并更新该标记，否则 `python3 build-pdf.py --check` 报漂移（防止 PDF 静默停在旧语义上）。 |
-| [`settlement-window-model.py`](settlement-window-model.py) | **结算窗口可执行参考模型**（零依赖 Python）：§5.2 全序 key、§5.6 窗口状态机、§7/§8 双约束游标 + 时序几何/罚没时点/兜底快照/窗口中途入队的可运行版本，21 项性质断言（P1–P12，附录 C；时序参数为独立声明的部署值，P9a 以不等式互检——不由公式推导，保持检验力）。改规则必须同步改模型重跑。 |
-| [`lookahead-model.py`](lookahead-model.py) | **排班表可执行参考实现**（零依赖 Python，§3.2 代码化）：窗口对齐/唯一快照/种子/加权抽样的完整计算 + 6 项性质断言；抽样算子为 §12-18(b) 定形候选。 |
-| [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（P1–P12 共 21 项全过）与覆盖对照。 |
-| [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md) | **实现前复核（§12 第 18 项后半,r44）**：模型未覆盖项闭合对照、Solidity 级 `acceptCandidate` 存储布局（固定 4 词复用）与 gas 分析（边际 O(1),≈20–25k/候选）、Inbox 对接路径、仍开放项清单。非规范性;最终判定 = 所有者 + 人类安全评审。 |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **主规范的 PDF 版**（英文、A4 单栏、学术论文式排版，90 页）：标题页 + 摘要 + 目录，正文与公式统一用 Palatino（`mathpazo`），10 幅 TikZ 灰阶图，§/附录交叉引用可点击，评审出处注记集中在附录 E。由 `build-pdf.py` 从 `slot-chain-spec.en.md` 生成，**刻意输出为 PDF 1.4**（经典 xref 表 + `trailer`，不用对象流/交叉引用流）——PDF 1.5 结构小约 28%，但只实现 1.4 的老解析器（不少电子书阅读器、电纸书固件）会误报"文件已损坏"。 |
+| [`settlement-window-model.py`](settlement-window-model.py) | **结算窗口可执行参考模型**（零依赖 Python）：§5.2 全序 key、§5.6 窗口状态机、§7 游标与 gas 份额 + 时序几何/罚没时点/兜底快照/窗口中途入队的可运行版本，20 项性质断言（P1–P12，其中 P4/P8 于 v1.51 退役、新增 P7b，附录 C；时序参数为独立声明的部署值，P9a 以不等式互检——不由公式推导，保持检验力）。改规则必须同步改模型重跑。 |
+| [`lookahead-model.py`](lookahead-model.py) | **排班表可执行参考实现**（零依赖 Python，§3.2 代码化）：窗口对齐/唯一快照/种子/加权抽样的完整计算 + 6 项性质断言；抽样算子为 §11 第 18 项 (b) 的定形候选。 |
+| [`settlement-window-RESULTS.md`](settlement-window-RESULTS.md) | 模型验证结果（20 项全过）与覆盖对照，含 v1.51 退役性质的说明。 |
+| [`settlement-window-implementation-review.md`](settlement-window-implementation-review.md) | **实现前复核（§11 第 18 项后半,r44）**：模型未覆盖项闭合对照、Solidity 级 `acceptCandidate` 存储布局（固定 4 词复用）与 gas 分析（边际 O(1),≈20–25k/候选）、Inbox 对接路径、仍开放项清单。非规范性;最终判定 = 所有者 + 人类安全评审。 |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **主规范的 PDF 版**（英文、A4 单栏、学术论文式排版，83 页）：标题页 + 摘要 + 目录，正文与公式统一用 Palatino（`mathpazo`），9 幅 TikZ 灰阶图，§/附录交叉引用可点击，评审出处注记集中在附录 E。由 `build-pdf.py` 从 `slot-chain-spec.en.md` 生成，**刻意输出为 PDF 1.4**（经典 xref 表 + `trailer`，不用对象流/交叉引用流）——PDF 1.5 结构小约 28%，但只实现 1.4 的老解析器（不少电子书阅读器、电纸书固件）会误报"文件已损坏"。 |
 | [`build-pdf.py`](build-pdf.py) | PDF 生成器（`slot-chain-spec.en.md` → LaTeX → PDF）。改 md 后运行 `python3 build-pdf.py` 重新生成并提交；`python3 build-pdf.py --check` 跑两道漂移防护——英文版是否落后于中文规范源（比对头部 sha256）、`tex/main.tex` 是否落后于英文版。需要 `texlive-xetex texlive-latex-extra texlive-pictures`（v1.49 起不再依赖 `texlive-lang-chinese`；生成器调 `xelatex`，`pdflatex` 也能直接编译 `tex/main.tex`）。 |
-| [`tex/main.tex`](tex/main.tex) / [`tex/figures.tex`](tex/figures.tex) | 论文的 LaTeX 源：`main.tex` 由生成器从 markdown 产出（一并入库，便于不装生成器也能直接编译审阅），`figures.tex` 是手写的 10 幅 TikZ 灰阶图源。编译中间件（aux/log/toc/out）不入库。 |
-| [`legacy-summary.md`](legacy-summary.md) | 既往工作摘要（非规范性）：v15 线一段话、保留的关键结论（v15 活性事实、强制包含不可删的论证、拆分评估的坑与 v2 解法对照、在线核实过的外部先例）、原始文档的 git 历史索引。 |
+| [`tex/main.tex`](tex/main.tex) / [`tex/figures.tex`](tex/figures.tex) | 论文的 LaTeX 源：`main.tex` 由生成器从 markdown 产出（一并入库，便于不装生成器也能直接编译审阅），`figures.tex` 是手写的 9 幅 TikZ 灰阶图源。编译中间件（aux/log/toc/out）不入库。 |
+| [`legacy-summary.md`](legacy-summary.md) | 既往工作摘要（非规范性）：v15 线一段话、保留的关键结论（v15 活性事实、强制包含不可删的论证——**该论证已被 v1.51 所有者决定推翻，见规范附录 D**、拆分评估的坑与 v2 解法对照、在线核实过的外部先例）、原始文档的 git 历史索引。 |
 
 ## 状态
 
-草案 v1.50（2026-08-27）：修一处陈旧加粗小标题。§5.2 末条要点的小标题仍写着"落地『该落哪条』
+草案 v1.51（2026-08-28）：**所有者决定整体删除强制包含（forced inclusion），为简化。** 这是本设计线
+上第一次主动放弃一条安全性质，故如实记代价：删除整节 §7（入队接口、双队列、`F_delay`/`C_force`/
+`C_bridge`/`H_force`、**仅强制块与 `P_forced`**），§8–§12 改号为 §7–§11。**审查抵抗底线由此消失**——
+出块权只属于排班构建者，全员串谋审查某地址时协议内无任何补救，该地址也没有独立于构建者的退出路径；
+§8 活性表的全卡特尔与整体合谋两行由"有界"改为**无界**；§1 [G5]"保留包含底线"改为**已撤销**。
+顺带：r27-1 的 nonce 抢占阻塞项闭合；§5.1 合法性规则 5 条减为 4 条；**§5.2 全序 key 由四元组收缩为
+三元组 `(count, tip_slot, tip_hash)`**（`lane` 无对象）；§5.6 基线元组去掉强制游标；§7 共享 gas 预算
+由三方收缩为两方。**一处保留的警觉**：单侧 gas 死锁仍可复现，单条消息 gas 上限升格为唯一承重条，
+模型新增 P7b 验证它承重。模型退役 P4/P8、新增 P7b，20 项断言全过；图 10 → 9 幅。
+v1.50（2026-08-27）：修一处陈旧加粗小标题。§5.2 末条要点的小标题仍写着"落地『该落哪条』
 是可罚没的义务"——那是 v1.39/v1.40 挑战层的残留，与**它自己那条要点的正文**、§5.2 上文 v1.47 的
 定性、以及 §10 的罚没清单三处冲突（option C 早已撤回"落错链可罚没"）。改为"L1 不裁决『该落哪条』，
 由结算窗口机械选出"。纯一致性修订，无新规则、无参数变动。

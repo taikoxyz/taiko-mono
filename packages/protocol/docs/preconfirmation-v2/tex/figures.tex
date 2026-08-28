@@ -360,37 +360,6 @@
 % ==== FIGURE 9 ====
 \begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-  \node[scnode, scfill, text width=108mm] (Q)
-        {Head-of-block consumption: two FIFO queues, an obligation on every block};
-  \node[scnode, text width=108mm, below=8mm of Q] (BR)
-        {Bridge-queue prefix:\\
-         the longest prefix that satisfies both a count $\le C_{\mathrm{bridge}}$\\
-         and a cumulative declared gas $\le$ the $C_{\mathrm{bridge}}$ gas share (reserved quota)};
-  \node[scnode, text width=108mm, below=8mm of BR] (OR)
-        {Ordinary forced-inclusion queue prefix:\\
-         the longest prefix with a count $\le C_{\mathrm{force}} - $ bridge entries already taken\\
-         and cumulative gas $\le$ the $C_{\mathrm{force}}$ gas share $-$ gas already used by the bridge};
-  \node[scnode, text width=108mm, below=8mm of OR] (R)
-        {Taking the longest prefix is valid; taking less than it is not\\
-         (the rule is not ``exactly so many entries''); the remainder\\overflows deterministically into later blocks};
-  \node[scnode, scfill, text width=108mm, below=8mm of R] (D)
-        {An entry invalid against the pre-state: consume-and-discard\\
-         the cursor advances as usual, the entry is not executed};
-
-  \draw[scarr] (Q) -- (BR);
-  \draw[scarr] (BR) -- (OR);
-  \draw[scarr] (OR) -- (R);
-  \draw[scarr] (R) -- (D);
-\end{tikzpicture}
-\caption{How forced entries are consumed at the head of every L2 block: the bridge queue first takes its longest prefix within the reserved quota, the ordinary forced-inclusion queue then takes its longest prefix within the remaining count and gas quota, and entries that are invalid against the pre-state are handled by consume-and-discard so that the head of the queue cannot deadlock.}
-\label{fig:9}
-\end{figure}
-% ==== END FIGURE 9 ====
-
-% ==== FIGURE 10 ====
-\begin{figure}[htbp]
-\centering
 \begin{tikzpicture}[font=\scriptsize]
   \draw[scarr] (0,0) -- (12.8,0);
   \foreach \x in {1.2,5.0,8.5,12.0}{\draw[scline] (\x,-0.15) -- (\x,0.15);}
@@ -424,6 +393,6 @@
          $\approx 420$ L1 slot $\approx 84$ minutes, covering the whole fallback-authorization path, so no deadlock exists};
 \end{tikzpicture}
 \caption{The time geometry of anchor age along the worst-case path: the freshness window $D_{\mathrm{anchor,max}}$ must cover the whole route from block production, through the aggregator's withholding until the threshold authorizes fallback, and on to proving and L1 inclusion. This relation between parameters is exactly the solution to the stale-anchor tail deadlock.}
-\label{fig:10}
+\label{fig:9}
 \end{figure}
-% ==== END FIGURE 10 ====
+% ==== END FIGURE 9 ====
