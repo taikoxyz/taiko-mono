@@ -1,40 +1,52 @@
 #!/usr/bin/env python3
-"""Executable consensus model for settlement, recovery and forced escape.
+"""Executable consensus model for settlement, recovery and forced inclusion.
 
-This is deliberately small enough to audit. It models consensus predicates and
-EVM transaction boundaries; cryptographic verifiers are represented by booleans.
+The model exercises transaction ordering and exact resource predicates. Proof,
+signature, MPT and execution verification remain explicit booleans; consensus
+hash vectors live in commitment-model.py.
 """
 
 from __future__ import annotations
 
 import copy
-import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum, IntFlag, auto
 
-
-# All deadlines are timestamp seconds. L1 depth is the only block-number unit.
+GENESIS_TIMESTAMP = 1_000_000
 L1_SLOT_SECONDS = 12
 W_SETTLE_SECONDS = 1_200
 DELTA_FINAL_LAG = 3_600
 DELTA_TIP = 1_200
 P_PROVE_MAX = 900
-T_INCLUDE_MAX = 10                 # L1 slots
-F_L1 = 64                          # L1 blocks of canonical depth
-T_DEPTH_MAX = 900                  # seconds, under the L1-liveness assumption
+T_INCLUDE_MAX = 10
+F_L1 = 64
+T_DEPTH_MAX = 900
 CLOCK_SKEW = 24
 ESCAPE_OFFSET = 1_900
-FORCE_DELAY = 600
+FORCE_DELAY = 1_500
 FORCE_GAS_BUDGET = 20_000_000
+FORCE_BYTES_BUDGET = 1_048_576
+MAX_FORCE_MESSAGES = 64
 MAX_FORCE_MESSAGE_GAS = 5_000_000
+MAX_FORCE_MESSAGE_BYTES = 131_072
+MIN_FORCE_ACCOUNTED_GAS = 21_000
+L2_BLOCK_GAS_LIMIT = 30_000_000
+ANCHOR_GAS_MAX = 1_000_000
+SYSTEM_GAS_MARGIN = 5_000_000
 MAX_BLOCKS_PER_CANDIDATE = 4_096
 MAX_WINDOWS_PER_CANDIDATE = 12
+MAX_UNIQUE_ANCHORS = 1
+MAX_DATA_SESSIONS_PER_CANDIDATE = 16
+MAX_DATA_RECORDS_PER_CANDIDATE = 2_100
 MAX_DATA_RECORDS_PER_SESSION = 2_100
+MAX_LIVE_DATA_SESSIONS = 1_024
+MAX_DATA_SESSIONS_PER_OWNER = 2
 DATA_TTL_SECONDS = 86_400
-HISTORY_RING_BLOCKS = 8_191
+REORG_MARGIN_SECONDS = 1_800
 
 
 class Mode(Enum):
+    PREACTIVE = auto()
     NORMAL = auto()
     RECOVERY = auto()
 
@@ -55,31 +67,59 @@ class Tier(Enum):
 class Clock:
     block_number: int
     timestamp: int
-    beacon_slot: int
 
     @property
     def l2_slot(self) -> int:
-        return self.timestamp
+        return max(0, self.timestamp - GENESIS_TIMESTAMP)
+
+
+@dataclass(frozen=True)
+class L1Header:
+    block_hash: str
+    timestamp: int
+    state_root: str
+    force_root: str
+    force_cutoff: int
 
 
 @dataclass(frozen=True)
 class Message:
     enqueued_at: int
-    gas_limit: int
-    prepaid: int
+    accounted_gas: int
+    byte_length: int
     payload_hash: str
+    sender: str = "sender"
+    nonce: int = 0
+    chain_id_ok: bool = True
+    signature_ok: bool = True
+    intrinsic_gas: int = 21_000
+    valid_until: int = (1 << 64) - 1
+    due_at: int = 0
+    prepaid: int = 1
 
 
 @dataclass(frozen=True)
 class DataRecord:
     index: int
-    version: int
-    versioned_hash: str
     body_root: str
-    publisher: str
     valid_until: int
-    fs_challenge: str
-    evaluation: str
+
+
+@dataclass
+class DataSession:
+    session_id: str
+    owner: str
+    expiry: int
+    records: list[DataRecord] = field(default_factory=list)
+    root: str = "empty"
+    sealed: bool = False
+
+
+@dataclass(frozen=True)
+class SessionRef:
+    session_id: str
+    count: int
+    root: str
 
 
 @dataclass(frozen=True)
@@ -91,26 +131,30 @@ class Block:
     scheduled_signature_ok: bool
     message_start: int
     message_end: int
+    anchor_number: int
+    anchor_hash: str
+    anchor_timestamp: int
+    force_root: str
     force_cutoff: int
-    data_record_indices: tuple[int, ...] = ()
+    admission_version: int
+    data_records: tuple[tuple[str, int], ...] = ()
+    body_order_ok: bool = True
     discretionary_body: bool = True
 
 
 @dataclass(frozen=True)
 class Candidate:
     candidate_id: str
-    base_hash: str
+    base_tuple_hash: str
     blocks: tuple[Block, ...]
     tier: Tier
     proof_ok: bool = True
-    episode_version: int = 0
-    activation_id: str = ""
-    final_ref_number: int = 0
-    final_ref_hash: str = ""
-    anchor_number: int = 0
-    anchor_hash: str = ""
-    data_mmr_root: str = ""
-    data_manifest_exact: bool = True
+    episode: int = 0
+    recovery_revision: int = 0
+    recovery_id: str = ""
+    session_refs: tuple[SessionRef, ...] = ()
+    manifest_exact: bool = True
+    beneficiary: str = "prover"
 
     @property
     def tip(self) -> Block:
@@ -122,7 +166,6 @@ class Candidate:
 
     @property
     def order(self) -> tuple[int, int, int]:
-        # max() implements count desc, tip slot desc, tip hash ascending.
         return (self.count, self.tip.slot, -int(self.tip.block_hash, 16))
 
 
@@ -133,8 +176,38 @@ class Canonical:
     state_root: str
     message_cursor: int
     canonicalization_block: int
-    canonicalization_hash: str
-    data_mmr_root: str = ""
+    winning_data_commitment: str = "empty"
+
+    @property
+    def tuple_hash(self) -> str:
+        return (f"{self.tip_hash}:{self.tip_slot}:{self.state_root}:"
+                f"{self.message_cursor}:{self.canonicalization_block}:"
+                f"{self.winning_data_commitment}")
+
+
+@dataclass
+class RecoveryRound:
+    episode: int
+    revision: int
+    base_tuple_hash: str
+    round_start_slot: int
+    anchor_number: int
+    anchor_hash: str
+    anchor_timestamp: int
+    force_root: str
+    force_cutoff: int
+    admission_version: int
+    escape_slot: int
+    expires_at: int
+    causes: Cause
+
+    @property
+    def recovery_id(self) -> str:
+        return (f"recovery:{self.episode}:{self.revision}:{self.base_tuple_hash}:"
+                f"{self.round_start_slot}:"
+                f"{self.anchor_number}:{self.anchor_hash}:{self.force_root}:"
+                f"{self.force_cutoff}:{self.admission_version}:"
+                f"{self.escape_slot}:{int(self.causes)}")
 
 
 @dataclass
@@ -147,23 +220,20 @@ class Seat:
 @dataclass
 class Protocol:
     canonical: Canonical
-    history: dict[int, str]
-    messages: list[Message] = field(default_factory=list)
+    history: dict[int, L1Header]
     mode: Mode = Mode.NORMAL
-    version: int = 0
+    messages: list[Message] = field(default_factory=list)
+    episode: int = 0
+    recovery: RecoveryRound | None = None
     normal_best: Candidate | None = None
     normal_deadline: int | None = None
     normal_min_admissible: int | None = None
-    activation_slot: int | None = None
-    escape_slot: int | None = None
-    force_cutoff: int | None = None
-    activation_id: str = ""
-    causes: Cause = Cause.NONE
+    normal_admission_version: int | None = None
+    admission_version: int = 0
     active_seat: Seat | None = None
     standby: list[Seat] = field(default_factory=list)
     burned: int = 0
-    data_records: list[DataRecord] = field(default_factory=list)
-    data_mmr_root: str = ""
+    sessions: dict[str, DataSession] = field(default_factory=dict)
     events: list[str] = field(default_factory=list)
 
     def snapshot(self) -> "Protocol":
@@ -172,56 +242,114 @@ class Protocol:
     def identical(self, other: "Protocol") -> bool:
         return self == other
 
-    def historical_hash(self, number: int, clock: Clock) -> str | None:
-        if number >= clock.block_number or clock.block_number - number > HISTORY_RING_BLOCKS:
-            return None
-        return self.history.get(number)
+    def current_header(self, number: int) -> L1Header:
+        return self.history[number]
+
+    def force_root(self, cutoff: int) -> str:
+        return "queue:" + ":".join(m.payload_hash for m in self.messages[:cutoff])
 
     def force_due(self, clock: Clock) -> bool:
-        cursor = self.canonical.message_cursor
-        return (cursor < len(self.messages)
-                and self.messages[cursor].enqueued_at + FORCE_DELAY <= clock.timestamp)
+        i = self.canonical.message_cursor
+        return i < len(self.messages) and self._due_at(self.messages[i]) <= clock.timestamp
 
-    def _close_normal(self, clock: Clock) -> bool:
+    @staticmethod
+    def _due_at(message: Message) -> int:
+        return max(message.enqueued_at + FORCE_DELAY, message.due_at)
+
+    def required_cursor(self, deadline: int) -> int:
+        cursor = self.canonical.message_cursor
+        while cursor < len(self.messages):
+            if self._due_at(self.messages[cursor]) > deadline:
+                break
+            cursor += 1
+        return cursor
+
+    def _prefix_end(self, start: int, cutoff: int) -> int:
+        gas = size = count = 0
+        cursor = start
+        while cursor < min(cutoff, len(self.messages)):
+            message = self.messages[cursor]
+            if (count + 1 > MAX_FORCE_MESSAGES
+                    or gas + message.accounted_gas > FORCE_GAS_BUDGET
+                    or size + message.byte_length > FORCE_BYTES_BUDGET):
+                break
+            count += 1
+            gas += message.accounted_gas
+            size += message.byte_length
+            cursor += 1
+        return cursor
+
+    def _clear_normal(self) -> None:
+        self.normal_best = None
+        self.normal_deadline = None
+        self.normal_min_admissible = None
+        self.normal_admission_version = None
+
+    def _close_mature_normal(self, clock: Clock) -> bool:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
             return False
-        if self.normal_best is not None:
+        required = self.required_cursor(self.normal_deadline)
+        if self.normal_best is not None and self.normal_best.tip.message_end >= required:
             self._commit(self.normal_best, clock)
-        self.normal_best = None
-        self.normal_deadline = None
-        self.normal_min_admissible = None
-        self.data_records.clear()
-        self.data_mmr_root = ""
-        self.events.append("NORMAL_CLOSED")
+            self.events.append("NORMAL_COMMITTED")
+        else:
+            self.events.append("NORMAL_CANCELED_FORCE_OMISSION")
+        self._clear_normal()
         return True
 
+    def _new_round(self, clock: Clock, causes: Cause, revision: int) -> RecoveryRound:
+        anchor_number = clock.block_number - 1
+        cutoff = len(self.messages)
+        anchor = replace(self.current_header(anchor_number),
+                         force_root=self.force_root(cutoff), force_cutoff=cutoff)
+        self.history[anchor_number] = anchor
+        escape_slot = max(clock.l2_slot + ESCAPE_OFFSET, self.canonical.tip_slot + 1)
+        return RecoveryRound(
+            self.episode, revision, self.canonical.tuple_hash,
+            clock.l2_slot,
+            anchor_number, anchor.block_hash, anchor.timestamp,
+            self.force_root(cutoff), cutoff, self.admission_version, escape_slot,
+            GENESIS_TIMESTAMP + escape_slot + DELTA_TIP, causes,
+        )
+
     def _activate(self, clock: Clock, causes: Cause) -> None:
-        # An immature candidate can never be promoted across the mode boundary.
-        self.normal_best = None
-        self.normal_deadline = None
-        self.normal_min_admissible = None
-        self.data_records.clear()
-        self.data_mmr_root = ""
+        self._clear_normal()
         self.mode = Mode.RECOVERY
-        self.version += 1
-        self.activation_slot = clock.l2_slot
-        self.escape_slot = max(clock.l2_slot + ESCAPE_OFFSET,
-                               self.canonical.tip_slot + 1)
-        self.force_cutoff = len(self.messages)
-        previous_hash = self.history.get(clock.block_number - 1, "0" * 64)
-        self.activation_id = hashlib.sha256(
-            f"slot-chain-recovery-v1:{self.version}:{clock.block_number}:{previous_hash}".encode()
-        ).hexdigest()
-        self.causes = causes
+        self.episode += 1
+        self.recovery = self._new_round(clock, causes, 1)
         if causes & Cause.SLA and self.active_seat is not None:
             self.active_seat.terminated = True
             self.burned += self.active_seat.penalty_bond
             self.active_seat = next((s for s in self.standby if not s.terminated), None)
-        self.events.append(f"RECOVERY_OPEN:{int(causes)}")
+        self.events.append(f"RECOVERY_OPEN:{self.episode}:{int(causes)}")
+
+    def _roll_recovery(self, clock: Clock) -> bool:
+        assert self.recovery is not None
+        if clock.timestamp <= self.recovery.expires_at:
+            return False
+        old = self.recovery
+        self.recovery = self._new_round(clock, old.causes, old.revision + 1)
+        self.events.append(f"RECOVERY_ROLLED:{self.recovery.revision}")
+        return True
 
     def sync(self, clock: Clock) -> bool:
-        """Apply every objective transition. This function never reverts."""
-        changed = self._close_normal(clock)
+        """Apply objective transitions; wrappers must return after True."""
+        if self.mode is Mode.PREACTIVE:
+            return False
+        if self.mode is Mode.RECOVERY:
+            return self._roll_recovery(clock)
+
+        changed = False
+        if self.force_due(clock) and self.normal_deadline is not None:
+            if clock.timestamp >= self.normal_deadline:
+                changed |= self._close_mature_normal(clock)
+            else:
+                self._clear_normal()
+                self.events.append("NORMAL_CANCELED_FORCE_DUE")
+                changed = True
+        elif self.normal_deadline is not None and clock.timestamp >= self.normal_deadline:
+            changed |= self._close_mature_normal(clock)
+
         if self.mode is Mode.NORMAL:
             causes = Cause.NONE
             if clock.l2_slot - self.canonical.tip_slot > DELTA_FINAL_LAG:
@@ -233,125 +361,186 @@ class Protocol:
                 changed = True
         return changed
 
-    def post_data(self, clock: Clock, *, same_tx_blobhash: bool,
-                  body_root: str, publisher: str, valid_until: int,
-                  kzg_opening_ok: bool) -> bool:
-        """Append one authenticated blob leaf to the version-scoped MMR."""
-        if (not same_tx_blobhash or not kzg_opening_ok or not publisher
-                or valid_until <= clock.timestamp
-                or valid_until > clock.timestamp + DATA_TTL_SECONDS
-                or len(self.data_records) >= MAX_DATA_RECORDS_PER_SESSION):
+    def activate_migration(self, clock: Clock, imported: Canonical) -> bool:
+        if self.mode is not Mode.PREACTIVE or clock.timestamp < GENESIS_TIMESTAMP:
             return False
-        index = len(self.data_records)
-        versioned_hash = hashlib.sha256(f"blob:{self.version}:{index}".encode()).hexdigest()
-        challenge = hashlib.sha256(
-            f"slot-chain-data-fs-v1:{self.version}:{versioned_hash}:{body_root}:"
-            f"{publisher}:{valid_until}".encode()
-        ).hexdigest()
-        evaluation = hashlib.sha256(f"eval:{challenge}:{versioned_hash}".encode()).hexdigest()
-        record = DataRecord(index, self.version, versioned_hash, body_root,
-                            publisher, valid_until, challenge, evaluation)
-        self.data_records.append(record)
-        self.data_mmr_root = hashlib.sha256(
-            f"{self.data_mmr_root}:{record}".encode()
-        ).hexdigest()
+        self.canonical = copy.deepcopy(imported)
+        self.mode = Mode.NORMAL
+        self.events.append("MIGRATION_ACTIVATED_ATOMICALLY")
         return True
 
-    def _maximum_prefix_end(self, start: int, cutoff: int | None = None) -> int:
-        gas = 0
-        cursor = start
-        limit = len(self.messages) if cutoff is None else min(cutoff, len(self.messages))
-        while cursor < limit:
-            item = self.messages[cursor]
-            if gas + item.gas_limit > FORCE_GAS_BUDGET:
-                break
-            gas += item.gas_limit
-            cursor += 1
-        return cursor
+    def tombstone(self) -> None:
+        self.admission_version += 1
 
-    def _validate_common(self, candidate: Candidate, clock: Clock,
-                         min_slot: int) -> bool:
-        if (not candidate.proof_ok or candidate.base_hash != self.canonical.tip_hash
+    def admit_message(self, clock: Clock, message: Message) -> str:
+        if self.sync(clock):
+            return "SYNCED"
+        if (not message.chain_id_ok or not message.signature_ok or not message.sender
+                or message.intrinsic_gas <= 0
+                or message.accounted_gas < max(message.intrinsic_gas, MIN_FORCE_ACCOUNTED_GAS)
+                or message.accounted_gas > MAX_FORCE_MESSAGE_GAS
+                or not 0 < message.byte_length <= MAX_FORCE_MESSAGE_BYTES
+                or message.valid_until <= clock.timestamp or message.prepaid <= 0):
+            return "REJECTED"
+        deferred = (self.recovery.expires_at + 1
+                    if self.mode is Mode.RECOVERY and self.recovery is not None else 0)
+        self.messages.append(replace(message, due_at=max(self._due_at(message), deferred)))
+        return "ADMITTED"
+
+    def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
+        if self.sync(clock):
+            return "SYNCED"
+        self.gc_sessions(clock)
+        if (not owner or session_id in self.sessions
+                or expiry < clock.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
+                or expiry > clock.timestamp + DATA_TTL_SECONDS
+                or len(self.sessions) >= MAX_LIVE_DATA_SESSIONS
+                or sum(s.owner == owner for s in self.sessions.values()) >= MAX_DATA_SESSIONS_PER_OWNER):
+            return "REJECTED"
+        self.sessions[session_id] = DataSession(session_id, owner, expiry)
+        return "OPENED"
+
+    def post_data(self, clock: Clock, session_id: str, caller: str, *,
+                  body_root: str, same_tx_blobhash: bool, kzg_opening_ok: bool) -> str:
+        if self.sync(clock):
+            return "SYNCED"
+        session = self.sessions.get(session_id)
+        if (session is None or session.owner != caller or session.sealed
+                or session.expiry <= clock.timestamp or not same_tx_blobhash
+                or not kzg_opening_ok
+                or len(session.records) >= MAX_DATA_RECORDS_PER_SESSION):
+            return "REJECTED"
+        index = len(session.records)
+        session.records.append(DataRecord(index, body_root, session.expiry))
+        session.root = f"mmr:{session.session_id}:{index + 1}:" + ":".join(
+            record.body_root for record in session.records
+        )
+        return "POSTED"
+
+    def seal_session(self, clock: Clock, session_id: str, caller: str) -> bool:
+        if self.sync(clock):
+            return False
+        session = self.sessions.get(session_id)
+        if session is None or session.owner != caller or session.sealed or not session.records:
+            return False
+        session.sealed = True
+        return True
+
+    def gc_sessions(self, clock: Clock) -> None:
+        for key in sorted(tuple(self.sessions)):
+            if self.sessions[key].expiry < clock.timestamp:
+                del self.sessions[key]
+
+    def _sessions_ok(self, candidate: Candidate, clock: Clock) -> bool:
+        if (len(candidate.session_refs) > MAX_DATA_SESSIONS_PER_CANDIDATE
+                or len({r.session_id for r in candidate.session_refs}) != len(candidate.session_refs)):
+            return False
+        used = [r for b in candidate.blocks for r in b.data_records]
+        if len(used) > MAX_DATA_RECORDS_PER_CANDIDATE or len(used) != len(set(used)):
+            return False
+        declared = {r.session_id: r for r in candidate.session_refs}
+        for ref in candidate.session_refs:
+            session = self.sessions.get(ref.session_id)
+            if (session is None or not session.sealed
+                    or session.expiry < clock.timestamp + REORG_MARGIN_SECONDS
+                    or ref.count != len(session.records) or ref.root != session.root):
+                return False
+        return candidate.manifest_exact and all(
+            sid in declared and 0 <= index < declared[sid].count for sid, index in used
+        )
+
+    def _sessions_live_through(self, candidate: Candidate, timestamp: int) -> bool:
+        return all(self.sessions[ref.session_id].expiry >= timestamp
+                   for ref in candidate.session_refs)
+
+    def _anchor_ok(self, candidate: Candidate, clock: Clock) -> bool:
+        anchors = {(b.anchor_number, b.anchor_hash, b.anchor_timestamp,
+                    b.force_root, b.force_cutoff) for b in candidate.blocks}
+        if len(anchors) != MAX_UNIQUE_ANCHORS:
+            return False
+        block = candidate.blocks[0]
+        header = self.history.get(block.anchor_number)
+        return (header is not None and block.anchor_number < clock.block_number
+                and clock.block_number - block.anchor_number <= 8_191
+                and header.block_hash == block.anchor_hash
+                and header.timestamp == block.anchor_timestamp
+                and header.force_root == block.force_root
+                and header.force_cutoff == block.force_cutoff
+                and block.anchor_timestamp <= GENESIS_TIMESTAMP + block.slot)
+
+    def _validate_common(self, candidate: Candidate, clock: Clock, min_slot: int) -> bool:
+        if (not candidate.proof_ok or candidate.base_tuple_hash != self.canonical.tuple_hash
                 or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
-                or len({block.window for block in candidate.blocks}) > MAX_WINDOWS_PER_CANDIDATE
+                or len({b.window for b in candidate.blocks}) > MAX_WINDOWS_PER_CANDIDATE
                 or candidate.blocks[0].slot <= self.canonical.tip_slot
                 or candidate.tip.slot < min_slot
-                or candidate.tip.slot > clock.l2_slot + CLOCK_SKEW):
+                or candidate.tip.slot > clock.l2_slot + CLOCK_SKEW
+                or not candidate.beneficiary or not self._anchor_ok(candidate, clock)
+                or not self._sessions_ok(candidate, clock)):
             return False
         parent = self.canonical.tip_hash
         cursor = self.canonical.message_cursor
-        previous_slot = self.canonical.tip_slot
-        previous_cutoff = cursor
-        all_refs: list[int] = []
-        for item in candidate.blocks:
-            if (item.parent_hash != parent or item.message_start != cursor
-                    or item.slot <= previous_slot
-                    or item.slot > clock.l2_slot + CLOCK_SKEW
-                    or item.force_cutoff < previous_cutoff
-                    or item.force_cutoff > len(self.messages)):
+        prior_slot = self.canonical.tip_slot
+        first = candidate.blocks[0]
+        for block in candidate.blocks:
+            if (block.parent_hash != parent or block.slot <= prior_slot
+                    or block.message_start != cursor or not block.body_order_ok
+                    or block.anchor_number != first.anchor_number
+                    or block.force_cutoff != first.force_cutoff
+                    or block.force_root != first.force_root):
                 return False
-            expected_end = self._maximum_prefix_end(cursor, item.force_cutoff)
-            if item.message_end != expected_end:
+            expected = self._prefix_end(cursor, block.force_cutoff)
+            if block.message_end != expected:
                 return False
-            parent = item.block_hash
-            cursor = item.message_end
-            previous_slot = item.slot
-            previous_cutoff = item.force_cutoff
-            all_refs.extend(item.data_record_indices)
-        if (len(all_refs) != len(set(all_refs))
-                or any(index < 0 or index >= len(self.data_records) for index in all_refs)
-                or any(self.data_records[index].version != self.version for index in all_refs)
-                or any(self.data_records[index].valid_until < clock.timestamp for index in all_refs)
-                or candidate.data_mmr_root != self.data_mmr_root
-                or not candidate.data_manifest_exact):
-            return False
+            parent, prior_slot, cursor = block.block_hash, block.slot, block.message_end
         return True
-
-    def _historical_refs_ok(self, candidate: Candidate, clock: Clock) -> bool:
-        return (
-            candidate.final_ref_number == self.canonical.canonicalization_block
-            and candidate.final_ref_hash == self.canonical.canonicalization_hash
-            and self.historical_hash(candidate.final_ref_number, clock)
-                == candidate.final_ref_hash
-            and self.historical_hash(candidate.anchor_number, clock) == candidate.anchor_hash
-        )
 
     def _valid_normal(self, candidate: Candidate, clock: Clock) -> bool:
         if candidate.tier is not Tier.NORMAL_SIGNED:
             return False
         minimum = (self.normal_min_admissible if self.normal_min_admissible is not None
-                   else clock.l2_slot - DELTA_TIP)
+                   else max(0, clock.l2_slot - DELTA_TIP))
+        admission = (self.normal_admission_version if self.normal_admission_version is not None
+                     else self.admission_version)
+        deadline = self.normal_deadline or clock.timestamp + W_SETTLE_SECONDS
         return (self._validate_common(candidate, clock, minimum)
-                and all(item.scheduled_signature_ok for item in candidate.blocks))
+                and all(b.scheduled_signature_ok and b.admission_version == admission
+                        for b in candidate.blocks)
+                and self._sessions_live_through(candidate, deadline + REORG_MARGIN_SECONDS)
+                and candidate.tip.message_end >= self.required_cursor(deadline))
 
     def _valid_recovery(self, candidate: Candidate, clock: Clock) -> bool:
-        if self.activation_slot is None:
+        round_ = self.recovery
+        if round_ is None or not self._validate_common(candidate, clock, max(0, clock.l2_slot - DELTA_TIP)):
             return False
-        if not self._validate_common(candidate, clock, clock.l2_slot - DELTA_TIP):
+        first = candidate.blocks[0]
+        if (candidate.episode != round_.episode
+                or candidate.recovery_revision != round_.revision
+                or candidate.recovery_id != round_.recovery_id
+                or candidate.base_tuple_hash != round_.base_tuple_hash
+                or first.anchor_number != round_.anchor_number
+                or first.anchor_hash != round_.anchor_hash
+                or first.force_root != round_.force_root
+                or first.force_cutoff != round_.force_cutoff
+                or any(b.admission_version != round_.admission_version
+                       for b in candidate.blocks)
+                or clock.block_number - round_.anchor_number < F_L1
+                or candidate.blocks[0].slot < round_.round_start_slot
+                or clock.timestamp > round_.expires_at):
             return False
-        if (candidate.episode_version != self.version
-                or candidate.activation_id != self.activation_id
-                or any(item.force_cutoff != self.force_cutoff
-                       for item in candidate.blocks)
-                or candidate.blocks[0].slot < self.activation_slot
-                or not self._historical_refs_ok(candidate, clock)
-                or clock.block_number - self.canonical.canonicalization_block < F_L1):
-            return False
-        if ((self.causes & Cause.FORCE_DUE)
-                and candidate.tip.message_end <= self.canonical.message_cursor):
+        if round_.causes & Cause.FORCE_DUE and candidate.tip.message_end <= self.canonical.message_cursor:
             return False
         if candidate.tier is Tier.RECOVERY_SIGNED:
-            return all(item.scheduled_signature_ok for item in candidate.blocks)
+            return all(b.scheduled_signature_ok for b in candidate.blocks)
         if candidate.tier is Tier.ESCAPE_UNSIGNED:
-            return (candidate.count == 1
-                    and candidate.tip.slot == self.escape_slot
-                    and not candidate.blocks[0].scheduled_signature_ok
-                    and not candidate.blocks[0].discretionary_body
-                    and candidate.blocks[0].data_record_indices == ())
+            return (candidate.count == 1 and candidate.tip.slot == round_.escape_slot
+                    and not first.scheduled_signature_ok and not first.discretionary_body
+                    and not first.data_records and not candidate.session_refs)
         return False
 
     def submit(self, candidate: Candidate, clock: Clock) -> str:
-        """External EVM wrapper: a sync transition returns before validation."""
+        if self.mode is Mode.PREACTIVE:
+            return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
         if self.mode is Mode.NORMAL:
@@ -359,7 +548,8 @@ class Protocol:
                 return "REJECTED"
             if self.normal_deadline is None:
                 self.normal_deadline = clock.timestamp + W_SETTLE_SECONDS
-                self.normal_min_admissible = clock.l2_slot - DELTA_TIP
+                self.normal_min_admissible = max(0, clock.l2_slot - DELTA_TIP)
+                self.normal_admission_version = self.admission_version
             if self.normal_best is None or candidate.order > self.normal_best.order:
                 self.normal_best = candidate
                 return "ACCEPTED"
@@ -368,26 +558,16 @@ class Protocol:
             return "REJECTED"
         self._commit(candidate, clock)
         self.mode = Mode.NORMAL
-        self.causes = Cause.NONE
-        self.activation_slot = None
-        self.escape_slot = None
-        self.force_cutoff = None
-        self.activation_id = ""
-        self.version += 1
-        self.data_records.clear()
-        self.data_mmr_root = ""
+        self.recovery = None
+        self.admission_version += 1
         self.events.append("RECOVERY_COMMITTED")
         return "COMMITTED"
 
     def _commit(self, candidate: Candidate, clock: Clock) -> None:
         self.canonical = Canonical(
-            candidate.tip.block_hash,
-            candidate.tip.slot,
-            hashlib.sha256(f"state:{candidate.candidate_id}".encode()).hexdigest(),
-            candidate.tip.message_end,
-            clock.block_number,
-            self.history[clock.block_number],
-            candidate.data_mmr_root,
+            candidate.tip.block_hash, candidate.tip.slot, f"state:{candidate.candidate_id}",
+            candidate.tip.message_end, clock.block_number,
+            "sessions:" + ":".join(r.root for r in candidate.session_refs),
         )
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
 
@@ -400,288 +580,244 @@ def check(name: str, condition: bool) -> None:
     PASS.append(name)
 
 
-def clock(number: int, timestamp: int) -> Clock:
-    return Clock(number, timestamp, timestamp // L1_SLOT_SECONDS)
+def clock(number: int, l2_slot: int) -> Clock:
+    return Clock(number, GENESIS_TIMESTAMP + l2_slot)
 
 
-def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True) -> Protocol:
-    history = {number: f"{number:064x}" for number in range(1, 10_000)}
-    canonical = Canonical("a" * 64, tip_slot, "b" * 64, cursor, 900, history[900])
+def make_history(messages: list[Message] | None = None) -> dict[int, L1Header]:
+    queue = messages or []
+    root = "queue:" + ":".join(m.payload_hash for m in queue)
+    return {n: L1Header(f"{n:064x}", GENESIS_TIMESTAMP + n,
+                        f"state-{n}", root, len(queue)) for n in range(1, 20_000)}
+
+
+def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
+             mode: Mode = Mode.NORMAL, messages: list[Message] | None = None) -> Protocol:
+    msgs = list(messages or [])
+    canonical = Canonical("a" * 64, tip_slot, "b" * 64, cursor, 900)
     active = Seat("aggregator", 100) if seat else None
-    return Protocol(canonical, history, active_seat=active,
+    return Protocol(canonical, make_history(msgs), mode, msgs, active_seat=active,
                     standby=[Seat("standby", 70)])
 
 
-def block(index: int, *, slot: int, parent: str, cursor: int,
-          message_end: int | None = None, signed: bool = True,
-          force_cutoff: int | None = None,
-          refs: tuple[int, ...] = (), discretionary: bool = True) -> Block:
-    return Block(slot, f"{index:064x}", parent, slot // 384, signed, cursor,
-                 cursor if message_end is None else message_end,
-                 cursor if force_cutoff is None else force_cutoff,
-                 refs, discretionary)
+def refresh_anchor_state(p: Protocol, number: int) -> None:
+    header = p.history[number]
+    p.history[number] = replace(header, force_root=p.force_root(len(p.messages)),
+                                force_cutoff=len(p.messages))
 
 
-def candidate(p: Protocol, c: Clock, *, ident: str = "candidate", slot: int | None = None,
-              tier: Tier = Tier.NORMAL_SIGNED, signed: bool = True,
-              message_end: int | None = None, refs: tuple[int, ...] = (),
-              discretionary: bool = True, version: int | None = None,
-              activation_id: str | None = None) -> Candidate:
-    if slot is None:
-        slot = p.escape_slot if tier is Tier.ESCAPE_UNSIGNED else c.l2_slot
-    assert slot is not None
-    cutoff = p.force_cutoff if p.mode is Mode.RECOVERY else len(p.messages)
-    assert cutoff is not None
-    item = block(int(hashlib.sha256(ident.encode()).hexdigest(), 16), slot=slot,
-                 parent=p.canonical.tip_hash, cursor=p.canonical.message_cursor,
-                 message_end=message_end, signed=signed, force_cutoff=cutoff, refs=refs,
-                 discretionary=discretionary)
-    return Candidate(
-        ident, p.canonical.tip_hash, (item,), tier, True,
-        p.version if version is None else version,
-        p.activation_id if activation_id is None else activation_id,
-        p.canonical.canonicalization_block, p.canonical.canonicalization_hash,
-        p.canonical.canonicalization_block, p.canonical.canonicalization_hash,
-        p.data_mmr_root, True,
-    )
+def message(enqueued_l2: int, ident: str, gas: int = 100_000, size: int = 100) -> Message:
+    return Message(GENESIS_TIMESTAMP + enqueued_l2, gas, size, ident,
+                   valid_until=GENESIS_TIMESTAMP + enqueued_l2 + DATA_TTL_SECONDS)
 
 
-def open_recovery(p: Protocol) -> Clock:
-    trigger = clock(1_100, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
-    check("P1 sync opens an objective recovery episode", p.sync(trigger))
+def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
+          signed: bool = True, message_start: int | None = None,
+          message_end: int | None = None, cutoff: int | None = None,
+          admission_version: int | None = None, data=(), discretionary=True,
+          body_order_ok=True) -> Block:
+    slot = c.l2_slot if slot is None else slot
+    anchor_number = c.block_number - 1
+    if p.mode is Mode.RECOVERY and p.recovery is not None:
+        anchor_number = p.recovery.anchor_number
+        cutoff = p.recovery.force_cutoff
+    cutoff = len(p.messages) if cutoff is None else cutoff
+    if p.mode is not Mode.RECOVERY:
+        refresh_anchor_state(p, anchor_number)
+    header = p.history[anchor_number]
+    start = p.canonical.message_cursor if message_start is None else message_start
+    end = p._prefix_end(start, cutoff) if message_end is None else message_end
+    return Block(slot, f"{abs(hash(ident)) % (1 << 256):064x}", p.canonical.tip_hash,
+                 slot // 384, signed, start, end, anchor_number, header.block_hash,
+                 header.timestamp, p.force_root(cutoff), cutoff,
+                 p.admission_version if admission_version is None else admission_version,
+                 tuple(data), body_order_ok, discretionary)
+
+
+def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGNED,
+              signed=True, slot=None, message_end=None, refs=(), sessions=(),
+              discretionary=True, body_order_ok=True) -> Candidate:
+    b = block(p, c, ident, slot=slot, signed=signed, message_end=message_end,
+              data=refs, discretionary=discretionary, body_order_ok=body_order_ok,
+              admission_version=(p.normal_admission_version if p.normal_admission_version is not None
+                                 else p.admission_version))
+    r = p.recovery
+    return Candidate(ident, p.canonical.tuple_hash, (b,), tier, True,
+                     r.episode if r else 0, r.revision if r else 0,
+                     r.recovery_id if r else "", tuple(sessions))
+
+
+def open_recovery(p: Protocol, block_number=1_100) -> Clock:
+    trigger = clock(block_number, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    check("P1 objective sync opens recovery", p.sync(trigger))
     return trigger
 
 
-def test_evm_atomicity_and_activation_order() -> None:
+def recovery_submit_clock(p: Protocol) -> Clock:
+    assert p.recovery is not None
+    return clock(p.recovery.anchor_number + F_L1, p.recovery.escape_slot + 1)
+
+
+def escape_candidate(p: Protocol, c: Clock, ident="escape") -> Candidate:
+    return candidate(p, c, ident, tier=Tier.ESCAPE_UNSIGNED, signed=False,
+                     slot=p.recovery.escape_slot if p.recovery else None,
+                     discretionary=False)
+
+
+def test_preactivation_and_atomic_migration() -> None:
+    p = protocol(mode=Mode.PREACTIVE)
+    pre = Clock(950, GENESIS_TIMESTAMP - 100)
+    check("P2 preactivation slot arithmetic saturates", pre.l2_slot == 0)
+    check("P3 preactive settlement rejects candidates", p.submit(candidate(p, clock(1_100, 1_100)), clock(1_100, 1_100)) == "REJECTED_PREACTIVE")
+    imported = Canonical("c" * 64, 1_050, "d" * 64, 7, 1_050)
+    check("P4 one transaction activates exact imported tuple", p.activate_migration(clock(1_100, 1_100), imported))
+    check("P5 migration has no queue/cursor delta", p.mode is Mode.NORMAL and p.canonical == imported)
+
+
+def test_activation_order_and_tombstone_freeze() -> None:
     p = protocol()
     c = clock(1_100, 1_100)
-    best = candidate(p, c, ident="immature")
-    check("P2 first normal candidate is accepted", p.submit(best, c) == "ACCEPTED")
-    p.normal_deadline = 9_999
-    trigger = clock(1_101, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
-    stale = candidate(p, trigger, ident="stale", version=p.version)
-    check("P3 submit returns SYNCED before stale-candidate validation",
-          p.submit(stale, trigger) == "SYNCED")
-    check("P4 activation survived the external call", p.mode is Mode.RECOVERY)
-    check("P5 immature normal best is canceled", p.normal_best is None)
-    check("P6 SLA burns and replaces the incumbent exactly once",
-          p.burned == 100 and p.active_seat is not None
-          and p.active_seat.operator == "standby")
-    before = p.burned
-    check("P7 persistent episode cannot burn another seat", not p.sync(trigger))
-    check("P8 burn remains idempotent", p.burned == before)
-
-    q = protocol()
-    early = clock(1_050, 1_050)
-    mature = candidate(q, early, ident="mature")
-    check("P9 mature setup accepted", q.submit(mature, early) == "ACCEPTED")
-    close_clock = clock(1_200, early.timestamp + W_SETTLE_SECONDS)
-    q.messages.append(Message(0, 100_000, 1, "became-due-after-landing"))
-    check("P10 close and later force activation occur in one non-reverting sync",
-          q.sync(close_clock) and q.mode is Mode.RECOVERY)
-    check("P11 mature best committed before lag was recomputed",
-          q.canonical.tip_hash == mature.tip.block_hash)
+    best = candidate(p, c, "immature")
+    check("P6 normal candidate accepted", p.submit(best, c) == "ACCEPTED")
+    frozen = p.normal_admission_version
+    p.tombstone()
+    check("P7 slash advances only future admission epoch", frozen != p.admission_version)
+    replacement = candidate(p, clock(1_101, 1_101), "same-frozen")
+    check("P8 open window still accepts its frozen admission epoch", p.submit(replacement, clock(1_101, 1_101)) in {"ACCEPTED", "IGNORED"})
+    p.normal_deadline = GENESIS_TIMESTAMP + 9_999  # isolate activation-before-close ordering
+    trigger = clock(1_102, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    check("P9 submit returns SYNCED before parsing stale input", p.submit(best, trigger) == "SYNCED")
+    check("P10 activation survives and immature best is canceled", p.mode is Mode.RECOVERY and p.normal_best is None)
+    check("P11 SLA burn is idempotent", p.burned == 100 and not p.sync(trigger) and p.burned == 100)
 
 
-def test_escape_without_any_builder_or_seat() -> None:
-    p = protocol(seat=False)
-    p.messages = [Message(0, 100_000, 1, "forced-user-tx")]
-    trigger = clock(1_100, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
-    check("P12 seatless activation never reverts", p.sync(trigger))
-    check("P13 both SLA and force causes are recorded",
-          p.causes == Cause.SLA | Cause.FORCE_DUE)
-    submit_clock = clock(p.canonical.canonicalization_block + F_L1,
-                         p.escape_slot + 1)
-    escape = candidate(p, submit_clock, ident="escape", tier=Tier.ESCAPE_UNSIGNED,
-                       signed=False, message_end=1, discretionary=False)
-    check("P14 unsigned deterministic escape commits without a builder",
-          p.submit(escape, submit_clock) == "COMMITTED")
-    check("P15 escape advances forced cursor and canonical slot",
-          p.canonical.message_cursor == 1
-          and p.canonical.tip_slot == trigger.timestamp + ESCAPE_OFFSET)
-    check("P16 canonical commit has no payment dependency", p.active_seat is None)
-
-    p2 = protocol(seat=False)
-    trigger2 = open_recovery(p2)
-    submit2 = clock(p2.canonical.canonicalization_block + F_L1,
-                    p2.escape_slot + 1)
-    empty_escape = candidate(p2, submit2, ident="empty-escape",
-                             tier=Tier.ESCAPE_UNSIGNED, signed=False,
-                             discretionary=False)
-    check("P17 an SLA-only empty escape restores chain liveness",
-          p2.submit(empty_escape, submit2) == "COMMITTED")
+def test_force_admission_and_triple_prefix_bound() -> None:
+    p = protocol()
+    c = clock(1_100, 1_100)
+    check("P12 zero/intrinsic-underdeclared force item rejected", p.admit_message(c, message(1_100, "zero", gas=0)) == "REJECTED")
+    check("P13 oversized force item rejected", p.admit_message(c, message(1_100, "huge", size=MAX_FORCE_MESSAGE_BYTES + 1)) == "REJECTED")
+    for i in range(100):
+        assert p.admit_message(c, message(1_100, f"m{i}", gas=MIN_FORCE_ACCOUNTED_GAS, size=1)) == "ADMITTED"
+    check("P14 count cap bounds low-gas grind", p._prefix_end(0, 100) == MAX_FORCE_MESSAGES)
+    q = protocol(messages=[message(0, "a", gas=5_000_000, size=500_000),
+                           message(0, "b", gas=5_000_000, size=500_000),
+                           message(0, "c", gas=5_000_000, size=500_000)])
+    check("P15 bytes cap independently stops prefix", q._prefix_end(0, 3) == 2)
+    check("P16 block gas geometry is enforced", ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN <= L2_BLOCK_GAS_LIMIT)
 
 
-def test_forced_prefix_and_escape_restrictions() -> None:
-    p = protocol(seat=False)
-    p.messages = [
-        Message(0, 7_000_000, 1, "a"),
-        Message(0, 7_000_000, 1, "b"),
-        Message(0, 7_000_000, 1, "c"),
-        Message(0, 7_000_000, 1, "d"),
-    ]
-    trigger = clock(1_100, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
-    p.sync(trigger)
-    c = clock(p.canonical.canonicalization_block + F_L1, p.escape_slot + 1)
-    short = candidate(p, c, ident="short", tier=Tier.ESCAPE_UNSIGNED,
-                      signed=False, message_end=1, discretionary=False)
-    check("P18 truncating deterministic maximum prefix is rejected",
-          p.submit(short, c) == "REJECTED")
-    exact = candidate(p, c, ident="exact", tier=Tier.ESCAPE_UNSIGNED,
-                      signed=False, message_end=2, discretionary=False)
-    check("P19 maximum gas-fitting prefix commits", p.submit(exact, c) == "COMMITTED")
+def test_force_due_precedes_normal_close() -> None:
+    p = protocol()
+    c = clock(1_100, 1_100)
+    best = candidate(p, c, "ordinary")
+    check("P17 normal window opens", p.submit(best, c) == "ACCEPTED")
+    p.messages.append(message(0, "due"))
+    refresh_anchor_state(p, c.block_number - 1)
+    before = p.canonical.tip_hash
+    due = clock(1_101, 1_101 + FORCE_DELAY)
+    check("P18 due head cancels immature best and activates", p.sync(due) and p.mode is Mode.RECOVERY)
+    check("P19 omitted normal best was not committed", p.canonical.tip_hash == before)
 
-    late = protocol(seat=False)
-    late.messages = [Message(0, 100_000, 1, "frozen")]
-    late_trigger = clock(1_100, late.canonical.tip_slot + DELTA_FINAL_LAG + 1)
-    late.sync(late_trigger)
-    late.messages.append(Message(late_trigger.timestamp, 100_000, 1, "appended-later"))
-    late_clock = clock(late.canonical.canonicalization_block + F_L1,
-                       late.escape_slot + 1)
-    frozen = candidate(late, late_clock, ident="frozen-cutoff",
-                       tier=Tier.ESCAPE_UNSIGNED, signed=False,
-                       message_end=1, discretionary=False)
-    check("P20 post-activation append cannot invalidate the frozen escape input",
-          late.submit(frozen, late_clock) == "COMMITTED")
+    q = protocol(tip_slot=100, messages=[message(0, "covered")])
+    accepted_at = clock(200, FORCE_DELAY - W_SETTLE_SECONDS - 1)
+    covered = candidate(q, accepted_at, "covered-best")
+    check("P20 covering candidate accepted", q.submit(covered, accepted_at) == "ACCEPTED")
+    close = Clock(400, q.normal_deadline)
+    check("P21 mature covering best closes before cause recompute", q.sync(close))
+    check("P22 covered best commits and no force recovery remains", q.canonical.tip_hash == covered.tip.block_hash and q.mode is Mode.NORMAL)
+    check("P23 force delay exceeds settlement plus inclusion", FORCE_DELAY >= W_SETTLE_SECONDS + T_INCLUDE_MAX * L1_SLOT_SECONDS)
+
+
+def test_renewable_recovery_and_anchor_chronology() -> None:
+    p = protocol(seat=False, messages=[message(0, "forced")])
+    trigger = open_recovery(p)
+    original = copy.deepcopy(p.recovery)
+    check("P24 recovery anchor is the activation parent", original.anchor_number == trigger.block_number - 1)
+    check("P25 recovery stores a real prior-block hash", original.anchor_hash == p.history[original.anchor_number].block_hash)
+    during = clock(trigger.block_number + 1, trigger.l2_slot + 1)
+    check("P25a enqueue during recovery remains admissible",
+          p.admit_message(during, message(during.l2_slot, "during-round")) == "ADMITTED")
+    check("P25b appended message cannot mature before frozen round expiry",
+          p.messages[-1].due_at == original.expires_at + 1)
+    early = clock(original.anchor_number + F_L1 - 1, original.escape_slot + 1)
+    check("P26 insufficient L1 depth rejects escape", p.submit(escape_candidate(p, early), early) == "REJECTED")
+    old_proof = escape_candidate(p, recovery_submit_clock(p), "old-proof")
+    late = Clock(5_000, original.expires_at + 1)
+    burned = p.burned
+    check("P27 expired round rolls and returns SYNCED", p.submit(old_proof, late) == "SYNCED")
+    check("P28 roll preserves episode/burn but advances revision", p.recovery.episode == original.episode and p.recovery.revision == original.revision + 1 and p.burned == burned)
+    check("P28a refreshed round includes intervening queue appends",
+          p.recovery.force_cutoff == len(p.messages))
+    fresh_clock = recovery_submit_clock(p)
+    check("P29 stale revision proof is rejected", p.submit(old_proof, fresh_clock) == "REJECTED")
+    fresh = escape_candidate(p, fresh_clock, "fresh")
+    check("P30 fresh deterministic round commits", p.submit(fresh, fresh_clock) == "COMMITTED")
+    check("P31 no current-block hash is stored or queried", not hasattr(p.canonical, "canonicalization_hash"))
 
     q = protocol(seat=False)
-    t = open_recovery(q)
-    cc = clock(q.canonical.canonicalization_block + F_L1, q.escape_slot + 1)
-    bad_body = candidate(q, cc, ident="bad-body", tier=Tier.ESCAPE_UNSIGNED,
-                         signed=False, discretionary=True)
-    check("P21 escape cannot carry discretionary transactions",
-          q.submit(bad_body, cc) == "REJECTED")
-    bad_sig = candidate(q, cc, ident="bad-sig", tier=Tier.ESCAPE_UNSIGNED,
-                        signed=True, discretionary=False)
-    check("P22 escape cannot masquerade as a scheduled block",
-          q.submit(bad_sig, cc) == "REJECTED")
+    open_recovery(q)
+    for days in (2, 4):
+        expiry = q.recovery.expires_at
+        check(f"P32.{days} arbitrary outage can roll", q.sync(Clock(10_000 + days, expiry + days * 86_400)))
+    final_clock = recovery_submit_clock(q)
+    check("P33 multi-day outage still has a live escape", q.submit(escape_candidate(q, final_clock, "days"), final_clock) == "COMMITTED")
 
 
-def test_data_binding_and_bounds() -> None:
+def test_data_session_isolation_sealing_and_retention() -> None:
     p = protocol()
     c = clock(1_100, 1_100)
-    check("P23 unrelated or unavailable blob cannot be registered",
-          not p.post_data(c, same_tx_blobhash=False, body_root="r", publisher="alice",
-                          valid_until=2_000, kzg_opening_ok=True))
-    check("P24 valid same-transaction KZG/Fiat-Shamir record appends",
-          p.post_data(c, same_tx_blobhash=True, body_root="r", publisher="alice",
-                      valid_until=2_000, kzg_opening_ok=True))
-    good = candidate(p, c, ident="with-data", refs=(0,))
-    check("P25 exact unique manifest is accepted", p.submit(good, c) == "ACCEPTED")
-
-    q = protocol()
-    q.post_data(c, same_tx_blobhash=True, body_root="r", publisher="alice",
-                valid_until=2_000, kzg_opening_ok=True)
-    duplicate = candidate(q, c, ident="duplicate", refs=(0, 0))
-    check("P26 duplicate blob coverage is rejected", q.submit(duplicate, c) == "REJECTED")
-    wrong_root = candidate(q, c, ident="wrong-root", refs=(0,))
-    wrong_root = Candidate(**{**wrong_root.__dict__, "data_mmr_root": "bad"})
-    check("P27 candidate must bind the current authenticated MMR root",
-          q.submit(wrong_root, c) == "REJECTED")
-    inexact = candidate(q, c, ident="inexact", refs=(0,))
-    inexact = Candidate(**{**inexact.__dict__, "data_manifest_exact": False})
-    check("P28 manifest must cover every discretionary byte exactly once",
-          q.submit(inexact, c) == "REJECTED")
+    expiry = c.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
+    check("P34 Alice opens bounded owned session", p.open_session(c, "alice-1", "alice", expiry) == "OPENED")
+    check("P35 Mallory cannot append to Alice session", p.post_data(c, "alice-1", "mallory", body_root="x", same_tx_blobhash=True, kzg_opening_ok=True) == "REJECTED")
+    check("P36 Alice appends authenticated record", p.post_data(c, "alice-1", "alice", body_root="x", same_tx_blobhash=True, kzg_opening_ok=True) == "POSTED")
+    check("P37 owner seals immutable session", p.seal_session(c, "alice-1", "alice"))
+    check("P38 sealed root cannot be invalidated by append", p.post_data(c, "alice-1", "alice", body_root="y", same_tx_blobhash=True, kzg_opening_ok=True) == "REJECTED")
+    session = p.sessions["alice-1"]
+    ref = SessionRef(session.session_id, len(session.records), session.root)
+    good = candidate(p, c, "data", refs=(("alice-1", 0),), sessions=(ref,))
+    check("P39 exact sealed session reference validates", p.submit(good, c) == "ACCEPTED")
+    check("P40 independent publisher can open own session", p.open_session(clock(1_101, 1_101), "mallory-1", "mallory", expiry + 100) == "OPENED")
+    check("P41 live-session caps are explicit", MAX_LIVE_DATA_SESSIONS == 1_024 and MAX_DATA_SESSIONS_PER_OWNER == 2)
 
 
-def test_candidate_geometry_history_and_clock_domains() -> None:
-    p = protocol()
+def test_anchor_force_root_body_order_and_resource_rejection() -> None:
+    p = protocol(messages=[message(1_100, "later")])
     c = clock(1_100, 1_100)
-    old = candidate(p, c, ident="old", slot=p.canonical.tip_slot)
-    future = candidate(p, c, ident="future", slot=c.l2_slot + CLOCK_SKEW + 1)
-    check("P29 first block must strictly advance canonical slot",
-          p.submit(old, c) == "REJECTED")
-    check("P30 candidate tip has a current-slot upper bound",
-          p.submit(future, c) == "REJECTED")
-    unsigned_normal = candidate(p, c, ident="unsigned-normal", signed=False)
-    check("P31 normal blocks require scheduled signatures",
-          p.submit(unsigned_normal, c) == "REJECTED")
-
-    q = protocol()
-    trigger = open_recovery(q)
-    too_shallow = clock(q.canonical.canonicalization_block + F_L1 - 1,
-                        trigger.timestamp + 1)
-    recovery = candidate(q, too_shallow, ident="recovery", tier=Tier.RECOVERY_SIGNED)
-    check("P32 recovery finalRef enforces canonicalization depth",
-          q.submit(recovery, too_shallow) == "REJECTED")
-    deep = clock(q.canonical.canonicalization_block + F_L1, trigger.timestamp + 1)
-    wrong_ref = candidate(q, deep, ident="wrong-ref", tier=Tier.RECOVERY_SIGNED)
-    wrong_ref = Candidate(**{**wrong_ref.__dict__, "final_ref_hash": "f" * 64})
-    check("P33 finalRef is authenticated through bounded history",
-          q.submit(wrong_ref, deep) == "REJECTED")
-    good = candidate(q, deep, ident="signed-recovery", tier=Tier.RECOVERY_SIGNED)
-    check("P34 valid scheduled recovery remains permissionless to land",
-          q.submit(good, deep) == "COMMITTED")
+    good = candidate(p, c, "anchored")
+    forged = replace(good, blocks=(replace(good.blocks[0], anchor_hash="f" * 64),))
+    check("P42 forged anchor is rejected", p.submit(forged, c) == "REJECTED")
+    wrong_root = replace(good, blocks=(replace(good.blocks[0], force_root="wrong"),))
+    check("P43 anchor must bind queue root and cutoff", p.submit(wrong_root, c) == "REJECTED")
+    bad_order = candidate(p, c, "bad-order", body_order_ok=False)
+    check("P44 forced prefix must precede discretionary body", p.submit(bad_order, c) == "REJECTED")
+    check("P45 one candidate anchor is an explicit proof bound", MAX_UNIQUE_ANCHORS == 1)
 
 
-def test_normal_order_freeze_reorg_and_resources() -> None:
-    race = protocol()
-    race_clock = clock(1_100, 1_100)
-    anchored = candidate(race, race_clock, ident="anchored-before-append")
-    race.messages.append(Message(race_clock.timestamp, 100_000, 1, "later-append"))
-    check("P35 post-anchor queue append cannot invalidate a normal proof",
-          race.submit(anchored, race_clock) == "ACCEPTED")
-
-    p = protocol()
-    c = clock(1_100, 1_100)
-    first = candidate(p, c, ident="first")
-    check("P36 normal window opens", p.submit(first, c) == "ACCEPTED")
-    frozen = p.normal_min_admissible
-    later = clock(1_101, 1_200)
-    competitor = candidate(p, later, ident="competitor", slot=1_101)
-    check("P37 admissibility floor is frozen for the whole normal window",
-          p.submit(competitor, later) in {"ACCEPTED", "IGNORED"}
-          and p.normal_min_admissible == frozen)
-    close = clock(1_200, c.timestamp + W_SETTLE_SECONDS)
-    check("P38 deterministic close commits exactly one best", p.sync(close))
-    canon_events = [event for event in p.events if event.startswith("CANONICAL:")]
-    check("P39 close has one canonical effect", len(canon_events) == 1)
-
+def test_reorg_and_geometry() -> None:
     pre = protocol().snapshot()
     post = pre.snapshot()
-    rc = clock(1_100, 1_100)
-    cand = candidate(post, rc, ident="reorged")
-    post.submit(cand, rc)
-    post.sync(clock(1_200, rc.timestamp + W_SETTLE_SECONDS))
-    post = pre.snapshot()  # Canonical L1 replay starts from pre-state.
-    check("P40 truncating the L1 close removes every derived effect", post.identical(pre))
-
-    many_windows = tuple(
-        block(i + 1, slot=1_001 + i * 384,
-              parent=("a" * 64 if i == 0 else f"{i:064x}"), cursor=0)
-        for i in range(MAX_WINDOWS_PER_CANDIDATE + 1)
-    )
-    check("P41 candidate window resource bound is finite",
-          len({item.window for item in many_windows}) > MAX_WINDOWS_PER_CANDIDATE)
-    check("P42 each publisher data session has a hard record bound",
-          MAX_DATA_RECORDS_PER_SESSION == 2_100)
-
-
-def test_parameter_geometry() -> None:
-    end_to_end_escape = (T_INCLUDE_MAX * L1_SLOT_SECONDS + ESCAPE_OFFSET
-                         + T_INCLUDE_MAX * L1_SLOT_SECONDS + CLOCK_SKEW)
-    tip_age = T_INCLUDE_MAX * L1_SLOT_SECONDS + CLOCK_SKEW
-    check("P43 escape end-to-end bound fits final-lag budget",
-          end_to_end_escape <= DELTA_FINAL_LAG)
-    check("P44 escape offset covers bounded depth and proof generation",
-          ESCAPE_OFFSET >= T_DEPTH_MAX + P_PROVE_MAX)
-    check("P45 submit latency fits tip-admissibility bound",
-          tip_age <= DELTA_TIP)
-    check("P46 forced message admission guarantees one item fits",
-          MAX_FORCE_MESSAGE_GAS <= FORCE_GAS_BUDGET)
-    check("P47 EIP history ring covers recovery depth and proof path",
-          F_L1 + T_INCLUDE_MAX + (P_PROVE_MAX // L1_SLOT_SECONDS) < HISTORY_RING_BLOCKS)
+    c = clock(1_100, 1_100)
+    post.submit(candidate(post, c, "reorg"), c)
+    post.sync(Clock(1_200, post.normal_deadline))
+    post = pre.snapshot()
+    check("P46 L1 replay truncates every derived effect", post.identical(pre))
+    end_to_end = T_INCLUDE_MAX * L1_SLOT_SECONDS + ESCAPE_OFFSET + T_INCLUDE_MAX * L1_SLOT_SECONDS + CLOCK_SKEW
+    check("P47 recovery path fits final-lag budget", end_to_end <= DELTA_FINAL_LAG)
+    check("P48 escape offset covers depth plus proof", ESCAPE_OFFSET >= T_DEPTH_MAX + P_PROVE_MAX)
+    check("P49 tip freshness covers submission", T_INCLUDE_MAX * L1_SLOT_SECONDS + CLOCK_SKEW <= DELTA_TIP)
+    check("P50 candidate work has explicit independent caps", MAX_BLOCKS_PER_CANDIDATE == 4_096 and MAX_WINDOWS_PER_CANDIDATE == 12 and MAX_DATA_RECORDS_PER_CANDIDATE == 2_100)
 
 
 if __name__ == "__main__":
     for test in (
-        test_evm_atomicity_and_activation_order,
-        test_escape_without_any_builder_or_seat,
-        test_forced_prefix_and_escape_restrictions,
-        test_data_binding_and_bounds,
-        test_candidate_geometry_history_and_clock_domains,
-        test_normal_order_freeze_reorg_and_resources,
-        test_parameter_geometry,
+        test_preactivation_and_atomic_migration,
+        test_activation_order_and_tombstone_freeze,
+        test_force_admission_and_triple_prefix_bound,
+        test_force_due_precedes_normal_close,
+        test_renewable_recovery_and_anchor_chronology,
+        test_data_session_isolation_sealing_and_retention,
+        test_anchor_force_root_body_order_and_resource_rejection,
+        test_reorg_and_geometry,
     ):
         test()
     print("RESULTS: settlement/recovery model — ALL PROPERTIES PASS")
