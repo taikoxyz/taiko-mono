@@ -383,7 +383,8 @@ class Protocol:
     gc_cursor: int = 0
     events: list[str] = field(default_factory=list)
     boundary_queries: int = 0
-    canonical_witness_available: bool = True
+    canonical_state_witness_available: bool = True
+    canonical_code_preimages_available: bool = True
 
     @property
     def core(self) -> CanonicalCore:
@@ -688,7 +689,8 @@ class Protocol:
                 and block.force_cutoff == self.recovery.force_cutoff)
 
     def _validate_common(self, candidate: Candidate, clock: Clock, min_slot: int) -> bool:
-        if (not self.canonical_witness_available
+        if (not self.canonical_state_witness_available
+                or not self.canonical_code_preimages_available
                 or not candidate.proof_ok or not candidate.force_range_proof_ok
                 or candidate.base_canonical_hash != self.canonical.base_hash
                 or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
@@ -1151,10 +1153,14 @@ def test_recovery_refresh_and_historical_immutability() -> None:
     fresh_clock = recovery_submit_clock(p)
     check("P33 stale proof rejects", p.submit(old, fresh_clock) == "REJECTED")
     fresh = escape_candidate(p, fresh_clock, "fresh")
-    p.canonical_witness_available = False
+    p.canonical_state_witness_available = False
     check("P33a a state root alone cannot reconstruct a lost prestate",
           p.submit(fresh, fresh_clock) == "REJECTED")
-    p.canonical_witness_available = True
+    p.canonical_state_witness_available = True
+    p.canonical_code_preimages_available = False
+    check("P33b trie nodes without code preimages cannot execute the prestate",
+          p.submit(fresh, fresh_clock) == "REJECTED")
+    p.canonical_code_preimages_available = True
     check("P34 current deterministic target commits", p.submit(fresh, fresh_clock) == "COMMITTED")
 
     stale = protocol(seat=False)

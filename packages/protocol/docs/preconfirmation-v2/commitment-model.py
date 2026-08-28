@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.6 consensus commitments.
+"""Golden vectors for Slot-Chain v2.8 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -7,6 +7,10 @@ registry/admission/entry/tranche trees, the depth-32 forced vector and canonical
 range proof, session MMR, data chunks/manifests, dispositions, recovery ID and
 blob framing. It intentionally does not pretend that zero KZG bytes are a valid
 opening; a valid c-kzg vector remains a production conformance gate.
+
+The executionProfileHash values below are test fixtures, not the missing
+initial executable profile or evidence that its bytecode/verifier bindings
+exist. Section 13 of the design records that blocker explicitly.
 """
 
 from __future__ import annotations
@@ -48,7 +52,7 @@ D_ENTRY_NODE = b"slot-chain-entry-node-v1"
 D_TRANCHE_LEAF = b"slot-chain-tranche-leaf-v1"
 D_TRANCHE_NODE = b"slot-chain-tranche-node-v1"
 D_FORCE_USER = b"slot-chain-force-user-v2"
-D_FORCE_BRIDGE = b"slot-chain-force-bridge-v2"
+D_FORCE_BRIDGE = b"slot-chain-force-bridge-v3"
 D_FORCE_DESCRIPTOR_LIST = b"slot-chain-force-descriptor-list-v2"
 D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
@@ -61,7 +65,7 @@ D_MANIFEST_LEAF = b"slot-chain-manifest-leaf-v1"
 D_MANIFEST_NODE = b"slot-chain-manifest-node-v1"
 D_MANIFEST_ROOT = b"slot-chain-manifest-root-v1"
 D_DISPOSITIONS = b"slot-chain-dispositions-v1"
-D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v1"
+D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v2"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
@@ -317,6 +321,7 @@ class ForcedEnvelope:
 class BridgeEnvelope:
     msg_hash: bytes
     src_chain_id: int
+    src_bridge: int
     dest_chain_id: int
     src_owner: int
     dest_owner: int
@@ -345,7 +350,8 @@ def forced_descriptor(envelope: ForcedEnvelope) -> bytes:
 def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
     return (
         b32(envelope.msg_hash)
-        + u256(envelope.src_chain_id) + u256(envelope.dest_chain_id)
+        + u256(envelope.src_chain_id) + address20(envelope.src_bridge)
+        + u256(envelope.dest_chain_id)
         + address20(envelope.src_owner) + address20(envelope.dest_owner)
         + u256(envelope.value) + b32(envelope.calldata_hash)
         + b32(envelope.escrow_id) + u32(envelope.byte_length)
@@ -363,7 +369,7 @@ def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
 
 def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
     descriptor = bridge_descriptor(envelope)
-    assert len(descriptor) == 312
+    assert len(descriptor) == 332
     return keccak256(D_FORCE_BRIDGE + u32(index) + descriptor)
 
 
@@ -541,7 +547,8 @@ def dispositions(start: int, rows: tuple[tuple[int, int, int, bytes], ...]) -> b
 def bridge_credit_result(index: int, envelope: BridgeEnvelope) -> bytes:
     return keccak256(
         D_BRIDGE_RESULT + u64(index) + b32(envelope.msg_hash)
-        + u256(envelope.src_chain_id) + u256(envelope.dest_chain_id)
+        + u256(envelope.src_chain_id) + address20(envelope.src_bridge)
+        + u256(envelope.dest_chain_id)
         + address20(envelope.src_owner) + address20(envelope.dest_owner)
         + u256(envelope.value) + b32(envelope.calldata_hash) + b32(envelope.escrow_id)
     )
@@ -703,7 +710,7 @@ def vectors() -> dict[str, str]:
         sessions_hash, 1, 2, outputs_hash, 0xCAFE,
     )
     bridge = BridgeEnvelope(
-        bytes.fromhex("21" * 32), 1, l2_chain_id, 0x1111, 0x2222, 10**18,
+        bytes.fromhex("21" * 32), 1, 0xB123, l2_chain_id, 0x1111, 0x2222, 10**18,
         bytes.fromhex("22" * 32), bytes.fromhex("23" * 32), 96, 120_000,
         0xBEEF, 700, 2_200, 10**16,
     )
@@ -783,8 +790,8 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "f8ada74e7f3bc2dcecc50c13411a265b97b7fc6550391760da4d2fe916fc1226",
-    "bridge_result": "ab9a3282875222b07a9e91fd1858b055f73a7fca873146a0aba9f95edc38ecf0",
+    "bridge_leaf": "8eda0a851d28535776596fb27dc250d305e7d824fd923ce9dade5efd25dc1725",
+    "bridge_result": "2393176aa7b5bec133aa23a19a9edd7f3c8361f992f565c4275d31a8c784f99e",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -845,7 +852,7 @@ if __name__ == "__main__":
     assert not canonical_disposition(0, 2, bytes(32))
     assert not canonical_disposition(6, UINT32_MAX, bytes(32))
     bridge = BridgeEnvelope(
-        bytes.fromhex("21" * 32), 1, 16_788, 0x1111, 0x2222, 10**18,
+        bytes.fromhex("21" * 32), 1, 0xB123, 16_788, 0x1111, 0x2222, 10**18,
         bytes.fromhex("22" * 32), bytes.fromhex("23" * 32), 96, 120_000,
         0xBEEF, 700, 2_200, 10**16,
     )
@@ -854,6 +861,9 @@ if __name__ == "__main__":
                                  expected_bridge_result=bridge_result)
     assert not canonical_disposition(5, UINT32_MAX, bytes.fromhex("44" * 32),
                                      expected_bridge_result=bridge_result)
+    rotated = replace(bridge, src_bridge=0xB124)
+    assert bridge_leaf(70, rotated) != bridge_leaf(70, bridge)
+    assert bridge_credit_result(70, rotated) != bridge_result
 
     sid = bytes.fromhex(actual["session_id"])
     root = bytes.fromhex(actual["body_root"])
@@ -861,6 +871,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 59 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 61 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")
