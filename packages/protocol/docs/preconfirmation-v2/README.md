@@ -7,7 +7,7 @@ with the executable models that verify its consensus-critical arithmetic.
 
 | File | What it is |
 | --- | --- |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 61 pages, 9 figures. This is the artifact to read and to circulate. |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 60 pages, 9 figures. This is the artifact to read and to circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
 | [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, the window-scoped slashing gate and the fallback reward metering. 32 property assertions (Appendix C). |
 | [`lookahead-model.py`](lookahead-model.py) | Executable reference implementation of the lookahead of §3.2: window alignment, snapshot uniqueness, seed derivation and weighted sampling. 6 property assertions. |
