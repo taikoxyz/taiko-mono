@@ -387,51 +387,56 @@ def test_p9_anchor_geometry():
 
 
 def test_p10_slashing_acceptance_gate():
-    """§4.3: 罚没生效【按结算窗口】判定,而非按候选落地时点。
+    """§4.3: 罚没生效只看 header.slot,且【不追溯】——三版规则的最终形态。
 
-    旧规则以候选的 L1 落地时点为准,可被武器化:等价物自己选择提交证据的时刻,
-    而 δ_slash(64 slot)远短于证明+上链的 10–15 分钟,于是它可以让生效时点落在
-    "诚实候选已构造、尚未落地"之间——较重的诚实候选不是被压过而是被判无效,
-    整条尾巴级联作废,较轻的候选反而收盘获胜,代价仅为固定的 L_eq。
-    窗口作用域消除了攻击者对时点的控制:罚没集在开窗(基线冻结)时一并冻结,
-    窗口内所有候选按同一集合判定,证据提交时刻在窗口内不产生任何影响。
+    (1) 按候选的 L1 落地时点判定:可被武器化。等价物自选提交证据的时刻,而
+        δ_slash 远短于证明+上链,故它能让生效时点落在"诚实候选已构造、尚未
+        落地"之间,较重的诚实候选被判无效而非被压过,整条尾巴级联作废。
+    (2) 按结算窗口作用域判定:武器化消失,但代价是罚没最多晚一个 W_settle 才
+        生效,L_eq 的敞口因而多出 1800 个 L2 slot(320 → 680 slot),与 [G6]
+        低进入门槛直接冲突。而它所防的"回填历史 slot"本来就已被明示接受。
+    (3) 最终:只看 header.slot ≥ 生效 slot,立即生效,且对更早的 slot 不追溯。
+        没有任何候选会因时点而被判无效 ⇒ 武器化消失;没有窗口延迟 ⇒ 敞口回到
+        1535 + δ_slash。回填被接受(其无害性论证见 §4.3)。
     """
-    # 罚没在 L1 生效时点 EFFECT;窗口 W 的开窗时点为 open_at
-    EFFECT = 50
+    DELTA_SLASH = 64
+    S0 = 100                              # 证据被 L1 打包时对应的 L2 slot
+    EFFECTIVE = S0 + DELTA_SLASH          # = 164
 
-    def applies_to_window(open_at):
-        """罚没作用于某窗口 ⟺ 其生效时点严格早于该窗口开窗。"""
-        return EFFECT < open_at
+    def valid(header_slot):
+        """最终规则:与落地时点、窗口都无关,只比较 slot。"""
+        return header_slot < EFFECTIVE
 
-    def old_rule_allowed(cand_landed_at):
-        """上一版:按候选自身的落地时点判定(此处仅作对照)。"""
-        return cand_landed_at < EFFECT
+    # a) 纯函数:同一个块在任何候选、任何落地时点下判定相同
+    verdicts = {t: valid(150) for t in (101, 164, 200, 5000)}
+    check("P10a 判定只依赖 header.slot,与落地时点/窗口无关(纯函数)",
+          len(set(verdicts.values())) == 1 and verdicts[5000] is True)
 
-    # a) 窗口作用域:开窗早于生效 ⇒ 整窗不适用;开窗晚于生效 ⇒ 整窗适用
-    check("P10a 罚没按开窗时点作用于整个窗口(生效早于开窗才适用)",
-          not applies_to_window(40) and not applies_to_window(50)
-          and applies_to_window(51))
+    # b) 前向规则确实生效:生效 slot 及其之后该签名者的块一律无效
+    check("P10b 生效 slot 起该签名者的槽位成为 gap",
+          valid(163) and not valid(164) and not valid(500))
 
-    # b) 关键性质:窗口内每个候选的判定一致,与其落地时点无关
-    window_open = 40                      # 生效(50)落在本窗口【中途】
-    lands = [41, 49, 55, 60]              # 同窗内不同落地时点的候选
-    verdicts = {c: applies_to_window(window_open) for c in lands}
-    check("P10b 同一窗口内所有候选判定一致,与各自落地时点无关",
-          len(set(verdicts.values())) == 1 and verdicts[41] is False)
+    # c) 不追溯 ⇒ 在飞行中的诚实候选永不会被罚没判无效(武器化消失)
+    #    对照规则 (1):同一个块按落地时点判定会给出相反结论。
+    def landing_time_rule(cand_landed_at):
+        return cand_landed_at < EFFECTIVE
+    inflight = [120, 170, 300]            # 同一个 header.slot=150 的块,落地时点不同
+    check("P10c 不追溯: header.slot=150 的块在任何落地时点都有效;"
+          "旧的落地时点规则会判其中一部分无效",
+          all(valid(150) for _ in inflight)
+          and not all(landing_time_rule(t) for t in inflight))
 
-    # c) 同构型下旧规则不一致 —— 正是武器化所利用的差别
-    old_verdicts = {c: old_rule_allowed(c) for c in lands}
-    check("P10c 旧规则在同一窗口内给出不一致判定(在飞行中的候选可被判无效)",
-          len(set(old_verdicts.values())) == 2
-          and old_rule_allowed(49) and not old_rule_allowed(55))
+    # d) 级联被 δ_slash 限住:攻击者要作废自己的块,该块的 slot 必须 ≥ 生效 slot,
+    #    即至少在它公开自罚 δ_slash 之后 —— 届时罚没已公开,诚实方按规则跳过它。
+    check("P10d 攻击者能作废的最早槽位比其提交证据晚 δ_slash,诚实方有同等预警",
+          EFFECTIVE - S0 == DELTA_SLASH and not valid(EFFECTIVE))
 
-    # d) 生效落在窗口中途时,罚没从第一个开窗【严格晚于】生效时点的窗口起适用,
-    #    延迟至多一个 W_settle
-    opens = [window_open + n * W_SETTLE for n in range(5)]   # 连续窗口的开窗时点
-    first_applicable = next(o for o in opens if applies_to_window(o))
-    check("P10d 中途生效的罚没从下一个开窗起适用,延迟 ≤ 一个 W_settle",
-          first_applicable > EFFECT and first_applicable - EFFECT <= W_SETTLE
-          and not applies_to_window(window_open))
+    # e) 无窗口延迟 ⇒ L_eq 敞口不含 W_settle_max 项(见 §4.1 的 320 vs 680)
+    exposure_slot_only = 1535 + DELTA_SLASH
+    exposure_window_scoped = 1535 + DELTA_SLASH + 1800
+    check("P10e 敞口回到 1535 + δ_slash;窗口作用域会多出一个 W_settle_max",
+          round(0.20 * exposure_slot_only) == 320
+          and round(0.20 * exposure_window_scoped) == 680)
 
 
 def test_p11_fallback_snapshot():
@@ -478,145 +483,118 @@ def test_p12_midwindow_enqueue():
 
 
 def test_p13_reward_metered_on_marginal_advancement():
-    """§6.3: 固定成本按【(count, tip_slot) 层级】计价,每层仅一份,收盘付给该层持有者。
+    """§6.3: 保证金只向【收盘赢家】支付,且只补足费用份额的缺口。
 
-    上一版按"每个严格改进者一份 C_fixed"计价,可被 tip_hash 磨榨:§4.1 明确
-    罚没是幂等的——同一 builder 的多份等价物证据只罚一次,L_eq 是其威慑上限。
-    因此调度到 slot s 的 builder 可以为同一 slot 签出任意多个不同 header,按
-    tip_hash 递减依次提交,每个都是 §5.2 意义下的严格改进:它只付一次 L_eq,
-    却领走 n 份 C_fixed,把聚合器保证金抽干到 R_WINDOW_MAX。
-    (先前文中"伪造 tip-only 竞争候选每次都要付 L_eq"的说法是错的,与 §4.1 的
-    幂等条款自相矛盾。)
+    前三版都试图"给每个改进者付钱",三次都被抽干,因为攻击者控制候选的数量:
+      (1) 共享上限 ⇒ k>1 时人人低于成本;
+      (2) 每个严格改进一份 ⇒ tip_hash 磨榨(罚没幂等,只付一次 L_eq);
+      (3) 每个 (count, tip_slot) 层级一份 ⇒ 前缀拆分:任何人拿着一条公开有效的
+          尾巴,依次提交其前缀,每个前缀都是新层级;在按成本定价下重复劳动对
+          攻击者免费,而 §11 所要求的增量证明续接会让边际证明【便宜于】C_fixed,
+          于是变为有利可图。
 
-    修正:C_fixed 以层级计价。层级 = 窗口内被接受候选达到过的不同
-    (count, tip_slot);每层恰好一份 C_fixed,收盘时付给该层的持有者,即该层上
-    tip_hash 最小的被接受候选的提交者。于是:
-      · 同层磨 n 个 hash ⇒ 全窗只产生【一份】C_fixed,攻击者白付 n 次证明 + L_eq;
-      · 诚实方顶掉恶意同层候选后【成为该层持有者】,拿到那一份,先提交者拿不到
-        ——激励方向正确;
-      · 每达成一个新层级的诚实改进者照常收回成本。
+    真正的教训:凡是"按可制造的单位计价"的规则都可被抽干。窗口实际需要的服务
+    只有一件——把链从基线推进到赢家的 tip——无论中间提交了多少候选。因此:
+      · 保证金每窗口只付一次,且只付给收盘赢家;被顶掉的候选一无所获;
+      · 支付额 = max(0, C_fixed + φ_data × 赢家发布且被赢家链消费的 blob 数
+        − 该窗口 §7 费用份额),即"补足缺口",费用足够时保证金不出钱;
+      · 于是单窗口保证金外流【结构性地】以一个候选的成本为界,与候选数无关。
+
+    这与 §7 base-fee share 的既有原则一致(被更重候选顶掉的暂定落地者一无所获,
+    winner takes all);先前的 §6.3 反而与本文档自身的激励原则相矛盾。
+    活性要求的是【至少有一方】觉得落地有利可图,而不是每个尝试者都被补偿:
+    无许可兜底是一场竞赛,输家自负成本,这正是竞赛不可被制造出无限索赔的原因。
     """
-    C_FIXED, PHI, PHI_DATA = 10, 7, 2   # 固定成本 / 每块奖励 / 每单位数据字节
-    TRUE_COST = 10                      # 一次证明+上链真实成本;不变式 C_FIXED <= TRUE_COST
-    R_WINDOW_MAX = 10_000               # 单窗口保证金外流硬上限(安全阀)
-
-    assert C_FIXED <= TRUE_COST, "C_FIXED 必须 ≤ 真实成本,否则拆前缀有利可图"
+    C_FIXED, PHI_DATA = 10, 3     # 一次证明+上链的指数化成本 / 每个 blob 的报销
+    TRUE_COST = 10                # 攻击者每次提交的真实成本
 
     def key(c):
         return (c["count"], c["tip_slot"], -c["tip_hash"])
 
-    def settle(subs, base_count=0):
-        """接受严格更优者;C_fixed 按层级计价,φ 按边际块与已发布数据计价。"""
-        best, levels, phi, data = None, {}, {}, {}
+    def settle(subs, base_count=0, fee_share=0):
+        """接受严格更优者;收盘时只向赢家支付,且只补足缺口。"""
+        best, accepted = None, []
         for c in subs:
             if best is None or key(c) > key(best):
-                added = max(0, c["count"] - (best["count"] if best else base_count))
-                phi[c["who"]] = phi.get(c["who"], 0) + added
-                data[c["who"]] = data.get(c["who"], 0) + c.get("bytes", 0)
-                lv = (c["count"], c["tip_slot"])
-                if lv not in levels or c["tip_hash"] < levels[lv][1]:
-                    levels[lv] = (c["who"], c["tip_hash"])   # 该层持有者
-                best = c
-        claims = {}
-        for who, _h in levels.values():
-            claims[who] = claims.get(who, 0) + C_FIXED
-        for who, blocks in phi.items():
-            claims[who] = claims.get(who, 0) + PHI * blocks
-        for who, b in data.items():
-            claims[who] = claims.get(who, 0) + PHI_DATA * b
-        total = sum(claims.values())
-        scale = min(1.0, R_WINDOW_MAX / total) if total else 0
-        payout = {w: v * scale for w, v in claims.items()}
-        return round(sum(payout.values()), 6), payout, best, levels
+                accepted.append(c); best = c
+        if best is None:
+            return 0, {}, None, []
+        # 赢家发布、且被赢家链消费的 blob(按 versioned hash 去重,首次登记者得)
+        seen, blobs = set(), 0
+        for h in best.get("blobs", []):
+            if h not in seen:
+                seen.add(h); blobs += 1
+        gross = C_FIXED + PHI_DATA * blobs
+        bond_out = max(0, gross - fee_share)
+        return bond_out, {best["who"]: bond_out}, best, accepted
 
-    def C(who, count, slot, h=5, b=0):
-        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h, "bytes": b}
+    def C(who, count, slot, h=5, blobs=()):
+        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h,
+                "blobs": list(blobs)}
 
-    # --- a) 新层级(同 count、更晚 tip_slot)的改进者收回成本 --------------------
-    tot, pay, best, lv = settle([C("A", 100, 1000), C("B", 100, 1010)])
-    check("P13a 同 count 更晚 tip_slot 是新层级,改进者收回固定成本",
-          pay.get("B", 0) >= C_FIXED - 1e-9 and best["who"] == "B" and len(lv) == 2)
+    # --- a) 只有收盘赢家从保证金获得支付,被顶掉者一无所获 ----------------------
+    out, pay, best, acc = settle([C("A", 5, 500), C("B", 9, 900)])
+    check("P13a 保证金只付收盘赢家,被顶掉的候选一无所获",
+          best["who"] == "B" and set(pay) == {"B"} and len(acc) == 2
+          and abs(out - C_FIXED) < 1e-9)
 
-    # --- b) 同层 tip_hash 顶替:该层那一份 C_fixed 归【持有者】 ------------------
-    # A 先提交(h=9)并推进了 100 块,B 以更小 hash 顶替同一层。
-    # A 保留自己的边际块奖励(它确实加了块),但该层的固定成本归 B。
-    tot, pay, best, lv = settle([C("A", 100, 1000, h=9), C("B", 100, 1000, h=2)])
-    check("P13b 同层 hash 顶替: 该层唯一一份 C_fixed 归持有者 B,A 只保留 φ 部分",
-          len(lv) == 1 and lv[(100, 1000)][0] == "B"
-          and pay.get("B", 0) >= C_FIXED - 1e-9
-          and abs(pay.get("A", 0) - PHI * 100) < 1e-9
-          and best["who"] == "B")
+    # --- b) 【本轮回归】前缀拆分:N 个前缀只产生一次支付 ------------------------
+    N = 30
+    prefixes = [C("EQ", i, 1000 + i) for i in range(1, N + 1)]
+    out_p, pay_p, best_p, acc_p = settle(prefixes)
+    check("P13b 前缀拆分 30 次: 保证金只付一次(层级计价会付 30 次)",
+          len(acc_p) == N and abs(out_p - C_FIXED) < 1e-9)
+    check("P13b2 前缀拆分对攻击者净亏 N-1 次证明成本",
+          N * TRUE_COST - out_p >= (N - 1) * TRUE_COST - 1e-9)
 
-    # --- c) 【关键回归】同层磨 n 个 hash 只产生一份 C_fixed ----------------------
-    # 基线已在 count=100:磨 hash 不增加任何块,支付应【纯粹】是层级固定成本。
-    n = 40
-    grind_hash = [C("EQ", 100, 1000, h=1000 - i) for i in range(n)]
-    tot_g, payg, _, lvg = settle(grind_hash, base_count=100)
-    check("P13c 同层磨 40 个 tip_hash(不加块): 全窗仅产生一份 C_fixed",
-          len(lvg) == 1 and abs(tot_g - C_FIXED) < 1e-9
-          and abs(payg["EQ"] - C_FIXED) < 1e-9)
+    # --- c) tip_hash 磨榨同样只产生一次支付 ------------------------------------
+    grind = [C("EQ", 100, 1000, h=1000 - i) for i in range(40)]
+    out_g, _, _, acc_g = settle(grind, base_count=100)
+    check("P13c tip_hash 磨榨 40 次: 保证金仍只付一次",
+          len(acc_g) == 40 and abs(out_g - C_FIXED) < 1e-9)
 
-    # 对照:上一版"每个严格改进者一份"会付出 40 份,即攻击成立
-    old_rule_fixed = n * C_FIXED
-    check("P13c2 同构型下旧规则支付 40 份 C_fixed(证明该回归确有鉴别力)",
-          old_rule_fixed == 40 * C_FIXED and old_rule_fixed > 10 * tot_g)
-
-    # 攻击者一次 L_eq + n 次证明,只收回一份 ⇒ 净亏
+    # --- d) 收盘抢跑:抢跑者成为赢家并拿走支付,但其自身成本 ≈ 支付额 ⇒ 不获利 --
+    # 抢跑需要该 slot 的 builder 等价物签名(§5.2),故首次即被罚 L_eq 并移出登记表。
     L_EQ = 500
-    check("P13c3 攻击者净亏: L_eq + n×真实成本 远超其所得",
-          L_EQ + n * TRUE_COST > tot_g)
+    snipe = [C("HONEST", 1, 100, h=9), C("SNIPER", 1, 100, h=2)]
+    out_s, pay_s, best_s, _ = settle(snipe)
+    check("P13d 抢跑者成为赢家,但所得 ≤ 自身成本 + L_eq ⇒ 不获利",
+          best_s["who"] == "SNIPER" and pay_s["SNIPER"] <= TRUE_COST + L_EQ)
+    check("P13d2 诚实落地者输掉竞赛即自负成本(竞赛语义,已在 §6.3 明示)",
+          "HONEST" not in pay_s)
 
-    # --- d) 拆前缀:每个前缀是新层级,但 C_FIXED ≤ 真实成本 ⇒ 至多打平 ----------
-    one, pay1, _, lv1 = settle([C("X", 12, 1200)])
-    grind, payg2, _, lvk = settle([C("X", i, 1000 + i) for i in range(1, 13)])
-    phi_one = one - len(lv1) * C_FIXED
-    phi_grind = grind - len(lvk) * C_FIXED
-    check("P13d 拆 12 个前缀: 边际块奖励与一次落满相同,固定部分至多打平",
-          abs(phi_one - phi_grind) < 1e-9 and len(lvk) == 12
-          and grind <= 12 * TRUE_COST + phi_grind + 1e-9)
+    # --- e) 结构性上界:任意提交序列下,单窗口保证金外流 ≤ 一个候选的成本 ------
+    import random
+    rng = random.Random(20260828)
+    worst = 0
+    for _ in range(400):
+        seq, cnt, slot = [], 0, 0
+        for _ in range(rng.randint(1, 25)):
+            cnt += rng.randint(0, 3); slot += rng.randint(0, 40)
+            seq.append(C("w%d" % rng.randint(0, 5), cnt, slot,
+                         h=rng.randint(0, 999),
+                         blobs=tuple(range(rng.randint(0, 4)))))
+        o, _, b, _ = settle(seq)
+        bound = C_FIXED + PHI_DATA * (len(set(b["blobs"])) if b else 0)
+        assert o <= bound + 1e-9, "structural bound violated"
+        worst = max(worst, o)
+    check("P13e 400 组随机序列: 保证金外流恒 ≤ 一个候选的成本(与候选数无关)",
+          worst > 0)
 
-    # --- e) 多个独立诚实改进者各自收回成本(旧的共享上限在此失效) --------------
-    def shared_cap_rule(subs, base_count=0):
-        """更早的一版:窗口上限只含【一份】C_FIXED,超额一律按比例分摊。"""
-        best, claims = None, []
-        for c in subs:
-            if best is None or key(c) > key(best):
-                added = max(0, c["count"] - (best["count"] if best else base_count))
-                claims.append(C_FIXED + PHI * added); best = c
-        cap = C_FIXED + PHI * (best["count"] - base_count) if best else 0
-        tot = sum(claims)
-        return [x * min(1.0, cap / tot) for x in claims] if tot else []
-
-    subs3 = [C("A", 5, 500, h=9), C("B", 5, 510, h=9), C("D", 6, 600)]
-    tot_m, paym, _, lv3 = settle(subs3, base_count=5)
-    check("P13e 三个独立改进者各自收回成本(共享上限规则下人人低于成本)",
-          len(lv3) == 3 and all(v >= C_FIXED - 1e-9 for v in paym.values())
-          and all(v < C_FIXED for v in shared_cap_rule(subs3, 5)))
-
-    # --- f) 对抗序列:count 与 tip 改进交替,人人仍收回成本 --------------------
-    adv = [C("A", 5, 500), C("B", 5, 510), C("A", 6, 600), C("B", 6, 610),
-           C("A", 7, 700), C("B", 7, 710)]
-    tot_a, paya, best_a, lva = settle(adv)
-    check("P13f 对抗序列: 每个改进者仍收回成本,层级数 = 真实推进步数",
-          len(lva) == 6 and best_a["count"] == 7
-          and all(v >= C_FIXED - 1e-9 for v in paya.values()))
+    # --- f) 费用份额足够时,保证金不出钱(只补缺口) ----------------------------
+    out_f, pay_f, _, _ = settle([C("A", 9, 900)], fee_share=C_FIXED + 5)
+    check("P13f §7 费用份额覆盖成本时保证金零外流(保证金只补缺口)",
+          abs(out_f) < 1e-9)
 
     # --- g) 更差候选不被接受,不产生支付 ----------------------------------------
-    tot_w, payw, _, lvw = settle([C("A", 12, 1200), C("B", 4, 400), C("D", 9, 900)])
+    out_w, pay_w, best_w, acc_w = settle([C("A", 12, 1200), C("B", 4, 400)])
     check("P13g 更差候选零支付(不接受即不计费)",
-          set(payw) == {"A"} and len(lvw) == 1)
+          len(acc_w) == 1 and set(pay_w) == {"A"})
 
-    # --- h) 数据发布成本可报销:兜底方发布的数据字节按 φ_data 计价 -------------
-    tot_d, payd, _, _ = settle([C("F", 20, 2000, b=64)])
-    check("P13h 兜底方发布数据的字节成本获报销(否则数据被扣留时无人愿意兜底)",
-          payd["F"] >= C_FIXED + PHI_DATA * 64 - 1e-9)
-
-    # --- i) 硬上限是安全阀:正常窗口不触发,极端情形下确实封顶 -----------------
-    normal, _, _, _ = settle([C("A", 50, 500), C("B", 120, 1200)])
-    huge = [C("g%d" % i, i, 10 * i) for i in range(1, 1201)]
-    tot_h, _, _, _ = settle(huge)
-    check("P13i 硬上限不约束正常窗口,极端情形下封顶保证金外流",
-          normal < R_WINDOW_MAX and tot_h <= R_WINDOW_MAX + 1e-9)
+    # --- h) φ_data 按【blob 个数】计价并按 versioned hash 去重(非按字节) -----
+    out_d, pay_d, _, _ = settle([C("F", 20, 2000, blobs=(7, 7, 8))])
+    check("P13h φ_data 按 blob 计价、同一 versioned hash 只报销一次",
+          abs(pay_d["F"] - (C_FIXED + PHI_DATA * 2)) < 1e-9)
 
 
 if __name__ == "__main__":
