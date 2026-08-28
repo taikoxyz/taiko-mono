@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.13 consensus commitments.
+"""Golden vectors for Slot-Chain v2.14 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -52,7 +52,7 @@ D_ENTRY_NODE = b"slot-chain-entry-node-v1"
 D_TRANCHE_LEAF = b"slot-chain-tranche-leaf-v1"
 D_TRANCHE_NODE = b"slot-chain-tranche-node-v1"
 D_FORCE_USER = b"slot-chain-force-user-v2"
-D_FORCE_BRIDGE = b"slot-chain-force-bridge-v7"
+D_FORCE_BRIDGE = b"slot-chain-force-bridge-v9"
 D_FORCE_DESCRIPTOR_LIST = b"slot-chain-force-descriptor-list-v2"
 D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
@@ -65,12 +65,14 @@ D_MANIFEST_LEAF = b"slot-chain-manifest-leaf-v1"
 D_MANIFEST_NODE = b"slot-chain-manifest-node-v1"
 D_MANIFEST_ROOT = b"slot-chain-manifest-root-v1"
 D_DISPOSITIONS = b"slot-chain-dispositions-v1"
-D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v6"
-D_BRIDGE_CREDIT_ID = b"slot-chain-bridge-credit-id-v3"
+D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v8"
+D_BRIDGE_CREDIT_ID = b"slot-chain-bridge-credit-id-v5"
 D_BRIDGE_ESCROW = b"slot-chain-bridge-escrow-v1"
-D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v1"
-D_BRIDGE_FAILED = b"slot-chain-bridge-failed-v2"
-D_SOURCE_DOMAIN = b"slot-chain-source-domain-v1"
+D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v3"
+D_BRIDGE_DONE = b"slot-chain-bridge-done-v1"
+D_BRIDGE_FAILED = b"slot-chain-bridge-failed-v4"
+D_SOURCE_DOMAIN = b"slot-chain-source-domain-v3"
+D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v2"
 D_BRIDGE_EXECUTION = b"slot-chain-source-bridge-execution-v1"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
@@ -335,14 +337,19 @@ class BridgeEnvelope:
     source_domain_id: bytes
     src_epoch: int
     src_bridge: int
+    bridge_execution_hash: bytes
     emitted_at_block: int
-    src_block_number: int
-    src_block_hash: bytes
+    destination_domain_id: bytes
     dest_chain_id: int
+    enqueue_by: int
+    sender: int
     src_owner: int
     dest_owner: int
     value: int
+    fee: int
     calldata_hash: bytes
+    refund_vault: int
+    refund_capsule_hash: bytes
     escrow_id: bytes
     byte_length: int
     accounted_gas: int
@@ -369,11 +376,13 @@ def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
         + u256(envelope.src_chain_id) + b32(envelope.source_domain_id)
         + u64(envelope.src_epoch)
         + address20(envelope.src_bridge)
-        + u64(envelope.emitted_at_block)
-        + u64(envelope.src_block_number) + b32(envelope.src_block_hash)
-        + u256(envelope.dest_chain_id)
-        + address20(envelope.src_owner) + address20(envelope.dest_owner)
-        + u256(envelope.value) + b32(envelope.calldata_hash)
+        + b32(envelope.bridge_execution_hash) + u64(envelope.emitted_at_block)
+        + b32(envelope.destination_domain_id) + u256(envelope.dest_chain_id)
+        + u64(envelope.enqueue_by)
+        + address20(envelope.sender) + address20(envelope.src_owner)
+        + address20(envelope.dest_owner) + u256(envelope.value)
+        + u64(envelope.fee) + b32(envelope.calldata_hash)
+        + address20(envelope.refund_vault) + b32(envelope.refund_capsule_hash)
         + b32(envelope.escrow_id) + u32(envelope.byte_length)
         + u64(envelope.accounted_gas) + address20(envelope.refund)
         + u64(envelope.enqueued_at) + u64(envelope.due_at)
@@ -389,52 +398,60 @@ def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
 
 def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
     descriptor = bridge_descriptor(envelope)
-    assert len(descriptor) == 420
+    assert len(descriptor) == 532
     return keccak256(D_FORCE_BRIDGE + u32(index) + descriptor)
 
 
 @dataclass(frozen=True)
-class TopologyNode:
-    kind: int
-    account: int
-    runtime_code_hash: bytes
-    slots: tuple[tuple[bytes, bytes], ...] = ()
+class ExecutorDescriptor:
+    dispatcher: int
+    controller: int
+    executor: int
+    executor_runtime_hash: bytes
+    entry_selector: bytes
+    profile_hash: bytes
 
 
-def canonical_topology_bytes(entry_selector: bytes,
-                             nodes: tuple[TopologyNode, ...]) -> bytes:
-    assert 1 <= len(nodes) <= 8
-    assert nodes[-1].kind == 0
-    seen_accounts: set[int] = set()
-    encoded = u8(1) + b4(entry_selector) + u8(len(nodes))
-    for index, node in enumerate(nodes):
-        assert 0 <= node.kind <= 3
-        assert (node.kind == 0) == (index == len(nodes) - 1)
-        assert node.account != 0 and node.account not in seen_accounts
-        assert b32(node.runtime_code_hash) != bytes(32)
-        assert len(node.slots) <= 8
-        slots = tuple(slot for slot, _ in node.slots)
-        assert slots == tuple(sorted(slots)) and len(set(slots)) == len(slots)
-        seen_accounts.add(node.account)
-        encoded += (u8(node.kind) + address20(node.account)
-                    + b32(node.runtime_code_hash) + u8(len(node.slots)))
-        for slot, value in node.slots:
-            encoded += b32(slot) + b32(value)
-    assert len(encoded) <= 4_096
-    return encoded
+def canonical_executor_descriptor(descriptor: ExecutorDescriptor) -> bytes:
+    assert (descriptor.dispatcher != 0 and descriptor.controller != 0
+            and descriptor.executor != 0
+            and descriptor.executor_runtime_hash != bytes(32)
+            and descriptor.profile_hash != bytes(32))
+    return (address20(descriptor.dispatcher) + address20(descriptor.controller)
+            + address20(descriptor.executor)
+            + b32(descriptor.executor_runtime_hash)
+            + b4(descriptor.entry_selector) + b32(descriptor.profile_hash))
 
 
-def bridge_execution_hash(entry_selector: bytes,
-                          nodes: tuple[TopologyNode, ...]) -> bytes:
-    topology = canonical_topology_bytes(entry_selector, nodes)
-    return keccak256(D_BRIDGE_EXECUTION + u32(len(topology)) + topology)
+def bridge_execution_hash(descriptor: ExecutorDescriptor) -> bytes:
+    encoded = canonical_executor_descriptor(descriptor)
+    return keccak256(D_BRIDGE_EXECUTION + u32(len(encoded)) + encoded)
 
 
 def source_domain_id(src_chain_id: int, genesis_hash: bytes,
-                     registry: int, registry_namespace: bytes) -> bytes:
-    assert genesis_hash != bytes(32) and registry_namespace != bytes(32)
+                     registry: int, controller: int, bridge: int,
+                     registry_namespace: bytes) -> bytes:
+    assert (genesis_hash != bytes(32) and registry_namespace != bytes(32)
+            and registry != 0 and controller != 0 and bridge != 0)
     return keccak256(D_SOURCE_DOMAIN + u64(src_chain_id) + b32(genesis_hash)
-                     + address20(registry) + b32(registry_namespace))
+                     + address20(registry) + address20(controller)
+                     + address20(bridge)
+                     + b32(registry_namespace))
+
+
+def destination_domain_id(dest_chain_id: int, genesis_hash: bytes,
+                          l1_checkpoint_signal_service: int, l1_adapter: int,
+                          l2_signal_service: int, bridge: int,
+                          namespace: bytes) -> bytes:
+    assert (genesis_hash != bytes(32) and namespace != bytes(32)
+            and l1_checkpoint_signal_service != 0 and l1_adapter != 0
+            and l2_signal_service != 0 and bridge != 0)
+    return keccak256(D_DESTINATION_DOMAIN + u64(dest_chain_id)
+                     + b32(genesis_hash)
+                     + address20(l1_checkpoint_signal_service)
+                     + address20(l1_adapter) + address20(l2_signal_service)
+                     + address20(bridge)
+                     + b32(namespace))
 
 
 def force_descriptor_list(start: int,
@@ -612,34 +629,47 @@ def bridge_credit_result(index: int, envelope: BridgeEnvelope) -> bytes:
     return keccak256(
         D_BRIDGE_RESULT + u64(index) + bridge_credit_id(
             envelope.src_chain_id, envelope.source_domain_id, envelope.src_epoch,
-            envelope.src_bridge, envelope.msg_hash)
+            envelope.src_bridge, envelope.destination_domain_id,
+            envelope.msg_hash)
         + b32(envelope.msg_hash)
         + u256(envelope.src_chain_id) + b32(envelope.source_domain_id)
         + u64(envelope.src_epoch)
         + address20(envelope.src_bridge)
-        + u64(envelope.emitted_at_block)
-        + u64(envelope.src_block_number) + b32(envelope.src_block_hash)
-        + u256(envelope.dest_chain_id)
-        + address20(envelope.src_owner) + address20(envelope.dest_owner)
-        + u256(envelope.value) + b32(envelope.calldata_hash) + b32(envelope.escrow_id)
+        + b32(envelope.bridge_execution_hash) + u64(envelope.emitted_at_block)
+        + b32(envelope.destination_domain_id) + u256(envelope.dest_chain_id)
+        + u64(envelope.enqueue_by)
+        + address20(envelope.sender) + address20(envelope.src_owner)
+        + address20(envelope.dest_owner) + u256(envelope.value)
+        + u64(envelope.fee) + b32(envelope.calldata_hash)
+        + address20(envelope.refund_vault) + b32(envelope.refund_capsule_hash)
+        + b32(envelope.escrow_id)
     )
 
 
 def bridge_credit_id(src_chain_id: int, source_domain_id_: bytes, src_epoch: int,
-                     src_bridge: int, msg_hash: bytes) -> bytes:
+                     src_bridge: int, destination_domain_id_: bytes,
+                     msg_hash: bytes) -> bytes:
     return keccak256(D_BRIDGE_CREDIT_ID + u64(src_chain_id)
                      + b32(source_domain_id_) + u64(src_epoch)
-                     + address20(src_bridge) + b32(msg_hash))
+                     + address20(src_bridge) + b32(destination_domain_id_)
+                     + b32(msg_hash))
 
 
 def inbox_credit_slot(source_domain_id_: bytes, src_bridge: int,
-                      credit_id: bytes) -> bytes:
+                      destination_domain_id_: bytes, credit_id: bytes) -> bytes:
     return keccak256(D_INBOX_CREDIT_SLOT + b32(source_domain_id_)
-                     + address20(src_bridge) + b32(credit_id))
+                     + address20(src_bridge) + b32(destination_domain_id_)
+                     + b32(credit_id))
 
 
-def bridge_failed_signal(credit_id: bytes) -> bytes:
-    return keccak256(D_BRIDGE_FAILED + b32(credit_id))
+def bridge_failed_signal(destination_domain_id_: bytes, credit_id: bytes) -> bytes:
+    return keccak256(D_BRIDGE_FAILED + b32(destination_domain_id_)
+                     + b32(credit_id))
+
+
+def bridge_done_signal(destination_domain_id_: bytes, credit_id: bytes) -> bytes:
+    return keccak256(D_BRIDGE_DONE + b32(destination_domain_id_)
+                     + b32(credit_id))
 
 
 def bridge_escrow_id(credit_id: bytes) -> bytes:
@@ -648,12 +678,15 @@ def bridge_escrow_id(credit_id: bytes) -> bytes:
 
 def pin_inbox_credit(store: dict[bytes, bytes], src_chain_id: int,
                      source_domain_id_: bytes, src_epoch: int,
-                     src_bridge: int, msg_hash: bytes, result_hash: bytes) -> bool:
+                     src_bridge: int, destination_domain_id_: bytes,
+                     msg_hash: bytes, result_hash: bytes) -> bool:
     if src_bridge == 0 or msg_hash == bytes(32) or result_hash == bytes(32):
         return False
     credit_id = bridge_credit_id(
-        src_chain_id, source_domain_id_, src_epoch, src_bridge, msg_hash)
-    key = inbox_credit_slot(source_domain_id_, src_bridge, credit_id)
+        src_chain_id, source_domain_id_, src_epoch, src_bridge,
+        destination_domain_id_, msg_hash)
+    key = inbox_credit_slot(
+        source_domain_id_, src_bridge, destination_domain_id_, credit_id)
     existing = store.get(key)
     if existing is None:
         store[key] = result_hash
@@ -663,7 +696,7 @@ def pin_inbox_credit(store: dict[bytes, bytes], src_chain_id: int,
 
 def pin_inbox_credit_batch(
     store: dict[bytes, bytes],
-    rows: tuple[tuple[int, int, bytes, int, int, bytes, bytes], ...],
+    rows: tuple[tuple[int, int, bytes, int, int, bytes, bytes, bytes], ...],
 ) -> bool:
     if len(rows) > 64:
         return False
@@ -672,12 +705,14 @@ def pin_inbox_credit_batch(
         return False
     staged = dict(store)
     seen: set[bytes] = set()
-    for _, src_chain_id, source_domain_id_, src_epoch, src_bridge, msg_hash, result in rows:
+    for (_, src_chain_id, source_domain_id_, src_epoch, src_bridge,
+         destination_domain_id_, msg_hash, result) in rows:
         credit_id = bridge_credit_id(
-            src_chain_id, source_domain_id_, src_epoch, src_bridge, msg_hash)
+            src_chain_id, source_domain_id_, src_epoch, src_bridge,
+            destination_domain_id_, msg_hash)
         if credit_id in seen or not pin_inbox_credit(
                 staged, src_chain_id, source_domain_id_, src_epoch, src_bridge,
-                msg_hash, result):
+                destination_domain_id_, msg_hash, result):
             return False
         seen.add(credit_id)
     store.clear()
@@ -841,21 +876,25 @@ def vectors() -> dict[str, str]:
         sessions_hash, 1, 2, outputs_hash, 0xCAFE,
     )
     source_domain = source_domain_id(
-        1, bytes.fromhex("25" * 32), 0xD001, bytes.fromhex("26" * 32))
-    topology_nodes = (
-        TopologyNode(1, 0xB123, bytes.fromhex("31" * 32), (
-            (bytes.fromhex("00" * 31 + "01"), bytes.fromhex("00" * 12 + "00" * 18 + "b124")),
-        )),
-        TopologyNode(0, 0xB124, bytes.fromhex("32" * 32)),
-    )
+        1, bytes.fromhex("25" * 32), 0xD001, 0xD002, 0xB123,
+        bytes.fromhex("26" * 32))
+    destination_domain = destination_domain_id(
+        l2_chain_id, bytes.fromhex("35" * 32), 0xD100, 0xAD00,
+        0x5100, 0xB200,
+        bytes.fromhex("36" * 32))
+    executor_descriptor = ExecutorDescriptor(
+        0xB123, 0xD002, 0xB124, bytes.fromhex("32" * 32),
+        bytes.fromhex("12345678"), bytes.fromhex("34" * 32))
+    bridge_execution = bridge_execution_hash(executor_descriptor)
     bridge_msg_hash = bytes.fromhex("21" * 32)
     bridge_credit = bridge_credit_id(
-        1, source_domain, 7, 0xB123, bridge_msg_hash)
+        1, source_domain, 7, 0xB123, destination_domain, bridge_msg_hash)
     bridge = BridgeEnvelope(
-        bridge_msg_hash, 1, source_domain, 7, 0xB123, 12_300, 12_345,
-        bytes.fromhex("24" * 32), l2_chain_id,
-        0x1111, 0x2222, 10**18,
-        bytes.fromhex("22" * 32), bridge_escrow_id(bridge_credit), 96, 120_000,
+        bridge_msg_hash, 1, source_domain, 7, 0xB123, bridge_execution,
+        12_300, destination_domain, l2_chain_id, 800_000,
+        0x3333, 0x1111, 0x2222, 10**18, 1_234,
+        bytes.fromhex("22" * 32), 0x4444, bytes.fromhex("23" * 32),
+        bridge_escrow_id(bridge_credit), 96, 120_000,
         0xBEEF, 700, 2_200, 10**16,
     )
     bridge_hash = bridge_leaf(70, bridge)
@@ -894,11 +933,15 @@ def vectors() -> dict[str, str]:
         "bridge_credit_id": bridge_credit.hex(),
         "bridge_escrow_id": bridge_escrow_id(bridge_credit).hex(),
         "inbox_credit_slot": inbox_credit_slot(
-            bridge.source_domain_id, bridge.src_bridge, bridge_credit).hex(),
-        "bridge_failed_signal": bridge_failed_signal(bridge_credit).hex(),
+            bridge.source_domain_id, bridge.src_bridge,
+            bridge.destination_domain_id, bridge_credit).hex(),
+        "bridge_failed_signal": bridge_failed_signal(
+            bridge.destination_domain_id, bridge_credit).hex(),
+        "bridge_done_signal": bridge_done_signal(
+            bridge.destination_domain_id, bridge_credit).hex(),
         "source_domain_id": source_domain.hex(),
-        "bridge_execution_hash": bridge_execution_hash(
-            bytes.fromhex("12345678"), topology_nodes).hex(),
+        "destination_domain_id": destination_domain.hex(),
+        "bridge_execution_hash": bridge_execution.hex(),
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
@@ -942,14 +985,16 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "25166869aba48ca26b8ccb87e0172605eee3f191be9aaae8aca0b35f8b88f316",
-    "bridge_result": "c23272f6afd7c21ba7bc1ce211bd0b7caf5a498ffa782c63dbe3181768e82684",
-    "bridge_credit_id": "4e5ca7e70f7832fd08235821dd0e4b54c05635ab01eb2ce24562d77871307ad5",
-    "bridge_escrow_id": "9602fc9d79915d2e8fa052d9be72069ccbf13839b406584daf07088b34b648c5",
-    "inbox_credit_slot": "81cea6e71e51e82a170dbdcf00536cba7ecf493af91ac26b8bbf577fbf6f6d05",
-    "bridge_failed_signal": "041527ac55aff43ae75e842b2c9ea7be33eab83fccb43c6813e1187af5ce5194",
-    "source_domain_id": "0200a9c8b107399151be3a25b7ebfd4b500b616a3e9a7eab7698284ea0bfbb52",
-    "bridge_execution_hash": "902970f59bbc440b3d36429ad2add690959871287a52e65123001a635404c84b",
+    "bridge_leaf": "ecf8ece8103c4c29e2950ce7c358090ed35794b5c37edd9d0078cee1a428dd7c",
+    "bridge_result": "086f6a6ff9e5544edf3fbd18f1ffc8846b1c273e9b75111611704b78c070a51a",
+    "bridge_credit_id": "02adfe379c3c635185d5567a161997ca5c67014c98ced36367af325b7633d911",
+    "bridge_escrow_id": "beaf354c3250824a34894b06c3793e48c34d85acbe6188a9e51a4079720c3a94",
+    "inbox_credit_slot": "1d5f5299164a463fe71117004ffbf4aafa2d0b82a88b5dca23516b05086f07c6",
+    "bridge_failed_signal": "6c49f51e1147609392715b2a66bb5903855cac50f1b8836b1a4b45afc0d4fe78",
+    "bridge_done_signal": "4dbd5cba807b9b4ee4337d45a2f9b0394e299bac07fff326f836bc095dca1dec",
+    "source_domain_id": "002a241ebc9ff4f457d53098d628fca7b374fb9ec71762acee6b7cf0641f7b99",
+    "destination_domain_id": "b9415f984334b03b30510ba5f5af40624f6c6e26e01bbe7d444cd2b596bdb3d2",
+    "bridge_execution_hash": "1cc4b57107cba6f2c3ba9a76a020aaaa22c73aee36b505caf839003edac1bcd7",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -1010,14 +1055,22 @@ if __name__ == "__main__":
     assert not canonical_disposition(0, 2, bytes(32))
     assert not canonical_disposition(6, UINT32_MAX, bytes(32))
     domain_r1 = source_domain_id(
-        1, bytes.fromhex("25" * 32), 0xD001, bytes.fromhex("26" * 32))
+        1, bytes.fromhex("25" * 32), 0xD001, 0xD002, 0xB123,
+        bytes.fromhex("26" * 32))
+    destination_domain = destination_domain_id(
+        16_788, bytes.fromhex("35" * 32), 0xD100, 0xAD00,
+        0x5100, 0xB200,
+        bytes.fromhex("36" * 32))
     bridge_msg_hash = bytes.fromhex("21" * 32)
-    bridge_credit = bridge_credit_id(1, domain_r1, 7, 0xB123, bridge_msg_hash)
+    execution_hash = bytes.fromhex(actual["bridge_execution_hash"])
+    bridge_credit = bridge_credit_id(
+        1, domain_r1, 7, 0xB123, destination_domain, bridge_msg_hash)
     bridge = BridgeEnvelope(
-        bridge_msg_hash, 1, domain_r1, 7, 0xB123, 12_300, 12_345,
-        bytes.fromhex("24" * 32), 16_788,
-        0x1111, 0x2222, 10**18,
-        bytes.fromhex("22" * 32), bridge_escrow_id(bridge_credit), 96, 120_000,
+        bridge_msg_hash, 1, domain_r1, 7, 0xB123, execution_hash,
+        12_300, destination_domain, 16_788, 800_000,
+        0x3333, 0x1111, 0x2222, 10**18, 1_234,
+        bytes.fromhex("22" * 32), 0x4444, bytes.fromhex("23" * 32),
+        bridge_escrow_id(bridge_credit), 96, 120_000,
         0xBEEF, 700, 2_200, 10**16,
     )
     bridge_result = bridge_credit_result(70, bridge)
@@ -1025,39 +1078,57 @@ if __name__ == "__main__":
                                  expected_bridge_result=bridge_result)
     assert not canonical_disposition(5, UINT32_MAX, bytes.fromhex("44" * 32),
                                      expected_bridge_result=bridge_result)
-    rotated = replace(bridge, src_epoch=8, src_bridge=0xB124)
+    rotated = replace(
+        bridge, src_epoch=8, bridge_execution_hash=bytes.fromhex("33" * 32))
     assert bridge_leaf(70, rotated) != bridge_leaf(70, bridge)
     assert bridge_credit_result(70, rotated) != bridge_result
-    refreshed_witness = replace(
-        bridge, src_block_number=12_400, src_block_hash=bytes.fromhex("34" * 32))
+    changed_destination = replace(
+        bridge, destination_domain_id=bytes.fromhex("34" * 32))
     assert (bridge_credit_id(
-                refreshed_witness.src_chain_id, refreshed_witness.source_domain_id,
-                refreshed_witness.src_epoch, refreshed_witness.src_bridge,
-                refreshed_witness.msg_hash)
-            == bridge_credit_id(
+                changed_destination.src_chain_id,
+                changed_destination.source_domain_id,
+                changed_destination.src_epoch, changed_destination.src_bridge,
+                changed_destination.destination_domain_id,
+                changed_destination.msg_hash)
+            != bridge_credit_id(
                 bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
-                bridge.src_bridge, bridge.msg_hash)
-            and bridge_leaf(70, refreshed_witness) != bridge_leaf(70, bridge)
-            and bridge_credit_result(70, refreshed_witness) != bridge_result)
+                bridge.src_bridge, bridge.destination_domain_id,
+                bridge.msg_hash))
+    changed_deadline = replace(bridge, enqueue_by=bridge.enqueue_by + 1)
+    assert (bridge_leaf(70, changed_deadline) != bridge_leaf(70, bridge)
+            and bridge_credit_result(70, changed_deadline) != bridge_result)
     changed_emission = replace(bridge, emitted_at_block=bridge.emitted_at_block + 1)
     assert (bridge_leaf(70, changed_emission) != bridge_leaf(70, bridge)
             and bridge_credit_result(70, changed_emission) != bridge_result)
+    for changed_source_field in (
+        replace(bridge, sender=bridge.sender + 1),
+        replace(bridge, fee=bridge.fee + 1),
+        replace(bridge, refund_vault=bridge.refund_vault + 1),
+        replace(bridge, refund_capsule_hash=bytes.fromhex("24" * 32)),
+    ):
+        assert (bridge_leaf(70, changed_source_field) != bridge_leaf(70, bridge)
+                and bridge_credit_result(70, changed_source_field) != bridge_result)
     pins: dict[bytes, bytes] = {}
     assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.source_domain_id,
                             bridge.src_epoch, bridge.src_bridge,
+                            bridge.destination_domain_id,
                             bridge.msg_hash, bridge_result)
     assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.source_domain_id,
                             bridge.src_epoch, bridge.src_bridge,
+                            bridge.destination_domain_id,
                             bridge.msg_hash, bridge_result)
     rotated_result = bridge_credit_result(71, rotated)
     assert pin_inbox_credit(pins, rotated.src_chain_id, rotated.source_domain_id,
                             rotated.src_epoch, rotated.src_bridge,
+                            rotated.destination_domain_id,
                             rotated.msg_hash, rotated_result)
     batch_rows = (
         (70, bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
-         bridge.src_bridge, bridge.msg_hash, bridge_result),
+         bridge.src_bridge, bridge.destination_domain_id,
+         bridge.msg_hash, bridge_result),
         (71, rotated.src_chain_id, rotated.source_domain_id, rotated.src_epoch,
-         rotated.src_bridge, rotated.msg_hash, rotated_result),
+         rotated.src_bridge, rotated.destination_domain_id,
+         rotated.msg_hash, rotated_result),
     )
     batch_store: dict[bytes, bytes] = {}
     assert pin_inbox_credit_batch(batch_store, batch_rows) and len(batch_store) == 2
@@ -1069,76 +1140,72 @@ if __name__ == "__main__":
             and batch_store == batch_snapshot)
     assert not pin_inbox_credit(pins, bridge.src_chain_id, bridge.source_domain_id,
                                 bridge.src_epoch, bridge.src_bridge,
-                                bridge.msg_hash, bytes.fromhex("44" * 32))
+                                bridge.destination_domain_id, bridge.msg_hash,
+                                bytes.fromhex("44" * 32))
     bridge_credit = bridge_credit_id(
         bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
-        bridge.src_bridge, bridge.msg_hash)
+        bridge.src_bridge, bridge.destination_domain_id, bridge.msg_hash)
     assert pins[inbox_credit_slot(
-        bridge.source_domain_id, bridge.src_bridge, bridge_credit)] == bridge_result
+        bridge.source_domain_id, bridge.src_bridge,
+        bridge.destination_domain_id, bridge_credit)] == bridge_result
     reused = replace(bridge, src_epoch=9)
     reused_result = bridge_credit_result(72, reused)
     assert bridge_credit_id(reused.src_chain_id, reused.source_domain_id, reused.src_epoch,
-                            reused.src_bridge, reused.msg_hash) != bridge_credit_id(
+                            reused.src_bridge, reused.destination_domain_id,
+                            reused.msg_hash) != bridge_credit_id(
                                 bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
-                                bridge.src_bridge, bridge.msg_hash)
+                                bridge.src_bridge, bridge.destination_domain_id,
+                                bridge.msg_hash)
     assert pin_inbox_credit(pins, reused.src_chain_id, reused.source_domain_id,
                             reused.src_epoch,
-                            reused.src_bridge, reused.msg_hash, reused_result)
+                            reused.src_bridge, reused.destination_domain_id,
+                            reused.msg_hash, reused_result)
     domain_r2 = source_domain_id(
-        1, bytes.fromhex("25" * 32), 0xD002, bytes.fromhex("27" * 32))
+        1, bytes.fromhex("25" * 32), 0xD003, 0xD002, 0xB123,
+        bytes.fromhex("27" * 32))
     replacement_registry = replace(
         bridge, source_domain_id=domain_r2, src_epoch=7, src_bridge=0xB123)
     replacement_result = bridge_credit_result(73, replacement_registry)
     assert bridge_credit_id(
         replacement_registry.src_chain_id, replacement_registry.source_domain_id,
         replacement_registry.src_epoch, replacement_registry.src_bridge,
+        replacement_registry.destination_domain_id,
         replacement_registry.msg_hash) != bridge_credit_id(
             bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
-            bridge.src_bridge, bridge.msg_hash)
+            bridge.src_bridge, bridge.destination_domain_id, bridge.msg_hash)
     assert pin_inbox_credit(
         pins, replacement_registry.src_chain_id,
         replacement_registry.source_domain_id, replacement_registry.src_epoch,
-        replacement_registry.src_bridge, replacement_registry.msg_hash,
+        replacement_registry.src_bridge,
+        replacement_registry.destination_domain_id,
+        replacement_registry.msg_hash,
         replacement_result)
     assert len(pins) == 4
 
-    selector = bytes.fromhex("12345678")
-    proxy_slots = ((bytes.fromhex("00" * 31 + "01"),
-                    bytes.fromhex("00" * 30 + "b124")),)
-    topology = (
-        TopologyNode(1, 0xB123, bytes.fromhex("31" * 32), proxy_slots),
-        TopologyNode(0, 0xB124, bytes.fromhex("32" * 32)),
-    )
-    assert bridge_execution_hash(selector, topology).hex() \
+    descriptor = ExecutorDescriptor(
+        0xB123, 0xD002, 0xB124, bytes.fromhex("32" * 32),
+        bytes.fromhex("12345678"), bytes.fromhex("34" * 32))
+    assert bridge_execution_hash(descriptor).hex() \
         == actual["bridge_execution_hash"]
-    try:
-        canonical_topology_bytes(selector, (
-            topology[0], replace(topology[1], account=topology[0].account)))
-        raise AssertionError("duplicate topology account accepted")
-    except AssertionError as error:
-        assert str(error) != "duplicate topology account accepted"
-    try:
-        canonical_topology_bytes(selector, (
-            replace(topology[0], slots=(
-                (bytes.fromhex("02" * 32), bytes.fromhex("11" * 32)),
-                (bytes.fromhex("01" * 32), bytes.fromhex("22" * 32)),
-            )), topology[1]))
-        raise AssertionError("unsorted topology slots accepted")
-    except AssertionError as error:
-        assert str(error) != "unsorted topology slots accepted"
-    try:
-        canonical_topology_bytes(selector, tuple(
-            TopologyNode(1, 0xC000 + i, bytes.fromhex("33" * 32))
-            for i in range(9)))
-        raise AssertionError("oversized topology accepted")
-    except AssertionError as error:
-        assert str(error) != "oversized topology accepted"
+    for invalid_descriptor in (
+        replace(descriptor, dispatcher=0),
+        replace(descriptor, controller=0),
+        replace(descriptor, executor=0),
+        replace(descriptor, executor_runtime_hash=bytes(32)),
+        replace(descriptor, profile_hash=bytes(32)),
+    ):
+        try:
+            canonical_executor_descriptor(invalid_descriptor)
+            raise AssertionError("invalid executor descriptor accepted")
+        except AssertionError as error:
+            assert str(error) != "invalid executor descriptor accepted"
 
     published = Path(__file__).with_name("tex").joinpath("main.tex").read_text()
     for key in ("bridge_leaf", "bridge_result", "bridge_credit_id",
                 "bridge_escrow_id",
-                "inbox_credit_slot", "bridge_failed_signal",
-                "source_domain_id", "bridge_execution_hash"):
+                "inbox_credit_slot", "bridge_failed_signal", "bridge_done_signal",
+                "source_domain_id", "destination_domain_id",
+                "bridge_execution_hash"):
         assert actual[key] in published
 
     sid = bytes.fromhex(actual["session_id"])
@@ -1147,6 +1214,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 84 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 86 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

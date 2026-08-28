@@ -61,11 +61,12 @@ G_MAX = DELTA_FINAL_LAG
 MAX_ARM_AGE_BLOCKS = 255
 EIP2935_HISTORY_ENTRIES = 8_191
 L1_SLOT_SECONDS = 12
-PENDING_FINALITY_BLOCKS = F_L1 + (
+SUPPORT_FINALITY_BLOCKS = F_L1 + (
     REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
 ) // L1_SLOT_SECONDS
-MAX_SOURCE_WITNESS_AGE = 255
-MAX_SOURCE_TOPOLOGIES_PER_PROFILE = 64
+MAX_BRIDGE_TOPOLOGIES_PER_PROFILE = 64
+MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
+BRIDGE_PROCESS_TTL_SECONDS = 30 * 86_400
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -386,7 +387,7 @@ class Protocol:
     history: dict[int, L1Header]
     mode: Mode = Mode.NORMAL
     messages: list[Message] = field(default_factory=list)
-    pending_reservations: int = 0
+    queue_capacity: int = MAX_FORCE_QUEUE_ITEMS  # model-only capacity override
     episode: int = 0
     recovery: RecoveryRound | None = None
     normal_best: Candidate | None = None
@@ -585,7 +586,7 @@ class Protocol:
                 or not header_checkpoint_authenticated
                 or not l2_system_accounts_authenticated
                 or not l2_v2_latch_disabled
-                or self.messages or self.pending_reservations != 0
+                or self.messages
                 or imported.canonicalized_at_block != clock.block_number
                 or imported.core.l2_block_number >= 1 << 48
                 or imported.core.message_cursor != 0
@@ -614,15 +615,6 @@ class Protocol:
                 and 0 < message.byte_length <= MAX_FORCE_MESSAGE_BYTES
                 and message.prepaid > 0)
 
-    def reserve_bridge(self, message: Message) -> bool:
-        if (self.mode is Mode.PREACTIVE
-                or not self._valid_bridge_static(message)
-                or len(self.messages) + self.pending_reservations
-                    >= MAX_FORCE_QUEUE_ITEMS):
-            return False
-        self.pending_reservations += 1
-        return True
-
     def _append(self, clock: Clock, message: Message) -> None:
         prior_due = self._due_at(self.messages[-1]) if self.messages else 0
         deferred = (self.recovery.expires_at + 1
@@ -636,8 +628,7 @@ class Protocol:
         if self.sync(clock):
             return "SYNCED"
         if (message.kind is not ForceKind.USER_TX
-                or len(self.messages) + self.pending_reservations
-                    >= MAX_FORCE_QUEUE_ITEMS):
+                or len(self.messages) >= self.queue_capacity):
             return "REJECTED"
         invalid = (not message.chain_id_ok or not message.signature_ok
                    or not message.outer_authorized or not message.sender
@@ -653,15 +644,15 @@ class Protocol:
         self._append(clock, message)
         return "ADMITTED"
 
-    def admit_reserved_bridge(self, clock: Clock, message: Message) -> str:
+    def admit_bridge_direct(self, clock: Clock, message: Message) -> str:
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
-        if self.pending_reservations <= 0 or not self._valid_bridge_static(message):
+        if (len(self.messages) >= self.queue_capacity
+                or not self._valid_bridge_static(message)):
             return "REJECTED"
         self._append(clock, message)
-        self.pending_reservations -= 1
         return "ADMITTED"
 
     def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
@@ -892,38 +883,41 @@ class Protocol:
 
 @dataclass(frozen=True)
 class BridgeRecord:
-    state: str
     envelope: Message
-    index: int | None
-    pending_at_block: int
+    index: int
+    caller: str
+    deposit: int
 
 
 @dataclass
-class SourceSupportEntry:
+class BridgeSupportEntry:
     protocol_version: int
     manifest_hash: str
     activated_at_block: int
 
 
 @dataclass
-class SourceSupportRegistry:
-    entries: dict[tuple[str, str], SourceSupportEntry] = field(default_factory=dict)
+class BridgeDomainRegistry:
+    entries: dict[tuple[str, str, str], BridgeSupportEntry] = field(default_factory=dict)
     profile_additions: dict[int, int] = field(default_factory=dict)
 
     def register(self, source_domain_id: str, execution_hash: str,
+                 destination_domain_id: str,
                  protocol_version: int, manifest_hash: str,
                  activated_at_block: int, *, caller_is_version_manager: bool,
                  manifest_active: bool) -> bool:
         if (not caller_is_version_manager or not manifest_active
-                or protocol_version <= 0 or not manifest_hash):
+                or protocol_version <= 0 or not manifest_hash
+                or not source_domain_id or not execution_hash
+                or not destination_domain_id):
             return False
-        key = (source_domain_id, execution_hash)
-        entry = SourceSupportEntry(
+        key = (source_domain_id, execution_hash, destination_domain_id)
+        entry = BridgeSupportEntry(
             protocol_version, manifest_hash, activated_at_block)
         if key in self.entries:
             return self.entries[key] == entry
         if self.profile_additions.get(protocol_version, 0) \
-                >= MAX_SOURCE_TOPOLOGIES_PER_PROFILE:
+                >= MAX_BRIDGE_TOPOLOGIES_PER_PROFILE:
             return False
         self.entries[key] = entry
         self.profile_additions[protocol_version] = (
@@ -931,69 +925,373 @@ class SourceSupportRegistry:
         return True
 
     def final(self, source_domain_id: str, execution_hash: str,
+              destination_domain_id: str,
               block_number: int) -> bool:
-        entry = self.entries.get((source_domain_id, execution_hash))
+        entry = self.entries.get(
+            (source_domain_id, execution_hash, destination_domain_id))
         return (entry is not None
                 and block_number
-                    >= entry.activated_at_block + PENDING_FINALITY_BLOCKS)
+                    >= entry.activated_at_block + SUPPORT_FINALITY_BLOCKS)
 
-    def remove(self, source_domain_id: str, execution_hash: str) -> bool:
-        _ = (source_domain_id, execution_hash)
+    def remove(self, source_domain_id: str, execution_hash: str,
+               destination_domain_id: str) -> bool:
+        _ = (source_domain_id, execution_hash, destination_domain_id)
         return False
+
+
+@dataclass
+class EpochInterval:
+    epoch: int
+    execution_hash: str
+    executor: str
+    executor_runtime_hash: str
+    start_block: int
+    end_block: int = UINT64_MAX
+
+
+@dataclass
+class BridgeEpochController:
+    intervals: list[EpochInterval] = field(default_factory=list)
+
+    def schedule(self, *, current_block: int, start_block: int,
+                 execution_hash: str, executor: str,
+                 executor_runtime_hash: str, support_final: bool,
+                 runtime_hash_matches: bool = True) -> bool:
+        if (not support_final or not execution_hash or not executor
+                or not executor_runtime_hash or not runtime_hash_matches
+                or start_block <= current_block
+                or start_block > UINT64_MAX):
+            return False
+        if self.intervals:
+            prior = self.intervals[-1]
+            if prior.end_block != UINT64_MAX or start_block <= prior.start_block:
+                return False
+            prior.end_block = start_block
+        self.intervals.append(EpochInterval(
+            len(self.intervals) + 1, execution_hash, executor,
+            executor_runtime_hash, start_block))
+        return True
+
+    def resolve(self, block_number: int) -> EpochInterval | None:
+        return next((interval for interval in reversed(self.intervals)
+                     if interval.start_block <= block_number < interval.end_block),
+                    None)
+
+    def dispatch(self, block_number: int,
+                 observed_runtime_hash: str) -> str | None:
+        interval = self.resolve(block_number)
+        if (interval is None
+                or observed_runtime_hash != interval.executor_runtime_hash):
+            return None
+        return interval.executor
+
+
+@dataclass
+class CreditAuthorization:
+    enqueue_by: int
+    owner: str
+    value: int
+    fee: int
+    refund_vault: str = ""
+
+
+@dataclass
+class SourceCredit:
+    value: int
+    fee: int
+    refund_capsule_hash: str = ""
+    status: str = "NEW"
+    queue_index: int | None = None
+
+
+@dataclass
+class SourceBridgeLedger:
+    authorizations: dict[str, CreditAuthorization] = field(default_factory=dict)
+    credits: dict[str, SourceCredit] = field(default_factory=dict)
+    refunds: dict[str, int] = field(default_factory=dict)
+    balance: int = 0
+    total_live_liability: int = 0
+    paused: bool = False
+
+    def open(self, credit_id: str, *, now: int, enqueue_by: int,
+             owner: str, value: int, fee: int, refund_vault: str = "",
+             refund_capsule_hash: str = "") -> bool:
+        if (not credit_id or credit_id in self.authorizations or not owner
+                or enqueue_by != now + MAX_BRIDGE_ENQUEUE_DELAY
+                or value < 0 or fee < 0 or refund_capsule_hash):
+            return False
+        self.authorizations[credit_id] = CreditAuthorization(
+            enqueue_by, owner, value, fee, refund_vault)
+        self.credits[credit_id] = SourceCredit(
+            value, fee, "", "DRAFT" if refund_vault else "NEW")
+        self.balance += value + fee
+        self.total_live_liability += value + fee
+        return True
+
+    def finalize_capsule(self, credit_id: str, *, caller: str,
+                         capsule_hash: str,
+                         vault_has_matching_capsule: bool) -> bool:
+        authorization = self.authorizations.get(credit_id)
+        credit = self.credits.get(credit_id)
+        if (authorization is None or credit is None or credit.status != "DRAFT"
+                or caller != authorization.refund_vault or not capsule_hash
+                or not vault_has_matching_capsule):
+            return False
+        credit.refund_capsule_hash = capsule_hash
+        credit.status = "NEW"
+        return True
+
+    def mark_queued(self, credit_id: str, queue_index: int,
+                    *, caller_is_bound_adapter: bool) -> bool:
+        credit = self.credits.get(credit_id)
+        if (credit is None or credit.status != "NEW"
+                or not caller_is_bound_adapter or queue_index < 0):
+            return False
+        credit.status = "QUEUED"
+        credit.queue_index = queue_index
+        self.total_live_liability -= credit.fee
+        return True
+
+    def cancel(self, credit_id: str, *, now: int) -> bool:
+        credit = self.credits.get(credit_id)
+        authorization = self.authorizations.get(credit_id)
+        if (credit is None or credit.status not in {"DRAFT", "NEW"}
+                or authorization is None or now <= authorization.enqueue_by):
+            return False
+        credit.status = "CANCELLED"
+        self.refunds[authorization.owner] = (
+            self.refunds.get(authorization.owner, 0) + credit.value + credit.fee)
+        return True
+
+    def finalize_done(self, credit_id: str, *, proof_valid: bool) -> bool:
+        credit = self.credits.get(credit_id)
+        if credit is None or credit.status != "QUEUED" or not proof_valid:
+            return False
+        credit.status = "DELIVERED"
+        self.total_live_liability -= credit.value
+        return True
+
+    def recall_failed(self, credit_id: str, *, proof_valid: bool) -> bool:
+        credit = self.credits.get(credit_id)
+        authorization = self.authorizations.get(credit_id)
+        if credit is None or credit.status != "QUEUED" or not proof_valid:
+            return False
+        credit.status = "RECALLED"
+        assert authorization is not None
+        self.refunds[authorization.owner] = (
+            self.refunds.get(authorization.owner, 0) + credit.value)
+        return True
+
+    def ordinary_payout(self, amount: int) -> bool:
+        if amount < 0 or self.balance - amount < self.total_live_liability:
+            return False
+        self.balance -= amount
+        return True
+
+    def withdraw_refund(self, owner: str) -> int:
+        amount = self.refunds.pop(owner, 0)
+        self.total_live_liability -= amount
+        self.balance -= amount
+        return amount
+
+
+@dataclass
+class RefundCapsule:
+    owner: str
+    amount: int
+    capsule_hash: str
+    claimed: bool = False
+
+
+@dataclass
+class RefundVaultLedger:
+    balance: int
+    reserved: int = 0
+    capsules: dict[str, RefundCapsule] = field(default_factory=dict)
+
+    def register(self, credit_id: str, *, owner: str, amount: int,
+                 capsule_hash: str, calldata_hash_matches: bool) -> bool:
+        if (not credit_id or credit_id in self.capsules or not owner
+                or amount <= 0 or not capsule_hash or not calldata_hash_matches
+                or self.reserved + amount > self.balance):
+            return False
+        self.capsules[credit_id] = RefundCapsule(owner, amount, capsule_hash)
+        self.reserved += amount
+        return True
+
+    def ordinary_payout(self, amount: int) -> bool:
+        if amount < 0 or self.balance - amount < self.reserved:
+            return False
+        self.balance -= amount
+        return True
+
+    def release_delivered(self, credit_id: str,
+                          source: SourceBridgeLedger) -> bool:
+        capsule = self.capsules.get(credit_id)
+        credit = source.credits.get(credit_id)
+        if (capsule is None or capsule.claimed or credit is None
+                or credit.status != "DELIVERED"):
+            return False
+        capsule.claimed = True
+        self.reserved -= capsule.amount
+        return True
+
+    def claim_refund(self, credit_id: str, *, caller: str,
+                     source: SourceBridgeLedger,
+                     transfer_succeeds: bool = True) -> bool:
+        capsule = self.capsules.get(credit_id)
+        credit = source.credits.get(credit_id)
+        if (capsule is None or capsule.claimed or caller != capsule.owner
+                or credit is None or credit.status not in {"CANCELLED", "RECALLED"}
+                or not transfer_succeeds):
+            return False
+        capsule.claimed = True
+        self.reserved -= capsule.amount
+        self.balance -= capsule.amount
+        return True
 
 
 @dataclass
 class BridgeAdapter:
     records: dict[str, BridgeRecord] = field(default_factory=dict)
+    refunds: dict[str, int] = field(default_factory=dict)
 
     @staticmethod
     def credit_id(src_chain_id: int, source_domain_id: str, src_epoch: int,
-                  src_bridge: str, msg_hash: str) -> str:
+                  src_bridge: str, destination_domain_id: str,
+                  msg_hash: str) -> str:
         return (f"credit:{src_chain_id}:{source_domain_id}:{src_epoch}:"
-                f"{src_bridge}:{msg_hash}")
+                f"{src_bridge}:{destination_domain_id}:{msg_hash}")
 
-    def prepare(self, protocol_: Protocol, clock_: Clock, src_chain_id: int,
+    def enqueue(self, protocol_: Protocol, clock_: Clock,
+                source_ledger: SourceBridgeLedger, *, src_chain_id: int,
                 source_domain_id: str, src_epoch: int, src_bridge: str,
-                msg_hash: str, envelope: Message,
-                source_authorized_at_emission: bool = True,
-                source_header_authenticated: bool = True,
-                source_proof_within_bounds: bool = True,
-                source_record_durable: bool = True,
-                source_witness_age: int = F_L1,
-                topology_allowlisted: bool = True,
-                ) -> str | None:
+                destination_domain_id: str, msg_hash: str, enqueue_by: int,
+                envelope: Message, caller: str, deposit: int,
+                source_record_present: bool = True,
+                source_record_matches: bool = True,
+                source_liability_live: bool = True,
+                domain_authorized: bool = True,
+                direct_call_bounded: bool = True) -> str:
         credit_id = self.credit_id(
-            src_chain_id, source_domain_id, src_epoch, src_bridge, msg_hash)
-        if (credit_id in self.records
+            src_chain_id, source_domain_id, src_epoch, src_bridge,
+            destination_domain_id, msg_hash)
+        existing = self.records.get(credit_id)
+        if existing is not None:
+            return (f"QUEUED:{existing.index}" if deposit == 0
+                    else "REJECTED_DUPLICATE_FUNDS")
+        source_authorization = source_ledger.authorizations.get(credit_id)
+        source_credit = source_ledger.credits.get(credit_id)
+        if (not caller or deposit <= 0
                 or envelope.kind is not ForceKind.BRIDGE_CREDIT
-                or not source_authorized_at_emission
-                or not source_header_authenticated
-                or not source_proof_within_bounds
-                or not source_record_durable
-                or not F_L1 <= source_witness_age <= MAX_SOURCE_WITNESS_AGE
-                or not topology_allowlisted
-                or not protocol_.reserve_bridge(envelope)):
-            return None
-        self.records[credit_id] = BridgeRecord(
-            "PENDING", envelope, None, clock_.block_number)
-        return credit_id
-
-    def finalize(self, protocol_: Protocol, clock_: Clock, credit_id: str) -> str:
-        record = self.records[credit_id]
-        if record.state == "QUEUED":
-            return f"QUEUED:{record.index}"
-        result = protocol_.admit_reserved_bridge(clock_, record.envelope)
+                or not source_record_present or not source_record_matches
+                or not source_liability_live or not domain_authorized
+                or not direct_call_bounded or source_credit is None
+                or source_authorization is None
+                or source_credit.status != "NEW"
+                or source_authorization.enqueue_by != enqueue_by
+                or clock_.timestamp > enqueue_by):
+            return "REJECTED"
+        result = protocol_.admit_bridge_direct(clock_, envelope)
+        if result == "SYNCED":
+            self.refunds[caller] = self.refunds.get(caller, 0) + deposit
+            return "SYNCED_REFUNDED"
         if result == "ADMITTED":
             index = len(protocol_.messages) - 1
-            self.records[credit_id] = replace(record, state="QUEUED", index=index)
+            if not source_ledger.mark_queued(
+                    credit_id, index, caller_is_bound_adapter=domain_authorized):
+                protocol_.messages.pop()  # models atomic EVM rollback
+                return "REJECTED"
+            self.records[credit_id] = BridgeRecord(
+                envelope, index, caller, deposit)
             return f"QUEUED:{index}"
         return result
 
-    def source_independent(self, clock_: Clock, credit_id: str) -> bool:
-        record = self.records.get(credit_id)
-        return (record is not None
-                and clock_.block_number
-                    >= record.pending_at_block + PENDING_FINALITY_BLOCKS)
+
+@dataclass(frozen=True)
+class InboxPin:
+    result_hash: str
+    process_by: int
+
+
+@dataclass
+class DestinationBridgeLedger:
+    implementation_version: int = 1
+    paused: bool = False
+    pins: dict[str, InboxPin] = field(default_factory=dict)
+    status: dict[str, str] = field(default_factory=dict)
+    terminal_signals: dict[str, str] = field(default_factory=dict)
+
+    def upgrade_executor(self) -> None:
+        self.implementation_version += 1
+
+    @staticmethod
+    def failure_signal(destination_domain_id: str, credit_id: str) -> str:
+        return f"failed:{destination_domain_id}:{credit_id}"
+
+    @staticmethod
+    def done_signal(destination_domain_id: str, credit_id: str) -> str:
+        return f"done:{destination_domain_id}:{credit_id}"
+
+    def pin(self, credit_id: str, result_hash: str, *, now: int,
+            caller_is_inbox_apply: bool) -> bool:
+        if not caller_is_inbox_apply or not credit_id or not result_hash:
+            return False
+        expected = InboxPin(result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
+        existing = self.pins.get(credit_id)
+        if existing is not None:
+            return existing == expected
+        self.pins[credit_id] = expected
+        self.status[credit_id] = "NEW"
+        return True
+
+    def process(self, credit_id: str, *, now: int,
+                message_available: bool, result_hash_matches: bool,
+                callback_ok: bool,
+                destination_domain_id: str = "domain:D1") -> str:
+        pin = self.pins.get(credit_id)
+        current = self.status.get(credit_id)
+        if (self.paused or pin is None or current in {"DONE", "FAILED"}
+                or now > pin.process_by or not result_hash_matches):
+            return "REJECTED"
+        if not message_available or not callback_ok:
+            self.status[credit_id] = "RETRIABLE"
+            return "RETRIABLE"
+        self.status[credit_id] = "DONE"
+        self.terminal_signals[credit_id] = self.done_signal(
+            destination_domain_id, credit_id)
+        return "DONE"
+
+    def retry(self, credit_id: str, *, now: int, caller_is_dest_owner: bool,
+              is_last_attempt: bool, message_available: bool,
+              result_hash_matches: bool, callback_ok: bool) -> str:
+        if is_last_attempt and not caller_is_dest_owner:
+            return "REJECTED"
+        return self.process(
+            credit_id, now=now, message_available=message_available,
+            result_hash_matches=result_hash_matches, callback_ok=callback_ok)
+
+    def manual_fail(self, credit_id: str, *, caller_is_dest_owner: bool,
+                    destination_domain_id: str = "domain:D1") -> bool:
+        if (self.paused or not caller_is_dest_owner
+                or self.status.get(credit_id) != "RETRIABLE"):
+            return False
+        self.status[credit_id] = "FAILED"
+        self.terminal_signals[credit_id] = self.failure_signal(
+            destination_domain_id, credit_id)
+        return True
+
+    def expire(self, credit_id: str, *, now: int,
+               destination_domain_id: str = "domain:D1") -> bool:
+        pin = self.pins.get(credit_id)
+        current = self.status.get(credit_id)
+        if (pin is None or current not in {"NEW", "RETRIABLE"}
+                or now <= pin.process_by):
+            return False
+        self.status[credit_id] = "FAILED"
+        self.terminal_signals[credit_id] = self.failure_signal(
+            destination_domain_id, credit_id)
+        return True
 
 
 PASS: list[str] = []
@@ -1139,19 +1437,32 @@ def test_canonical_outputs_and_migration() -> None:
           and latch.bridge_v2_call()
           and not latch.inbox_apply(custom_system_tx=False))
     preactive_adapter = BridgeAdapter()
-    check("P4b preactive bridge ingress cannot create a reservation",
-          preactive_adapter.prepare(
-              p, clock(1_100, 1_100), 1, "domain:R1", 1, "bridge:A", "preactive",
-              message(1_100, "preactive", kind=ForceKind.BRIDGE_CREDIT)) is None
-          and p.pending_reservations == 0)
+    preactive_source = SourceBridgeLedger()
+    preactive_id = preactive_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "preactive")
+    preactive_now = clock(1_100, 1_100)
+    assert preactive_source.open(
+        preactive_id, now=preactive_now.timestamp,
+        enqueue_by=preactive_now.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+        owner="alice", value=1, fee=1)
+    check("P4b preactive bridge ingress cannot create a queue credit",
+          preactive_adapter.enqueue(
+              p, preactive_now, preactive_source, src_chain_id=1,
+              source_domain_id="domain:R1", src_epoch=1,
+              src_bridge="bridge:A", destination_domain_id="domain:D1",
+              msg_hash="preactive",
+              enqueue_by=preactive_now.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+              envelope=message(1_100, "preactive", kind=ForceKind.BRIDGE_CREDIT),
+              caller="relayer", deposit=1) == "REJECTED_PREACTIVE"
+          and not preactive_adapter.records)
     preactive_user = message(1_100, "preactive-user")
     check("P4d preactive kind-0 ingress cannot create a queue leaf",
           p.admit_message(clock(1_100, 1_100), preactive_user)
               == "REJECTED_PREACTIVE"
           and not p.messages)
-    dirty = protocol(mode=Mode.PREACTIVE)
-    dirty.pending_reservations = 1
-    check("P4c migration rejects a nonempty reservation scalar",
+    dirty = protocol(mode=Mode.PREACTIVE,
+                     messages=[message(1_100, "dirty")])
+    check("P4c migration rejects a nonempty queue",
           not dirty.activate_migration(
               clock(1_100, 1_100), imported, old_quiescent=True,
               router_switched=True))
@@ -1238,9 +1549,8 @@ def test_force_merkle_bounds_and_auth() -> None:
     check("P15 skip/reorder proof rejects", anchored.submit(forged, c) == "REJECTED")
     bridge = message(1_100, "bridge", kind=ForceKind.BRIDGE_CREDIT)
     bridge_protocol = protocol()
-    check("P16 non-expiring reserved bridge credit admits",
-          bridge_protocol.reserve_bridge(bridge)
-          and bridge_protocol.admit_reserved_bridge(c, bridge) == "ADMITTED")
+    check("P16 non-expiring bridge credit admits atomically",
+          bridge_protocol.admit_bridge_direct(c, bridge) == "ADMITTED")
     check("P17 gas geometry", ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN <= L2_BLOCK_GAS_LIMIT)
     too_long = replace(message(1_100, "too-long"),
                        valid_until=c.timestamp + MAX_FORCE_VALIDITY_SECONDS + 1)
@@ -1464,190 +1774,426 @@ def test_data_gc_reorg_and_geometry() -> None:
 
     bridge_protocol = protocol()
     adapter = BridgeAdapter()
+    source = SourceBridgeLedger()
     bridge_envelope = message(4_601, "bridge-record", kind=ForceKind.BRIDGE_CREDIT)
     prepared_clock = clock(1_099, 4_600)
-    credit_a = adapter.prepare(
-        bridge_protocol, prepared_clock, 1, "domain:R1", 7,
-        "bridge:A", "msg", bridge_envelope)
-    credit_b = adapter.prepare(
-        bridge_protocol, prepared_clock, 1, "domain:R1", 8,
-        "bridge:B", "msg", bridge_envelope)
-    credit_a_reused = adapter.prepare(
-        bridge_protocol, prepared_clock, 1, "domain:R1", 9,
-        "bridge:A", "msg", bridge_envelope)
+    enqueue_by = prepared_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
+
+    def open_credit(epoch: int, bridge: str, msg_hash: str,
+                    destination: str = "domain:D1", domain: str = "domain:R1",
+                    ledger: SourceBridgeLedger = source) -> str:
+        credit_id = adapter.credit_id(
+            1, domain, epoch, bridge, destination, msg_hash)
+        assert ledger.open(
+            credit_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
+            owner="alice", value=10, fee=2)
+        return credit_id
+
+    credit_a = open_credit(7, "bridge:A", "msg")
+    credit_b = open_credit(8, "bridge:B", "msg")
+    credit_a_reused = open_credit(9, "bridge:A", "msg")
     check("P50e A-B-A authorized epochs have distinct exactly-once identities",
-          credit_a is not None and credit_b is not None and credit_a_reused is not None
-          and len({credit_a, credit_b, credit_a_reused}) == 3
-          and len(adapter.records) == 3
-          and adapter.prepare(bridge_protocol, prepared_clock, 1, "domain:R1", 7,
-                              "bridge:A", "msg", bridge_envelope) is None)
-    check("P50f unauthorized Bridge clone rejects at its emission height",
-          adapter.prepare(bridge_protocol, prepared_clock, 1, "domain:R1", 10,
-                          "clone", "forged", bridge_envelope,
-                          source_authorized_at_emission=False) is None)
-    assert credit_a is not None and credit_b is not None and credit_a_reused is not None
+          len({credit_a, credit_b, credit_a_reused}) == 3)
     transition_clock = clock(1_100, 4_601)
-    check("P50c bridge SYNCED stays pending",
-          adapter.finalize(bridge_protocol, transition_clock, credit_a) == "SYNCED"
-          and adapter.records[credit_a].state == "PENDING")
-    check("P50d bridge retry queues exactly once",
-          adapter.finalize(bridge_protocol, transition_clock, credit_a) == "QUEUED:0"
-          and adapter.finalize(bridge_protocol, transition_clock, credit_a) == "QUEUED:0"
+    common = dict(
+        src_chain_id=1, source_domain_id="domain:R1",
+        destination_domain_id="domain:D1", msg_hash="msg",
+        enqueue_by=enqueue_by, envelope=bridge_envelope,
+        caller="relayer", deposit=5)
+    check("P50c router sync persists and fully refunds without an adapter record",
+          adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=7,
+              src_bridge="bridge:A", **common) == "SYNCED_REFUNDED"
+          and adapter.refunds["relayer"] == 5 and not adapter.records
+          and bridge_protocol.mode is Mode.RECOVERY)
+    check("P50d clean retry queues exactly once and funded duplicates reject",
+          adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=7,
+              src_bridge="bridge:A", **common) == "QUEUED:0"
+          and adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=7,
+              src_bridge="bridge:A", **{**common, "deposit": 0}) == "QUEUED:0"
+          and adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=7,
+              src_bridge="bridge:A", **common) == "REJECTED_DUPLICATE_FUNDS"
           and len(bridge_protocol.messages) == 1)
     check("P50g same message from next authorized epoch queues independently",
-          adapter.finalize(bridge_protocol, transition_clock, credit_b) == "QUEUED:1"
-          and len(bridge_protocol.messages) == 2)
+          adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=8,
+              src_bridge="bridge:B", **common) == "QUEUED:1")
     check("P50h same address reused in a later epoch queues independently",
-          adapter.finalize(bridge_protocol, transition_clock, credit_a_reused) == "QUEUED:2"
-          and len(bridge_protocol.messages) == 3)
+          adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=9,
+              src_bridge="bridge:A", **common) == "QUEUED:2")
+    check("P50af pooled payouts cannot consume reserved V2 value",
+          not source.ordinary_payout(7)
+          and source.ordinary_payout(6)
+          and source.balance >= source.total_live_liability)
 
-    domain_credit = adapter.prepare(
-        bridge_protocol, transition_clock, 1, "domain:R2", 7,
-        "bridge:A", "msg", bridge_envelope)
-    check("P50i replacement registry has a distinct source-domain identity",
-          domain_credit is not None and domain_credit not in {credit_a, credit_b,
-                                                               credit_a_reused})
+    domain_credit = open_credit(
+        7, "bridge:A", "msg", destination="domain:D2")
+    check("P50i destination replacement has a distinct credit identity",
+          domain_credit not in {credit_a, credit_b, credit_a_reused})
+    check("P50f absent, mismatched, clone and unbounded direct reads reject",
+          adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=10,
+              src_bridge="clone", **{**common, "msg_hash": "forged"}) == "REJECTED"
+          and adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=7,
+              src_bridge="bridge:A", **{**common, "msg_hash": "mismatch",
+                                                "source_record_matches": False}) == "REJECTED"
+          and adapter.enqueue(
+              bridge_protocol, transition_clock, source, src_epoch=7,
+              src_bridge="bridge:A", **{**common, "msg_hash": "oversized",
+                                                "direct_call_bounded": False}) == "REJECTED")
 
     invalid_protocol = protocol(tip_slot=100)
     invalid_adapter = BridgeAdapter()
-    invalid = replace(bridge_envelope, prepaid=0)
-    check("P50j static-invalid credit cannot reserve or become pending",
-          invalid_adapter.prepare(invalid_protocol, clock(100, 100), 1, "domain:R1",
-                                  1, "bridge:A", "invalid", invalid) is None
-          and invalid_protocol.pending_reservations == 0)
+    invalid_source = SourceBridgeLedger()
+    invalid_clock = clock(100, 100)
+    invalid_id = invalid_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "invalid")
+    assert invalid_source.open(
+        invalid_id, now=invalid_clock.timestamp,
+        enqueue_by=invalid_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+        owner="alice", value=1, fee=1)
+    check("P50j static-invalid credit leaves no queue or adapter state",
+          invalid_adapter.enqueue(
+              invalid_protocol, invalid_clock, invalid_source, src_chain_id=1,
+              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
+              destination_domain_id="domain:D1", msg_hash="invalid",
+              enqueue_by=invalid_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+              envelope=replace(bridge_envelope, prepaid=0), caller="relayer",
+              deposit=1) == "REJECTED"
+          and not invalid_protocol.messages and not invalid_adapter.records)
 
-    source_auth_protocol = protocol(tip_slot=100)
-    source_auth_adapter = BridgeAdapter()
-    check("P50p forged source header cannot reserve or become pending",
-          source_auth_adapter.prepare(
-              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
-              "bridge:A", "forged-header", bridge_envelope,
-              source_header_authenticated=False) is None
-          and source_auth_protocol.pending_reservations == 0)
-    check("P50q oversized source witness cannot reserve or become pending",
-          source_auth_adapter.prepare(
-              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
-              "bridge:A", "oversized-proof", bridge_envelope,
-              source_proof_within_bounds=False) is None
-          and source_auth_protocol.pending_reservations == 0)
-    check("P50r unlisted execution topology cannot reserve or become pending",
-          source_auth_adapter.prepare(
-              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
-              "bridge:A", "unlisted-topology", bridge_envelope,
-              topology_allowlisted=False) is None
-          and source_auth_protocol.pending_reservations == 0)
-    check("P50s source record must be durable before destination preparation",
-          source_auth_adapter.prepare(
-              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
-              "bridge:A", "ephemeral-record", bridge_envelope,
-              source_record_durable=False) is None
-          and source_auth_protocol.pending_reservations == 0)
-    check("P50t source witness age is bounded on both sides",
-          source_auth_adapter.prepare(
-              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
-              "bridge:A", "shallow-witness", bridge_envelope,
-              source_witness_age=F_L1 - 1) is None
-          and source_auth_adapter.prepare(
-              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
-              "bridge:A", "stale-witness", bridge_envelope,
-              source_witness_age=MAX_SOURCE_WITNESS_AGE + 1) is None
-          and source_auth_protocol.pending_reservations == 0)
-
-    support = SourceSupportRegistry()
+    support = BridgeDomainRegistry()
     assert not support.register(
-        "domain:R1", "execution:B", 2, "manifest:2", 100,
+        "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=False, manifest_active=True)
     assert not support.register(
-        "domain:R1", "execution:B", 2, "manifest:2", 100,
+        "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=True, manifest_active=False)
     assert support.register(
-        "domain:R1", "execution:B", 2, "manifest:2", 100,
+        "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=True, manifest_active=True)
-    check("P50u source topology waits for active-profile finality",
+    check("P50u bridge topology waits for active-profile finality",
           not support.final(
-              "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS - 1)
+              "domain:R1", "execution:B", "domain:D1",
+              100 + SUPPORT_FINALITY_BLOCKS - 1)
           and support.final(
-              "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS))
-    bounded_support = SourceSupportRegistry()
-    assert all(bounded_support.register(
-        "domain:R1", f"execution:{i}", 3, "manifest:3", 200,
+              "domain:R1", "execution:B", "domain:D1",
+              100 + SUPPORT_FINALITY_BLOCKS))
+    assert support.register(
+        "domain:R1", "execution:B", "domain:D2", 2, "manifest:2", 150,
         caller_is_version_manager=True, manifest_active=True)
-        for i in range(MAX_SOURCE_TOPOLOGIES_PER_PROFILE))
-    check("P50v historical support is immutable and profile additions bounded",
-          not support.remove("domain:R1", "execution:B")
+    check("P50an old execution cannot use a new destination before tuple finality",
+          not support.final(
+              "domain:R1", "execution:B", "domain:D2",
+              150 + SUPPORT_FINALITY_BLOCKS - 1)
           and support.final(
-              "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS)
+              "domain:R1", "execution:B", "domain:D2",
+              150 + SUPPORT_FINALITY_BLOCKS))
+    bounded_support = BridgeDomainRegistry()
+    assert all(bounded_support.register(
+        "domain:R1", f"execution:{i}", "domain:D1", 3, "manifest:3", 200,
+        caller_is_version_manager=True, manifest_active=True)
+        for i in range(MAX_BRIDGE_TOPOLOGIES_PER_PROFILE))
+    check("P50v historical support is immutable and profile additions bounded",
+          not support.remove("domain:R1", "execution:B", "domain:D1")
+          and support.final(
+              "domain:R1", "execution:B", "domain:D1",
+              100 + SUPPORT_FINALITY_BLOCKS)
           and not bounded_support.register(
-              "domain:R1", "execution:overflow", 3, "manifest:3", 200,
-              caller_is_version_manager=True, manifest_active=True)
+              "domain:R1", "execution:overflow", "domain:D1", 3,
+              "manifest:3", 200, caller_is_version_manager=True,
+              manifest_active=True)
           and bounded_support.register(
-              "domain:R2", "execution:new-profile", 4, "manifest:4", 300,
-              caller_is_version_manager=True, manifest_active=True))
+              "domain:R2", "execution:new-profile", "domain:D2", 4,
+              "manifest:4", 300, caller_is_version_manager=True,
+              manifest_active=True))
+
+    epochs = BridgeEpochController()
+    check("P50w epoch scheduling is future-only and support-gated",
+          not epochs.schedule(current_block=100, start_block=101,
+                              execution_hash="exec:A", executor="executor:A",
+                              executor_runtime_hash="runtime:A",
+                              support_final=False)
+          and epochs.schedule(current_block=100, start_block=120,
+                              execution_hash="exec:A", executor="executor:A",
+                              executor_runtime_hash="runtime:A",
+                              support_final=True)
+          and not epochs.schedule(current_block=121, start_block=121,
+                                  execution_hash="exec:B", executor="executor:B",
+                                  executor_runtime_hash="runtime:B",
+                                  support_final=True))
+    assert epochs.schedule(current_block=110, start_block=140,
+                           execution_hash="exec:B", executor="executor:B",
+                           executor_runtime_hash="runtime:B",
+                           support_final=True)
+    check("P50x half-open epoch boundary resolves without an activation call",
+          epochs.resolve(119) is None
+          and epochs.resolve(120).execution_hash == "exec:A"
+          and epochs.resolve(139).execution_hash == "exec:A"
+          and epochs.resolve(140).execution_hash == "exec:B"
+          and epochs.dispatch(119, "runtime:A") is None
+          and epochs.dispatch(120, "runtime:A") == "executor:A"
+          and epochs.dispatch(139, "runtime:A") == "executor:A"
+          and epochs.dispatch(140, "runtime:B") == "executor:B"
+          and epochs.dispatch(140, "runtime:A") is None)
 
     capacity_protocol = protocol(tip_slot=100)
-    capacity_protocol.pending_reservations = MAX_FORCE_QUEUE_ITEMS - 1
-    capacity_adapter = BridgeAdapter()
-    capacity_credit = capacity_adapter.prepare(
-        capacity_protocol, clock(100, 100), 1, "domain:R1", 1,
-        "bridge:A", "capacity", bridge_envelope)
+    capacity_protocol.queue_capacity = 1
+    capacity_clock = clock(101, 101)
     competing_user = replace(
         message(101, "competing-user"), valid_until=GENESIS_TIMESTAMP + 10_000)
-    capacity_clock = clock(101, 101)
-    check("P50k pending credit reserves the final queue position",
-          capacity_credit is not None
-          and capacity_protocol.pending_reservations == MAX_FORCE_QUEUE_ITEMS
-          and capacity_protocol.admit_message(capacity_clock, competing_user) == "REJECTED")
-    assert capacity_credit is not None
-    check("P50l reserved credit appends even at aggregate capacity",
-          capacity_adapter.finalize(capacity_protocol, capacity_clock,
-                                    capacity_credit) == "QUEUED:0"
-          and len(capacity_protocol.messages) == 1
-          and capacity_protocol.pending_reservations == MAX_FORCE_QUEUE_ITEMS - 1)
+    assert capacity_protocol.admit_message(capacity_clock, competing_user) == "ADMITTED"
+    capacity_adapter = BridgeAdapter()
+    capacity_source = SourceBridgeLedger()
+    capacity_id = capacity_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "capacity")
+    assert capacity_source.open(
+        capacity_id, now=capacity_clock.timestamp,
+        enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+        owner="alice", value=1, fee=1)
+    check("P50k capacity loser leaves no partial bridge state",
+          capacity_adapter.enqueue(
+              capacity_protocol, capacity_clock, capacity_source, src_chain_id=1,
+              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
+              destination_domain_id="domain:D1", msg_hash="capacity",
+              enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+              envelope=bridge_envelope, caller="relayer", deposit=1) == "REJECTED"
+          and not capacity_adapter.records)
+
+    bridge_first = protocol(tip_slot=100)
+    bridge_first.queue_capacity = 1
+    first_adapter = BridgeAdapter()
+    first_source = SourceBridgeLedger()
+    first_id = first_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "first")
+    assert first_source.open(
+        first_id, now=capacity_clock.timestamp,
+        enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+        owner="alice", value=1, fee=1)
+    check("P50l bridge capacity winner is atomic against later user admission",
+          first_adapter.enqueue(
+              bridge_first, capacity_clock, first_source, src_chain_id=1,
+              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
+              destination_domain_id="domain:D1", msg_hash="first",
+              enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+              envelope=bridge_envelope, caller="relayer", deposit=1) == "QUEUED:0"
+          and bridge_first.admit_message(capacity_clock, competing_user) == "REJECTED")
 
     delayed_protocol = protocol(tip_slot=100)
     delayed_adapter = BridgeAdapter()
-    delayed_credit = delayed_adapter.prepare(
-        delayed_protocol, clock(100, 100), 1, "domain:R1", 1,
-        "bridge:A", "delayed", bridge_envelope)
+    delayed_source = SourceBridgeLedger()
+    delayed_start = clock(100, 100)
+    delayed_enqueue_by = delayed_start.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
+    delayed_id = delayed_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "delayed")
+    assert delayed_source.open(
+        delayed_id, now=delayed_start.timestamp, enqueue_by=delayed_enqueue_by,
+        owner="alice", value=1, fee=1)
     delayed_clock = clock(500, 500)
-    assert delayed_credit is not None
     check("P50m bridge due time starts at actual queue append",
-          delayed_adapter.finalize(delayed_protocol, delayed_clock,
-                                   delayed_credit) == "QUEUED:0"
+          delayed_adapter.enqueue(
+              delayed_protocol, delayed_clock, delayed_source, src_chain_id=1,
+              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
+              destination_domain_id="domain:D1", msg_hash="delayed",
+              enqueue_by=delayed_enqueue_by, envelope=bridge_envelope,
+              caller="relayer", deposit=1) == "QUEUED:0"
           and delayed_protocol.messages[0].enqueued_at == delayed_clock.timestamp
           and delayed_protocol.messages[0].due_at
               == delayed_clock.timestamp + FORCE_DELAY
           and not delayed_protocol.force_due(delayed_clock))
 
+    cancel_adapter = BridgeAdapter()
+    cancel_source = SourceBridgeLedger()
+    cancellation_id = cancel_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "lost-before-enqueue")
+    assert cancel_source.open(
+        cancellation_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
+        owner="alice", value=10, fee=2)
+    cancel_source.paused = True
+    check("P50y pre-enqueue data loss has a permissionless exact-deadline refund",
+          not cancel_source.cancel(
+              cancellation_id, now=enqueue_by)
+          and cancel_source.cancel(
+              cancellation_id, now=enqueue_by + 1)
+          and cancel_source.refunds["alice"] == 12
+          and not cancel_source.ordinary_payout(1)
+          and cancel_source.withdraw_refund("alice") == 12
+          and cancel_source.balance == cancel_source.total_live_liability == 0)
+    no_sync_protocol = protocol(tip_slot=enqueue_by - GENESIS_TIMESTAMP)
+    check("P50z cancel wins the race and permanently rejects enqueue",
+          cancel_adapter.enqueue(
+              no_sync_protocol, Clock(2_000, enqueue_by + 1), cancel_source,
+              src_chain_id=1, source_domain_id="domain:R1", src_epoch=1,
+              src_bridge="bridge:A", destination_domain_id="domain:D1",
+              msg_hash="lost-before-enqueue", enqueue_by=enqueue_by,
+              envelope=bridge_envelope, caller="relayer", deposit=1) == "REJECTED")
+
+    queued_race_adapter = BridgeAdapter()
+    queued_race_source = SourceBridgeLedger()
+    queued_race_id = queued_race_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "enqueue-wins")
+    assert queued_race_source.open(
+        queued_race_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
+        owner="alice", value=10, fee=2)
+    race_protocol = protocol(tip_slot=enqueue_by - GENESIS_TIMESTAMP)
+    check("P50aa enqueue at the deadline wins against later cancellation",
+          queued_race_adapter.enqueue(
+              race_protocol, Clock(2_001, enqueue_by), queued_race_source,
+              src_chain_id=1, source_domain_id="domain:R1", src_epoch=1,
+              src_bridge="bridge:A", destination_domain_id="domain:D1",
+              msg_hash="enqueue-wins", enqueue_by=enqueue_by,
+              envelope=bridge_envelope, caller="relayer", deposit=1) == "QUEUED:0"
+          and not queued_race_source.cancel(
+              queued_race_id, now=enqueue_by + 1))
+    replacement_adapter = BridgeAdapter()
+    check("P50ag adapter replacement cannot double-refund a queued credit",
+          queued_race_id not in replacement_adapter.records
+          and queued_race_source.credits[queued_race_id].status == "QUEUED"
+          and not queued_race_source.cancel(
+              queued_race_id, now=enqueue_by + 2))
+
+    capsule_source = SourceBridgeLedger()
+    capsule_id = adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "capsule")
+    assert capsule_source.open(
+        capsule_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
+        owner="alice", value=3, fee=1, refund_vault="erc721-vault")
+    refund_vault = RefundVaultLedger(balance=100)
+    assert refund_vault.register(
+        capsule_id, owner="alice", amount=40, capsule_hash="capsule-hash",
+        calldata_hash_matches=True)
+    check("P50ah immutable authorization and mutable capsule finalize exactly once",
+          capsule_source.credits[capsule_id].status == "DRAFT"
+          and not capsule_source.finalize_capsule(
+              capsule_id, caller="attacker", capsule_hash="capsule-hash",
+              vault_has_matching_capsule=True)
+          and capsule_source.finalize_capsule(
+              capsule_id, caller="erc721-vault", capsule_hash="capsule-hash",
+              vault_has_matching_capsule=True)
+          and capsule_source.credits[capsule_id].status == "NEW"
+          and not capsule_source.finalize_capsule(
+              capsule_id, caller="erc721-vault", capsule_hash="capsule-hash",
+              vault_has_matching_capsule=True))
+    check("P50ak token reserve blocks pooled drain and capsule mismatch",
+          not refund_vault.ordinary_payout(61)
+          and not refund_vault.register(
+              "bad", owner="alice", amount=1, capsule_hash="bad",
+              calldata_hash_matches=False))
+    assert capsule_source.cancel(capsule_id, now=enqueue_by + 1)
+    check("P50ai failed token delivery does not roll back terminal source state",
+          not refund_vault.claim_refund(
+              capsule_id, caller="alice", source=capsule_source,
+              transfer_succeeds=False)
+          and capsule_source.credits[capsule_id].status == "CANCELLED"
+          and refund_vault.claim_refund(
+              capsule_id, caller="alice", source=capsule_source)
+          and refund_vault.balance == 60 and refund_vault.reserved == 0)
+
+    destination = DestinationBridgeLedger()
+    pin_now = prepared_clock.timestamp
+    assert destination.pin(
+        credit_a, "result:A", now=pin_now, caller_is_inbox_apply=True)
+    process_by = destination.pins[credit_a].process_by
+    destination.upgrade_executor()
+    check("P50ab inbox pin and deadline survive executor upgrades unversioned",
+          destination.implementation_version == 2
+          and destination.pins[credit_a]
+              == InboxPin("result:A", pin_now + BRIDGE_PROCESS_TTL_SECONDS))
+    assert destination.process(
+        credit_a, now=pin_now + 1, message_available=False,
+        result_hash_matches=True, callback_ok=True) == "RETRIABLE"
+    destination.paused = True
+    check("P50ac lost post-pin Message becomes permissionlessly FAILED",
+          not destination.expire(credit_a, now=process_by)
+          and destination.expire(credit_a, now=process_by + 1)
+          and destination.status[credit_a] == "FAILED"
+          and destination.process(
+              credit_a, now=process_by + 2, message_available=True,
+              result_hash_matches=True, callback_ok=True) == "REJECTED")
+    destination.paused = False
+    assert destination.pin(
+        credit_b, "result:B", now=pin_now, caller_is_inbox_apply=True)
+    check("P50ad DONE is terminal and conflicting pins fail",
+          destination.process(
+              credit_b, now=pin_now + 1, message_available=True,
+              result_hash_matches=True, callback_ok=True) == "DONE"
+          and not destination.expire(
+              credit_b, now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1)
+          and not destination.pin(
+              credit_b, "conflict", now=pin_now,
+              caller_is_inbox_apply=True))
+    check("P50ae failure signals bind the permanent destination domain",
+          destination.failure_signal("domain:D1", credit_a)
+              != destination.failure_signal("domain:D2", credit_a)
+          and destination.done_signal("domain:D1", credit_b)
+              != destination.failure_signal("domain:D1", credit_b))
+    manual_credit = "credit:manual-failure"
+    assert destination.pin(
+        manual_credit, "result:C", now=pin_now, caller_is_inbox_apply=True)
+    check("P50al observers cannot force early failure or last-attempt retry",
+          not destination.manual_fail(
+              manual_credit, caller_is_dest_owner=True)
+          and destination.process(
+              manual_credit, now=pin_now + 1, message_available=True,
+              result_hash_matches=True, callback_ok=False) == "RETRIABLE"
+          and not destination.manual_fail(
+              manual_credit, caller_is_dest_owner=False)
+          and destination.retry(
+              manual_credit, now=pin_now + 2, caller_is_dest_owner=False,
+              is_last_attempt=True, message_available=True,
+              result_hash_matches=True, callback_ok=True) == "REJECTED")
+    destination.paused = True
+    check("P50am manual failure is pausable but expiry is not",
+          not destination.manual_fail(
+              manual_credit, caller_is_dest_owner=True)
+          and destination.expire(
+              manual_credit,
+              now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1))
+    destination.paused = False
+    source.paused = True
+    check("P50aj permanent terminal proofs release exactly one source liability",
+          source.recall_failed(credit_a, proof_valid=True)
+          and source.credits[credit_a].status == "RECALLED"
+          and source.finalize_done(credit_b, proof_valid=True)
+          and source.credits[credit_b].status == "DELIVERED"
+          and not source.finalize_done(credit_a, proof_valid=True)
+          and not source.recall_failed(credit_b, proof_valid=True))
+
     reorg_protocol = protocol(tip_slot=100)
     reorg_adapter = BridgeAdapter()
+    reorg_source = SourceBridgeLedger()
+    reorg_clock = clock(100, 100)
+    reorg_enqueue_by = reorg_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
+    reorg_id = reorg_adapter.credit_id(
+        1, "domain:R1", 1, "bridge:A", "domain:D1", "reorg")
+    assert reorg_source.open(
+        reorg_id, now=reorg_clock.timestamp, enqueue_by=reorg_enqueue_by,
+        owner="alice", value=1, fee=1)
     pre_protocol = reorg_protocol.snapshot()
     pre_adapter = copy.deepcopy(reorg_adapter)
-    reorg_clock = clock(100, 100)
-    orphaned_credit = reorg_adapter.prepare(
-        reorg_protocol, reorg_clock, 1, "domain:R1", 1,
-        "bridge:A", "reorg", bridge_envelope,
-        source_witness_age=MAX_SOURCE_WITNESS_AGE)
-    assert orphaned_credit is not None
-    check("P50n source package retained before pending finality",
-          not reorg_adapter.source_independent(
-              Clock(reorg_clock.block_number + PENDING_FINALITY_BLOCKS - 1,
-                    reorg_clock.timestamp), orphaned_credit))
+    pre_source = copy.deepcopy(reorg_source)
+    assert reorg_adapter.enqueue(
+        reorg_protocol, reorg_clock, reorg_source, src_chain_id=1,
+        source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
+        destination_domain_id="domain:D1", msg_hash="reorg",
+        enqueue_by=reorg_enqueue_by, envelope=bridge_envelope,
+        caller="relayer", deposit=1) == "QUEUED:0"
     reorg_protocol = pre_protocol
     reorg_adapter = pre_adapter
-    replay_clock = Clock(
-        reorg_clock.block_number + PENDING_FINALITY_BLOCKS,
-        reorg_clock.timestamp + PENDING_FINALITY_BLOCKS * L1_SLOT_SECONDS,
-    )
-    replayed_credit = reorg_adapter.prepare(
-        reorg_protocol, replay_clock, 1, "domain:R1", 1,
-        "bridge:A", "reorg", bridge_envelope,
-        source_witness_age=F_L1)
-    check("P50o orphaned pending replays under a refreshed source witness",
-          replayed_credit == orphaned_credit
-          and reorg_adapter.source_independent(
-              Clock(replay_clock.block_number + PENDING_FINALITY_BLOCKS,
-                    replay_clock.timestamp), replayed_credit))
+    reorg_source = pre_source
+    check("P50o orphaned direct enqueue replays from the durable source record",
+          reorg_adapter.enqueue(
+              reorg_protocol, clock(101, 101), reorg_source, src_chain_id=1,
+              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
+              destination_domain_id="domain:D1", msg_hash="reorg",
+              enqueue_by=reorg_enqueue_by, envelope=bridge_envelope,
+              caller="relayer", deposit=1) == "QUEUED:0"
+          and len(reorg_protocol.messages) == 1)
 
 
 if __name__ == "__main__":

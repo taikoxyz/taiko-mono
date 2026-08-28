@@ -9,9 +9,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, durable source-domain/epoch bridge credits, refreshable bounded source witnesses, manifest-authorized historical source support, PREACTIVE ingress and L2 activation gating, capacity reservations, append-time deadlines, pending reorg replay, migration and replay. 123 assertions. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, same-L1 direct bridge enqueue, immutable authorization versus mutable liability, block-indexed executor epochs, aggregate ETH/token solvency, refund capsules, atomic capacity and enqueue/cancel races, persistent SYNCED refund/retry, permanent destination pins, pause-independent expiry and terminal proofs, PREACTIVE ingress and L2 activation gating, migration and reorg replay. 135 assertions. |
 | [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, capped quotas, ring capacity and placement. 36 assertions. |
-| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, kind-0/kind-1 durable descriptors and dispositions, emission-versus-witness source fields, source-domain/epoch/Bridge-bound credit, escrow, inbox and failure IDs/results plus atomic ordered batches, bounded topology encodings and idempotent pins, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 84 vectors/properties. |
+| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, complete kind-0/kind-1 durable descriptors and dispositions, same-L1 source and permanent destination domains, executor descriptors, epoch/Bridge/destination-bound credits, escrow, inbox and DONE/FAILED IDs/results plus atomic ordered batches, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 86 vectors/properties. |
 
 ## Building the PDF
 
@@ -33,9 +33,9 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 123 assertions
+python3 settlement-window-model.py   # 135 assertions
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 84 vectors/properties
+python3 commitment-model.py          # 86 vectors/properties
 ```
 
 All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
@@ -67,12 +67,14 @@ economics, operations and external review. Five properties are worth knowing bef
 - **A builder's signature does not attest that the block executes.** It attests authorship and the
   choice of parent. Executability is established only by the validity proof at landing, so a
   preconfirmation is a commitment to include and to order (§9).
-- **Bridge ingress has a separate availability boundary.** A kind-1 source operation is only
-  “source observed” until its destination-L1 `PENDING` transaction reaches its exact 214-block
-  finality milestone. Source emission creates a permanent registry credit, so an orphaned
-  preparation can use a fresh bounded EIP-2935 witness instead of an expiring emission proof.
-  Manifest-authorized domain/verifier routes remain append-only across source rotations; the
-  destination reserves queue capacity, and a post-cutover L2 activation gate excludes legacy calls.
+- **Bridge ingress has a separate availability boundary.** Launch supports only L1-to-L2 messages
+  whose source registry and queue adapter share settlement Ethereum. Anyone can direct-read the
+  permanent source record and atomically enqueue with a caller-funded deposit; a maintenance sync
+  commits while the full deposit becomes withdrawable, then the caller retries. Missing Message
+  bytes lead to permissionless source cancellation after `enqueueBy`, or destination `FAILED`
+  after the permanent unversioned pin's `processBy`. Source and destination domains and scheduled
+  implementation epochs are append-only and manifest-authorized; a post-cutover L2 activation
+  gate excludes legacy calls. Cross-L1 kind-1 ingress is not part of this version.
 
 Final acceptance requires a human safety review. The models and the specification are a gate, not
 a signature.
