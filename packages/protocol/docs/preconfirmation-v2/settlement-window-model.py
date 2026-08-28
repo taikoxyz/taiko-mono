@@ -20,7 +20,8 @@ Slot-Chain §5.6 结算窗口(settlement window)可执行参考模型 + 性质�
   P10 罚没生效按候选落地时点判定(§4.3;门后半)
   P11 兜底资格快照保持到窗口收盘(§6.3 Δ_lag_final;门后半)
   P12 窗口中途入队: 队列 append-only 按序号引用,基线只冻结游标/状态
-  P13 兜底报酬按边际推进计量: 同样净推进,拆成几个候选提交总支付不变(防刷前缀抽干保证金)
+  P13 兜底报酬 = 固定成本 + 边际块奖励,按净推进封顶、超额分摊:
+      同 count 的严格改进者不白干;拆前缀刷不增加总支付且对刷者亏损
 
 运行:  python3 settlement-window-model.py   (零依赖,全部断言通过则打印 RESULTS)
 注意: 这是【模型】——签名/证明/执行以布尔占位,只精确建模本设计新增的
@@ -439,33 +440,72 @@ def test_p12_midwindow_enqueue():
 
 
 def test_p13_reward_metered_on_marginal_advancement():
-    """§6.3: 兜底报酬按【边际推进】计量,不按候选个数。
+    """§6.3: 兜底报酬 = 固定成本报销 + 边际块奖励,总额按【净推进】封顶,超额按比例分摊。
 
-    否则持有一条 N 块尾巴的人可以依次提交长度 1,2,...,N 的前缀——每条都严格更重、
-    每条都拿一次全额报酬+加成,把聚合者保证金抽干。这里断言:同样的净推进量,
-    无论拆成几个候选提交,总支付相同。
+    要点在于全序是三元组 (count, tip_slot, tip_hash),候选可以【不加块】而严格更优
+    (同 count、更晚 tip_slot,或末级 hash 仲裁)。只按块数计费会让这类候选白干,
+    与"诚实改进者不白干"的承诺自相矛盾,并让同 count 的恶意候选无人愿意顶掉。
     """
-    RATE = 7                       # 每块报酬(含加成)的定点值
+    C_FIXED, PHI = 10, 7          # 固定成本报销 / 每块奖励(定点值)
 
-    def payout(submissions):
-        """submissions = 依次提交的候选块数;只对超过当前最优的增量计费。"""
-        best, total = 0, 0
-        for n in submissions:
-            if n > best:           # 严格更重才被接受
-                total += (n - best) * RATE
-                best = n
-        return total, best
+    def key(c):
+        """§5.2 全序 key: 块数、tip_slot 降序,tip_hash 升序(取负纳入)。"""
+        return (c["count"], c["tip_slot"], -c["tip_hash"])
 
-    one_shot, b1 = payout([12])                       # 一次落满
-    ground, b2 = payout(list(range(1, 13)))           # 拆成 12 个前缀刷
-    interleaved, b3 = payout([3, 1, 7, 5, 12, 9])     # 乱序 + 更差候选混入
-    check("P13a 报酬与拆分方式无关: 一次落满 == 逐前缀刷 == 乱序提交",
-          one_shot == ground == interleaved and b1 == b2 == b3 == 12)
-    check("P13b 报酬正比于净推进,与候选个数无关",
-          one_shot == 12 * RATE)
-    # 更差候选不被接受,故不产生任何支付
-    worse, _ = payout([12, 4, 9])
-    check("P13c 更差候选零支付(不接受即不计费)", worse == 12 * RATE)
+    def settle(subs, base_count=0):
+        """按提交顺序接受严格更优者,记账后按窗口上限比例分摊。"""
+        best, claims = None, []
+        for c in subs:
+            if best is None or key(c) > key(best):
+                added = max(0, c["count"] - (best["count"] if best else base_count))
+                claims.append({"who": c["who"], "raw": C_FIXED + PHI * added})
+                best = c
+        cap = C_FIXED + PHI * (best["count"] - base_count) if best else 0
+        total_raw = sum(x["raw"] for x in claims)
+        scale = min(1.0, cap / total_raw) if total_raw else 0
+        payout = {}
+        for x in claims:
+            payout[x["who"]] = payout.get(x["who"], 0) + x["raw"] * scale
+        return round(sum(payout.values()), 6), payout, best, cap
+
+    def C(who, count, slot, h=5):
+        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h}
+
+    # --- a) 同 count、更晚 tip_slot 的改进者不白干 -------------------------------
+    tot, pay, best, cap = settle([C("A", 100, 1000), C("B", 100, 1010)])
+    check("P13a 同 count 更晚 tip_slot 的严格改进者仍获补偿(不白干)",
+          pay.get("B", 0) > 0 and best["who"] == "B")
+
+    # --- b) 同 count 同 slot、仅 hash 仲裁改进也获补偿 ---------------------------
+    tot, pay, best, cap = settle([C("A", 100, 1000, h=9), C("B", 100, 1000, h=2)])
+    check("P13b 仅末级 hash 仲裁的改进者也获补偿",
+          pay.get("B", 0) > 0 and best["who"] == "B")
+
+    # --- c) 拆前缀刷不增加总支付,且总支付恒 ≤ 窗口上限 --------------------------
+    one, _, _, cap1 = settle([C("X", 12, 1200)])
+    grind, payg, _, cap2 = settle([C("X", n, 1000 + n) for n in range(1, 13)])
+    check("P13c 拆成 12 个前缀刷: 总支付不超过一次落满的上限",
+          abs(one - grind) < 1e-9 and cap1 == cap2 and grind <= cap1 + 1e-9)
+
+    # --- d) 刷前缀在固定成本上亏损(超额分摊后拿回少于垫付) ----------------------
+    spent = 12 * C_FIXED
+    check("P13d 刷 12 次的实际支出 > 其分得报酬 ⇒ 刷前缀是亏的", grind < spent)
+
+    # --- e) 多个独立提交者:总额仍受同一上限约束 --------------------------------
+    tot_m, paym, _, capm = settle([C("A", 3, 300), C("B", 6, 600), C("C", 9, 900)])
+    check("P13e 多提交者: 各自有份且总额 ≤ 上限",
+          len(paym) == 3 and all(v > 0 for v in paym.values()) and tot_m <= capm + 1e-9)
+
+    # --- f) count 与 tip-only 改进交替的对抗序列,总额仍封顶 --------------------
+    adv = [C("A", 5, 500), C("B", 5, 510), C("A", 6, 600), C("B", 6, 610),
+           C("A", 7, 700), C("B", 7, 710)]
+    tot_a, _, best_a, cap_a = settle(adv)
+    check("P13f 对抗序列(count 与 tip-only 改进交替): 总支付 ≤ 净推进上限",
+          tot_a <= cap_a + 1e-9 and best_a["count"] == 7)
+
+    # --- g) 更差候选不被接受,不产生支付 ----------------------------------------
+    tot_w, payw, _, capw = settle([C("A", 12, 1200), C("B", 4, 400), C("C", 9, 900)])
+    check("P13g 更差候选零支付(不接受即不计费)", set(payw) == {"A"} and tot_w <= capw + 1e-9)
 
 
 if __name__ == "__main__":
