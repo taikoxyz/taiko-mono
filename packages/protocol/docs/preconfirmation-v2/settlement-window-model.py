@@ -65,7 +65,7 @@ PENDING_FINALITY_BLOCKS = F_L1 + (
     REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
 ) // L1_SLOT_SECONDS
 MAX_SOURCE_WITNESS_AGE = 255
-MAX_SOURCE_TOPOLOGIES_PER_DOMAIN = 64
+MAX_SOURCE_TOPOLOGIES_PER_PROFILE = 64
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -83,6 +83,26 @@ class Cause(IntFlag):
     NONE = 0
     SLA = 1
     FORCE_DUE = 2
+
+
+@dataclass
+class L2ActivationLatch:
+    active: bool = False
+
+    def activate_from_anchor(self, *, custom_system_tx: bool,
+                             slot_chain_fork_active: bool,
+                             l1_cutover_authenticated: bool) -> bool:
+        if (self.active or not custom_system_tx or not slot_chain_fork_active
+                or not l1_cutover_authenticated):
+            return False
+        self.active = True
+        return True
+
+    def inbox_apply(self, *, custom_system_tx: bool) -> bool:
+        return self.active and custom_system_tx
+
+    def bridge_v2_call(self) -> bool:
+        return self.active
 
 
 class Tier(Enum):
@@ -558,11 +578,13 @@ class Protocol:
     def activate_migration(self, clock: Clock, imported: Canonical,
                            *, old_quiescent: bool, router_switched: bool,
                            header_checkpoint_authenticated: bool = True,
-                           l2_system_accounts_authenticated: bool = True) -> bool:
+                           l2_system_accounts_authenticated: bool = True,
+                           l2_v2_latch_disabled: bool = True) -> bool:
         if (self.mode is not Mode.PREACTIVE or clock.timestamp < GENESIS_TIMESTAMP
                 or not old_quiescent or not router_switched
                 or not header_checkpoint_authenticated
                 or not l2_system_accounts_authenticated
+                or not l2_v2_latch_disabled
                 or self.messages or self.pending_reservations != 0
                 or imported.canonicalized_at_block != clock.block_number
                 or imported.core.l2_block_number >= 1 << 48
@@ -609,6 +631,8 @@ class Protocol:
         self.messages.append(replace(message, enqueued_at=clock.timestamp, due_at=due))
 
     def admit_message(self, clock: Clock, message: Message) -> str:
+        if self.mode is Mode.PREACTIVE:
+            return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
         if (message.kind is not ForceKind.USER_TX
@@ -630,6 +654,8 @@ class Protocol:
         return "ADMITTED"
 
     def admit_reserved_bridge(self, clock: Clock, message: Message) -> str:
+        if self.mode is Mode.PREACTIVE:
+            return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
         if self.pending_reservations <= 0 or not self._valid_bridge_static(message):
@@ -873,24 +899,43 @@ class BridgeRecord:
 
 
 @dataclass
-class SourceSupportCatalog:
-    added_at: dict[tuple[str, str], int] = field(default_factory=dict)
+class SourceSupportEntry:
+    protocol_version: int
+    manifest_hash: str
+    activated_at_block: int
 
-    def add(self, source_domain_id: str, execution_hash: str,
-            block_number: int) -> bool:
-        key = (source_domain_id, execution_hash)
-        if key in self.added_at:
-            return self.added_at[key] == block_number
-        if sum(domain == source_domain_id for domain, _ in self.added_at) \
-                >= MAX_SOURCE_TOPOLOGIES_PER_DOMAIN:
+
+@dataclass
+class SourceSupportRegistry:
+    entries: dict[tuple[str, str], SourceSupportEntry] = field(default_factory=dict)
+    profile_additions: dict[int, int] = field(default_factory=dict)
+
+    def register(self, source_domain_id: str, execution_hash: str,
+                 protocol_version: int, manifest_hash: str,
+                 activated_at_block: int, *, caller_is_version_manager: bool,
+                 manifest_active: bool) -> bool:
+        if (not caller_is_version_manager or not manifest_active
+                or protocol_version <= 0 or not manifest_hash):
             return False
-        self.added_at[key] = block_number
+        key = (source_domain_id, execution_hash)
+        entry = SourceSupportEntry(
+            protocol_version, manifest_hash, activated_at_block)
+        if key in self.entries:
+            return self.entries[key] == entry
+        if self.profile_additions.get(protocol_version, 0) \
+                >= MAX_SOURCE_TOPOLOGIES_PER_PROFILE:
+            return False
+        self.entries[key] = entry
+        self.profile_additions[protocol_version] = (
+            self.profile_additions.get(protocol_version, 0) + 1)
         return True
 
     def final(self, source_domain_id: str, execution_hash: str,
               block_number: int) -> bool:
-        added = self.added_at.get((source_domain_id, execution_hash))
-        return added is not None and block_number >= added + PENDING_FINALITY_BLOCKS
+        entry = self.entries.get((source_domain_id, execution_hash))
+        return (entry is not None
+                and block_number
+                    >= entry.activated_at_block + PENDING_FINALITY_BLOCKS)
 
     def remove(self, source_domain_id: str, execution_hash: str) -> bool:
         _ = (source_domain_id, execution_hash)
@@ -1074,20 +1119,47 @@ def test_canonical_outputs_and_migration() -> None:
     check("P4 migration requires quiescence", not p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=False, router_switched=True))
     check("P4a migration proves deployed L2 system accounts", not p.activate_migration(
         clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True,
-        l2_system_accounts_authenticated=False))
+        l2_system_accounts_authenticated=False)
+          and not p.activate_migration(
+              clock(1_100, 1_100), imported, old_quiescent=True,
+              router_switched=True, l2_v2_latch_disabled=False))
+    latch = L2ActivationLatch()
+    check("P4e legacy calls cannot activate or invoke V2 system ingress",
+          not latch.activate_from_anchor(
+              custom_system_tx=False, slot_chain_fork_active=False,
+              l1_cutover_authenticated=False)
+          and not latch.inbox_apply(custom_system_tx=False)
+          and not latch.bridge_v2_call()
+          and not latch.active)
+    check("P4f first post-cutover custom anchor activates the L2 latch",
+          latch.activate_from_anchor(
+              custom_system_tx=True, slot_chain_fork_active=True,
+              l1_cutover_authenticated=True)
+          and latch.inbox_apply(custom_system_tx=True)
+          and latch.bridge_v2_call()
+          and not latch.inbox_apply(custom_system_tx=False))
     preactive_adapter = BridgeAdapter()
     check("P4b preactive bridge ingress cannot create a reservation",
           preactive_adapter.prepare(
               p, clock(1_100, 1_100), 1, "domain:R1", 1, "bridge:A", "preactive",
               message(1_100, "preactive", kind=ForceKind.BRIDGE_CREDIT)) is None
           and p.pending_reservations == 0)
+    preactive_user = message(1_100, "preactive-user")
+    check("P4d preactive kind-0 ingress cannot create a queue leaf",
+          p.admit_message(clock(1_100, 1_100), preactive_user)
+              == "REJECTED_PREACTIVE"
+          and not p.messages)
     dirty = protocol(mode=Mode.PREACTIVE)
     dirty.pending_reservations = 1
     check("P4c migration rejects a nonempty reservation scalar",
           not dirty.activate_migration(
               clock(1_100, 1_100), imported, old_quiescent=True,
               router_switched=True))
-    check("P5 atomic router cutover imports exact state", p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True))
+    check("P5 atomic router cutover imports state and enables ingress",
+          p.activate_migration(
+              clock(1_100, 1_100), imported, old_quiescent=True,
+              router_switched=True)
+          and p.admit_message(clock(1_101, 1_101), preactive_user) == "ADMITTED")
     q = protocol()
     c = clock(1_100, 1_100)
     activate_normal(q, c)
@@ -1481,22 +1553,36 @@ def test_data_gc_reorg_and_geometry() -> None:
               source_witness_age=MAX_SOURCE_WITNESS_AGE + 1) is None
           and source_auth_protocol.pending_reservations == 0)
 
-    support = SourceSupportCatalog()
-    assert support.add("domain:R1", "execution:B", 100)
-    check("P50u source topology activation waits for destination finality",
+    support = SourceSupportRegistry()
+    assert not support.register(
+        "domain:R1", "execution:B", 2, "manifest:2", 100,
+        caller_is_version_manager=False, manifest_active=True)
+    assert not support.register(
+        "domain:R1", "execution:B", 2, "manifest:2", 100,
+        caller_is_version_manager=True, manifest_active=False)
+    assert support.register(
+        "domain:R1", "execution:B", 2, "manifest:2", 100,
+        caller_is_version_manager=True, manifest_active=True)
+    check("P50u source topology waits for active-profile finality",
           not support.final(
               "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS - 1)
           and support.final(
               "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS))
-    bounded_support = SourceSupportCatalog()
-    assert all(bounded_support.add("domain:R1", f"execution:{i}", 100 + i)
-               for i in range(MAX_SOURCE_TOPOLOGIES_PER_DOMAIN))
-    check("P50v destination source-topology support is append-only and bounded",
+    bounded_support = SourceSupportRegistry()
+    assert all(bounded_support.register(
+        "domain:R1", f"execution:{i}", 3, "manifest:3", 200,
+        caller_is_version_manager=True, manifest_active=True)
+        for i in range(MAX_SOURCE_TOPOLOGIES_PER_PROFILE))
+    check("P50v historical support is immutable and profile additions bounded",
           not support.remove("domain:R1", "execution:B")
           and support.final(
               "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS)
-          and not bounded_support.add(
-              "domain:R1", "execution:overflow", 1_000))
+          and not bounded_support.register(
+              "domain:R1", "execution:overflow", 3, "manifest:3", 200,
+              caller_is_version_manager=True, manifest_active=True)
+          and bounded_support.register(
+              "domain:R2", "execution:new-profile", 4, "manifest:4", 300,
+              caller_is_version_manager=True, manifest_active=True))
 
     capacity_protocol = protocol(tip_slot=100)
     capacity_protocol.pending_reservations = MAX_FORCE_QUEUE_ITEMS - 1
