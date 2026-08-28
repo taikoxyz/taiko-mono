@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.9 consensus commitments.
+"""Golden vectors for Slot-Chain v2.10 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -52,7 +52,7 @@ D_ENTRY_NODE = b"slot-chain-entry-node-v1"
 D_TRANCHE_LEAF = b"slot-chain-tranche-leaf-v1"
 D_TRANCHE_NODE = b"slot-chain-tranche-node-v1"
 D_FORCE_USER = b"slot-chain-force-user-v2"
-D_FORCE_BRIDGE = b"slot-chain-force-bridge-v4"
+D_FORCE_BRIDGE = b"slot-chain-force-bridge-v5"
 D_FORCE_DESCRIPTOR_LIST = b"slot-chain-force-descriptor-list-v2"
 D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
@@ -65,8 +65,8 @@ D_MANIFEST_LEAF = b"slot-chain-manifest-leaf-v1"
 D_MANIFEST_NODE = b"slot-chain-manifest-node-v1"
 D_MANIFEST_ROOT = b"slot-chain-manifest-root-v1"
 D_DISPOSITIONS = b"slot-chain-dispositions-v1"
-D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v3"
-D_BRIDGE_CREDIT_ID = b"slot-chain-bridge-credit-id-v1"
+D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v4"
+D_BRIDGE_CREDIT_ID = b"slot-chain-bridge-credit-id-v2"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
@@ -322,6 +322,7 @@ class ForcedEnvelope:
 class BridgeEnvelope:
     msg_hash: bytes
     src_chain_id: int
+    src_epoch: int
     src_bridge: int
     src_block_number: int
     src_block_hash: bytes
@@ -353,7 +354,8 @@ def forced_descriptor(envelope: ForcedEnvelope) -> bytes:
 def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
     return (
         b32(envelope.msg_hash)
-        + u256(envelope.src_chain_id) + address20(envelope.src_bridge)
+        + u256(envelope.src_chain_id) + u64(envelope.src_epoch)
+        + address20(envelope.src_bridge)
         + u64(envelope.src_block_number) + b32(envelope.src_block_hash)
         + u256(envelope.dest_chain_id)
         + address20(envelope.src_owner) + address20(envelope.dest_owner)
@@ -373,7 +375,7 @@ def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
 
 def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
     descriptor = bridge_descriptor(envelope)
-    assert len(descriptor) == 372
+    assert len(descriptor) == 380
     return keccak256(D_FORCE_BRIDGE + u32(index) + descriptor)
 
 
@@ -551,9 +553,11 @@ def dispositions(start: int, rows: tuple[tuple[int, int, int, bytes], ...]) -> b
 def bridge_credit_result(index: int, envelope: BridgeEnvelope) -> bytes:
     return keccak256(
         D_BRIDGE_RESULT + u64(index) + bridge_credit_id(
-            envelope.src_chain_id, envelope.src_bridge, envelope.msg_hash)
+            envelope.src_chain_id, envelope.src_epoch,
+            envelope.src_bridge, envelope.msg_hash)
         + b32(envelope.msg_hash)
-        + u256(envelope.src_chain_id) + address20(envelope.src_bridge)
+        + u256(envelope.src_chain_id) + u64(envelope.src_epoch)
+        + address20(envelope.src_bridge)
         + u64(envelope.src_block_number) + b32(envelope.src_block_hash)
         + u256(envelope.dest_chain_id)
         + address20(envelope.src_owner) + address20(envelope.dest_owner)
@@ -561,16 +565,17 @@ def bridge_credit_result(index: int, envelope: BridgeEnvelope) -> bytes:
     )
 
 
-def bridge_credit_id(src_chain_id: int, src_bridge: int, msg_hash: bytes) -> bytes:
-    return keccak256(D_BRIDGE_CREDIT_ID + u64(src_chain_id)
+def bridge_credit_id(src_chain_id: int, src_epoch: int,
+                     src_bridge: int, msg_hash: bytes) -> bytes:
+    return keccak256(D_BRIDGE_CREDIT_ID + u64(src_chain_id) + u64(src_epoch)
                      + address20(src_bridge) + b32(msg_hash))
 
 
-def pin_inbox_credit(store: dict[bytes, bytes], src_chain_id: int,
+def pin_inbox_credit(store: dict[bytes, bytes], src_chain_id: int, src_epoch: int,
                      src_bridge: int, msg_hash: bytes, result_hash: bytes) -> bool:
     if src_bridge == 0 or msg_hash == bytes(32) or result_hash == bytes(32):
         return False
-    key = bridge_credit_id(src_chain_id, src_bridge, msg_hash)
+    key = bridge_credit_id(src_chain_id, src_epoch, src_bridge, msg_hash)
     existing = store.get(key)
     if existing is None:
         store[key] = result_hash
@@ -734,7 +739,7 @@ def vectors() -> dict[str, str]:
         sessions_hash, 1, 2, outputs_hash, 0xCAFE,
     )
     bridge = BridgeEnvelope(
-        bytes.fromhex("21" * 32), 1, 0xB123, 12_345,
+        bytes.fromhex("21" * 32), 1, 7, 0xB123, 12_345,
         bytes.fromhex("24" * 32), l2_chain_id,
         0x1111, 0x2222, 10**18,
         bytes.fromhex("22" * 32), bytes.fromhex("23" * 32), 96, 120_000,
@@ -774,7 +779,8 @@ def vectors() -> dict[str, str]:
         "bridge_leaf": bridge_hash.hex(),
         "bridge_result": bridge_credit_result(70, bridge).hex(),
         "bridge_credit_id": bridge_credit_id(
-            bridge.src_chain_id, bridge.src_bridge, bridge.msg_hash).hex(),
+            bridge.src_chain_id, bridge.src_epoch,
+            bridge.src_bridge, bridge.msg_hash).hex(),
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
@@ -818,9 +824,9 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "f0dcc65ee5dae640105f071f23506747fa82868d142d5493e116ca76d70d9d92",
-    "bridge_result": "daeb57aafde16e5a81695b768cc1a2d63a30d019103f06da57c6baa67284e467",
-    "bridge_credit_id": "daea3132762c38a40218b6233011febfcc834e19e6dbda894994ea9b7b0d0330",
+    "bridge_leaf": "f004dc1367a1a782b1d28ab02c77d8c6ff4a54aa8fe194a128b877a387d335a6",
+    "bridge_result": "d2b68225ba3ea936159e0ec2157b07b1c72d268b89b31fc8d10fece7f9015c8e",
+    "bridge_credit_id": "bfb7f2280ae785be98770a67e8d5c11d42995a0a961baeb479bde6bf368fcaee",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -881,7 +887,7 @@ if __name__ == "__main__":
     assert not canonical_disposition(0, 2, bytes(32))
     assert not canonical_disposition(6, UINT32_MAX, bytes(32))
     bridge = BridgeEnvelope(
-        bytes.fromhex("21" * 32), 1, 0xB123, 12_345,
+        bytes.fromhex("21" * 32), 1, 7, 0xB123, 12_345,
         bytes.fromhex("24" * 32), 16_788,
         0x1111, 0x2222, 10**18,
         bytes.fromhex("22" * 32), bytes.fromhex("23" * 32), 96, 120_000,
@@ -892,22 +898,30 @@ if __name__ == "__main__":
                                  expected_bridge_result=bridge_result)
     assert not canonical_disposition(5, UINT32_MAX, bytes.fromhex("44" * 32),
                                      expected_bridge_result=bridge_result)
-    rotated = replace(bridge, src_bridge=0xB124)
+    rotated = replace(bridge, src_epoch=8, src_bridge=0xB124)
     assert bridge_leaf(70, rotated) != bridge_leaf(70, bridge)
     assert bridge_credit_result(70, rotated) != bridge_result
     pins: dict[bytes, bytes] = {}
-    assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.src_bridge,
+    assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.src_epoch, bridge.src_bridge,
                             bridge.msg_hash, bridge_result)
-    assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.src_bridge,
+    assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.src_epoch, bridge.src_bridge,
                             bridge.msg_hash, bridge_result)
     rotated_result = bridge_credit_result(71, rotated)
-    assert pin_inbox_credit(pins, rotated.src_chain_id, rotated.src_bridge,
+    assert pin_inbox_credit(pins, rotated.src_chain_id, rotated.src_epoch, rotated.src_bridge,
                             rotated.msg_hash, rotated_result)
-    assert not pin_inbox_credit(pins, bridge.src_chain_id, bridge.src_bridge,
+    assert not pin_inbox_credit(pins, bridge.src_chain_id, bridge.src_epoch, bridge.src_bridge,
                                 bridge.msg_hash, bytes.fromhex("44" * 32))
-    assert pins[bridge_credit_id(bridge.src_chain_id, bridge.src_bridge,
+    assert pins[bridge_credit_id(bridge.src_chain_id, bridge.src_epoch, bridge.src_bridge,
                                  bridge.msg_hash)] == bridge_result
-    assert len(pins) == 2
+    reused = replace(bridge, src_epoch=9)
+    reused_result = bridge_credit_result(72, reused)
+    assert bridge_credit_id(reused.src_chain_id, reused.src_epoch,
+                            reused.src_bridge, reused.msg_hash) != bridge_credit_id(
+                                bridge.src_chain_id, bridge.src_epoch,
+                                bridge.src_bridge, bridge.msg_hash)
+    assert pin_inbox_credit(pins, reused.src_chain_id, reused.src_epoch,
+                            reused.src_bridge, reused.msg_hash, reused_result)
+    assert len(pins) == 3
 
     published = Path(__file__).with_name("tex").joinpath("main.tex").read_text()
     for key in ("bridge_leaf", "bridge_result", "bridge_credit_id"):
@@ -919,6 +933,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 69 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 71 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

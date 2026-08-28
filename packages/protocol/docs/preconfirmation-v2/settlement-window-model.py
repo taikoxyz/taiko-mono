@@ -831,13 +831,15 @@ class BridgeAdapter:
     records: dict[str, tuple[str, Message, int | None]] = field(default_factory=dict)
 
     @staticmethod
-    def credit_id(src_chain_id: int, src_bridge: str, msg_hash: str) -> str:
-        return f"credit:{src_chain_id}:{src_bridge}:{msg_hash}"
+    def credit_id(src_chain_id: int, src_epoch: int,
+                  src_bridge: str, msg_hash: str) -> str:
+        return f"credit:{src_chain_id}:{src_epoch}:{src_bridge}:{msg_hash}"
 
-    def prepare(self, src_chain_id: int, src_bridge: str, msg_hash: str,
-                envelope: Message, source_authorized_at_emission: bool = True
+    def prepare(self, src_chain_id: int, src_epoch: int, src_bridge: str,
+                msg_hash: str, envelope: Message,
+                source_authorized_at_emission: bool = True
                 ) -> str | None:
-        credit_id = self.credit_id(src_chain_id, src_bridge, msg_hash)
+        credit_id = self.credit_id(src_chain_id, src_epoch, src_bridge, msg_hash)
         if (credit_id in self.records
                 or envelope.kind is not ForceKind.BRIDGE_CREDIT
                 or not source_authorized_at_emission):
@@ -1284,16 +1286,18 @@ def test_data_gc_reorg_and_geometry() -> None:
     bridge_protocol = protocol()
     adapter = BridgeAdapter()
     bridge_envelope = message(4_601, "bridge-record", kind=ForceKind.BRIDGE_CREDIT)
-    credit_a = adapter.prepare(1, "bridge:A", "msg", bridge_envelope)
-    credit_b = adapter.prepare(1, "bridge:B", "msg", bridge_envelope)
-    check("P50e rotated authorized Bridges have distinct exactly-once identities",
-          credit_a is not None and credit_b is not None and credit_a != credit_b
-          and len(adapter.records) == 2
-          and adapter.prepare(1, "bridge:A", "msg", bridge_envelope) is None)
+    credit_a = adapter.prepare(1, 7, "bridge:A", "msg", bridge_envelope)
+    credit_b = adapter.prepare(1, 8, "bridge:B", "msg", bridge_envelope)
+    credit_a_reused = adapter.prepare(1, 9, "bridge:A", "msg", bridge_envelope)
+    check("P50e A-B-A authorized epochs have distinct exactly-once identities",
+          credit_a is not None and credit_b is not None and credit_a_reused is not None
+          and len({credit_a, credit_b, credit_a_reused}) == 3
+          and len(adapter.records) == 3
+          and adapter.prepare(1, 7, "bridge:A", "msg", bridge_envelope) is None)
     check("P50f unauthorized Bridge clone rejects at its emission height",
-          adapter.prepare(1, "clone", "forged", bridge_envelope,
+          adapter.prepare(1, 10, "clone", "forged", bridge_envelope,
                           source_authorized_at_emission=False) is None)
-    assert credit_a is not None and credit_b is not None
+    assert credit_a is not None and credit_b is not None and credit_a_reused is not None
     transition_clock = clock(1_100, 4_601)
     check("P50c bridge SYNCED stays pending",
           adapter.finalize(bridge_protocol, transition_clock, credit_a) == "SYNCED"
@@ -1305,6 +1309,9 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50g same message from next authorized epoch queues independently",
           adapter.finalize(bridge_protocol, transition_clock, credit_b) == "QUEUED:1"
           and len(bridge_protocol.messages) == 2)
+    check("P50h same address reused in a later epoch queues independently",
+          adapter.finalize(bridge_protocol, transition_clock, credit_a_reused) == "QUEUED:2"
+          and len(bridge_protocol.messages) == 3)
 
 
 if __name__ == "__main__":
