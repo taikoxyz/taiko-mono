@@ -9,9 +9,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: explicit canonical outputs, immutable historical anchors, O(1) due boundaries, renewable recovery, bounded forced work, registry liabilities, migration and replay. 50 assertions. |
-| [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, tombstones, capped quotas, ring capacity and placement. 34 assertions. |
-| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for EIP-712, canonical/statement/candidate/list/output, registry/admission/entry/tranche, depth-32 force range proofs, manifests, dispositions, sessions and blobs. 35 vectors/properties. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: canonical EVM height/context, authoritative queue metadata, renewable recovery, bounded payload loss, fixed liability ring, bridge retry, migration and replay. 62 assertions. |
+| [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, frozen-context tombstones, capped quotas, ring capacity and placement. 35 assertions. |
+| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, canonical/statement/candidate/winning-data, kind-0/kind-1 queue data, empty escape values, registry/admission/entry/tranche, manifests, sessions and blobs. 43 vectors/properties. |
 
 ## Building the PDF
 
@@ -33,9 +33,9 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 50 assertions
-python3 lookahead-model.py           # 34 assertions
-python3 commitment-model.py          # 35 vectors/properties
+python3 settlement-window-model.py   # 62 assertions
+python3 lookahead-model.py           # 35 assertions
+python3 commitment-model.py          # 43 vectors/properties
 ```
 
 All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead

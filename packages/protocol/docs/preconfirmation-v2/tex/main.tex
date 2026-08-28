@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Production Design Candidate --- v2.3}
+\large\mdseries Production Design Candidate --- v2.4}
 \author{}
 \date{August 2026}
 \maketitle
@@ -112,7 +112,9 @@ claims:
   unsigned escape candidate from advancing the canonical state.
 \item \textbf{Forced transaction inclusion.} A correctly prepaid L1 envelope
   at the queue head is consumed by the next canonical block after it becomes
-  due; it is executed if valid and consumed-and-discarded if invalid.
+  due; kind 0 is executed if valid bytes are supplied before its bounded
+  validity or consumed-and-discarded otherwise, while durable kind 1 is always
+  applied idempotently.
 \item \textbf{Permissionless landing and recovery.} No allowlist, builder key,
   aggregator seat or payment recipient is required to submit a proof or an
   escape candidate.
@@ -173,12 +175,16 @@ disabled and slot arithmetic saturates.  L2 slot zero is fixed by
 L2 slot and every deadline are timestamp seconds.  L1 confirmation depth is
 counted in L1 block numbers.  Beacon slot is used only in schedule
 authentication.  Implementations \mustnot substitute one clock for another.
+\code{settlementChainId} is the L1 chain executing Settlement and domains every
+L1 contract commitment; \code{l2ChainId} is the EVM chain ID enforced for L2
+transactions and execution.  They are independent immutable launch constants
+and are both explicit in every cross-domain proof statement and builder header.
 
 The L1 contract stores a proved core and local L1 metadata:
 
 \begin{verbatim}
-CanonicalCore = (tipHash, tipSlot, stateRoot, messageCursor,
-                 winningDataCommitment)
+CanonicalCore = (l2BlockNumber, tipHash, tipSlot, stateRoot, messageCursor,
+                 winningDataCommitment, nextBaseFee, nextExcessBlobGas)
 Canonical = (CanonicalCore core, uint64 canonicalizedAtBlock)
 \end{verbatim}
 
@@ -189,6 +195,16 @@ sets \code{canonicalizedAtBlock=block.number}.  A prover is therefore never
 asked to predict the L1 block in which its transaction will land.  No code
 attempts to read or store \code{blockhash(block.number)}, which does not exist
 during that block.
+
+\code{l2BlockNumber} is the canonical EVM height, distinct from the one-second
+slot because slot gaps are legal.  A candidate with \code{blockCount=n} proves
+\code{endL2BlockNumber=base.l2BlockNumber+n}; every executed header uses the
+next consecutive EVM block number.  The canonical event always emits
+\code{(l2BlockNumber,tipHash,stateRoot)} for bridge checkpointing.
+\code{nextBaseFee} and \code{nextExcessBlobGas} are the exact fork-rule outputs
+needed to construct the next header without retrieving a prunable historical
+parent body/header.  The proof derives them from the last executed header;
+Settlement stores them but does not calculate fork arithmetic.
 
 A candidate has one prior-block anchor.  Normal anchors are authenticated by an
 EIP-2935 block hash, the supplied execution header and MPT proofs, including the
@@ -216,14 +232,28 @@ A registration contains a nonzero address, a \code{uint192} bond not exceeding
 \code{BOND_MAX}, a monotonic \code{uint64 registrationIndex}, an
 \code{effectiveL2Slot}, and separately reserved \code{L_LEASE[window]}
 tranches.  Address zero is permanently \code{VACANT}.  Duplicate live
-addresses and re-registration of a tombstoned key are forbidden.
+addresses, reuse while any prior generation remains active or liable, and
+re-registration of a tombstoned key are forbidden.  With
+\code{currentWindow=floor(currentL2Slot/384)}, a reservation is accepted only
+for
+\code{currentWindow <= W <= currentWindow+MAX_TRANCHE_AHEAD_WINDOWS}, where the
+initial ahead bound is 16; an exit request permanently disables new
+reservations for that generation.
 
-The active table has exactly 64 indexed cells.  A registration becomes
-effective only after \code{ENTRY_DELAY_WINDOWS=8}.  If the table is full it may
+The active table has exactly 64 indexed cells.  On accepted registration,
+\code{effectiveL2Slot=currentL2Slot+384*ENTRY_DELAY_WINDOWS}; the stored value,
+not a later recomputation from a window boundary, is authoritative.  Thus a
+registration becomes effective only after \code{ENTRY_DELAY_WINDOWS=8}.  If the table is full it may
 replace only the smallest-bond effective live entry, breaking ties by greatest
 registration index, and only with a strictly greater bond.  At most
 \code{MAX_GENERATION_MOVES_PER_WINDOW=4} replacements or effective exits are
-processed.  A displaced
+processed.  Exit requests receive a monotonic sequence and mature at
+\code{requestWindow+EXIT_DELAY_WINDOWS}.  Every replacement path first processes
+the oldest matured exits by \code{(matureWindow,exitSequence)} within the
+window's remaining movement budget; if any matured exit remains, replacement
+rejects.  Anyone, including the exiting builder, may run this bounded
+maintenance.  Thus transaction ordering cannot starve an eligible exit.
+A displaced
 generation is moved, with its tranche root and bond, into the fixed
 \code{MAX_LIABILITY_GENERATIONS=1,072} liability ring; an occupied ring cell is
 never overwritten before its release predicate holds.  Registration therefore
@@ -238,19 +268,36 @@ retains displaced scheduled keys.  Normal open and every recovery round freeze
 the pair \code{(admissionVersion,admissionRoot)}.  Each scheduled signer carries
 an inclusion proof for a non-tombstoned record effective at that L2 slot; a
 slash cannot retroactively invalidate an already frozen window.
+Outside an already-open normal window or live recovery round, a tombstone makes
+sealed future tickets at or after its effective slot return \code{VACANT};
+inside that frozen candidate context the stored admission pair remains
+authoritative until close/commit/expiry.
+
+Admission positions are canonical: active cell $i$ is always position $i$ for
+$0\le i<64$; liability ring slot $j$ is always position $64+j$ for
+$0\le j<1,072$.  A generation move uses
+\code{j=movementSequence mod 1072}.  The transaction first proves/releases the
+old occupant, writes the moved generation at that same slot, clears its active
+cell or writes the replacement, increments \code{movementSequence}, then
+increments \code{admissionVersion} and publishes both new roots atomically.
+There is no first-free search, compaction or caller-chosen liability position.
 
 Eligibility is evaluated before ranking.  A cell's effective L2 slot must be no
 later than the source-derived L2 slot, its fully reserved tranche for $W$ must
 be proven, and its tombstone-effective L2 slot must be later than the source.
-All 64 active cells,
-including empty or \code{FREE} tranche leaves, are supplied.  The 64 eligible
+All 64 active cells and their tranche-ring leaves at \code{W mod 512} are
+supplied.  A canonical \code{EMPTY} leaf is valid input and makes the cell
+ineligible; it need not claim window $W$.  A nonempty leaf with a different
+stored window is likewise ineligible, not a seal revert.  Only an exact
+\code{RESERVED} leaf with stored window $W$ and the full \code{L_LEASE} amount
+is eligible.  The 64 eligible
 entries with greatest bond, then smallest registration index, form the snapshot
 set.  Supplying proofs only for purported winners is invalid because it cannot
 prove omission-free ranking.
 
 An exit request becomes eligible for processing only after
 \code{EXIT_DELAY_WINDOWS=MAX_LIVE_WINDOWS}; it may wait behind the same bounded
-generation-movement queue, and the bond remains escrowed until every generation
+FIFO of older matured exits, and the bond remains escrowed until every generation
 and tranche is releasable.  A tranche follows
 \code{FREE -> RESERVED(W) -> LIABLE(W) -> RELEASED} or
 \code{RESERVED/LIABLE -> SLASHED}.  Every candidate block slot must be at least
@@ -260,10 +307,27 @@ tip.  Let \code{windowEndSlot(W)=384*(W+1)-1}.  Release requires
 references it, and the absolute evidence and L1-reorg deadlines have expired.
 At that point maintenance atomically marks the schedule cell \code{EXPIRED} and
 may release its tranches; an unexpired sealed record is never overwritten.
-\code{globalMinReferencedSlot} is the minimum of the current dynamic
+\code{evidenceDeadline(W)=GENESIS_TIMESTAMP+384*(W+1)+EVIDENCE_DELAY_SECONDS};
+the tranche's absolute release time is
+\code{evidenceDeadline(W)+REORG_MARGIN_SECONDS}.  Equivocation evidence must
+land no later than its evidence deadline.  \code{globalMinReferencedSlot} is the minimum of the current dynamic
 floor, an open normal window's frozen floor, an active round's start and the
 first slot of any stored best (absent values are ignored).  Slot indices are
 never compared with timestamps or window numbers.
+
+The liability-capacity proof is a launch invariant, not an assertion by
+inspection.  A generation moved in window $C$ can have no reservation beyond
+\code{C+MAX_TRANCHE_AHEAD_WINDOWS}.  Therefore
+\begin{verbatim}
+MAX_LIABILITY_RESIDENCE_WINDOWS =
+  MAX_TRANCHE_AHEAD_WINDOWS + 1 +
+  ceil((EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS) / 384) + 2
+\end{verbatim}
+must be strictly less than \code{MAX_LIVE_WINDOWS=268}.  The two extra windows
+cover boundary ordering and bounded maintenance.  At four moves per window,
+the ring position reused 268 windows later is consequently releasable.  Each
+generation maintains an exact unreleased-tranche counter, so release and reuse
+do not scan 512 leaves.
 
 \subsection{Authenticated snapshot}
 
@@ -333,7 +397,7 @@ All hashes use Ethereum legacy Keccak-256.  Concatenation below is packed fixed
 width; strings are the literal ASCII bytes without a length prefix:
 
 \begin{align*}
-seed_W &= H(\texttt{"slot-chain-seed-v1"} \| u256(chainId) \\
+seed_W &= H(\texttt{"slot-chain-seed-v1"} \| u256(settlementChainId) \\
        &\quad \| u256(protocolVersion) \| u256(W) \| bytes32(prevRandao)),\\
 qTie_i &= H(\texttt{"slot-chain-quota-tie-v1"} \| seed_W \| u64(regIndex_i)),\\
 sTie_{p,i} &= H(\texttt{"slot-chain-slot-order-v1"} \| seed_W
@@ -355,26 +419,30 @@ The executable model and its golden vectors are normative test fixtures.
 
 \section{Blocks, promises and proof statement}\label{sec:blocks}
 
-\subsection{Signed header}
+\subsection{Signed header}\label{sec:signed-header}
 
 A builder signs exactly:
 
 \begin{verbatim}
-(chainId, protocolVersion, verifyingContract, slot, parentHash,
+(settlementChainId, l2ChainId, protocolVersion, verifyingContract,
+ slot, parentHash,
 blockHash, stateRoot, bodyRoot, anchorNumber, anchorHash,
 forceRoot, forceCutoff, messageStart, messageEnd, dataManifestRoot,
- coinbase, tier, admissionVersion, episode, recoveryRevision, recoveryId)
+coinbase, tier, contextId, admissionVersion,
+ episode, recoveryRevision, recoveryId)
 \end{verbatim}
 
 The normative EIP-712 type string is:
 \begin{verbatim}
 SlotChainBlock(
- uint256 chainId,uint256 protocolVersion,address verifyingContract,
+ uint256 settlementChainId,uint256 l2ChainId,uint256 protocolVersion,
+ address verifyingContract,
  uint64 slot,bytes32 parentHash,bytes32 blockHash,bytes32 stateRoot,
  bytes32 bodyRoot,uint64 anchorNumber,bytes32 anchorHash,bytes32 forceRoot,
  uint64 forceCutoff,uint64 messageStart,uint64 messageEnd,
  bytes32 dataManifestRoot,address coinbase,uint8 tier,
- uint64 admissionVersion,uint64 episode,uint64 recoveryRevision,
+ bytes32 contextId,uint64 admissionVersion,uint64 episode,
+ uint64 recoveryRevision,
  bytes32 recoveryId)
 \end{verbatim}
 The hashed ASCII has one space between each field type and field name and no
@@ -384,16 +452,21 @@ implementation are in \code{commitment-model.py}.
 \code{TYPEHASH} is legacy Keccak-256 of those ASCII bytes and equals
 the concatenation of these two fragments:
 \begin{center}
-\code{0x0a0bfc3b8ba52a166f662055d0989146}\\
-\code{5d916aa486808e78105890e98d65777f}
+\code{0x579f796202662a2edf67bed2afcb07d3}\\
+\code{adff1e5e7e10e7dedcb7c6632f8d49de}
 \end{center}
 The EIP-712
-domain is \code{("SlotChain", "2", chainId, verifyingContract)}.  Signatures
+domain is
+\code{("SlotChain", "2", settlementChainId, verifyingContract)}.  The explicit
+\code{l2ChainId} is the EVM \code{CHAINID} used by raw L2 transactions.
+Signatures
 are exactly 65-byte \code{r||s||v}; \code{v} is 27 or 28, $s$ is low, and zero
 or recovered-zero addresses reject.  EIP-2098 and EIP-155 transaction-style
 \code{v} values are not accepted.  Tier 1 requires
+\code{contextId=baseCanonicalHash},
 \code{episode=recoveryRevision=0} and \code{recoveryId=0}; tier 2 requires the
-exact live round values.  Consequently semantically unused bytes cannot create
+exact live round values and \code{contextId=recoveryId}.  The unsigned tier 3
+uses that same recovery context.  Consequently semantically unused bytes cannot create
 false equivocation evidence.  The execution
 \code{blockHash} excludes the off-chain builder signature, avoiding a circular
 hash definition.  The signed \code{bodyRoot} covers only canonical discretionary
@@ -454,16 +527,18 @@ constructs the following Solidity struct in exactly this order and computes
 \code{statementHash} as legacy Keccak of the ASCII domain
 \code{"slot-chain-statement-v1"} followed by \code{abi.encode(S)}:
 \begin{verbatim}
-S = (uint256 chainId, uint256 protocolVersion,
+S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
      address verifyingContract,
      uint8 tier, bytes32 baseCanonicalHash,
      bytes32 candidateCommitment, uint64 blockCount,
      uint64 firstSlot, bytes32 tipHash, uint64 tipSlot,
-     bytes32 endStateRoot, uint64 endCursor,
+     uint64 endL2BlockNumber, bytes32 endStateRoot, uint64 endCursor,
      bytes32 winningDataCommitment, uint64 nextDueAt,
+     uint256 nextBaseFee, uint64 nextExcessBlobGas,
      uint64 anchorNumber, bytes32 anchorHash,
      bytes32 anchorStateRoot, uint64 anchorTimestamp,
      bytes32 forceRoot, uint64 forceCutoff,
+     bytes32 forcedMetadataCommitment,
      uint64 startCursor,
      uint64 admissionVersion,
      bytes32 admissionRoot,
@@ -478,8 +553,14 @@ of \code{statementHash}; neither is reduced modulo the proof field.  The circuit
 recombines them and proves the exact preimage.  Settlement independently checks
 the base canonical state, current/frozen versions and recovery round, recomputes
 the bounded schedule-root and sealed-session-reference commitments from
-calldata, and constructs the new core from the explicit
-\code{(tipHash,tipSlot,endStateRoot,endCursor,winningDataCommitment)} fields.
+calldata, recomputes the bounded forced-metadata commitment from authoritative
+queue storage, recomputes \code{winningDataCommitment} from the candidate and
+sealed-session commitments, requires
+\code{endL2BlockNumber=stored.l2BlockNumber+blockCount}, and constructs the new
+core from the explicit
+\code{(endL2BlockNumber,tipHash,tipSlot,endStateRoot,endCursor)} fields plus that
+recomputed value and proved
+\code{(nextBaseFee,nextExcessBlobGas)}.
 It rejects zero/ill-typed fields, cursor regression, or disagreement with the
 last proved block, then stamps \code{canonicalizedAtBlock=block.number} outside
 the proof.  \code{candidateId=statementHash}.  \code{nextDueAt} is authenticated
@@ -512,7 +593,7 @@ promise and returns omitted transactions to the mempool.
 
 Data is posted into publisher-owned, bonded sessions.  A session ID is
 \begin{verbatim}
-H("slot-chain-session-v1" || u256(chainId) || address20(contract) ||
+H("slot-chain-session-v1" || u256(settlementChainId) || address20(contract) ||
   address20(owner) || u64(ownerNonce))
 \end{verbatim}
 At most two sessions per owner and 1,024
@@ -545,7 +626,8 @@ For every blob attached to \code{postData(session, manifests[])}, the contract:
 \item obtains \code{versionedHash=BLOBHASH(i)} from the same transaction;
 \item computes legacy Keccak over this packed fixed-width sequence:
 \begin{verbatim}
-"slot-chain-data-fs-v2" || u256(chainId) || u256(protocolVersion) ||
+"slot-chain-data-fs-v2" || u256(settlementChainId) ||
+u256(protocolVersion) ||
 sessionId || versionedHash || fullBodyRoot || u16(blockOrdinal) ||
 u16(chunkIndex) || u16(chunkCount) || u32(chunkByteLength) ||
 chunkRoot || address20(publisher) || u64(validUntil)
@@ -609,7 +691,8 @@ window.  It freezes \code{baseCanonical},
 proves its frozen-prefix boundary in the circuit.  It also supplies a canonical
 single-leaf Merkle proof at \code{endCursor} under the queue's current
 root/count, or proves \code{endCursor==currentCount}.  Settlement verifies at
-most 32 sibling hashes and requires the resulting \code{liveNextDueAt} to exceed
+most 32 sibling hashes and requires the resulting
+\code{currentBoundaryDueAt} to exceed
 \code{requiredThrough}.  This prevents an old but valid anchor from hiding a
 post-anchor append.  Because due times are monotone, one current boundary leaf
 proves that every item due through the landing horizon is consumed.  Later
@@ -622,13 +705,17 @@ Their total order is lexicographic:
 \]
 
 Only a strictly better candidate replaces \code{normalBest}; the stored best
-contains its authenticated \code{endCursor,liveNextDueAt}.  Provisional replacement
-changes no canonical state and pays nobody.  At or after the deadline,
-\code{sync()} commits the stored best only if its boundary deadline is still
-greater than \code{block.timestamp}.  The active queue router updates that one
-scalar when an append occurs exactly at the best's boundary.  Thus a late close
-cancels rather than committing a block that omits an already-due head, even
-beyond the assumed inclusion bound.  Because
+contains \code{endCursor} and the minimum expiry of every referenced data
+session.  Provisional replacement changes no canonical state and pays nobody.
+At or after the deadline, \code{sync()} reads
+\code{ForcedQueue.dueAt(best.endCursor)} and commits only if that live boundary
+is greater than \code{block.timestamp} and
+\code{block.timestamp+REORG_MARGIN_SECONDS <= best.minDataExpiry}.  Thus a late
+close cancels rather than committing a block that omits an already-due head,
+even beyond the assumed inclusion bound, or whose authenticated data has
+passed its resubmission margin.  Data-session GC cannot evict a session
+referenced by the stored best; its own leading \code{sync()} clears an expired
+best first.  Because
 \code{FORCE_DELAY >= W_SETTLE_SECONDS + T_INCLUDE_MAX_SECONDS}, an append after
 open cannot violate the frozen acceptance horizon.  Settlement then recomputes
 recovery causes against the new core.
@@ -639,8 +726,8 @@ While normal, \code{sync()} opens one persistent recovery episode if either:
 
 \begin{itemize}
 \item \code{currentL2Slot > canonical.tipSlot + DELTA_FINAL_LAG}; or
-\item the forced queue head satisfies
-\code{enqueuedAt + FORCE_DELAY <= block.timestamp}.
+\item the forced queue's stored \code{dueAt[canonical.messageCursor]} is no
+greater than \code{block.timestamp}.
 \end{itemize}
 
 A due forced head has precedence over an immature normal window, which is
@@ -661,9 +748,11 @@ and
 Its \code{expiresAt} is \code{GENESIS_TIMESTAMP+escapeSlot+DELTA_TIP}.  The exact
 ID is:
 \begin{verbatim}
-recoveryId = H("slot-chain-recovery-v2", u256(chainId), address20(contract),
+recoveryId = H("slot-chain-recovery-v2",
+               u256(settlementChainId), address20(contract),
                u64(episode), u64(revision), bytes32(baseCanonicalHash),
                u64(roundStartSlot), u64(anchorNumber), bytes32(anchorHash),
+               u64(anchorTimestamp),
                bytes32(forceRoot), u64(forceCutoff), u64(admissionVersion),
                bytes32(admissionRoot), u64(escapeSlot), u8(causes))
 \end{verbatim}
@@ -685,7 +774,7 @@ Recovery is first-valid, not heaviest.  A tier-2 or tier-3 candidate \must:
 \item extend the exact current stored canonical state;
 \item bind current \code{episode}, \code{revision}, \code{recoveryId}, frozen
 admission pair, anchor and queue target;
-\item land only after \code{block.number-anchorNumber >= F_L1}, have first slot
+\item land at least \code{F_L1} L1 blocks after its anchor, have first slot
 at least \code{roundStartSlot}, tip no older than
 \code{DELTA_TIP}, and no slot later than wall clock plus skew;
 \item consume the exact maximum forced-message prefix from the current cursor,
@@ -701,7 +790,7 @@ the early-return wrapper in \S\ref{sec:state}.
 \section{Forced queue and unsigned escape}\label{sec:escape}
 
 \code{ForcedEnvelope} is a tagged union.  Kind 0 contains
-\code{(sender,nonce,chainId,rawTxHash,byteLength,gasLimit,maxFee,validUntil,
+\code{(sender,nonce,l2ChainId,rawTxHash,byteLength,gasLimit,maxFee,validUntil,
 refundAddress,deposit)}.  Admission canonically decodes the EIP-2718 transaction,
 requires its recovered sender and all duplicated fields to match, and requires
 \code{msg.sender==sender}; relayed admission needs a separately versioned
@@ -713,8 +802,20 @@ only forced effect is an idempotent inbox/signal credit keyed by \code{msgHash};
 arbitrary destination invocation and RETRIABLE processing remain later ordinary
 bridge operations.  The two variants have separate byte-exact leaves.
 
-Kind 0 requires a nonexpired \code{validUntil} and
-\code{accountedGas=max(gasLimit,intrinsicGas,MIN_FORCE_ACCOUNTED_GAS)}.  Kind 1
+The adapter is an exactly-once state machine
+\code{NONE -> PENDING -> QUEUED(index)}.  Source-finality verification and value
+escrow create an immutable durable \code{BridgeCredit} record and \code{PENDING}
+state.  Anyone may call \code{finalizeEnqueue(msgHash)}.  A Router
+\code{SYNCED} return leaves it \code{PENDING}; an \code{ADMITTED(index)} return
+and the transition to \code{QUEUED(index)} occur in one transaction, so either
+both the leaf and status persist or both revert.  Repeated calls return the
+stored index.  The upstream message is never reported queued merely because
+escrow became pending.
+
+Kind 0 requires a nonexpired \code{validUntil},
+\code{validUntil <= enqueuedAt+MAX_FORCE_VALIDITY_SECONDS}, and
+\code{accountedGas=max(gasLimit,intrinsicGas,MIN_FORCE_ACCOUNTED_GAS)}.  The
+initial validity horizon is seven days.  Kind 1
 uses the execution profile's fixed upper-bound InboxApply gas for its encoded
 credit.  Both require \code{0<accountedGas<=5,000,000},
 \code{0<byteLength<=131,072}, and a deposit covering execution, proof credit and
@@ -725,16 +826,20 @@ Only \code{ActiveSettlementRouter} may append.  It calls the active
 Settlement's \code{sync()} under a non-reentrant guard and returns \code{SYNCED}
 without appending if any transition occurred.  Otherwise it computes
 \code{dueAt=max(now+FORCE_DELAY,lastDueAt,recoveryExpiry+1)} (the last term is
-zero outside recovery), appends, and calls the fixed-gas
-\code{onQueueAppend(index,dueAt)} hook.  The hook updates the canonical-head,
-stored-best boundary, or current round's first-post-cutoff scalar only when its
-cursor equals \code{index}.  A commit chooses the authenticated in-cutoff
-boundary or that recorded post-cutoff value, never overwriting the latter with
-\code{UINT64_MAX}.  Thus
-\code{dueAt} is nondecreasing and force-due/coverage checks are O(1), without a
-loop or per-item storage mapping in Settlement.
+zero outside recovery), and appends atomically.  \code{ForcedQueue} stores one
+packed authoritative \code{QueueMeta} per index:
+\begin{verbatim}
+(leafHash, dueAt, kind, validUntil, effectRef)
+\end{verbatim}
+\code{effectRef} is the raw-transaction hash for kind 0 and the durable bridge
+record hash for kind 1.  Settlement reads \code{dueAt[index]} directly from the
+trusted queue for the canonical head and a stored best's live boundary; there
+is no callback, cached deadline or duplicated scalar.  Missing indices return
+\code{UINT64_MAX}.  Thus \code{dueAt} is nondecreasing and force-due/coverage
+checks are one authoritative O(1) read.
 
-The queue is a depth-32 append-only Merkle vector with fixed capacity $2^{32}$,
+The queue is a depth-32 append-only Merkle vector with fixed capacity
+\code{UINT32_MAX} items,
 stored root, count and 32-node append frontier.  Admission rejects at capacity;
 an upgrade must occur before exhaustion, but already admitted items remain
 live.  A canonical DFS range multiproof authenticates the consumed leaves and,
@@ -742,8 +847,10 @@ when present, the first excluded boundary leaf under the frozen
 \code{(forceRoot,forceCutoff)}.  It supplies no fully covered subtree and no
 unused hash; at most 129 sibling hashes authenticate a 65-leaf block range.
 Skipping, reordering, changing the start index or claiming an early boundary
-changes the reconstructed root.  Bytes are permanent enqueue calldata and
+changes the reconstructed root.  Kind-0 raw bytes are enqueue calldata and
 their hash is in the leaf; blobs are forbidden on this availability path.
+The deliberately unused final tree leaf avoids a nonexistent height-32
+frontier slot when the old index has all 32 bits set.
 
 Each proved block consumes the unique maximum FIFO prefix satisfying all three
 bounds simultaneously:
@@ -760,6 +867,18 @@ totals are independently capped as stated in \S\ref{sec:blocks}.  Launch enforce
 \code{ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN <=
 L2_BLOCK_GAS_LIMIT} and the analogous witness-byte bound.
 
+For the candidate's exact consumed interval, Settlement reads at most 256
+\code{QueueMeta} records and computes
+\begin{verbatim}
+H("slot-chain-force-meta-list-v1" || u64(start) || u16(count) ||
+  (u32(index)||leafHash||u64(dueAt)||u8(kind)||
+   u64(validUntil)||effectRef)*)
+\end{verbatim}
+as \code{forcedMetadataCommitment}.  The circuit requires each metadata
+\code{leafHash} to equal the corresponding revealed Merkle leaf.  This bounded
+current-state commitment makes old entries consumable without assuming that
+arbitrary historical calldata remains served forever.
+
 Forced envelopes are auxiliary protocol inputs, not blindly copied into the
 Ethereum transaction list.  Each block's transaction order is: (1) the exact
 profile-defined AnchorV4 transaction, (2) one deterministic \code{InboxApply}
@@ -775,6 +894,37 @@ never calls the eventual destination.  The system calldata commits
 circuit derives the transaction and receipt roots from this exact order.
 Unused deposit is later credited to \code{refundAddress}; failure there cannot
 change consumption.
+
+The AnchorV4 and InboxApply sender addresses are reserved.  The circuit requires
+their exact profile transactions once each at indices 0 and 1 and rejects any
+forced or discretionary transaction recovered from either sender.  InboxApply
+also stores the last applied L2 block number and rejects a second application
+in that block.  These rules protect system nonces and the privileged signal
+write even if a reserved signing algorithm or key is publicly reproducible.
+
+The launch fork adds one narrowly authorized
+\code{markReceivedFromInbox} entry point on SignalService.
+Only the immutable \code{InboxApply} predeploy may call it; it is idempotent,
+checks the durable credit hash, writes only the received-signal bit/value, and
+performs no recipient call.  Legacy proof-based
+\code{proveSignalReceived} remains unchanged.  AnchorV4 and InboxApply are
+profile-defined protocol transactions: their reserved senders, sequential
+system nonces, zero beneficiary tip and fee treatment are consensus fork rules,
+not ordinary user accounts whose balance can run out.  Their gas still counts
+against the block limit.  Deployment and migration require upgraded,
+vector-tested SignalService and InboxApply bytecode.  Authorizing an
+unreviewed caller is invalid.
+
+An unexpired kind-0 item must reveal raw bytes hashing to its stored
+\code{effectRef} and reconstruct its full leaf.  Once \code{validUntil} is
+strictly before the L2 block timestamp, the circuit emits the unique
+\code{EXPIRED_NO_TX} disposition from authenticated \code{QueueMeta} without
+needing those bytes.  Consequently a disappeared sender or pruned history can
+delay its own item only until the bounded validity horizon, never wedge the
+FIFO permanently.  A user that wants execution remains an available source for
+its own signed bytes.  The 2,164-second recovery target is conditional on
+unexpired head bytes being retrievable; the unconditional protocol bound adds
+at most \code{MAX_FORCE_VALIDITY_SECONDS}.
 
 For a normal signed block, \code{forceRoot/forceCutoff} are authenticated by its
 L1 anchor.  For recovery they equal the current round's directly stored pair.
@@ -839,7 +989,7 @@ meets its bound.
 \toprule
 \textbf{Event} & \textbf{Objective evidence} & \textbf{Effect} \\
 \midrule
-Same-slot equivocation & Two valid distinct signed headers for one key/slot &
+Same-context equivocation & Two distinct protocol-domain signatures for one key/slot/context &
 Slash that schedule window's tranche once; tombstone key; emit reporter entitlement. \\
 Aggregator SLA breach & Final lag exceeds threshold after mature close &
 Terminate and burn penalty bond once; open recovery; promote standby if any. \\
@@ -854,6 +1004,22 @@ Equivocation evidence is idempotent per \code{(builder, window)}; separate
 windows slash separate tranches.  \code{L_LEASE} is calibrated against at most
 76 assigned slots but is not insurance for unbounded signed value.  Tombstoning
 is atomic with the first valid slash; future snapshots exclude the key.
+
+Evidence does not depend on retaining an obsolete \code{admissionRoot}.  It
+contains two distinct low-$s$ EIP-712 headers with the same recovered nonzero
+key, slot, tier, context ID, admission version, episode, revision and recovery
+ID, plus a
+proof under the \emph{current} \code{admissionRoot} of that key's still-retained
+active/liability generation and its \code{RESERVED(W)} or \code{LIABLE(W)}
+tranche leaf.  The two complete struct hashes must differ.  Signing two
+conflicting protocol headers in one such context is slashable even if the key
+was not ultimately selected at that schedule position; builders must not sign
+off-ticket headers.  The evidence transaction derives $W$ from the slot,
+requires the tranche leaf's stored window to equal $W$, and lands by
+\code{evidenceDeadline(W)}.  Address reuse is forbidden while that retained
+generation exists, so the proof cannot select a newer incarnation.  This rule
+keeps evidence verification fixed-depth while the liability-capacity invariant
+retains every slashable generation through the deadline.
 
 Canonical settlement performs no reward calculation, token balance write or
 external call.  It always emits a candidate-committed event containing the ID,
@@ -877,12 +1043,13 @@ candidate validity or canonical commit.
 \textbf{Adversary/failure} & \textbf{Protocol result} & \textbf{Bound or residual} \\
 \midrule
 Invalid execution or forged state & Proof rejects. & Finalized-state safety reduces to proof-system and L1 safety. \\
-Aggregator offline/byzantine & SLA activation terminates it; any prover uses tier 2 or 3. & At most final-lag threshold plus 2,164 s under stated inclusion/proof bounds. \\
+Aggregator offline/byzantine & SLA activation terminates it; any prover uses tier 2 or 3. & At most final-lag threshold plus 2,164 s under stated inclusion/proof and head-data bounds. \\
 No seat or no standby & State remains valid; escape has no seat dependency. & Same protocol bound; reward may be zero. \\
 All builders collude/absent & Unsigned escape advances anchor and forced queue. & Meaningful discretionary throughput falls to forced envelopes; no builder censorship veto. \\
 Builder equivocation & Competing signed branches; one may win normal order. & Direct per-window slash; pre-close promises remain revocable. \\
 Builder skips/withholds body & Honest tail may be unprovable or omitted. & Not objectively slashable; eventual escape restores state progress but may revoke promises. \\
 Data-session spam & Sessions are publisher-owned and bonded. & Attacker fills only its session; escape uses no blob session. \\
+Missing/pruned kind-0 bytes & Unexpired head waits; after validity it is consumed as EXPIRED\_NO\_TX from state metadata. & Adds at most seven days; kind-1 credit data is durable state. \\
 Transparent-mempool front-run & First valid recovery transaction wins. & Proof statement binds beneficiary, episode, revision and outputs; copying cannot redirect payment or state. \\
 Payment-vault exhaustion & Claim is zero or partial. & Never blocks safety or canonical liveness; economic liveness is conditional. \\
 L1 reorg within policy & Contract state, burns and claims roll back together. & Clients replay canonical logs and proofs against new version/hash. \\
@@ -918,12 +1085,19 @@ owner, each with owner/nonce ID, 2,100-leaf MMR frontier, sealed root/count and
 expiry; no on-chain leaf array.  Expired eviction advances at most eight cells
 per call.
 \item \code{ForcedQueue}: depth-32 append-only Merkle root/count/frontier,
-last due time and deposits; payload bytes are permanent L1 calldata.  Only the
-router appends.
+last due time, packed per-index metadata and deposits; expired kind-0 metadata
+and durable kind-1 credits remain sufficient after historical calldata is
+unavailable.  Only the router appends.
 \item \code{Settlement}: PREACTIVE flag, canonical state, one normal best,
-recovery episode/round, seat pointer, queue-boundary scalars and a 256-cell
+recovery episode/round, seat pointer and a 256-cell
 best-effort receipt ring.  Rewards and burn disposal are separate.  No loop is
 proportional to chain age.
+\item \code{SettlementCheckpointAdapter}: the sole SignalService syncer.  Its
+permissionless \code{publish()} reads the current Settlement core, requires a
+strictly greater \code{l2BlockNumber}, and writes exactly
+\code{(l2BlockNumber,tipHash,stateRoot)}.  Failure or non-use delays bridge
+proofs but cannot affect canonical settlement; anyone may catch it up in one
+O(1) call to the latest core.
 \end{itemize}
 
 All setters enforce parameter inequalities atomically and are disabled after
@@ -943,13 +1117,48 @@ authenticates the schedule's parent beacon/execution payload; its state root
 plus MPT proofs authenticates the registry.  Deployments lacking either
 primitive require an equivalently verified oracle and separate review.
 
+\subsection{Executable execution profile}
+
+\code{executionProfileHash} is not a free-form governance label.  Each
+\code{protocolVersion} maps immutably to one canonical CBOR profile whose bytes
+are published with the verifier key and hashed as
+\code{H("slot-chain-execution-profile-v1"||u32(byteLength)||profileBytes)}.
+The decoder rejects unknown keys, duplicate map keys, nonminimal integers,
+indefinite lengths and zero code hashes.  The profile contains:
+
+\begin{itemize}
+\item settlement/L2 chain IDs, Ethereum fork digest and activation block;
+\item gas limit, EIP-1559 elasticity/change denominator, blob target/update
+  fraction, empty ommers/withdrawals/requests constants and exact derivation of
+  base fee, blob fields, logs bloom, randomness, parent beacon root, requests
+  hash and every post-fork header field;
+\item AnchorV4, InboxApply and SignalService addresses, runtime code hashes,
+  selectors and ABI tuples; reserved senders, transaction types, signature
+  bytes, system nonce rules, fee exception and gas ceilings;
+\item the exact AnchorV4 checkpoint/ancestors transition, forced disposition
+  rules and InboxApply one-shot/signal-credit transition; and
+\item at least five complete parent/prestate/input/transaction/receipt/header/
+  poststate vectors: empty escape, valid kind 0, expired kind 0 without bytes,
+  kind 1, and a cap-limited multi-block prefix, plus invalid extra-reserved-
+  sender and duplicate-InboxApply vectors.
+\end{itemize}
+
+For escape, parent hash/height/state and next fee/blob scalars come from the
+stored canonical core; timestamp/slot, L1 origin and forced inputs come from the
+round.  Every remaining header field and both system transactions are a pure
+profile function of those values and the execution result.  The circuit loads
+the profile selected by the public protocol version and proves its hash equals
+Settlement's immutable mapping.  Launch tooling rejects a version lacking the
+CBOR artifact, verifier-key binding or complete vectors.  Thus a profile change
+is a new protocol version and review, not runtime interpretation.
+
 \subsection{Reorg rule}
 
 The canonical L1 log is the journal.  A reorg truncates and replays, in order:
 canonical tuple, mode/version, normal best/deadline/frozen admission, episode/round,
 seat termination/burn, tombstone/tranche state, forced cursor, data-session
 root/count, and reward eligibility.  Off-chain workers index by
-\code{(chainId, contract, blockHash, logIndex)} and discard orphaned jobs.
+\code{(settlementChainId, contract, blockHash, logIndex)} and discard orphaned jobs.
 Withdrawal/bridge execution waits for the configured L1 finality policy.
 
 \subsection{Genesis and migration}
@@ -959,25 +1168,37 @@ activation, so first live sources are post-deployment and sealable.  New
 Settlement begins \code{PREACTIVE}; registry, scheduling and data preparation
 may run, but every candidate rejects.
 
-Forced ingress lives behind one \code{ActiveSettlementRouter}; the queue itself
-is shared across the cutover.  Existing Taiko bridge messages remain on the
+The legacy Inbox does not share this design's queue or expose
+\code{freezeAndExport}.  Migration therefore never pretends to adopt its
+blob-backed forced-inclusion records.  A staged legacy upgrade first disables
+new legacy forced admission, then drains every admitted legacy record under the
+legacy validity/expiry rules and settles or refunds all associated value.
+Activation is blocked until the audited legacy predicates report
+\code{head==tail} and zero unsettled forced escrow.  Only then is the new empty
+\code{ForcedQueue} placed behind \code{ActiveSettlementRouter}; its initial
+root/count/cursor and \code{dueAt(0)=UINT64_MAX} are golden migration values.
+Existing Taiko bridge messages remain on the
 legacy SignalService/Bridge retry path and are not silently converted into
 kind 1.  Only new, explicitly escrowed inbox-credit messages use
 \code{BridgeInboxAdapter}; its finalized message manifest binds the existing
 message hash and ownership/value/calldata fields, while destination invocation
 remains a later bridge operation.
 
-Migration has two phases.  First, anyone calls the ordinary entry point until
-\code{sync()} returns unchanged and the old contract is quiescent; this may take
-more than one transaction and never bypasses the early-return rule.  Second, the
-governance executor calls \code{old.freezeAndExport(new)}.  It asserts that no
-objective close/activation/round-roll is pending, cancels only a still-immature
-provisional best, disables old candidate ingress, exports the exact canonical
-state/cursor, makes the new contract verify the shared queue pair and an indexed
-boundary proof for \code{headDueAt} (or empty-at-count), atomically
-switches router authority, and changes new PREACTIVE to NORMAL.  The operation
+After that drain, migration has two phases.  First, anyone advances the old
+Inbox until its finalized transition is quiescent; the gate requires its exact
+finalized L2 height, block hash, state root, bridge checkpoint and zero pending
+proposal/forced state.  Second, the governance executor invokes the audited
+migration adapter.  It freezes old proposal/forced ingress, imports those exact
+canonical fields into new PREACTIVE state, verifies the new queue's golden
+empty pair, atomically points router authority at the new queue/Settlement,
+changes new PREACTIVE to NORMAL, and reconfigures or
+upgrades SignalService so the immutable SettlementCheckpointAdapter is its
+authorized syncer.  It also installs the reviewed InboxApply
+\code{markReceivedFromInbox} authorization before kind-1 ingress is enabled.
+The operation
 contains only bounded non-reverting internal writes after its assertions; any
-revert rolls all contracts back.  Old bridge signals keep their original claim
+revert rolls all contracts back.  The adapter cannot cancel or convert legacy
+forced records; a nonempty legacy predicate simply blocks migration.  Old bridge signals keep their original claim
 semantics, so the migration makes no unenforceable claim to enumerate all
 historical pending messages.
 
@@ -990,7 +1211,7 @@ historical pending messages.
 L2 slot / schedule window & 1 s / 384 slots & Aligned by genesis timestamp. \\
 \code{N_MAX}, \code{Q_MAX} & 64 / 76 & Six addresses fill 384 tickets. \\
 \code{BOND_MAX} & $2^{192}-1$ & \code{bond*(Q_MAX+1) < 2^256}. \\
-Entry/exit delay; generation moves & 8 / 268 windows; 4 per window & Fixed liability capacity is $4\times268$. \\
+Entry/exit/reservation ahead; moves & 8 / 268 / 16 windows; 4 per window & Liability residence $<268$; capacity $4\times268$. \\
 \code{D_SNAP}, \code{F_FINAL} & 8 / 2 L1 epochs & Strictly exceeds scan + finality + seal margin + lookahead. \\
 \code{H_LOOK} & 768 L2 slots & Guaranteed by snapshot geometry with one-window slack. \\
 \code{G_MAX} & 64 L2 slots & Tier-1 parent gap only. \\
@@ -1002,7 +1223,8 @@ Entry/exit delay; generation moves & 8 / 268 windows; 4 per window & Fixed liabi
 \code{FORCE_DELAY} & 1,500 s & At least settlement window plus \code{T_INCLUDE_MAX_SECONDS=120}. \\
 Forced prefix & 64 items; 1,048,576 B; 20m gas & Each item at most 131,072 B and 5m accounted gas. \\
 Candidate caps & 4,096 blocks; 12 windows; 1 anchor; 16 sessions; 2,100 records & Also 256 forced items, 4 MiB, 80m accounted gas. \\
-Queue / range proof & depth 32 / at most 129 hashes & Capacity $2^{32}$; canonical contiguous range proof. \\
+Queue / range proof & depth 32 / at most 129 hashes & Capacity \code{UINT32_MAX}; canonical contiguous range proof. \\
+\code{MAX_FORCE_VALIDITY_SECONDS} & 604,800 s & Bounds missing kind-0 payload delay; kind 1 is durable. \\
 Body chunks & 9 / 1,142,748 B & Per-body chunks / maximum discretionary bytes. \\
 \code{DATA_TTL} & 86,400 s & Greater than candidate, settlement, proof and reorg path. \\
 \code{REORG_MARGIN}, \code{EVIDENCE_DELAY} & 1,800 / 86,400 s & Data resubmission and finite liability retention. \\
@@ -1072,24 +1294,32 @@ are represented by \code{H(rawTx)} plus an explicit \code{u32(byteLength)}.
 The canonical core/base, candidate, schedule list, sealed-session list and execution
 outputs use these exact encodings:
 \begin{verbatim}
-coreHash = H("slot-chain-core-v2" || tipHash || u64(tipSlot) || stateRoot ||
-  u64(messageCursor) || winningDataCommitment)
+coreHash = H("slot-chain-core-v2" || u64(l2BlockNumber) || tipHash ||
+  u64(tipSlot) || stateRoot || u64(messageCursor) || winningDataCommitment ||
+  u256(nextBaseFee) || u64(nextExcessBlobGas))
 baseCanonicalHash = H("slot-chain-canonical-v2" || coreHash ||
   u64(canonicalizedAtBlock))
 H("slot-chain-candidate-v2" || baseCanonicalHash || u16(n) ||
-  (u64(slot) || blockHash || bodyRoot || u64(messageEnd))*)
+  (u64(slot) || blockStructHash || blockHash || bodyRoot ||
+   dataManifestRoot || u64(messageEnd))*)
 H("slot-chain-schedule-list-v1" || u8(count) ||
   (u64(window) || entryRoot || seed)*)
 H("slot-chain-session-list-v1" || u8(count) ||
   (sessionId || u16(recordCount) || root)*)
+winningDataCommitment = H("slot-chain-winning-data-v1" ||
+  candidateCommitment || sessionRefsCommitment)
 H("slot-chain-outputs-v1" || stateRoot || transactionsRoot || receiptsRoot ||
   logsBloomHash || withdrawalsRoot)
 \end{verbatim}
 Here $n\le4096$; schedule windows are ascending and sessions are ascending by
-ID.  These hashes are respectively the statement's
+ID.  \code{blockStructHash} is the EIP-712 struct hash of the exact signed
+\code{SlotChainBlock} fields in \S\ref{sec:signed-header}; tier-3 recovery uses
+the same struct fields without a signature.  These hashes are respectively the statement's
 \code{baseCanonicalHash}, \code{candidateCommitment},
 \code{scheduleRootsCommitment}, \code{sessionRefsCommitment} and
-\code{executionOutputsCommitment}; unsorted or duplicate lists reject.
+\code{executionOutputsCommitment}.  Settlement must recompute the displayed
+\code{winningDataCommitment} before verifier dispatch and again before the
+canonical write; unsorted or duplicate lists reject.
 
 The 64-cell registry leaf at index $i$ is
 \begin{verbatim}
@@ -1136,7 +1366,15 @@ H("slot-chain-tranche-leaf-v1" || u16(j) || u64(window) || u8(state) ||
   u192(amount) || u64(liableUntil))
 \end{verbatim}
 An empty leaf has \code{window=UINT64_MAX},
-state zero and remaining fields zero.  Its nine node levels use
+state \code{EMPTY=0} and remaining fields zero.  Other states are
+\code{FREE=1}, \code{RESERVED=2}, \code{LIABLE=3},
+\code{RELEASED=4} and \code{SLASHED=5}.  A ring-index collision may be
+overwritten only from RELEASED or SLASHED after its absolute release predicate;
+the write installs the new exact window and FREE/RESERVED state atomically.
+\code{liableUntil=0} for EMPTY/FREE; reservation sets it exactly to
+\code{evidenceDeadline(window)+REORG_MARGIN_SECONDS}, and LIABILITY preserves
+that value.  RELEASED/SLASHED preserve it until safe overwrite.
+Its nine node levels use
 \code{H("slot-chain-tranche-node-v1"||u8(height)||left||right)}.  The snapshot
 supplies one inclusion proof for index \code{W mod 512} for every active cell,
 including canonical empty and \code{FREE} leaves.
@@ -1144,7 +1382,7 @@ including canonical empty and \code{FREE} leaves.
 Kind-0 forced leaf $i$ is legacy Keccak over this exact packed sequence:
 \begin{verbatim}
 "slot-chain-force-user-v2" || u32(i) ||
-address20(sender) || u64(nonce) || u256(chainId) || bytes32(rawTxHash) ||
+address20(sender) || u64(nonce) || u256(l2ChainId) || bytes32(rawTxHash) ||
 u32(byteLength) || u64(gasLimit) || u64(accountedGas) ||
 u256(maxFee) || u64(validUntil) || address20(refundAddress) ||
 u64(enqueuedAt) || u64(dueAt) || u256(deposit)
@@ -1202,9 +1440,17 @@ H("slot-chain-manifest-leaf-v1" || u16(position) ||
   fullBodyRoot || chunkRoot)
 \end{verbatim}
 Its next-power-of-two tree uses
-\code{H("slot-chain-manifest-node-v1"||u8(height)||left||right)} and the root is
-\code{H("slot-chain-manifest-root-v1"||u16(count)||treeRoot)}; padding uses the
-domain-separated empty leaf.  The InboxApply disposition commitment is:
+\begin{verbatim}
+H("slot-chain-manifest-node-v1" || u8(height) || left || right)
+H("slot-chain-manifest-root-v1" || u16(count) || treeRoot)
+\end{verbatim}
+for the node and final root respectively; padding uses the
+domain-separated empty leaf.  For zero entries,
+\code{treeRoot=H("slot-chain-manifest-empty-v1")}.  The zero-discretionary-
+transaction body is the ordinary body encoding \code{u32(0)} and therefore
+\code{H("slot-chain-body-v1"||u32(4)||u32(0))}.  Tier 3 requires exactly those
+empty body/manifest values and the zero-count session-list commitment.
+The InboxApply disposition commitment is:
 \begin{verbatim}
 H("slot-chain-dispositions-v1" || u64(start) || u64(end) ||
   u16(count) ||
@@ -1218,14 +1464,15 @@ seed and tie hashes are as in \S\ref{sec:schedule}; body and blob encodings are
 as in \S\ref{sec:data}.  \code{commitment-model.py} is the normative executable
 fixture.  Its initial vectors are:
 \begin{verbatim}
-TYPEHASH      0a0bfc3b8ba52a166f662055d09891465d916aa486808e78105890e98d65777f
+TYPEHASH      579f796202662a2edf67bed2afcb07d3adff1e5e7e10e7dedcb7c6632f8d49de
 registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
 admissionRoot 783548941546bbc76487459185c787e4ffd7677b4487692dd6b1308dcc2e13f6
-entryRoot     2eec2b75d264b328ec558d880b822ece2f85661516b1d85056a6f20ecd0dc7f1
+entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
-manifestRoot  bb06a375def8deb09a550f685a65096eaf14cc70816d0592c978c51f96dcb1be
-statementHash 98a0e1a892e2fd43e569f64dce3478ba19636fd062aa6ca517c49e6485fad22a
-recoveryId    9c2f404af0886c6f7abb51f1bbe578747b7122dbe792ae9e5f5d4e7b74c8f550
+manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
+winningData   20e1edde3f8f232ad46ea5662781e691732c1cb094da109c752729a706258b75
+statementHash e944338943078b59c93dde936ddd2bc8ac47fbf241e4ccdd02f52dc358121be6
+recoveryId    838cab6519eafe0e2a13d2d79be09a7029fd304c9f6d97ac6b878a1f1d2e0e0f
 bodyRoot      0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
@@ -1250,7 +1497,12 @@ function sync() returns (bool changed) {
     if (mode == NORMAL && forcedHeadDue && normal window immature) {
         cancel normal window;
     } else if (normal deadline matured) {
-        if (best exists && best.nextDueAt > now) commit(normalBest);
+        if (best exists) {
+            liveBoundaryDueAt = ForcedQueue.dueAt(best.endCursor);
+            dataLive = now + REORG_MARGIN_SECONDS <= best.minDataExpiry;
+        }
+        if (best exists && liveBoundaryDueAt > now && dataLive)
+            commit(normalBest);
         else cancel normal window;
     }
     if (mode == NORMAL && (finalLagBreach || forcedHeadDue)) {
@@ -1258,7 +1510,7 @@ function sync() returns (bool changed) {
         if (finalLagBreach) terminate incumbent once;
         return true;
     }
-    return whetherCloseOrCancelChangedState;
+    return changed;
 }
 \end{verbatim}
 
@@ -1296,13 +1548,13 @@ ledger.  The tranche is deterrence only.
 
 \section{Executable consensus models}\label{app:models}
 
-\code{lookahead-model.py} reports 34 assertions over legacy Keccak, EIP-4788
+\code{lookahead-model.py} reports 35 assertions over legacy Keccak, EIP-4788
 carrier/parent selection, immutable seal deadlines, post-seal tombstones,
 eligibility-before-ranking, capped D'Hondt and feasible placement, including
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 50 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 62 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, bounded Merkle-prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -1310,7 +1562,7 @@ replacement/liability generations, tranche release units, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 35 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 43 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced vector/range proofs, session MMR, manifest,
 dispositions, recovery ID, Fiat--Shamir input, body chunks and blob codec.  The

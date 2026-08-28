@@ -11,7 +11,7 @@ try:
 except ImportError:  # The exact pure-Python fallback below keeps the model standalone.
     _native_keccak = None
 
-CHAIN_ID = 16_788
+SETTLEMENT_CHAIN_ID = 1
 PROTOCOL_VERSION = 2
 GENESIS_TIMESTAMP = 1_000_000
 BEACON_GENESIS_TIME = 900_000
@@ -20,6 +20,7 @@ W_SIZE = 384
 H_LOOK = 768
 L1_EPOCH = 32
 F_FINAL_L1_BLOCKS = 64
+T_DEPTH_MAX_SECONDS = 900
 D_SNAP_L1 = 8 * L1_EPOCH
 MAX_SNAPSHOT_MISSES = 64
 SEAL_MARGIN_L1 = 32
@@ -212,7 +213,7 @@ def seal_window(window: int, seal_l2_slot: int, current_block_number: int,
 
 
 def seed(window: int, snapshot: Snapshot) -> bytes:
-    return keccak256(DOMAIN_SEED + u256(CHAIN_ID) + u256(PROTOCOL_VERSION)
+    return keccak256(DOMAIN_SEED + u256(SETTLEMENT_CHAIN_ID) + u256(PROTOCOL_VERSION)
                      + u256(window) + snapshot.randao)
 
 
@@ -308,11 +309,13 @@ def schedule_for_window(window: int, snapshot_provider) -> list[int]:
 
 
 def lookahead(slot: int, snapshot_provider,
-              tombstone_effective: dict[int, int] | None = None) -> int:
+              tombstone_effective: dict[int, int] | None = None,
+              frozen_admission: bool = False) -> int:
     window = window_of(slot)
     scheduled = schedule_for_window(window, snapshot_provider)[slot % W_SIZE]
     effective = (tombstone_effective or {}).get(scheduled)
-    return VACANT if effective is not None and effective <= slot else scheduled
+    return (VACANT if not frozen_admission and effective is not None
+            and effective <= slot else scheduled)
 
 
 PASS: list[str] = []
@@ -366,10 +369,10 @@ def test_keccak_and_encoding_vectors():
     assert snapshot is not None
     check("L2 exact seed golden vector",
           seed(0, snapshot).hex()
-          == "b4fb9cd2db3274538401298d4024f6d77ebc5f2ae607cd9d1aa67704e6c146e4")
+          == "3a2dd06afd564d2e6fa5978befc3182cc8f1926ca6cd59848ab90c1781e16fd4")
     check("L3 exact full-schedule golden vector",
           digest_schedule(list(base_schedule()))
-          == "73ba0194440d7109a118a363310e4e515d89db82f271bdc82a07e3a5853fe7fb")
+          == "2c52d91b3dd0468ac2d08675d063d085b660e09d53ff3fdd517805ed6b8e6e9d")
 
 
 def test_determinism_geometry_and_missed_slots():
@@ -389,11 +392,15 @@ def test_determinism_geometry_and_missed_slots():
     for now in range(0, 4 * W_SIZE, 97):
         far = now + H_LOOK
         now_timestamp = GENESIS_TIMESTAMP + now
-        ok &= snapshot_target_slot(window_of(far)) <= beacon_slot_at(now_timestamp) - F_FINAL_L1_BLOCKS
-    check("L7 every slot in H_LOOK has a finalized target", ok)
+        target_timestamp = (BEACON_GENESIS_TIME
+                            + BEACON_SLOT_SECONDS * snapshot_target_slot(window_of(far)))
+        latest_carrier_timestamp = target_timestamp + BEACON_SLOT_SECONDS * MAX_SNAPSHOT_MISSES
+        ok &= latest_carrier_timestamp + T_DEPTH_MAX_SECONDS <= now_timestamp
+    check("L7 every slot in H_LOOK has time for execution-block finality", ok)
     check("L7a strict seal geometry has positive slack",
-          D_SNAP_L1 > (H_LOOK // BEACON_SLOT_SECONDS + MAX_SNAPSHOT_MISSES
-                       + F_FINAL_L1_BLOCKS + SEAL_MARGIN_L1))
+          D_SNAP_L1 * BEACON_SLOT_SECONDS
+          > (H_LOOK + MAX_SNAPSHOT_MISSES * BEACON_SLOT_SECONDS
+             + T_DEPTH_MAX_SECONDS + SEAL_MARGIN_L1 * BEACON_SLOT_SECONDS))
     no_carrier = tuple(block for block in EXECUTION_BLOCKS
                        if not (snapshot.target_slot < block.beacon_slot
                                <= snapshot.target_slot + MAX_SNAPSHOT_MISSES))
@@ -445,6 +452,9 @@ def test_empty_sentinel_eligibility_and_tombstone():
     check("L14 post-seal tombstone affects only slots at/after effective slot",
           lookahead(position, provider(), {scheduled: position + 1}) == scheduled
           and lookahead(position, provider(), {scheduled: position}) == VACANT)
+    check("L14a frozen candidate context survives a later tombstone",
+          lookahead(position, provider(), {scheduled: position},
+                    frozen_admission=True) == scheduled)
 
 
 def test_quota_and_run_bounds():

@@ -24,6 +24,7 @@ T_DEPTH_MAX = 900
 CLOCK_SKEW = 24
 ESCAPE_OFFSET = 1_900
 FORCE_DELAY = 1_500
+MAX_FORCE_VALIDITY_SECONDS = 7 * 86_400
 FORCE_GAS_BUDGET = 20_000_000
 FORCE_BYTES_BUDGET = 1_048_576
 MAX_FORCE_MESSAGES = 64
@@ -35,7 +36,7 @@ MAX_FORCE_MESSAGE_BYTES = 131_072
 MIN_FORCE_ACCOUNTED_GAS = 21_000
 MAX_FORCE_RANGE_PROOF_HASHES = 129
 FORCE_TREE_DEPTH = 32
-MAX_FORCE_QUEUE_ITEMS = 1 << FORCE_TREE_DEPTH
+MAX_FORCE_QUEUE_ITEMS = (1 << FORCE_TREE_DEPTH) - 1
 L2_BLOCK_GAS_LIMIT = 30_000_000
 ANCHOR_GAS_MAX = 1_000_000
 SYSTEM_GAS_MARGIN = 5_000_000
@@ -49,11 +50,19 @@ MAX_DATA_SESSIONS_PER_OWNER = 2
 MAX_GC_STEPS = 8
 MAX_LIVE_WINDOWS = 268
 ENTRY_DELAY_WINDOWS = 8
+MAX_TRANCHE_AHEAD_WINDOWS = 16
+EVIDENCE_DELAY_SECONDS = 86_400
 MAX_REPLACEMENTS_PER_WINDOW = 4
 MAX_LIABILITY_GENERATIONS = MAX_REPLACEMENTS_PER_WINDOW * MAX_LIVE_WINDOWS
 DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
 UINT64_MAX = (1 << 64) - 1
+G_MAX = 64
+
+MAX_LIABILITY_RESIDENCE_WINDOWS = (
+    MAX_TRANCHE_AHEAD_WINDOWS + 1
+    + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
+)
 
 
 class Mode(Enum):
@@ -114,6 +123,7 @@ class Message:
     valid_until: int = UINT64_MAX
     due_at: int = 0
     prepaid: int = 1
+    payload_available: bool = True
 
 
 @dataclass(frozen=True)
@@ -154,6 +164,7 @@ class Block:
     anchor_timestamp: int
     force_root: str
     force_cutoff: int
+    context_id: str
     admission_version: int
     admission_root: str
     data_records: tuple[tuple[str, int], ...] = ()
@@ -170,6 +181,9 @@ class Candidate:
     end_state_root: str
     winning_data_commitment: str
     next_due_at: int
+    end_l2_block_number: int
+    next_base_fee: int = 101
+    next_excess_blob_gas: int = 0
     proof_ok: bool = True
     force_range_proof_ok: bool = True
     episode: int = 0
@@ -195,11 +209,14 @@ class Candidate:
 
 @dataclass
 class CanonicalCore:
+    l2_block_number: int
     tip_hash: str
     tip_slot: int
     state_root: str
     message_cursor: int
     winning_data_commitment: str = "empty"
+    next_base_fee: int = 100
+    next_excess_blob_gas: int = 0
 
 
 @dataclass
@@ -210,8 +227,9 @@ class Canonical:
     @property
     def base_hash(self) -> str:
         c = self.core
-        return (f"canonical:{c.tip_hash}:{c.tip_slot}:{c.state_root}:"
+        return (f"canonical:{c.l2_block_number}:{c.tip_hash}:{c.tip_slot}:{c.state_root}:"
                 f"{c.message_cursor}:{c.winning_data_commitment}:"
+                f"{c.next_base_fee}:{c.next_excess_blob_gas}:"
                 f"{self.canonicalized_at_block}")
 
 
@@ -254,13 +272,20 @@ class Generation:
     bond: int
     registration_index: int
     effective_window: int
+    max_reserved_window: int = 0
 
 
 @dataclass
 class RegistryLifecycle:
     active: list[Generation]
-    liabilities: list[Generation] = field(default_factory=list)
+    liability_ring: list[tuple[Generation, int] | None] = field(
+        default_factory=lambda: [None] * MAX_LIABILITY_GENERATIONS)
     replacements: dict[int, int] = field(default_factory=dict)
+    movement_sequence: int = 0
+
+    @property
+    def liabilities(self) -> list[Generation]:
+        return [item[0] for item in self.liability_ring if item is not None]
 
     def admit(self, entry: Generation, current_window: int) -> bool:
         if entry.effective_window < current_window + ENTRY_DELAY_WINDOWS:
@@ -270,14 +295,23 @@ class RegistryLifecycle:
             return True
         if self.replacements.get(current_window, 0) >= MAX_REPLACEMENTS_PER_WINDOW:
             return False
-        if len(self.liabilities) >= MAX_LIABILITY_GENERATIONS:
-            return False
         victim = min(self.active, key=lambda item: (item.bond, -item.registration_index))
         if entry.bond <= victim.bond:
             return False
+        if victim.max_reserved_window > current_window + MAX_TRANCHE_AHEAD_WINDOWS:
+            return False
+        ring_index = self.movement_sequence % MAX_LIABILITY_GENERATIONS
+        occupant = self.liability_ring[ring_index]
+        if occupant is not None and occupant[1] > current_window:
+            return False
+        release_window = (
+            victim.max_reserved_window + 1
+            + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
+        )
         self.active.remove(victim)
         self.active.append(entry)
-        self.liabilities.append(victim)
+        self.liability_ring[ring_index] = (victim, release_window)
+        self.movement_sequence += 1
         self.replacements[current_window] = self.replacements.get(current_window, 0) + 1
         return True
 
@@ -298,7 +332,7 @@ class Protocol:
     episode: int = 0
     recovery: RecoveryRound | None = None
     normal_best: Candidate | None = None
-    normal_best_next_due_at: int = UINT64_MAX
+    normal_best_min_data_expiry: int = UINT64_MAX
     normal_deadline: int | None = None
     normal_required_through: int | None = None
     normal_min_admissible: int | None = None
@@ -356,7 +390,7 @@ class Protocol:
 
     def _clear_normal(self) -> None:
         self.normal_best = None
-        self.normal_best_next_due_at = UINT64_MAX
+        self.normal_best_min_data_expiry = UINT64_MAX
         self.normal_deadline = None
         self.normal_required_through = None
         self.normal_min_admissible = None
@@ -366,7 +400,10 @@ class Protocol:
     def _close_mature_normal(self, clock: Clock) -> bool:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
             return False
-        if self.normal_best is not None and self.normal_best_next_due_at > clock.timestamp:
+        if (self.normal_best is not None
+                and self.next_due_at(self.normal_best.tip.message_end) > clock.timestamp
+                and clock.timestamp + REORG_MARGIN_SECONDS
+                    <= self.normal_best_min_data_expiry):
             self._commit(self.normal_best, clock)
             self.events.append("NORMAL_COMMITTED")
         else:
@@ -452,7 +489,9 @@ class Protocol:
         if message.kind is ForceKind.USER_TX:
             invalid = (not message.chain_id_ok or not message.signature_ok
                        or not message.outer_authorized or not message.sender
-                       or message.valid_until <= clock.timestamp)
+                       or message.valid_until <= clock.timestamp
+                       or message.valid_until
+                           > message.enqueued_at + MAX_FORCE_VALIDITY_SECONDS)
         else:
             invalid = not message.outer_authorized or message.valid_until != UINT64_MAX
         if (invalid or message.intrinsic_gas <= 0
@@ -467,8 +506,6 @@ class Protocol:
         due = max(message.enqueued_at + FORCE_DELAY, prior_due, deferred)
         index = len(self.messages)
         self.messages.append(replace(message, due_at=due))
-        if self.normal_best is not None and self.normal_best.tip.message_end == index:
-            self.normal_best_next_due_at = due
         return "ADMITTED"
 
     def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
@@ -511,8 +548,10 @@ class Protocol:
 
     def gc_sessions(self, clock: Clock) -> int:
         removed = 0
+        retained = ({ref.session_id for ref in self.normal_best.session_refs}
+                    if self.normal_best is not None else set())
         for key in sorted(tuple(self.sessions))[:MAX_GC_STEPS]:
-            if self.sessions[key].expiry < clock.timestamp:
+            if self.sessions[key].expiry < clock.timestamp and key not in retained:
                 del self.sessions[key]
                 removed += 1
         self.gc_cursor = (self.gc_cursor + MAX_GC_STEPS) % MAX_LIVE_DATA_SESSIONS
@@ -559,6 +598,10 @@ class Protocol:
         if (not candidate.proof_ok or not candidate.force_range_proof_ok
                 or candidate.base_canonical_hash != self.canonical.base_hash
                 or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
+                or candidate.end_l2_block_number
+                    != self.core.l2_block_number + candidate.count
+                or candidate.next_base_fee <= 0
+                or candidate.next_excess_blob_gas < 0
                 or len({b.window for b in candidate.blocks}) > MAX_WINDOWS_PER_CANDIDATE
                 or candidate.blocks[0].slot <= self.core.tip_slot
                 or any(b.slot < min_slot for b in candidate.blocks)
@@ -571,6 +614,8 @@ class Protocol:
         total_items = total_bytes = total_gas = 0
         for block in candidate.blocks:
             if (block.parent_hash != parent or block.slot <= prior_slot
+                    or (candidate.tier is Tier.NORMAL_SIGNED
+                        and block.slot - prior_slot > G_MAX)
                     or block.message_start != cursor or not block.dispositions_ok
                     or block.anchor_number != first.anchor_number
                     or block.force_cutoff != first.force_cutoff
@@ -580,6 +625,9 @@ class Protocol:
             if block.message_end != expected:
                 return False
             for msg in self.messages[cursor:block.message_end]:
+                if (msg.kind is ForceKind.USER_TX and not msg.payload_available
+                        and msg.valid_until >= GENESIS_TIMESTAMP + block.slot):
+                    return False
                 total_items += 1
                 total_bytes += msg.byte_length
                 total_gas += msg.accounted_gas
@@ -601,7 +649,9 @@ class Protocol:
         required_through = self.normal_required_through or deadline + T_INCLUDE_MAX_SECONDS
         return (self._validate_common(candidate, clock, minimum)
                 and all(b.scheduled_signature_ok and b.admission_version == version
-                        and b.admission_root == root for b in candidate.blocks)
+                        and b.admission_root == root
+                        and b.context_id == self.canonical.base_hash
+                        for b in candidate.blocks)
                 and all(self.sessions[r.session_id].expiry
                         >= deadline + REORG_MARGIN_SECONDS for r in candidate.session_refs)
                 and self.next_due_at(candidate.tip.message_end) > required_through)
@@ -617,9 +667,12 @@ class Protocol:
                 or candidate.base_canonical_hash != round_.base_canonical_hash
                 or first.anchor_number != round_.anchor_number
                 or first.anchor_hash != round_.anchor_hash
+                or any(b.context_id != round_.recovery_id
+                       for b in candidate.blocks)
                 or any(b.admission_version != round_.admission_version
                        or b.admission_root != round_.admission_root for b in candidate.blocks)
                 or clock.block_number - round_.anchor_number < F_L1
+                or clock.l2_slot - candidate.tip.slot > DELTA_TIP
                 or clock.timestamp > round_.expires_at):
             return False
         if round_.causes & Cause.FORCE_DUE and candidate.tip.message_end <= self.core.message_cursor:
@@ -648,7 +701,11 @@ class Protocol:
                 self.normal_admission_root = self.admission_root
             if self.normal_best is None or candidate.order > self.normal_best.order:
                 self.normal_best = candidate
-                self.normal_best_next_due_at = self.next_due_at(candidate.tip.message_end)
+                self.normal_best_min_data_expiry = min(
+                    (self.sessions[ref.session_id].expiry
+                     for ref in candidate.session_refs),
+                    default=UINT64_MAX,
+                )
                 return "ACCEPTED"
             return "IGNORED"
         if not self._valid_recovery(candidate, clock):
@@ -661,12 +718,37 @@ class Protocol:
 
     def _commit(self, candidate: Candidate, clock: Clock) -> None:
         self.canonical = Canonical(
-            CanonicalCore(candidate.tip.block_hash, candidate.tip.slot,
+            CanonicalCore(candidate.end_l2_block_number,
+                          candidate.tip.block_hash, candidate.tip.slot,
                           candidate.end_state_root, candidate.tip.message_end,
-                          candidate.winning_data_commitment),
+                          candidate.winning_data_commitment,
+                          candidate.next_base_fee,
+                          candidate.next_excess_blob_gas),
             clock.block_number,
         )
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
+
+
+@dataclass
+class BridgeAdapter:
+    records: dict[str, tuple[str, Message, int | None]] = field(default_factory=dict)
+
+    def prepare(self, msg_hash: str, envelope: Message) -> bool:
+        if msg_hash in self.records or envelope.kind is not ForceKind.BRIDGE_CREDIT:
+            return False
+        self.records[msg_hash] = ("PENDING", envelope, None)
+        return True
+
+    def finalize(self, protocol_: Protocol, clock_: Clock, msg_hash: str) -> str:
+        state, envelope, index = self.records[msg_hash]
+        if state == "QUEUED":
+            return f"QUEUED:{index}"
+        result = protocol_.admit_message(clock_, envelope)
+        if result == "ADMITTED":
+            index = len(protocol_.messages) - 1
+            self.records[msg_hash] = ("QUEUED", envelope, index)
+            return f"QUEUED:{index}"
+        return result
 
 
 PASS: list[str] = []
@@ -698,7 +780,7 @@ def make_history(messages: list[Message] | None = None) -> dict[int, L1Header]:
 def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              mode: Mode = Mode.NORMAL, messages: list[Message] | None = None) -> Protocol:
     msgs = list(messages or [])
-    canonical = Canonical(CanonicalCore("a" * 64, tip_slot, "b" * 64, cursor), 900)
+    canonical = Canonical(CanonicalCore(900, "a" * 64, tip_slot, "b" * 64, cursor), 900)
     active = Seat("aggregator", 100) if seat else None
     return Protocol(canonical, make_history(msgs), mode, msgs, active_seat=active,
                     standby=[Seat("standby", 70)])
@@ -707,13 +789,15 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
 def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
           signed: bool = True, message_end: int | None = None,
           dispositions_ok: bool = True, discretionary: bool = True) -> Block:
-    slot = c.l2_slot if slot is None else slot
+    if slot is None:
+        slot = (c.l2_slot if p.mode is Mode.RECOVERY
+                else min(c.l2_slot, p.core.tip_slot + G_MAX))
     if p.mode is Mode.RECOVERY and p.recovery:
         r = p.recovery
         anchor_number, force_root, cutoff = r.anchor_number, r.force_root, r.force_cutoff
         version, root = r.admission_version, r.admission_root
     else:
-        anchor_number = c.block_number - 1
+        anchor_number = min(c.block_number - 1, slot)
         header = p.history[anchor_number]
         force_root, cutoff = header.force_root, header.force_cutoff
         version = p.normal_admission_version if p.normal_admission_version is not None else p.admission_version
@@ -723,7 +807,10 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
     end = p._prefix_end(start, cutoff) if message_end is None else message_end
     return Block(slot, f"{abs(hash(ident)) % (1 << 256):064x}", p.core.tip_hash,
                  slot // 384, signed, start, end, anchor_number, header.block_hash,
-                 header.timestamp, force_root, cutoff, version, root,
+                 header.timestamp, force_root, cutoff,
+                 (p.recovery.recovery_id if p.mode is Mode.RECOVERY and p.recovery
+                  else p.canonical.base_hash),
+                 version, root,
                  dispositions_ok=dispositions_ok, discretionary_body=discretionary)
 
 
@@ -734,11 +821,16 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
               discretionary=discretionary)
     r = p.recovery
     next_due = p.next_due_at(b.message_end, b.force_cutoff)
-    return Candidate(ident, p.canonical.base_hash, (b,), tier,
-                     f"state:{ident}", "empty", next_due, True,
-                     force_range_proof_ok,
-                     r.episode if r else 0, r.revision if r else 0,
-                     r.recovery_id if r else "", recovery_fields_zero=recovery_fields_zero)
+    return Candidate(
+        ident, p.canonical.base_hash, (b,), tier,
+        f"state:{ident}", "empty", next_due,
+        p.core.l2_block_number + 1,
+        proof_ok=True, force_range_proof_ok=force_range_proof_ok,
+        episode=r.episode if r else 0,
+        recovery_revision=r.revision if r else 0,
+        recovery_id=r.recovery_id if r else "",
+        recovery_fields_zero=recovery_fields_zero,
+    )
 
 
 def open_recovery(p: Protocol, block_number=1_100) -> Clock:
@@ -764,7 +856,7 @@ def test_canonical_outputs_and_migration() -> None:
     pre = Clock(950, GENESIS_TIMESTAMP - 100)
     check("P2 preactivation slot saturates", pre.l2_slot == 0)
     check("P3 preactive rejects", p.submit(candidate(p, clock(1_100, 1_100)), clock(1_100, 1_100)) == "REJECTED_PREACTIVE")
-    imported = Canonical(CanonicalCore("c" * 64, 1_050, "d" * 64, 7), 1_050)
+    imported = Canonical(CanonicalCore(1_050, "c" * 64, 1_050, "d" * 64, 7), 1_050)
     check("P4 migration requires quiescence", not p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=False, router_switched=True))
     check("P5 atomic router cutover imports exact state", p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True))
     q = protocol()
@@ -773,7 +865,11 @@ def test_canonical_outputs_and_migration() -> None:
     check("P6 candidate opens", q.submit(cand, c) == "ACCEPTED")
     close = Clock(1_234, q.normal_deadline)
     q.sync(close)
-    check("P7 L1 stamps unpredictable landing block outside proof", q.canonical.canonicalized_at_block == 1_234 and q.core.state_root == "state:explicit-output")
+    check("P7 L1 stamps landing block and proof advances EVM height/context",
+          q.canonical.canonicalized_at_block == 1_234
+          and q.core.state_root == "state:explicit-output"
+          and q.core.l2_block_number == 901
+          and q.core.next_base_fee == 101)
 
 
 def test_admission_freeze_and_tier_canonicalization() -> None:
@@ -807,6 +903,12 @@ def test_force_merkle_bounds_and_auth() -> None:
     bridge = message(1_100, "bridge", kind=ForceKind.BRIDGE_CREDIT)
     check("P16 non-expiring bridge credit admits", protocol().admit_message(c, bridge) == "ADMITTED")
     check("P17 gas geometry", ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN <= L2_BLOCK_GAS_LIMIT)
+    too_long = replace(message(1_100, "too-long"),
+                       valid_until=c.timestamp + MAX_FORCE_VALIDITY_SECONDS + 1)
+    check("P17a user payload validity is bounded",
+          protocol().admit_message(c, too_long) == "REJECTED")
+    check("P17b depth-32 frontier leaves final index unused",
+          MAX_FORCE_QUEUE_ITEMS == (1 << 32) - 1)
 
 
 def test_late_close_and_constant_boundary() -> None:
@@ -814,10 +916,11 @@ def test_late_close_and_constant_boundary() -> None:
     opened = clock(1_100, 1_100)
     best = candidate(p, opened, "ordinary")
     check("P18 normal opens", p.submit(best, opened) == "ACCEPTED")
-    enqueue_l2 = p.normal_deadline - GENESIS_TIMESTAMP - FORCE_DELAY + 1
+    enqueue_l2 = opened.l2_slot + 1
     append_clock = clock(1_101, enqueue_l2)
-    check("P19 post-open append admits", p.admit_message(append_clock, message(enqueue_l2, "late")) == "ADMITTED")
-    delayed = Clock(1_300, p.normal_deadline + 2)
+    check("P19 post-open append admits", p.admit_message(
+        append_clock, message(enqueue_l2, "late")) == "ADMITTED")
+    delayed = clock(1_300, enqueue_l2 + FORCE_DELAY + 1)
     before = p.core.tip_hash
     check("P20 delayed close transitions", p.sync(delayed))
     check("P21 newly due omitted head never commits", p.core.tip_hash == before and p.mode is Mode.RECOVERY)
@@ -842,6 +945,25 @@ def test_late_close_and_constant_boundary() -> None:
     check("P26 current-root boundary rejects post-anchor due omission",
           old_anchor.submit(omitted, submit_at) == "REJECTED")
 
+    gap = protocol(tip_slot=100)
+    gap_clock = clock(200, 200)
+    too_wide = candidate(gap, gap_clock, "wide-gap", slot=100 + G_MAX + 1)
+    check("P26a tier-1 parent gap is enforced",
+          gap.submit(too_wide, gap_clock) == "REJECTED")
+
+    lost = replace(message(0, "lost"), payload_available=False,
+                   valid_until=GENESIS_TIMESTAMP + 10)
+    expired = protocol(tip_slot=0, messages=[lost])
+    expired_clock = clock(10, 20)
+    check("P26b expired payload is consumable from metadata",
+          expired.submit(candidate(expired, expired_clock, "expired-meta"),
+                         expired_clock) == "ACCEPTED")
+    unexpired = protocol(tip_slot=0, messages=[
+        replace(lost, valid_until=GENESIS_TIMESTAMP + 100)])
+    check("P26c unavailable unexpired payload rejects",
+          unexpired.submit(candidate(unexpired, expired_clock, "missing-bytes"),
+                           expired_clock) == "REJECTED")
+
 
 def test_recovery_refresh_and_historical_immutability() -> None:
     p = protocol(seat=False, messages=[message(0, "forced")])
@@ -863,6 +985,18 @@ def test_recovery_refresh_and_historical_immutability() -> None:
     fresh = escape_candidate(p, fresh_clock, "fresh")
     check("P34 current deterministic target commits", p.submit(fresh, fresh_clock) == "COMMITTED")
 
+    stale = protocol(seat=False)
+    open_recovery(stale)
+    assert stale.recovery is not None
+    stale_clock = clock(stale.recovery.anchor_number + F_L1,
+                        stale.recovery.round_start_slot + DELTA_TIP + 1)
+    stale_signed = candidate(stale, stale_clock, "stale-signed",
+                             tier=Tier.RECOVERY_SIGNED,
+                             slot=stale.recovery.round_start_slot,
+                             recovery_fields_zero=False)
+    check("P34a stale tier-2 tip rejects",
+          stale.submit(stale_signed, stale_clock) == "REJECTED")
+
 
 def test_registry_liability_and_release_units() -> None:
     active = [Generation(f"builder-{i}", 100 + (i // 2), i, 0) for i in range(64)]
@@ -879,11 +1013,28 @@ def test_registry_liability_and_release_units() -> None:
                                          ENTRY_DELAY_WINDOWS), 0)
     check("P39 per-window replacement rate is hard", not registry.admit(
         Generation("fifth", 20_000, 3000, ENTRY_DELAY_WINDOWS), 0))
-    check("P40 liability capacity derives from live horizon",
-          MAX_LIABILITY_GENERATIONS == 4 * 268)
+    check("P40 liability residence is strictly below ring horizon",
+          MAX_LIABILITY_RESIDENCE_WINDOWS < MAX_LIVE_WINDOWS)
     check("P41 tranche release compares slots with slots",
           not tranche_releasable(5, 384 * 6 - 1, 10_000, 9_000)
           and tranche_releasable(5, 384 * 6, 10_000, 9_000))
+
+    churn = RegistryLifecycle([
+        Generation(f"base-{i}", 100 + i, i, 0, 16) for i in range(64)
+    ])
+    serial = 10_000
+    for window in range(MAX_LIVE_WINDOWS + 1):
+        for _ in range(MAX_REPLACEMENTS_PER_WINDOW):
+            serial += 1
+            assert churn.admit(
+                Generation(f"churn-{serial}", 1_000_000 + serial, serial,
+                           window + ENTRY_DELAY_WINDOWS,
+                           window + MAX_TRANCHE_AHEAD_WINDOWS),
+                window,
+            )
+    check("P41a max-churn ring reuses only released positions",
+          churn.movement_sequence == 4 * (MAX_LIVE_WINDOWS + 1)
+          and len(churn.liabilities) == MAX_LIABILITY_GENERATIONS)
 
 
 def test_data_gc_reorg_and_geometry() -> None:
@@ -907,6 +1058,42 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P48 recovery fits final lag", end_to_end <= DELTA_FINAL_LAG)
     check("P49 escape covers depth and proof", ESCAPE_OFFSET >= T_DEPTH_MAX + P_PROVE_MAX)
     check("P50 candidate totals are independent", MAX_FORCE_CANDIDATE_MESSAGES == 256 and MAX_FORCE_CANDIDATE_GAS == 80_000_000)
+
+    delayed = protocol()
+    opened = clock(1_100, 1_100)
+    data_expiry = opened.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
+    assert delayed.open_session(opened, "late-data", "alice", data_expiry) == "OPENED"
+    assert delayed.post_data(opened, "late-data", "alice", body_root="body",
+                             same_tx_blobhash=True, kzg_opening_ok=True) == "POSTED"
+    assert delayed.seal_session(opened, "late-data", "alice")
+    base = candidate(delayed, opened, "data-best")
+    data_block = replace(base.tip, data_records=(("late-data", 0),))
+    with_data = replace(
+        base,
+        blocks=(data_block,),
+        session_refs=(SessionRef("late-data", 1, delayed.sessions["late-data"].root),),
+    )
+    assert delayed.submit(with_data, opened) == "ACCEPTED"
+    after_expiry = Clock(2_000, data_expiry + 1)
+    old_tip = delayed.core.tip_hash
+    check("P50a delayed close cannot commit expired data",
+          delayed.sync(after_expiry) and delayed.core.tip_hash == old_tip)
+    delayed.gc_sessions(after_expiry)
+    check("P50b GC retained the best until sync cleared it",
+          "late-data" not in delayed.sessions)
+
+    bridge_protocol = protocol()
+    adapter = BridgeAdapter()
+    bridge_envelope = message(4_601, "bridge-record", kind=ForceKind.BRIDGE_CREDIT)
+    assert adapter.prepare("msg", bridge_envelope)
+    transition_clock = clock(1_100, 4_601)
+    check("P50c bridge SYNCED stays pending",
+          adapter.finalize(bridge_protocol, transition_clock, "msg") == "SYNCED"
+          and adapter.records["msg"][0] == "PENDING")
+    check("P50d bridge retry queues exactly once",
+          adapter.finalize(bridge_protocol, transition_clock, "msg") == "QUEUED:0"
+          and adapter.finalize(bridge_protocol, transition_clock, "msg") == "QUEUED:0"
+          and len(bridge_protocol.messages) == 1)
 
 
 if __name__ == "__main__":
