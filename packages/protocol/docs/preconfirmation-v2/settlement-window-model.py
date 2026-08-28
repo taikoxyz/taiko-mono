@@ -506,11 +506,12 @@ def test_p13_first_valid_proof_fallback():
     代价(已被明确接受): 未终局的 tier-2 排序/状态承诺在兜底期间作废,
     其中的交易回到内存池。§5.4 与 §6.2 以用户可见的方式陈述了这一点。
     """
-    DELTA_RECOVER_0, RELAX = 100, 2
+    DELTA_RECOVER_0 = 100          # 受理时刻的 Δ_close
     C_FIXED, R_WINDOW_MAX = 10, 100
 
-    def p_target(now_slot, delta_recover):
-        return now_slot - delta_recover
+    def p_target(accept_slot, delta_close):
+        # 按【受理时刻】评估,不是开轮时刻 —— 见 P13c 的回归。
+        return accept_slot - delta_close
 
     def run_round(submissions, now_slot, delta_recover, F_slot, t_close, escrow=R_WINDOW_MAX):
         """按 L1 顺序取第一个有效且达标者;落地不受限,但只有达标者获赔。"""
@@ -558,11 +559,12 @@ def test_p13_first_valid_proof_fallback():
     check("P13e 每轮至多一次付款,并以 min(托管余额, 成本) 封顶",
           len(paid5) == 1 and paid5["A"] == 3)
 
-    # --- f) 无人达标 ⇒ 本轮不付款而到期,下一轮放宽 Δ_recover(最终可达) -----
+    # --- f) 无人达标 ⇒ 本轮零付款到期;兜底状态【保持打开】直到真的达标 -----
+    # 注意:目标不再"放宽到最终可达"。放宽会让一轮在 lag 仍高于 Δ_lag,final 时
+    # 付款并结束(P13c-b)。达标条件与关闭兜底的条件必须是同一个。
     win6, _, paid6, tgt6 = run_round([S("A", 700)], NOW, DELTA_RECOVER_0, F, 10)
-    tgt7 = p_target(NOW, DELTA_RECOVER_0 * RELAX)
-    check("P13f 无人达标 ⇒ 零付款到期,下一轮目标放宽,保证最终可达",
-          win6 is None and paid6 == {} and tgt7 < tgt6 and tgt7 == 800)
+    check("P13f 无人达标 ⇒ 零付款到期,兜底保持打开,目标不放宽到低于关闭条件",
+          win6 is None and paid6 == {})
 
     # --- g) 无效证明不落地也不获赔 -------------------------------------------
     win8, landed8, paid8, _ = run_round([S("BAD", 990, valid=False), S("OK", 950)],
@@ -579,105 +581,84 @@ def test_p13_first_valid_proof_fallback():
           returned == ["t2"])
 
 
-def test_p13c_heaviest_chain_incentive():
-    """§6.3: 用【覆盖率定价】把兜底方推向最重链,且只与公开 L1 状态比较。
+def test_p13c_fallback_close_condition_and_fsm():
+    """§6.3: 兜底目标按【受理时刻】评估,且只有一个带版本号的状态机。
 
-    首个有效证明胜出解决了骚扰问题,却引入新的偏斜:这是一场竞赛,而竞赛奖励
-    速度而非完整。落地方每多包含一段尾巴,φ_land 收入线性上升,但证明与发数据
-    的耗时上升 ⇒ 抢先概率下降。期望值 = P(抢先|规模) × 报酬(规模) − 成本(规模),
-    P 下降快于报酬上升,故理性落地方收敛到"刚好越过 P_target 的最薄链"。
-    §7 原本的推论"落地最长可见链是理性选择"在兜底期间因此不再成立。
+    本轮删除了两个机制,原因如实记录:
+      · 覆盖率定价【不可实施且可绕过】。postData 只登记不透明的 blob hash、
+        发布者、高度与费用 —— L1 并不知道那是不是区块体、属于哪个 slot、是否
+        有效,故按 slot 区间定义的 E 根本推不出来。更致命的是 U 是空的:一条
+        直接建在 F 上的薄链可以把整条更重的诚实分叉都标成"从我的 tip 不可接链",
+        从而拿到 c = 1。permissionless 登记还让 E 无上界。
+      · 同块最重仲裁【在以太坊上无法实现】。合约按交易顺序执行,第一个达标提交
+        执行时看不到同一区块内后面的交易,因此不可能既"取同块最重"又"立即终局"。
+        上一版模型用 max() 扫一个完整列表,把这一点掩盖了。
+    结论与所有者决定一致:tier-2 承诺既已作废,就接受首个有效证明可能选中薄链。
 
-    约束:七版失败的共同原因是【候选之间互相比较】。因此任何补救都只能把赢家
-    与【公开的 L1 状态】比较,绝不能与其它候选比较。
-
-    机制 B(覆盖率定价):赢家证明被接受时,L1 已知 (a) 该链消费了哪些 blob
-    (公开输入),(b) 开轮前至少 T_reg 就已通过 postData 登记的 body 集合 E。
-    赢家在公开输入中另附【不可接链证明集】U:它声称 E 中哪些块无法从其 tip
-    合法接链——证明者本就持有状态,做这个断言便宜,伪造却昂贵。
-      覆盖率 c = (|已包含 ∩ E| + |U|) / |E|
-    关键取舍:c 只缩放【内容奖励 φ_land】,不缩放成本报销 C_fixed + φ_data×B。
-    成本报销必须足额,否则覆盖率低会让兜底变得无利可图,活性反而受损;
-    内容奖励才是导向最重链的那部分。
-
-    机制 C(同块最重仲裁):同一个 L1 区块内的多个达标提交,取 §5.2 序最重者
-    而非交易顺序最先者。原子、有界、不跨时间顶替 —— 竞赛正是集中在同块粒度。
+    本轮修正的两件事:
+      1) 目标必须按【受理时刻】评估。旧写法把目标钉在【开轮时刻】:
+         tip ≥ open_slot − Δ_recover。受理发生在其后,故最终 lag =
+         Δ_recover + 受理延迟,可以仍然高于 Δ_lag,final —— 一轮付了钱、结束了,
+         兜底状态却没关掉。改为 tip ≥ current_slot − Δ_close,且 Δ_close <
+         Δ_lag,final,于是"达标"与"关掉兜底"是同一件事。
+      2) 一个带版本号的状态机。兜底激活【原子地】作废任何已开的常规窗口,
+         过期的 closeWindow 因版本号不符而回滚;兜底期间未达标的证明不作为
+         状态转移被接受(只允许发数据);达标证明原子提交完整的规范元组。
     """
-    C_FIXED, PHI_DATA, PHI_LAND = 10, 3, 2
-    T_REG = 5
+    DELTA_LAG_FINAL, DELTA_CLOSE = 288, 200          # 不变式 Δ_close < Δ_lag,final
+    check("P13c-a 不变式 Δ_close < Δ_lag,final ⇒ 达标即意味着兜底可以关闭",
+          DELTA_CLOSE < DELTA_LAG_FINAL)
 
-    def coverage(included, attested_unchainable, eligible):
-        if not eligible:
-            return 1.0
-        covered = len((set(included) | set(attested_unchainable)) & set(eligible))
-        return covered / len(eligible)
+    def qualifies(tip_slot, current_slot):
+        return tip_slot >= current_slot - DELTA_CLOSE
 
-    def eligible_set(registry, round_open, f_slot, tip_slot):
-        """开轮前至少 T_REG 登记、且落在 (F, tip] 区间内的 body。"""
-        return [r["slot"] for r in registry
-                if r["registered_at"] <= round_open - T_REG
-                and f_slot < r["slot"] <= tip_slot]
+    # --- b) 【本轮回归】旧的开轮时刻目标会在仍然超阈值时付款并结束 -----------
+    OPEN, DELTA_RECOVER = 1000, 400
+    accept_at, tip = 1015, 600
+    old_qualifies = tip >= OPEN - DELTA_RECOVER          # 600 >= 600 ⇒ 达标
+    post_lag = accept_at - tip                           # 415 > 288
+    check("P13c-b 旧的开轮时刻目标: 达标付款却留下 lag 415 > Δ_lag,final",
+          old_qualifies and post_lag > DELTA_LAG_FINAL)
+    check("P13c-c 受理时刻目标拒绝同一提交 ⇒ 达标与关闭兜底成为同一件事",
+          not qualifies(tip, accept_at) and (accept_at - (accept_at - DELTA_CLOSE))
+          == DELTA_CLOSE < DELTA_LAG_FINAL)
 
-    def pay(included, attested, eligible, fees, blobs, escrow=10**9):
-        c = coverage(included, attested, eligible)
-        cost_recovery = min(escrow, C_FIXED + PHI_DATA * blobs)   # 不被缩放
-        content_bonus = PHI_LAND * fees * c                        # 被缩放
-        return cost_recovery + content_bonus, c
+    # --- d) 一个 episode 只付一次,且不因放宽而重复付款 -----------------------
+    class Episode:
+        def __init__(self): self.paid, self.version = False, 1
+        def pay(self):
+            if self.paid: return 0
+            self.paid = True; return 1
+    ep = Episode()
+    check("P13c-d 每个兜底 episode 只付一次报酬(放宽目标不产生第二次付款)",
+          ep.pay() == 1 and ep.pay() == 0)
 
-    REG = [{"slot": s, "registered_at": 0} for s in (600, 700, 800)]
-    ELIG = eligible_set(REG, round_open=100, f_slot=500, tip_slot=900)
+    # --- e) 版本化 FSM: 兜底激活作废已开的常规窗口 ---------------------------
+    class FSM:
+        def __init__(self): self.state, self.version = "NORMAL_IDLE", 1
+        def open_normal(self): self.state = "NORMAL_OPEN"; return self.version
+        def activate_fallback(self):
+            self.version += 1                        # 作废任何在飞行中的窗口句柄
+            self.state = "FALLBACK_OPEN"
+        def close_window(self, handle):
+            if handle != self.version or self.state != "NORMAL_OPEN":
+                return "reverted"                    # 过期句柄无法覆盖兜底状态
+            self.state = "NORMAL_IDLE"; return "closed"
+        def commit_fallback(self):
+            assert self.state == "FALLBACK_OPEN"
+            self.version += 1; self.state = "NORMAL_IDLE"; return "committed"
+    f = FSM(); h = f.open_normal(); f.activate_fallback()
+    check("P13c-e 兜底激活作废常规窗口句柄 ⇒ 过期 closeWindow 回滚,无法覆盖兜底状态",
+          f.close_window(h) == "reverted" and f.state == "FALLBACK_OPEN")
+    check("P13c-f 达标证明原子提交并再次递增版本 ⇒ 回到 NORMAL_IDLE",
+          f.commit_fallback() == "committed" and f.state == "NORMAL_IDLE")
 
-    # --- a) 全覆盖(全部包含) ⇒ c = 1,拿满内容奖励 ---------------------------
-    p_full, c_full = pay([600, 700, 800], [], ELIG, fees=30, blobs=3)
-    check("P13c-a 全部包含已登记内容 ⇒ 覆盖率 1,内容奖励拿满",
-          c_full == 1.0 and p_full == C_FIXED + PHI_DATA * 3 + PHI_LAND * 30)
-
-    # --- b) 包含 + 不可接链断言 也算全覆盖(诚实方不因客观不可包含而受罚) -----
-    p_att, c_att = pay([600], [700, 800], ELIG, fees=10, blobs=1)
-    check("P13c-b 已包含 ∪ 断言不可接链 = 全覆盖 ⇒ 诚实方不被误罚",
-          c_att == 1.0)
-
-    # --- c) 【核心】跳过可得内容 ⇒ 内容奖励按覆盖率缩水 ------------------------
-    p_thin, c_thin = pay([600], [], ELIG, fees=10, blobs=1)
-    check("P13c-c 跳过可得的已登记内容 ⇒ 覆盖率下降,内容奖励缩水",
-          abs(c_thin - 1/3) < 1e-9 and p_thin < p_full)
-
-    # --- d) 成本报销【不】被缩放 ⇒ 覆盖率再低也不会让兜底变成亏本 -------------
-    check("P13c-d 覆盖率只缩放内容奖励,成本报销足额 ⇒ 低覆盖不损害活性",
-          p_thin >= C_FIXED + PHI_DATA * 1 - 1e-9)
-
-    # --- e) 薄链在两个维度同时受损(fees 更少 × c 更小),推力是复合的 --------
-    check("P13c-e 薄链同时损失内容量与覆盖率 ⇒ 推向最重链的力是复合的",
-          PHI_LAND * 10 * c_thin < PHI_LAND * 30 * c_full)
-
-    # --- f) 攻击者临门登记不计入 E(T_reg 门槛) ------------------------------
-    late = REG + [{"slot": 850, "registered_at": 99}]
-    check("P13c-f 开轮前不足 T_reg 的登记不计入 ⇒ 临门灌注无法压低诚实覆盖率",
-          eligible_set(late, 100, 500, 900) == ELIG)
-
-    # --- g) 攻击者登记不可接链的垃圾 ⇒ 被断言覆盖,伤不到诚实方 ---------------
-    junk = REG + [{"slot": 650, "registered_at": 0}]
-    elig_junk = eligible_set(junk, 100, 500, 900)
-    _, c_junk = pay([600, 700, 800], [650], elig_junk, fees=30, blobs=3)
-    check("P13c-g 登记垃圾会被断言为不可接链 ⇒ 唯一能压低覆盖率的办法是发布真内容",
-          c_junk == 1.0 and len(elig_junk) == 4)
-
-    # --- h) 机制 C:同一 L1 区块内取最重者,而非交易顺序最先者 -----------------
-    def same_block_winner(subs_in_block):
-        return max(subs_in_block, key=lambda x: (x["count"], x["tip_slot"], -x["tip_hash"]))
-    blk = [{"who": "THIN", "count": 2, "tip_slot": 905, "tip_hash": 1},
-           {"who": "HEAVY", "count": 40, "tip_slot": 950, "tip_hash": 9}]
-    check("P13c-h 同块仲裁: 取 §5.2 序最重者,而非交易顺序最先者",
-          same_block_winner(blk)["who"] == "HEAVY")
-
-    # --- i) 跨块仍无顶替: 先到的合格区块结束本轮 ------------------------------
-    def round_ends_at(blocks):
-        for h, subs in blocks:
-            if subs:
-                return h
-        return None
-    check("P13c-i 跨 L1 区块仍无顶替: 第一个含合格提交的区块即结束本轮",
-          round_ends_at([(10, []), (11, [blk[0]]), (12, [blk[1]])]) == 11)
+    # --- g) 兜底期间未达标的证明不是状态转移(只允许发数据) ------------------
+    def accept_during_fallback(tip_slot, current_slot):
+        return "state-transition" if qualifies(tip_slot, current_slot) else "data-only"
+    check("P13c-g 兜底期间未达标的提交只允许发数据,不作为状态转移接受",
+          accept_during_fallback(500, 1015) == "data-only"
+          and accept_during_fallback(900, 1015) == "state-transition")
 
 
 def test_p13d_recovery_bounty_and_capture_rule():
@@ -913,7 +894,7 @@ if __name__ == "__main__":
               test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot,
               test_p12_midwindow_enqueue,
               test_p13_first_valid_proof_fallback,
-              test_p13c_heaviest_chain_incentive,
+              test_p13c_fallback_close_condition_and_fsm,
               test_p13d_recovery_bounty_and_capture_rule,
               test_p13b_escrow_ownership_and_wealth,
               test_p14_exit_bond_release_is_state_dependent,

@@ -138,23 +138,82 @@ def test_l4_snapshot_finality_geometry():
           "（D_snap ≥ H_look/12 + F_final + 余量）", ok)
 
 
-def test_l5_weight_cap_and_proportionality():
-    n = 20_000
-    picks = [lookahead(s, registry_at, randao_at) for s in range(n)]
-    eff = effective_weights(REG)
-    total = sum(eff.values())
-    freq_whale = picks.count("whale") / n
-    share_whale = eff["whale"] / total        # 900 被封顶到 0.2×1080=216
-    check("L5a w_max 封顶生效：90% 保证金的鲸鱼选中频率 ≈ 封顶份额（±2%）",
-          abs(freq_whale - share_whale) < 0.02 and share_whale < 0.60)
-    ok = all(abs(picks.count(a) / n - eff[a] / total) < 0.02 for a in REG)
-    check("L5b 选中频率 ≈ 有效权重占比（全员 ±2%）", ok)
+def quota_per_window(registry: dict, w_size: int) -> dict:
+    """每窗口的【硬性配额】：任何地址在一个窗口内被分配的 slot 数有确定上界。
+
+    上一版只对【原始权重】封顶 min(bond, w_max × total),然后隐式地在【封顶后的
+    总权重】上归一化。结果是封顶根本没有把选中率限制在 w_max:模型自带的注册表
+    里,鲸鱼的有效权重是 216/396 = 54.5%,而 L_eq 却按 20% 定价 —— 敞口被低估
+    2.7 倍,而且 L5a 的断言写着 share_whale < 0.60,恰好把这个错误放行了。
+
+    修正:用最大余数法(Hare 配额)做确定性分配,并给每个地址设一个【硬上限】
+    q_max = floor(w_max × W_size)。达到上限的地址不再参与余数分配,超出的份额
+    分给其他地址。于是"最多能拿多少个 slot"是一个可在电路里检查的确定数,
+    而不是一个期望值 —— 抵押必须按最大值定价,不能按均值。
+    """
+    q_max = int(W_MAX * w_size)
+    # 可满足性不变式:硬上限要能填满一个窗口,注册地址数必须 ≥ ceil(1/w_max)。
+    # 否则 N × q_max < W_size,排班中会出现无人可分的空位。这条不变式把
+    # w_max 与注册表容量下界绑在了一起,§11 的准入规则必须一并处理。
+    assert len(registry) * q_max >= w_size, (
+        "w_max cap unsatisfiable: need N >= ceil(1/w_max) registered addresses")
+    total = sum(registry.values())
+    exact = {a: registry[a] / total * w_size for a in registry}
+    alloc = {a: min(int(exact[a]), q_max) for a in registry}
+    remaining = w_size - sum(alloc.values())
+    # 余数分配:按小数部分降序,跳过已达硬上限者
+    order = sorted(registry, key=lambda a: (-(exact[a] - int(exact[a])), a))
+    i = 0
+    while remaining > 0 and any(alloc[a] < q_max for a in registry):
+        a = order[i % len(order)]
+        if alloc[a] < q_max:
+            alloc[a] += 1; remaining -= 1
+        i += 1
+    return alloc
+
+
+def test_l5_hard_quota_cap():
+    """每地址的 slot 数有硬上界,且抵押按【最大值】而非期望值定价。"""
+    W_SIZE_T = 384
+    q_max = int(W_MAX * W_SIZE_T)
+    # REG 只有 4 个地址,4 × 76 = 304 < 384 —— 20% 硬上限在此不可满足。
+    N_MIN = -(-1 // W_MAX) if isinstance(W_MAX, int) else int(-(-1 // W_MAX))
+    N_MIN = int(1 / W_MAX + 0.999999)
+    try:
+        quota_per_window(REG, W_SIZE_T); unsatisfiable = False
+    except AssertionError:
+        unsatisfiable = True
+    check("L5-pre 硬上限的可满足性不变式: N < ceil(1/w_max) 时排班无法填满",
+          unsatisfiable and len(REG) < N_MIN and N_MIN == 5)
+    BIG = dict(REG); BIG.update({"d": 60, "e": 60, "f": 60})   # 7 个地址,可满足
+    alloc = quota_per_window(BIG, W_SIZE_T)
+
+    check("L5a 硬配额: 任何地址每窗口的 slot 数 ≤ floor(w_max × W_size)",
+          all(v <= q_max for v in alloc.values()) and alloc["whale"] == q_max)
+    check("L5b 配额总和恰好等于窗口大小(不丢不重)", sum(alloc.values()) == W_SIZE_T)
+
+    # 对照:旧的"封顶后归一化"方案下鲸鱼实际拿到 54.5%
+    total_raw = sum(REG.values())
+    eff = {a: min(REG[a], W_MAX * total_raw) for a in REG}
+    old_share = eff["whale"] / sum(eff.values())
+    check("L5c 对照: 旧方案(封顶后归一化)下鲸鱼份额为 54.5%,并非 w_max",
+          abs(old_share - 0.5455) < 0.001 and old_share > 2.7 * W_MAX)
+
+    # 敞口必须按硬上限 × 窗口数计价,而不是 w_max × horizon
+    HORIZON, DELTA_SLASH = 1535, 64
+    windows = -(-(HORIZON + DELTA_SLASH) // W_SIZE_T)          # ceil
+    max_assignments = windows * q_max
+    old_estimate = W_MAX * (HORIZON + DELTA_SLASH)
+    check("L5d L_eq 按【硬上限 × 窗口数】定价,而非 w_max × horizon",
+          max_assignments == windows * q_max and max_assignments > old_estimate)
+    check("L5e 新旧敞口都远小于旧方案【实际】会产生的期望敞口",
+          max_assignments < old_share * (HORIZON + DELTA_SLASH))
 
 
 if __name__ == "__main__":
     for t in [test_l1_determinism_and_alignment,
               test_l4_snapshot_finality_geometry,
-              test_l5_weight_cap_and_proportionality]:
+              test_l5_hard_quota_cap]:
         t()
     print("RESULTS: lookahead model — ALL PROPERTIES PASS")
     for i, name in enumerate(PASS, 1):
