@@ -7,10 +7,10 @@ with the executable models that verify its consensus-critical arithmetic.
 
 | File | What it is |
 | --- | --- |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 64 pages, 9 figures. This is the artifact to read and to circulate. |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, the slot-based slashing gate, the first-valid-proof fallback round with its acceptance-time close condition and versioned state machine, the funding capture rule and recovery bounty, the unified exit-release predicate with snapshot expiry, and the disjointness of the reward escrow from the penalty bond. 63 property assertions (Appendix C). |
-| [`lookahead-model.py`](lookahead-model.py) | Executable reference implementation of the lookahead of §3.2: window alignment, snapshot uniqueness, seed derivation, and deterministic quota assignment with a hard per-address cap. 10 property assertions. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified executable model of normal settlement and fallback: close-before-activate ordering, objective seat turnover, episode binding, split payouts, canonicalization depth, per-window slashing, expiry and replay. 24 assertions. |
+| [`lookahead-model.py`](lookahead-model.py) | Exact production lookahead path: integer capped quotas, explicit vacant slots and feasibility-preserving seeded placement. 187 assertions across adversarial registries and seeds. |
 
 ## Building the PDF
 
@@ -24,20 +24,20 @@ Three passes are needed to settle the table of contents and cross-references. `p
 equally well — the document uses Palatino via `mathpazo` and needs no CJK fonts. The committed
 `slot-chain-spec.pdf` is a copy of the resulting `tex/main.pdf`.
 
-The PDF is deliberately emitted as **PDF 1.4** (classic xref table plus a `trailer` dictionary,
-no object or cross-reference streams). PDF 1.5 is about 28% smaller, but parsers that implement
-only 1.4 — which includes a good deal of e-reader firmware — report such a file as damaged.
+The committed artifact is built with Tectonic/xdvipdfmx and currently uses PDF 1.5. Rebuilders
+must visually inspect the schedule, state-machine, liveness, slashing and parameter-table pages;
+a successful LaTeX exit status alone is not layout verification.
 
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 63 assertions
-python3 lookahead-model.py           # 10 assertions
+python3 settlement-window-model.py   # 24 assertions
+python3 lookahead-model.py           # 187 assertions
 ```
 
 Both are zero-dependency and print `ALL PROPERTIES PASS` when every assertion holds. They model
-only what this design newly introduces — the total-order key, the window state machine, cursor
-arithmetic, gas shares, the timing geometry and the fallback reward metering; signatures, proofs and execution are boolean
+only what this design newly introduces — the scheduling and mode algorithms, cursor arithmetic,
+gas shares, expiry, slashing and fallback accounting; signatures, proofs and execution are boolean
 placeholders. **Any change to the §5.2 total order, the §5.6 window state machine, or the §7
 cursor and gas rules must be mirrored in the model, and the model re-run.** A specification whose
 model no longer passes is a specification with a defect in it.
@@ -45,10 +45,8 @@ model no longer passes is a specification with a defect in it.
 ## Status
 
 The core mechanism is specified and its modelled arithmetic is internally consistent. It is **not
-implementation-ready**: parameter values are initial proposals, and §11 carries open items —
-including builder-set admission rules, the proving-outage exemption (blocking), L1 reorg handling,
-genesis and bootstrap semantics, the cost of the separated data path, the indexing procedure behind
-`C_fixed`, and the proof continuation that several liveness arguments depend on. Three properties
+yet implementation-ready**: §11 still requires proof/gas benchmarks, complete L1-reorg semantics,
+genesis/migration rules and a decision on the strong-permissionlessness boundary. Four properties
 of the design are worth knowing before reading:
 
 - **Landing is permissionless.** A block's authority comes from its builder's signature, not from
@@ -57,7 +55,7 @@ of the design are worth knowing before reading:
   simplicity. If every scheduled builder refuses a transaction, the protocol offers no remedy and
   no builder-independent exit. §8's cartel rows are unbounded, and §1 records this as a withdrawn
   goal rather than an oversight.
-- **Fallback expires unfinalized preconfirmations.** When an aggregator fails, the protocol abandons tier-2 ordering and state promises and restores finality with the first valid chain meeting a progress target. A preconfirmation held during a failure carries no ordering or state guarantee — only that the transaction stays includable. This is an explicit owner decision and the price of a fallback that cannot be griefed.
+- **Fallback expires unfinalized preconfirmations.** At the objective SLA boundary the incumbent is terminated, and one persistent episode restores finality with the first qualifying version-bound chain. Omitted tier-2 promises expire.
 - **A builder's signature does not attest that the block executes.** It attests authorship and the
   choice of parent. Executability is established only by the validity proof at landing, so a
   preconfirmation is a commitment to include and to order (§9).
