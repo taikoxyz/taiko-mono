@@ -20,6 +20,7 @@ Slot-Chain §5.6 结算窗口(settlement window)可执行参考模型 + 性质�
   P10 罚没生效按候选落地时点判定(§4.3;门后半)
   P11 兜底资格快照保持到窗口收盘(§6.3 Δ_lag_final;门后半)
   P12 窗口中途入队: 队列 append-only 按序号引用,基线只冻结游标/状态
+  P13 兜底报酬按边际推进计量: 同样净推进,拆成几个候选提交总支付不变(防刷前缀抽干保证金)
 
 运行:  python3 settlement-window-model.py   (零依赖,全部断言通过则打印 RESULTS)
 注意: 这是【模型】——签名/证明/执行以布尔占位,只精确建模本设计新增的
@@ -437,13 +438,44 @@ def test_p12_midwindow_enqueue():
           st2.best[2] == "c2" and st2.best[1] == end2)
 
 
+def test_p13_reward_metered_on_marginal_advancement():
+    """§6.3: 兜底报酬按【边际推进】计量,不按候选个数。
+
+    否则持有一条 N 块尾巴的人可以依次提交长度 1,2,...,N 的前缀——每条都严格更重、
+    每条都拿一次全额报酬+加成,把聚合者保证金抽干。这里断言:同样的净推进量,
+    无论拆成几个候选提交,总支付相同。
+    """
+    RATE = 7                       # 每块报酬(含加成)的定点值
+
+    def payout(submissions):
+        """submissions = 依次提交的候选块数;只对超过当前最优的增量计费。"""
+        best, total = 0, 0
+        for n in submissions:
+            if n > best:           # 严格更重才被接受
+                total += (n - best) * RATE
+                best = n
+        return total, best
+
+    one_shot, b1 = payout([12])                       # 一次落满
+    ground, b2 = payout(list(range(1, 13)))           # 拆成 12 个前缀刷
+    interleaved, b3 = payout([3, 1, 7, 5, 12, 9])     # 乱序 + 更差候选混入
+    check("P13a 报酬与拆分方式无关: 一次落满 == 逐前缀刷 == 乱序提交",
+          one_shot == ground == interleaved and b1 == b2 == b3 == 12)
+    check("P13b 报酬正比于净推进,与候选个数无关",
+          one_shot == 12 * RATE)
+    # 更差候选不被接受,故不产生任何支付
+    worse, _ = payout([12, 4, 9])
+    check("P13c 更差候选零支付(不接受即不计费)", worse == 12 * RATE)
+
+
 if __name__ == "__main__":
     for t in [test_p1_total_order, test_p2_order_independence,
               test_p3_supersession_cursors,
               test_p5_lazy_close, test_p6_reorg_replay, test_p7_gas_no_deadlock,
               test_p7b_single_message_cap_is_load_bearing, test_p9_anchor_geometry,
               test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot,
-              test_p12_midwindow_enqueue]:
+              test_p12_midwindow_enqueue,
+              test_p13_reward_metered_on_marginal_advancement]:
         t()
     print("RESULTS: settlement-window model — ALL PROPERTIES PASS")
     for i, name in enumerate(PASS, 1):
