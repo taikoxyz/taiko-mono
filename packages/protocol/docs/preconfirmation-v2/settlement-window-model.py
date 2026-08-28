@@ -680,6 +680,87 @@ def test_p13c_heaviest_chain_incentive():
           round_ends_at([(10, []), (11, [blk[0]]), (12, [blk[1]])]) == 11)
 
 
+def test_p13d_recovery_bounty_and_capture_rule():
+    """§6.3: 兜底赢家的资金来源必须通过【捕获规则】,并据此简化掉两个参数。
+
+    普遍规则(本轮从"能否用被罚没的保证金付给兜底赢家"这个问题里提炼出来):
+      兜底赢家能提取的任何资金池,聚合器都可以用 Sybil 冒充赢家去捕获。
+      因此该池只有两种情况是安全的:
+        (a) 它本来就是聚合器【自己的可退还资产】 ⇒ 捕获是财富中性的;
+        (b) 它是【销毁主导】的 ⇒ 捕获净亏。
+      任何既不属于聚合器、又不销毁主导的池,都会被捕获。
+
+    据此:
+      · 基础费分成 φ_land —— 安全。聚合器即便自失败再 Sybil 夺回,拿到的也只是
+        它正常落地本就能拿的那份,还要额外承担罚单,故故意失败净亏。
+      · 报酬托管 —— 安全,属于情况 (a):聚合器自有、无论是否被终止都可退还。
+      · 直接用【惩罚保证金】支付 —— 不安全。预期被终止的聚合器本来就要被销毁
+        这笔钱,边际成本为零,于是"故意失败 + Sybil 夺回"把注定销毁的抵押洗回来。
+        这正是第九轮已经关掉的洗钱攻击,不能以"故障方买单"的名义重新打开。
+      · 但【销毁主导的赏金】属于情况 (b),是安全的,而且与文档既有的 L_eq 规则
+        同形(≥80% 销毁,余额付给证据提交者,"防止自我罚没套利")。
+
+    简化:既然支付永远来自与惩罚保证金不相交的托管,就【没有任何支付】能把惩罚
+    保证金拉低 —— P_min("支付后最低惩罚抵押")因此是空条款,删除;终止本就由
+    m_agg 次罚单管辖。同理 R_window_max 此前既当注资要求又当每次支付的上限,
+    而托管余额本身就是上限,合并为一个概念。
+    """
+    BURN_MIN = 0.80                      # ≥80% 销毁(与 L_eq 同形)
+    PHI_RECOVER_MAX = 1.0 - BURN_MIN            # 赏金上限 = 20%
+    P_BOND, ESCROW, C_FIXED, PROOF = 1000, 100, 10, 10
+
+    def settle_slash(penalty_bond, beta):
+        burned = penalty_bond * (1 - beta)
+        bounty = penalty_bond * beta
+        return burned, bounty
+
+    # --- a) 赏金是销毁主导的: ≥80% 销毁 ---------------------------------------
+    burned, bounty = settle_slash(P_BOND, PHI_RECOVER_MAX)
+    check("P13d-a 罚没销毁主导: ≥80% 销毁,≤20% 作为恢复赏金",
+          burned >= BURN_MIN * P_BOND - 1e-9 and bounty <= PHI_RECOVER_MAX * P_BOND + 1e-9)
+
+    # --- b) 【核心】Sybil 捕获净亏: 故意失败拿不回注定被销毁的抵押 ------------
+    # 不作为: 保证金全额销毁,聚合器留下 0。
+    # 故意失败 + Sybil 夺回赏金: 拿回 bounty,付一次证明,仍失去 burned。
+    keep_if_honest_failure = 0
+    keep_if_sybil = bounty - PROOF
+    check("P13d-b Sybil 捕获赏金净亏于其被销毁的部分 ⇒ 故意失败不获利",
+          keep_if_sybil < burned and keep_if_sybil - keep_if_honest_failure < burned)
+
+    # --- c) 若改为【全额】用惩罚保证金支付,洗钱攻击立刻回来(对照) ----------
+    keep_if_paid_from_full_bond = P_BOND - PROOF        # 全额洗回
+    check("P13d-c 对照: 直接用惩罚保证金支付会把第九轮的洗钱攻击原样打开",
+          keep_if_paid_from_full_bond > 0 and keep_if_paid_from_full_bond > bounty)
+
+    # --- d) 赏金只是【成本报销之上的加项】,一次性耗尽不会拖垮后续轮次 --------
+    def round_payment(escrow_balance, bounty_available):
+        cost_recovery = min(escrow_balance, C_FIXED)     # 可靠、来自托管
+        return cost_recovery + bounty_available          # 赏金是加项
+    r1 = round_payment(ESCROW, bounty)
+    r2 = round_payment(ESCROW - C_FIXED, 0)              # 保证金已罚没殆尽
+    check("P13d-d 赏金耗尽后,后续轮次仍由托管足额覆盖成本 ⇒ 长时间故障不断供",
+          r2 >= C_FIXED - 1e-9 and r1 > r2)
+
+    # --- e) 捕获规则的三分法 --------------------------------------------------
+    def pot_is_safe(kind):
+        return kind in ("aggregator_refundable", "burn_dominant")
+    check("P13d-e 捕获规则: 仅【聚合器自有可退还】与【销毁主导】两类资金池安全",
+          pot_is_safe("aggregator_refundable") and pot_is_safe("burn_dominant")
+          and not pot_is_safe("treasury") and not pot_is_safe("penalty_bond_full"))
+
+    # --- f) 【简化】P_min 是空条款: 支付永不触及惩罚保证金 --------------------
+    def penalty_bond_after_payment(bond, payment_from_escrow):
+        return bond                                      # 支付来自托管,与保证金不相交
+    check("P13d-f P_min 空条款: 任何支付都不会拉低惩罚保证金,故该门槛可删除",
+          penalty_bond_after_payment(P_BOND, 50) == P_BOND)
+
+    # --- g) 【简化】托管余额本身就是支付上限,无需再设一个 R_window_max 项 ----
+    def capped_payment(escrow_balance, want):
+        return min(escrow_balance, want)
+    check("P13d-g 托管余额即上限,注资要求与每次支付上限合并为一个概念",
+          capped_payment(3, 10) == 3 and capped_payment(100, 10) == 10)
+
+
 def test_p13b_escrow_ownership_and_wealth():
     """§6.3: 托管由聚合器出资、全额预注资、无论是否被终止都可退还。
 
@@ -833,6 +914,7 @@ if __name__ == "__main__":
               test_p12_midwindow_enqueue,
               test_p13_first_valid_proof_fallback,
               test_p13c_heaviest_chain_incentive,
+              test_p13d_recovery_bounty_and_capture_rule,
               test_p13b_escrow_ownership_and_wealth,
               test_p14_exit_bond_release_is_state_dependent,
               test_p15_reward_pot_disjoint_from_penalty_pot]:
