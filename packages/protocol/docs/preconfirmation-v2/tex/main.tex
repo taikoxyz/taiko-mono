@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Production Design Candidate --- v2.5}
+\large\mdseries Production Design Candidate --- v2.6}
 \author{}
 \date{August 2026}
 \maketitle
@@ -209,9 +209,11 @@ needed to construct the next header without retrieving a prunable historical
 parent body/header.  The proof derives them from the last executed header;
 Settlement stores them but does not calculate fork arithmetic.
 
-A candidate has one prior-block anchor.  Normal anchors are authenticated by an
-EIP-2935 block hash, the supplied execution header and MPT proofs, including the
-historical forced-queue root/count.  A recovery round instead stores
+A candidate has one prior-block anchor.  Normal activation stores the hash of
+its earlier arm block using native \code{blockhash}; candidate submissions hash
+the supplied execution header to that stored value and use MPT proofs,
+including the historical forced-queue root/count.  EIP-2935 is used later to
+authenticate that arm hash for equivocation evidence.  A recovery round instead stores
 \code{(block.number-1, blockhash(block.number-1))}, directly stores the current
 queue root/count, and requires that anchor to reach depth \code{F_L1}.  The EVM
 does not expose the parent timestamp.  At candidate submission Settlement
@@ -273,11 +275,17 @@ never overwritten before its release predicate holds.  Registration therefore
 rejects, rather than losing slashable history, when the replacement budget or
 ring is full.
 
-Every admission-affecting mutation increments \code{admissionVersion} and
-updates two roots: a six-level \code{registryRoot} over the 64 active cells and
-an eleven-level \code{admissionRoot} over 2,048 fixed positions containing the
-64 active and 1,072 liability records plus canonical empty padding.  The latter
-retains displaced scheduled keys.  Normal open and every recovery round freeze
+The six-level \code{registryRoot} over the 64 active cells commits each cell's
+mutable tranche root and therefore changes on reservation transitions.  It is
+used only by schedule sealing.  A separate eleven-level \code{admissionRoot}
+over 2,048 fixed positions contains stable generation identity for the 64
+active and 1,072 liability records plus canonical empty padding; its leaves do
+\emph{not} contain tranche roots.  Only generation admission, movement,
+tombstoning, slashing or release increments \code{admissionVersion} and updates
+\code{admissionRoot}.  A \code{FREE/RESERVED/LIABLE} tranche transition updates
+the tranche and registry roots but cannot invalidate signed blocks or proofs by
+changing the admission pair.  The admission root retains displaced scheduled
+keys.  Normal activation and every recovery round freeze
 the pair \code{(admissionVersion,admissionRoot)}.  Each scheduled signer carries
 an inclusion proof for a non-tombstoned record effective at that L2 slot; a
 slash cannot retroactively invalidate an already frozen window.
@@ -292,7 +300,9 @@ $0\le j<1,072$.  A generation move uses
 \code{j=movementSequence mod 1072}.  The transaction first proves/releases the
 old occupant, writes the moved generation at that same slot, clears its active
 cell or writes the replacement, increments \code{movementSequence}, then
-increments \code{admissionVersion} and publishes both new roots atomically.
+updates both affected roots and increments \code{admissionVersion}; the new
+admission pair is published atomically.  Reservation-only mutations publish
+only the registry root and leave that pair byte-for-byte unchanged.
 There is no first-free search, compaction or caller-chosen liability position.
 
 Eligibility is evaluated before ranking.  A cell's effective L2 slot must be no
@@ -485,8 +495,9 @@ or recovered-zero addresses reject.  EIP-2098 and EIP-155 transaction-style
 \begin{verbatim}
 contextId = H("slot-chain-normal-context-v1" || baseCanonicalHash ||
               u64(admissionVersion) || admissionRoot ||
-              u64(anchorNumber) || anchorHash)
+              u64(armBlockNumber) || armBlockHash)
 \end{verbatim}
+and its execution anchor is exactly that arm block.
 \code{episode=recoveryRevision=0} and \code{recoveryId=0}; tier 2 requires the
 exact live round values and \code{contextId=recoveryId}.  The unsigned tier 3
 uses that same recovery context.  Consequently semantically unused bytes cannot create
@@ -560,7 +571,7 @@ constructs the following Solidity struct in exactly this order and computes
 \code{"slot-chain-statement-v1"} followed by \code{abi.encode(S)}:
 \begin{verbatim}
 S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
-     address verifyingContract,
+     bytes32 executionProfileHash, address verifyingContract,
      uint8 tier, bytes32 baseCanonicalHash,
      bytes32 candidateCommitment, uint64 blockCount,
      uint64 firstSlot, bytes32 tipHash, uint64 tipSlot,
@@ -583,7 +594,8 @@ S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
 \code{digestLimbs[0]} and \code{[1]} are respectively the high and low 128 bits
 of \code{statementHash}; neither is reduced modulo the proof field.  The circuit
 recombines them and proves the exact preimage.  Settlement independently checks
-the base canonical state, current/frozen versions and recovery round, recomputes
+the immutable \code{protocolVersion -> executionProfileHash} mapping, the base
+canonical state, current/frozen versions and recovery round, recomputes
 the bounded schedule-root and sealed-session-reference commitments from
 calldata, recomputes the bounded forced-descriptor commitment from authoritative
 queue storage, recomputes \code{winningDataCommitment} from the candidate and
@@ -597,9 +609,12 @@ It rejects zero/ill-typed fields, cursor regression, or disagreement with the
 last proved block, then stamps \code{canonicalizedAtBlock=block.number} outside
 the proof.  \code{candidateId=statementHash}.  \code{nextDueAt} is authenticated
 inside the frozen queue as the boundary leaf's deadline, or \code{UINT64_MAX}
-when \code{endCursor=forceCutoff}.  Normal submission additionally verifies the
-current-root boundary proof described in \S\ref{sec:machine}; recovery uses the
-round's post-cutoff scalar.  These values initialize the O(1) head check.
+when \code{endCursor=forceCutoff}.  It is only a proof-consistency output.
+Normal submission additionally verifies the current-root boundary proof
+described in \S\ref{sec:machine}.  After every commit and on every activation
+check, the sole authoritative live head value is
+\code{ForcedQueue.dueAt(canonical.messageCursor)}; no recovery-round or
+canonical-core scalar caches it.
 \code{proofBeneficiary} is a proof input, never builder-signed block data or
 coinbase.  Copying proof bytes cannot redirect a later optional reward.
 
@@ -700,38 +715,57 @@ may pay it, but empty payment state cannot revert canonical settlement.
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}
-\node[shaded,text width=30mm] (idle) at (0,1.8) {NORMAL\_IDLE};
-\node[box,text width=34mm] (open) at (5.4,1.8) {NORMAL\_OPEN\\best + deadline};
-\node[shaded,text width=34mm] (recovery) at (2.7,0) {RECOVERY\_OPEN\\episode + round};
-\draw[arrow] (idle) to[bend left=22]
-  node[above,font=\scriptsize]{submit} (open);
-\draw[arrow] (open) edge[loop right] node[right,font=\scriptsize]{replace} (open);
+\node[shaded,text width=26mm] (idle) at (0,1.9) {NORMAL\_IDLE};
+\node[box,text width=26mm] (armed) at (5.0,1.9) {NORMAL\_ARMED\\arm block};
+\node[box,text width=29mm] (open) at (10.2,1.9) {NORMAL\_OPEN\\best? + deadline};
+\node[shaded,text width=34mm] (recovery) at (5.1,-0.3) {RECOVERY\_OPEN\\episode + round};
+\draw[arrow] (idle) -- node[above,font=\scriptsize]{arm} (armed);
+\draw[arrow] (armed) -- node[above,font=\scriptsize]{activate} (open);
+\draw[arrow] (open) edge[loop above] node[above,font=\scriptsize]{submit/replace} (open);
 \draw[arrow] (open) to[bend left=22]
   node[below,font=\scriptsize]{mature close} (idle);
-\draw[arrow] (idle) -- node[left,font=\scriptsize]{trigger} (recovery);
-\draw[arrow] (open) -- node[right,font=\scriptsize]{cancel + trigger} (recovery);
-\draw[arrow] (recovery) to[bend left=38]
-  node[left,font=\scriptsize]{recovery commit} (idle);
+\draw[arrow] (idle) to[bend right=18] (recovery);
+\draw[arrow] (armed) -- node[right,font=\scriptsize]{objective trigger} (recovery);
+\draw[arrow] (open) to[bend left=18] node[right,font=\scriptsize]{cancel + trigger} (recovery);
+\draw[arrow] (recovery) to[bend left=32]
+  node[below,font=\scriptsize]{commit} (idle);
 \end{tikzpicture}
 \caption{The complete mode machine.  Payments are outside every arrow.}
 \end{figure}
 
-\subsection{Normal candidates}
+\subsection{Normal context and candidates}
 
-The first valid tier-1 candidate extending the canonical tuple opens a normal
-window.  It freezes \code{baseCanonical},
-\code{deadline = block.timestamp + W_SETTLE_SECONDS}, and
-\code{minAdmissibleSlot = max(0,currentL2Slot - DELTA_TIP)}, and current
-\code{(admissionVersion,admissionRoot)}.  It also freezes the first candidate's
-\code{(anchorNumber,anchorHash)} and recomputed normal \code{contextId}; every
-replacement must use that exact admission pair, anchor and context.  If the
-opening transaction is removed by an L1 reorg, all of those fields roll back,
-and signatures made for a replacement fork have a different context rather
-than becoming false equivocation evidence.  Signatures for different pre-open
-anchors are different contexts and are explicitly not slashable against each
-other; only the anchor/context that opens can participate in that normal
-competition.  It also freezes
-\code{requiredThrough=deadline+T_INCLUDE_MAX_SECONDS}.  Every candidate first
+Normal context creation is two-phase.  Anyone calls \code{armNormalContext()}
+in \code{NORMAL\_IDLE}; the call begins with \code{sync()}, stores only
+\code{armBlockNumber=block.number}, and emits \code{NormalContextArmed}.  It
+accepts no caller-supplied anchor or hash.  In a later L1 block anyone calls
+\code{activateNormalContext()}.  It again begins with \code{sync()}, requires
+\code{block.number>armBlockNumber} and no more than 255 intervening blocks,
+reads \code{armBlockHash=blockhash(armBlockNumber)}, and hashes a supplied RLP
+header to that value.  It then freezes \code{baseCanonical},
+\code{deadline=block.timestamp+W_SETTLE_SECONDS},
+\code{minAdmissibleSlot=max(0,currentL2Slot-DELTA_TIP)}, the current stable
+\code{(admissionVersion,admissionRoot)}, the arm header fields, and
+\code{requiredThrough=deadline+T_INCLUDE_MAX_SECONDS}.  It derives the sole
+normal \code{contextId} and emits \code{NormalContextActivated}.  A stale arm
+may only be discarded and re-armed; no candidate is accepted while armed.
+
+Builders collect and issue tier-1 signatures only after the activation event.
+The execution anchor for every candidate is the exact arm block, whose hash and
+parsed header are already frozen; replacements hash their supplied RLP header
+to that stored hash and never repeat an EIP-2935 recency lookup.  A reorg that
+removes the arm block necessarily changes the context.  If the arm block
+survives but the activation transaction is reorged, reactivation intentionally
+recreates the same context: the builder must retain and honor its prior
+same-context signature.  Evidence independently authenticates the arm hash as
+canonical through EIP-2935 and is accepted only while that history entry is
+available.  The enforced evidence horizon is strictly shorter than 8,191 L1
+slots.  Thus neither a shallow reorg nor a builder-selected historical anchor
+can create false or free equivocation.
+
+Activation is permissionless, reserves no builder, and does not block
+submissions.  An empty activated window merely cancels at deadline, so an
+opener gains no censorship right.  Every candidate first
 proves its frozen-prefix boundary in the circuit.  It also supplies a canonical
 single-leaf Merkle proof at \code{endCursor} under the queue's current
 root/count, or proves \code{endCursor==currentCount}.  Settlement verifies at
@@ -940,7 +974,7 @@ nonce or receipt.  Upfront-valid kind 0 appears as an ordinary Ethereum
 transaction, whose success or revert has ordinary nonce/gas/receipt semantics.
 Kind 1 always produces its idempotent inbox credit inside \code{InboxApply} and
 never calls the eventual destination.  The system calldata commits
-\code{(forceStart,forceEnd,(queueIndex,disposition,txIndexOrResultHash)*)}; the
+\code{(forceStart,forceEnd,(queueIndex,disposition,txIndex,resultHash)*)}; the
 circuit derives the transaction and receipt roots from this exact order.
 Unused deposit is later credited to \code{refundAddress}; failure there cannot
 change consumption.
@@ -950,8 +984,12 @@ Disposition bytes are fixed: \code{0=EXPIRED_NO_TX},
 \code{3=FEE_NO_TX}, \code{4=INCLUDED_TX} and
 \code{5=BRIDGE_CREDIT}.  Classification tests in that order; the first
 applicable no-transaction reason wins.  Codes 0--3 require
-\code{txIndex=UINT32_MAX} and a profile-defined reason hash, code 4 requires the
-exact Ethereum transaction index and eventual receipt hash, and code 5 requires
+\code{txIndex=UINT32_MAX} and \code{resultHash=0}.  Code 4 requires the exact
+Ethereum transaction index; \code{resultHash} is legacy Keccak-256 of the raw
+signed EIP-2718 transaction bytes.  This ordinary Ethereum transaction hash is
+known before execution.  It is
+deliberately not a receipt hash: putting a later receipt hash in the earlier
+InboxApply calldata would create a fixed point through cumulative gas.  Code 5 requires
 \code{txIndex=UINT32_MAX} and the durable credit/result hash.  Unknown codes or
 noncanonical auxiliary fields reject.
 
@@ -1070,11 +1108,15 @@ Evidence does not depend on retaining an obsolete \code{admissionRoot}.  It
 contains two distinct low-$s$ EIP-712 headers with the same recovered nonzero
 key, slot, tier, context ID, admission version, admission root, episode,
 revision and recovery ID.  For tier 1 it recomputes the normal context from the
-same base, admission pair and anchor carried by both headers; tier 2 recomputes
-the recovery context.  It supplies one proof under the signed admission root
+same base, admission pair and arm-block anchor carried by both headers and
+authenticates that arm hash as canonical through EIP-2935; tier 2 recomputes
+the recovery context.  The contract enforces at launch that the last tier-1
+evidence/replay instant precedes expiry of that 8,191-block history entry.  It
+supplies one proof under the signed admission root
 and one under the \emph{current} admission root for the same address and
 \code{registrationIndex}; the latter must be that still-retained
-active/liability generation.  The window tranche is \code{RESERVED(W)} or
+active/liability generation.  Its current stored tranche root separately
+authenticates the window leaf, which is \code{RESERVED(W)} or
 \code{LIABLE(W)}.  The two complete struct hashes must differ.  Signing two
 conflicting protocol headers in one such context is slashable even if the key
 was not ultimately selected at that schedule position; builders must not sign
@@ -1176,7 +1218,9 @@ value.
 
 \subsection{Historical authentication}
 
-EIP-2935 authenticates normal candidate and schedule carrier headers.  A
+Native \code{blockhash} plus a supplied matching RLP header authenticates a
+fresh normal arm block; EIP-2935 authenticates later normal-context evidence
+and schedule carrier headers.  A
 recovery round captures its immediately preceding block hash with
 \code{blockhash(block.number-1)} and later hashes a supplied RLP header to that
 stored value; it never tries to read an unavailable parent timestamp, queries
@@ -1225,7 +1269,7 @@ is a new protocol version and review, not runtime interpretation.
 \subsection{Reorg rule}
 
 The canonical L1 log is the journal.  A reorg truncates and replays, in order:
-canonical tuple, mode/version, normal best/deadline/frozen admission, episode/round,
+canonical tuple, mode/version, normal arm/activation/best/deadline/frozen admission, episode/round,
 seat termination/burn, tombstone/tranche state, forced cursor, data-session
 root/count, and reward eligibility.  Off-chain workers index by
 \code{(settlementChainId, contract, blockHash, logIndex)} and discard orphaned jobs.
@@ -1257,17 +1301,30 @@ kind 1.  Only new, explicitly escrowed inbox-credit messages use
 message hash and ownership/value/calldata fields, while destination invocation
 remains a later bridge operation.
 
-After that drain, migration has two phases.  First, anyone advances the old
-Inbox until its finalized transition is quiescent; the gate requires
-\code{nextProposalId=lastFinalizedProposalId+1}, the old core's
-\code{lastFinalizedBlockHash}, an empty native forced queue and no unsettled
-escrow.  The caller supplies the canonical RLP of that final L2 header.
-The adapter requires its hash to equal \code{lastFinalizedBlockHash}, its
+After that drain, migration has three phases.  First, before quiescence, the
+legacy L2 governance path deploys the profile-exact InboxApply runtime and
+upgrades the L2 SignalService with \code{markReceivedFromInbox}, setting its
+sole authorized caller to that InboxApply address.  It also installs any
+profile-required AnchorV4 runtime.  This is an ordinary finalized L2 governance
+block; no L1 transaction is claimed to mutate an imported L2 state root.  Its
+transaction bytes, receipts and resulting account/storage values are golden
+profile vectors.
+
+Second, anyone advances the old Inbox until its finalized transition is
+quiescent; the gate requires the next proposal ID to equal the last finalized
+proposal ID plus one, the old core's finalized block-hash field, an empty native
+forced queue and no unsettled
+escrow.  The caller supplies the canonical RLP of that final L2 header and
+fixed-depth MPT account/storage proofs under its state root for the exact
+AnchorV4, InboxApply and SignalService runtime code hashes, InboxApply one-shot
+initial state, and SignalService authorized-caller slot.  Every value must equal
+the immutable execution profile.
+The adapter requires its hash to equal that stored finalized hash, its
 \code{number <= UINT48_MAX}, and the legacy SignalService checkpoint at that
 exact number to equal its block hash and state root.  This binds the height and
 state root that the current Inbox core does not store.
 
-Second, the governance executor invokes the audited migration adapter.  From
+Third, the governance executor invokes the audited migration adapter.  From
 that authenticated header and the frozen execution profile it constructs every
 initial field exactly:
 \begin{verbatim}
@@ -1288,10 +1345,11 @@ header fields or any profile mismatch.  It freezes old proposal/forced ingress,
 imports this complete core into new PREACTIVE state, verifies the new queue's
 golden empty pair and \code{dueAt(0)=UINT64_MAX}, atomically points router
 authority at the new queue/Settlement,
-changes new PREACTIVE to NORMAL, and reconfigures or
-upgrades SignalService so the immutable SettlementCheckpointAdapter is its
-authorized syncer.  It also installs the reviewed InboxApply
-\code{markReceivedFromInbox} authorization before kind-1 ingress is enabled.
+changes new PREACTIVE to NORMAL\_IDLE, and reconfigures or upgrades the L1 checkpoint
+SignalService so the immutable SettlementCheckpointAdapter is its authorized
+syncer.  It does not write L2 code or storage.  Kind-1 ingress is enabled only
+after the authenticated L2 code/authorization proofs and this L1 checkpoint
+authorization have all succeeded.
 The operation
 contains only bounded non-reverting internal writes after its assertions; any
 revert rolls all contracts back.  The adapter cannot cancel or convert legacy
@@ -1312,7 +1370,7 @@ L2 height / timestamp & \code{uint48} checkpoint bound & Header number is consec
 Entry/exit/reservation ahead; moves & 8 / 268 / 16 windows; 4 per window & Liability residence $<268$; capacity $4\times268$. \\
 \code{D_SNAP}, \code{F_FINAL} & 8 / 2 L1 epochs & Strictly exceeds scan + finality + seal margin + lookahead. \\
 \code{H_LOOK} & 768 L2 slots & Guaranteed by snapshot geometry with one-window slack. \\
-\code{G_MAX} & 64 L2 slots & Tier-1 parent gap only. \\
+\code{G_MAX} & 3,600 L2 slots & Tier-1 parent gap; equals final-lag trigger and fits within the 12-window proof cap. \\
 \code{W_SETTLE_SECONDS} & 1,200 s & Timestamp deadline, never L1 block count. \\
 \code{DELTA_TIP} & 1,200 s & At least submit inclusion + skew = 144 s after the frozen escape slot. \\
 \code{DELTA_FINAL_LAG} & 3,600 s & At least activation + escape offset + submit + skew = 2,164 s. \\
@@ -1327,7 +1385,9 @@ Body chunks & 9 / 1,142,748 B & Per-body chunks / maximum discretionary bytes. \
 \code{DATA_TTL} & 86,400 s & Greater than candidate, settlement, proof and reorg path. \\
 \code{REORG_MARGIN}, \code{EVIDENCE_DELAY} & 1,800 / 86,400 s & Data resubmission and finite liability retention. \\
 Live windows / sessions & 268 / 1,024 & Fixed rings with safe-eviction predicates and bounded GC. \\
-EIP history & 8,191 entries & Greater than every normal-anchor and schedule path. \\
+EIP history & 8,191 entries &
+$\lceil(W_{settle}+CLOCK\_SKEW+384+EVIDENCE\_DELAY+REORG\_MARGIN)/12\rceil+2<8,191$;
+greater than every normal-context evidence and schedule path. \\
 \bottomrule
 \end{xltabular}
 
@@ -1437,7 +1497,7 @@ Admission position $i<1,136$ is:
 \begin{verbatim}
 H("slot-chain-admission-leaf-v1" || u16(i) || u8(present) ||
   u8(location) || address20 || u192(bond) || u64(registrationIndex) ||
-  u64(effectiveL2Slot) || trancheRoot || u64(tombstonedAtL2Slot))
+  u64(effectiveL2Slot) || u64(tombstonedAtL2Slot))
 \end{verbatim}
 Location is 1 for active and 2 for liability; an empty leaf has present and all
 following fields zero.  Positions
@@ -1445,7 +1505,9 @@ $1,136\ldots2,047$ and unused positions are canonical empty leaves.  Its eleven
 levels use
 \code{H("slot-chain-admission-node-v1"||u8(height)||left||right)}.
 \code{admissionVersion} increments before publishing the corresponding root;
-the pair is stored together and never reconstructed from a newer root.
+the pair is stored together and never reconstructed from a newer root.  Tranche
+roots occur only in the active registry and liability storage records, not in
+this stable signer-identity commitment.
 
 The omission-free ranked-entry commitment for window $W$ has exactly 64 leaves:
 \begin{verbatim}
@@ -1574,17 +1636,17 @@ seed and tie hashes are as in \S\ref{sec:schedule}; body and blob encodings are
 as in \S\ref{sec:data}.  \code{commitment-model.py} is the normative executable
 fixture.  Its initial vectors are:
 \begin{verbatim}
-TYPEHASH      579f796202662a2edf67bed2afcb07d3adff1e5e7e10e7dedcb7c6632f8d49de
+TYPEHASH      ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
 registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
-admissionRoot 783548941546bbc76487459185c787e4ffd7677b4487692dd6b1308dcc2e13f6
+admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
 manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
-normalContext 92aa73a63468548708ffeff5a04e1cc59912ffc3ab9bd26e87938d206e123cc9
+normalContext 441dee77fdcd856bfb41504fdcbcbd97de481a881e53017a5983d1210f6d22a8
 migrationData 916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399
-winningData   701cd88d088ce38248844c81576142541c4980ed295bb2b55d267c3c8889434a
-statementHash e767eccaf8a6088c7bbfa8202ae160aa473eada26d1b04ce7b3a34c4fbb0e294
-recoveryId    454ec13c67dcfe4d215b73ee1ca32645be14605e3e86b5c42ff2df1e1e368975
+winningData   d28b2d74341e9c5d90835e5051b2fc8189e1814f178d9580f4e9f66a88cfa631
+statementHash 5bd1192b005ebce2f290d11924d3e9548a18e12e72aa4626d8397a85ad36f8f7
+recoveryId    84ea35ee4c31975fc4499964ea6d1f72abc6291666c89dc2ef1a61447644103b
 bodyRoot      0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
@@ -1594,10 +1656,33 @@ Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
 Every external candidate entry point implements the following structure:
 
 \begin{verbatim}
+function armNormalContext() returns (Status) {
+    if (mode == PREACTIVE) return REJECTED_PREACTIVE;
+    if (sync()) return SYNCED;
+    if (mode != NORMAL_IDLE) return IGNORED;
+    armBlockNumber = block.number; // no caller-selected hash or anchor
+    mode = NORMAL_ARMED;
+    return ARMED;
+}
+
+function activateNormalContext(armHeaderRlp) returns (Status) {
+    if (sync()) return SYNCED;
+    if (mode != NORMAL_ARMED) return IGNORED;
+    age = block.number - armBlockNumber;
+    require(age > 0 && age <= 255);
+    armBlockHash = blockhash(armBlockNumber);
+    require(keccak256(armHeaderRlp) == armBlockHash);
+    freeze base, stable admission pair and parsed arm header;
+    freeze minimum slot, deadline and landing horizon;
+    mode = NORMAL_OPEN;
+    return ACTIVATED;
+}
+
 function submit(input) returns (Status) {
     if (mode == PREACTIVE) return REJECTED_PREACTIVE;
     if (sync()) return SYNCED;     // successful transaction, never revert
-    if (mode == NORMAL) return submitNormal(input);
+    if (mode == NORMAL_OPEN) return submitNormal(input);
+    if (mode != RECOVERY) return REJECTED_NO_CONTEXT;
     return submitRecovery(input);
 }
 
@@ -1606,7 +1691,8 @@ function sync() returns (bool changed) {
         rollRound();               // same episode/base/burn; new target
         return true;
     }
-    if (mode == NORMAL && forcedHeadDue && normal window immature) {
+    if (mode in {NORMAL_ARMED,NORMAL_OPEN} && forcedHeadDue &&
+        (no deadline || normal window immature)) {
         cancel normal window;
     } else if (normal deadline matured) {
         if (best exists) {
@@ -1617,7 +1703,8 @@ function sync() returns (bool changed) {
             commit(normalBest);
         else cancel normal window;
     }
-    if (mode == NORMAL && (finalLagBreach || forcedHeadDue)) {
+    if (isNormalMode(mode) &&
+        (finalLagBreach || forcedHeadDue)) {
         openRecoveryEpisodeAndRound();
         if (finalLagBreach) terminate incumbent once;
         return true;
@@ -1666,7 +1753,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 67 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 95 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -1674,7 +1761,7 @@ replacement/liability generations, tranche release units, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 49 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 56 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors/vector/range proofs, session MMR, per-block manifest,
 dispositions, recovery ID, Fiat--Shamir input, body chunks and blob codec.  The

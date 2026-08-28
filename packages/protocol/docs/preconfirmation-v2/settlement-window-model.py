@@ -57,7 +57,7 @@ MAX_LIABILITY_GENERATIONS = MAX_REPLACEMENTS_PER_WINDOW * MAX_LIVE_WINDOWS
 DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
 UINT64_MAX = (1 << 64) - 1
-G_MAX = 64
+G_MAX = DELTA_FINAL_LAG
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -370,6 +370,7 @@ class Protocol:
     normal_anchor_number: int | None = None
     normal_anchor_hash: str | None = None
     normal_context_id: str | None = None
+    normal_arm_block_number: int | None = None
     admission_version: int = 0
     admission_root: str = "admission:0"
     active_seat: Seat | None = None
@@ -431,6 +432,41 @@ class Protocol:
         self.normal_anchor_number = None
         self.normal_anchor_hash = None
         self.normal_context_id = None
+        self.normal_arm_block_number = None
+
+    def arm_normal_context(self, clock: Clock) -> str:
+        if self.mode is Mode.PREACTIVE:
+            return "REJECTED_PREACTIVE"
+        if self.sync(clock):
+            return "SYNCED"
+        if self.mode is not Mode.NORMAL or self.normal_arm_block_number is not None:
+            return "IGNORED"
+        self.normal_arm_block_number = clock.block_number
+        self.events.append(f"NORMAL_ARMED:{clock.block_number}")
+        return "ARMED"
+
+    def activate_normal_context(self, clock: Clock) -> str:
+        if self.mode is Mode.PREACTIVE:
+            return "REJECTED_PREACTIVE"
+        if self.sync(clock):
+            return "SYNCED"
+        armed = self.normal_arm_block_number
+        if (self.mode is not Mode.NORMAL or armed is None
+                or not armed < clock.block_number <= armed + 255):
+            return "REJECTED"
+        header = self.history[armed]
+        self.normal_deadline = clock.timestamp + W_SETTLE_SECONDS
+        self.normal_required_through = self.normal_deadline + T_INCLUDE_MAX_SECONDS
+        self.normal_min_admissible = max(0, clock.l2_slot - DELTA_TIP)
+        self.normal_admission_version = self.admission_version
+        self.normal_admission_root = self.admission_root
+        self.normal_anchor_number = armed
+        self.normal_anchor_hash = header.block_hash
+        self.normal_context_id = normal_context_id(
+            self.canonical.base_hash, self.admission_version,
+            self.admission_root, armed, header.block_hash)
+        self.events.append(f"NORMAL_ACTIVATED:{self.normal_context_id}")
+        return "ACTIVATED"
 
     def _close_mature_normal(self, clock: Clock) -> bool:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
@@ -504,10 +540,12 @@ class Protocol:
 
     def activate_migration(self, clock: Clock, imported: Canonical,
                            *, old_quiescent: bool, router_switched: bool,
-                           header_checkpoint_authenticated: bool = True) -> bool:
+                           header_checkpoint_authenticated: bool = True,
+                           l2_system_accounts_authenticated: bool = True) -> bool:
         if (self.mode is not Mode.PREACTIVE or clock.timestamp < GENESIS_TIMESTAMP
                 or not old_quiescent or not router_switched
                 or not header_checkpoint_authenticated
+                or not l2_system_accounts_authenticated
                 or imported.canonicalized_at_block != clock.block_number
                 or imported.core.l2_block_number >= 1 << 48
                 or imported.core.message_cursor != 0
@@ -625,15 +663,14 @@ class Protocol:
         block = candidate.blocks[0]
         header = self.history.get(block.anchor_number)
         if (header is None or block.anchor_number >= clock.block_number
-                or clock.block_number - block.anchor_number > 8_191
                 or header.block_hash != block.anchor_hash
                 or header.timestamp != block.anchor_timestamp
                 or block.anchor_timestamp > GENESIS_TIMESTAMP + block.slot):
             return False
         if candidate.tier is Tier.NORMAL_SIGNED:
-            return ((self.normal_anchor_number is None
-                     or (block.anchor_number == self.normal_anchor_number
-                         and block.anchor_hash == self.normal_anchor_hash))
+            return (self.normal_anchor_number is not None
+                    and block.anchor_number == self.normal_anchor_number
+                    and block.anchor_hash == self.normal_anchor_hash
                     and header.force_root == block.force_root
                     and header.force_cutoff == block.force_cutoff)
         assert self.recovery is not None
@@ -685,19 +722,21 @@ class Protocol:
                 and candidate.next_due_at == self.next_due_at(cursor, first.force_cutoff))
 
     def _valid_normal(self, candidate: Candidate, clock: Clock) -> bool:
-        if candidate.tier is not Tier.NORMAL_SIGNED or not candidate.recovery_fields_zero:
+        if (candidate.tier is not Tier.NORMAL_SIGNED
+                or not candidate.recovery_fields_zero
+                or self.normal_deadline is None
+                or self.normal_min_admissible is None
+                or self.normal_admission_version is None
+                or self.normal_admission_root is None
+                or self.normal_context_id is None):
             return False
-        minimum = (self.normal_min_admissible if self.normal_min_admissible is not None
-                   else max(0, clock.l2_slot - DELTA_TIP))
-        version = (self.normal_admission_version if self.normal_admission_version is not None
-                   else self.admission_version)
-        root = self.normal_admission_root or self.admission_root
-        first = candidate.blocks[0]
-        context = self.normal_context_id or normal_context_id(
-            self.canonical.base_hash, version, root,
-            first.anchor_number, first.anchor_hash)
-        deadline = self.normal_deadline or clock.timestamp + W_SETTLE_SECONDS
-        required_through = self.normal_required_through or deadline + T_INCLUDE_MAX_SECONDS
+        minimum = self.normal_min_admissible
+        version = self.normal_admission_version
+        root = self.normal_admission_root
+        context = self.normal_context_id
+        deadline = self.normal_deadline
+        assert self.normal_required_through is not None
+        required_through = self.normal_required_through
         return (self._validate_common(candidate, clock, minimum)
                 and all(b.scheduled_signature_ok and b.admission_version == version
                         and b.admission_root == root
@@ -744,15 +783,6 @@ class Protocol:
         if self.mode is Mode.NORMAL:
             if not self._valid_normal(candidate, clock):
                 return "REJECTED"
-            if self.normal_deadline is None:
-                self.normal_deadline = clock.timestamp + W_SETTLE_SECONDS
-                self.normal_required_through = self.normal_deadline + T_INCLUDE_MAX_SECONDS
-                self.normal_min_admissible = max(0, clock.l2_slot - DELTA_TIP)
-                self.normal_admission_version = self.admission_version
-                self.normal_admission_root = self.admission_root
-                self.normal_anchor_number = candidate.blocks[0].anchor_number
-                self.normal_anchor_hash = candidate.blocks[0].anchor_hash
-                self.normal_context_id = candidate.blocks[0].context_id
             if self.normal_best is None or candidate.order > self.normal_best.order:
                 self.normal_best = candidate
                 self.normal_best_min_data_expiry = min(
@@ -845,7 +875,7 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
           dispositions_ok: bool = True, discretionary: bool = True) -> Block:
     if slot is None:
         slot = (c.l2_slot if p.mode is Mode.RECOVERY
-                else min(c.l2_slot, p.core.tip_slot + G_MAX))
+                else c.l2_slot)
     if p.mode is Mode.RECOVERY and p.recovery:
         r = p.recovery
         anchor_number, force_root, cutoff = r.anchor_number, r.force_root, r.force_cutoff
@@ -891,6 +921,12 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
     )
 
 
+def activate_normal(p: Protocol, c: Clock) -> None:
+    arm_clock = Clock(c.block_number - 1, c.timestamp - 12)
+    check("normal context arms", p.arm_normal_context(arm_clock) == "ARMED")
+    check("normal context activates", p.activate_normal_context(c) == "ACTIVATED")
+
+
 def open_recovery(p: Protocol, block_number=1_100) -> Clock:
     trigger = clock(block_number, p.core.tip_slot + DELTA_FINAL_LAG + 1)
     check("P1 objective sync opens recovery", p.sync(trigger))
@@ -920,11 +956,15 @@ def test_canonical_outputs_and_migration() -> None:
         1_100,
     )
     check("P4 migration requires quiescence", not p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=False, router_switched=True))
+    check("P4a migration proves deployed L2 system accounts", not p.activate_migration(
+        clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True,
+        l2_system_accounts_authenticated=False))
     check("P5 atomic router cutover imports exact state", p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True))
     q = protocol()
     c = clock(1_100, 1_100)
+    activate_normal(q, c)
     cand = candidate(q, c, "explicit-output")
-    check("P6 candidate opens", q.submit(cand, c) == "ACCEPTED")
+    check("P6 activated candidate accepted", q.submit(cand, c) == "ACCEPTED")
     close = Clock(1_234, q.normal_deadline)
     q.sync(close)
     check("P7 L1 stamps landing block and proof advances EVM height/context",
@@ -937,6 +977,7 @@ def test_canonical_outputs_and_migration() -> None:
 def test_admission_freeze_and_tier_canonicalization() -> None:
     p = protocol()
     c = clock(1_100, 1_100)
+    activate_normal(p, c)
     first = candidate(p, c, "first")
     check("P8 normal candidate accepted", p.submit(first, c) == "ACCEPTED")
     frozen = (p.normal_admission_version, p.normal_admission_root)
@@ -945,6 +986,10 @@ def test_admission_freeze_and_tier_canonicalization() -> None:
     replacement = candidate(p, clock(1_101, 1_101), "frozen")
     check("P10 open normal retains pair", p.submit(replacement, clock(1_101, 1_101)) in {"ACCEPTED", "IGNORED"})
     q = protocol()
+    preopen = candidate(q, c, "preopen")
+    check("P11 pre-activation signatures are not candidates",
+          q.submit(preopen, c) == "REJECTED")
+    activate_normal(q, c)
     malformed = candidate(q, c, "unused", recovery_fields_zero=False)
     check("P11 tier-1 unused recovery fields must be zero", q.submit(malformed, c) == "REJECTED")
     bad_time = candidate(q, c, "bad-time")
@@ -954,9 +999,24 @@ def test_admission_freeze_and_tier_canonicalization() -> None:
     )
     check("P11a signed slot must equal EVM header time",
           q.submit(bad_time, c) == "REJECTED")
-    check("P11b reorg forks cannot share a slash context",
-          normal_context_id(q.canonical.base_hash, 10, "root-a", 100, "hash-a")
-          != normal_context_id(q.canonical.base_hash, 10, "root-b", 100, "hash-b"))
+    armed = protocol()
+    arm_clock = clock(1_099, 1_088)
+    assert armed.arm_normal_context(arm_clock) == "ARMED"
+    fork_a, fork_b = armed.snapshot(), armed.snapshot()
+    fork_b.history[1_099] = replace(
+        fork_b.history[1_099], block_hash="f" * 64)
+    assert fork_a.activate_normal_context(c) == "ACTIVATED"
+    assert fork_b.activate_normal_context(c) == "ACTIVATED"
+    check("P11b reorged arm blocks cannot share a slash context",
+          fork_a.normal_context_id != fork_b.normal_context_id)
+    surviving = armed.snapshot()
+    assert surviving.activate_normal_context(c) == "ACTIVATED"
+    check("P11c surviving arm block deliberately preserves its context",
+          surviving.normal_context_id == fork_a.normal_context_id)
+    stale_arm = protocol()
+    assert stale_arm.arm_normal_context(clock(100, 100)) == "ARMED"
+    check("P11d arm hash must remain natively readable",
+          stale_arm.activate_normal_context(clock(356, 356)) == "REJECTED")
 
 
 def test_force_merkle_bounds_and_auth() -> None:
@@ -969,6 +1029,7 @@ def test_force_merkle_bounds_and_auth() -> None:
     check("P13 per-block count cap", p._prefix_end(0, 100) == 64)
     check("P14 range proof has a fixed bound", FORCE_TREE_DEPTH == 32 and MAX_FORCE_RANGE_PROOF_HASHES == 129)
     anchored = protocol(messages=[message(1_100, "a")])
+    activate_normal(anchored, c)
     good = candidate(anchored, c, "good")
     forged = replace(good, force_range_proof_ok=False)
     check("P15 skip/reorder proof rejects", anchored.submit(forged, c) == "REJECTED")
@@ -986,8 +1047,9 @@ def test_force_merkle_bounds_and_auth() -> None:
 def test_late_close_and_constant_boundary() -> None:
     p = protocol()
     opened = clock(1_100, 1_100)
+    activate_normal(p, opened)
     best = candidate(p, opened, "ordinary")
-    check("P18 normal opens", p.submit(best, opened) == "ACCEPTED")
+    check("P18 normal accepts", p.submit(best, opened) == "ACCEPTED")
     enqueue_l2 = opened.l2_slot + 1
     append_clock = clock(1_101, enqueue_l2)
     check("P19 post-open append admits", p.admit_message(
@@ -999,6 +1061,7 @@ def test_late_close_and_constant_boundary() -> None:
 
     q = protocol(tip_slot=100, messages=[message(0, "covered")])
     accepted_at = clock(150, FORCE_DELAY - W_SETTLE_SECONDS - T_INCLUDE_MAX_SECONDS - 1)
+    activate_normal(q, accepted_at)
     covered = candidate(q, accepted_at, "covered")
     check("P22 horizon-covering candidate accepted", q.submit(covered, accepted_at) == "ACCEPTED")
     close = Clock(400, q.normal_deadline)
@@ -1013,12 +1076,14 @@ def test_late_close_and_constant_boundary() -> None:
     enqueue = clock(100, 100)
     assert old_anchor.admit_message(enqueue, message(100, "post-anchor")) == "ADMITTED"
     submit_at = clock(250, 300)
+    activate_normal(old_anchor, submit_at)
     omitted = candidate(old_anchor, submit_at, "old-anchor-omits")
     check("P26 current-root boundary rejects post-anchor due omission",
           old_anchor.submit(omitted, submit_at) == "REJECTED")
 
     gap = protocol(tip_slot=100)
     gap_clock = clock(200, 200)
+    activate_normal(gap, gap_clock)
     too_wide = candidate(gap, gap_clock, "wide-gap", slot=100 + G_MAX + 1)
     check("P26a tier-1 parent gap is enforced",
           gap.submit(too_wide, gap_clock) == "REJECTED")
@@ -1027,11 +1092,13 @@ def test_late_close_and_constant_boundary() -> None:
                    valid_until=GENESIS_TIMESTAMP + 10)
     expired = protocol(tip_slot=0, messages=[lost])
     expired_clock = clock(10, 20)
+    activate_normal(expired, expired_clock)
     check("P26b expired payload is consumable from durable descriptor",
           expired.submit(candidate(expired, expired_clock, "expired-meta"),
                          expired_clock) == "ACCEPTED")
     unexpired = protocol(tip_slot=0, messages=[
         replace(lost, valid_until=GENESIS_TIMESTAMP + 100)])
+    activate_normal(unexpired, expired_clock)
     check("P26c unavailable unexpired payload rejects",
           unexpired.submit(candidate(unexpired, expired_clock, "missing-bytes"),
                            expired_clock) == "REJECTED")
@@ -1132,6 +1199,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P46 one GC call is bounded", p.gc_sessions(c) <= MAX_GC_STEPS)
     pre = protocol().snapshot()
     post = pre.snapshot()
+    activate_normal(post, c)
     post.submit(candidate(post, c, "reorg"), c)
     post.sync(Clock(1_200, post.normal_deadline))
     post = pre.snapshot()
@@ -1148,6 +1216,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert delayed.post_data(opened, "late-data", "alice", body_root="body",
                              same_tx_blobhash=True, kzg_opening_ok=True) == "POSTED"
     assert delayed.seal_session(opened, "late-data", "alice")
+    activate_normal(delayed, opened)
     base = candidate(delayed, opened, "data-best")
     data_block = replace(base.tip, data_records=(("late-data", 0),))
     with_data = replace(

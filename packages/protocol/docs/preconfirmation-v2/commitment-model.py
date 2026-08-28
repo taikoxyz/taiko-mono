@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.5 consensus commitments.
+"""Golden vectors for Slot-Chain v2.6 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -198,7 +198,7 @@ def execution_outputs(state_root: bytes, transactions_root: bytes,
 
 
 STATEMENT_KINDS = (
-    "uint", "uint", "uint", "address",
+    "uint", "uint", "uint", "bytes", "address",
     "uint", "bytes", "bytes", "uint", "uint", "bytes", "uint", "uint",
     "bytes", "uint", "bytes", "uint", "uint", "uint",
     "uint", "bytes", "bytes", "uint", "bytes", "uint", "bytes", "uint",
@@ -252,11 +252,11 @@ def registry_root(cells: tuple[RegistryCell | None, ...]) -> bytes:
 
 def admission_leaf(index: int, location: int, cell: RegistryCell | None) -> bytes:
     if cell is None:
-        payload = u16(index) + u8(0) + bytes(1 + 20 + 24 + 8 + 8 + 32 + 8)
+        payload = u16(index) + u8(0) + bytes(1 + 20 + 24 + 8 + 8 + 8)
     else:
         payload = (u16(index) + u8(1) + u8(location) + address20(cell.address)
                    + u192(cell.bond) + u64(cell.registration_index)
-                   + u64(cell.effective_l2_slot) + b32(cell.tranche_root)
+                   + u64(cell.effective_l2_slot)
                    + u64(cell.tombstoned_at_l2_slot))
     return keccak256(D_ADM_LEAF + payload)
 
@@ -537,6 +537,18 @@ def dispositions(start: int, rows: tuple[tuple[int, int, int, bytes], ...]) -> b
     return keccak256(D_DISPOSITIONS + u64(start) + u64(end) + u16(len(rows)) + payload)
 
 
+def canonical_disposition(code: int, tx_index: int, result_hash: bytes,
+                          raw_tx: bytes | None = None) -> bool:
+    if code in range(4):
+        return tx_index == UINT32_MAX and result_hash == bytes(32) and raw_tx is None
+    if code == 4:
+        return (tx_index != UINT32_MAX and raw_tx is not None
+                and result_hash == keccak256(raw_tx))
+    if code == 5:
+        return tx_index == UINT32_MAX and result_hash != bytes(32) and raw_tx is None
+    return False
+
+
 def recovery_id(chain_id: int, contract: int, episode: int, revision: int,
                 base_hash: bytes, round_start_slot: int, anchor_number: int,
                 anchor_hash: bytes, force_root_hash: bytes, force_cutoff: int,
@@ -602,6 +614,11 @@ def vectors() -> dict[str, str]:
     liabilities = [None] * 1_072
     liabilities[0] = cell
     adm_root = canonical_admission_root(tuple(cells), tuple(liabilities))
+    tranche_mutation = replace(cell, tranche_root=bytes.fromhex("22" * 32))
+    mutated_cells = list(cells)
+    mutated_cells[3] = tranche_mutation
+    assert canonical_admission_root(tuple(mutated_cells), tuple(liabilities)) == adm_root
+    assert registry_root(tuple(mutated_cells)) != reg_root
     replacement_cell = RegistryCell(
         0x5678, 2 * 10**18, 10, 888, bytes.fromhex("24" * 32), UINT64_MAX)
     liabilities[0] = replacement_cell
@@ -664,7 +681,7 @@ def vectors() -> dict[str, str]:
         (0, forced_descriptor(envs[66])),
     )
     statement_values = (
-        settlement_chain_id, l2_chain_id, 2, contract, 1, base,
+        settlement_chain_id, l2_chain_id, 2, bytes.fromhex("fe" * 32), contract, 1, base,
         candidate_hash, 1, 8_001, bytes.fromhex("88" * 32), 8_001, 8_001,
         bytes.fromhex("66" * 32), 66, winning, envs[66].due_at,
         101, 0, 1_000, bytes.fromhex("99" * 32), bytes.fromhex("aa" * 32), 999,
@@ -720,7 +737,7 @@ def vectors() -> dict[str, str]:
         "empty_manifest_root": empty_manifest.hex(),
         "empty_session_list": empty_sessions.hex(),
         "dispositions": dispositions(2, ((2, 1, UINT32_MAX, bytes(32)),
-                                          (3, 0, 2, bytes.fromhex("44" * 32)))).hex(),
+                                          (3, 4, 2, keccak256(b"raw-signed-tx")))).hex(),
         "recovery_id": recovery_id(settlement_chain_id, contract, 4, 2, base, 8_000,
                                    1_000, bytes.fromhex("88" * 32), force.root,
                                    len(envs), 12, adm_root, 9_000, 3).hex(),
@@ -732,23 +749,23 @@ def vectors() -> dict[str, str]:
 EXPECTED = {
     "typehash": "ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c",
     "domain_separator": "e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c",
-    "block_struct_hash": "c60f87dfb7779ce414cbe339f5c303541d5c5ff69a6f73546a17fb509ae9c6be",
-    "eip712_digest": "8c1493bf07289199f66021bde4ba91be5ea21e6542bc058af67b71616f9fba75",
+    "block_struct_hash": "bebf898d1d6af4275c77cbcb425b191ff222696c3d6a4b7e88ed0d086f37b561",
+    "eip712_digest": "34f50d01fdbf1f78cbc0101d380ede1064428bbe6822f406821dd54bebfcfbac",
     "canonical_core": "c5320e571a33500079a14a281b01b4127ef7ff251a8b6d1a8cfa101d44521f0e",
     "base_canonical": "ec599dbdc93695f1c8d8bfa46c0e9920055218f484492b023074709a76d297c4",
     "migration_data": "916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399",
-    "candidate_commitment": "7aaafa4b66ab9cf569dd8e2c3bcb22bfc2572d15cd7a3213f63ba76ec44b8e9b",
-    "candidate_commitment_2": "59399358d2ec4109ae3905d0a24ec6f00976470f2c0988682bedf805f7cbbe26",
-    "normal_context": "92aa73a63468548708ffeff5a04e1cc59912ffc3ab9bd26e87938d206e123cc9",
-    "winning_data": "701cd88d088ce38248844c81576142541c4980ed295bb2b55d267c3c8889434a",
+    "candidate_commitment": "c53ecbd8216071f0cfde0fabffbc9351e6b5beda09b49c9f0a38459d46ab0702",
+    "candidate_commitment_2": "2b8a867796c4cac7e22fecfadc255d677760a225492529110b819bc1fab27f23",
+    "normal_context": "441dee77fdcd856bfb41504fdcbcbd97de481a881e53017a5983d1210f6d22a8",
+    "winning_data": "d28b2d74341e9c5d90835e5051b2fc8189e1814f178d9580f4e9f66a88cfa631",
     "forced_descriptors": "193cc93014b8472b5f951472c3b8a9d60ebfd294ff18e43c21d60af6e0853de3",
     "schedule_list": "7ab789362dd8b411e1bc42af1270bcb14d2a7571fc28ab614c6afcc33b7de8e7",
     "session_list": "9cbf4ca60afc8aee2ccaa68a45bb6568a04812cf282aa703f194e017092fb264",
     "execution_outputs": "64649dc4a113bf0936e248a1ae89031e76747d3a0c7b23a404ef71cd2196f5f5",
-    "statement_hash": "e767eccaf8a6088c7bbfa8202ae160aa473eada26d1b04ce7b3a34c4fbb0e294",
+    "statement_hash": "5bd1192b005ebce2f290d11924d3e9548a18e12e72aa4626d8397a85ad36f8f7",
     "registry_root": "0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd",
-    "admission_root": "783548941546bbc76487459185c787e4ffd7677b4487692dd6b1308dcc2e13f6",
-    "admission_reuse_root": "6359d7dabcdbbfd8102946057bc1eb948020253d627ca4108f7328e79cd4ceca",
+    "admission_root": "3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b",
+    "admission_reuse_root": "a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca",
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
@@ -763,8 +780,8 @@ EXPECTED = {
     "empty_body_root": "f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a",
     "empty_manifest_root": "0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6",
     "empty_session_list": "8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279",
-    "dispositions": "1920be0faf7640e475141c751acb845a943967550d01dcdbbf8b4c4979133ef6",
-    "recovery_id": "454ec13c67dcfe4d215b73ee1ca32645be14605e3e86b5c42ff2df1e1e368975",
+    "dispositions": "ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93",
+    "recovery_id": "84ea35ee4c31975fc4499964ea6d1f72abc6291666c89dc2ef1a61447644103b",
     "body_root": "0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9",
     "chunk_root_0": "e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e",
 }
@@ -806,12 +823,19 @@ if __name__ == "__main__":
         2, tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
         (0, forced_descriptor(changed_boundary)))
 
+    raw_tx = b"raw-signed-tx"
+    assert canonical_disposition(4, 2, keccak256(raw_tx), raw_tx)
+    assert not canonical_disposition(4, 2, bytes.fromhex("44" * 32), raw_tx)
+    assert canonical_disposition(0, UINT32_MAX, bytes(32))
+    assert not canonical_disposition(0, 2, bytes(32))
+    assert not canonical_disposition(6, UINT32_MAX, bytes(32))
+
     sid = bytes.fromhex(actual["session_id"])
     root = bytes.fromhex(actual["body_root"])
     croot = bytes.fromhex(actual["chunk_root_0"])
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 49 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 56 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")
