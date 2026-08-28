@@ -7,6 +7,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{longtable}
+\usepackage{xltabular}
 \usepackage{tikz}
 \usepackage{graphicx}
 \usepackage{enumitem}
@@ -215,11 +216,16 @@ The complete path from block production to finality:
 \end{enumerate}
 \textbf{What is kept and what is removed (relative to v15):}
 
-\begin{center}\footnotesize
-\begin{tabularx}{\linewidth}{p{0.30\linewidth}X}
+{\footnotesize
+\begin{xltabular}{\linewidth}{p{0.30\linewidth}X}
 \toprule
 \textbf{Kept} & \textbf{Removed} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Kept} & \textbf{Removed} \\
+\midrule
+\endhead
 The perpetual auction skeleton for the aggregator seat & Epoch boundary commitments (EBC) and the once-per-epoch irreversible determination \\
 The per-block signature chain and the two-tier parent rule (new here, not inherited from v15) & The default derivation rule (\S6.8 default derivation) \\
 --- & \textbf{The forced-inclusion queue} --- removed wholesale by the design decision (simplification), together with forced-only blocks, \texttt{P\_\allowbreak{}forced}, the dual queues and \texttt{C\_\allowbreak{}force}/\texttt{C\_\allowbreak{}bridge}/\texttt{F\_\allowbreak{}delay}/\texttt{H\_\allowbreak{}force} \\
@@ -227,8 +233,7 @@ The "party at fault pays, permissionless substitution" model (fault-paid permiss
 The tiered bond / slashing concept & \texttt{K\_\allowbreak{}empty}, availability certificates (AC), the \texttt{H\_\allowbreak{}cancel} cancellation cascade, and the rest of the machinery supporting the epoch determination \\
 The per-block anchor approach to L1→L2 bridging & Handover and seat-switching arbitration mechanisms (replaced by circuit rules) \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}}
 
 \textbf{Timeline illustration (slot = 1 second, epoch = 384 slots)} --- going offline leaves only a gap, and the chain does not stop:
 
@@ -403,10 +408,10 @@ How much of the assumption each mechanism actually consumes (written out, to kee
   % above the axis: two intervals
   \draw[scdim] (2.2,0.55) -- (7.4,0.55);
   \node[sclab, text width=48mm, anchor=south] at (4.8,0.65)
-        {$D_{\mathrm{snap}} \ge H_{\mathrm{look}} + F_{\mathrm{final}} +$ margin\\($=5$ L1 epoch)};
+        {$D_{\mathrm{snap}} \ge H_{\mathrm{look}}/12 + F_{\mathrm{final}} +$ margin\\($=5$ L1 epoch)};
   \draw[scdim] (7.4,0.55) -- (12.6,0.55);
   \node[sclab, text width=48mm, anchor=south] at (10.0,0.65)
-        {$W_{\mathrm{size}} = 768$ slot\\fixed aligned partition,\\not a sliding window};
+        {$W_{\mathrm{size}} = 384$ slot $=$ one epoch\\fixed aligned partition,\\not a sliding window};
 
   % lookahead horizon (dashed)
   \draw[scdarr] (7.4,-2.75) -- (12.6,-2.75);
@@ -508,7 +513,7 @@ Key fields:
 \item \textbf{Definition of the fault}: the same builder signs two byte-wise different block headers for the same \texttt{slot}.
 \item \textbf{Evidence and enforcement}: anyone may submit the two (block header, signature) pairs to the L1 slashing contract; the contract verifies the two signatures + same slot + different hashes directly on chain --- no zero-knowledge proof and no arbitration period are needed, and once verification passes \texttt{L\_\allowbreak{}eq} is slashed, of which ≥ 80\% is burned and the remainder is paid to the submitter (following v15's burn-dominant principle, which prevents self-slashing arbitrage).
 \item \textbf{The point at which a slashing takes effect is a deterministic, slot-based rule }: if the timestamp of the L1 block that includes the slashing transaction corresponds to L2 slot \texttt{s\_\allowbreak{}0}, then the slashing takes effect from slot \texttt{s\_\allowbreak{}0 +\allowbreak{} δ\_\allowbreak{}slash} (initially \texttt{δ\_\allowbreak{}slash} = 64 slot): once it is in effect, every slot already scheduled to that builder in the lookahead is treated as a gap --- the circuit rule: when a batch lands, the L1 contract hands the list of (slashed party, effective slot) entries it has itself recorded to the proof verification as a verified input; any block within the batch that is "signed by a party whose slashing is already in effect, with slot ≥ the effective slot" is invalid. Effectiveness is delimited by slot (rather than by each block's anchor block), which guarantees that all forks agree on the judgement of "who has already been slashed", so that no anchoring race exists. Without this clause, a slashed builder with a zero bond could still produce legal blocks (\hyperref[sec:4.1]{\S4.1} and \hyperref[sec:5.1]{\S5.1} would then contradict each other).
-\item \textbf{Effectiveness must additionally be pinned to [the point of batch acceptance], closing off the backfilling of historical slots }: the rule above decides purely by \texttt{header.slot ≥ effective slot}, yet \texttt{header.slot} is filled in by the signer itself --- a slashed, zero-bond old key can, after the slashing has taken effect, sign a historical block with \texttt{header.slot < effective slot}, bypass that comparison and keep producing legal blocks. The criterion = the L1 landing time of the [candidate batch] the block belongs to --- inherently unforgeable, inherently unforgeable.7) : once a slashing has taken effect on L1, no candidate batch whose [L1 landing time ≥ the effective time] may contain a block from that signer --- regardless of what \texttt{header.slot} says; in candidates that had already landed (provisional or window-final) before the effective time, that signer's blocks are grandfathered in as valid. A candidate's landing time is an intrinsic, unforgeable property of the L1 transaction: a historical block backfilled after the fact can only appear in a candidate that lands after the effective time → it is necessarily rejected; a block that had already landed inside some candidate before the effective time → it is retained. The cost (stated honestly): that signer's in-flight blocks, signed before the effective time but not yet landed in any candidate by then, are rejected along with the rest --- and the honest successor blocks built on them are stranded in cascade because their \texttt{parent\_\allowbreak{}hash} runs through such a block (when the equivocator broadcasts only one of the two forks, honest successors all build on it; when \texttt{δ\_\allowbreak{}slash} is shorter than the time to prove the first batch, every candidate that contains it after the effective time is rejected). This still falls within the already-accepted residual risk of "slashable equivocation + ≤ the actual tail depth", but the pricing of \texttt{L\_\allowbreak{}eq} and the user-facing semantics must acknowledge this successor-cascade exposure; no \texttt{δ\_\allowbreak{}land} grace parameter is needed (deleted).
+\item \textbf{Effectiveness must additionally be pinned to [the point of batch acceptance], closing off the backfilling of historical slots }: the rule above decides purely by \texttt{header.slot ≥ effective slot}, yet \texttt{header.slot} is filled in by the signer itself --- a slashed, zero-bond old key can, after the slashing has taken effect, sign a historical block with \texttt{header.slot < effective slot}, bypass that comparison and keep producing legal blocks. The criterion = the L1 landing time of the [candidate batch] the block belongs to --- inherently unforgeable, inherently unforgeable.7) : once a slashing has taken effect on L1, no candidate batch whose [L1 landing time ≥ the effective time] may contain a block from that signer --- regardless of what \texttt{header.slot} says; in candidates that had already landed (provisional or window-final) before the effective time, that signer's blocks are grandfathered in as valid. A candidate's landing time is an intrinsic, unforgeable property of the L1 transaction: a historical block backfilled after the fact can only appear in a candidate that lands after the effective time → it is necessarily rejected; a block that had already landed inside some candidate before the effective time → it is retained. The cost (stated honestly): that signer's in-flight blocks, signed before the effective time but not yet landed in any candidate by then, are rejected along with the rest --- and the honest successor blocks built on them are stranded in cascade because their \texttt{parent\_\allowbreak{}hash} runs through such a block (when the equivocator broadcasts only one of the two forks, honest successors all build on it; when \texttt{δ\_\allowbreak{}slash} is shorter than the time to prove the first batch, every candidate that contains it after the effective time is rejected). This still falls within the already-accepted residual risk of "slashable equivocation + ≤ the actual tail depth", but the pricing of \texttt{L\_\allowbreak{}eq} and the user-facing semantics must acknowledge this successor-cascade exposure; no \texttt{δ\_\allowbreak{}land} grace parameter is needed (deleted). \textbf{An unresolved consequence of keying effectiveness to landing time} (\hyperref[sec:11]{\S11}): the cascade is not only an accident that befalls honest successors, it is also purchasable, because the equivocator chooses when the evidence is submitted. A builder can produce an ordinary block in its own scheduled slot, let the honest chain extend through it, and then submit evidence against itself so that the effective time falls before the in-flight honest candidate lands --- and since \texttt{δ\_\allowbreak{}slash} = 64 slots is far shorter than the 10--15 minutes of proving plus inclusion, that timing is reliably achievable rather than lucky. The heavier honest candidate is then not outweighed but invalidated, and a lighter candidate that omits the signer wins the window. The price is \texttt{L\_\allowbreak{}eq}, the depth is the whole tail below the signer's block, and \hyperref[sec:5.6]{\S5.6}'s guarantee that "a heavier honest candidate simply overrides a malicious one" does not apply, because weight is not what decides it. It also means a candidate's validity is not a function of the chain alone, as \hyperref[sec:0]{\S0} otherwise claims, but of the chain together with its L1 landing time.
 \item This class of fault is submitted by a challenger and verified mechanically by L1: one level stronger than the preconf-vs-record variant in v15 (\hyperref[sec:7]{\S7}b) that relied on an L2 evidence chain --- zero delay after submission, no watchtower needs to run a proof, and all that is required is that someone be willing to submit (there is a bounty, so it is paid permissionless work).
 \end{itemize}
 \section[The signature chain: validity, canonicality, preconfirmation semantics]{The signature chain: validity, canonicality, preconfirmation semantics}\label{sec:5}
@@ -656,6 +661,8 @@ The window lifecycle in a single diagram (in one-to-one correspondence with the 
 \item A batch = a contiguous segment of the signature chain \texttt{[m+\allowbreak{}1..k]} (extending from the current window-final head \texttt{m}, \hyperref[sec:5.6]{\S5.6}) + block-body data (blob) + a validity proof that verifies all the rules of \hyperref[sec:5.1]{\S5.1} together with the per-block state transitions.
 \item \textbf{Atomic landing + window finality }: data, proof and state root are still submitted in a single transaction and verified on the spot by L1 --- there is still no "proposed but not yet proven" intermediate state, no sealing deadline / cancellation horizon / cancellation cascade / timing-exemption net (the v15 complexity reduction is retained). But what "verification passed" now yields is the current best candidate (provisional) of that window, rather than immediate finality; finality is granted at settlement-window close to the heaviest proven candidate in the window (\hyperref[sec:5.6]{\S5.6}). Under normal conditions, with no competition, the aggregator's candidate is the only candidate and close is finality --- the semantic difference appears only under attack. \textbf{Withdrawal and L2→L1 bridging effects execute only from window-final state}, never from provisional state.
 \item Batch size is bounded above by blob capacity and proving cost; batches need not align with epoch boundaries.
+\item \textbf{The settlement window serialises data availability, and this imposes a throughput ceiling }: because \hyperref[sec:5.6]{\S5.6} freezes the baseline at window open, every candidate in a window extends the same head \texttt{F}, and only the winner's tuple is committed at close --- so the chain's net advancement over a window equals the winner's block count, and the winner is \emph{one} L1 transaction that must carry the block-body data for \emph{all} of those blocks. The chain therefore cannot advance by more than one transaction's worth of blobs per settlement window, whatever the demand. With \texttt{W\_\allowbreak{}settle\_\allowbreak{}max} = 150 L1 slots (30 min = 1800 one-second L2 slots) and six 128\,KiB blobs in the landing transaction, that is 768\,KiB per window, or about 437 bytes per L2 block --- far below a usable L2 block size, and about 4\% of what a single L1 block's blob allowance would already permit. Two consequences follow and are not optional. \emph{The cost is paid more than once}: a later candidate in the same window must re-post the data of the prefix an earlier candidate already published, since it extends \texttt{F} rather than the current best, so the data actually purchased over a window exceeds the data delivered. \emph{Recovery is not stall-independent}: a frozen tail longer than one transaction's blob capacity cannot be landed in one window at all; it lands as a prefix per window, so draining a tail of $B$ bytes takes $\lceil B / \text{blob capacity} \rceil$ windows.
+\item \textbf{This ceiling is a blocking design item, not a calibration item } (\hyperref[sec:11]{\S11}). It is not removed by shrinking \texttt{W\_\allowbreak{}settle}, which is bounded below by proving latency plus inclusion latency and so buys a small constant factor at best. The direction that does remove it is to decouple data availability from candidacy: publish block bodies to L1 as standalone blob-carrying transactions as they are produced, and let a candidate \emph{reference} already-published blobs by versioned hash instead of carrying them, so that the landing transaction holds only the proof, the blob references and the end-state tuple, at a size independent of segment length. That requires the circuit to open the referenced blob commitments against the block bodies it verifies, and it changes what a candidate is; it is stated here as the direction, not as a specified mechanism.
 \item \textbf{Future slots must not be landed }: the \texttt{slot} of a batch's last block must be ≤ the \texttt{L2\_\allowbreak{}slot} corresponding to the timestamp of the L1 block in which it lands (the permitted clock skew is initially 0) --- checked at the L1 entry point and proven identically in the circuit. The lookahead is published at least \texttt{H\_\allowbreak{}look} = 768 slots in advance; without this constraint a builder could pre-sign blocks for future slots, and a batch could push the landed chain head ahead of wall-clock time --- destroying the timestamp/anchoring/forced-expiry semantics and artificially driving the \texttt{lag} of \hyperref[sec:6.3]{\S6.3} negative. Correspondingly, the arithmetic definition of \texttt{lag} is truncated below at 0 (safe arithmetic).
 \end{itemize}
 \subsection[Cadence]{Cadence}\label{sec:6.2}
@@ -895,14 +902,19 @@ After a stall of hours or even days, recovery is merely "one landing + one tier 
 \end{enumerate}
 \end{itemize}
 \section[What happens when each role goes offline (liveness accounting, in a single table)]{What happens when each role goes offline (liveness accounting, in a single table)}\label{sec:8}
-\begin{center}\footnotesize
-\begin{tabularx}{\linewidth}{p{0.20\linewidth}p{0.11\linewidth}p{0.11\linewidth}X}
+{\footnotesize
+\begin{xltabular}{\linewidth}{p{0.20\linewidth}p{0.11\linewidth}p{0.11\linewidth}X}
 \toprule
 \textbf{Who goes offline} & \textbf{What the user sees} & \textbf{Recovery mechanism} & \textbf{Recovery time} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Who goes offline} & \textbf{What the user sees} & \textbf{Recovery mechanism} & \textbf{Recovery time} \\
+\midrule
+\endhead
 A single builder & Its slot becomes a gap; every other slot proceeds as usual & No recovery is needed; the next slot continues naturally & \textasciitilde{}1 second \\
 Consecutive absences ≤ \texttt{G\_\allowbreak{}max − 1} (63 slots, so the next block's parent distance is ≤ \texttt{G\_\allowbreak{}max}) & No new blocks for a few seconds & The next builder resumes under \hyperref[sec:4.2]{\S4.2} tier (i); an absentee that supplies its signature after the fact can also bridge the interval & \textasciitilde{}number of offline builders × 1 second \\
-Consecutive absences ≥ \texttt{G\_\allowbreak{}max} slots, extending to hours or days (catastrophic stall) & No new blocks for the duration of the stall & \textbf{Land the best chain first, then recover from its final tip (\hyperref[sec:5.2]{\S5.2}/\hyperref[sec:6.4]{\S6.4})}: if a frozen long tail existed before the stall, the lander lands it first (thereby honoring its preconfirmations), and once it has reached \texttt{F\_\allowbreak{}l1} the recovery block takes its tip as parent and is produced under \hyperref[sec:4.2]{\S4.2} tier (ii); where there is demonstrably no better chain, the recovery block is itself the best chain and lands directly. Landing a worse candidate is superseded inside the \hyperref[sec:5.6]{\S5.6} window by a heavier one (self-defeating) & \textbf{Ordering ≈ one round of proving + landing (≈10–15 minutes, independent of the length of the stall) + the \texttt{W\_\allowbreak{}settle} window close + in the worst case an additional wait of ≤ \texttt{F\_\allowbreak{}l1} + \texttt{D\_\allowbreak{}anchor} when the stall begins immediately after a landing }; where a frozen long tail exists, this includes one round of proving to "land the tail first"; the L1-sync backlog catches up at \texttt{C\_\allowbreak{}anchor} per block; \textbf{sustained progress requires scheduled builders to keep returning at a window density of ≥1/\texttt{G\_\allowbreak{}max} (the normal-mode \texttt{G\_\allowbreak{}max} liveness floor)} --- With no forced inclusion, there is no forced-only floor to serve as an alternative \\
+Consecutive absences ≥ \texttt{G\_\allowbreak{}max} slots, extending to hours or days (catastrophic stall) & No new blocks for the duration of the stall & \textbf{Land the best chain first, then recover from its final tip (\hyperref[sec:5.2]{\S5.2}/\hyperref[sec:6.4]{\S6.4})}: if a frozen long tail existed before the stall, the lander lands it first (thereby honoring its preconfirmations), and once it has reached \texttt{F\_\allowbreak{}l1} the recovery block takes its tip as parent and is produced under \hyperref[sec:4.2]{\S4.2} tier (ii); where there is demonstrably no better chain, the recovery block is itself the best chain and lands directly. Landing a worse candidate is superseded inside the \hyperref[sec:5.6]{\S5.6} window by a heavier one (self-defeating) & \textbf{Ordering ≈ one round of proving + landing (≈10–15 minutes) + the \texttt{W\_\allowbreak{}settle} window close + in the worst case an additional wait of ≤ \texttt{F\_\allowbreak{}l1} + \texttt{D\_\allowbreak{}anchor} when the stall begins immediately after a landing }; where a frozen long tail exists, this includes one round of proving to "land the tail first", and \textbf{it is then not independent of the length of the stall}: a tail larger than one landing transaction's blob capacity lands one prefix per settlement window (\hyperref[sec:6.1]{\S6.1}), so ordering recovery takes $\lceil$tail bytes / blob capacity$\rceil$ windows; the L1-sync backlog catches up at \texttt{C\_\allowbreak{}anchor} per block; \textbf{sustained progress requires scheduled builders to keep returning at a window density of ≥1/\texttt{G\_\allowbreak{}max} (the normal-mode \texttt{G\_\allowbreak{}max} liveness floor)} --- With no forced inclusion, there is no forced-only floor to serve as an alternative \\
 Aggregator goes offline (honest but offline) & \textbf{Nothing perceptible} (preconfirmations proceed as usual); finality is deferred & \texttt{lag > Δ\_\allowbreak{}lag} → the fallback window opens, anyone may land and a strike is recorded; \texttt{m\_\allowbreak{}agg} strikes → the standby is promoted & Finality lag is pinned at \texttt{Δ\_\allowbreak{}lag} + the fallback response; 0 interruption of the sequencing service \\
 Aggregator online but maliciously stalling (Byzantine, landing micro-batches) & As above & Micro-batches cannot hold lag down → the fallback window opens, strikes are recorded and the seat changes hands exactly as before (\hyperref[sec:6.3]{\S6.3}) & As above (\textbf{bounded --- but conditional on permissionless fallback being economically viable}); the seat changes hands within \texttt{m\_\allowbreak{}agg} strikes \\
 Aggregator offline + no standby & As above & Fallback landing remains available throughout (no seat is required); the normal cadence resumes once the auction has cleared & 0 interruption of the sequencing service \\
@@ -910,28 +922,32 @@ All builders at once (catastrophe or cartel) --- \textbf{out-of-model} (\hyperre
 Builders and aggregator colluding as a whole (block bodies kept private) --- \textbf{out-of-model} (\hyperref[sec:1]{\S1} trust model) & Preconfirmations are still issued but cannot be trusted; finality stalls, and \textbf{correctly} no aggregator strike is produced (the stall is attributed to the cartel) & \textbf{No defense-in-depth exit} (This design does not include forced inclusion); the only self-healing route is a single builder defecting from the collusion and producing a landable fork (\hyperref[sec:5.5]{\S5.5}) & \textbf{Unbounded}; everything waits for the collusion to break down \\
 Proving-system failure & Preconfirmations proceed as usual; no new finality & \textbf{Zero false positives for fallback strikes holds} (nobody can land ⇒ no strike is recorded, \hyperref[sec:6.3]{\S6.3}); but the exemption for late fees and late counts \textbf{does not yet exist} --- until \hyperref[sec:11]{\S11} item 8 (blocking) is complete, the first batch landed after recovery is charged under the current rules & Equal to the duration of the failure; the risk of wrongly penalizing the recovery batch remains open until \hyperref[sec:11]{\S11} item 8 is closed \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}}
 
 By comparison with v15: there, "one seat goes offline" = a 20–26 minute service interruption (when a standby exists); here the same class of event costs 1 second (a builder) or 0 seconds (an aggregator, which affects only the cadence of finality). This is the reason this design exists.
 
 \section[Master table of slashing and bonds]{Master table of slashing and bonds}\label{sec:9}
-\begin{center}\footnotesize
-\begin{tabularx}{\linewidth}{p{0.20\linewidth}p{0.22\linewidth}X}
+{\footnotesize
+\begin{xltabular}{\linewidth}{p{0.20\linewidth}p{0.22\linewidth}X}
 \toprule
 \textbf{Fault} & \textbf{How it is adjudicated} & \textbf{Consequence} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Fault} & \textbf{How it is adjudicated} & \textbf{Consequence} \\
+\midrule
+\endhead
 Builder equivocation (two block headers for the same slot) & A challenger submits the two signed block headers and the L1 contract verifies the signatures directly & Slash \texttt{L\_\allowbreak{}eq} (≥80\% burned, the remainder paid to the submitter) + removal from the registry \\
 Builder skips the previous block / is absent & Not a fault (producing a block is an opportunity, not an obligation) & No slashing; a skip is \textbf{profitable} for the skipper (fee/MEV transfer). Orphaning depth follows the three tiers of \hyperref[sec:5.4]{\S5.4}: an adjacent skip affects a single slot; under \textbf{tier (i)} a single-block deep skip orphans at most \texttt{G\_\allowbreak{}max − 1} unlanded blocks, and a minority coalition relaying a sparse branch can reach the entire unlanded tail ≈ \texttt{Δ\_\allowbreak{}lag}; under \textbf{tier (ii)} a single malicious builder can, with one block built on a final landed head, orphan at most the entire unlanded tail ≈ \texttt{Δ\_\allowbreak{}lag}. The worst-case depth is the same in all three tiers, namely \textbf{≤ the actual length of the unlanded tail (≈ \texttt{Δ\_\allowbreak{}lag} when the fallback lands on schedule, conditional)}; in every tier the attacker must beat any heavier honest candidate inside the \hyperref[sec:5.6]{\S5.6} window before it can become final, the signature is on record for public attribution, and the frequency is constrained by the honest-majority assumption; an absentee forfeits the fee income of its own slot \\
 Builder signs a header but withholds the body (withhold-body, \hyperref[sec:5.5]{\S5.5}) & Not adjudicable ("it has the body and is not releasing it" cannot be proven) & No slashing; the block is certain to be skipped and the withholder gains nothing at all; the receipt is itself public evidence, and the response is reputational \\
 Aggregator dereliction (a successful landing by someone else while the fallback window is open = a strike, \hyperref[sec:6.3]{\S6.3}) & Mechanically adjudicated on L1 (the lag state plus the fact that a fallback batch was accepted) & Each strike is penalized at the liveness tier; \texttt{m\_\allowbreak{}agg} accumulated strikes → termination + promotion of the standby \\
 Aggregator takes a prefix / lands a worse chain (truncating the suffix) & \textbf{Not a slashable fault } & No slashing; landing a worse chain is \textbf{self-defeating}: inside the \hyperref[sec:5.6]{\S5.6} settlement window anyone can land a heavier proven candidate and supersede it, so the malicious party has wasted its gas and proving fees; and if only a prefix is taken, the suffix can still enter a subsequent window \\
 Anyone submits an invalid batch & The proof fails verification and the transaction reverts & Wasted gas, no protocol consequence \\
+Builder signs a block that cannot execute (a body that does not apply, or a state root that does not match) & \textbf{Not adjudicable on L1} without a proof of invalidity, which this design does not define; the block simply fails to be provable & No slashing. The block can never land, so it cannot corrupt state, and the signer forfeits its own slot revenue and gains nothing --- the same shape as body withholding. The residual cost is borne by others: honest successors that have not yet executed the body may build on it within the detection latency, and those blocks are stranded when the next builder re-roots past it under \hyperref[sec:4.2]{\S4.2} tier (i). Unlike equivocation this costs the actor nothing and is repeatable in every slot it is scheduled for, bounded only by its lookahead share \texttt{w\_\allowbreak{}max}. \textbf{A preconfirmation issued for such a block is void, and its holder cannot tell from the signature alone} \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}}
 
-The structural property of this table: every slashable fault is adjudicated either by direct signature verification on L1 (equivocation) or by a mechanical judgment over the L1 clock and L1 facts (landing strikes) --- there is no class of slashing that requires an L2 evidence chain plus an arbitration period (the watchtower-dependent *slashing* of the v15 \hyperref[sec:8]{\S8}b kind does not exist here, because "preconfirmation" and "block" are one and the same signed object, so equivocation is simply signing two headers for one slot and is directly verifiable). There do exist two classes of misbehavior that are not slashable and are only deterred (skipping and body withholding, \hyperref[sec:5.4]{\S5.4}/\hyperref[sec:5.5]{\S5.5}) --- this design does not eliminate them; the precise statement: withholding a body yields the actor no benefit, whereas skipping is profitable (the fee/MEV transfer of a single slot), and its frequency is constrained by the honest-majority assumption of \hyperref[sec:1]{\S1} --- both leave public signed evidence for attribution.
+The structural property of this table: every slashable fault is adjudicated either by direct signature verification on L1 (equivocation) or by a mechanical judgment over the L1 clock and L1 facts (landing strikes) --- there is no class of slashing that requires an L2 evidence chain plus an arbitration period (the watchtower-dependent *slashing* of the v15 \hyperref[sec:8]{\S8}b kind does not exist here, because "preconfirmation" and "block" are one and the same signed object, so equivocation is simply signing two headers for one slot and is directly verifiable). One limit of that identity must be stated plainly: the builder's signature attests authorship of a header and the choice of parent, \textbf{not} that the block executes. Executability is established only by the validity proof at landing, so a signed preconfirmation is a commitment to include and to order, not a proof that the block is applicable. There do exist three classes of misbehavior that are not slashable and are only deterred (skipping, body withholding, and signing a block that cannot execute --- \hyperref[sec:5.4]{\S5.4}/\hyperref[sec:5.5]{\S5.5} and the row above) --- this design does not eliminate them; the precise statement: withholding a body yields the actor no benefit, whereas skipping is profitable (the fee/MEV transfer of a single slot), and its frequency is constrained by the honest-majority assumption of \hyperref[sec:1]{\S1} --- both leave public signed evidence for attribution.
 
 \section[Detailed comparison with v15 (for readers who have read v15)]{Detailed comparison with v15 (for readers who have read v15)}\label{sec:10}
 \begin{itemize}
@@ -942,6 +958,9 @@ The structural property of this table: every slashable fault is adjudicated eith
 \section[Open items]{Open items}\label{sec:11}
 \begin{enumerate}
 \item \textbf{Builder-set size and admission rules}: \texttt{N\_\allowbreak{}max}, the weight cap \texttt{w\_\allowbreak{}max} on the bond-weighted sampling, the rules for excess competition, and liveness requirements (whether prolonged absence should reduce weight).
+\item \textbf{The per-window data-availability ceiling (blocking)}: as \hyperref[sec:6.1]{\S6.1} sets out, freezing the baseline for the whole settlement window means the chain advances by at most one landing transaction's blob capacity per window, which is roughly two orders of magnitude below a usable L2 data rate and also makes stall recovery linear in the tail size. Decoupling data availability from candidacy --- publishing bodies as standalone blob transactions and having candidates reference them by versioned hash, with the circuit opening those commitments --- is the direction that removes it, and it must be specified, costed in proving terms, and reconciled with the \hyperref[sec:5.6]{\S5.6} anti-plagiarism clause (referencing another party's published data must stay permitted, while reusing another party's proof must not) before this design is implementable.
+\item \textbf{Slashing effectiveness keyed to landing time is weaponisable (blocking)}: as \hyperref[sec:4.3]{\S4.3} now records, an equivocator controls the submission time of the evidence against itself and can therefore invalidate an in-flight heavier honest candidate rather than having to outweigh it, buying a reorg of the entire tail below its own block for the fixed price \texttt{L\_\allowbreak{}eq}. The two candidate directions are not equivalent and the choice is open. Keying effectiveness to \texttt{header.slot} alone restores "validity is a function of the chain", at the cost of readmitting the backfilling case the landing-time rule was introduced to close --- which may be acceptable, since a backfilled block still has to occupy a slot the lookahead assigned to that signer and still has to win the \hyperref[sec:5.2]{\S5.2} weight contest. Alternatively, effectiveness may be keyed to something the attacker does not control, such as the point at which a candidate was committed to rather than when it landed. Whichever is chosen, \texttt{L\_\allowbreak{}eq} must be priced against the value of the reorg it buys, not against the value of a single slot.
+\item \textbf{The fallback reimbursement cap underpays every honest improver (blocking)}: the \hyperref[sec:6.3]{\S6.3} rule reimburses each strictly improving candidate \texttt{C\_\allowbreak{}fixed} plus \texttt{φ\_\allowbreak{}adv} per marginal block, but caps the window total at a single \texttt{C\_\allowbreak{}fixed} plus \texttt{φ\_\allowbreak{}adv} times the net advancement. With $k$ improvers the claims total $k\,$\texttt{C\_\allowbreak{}fixed}$\,+\,$\texttt{φ\_\allowbreak{}adv}$\,\times$ net advancement while the cap contains one, so the pro-rata factor is below 1 for every $k>1$ and every improver, including the one that did the work, is paid less than its own fixed cost --- 0.46 at $k=3$ and 0.30 at $k=5$ on the Appendix~C values. This is not merely a fairness defect: since a same-count candidate with a better \texttt{tip\_\allowbreak{}hash} improves strictly under \hyperref[sec:5.2]{\S5.2}, an attacker can post such candidates purely to dilute the pot and make honest fallback landing unprofitable, at a cost to itself comparable to the damage inflicted --- and permissionless fallback is precisely the backstop that \hyperref[sec:6.3]{\S6.3}'s liveness argument rests on. The tension is real and a choice must be made: reimbursing every improver's fixed cost means the cap must scale with the number of improvers, which readmits the splitting incentive unless \texttt{C\_\allowbreak{}fixed} is set at or below true cost so that splitting is at best break-even; capping the count, or paying tip-only improvements a smaller flat amount than block-adding ones, are the other levers. Appendix~C's P13 must be strengthened at the same time: it currently asserts only that an improver is paid something, not that it recovers its cost, which is why this survived the model.
 \item \textbf{Pricing of \texttt{L\_\allowbreak{}eq}}: a method for estimating the worst-case extractable value of a single slot, and whether governance should adjust it as market conditions change.
 \item \textbf{Landing parameters}: \texttt{Δ\_\allowbreak{}lag,\allowbreak{}prov}/\texttt{Δ\_\allowbreak{}lag,\allowbreak{}final}, \texttt{m\_\allowbreak{}agg}, \texttt{δ\_\allowbreak{}slash}, and the exponential cost cap on the fallback reward; \textbf{recovery parameters }: \texttt{F\_\allowbreak{}l1} (the L1 finality depth of the final landed block in tier (ii)), \texttt{C\_\allowbreak{}anchor} (the per-block cap on the number of entries consumed by the \hyperref[sec:7]{\S7} message-processing cursor \texttt{m\_\allowbreak{}consumed}; not a cap on anchor advancement, since anchor references have no per-block cap), \texttt{Δ\_\allowbreak{}prop} (the propagation settling amount of the \hyperref[sec:5.2]{\S5.2} landing depth, normally << \texttt{Δ\_\allowbreak{}lag}) and \texttt{D\_\allowbreak{}anchor\_\allowbreak{}max} (the anchor freshness cap). \textbf{\texttt{D\_\allowbreak{}anchor\_\allowbreak{}max} setter invariant: \texttt{D\_\allowbreak{}anchor\_\allowbreak{}max ≥ D\_\allowbreak{}anchor +\allowbreak{} Δ\_\allowbreak{}lag,\allowbreak{}final(\allowbreak{}converted to L1 slots) +\allowbreak{} P\_\allowbreak{}prove,\allowbreak{}max +\allowbreak{} T\_\allowbreak{}include,\allowbreak{}max +\allowbreak{} queue/\allowbreak{}clock margin}}
 \end{enumerate}
@@ -963,11 +982,16 @@ The structural property of this table: every slashable fault is adjudicated eith
 \end{enumerate}
 \subsection*{Master parameter table}
 \addcontentsline{toc}{subsection}{Master parameter table}
-\begin{center}\footnotesize
-\begin{tabularx}{\linewidth}{p{0.20\linewidth}p{0.11\linewidth}p{0.11\linewidth}X}
+{\footnotesize
+\begin{xltabular}{\linewidth}{p{0.20\linewidth}p{0.11\linewidth}p{0.11\linewidth}X}
 \toprule
 \textbf{Parameter} & \textbf{Initial value} & \textbf{Unit} & \textbf{Key invariant / source} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Parameter} & \textbf{Initial value} & \textbf{Unit} & \textbf{Key invariant / source} \\
+\midrule
+\endhead
 slot & 1 & second & \hyperref[sec:3.1]{\S3.1} \\
 epoch & 384 & slot & \hyperref[sec:3.1]{\S3.1} \\
 \texttt{W\_\allowbreak{}size}, lookahead window & 384 & slot (1 epoch) & \hyperref[sec:3.2]{\S3.2}; a fixed aligned partition. No invariant constrains it: the guaranteed horizon is set by \texttt{D\_\allowbreak{}snap} and \texttt{F\_\allowbreak{}final}, not by the window \\
@@ -991,8 +1015,7 @@ epoch & 384 & slot & \hyperref[sec:3.1]{\S3.1} \\
 \texttt{φ\_\allowbreak{}land}, base-fee share ratio & TBD & --- & the sum of the base fees of the candidate chain × \texttt{φ\_\allowbreak{}land} is credited to the winner's beneficiary at the close, \hyperref[sec:5.6]{\S5.6}/\hyperref[sec:6.5]{\S6.5} \\
 gas shares \texttt{G\_\allowbreak{}anchor}/\texttt{C\_\allowbreak{}l1msg}gas & TBD & gas & \hyperref[sec:7]{\S7}: the sum of the two ≤ \texttt{block\_\allowbreak{}gas\_\allowbreak{}limit} + a per-entry admission cap + a watermark \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}}
 
 (The values are initial suggestions; those marked "TBD" are calibration items under \hyperref[sec:11]{\S11}. Unit conversion: 1 L1 slot = 12 s = 12 L2 slot.)
 
@@ -1010,11 +1033,16 @@ Each item states an option that was weighed against the choice this document mak
 \clearpage\section*{Appendix B: Glossary}\label{app:B}
 \addcontentsline{toc}{section}{Appendix B: Glossary}
 \markboth{}{}
-\begin{center}\footnotesize
-\begin{tabularx}{\linewidth}{p{0.30\linewidth}X}
+{\footnotesize
+\begin{xltabular}{\linewidth}{p{0.30\linewidth}X}
 \toprule
 \textbf{Term} & \textbf{Definition} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Term} & \textbf{Definition} \\
+\midrule
+\endhead
 slot & The 1-second time unit of L2 \\
 lookahead & The deterministic mapping from slot to builder address \\
 builder & The preconfer that produces and signs a block according to the lookahead \\
@@ -1036,8 +1064,7 @@ settlement window & Opens once the first candidate extending the window-final he
 candidate batch & A landed batch that extends the window-final head and carries a validity proof; inside the window it can be superseded by one that is strictly heavier under the \hyperref[sec:5.2]{\S5.2} total order (\hyperref[sec:5.6]{\S5.6}) \\
 window-final & The heaviest proven candidate at settlement-window close; withdrawals and bridging execute only from this state (\hyperref[sec:5.6]{\S5.6}/\hyperref[sec:6.1]{\S6.1}) \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}}
 
 \clearpage\section*{Appendix C: Executable reference model of the settlement window (normative pseudocode + property verification)}\label{app:C}
 \addcontentsline{toc}{section}{Appendix C: Executable reference model of the settlement window (normative pseudocode + property verification)}
@@ -1048,11 +1075,16 @@ window-final & The heaviest proven candidate at settlement-window close; withdra
 
 \textbf{Properties that have been verified }:
 
-\begin{center}\footnotesize
-\begin{tabularx}{\linewidth}{p{0.30\linewidth}X}
+{\footnotesize
+\begin{xltabular}{\linewidth}{p{0.30\linewidth}X}
 \toprule
 \textbf{Property} & \textbf{Content} \\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Property} & \textbf{Content} \\
+\midrule
+\endhead
 P1 & The total-order key \texttt{(\allowbreak{}count,\allowbreak{} tip\_\allowbreak{}slot,\allowbreak{} tip\_\allowbreak{}hash)} is irreflexive, total and transitive; the \texttt{A>B>C>A} cycle resolves to \texttt{B>C>A} \\
 P2 & The winner at the close is independent of the order in which candidates were submitted (verified over all permutations) \\
 P3 & When the message queue is non-empty: a provisional landing does not change what is canonical; a heavier candidate can be verified against the same frozen baseline and supersede it; the close commits the winner's outcome exactly once; the cursor is monotone with no double consumption \\
@@ -1066,8 +1098,7 @@ P11 & Fallback eligibility is snapshotted the moment the window opens on \texttt
 P12 & Enqueueing in mid-window: the queue is append-only and referenced by sequence number, and the baseline freezes only the cursor and state --- the outcome of earlier candidates is unchanged, a heavier candidate can consume the new entries deterministically, and the moment of enqueueing does not affect the verification result \\
 P13 & Fallback reimbursement over the full settlement order: a strict improver that adds no blocks --- same count with a later tip slot, or the final hash tie-break --- is still compensated; total payout per window is capped by net advancement, so splitting an advance into more candidates divides the pot instead of multiplying it and a prefix grind runs at a loss; verified over multiple submitters and over adversarial sequences alternating count-improving and tip-only candidates \\
 \bottomrule
-\end{tabularx}
-\end{center}
+\end{xltabular}}
 
 the total-order key, the window state machine, cursor arithmetic, gas shares and timing geometry)., anchor geometry and causal ordering, the moment a slashing takes effect, and the fallback accounting snapshot are in the model (P9–P11); the storage layout and gas cost of the Solidity-level \texttt{acceptCandidate} entry point are an analytical (non-executable) review, see \texttt{\texttt{settlement-\allowbreak{}window-\allowbreak{}implementation-\allowbreak{}review.md}}. The base-fee share (\hyperref[sec:6.5]{\S6.5} \texttt{φ\_\allowbreak{}land}) is an economic action of the accounting at the close that changes neither window state nor cursor semantics, and is not yet in the model. \textbf{final acceptance requires a human safety review} --- the model and the review document are a gate, not a sign-off.
 

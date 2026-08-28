@@ -7,15 +7,14 @@ with the executable models that verify its consensus-critical arithmetic.
 
 | File | What it is |
 | --- | --- |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 56 pages, 9 figures. This is the artifact to read and to circulate. |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 60 pages, 9 figures. This is the artifact to read and to circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`tex/figures.tex`](tex/figures.tex) | The 9 TikZ figures, greyscale, included by `main.tex`. |
 | [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, and the fallback reward metering. 27 property assertions (Appendix C). |
 | [`lookahead-model.py`](lookahead-model.py) | Executable reference implementation of the lookahead of §3.2: window alignment, snapshot uniqueness, seed derivation and weighted sampling. 6 property assertions. |
 
 ## Building the PDF
 
-`main.tex` is self-contained apart from `figures.tex`; no generator is involved.
+`main.tex` is self-contained — the TikZ figures live inline in it, and no generator is involved.
 
 ```sh
 cd tex && xelatex main.tex && xelatex main.tex && xelatex main.tex
@@ -46,10 +45,12 @@ model no longer passes is a specification with a defect in it.
 ## Status
 
 The core mechanism is specified and its modelled arithmetic is internally consistent. It is **not
-implementation-ready**: parameter values are initial proposals, and §11 carries open items — at
-least one of them blocking — including builder-set admission rules, the proving-outage exemption,
-L1 reorg handling, genesis and bootstrap semantics, fallback prover economics, and the proof
-continuation that several liveness arguments depend on. Two properties of the design are worth knowing before reading:
+implementation-ready**: parameter values are initial proposals, and §11 carries open items — three
+of them blocking — including the per-window data-availability ceiling, slashing effectiveness keyed
+to landing time, the fallback reimbursement cap, builder-set admission rules, the proving-outage
+exemption, L1 reorg handling, genesis and bootstrap semantics, and the proof continuation that
+several liveness arguments depend on. Four properties of the design are worth knowing before
+reading:
 
 - **Landing is permissionless.** A block's authority comes from its builder's signature, not from
   whoever carries it to L1. The aggregator is a paid service role, not a gatekeeper.
@@ -57,6 +58,14 @@ continuation that several liveness arguments depend on. Two properties of the de
   simplicity. If every scheduled builder refuses a transaction, the protocol offers no remedy and
   no builder-independent exit. §8's cartel rows are unbounded, and §1 records this as a withdrawn
   goal rather than an oversight.
+- **The settlement window serialises data availability.** Because §5.6 freezes the baseline for the
+  whole window and the winning candidate must carry every block it claims, the chain advances by at
+  most one L1 transaction's worth of blobs per window — on the current parameters roughly 437 bytes
+  per L2 block. §6.1 states this and §11 records it as blocking; it is the largest single gap
+  between this specification and an implementable protocol.
+- **A builder's signature does not attest that the block executes.** It attests authorship and the
+  choice of parent. Executability is established only by the validity proof at landing, so a
+  preconfirmation is a commitment to include and to order (§9).
 
 Final acceptance requires a human safety review. The models and the specification are a gate, not
 a signature.
