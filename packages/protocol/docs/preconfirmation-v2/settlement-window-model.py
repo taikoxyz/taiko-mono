@@ -482,86 +482,101 @@ def test_p12_midwindow_enqueue():
           st2.best[2] == "c2" and st2.best[1] == end2)
 
 
-def test_p13_two_phase_fallback_window():
-    """§6.3: 承诺须【结构性可验】,冻结集有上界 K,全轮只有【一个绝对截止】。
+def test_p13_first_valid_proof_fallback():
+    """§6.3: 兜底 = 【第一个满足进度目标的有效证明】胜出。无竞争、无 K、无承诺保证金。
 
-    上一版说"每窗口恰好委托一次证明",但同一份模型在赢家无效时顺延、又委托了
-    第二次——散文与模型直接矛盾,而 20 个承诺的刷量测试默认每个承诺都有效。
-    真实攻击:承诺只携带【声称的】(count, tip_slot, tip_hash),没有任何证明;
-    攻击者提交若干排名最高的【无效】承诺,每一个都消耗一个证明期限,于是可以
-    买下任意多个连续期限。L_commit 给不了确定性活性:调高伤害无许可性,调低
-    则拖延变得廉价。
+    这是设计负责人的决定(方案 1):兜底激活时,协议【显式作废】尚未终局的
+    tier-2 排序/状态预确认,并以"尽快恢复终局"为唯一目标。这个决定一次性消掉了
+    此前七版兜底规则反复失败的整个问题类别 —— 那些失败全都源于同一件事:
+    要在【证明之前】就把多个候选排出高下,于是攻击者总能再造一个候选来顶替
+    别人已经付过钱的工作。没有顶替,就没有抢跑、没有抢占、没有争夺准备金、
+    没有需要 K 来限界的无效承诺级联。
 
-    修正三件事:
-      1) 承诺必须附带【结构性证明】:声称的三元组确实对应一条由已登记数据支撑、
-         签名正确且首尾相连的 header 链。这不含执行有效性,因此便宜;而谎报
-         三元组即为可罚没的事实。执行有效性仍留到冻结之后再证。
-      2) 冻结集有共识上界 K:只取排名最高的 K 个承诺。
-      3) 全轮只有【一个绝对截止】T_close,不是每次失败续一个新期限;冻结后
-         由有保证金的证明者并行验证并证明,收盘时取【在截止前完成证明的
-         排名最高者】。因此无效承诺的影响被确定性地限制住,而不是被计价。
+    规则:
+      · 落地始终无许可、不受限:任何人随时可以提交任何扩展窗口终局头 F 的
+        有效链 + 有效性证明。
+      · 兜底轮开启时公布确定性【进度目标】P_target:恢复链的 tip_slot 必须
+        ≥ (开轮时的墙钟 slot) − Δ_recover。
+      · 第一个被 L1 接受、且满足 P_target 的有效证明【立即】提交为终局,本轮结束。
+        没有排序比较,没有窗口内顶替 —— "第一个"由 L1 交易顺序确定。
+      · 报酬每轮至多一次,付给那个胜出者。达不到 P_target 的链仍可落地,但不获赔,
+        因此靠不断落地琐碎推进来抽干托管是不可行的。
+      · 若本轮无人达标,本轮不付款而到期,下一轮 Δ_recover 放宽 —— 保证目标最终可达。
+
+    代价(已被明确接受): 未终局的 tier-2 排序/状态承诺在兜底期间作废,
+    其中的交易回到内存池。§5.4 与 §6.2 以用户可见的方式陈述了这一点。
     """
-    K_MAX, L_COMMIT = 4, 5
+    DELTA_RECOVER_0, RELAX = 100, 2
+    C_FIXED, R_WINDOW_MAX = 10, 100
 
-    def key(c):
-        return (c["count"], c["tip_slot"], -c["tip_hash"])
+    def p_target(now_slot, delta_recover):
+        return now_slot - delta_recover
 
-    def run_round(commitments, t_close, structurally_valid, exec_valid, prove_time):
-        """结构性过滤 → 取前 K 冻结 → 并行证明 → 截止前排名最高的已证明者获胜。"""
-        admitted = [c for c in commitments if structurally_valid.get(c["who"], True)]
-        rejected = [c["who"] for c in commitments if not structurally_valid.get(c["who"], True)]
-        frozen = sorted(admitted, key=key, reverse=True)[:K_MAX]
-        proven = [c for c in frozen
-                  if exec_valid.get(c["who"], True) and prove_time.get(c["who"], 1) <= t_close]
-        winner = max(proven, key=key) if proven else None
-        # 并行证明:全轮耗时是【单次】证明时延,不随候选数增长
-        elapsed = max([prove_time.get(c["who"], 1) for c in frozen], default=0)
-        return frozen, winner, rejected, elapsed
+    def run_round(submissions, now_slot, delta_recover, F_slot, t_close, escrow=R_WINDOW_MAX):
+        """按 L1 顺序取第一个有效且达标者;落地不受限,但只有达标者获赔。"""
+        target = p_target(now_slot, delta_recover)
+        landed, winner, paid = [], None, {}
+        for sub in submissions:
+            if not sub["valid"] or sub["tip_slot"] <= F_slot or sub["t"] > t_close:
+                continue
+            landed.append(sub["who"])                      # 有效即可落地
+            if winner is None and sub["tip_slot"] >= target:
+                winner = sub                               # 第一个达标者即刻终局
+                paid[sub["who"]] = min(escrow, C_FIXED)
+                break                                      # 本轮结束,不再比较
+        return winner, landed, paid, target
 
-    def K(who, count, slot, h=5):
-        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h}
+    def S(who, tip_slot, valid=True, t=1):
+        return {"who": who, "tip_slot": tip_slot, "valid": valid, "t": t}
 
-    # --- a) 正常轮次: 冻结集内最高者获胜 ---------------------------------------
-    fr, win, rej, el = run_round([K("A", 5, 500), K("F", 9, 900)], 10, {}, {}, {})
-    check("P13a 冻结集内排名最高且在截止前证明完成者获胜",
-          win["who"] == "F" and len(fr) == 2)
+    NOW, F = 1000, 500
 
-    # --- b) 【本轮回归】无效承诺不能买下连续期限 -------------------------------
-    # 4 个排名最高的承诺执行无效,1 个诚实承诺有效。绝对截止不因失败而延长。
-    attack = [K("BAD%d" % i, 9, 900, h=i) for i in range(4)] + [K("HONEST", 5, 500)]
-    fr, win, rej, el = run_round(attack, 10, {}, {"BAD%d" % i: False for i in range(4)}, {})
-    check("P13b 无效承诺占满冻结集: 全轮仍在同一个绝对截止内收盘,不产生连续期限",
-          win is None and el <= 10 and len(fr) == K_MAX)
-    check("P13b2 全轮耗时 = 单次证明时延,不随候选数增长(并行证明)", el == 1)
+    # --- a) 第一个达标的有效证明胜出,本轮立即结束 ----------------------------
+    win, landed, paid, tgt = run_round([S("A", 950), S("B", 990)], NOW, DELTA_RECOVER_0, F, 10)
+    check("P13a 第一个满足进度目标的有效证明胜出(不比较排序)",
+          win["who"] == "A" and tgt == 900 and paid == {"A": C_FIXED})
 
-    # --- c) 结构性证明把谎报三元组挡在冻结之外 ---------------------------------
-    liars = [K("LIAR%d" % i, 99, 9900, h=i) for i in range(6)] + [K("HONEST", 5, 500)]
-    fr, win, rej, el = run_round(
-        liars, 10, {"LIAR%d" % i: False for i in range(6)}, {}, {})
-    check("P13c 谎报排序字段的承诺被结构性证明挡下,不进入冻结集",
-          len(rej) == 6 and win["who"] == "HONEST" and len(fr) == 1)
+    # --- b) 【结构性】没有顶替:后来的更好的链不能置换已提交的赢家 ------------
+    win2, _, paid2, _ = run_round([S("FIRST", 910), S("BETTER", 999)], NOW, DELTA_RECOVER_0, F, 10)
+    check("P13b 无窗口内顶替: 后到的更优链不置换已终局的赢家 ⇒ 抢跑/抢占不存在",
+          win2["who"] == "FIRST" and "BETTER" not in paid2)
 
-    # --- d) 冻结集上界 K 生效: 刷 20 个承诺只有前 K 个进入 ---------------------
-    spam = [K("EQ%d" % i, 1, 100, h=100 - i) for i in range(20)] + [K("HONEST", 1, 100, h=0)]
-    fr, win, rej, el = run_round(spam, 10, {}, {}, {})
-    check("P13d 刷 20 个承诺: 冻结集被 K 截断,影响被确定性限制而非计价",
-          len(fr) == K_MAX and win["who"] == "HONEST")
+    # --- c) 攻击者抢先胜出也只是完成了协议想要的服务 --------------------------
+    win3, _, paid3, _ = run_round([S("ATTACKER", 980), S("HONEST", 985)], NOW, DELTA_RECOVER_0, F, 10)
+    check("P13c 攻击者抢先: 它必须提交【有效】证明,即已完成协议所需的恢复服务",
+          win3["who"] == "ATTACKER" and paid3["ATTACKER"] == C_FIXED)
 
-    # --- e) 截止之后完成的证明不算数(绝对截止,不顺延) ------------------------
-    fr, win, rej, el = run_round([K("SLOW", 9, 900), K("FAST", 5, 500)], 10, {},
-                                 {}, {"SLOW": 99, "FAST": 3})
-    check("P13e 截止后完成的证明不计入: 取截止前已证明的排名最高者",
-          win["who"] == "FAST")
+    # --- d) 未达标的琐碎推进: 可以落地,但不获赔 ⇒ 抽不干托管 -----------------
+    win4, landed4, paid4, _ = run_round([S("GRIND", 505), S("GRIND", 510)],
+                                        NOW, DELTA_RECOVER_0, F, 10)
+    check("P13d 未达进度目标的琐碎推进可落地但零报酬,无法靠反复落地抽干托管",
+          win4 is None and landed4 == ["GRIND", "GRIND"] and paid4 == {})
 
-    # --- f) 无人在截止前证明 ⇒ 本轮到期,不是无限延长 --------------------------
-    fr, win, rej, el = run_round([K("A", 9, 900)], 10, {}, {"A": False}, {})
-    check("P13f 无人证明 ⇒ 本轮 EXPIRE,窗口不被无限延长", win is None)
+    # --- e) 每轮至多一次付款,且以托管余额封顶 --------------------------------
+    win5, _, paid5, _ = run_round([S("A", 950), S("B", 960), S("C", 970)],
+                                  NOW, DELTA_RECOVER_0, F, 10, escrow=3)
+    check("P13e 每轮至多一次付款,并以 min(托管余额, 成本) 封顶",
+          len(paid5) == 1 and paid5["A"] == 3)
 
-    # --- g) 时序上界不随候选数增长 --------------------------------------------
-    T_COMMIT, P_PROVE_MAX, T_INCLUDE_MAX, MARGIN = 8, 20, 6, 4
-    t_fallback = T_COMMIT + P_PROVE_MAX + T_INCLUDE_MAX + MARGIN
-    check("P13g T_fallback ≥ T_commit + P_prove,max + T_include,max + margin,与 K 无关",
-          t_fallback == 38 and t_fallback > P_PROVE_MAX + T_INCLUDE_MAX)
+    # --- f) 无人达标 ⇒ 本轮不付款而到期,下一轮放宽 Δ_recover(最终可达) -----
+    win6, _, paid6, tgt6 = run_round([S("A", 700)], NOW, DELTA_RECOVER_0, F, 10)
+    tgt7 = p_target(NOW, DELTA_RECOVER_0 * RELAX)
+    check("P13f 无人达标 ⇒ 零付款到期,下一轮目标放宽,保证最终可达",
+          win6 is None and paid6 == {} and tgt7 < tgt6 and tgt7 == 800)
+
+    # --- g) 无效证明不落地也不获赔 -------------------------------------------
+    win8, landed8, paid8, _ = run_round([S("BAD", 990, valid=False), S("OK", 950)],
+                                        NOW, DELTA_RECOVER_0, F, 10)
+    check("P13g 无效证明既不落地也不获赔,且不消耗任何期限",
+          "BAD" not in landed8 and win8["who"] == "OK")
+
+    # --- h) tier-2 作废: 不在胜出链中的未终局块被丢弃,其交易回到内存池 -------
+    unlanded_tail = [{"slot": 600, "txs": ["t1"]}, {"slot": 700, "txs": ["t2"]}]
+    winning_chain_slots = {600}
+    dropped = [b for b in unlanded_tail if b["slot"] not in winning_chain_slots]
+    returned = [tx for b in dropped for tx in b["txs"]]
+    check("P13h 兜底期间未终局的 tier-2 承诺作废,其交易回到内存池(已明确接受)",
+          returned == ["t2"])
 
 
 def test_p13b_escrow_ownership_and_wealth():
@@ -715,7 +730,7 @@ if __name__ == "__main__":
               test_p7b_single_message_cap_is_load_bearing, test_p9_anchor_geometry,
               test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot,
               test_p12_midwindow_enqueue,
-              test_p13_two_phase_fallback_window,
+              test_p13_first_valid_proof_fallback,
               test_p13b_escrow_ownership_and_wealth,
               test_p14_exit_bond_release_is_state_dependent,
               test_p15_reward_pot_disjoint_from_penalty_pot]:

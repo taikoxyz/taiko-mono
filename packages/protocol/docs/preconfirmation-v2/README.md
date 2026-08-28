@@ -9,7 +9,7 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 62 pages, 9 figures. This is the artifact to read and to circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, the slot-based slashing gate, the bounded two-phase fallback state machine, the unified exit-release predicate with snapshot expiry, and the disjointness of the reward escrow from the penalty bond. 49 property assertions (Appendix C). |
+| [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, the slot-based slashing gate, the first-valid-proof fallback round, the unified exit-release predicate with snapshot expiry, and the disjointness of the reward escrow from the penalty bond. 49 property assertions (Appendix C). |
 | [`lookahead-model.py`](lookahead-model.py) | Executable reference implementation of the lookahead of §3.2: window alignment, snapshot uniqueness, seed derivation and weighted sampling. 6 property assertions. |
 
 ## Building the PDF
@@ -57,6 +57,7 @@ of the design are worth knowing before reading:
   simplicity. If every scheduled builder refuses a transaction, the protocol offers no remedy and
   no builder-independent exit. §8's cartel rows are unbounded, and §1 records this as a withdrawn
   goal rather than an oversight.
+- **Fallback expires unfinalized preconfirmations.** When an aggregator fails, the protocol abandons tier-2 ordering and state promises and restores finality with the first valid chain meeting a progress target. A preconfirmation held during a failure carries no ordering or state guarantee — only that the transaction stays includable. This is an explicit owner decision and the price of a fallback that cannot be griefed.
 - **A builder's signature does not attest that the block executes.** It attests authorship and the
   choice of parent. Executability is established only by the validity proof at landing, so a
   preconfirmation is a commitment to include and to order (§9).
