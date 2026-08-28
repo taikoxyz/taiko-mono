@@ -483,91 +483,85 @@ def test_p12_midwindow_enqueue():
 
 
 def test_p13_two_phase_fallback_window():
-    """§6.3: 两阶段兜底窗口 —— 先承诺、后冻结、只为冻结的赢家委托一次证明。
+    """§6.3: 承诺须【结构性可验】,冻结集有上界 K,全轮只有【一个绝对截止】。
 
-    六版报酬规则相继失败,原因同一:只要"证明先行、再比大小",攻击者就能在别人
-    已经付出证明之后再顶替,而顶替的次数不受限(罚没幂等 + 回填历史 slot)。
-    竞争准备金试图为顶替买单,但准备金一旦耗尽,攻击就原样回来:
-      攻击者先提交 → 诚实方顶替(攻击者取回 10,余 2)→ 攻击者抢跑(诚实方只拿到 2)
-      → 攻击者赢得收盘报销。诚实方净亏 8。给"无上限的替代品"上抵押是走不通的。
+    上一版说"每窗口恰好委托一次证明",但同一份模型在赢家无效时顺延、又委托了
+    第二次——散文与模型直接矛盾,而 20 个承诺的刷量测试默认每个承诺都有效。
+    真实攻击:承诺只携带【声称的】(count, tip_slot, tip_hash),没有任何证明;
+    攻击者提交若干排名最高的【无效】承诺,每一个都消耗一个证明期限,于是可以
+    买下任意多个连续期限。L_commit 给不了确定性活性:调高伤害无许可性,调低
+    则拖延变得廉价。
 
-    结构性修正:把【排序】与【证明】分开。
-      阶段一(承诺): 任何人提交候选承诺 = (count, tip_slot, tip_hash) + blob 引用
-        + 承诺保证金 L_commit。不需要证明,因此廉价。
-      冻结: 到达确定的 L1 高度 H_freeze,按 §5.2 全序在承诺中选出赢家并【冻结】。
-      阶段二(证明): 只有被冻结的赢家去做证明,并从托管获得报销。若它在期限内
-        拿不出有效证明,没收其 L_commit,顺延到冻结序列中的下一个承诺。
-    于是每窗口只委托【一次】证明:诚实方的证明永远不会被后来的顶替作废,
-    抢跑只是赢得一次它必须自己完成的证明,骚扰的着力点消失了。
+    修正三件事:
+      1) 承诺必须附带【结构性证明】:声称的三元组确实对应一条由已登记数据支撑、
+         签名正确且首尾相连的 header 链。这不含执行有效性,因此便宜;而谎报
+         三元组即为可罚没的事实。执行有效性仍留到冻结之后再证。
+      2) 冻结集有共识上界 K:只取排名最高的 K 个承诺。
+      3) 全轮只有【一个绝对截止】T_close,不是每次失败续一个新期限;冻结后
+         由有保证金的证明者并行验证并证明,收盘时取【在截止前完成证明的
+         排名最高者】。因此无效承诺的影响被确定性地限制住,而不是被计价。
     """
-    C_FIXED, L_COMMIT, R_WINDOW_MAX = 10, 5, 100
-    PROOF_COST = 10
+    K_MAX, L_COMMIT = 4, 5
 
     def key(c):
         return (c["count"], c["tip_slot"], -c["tip_hash"])
 
-    def run_window(commitments, h_freeze, prover_valid, escrow=R_WINDOW_MAX):
-        """承诺 → 冻结 → 只为赢家委托证明;失败则没收 L_commit 并顺延。"""
-        frozen = sorted([c for c in commitments if c["h"] <= h_freeze],
-                        key=key, reverse=True)
-        proofs_commissioned, forfeited, paid = 0, {}, {}
-        for cand in frozen:
-            proofs_commissioned += 1
-            if prover_valid.get(cand["who"], True):
-                amount = min(R_WINDOW_MAX, C_FIXED)
-                paid[cand["who"]] = min(amount, escrow)
-                return frozen, cand, proofs_commissioned, forfeited, paid
-            forfeited[cand["who"]] = forfeited.get(cand["who"], 0) + L_COMMIT
-        return frozen, None, proofs_commissioned, forfeited, paid
+    def run_round(commitments, t_close, structurally_valid, exec_valid, prove_time):
+        """结构性过滤 → 取前 K 冻结 → 并行证明 → 截止前排名最高的已证明者获胜。"""
+        admitted = [c for c in commitments if structurally_valid.get(c["who"], True)]
+        rejected = [c["who"] for c in commitments if not structurally_valid.get(c["who"], True)]
+        frozen = sorted(admitted, key=key, reverse=True)[:K_MAX]
+        proven = [c for c in frozen
+                  if exec_valid.get(c["who"], True) and prove_time.get(c["who"], 1) <= t_close]
+        winner = max(proven, key=key) if proven else None
+        # 并行证明:全轮耗时是【单次】证明时延,不随候选数增长
+        elapsed = max([prove_time.get(c["who"], 1) for c in frozen], default=0)
+        return frozen, winner, rejected, elapsed
 
-    def K(who, count, slot, h_hash=5, h=0):
-        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h_hash, "h": h}
+    def K(who, count, slot, h=5):
+        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h}
 
-    # --- a) 正常窗口: 恰好委托一次证明,赢家获赔 -------------------------------
-    fr, win, n, forf, paid = run_window([K("A", 5, 500), K("F", 9, 900)], h_freeze=10, prover_valid={})
-    check("P13a 两阶段: 每窗口恰好委托一次证明,冻结赢家获赔",
-          n == 1 and win["who"] == "F" and paid == {"F": C_FIXED})
+    # --- a) 正常轮次: 冻结集内最高者获胜 ---------------------------------------
+    fr, win, rej, el = run_round([K("A", 5, 500), K("F", 9, 900)], 10, {}, {}, {})
+    check("P13a 冻结集内排名最高且在截止前证明完成者获胜",
+          win["who"] == "F" and len(fr) == 2)
 
-    # --- b) 【本轮回归】抢跑不再烧掉诚实方的证明 -------------------------------
-    # 抢跑者以更小 tip_hash 赢得冻结,但诚实方此时【尚未证明】,故一无所失。
-    fr, win, n, forf, paid = run_window(
-        [K("HONEST", 1, 100, h_hash=9, h=1), K("SNIPER", 1, 100, h_hash=2, h=2)],
-        h_freeze=10, prover_valid={})
-    check("P13b 抢跑赢得冻结,但诚实方尚未证明 ⇒ 没有被烧掉的证明",
-          win["who"] == "SNIPER" and n == 1 and "HONEST" not in paid)
-    check("P13b2 抢跑者必须自己完成那次证明才拿得到报销(净额 ≈ 零)",
-          paid["SNIPER"] == C_FIXED and PROOF_COST >= paid["SNIPER"] - 1e-9)
+    # --- b) 【本轮回归】无效承诺不能买下连续期限 -------------------------------
+    # 4 个排名最高的承诺执行无效,1 个诚实承诺有效。绝对截止不因失败而延长。
+    attack = [K("BAD%d" % i, 9, 900, h=i) for i in range(4)] + [K("HONEST", 5, 500)]
+    fr, win, rej, el = run_round(attack, 10, {}, {"BAD%d" % i: False for i in range(4)}, {})
+    check("P13b 无效承诺占满冻结集: 全轮仍在同一个绝对截止内收盘,不产生连续期限",
+          win is None and el <= 10 and len(fr) == K_MAX)
+    check("P13b2 全轮耗时 = 单次证明时延,不随候选数增长(并行证明)", el == 1)
 
-    # --- c) 抢占(攻击者先提交)同样无处着力: 仍只有一次证明 -------------------
-    fr, win, n, forf, paid = run_window(
-        [K("ATTACKER", 1, 100, h_hash=9, h=1), K("HONEST", 1, 100, h_hash=2, h=2)],
-        h_freeze=10, prover_valid={})
-    check("P13c 抢占: 诚实方赢得冻结并获赔,攻击者的承诺不产生任何证明成本转嫁",
-          win["who"] == "HONEST" and n == 1 and paid == {"HONEST": C_FIXED})
+    # --- c) 结构性证明把谎报三元组挡在冻结之外 ---------------------------------
+    liars = [K("LIAR%d" % i, 99, 9900, h=i) for i in range(6)] + [K("HONEST", 5, 500)]
+    fr, win, rej, el = run_round(
+        liars, 10, {"LIAR%d" % i: False for i in range(6)}, {}, {})
+    check("P13c 谎报排序字段的承诺被结构性证明挡下,不进入冻结集",
+          len(rej) == 6 and win["who"] == "HONEST" and len(fr) == 1)
 
-    # --- d) 冻结赢家拿不出证明 ⇒ 没收 L_commit 并顺延到下一个承诺 --------------
-    fr, win, n, forf, paid = run_window(
-        [K("BAD", 9, 900, h_hash=1, h=1), K("GOOD", 9, 900, h_hash=2, h=2)],
-        h_freeze=10, prover_valid={"BAD": False})
-    check("P13d 冻结赢家无效: 没收其 L_commit,顺延到下一个承诺",
-          forf == {"BAD": L_COMMIT} and win["who"] == "GOOD" and n == 2)
+    # --- d) 冻结集上界 K 生效: 刷 20 个承诺只有前 K 个进入 ---------------------
+    spam = [K("EQ%d" % i, 1, 100, h=100 - i) for i in range(20)] + [K("HONEST", 1, 100, h=0)]
+    fr, win, rej, el = run_round(spam, 10, {}, {}, {})
+    check("P13d 刷 20 个承诺: 冻结集被 K 截断,影响被确定性限制而非计价",
+          len(fr) == K_MAX and win["who"] == "HONEST")
 
-    # --- e) 等价物刷承诺: 每个承诺都押 L_commit,且总证明数仍为 1 --------------
-    spam = [K("EQ", 1, 100, h_hash=100 - i, h=i) for i in range(20)]
-    fr, win, n, forf, paid = run_window(spam, h_freeze=50, prover_valid={})
-    check("P13e 刷 20 个承诺: 仍只委托一次证明,刷承诺无法转嫁证明成本",
-          len(fr) == 20 and n == 1 and sum(paid.values()) <= C_FIXED + 1e-9)
+    # --- e) 截止之后完成的证明不算数(绝对截止,不顺延) ------------------------
+    fr, win, rej, el = run_round([K("SLOW", 9, 900), K("FAST", 5, 500)], 10, {},
+                                 {}, {"SLOW": 99, "FAST": 3})
+    check("P13e 截止后完成的证明不计入: 取截止前已证明的排名最高者",
+          win["who"] == "FAST")
 
-    # --- f) 冻结之后到达的承诺不进入本窗口 ------------------------------------
-    fr, win, n, forf, paid = run_window(
-        [K("EARLY", 5, 500, h=1), K("LATE", 9, 900, h=99)], h_freeze=10, prover_valid={})
-    check("P13f 冻结高度之后的承诺不进入本窗口(顺序确定,不依赖到达时机)",
-          win["who"] == "EARLY" and len(fr) == 1)
+    # --- f) 无人在截止前证明 ⇒ 本轮到期,不是无限延长 --------------------------
+    fr, win, rej, el = run_round([K("A", 9, 900)], 10, {}, {"A": False}, {})
+    check("P13f 无人证明 ⇒ 本轮 EXPIRE,窗口不被无限延长", win is None)
 
-    # --- g) R_window_max 作为 min() 实际生效 ----------------------------------
-    fr, win, n, forf, paid = run_window([K("F", 9, 900)], h_freeze=10,
-                                        prover_valid={}, escrow=3)
-    check("P13g R_window_max/托管余额以 min() 实际封顶支付", paid["F"] == 3)
+    # --- g) 时序上界不随候选数增长 --------------------------------------------
+    T_COMMIT, P_PROVE_MAX, T_INCLUDE_MAX, MARGIN = 8, 20, 6, 4
+    t_fallback = T_COMMIT + P_PROVE_MAX + T_INCLUDE_MAX + MARGIN
+    check("P13g T_fallback ≥ T_commit + P_prove,max + T_include,max + margin,与 K 无关",
+          t_fallback == 38 and t_fallback > P_PROVE_MAX + T_INCLUDE_MAX)
 
 
 def test_p13b_escrow_ownership_and_wealth():
@@ -596,53 +590,71 @@ def test_p13b_escrow_ownership_and_wealth():
 
 
 def test_p14_exit_bond_release_is_state_dependent():
-    """§4.1: 解锁 = 状态条件 + δ_slash + 余量;有界性由【快照到期】提供,不是可转让凭证。
+    """§4.1/§4.3: 一个统一的解锁谓词,到期是历史块永久有效的【唯一】例外。
 
-    上一版用"可转让退出凭证"解决停摆期抵押被无限期锁住的问题。那是错的:
-    离场者可以先私下预签等价物,再在证据尚未公开时按接近面值把凭证卖掉,
-    然后放出冲突签名——买方承担罚没,而控制签名密钥的作恶者早已套现。
-    保证金于是不再威慑真正持有密钥的一方。而理性市场预期到这种逆向选择,
-    会把凭证折价到接近零,于是【威慑】与【流动性】两个目标同时落空。
-    修正:采用有界的窗口快照到期。陈旧未终局 slot 到期后确定性地成为 gap;
-    所有可接纳它们的窗口收盘 + δ_slash 之后释放保证金。代价是明确的:
-    足够长的停摆之后放弃陈旧预确认。外部凭证市场只能作为可选的、不受协议
-    信任的流动性手段来描述,不能当成协议层的解答。
+    上一版把"到期"和真正的解锁谓词分开测,于是散文里两条规则互相打架:
+    退出要求终局头越过【每一个】排班 slot,却又说停摆时到期可以释放保证金;
+    §4.3 同时宣称更早的 slot 永久有效。而 P14g 的断言是 bearer == "buyer" ——
+    那是【已被否决的】可转让凭证的结局,与该断言自己的名字正好相反,测试通过
+    却在断言反面。到期参数也只硬编码在模型里,没有进入参数表。
+
+    统一谓词:保证金解锁 ⟺
+      (1) 该 builder 的【每一个】排班 slot 都满足:已被窗口终局头越过,
+          或已在某个【已收盘】的快照中到期;
+      (2) 没有仍可接纳含该 slot 候选的窗口未收盘;
+      (3) 证据提交延迟 δ_slash + 余量已过。
+    到期资格在窗口开启时快照,H_slot_expire 是共识参数(已进入参数表)。
     """
-    DELTA_SLASH, MARGIN, EXPIRY = 64, 32, 4096
-    last_slot = 1000
+    DELTA_SLASH, MARGIN, H_SLOT_EXPIRE = 64, 32, 4096
 
-    def unlock(final_head, open_window_admits, since_met):
-        if final_head <= last_slot or open_window_admits:
+    def slot_settled(slot, final_head, now, snapshot_closed):
+        """(1) 被终局头越过,或在已收盘的快照中到期。"""
+        passed = final_head > slot
+        expired = (now - slot) > H_SLOT_EXPIRE and snapshot_closed
+        return passed or expired
+
+    def unlock(slots, final_head, now, snapshot_closed, open_window_admits, since_met):
+        if not all(slot_settled(s, final_head, now, snapshot_closed) for s in slots):
+            return False
+        if open_window_admits:
             return False
         return since_met >= DELTA_SLASH + MARGIN
 
-    check("P14a 终局头未越过最后排班 slot ⇒ 不解锁", not unlock(900, False, 10_000))
-    check("P14b 仍有窗口可接纳该 slot ⇒ 不解锁", not unlock(1200, True, 10_000))
+    SLOTS = [900, 1000]
+
+    check("P14a 终局头未越过且未到期 ⇒ 不解锁",
+          not unlock(SLOTS, 950, 1100, True, False, 10_000))
+    check("P14b 仍有窗口可接纳 ⇒ 不解锁",
+          not unlock(SLOTS, 1200, 1100, True, True, 10_000))
     check("P14c 状态条件满足但 δ_slash + 余量未过 ⇒ 不解锁",
-          not unlock(1200, False, DELTA_SLASH + MARGIN - 1))
-    check("P14d 三个合取项齐备 ⇒ 方可解锁", unlock(1200, False, DELTA_SLASH + MARGIN))
+          not unlock(SLOTS, 1200, 1100, True, False, DELTA_SLASH + MARGIN - 1))
+    check("P14d 三个合取项齐备 ⇒ 解锁",
+          unlock(SLOTS, 1200, 1100, True, False, DELTA_SLASH + MARGIN))
 
-    # --- e) 【本轮回归】可转让凭证会把罚没损失转嫁给买方 -----------------------
-    def transferable_claim(pre_signed_equivocation, sold_before_reveal):
-        """凭证转让后由谁承担罚没?"""
-        bearer = "buyer" if sold_before_reveal else "builder"
-        builder_cashed_out = sold_before_reveal
-        return bearer, builder_cashed_out
-    bearer, cashed = transferable_claim(True, True)
-    check("P14e 可转让凭证: 作恶者先套现、买方承担罚没 ⇒ 保证金不再威慑密钥持有者",
-          bearer == "buyer" and cashed is True)
+    # --- e) 停摆:终局头不动,但到期在【已收盘】快照中生效 ⇒ 有界释放 ----------
+    stalled_head, long_after = 800, max(SLOTS) + H_SLOT_EXPIRE + 1   # 以【最晚】的排班 slot 为准
+    check("P14e 停摆时终局头不动,但快照到期使解锁有界(不再无限期锁住)",
+          not unlock(SLOTS, stalled_head, 1100, True, False, 10_000)
+          and unlock(SLOTS, stalled_head, long_after, True, False, DELTA_SLASH + MARGIN))
 
-    # --- f) 有界快照到期:陈旧 slot 成为 gap,罚没归属不变 ---------------------
-    def expired(slot_age): return slot_age > EXPIRY
-    def bond_releases(slot_age, all_windows_closed, since_close):
-        return (expired(slot_age) and all_windows_closed
-                and since_close >= DELTA_SLASH)
-    check("P14f 快照到期: 陈旧 slot 成为 gap,窗口收盘 + δ_slash 后释放保证金",
-          expired(5000) and not expired(100)
-          and bond_releases(5000, True, DELTA_SLASH)
-          and not bond_releases(5000, False, DELTA_SLASH))
-    check("P14g 到期方案下罚没始终由持有签名密钥的一方承担(无转嫁)",
-          bond_releases(5000, True, DELTA_SLASH) and bearer == "buyer")
+    # --- f) 到期资格必须在【已收盘】的快照中,未收盘不算 -----------------------
+    check("P14f 到期资格只在已收盘的快照中生效,未收盘不得据以解锁",
+          not unlock(SLOTS, stalled_head, long_after, False, False, 10_000))
+
+    # --- g) 【本轮修正】到期是历史块永久有效的唯一例外;罚没归属不转移 --------
+    # 上一版这里断言 bearer == "buyer",即可转让凭证的结局,与名字相反。
+    def historical_block_valid(slot, now, snapshot_closed):
+        """§4.3: 早于生效 slot 的块永久有效 —— 除非它已在已收盘快照中到期。"""
+        return not ((now - slot) > H_SLOT_EXPIRE and snapshot_closed)
+    check("P14g 到期是历史块永久有效的唯一例外(未到期仍永久有效)",
+          historical_block_valid(1000, 1100, True)
+          and not historical_block_valid(1000, 1000 + H_SLOT_EXPIRE + 1, True))
+    def slash_bearer(exit_scheme):
+        """凭证可转让 ⇒ 买方承担;到期方案 ⇒ 始终是签名密钥持有者。"""
+        return "buyer" if exit_scheme == "transferable_claim" else "key_holder"
+    check("P14h 到期方案下罚没始终由签名密钥持有者承担(可转让凭证则转嫁给买方)",
+          slash_bearer("snapshot_expiry") == "key_holder"
+          and slash_bearer("transferable_claim") == "buyer")
 
 
 def test_p15_reward_pot_disjoint_from_penalty_pot():

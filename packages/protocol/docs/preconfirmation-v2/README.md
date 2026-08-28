@@ -9,7 +9,7 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column, 62 pages, 9 figures. This is the artifact to read and to circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, the slot-based slashing gate, the two-phase fallback window, the state-dependent exit release with bounded snapshot expiry, and the disjointness of the reward escrow from the penalty bond. 48 property assertions (Appendix C). |
+| [`settlement-window-model.py`](settlement-window-model.py) | Executable reference model of the settlement window: the total-order key of §5.2, the window state machine of §5.6, cursor arithmetic and gas shares, the timing geometry, the slot-based slashing gate, the bounded two-phase fallback state machine, the unified exit-release predicate with snapshot expiry, and the disjointness of the reward escrow from the penalty bond. 49 property assertions (Appendix C). |
 | [`lookahead-model.py`](lookahead-model.py) | Executable reference implementation of the lookahead of §3.2: window alignment, snapshot uniqueness, seed derivation and weighted sampling. 6 property assertions. |
 
 ## Building the PDF
@@ -31,7 +31,7 @@ only 1.4 — which includes a good deal of e-reader firmware — report such a f
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 48 assertions
+python3 settlement-window-model.py   # 49 assertions
 python3 lookahead-model.py           #  6 assertions
 ```
 
