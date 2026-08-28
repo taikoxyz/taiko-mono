@@ -61,6 +61,7 @@ D_MANIFEST_LEAF = b"slot-chain-manifest-leaf-v1"
 D_MANIFEST_NODE = b"slot-chain-manifest-node-v1"
 D_MANIFEST_ROOT = b"slot-chain-manifest-root-v1"
 D_DISPOSITIONS = b"slot-chain-dispositions-v1"
+D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v1"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
@@ -537,15 +538,27 @@ def dispositions(start: int, rows: tuple[tuple[int, int, int, bytes], ...]) -> b
     return keccak256(D_DISPOSITIONS + u64(start) + u64(end) + u16(len(rows)) + payload)
 
 
+def bridge_credit_result(index: int, envelope: BridgeEnvelope) -> bytes:
+    return keccak256(
+        D_BRIDGE_RESULT + u64(index) + b32(envelope.msg_hash)
+        + u256(envelope.src_chain_id) + u256(envelope.dest_chain_id)
+        + address20(envelope.src_owner) + address20(envelope.dest_owner)
+        + u256(envelope.value) + b32(envelope.calldata_hash) + b32(envelope.escrow_id)
+    )
+
+
 def canonical_disposition(code: int, tx_index: int, result_hash: bytes,
-                          raw_tx: bytes | None = None) -> bool:
+                          raw_tx: bytes | None = None,
+                          expected_bridge_result: bytes | None = None) -> bool:
     if code in range(4):
         return tx_index == UINT32_MAX and result_hash == bytes(32) and raw_tx is None
     if code == 4:
         return (tx_index != UINT32_MAX and raw_tx is not None
                 and result_hash == keccak256(raw_tx))
     if code == 5:
-        return tx_index == UINT32_MAX and result_hash != bytes(32) and raw_tx is None
+        return (tx_index == UINT32_MAX and raw_tx is None
+                and expected_bridge_result is not None
+                and result_hash == expected_bridge_result)
     return False
 
 
@@ -726,6 +739,7 @@ def vectors() -> dict[str, str]:
         "tranche_leaf": tranche.hex(),
         "forced_leaf": force_leaves[0].hex(),
         "bridge_leaf": bridge_hash.hex(),
+        "bridge_result": bridge_credit_result(70, bridge).hex(),
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
@@ -770,6 +784,7 @@ EXPECTED = {
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
     "bridge_leaf": "f8ada74e7f3bc2dcecc50c13411a265b97b7fc6550391760da4d2fe916fc1226",
+    "bridge_result": "ab9a3282875222b07a9e91fd1858b055f73a7fca873146a0aba9f95edc38ecf0",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -829,6 +844,16 @@ if __name__ == "__main__":
     assert canonical_disposition(0, UINT32_MAX, bytes(32))
     assert not canonical_disposition(0, 2, bytes(32))
     assert not canonical_disposition(6, UINT32_MAX, bytes(32))
+    bridge = BridgeEnvelope(
+        bytes.fromhex("21" * 32), 1, 16_788, 0x1111, 0x2222, 10**18,
+        bytes.fromhex("22" * 32), bytes.fromhex("23" * 32), 96, 120_000,
+        0xBEEF, 700, 2_200, 10**16,
+    )
+    bridge_result = bridge_credit_result(70, bridge)
+    assert canonical_disposition(5, UINT32_MAX, bridge_result,
+                                 expected_bridge_result=bridge_result)
+    assert not canonical_disposition(5, UINT32_MAX, bytes.fromhex("44" * 32),
+                                     expected_bridge_result=bridge_result)
 
     sid = bytes.fromhex(actual["session_id"])
     root = bytes.fromhex(actual["body_root"])
@@ -836,6 +861,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 56 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 59 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

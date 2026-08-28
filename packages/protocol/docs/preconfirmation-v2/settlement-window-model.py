@@ -58,6 +58,9 @@ DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
 UINT64_MAX = (1 << 64) - 1
 G_MAX = DELTA_FINAL_LAG
+MAX_ARM_AGE_BLOCKS = 255
+EIP2935_HISTORY_ENTRIES = 8_191
+L1_SLOT_SECONDS = 12
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -380,6 +383,7 @@ class Protocol:
     gc_cursor: int = 0
     events: list[str] = field(default_factory=list)
     boundary_queries: int = 0
+    canonical_witness_available: bool = True
 
     @property
     def core(self) -> CanonicalCore:
@@ -439,8 +443,14 @@ class Protocol:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
-        if self.mode is not Mode.NORMAL or self.normal_arm_block_number is not None:
+        if self.mode is not Mode.NORMAL:
             return "IGNORED"
+        if self.normal_arm_block_number is not None:
+            if clock.block_number <= self.normal_arm_block_number + MAX_ARM_AGE_BLOCKS:
+                return "IGNORED"
+            self.normal_arm_block_number = clock.block_number
+            self.events.append(f"NORMAL_REARMED:{clock.block_number}")
+            return "REARMED"
         self.normal_arm_block_number = clock.block_number
         self.events.append(f"NORMAL_ARMED:{clock.block_number}")
         return "ARMED"
@@ -452,7 +462,7 @@ class Protocol:
             return "SYNCED"
         armed = self.normal_arm_block_number
         if (self.mode is not Mode.NORMAL or armed is None
-                or not armed < clock.block_number <= armed + 255):
+                or not armed < clock.block_number <= armed + MAX_ARM_AGE_BLOCKS):
             return "REJECTED"
         header = self.history[armed]
         self.normal_deadline = clock.timestamp + W_SETTLE_SECONDS
@@ -678,7 +688,8 @@ class Protocol:
                 and block.force_cutoff == self.recovery.force_cutoff)
 
     def _validate_common(self, candidate: Candidate, clock: Clock, min_slot: int) -> bool:
-        if (not candidate.proof_ok or not candidate.force_range_proof_ok
+        if (not self.canonical_witness_available
+                or not candidate.proof_ok or not candidate.force_range_proof_ok
                 or candidate.base_canonical_hash != self.canonical.base_hash
                 or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
                 or candidate.end_l2_block_number
@@ -1017,6 +1028,9 @@ def test_admission_freeze_and_tier_canonicalization() -> None:
     assert stale_arm.arm_normal_context(clock(100, 100)) == "ARMED"
     check("P11d arm hash must remain natively readable",
           stale_arm.activate_normal_context(clock(356, 356)) == "REJECTED")
+    check("P11e stale arm is permissionlessly replaced",
+          stale_arm.arm_normal_context(clock(356, 356)) == "REARMED"
+          and stale_arm.normal_arm_block_number == 356)
 
 
 def test_force_merkle_bounds_and_auth() -> None:
@@ -1082,11 +1096,26 @@ def test_late_close_and_constant_boundary() -> None:
           old_anchor.submit(omitted, submit_at) == "REJECTED")
 
     gap = protocol(tip_slot=100)
-    gap_clock = clock(200, 200)
+    gap_clock = clock(200, 100 + G_MAX)
     activate_normal(gap, gap_clock)
-    too_wide = candidate(gap, gap_clock, "wide-gap", slot=100 + G_MAX + 1)
-    check("P26a tier-1 parent gap is enforced",
-          gap.submit(too_wide, gap_clock) == "REJECTED")
+    exact_gap = candidate(gap, gap_clock, "exact-gap", slot=100 + G_MAX)
+    check("P26a exact tier-1 parent gap is accepted",
+          gap.submit(exact_gap, gap_clock) == "ACCEPTED")
+    beyond = protocol(tip_slot=100)
+    assert beyond.arm_normal_context(clock(199, 100 + G_MAX - 12)) == "ARMED"
+    check("P26aa gap beyond G_MAX objectively enters recovery",
+          beyond.activate_normal_context(clock(200, 100 + G_MAX + 1)) == "SYNCED"
+          and beyond.mode is Mode.RECOVERY)
+    evidence_path_blocks = (
+        MAX_ARM_AGE_BLOCKS
+        + (W_SETTLE_SECONDS + CLOCK_SKEW + 384 + EVIDENCE_DELAY_SECONDS
+           + REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1) // L1_SLOT_SECONDS
+        + 2
+    )
+    check("P26ab G_MAX and EIP-2935 geometries are pinned",
+          G_MAX == DELTA_FINAL_LAG
+          and (G_MAX + CLOCK_SKEW + 383) // 384 <= MAX_WINDOWS_PER_CANDIDATE
+          and evidence_path_blocks < EIP2935_HISTORY_ENTRIES)
 
     lost = replace(message(0, "lost"), payload_available=False,
                    valid_until=GENESIS_TIMESTAMP + 10)
@@ -1122,6 +1151,10 @@ def test_recovery_refresh_and_historical_immutability() -> None:
     fresh_clock = recovery_submit_clock(p)
     check("P33 stale proof rejects", p.submit(old, fresh_clock) == "REJECTED")
     fresh = escape_candidate(p, fresh_clock, "fresh")
+    p.canonical_witness_available = False
+    check("P33a a state root alone cannot reconstruct a lost prestate",
+          p.submit(fresh, fresh_clock) == "REJECTED")
+    p.canonical_witness_available = True
     check("P34 current deterministic target commits", p.submit(fresh, fresh_clock) == "COMMITTED")
 
     stale = protocol(seat=False)

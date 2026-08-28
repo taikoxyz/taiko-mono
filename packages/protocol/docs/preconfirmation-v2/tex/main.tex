@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Production Design Candidate --- v2.6}
+\large\mdseries Production Design Candidate --- v2.7}
 \author{}
 \date{August 2026}
 \maketitle
@@ -79,8 +79,9 @@ parent-linked blocks off chain; any party can prove and submit a batch to L1.
 Normal candidates compete for a fixed settlement interval.  After an objective
 finality breach, or when a forced L1 message becomes due, anyone can prove an
 unsigned deterministic escape block.  Recovery is an episode of renewable,
-objectively expiring rounds, so a prover outage cannot make its target stale
-forever.  This revision separates proved outputs from L1 close metadata,
+objectively expiring rounds, so a prover outage does not make its target stale;
+as with every validity rollup, producing the next proof still requires a
+reconstructible canonical prestate.  This revision separates proved outputs from L1 close metadata,
 replaces the unauthenticatable queue hash chain with a range-provable Merkle
 vector, makes forced-message execution Ethereum-valid, and specifies bounded
 admission, data, reward and migration state.  It is an implementation
@@ -100,8 +101,8 @@ the disagreement is resolved; neither source silently overrides the other.
 
 \subsection{Claims}
 
-Subject to L1 safety/liveness and a sound validity-proof system, the protocol
-claims:
+Subject to L1 safety/liveness, a sound validity-proof system, and availability
+of a canonical prestate reconstruction package as defined below, the protocol claims:
 
 \begin{enumerate}
 \item \textbf{Finalized-state safety.} L1 accepts only a proved state transition
@@ -109,7 +110,8 @@ claims:
   for execution validity.
 \item \textbf{Bounded protocol recovery.} A builder cartel, an absent
   aggregator, an empty builder registry, and missing standbys cannot prevent an
-  unsigned escape candidate from advancing the canonical state.
+  unsigned escape candidate from advancing the canonical state while the
+  canonical prestate and any unexpired forced bytes remain reconstructible.
 \item \textbf{Forced transaction inclusion.} A correctly prepaid L1 envelope
   at the queue head is consumed by the next canonical block after it becomes
   due; kind 0 is executed if valid bytes are supplied before its bounded
@@ -138,6 +140,11 @@ claims:
   A payment failure never invalidates an otherwise valid canonical transition.
 \item Censorship by L1 for longer than \code{T_INCLUDE_MAX_SECONDS}, failure of L1
   finality, or a broken proof system is outside the model.
+\item A state root is a binding commitment, not an erasure code.  If every copy
+  of the canonical state trie, executed bodies and required witness data is
+  destroyed after Ethereum's applicable data-retention horizon, a new prover
+  cannot reconstruct the preimage from L1 roots.  Arbitrary-duration recovery
+  after total canonical-data loss is therefore not claimed.
 \end{itemize}
 
 \section{Actors and trust model}\label{sec:trust}
@@ -150,6 +157,11 @@ submit normal candidates.  It has no exclusive consensus authority.
 \item[Prover/lander.] Any address.  It supplies a validity proof and names an
 optional reward beneficiary in the proof statement.  Proof validity, not
 identity, authorizes transition.
+\item[Canonical archive.] Any untrusted, replaceable source of canonical L2
+bodies and state-trie nodes sufficient to reconstruct the current prestate.
+Content is verified against the L1-canonical block/state roots, so correctness
+does not require trusting the source; liveness requires at least one complete
+copy to remain reachable.
 \item[Forced-message sender.] Any L1 account that submits a gas-bounded,
 prepaid L2 transaction envelope.
 \item[L1.] Ethereum provides canonical ordering, timestamps, EIP-4788 beacon
@@ -163,6 +175,10 @@ lane provides state and forced-queue progress when all of them collude.
 The L1-liveness assumption includes transaction inclusion and at least 64
 canonical L1 blocks becoming available within \code{T_DEPTH_MAX=900 s}; a
 longer L1 stall suspends, rather than violates, the L2 recovery clock.
+Archive operators have no protocol key, seat or exclusive API.  Anyone may
+mirror or serve the same content-addressed data.  This is an availability
+assumption, not an authority assumption; it limits long-horizon cold-start
+recovery but does not weaken proof soundness or permissionless submission.
 
 \section{Clock domains and canonical state}\label{sec:state}
 
@@ -524,7 +540,8 @@ under the normal window's frozen
 increase, each slot is no later than \code{currentL2Slot + CLOCK_SKEW}, and the
 first slot strictly exceeds the canonical base slot.  Every block is at or
 above the window's frozen \code{minAdmissibleSlot}; parent gaps are at most
-\code{G_MAX=64}.
+\code{G_MAX=3,600}, equal to the objective final-lag trigger and within the
+12-window schedule-proof cap.
 \item \textbf{Recovery signed.} The first block extends the L1-final canonical
 tuple, binds the active episode and current recovery revision, and may cross an
 unbounded time gap.  Every block still requires its scheduled builder signature
@@ -710,6 +727,27 @@ tree in Appendix~\ref{sec:encodings}, not a free-form publisher value.
 Data publication has no consensus-coupled reimbursement.  A separate service
 may pay it, but empty payment state cannot revert canonical settlement.
 
+\subsection{Canonical reconstruction availability}
+
+Blob sessions make an in-flight candidate provable; their TTL and garbage
+collection are not permanent state archival.  On canonical commit, full nodes
+must retain the canonical raw bodies, receipts and Ethereum trie nodes needed
+to reconstruct \code{CanonicalCore.stateRoot}.  A reconstruction package is a
+content-addressed set of those objects plus the canonical block headers.  A
+consumer rejects any object whose transaction/body/header hash, trie path or
+final state root disagrees with the L1-canonical commitments, so an archive can
+be anonymous and malicious without gaining safety authority.
+
+Renewing a recovery round refreshes its L1 anchor, queue cutoff and proof
+target; it cannot invert a state root or recreate destroyed bytes.  Therefore
+the 2,164-second protocol bound begins only once a prover has the canonical
+reconstruction package and any required unexpired kind-0 bytes.  A warm full
+node satisfies this condition; a cold-start prover is bounded by data download
+plus proof time while at least one archive or Ethereum's applicable DA history
+still serves the package.  If no complete copy exists, safety remains intact
+but progress stops.  No governance action may replace the state root, skip the
+missing prestate, or call that condition a builder failure.
+
 \section{Settlement and recovery state machine}\label{sec:machine}
 
 \begin{figure}[htbp]
@@ -739,16 +777,21 @@ Normal context creation is two-phase.  Anyone calls \code{armNormalContext()}
 in \code{NORMAL\_IDLE}; the call begins with \code{sync()}, stores only
 \code{armBlockNumber=block.number}, and emits \code{NormalContextArmed}.  It
 accepts no caller-supplied anchor or hash.  In a later L1 block anyone calls
-\code{activateNormalContext()}.  It again begins with \code{sync()}, requires
-\code{block.number>armBlockNumber} and no more than 255 intervening blocks,
+\code{activateNormalContext()}.  It again begins with \code{sync()} and requires
+the arm's block-number age to be from 1 through
+\code{MAX_ARM_AGE_BLOCKS} (255),
 reads \code{armBlockHash=blockhash(armBlockNumber)}, and hashes a supplied RLP
 header to that value.  It then freezes \code{baseCanonical},
 \code{deadline=block.timestamp+W_SETTLE_SECONDS},
 \code{minAdmissibleSlot=max(0,currentL2Slot-DELTA_TIP)}, the current stable
 \code{(admissionVersion,admissionRoot)}, the arm header fields, and
 \code{requiredThrough=deadline+T_INCLUDE_MAX_SECONDS}.  It derives the sole
-normal \code{contextId} and emits \code{NormalContextActivated}.  A stale arm
-may only be discarded and re-armed; no candidate is accepted while armed.
+normal \code{contextId} and emits \code{NormalContextActivated}.  No candidate
+is accepted while armed.  If age exceeds 255 blocks, any caller may invoke
+\code{armNormalContext()} again; after its leading \code{sync()} it atomically
+replaces only the stale arm number with the current block, emits
+\code{NormalContextRearmed}, and returns \code{REARMED}.  A nonstale arm cannot
+be replaced.  Thus an abandoned arm cannot suppress normal operation.
 
 Builders collect and issue tier-1 signatures only after the activation event.
 The execution anchor for every candidate is the exact arm block, whose hash and
@@ -989,8 +1032,15 @@ Ethereum transaction index; \code{resultHash} is legacy Keccak-256 of the raw
 signed EIP-2718 transaction bytes.  This ordinary Ethereum transaction hash is
 known before execution.  It is
 deliberately not a receipt hash: putting a later receipt hash in the earlier
-InboxApply calldata would create a fixed point through cumulative gas.  Code 5 requires
-\code{txIndex=UINT32_MAX} and the durable credit/result hash.  Unknown codes or
+InboxApply calldata would create a fixed point through cumulative gas.  Code 5
+requires \code{txIndex=UINT32_MAX} and this exact durable credit hash:
+\begin{verbatim}
+H("slot-chain-bridge-credit-result-v1" || u64(queueIndex) || msgHash ||
+  u256(srcChainId) || u256(destChainId) || address20(srcOwner) ||
+  address20(destOwner) || u256(value) || calldataHash || escrowId)
+\end{verbatim}
+InboxApply recomputes it from the authenticated descriptor before calling the
+idempotent SignalService entry point.  Unknown codes or
 noncanonical auxiliary fields reject.
 
 The AnchorV4 and InboxApply sender addresses are reserved.  The circuit requires
@@ -1159,6 +1209,7 @@ Builder equivocation & Competing signed branches; one may win normal order. & Di
 Builder skips/withholds body & Honest tail may be unprovable or omitted. & Not objectively slashable; eventual escape restores state progress but may revoke promises. \\
 Data-session spam & Sessions are publisher-owned and bonded. & Attacker fills only its session; escape uses no blob session. \\
 Missing/pruned kind-0 bytes & Unexpired head waits; after validity it is consumed as EXPIRED\_NO\_TX from its durable descriptor. & Adds at most seven days; kind-1 credit data is durable state. \\
+All canonical prestate copies lost & No party can construct the next EVM witness from a root alone; proof generation stops without changing canonical state. & Explicit information-theoretic availability limit; restore any root-verifiable archive copy. \\
 Transparent-mempool front-run & First valid recovery transaction wins. & Proof statement binds beneficiary, episode, revision and outputs; copying cannot redirect payment or state. \\
 Payment-vault exhaustion & Claim is zero or partial. & Never blocks safety or canonical liveness; economic liveness is conditional. \\
 L1 reorg within policy & Contract state, burns and claims roll back together. & Clients replay canonical logs and proofs against new version/hash. \\
@@ -1210,6 +1261,11 @@ to \code{uint48}, and writes exactly
 proofs but cannot affect canonical settlement; anyone may catch it up in one
 O(1) call to the latest core.
 \end{itemize}
+
+The non-authoritative \code{CanonicalArchive} is independently mirrored
+off-chain canonical bodies, receipts and state-trie nodes indexed by canonical
+block and state root.  Every object is root-verifiable; no archive address,
+signature or availability vote appears in Settlement or the verifier statement.
 
 All setters enforce parameter inequalities atomically and are disabled after
 the launch freeze except through the existing delayed governance path.  Every
@@ -1316,9 +1372,14 @@ proposal ID plus one, the old core's finalized block-hash field, an empty native
 forced queue and no unsettled
 escrow.  The caller supplies the canonical RLP of that final L2 header and
 fixed-depth MPT account/storage proofs under its state root for the exact
-AnchorV4, InboxApply and SignalService runtime code hashes, InboxApply one-shot
-initial state, and SignalService authorized-caller slot.  Every value must equal
-the immutable execution profile.
+AnchorV4, InboxApply and SignalService proxy/fork-router runtime code hashes;
+every EIP-1967 implementation/beacon slot and profile-defined fork-selector
+slot; the selected implementation accounts' runtime code hashes (which commit
+constructor immutables); InboxApply one-shot initial state; and SignalService
+authorized-caller storage.  The proof follows the exact proxy/router topology
+encoded in the profile and rejects an unlisted hop, delegate target or mutable
+beacon.  Every terminal implementation and value must equal the immutable
+execution profile.
 The adapter requires its hash to equal that stored finalized hash, its
 \code{number <= UINT48_MAX}, and the legacy SignalService checkpoint at that
 exact number to equal its block hash and state root.  This binds the height and
@@ -1385,8 +1446,8 @@ Body chunks & 9 / 1,142,748 B & Per-body chunks / maximum discretionary bytes. \
 \code{DATA_TTL} & 86,400 s & Greater than candidate, settlement, proof and reorg path. \\
 \code{REORG_MARGIN}, \code{EVIDENCE_DELAY} & 1,800 / 86,400 s & Data resubmission and finite liability retention. \\
 Live windows / sessions & 268 / 1,024 & Fixed rings with safe-eviction predicates and bounded GC. \\
-EIP history & 8,191 entries &
-$\lceil(W_{settle}+CLOCK\_SKEW+384+EVIDENCE\_DELAY+REORG\_MARGIN)/12\rceil+2<8,191$;
+EIP history / max arm age & 8,191 / 255 blocks &
+$255+\lceil(W_{settle}+CLOCK\_SKEW+384+EVIDENCE\_DELAY+REORG\_MARGIN)/12\rceil+2<8,191$;
 greater than every normal-context evidence and schedule path. \\
 \bottomrule
 \end{xltabular}
@@ -1420,10 +1481,14 @@ Appendix~\ref{app:models} remain green.
 \item \textbf{Economics.} Auction bond, per-window tranche, forced-envelope
 deposit, storage bond and proof credits are calibrated under blob/L1 fee spikes.
 The published liveness claim explicitly becomes conditional above fee caps.
-\item \textbf{Operations.} At least two independent prover stacks, public data
-session mirrors, schedule sealers and recovery bots complete a shadow-fork
-outage exercise.  The exercise removes every builder and seat, forces a user
-transaction, reorgs the first recovery attempt, and still reaches finality.
+\item \textbf{Operations.} At least two independent prover stacks and three
+independently administered canonical archives, plus public data-session
+mirrors, schedule sealers and recovery bots, complete a shadow-fork outage
+exercise.  One archive serves a clean node from only the latest finalized
+package while the other two are removed.  The exercise also removes every
+builder and seat, forces a user transaction, reorgs the first recovery attempt,
+and still reaches finality.  Loss and restore drills verify that unavailable
+prestate is never misreported as bounded recovery.
 \item \textbf{External review.} Separate proof-system, Solidity, bridge and
 economic audits close all critical/high findings; the migration rehearsal and
 emergency governance path are in scope.
@@ -1641,6 +1706,7 @@ registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
 admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
+bridgeResult  ab9a3282875222b07a9e91fd1858b055f73a7fca873146a0aba9f95edc38ecf0
 manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 normalContext 441dee77fdcd856bfb41504fdcbcbd97de481a881e53017a5983d1210f6d22a8
 migrationData 916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399
@@ -1659,6 +1725,11 @@ Every external candidate entry point implements the following structure:
 function armNormalContext() returns (Status) {
     if (mode == PREACTIVE) return REJECTED_PREACTIVE;
     if (sync()) return SYNCED;
+    if (mode == NORMAL_ARMED && block.number > armBlockNumber + 255) {
+        armBlockNumber = block.number;
+        emit NormalContextRearmed(armBlockNumber);
+        return REARMED;
+    }
     if (mode != NORMAL_IDLE) return IGNORED;
     armBlockNumber = block.number; // no caller-selected hash or anchor
     mode = NORMAL_ARMED;
@@ -1753,7 +1824,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 95 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 99 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -1761,7 +1832,7 @@ replacement/liability generations, tranche release units, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 56 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 59 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors/vector/range proofs, session MMR, per-block manifest,
 dispositions, recovery ID, Fiat--Shamir input, body chunks and blob codec.  The
