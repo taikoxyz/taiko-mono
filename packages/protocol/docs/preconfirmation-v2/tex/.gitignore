@@ -1,11 +1,8 @@
-# 入库：figures.tex（手写 TikZ 图源）与 main.tex（由 build-pdf.py 生成的论文源）。
-# main.tex 是生成物但一并入库，便于不装生成器也能直接编译/审阅；
-# 用 `python3 build-pdf.py --check` 校验它与 markdown 是否漂移。
+# Tracked: main.tex (the specification source) and figures.tex (hand-written TikZ).
+# Build with three xelatex passes; the resulting main.pdf is copied to
+# ../slot-chain-spec.pdf, which is the published artifact.
 *.aux
 *.log
 *.out
 *.toc
 *.pdf
-measure.*
-test-figures.*
-tw.*

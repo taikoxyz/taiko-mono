@@ -13,11 +13,11 @@ import hashlib
 # 参数（§3.2 / 参数总表）
 # ---------------------------------------------------------------------------
 L1_PER_L2 = 12            # 1 个 L1 slot(12s) = 12 个 L2 slot(1s)
-W_SIZE = 768              # 排班窗口 = 768 个 L2 slot（两个 L2 epoch；固定对齐分区）
+W_SIZE = 384              # 排班窗口 = 384 个 L2 slot（一个 epoch；固定对齐分区）
 H_LOOK = 768              # 前瞻视界：任一时刻至少未来 H_LOOK 个 slot 排班已定
 L1_EPOCH = 32             # 每 L1 epoch 的 L1 slot 数
 F_FINAL_L1 = 2 * L1_EPOCH # L1 最终性距离（≈2 epoch）
-D_SNAP_L1 = 5 * L1_EPOCH  # 快照延迟；设置器不变量 D_snap ≥ H_look/12 + F_final + 余量 (r8-1)
+D_SNAP_L1 = 5 * L1_EPOCH  # 快照延迟；设置器不变量 D_snap ≥ H_look/12 + F_final + 余量
 W_MAX = 0.20              # 单地址有效权重上限（运维卫生，防不了女巫，§3.2 诚实定性）
 GENESIS_L1 = 10_000       # 创世时 L2 slot 0 对应的 L1 slot（示例值）
 
@@ -36,7 +36,7 @@ def h(*xs) -> int:
 # ---------------------------------------------------------------------------
 def window_of(slot: int) -> int:
     # 固定对齐分区：W(slot) = floor(slot / W_size)。
-    # 不是滑动视界——同一 slot 在所有时刻、对所有观察者映射到同一窗口 (r10-5)。
+    # 不是滑动视界——同一 slot 在所有时刻、对所有观察者映射到同一窗口 。
     return slot // W_SIZE
 
 
@@ -47,14 +47,14 @@ def l1_slot_of(l2_slot: int) -> int:
 
 def snapshot_height(w: int) -> int:
     # 唯一快照高度：窗口起点对应的 L1 slot 减 D_snap。
-    # D_snap ≥ H_look + F_final + 余量 ⇒ 排班被使用前快照已 L1 最终化，
-    # 种子与注册表都不受 L1 重组影响 (r8-1)。
+    # D_snap ≥ H_look/12 + F_final + 余量 ⇒ 排班被使用前快照已 L1 最终化，
+    # 种子与注册表都不受 L1 重组影响 。
     return l1_slot_of(w * W_SIZE) - D_SNAP_L1
 
 
 def seed(w: int, l1_randao) -> int:
     # 种子：快照高度所在 L1 epoch 的 RANDAO（EIP-4788 信标根电路内可证）。
-    # 种子按窗口取一次、不按 slot 取——窗口内所有 slot 共享同一熵源 (r7-1)。
+    # 种子按窗口取一次、不按 slot 取——窗口内所有 slot 共享同一熵源 。
     return h("seed", l1_randao(snapshot_height(w)))
 
 
@@ -87,7 +87,7 @@ def weighted_pick(registry: dict, r: int) -> str:
 
 def lookahead(slot: int, l1_registry, l1_randao) -> str:
     # lookahead(slot) = 抽签(hash(seed(窗口), slot), 注册表快照(窗口))。
-    # 注册表快照与种子取同一高度 snapshot_height(w)（r1-9 唯一性）。
+    # 注册表快照与种子取同一高度 snapshot_height(w)。
     w = window_of(slot)
     reg = l1_registry(snapshot_height(w))
     r = h(seed(w, l1_randao), slot)          # slot 间差异由 hash 派生，无需逐 slot 熵
@@ -135,7 +135,7 @@ def test_l4_snapshot_finality_geometry():
         far = t + H_LOOK
         ok &= snapshot_height(window_of(far)) <= l1_now - F_FINAL_L1
     check("L4 前瞻几何：未来 H_look 内任意 slot 的快照已 L1 最终化"
-          "（D_snap ≥ H_look + F_final + 余量）", ok)
+          "（D_snap ≥ H_look/12 + F_final + 余量）", ok)
 
 
 def test_l5_weight_cap_and_proportionality():

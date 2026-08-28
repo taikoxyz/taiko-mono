@@ -2,24 +2,24 @@
 """
 Slot-Chain §5.6 结算窗口(settlement window)可执行参考模型 + 性质测试。
 
-对应规范: slot-chain-spec.md 草案 v1.51,附录 C。
+对应规范: slot-chain-spec.pdf 附录 C。
 目的: 满足 §12 第 18 项"实现前的门"的前半——把窗口状态机与最优链全序写成
-可执行伪代码,并用性质测试验证独立审核第 5 轮列出的全部不变量:
+可执行伪代码,并用性质测试验证
   P1  全序性质: 反自反、完全、传递(含第 5 轮严重 1 的 A/B/C 环已消解)
   P2  收盘赢家与候选提交顺序无关
   P3  双候选取代: 消息队列非空时,provisional 不改 canonical,
       收盘恰好提交赢家终局一次,无重复消费
-  P4  【已退役 v1.51】lane 洗白抵抗——强制包含删除后不再有仅强制块,
+  P4  【已退役】lane 洗白抵抗——强制包含删除后不再有仅强制块,
       lane 恒为同值、已从全序 key 中删去,该性质无对象
   P5  lazy close: 收盘时点后处理不改变赢家(窗口态是 L1 历史纯函数)
   P6  L1 重组: 同一 L1 历史重放得到同一窗口态;重组截断后重放一致
   P7  共享 gas 预算下不存在"无合法块"死锁; 双约束最大前缀确定且守上限
-      (r44: 含非创世游标基线;v1.51 起只剩 L1->L2 消息一条队列)
-  P8  【已退役 v1.51】桥接队列饿死抵抗 (C_bridge 保留)——强制双队列已删除
-  P9  设置器不变量在独立声明的部署值间互检(r46 非空化)与因果序(§8;门后半)
+      
+  P8  【已退役】桥接队列饿死抵抗 (C_bridge 保留)——强制双队列已删除
+  P9  设置器不变量在独立声明的部署值间互检与因果序(§8;门后半)
   P10 罚没生效按候选落地时点判定(§4.3;门后半)
   P11 兜底资格快照保持到窗口收盘(§6.3 Δ_lag_final;门后半)
-  P12 窗口中途入队: 队列 append-only 按序号引用,基线只冻结游标/状态(r46)
+  P12 窗口中途入队: 队列 append-only 按序号引用,基线只冻结游标/状态
 
 运行:  python3 settlement-window-model.py   (零依赖,全部断言通过则打印 RESULTS)
 注意: 这是【模型】——签名/证明/执行以布尔占位,只精确建模本设计新增的
@@ -36,28 +36,28 @@ from typing import Optional
 # ----------------------------------------------------------------------------
 # 参数 (共识常量,数值为测试用;设置器不变量见规范 §12)
 # ----------------------------------------------------------------------------
-# v1.51 删除强制包含后,块内只剩一条被强制消费的队列: L1->L2 入站消息。
+# 本设计无强制包含,块内只剩一条被强制消费的队列: L1->L2 入站消息。
 # C_FORCE/C_BRIDGE 及普通/桥接双队列的保证容量随之退场。
 C_ANCHOR_COUNT = 2       # L1->L2 消息/块 (条数上限)
 C_MSG_GAS = 10           # 消息 gas 份额/块
 G_ANCHOR = 1             # anchor 固定开销
 BLOCK_GAS_LIMIT = 30     # 块 gas 上限
 W_SETTLE = 10            # 结算窗口长度 (L1 块)
-assert G_ANCHOR + C_MSG_GAS <= BLOCK_GAS_LIMIT   # §7 共享预算不变量 (v1.51 两方)
+assert G_ANCHOR + C_MSG_GAS <= BLOCK_GAS_LIMIT   # §7 共享预算不变量 (两方)
 
 # 时序参数——规范参数表的【建议部署值】(单位: L1 slot; 1 epoch = 32 L1 slot)。
 # 每个常量都是独立声明的字面量(照抄 §12 参数表),P9a 用不等式把它们互相校验;
-# 绝不由公式互相推导——推导式断言恒真、失去检验力 (r46, DeepSeek-on-v1.45 W1;
-# 该非空化立刻抓出 v1.44 的一处数值松弛: 8 epoch 的 Δ_lag,final 初值低于
+# 绝不由公式互相推导——推导式断言恒真、失去检验力 (r46, ;
+# 该非空化立刻抓出 的一处数值松弛: 8 epoch 的 Δ_lag,final 初值低于
 # Δ_lag,prov + W_settle_max = 128+150 L1 slot,规范同步改为 9 epoch)。
 D_ANCHOR = 32              # 锚定深度
 DELTA_LAG_PROV_L1 = 128    # Δ_lag,prov = 4 epoch (服务观测阈值)
 W_SETTLE_L1 = 100          # W_settle ≈ 20 min (真实建议值;窗口状态机测试用上面的玩具 W_SETTLE)
 W_SETTLE_MAX_L1 = 150      # W_settle_max ≈ 1.5 × W_settle (§6.2 中危 1 共识上界)
-DELTA_LAG_FINAL_L1 = 288   # Δ_lag,final = 9 epoch ≈ 57.6 min (参数表声明值,r46 重校)
+DELTA_LAG_FINAL_L1 = 288   # Δ_lag,final = 9 epoch ≈ 57.6 min (参数表声明值 重校)
 P_PROVE_MAX = 75           # 最坏证明时延 ≈ 15 min
 T_INCLUDE_MAX = 10         # §1 有界纳入界 ≈ 2 min
-D_ANCHOR_MAX = 420         # anchor 新鲜度上限 ≈ 84 min (参数表声明值,r46 重校)
+D_ANCHOR_MAX = 420         # anchor 新鲜度上限 ≈ 84 min (参数表声明值 重校)
 
 
 def h(*xs) -> int:
@@ -75,7 +75,7 @@ class Item:
 
 def max_prefix(items: list, start: int, count_cap: int, gas_share: int):
     """FIFO 自 start 起,同时满足 条数≤count_cap 且 累计gas≤gas_share 的最长前缀。
-    返回 (新游标, 消费列表)。唯一规范算法 (r41/r42,无第二套 min(条数) 判据)。"""
+    返回 (新游标, 消费列表)。唯一规范算法  判据)。"""
     taken, gas = [], 0
     i = start
     while i < len(items) and len(taken) < count_cap and gas + items[i].gas <= gas_share:
@@ -94,7 +94,7 @@ class Block:
     parent: int          # 父块头哈希
     tag: str = ""        # 测试标签
 
-    # v1.51: 块不再有 kind——仅强制块随强制包含删除,所有块都是排班构建者出的内容块。
+    # 块不再有 kind——本设计无仅强制块,所有块都是排班构建者出的内容块。
 
     @property
     def hash(self) -> int:
@@ -109,8 +109,8 @@ class Candidate:
     def key(self, base_hash: int):
         """§5.2 全序 key: (count, tip_slot, tip_hash 取小)。
 
-        v1.51: 原首位 lane(首块类别)随仅强制块删除而退位——所有候选同属内容类,
-        lane 恒为同值、不起区分作用。r42 修掉的非传递环不会因此复活: 那个环的
+        原可作首位的 lane(首块类别)已无对象——所有候选同属内容类,
+        lane 恒为同值、不起区分作用。修掉的非传递环不会因此复活: 那个环的
         根因是 lane 曾是 pairwise 判据,余下三个分量本就都是候选自身的标量。"""
         assert self.blocks and self.blocks[0].parent == base_hash
         tip = self.blocks[-1]
@@ -129,7 +129,7 @@ def strictly_better(a: Candidate, b: Candidate, base_hash: int) -> bool:
 class Canonical:
     tip_hash: int
     state_root: int
-    m_consumed: int     # L1->L2 消息游标 (全局序号);v1.51 起是唯一的队列游标
+    m_consumed: int     # L1->L2 消息游标 (全局序号);起是唯一的队列游标
 
 
 @dataclass
@@ -152,7 +152,7 @@ class L1State:
     def _validate(self, cand: Candidate, base: Canonical):
         """对冻结基线验证候选,返回 EndTuple。模型化 §5.1/§7:
         每块按双约束最大前缀消费 L1->L2 消息队列;执行合法性以游标算术代表。
-        验证【不改任何 canonical 状态】。(v1.51: 强制双队列已删除。)"""
+        验证【不改任何 canonical 状态】。( : 强制双队列已删除。)"""
         if not cand.blocks or cand.blocks[0].parent != base.tip_hash:
             return None
         # 链接检查
@@ -231,7 +231,7 @@ GEN = Canonical(tip_hash=h("genesis"), state_root=h("root0"), m_consumed=0)
 
 
 def mk(base_hash, n, tag=""):
-    """造一条 n 块的链式候选 (v1.51: 块不再分类别)。"""
+    """造一条 n 块的链式候选 ( : 块不再分类别)。"""
     blocks, parent = [], base_hash
     for i in range(n):
         blk = Block(slot=100 + i, parent=parent, tag=f"{tag}{i}")
@@ -243,12 +243,12 @@ def mk(base_hash, n, tag=""):
 def test_p1_total_order():
     B = GEN.tip_hash
     # 第 5 轮严重 1 的原环 A=[X,a] B=[X,b1..b3] C=[Y,c1,c2] 作为回归保留:
-    # v1.51 删掉 lane 后,三者纯按 count 排序,环更不可能出现。
+    # 删掉 lane 后,三者纯按 count 排序,环更不可能出现。
     A = mk(B, 2, "X")
     Bc = mk(B, 4, "X")
     Cc = mk(B, 3, "Y")
     ks = {n: c.key(B) for n, c in [("A", A), ("B", Bc), ("C", Cc)]}
-    check("P1a 第5轮 A/B/C 环消解为 B>C>A (v1.51 无 lane,纯按块数)",
+    check("P1a A/B/C 环消解为 B>C>A (无 lane,纯按块数)",
           ks["B"] > ks["C"] > ks["A"] and ks["B"] > ks["A"])
     # 随机候选上的全序公理
     rng = random.Random(42)
@@ -335,10 +335,10 @@ def test_p6_reorg_replay():
 def test_p7_gas_no_deadlock():
     rng = random.Random(7)
     for trial in range(300):
-        # 随机可达队列状态 (入队验证保证单条 ≤ 消息队列份额——v1.51 起这是防
+        # 随机可达队列状态 (入队验证保证单条 ≤ 消息队列份额——起这是防
         # 单侧死锁的承重条: 队头若超过"块上限 − anchor 开销"就没有合法块了)
         q_msg = [Item(90 + i, rng.randint(1, C_MSG_GAS)) for i in range(rng.randint(0, 15))]
-        # r44 (DeepSeek 建议 3): 非创世基线——随机已消费游标
+        # (): 非创世基线——随机已消费游标
         base = Canonical(h("b", trial), h("r", trial), rng.randint(0, len(q_msg)))
         st = L1State(base, q_msg)
         cand = mk(base.tip_hash, 1, f"t{trial}")
@@ -351,7 +351,7 @@ def test_p7_gas_no_deadlock():
 
 
 def test_p7b_single_message_cap_is_load_bearing():
-    """v1.51: 强制队列删除后,单条消息 gas 上限成为唯一挡住"无合法块"的闸。
+    """ : 强制队列删除后,单条消息 gas 上限成为唯一挡住"无合法块"的闸。
     造一条超限消息(入队验证本应拒绝它),确认它确实会制造死锁——以此证明
     该上限不是冗余条款。"""
     oversized = [Item(1, BLOCK_GAS_LIMIT + 5)]
@@ -363,15 +363,15 @@ def test_p7b_single_message_cap_is_load_bearing():
 
 
 def test_p9_anchor_geometry():
-    """r44 (门后半) / r46 非空化: 设置器不变量在【独立声明的】部署值之间互检——
-    改动任一分量而不更新声明值即失败,不再是由公式推导的恒真断言 (DeepSeek W1)。"""
+    """(门后半) / 非空化: 设置器不变量在【独立声明的】部署值之间互检——
+    改动任一分量而不更新声明值即失败,不再是由公式推导的恒真断言 ()。"""
     check("P9a 设置器不变量互检: Δ_lag,final ≥ prov+W_settle_max; D_anchor_max ≥ 最坏路径; W_settle ≥ 证明+纳入",
           DELTA_LAG_FINAL_L1 >= DELTA_LAG_PROV_L1 + W_SETTLE_MAX_L1
           and D_ANCHOR + DELTA_LAG_FINAL_L1 + P_PROVE_MAX + T_INCLUDE_MAX <= D_ANCHOR_MAX
           and W_SETTLE_L1 >= P_PROVE_MAX + T_INCLUDE_MAX
           and W_SETTLE_MAX_L1 >= W_SETTLE_L1)
     # §8 规范关系 anchor.L1_timestamp ≤ L2_timestamp(slot),按各自时基显式建模
-    # (r46 强化, DeepSeek 建议 3): L1 slot = 12 s, L2 slot = 1 s, 同创世原点。
+    # : L1 slot = 12 s, L2 slot = 1 s, 同创世原点。
     def l1_timestamp(l1_slot):
         return 12 * l1_slot
     def l2_timestamp(l2_slot):
@@ -385,7 +385,7 @@ def test_p9_anchor_geometry():
 
 
 def test_p10_slashing_acceptance_gate():
-    """r44 (门后半): 罚没生效按候选落地时点判 (§4.3 r41)。"""
+    """(门后半): 罚没生效按候选落地时点判 (§4.3 r41)。"""
     EFFECT = 50
     def signer_allowed(cand_landed_at, slashed=True):
         return (not slashed) or cand_landed_at < EFFECT
@@ -395,7 +395,7 @@ def test_p10_slashing_acceptance_gate():
 
 
 def test_p11_fallback_snapshot():
-    """r44 (门后半): 兜底资格按 lag_final > Δ_lag_final 判定,开窗即快照、
+    """(门后半): 兜底资格按 lag_final > Δ_lag_final 判定,开窗即快照、
     保持到结算窗口收盘 (§6.3 r42/r44)。"""
     DELTA_LAG_FINAL = DELTA_LAG_FINAL_L1
     class FallbackAccounting:
@@ -414,7 +414,7 @@ def test_p11_fallback_snapshot():
 
 
 def test_p12_midwindow_enqueue():
-    """r46 (DeepSeek-on-v1.45 W2): 基线冻结的对象是【游标与状态】,不含队列内容——
+    """(): 基线冻结的对象是【游标与状态】,不含队列内容——
     消息队列在 L1 上 append-only、条目按序号引用且内容不可变,窗口中途入队的
     新条目对能覆盖到它的后续候选可见且确定;先前候选已记账的终局不受影响,
     窗口态仍是 L1 历史(含入队事件)的纯函数。"""
