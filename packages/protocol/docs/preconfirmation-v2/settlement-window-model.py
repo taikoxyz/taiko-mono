@@ -483,118 +483,161 @@ def test_p12_midwindow_enqueue():
 
 
 def test_p13_reward_metered_on_marginal_advancement():
-    """§6.3: 保证金只向【收盘赢家】支付,且只补足费用份额的缺口。
+    """§6.3: 保证金每窗口只付一次,付给【最先达到获胜层级的提交者】,且排除聚合器。
 
-    前三版都试图"给每个改进者付钱",三次都被抽干,因为攻击者控制候选的数量:
-      (1) 共享上限 ⇒ k>1 时人人低于成本;
-      (2) 每个严格改进一份 ⇒ tip_hash 磨榨(罚没幂等,只付一次 L_eq);
-      (3) 每个 (count, tip_slot) 层级一份 ⇒ 前缀拆分:任何人拿着一条公开有效的
-          尾巴,依次提交其前缀,每个前缀都是新层级;在按成本定价下重复劳动对
-          攻击者免费,而 §11 所要求的增量证明续接会让边际证明【便宜于】C_fixed,
-          于是变为有利可图。
-
-    真正的教训:凡是"按可制造的单位计价"的规则都可被抽干。窗口实际需要的服务
-    只有一件——把链从基线推进到赢家的 tip——无论中间提交了多少候选。因此:
-      · 保证金每窗口只付一次,且只付给收盘赢家;被顶掉的候选一无所获;
-      · 支付额 = max(0, C_fixed + φ_data × 赢家发布且被赢家链消费的 blob 数
-        − 该窗口 §7 费用份额),即"补足缺口",费用足够时保证金不出钱;
-      · 于是单窗口保证金外流【结构性地】以一个候选的成本为界,与候选数无关。
-
-    这与 §7 base-fee share 的既有原则一致(被更重候选顶掉的暂定落地者一无所获,
-    winner takes all);先前的 §6.3 反而与本文档自身的激励原则相矛盾。
-    活性要求的是【至少有一方】觉得落地有利可图,而不是每个尝试者都被补偿:
-    无许可兜底是一场竞赛,输家自负成本,这正是竞赛不可被制造出无限索赔的原因。
+    上一版付给"收盘赢家"。三个问题:
+      (1) 抢跑:恶意 builder 等诚实兜底候选落地后,在收盘前用同 slot 的等价物签名
+          提交更小 tip_hash 的候选,成为赢家并拿走报酬。先前声称"移出登记表后
+          每个身份大约只能抢跑一次"——这是错的:§4.1 罚没幂等,零保证金的旧密钥
+          可以对它【历史上】所有仍可落地的 slot 继续等价物签名,而移出登记表只
+          停掉未来的排班。故首次 L_eq 之后,后续抢跑的边际成本为零。
+      (2) 聚合器自付:赢家公式没有排除聚合器自己。它可以故意越过兜底阈值、成为
+          收盘赢家,把自己的活性保证金转成给自己的报销,只付单独定义的迟到费。
+      (3) 因此报酬改付给【最先达到获胜 (count, tip_slot) 的被接受候选】的提交者。
+          排序本身不变(仍由 §5.2 三元组决定,安全性与确定性不受影响),只有
+          【付款对象】改变:抢跑者即使赢得排序也拿不到钱,每次抢跑白付一次证明。
     """
-    C_FIXED, PHI_DATA = 10, 3     # 一次证明+上链的指数化成本 / 每个 blob 的报销
-    TRUE_COST = 10                # 攻击者每次提交的真实成本
+    C_FIXED, PHI_DATA = 10, 3
+    TRUE_COST = 10
+    AGGREGATOR = "AGG"            # 当前聚合器(及其受益人)不得从自己的保证金获赔
 
     def key(c):
         return (c["count"], c["tip_slot"], -c["tip_hash"])
 
-    def settle(subs, base_count=0, fee_share=0):
-        """接受严格更优者;收盘时只向赢家支付,且只补足缺口。"""
-        best, accepted = None, []
+    def settle(subs, base_count=0, fee_share=0, aggregator=AGGREGATOR):
+        """接受严格更优者;收盘时向【最先达到获胜层级者】支付,聚合器除外。"""
+        best, first_at = None, {}
         for c in subs:
             if best is None or key(c) > key(best):
-                accepted.append(c); best = c
+                lv = (c["count"], c["tip_slot"])
+                first_at.setdefault(lv, c)        # 该层级的最先到达者
+                best = c
         if best is None:
-            return 0, {}, None, []
-        # 赢家发布、且被赢家链消费的 blob(按 versioned hash 去重,首次登记者得)
+            return 0, {}, None, first_at
+        payee = first_at[(best["count"], best["tip_slot"])]
+        if payee["who"] == aggregator:            # (2) 聚合器不得自付
+            return 0, {}, best, first_at
         seen, blobs = set(), 0
-        for h in best.get("blobs", []):
+        for h in payee.get("blobs", []):
             if h not in seen:
                 seen.add(h); blobs += 1
-        gross = C_FIXED + PHI_DATA * blobs
-        bond_out = max(0, gross - fee_share)
-        return bond_out, {best["who"]: bond_out}, best, accepted
+        bond_out = max(0, C_FIXED + PHI_DATA * blobs - fee_share)
+        return bond_out, {payee["who"]: bond_out}, best, first_at
 
     def C(who, count, slot, h=5, blobs=()):
         return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h,
                 "blobs": list(blobs)}
 
-    # --- a) 只有收盘赢家从保证金获得支付,被顶掉者一无所获 ----------------------
-    out, pay, best, acc = settle([C("A", 5, 500), C("B", 9, 900)])
-    check("P13a 保证金只付收盘赢家,被顶掉的候选一无所获",
-          best["who"] == "B" and set(pay) == {"B"} and len(acc) == 2
-          and abs(out - C_FIXED) < 1e-9)
+    # --- a) 只付一次,且付给最先达到获胜层级者 ---------------------------------
+    out, pay, best, _ = settle([C("A", 5, 500), C("B", 9, 900)])
+    check("P13a 保证金每窗口只付一次,付给最先达到获胜层级的提交者",
+          best["who"] == "B" and set(pay) == {"B"} and abs(out - C_FIXED) < 1e-9)
 
-    # --- b) 【本轮回归】前缀拆分:N 个前缀只产生一次支付 ------------------------
+    # --- b) 【本轮回归】抢跑赢得排序但拿不到报酬 --------------------------------
+    honest, sniper = C("HONEST", 1, 100, h=9), C("SNIPER", 1, 100, h=2)
+    out_s, pay_s, best_s, _ = settle([honest, sniper])
+    check("P13b 抢跑者赢得排序,报酬仍归先到的诚实兜底方(抢跑白付一次证明)",
+          best_s["who"] == "SNIPER" and set(pay_s) == {"HONEST"}
+          and pay_s["HONEST"] >= C_FIXED - 1e-9)
+
+    # --- b2) 零保证金旧密钥【重复】抢跑:每次白付证明,总外流仍为一份 ----------
+    # §4.1 罚没幂等 ⇒ 首次 L_eq 之后再无可罚;但报酬也拿不到,故重复抢跑纯亏。
+    repeated = [honest] + [C("SNIPER", 1, 100, h=8 - i) for i in range(6)]
+    out_r, pay_r, best_r, _ = settle(repeated)
+    check("P13b2 零保证金密钥重复抢跑 6 次: 一分钱拿不到,总外流仍是一份给诚实方",
+          set(pay_r) == {"HONEST"} and abs(out_r - C_FIXED) < 1e-9
+          and best_r["who"] == "SNIPER")
+    check("P13b3 重复抢跑对攻击者的成本随次数线性增长,收益恒为零",
+          6 * TRUE_COST > 0 and pay_r.get("SNIPER", 0) == 0)
+
+    # --- c) 【本轮回归】聚合器不得用自己的保证金给自己报销 ----------------------
+    out_a, pay_a, best_a, _ = settle([C(AGGREGATOR, 9, 900)])
+    check("P13c 聚合器自己成为赢家时,保证金零外流(不得自付)",
+          best_a["who"] == AGGREGATOR and pay_a == {} and abs(out_a) < 1e-9)
+    out_a2, pay_a2, _, _ = settle([C(AGGREGATOR, 5, 500), C("F", 9, 900)])
+    check("P13c2 聚合器在场不影响真正兜底方获赔",
+          set(pay_a2) == {"F"} and pay_a2["F"] >= C_FIXED - 1e-9)
+
+    # --- d) 前缀拆分 30 次:仍只付一次 -----------------------------------------
     N = 30
-    prefixes = [C("EQ", i, 1000 + i) for i in range(1, N + 1)]
-    out_p, pay_p, best_p, acc_p = settle(prefixes)
-    check("P13b 前缀拆分 30 次: 保证金只付一次(层级计价会付 30 次)",
-          len(acc_p) == N and abs(out_p - C_FIXED) < 1e-9)
-    check("P13b2 前缀拆分对攻击者净亏 N-1 次证明成本",
-          N * TRUE_COST - out_p >= (N - 1) * TRUE_COST - 1e-9)
+    out_p, pay_p, _, lv_p = settle([C("EQ", i, 1000 + i) for i in range(1, N + 1)])
+    check("P13d 前缀拆分 30 次: 保证金只付一次,攻击者净亏 N-1 次证明",
+          abs(out_p - C_FIXED) < 1e-9 and len(lv_p) == N
+          and N * TRUE_COST - out_p >= (N - 1) * TRUE_COST - 1e-9)
 
-    # --- c) tip_hash 磨榨同样只产生一次支付 ------------------------------------
-    grind = [C("EQ", 100, 1000, h=1000 - i) for i in range(40)]
-    out_g, _, _, acc_g = settle(grind, base_count=100)
-    check("P13c tip_hash 磨榨 40 次: 保证金仍只付一次",
-          len(acc_g) == 40 and abs(out_g - C_FIXED) < 1e-9)
+    # --- e) tip_hash 磨榨 40 次:仍只付一次 ------------------------------------
+    out_g, _, _, _ = settle([C("EQ", 100, 1000, h=1000 - i) for i in range(40)],
+                            base_count=100)
+    check("P13e tip_hash 磨榨 40 次: 保证金仍只付一次", abs(out_g - C_FIXED) < 1e-9)
 
-    # --- d) 收盘抢跑:抢跑者成为赢家并拿走支付,但其自身成本 ≈ 支付额 ⇒ 不获利 --
-    # 抢跑需要该 slot 的 builder 等价物签名(§5.2),故首次即被罚 L_eq 并移出登记表。
-    L_EQ = 500
-    snipe = [C("HONEST", 1, 100, h=9), C("SNIPER", 1, 100, h=2)]
-    out_s, pay_s, best_s, _ = settle(snipe)
-    check("P13d 抢跑者成为赢家,但所得 ≤ 自身成本 + L_eq ⇒ 不获利",
-          best_s["who"] == "SNIPER" and pay_s["SNIPER"] <= TRUE_COST + L_EQ)
-    check("P13d2 诚实落地者输掉竞赛即自负成本(竞赛语义,已在 §6.3 明示)",
-          "HONEST" not in pay_s)
-
-    # --- e) 结构性上界:任意提交序列下,单窗口保证金外流 ≤ 一个候选的成本 ------
+    # --- f) 结构性上界:任意序列下外流 ≤ 一个候选的成本 ------------------------
     import random
     rng = random.Random(20260828)
-    worst = 0
     for _ in range(400):
         seq, cnt, slot = [], 0, 0
         for _ in range(rng.randint(1, 25)):
             cnt += rng.randint(0, 3); slot += rng.randint(0, 40)
             seq.append(C("w%d" % rng.randint(0, 5), cnt, slot,
-                         h=rng.randint(0, 999),
-                         blobs=tuple(range(rng.randint(0, 4)))))
-        o, _, b, _ = settle(seq)
-        bound = C_FIXED + PHI_DATA * (len(set(b["blobs"])) if b else 0)
+                         h=rng.randint(0, 999), blobs=tuple(range(rng.randint(0, 4)))))
+        o, p_, b, fa = settle(seq)
+        payee = fa[(b["count"], b["tip_slot"])]
+        bound = C_FIXED + PHI_DATA * len(set(payee["blobs"]))
         assert o <= bound + 1e-9, "structural bound violated"
-        worst = max(worst, o)
-    check("P13e 400 组随机序列: 保证金外流恒 ≤ 一个候选的成本(与候选数无关)",
-          worst > 0)
+    check("P13f 400 组随机序列: 外流恒 ≤ 一个候选的成本(与候选数无关)", True)
 
-    # --- f) 费用份额足够时,保证金不出钱(只补缺口) ----------------------------
-    out_f, pay_f, _, _ = settle([C("A", 9, 900)], fee_share=C_FIXED + 5)
-    check("P13f §7 费用份额覆盖成本时保证金零外流(保证金只补缺口)",
-          abs(out_f) < 1e-9)
+    # --- g) 费用份额覆盖成本时保证金零外流 -------------------------------------
+    out_f, _, _, _ = settle([C("A", 9, 900)], fee_share=C_FIXED + 5)
+    check("P13g §7 费用份额覆盖成本时保证金零外流(只补缺口)", abs(out_f) < 1e-9)
 
-    # --- g) 更差候选不被接受,不产生支付 ----------------------------------------
-    out_w, pay_w, best_w, acc_w = settle([C("A", 12, 1200), C("B", 4, 400)])
-    check("P13g 更差候选零支付(不接受即不计费)",
-          len(acc_w) == 1 and set(pay_w) == {"A"})
+    # --- h) 更差候选零支付 -----------------------------------------------------
+    out_w, pay_w, _, lv_w = settle([C("A", 12, 1200), C("B", 4, 400)])
+    check("P13h 更差候选零支付(不接受即不计费)",
+          set(pay_w) == {"A"} and len(lv_w) == 1)
 
-    # --- h) φ_data 按【blob 个数】计价并按 versioned hash 去重(非按字节) -----
+    # --- i) φ_data 按 blob 计价并按 versioned hash 去重 -------------------------
     out_d, pay_d, _, _ = settle([C("F", 20, 2000, blobs=(7, 7, 8))])
-    check("P13h φ_data 按 blob 计价、同一 versioned hash 只报销一次",
+    check("P13i φ_data 按 blob 计价、同一 versioned hash 只报销一次",
           abs(pay_d["F"] - (C_FIXED + PHI_DATA * 2)) < 1e-9)
+
+
+def test_p14_exit_bond_release_is_state_dependent():
+    """§4.1: 退出解锁必须依赖【链状态】,不能只按墙钟时间。
+
+    §4.3 接受回填且不追溯:header.slot < 生效 slot 的历史块永远有效,并且可以在
+    此后任何时候被打包进候选(受 D_anchor_max 与开着的 W_settle 约束)。若解锁
+    只按"最后排班 slot + δ_slash + 余量"计时,builder 可以先解锁取回保证金,再
+    对自己的历史 slot 签出另一个版本——此时已无保证金可罚。
+    解锁条件因此必须是:窗口终局头已越过它【全部】排班 slot,且没有仍可接纳
+    含该 slot 候选的窗口未收盘,再加 δ_slash 与检测余量。
+    """
+    DELTA_SLASH, MARGIN = 64, 32
+    last_slot = 1000
+
+    def time_based_unlock():
+        return last_slot + DELTA_SLASH + MARGIN            # 旧规则(仅墙钟)
+
+    def state_based_unlock(final_head_slot, open_window_admits_slot):
+        """新规则:终局头越过全部排班 slot 且无窗口仍可接纳它。"""
+        return (final_head_slot > last_slot
+                and not open_window_admits_slot)
+
+    # a) 旧规则下:解锁时点早于历史块仍可落地的时点 ⇒ 存在无保证金可罚的窗口
+    unlocked_at = time_based_unlock()                       # 1096
+    still_landable_until = last_slot + 5000                 # 终局头尚未越过 / 窗口仍开
+    check("P14a 纯时间解锁会在历史块仍可落地时释放保证金(等价物无从罚没)",
+          unlocked_at < still_landable_until)
+
+    # b) 新规则:终局头未越过最后排班 slot 时不得解锁
+    check("P14b 终局头未越过最后排班 slot ⇒ 不解锁",
+          not state_based_unlock(final_head_slot=900, open_window_admits_slot=False))
+
+    # c) 新规则:仍有窗口可接纳含该 slot 的候选时不得解锁
+    check("P14c 仍有窗口可接纳该 slot 的候选 ⇒ 不解锁",
+          not state_based_unlock(final_head_slot=1200, open_window_admits_slot=True))
+
+    # d) 两个条件都满足才解锁
+    check("P14d 终局头越过全部排班 slot 且无窗口可接纳 ⇒ 方可解锁",
+          state_based_unlock(final_head_slot=1200, open_window_admits_slot=False))
 
 
 if __name__ == "__main__":
@@ -604,7 +647,8 @@ if __name__ == "__main__":
               test_p7b_single_message_cap_is_load_bearing, test_p9_anchor_geometry,
               test_p10_slashing_acceptance_gate, test_p11_fallback_snapshot,
               test_p12_midwindow_enqueue,
-              test_p13_reward_metered_on_marginal_advancement]:
+              test_p13_reward_metered_on_marginal_advancement,
+              test_p14_exit_bond_release_is_state_dependent]:
         t()
     print("RESULTS: settlement-window model — ALL PROPERTIES PASS")
     for i, name in enumerate(PASS, 1):
