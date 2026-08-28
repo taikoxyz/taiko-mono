@@ -125,10 +125,10 @@
   % above the axis: two intervals
   \draw[scdim] (2.2,0.55) -- (7.4,0.55);
   \node[sclab, text width=48mm, anchor=south] at (4.8,0.65)
-        {$D_{\mathrm{snap}} \ge H_{\mathrm{look}} + F_{\mathrm{final}} +$ margin\\($=5$ L1 epoch)};
+        {$D_{\mathrm{snap}} \ge H_{\mathrm{look}}/12 + F_{\mathrm{final}} +$ margin\\($=5$ L1 epoch)};
   \draw[scdim] (7.4,0.55) -- (12.6,0.55);
   \node[sclab, text width=48mm, anchor=south] at (10.0,0.65)
-        {$W_{\mathrm{size}} = 768$ slot\\fixed aligned partition,\\not a sliding window};
+        {$W_{\mathrm{size}} = 384$ slot $=$ one epoch\\fixed aligned partition,\\not a sliding window};
 
   % lookahead horizon (dashed)
   \draw[scdarr] (7.4,-2.75) -- (12.6,-2.75);

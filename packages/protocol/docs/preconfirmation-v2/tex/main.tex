@@ -324,7 +324,7 @@ How much of the assumption each mechanism actually consumes (written out, to kee
 \item The full codification of the computation above (the constraint at each step is in the comments; for a runnable version with property tests see \texttt{\texttt{lookahead-\allowbreak{}model.py}}, and the sampling operator is the candidate for settling item 18(b) of \hyperref[sec:11]{\S11}):
 \end{itemize}
 \begin{codeblock}
-\mbox{}~W\_SIZE~=~768~\#~lookahead~window~=~768~L2~slots~(fixed~aligned~partition,~not~a~sliding~horizon)\\
+\mbox{}~W\_SIZE~=~384~\#~lookahead~window~=~384~L2~slots~=~one~epoch~(fixed~aligned~partition)\\
 \mbox{}~H\_LOOK~=~768~\#~lookahead~horizon\\
 \mbox{}~D\_SNAP\_L1~=~5~*~32~\#~snapshot~delay~(L1~slots);~invariant~D\_snap~≥~H\_look/12~+~F\_final~+~margin\\
 \mbox{}~W\_MAX~=~0.20~\#~cap~on~a~single~address's~effective~weight~(operational~hygiene;~no~defense~against~a~bond-splitting~Sybil)\\
