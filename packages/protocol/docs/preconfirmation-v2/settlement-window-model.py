@@ -478,76 +478,106 @@ def test_p12_midwindow_enqueue():
 
 
 def test_p13_reward_metered_on_marginal_advancement():
-    """§6.3: 兜底报酬 = 每个严格改进者的固定成本报销 + 边际块奖励,窗口设硬上限。
+    """§6.3: 固定成本按【(count, tip_slot) 层级】计价,每层仅一份,收盘付给该层持有者。
 
-    上一版把窗口上限写成【单份】C_fixed + φ_adv × 净推进,而每个改进者各自申领一份
-    C_fixed,于是只要改进者数 k > 1,按比例分摊后人人拿不回成本(k=3 时 0.46,
-    k=5 时 0.30)——兜底是聚合器失效时唯一的活性后备,改进者不能倒贴。
-    修正:上限随改进者数扩张,反刷靠 C_fixed ≤ 真实成本(拆前缀至多打平),
-    保证金外流另设硬上限 R_WINDOW_MAX 作为安全阀(正常运行不应触发)。
+    上一版按"每个严格改进者一份 C_fixed"计价,可被 tip_hash 磨榨:§4.1 明确
+    罚没是幂等的——同一 builder 的多份等价物证据只罚一次,L_eq 是其威慑上限。
+    因此调度到 slot s 的 builder 可以为同一 slot 签出任意多个不同 header,按
+    tip_hash 递减依次提交,每个都是 §5.2 意义下的严格改进:它只付一次 L_eq,
+    却领走 n 份 C_fixed,把聚合器保证金抽干到 R_WINDOW_MAX。
+    (先前文中"伪造 tip-only 竞争候选每次都要付 L_eq"的说法是错的,与 §4.1 的
+    幂等条款自相矛盾。)
 
-    注意 tip_hash 仲裁改进【并不廉价】:同 count 同 tip_slot 的两个候选,其 tip 同
-    处一个 slot,而 §5.1 要求 signer = lookahead(slot) 且窗口内排班唯一,故两者 tip
-    由同一 builder 签名;tip_hash 不同 ⇒ 同 slot 两个不同 header ⇒ §4.3 等价物罚没。
-    因此仿造一个 tip-only 竞争候选要付 L_eq,不存在"廉价稀释奖池"的攻击,
-    这类改进者应当照常获得补偿。
+    修正:C_fixed 以层级计价。层级 = 窗口内被接受候选达到过的不同
+    (count, tip_slot);每层恰好一份 C_fixed,收盘时付给该层的持有者,即该层上
+    tip_hash 最小的被接受候选的提交者。于是:
+      · 同层磨 n 个 hash ⇒ 全窗只产生【一份】C_fixed,攻击者白付 n 次证明 + L_eq;
+      · 诚实方顶掉恶意同层候选后【成为该层持有者】,拿到那一份,先提交者拿不到
+        ——激励方向正确;
+      · 每达成一个新层级的诚实改进者照常收回成本。
     """
-    C_FIXED, PHI = 10, 7          # 固定成本报销 / 每块奖励(定点值)
-    TRUE_COST = 10                # 一次证明+上链的真实成本;不变式 C_FIXED <= TRUE_COST
-    R_WINDOW_MAX = 10_000         # 保证金单窗口外流硬上限(安全阀,远高于正常窗口)
+    C_FIXED, PHI, PHI_DATA = 10, 7, 2   # 固定成本 / 每块奖励 / 每单位数据字节
+    TRUE_COST = 10                      # 一次证明+上链真实成本;不变式 C_FIXED <= TRUE_COST
+    R_WINDOW_MAX = 10_000               # 单窗口保证金外流硬上限(安全阀)
 
     assert C_FIXED <= TRUE_COST, "C_FIXED 必须 ≤ 真实成本,否则拆前缀有利可图"
 
     def key(c):
-        """§5.2 全序 key: 块数、tip_slot 降序,tip_hash 升序(取负纳入)。"""
         return (c["count"], c["tip_slot"], -c["tip_hash"])
 
     def settle(subs, base_count=0):
-        """按提交顺序接受严格更优者;上限随改进者数扩张,仅在触及硬上限时分摊。"""
-        best, claims = None, []
+        """接受严格更优者;C_fixed 按层级计价,φ 按边际块与已发布数据计价。"""
+        best, levels, phi, data = None, {}, {}, {}
         for c in subs:
             if best is None or key(c) > key(best):
                 added = max(0, c["count"] - (best["count"] if best else base_count))
-                claims.append({"who": c["who"], "raw": C_FIXED + PHI * added})
+                phi[c["who"]] = phi.get(c["who"], 0) + added
+                data[c["who"]] = data.get(c["who"], 0) + c.get("bytes", 0)
+                lv = (c["count"], c["tip_slot"])
+                if lv not in levels or c["tip_hash"] < levels[lv][1]:
+                    levels[lv] = (c["who"], c["tip_hash"])   # 该层持有者
                 best = c
-        total_raw = sum(x["raw"] for x in claims)
-        scale = min(1.0, R_WINDOW_MAX / total_raw) if total_raw else 0
-        payout = {}
-        for x in claims:
-            payout[x["who"]] = payout.get(x["who"], 0) + x["raw"] * scale
-        return round(sum(payout.values()), 6), payout, best, len(claims)
+        claims = {}
+        for who, _h in levels.values():
+            claims[who] = claims.get(who, 0) + C_FIXED
+        for who, blocks in phi.items():
+            claims[who] = claims.get(who, 0) + PHI * blocks
+        for who, b in data.items():
+            claims[who] = claims.get(who, 0) + PHI_DATA * b
+        total = sum(claims.values())
+        scale = min(1.0, R_WINDOW_MAX / total) if total else 0
+        payout = {w: v * scale for w, v in claims.items()}
+        return round(sum(payout.values()), 6), payout, best, levels
 
-    def C(who, count, slot, h=5):
-        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h}
+    def C(who, count, slot, h=5, b=0):
+        return {"who": who, "count": count, "tip_slot": slot, "tip_hash": h, "bytes": b}
 
-    # --- a) 同 count、更晚 tip_slot 的改进者【收回成本】(不再只是"有份") --------
-    tot, pay, best, k = settle([C("A", 100, 1000), C("B", 100, 1010)])
-    check("P13a 同 count 更晚 tip_slot 的严格改进者收回固定成本(≥ C_FIXED)",
-          pay.get("B", 0) >= C_FIXED - 1e-9 and best["who"] == "B")
+    # --- a) 新层级(同 count、更晚 tip_slot)的改进者收回成本 --------------------
+    tot, pay, best, lv = settle([C("A", 100, 1000), C("B", 100, 1010)])
+    check("P13a 同 count 更晚 tip_slot 是新层级,改进者收回固定成本",
+          pay.get("B", 0) >= C_FIXED - 1e-9 and best["who"] == "B" and len(lv) == 2)
 
-    # --- b) 仅 hash 仲裁的改进者同样收回成本(伪造该改进需付 L_eq,不是廉价攻击)--
-    tot, pay, best, k = settle([C("A", 100, 1000, h=9), C("B", 100, 1000, h=2)])
-    check("P13b 仅末级 hash 仲裁的改进者收回固定成本(≥ C_FIXED)",
-          pay.get("B", 0) >= C_FIXED - 1e-9 and best["who"] == "B")
+    # --- b) 同层 tip_hash 顶替:该层那一份 C_fixed 归【持有者】 ------------------
+    # A 先提交(h=9)并推进了 100 块,B 以更小 hash 顶替同一层。
+    # A 保留自己的边际块奖励(它确实加了块),但该层的固定成本归 B。
+    tot, pay, best, lv = settle([C("A", 100, 1000, h=9), C("B", 100, 1000, h=2)])
+    check("P13b 同层 hash 顶替: 该层唯一一份 C_fixed 归持有者 B,A 只保留 φ 部分",
+          len(lv) == 1 and lv[(100, 1000)][0] == "B"
+          and pay.get("B", 0) >= C_FIXED - 1e-9
+          and abs(pay.get("A", 0) - PHI * 100) < 1e-9
+          and best["who"] == "B")
 
-    # --- c) 边际奖励不因拆分而翻倍(φ 部分望远镜求和,与一次落满相同) -----------
-    one, pay1, _, _ = settle([C("X", 12, 1200)])
-    grind, payg, _, kg = settle([C("X", n, 1000 + n) for n in range(1, 13)])
-    phi_one = one - 1 * C_FIXED
-    phi_grind = grind - kg * C_FIXED
-    check("P13c 拆成 12 个前缀刷: 边际块奖励总额与一次落满完全相同(不翻倍)",
-          abs(phi_one - phi_grind) < 1e-9 and kg == 12)
+    # --- c) 【关键回归】同层磨 n 个 hash 只产生一份 C_fixed ----------------------
+    # 基线已在 count=100:磨 hash 不增加任何块,支付应【纯粹】是层级固定成本。
+    n = 40
+    grind_hash = [C("EQ", 100, 1000, h=1000 - i) for i in range(n)]
+    tot_g, payg, _, lvg = settle(grind_hash, base_count=100)
+    check("P13c 同层磨 40 个 tip_hash(不加块): 全窗仅产生一份 C_fixed",
+          len(lvg) == 1 and abs(tot_g - C_FIXED) < 1e-9
+          and abs(payg["EQ"] - C_FIXED) < 1e-9)
 
-    # --- d) 拆前缀至多打平:所得 ≤ 实际垫付,永不获利 ---------------------------
-    spent = 12 * TRUE_COST + phi_grind          # 12 次证明成本 + 其真实边际贡献
-    check("P13d 刷 12 次前缀所得 ≤ 实际支出 ⇒ 拆分至多打平,绝不获利",
-          grind <= spent + 1e-9)
+    # 对照:上一版"每个严格改进者一份"会付出 40 份,即攻击成立
+    old_rule_fixed = n * C_FIXED
+    check("P13c2 同构型下旧规则支付 40 份 C_fixed(证明该回归确有鉴别力)",
+          old_rule_fixed == 40 * C_FIXED and old_rule_fixed > 10 * tot_g)
 
-    # --- e) 多个独立诚实改进者【各自】收回成本(上一版的 bug 正在这里) ---------
-    # 旧规则的窗口上限只含【一份】C_FIXED,故固定成本占比越高、亏得越狠。
-    # 下面两组正是旧规则失效的构型;用旧规则重算作为对照,确保断言真的有鉴别力。
-    def old_rule(subs, base_count=0):
-        """上一版规则:上限 = 单份 C_FIXED + φ × 净推进,超额一律按比例分摊。"""
+    # 攻击者一次 L_eq + n 次证明,只收回一份 ⇒ 净亏
+    L_EQ = 500
+    check("P13c3 攻击者净亏: L_eq + n×真实成本 远超其所得",
+          L_EQ + n * TRUE_COST > tot_g)
+
+    # --- d) 拆前缀:每个前缀是新层级,但 C_FIXED ≤ 真实成本 ⇒ 至多打平 ----------
+    one, pay1, _, lv1 = settle([C("X", 12, 1200)])
+    grind, payg2, _, lvk = settle([C("X", i, 1000 + i) for i in range(1, 13)])
+    phi_one = one - len(lv1) * C_FIXED
+    phi_grind = grind - len(lvk) * C_FIXED
+    check("P13d 拆 12 个前缀: 边际块奖励与一次落满相同,固定部分至多打平",
+          abs(phi_one - phi_grind) < 1e-9 and len(lvk) == 12
+          and grind <= 12 * TRUE_COST + phi_grind + 1e-9)
+
+    # --- e) 多个独立诚实改进者各自收回成本(旧的共享上限在此失效) --------------
+    def shared_cap_rule(subs, base_count=0):
+        """更早的一版:窗口上限只含【一份】C_FIXED,超额一律按比例分摊。"""
         best, claims = None, []
         for c in subs:
             if best is None or key(c) > key(best):
@@ -557,38 +587,36 @@ def test_p13_reward_metered_on_marginal_advancement():
         tot = sum(claims)
         return [x * min(1.0, cap / tot) for x in claims] if tot else []
 
-    # 三个改进者,其中两个只推进 tip 不加块 —— 旧规则分摊系数 0.46
-    subs3 = [C("A", 5, 500, h=9), C("B", 5, 510, h=9), C("C", 6, 600)]
-    tot_m, paym, _, km = settle(subs3, base_count=5)
-    check("P13e 三个独立改进者各自收回固定成本(同构型下旧规则人人低于成本)",
-          km == 3 and all(v >= C_FIXED - 1e-9 for v in paym.values())
-          and all(v < C_FIXED for v in old_rule(subs3, 5)))
+    subs3 = [C("A", 5, 500, h=9), C("B", 5, 510, h=9), C("D", 6, 600)]
+    tot_m, paym, _, lv3 = settle(subs3, base_count=5)
+    check("P13e 三个独立改进者各自收回成本(共享上限规则下人人低于成本)",
+          len(lv3) == 3 and all(v >= C_FIXED - 1e-9 for v in paym.values())
+          and all(v < C_FIXED for v in shared_cap_rule(subs3, 5)))
 
-    # 五个改进者,四个只推进 tip —— 旧规则分摊系数 0.30
-    subs5 = [C("t%d" % n, 5, 500 + n, h=9 - n) for n in range(4)] + [C("Z", 6, 600)]
-    tot_5, pay5, _, k5 = settle(subs5, base_count=5)
-    check("P13e2 五个独立改进者各自收回固定成本(同构型下旧规则人人低于成本)",
-          k5 == 5 and all(v >= C_FIXED - 1e-9 for v in pay5.values())
-          and all(v < C_FIXED for v in old_rule(subs5, 5)))
-
-    # --- f) count 与 tip-only 改进交替的对抗序列:人人仍收回成本 ----------------
+    # --- f) 对抗序列:count 与 tip 改进交替,人人仍收回成本 --------------------
     adv = [C("A", 5, 500), C("B", 5, 510), C("A", 6, 600), C("B", 6, 610),
            C("A", 7, 700), C("B", 7, 710)]
-    tot_a, paya, best_a, ka = settle(adv)
-    check("P13f 对抗序列(count 与 tip-only 交替): 每个改进者仍收回成本",
-          ka == 6 and best_a["count"] == 7
+    tot_a, paya, best_a, lva = settle(adv)
+    check("P13f 对抗序列: 每个改进者仍收回成本,层级数 = 真实推进步数",
+          len(lva) == 6 and best_a["count"] == 7
           and all(v >= C_FIXED - 1e-9 for v in paya.values()))
 
     # --- g) 更差候选不被接受,不产生支付 ----------------------------------------
-    tot_w, payw, _, kw = settle([C("A", 12, 1200), C("B", 4, 400), C("C", 9, 900)])
-    check("P13g 更差候选零支付(不接受即不计费)", set(payw) == {"A"} and kw == 1)
+    tot_w, payw, _, lvw = settle([C("A", 12, 1200), C("B", 4, 400), C("D", 9, 900)])
+    check("P13g 更差候选零支付(不接受即不计费)",
+          set(payw) == {"A"} and len(lvw) == 1)
 
-    # --- h) 硬上限是安全阀:正常窗口不触发,超限时才按比例分摊 ------------------
-    normal_total, _, _, _ = settle([C("A", 50, 500), C("B", 120, 1200)])
-    huge = [C("g%d" % n, n, 10 * n) for n in range(1, 1201)]
-    tot_h, payh, _, kh = settle(huge)
-    check("P13h 硬上限不约束正常窗口,且在极端情形下确实封顶保证金外流",
-          normal_total < R_WINDOW_MAX and tot_h <= R_WINDOW_MAX + 1e-9 and kh == 1200)
+    # --- h) 数据发布成本可报销:兜底方发布的数据字节按 φ_data 计价 -------------
+    tot_d, payd, _, _ = settle([C("F", 20, 2000, b=64)])
+    check("P13h 兜底方发布数据的字节成本获报销(否则数据被扣留时无人愿意兜底)",
+          payd["F"] >= C_FIXED + PHI_DATA * 64 - 1e-9)
+
+    # --- i) 硬上限是安全阀:正常窗口不触发,极端情形下确实封顶 -----------------
+    normal, _, _, _ = settle([C("A", 50, 500), C("B", 120, 1200)])
+    huge = [C("g%d" % i, i, 10 * i) for i in range(1, 1201)]
+    tot_h, _, _, _ = settle(huge)
+    check("P13i 硬上限不约束正常窗口,极端情形下封顶保证金外流",
+          normal < R_WINDOW_MAX and tot_h <= R_WINDOW_MAX + 1e-9)
 
 
 if __name__ == "__main__":
