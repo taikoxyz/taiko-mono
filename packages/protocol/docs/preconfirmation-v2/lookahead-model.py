@@ -13,18 +13,21 @@ except ImportError:  # The exact pure-Python fallback below keeps the model stan
 
 CHAIN_ID = 16_788
 PROTOCOL_VERSION = 2
-L1_PER_L2 = 12
+GENESIS_TIMESTAMP = 1_000_000
+BEACON_GENESIS_TIME = 900_000
+BEACON_SLOT_SECONDS = 12
 W_SIZE = 384
 H_LOOK = 768
 L1_EPOCH = 32
-F_FINAL_L1 = 2 * L1_EPOCH
+F_FINAL_L1_BLOCKS = 64
 D_SNAP_L1 = 8 * L1_EPOCH
 MAX_SNAPSHOT_MISSES = 64
 SEAL_MARGIN_L1 = 32
 Q_MAX = W_SIZE // 5
 N_MAX = 64
 N_CAPACITY = (W_SIZE + Q_MAX - 1) // Q_MAX
-GENESIS_L1 = 10_000
+MAX_EARLY_SEAL_WINDOWS = 8
+MAX_LIVE_WINDOWS = 268
 VACANT = 0
 BOND_MAX = (1 << 192) - 1
 MASK64 = (1 << 64) - 1
@@ -124,7 +127,8 @@ class Entry:
     bond: int
     registration_index: int
     tranche_windows: frozenset[int]
-    tombstoned_at_slot: int | None = None
+    effective_l2_slot: int = 0
+    tombstoned_at_l2_slot: int | None = None
 
     def valid_registration(self) -> bool:
         return (self.address != VACANT and 0 < self.address < 1 << 160
@@ -136,55 +140,73 @@ class Entry:
 class Snapshot:
     target_slot: int
     carrier_slot: int
+    carrier_block_number: int
     source_slot: int
+    source_timestamp: int
+    source_l2_slot: int
     randao: bytes
     entries: tuple[Entry, ...]
+
+
+@dataclass(frozen=True)
+class ExecutionBlock:
+    beacon_slot: int
+    block_number: int
+    timestamp: int
 
 
 def window_of(slot: int) -> int:
     return slot // W_SIZE
 
 
-def l1_slot_of(l2_slot: int) -> int:
-    return GENESIS_L1 + l2_slot // L1_PER_L2
+def beacon_slot_at(timestamp: int) -> int:
+    return max(0, (timestamp - BEACON_GENESIS_TIME) // BEACON_SLOT_SECONDS)
 
 
 def snapshot_target_slot(window: int) -> int:
-    return l1_slot_of(window * W_SIZE) - D_SNAP_L1
+    window_start = GENESIS_TIMESTAMP + window * W_SIZE
+    return beacon_slot_at(window_start) - D_SNAP_L1
 
 
 def seal_deadline_l2(window: int) -> int:
     return window * W_SIZE - H_LOOK
 
 
-def make_snapshot(window: int, execution_slots: tuple[int, ...],
+def make_snapshot(window: int, execution_blocks: tuple[ExecutionBlock, ...],
                   entries: tuple[Entry, ...]) -> Snapshot | None:
     """Model EIP-4788: the first carrier after target returns its parent root."""
     target = snapshot_target_slot(window)
-    carriers = [slot for slot in execution_slots
-                if target < slot <= target + MAX_SNAPSHOT_MISSES]
+    carriers = [block for block in execution_blocks
+                if target < block.beacon_slot <= target + MAX_SNAPSHOT_MISSES]
     if not carriers:
         return None
-    carrier = min(carriers)
-    sources = [slot for slot in execution_slots if slot < carrier]
+    carrier = min(carriers, key=lambda block: block.beacon_slot)
+    sources = [block for block in execution_blocks
+               if block.beacon_slot < carrier.beacon_slot]
     if not sources:
         return None
-    source = max(sources)
-    if source > target:
+    source = max(sources, key=lambda block: block.beacon_slot)
+    if source.beacon_slot > target:
         return None
-    randao = keccak256(b"test-randao-v1" + u64(source))
-    return Snapshot(target, carrier, source, randao, entries)
+    randao = keccak256(b"test-randao-v1" + u64(source.beacon_slot))
+    source_l2_slot = max(0, source.timestamp - GENESIS_TIMESTAMP)
+    return Snapshot(target, carrier.beacon_slot, carrier.block_number,
+                    source.beacon_slot, source.timestamp, source_l2_slot,
+                    randao, entries)
 
 
-def seal_window(window: int, seal_l2_slot: int, execution_slots: tuple[int, ...],
-                entries: tuple[Entry, ...]) -> Snapshot | None:
+def seal_window(window: int, seal_l2_slot: int, current_block_number: int,
+                execution_blocks: tuple[ExecutionBlock, ...],
+                entries: tuple[Entry, ...], *, witness_ok: bool = True) -> Snapshot | None:
     """A late or unfinalized seal permanently resolves to all VACANT."""
     if seal_l2_slot >= seal_deadline_l2(window):
         return None
-    snapshot = make_snapshot(window, execution_slots, entries)
+    snapshot = make_snapshot(window, execution_blocks, entries)
     if snapshot is None:
         return None
-    if l1_slot_of(seal_l2_slot) - snapshot.carrier_slot < F_FINAL_L1:
+    if not witness_ok:
+        raise ValueError("malformed witness reverts; it does not seal VACANT")
+    if current_block_number - snapshot.carrier_block_number < F_FINAL_L1_BLOCKS:
         return None
     return snapshot
 
@@ -198,9 +220,10 @@ def eligible_entries(snapshot: Snapshot, window: int) -> list[Entry]:
     eligible = [
         entry for entry in snapshot.entries
         if entry.valid_registration()
+        and entry.effective_l2_slot <= snapshot.source_l2_slot
         and window in entry.tranche_windows
-        and (entry.tombstoned_at_slot is None
-             or entry.tombstoned_at_slot > snapshot.source_slot)
+        and (entry.tombstoned_at_l2_slot is None
+             or entry.tombstoned_at_l2_slot > snapshot.source_l2_slot)
     ]
     eligible.sort(key=lambda entry: (-entry.bond, entry.registration_index))
     return eligible[:N_MAX]
@@ -311,12 +334,18 @@ REG = (
     Entry(addr(2), 30, 2, ALL_WINDOWS),
     Entry(addr(3), 900, 3, ALL_WINDOWS),
 )
-EXECUTION_SLOTS = tuple(slot for slot in range(9_000, 14_000) if slot % 17 != 0)
+EXECUTION_BLOCKS = tuple(
+    ExecutionBlock(slot, 20_000 + ordinal,
+                   BEACON_GENESIS_TIME + slot * BEACON_SLOT_SECONDS)
+    for ordinal, slot in enumerate(range(7_500, 14_000)) if slot % 17 != 0
+)
+CURRENT_EXECUTION_BLOCK = 40_000
 
 
-def provider(entries=REG, execution_slots=EXECUTION_SLOTS):
+def provider(entries=REG, execution_blocks=EXECUTION_BLOCKS):
     return lambda window: seal_window(
-        window, seal_deadline_l2(window) - 1, execution_slots, tuple(entries)
+        window, seal_deadline_l2(window) - 1, CURRENT_EXECUTION_BLOCK,
+        execution_blocks, tuple(entries)
     )
 
 
@@ -337,10 +366,10 @@ def test_keccak_and_encoding_vectors():
     assert snapshot is not None
     check("L2 exact seed golden vector",
           seed(0, snapshot).hex()
-          == "34c3e39eef47488b7212347f4d83ad1ed4cef1425f80e04144d3a4a2f14554d0")
+          == "b4fb9cd2db3274538401298d4024f6d77ebc5f2ae607cd9d1aa67704e6c146e4")
     check("L3 exact full-schedule golden vector",
           digest_schedule(list(base_schedule()))
-          == "424a1ea3b1c69ea2313da7c3a41cbd3b812a7786090942faf4375db2fad9f1e6")
+          == "73ba0194440d7109a118a363310e4e515d89db82f271bdc82a07e3a5853fe7fb")
 
 
 def test_determinism_geometry_and_missed_slots():
@@ -352,26 +381,39 @@ def test_determinism_geometry_and_missed_slots():
     assert snapshot is not None
     check("L6 EIP-4788 carrier authenticates greatest source at/before target",
           snapshot.source_slot <= snapshot.target_slot < snapshot.carrier_slot
-          and snapshot.source_slot in EXECUTION_SLOTS
-          and snapshot.carrier_slot in EXECUTION_SLOTS
-          and not any(snapshot.source_slot < slot < snapshot.carrier_slot
-                      for slot in EXECUTION_SLOTS))
+          and snapshot.source_slot in {b.beacon_slot for b in EXECUTION_BLOCKS}
+          and snapshot.carrier_slot in {b.beacon_slot for b in EXECUTION_BLOCKS}
+          and not any(snapshot.source_slot < b.beacon_slot < snapshot.carrier_slot
+                      for b in EXECUTION_BLOCKS))
     ok = True
     for now in range(0, 4 * W_SIZE, 97):
         far = now + H_LOOK
-        ok &= snapshot_target_slot(window_of(far)) <= l1_slot_of(now) - F_FINAL_L1
+        now_timestamp = GENESIS_TIMESTAMP + now
+        ok &= snapshot_target_slot(window_of(far)) <= beacon_slot_at(now_timestamp) - F_FINAL_L1_BLOCKS
     check("L7 every slot in H_LOOK has a finalized target", ok)
     check("L7a strict seal geometry has positive slack",
-          D_SNAP_L1 > (H_LOOK // L1_PER_L2 + MAX_SNAPSHOT_MISSES
-                       + F_FINAL_L1 + SEAL_MARGIN_L1))
-    no_carrier = tuple(slot for slot in EXECUTION_SLOTS
-                       if not (snapshot.target_slot < slot
+          D_SNAP_L1 > (H_LOOK // BEACON_SLOT_SECONDS + MAX_SNAPSHOT_MISSES
+                       + F_FINAL_L1_BLOCKS + SEAL_MARGIN_L1))
+    no_carrier = tuple(block for block in EXECUTION_BLOCKS
+                       if not (snapshot.target_slot < block.beacon_slot
                                <= snapshot.target_slot + MAX_SNAPSHOT_MISSES))
     check("L8 missing bounded carrier fails closed",
           make_snapshot(0, no_carrier, REG) is None
           and schedule_for_window(0, lambda _w: None) == [VACANT] * W_SIZE)
     check("L9 late seal cannot mutate an advertised vacant window",
-          seal_window(0, seal_deadline_l2(0), EXECUTION_SLOTS, REG) is None)
+          seal_window(0, seal_deadline_l2(0), CURRENT_EXECUTION_BLOCK,
+                      EXECUTION_BLOCKS, REG) is None)
+    check("L9a finality is execution-block depth, not beacon-slot subtraction",
+          seal_window(0, seal_deadline_l2(0) - 1,
+                      snapshot.carrier_block_number + F_FINAL_L1_BLOCKS - 1,
+                      EXECUTION_BLOCKS, REG) is None)
+    reverted = False
+    try:
+        seal_window(0, seal_deadline_l2(0) - 1, CURRENT_EXECUTION_BLOCK,
+                    EXECUTION_BLOCKS, REG, witness_ok=False)
+    except ValueError:
+        reverted = True
+    check("L9b malformed witness reverts instead of sealing VACANT", reverted)
 
 
 def test_empty_sentinel_eligibility_and_tombstone():
@@ -387,12 +429,17 @@ def test_empty_sentinel_eligibility_and_tombstone():
     snapshot = provider()(1)
     assert snapshot is not None
     tombstoned = Entry(addr(60), BOND_MAX, 60, ALL_WINDOWS,
-                       tombstoned_at_slot=snapshot.source_slot)
+                       tombstoned_at_l2_slot=snapshot.source_l2_slot)
     eligible_after = eligible_entries(
         provider(entries=(tombstoned, *funded))(1), 1
     )
     check("L13 tombstoned key excluded from later snapshot",
           tombstoned.address not in {entry.address for entry in eligible_after})
+    early = Entry(addr(61), BOND_MAX, 61, ALL_WINDOWS,
+                  effective_l2_slot=snapshot.source_l2_slot + 1)
+    check("L13a not-yet-effective registration is excluded in L2 clock",
+          early.address not in {entry.address for entry in eligible_entries(
+              provider(entries=(early, *funded))(1), 1)})
     scheduled = next(address for address in base_schedule() if address != VACANT)
     position = base_schedule().index(scheduled)
     check("L14 post-seal tombstone affects only slots at/after effective slot",
@@ -409,7 +456,7 @@ def test_quota_and_run_bounds():
         (Entry(addr(0), 1, 0, ALL_WINDOWS),),
     ]
     for case, entries in enumerate(registries):
-        snapshot = make_snapshot(0, EXECUTION_SLOTS, tuple(entries))
+        snapshot = make_snapshot(0, EXECUTION_BLOCKS, tuple(entries))
         assert snapshot is not None
         trial_seed = keccak256(seed(0, snapshot) + u64(47 + case))
         alloc = quotas(eligible_entries(snapshot, 0), trial_seed)
@@ -433,6 +480,12 @@ def test_capacity_and_old_sampler_regression():
     check("L19 exact fill capacity is six addresses", N_CAPACITY == 6)
     check("L20 old renormalized whale sampler exceeded 54 percent", old_share > 0.54)
     check("L21 production quota caps whale at 76", actual <= Q_MAX)
+    current = 10_000
+    oldest_live = current - (MAX_LIVE_WINDOWS - MAX_EARLY_SEAL_WINDOWS - 1)
+    earliest_sealed = current + MAX_EARLY_SEAL_WINDOWS
+    check("L22 early-seal and retained-window ring indices cannot collide",
+          earliest_sealed - oldest_live < MAX_LIVE_WINDOWS
+          and earliest_sealed % MAX_LIVE_WINDOWS != oldest_live % MAX_LIVE_WINDOWS)
 
 
 if __name__ == "__main__":
