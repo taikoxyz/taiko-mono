@@ -9,9 +9,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, epoch-scoped source-authorized bridge-credit identities/retry, migration and replay. 104 assertions. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, source-domain/epoch bridge credits, authenticated/bounded source proofs, topology allowlists, capacity reservations, append-time deadlines, pending reorg replay, migration and replay. 114 assertions. |
 | [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, capped quotas, ring capacity and placement. 36 assertions. |
-| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, kind-0/kind-1 durable descriptors and dispositions, source-epoch/Bridge-bound credit IDs/results and idempotent pins, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 71 vectors/properties. |
+| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, kind-0/kind-1 durable descriptors and dispositions, source-domain/epoch/Bridge-bound credit IDs/results, bounded topology encodings and idempotent pins, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 77 vectors/properties. |
 
 ## Building the PDF
 
@@ -33,9 +33,9 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 104 assertions
+python3 settlement-window-model.py   # 114 assertions
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 71 vectors/properties
+python3 commitment-model.py          # 77 vectors/properties
 ```
 
 All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
@@ -68,9 +68,10 @@ economics, operations and external review. Five properties are worth knowing bef
   choice of parent. Executability is established only by the validity proof at landing, so a
   preconfirmation is a commitment to include and to order (§9).
 - **Bridge ingress has a separate availability boundary.** A kind-1 source operation is only
-  “source observed” until destination L1 records its root-verifiable proof package as `PENDING`.
-  From that point the durable credit is keyed by source chain, authorization epoch, Bridge and
-  message hash; source archives are no longer needed for queue progress.
+  “source observed” until its destination-L1 `PENDING` transaction is final plus the reorg margin.
+  That transaction reserves queue capacity; from `PENDING_FINAL`, the durable credit is keyed by
+  permanent source domain, authorization epoch, Bridge and message hash, so source archives are
+  no longer needed for queue progress.
 
 Final acceptance requires a human safety review. The models and the specification are a gate, not
 a signature.

@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.10}
+\large\mdseries Audited Design Candidate --- v2.11}
 \author{}
 \date{August 2026}
 \maketitle
@@ -104,9 +104,10 @@ the disagreement is resolved; neither source silently overrides the other.
 
 Subject to L1 safety/liveness, a sound validity-proof system, availability
 of a canonical prestate reconstruction package as defined below, and---for
-kind-1 credits only---safety/finality of the supported source chain, its
+kind-1 credits only---safety/finality of the supported source domain, its
 profile-authenticated historical Bridge registry and availability of the
-source proof package until L1 records \code{PENDING}, the protocol claims:
+source proof package until the destination \code{PENDING} transaction is final
+plus \code{REORG_MARGIN}, the protocol claims:
 
 \begin{enumerate}
 \item \textbf{Finalized-state safety.} L1 accepts only a proved state transition
@@ -144,11 +145,11 @@ source proof package until L1 records \code{PENDING}, the protocol claims:
   A payment failure never invalidates an otherwise valid canonical transition.
 \item Censorship by L1 for longer than \code{T_INCLUDE_MAX_SECONDS}, failure of L1
   finality, or a broken proof system is outside the model.
-\item A supported source chain finality failure or unauthorized change to its
+\item A supported source domain finality failure or unauthorized change to its
   profile-pinned Bridge registry is outside the kind-1 safety claim.  It cannot
   authorize a kind-0 user envelope.
 \item A source message is not yet an admitted forced envelope.  Before its
-  destination-L1 \code{PENDING} event, kind-1 ingress liveness depends on a
+  destination-L1 \code{PENDING_FINAL} operational milestone, kind-1 ingress liveness depends on a
   complete source proof package; total loss of every copy can strand the source
   operation and is not reported as forced-queue acceptance.
 \item A state root is a binding commitment, not an erasure code.  If every copy
@@ -179,15 +180,17 @@ does not require trusting the source; liveness requires at least one complete
 copy to remain reachable.
 \item[Forced-message sender.] Any L1 account that submits a gas-bounded,
 prepaid L2 transaction envelope.
-\item[Bridge source chain.] For kind 1 only, a profile-listed chain whose
-finalized header and historical Bridge-epoch registry state are proven to L1.
-Its consensus and registry governance are external safety dependencies; a
-current resolver lookup never substitutes for historical authentication.
+\item[Bridge source domain.] For kind 1 only at launch, settlement Ethereum,
+identified by chain ID, genesis hash, registry address and immutable registry
+namespace.  Its EIP-2935-authenticated historical header and Bridge-epoch state
+are proven to the same L1.  Registry governance is an external safety
+dependency; a current resolver lookup never substitutes for historical proof.
 \item[Source proof archive.] Any untrusted, replaceable source of the
 content-addressed header, receipt/event, account/storage trie and runtime-code
 objects needed to prepare a kind-1 credit.  Objects are root/hash verified and
 the archive has no protocol authority; at least one complete copy must remain
-reachable until L1 records \code{PENDING}.
+reachable until the destination \code{PENDING} inclusion is L1-final plus
+\code{REORG_MARGIN}.
 \item[L1.] Ethereum provides canonical ordering, timestamps, EIP-4788 beacon
 roots, EIP-2935 historical block hashes, blob commitments and the KZG
 point-evaluation precompile.
@@ -947,7 +950,8 @@ requires its recovered sender and all duplicated fields to match, and requires
 \code{msg.sender==sender}; relayed admission needs a separately versioned
 EIP-712 authorization.  Kind 1 contains:
 \begin{verbatim}
-(msgHash, srcChainId, srcEpoch, srcBridge, srcBlockNumber, srcBlockHash,
+(msgHash, srcChainId, sourceDomainId, srcEpoch, srcBridge,
+ srcBlockNumber, srcBlockHash,
  destChainId, srcOwner, destOwner,
  value, calldataHash, escrowId, byteLength, accountedGas,
  refundAddress, deposit)
@@ -957,29 +961,57 @@ field, and value is fully escrowed.  Its
 only forced effect is an idempotent inbox/signal credit keyed by the immutable
 identifier
 \begin{verbatim}
-creditId = H("slot-chain-bridge-credit-id-v2" || u64(srcChainId) ||
-             u64(srcEpoch) || address20(srcBridge) || msgHash)
+sourceDomainId = H("slot-chain-source-domain-v1" || u64(srcChainId) ||
+  sourceGenesisHash || address20(epochRegistry) || registryNamespace)
+creditId = H("slot-chain-bridge-credit-id-v3" || u64(srcChainId) ||
+  sourceDomainId || u64(srcEpoch) || address20(srcBridge) || msgHash)
 \end{verbatim}
 arbitrary destination invocation and RETRIABLE processing remain later ordinary
 bridge operations.  The two variants have separate byte-exact leaves.
 
 The adapter is an exactly-once state machine
 \code{NONE -> PENDING -> QUEUED(index)}, keyed by \code{creditId}, not by
-\code{msgHash}.  Source-finality verification and value
-escrow create an immutable durable \code{BridgeCredit} record and \code{PENDING}
-state.  Under one finalized source header at
-\code{(srcBlockNumber,srcBlockHash)}, the source
+\code{msgHash}.  \code{BridgeEpochRegistry} is a profile-pinned non-proxy
+contract; its nonzero \code{registryNamespace} is a constructor immutable and
+its code has no self-upgrade path.  Replacing the registry requires a new
+address and creates a new source domain even
+if chain, epoch, Bridge address and message hash repeat.  Destination protocol
+versions that retain the same source registry retain the same domain ID.
+
+Launch accepts only when source and settlement chain IDs are equal.  Let
+\code{sourceAge} be the current L1 block number minus \code{srcBlockNumber}.
+Preparation requires
+\begin{verbatim}
+F_L1 <= sourceAge < EIP2935_HISTORY_ENTRIES
+\end{verbatim}
+and reads the
+canonical hash for \code{srcBlockNumber} from Ethereum's EIP-2935 history
+contract and rejects unless it equals both \code{srcBlockHash} and legacy
+Keccak of the supplied canonical RLP header.  The adapter extracts the state
+and receipt roots from that authenticated header; no caller-supplied
+``finality certificate'' or root is authoritative.  The header is at most
+2,048 bytes; the entire source witness is at most 524,288 bytes, at most 64
+receipt-trie nodes and 256 state-trie nodes, and verification receives at most
+10,000,000 gas.  Extra nodes, duplicate paths, noncanonical RLP, an expired
+history index or any limit breach reject.  Supporting another source consensus
+requires a new protocol version with an equally byte-exact, bounded, audited
+finality verifier and is not part of the launch profile.
+
+Source-header authentication, complete static-envelope validation, value
+escrow and one queue-capacity reservation atomically create an immutable
+\code{BridgeCredit} record and \code{PENDING} state.  Under that one source header, the source
 witness authenticates all of: the exact BridgeV2 message record/event whose
 canonical \code{msgHash} and ownership/value/calldata/destination fields match
 the descriptor; a profile-listed \code{BridgeEpochRegistry} record authorizing
-the exact \code{(srcEpoch,srcBridge,bridgeExecutionHash)} at
+the exact \code{(sourceDomainId,srcEpoch,srcBridge,bridgeExecutionHash)} at
 \code{srcBlockNumber}; and the SignalService slot showing that the authorized Bridge
 sent \code{creditId}, rather than the legacy \code{msgHash}.  The profile pins
-the source registry address, code hash, storage key, BridgeV2 activation height
-and proof format for every supported source chain.  A Bridge-shaped clone or an
+the source genesis/hash domain, EIP-2935 address, registry address/namespace,
+code hash, storage keys, BridgeV2 activation height and proof limits.  A Bridge-shaped clone or an
 app outside its historically authenticated authorization epoch rejects even if
 it emitted a genuine signal.  The adapter records \code{srcEpoch},
-\code{srcBridge}, \code{srcBlockNumber} and \code{srcBlockHash}; checking only the current
+\code{sourceDomainId}, \code{srcBridge}, \code{srcBlockNumber} and
+\code{srcBlockHash}; checking only the current
 resolver is forbidden.
 
 The source \code{BridgeEpochRegistry} retains every monotonically increasing
@@ -993,39 +1025,56 @@ The execution hash is
 H("slot-chain-source-bridge-execution-v1" ||
   u32(topologyByteLength) || canonicalTopologyBytes)
 \end{verbatim}
-where the profile's canonical bytes list, in execution order, the proxy/router,
-implementation/beacon, admin and selector-slot accounts, runtime code hashes,
-immutable values and storage-slot/value pairs.  The registry or its immutable
-epoch controller owns every upgrade/selector authority.  A same-header witness
-proves the complete topology and terminal code hashes against the epoch value;
-an implementation or topology change requires a future successor epoch.
+where Appendix~\ref{sec:encodings} defines the complete bounded grammar and
+dispatch reconstruction algorithm.  Each destination execution profile
+contains a finite allowlist of exact topology bytes and hashes.  The registry
+or its immutable epoch controller owns every upgrade/selector authority.  A
+same-header witness proves the complete topology and terminal code hashes,
+reconstructs the unique dispatch path and matches an allowlisted hash.  A
+topology change requires a future successor epoch; a topology absent from the
+destination allowlist additionally requires a new destination protocol version.
 BridgeV2 checks that its own address, execution hash and epoch are the unique
 live entry before sending a V2 message.  Thus a rotation has block-boundary semantics, same-block
 transaction ordering cannot change who was authorized at emission, and a later
 proof can still authenticate the old epoch.
 Admission also requires \code{0<srcChainId<=UINT64_MAX},
-\code{0<srcEpoch<=UINT64_MAX}, \code{0<srcBlockNumber<=UINT64_MAX}, nonzero
-\code{srcBlockHash} and \code{msgHash}, \code{destChainId=l2ChainId} and a
+nonzero \code{sourceDomainId}, \code{0<srcEpoch<=UINT64_MAX},
+\code{0<srcBlockNumber<=UINT64_MAX}, nonzero \code{srcBlockHash} and
+\code{msgHash}, \code{destChainId=l2ChainId} and a
 nonzero \code{srcBridge}; no narrowing cast or destination-chain inference is
 permitted.
+
+\code{ForcedQueue.pendingReservations} is incremented in the same transaction
+that records \code{PENDING}.  Preparation first validates every immutable
+append predicate---kind, authorization, source fields, gas, byte length,
+deposit and escrow---and requires
+\code{queueCount+pendingReservations<UINT32_MAX}.  Every kind-0 append observes
+the same inequality.  Thus \code{PENDING} owns one future leaf position and
+cannot be stranded by a capacity race or an envelope that will later fail a
+static check.
 Anyone may call \code{finalizeEnqueue(creditId)}.  A Router
 \code{SYNCED} return leaves it \code{PENDING}; an \code{ADMITTED(index)} return
-and the transition to \code{QUEUED(index)} occur in one transaction, so either
-both the leaf and status persist or both revert.  Repeated calls for the same
+sets \code{enqueuedAt=block.timestamp}, computes \code{dueAt} from that exact
+append time, consumes one reservation, increments queue count and changes the
+record to \code{QUEUED(index)} atomically.  After static preparation, those are
+the only two outcomes.  Repeated calls for the same
 \code{creditId} return the stored index; two historically authorized Bridge
 epochs with the same \code{msgHash} have different IDs and records.  The upstream message is never reported queued merely because
 escrow became pending.
 
-Before \code{PENDING}, the permissionless preparer needs a source proof package
-containing the canonical source header/finality certificate, the receipt/event
+Before \code{PENDING_FINAL}, the permissionless preparer/archive retains a source proof package
+containing the canonical RLP source header, the receipt/event
 proof and full message fields, account/storage MPT nodes for the epoch registry,
 every proxy/router/implementation hop, the BridgeV2 message record and the
 SignalService slot, plus each runtime-bytecode preimage keyed by code hash.  A
 consumer verifies every object against \code{srcBlockHash} and its state or
-receipt root.  Once L1 records \code{PENDING}, the immutable credit and escrow
-are sufficient and source archives are no longer on the queue/recovery path.
-Wallets and source Bridge UI must show a pre-PENDING operation as
-\emph{source observed}, not forced-queue accepted.
+receipt root.  \code{PENDING_UNFINALIZED} is an operational label, not new
+contract state: if its L1 transaction is orphaned, the retained package is
+resubmitted.  Only after its inclusion block is canonical for \code{F_L1} plus
+\code{REORG_MARGIN} is it \code{PENDING_FINAL}; then the immutable credit,
+reservation and escrow are sufficient and source archives leave the
+queue/recovery path.  Wallets and source Bridge UI show a pre-final operation
+as \emph{source observed}, never forced-queue accepted or source-independent.
 
 Kind 0 requires a nonexpired \code{validUntil},
 \code{validUntil <= enqueuedAt+MAX_FORCE_VALIDITY_SECONDS}, and
@@ -1034,14 +1083,17 @@ initial validity horizon is seven days.  Kind 1
 uses the execution profile's fixed upper-bound InboxApply gas for its encoded
 credit.  Both require \code{0<accountedGas<=5,000,000},
 \code{0<byteLength<=131,072}, and a deposit covering execution, proof credit and
-permanent calldata/state costs.  The adapter verifies kind-1 escrow before
-append; failure leaves neither queue leaf nor partial credit.
+permanent calldata/state costs.  The adapter verifies kind-1 escrow and all
+static bounds before \code{PENDING}; failure leaves neither reservation, queue
+leaf nor partial credit.
 
 Only \code{ActiveSettlementRouter} may append.  It calls the active
 Settlement's \code{sync()} under a non-reentrant guard and returns \code{SYNCED}
 without appending if any transition occurred.  Otherwise it computes
-\code{dueAt=max(now+FORCE_DELAY,lastDueAt,recoveryExpiry+1)} (the last term is
-zero outside recovery), and appends atomically.  \code{ForcedQueue} stores one
+\code{enqueuedAt=block.timestamp} and
+\code{dueAt=max(enqueuedAt+FORCE_DELAY,lastDueAt,recoveryExpiry+1)} (the last
+term is zero outside recovery), and appends atomically.  A kind-1 append also
+consumes its prior reservation.  \code{ForcedQueue} stores one
 authoritative \code{QueueDescriptor} per index.  It is the complete fixed-width
 kind-0 or kind-1 leaf preimage in Appendix~\ref{sec:encodings}, excluding only
 kind-0 \code{rawTx} bytes themselves but including their hash.  Thus sender,
@@ -1130,8 +1182,9 @@ deliberately not a receipt hash: putting a later receipt hash in the earlier
 InboxApply calldata would create a fixed point through cumulative gas.  Code 5
 requires \code{txIndex=UINT32_MAX} and this exact durable credit hash:
 \begin{verbatim}
-H("slot-chain-bridge-credit-result-v4" || u64(queueIndex) || creditId ||
-  msgHash || u256(srcChainId) || u64(srcEpoch) || address20(srcBridge) ||
+H("slot-chain-bridge-credit-result-v5" || u64(queueIndex) || creditId ||
+  msgHash || u256(srcChainId) || sourceDomainId ||
+  u64(srcEpoch) || address20(srcBridge) ||
   u64(srcBlockNumber) || srcBlockHash || u256(destChainId) ||
   address20(srcOwner) ||
   address20(destOwner) || u256(value) || calldataHash || escrowId)
@@ -1153,17 +1206,18 @@ write even if a reserved signing algorithm or key is publicly reproducible.
 
 The launch fork adds these exact SignalService operations:
 \begin{verbatim}
-markReceivedFromInbox(uint64 srcChainId, uint64 srcEpoch, address srcBridge,
+markReceivedFromInbox(uint64 srcChainId, bytes32 sourceDomainId,
+                      uint64 srcEpoch, address srcBridge,
                       bytes32 msgHash, bytes32 resultHash)
-verifyInboxCredit(uint64 srcChainId, uint64 srcEpoch,
-                  address srcBridge, bytes32 msgHash)
+verifyInboxCredit(uint64 srcChainId, bytes32 sourceDomainId,
+                  uint64 srcEpoch, address srcBridge, bytes32 msgHash)
     view returns (bytes32 creditId)
 \end{verbatim}
 Only the immutable \code{InboxApply} predeploy may call the first operation.
 It requires nonzero app, message and result hashes.  At
 \code{inboxResultHash[VERSION][creditId]}, an empty value stores
-\code{resultHash} and sets the existing received bit at exactly
-\code{getSignalSlot(srcChainId,srcBridge,creditId)}.  A repeated call succeeds
+\code{resultHash} and sets the existing received bit at exactly the
+\code{getSignalSlot} key of \code{(sourceDomainId,srcBridge,creditId)}.  A repeated call succeeds
 without writes only when the stored result matches; a conflicting result
 reverts before any write.  \code{verifyInboxCredit} recomputes \code{creditId},
 requires its result and corresponding received bit to exist, and returns the ID.
@@ -1420,10 +1474,11 @@ The decoder rejects unknown keys, duplicate map keys, nonminimal integers,
 indefinite lengths and zero code hashes.  The profile contains:
 
 \begin{itemize}
-\item settlement/L2 chain IDs, Ethereum fork digest and activation block, plus
-  each supported source chain's BridgeV2 activation, BridgeEpochRegistry and
-  epoch-controller addresses/runtime hashes/storage layouts, canonical topology
-  encoding and exact historical authorization proof;
+\item settlement/L2 chain IDs, Ethereum genesis hash, fork digest, EIP-2935
+  address and activation block, plus the launch source domain ID,
+  BridgeEpochRegistry namespace, BridgeV2 activation, registry/epoch-controller
+  addresses/runtime hashes/storage layouts, the finite exact topology allowlist
+  and historical authorization proof limits;
 \item gas limit, EIP-1559 elasticity/change denominator, blob target/update
   fraction, empty ommers/withdrawals/requests constants and exact derivation of
   base fee, blob fields, logs bloom, randomness, parent beacon root, requests
@@ -1437,7 +1492,10 @@ indefinite lengths and zero code hashes.  The profile contains:
 \item at least six complete parent/prestate/input/transaction/receipt/header/
   poststate vectors: empty escape, valid kind 0, expired kind 0 without bytes,
   kind 1 before and after a Bridge-epoch rotation, A--B--A address reuse with
-  the same message hash, and a cap-limited multi-block prefix, plus invalid
+  the same message hash, registry/domain replacement, pending-capacity race,
+  delayed append, orphan/replayed pending and a cap-limited multi-block prefix,
+  plus invalid forged/expired EIP-2935 header, oversized/duplicate/unsorted
+  topology and source witnesses,
   extra-reserved-sender, unauthorized clone, mismatched/conflicting source
   Bridge, conflicting result hash, cross-path replay and duplicate-InboxApply vectors.
 \end{itemize}
@@ -1483,7 +1541,7 @@ Existing Taiko bridge messages remain on the
 legacy SignalService/Bridge retry path and are not silently converted into
 kind 1.  Only new, explicitly escrowed inbox-credit messages use
 \code{BridgeInboxAdapter}; its finalized message manifest binds the existing
-message hash, source chain/epoch, source Bridge/execution identity, source emission block number/hash and
+message hash, source domain/epoch, source Bridge/execution identity, source emission block number/hash and
 ownership/value/calldata fields,
 while destination invocation
 remains a later bridge operation.
@@ -1572,7 +1630,12 @@ Entry/exit/reservation ahead; moves & 8 / 268 / 16 windows; 4 per window & Liabi
 \code{FORCE_DELAY} & 1,500 s & At least settlement window plus \code{T_INCLUDE_MAX_SECONDS=120}. \\
 Forced prefix & 64 items; 1,048,576 B; 20m gas & Each item at most 131,072 B and 5m accounted gas; descriptors and one boundary remain durable. \\
 Candidate caps & 4,096 blocks; 12 windows; 1 anchor; 16 sessions; 2,100 records & Also 256 forced items, 4 MiB, 80m accounted gas. \\
-Queue / range proof & depth 32 / at most 129 hashes & Capacity \code{UINT32_MAX}; canonical contiguous range proof. \\
+Queue / range proof & depth 32 / at most 129 hashes &
+\code{queueCount+pendingReservations<=UINT32_MAX}; canonical contiguous range proof. \\
+Source history / witness & 8,191 blocks; 2,048 / 524,288 B; 64 / 256 nodes; 10m gas &
+Launch source is settlement Ethereum; source depth is at least \code{F_L1} and
+strictly below EIP-2935 history; header / total witness, receipt / state nodes
+and verification gas are independently bounded. \\
 \code{MAX_FORCE_VALIDITY_SECONDS} & 604,800 s & Bounds missing kind-0 payload delay; kind 1 is durable. \\
 Body chunks & 9 / 1,142,748 B & Per-body chunks / maximum discretionary bytes. \\
 \code{DATA_TTL} & 86,400 s & Greater than candidate, settlement, proof and reorg path. \\
@@ -1604,12 +1667,16 @@ execution result:
 \item exact predeploy/proxy/router topology, terminal runtime code hashes,
   constructor immutables and relevant storage selectors for AnchorV4,
   InboxApply, SignalService and Bridge;
+\item exact Ethereum genesis/source-domain/registry namespace, EIP-2935
+  history lookup, canonical RLP and MPT decoders, topology allowlist/extractors,
+  proof limits and valid/invalid source-witness corpus;
 \item exact raw system transactions, signatures, nonces, ABI, fee handling,
   gas ceilings and all fork/header recurrence rules; and
 \item complete parent/prestate/input/transaction/receipt/header/poststate
   positive and negative vectors listed in \S\ref{sec:implementation}, including
-  source-Bridge epoch/implementation rotation, unauthorized clones,
-  source-package loss/restore and legacy/V2 replay.
+  source-domain/Bridge epoch/implementation rotation, unauthorized clones,
+  pending-capacity races, orphan/replayed pending, source-package loss/restore
+  and legacy/V2 replay.
 \end{itemize}
 
 Those values are outputs of real compiled contracts, fork code and a real
@@ -1629,11 +1696,11 @@ seconds on the published minimum hardware.  Peak RAM, recursion setup and
 failure recovery are measured; a miss requires changing parameters and another
 design review.
 \item \textbf{Contract gas.} \code{sealWindow}, \code{postData}, normal submit,
-\code{sync}, recovery submit, slash and garbage collection fit current L1 gas
+\code{sync}, source-credit preparation/topology proof, recovery submit, slash and garbage collection fit current L1 gas
 limits with 30\% margin.  Fuzzing includes empty registry, zero seat, full data
 session, full queue prefix and maximum history age.
 \item \textbf{Cryptographic conformance.} Solidity, Go, Rust and circuit code
-match the Keccak/EIP-712 golden vectors, SSZ generalized indices, MPT proofs,
+match the Keccak/EIP-712 golden vectors, EIP-2935/RLP source-header and MPT proofs,
 KZG Fiat--Shamir transcript and exact body manifest.  Two independent
 implementations generate every vector.
 \item \textbf{State-machine verification.} Stateful fuzzing models EVM rollback,
@@ -1652,10 +1719,11 @@ the other two are removed.  The exercise also removes every
 builder and seat, forces a user transaction, reorgs the first recovery attempt,
 and still reaches finality.  Loss and restore drills verify that unavailable
 prestate is never misreported as bounded recovery.
-For every supported source chain, an analogous drill deletes source receipt,
+For every supported source domain, an analogous drill deletes source receipt,
 state and code databases, prepares a kind-1 credit from only the retained proof
 package, then proves that the destination no longer depends on that package
-after \code{PENDING}.
+only after \code{PENDING_FINAL}; the drill also orphans an unfinalized pending
+transaction and replays it from the retained package.
 \item \textbf{External review.} Separate proof-system, Solidity, bridge and
 economic audits close all critical/high findings; the migration rehearsal and
 emergency governance path are in scope.
@@ -1669,7 +1737,7 @@ data with a six-blob cap.  This revision removes those dependencies, fixes a
 single consensus path, binds bridge credits to their source application, and
 defines bytecode-complete recovery packages.  No additional critical/high
 architecture defect is known under the stated L1/source-chain, proof, funding,
-canonical-prestate and pre-PENDING source-package availability assumptions.
+canonical-prestate and pre-\code{PENDING_FINAL} source-package availability assumptions.
 Nevertheless the design is \emph{not
 implementation-ready}: the initial executable profile bundle above does not
 exist.  This audit therefore stops at the document-only impossibility boundary,
@@ -1786,8 +1854,8 @@ u64(enqueuedAt) || u64(dueAt) || u256(deposit)
 \end{verbatim}
 A kind-1 leaf is:
 \begin{verbatim}
-"slot-chain-force-bridge-v5" || u32(i) || msgHash ||
-u256(srcChainId) || u64(srcEpoch) || address20(srcBridge) ||
+"slot-chain-force-bridge-v6" || u32(i) || msgHash ||
+u256(srcChainId) || sourceDomainId || u64(srcEpoch) || address20(srcBridge) ||
 u64(srcBlockNumber) ||
 srcBlockHash ||
 u256(destChainId) ||
@@ -1802,10 +1870,31 @@ Its application has no expiry; no
 For \code{forcedDescriptorCommitment}, \code{descriptorBytes} is exactly the
 corresponding leaf sequence beginning immediately after \code{u32(i)}; the list
 already supplies index and kind, so neither leaf ASCII domain nor index is
-duplicated inside it.  Its fixed byte length is 220 for kind 0 and 380 for kind
+duplicated inside it.  Its fixed byte length is 220 for kind 0 and 412 for kind
 1.  The list encoding and optional first excluded boundary are defined in
 \S\ref{sec:escape}.  The circuit prepends the correct leaf domain and index to
 reconstruct every Merkle leaf; any other length rejects.
+
+\code{canonicalTopologyBytes} has this exact packed grammar:
+\begin{verbatim}
+u8(1) || bytes4(entrySelector) || u8(nodeCount) ||
+(u8(kind) || address20(account) || runtimeCodeHash || u8(slotCount) ||
+   (bytes32(slot) || bytes32(value))*)*
+\end{verbatim}
+Here \code{1<=nodeCount<=8}, \code{slotCount<=8}, and the complete encoding is
+at most 4,096 bytes.  Kinds are 0=terminal, 1=EIP-1967 proxy,
+2=profile beacon and 3=profile fork router.  Exactly the last node is terminal;
+accounts are nonzero and unique; code hashes are nonzero; and slots within a
+node are strictly increasing and unique.  The first account is
+\code{srcBridge}.  The immutable profile maps every admitted
+\code{(kind,runtimeCodeHash,entrySelector)} to its exact required slot set and
+a total next-account extractor.  Verification proves every listed account,
+code hash and slot/value under the one source state root, applies each extractor
+to obtain exactly the following account, and ends at the terminal node.  It
+rejects an unknown tuple, missing/extra slot, duplicate, cycle, unconsumed node,
+nonterminal final node or bytes absent from the profile's finite exact allowlist.
+Thus ``complete topology'' is executable matching against reviewed descriptors,
+not bytecode introspection or a caller-chosen list.
 
 The depth-32 vector empty leaf is \code{H("slot-chain-force-empty-v2")}.
 A parent at height $h=0,\ldots,31$ is
@@ -1882,9 +1971,11 @@ registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
 admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
-bridgeLeaf    f004dc1367a1a782b1d28ab02c77d8c6ff4a54aa8fe194a128b877a387d335a6
-creditId      bfb7f2280ae785be98770a67e8d5c11d42995a0a961baeb479bde6bf368fcaee
-bridgeResult  d2b68225ba3ea936159e0ec2157b07b1c72d268b89b31fc8d10fece7f9015c8e
+sourceDomain  0200a9c8b107399151be3a25b7ebfd4b500b616a3e9a7eab7698284ea0bfbb52
+bridgeExec    902970f59bbc440b3d36429ad2add690959871287a52e65123001a635404c84b
+bridgeLeaf    a061f7347357fbb15a724ddfad8f8bf8eed696ee317eaabf2bc0bb329fc86165
+creditId      4e5ca7e70f7832fd08235821dd0e4b54c05635ab01eb2ce24562d77871307ad5
+bridgeResult  ae71b8a9ad489f229e6f7d23ea5bb19ea701101a23b6f555cf7e58803643b629
 manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 normalContext 441dee77fdcd856bfb41504fdcbcbd97de481a881e53017a5983d1210f6d22a8
 migrationData 916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399
@@ -2002,7 +2093,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 104 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 114 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -2010,15 +2101,17 @@ replacement/liability generations, tranche release units, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 71 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 77 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors/vector/range proofs, session MMR, per-block manifest,
-dispositions, recovery ID, Fiat--Shamir input, body chunks and blob codec.  The
+source domains/topology, dispositions, recovery ID, Fiat--Shamir input, body
+chunks and blob codec.  The
 valid KZG-opening, signature-recovery, independent-implementation and proof
 gates remain mandatory.
 
 \section{Security invariants checklist}\label{app:invariants}
 
+{\small
 \begin{enumerate}
 \item Canonical state changes only after one valid proof and only from its stored
 base tuple.
@@ -2052,10 +2145,13 @@ orphaned transactions together.
 \item After ordinary quiescence, migration freezes old ingress, imports
 canonical/bridge cursors into PREACTIVE settlement and switches the one active
 queue router atomically.
-\item A kind-1 credit is admitted only from one finalized source header that
-simultaneously authenticates its immutable message, source epoch, execution
-topology and \code{creditId} signal.  Before \code{PENDING} no forced-queue
-acceptance is claimed; afterward source proof objects are not needed for progress.
+\item A kind-1 credit is prepared only from one EIP-2935-authenticated,
+depth-final source header that simultaneously authenticates its source domain,
+immutable message, epoch, allowlisted execution topology and \code{creditId}
+signal.  \code{PENDING} reserves capacity and validates every static append
+predicate; source proof objects remain available through
+\code{PENDING_FINAL}, after which they are not needed for progress.
 \end{enumerate}
+}
 
 \end{document}

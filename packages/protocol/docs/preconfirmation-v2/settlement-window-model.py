@@ -61,6 +61,9 @@ G_MAX = DELTA_FINAL_LAG
 MAX_ARM_AGE_BLOCKS = 255
 EIP2935_HISTORY_ENTRIES = 8_191
 L1_SLOT_SECONDS = 12
+PENDING_FINALITY_BLOCKS = F_L1 + (
+    REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
+) // L1_SLOT_SECONDS
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -361,6 +364,7 @@ class Protocol:
     history: dict[int, L1Header]
     mode: Mode = Mode.NORMAL
     messages: list[Message] = field(default_factory=list)
+    pending_reservations: int = 0
     episode: int = 0
     recovery: RecoveryRound | None = None
     normal_best: Candidate | None = None
@@ -573,31 +577,61 @@ class Protocol:
         self.admission_version += 1
         self.admission_root = f"admission:{self.admission_version}"
 
+    @staticmethod
+    def _valid_bridge_static(message: Message) -> bool:
+        return (message.kind is ForceKind.BRIDGE_CREDIT
+                and message.outer_authorized
+                and message.valid_until == UINT64_MAX
+                and message.intrinsic_gas > 0
+                and message.accounted_gas
+                    >= max(message.intrinsic_gas, MIN_FORCE_ACCOUNTED_GAS)
+                and message.accounted_gas <= MAX_FORCE_MESSAGE_GAS
+                and 0 < message.byte_length <= MAX_FORCE_MESSAGE_BYTES
+                and message.prepaid > 0)
+
+    def reserve_bridge(self, message: Message) -> bool:
+        if (not self._valid_bridge_static(message)
+                or len(self.messages) + self.pending_reservations
+                    >= MAX_FORCE_QUEUE_ITEMS):
+            return False
+        self.pending_reservations += 1
+        return True
+
+    def _append(self, clock: Clock, message: Message) -> None:
+        prior_due = self._due_at(self.messages[-1]) if self.messages else 0
+        deferred = (self.recovery.expires_at + 1
+                    if self.mode is Mode.RECOVERY and self.recovery else 0)
+        due = max(clock.timestamp + FORCE_DELAY, prior_due, deferred)
+        self.messages.append(replace(message, enqueued_at=clock.timestamp, due_at=due))
+
     def admit_message(self, clock: Clock, message: Message) -> str:
         if self.sync(clock):
             return "SYNCED"
-        if len(self.messages) >= MAX_FORCE_QUEUE_ITEMS:
+        if (message.kind is not ForceKind.USER_TX
+                or len(self.messages) + self.pending_reservations
+                    >= MAX_FORCE_QUEUE_ITEMS):
             return "REJECTED"
-        if message.kind is ForceKind.USER_TX:
-            invalid = (not message.chain_id_ok or not message.signature_ok
-                       or not message.outer_authorized or not message.sender
-                       or message.valid_until <= clock.timestamp
-                       or message.valid_until
-                           > message.enqueued_at + MAX_FORCE_VALIDITY_SECONDS)
-        else:
-            invalid = not message.outer_authorized or message.valid_until != UINT64_MAX
+        invalid = (not message.chain_id_ok or not message.signature_ok
+                   or not message.outer_authorized or not message.sender
+                   or message.valid_until <= clock.timestamp
+                   or message.valid_until
+                       > clock.timestamp + MAX_FORCE_VALIDITY_SECONDS)
         if (invalid or message.intrinsic_gas <= 0
                 or message.accounted_gas < max(message.intrinsic_gas, MIN_FORCE_ACCOUNTED_GAS)
                 or message.accounted_gas > MAX_FORCE_MESSAGE_GAS
                 or not 0 < message.byte_length <= MAX_FORCE_MESSAGE_BYTES
                 or message.prepaid <= 0):
             return "REJECTED"
-        prior_due = self._due_at(self.messages[-1]) if self.messages else 0
-        deferred = (self.recovery.expires_at + 1
-                    if self.mode is Mode.RECOVERY and self.recovery else 0)
-        due = max(message.enqueued_at + FORCE_DELAY, prior_due, deferred)
-        index = len(self.messages)
-        self.messages.append(replace(message, due_at=due))
+        self._append(clock, message)
+        return "ADMITTED"
+
+    def admit_reserved_bridge(self, clock: Clock, message: Message) -> str:
+        if self.sync(clock):
+            return "SYNCED"
+        if self.pending_reservations <= 0 or not self._valid_bridge_static(message):
+            return "REJECTED"
+        self._append(clock, message)
+        self.pending_reservations -= 1
         return "ADMITTED"
 
     def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
@@ -826,37 +860,62 @@ class Protocol:
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
 
 
+@dataclass(frozen=True)
+class BridgeRecord:
+    state: str
+    envelope: Message
+    index: int | None
+    pending_at_block: int
+
+
 @dataclass
 class BridgeAdapter:
-    records: dict[str, tuple[str, Message, int | None]] = field(default_factory=dict)
+    records: dict[str, BridgeRecord] = field(default_factory=dict)
 
     @staticmethod
-    def credit_id(src_chain_id: int, src_epoch: int,
+    def credit_id(src_chain_id: int, source_domain_id: str, src_epoch: int,
                   src_bridge: str, msg_hash: str) -> str:
-        return f"credit:{src_chain_id}:{src_epoch}:{src_bridge}:{msg_hash}"
+        return (f"credit:{src_chain_id}:{source_domain_id}:{src_epoch}:"
+                f"{src_bridge}:{msg_hash}")
 
-    def prepare(self, src_chain_id: int, src_epoch: int, src_bridge: str,
+    def prepare(self, protocol_: Protocol, clock_: Clock, src_chain_id: int,
+                source_domain_id: str, src_epoch: int, src_bridge: str,
                 msg_hash: str, envelope: Message,
-                source_authorized_at_emission: bool = True
+                source_authorized_at_emission: bool = True,
+                source_header_authenticated: bool = True,
+                source_proof_within_bounds: bool = True,
+                topology_allowlisted: bool = True,
                 ) -> str | None:
-        credit_id = self.credit_id(src_chain_id, src_epoch, src_bridge, msg_hash)
+        credit_id = self.credit_id(
+            src_chain_id, source_domain_id, src_epoch, src_bridge, msg_hash)
         if (credit_id in self.records
                 or envelope.kind is not ForceKind.BRIDGE_CREDIT
-                or not source_authorized_at_emission):
+                or not source_authorized_at_emission
+                or not source_header_authenticated
+                or not source_proof_within_bounds
+                or not topology_allowlisted
+                or not protocol_.reserve_bridge(envelope)):
             return None
-        self.records[credit_id] = ("PENDING", envelope, None)
+        self.records[credit_id] = BridgeRecord(
+            "PENDING", envelope, None, clock_.block_number)
         return credit_id
 
     def finalize(self, protocol_: Protocol, clock_: Clock, credit_id: str) -> str:
-        state, envelope, index = self.records[credit_id]
-        if state == "QUEUED":
-            return f"QUEUED:{index}"
-        result = protocol_.admit_message(clock_, envelope)
+        record = self.records[credit_id]
+        if record.state == "QUEUED":
+            return f"QUEUED:{record.index}"
+        result = protocol_.admit_reserved_bridge(clock_, record.envelope)
         if result == "ADMITTED":
             index = len(protocol_.messages) - 1
-            self.records[credit_id] = ("QUEUED", envelope, index)
+            self.records[credit_id] = replace(record, state="QUEUED", index=index)
             return f"QUEUED:{index}"
         return result
+
+    def source_independent(self, clock_: Clock, credit_id: str) -> bool:
+        record = self.records.get(credit_id)
+        return (record is not None
+                and clock_.block_number
+                    >= record.pending_at_block + PENDING_FINALITY_BLOCKS)
 
 
 PASS: list[str] = []
@@ -1061,7 +1120,10 @@ def test_force_merkle_bounds_and_auth() -> None:
     forged = replace(good, force_range_proof_ok=False)
     check("P15 skip/reorder proof rejects", anchored.submit(forged, c) == "REJECTED")
     bridge = message(1_100, "bridge", kind=ForceKind.BRIDGE_CREDIT)
-    check("P16 non-expiring bridge credit admits", protocol().admit_message(c, bridge) == "ADMITTED")
+    bridge_protocol = protocol()
+    check("P16 non-expiring reserved bridge credit admits",
+          bridge_protocol.reserve_bridge(bridge)
+          and bridge_protocol.admit_reserved_bridge(c, bridge) == "ADMITTED")
     check("P17 gas geometry", ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN <= L2_BLOCK_GAS_LIMIT)
     too_long = replace(message(1_100, "too-long"),
                        valid_until=c.timestamp + MAX_FORCE_VALIDITY_SECONDS + 1)
@@ -1286,22 +1348,31 @@ def test_data_gc_reorg_and_geometry() -> None:
     bridge_protocol = protocol()
     adapter = BridgeAdapter()
     bridge_envelope = message(4_601, "bridge-record", kind=ForceKind.BRIDGE_CREDIT)
-    credit_a = adapter.prepare(1, 7, "bridge:A", "msg", bridge_envelope)
-    credit_b = adapter.prepare(1, 8, "bridge:B", "msg", bridge_envelope)
-    credit_a_reused = adapter.prepare(1, 9, "bridge:A", "msg", bridge_envelope)
+    prepared_clock = clock(1_099, 4_600)
+    credit_a = adapter.prepare(
+        bridge_protocol, prepared_clock, 1, "domain:R1", 7,
+        "bridge:A", "msg", bridge_envelope)
+    credit_b = adapter.prepare(
+        bridge_protocol, prepared_clock, 1, "domain:R1", 8,
+        "bridge:B", "msg", bridge_envelope)
+    credit_a_reused = adapter.prepare(
+        bridge_protocol, prepared_clock, 1, "domain:R1", 9,
+        "bridge:A", "msg", bridge_envelope)
     check("P50e A-B-A authorized epochs have distinct exactly-once identities",
           credit_a is not None and credit_b is not None and credit_a_reused is not None
           and len({credit_a, credit_b, credit_a_reused}) == 3
           and len(adapter.records) == 3
-          and adapter.prepare(1, 7, "bridge:A", "msg", bridge_envelope) is None)
+          and adapter.prepare(bridge_protocol, prepared_clock, 1, "domain:R1", 7,
+                              "bridge:A", "msg", bridge_envelope) is None)
     check("P50f unauthorized Bridge clone rejects at its emission height",
-          adapter.prepare(1, 10, "clone", "forged", bridge_envelope,
+          adapter.prepare(bridge_protocol, prepared_clock, 1, "domain:R1", 10,
+                          "clone", "forged", bridge_envelope,
                           source_authorized_at_emission=False) is None)
     assert credit_a is not None and credit_b is not None and credit_a_reused is not None
     transition_clock = clock(1_100, 4_601)
     check("P50c bridge SYNCED stays pending",
           adapter.finalize(bridge_protocol, transition_clock, credit_a) == "SYNCED"
-          and adapter.records[credit_a][0] == "PENDING")
+          and adapter.records[credit_a].state == "PENDING")
     check("P50d bridge retry queues exactly once",
           adapter.finalize(bridge_protocol, transition_clock, credit_a) == "QUEUED:0"
           and adapter.finalize(bridge_protocol, transition_clock, credit_a) == "QUEUED:0"
@@ -1312,6 +1383,101 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50h same address reused in a later epoch queues independently",
           adapter.finalize(bridge_protocol, transition_clock, credit_a_reused) == "QUEUED:2"
           and len(bridge_protocol.messages) == 3)
+
+    domain_credit = adapter.prepare(
+        bridge_protocol, transition_clock, 1, "domain:R2", 7,
+        "bridge:A", "msg", bridge_envelope)
+    check("P50i replacement registry has a distinct source-domain identity",
+          domain_credit is not None and domain_credit not in {credit_a, credit_b,
+                                                               credit_a_reused})
+
+    invalid_protocol = protocol(tip_slot=100)
+    invalid_adapter = BridgeAdapter()
+    invalid = replace(bridge_envelope, prepaid=0)
+    check("P50j static-invalid credit cannot reserve or become pending",
+          invalid_adapter.prepare(invalid_protocol, clock(100, 100), 1, "domain:R1",
+                                  1, "bridge:A", "invalid", invalid) is None
+          and invalid_protocol.pending_reservations == 0)
+
+    source_auth_protocol = protocol(tip_slot=100)
+    source_auth_adapter = BridgeAdapter()
+    check("P50p forged source header cannot reserve or become pending",
+          source_auth_adapter.prepare(
+              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
+              "bridge:A", "forged-header", bridge_envelope,
+              source_header_authenticated=False) is None
+          and source_auth_protocol.pending_reservations == 0)
+    check("P50q oversized source witness cannot reserve or become pending",
+          source_auth_adapter.prepare(
+              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
+              "bridge:A", "oversized-proof", bridge_envelope,
+              source_proof_within_bounds=False) is None
+          and source_auth_protocol.pending_reservations == 0)
+    check("P50r unlisted execution topology cannot reserve or become pending",
+          source_auth_adapter.prepare(
+              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
+              "bridge:A", "unlisted-topology", bridge_envelope,
+              topology_allowlisted=False) is None
+          and source_auth_protocol.pending_reservations == 0)
+
+    capacity_protocol = protocol(tip_slot=100)
+    capacity_protocol.pending_reservations = MAX_FORCE_QUEUE_ITEMS - 1
+    capacity_adapter = BridgeAdapter()
+    capacity_credit = capacity_adapter.prepare(
+        capacity_protocol, clock(100, 100), 1, "domain:R1", 1,
+        "bridge:A", "capacity", bridge_envelope)
+    competing_user = replace(
+        message(101, "competing-user"), valid_until=GENESIS_TIMESTAMP + 10_000)
+    capacity_clock = clock(101, 101)
+    check("P50k pending credit reserves the final queue position",
+          capacity_credit is not None
+          and capacity_protocol.pending_reservations == MAX_FORCE_QUEUE_ITEMS
+          and capacity_protocol.admit_message(capacity_clock, competing_user) == "REJECTED")
+    assert capacity_credit is not None
+    check("P50l reserved credit appends even at aggregate capacity",
+          capacity_adapter.finalize(capacity_protocol, capacity_clock,
+                                    capacity_credit) == "QUEUED:0"
+          and len(capacity_protocol.messages) == 1
+          and capacity_protocol.pending_reservations == MAX_FORCE_QUEUE_ITEMS - 1)
+
+    delayed_protocol = protocol(tip_slot=100)
+    delayed_adapter = BridgeAdapter()
+    delayed_credit = delayed_adapter.prepare(
+        delayed_protocol, clock(100, 100), 1, "domain:R1", 1,
+        "bridge:A", "delayed", bridge_envelope)
+    delayed_clock = clock(500, 500)
+    assert delayed_credit is not None
+    check("P50m bridge due time starts at actual queue append",
+          delayed_adapter.finalize(delayed_protocol, delayed_clock,
+                                   delayed_credit) == "QUEUED:0"
+          and delayed_protocol.messages[0].enqueued_at == delayed_clock.timestamp
+          and delayed_protocol.messages[0].due_at
+              == delayed_clock.timestamp + FORCE_DELAY
+          and not delayed_protocol.force_due(delayed_clock))
+
+    reorg_protocol = protocol(tip_slot=100)
+    reorg_adapter = BridgeAdapter()
+    pre_protocol = reorg_protocol.snapshot()
+    pre_adapter = copy.deepcopy(reorg_adapter)
+    reorg_clock = clock(100, 100)
+    orphaned_credit = reorg_adapter.prepare(
+        reorg_protocol, reorg_clock, 1, "domain:R1", 1,
+        "bridge:A", "reorg", bridge_envelope)
+    assert orphaned_credit is not None
+    check("P50n source package retained before pending finality",
+          not reorg_adapter.source_independent(
+              Clock(reorg_clock.block_number + PENDING_FINALITY_BLOCKS - 1,
+                    reorg_clock.timestamp), orphaned_credit))
+    reorg_protocol = pre_protocol
+    reorg_adapter = pre_adapter
+    replayed_credit = reorg_adapter.prepare(
+        reorg_protocol, reorg_clock, 1, "domain:R1", 1,
+        "bridge:A", "reorg", bridge_envelope)
+    check("P50o orphaned pending can replay from retained source package",
+          replayed_credit == orphaned_credit
+          and reorg_adapter.source_independent(
+              Clock(reorg_clock.block_number + PENDING_FINALITY_BLOCKS,
+                    reorg_clock.timestamp), replayed_credit))
 
 
 if __name__ == "__main__":
