@@ -830,20 +830,29 @@ class Protocol:
 class BridgeAdapter:
     records: dict[str, tuple[str, Message, int | None]] = field(default_factory=dict)
 
-    def prepare(self, msg_hash: str, envelope: Message) -> bool:
-        if msg_hash in self.records or envelope.kind is not ForceKind.BRIDGE_CREDIT:
-            return False
-        self.records[msg_hash] = ("PENDING", envelope, None)
-        return True
+    @staticmethod
+    def credit_id(src_chain_id: int, src_bridge: str, msg_hash: str) -> str:
+        return f"credit:{src_chain_id}:{src_bridge}:{msg_hash}"
 
-    def finalize(self, protocol_: Protocol, clock_: Clock, msg_hash: str) -> str:
-        state, envelope, index = self.records[msg_hash]
+    def prepare(self, src_chain_id: int, src_bridge: str, msg_hash: str,
+                envelope: Message, source_authorized_at_emission: bool = True
+                ) -> str | None:
+        credit_id = self.credit_id(src_chain_id, src_bridge, msg_hash)
+        if (credit_id in self.records
+                or envelope.kind is not ForceKind.BRIDGE_CREDIT
+                or not source_authorized_at_emission):
+            return None
+        self.records[credit_id] = ("PENDING", envelope, None)
+        return credit_id
+
+    def finalize(self, protocol_: Protocol, clock_: Clock, credit_id: str) -> str:
+        state, envelope, index = self.records[credit_id]
         if state == "QUEUED":
             return f"QUEUED:{index}"
         result = protocol_.admit_message(clock_, envelope)
         if result == "ADMITTED":
             index = len(protocol_.messages) - 1
-            self.records[msg_hash] = ("QUEUED", envelope, index)
+            self.records[credit_id] = ("QUEUED", envelope, index)
             return f"QUEUED:{index}"
         return result
 
@@ -1275,15 +1284,27 @@ def test_data_gc_reorg_and_geometry() -> None:
     bridge_protocol = protocol()
     adapter = BridgeAdapter()
     bridge_envelope = message(4_601, "bridge-record", kind=ForceKind.BRIDGE_CREDIT)
-    assert adapter.prepare("msg", bridge_envelope)
+    credit_a = adapter.prepare(1, "bridge:A", "msg", bridge_envelope)
+    credit_b = adapter.prepare(1, "bridge:B", "msg", bridge_envelope)
+    check("P50e rotated authorized Bridges have distinct exactly-once identities",
+          credit_a is not None and credit_b is not None and credit_a != credit_b
+          and len(adapter.records) == 2
+          and adapter.prepare(1, "bridge:A", "msg", bridge_envelope) is None)
+    check("P50f unauthorized Bridge clone rejects at its emission height",
+          adapter.prepare(1, "clone", "forged", bridge_envelope,
+                          source_authorized_at_emission=False) is None)
+    assert credit_a is not None and credit_b is not None
     transition_clock = clock(1_100, 4_601)
     check("P50c bridge SYNCED stays pending",
-          adapter.finalize(bridge_protocol, transition_clock, "msg") == "SYNCED"
-          and adapter.records["msg"][0] == "PENDING")
+          adapter.finalize(bridge_protocol, transition_clock, credit_a) == "SYNCED"
+          and adapter.records[credit_a][0] == "PENDING")
     check("P50d bridge retry queues exactly once",
-          adapter.finalize(bridge_protocol, transition_clock, "msg") == "QUEUED:0"
-          and adapter.finalize(bridge_protocol, transition_clock, "msg") == "QUEUED:0"
+          adapter.finalize(bridge_protocol, transition_clock, credit_a) == "QUEUED:0"
+          and adapter.finalize(bridge_protocol, transition_clock, credit_a) == "QUEUED:0"
           and len(bridge_protocol.messages) == 1)
+    check("P50g same message from next authorized epoch queues independently",
+          adapter.finalize(bridge_protocol, transition_clock, credit_b) == "QUEUED:1"
+          and len(bridge_protocol.messages) == 2)
 
 
 if __name__ == "__main__":
