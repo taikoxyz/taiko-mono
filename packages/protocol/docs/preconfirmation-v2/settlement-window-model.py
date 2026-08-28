@@ -64,6 +64,8 @@ L1_SLOT_SECONDS = 12
 PENDING_FINALITY_BLOCKS = F_L1 + (
     REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
 ) // L1_SLOT_SECONDS
+MAX_SOURCE_WITNESS_AGE = 255
+MAX_SOURCE_TOPOLOGIES_PER_DOMAIN = 64
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -561,6 +563,7 @@ class Protocol:
                 or not old_quiescent or not router_switched
                 or not header_checkpoint_authenticated
                 or not l2_system_accounts_authenticated
+                or self.messages or self.pending_reservations != 0
                 or imported.canonicalized_at_block != clock.block_number
                 or imported.core.l2_block_number >= 1 << 48
                 or imported.core.message_cursor != 0
@@ -590,7 +593,8 @@ class Protocol:
                 and message.prepaid > 0)
 
     def reserve_bridge(self, message: Message) -> bool:
-        if (not self._valid_bridge_static(message)
+        if (self.mode is Mode.PREACTIVE
+                or not self._valid_bridge_static(message)
                 or len(self.messages) + self.pending_reservations
                     >= MAX_FORCE_QUEUE_ITEMS):
             return False
@@ -869,6 +873,31 @@ class BridgeRecord:
 
 
 @dataclass
+class SourceSupportCatalog:
+    added_at: dict[tuple[str, str], int] = field(default_factory=dict)
+
+    def add(self, source_domain_id: str, execution_hash: str,
+            block_number: int) -> bool:
+        key = (source_domain_id, execution_hash)
+        if key in self.added_at:
+            return self.added_at[key] == block_number
+        if sum(domain == source_domain_id for domain, _ in self.added_at) \
+                >= MAX_SOURCE_TOPOLOGIES_PER_DOMAIN:
+            return False
+        self.added_at[key] = block_number
+        return True
+
+    def final(self, source_domain_id: str, execution_hash: str,
+              block_number: int) -> bool:
+        added = self.added_at.get((source_domain_id, execution_hash))
+        return added is not None and block_number >= added + PENDING_FINALITY_BLOCKS
+
+    def remove(self, source_domain_id: str, execution_hash: str) -> bool:
+        _ = (source_domain_id, execution_hash)
+        return False
+
+
+@dataclass
 class BridgeAdapter:
     records: dict[str, BridgeRecord] = field(default_factory=dict)
 
@@ -884,6 +913,8 @@ class BridgeAdapter:
                 source_authorized_at_emission: bool = True,
                 source_header_authenticated: bool = True,
                 source_proof_within_bounds: bool = True,
+                source_record_durable: bool = True,
+                source_witness_age: int = F_L1,
                 topology_allowlisted: bool = True,
                 ) -> str | None:
         credit_id = self.credit_id(
@@ -893,6 +924,8 @@ class BridgeAdapter:
                 or not source_authorized_at_emission
                 or not source_header_authenticated
                 or not source_proof_within_bounds
+                or not source_record_durable
+                or not F_L1 <= source_witness_age <= MAX_SOURCE_WITNESS_AGE
                 or not topology_allowlisted
                 or not protocol_.reserve_bridge(envelope)):
             return None
@@ -1042,6 +1075,18 @@ def test_canonical_outputs_and_migration() -> None:
     check("P4a migration proves deployed L2 system accounts", not p.activate_migration(
         clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True,
         l2_system_accounts_authenticated=False))
+    preactive_adapter = BridgeAdapter()
+    check("P4b preactive bridge ingress cannot create a reservation",
+          preactive_adapter.prepare(
+              p, clock(1_100, 1_100), 1, "domain:R1", 1, "bridge:A", "preactive",
+              message(1_100, "preactive", kind=ForceKind.BRIDGE_CREDIT)) is None
+          and p.pending_reservations == 0)
+    dirty = protocol(mode=Mode.PREACTIVE)
+    dirty.pending_reservations = 1
+    check("P4c migration rejects a nonempty reservation scalar",
+          not dirty.activate_migration(
+              clock(1_100, 1_100), imported, old_quiescent=True,
+              router_switched=True))
     check("P5 atomic router cutover imports exact state", p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True))
     q = protocol()
     c = clock(1_100, 1_100)
@@ -1419,6 +1464,39 @@ def test_data_gc_reorg_and_geometry() -> None:
               "bridge:A", "unlisted-topology", bridge_envelope,
               topology_allowlisted=False) is None
           and source_auth_protocol.pending_reservations == 0)
+    check("P50s source record must be durable before destination preparation",
+          source_auth_adapter.prepare(
+              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
+              "bridge:A", "ephemeral-record", bridge_envelope,
+              source_record_durable=False) is None
+          and source_auth_protocol.pending_reservations == 0)
+    check("P50t source witness age is bounded on both sides",
+          source_auth_adapter.prepare(
+              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
+              "bridge:A", "shallow-witness", bridge_envelope,
+              source_witness_age=F_L1 - 1) is None
+          and source_auth_adapter.prepare(
+              source_auth_protocol, clock(100, 100), 1, "domain:R1", 1,
+              "bridge:A", "stale-witness", bridge_envelope,
+              source_witness_age=MAX_SOURCE_WITNESS_AGE + 1) is None
+          and source_auth_protocol.pending_reservations == 0)
+
+    support = SourceSupportCatalog()
+    assert support.add("domain:R1", "execution:B", 100)
+    check("P50u source topology activation waits for destination finality",
+          not support.final(
+              "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS - 1)
+          and support.final(
+              "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS))
+    bounded_support = SourceSupportCatalog()
+    assert all(bounded_support.add("domain:R1", f"execution:{i}", 100 + i)
+               for i in range(MAX_SOURCE_TOPOLOGIES_PER_DOMAIN))
+    check("P50v destination source-topology support is append-only and bounded",
+          not support.remove("domain:R1", "execution:B")
+          and support.final(
+              "domain:R1", "execution:B", 100 + PENDING_FINALITY_BLOCKS)
+          and not bounded_support.add(
+              "domain:R1", "execution:overflow", 1_000))
 
     capacity_protocol = protocol(tip_slot=100)
     capacity_protocol.pending_reservations = MAX_FORCE_QUEUE_ITEMS - 1
@@ -1462,7 +1540,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     reorg_clock = clock(100, 100)
     orphaned_credit = reorg_adapter.prepare(
         reorg_protocol, reorg_clock, 1, "domain:R1", 1,
-        "bridge:A", "reorg", bridge_envelope)
+        "bridge:A", "reorg", bridge_envelope,
+        source_witness_age=MAX_SOURCE_WITNESS_AGE)
     assert orphaned_credit is not None
     check("P50n source package retained before pending finality",
           not reorg_adapter.source_independent(
@@ -1470,14 +1549,19 @@ def test_data_gc_reorg_and_geometry() -> None:
                     reorg_clock.timestamp), orphaned_credit))
     reorg_protocol = pre_protocol
     reorg_adapter = pre_adapter
+    replay_clock = Clock(
+        reorg_clock.block_number + PENDING_FINALITY_BLOCKS,
+        reorg_clock.timestamp + PENDING_FINALITY_BLOCKS * L1_SLOT_SECONDS,
+    )
     replayed_credit = reorg_adapter.prepare(
-        reorg_protocol, reorg_clock, 1, "domain:R1", 1,
-        "bridge:A", "reorg", bridge_envelope)
-    check("P50o orphaned pending can replay from retained source package",
+        reorg_protocol, replay_clock, 1, "domain:R1", 1,
+        "bridge:A", "reorg", bridge_envelope,
+        source_witness_age=F_L1)
+    check("P50o orphaned pending replays under a refreshed source witness",
           replayed_credit == orphaned_credit
           and reorg_adapter.source_independent(
-              Clock(reorg_clock.block_number + PENDING_FINALITY_BLOCKS,
-                    reorg_clock.timestamp), replayed_credit))
+              Clock(replay_clock.block_number + PENDING_FINALITY_BLOCKS,
+                    replay_clock.timestamp), replayed_credit))
 
 
 if __name__ == "__main__":
