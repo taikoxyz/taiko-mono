@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.14 consensus commitments.
+"""Golden vectors for Slot-Chain v2.15 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -71,9 +71,10 @@ D_BRIDGE_ESCROW = b"slot-chain-bridge-escrow-v1"
 D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v3"
 D_BRIDGE_DONE = b"slot-chain-bridge-done-v1"
 D_BRIDGE_FAILED = b"slot-chain-bridge-failed-v4"
-D_SOURCE_DOMAIN = b"slot-chain-source-domain-v3"
-D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v2"
-D_BRIDGE_EXECUTION = b"slot-chain-source-bridge-execution-v1"
+D_BRIDGE_TERMINAL_SLOT = b"slot-chain-bridge-terminal-slot-v1"
+D_SOURCE_DOMAIN = b"slot-chain-source-domain-v4"
+D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v3"
+D_BRIDGE_EXECUTION = b"slot-chain-frozen-bridge-execution-v2"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
@@ -403,54 +404,66 @@ def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
 
 
 @dataclass(frozen=True)
-class ExecutorDescriptor:
-    dispatcher: int
-    controller: int
-    executor: int
-    executor_runtime_hash: bytes
-    entry_selector: bytes
+class FrozenBridgeDescriptor:
+    bridge: int
+    credit_registry: int
+    terminal_verifier: int
+    facade_runtime_hash: bytes
+    storage_layout_hash: bytes
     profile_hash: bytes
 
 
-def canonical_executor_descriptor(descriptor: ExecutorDescriptor) -> bytes:
-    assert (descriptor.dispatcher != 0 and descriptor.controller != 0
-            and descriptor.executor != 0
-            and descriptor.executor_runtime_hash != bytes(32)
+def canonical_frozen_bridge_descriptor(descriptor: FrozenBridgeDescriptor) -> bytes:
+    assert (descriptor.bridge != 0 and descriptor.credit_registry != 0
+            and descriptor.terminal_verifier != 0
+            and descriptor.facade_runtime_hash != bytes(32)
+            and descriptor.storage_layout_hash != bytes(32)
             and descriptor.profile_hash != bytes(32))
-    return (address20(descriptor.dispatcher) + address20(descriptor.controller)
-            + address20(descriptor.executor)
-            + b32(descriptor.executor_runtime_hash)
-            + b4(descriptor.entry_selector) + b32(descriptor.profile_hash))
+    return (address20(descriptor.bridge) + address20(descriptor.credit_registry)
+            + address20(descriptor.terminal_verifier)
+            + b32(descriptor.facade_runtime_hash)
+            + b32(descriptor.storage_layout_hash) + b32(descriptor.profile_hash))
 
 
-def bridge_execution_hash(descriptor: ExecutorDescriptor) -> bytes:
-    encoded = canonical_executor_descriptor(descriptor)
+def bridge_execution_hash(descriptor: FrozenBridgeDescriptor) -> bytes:
+    encoded = canonical_frozen_bridge_descriptor(descriptor)
     return keccak256(D_BRIDGE_EXECUTION + u32(len(encoded)) + encoded)
 
 
 def source_domain_id(src_chain_id: int, genesis_hash: bytes,
-                     registry: int, controller: int, bridge: int,
+                     registry: int, terminal_verifier: int, bridge: int,
+                     execution_hash: bytes,
                      registry_namespace: bytes) -> bytes:
     assert (genesis_hash != bytes(32) and registry_namespace != bytes(32)
-            and registry != 0 and controller != 0 and bridge != 0)
+            and execution_hash != bytes(32) and registry != 0
+            and terminal_verifier != 0 and bridge != 0)
     return keccak256(D_SOURCE_DOMAIN + u64(src_chain_id) + b32(genesis_hash)
-                     + address20(registry) + address20(controller)
-                     + address20(bridge)
+                     + address20(registry) + address20(terminal_verifier)
+                     + address20(bridge) + b32(execution_hash)
                      + b32(registry_namespace))
 
 
 def destination_domain_id(dest_chain_id: int, genesis_hash: bytes,
-                          l1_checkpoint_signal_service: int, l1_adapter: int,
+                          bridge_inbox_adapter: int,
+                          settlement_checkpoint_adapter: int,
+                          checkpoint_store: int, terminal_verifier: int,
                           l2_signal_service: int, bridge: int,
+                          bridge_execution_hash: bytes,
                           namespace: bytes) -> bytes:
     assert (genesis_hash != bytes(32) and namespace != bytes(32)
-            and l1_checkpoint_signal_service != 0 and l1_adapter != 0
+            and bridge_execution_hash != bytes(32)
+            and bridge_inbox_adapter != 0
+            and settlement_checkpoint_adapter != 0
+            and checkpoint_store != 0 and terminal_verifier != 0
             and l2_signal_service != 0 and bridge != 0)
     return keccak256(D_DESTINATION_DOMAIN + u64(dest_chain_id)
                      + b32(genesis_hash)
-                     + address20(l1_checkpoint_signal_service)
-                     + address20(l1_adapter) + address20(l2_signal_service)
-                     + address20(bridge)
+                     + address20(bridge_inbox_adapter)
+                     + address20(settlement_checkpoint_adapter)
+                     + address20(checkpoint_store)
+                     + address20(terminal_verifier)
+                     + address20(l2_signal_service) + address20(bridge)
+                     + b32(bridge_execution_hash)
                      + b32(namespace))
 
 
@@ -672,6 +685,11 @@ def bridge_done_signal(destination_domain_id_: bytes, credit_id: bytes) -> bytes
                      + b32(credit_id))
 
 
+def bridge_terminal_slot(destination_domain_id_: bytes, credit_id: bytes) -> bytes:
+    return keccak256(D_BRIDGE_TERMINAL_SLOT + b32(destination_domain_id_)
+                     + b32(credit_id))
+
+
 def bridge_escrow_id(credit_id: bytes) -> bytes:
     return keccak256(D_BRIDGE_ESCROW + b32(credit_id))
 
@@ -875,17 +893,17 @@ def vectors() -> dict[str, str]:
         0, 0, bytes(32), schedules_hash, 1,
         sessions_hash, 1, 2, outputs_hash, 0xCAFE,
     )
+    frozen_bridge_descriptor = FrozenBridgeDescriptor(
+        0xB123, 0xD001, 0xD003, bytes.fromhex("32" * 32),
+        bytes.fromhex("33" * 32), bytes.fromhex("34" * 32))
+    bridge_execution = bridge_execution_hash(frozen_bridge_descriptor)
     source_domain = source_domain_id(
-        1, bytes.fromhex("25" * 32), 0xD001, 0xD002, 0xB123,
-        bytes.fromhex("26" * 32))
+        1, bytes.fromhex("25" * 32), 0xD001, 0xD003, 0xB123,
+        bridge_execution, bytes.fromhex("26" * 32))
     destination_domain = destination_domain_id(
-        l2_chain_id, bytes.fromhex("35" * 32), 0xD100, 0xAD00,
-        0x5100, 0xB200,
+        l2_chain_id, bytes.fromhex("35" * 32), 0xAD00, 0xAD01,
+        0xD100, 0xD101, 0x5100, 0xB200, bytes.fromhex("37" * 32),
         bytes.fromhex("36" * 32))
-    executor_descriptor = ExecutorDescriptor(
-        0xB123, 0xD002, 0xB124, bytes.fromhex("32" * 32),
-        bytes.fromhex("12345678"), bytes.fromhex("34" * 32))
-    bridge_execution = bridge_execution_hash(executor_descriptor)
     bridge_msg_hash = bytes.fromhex("21" * 32)
     bridge_credit = bridge_credit_id(
         1, source_domain, 7, 0xB123, destination_domain, bridge_msg_hash)
@@ -939,6 +957,8 @@ def vectors() -> dict[str, str]:
             bridge.destination_domain_id, bridge_credit).hex(),
         "bridge_done_signal": bridge_done_signal(
             bridge.destination_domain_id, bridge_credit).hex(),
+        "bridge_terminal_slot": bridge_terminal_slot(
+            bridge.destination_domain_id, bridge_credit).hex(),
         "source_domain_id": source_domain.hex(),
         "destination_domain_id": destination_domain.hex(),
         "bridge_execution_hash": bridge_execution.hex(),
@@ -985,16 +1005,17 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "ecf8ece8103c4c29e2950ce7c358090ed35794b5c37edd9d0078cee1a428dd7c",
-    "bridge_result": "086f6a6ff9e5544edf3fbd18f1ffc8846b1c273e9b75111611704b78c070a51a",
-    "bridge_credit_id": "02adfe379c3c635185d5567a161997ca5c67014c98ced36367af325b7633d911",
-    "bridge_escrow_id": "beaf354c3250824a34894b06c3793e48c34d85acbe6188a9e51a4079720c3a94",
-    "inbox_credit_slot": "1d5f5299164a463fe71117004ffbf4aafa2d0b82a88b5dca23516b05086f07c6",
-    "bridge_failed_signal": "6c49f51e1147609392715b2a66bb5903855cac50f1b8836b1a4b45afc0d4fe78",
-    "bridge_done_signal": "4dbd5cba807b9b4ee4337d45a2f9b0394e299bac07fff326f836bc095dca1dec",
-    "source_domain_id": "002a241ebc9ff4f457d53098d628fca7b374fb9ec71762acee6b7cf0641f7b99",
-    "destination_domain_id": "b9415f984334b03b30510ba5f5af40624f6c6e26e01bbe7d444cd2b596bdb3d2",
-    "bridge_execution_hash": "1cc4b57107cba6f2c3ba9a76a020aaaa22c73aee36b505caf839003edac1bcd7",
+    "bridge_leaf": "d191acda5807510b44e213fda10eaa0b911847d36da1c9c336c339595f8b6e03",
+    "bridge_result": "1294b74f39a7694c9cb278738c924cd4b070e31e832c5903441b0beb491455ba",
+    "bridge_credit_id": "8d4ffd9e013b99fdf0f4a7c7bf5b03ee65c24726c6d745e433219f8f4664a254",
+    "bridge_escrow_id": "5f6be02b6c2adbc51415e404e485ce953f2f9a0e7bd76a369f1a3e80e8b8cfca",
+    "inbox_credit_slot": "f07356f77d2096da92d155bb3ef7d39972688130613da4038cdb403997677a1a",
+    "bridge_failed_signal": "424c316165269bda83f72f6810634124967f32359f77754b885e3157ac536b30",
+    "bridge_done_signal": "5ed48516740f437091f50f158f6aa7bb2d54a8d6325da4a1a2941972aefab8f9",
+    "bridge_terminal_slot": "034a96b047abfe3fc467fb834df5338d8767ddd3868138c4ab95d27c536cb5b8",
+    "source_domain_id": "c95f5c31ea09c4bf997614e9bc345b0826eeb4daf56d6ae27716542117606ced",
+    "destination_domain_id": "e2c5e0a04fddef68ac5bef4ceb8e6ef7aae49a06310ba0d381581e5d24ee9f1a",
+    "bridge_execution_hash": "8da04c9a8990e7ec330e832792299c52ceabc120f16ed9cf60664d53e047dd21",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -1054,15 +1075,15 @@ if __name__ == "__main__":
     assert canonical_disposition(0, UINT32_MAX, bytes(32))
     assert not canonical_disposition(0, 2, bytes(32))
     assert not canonical_disposition(6, UINT32_MAX, bytes(32))
+    execution_hash = bytes.fromhex(actual["bridge_execution_hash"])
     domain_r1 = source_domain_id(
-        1, bytes.fromhex("25" * 32), 0xD001, 0xD002, 0xB123,
-        bytes.fromhex("26" * 32))
+        1, bytes.fromhex("25" * 32), 0xD001, 0xD003, 0xB123,
+        execution_hash, bytes.fromhex("26" * 32))
     destination_domain = destination_domain_id(
-        16_788, bytes.fromhex("35" * 32), 0xD100, 0xAD00,
-        0x5100, 0xB200,
+        16_788, bytes.fromhex("35" * 32), 0xAD00, 0xAD01,
+        0xD100, 0xD101, 0x5100, 0xB200, bytes.fromhex("37" * 32),
         bytes.fromhex("36" * 32))
     bridge_msg_hash = bytes.fromhex("21" * 32)
-    execution_hash = bytes.fromhex(actual["bridge_execution_hash"])
     bridge_credit = bridge_credit_id(
         1, domain_r1, 7, 0xB123, destination_domain, bridge_msg_hash)
     bridge = BridgeEnvelope(
@@ -1161,8 +1182,8 @@ if __name__ == "__main__":
                             reused.src_bridge, reused.destination_domain_id,
                             reused.msg_hash, reused_result)
     domain_r2 = source_domain_id(
-        1, bytes.fromhex("25" * 32), 0xD003, 0xD002, 0xB123,
-        bytes.fromhex("27" * 32))
+        1, bytes.fromhex("25" * 32), 0xD004, 0xD003, 0xB123,
+        execution_hash, bytes.fromhex("27" * 32))
     replacement_registry = replace(
         bridge, source_domain_id=domain_r2, src_epoch=7, src_bridge=0xB123)
     replacement_result = bridge_credit_result(73, replacement_registry)
@@ -1182,28 +1203,30 @@ if __name__ == "__main__":
         replacement_result)
     assert len(pins) == 4
 
-    descriptor = ExecutorDescriptor(
-        0xB123, 0xD002, 0xB124, bytes.fromhex("32" * 32),
-        bytes.fromhex("12345678"), bytes.fromhex("34" * 32))
+    descriptor = FrozenBridgeDescriptor(
+        0xB123, 0xD001, 0xD003, bytes.fromhex("32" * 32),
+        bytes.fromhex("33" * 32), bytes.fromhex("34" * 32))
     assert bridge_execution_hash(descriptor).hex() \
         == actual["bridge_execution_hash"]
     for invalid_descriptor in (
-        replace(descriptor, dispatcher=0),
-        replace(descriptor, controller=0),
-        replace(descriptor, executor=0),
-        replace(descriptor, executor_runtime_hash=bytes(32)),
+        replace(descriptor, bridge=0),
+        replace(descriptor, credit_registry=0),
+        replace(descriptor, terminal_verifier=0),
+        replace(descriptor, facade_runtime_hash=bytes(32)),
+        replace(descriptor, storage_layout_hash=bytes(32)),
         replace(descriptor, profile_hash=bytes(32)),
     ):
         try:
-            canonical_executor_descriptor(invalid_descriptor)
-            raise AssertionError("invalid executor descriptor accepted")
+            canonical_frozen_bridge_descriptor(invalid_descriptor)
+            raise AssertionError("invalid frozen bridge descriptor accepted")
         except AssertionError as error:
-            assert str(error) != "invalid executor descriptor accepted"
+            assert str(error) != "invalid frozen bridge descriptor accepted"
 
     published = Path(__file__).with_name("tex").joinpath("main.tex").read_text()
     for key in ("bridge_leaf", "bridge_result", "bridge_credit_id",
                 "bridge_escrow_id",
                 "inbox_credit_slot", "bridge_failed_signal", "bridge_done_signal",
+                "bridge_terminal_slot",
                 "source_domain_id", "destination_domain_id",
                 "bridge_execution_hash"):
         assert actual[key] in published
@@ -1214,6 +1237,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 86 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 87 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

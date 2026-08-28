@@ -939,51 +939,71 @@ class BridgeDomainRegistry:
         return False
 
 
-@dataclass
-class EpochInterval:
-    epoch: int
-    execution_hash: str
-    executor: str
-    executor_runtime_hash: str
-    start_block: int
-    end_block: int = UINT64_MAX
+@dataclass(frozen=True)
+class FrozenBridgeFacade:
+    bridge: str
+    runtime_hash: str
+    storage_layout_hash: str
+    terminal_verifier: str
+
+    def accepts(self, *, bridge: str, runtime_hash: str,
+                storage_layout_hash: str, terminal_verifier: str) -> bool:
+        return (bridge == self.bridge and runtime_hash == self.runtime_hash
+                and storage_layout_hash == self.storage_layout_hash
+                and terminal_verifier == self.terminal_verifier)
+
+    @staticmethod
+    def delegate_target() -> None:
+        return None
+
+    @staticmethod
+    def upgrade(_new_runtime_hash: str) -> bool:
+        return False
 
 
 @dataclass
-class BridgeEpochController:
-    intervals: list[EpochInterval] = field(default_factory=list)
+class TerminalCheckpointStore:
+    authorized_adapter: str
+    capacity: int = 256
+    latest_block: int = 0
+    last_l1_block: int = 0
+    checkpoints: dict[int, tuple[int, str, str]] = field(default_factory=dict)
 
-    def schedule(self, *, current_block: int, start_block: int,
-                 execution_hash: str, executor: str,
-                 executor_runtime_hash: str, support_final: bool,
-                 runtime_hash_matches: bool = True) -> bool:
-        if (not support_final or not execution_hash or not executor
-                or not executor_runtime_hash or not runtime_hash_matches
-                or start_block <= current_block
-                or start_block > UINT64_MAX):
+    def publish(self, block_number: int, block_hash: str, state_root: str,
+                *, caller: str, l1_block: int) -> bool:
+        if (caller != self.authorized_adapter
+                or block_number <= self.latest_block
+                or l1_block <= self.last_l1_block
+                or not block_hash or not state_root):
             return False
-        if self.intervals:
-            prior = self.intervals[-1]
-            if prior.end_block != UINT64_MAX or start_block <= prior.start_block:
-                return False
-            prior.end_block = start_block
-        self.intervals.append(EpochInterval(
-            len(self.intervals) + 1, execution_hash, executor,
-            executor_runtime_hash, start_block))
+        self.checkpoints[block_number % self.capacity] = (
+            block_number, block_hash, state_root)
+        self.latest_block = block_number
+        self.last_l1_block = l1_block
         return True
 
-    def resolve(self, block_number: int) -> EpochInterval | None:
-        return next((interval for interval in reversed(self.intervals)
-                     if interval.start_block <= block_number < interval.end_block),
-                    None)
+    def contains(self, block_number: int) -> bool:
+        row = self.checkpoints.get(block_number % self.capacity)
+        return row is not None and row[0] == block_number
 
-    def dispatch(self, block_number: int,
-                 observed_runtime_hash: str) -> str | None:
-        interval = self.resolve(block_number)
-        if (interval is None
-                or observed_runtime_hash != interval.executor_runtime_hash):
-            return None
-        return interval.executor
+
+@dataclass(frozen=True)
+class TerminalSignalVerifier:
+    checkpoint_store: TerminalCheckpointStore
+    destination_bridge: str
+    destination_domain_id: str
+
+    def verify(self, *, proof_valid: bool, checkpoint_block: int,
+               destination_bridge: str,
+               destination_domain_id: str) -> bool:
+        return (proof_valid and self.checkpoint_store.contains(checkpoint_block)
+                and destination_bridge == self.destination_bridge
+                and destination_domain_id == self.destination_domain_id)
+
+
+def source_send_mode(*, supports_legacy_recall: bool,
+                     supports_refund_v2: bool) -> str:
+    return "V1" if supports_legacy_recall and not supports_refund_v2 else "V2"
 
 
 @dataclass
@@ -1011,6 +1031,7 @@ class SourceBridgeLedger:
     refunds: dict[str, int] = field(default_factory=dict)
     balance: int = 0
     total_live_liability: int = 0
+    ether_quota: int = UINT64_MAX
     paused: bool = False
 
     def open(self, credit_id: str, *, now: int, enqueue_by: int,
@@ -1063,18 +1084,30 @@ class SourceBridgeLedger:
             self.refunds.get(authorization.owner, 0) + credit.value + credit.fee)
         return True
 
-    def finalize_done(self, credit_id: str, *, proof_valid: bool) -> bool:
+    def finalize_done(self, credit_id: str, *, verifier: TerminalSignalVerifier,
+                      proof_valid: bool, checkpoint_block: int,
+                      destination_domain_id: str = "domain:D1") -> bool:
         credit = self.credits.get(credit_id)
-        if credit is None or credit.status != "QUEUED" or not proof_valid:
+        if (credit is None or credit.status != "QUEUED"
+                or not verifier.verify(
+                    proof_valid=proof_valid, checkpoint_block=checkpoint_block,
+                    destination_bridge="bridge:A",
+                    destination_domain_id=destination_domain_id)):
             return False
         credit.status = "DELIVERED"
         self.total_live_liability -= credit.value
         return True
 
-    def recall_failed(self, credit_id: str, *, proof_valid: bool) -> bool:
+    def recall_failed(self, credit_id: str, *, verifier: TerminalSignalVerifier,
+                      proof_valid: bool, checkpoint_block: int,
+                      destination_domain_id: str = "domain:D1") -> bool:
         credit = self.credits.get(credit_id)
         authorization = self.authorizations.get(credit_id)
-        if credit is None or credit.status != "QUEUED" or not proof_valid:
+        if (credit is None or credit.status != "QUEUED"
+                or not verifier.verify(
+                    proof_valid=proof_valid, checkpoint_block=checkpoint_block,
+                    destination_bridge="bridge:A",
+                    destination_domain_id=destination_domain_id)):
             return False
         credit.status = "RECALLED"
         assert authorization is not None
@@ -1083,9 +1116,11 @@ class SourceBridgeLedger:
         return True
 
     def ordinary_payout(self, amount: int) -> bool:
-        if amount < 0 or self.balance - amount < self.total_live_liability:
+        if (amount < 0 or amount > self.ether_quota
+                or self.balance - amount < self.total_live_liability):
             return False
         self.balance -= amount
+        self.ether_quota -= amount
         return True
 
     def withdraw_refund(self, owner: str) -> int:
@@ -1107,6 +1142,7 @@ class RefundCapsule:
 class RefundVaultLedger:
     balance: int
     reserved: int = 0
+    token_quota: int = UINT64_MAX
     capsules: dict[str, RefundCapsule] = field(default_factory=dict)
 
     def register(self, credit_id: str, *, owner: str, amount: int,
@@ -1120,9 +1156,11 @@ class RefundVaultLedger:
         return True
 
     def ordinary_payout(self, amount: int) -> bool:
-        if amount < 0 or self.balance - amount < self.reserved:
+        if (amount < 0 or amount > self.token_quota
+                or self.balance - amount < self.reserved):
             return False
         self.balance -= amount
+        self.token_quota -= amount
         return True
 
     def release_delivered(self, credit_id: str,
@@ -1148,6 +1186,21 @@ class RefundVaultLedger:
         capsule.claimed = True
         self.reserved -= capsule.amount
         self.balance -= capsule.amount
+        return True
+
+
+@dataclass
+class RefundRestorableToken:
+    frozen_vault: str
+    paused: bool = False
+    restored: set[str] = field(default_factory=set)
+
+    def restore(self, credit_id: str, *, caller: str,
+                capsule_matches: bool) -> bool:
+        if (not credit_id or caller != self.frozen_vault
+                or not capsule_matches or credit_id in self.restored):
+            return False
+        self.restored.add(credit_id)
         return True
 
 
@@ -1216,14 +1269,12 @@ class InboxPin:
 
 @dataclass
 class DestinationBridgeLedger:
-    implementation_version: int = 1
+    address: str = "bridge:A"
+    local_domain_id: str = "domain:D1"
     paused: bool = False
     pins: dict[str, InboxPin] = field(default_factory=dict)
     status: dict[str, str] = field(default_factory=dict)
     terminal_signals: dict[str, str] = field(default_factory=dict)
-
-    def upgrade_executor(self) -> None:
-        self.implementation_version += 1
 
     @staticmethod
     def failure_signal(destination_domain_id: str, credit_id: str) -> str:
@@ -1248,11 +1299,14 @@ class DestinationBridgeLedger:
     def process(self, credit_id: str, *, now: int,
                 message_available: bool, result_hash_matches: bool,
                 callback_ok: bool,
-                destination_domain_id: str = "domain:D1") -> str:
+                destination_domain_id: str = "domain:D1",
+                context_dest_bridge: str = "bridge:A") -> str:
         pin = self.pins.get(credit_id)
         current = self.status.get(credit_id)
         if (self.paused or pin is None or current in {"DONE", "FAILED"}
-                or now > pin.process_by or not result_hash_matches):
+                or now > pin.process_by or not result_hash_matches
+                or context_dest_bridge != self.address
+                or destination_domain_id != self.local_domain_id):
             return "REJECTED"
         if not message_available or not callback_ok:
             self.status[credit_id] = "RETRIABLE"
@@ -1264,17 +1318,24 @@ class DestinationBridgeLedger:
 
     def retry(self, credit_id: str, *, now: int, caller_is_dest_owner: bool,
               is_last_attempt: bool, message_available: bool,
-              result_hash_matches: bool, callback_ok: bool) -> str:
+              result_hash_matches: bool, callback_ok: bool,
+              destination_domain_id: str = "domain:D1",
+              context_dest_bridge: str = "bridge:A") -> str:
         if is_last_attempt and not caller_is_dest_owner:
             return "REJECTED"
         return self.process(
             credit_id, now=now, message_available=message_available,
-            result_hash_matches=result_hash_matches, callback_ok=callback_ok)
+            result_hash_matches=result_hash_matches, callback_ok=callback_ok,
+            destination_domain_id=destination_domain_id,
+            context_dest_bridge=context_dest_bridge)
 
     def manual_fail(self, credit_id: str, *, caller_is_dest_owner: bool,
-                    destination_domain_id: str = "domain:D1") -> bool:
+                    destination_domain_id: str = "domain:D1",
+                    context_dest_bridge: str = "bridge:A") -> bool:
         if (self.paused or not caller_is_dest_owner
-                or self.status.get(credit_id) != "RETRIABLE"):
+                or self.status.get(credit_id) != "RETRIABLE"
+                or context_dest_bridge != self.address
+                or destination_domain_id != self.local_domain_id):
             return False
         self.status[credit_id] = "FAILED"
         self.terminal_signals[credit_id] = self.failure_signal(
@@ -1282,10 +1343,13 @@ class DestinationBridgeLedger:
         return True
 
     def expire(self, credit_id: str, *, now: int,
-               destination_domain_id: str = "domain:D1") -> bool:
+               destination_domain_id: str = "domain:D1",
+               context_dest_bridge: str = "bridge:A") -> bool:
         pin = self.pins.get(credit_id)
         current = self.status.get(credit_id)
         if (pin is None or current not in {"NEW", "RETRIABLE"}
+                or context_dest_bridge != self.address
+                or destination_domain_id != self.local_domain_id
                 or now <= pin.process_by):
             return False
         self.status[credit_id] = "FAILED"
@@ -1792,7 +1856,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     credit_a = open_credit(7, "bridge:A", "msg")
     credit_b = open_credit(8, "bridge:B", "msg")
     credit_a_reused = open_credit(9, "bridge:A", "msg")
-    check("P50e A-B-A authorized epochs have distinct exactly-once identities",
+    check("P50e A-B-A source generations have distinct exactly-once identities",
           len({credit_a, credit_b, credit_a_reused}) == 3)
     transition_clock = clock(1_100, 4_601)
     common = dict(
@@ -1817,11 +1881,11 @@ def test_data_gc_reorg_and_geometry() -> None:
               bridge_protocol, transition_clock, source, src_epoch=7,
               src_bridge="bridge:A", **common) == "REJECTED_DUPLICATE_FUNDS"
           and len(bridge_protocol.messages) == 1)
-    check("P50g same message from next authorized epoch queues independently",
+    check("P50g same message from next source generation queues independently",
           adapter.enqueue(
               bridge_protocol, transition_clock, source, src_epoch=8,
               src_bridge="bridge:B", **common) == "QUEUED:1")
-    check("P50h same address reused in a later epoch queues independently",
+    check("P50h same address reused in a later source generation queues independently",
           adapter.enqueue(
               bridge_protocol, transition_clock, source, src_epoch=9,
               src_bridge="bridge:A", **common) == "QUEUED:2")
@@ -1877,7 +1941,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert support.register(
         "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=True, manifest_active=True)
-    check("P50u bridge topology waits for active-profile finality",
+    check("P50u bridge endpoint support waits for active-profile finality",
           not support.final(
               "domain:R1", "execution:B", "domain:D1",
               100 + SUPPORT_FINALITY_BLOCKS - 1)
@@ -1913,34 +1977,25 @@ def test_data_gc_reorg_and_geometry() -> None:
               "manifest:4", 300, caller_is_version_manager=True,
               manifest_active=True))
 
-    epochs = BridgeEpochController()
-    check("P50w epoch scheduling is future-only and support-gated",
-          not epochs.schedule(current_block=100, start_block=101,
-                              execution_hash="exec:A", executor="executor:A",
-                              executor_runtime_hash="runtime:A",
-                              support_final=False)
-          and epochs.schedule(current_block=100, start_block=120,
-                              execution_hash="exec:A", executor="executor:A",
-                              executor_runtime_hash="runtime:A",
-                              support_final=True)
-          and not epochs.schedule(current_block=121, start_block=121,
-                                  execution_hash="exec:B", executor="executor:B",
-                                  executor_runtime_hash="runtime:B",
-                                  support_final=True))
-    assert epochs.schedule(current_block=110, start_block=140,
-                           execution_hash="exec:B", executor="executor:B",
-                           executor_runtime_hash="runtime:B",
-                           support_final=True)
-    check("P50x half-open epoch boundary resolves without an activation call",
-          epochs.resolve(119) is None
-          and epochs.resolve(120).execution_hash == "exec:A"
-          and epochs.resolve(139).execution_hash == "exec:A"
-          and epochs.resolve(140).execution_hash == "exec:B"
-          and epochs.dispatch(119, "runtime:A") is None
-          and epochs.dispatch(120, "runtime:A") == "executor:A"
-          and epochs.dispatch(139, "runtime:A") == "executor:A"
-          and epochs.dispatch(140, "runtime:B") == "executor:B"
-          and epochs.dispatch(140, "runtime:A") is None)
+    frozen_facade = FrozenBridgeFacade(
+        "bridge:A", "runtime:frozen", "layout:v2", "verifier:v2")
+    check("P50w Bridge facade is bytecode/layout/verifier bound",
+          frozen_facade.accepts(
+              bridge="bridge:A", runtime_hash="runtime:frozen",
+              storage_layout_hash="layout:v2", terminal_verifier="verifier:v2")
+          and not frozen_facade.accepts(
+              bridge="bridge:A", runtime_hash="runtime:mutated",
+              storage_layout_hash="layout:v2", terminal_verifier="verifier:v2"))
+    check("P50x frozen facade has no delegated or upgradeable executor",
+          frozen_facade.delegate_target() is None
+          and not frozen_facade.upgrade("runtime:B"))
+    check("P50ao unchanged send ABI preserves legacy callback applications",
+          source_send_mode(
+              supports_legacy_recall=True, supports_refund_v2=False) == "V1"
+          and source_send_mode(
+              supports_legacy_recall=True, supports_refund_v2=True) == "V2"
+          and source_send_mode(
+              supports_legacy_recall=False, supports_refund_v2=False) == "V2")
 
     capacity_protocol = protocol(tip_slot=100)
     capacity_protocol.queue_capacity = 1
@@ -2015,6 +2070,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         cancellation_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
         owner="alice", value=10, fee=2)
     cancel_source.paused = True
+    cancel_source.ether_quota = 0
     check("P50y pre-enqueue data loss has a permissionless exact-deadline refund",
           not cancel_source.cancel(
               cancellation_id, now=enqueue_by)
@@ -2024,6 +2080,9 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not cancel_source.ordinary_payout(1)
           and cancel_source.withdraw_refund("alice") == 12
           and cancel_source.balance == cancel_source.total_live_liability == 0)
+    check("P50ap V2 ETH restoration bypasses exhausted ordinary quota",
+          cancel_source.ether_quota == 0
+          and cancel_source.balance == 0)
     no_sync_protocol = protocol(tip_slot=enqueue_by - GENESIS_TIMESTAMP)
     check("P50z cancel wins the race and permanently rejects enqueue",
           cancel_adapter.enqueue(
@@ -2085,6 +2144,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               "bad", owner="alice", amount=1, capsule_hash="bad",
               calldata_hash_matches=False))
     assert capsule_source.cancel(capsule_id, now=enqueue_by + 1)
+    refund_vault.token_quota = 0
     check("P50ai failed token delivery does not roll back terminal source state",
           not refund_vault.claim_refund(
               capsule_id, caller="alice", source=capsule_source,
@@ -2092,18 +2152,37 @@ def test_data_gc_reorg_and_geometry() -> None:
           and capsule_source.credits[capsule_id].status == "CANCELLED"
           and refund_vault.claim_refund(
               capsule_id, caller="alice", source=capsule_source)
-          and refund_vault.balance == 60 and refund_vault.reserved == 0)
+          and refund_vault.balance == 60 and refund_vault.reserved == 0
+          and refund_vault.token_quota == 0)
+    check("P50aq reserved token restoration bypasses ordinary token quota",
+          refund_vault.token_quota == 0 and refund_vault.reserved == 0)
+    restorable_token = RefundRestorableToken("erc721-vault", paused=True)
+    check("P50au frozen bridged-token restoration bypasses token pause exactly once",
+          restorable_token.restore(
+              capsule_id, caller="erc721-vault", capsule_matches=True)
+          and not restorable_token.restore(
+              capsule_id, caller="erc721-vault", capsule_matches=True)
+          and not restorable_token.restore(
+              "other", caller="attacker", capsule_matches=True))
 
     destination = DestinationBridgeLedger()
     pin_now = prepared_clock.timestamp
     assert destination.pin(
         credit_a, "result:A", now=pin_now, caller_is_inbox_apply=True)
     process_by = destination.pins[credit_a].process_by
-    destination.upgrade_executor()
-    check("P50ab inbox pin and deadline survive executor upgrades unversioned",
-          destination.implementation_version == 2
-          and destination.pins[credit_a]
+    check("P50ab inbox pin and deadline live in the frozen endpoint",
+          destination.pins[credit_a]
               == InboxPin("result:A", pin_now + BRIDGE_PROCESS_TTL_SECONDS))
+    clone = DestinationBridgeLedger(
+        address="bridge:B", local_domain_id="domain:D2",
+        pins=destination.pins)
+    check("P50ar destination context cannot replay across funded Bridges",
+          clone.process(
+              credit_a, now=pin_now + 1, message_available=True,
+              result_hash_matches=True, callback_ok=True,
+              destination_domain_id="domain:D1",
+              context_dest_bridge="bridge:A") == "REJECTED"
+          and credit_a not in clone.terminal_signals)
     assert destination.process(
         credit_a, now=pin_now + 1, message_available=False,
         result_hash_matches=True, callback_ok=True) == "RETRIABLE"
@@ -2156,13 +2235,44 @@ def test_data_gc_reorg_and_geometry() -> None:
               now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1))
     destination.paused = False
     source.paused = True
+    checkpoint_store = TerminalCheckpointStore("checkpoint-adapter")
+    assert not checkpoint_store.publish(
+        500, "block:500", "state:500", caller="attacker", l1_block=50)
+    assert checkpoint_store.publish(
+        500, "block:500", "state:500", caller="checkpoint-adapter", l1_block=50)
+    check("P50at terminal checkpoint store is writer-bound and fixed-ring",
+          checkpoint_store.contains(500)
+          and not checkpoint_store.publish(
+              501, "other", "other", caller="checkpoint-adapter", l1_block=50)
+          and len(checkpoint_store.checkpoints) == 1)
+    terminal_verifier = TerminalSignalVerifier(
+        checkpoint_store, "bridge:A", "domain:D1")
+    legacy_signal_service_paused = True
+    check("P50as V2 terminal verifier is independent of legacy SignalService pause",
+          legacy_signal_service_paused
+          and terminal_verifier.verify(
+              proof_valid=True, checkpoint_block=500,
+              destination_bridge="bridge:A",
+              destination_domain_id="domain:D1")
+          and not terminal_verifier.verify(
+              proof_valid=True, checkpoint_block=500,
+              destination_bridge="bridge:B",
+              destination_domain_id="domain:D1"))
     check("P50aj permanent terminal proofs release exactly one source liability",
-          source.recall_failed(credit_a, proof_valid=True)
+          source.recall_failed(
+              credit_a, verifier=terminal_verifier,
+              proof_valid=True, checkpoint_block=500)
           and source.credits[credit_a].status == "RECALLED"
-          and source.finalize_done(credit_b, proof_valid=True)
+          and source.finalize_done(
+              credit_b, verifier=terminal_verifier,
+              proof_valid=True, checkpoint_block=500)
           and source.credits[credit_b].status == "DELIVERED"
-          and not source.finalize_done(credit_a, proof_valid=True)
-          and not source.recall_failed(credit_b, proof_valid=True))
+          and not source.finalize_done(
+              credit_a, verifier=terminal_verifier,
+              proof_valid=True, checkpoint_block=500)
+          and not source.recall_failed(
+              credit_b, verifier=terminal_verifier,
+              proof_valid=True, checkpoint_block=500))
 
     reorg_protocol = protocol(tip_slot=100)
     reorg_adapter = BridgeAdapter()
