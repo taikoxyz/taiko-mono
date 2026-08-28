@@ -1,504 +1,689 @@
 #!/usr/bin/env python3
-"""Unified executable model for normal settlement and fallback recovery.
+"""Executable consensus model for settlement, recovery and forced escape.
 
-This models the consensus decisions introduced by slot-chain design §5.6/§6.3:
-one versioned mode machine, close-before-activate ordering, objective SLA
-termination, first-qualifying fallback, split payouts, canonicalization depth,
-slot expiry, per-window slash tranches and deterministic replay.
-
-Run directly; it has no dependencies:
-    python3 settlement-window-model.py
+This is deliberately small enough to audit. It models consensus predicates and
+EVM transaction boundaries; cryptographic verifiers are represented by booleans.
 """
 
+from __future__ import annotations
+
+import copy
 import hashlib
-import itertools
 from dataclasses import dataclass, field
-from typing import Optional
-
-L1_TO_L2 = 12
-W_SETTLE = 10
-DELTA_LAG_FINAL = 120
-P_PROVE_MAX_L2 = 36
-T_INCLUDE_MAX_L2 = 12
-CLOCK_MARGIN_L2 = 12
-RECOVERY_BUILDER_WAIT_MAX_L2 = 24
-DELTA_CLOSE = 96
-assert (RECOVERY_BUILDER_WAIT_MAX_L2 + P_PROVE_MAX_L2
-        + T_INCLUDE_MAX_L2 + CLOCK_MARGIN_L2 <= DELTA_CLOSE < DELTA_LAG_FINAL)
-
-H_SLOT_EXPIRE = 384
-DELTA_SLASH = 24
-EVIDENCE_MARGIN = 12
-REORG_HORIZON = 8
-SCHEDULE_WINDOW = 384
-
-C_ANCHOR_COUNT = 2
-C_MSG_GAS = 10
-G_ANCHOR = 1
-BLOCK_GAS_LIMIT = 30
-assert G_ANCHOR + C_MSG_GAS <= BLOCK_GAS_LIMIT
-
-PENALTY_BOND = 1_000
-R_PROOF = 20
-R_SUBMIT = 2
-B_MAX = 6
-R_BLOB_MAX = 12
-R_FALLBACK = R_PROOF + R_SUBMIT + B_MAX * R_BLOB_MAX
+from enum import Enum, IntFlag, auto
 
 
-def h(*xs) -> int:
-    return int.from_bytes(hashlib.sha256(repr(xs).encode()).digest()[:8], "big")
+# All deadlines are timestamp seconds. L1 depth is the only block-number unit.
+L1_SLOT_SECONDS = 12
+W_SETTLE_SECONDS = 1_200
+DELTA_FINAL_LAG = 3_600
+DELTA_TIP = 1_200
+P_PROVE_MAX = 900
+T_INCLUDE_MAX = 10                 # L1 slots
+F_L1 = 64                          # L1 blocks of canonical depth
+T_DEPTH_MAX = 900                  # seconds, under the L1-liveness assumption
+CLOCK_SKEW = 24
+ESCAPE_OFFSET = 1_900
+FORCE_DELAY = 600
+FORCE_GAS_BUDGET = 20_000_000
+MAX_FORCE_MESSAGE_GAS = 5_000_000
+MAX_BLOCKS_PER_CANDIDATE = 4_096
+MAX_WINDOWS_PER_CANDIDATE = 12
+MAX_DATA_RECORDS_PER_SESSION = 2_100
+DATA_TTL_SECONDS = 86_400
+HISTORY_RING_BLOCKS = 8_191
+
+
+class Mode(Enum):
+    NORMAL = auto()
+    RECOVERY = auto()
+
+
+class Cause(IntFlag):
+    NONE = 0
+    SLA = 1
+    FORCE_DUE = 2
+
+
+class Tier(Enum):
+    NORMAL_SIGNED = 1
+    RECOVERY_SIGNED = 2
+    ESCAPE_UNSIGNED = 3
 
 
 @dataclass(frozen=True)
-class Item:
-    iid: int
-    gas: int
+class Clock:
+    block_number: int
+    timestamp: int
+    beacon_slot: int
+
+    @property
+    def l2_slot(self) -> int:
+        return self.timestamp
 
 
-def max_prefix(items: list[Item], start: int):
-    taken, gas, cursor = [], 0, start
-    while cursor < len(items) and len(taken) < C_ANCHOR_COUNT:
-        item = items[cursor]
-        if gas + item.gas > C_MSG_GAS:
-            break
-        taken.append(item)
-        gas += item.gas
-        cursor += 1
-    return cursor, taken
+@dataclass(frozen=True)
+class Message:
+    enqueued_at: int
+    gas_limit: int
+    prepaid: int
+    payload_hash: str
+
+
+@dataclass(frozen=True)
+class DataRecord:
+    index: int
+    version: int
+    versioned_hash: str
+    body_root: str
+    publisher: str
+    valid_until: int
+    fs_challenge: str
+    evaluation: str
 
 
 @dataclass(frozen=True)
 class Block:
     slot: int
-    parent: int
-    tag: str = ""
-    tier: int = 1
-    fallback_version: int = 0
-    activation_id: int = 0
-
-    @property
-    def hash(self):
-        return h(self.slot, self.parent, self.tag, self.tier,
-                 self.fallback_version, self.activation_id)
+    block_hash: str
+    parent_hash: str
+    window: int
+    scheduled_signature_ok: bool
+    message_start: int
+    message_end: int
+    force_cutoff: int
+    data_record_indices: tuple[int, ...] = ()
+    discretionary_body: bool = True
 
 
 @dataclass(frozen=True)
 class Candidate:
+    candidate_id: str
+    base_hash: str
     blocks: tuple[Block, ...]
-    beneficiary: str
-    blob_hashes: tuple[str, ...] = ()
+    tier: Tier
+    proof_ok: bool = True
+    episode_version: int = 0
+    activation_id: str = ""
+    final_ref_number: int = 0
+    final_ref_hash: str = ""
+    anchor_number: int = 0
+    anchor_hash: str = ""
+    data_mmr_root: str = ""
+    data_manifest_exact: bool = True
 
-    def key(self, base_hash: int):
-        assert self.blocks and self.blocks[0].parent == base_hash
-        tip = self.blocks[-1]
-        return (len(self.blocks), tip.slot, -tip.hash)
+    @property
+    def tip(self) -> Block:
+        return self.blocks[-1]
+
+    @property
+    def count(self) -> int:
+        return len(self.blocks)
+
+    @property
+    def order(self) -> tuple[int, int, int]:
+        # max() implements count desc, tip slot desc, tip hash ascending.
+        return (self.count, self.tip.slot, -int(self.tip.block_hash, 16))
 
 
-@dataclass(frozen=True)
+@dataclass
 class Canonical:
-    tip_hash: int
+    tip_hash: str
     tip_slot: int
-    state_root: int
-    m_consumed: int
+    state_root: str
+    message_cursor: int
     canonicalization_block: int
-
-
-@dataclass(frozen=True)
-class EndTuple:
-    tip_hash: int
-    tip_slot: int
-    state_root: int
-    m_consumed: int
+    canonicalization_hash: str
+    data_mmr_root: str = ""
 
 
 @dataclass
-class BlobRecord:
-    publisher: str
-    cost: int
-    valid_until: int
-    paid: bool = False
+class Seat:
+    operator: str
+    penalty_bond: int
+    terminated: bool = False
 
 
 @dataclass
-class L1State:
+class Protocol:
     canonical: Canonical
-    q_msg: list[Item]
-    active: Optional[str] = "agg0"
-    standbys: list[str] = field(default_factory=lambda: ["agg1"])
-    penalty: dict[str, int] = field(default_factory=lambda: {"agg0": PENALTY_BOND, "agg1": PENALTY_BOND})
-    escrow: dict[str, int] = field(default_factory=lambda: {"agg0": R_FALLBACK, "agg1": R_FALLBACK})
-    mode: str = "NORMAL_IDLE"
-    version: int = 1
-    normal_base: Optional[Canonical] = None
-    normal_close_at: Optional[int] = None
-    normal_handle: Optional[int] = None
-    best: Optional[tuple] = None  # (key, EndTuple, id, Candidate)
-    activation_slot: Optional[int] = None
-    activation_id: Optional[int] = None
-    outgoing: Optional[str] = None
-    min_admissible_slot: int = 0
-    blobs: dict[str, BlobRecord] = field(default_factory=dict)
-    payments: list[tuple] = field(default_factory=list)
-    burned: list[tuple] = field(default_factory=list)
-    consumed_log: list[tuple] = field(default_factory=list)
-    liability_until: dict[int, int] = field(default_factory=dict)
-    tranches: dict[tuple, int] = field(default_factory=dict)
-    winners: list[str] = field(default_factory=list)
+    history: dict[int, str]
+    messages: list[Message] = field(default_factory=list)
+    mode: Mode = Mode.NORMAL
+    version: int = 0
+    normal_best: Candidate | None = None
+    normal_deadline: int | None = None
+    normal_min_admissible: int | None = None
+    activation_slot: int | None = None
+    escape_slot: int | None = None
+    force_cutoff: int | None = None
+    activation_id: str = ""
+    causes: Cause = Cause.NONE
+    active_seat: Seat | None = None
+    standby: list[Seat] = field(default_factory=list)
+    burned: int = 0
+    data_records: list[DataRecord] = field(default_factory=list)
+    data_mmr_root: str = ""
+    events: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.active is not None:
-            assert self.penalty.get(self.active, 0) >= PENALTY_BOND
-            assert self.escrow.get(self.active, 0) >= R_FALLBACK
+    def snapshot(self) -> "Protocol":
+        return copy.deepcopy(self)
 
-    def final_lag(self, current_slot: int) -> int:
-        return max(0, current_slot - self.canonical.tip_slot)
+    def identical(self, other: "Protocol") -> bool:
+        return self == other
 
-    def qualifies(self, tip_slot: int, current_slot: int) -> bool:
-        return tip_slot >= current_slot - DELTA_CLOSE
-
-    def _validate(self, cand: Candidate, base: Canonical) -> Optional[EndTuple]:
-        if not cand.blocks or cand.blocks[0].parent != base.tip_hash or len(cand.blob_hashes) > B_MAX:
+    def historical_hash(self, number: int, clock: Clock) -> str | None:
+        if number >= clock.block_number or clock.block_number - number > HISTORY_RING_BLOCKS:
             return None
-        if any(b.slot < self.min_admissible_slot for b in cand.blocks):
-            return None
-        for previous, block in zip(cand.blocks, cand.blocks[1:]):
-            if block.parent != previous.hash or block.slot <= previous.slot:
-                return None
-        cursor = base.m_consumed
-        for _block in cand.blocks:
-            cursor, taken = max_prefix(self.q_msg, cursor)
-            if G_ANCHOR + sum(item.gas for item in taken) > BLOCK_GAS_LIMIT:
-                return None
-        root = h(base.state_root, tuple(b.hash for b in cand.blocks), cursor)
-        tip = cand.blocks[-1]
-        return EndTuple(tip.hash, tip.slot, root, cursor)
+        return self.history.get(number)
 
-    def _pay_fallback(self, cand: Candidate, l1_now: int):
-        assert self.outgoing is not None
-        available = self.escrow[self.outgoing]
-        proof_payment = R_PROOF + R_SUBMIT
-        assert available >= proof_payment
-        self.escrow[self.outgoing] -= proof_payment
-        self.payments.append(("proof", cand.beneficiary, proof_payment))
-        for blob_hash in cand.blob_hashes:
-            record = self.blobs[blob_hash]
-            if record.paid or l1_now > record.valid_until:
-                continue
-            amount = min(record.cost, R_BLOB_MAX)
-            assert self.escrow[self.outgoing] >= amount
-            self.escrow[self.outgoing] -= amount
-            record.paid = True
-            self.payments.append(("blob", record.publisher, amount))
+    def force_due(self, clock: Clock) -> bool:
+        cursor = self.canonical.message_cursor
+        return (cursor < len(self.messages)
+                and self.messages[cursor].enqueued_at + FORCE_DELAY <= clock.timestamp)
 
-    def _commit(self, end: EndTuple, cid: str, cand: Candidate, l1_now: int, fallback: bool):
-        self.consumed_log.append((self.canonical.m_consumed, end.m_consumed))
-        self.canonical = Canonical(end.tip_hash, end.tip_slot, end.state_root,
-                                   end.m_consumed, l1_now)
-        self.winners.append(cid)
-        self.normal_base = self.normal_close_at = self.normal_handle = self.best = None
-        if fallback:
-            self._pay_fallback(cand, l1_now)
-            self.mode = "NORMAL_IDLE"
-            self.version += 1
-            self.activation_slot = self.activation_id = self.outgoing = None
-        else:
-            self.mode = "NORMAL_IDLE"
+    def _close_normal(self, clock: Clock) -> bool:
+        if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
+            return False
+        if self.normal_best is not None:
+            self._commit(self.normal_best, clock)
+        self.normal_best = None
+        self.normal_deadline = None
+        self.normal_min_admissible = None
+        self.data_records.clear()
+        self.data_mmr_root = ""
+        self.events.append("NORMAL_CLOSED")
+        return True
 
-    def _activate(self, l1_now: int, current_slot: int):
-        old_best = self.best
-        self.outgoing = self.active
-        if self.outgoing is not None:
-            amount = self.penalty[self.outgoing]
-            self.penalty[self.outgoing] = 0
-            self.burned.append(("aggregator-sla", self.outgoing, amount))
-        self.active = None
-        while self.standbys:
-            candidate = self.standbys.pop(0)
-            if self.penalty.get(candidate, 0) >= PENALTY_BOND and self.escrow.get(candidate, 0) >= R_FALLBACK:
-                self.active = candidate
-                break
+    def _activate(self, clock: Clock, causes: Cause) -> None:
+        # An immature candidate can never be promoted across the mode boundary.
+        self.normal_best = None
+        self.normal_deadline = None
+        self.normal_min_admissible = None
+        self.data_records.clear()
+        self.data_mmr_root = ""
+        self.mode = Mode.RECOVERY
         self.version += 1
-        self.activation_slot = current_slot
-        self.activation_id = h("activation", l1_now, self.version, l1_now - 1)
-        self.mode = "FALLBACK_OPEN"
-        self.normal_base = self.normal_close_at = self.normal_handle = self.best = None
-        if old_best is not None:
-            _, end, cid, cand = old_best
-            if self.qualifies(end.tip_slot, current_slot):
-                self._commit(end, cid, cand, l1_now, fallback=True)
+        self.activation_slot = clock.l2_slot
+        self.escape_slot = max(clock.l2_slot + ESCAPE_OFFSET,
+                               self.canonical.tip_slot + 1)
+        self.force_cutoff = len(self.messages)
+        previous_hash = self.history.get(clock.block_number - 1, "0" * 64)
+        self.activation_id = hashlib.sha256(
+            f"slot-chain-recovery-v1:{self.version}:{clock.block_number}:{previous_hash}".encode()
+        ).hexdigest()
+        self.causes = causes
+        if causes & Cause.SLA and self.active_seat is not None:
+            self.active_seat.terminated = True
+            self.burned += self.active_seat.penalty_bond
+            self.active_seat = next((s for s in self.standby if not s.terminated), None)
+        self.events.append(f"RECOVERY_OPEN:{int(causes)}")
 
-    def sync(self, l1_now: int, current_slot: int):
-        self.min_admissible_slot = max(self.min_admissible_slot,
-                                       max(0, current_slot - H_SLOT_EXPIRE))
-        if self.mode == "NORMAL_OPEN" and l1_now >= self.normal_close_at:
-            _, end, cid, cand = self.best
-            self._commit(end, cid, cand, l1_now, fallback=False)
-        if self.mode != "FALLBACK_OPEN" and self.final_lag(current_slot) > DELTA_LAG_FINAL:
-            self._activate(l1_now, current_slot)
+    def sync(self, clock: Clock) -> bool:
+        """Apply every objective transition. This function never reverts."""
+        changed = self._close_normal(clock)
+        if self.mode is Mode.NORMAL:
+            causes = Cause.NONE
+            if clock.l2_slot - self.canonical.tip_slot > DELTA_FINAL_LAG:
+                causes |= Cause.SLA
+            if self.force_due(clock):
+                causes |= Cause.FORCE_DUE
+            if causes:
+                self._activate(clock, causes)
+                changed = True
+        return changed
 
-    def post_data(self, blob_hash: str, publisher: str, cost: int,
-                  valid_until: int, l1_now: int, current_slot: int):
-        self.sync(l1_now, current_slot)
-        assert blob_hash not in self.blobs or l1_now > self.blobs[blob_hash].valid_until
-        self.blobs[blob_hash] = BlobRecord(publisher, cost, valid_until)
-
-    def submit(self, cand: Candidate, l1_now: int, current_slot: int,
-               expected_version: int, cid: str) -> bool:
-        self.sync(l1_now, current_slot)
-        if expected_version != self.version:
+    def post_data(self, clock: Clock, *, same_tx_blobhash: bool,
+                  body_root: str, publisher: str, valid_until: int,
+                  kzg_opening_ok: bool) -> bool:
+        """Append one authenticated blob leaf to the version-scoped MMR."""
+        if (not same_tx_blobhash or not kzg_opening_ok or not publisher
+                or valid_until <= clock.timestamp
+                or valid_until > clock.timestamp + DATA_TTL_SECONDS
+                or len(self.data_records) >= MAX_DATA_RECORDS_PER_SESSION):
             return False
-        if self.mode == "FALLBACK_OPEN":
-            if not self.qualifies(cand.blocks[-1].slot, current_slot):
-                return False
-            first = cand.blocks[0]
-            if not (first.tier == 2 and first.slot >= self.activation_slot
-                    and first.fallback_version == self.version
-                    and first.activation_id == self.activation_id):
-                return False
-            end = self._validate(cand, self.canonical)
-            if end is None:
-                return False
-            self._commit(end, cid, cand, l1_now, fallback=True)
-            return True
-
-        base = self.canonical if self.mode == "NORMAL_IDLE" else self.normal_base
-        end = self._validate(cand, base)
-        if end is None:
-            return False
-        key = cand.key(base.tip_hash)
-        if self.best is not None and key <= self.best[0]:
-            return False
-        if self.mode == "NORMAL_IDLE":
-            self.mode = "NORMAL_OPEN"
-            self.normal_base = self.canonical
-            self.normal_close_at = l1_now + W_SETTLE
-            self.normal_handle = self.version
-        self.best = (key, end, cid, cand)
-        for block in cand.blocks:
-            window = block.slot // SCHEDULE_WINDOW
-            self.liability_until[window] = max(
-                self.liability_until.get(window, 0),
-                self.normal_close_at + REORG_HORIZON + EVIDENCE_MARGIN,
-            )
+        index = len(self.data_records)
+        versioned_hash = hashlib.sha256(f"blob:{self.version}:{index}".encode()).hexdigest()
+        challenge = hashlib.sha256(
+            f"slot-chain-data-fs-v1:{self.version}:{versioned_hash}:{body_root}:"
+            f"{publisher}:{valid_until}".encode()
+        ).hexdigest()
+        evaluation = hashlib.sha256(f"eval:{challenge}:{versioned_hash}".encode()).hexdigest()
+        record = DataRecord(index, self.version, versioned_hash, body_root,
+                            publisher, valid_until, challenge, evaluation)
+        self.data_records.append(record)
+        self.data_mmr_root = hashlib.sha256(
+            f"{self.data_mmr_root}:{record}".encode()
+        ).hexdigest()
         return True
 
-    def close_with_handle(self, handle: int, l1_now: int, current_slot: int) -> bool:
-        self.sync(l1_now, current_slot)
-        return handle == self.version and self.mode == "NORMAL_IDLE"
+    def _maximum_prefix_end(self, start: int, cutoff: int | None = None) -> int:
+        gas = 0
+        cursor = start
+        limit = len(self.messages) if cutoff is None else min(cutoff, len(self.messages))
+        while cursor < limit:
+            item = self.messages[cursor]
+            if gas + item.gas_limit > FORCE_GAS_BUDGET:
+                break
+            gas += item.gas_limit
+            cursor += 1
+        return cursor
 
-    def slash_equivocation(self, builder: str, slot: int):
-        key = (builder, slot // SCHEDULE_WINDOW)
-        amount = self.tranches.get(key, 0)
-        if amount == 0:
+    def _validate_common(self, candidate: Candidate, clock: Clock,
+                         min_slot: int) -> bool:
+        if (not candidate.proof_ok or candidate.base_hash != self.canonical.tip_hash
+                or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
+                or len({block.window for block in candidate.blocks}) > MAX_WINDOWS_PER_CANDIDATE
+                or candidate.blocks[0].slot <= self.canonical.tip_slot
+                or candidate.tip.slot < min_slot
+                or candidate.tip.slot > clock.l2_slot + CLOCK_SKEW):
             return False
-        self.tranches[key] = 0
-        self.burned.append(("equivocation", key, amount))
+        parent = self.canonical.tip_hash
+        cursor = self.canonical.message_cursor
+        previous_slot = self.canonical.tip_slot
+        previous_cutoff = cursor
+        all_refs: list[int] = []
+        for item in candidate.blocks:
+            if (item.parent_hash != parent or item.message_start != cursor
+                    or item.slot <= previous_slot
+                    or item.slot > clock.l2_slot + CLOCK_SKEW
+                    or item.force_cutoff < previous_cutoff
+                    or item.force_cutoff > len(self.messages)):
+                return False
+            expected_end = self._maximum_prefix_end(cursor, item.force_cutoff)
+            if item.message_end != expected_end:
+                return False
+            parent = item.block_hash
+            cursor = item.message_end
+            previous_slot = item.slot
+            previous_cutoff = item.force_cutoff
+            all_refs.extend(item.data_record_indices)
+        if (len(all_refs) != len(set(all_refs))
+                or any(index < 0 or index >= len(self.data_records) for index in all_refs)
+                or any(self.data_records[index].version != self.version for index in all_refs)
+                or any(self.data_records[index].valid_until < clock.timestamp for index in all_refs)
+                or candidate.data_mmr_root != self.data_mmr_root
+                or not candidate.data_manifest_exact):
+            return False
         return True
 
-    def tranche_releasable(self, builder: str, window: int, l1_now: int,
-                           current_slot: int) -> bool:
-        window_end = (window + 1) * SCHEDULE_WINDOW - 1
-        watermark = max(self.min_admissible_slot, max(0, current_slot - H_SLOT_EXPIRE))
-        return (window_end < watermark
-                and l1_now >= self.liability_until.get(window, 0)
-                and l1_now >= (window_end // L1_TO_L2) + DELTA_SLASH + EVIDENCE_MARGIN)
+    def _historical_refs_ok(self, candidate: Candidate, clock: Clock) -> bool:
+        return (
+            candidate.final_ref_number == self.canonical.canonicalization_block
+            and candidate.final_ref_hash == self.canonical.canonicalization_hash
+            and self.historical_hash(candidate.final_ref_number, clock)
+                == candidate.final_ref_hash
+            and self.historical_hash(candidate.anchor_number, clock) == candidate.anchor_hash
+        )
+
+    def _valid_normal(self, candidate: Candidate, clock: Clock) -> bool:
+        if candidate.tier is not Tier.NORMAL_SIGNED:
+            return False
+        minimum = (self.normal_min_admissible if self.normal_min_admissible is not None
+                   else clock.l2_slot - DELTA_TIP)
+        return (self._validate_common(candidate, clock, minimum)
+                and all(item.scheduled_signature_ok for item in candidate.blocks))
+
+    def _valid_recovery(self, candidate: Candidate, clock: Clock) -> bool:
+        if self.activation_slot is None:
+            return False
+        if not self._validate_common(candidate, clock, clock.l2_slot - DELTA_TIP):
+            return False
+        if (candidate.episode_version != self.version
+                or candidate.activation_id != self.activation_id
+                or any(item.force_cutoff != self.force_cutoff
+                       for item in candidate.blocks)
+                or candidate.blocks[0].slot < self.activation_slot
+                or not self._historical_refs_ok(candidate, clock)
+                or clock.block_number - self.canonical.canonicalization_block < F_L1):
+            return False
+        if ((self.causes & Cause.FORCE_DUE)
+                and candidate.tip.message_end <= self.canonical.message_cursor):
+            return False
+        if candidate.tier is Tier.RECOVERY_SIGNED:
+            return all(item.scheduled_signature_ok for item in candidate.blocks)
+        if candidate.tier is Tier.ESCAPE_UNSIGNED:
+            return (candidate.count == 1
+                    and candidate.tip.slot == self.escape_slot
+                    and not candidate.blocks[0].scheduled_signature_ok
+                    and not candidate.blocks[0].discretionary_body
+                    and candidate.blocks[0].data_record_indices == ())
+        return False
+
+    def submit(self, candidate: Candidate, clock: Clock) -> str:
+        """External EVM wrapper: a sync transition returns before validation."""
+        if self.sync(clock):
+            return "SYNCED"
+        if self.mode is Mode.NORMAL:
+            if not self._valid_normal(candidate, clock):
+                return "REJECTED"
+            if self.normal_deadline is None:
+                self.normal_deadline = clock.timestamp + W_SETTLE_SECONDS
+                self.normal_min_admissible = clock.l2_slot - DELTA_TIP
+            if self.normal_best is None or candidate.order > self.normal_best.order:
+                self.normal_best = candidate
+                return "ACCEPTED"
+            return "IGNORED"
+        if not self._valid_recovery(candidate, clock):
+            return "REJECTED"
+        self._commit(candidate, clock)
+        self.mode = Mode.NORMAL
+        self.causes = Cause.NONE
+        self.activation_slot = None
+        self.escape_slot = None
+        self.force_cutoff = None
+        self.activation_id = ""
+        self.version += 1
+        self.data_records.clear()
+        self.data_mmr_root = ""
+        self.events.append("RECOVERY_COMMITTED")
+        return "COMMITTED"
+
+    def _commit(self, candidate: Candidate, clock: Clock) -> None:
+        self.canonical = Canonical(
+            candidate.tip.block_hash,
+            candidate.tip.slot,
+            hashlib.sha256(f"state:{candidate.candidate_id}".encode()).hexdigest(),
+            candidate.tip.message_end,
+            clock.block_number,
+            self.history[clock.block_number],
+            candidate.data_mmr_root,
+        )
+        self.events.append(f"CANONICAL:{candidate.candidate_id}")
 
 
-GEN = Canonical(h("genesis"), 0, h("root0"), 0, 0)
 PASS: list[str] = []
 
 
-def check(name: str, condition: bool):
+def check(name: str, condition: bool) -> None:
     assert condition, f"FAILED: {name}"
     PASS.append(name)
 
 
-def mk(base: int, slots: list[int], tag: str, beneficiary: str = "lander",
-       tier: int = 1, version: int = 0, activation_id: int = 0,
-       blobs: tuple[str, ...] = ()) -> Candidate:
-    blocks, parent = [], base
-    for i, slot in enumerate(slots):
-        block = Block(slot, parent, f"{tag}{i}", tier if i == 0 else 1,
-                      version if i == 0 else 0,
-                      activation_id if i == 0 else 0)
-        blocks.append(block)
-        parent = block.hash
-    return Candidate(tuple(blocks), beneficiary, blobs)
+def clock(number: int, timestamp: int) -> Clock:
+    return Clock(number, timestamp, timestamp // L1_SLOT_SECONDS)
 
 
-def fresh_state(tip_slot=0) -> L1State:
-    canonical = Canonical(GEN.tip_hash, tip_slot, GEN.state_root, 0, 0)
-    return L1State(canonical, [Item(i, 3) for i in range(20)])
+def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True) -> Protocol:
+    history = {number: f"{number:064x}" for number in range(1, 10_000)}
+    canonical = Canonical("a" * 64, tip_slot, "b" * 64, cursor, 900, history[900])
+    active = Seat("aggregator", 100) if seat else None
+    return Protocol(canonical, history, active_seat=active,
+                    standby=[Seat("standby", 70)])
 
 
-def test_p1_total_order():
-    candidates = [mk(GEN.tip_hash, list(range(1, n + 1)), f"c{n}") for n in range(1, 6)]
-    for a, b, c in itertools.permutations(candidates, 3):
-        ka, kb, kc = a.key(GEN.tip_hash), b.key(GEN.tip_hash), c.key(GEN.tip_hash)
-        if ka > kb and kb > kc:
-            assert ka > kc
-    check("P1 normal candidate key is total and transitive", True)
+def block(index: int, *, slot: int, parent: str, cursor: int,
+          message_end: int | None = None, signed: bool = True,
+          force_cutoff: int | None = None,
+          refs: tuple[int, ...] = (), discretionary: bool = True) -> Block:
+    return Block(slot, f"{index:064x}", parent, slot // 384, signed, cursor,
+                 cursor if message_end is None else message_end,
+                 cursor if force_cutoff is None else force_cutoff,
+                 refs, discretionary)
 
 
-def test_p2_normal_window_and_close():
-    st = fresh_state()
-    short = mk(GEN.tip_hash, [10, 11], "short")
-    long = mk(GEN.tip_hash, [10, 11, 12], "long")
-    assert st.submit(short, 0, 50, 1, "short")
-    before = st.canonical
-    assert st.submit(long, 1, 50, 1, "long")
-    check("P2a provisional replacement does not mutate canonical", st.canonical == before)
-    st.sync(W_SETTLE, 50)
-    check("P2b mature normal close commits the heaviest candidate once",
-          st.winners == ["long"] and st.canonical.tip_slot == 12 and st.mode == "NORMAL_IDLE")
+def candidate(p: Protocol, c: Clock, *, ident: str = "candidate", slot: int | None = None,
+              tier: Tier = Tier.NORMAL_SIGNED, signed: bool = True,
+              message_end: int | None = None, refs: tuple[int, ...] = (),
+              discretionary: bool = True, version: int | None = None,
+              activation_id: str | None = None) -> Candidate:
+    if slot is None:
+        slot = p.escape_slot if tier is Tier.ESCAPE_UNSIGNED else c.l2_slot
+    assert slot is not None
+    cutoff = p.force_cutoff if p.mode is Mode.RECOVERY else len(p.messages)
+    assert cutoff is not None
+    item = block(int(hashlib.sha256(ident.encode()).hexdigest(), 16), slot=slot,
+                 parent=p.canonical.tip_hash, cursor=p.canonical.message_cursor,
+                 message_end=message_end, signed=signed, force_cutoff=cutoff, refs=refs,
+                 discretionary=discretionary)
+    return Candidate(
+        ident, p.canonical.tip_hash, (item,), tier, True,
+        p.version if version is None else version,
+        p.activation_id if activation_id is None else activation_id,
+        p.canonical.canonicalization_block, p.canonical.canonicalization_hash,
+        p.canonical.canonicalization_block, p.canonical.canonicalization_hash,
+        p.data_mmr_root, True,
+    )
 
 
-def test_p3_close_before_activate():
-    st = fresh_state()
-    healing = mk(GEN.tip_hash, [110], "heal")
-    assert st.submit(healing, 0, 100, 1, "heal")
-    st.sync(W_SETTLE, 121)  # close first -> lag 11, so no activation
-    check("P3 mature normal close precedes lag test and prevents false activation",
-          st.active == "agg0" and not st.burned and st.mode == "NORMAL_IDLE")
+def open_recovery(p: Protocol) -> Clock:
+    trigger = clock(1_100, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    check("P1 sync opens an objective recovery episode", p.sync(trigger))
+    return trigger
 
 
-def test_p4_activation_promotes_or_cancels():
-    st = fresh_state()
-    qualifying = mk(GEN.tip_hash, [80], "q")
-    assert st.submit(qualifying, 0, 100, 1, "q")
-    st.sync(5, 130)  # normal not mature; tip 80 is within DELTA_CLOSE
-    check("P4a SLA breach terminates incumbent and promotes funded standby",
-          st.active == "agg1" and st.penalty["agg0"] == 0)
-    check("P4b already-verified qualifying best commits atomically at activation",
-          st.winners == ["q"] and st.mode == "NORMAL_IDLE")
+def test_evm_atomicity_and_activation_order() -> None:
+    p = protocol()
+    c = clock(1_100, 1_100)
+    best = candidate(p, c, ident="immature")
+    check("P2 first normal candidate is accepted", p.submit(best, c) == "ACCEPTED")
+    p.normal_deadline = 9_999
+    trigger = clock(1_101, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    stale = candidate(p, trigger, ident="stale", version=p.version)
+    check("P3 submit returns SYNCED before stale-candidate validation",
+          p.submit(stale, trigger) == "SYNCED")
+    check("P4 activation survived the external call", p.mode is Mode.RECOVERY)
+    check("P5 immature normal best is canceled", p.normal_best is None)
+    check("P6 SLA burns and replaces the incumbent exactly once",
+          p.burned == 100 and p.active_seat is not None
+          and p.active_seat.operator == "standby")
+    before = p.burned
+    check("P7 persistent episode cannot burn another seat", not p.sync(trigger))
+    check("P8 burn remains idempotent", p.burned == before)
 
-    st2 = fresh_state()
-    stale = mk(GEN.tip_hash, [10], "stale")
-    assert st2.submit(stale, 0, 100, 1, "stale")
-    old_handle = st2.normal_handle
-    st2.sync(5, 130)
-    check("P4c nonqualifying normal best is canceled and stale handle cannot commit",
-          st2.mode == "FALLBACK_OPEN" and st2.winners == []
-          and not st2.close_with_handle(old_handle, 6, 131))
-
-
-def test_p5_fallback_rules_and_moving_target():
-    st = fresh_state()
-    st.sync(1, 121)
-    v, aid = st.version, st.activation_id
-    subtarget = mk(GEN.tip_hash, [20], "sub", tier=2, version=v, activation_id=aid)
-    check("P5a sub-target proof is rejected, not landed as another state transition",
-          not st.submit(subtarget, 2, 122, v, "sub") and st.canonical == GEN)
-    pre_signed = mk(GEN.tip_hash, [122], "old", tier=2, version=v - 1, activation_id=aid)
-    check("P5b wrong episode version cannot replay", not st.submit(pre_signed, 2, 122, v, "old"))
-    good = mk(GEN.tip_hash, [122], "good", tier=2, version=v, activation_id=aid)
-    check("P5c first qualifying episode-bound proof commits immediately",
-          st.submit(good, 2, 122, v, "good") and st.mode == "NORMAL_IDLE")
-    check("P5d moving target covers builder wait, full proof and inclusion latency",
-          RECOVERY_BUILDER_WAIT_MAX_L2 + P_PROVE_MAX_L2
-          + T_INCLUDE_MAX_L2 + CLOCK_MARGIN_L2 <= DELTA_CLOSE < DELTA_LAG_FINAL)
+    q = protocol()
+    early = clock(1_050, 1_050)
+    mature = candidate(q, early, ident="mature")
+    check("P9 mature setup accepted", q.submit(mature, early) == "ACCEPTED")
+    close_clock = clock(1_200, early.timestamp + W_SETTLE_SECONDS)
+    q.messages.append(Message(0, 100_000, 1, "became-due-after-landing"))
+    check("P10 close and later force activation occur in one non-reverting sync",
+          q.sync(close_clock) and q.mode is Mode.RECOVERY)
+    check("P11 mature best committed before lag was recomputed",
+          q.canonical.tip_hash == mature.tip.block_hash)
 
 
-def test_p6_front_run_and_strict_outage():
-    st = fresh_state()
-    st.sync(1, 121)
-    v, aid = st.version, st.activation_id
-    outgoing = mk(GEN.tip_hash, [121], "front", beneficiary="outgoing-sybil",
-                  tier=2, version=v, activation_id=aid)
-    assert st.submit(outgoing, 2, 121, v, "front")
-    st.sync(100, 130)
-    check("P6a outgoing front-run restores finality but cannot retain failed seat",
-          st.active == "agg1" and st.penalty["agg0"] == 0 and st.winners == ["front"])
+def test_escape_without_any_builder_or_seat() -> None:
+    p = protocol(seat=False)
+    p.messages = [Message(0, 100_000, 1, "forced-user-tx")]
+    trigger = clock(1_100, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    check("P12 seatless activation never reverts", p.sync(trigger))
+    check("P13 both SLA and force causes are recorded",
+          p.causes == Cause.SLA | Cause.FORCE_DUE)
+    submit_clock = clock(p.canonical.canonicalization_block + F_L1,
+                         p.escape_slot + 1)
+    escape = candidate(p, submit_clock, ident="escape", tier=Tier.ESCAPE_UNSIGNED,
+                       signed=False, message_end=1, discretionary=False)
+    check("P14 unsigned deterministic escape commits without a builder",
+          p.submit(escape, submit_clock) == "COMMITTED")
+    check("P15 escape advances forced cursor and canonical slot",
+          p.canonical.message_cursor == 1
+          and p.canonical.tip_slot == trigger.timestamp + ESCAPE_OFFSET)
+    check("P16 canonical commit has no payment dependency", p.active_seat is None)
 
-    outage = fresh_state()
-    outage.sync(1, 121)
-    outage.sync(1_000, 10_000)
-    check("P6b persistent proving outage burns only one incumbent per episode",
-          len([x for x in outage.burned if x[0] == "aggregator-sla"]) == 1
-          and outage.mode == "FALLBACK_OPEN" and outage.active == "agg1")
-
-
-def test_p7_split_payout_and_escrow():
-    st = fresh_state()
-    st.post_data("b1", "publisher", 9, 100, 0, 10)
-    st.sync(1, 121)
-    v, aid = st.version, st.activation_id
-    cand = mk(GEN.tip_hash, [121], "paid", beneficiary="prover", tier=2,
-              version=v, activation_id=aid, blobs=("b1",))
-    assert st.submit(cand, 2, 121, v, "paid")
-    check("P7a proof and blob costs go to distinct rightful recipients",
-          ("proof", "prover", R_PROOF + R_SUBMIT) in st.payments
-          and ("blob", "publisher", 9) in st.payments)
-    check("P7b blob record is paid once and no slash-funded bounty exists",
-          st.blobs["b1"].paid and all(payment[0] != "bounty" for payment in st.payments))
-    check("P7c active seats are fully pre-funded", R_FALLBACK >= R_PROOF + R_SUBMIT + B_MAX * R_BLOB_MAX)
+    p2 = protocol(seat=False)
+    trigger2 = open_recovery(p2)
+    submit2 = clock(p2.canonical.canonicalization_block + F_L1,
+                    p2.escape_slot + 1)
+    empty_escape = candidate(p2, submit2, ident="empty-escape",
+                             tier=Tier.ESCAPE_UNSIGNED, signed=False,
+                             discretionary=False)
+    check("P17 an SLA-only empty escape restores chain liveness",
+          p2.submit(empty_escape, submit2) == "COMMITTED")
 
 
-def test_p8_final_ref_uses_canonicalization_block():
-    st = fresh_state()
-    cand = mk(GEN.tip_hash, [10], "normal")
-    assert st.submit(cand, 1, 50, 1, "normal")
-    st.sync(11, 50)
-    check("P8 canonical L1 depth starts at close, not provisional landing",
-          st.canonical.canonicalization_block == 11
-          and not (12 - st.canonical.canonicalization_block >= REORG_HORIZON)
-          and 20 - st.canonical.canonicalization_block >= REORG_HORIZON)
+def test_forced_prefix_and_escape_restrictions() -> None:
+    p = protocol(seat=False)
+    p.messages = [
+        Message(0, 7_000_000, 1, "a"),
+        Message(0, 7_000_000, 1, "b"),
+        Message(0, 7_000_000, 1, "c"),
+        Message(0, 7_000_000, 1, "d"),
+    ]
+    trigger = clock(1_100, p.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    p.sync(trigger)
+    c = clock(p.canonical.canonicalization_block + F_L1, p.escape_slot + 1)
+    short = candidate(p, c, ident="short", tier=Tier.ESCAPE_UNSIGNED,
+                      signed=False, message_end=1, discretionary=False)
+    check("P18 truncating deterministic maximum prefix is rejected",
+          p.submit(short, c) == "REJECTED")
+    exact = candidate(p, c, ident="exact", tier=Tier.ESCAPE_UNSIGNED,
+                      signed=False, message_end=2, discretionary=False)
+    check("P19 maximum gas-fitting prefix commits", p.submit(exact, c) == "COMMITTED")
+
+    late = protocol(seat=False)
+    late.messages = [Message(0, 100_000, 1, "frozen")]
+    late_trigger = clock(1_100, late.canonical.tip_slot + DELTA_FINAL_LAG + 1)
+    late.sync(late_trigger)
+    late.messages.append(Message(late_trigger.timestamp, 100_000, 1, "appended-later"))
+    late_clock = clock(late.canonical.canonicalization_block + F_L1,
+                       late.escape_slot + 1)
+    frozen = candidate(late, late_clock, ident="frozen-cutoff",
+                       tier=Tier.ESCAPE_UNSIGNED, signed=False,
+                       message_end=1, discretionary=False)
+    check("P20 post-activation append cannot invalidate the frozen escape input",
+          late.submit(frozen, late_clock) == "COMMITTED")
+
+    q = protocol(seat=False)
+    t = open_recovery(q)
+    cc = clock(q.canonical.canonicalization_block + F_L1, q.escape_slot + 1)
+    bad_body = candidate(q, cc, ident="bad-body", tier=Tier.ESCAPE_UNSIGNED,
+                         signed=False, discretionary=True)
+    check("P21 escape cannot carry discretionary transactions",
+          q.submit(bad_body, cc) == "REJECTED")
+    bad_sig = candidate(q, cc, ident="bad-sig", tier=Tier.ESCAPE_UNSIGNED,
+                        signed=True, discretionary=False)
+    check("P22 escape cannot masquerade as a scheduled block",
+          q.submit(bad_sig, cc) == "REJECTED")
 
 
-def test_p9_expiry_and_window_tranches():
-    st = fresh_state()
-    st.tranches[("builder", 0)] = 500
-    st.tranches[("builder", 1)] = 500
-    check("P9a equivocation slashes only its independent schedule-window tranche",
-          st.slash_equivocation("builder", 10) and st.tranches[("builder", 0)] == 0
-          and st.tranches[("builder", 1)] == 500)
-    check("P9b a second window remains independently slashable",
-          st.slash_equivocation("builder", 400) and st.tranches[("builder", 1)] == 0)
-    st2 = fresh_state()
-    late_slot = H_SLOT_EXPIRE + SCHEDULE_WINDOW + 1
-    check("P9c tranche release is time-watermark based and terminates without proof close",
-          st2.tranche_releasable("builder", 0, 1_000, late_slot))
+def test_data_binding_and_bounds() -> None:
+    p = protocol()
+    c = clock(1_100, 1_100)
+    check("P23 unrelated or unavailable blob cannot be registered",
+          not p.post_data(c, same_tx_blobhash=False, body_root="r", publisher="alice",
+                          valid_until=2_000, kzg_opening_ok=True))
+    check("P24 valid same-transaction KZG/Fiat-Shamir record appends",
+          p.post_data(c, same_tx_blobhash=True, body_root="r", publisher="alice",
+                      valid_until=2_000, kzg_opening_ok=True))
+    good = candidate(p, c, ident="with-data", refs=(0,))
+    check("P25 exact unique manifest is accepted", p.submit(good, c) == "ACCEPTED")
+
+    q = protocol()
+    q.post_data(c, same_tx_blobhash=True, body_root="r", publisher="alice",
+                valid_until=2_000, kzg_opening_ok=True)
+    duplicate = candidate(q, c, ident="duplicate", refs=(0, 0))
+    check("P26 duplicate blob coverage is rejected", q.submit(duplicate, c) == "REJECTED")
+    wrong_root = candidate(q, c, ident="wrong-root", refs=(0,))
+    wrong_root = Candidate(**{**wrong_root.__dict__, "data_mmr_root": "bad"})
+    check("P27 candidate must bind the current authenticated MMR root",
+          q.submit(wrong_root, c) == "REJECTED")
+    inexact = candidate(q, c, ident="inexact", refs=(0,))
+    inexact = Candidate(**{**inexact.__dict__, "data_manifest_exact": False})
+    check("P28 manifest must cover every discretionary byte exactly once",
+          q.submit(inexact, c) == "REJECTED")
 
 
-def test_p10_gas_and_replay():
-    st = fresh_state()
-    end = st._validate(mk(GEN.tip_hash, [10], "gas"), GEN)
-    check("P10a a legal maximum-prefix block always exists", end is not None and end.m_consumed >= 0)
-    oversized = L1State(GEN, [Item(1, C_MSG_GAS + 1)])
-    end2 = oversized._validate(mk(GEN.tip_hash, [10], "oversized"), GEN)
-    check("P10b over-cap queue item would permanently stop the cursor, so enqueue rejects it",
-          end2 is not None and end2.m_consumed == 0)
+def test_candidate_geometry_history_and_clock_domains() -> None:
+    p = protocol()
+    c = clock(1_100, 1_100)
+    old = candidate(p, c, ident="old", slot=p.canonical.tip_slot)
+    future = candidate(p, c, ident="future", slot=c.l2_slot + CLOCK_SKEW + 1)
+    check("P29 first block must strictly advance canonical slot",
+          p.submit(old, c) == "REJECTED")
+    check("P30 candidate tip has a current-slot upper bound",
+          p.submit(future, c) == "REJECTED")
+    unsigned_normal = candidate(p, c, ident="unsigned-normal", signed=False)
+    check("P31 normal blocks require scheduled signatures",
+          p.submit(unsigned_normal, c) == "REJECTED")
 
-    def replay(events):
-        state = fresh_state()
-        for event in events:
-            getattr(state, event[0])(*event[1:])
-        return state
+    q = protocol()
+    trigger = open_recovery(q)
+    too_shallow = clock(q.canonical.canonicalization_block + F_L1 - 1,
+                        trigger.timestamp + 1)
+    recovery = candidate(q, too_shallow, ident="recovery", tier=Tier.RECOVERY_SIGNED)
+    check("P32 recovery finalRef enforces canonicalization depth",
+          q.submit(recovery, too_shallow) == "REJECTED")
+    deep = clock(q.canonical.canonicalization_block + F_L1, trigger.timestamp + 1)
+    wrong_ref = candidate(q, deep, ident="wrong-ref", tier=Tier.RECOVERY_SIGNED)
+    wrong_ref = Candidate(**{**wrong_ref.__dict__, "final_ref_hash": "f" * 64})
+    check("P33 finalRef is authenticated through bounded history",
+          q.submit(wrong_ref, deep) == "REJECTED")
+    good = candidate(q, deep, ident="signed-recovery", tier=Tier.RECOVERY_SIGNED)
+    check("P34 valid scheduled recovery remains permissionless to land",
+          q.submit(good, deep) == "COMMITTED")
 
-    c = mk(GEN.tip_hash, [10], "r")
-    events = [("submit", c, 0, 50, 1, "r"), ("sync", 10, 50)]
-    a, b = replay(events), replay(events)
-    reorged = replay(events[:1])
-    check("P10c identical L1 replay is deterministic", a.canonical == b.canonical and a.winners == b.winners)
-    check("P10d truncating the close block atomically removes canonical effects",
-          reorged.canonical != a.canonical and reorged.winners == [])
+
+def test_normal_order_freeze_reorg_and_resources() -> None:
+    race = protocol()
+    race_clock = clock(1_100, 1_100)
+    anchored = candidate(race, race_clock, ident="anchored-before-append")
+    race.messages.append(Message(race_clock.timestamp, 100_000, 1, "later-append"))
+    check("P35 post-anchor queue append cannot invalidate a normal proof",
+          race.submit(anchored, race_clock) == "ACCEPTED")
+
+    p = protocol()
+    c = clock(1_100, 1_100)
+    first = candidate(p, c, ident="first")
+    check("P36 normal window opens", p.submit(first, c) == "ACCEPTED")
+    frozen = p.normal_min_admissible
+    later = clock(1_101, 1_200)
+    competitor = candidate(p, later, ident="competitor", slot=1_101)
+    check("P37 admissibility floor is frozen for the whole normal window",
+          p.submit(competitor, later) in {"ACCEPTED", "IGNORED"}
+          and p.normal_min_admissible == frozen)
+    close = clock(1_200, c.timestamp + W_SETTLE_SECONDS)
+    check("P38 deterministic close commits exactly one best", p.sync(close))
+    canon_events = [event for event in p.events if event.startswith("CANONICAL:")]
+    check("P39 close has one canonical effect", len(canon_events) == 1)
+
+    pre = protocol().snapshot()
+    post = pre.snapshot()
+    rc = clock(1_100, 1_100)
+    cand = candidate(post, rc, ident="reorged")
+    post.submit(cand, rc)
+    post.sync(clock(1_200, rc.timestamp + W_SETTLE_SECONDS))
+    post = pre.snapshot()  # Canonical L1 replay starts from pre-state.
+    check("P40 truncating the L1 close removes every derived effect", post.identical(pre))
+
+    many_windows = tuple(
+        block(i + 1, slot=1_001 + i * 384,
+              parent=("a" * 64 if i == 0 else f"{i:064x}"), cursor=0)
+        for i in range(MAX_WINDOWS_PER_CANDIDATE + 1)
+    )
+    check("P41 candidate window resource bound is finite",
+          len({item.window for item in many_windows}) > MAX_WINDOWS_PER_CANDIDATE)
+    check("P42 each publisher data session has a hard record bound",
+          MAX_DATA_RECORDS_PER_SESSION == 2_100)
+
+
+def test_parameter_geometry() -> None:
+    end_to_end_escape = (T_INCLUDE_MAX * L1_SLOT_SECONDS + ESCAPE_OFFSET
+                         + T_INCLUDE_MAX * L1_SLOT_SECONDS + CLOCK_SKEW)
+    tip_age = T_INCLUDE_MAX * L1_SLOT_SECONDS + CLOCK_SKEW
+    check("P43 escape end-to-end bound fits final-lag budget",
+          end_to_end_escape <= DELTA_FINAL_LAG)
+    check("P44 escape offset covers bounded depth and proof generation",
+          ESCAPE_OFFSET >= T_DEPTH_MAX + P_PROVE_MAX)
+    check("P45 submit latency fits tip-admissibility bound",
+          tip_age <= DELTA_TIP)
+    check("P46 forced message admission guarantees one item fits",
+          MAX_FORCE_MESSAGE_GAS <= FORCE_GAS_BUDGET)
+    check("P47 EIP history ring covers recovery depth and proof path",
+          F_L1 + T_INCLUDE_MAX + (P_PROVE_MAX // L1_SLOT_SECONDS) < HISTORY_RING_BLOCKS)
 
 
 if __name__ == "__main__":
-    for test in [
-        test_p1_total_order,
-        test_p2_normal_window_and_close,
-        test_p3_close_before_activate,
-        test_p4_activation_promotes_or_cancels,
-        test_p5_fallback_rules_and_moving_target,
-        test_p6_front_run_and_strict_outage,
-        test_p7_split_payout_and_escrow,
-        test_p8_final_ref_uses_canonicalization_block,
-        test_p9_expiry_and_window_tranches,
-        test_p10_gas_and_replay,
-    ]:
+    for test in (
+        test_evm_atomicity_and_activation_order,
+        test_escape_without_any_builder_or_seat,
+        test_forced_prefix_and_escape_restrictions,
+        test_data_binding_and_bounds,
+        test_candidate_geometry_history_and_clock_domains,
+        test_normal_order_freeze_reorg_and_resources,
+        test_parameter_geometry,
+    ):
         test()
-    print("RESULTS: unified settlement/fallback model — ALL PROPERTIES PASS")
+    print("RESULTS: settlement/recovery model — ALL PROPERTIES PASS")
     for index, name in enumerate(PASS, 1):
-        print(f"  [{index:02d}] {name}")
+        print(f"  [{index:03d}] {name}")

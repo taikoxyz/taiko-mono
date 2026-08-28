@@ -9,20 +9,21 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified executable model of normal settlement and fallback: close-before-activate ordering, objective seat turnover, episode binding, split payouts, canonicalization depth, per-window slashing, expiry and replay. 24 assertions. |
-| [`lookahead-model.py`](lookahead-model.py) | Exact production lookahead path: integer capped quotas, explicit vacant slots and feasibility-preserving seeded placement. 187 assertions across adversarial registries and seeds. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified executable mode machine: EVM-safe sync, normal settlement, persistent recovery, forced prefix, unsigned escape, data binding, history, resource bounds and replay. 49 assertions. |
+| [`lookahead-model.py`](lookahead-model.py) | Exact production lookahead path: Ethereum Keccak golden vectors, authenticated missed-slot snapshot semantics, eligibility filtering, capped quotas, vacant slots and seeded placement. 26 assertions. |
 
 ## Building the PDF
 
 `main.tex` is self-contained — the TikZ figures live inline in it, and no generator is involved.
 
 ```sh
-cd tex && xelatex main.tex && xelatex main.tex && xelatex main.tex
+cd tex && tectonic main.tex
+cp main.pdf ../slot-chain-spec.pdf
 ```
 
-Three passes are needed to settle the table of contents and cross-references. `pdflatex` works
-equally well — the document uses Palatino via `mathpazo` and needs no CJK fonts. The committed
-`slot-chain-spec.pdf` is a copy of the resulting `tex/main.pdf`.
+Tectonic automatically performs the passes needed to settle the table of contents and
+cross-references. `xelatex`/`pdflatex` also work with repeated passes. The committed
+`slot-chain-spec.pdf` is a copy of `tex/main.pdf`.
 
 The committed artifact is built with Tectonic/xdvipdfmx and currently uses PDF 1.5. Rebuilders
 must visually inspect the schedule, state-machine, liveness, slashing and parameter-table pages;
@@ -31,31 +32,31 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 24 assertions
-python3 lookahead-model.py           # 187 assertions
+python3 settlement-window-model.py   # 49 assertions
+python3 lookahead-model.py           # 26 assertions
 ```
 
-Both are zero-dependency and print `ALL PROPERTIES PASS` when every assertion holds. They model
-only what this design newly introduces — the scheduling and mode algorithms, cursor arithmetic,
-gas shares, expiry, slashing and fallback accounting; signatures, proofs and execution are boolean
-placeholders. **Any change to the §5.2 total order, the §5.6 window state machine, or the §7
-cursor and gas rules must be mirrored in the model, and the model re-run.** A specification whose
-model no longer passes is a specification with a defect in it.
+Both run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
+model has a pure-Python Ethereum Keccak implementation and uses PyCryptodome only as an optional
+speedup. Signatures, validity proofs, EVM gas and execution remain placeholders in the settlement
+model. **Every consensus change must update the relevant model in the same commit.** A passing
+model is regression evidence, not a proof of protocol soundness.
 
 ## Status
 
-The core mechanism is specified and its modelled arithmetic is internally consistent. It is **not
-yet implementation-ready**: §11 still requires proof/gas benchmarks, complete L1-reorg semantics,
-genesis/migration rules and a decision on the strong-permissionlessness boundary. Four properties
-of the design are worth knowing before reading:
+The consensus mechanism is **implementation-ready as a specification**, but is not yet authorized
+for production deployment. Section 13 fixes seven measurable release gates: proof performance,
+contract gas, cryptographic conformance, state-machine verification, economics, operations and
+external review. Four properties are worth knowing before reading:
 
 - **Landing is permissionless.** A block's authority comes from its builder's signature, not from
   whoever carries it to L1. The aggregator is a paid service role, not a gatekeeper.
-- **There is no censorship-resistance floor.** Forced inclusion was removed deliberately, for
-  simplicity. If every scheduled builder refuses a transaction, the protocol offers no remedy and
-  no builder-independent exit. §8's cartel rows are unbounded, and §1 records this as a withdrawn
-  goal rather than an oversight.
-- **Fallback expires unfinalized preconfirmations.** At the objective SLA boundary the incumbent is terminated, and one persistent episode restores finality with the first qualifying version-bound chain. Omitted tier-2 promises expire.
+- **There is a builder-independent censorship floor.** A prepaid L1 forced-message queue opens
+  recovery when its head becomes due. Anyone can prove an unsigned deterministic escape block,
+  even if every builder colludes and no aggregator seat exists.
+- **Recovery expires unfinalized preconfirmations.** At an objective SLA/force boundary, one
+  persistent episode restores finality with the first valid episode-bound signed or unsigned
+  recovery proof. Omitted promises expire.
 - **A builder's signature does not attest that the block executes.** It attests authorship and the
   choice of parent. Executability is established only by the validity proof at landing, so a
   preconfirmation is a commitment to include and to order (§9).
