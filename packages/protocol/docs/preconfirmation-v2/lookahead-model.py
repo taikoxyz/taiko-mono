@@ -433,6 +433,8 @@ def test_empty_sentinel_eligibility_and_tombstone():
     eligible = eligible_entries(provider(entries=(unfunded_whale, *funded))(0), 0)
     check("L12 tranche-ineligible whale filtered before ranking",
           unfunded_whale.address not in {entry.address for entry in eligible})
+    check("L12a six present plus 58 absent cells seal without VACANT",
+          VACANT not in schedule_for_window(0, provider(entries=tuple(funded))))
     snapshot = provider()(1)
     assert snapshot is not None
     tombstoned = Entry(addr(60), BOND_MAX, 60, ALL_WINDOWS,

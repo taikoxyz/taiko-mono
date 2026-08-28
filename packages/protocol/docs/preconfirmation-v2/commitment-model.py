@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.4 consensus commitments.
+"""Golden vectors for Slot-Chain v2.5 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -12,7 +12,7 @@ opening; a valid c-kzg vector remains a production conformance gate.
 from __future__ import annotations
 
 import runpy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -33,7 +33,8 @@ TYPE_STRING = (
     "uint64 slot,bytes32 parentHash,bytes32 blockHash,bytes32 stateRoot,bytes32 bodyRoot,"
     "uint64 anchorNumber,bytes32 anchorHash,bytes32 forceRoot,uint64 forceCutoff,"
     "uint64 messageStart,uint64 messageEnd,bytes32 dataManifestRoot,address coinbase,"
-    "uint8 tier,bytes32 contextId,uint64 admissionVersion,uint64 episode,uint64 recoveryRevision,"
+    "uint8 tier,bytes32 contextId,uint64 admissionVersion,bytes32 admissionRoot,"
+    "uint64 episode,uint64 recoveryRevision,"
     "bytes32 recoveryId)"
 )
 DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -48,7 +49,7 @@ D_TRANCHE_LEAF = b"slot-chain-tranche-leaf-v1"
 D_TRANCHE_NODE = b"slot-chain-tranche-node-v1"
 D_FORCE_USER = b"slot-chain-force-user-v2"
 D_FORCE_BRIDGE = b"slot-chain-force-bridge-v2"
-D_FORCE_META_LIST = b"slot-chain-force-meta-list-v1"
+D_FORCE_DESCRIPTOR_LIST = b"slot-chain-force-descriptor-list-v2"
 D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
 D_FORCE_ROOT = b"slot-chain-force-root-v2"
@@ -73,6 +74,8 @@ D_SCHEDULE_LIST = b"slot-chain-schedule-list-v1"
 D_SESSION_LIST = b"slot-chain-session-list-v1"
 D_OUTPUTS = b"slot-chain-outputs-v1"
 D_STATEMENT = b"slot-chain-statement-v1"
+D_NORMAL_CONTEXT = b"slot-chain-normal-context-v1"
+D_MIGRATION_DATA = b"slot-chain-migration-data-v1"
 
 
 def u8(value: int) -> bytes:
@@ -118,7 +121,7 @@ def eip712_domain(chain_id: int, contract: int) -> bytes:
 
 
 def block_struct_hash(values: tuple[int | bytes, ...]) -> bytes:
-    assert len(values) == 23
+    assert len(values) == 24
     address_indices = {3, 16}
     encoded = []
     for index, value in enumerate(values):
@@ -143,6 +146,20 @@ def canonical_core(l2_block_number: int, tip_hash: bytes, tip_slot: int, state_r
 
 def base_canonical(core_hash: bytes, canonicalized_at_block: int) -> bytes:
     return keccak256(D_CANONICAL + b32(core_hash) + u64(canonicalized_at_block))
+
+
+def normal_context(base_hash: bytes, admission_version: int,
+                   admission_root_hash: bytes, anchor_number: int,
+                   anchor_hash: bytes) -> bytes:
+    return keccak256(D_NORMAL_CONTEXT + b32(base_hash) + u64(admission_version)
+                     + b32(admission_root_hash) + u64(anchor_number)
+                     + b32(anchor_hash))
+
+
+def migration_data(settlement_chain_id: int, l2_chain_id: int,
+                   tip_hash: bytes, state_root: bytes) -> bytes:
+    return keccak256(D_MIGRATION_DATA + u256(settlement_chain_id)
+                     + u256(l2_chain_id) + b32(tip_hash) + b32(state_root))
 
 
 def candidate_commitment(base_hash: bytes,
@@ -313,9 +330,9 @@ class BridgeEnvelope:
     deposit: int
 
 
-def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
-    return keccak256(
-        D_FORCE_USER + u32(index) + address20(envelope.sender) + u64(envelope.nonce)
+def forced_descriptor(envelope: ForcedEnvelope) -> bytes:
+    return (
+        address20(envelope.sender) + u64(envelope.nonce)
         + u256(envelope.chain_id) + b32(envelope.raw_tx_hash)
         + u32(envelope.byte_length) + u64(envelope.gas_limit)
         + u64(envelope.accounted_gas) + u256(envelope.max_fee)
@@ -324,9 +341,9 @@ def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
     )
 
 
-def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
-    return keccak256(
-        D_FORCE_BRIDGE + u32(index) + b32(envelope.msg_hash)
+def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
+    return (
+        b32(envelope.msg_hash)
         + u256(envelope.src_chain_id) + u256(envelope.dest_chain_id)
         + address20(envelope.src_owner) + address20(envelope.dest_owner)
         + u256(envelope.value) + b32(envelope.calldata_hash)
@@ -337,14 +354,28 @@ def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
     )
 
 
-def force_metadata_list(start: int,
-                        rows: tuple[tuple[bytes, int, int, int, bytes], ...]) -> bytes:
+def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
+    descriptor = forced_descriptor(envelope)
+    assert len(descriptor) == 220
+    return keccak256(D_FORCE_USER + u32(index) + descriptor)
+
+
+def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
+    descriptor = bridge_descriptor(envelope)
+    assert len(descriptor) == 312
+    return keccak256(D_FORCE_BRIDGE + u32(index) + descriptor)
+
+
+def force_descriptor_list(start: int,
+                          consumed: tuple[tuple[int, bytes], ...],
+                          boundary: tuple[int, bytes] | None) -> bytes:
+    rows = consumed + (() if boundary is None else (boundary,))
     payload = b"".join(
-        u32(start + offset) + b32(leaf) + u64(due_at) + u8(kind)
-        + u64(valid_until) + b32(effect_ref)
-        for offset, (leaf, due_at, kind, valid_until, effect_ref) in enumerate(rows)
+        u32(start + offset) + u8(kind) + u16(len(descriptor)) + descriptor
+        for offset, (kind, descriptor) in enumerate(rows)
     )
-    return keccak256(D_FORCE_META_LIST + u64(start) + u16(len(rows)) + payload)
+    return keccak256(D_FORCE_DESCRIPTOR_LIST + u64(start) + u16(len(consumed))
+                     + u8(boundary is not None) + payload)
 
 
 FORCE_EMPTY: list[bytes] = [keccak256(D_FORCE_EMPTY)]
@@ -508,14 +539,12 @@ def dispositions(start: int, rows: tuple[tuple[int, int, int, bytes], ...]) -> b
 
 def recovery_id(chain_id: int, contract: int, episode: int, revision: int,
                 base_hash: bytes, round_start_slot: int, anchor_number: int,
-                anchor_hash: bytes, anchor_timestamp: int,
-                force_root_hash: bytes, force_cutoff: int,
+                anchor_hash: bytes, force_root_hash: bytes, force_cutoff: int,
                 admission_version: int, admission_root_hash: bytes,
                 escape_slot: int, causes: int) -> bytes:
     return keccak256(D_RECOVERY + u256(chain_id) + address20(contract)
                      + u64(episode) + u64(revision) + b32(base_hash)
                      + u64(round_start_slot) + u64(anchor_number) + b32(anchor_hash)
-                     + u64(anchor_timestamp)
                      + b32(force_root_hash) + u64(force_cutoff)
                      + u64(admission_version) + b32(admission_root_hash)
                      + u64(escape_slot) + u8(causes))
@@ -597,6 +626,10 @@ def vectors() -> dict[str, str]:
         ManifestEntry(0, sid, 0, 0, 2, len(chunk0), body, c0),
         ManifestEntry(0, sid, 1, 1, 2, len(chunk1), body, c1),
     ))
+    manifest_block_1 = manifest_root((
+        ManifestEntry(1, sid, 0, 0, 2, len(chunk0), body, c0),
+        ManifestEntry(1, sid, 1, 1, 2, len(chunk1), body, c1),
+    ))
     core = canonical_core(8_000, bytes.fromhex("77" * 32), 8_000,
                           bytes.fromhex("66" * 32), 2, manifest, 100, 0)
     base = base_canonical(core, 1_000)
@@ -607,28 +640,35 @@ def vectors() -> dict[str, str]:
                                      bytes.fromhex("14" * 32),
                                      bytes.fromhex("15" * 32),
                                      bytes.fromhex("16" * 32))
+    context = normal_context(base, 12, adm_root, 1_000, bytes.fromhex("99" * 32))
     block_values = (
         settlement_chain_id, l2_chain_id, 2, contract,
         8_001, bytes.fromhex("77" * 32),
         bytes.fromhex("88" * 32), bytes.fromhex("66" * 32), body, 1_000,
         bytes.fromhex("99" * 32), force.root, len(envs), 2, 66, manifest,
-        0xCAFE, 1, base, 12, 0, 0, bytes(32),
+        0xCAFE, 1, context, 12, adm_root, 0, 0, bytes(32),
     )
     block_struct = block_struct_hash(block_values)
     candidate_hash = candidate_commitment(base, ((8_001, block_struct,
                                                    bytes.fromhex("88" * 32),
                                                    body, manifest, 66),))
-    winning = winning_data(candidate_hash, sessions_hash)
-    forced_meta = force_metadata_list(2, tuple(
-        (force_leaves[i], envs[i].due_at, 0, envs[i].valid_until,
-         envs[i].raw_tx_hash) for i in range(2, 66)
+    candidate_hash_2 = candidate_commitment(base, (
+        (8_001, block_struct, bytes.fromhex("88" * 32), body, manifest, 66),
+        (8_002, bytes.fromhex("43" * 32), bytes.fromhex("44" * 32), body,
+         manifest_block_1, 67),
     ))
+    winning = winning_data(candidate_hash, sessions_hash)
+    forced_descriptors = force_descriptor_list(
+        2,
+        tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
+        (0, forced_descriptor(envs[66])),
+    )
     statement_values = (
         settlement_chain_id, l2_chain_id, 2, contract, 1, base,
         candidate_hash, 1, 8_001, bytes.fromhex("88" * 32), 8_001, 8_001,
         bytes.fromhex("66" * 32), 66, winning, envs[66].due_at,
         101, 0, 1_000, bytes.fromhex("99" * 32), bytes.fromhex("aa" * 32), 999,
-        force.root, len(envs), forced_meta, 2, 12, adm_root,
+        force.root, len(envs), forced_descriptors, 2, 12, adm_root,
         0, 0, bytes(32), schedules_hash, 1,
         sessions_hash, 1, 2, outputs_hash, 0xCAFE,
     )
@@ -650,9 +690,14 @@ def vectors() -> dict[str, str]:
         "eip712_digest": eip712_digest(settlement_chain_id, contract, block_values).hex(),
         "canonical_core": core.hex(),
         "base_canonical": base.hex(),
+        "migration_data": migration_data(settlement_chain_id, l2_chain_id,
+                                           bytes.fromhex("77" * 32),
+                                           bytes.fromhex("66" * 32)).hex(),
         "candidate_commitment": candidate_hash.hex(),
+        "candidate_commitment_2": candidate_hash_2.hex(),
+        "normal_context": context.hex(),
         "winning_data": winning.hex(),
-        "forced_metadata": forced_meta.hex(),
+        "forced_descriptors": forced_descriptors.hex(),
         "schedule_list": schedules_hash.hex(),
         "session_list": sessions_hash.hex(),
         "execution_outputs": outputs_hash.hex(),
@@ -670,13 +715,14 @@ def vectors() -> dict[str, str]:
         "session_id": sid.hex(),
         "mmr_root_2": mmr_root((leaf0, leaf1)).hex(),
         "manifest_root": manifest.hex(),
+        "manifest_root_block_1": manifest_block_1.hex(),
         "empty_body_root": empty_body.hex(),
         "empty_manifest_root": empty_manifest.hex(),
         "empty_session_list": empty_sessions.hex(),
         "dispositions": dispositions(2, ((2, 1, UINT32_MAX, bytes(32)),
                                           (3, 0, 2, bytes.fromhex("44" * 32)))).hex(),
         "recovery_id": recovery_id(settlement_chain_id, contract, 4, 2, base, 8_000,
-                                   1_000, bytes.fromhex("88" * 32), 999, force.root,
+                                   1_000, bytes.fromhex("88" * 32), force.root,
                                    len(envs), 12, adm_root, 9_000, 3).hex(),
         "body_root": body.hex(),
         "chunk_root_0": c0.hex(),
@@ -684,19 +730,22 @@ def vectors() -> dict[str, str]:
 
 
 EXPECTED = {
-    "typehash": "579f796202662a2edf67bed2afcb07d3adff1e5e7e10e7dedcb7c6632f8d49de",
+    "typehash": "ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c",
     "domain_separator": "e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c",
-    "block_struct_hash": "85f2cd78ccffd33afef3ccef9799340f354a60cd96015cc234ef651c8c164aa8",
-    "eip712_digest": "f378d13f9380d1fd13995267c6d69662e021dc75f0a61b41182050659d46be39",
+    "block_struct_hash": "c60f87dfb7779ce414cbe339f5c303541d5c5ff69a6f73546a17fb509ae9c6be",
+    "eip712_digest": "8c1493bf07289199f66021bde4ba91be5ea21e6542bc058af67b71616f9fba75",
     "canonical_core": "c5320e571a33500079a14a281b01b4127ef7ff251a8b6d1a8cfa101d44521f0e",
     "base_canonical": "ec599dbdc93695f1c8d8bfa46c0e9920055218f484492b023074709a76d297c4",
-    "candidate_commitment": "3b9186142c81457b39a2a7890e016c3ca232bcfe46fc270f26dddce8c6e23a72",
-    "winning_data": "20e1edde3f8f232ad46ea5662781e691732c1cb094da109c752729a706258b75",
-    "forced_metadata": "e828c3e9685db3ef54786ac18772b388248d06bd38e4ff49aaa1c545be5df55f",
+    "migration_data": "916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399",
+    "candidate_commitment": "7aaafa4b66ab9cf569dd8e2c3bcb22bfc2572d15cd7a3213f63ba76ec44b8e9b",
+    "candidate_commitment_2": "59399358d2ec4109ae3905d0a24ec6f00976470f2c0988682bedf805f7cbbe26",
+    "normal_context": "92aa73a63468548708ffeff5a04e1cc59912ffc3ab9bd26e87938d206e123cc9",
+    "winning_data": "701cd88d088ce38248844c81576142541c4980ed295bb2b55d267c3c8889434a",
+    "forced_descriptors": "193cc93014b8472b5f951472c3b8a9d60ebfd294ff18e43c21d60af6e0853de3",
     "schedule_list": "7ab789362dd8b411e1bc42af1270bcb14d2a7571fc28ab614c6afcc33b7de8e7",
     "session_list": "9cbf4ca60afc8aee2ccaa68a45bb6568a04812cf282aa703f194e017092fb264",
     "execution_outputs": "64649dc4a113bf0936e248a1ae89031e76747d3a0c7b23a404ef71cd2196f5f5",
-    "statement_hash": "e944338943078b59c93dde936ddd2bc8ac47fbf241e4ccdd02f52dc358121be6",
+    "statement_hash": "e767eccaf8a6088c7bbfa8202ae160aa473eada26d1b04ce7b3a34c4fbb0e294",
     "registry_root": "0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd",
     "admission_root": "783548941546bbc76487459185c787e4ffd7677b4487692dd6b1308dcc2e13f6",
     "admission_reuse_root": "6359d7dabcdbbfd8102946057bc1eb948020253d627ca4108f7328e79cd4ceca",
@@ -710,11 +759,12 @@ EXPECTED = {
     "session_id": "98cbb8b158cb6732a806e2fac0e50c53e88feafd5e3dade0a0ed7edeb7a5a0b1",
     "mmr_root_2": "d20459aeb2fe916a18dd584d39b2ae25075c6b6c14104d9d64a8b1d7882eb4df",
     "manifest_root": "417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f",
+    "manifest_root_block_1": "c58ab29bdccb3e06cc5431fbbcea1abc6d6f1a38120c5d896e18b7f1ca1cf43e",
     "empty_body_root": "f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a",
     "empty_manifest_root": "0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6",
     "empty_session_list": "8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279",
     "dispositions": "1920be0faf7640e475141c751acb845a943967550d01dcdbbf8b4c4979133ef6",
-    "recovery_id": "838cab6519eafe0e2a13d2d79be09a7029fd304c9f6d97ac6b878a1f1d2e0e0f",
+    "recovery_id": "454ec13c67dcfe4d215b73ee1ca32645be14605e3e86b5c42ff2df1e1e368975",
     "body_root": "0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9",
     "chunk_root_0": "e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e",
 }
@@ -746,6 +796,15 @@ if __name__ == "__main__":
     assert not verify_force_range(69, 2, revealed, proof, vector.root)
     assert not verify_force_range(70, 2, revealed, proof + (bytes(32),), vector.root)
     assert append_frontier_height(UINT32_MAX - 1) == 0
+    descriptor_commitment = force_descriptor_list(
+        2, tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
+        (0, forced_descriptor(envs[66])))
+    assert descriptor_commitment != force_descriptor_list(
+        2, tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)), None)
+    changed_boundary = replace(envs[66], byte_length=envs[66].byte_length + 1)
+    assert descriptor_commitment != force_descriptor_list(
+        2, tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
+        (0, forced_descriptor(changed_boundary)))
 
     sid = bytes.fromhex(actual["session_id"])
     root = bytes.fromhex(actual["body_root"])
@@ -753,6 +812,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 43 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 49 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

@@ -153,6 +153,7 @@ class SessionRef:
 @dataclass(frozen=True)
 class Block:
     slot: int
+    evm_timestamp: int
     block_hash: str
     parent_hash: str
     window: int
@@ -241,7 +242,6 @@ class RecoveryRound:
     round_start_slot: int
     anchor_number: int
     anchor_hash: str
-    anchor_timestamp: int
     force_root: str
     force_cutoff: int
     admission_version: int
@@ -254,7 +254,7 @@ class RecoveryRound:
     def recovery_id(self) -> str:
         return (f"recovery:{self.episode}:{self.revision}:{self.base_canonical_hash}:"
                 f"{self.round_start_slot}:{self.anchor_number}:{self.anchor_hash}:"
-                f"{self.anchor_timestamp}:{self.force_root}:{self.force_cutoff}:"
+                f"{self.force_root}:{self.force_cutoff}:"
                 f"{self.admission_version}:{self.admission_root}:"
                 f"{self.escape_slot}:{int(self.causes)}")
 
@@ -273,6 +273,7 @@ class Generation:
     registration_index: int
     effective_window: int
     max_reserved_window: int = 0
+    reservations_closed: bool = False
 
 
 @dataclass
@@ -287,7 +288,29 @@ class RegistryLifecycle:
     def liabilities(self) -> list[Generation]:
         return [item[0] for item in self.liability_ring if item is not None]
 
+    def reserve(self, address: str, window: int, current_window: int) -> bool:
+        for index, generation in enumerate(self.active):
+            if generation.address != address:
+                continue
+            if (generation.reservations_closed
+                    or window < current_window
+                    or window > current_window + MAX_TRANCHE_AHEAD_WINDOWS):
+                return False
+            self.active[index] = replace(
+                generation, max_reserved_window=max(generation.max_reserved_window, window))
+            return True
+        return False
+
+    def release_liability(self, ring_index: int, current_window: int) -> bool:
+        occupant = self.liability_ring[ring_index]
+        if occupant is None or occupant[1] > current_window:
+            return False
+        self.liability_ring[ring_index] = None
+        return True
+
     def admit(self, entry: Generation, current_window: int) -> bool:
+        if any(g.address == entry.address for g in self.active + self.liabilities):
+            return False
         if entry.effective_window < current_window + ENTRY_DELAY_WINDOWS:
             return False
         if len(self.active) < 64:
@@ -310,7 +333,7 @@ class RegistryLifecycle:
         )
         self.active.remove(victim)
         self.active.append(entry)
-        self.liability_ring[ring_index] = (victim, release_window)
+        self.liability_ring[ring_index] = (replace(victim, reservations_closed=True), release_window)
         self.movement_sequence += 1
         self.replacements[current_window] = self.replacements.get(current_window, 0) + 1
         return True
@@ -321,6 +344,12 @@ def tranche_releasable(window: int, global_min_referenced_slot: int,
     window_end_slot = 384 * (window + 1) - 1
     return (window_end_slot < global_min_referenced_slot
             and now > evidence_and_reorg_deadline)
+
+
+def normal_context_id(base_hash: str, admission_version: int, admission_root: str,
+                      anchor_number: int, anchor_hash: str) -> str:
+    return (f"normal:{base_hash}:{admission_version}:{admission_root}:"
+            f"{anchor_number}:{anchor_hash}")
 
 
 @dataclass
@@ -338,6 +367,9 @@ class Protocol:
     normal_min_admissible: int | None = None
     normal_admission_version: int | None = None
     normal_admission_root: str | None = None
+    normal_anchor_number: int | None = None
+    normal_anchor_hash: str | None = None
+    normal_context_id: str | None = None
     admission_version: int = 0
     admission_root: str = "admission:0"
     active_seat: Seat | None = None
@@ -396,6 +428,9 @@ class Protocol:
         self.normal_min_admissible = None
         self.normal_admission_version = None
         self.normal_admission_root = None
+        self.normal_anchor_number = None
+        self.normal_anchor_hash = None
+        self.normal_context_id = None
 
     def _close_mature_normal(self, clock: Clock) -> bool:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
@@ -418,7 +453,7 @@ class Protocol:
         escape_slot = max(clock.l2_slot + ESCAPE_OFFSET, self.core.tip_slot + 1)
         return RecoveryRound(
             self.episode, revision, self.canonical.base_hash, clock.l2_slot,
-            anchor_number, anchor.block_hash, anchor.timestamp,
+            anchor_number, anchor.block_hash,
             self.force_root(cutoff), cutoff, self.admission_version,
             self.admission_root, escape_slot,
             GENESIS_TIMESTAMP + escape_slot + DELTA_TIP, causes,
@@ -468,9 +503,17 @@ class Protocol:
         return changed
 
     def activate_migration(self, clock: Clock, imported: Canonical,
-                           *, old_quiescent: bool, router_switched: bool) -> bool:
+                           *, old_quiescent: bool, router_switched: bool,
+                           header_checkpoint_authenticated: bool = True) -> bool:
         if (self.mode is not Mode.PREACTIVE or clock.timestamp < GENESIS_TIMESTAMP
-                or not old_quiescent or not router_switched):
+                or not old_quiescent or not router_switched
+                or not header_checkpoint_authenticated
+                or imported.canonicalized_at_block != clock.block_number
+                or imported.core.l2_block_number >= 1 << 48
+                or imported.core.message_cursor != 0
+                or imported.core.tip_slot > clock.l2_slot
+                or imported.core.winning_data_commitment == "empty"
+                or imported.core.next_base_fee <= 0):
             return False
         self.canonical = copy.deepcopy(imported)
         self.mode = Mode.NORMAL
@@ -588,7 +631,10 @@ class Protocol:
                 or block.anchor_timestamp > GENESIS_TIMESTAMP + block.slot):
             return False
         if candidate.tier is Tier.NORMAL_SIGNED:
-            return (header.force_root == block.force_root
+            return ((self.normal_anchor_number is None
+                     or (block.anchor_number == self.normal_anchor_number
+                         and block.anchor_hash == self.normal_anchor_hash))
+                    and header.force_root == block.force_root
                     and header.force_cutoff == block.force_cutoff)
         assert self.recovery is not None
         return (block.force_root == self.recovery.force_root
@@ -613,7 +659,8 @@ class Protocol:
         first = candidate.blocks[0]
         total_items = total_bytes = total_gas = 0
         for block in candidate.blocks:
-            if (block.parent_hash != parent or block.slot <= prior_slot
+            if (block.evm_timestamp != GENESIS_TIMESTAMP + block.slot
+                    or block.parent_hash != parent or block.slot <= prior_slot
                     or (candidate.tier is Tier.NORMAL_SIGNED
                         and block.slot - prior_slot > G_MAX)
                     or block.message_start != cursor or not block.dispositions_ok
@@ -645,12 +692,16 @@ class Protocol:
         version = (self.normal_admission_version if self.normal_admission_version is not None
                    else self.admission_version)
         root = self.normal_admission_root or self.admission_root
+        first = candidate.blocks[0]
+        context = self.normal_context_id or normal_context_id(
+            self.canonical.base_hash, version, root,
+            first.anchor_number, first.anchor_hash)
         deadline = self.normal_deadline or clock.timestamp + W_SETTLE_SECONDS
         required_through = self.normal_required_through or deadline + T_INCLUDE_MAX_SECONDS
         return (self._validate_common(candidate, clock, minimum)
                 and all(b.scheduled_signature_ok and b.admission_version == version
                         and b.admission_root == root
-                        and b.context_id == self.canonical.base_hash
+                        and b.context_id == context
                         for b in candidate.blocks)
                 and all(self.sessions[r.session_id].expiry
                         >= deadline + REORG_MARGIN_SECONDS for r in candidate.session_refs)
@@ -699,6 +750,9 @@ class Protocol:
                 self.normal_min_admissible = max(0, clock.l2_slot - DELTA_TIP)
                 self.normal_admission_version = self.admission_version
                 self.normal_admission_root = self.admission_root
+                self.normal_anchor_number = candidate.blocks[0].anchor_number
+                self.normal_anchor_hash = candidate.blocks[0].anchor_hash
+                self.normal_context_id = candidate.blocks[0].context_id
             if self.normal_best is None or candidate.order > self.normal_best.order:
                 self.normal_best = candidate
                 self.normal_best_min_data_expiry = min(
@@ -797,7 +851,8 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
         anchor_number, force_root, cutoff = r.anchor_number, r.force_root, r.force_cutoff
         version, root = r.admission_version, r.admission_root
     else:
-        anchor_number = min(c.block_number - 1, slot)
+        anchor_number = (p.normal_anchor_number if p.normal_anchor_number is not None
+                         else min(c.block_number - 1, slot))
         header = p.history[anchor_number]
         force_root, cutoff = header.force_root, header.force_cutoff
         version = p.normal_admission_version if p.normal_admission_version is not None else p.admission_version
@@ -805,11 +860,14 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
     header = p.history[anchor_number]
     start = p.core.message_cursor
     end = p._prefix_end(start, cutoff) if message_end is None else message_end
-    return Block(slot, f"{abs(hash(ident)) % (1 << 256):064x}", p.core.tip_hash,
+    context = (p.recovery.recovery_id if p.mode is Mode.RECOVERY and p.recovery
+               else normal_context_id(p.canonical.base_hash, version, root,
+                                      anchor_number, header.block_hash))
+    return Block(slot, GENESIS_TIMESTAMP + slot,
+                 f"{abs(hash(ident)) % (1 << 256):064x}", p.core.tip_hash,
                  slot // 384, signed, start, end, anchor_number, header.block_hash,
                  header.timestamp, force_root, cutoff,
-                 (p.recovery.recovery_id if p.mode is Mode.RECOVERY and p.recovery
-                  else p.canonical.base_hash),
+                 context,
                  version, root,
                  dispositions_ok=dispositions_ok, discretionary_body=discretionary)
 
@@ -856,7 +914,11 @@ def test_canonical_outputs_and_migration() -> None:
     pre = Clock(950, GENESIS_TIMESTAMP - 100)
     check("P2 preactivation slot saturates", pre.l2_slot == 0)
     check("P3 preactive rejects", p.submit(candidate(p, clock(1_100, 1_100)), clock(1_100, 1_100)) == "REJECTED_PREACTIVE")
-    imported = Canonical(CanonicalCore(1_050, "c" * 64, 1_050, "d" * 64, 7), 1_050)
+    imported = Canonical(
+        CanonicalCore(1_050, "c" * 64, 1_050, "d" * 64, 0,
+                      "migration-sentinel", 101, 0),
+        1_100,
+    )
     check("P4 migration requires quiescence", not p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=False, router_switched=True))
     check("P5 atomic router cutover imports exact state", p.activate_migration(clock(1_100, 1_100), imported, old_quiescent=True, router_switched=True))
     q = protocol()
@@ -885,6 +947,16 @@ def test_admission_freeze_and_tier_canonicalization() -> None:
     q = protocol()
     malformed = candidate(q, c, "unused", recovery_fields_zero=False)
     check("P11 tier-1 unused recovery fields must be zero", q.submit(malformed, c) == "REJECTED")
+    bad_time = candidate(q, c, "bad-time")
+    bad_time = replace(
+        bad_time,
+        blocks=(replace(bad_time.blocks[0], evm_timestamp=bad_time.blocks[0].evm_timestamp + 1),),
+    )
+    check("P11a signed slot must equal EVM header time",
+          q.submit(bad_time, c) == "REJECTED")
+    check("P11b reorg forks cannot share a slash context",
+          normal_context_id(q.canonical.base_hash, 10, "root-a", 100, "hash-a")
+          != normal_context_id(q.canonical.base_hash, 10, "root-b", 100, "hash-b"))
 
 
 def test_force_merkle_bounds_and_auth() -> None:
@@ -955,7 +1027,7 @@ def test_late_close_and_constant_boundary() -> None:
                    valid_until=GENESIS_TIMESTAMP + 10)
     expired = protocol(tip_slot=0, messages=[lost])
     expired_clock = clock(10, 20)
-    check("P26b expired payload is consumable from metadata",
+    check("P26b expired payload is consumable from durable descriptor",
           expired.submit(candidate(expired, expired_clock, "expired-meta"),
                          expired_clock) == "ACCEPTED")
     unexpired = protocol(tip_slot=0, messages=[
@@ -1006,6 +1078,16 @@ def test_registry_liability_and_release_units() -> None:
     check("P35 full-table replacement is delayed and strict", registry.admit(newcomer, 0))
     check("P36 deterministic tie victim moves to liability", registry.liabilities[0].registration_index == 1)
     check("P37 displaced generation remains retained", len(registry.active) == 64 and len(registry.liabilities) == 1)
+    check("P37a liability generation cannot extend reservations",
+          not registry.reserve("builder-1", 1, 0))
+    retained = registry.liability_ring[0]
+    assert retained is not None
+    reuse = Generation("builder-1", 50_000, 9_999,
+                       retained[1] + ENTRY_DELAY_WINDOWS)
+    check("P37b retained address cannot be reused", not registry.admit(reuse, retained[1]))
+    assert registry.release_liability(0, retained[1])
+    check("P37c address reuse after safe release gets a new generation",
+          registry.admit(reuse, retained[1]))
     low = Generation("low", 1, 1001, ENTRY_DELAY_WINDOWS)
     check("P38 lower bond cannot displace", not registry.admit(low, 0))
     for j in range(3):
