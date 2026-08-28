@@ -1,4 +1,4 @@
-<!-- generated-from: slot-chain-spec.md  sha256:8bb271a41ddc9c0a -->
+<!-- generated-from: slot-chain-spec.md  sha256:91d20d5cb5d3bb9e -->
 <!-- English edition, translated from the Chinese source. The Chinese edition is
      normative: where the two disagree, the Chinese text governs. After editing the
      Chinese source, re-translate this file and update the sha256 above; the drift
@@ -618,7 +618,7 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   that that rule would order an honest lander to discard a fully visible, landable, healthy long
   tail, which is wrong: "cannot be extended over P2P" does not mean "should be discarded". Given a
   fork point `F`, the candidate chains extending `F` are compared, in the following order:
-  **The object of comparison is a scalar 4-tuple, not a pairwise structural comparison（r42 fixes
+  **The object of comparison is a scalar triple, not a pairwise structural comparison（r42 fixes
   independent review round 5, severe 1 — the old "look at the first differing block of the two chains
   to determine the lane" was a pairwise criterion, and a non-transitive cycle `A>B>C>A` can be
   constructed: A=[X,a] vs B=[X,b1..b3] diverge at a/b1, so content wins; B vs C=[Y,c1,c2] diverge at
@@ -692,10 +692,10 @@ A block is valid if and only if all of the following hold (all of them circuit-v
   characterization.
 - **A node's local chain-selection rule = the total order above（equivocation forks included, made
   explicit in r47）**: the criterion an L2 node uses to dynamically maintain its "local best signature
-  chain" is exactly the 4-tuple total order above; no second set of rules is needed. Equivocation is
+  chain" is exactly the triple total order above; no second set of rules is needed. Equivocation is
   heavily slashed under §4.3, but one cannot assume that it does not happen — when it does, two
   signed blocks appear at the same slot and the chain splits in two; the two forks are still two
-  individually valid candidate chains, and the 4-tuple yields a total order as usual (differing block
+  individually valid candidate chains, and the triple yields a total order as usual (differing block
   counts are settled by `count`, equal block counts are arbitrated by `tip_slot`/`tip_hash`), so the
   convergence of node views is not interrupted by equivocation; slashing the equivocator (§4.3) is
   orthogonal to chain selection. Why the fee total does not enter the total order（a design
@@ -981,7 +981,7 @@ flowchart TD
   and the malicious party has paid L1 gas plus proving fees for nothing (a natural griefing cost that requires no design). Every "how do we prove that it should have landed at the time" difficulty of the old v1.39/v1.40
   ceases to exist: the chain that ought to land lands by itself and wins, and nobody needs to prove "that it once existed".
 - **"Sniping" at window close is benign （self-review rounds 1 and 2）**: what if someone lands a slightly heavier candidate at the very last moment before close?
-  Under the total order, "heavier = more genuine signed blocks in the same lane" — forgery is impossible (forging would require stealing a builder's private key), so a heavier
+  Under the total order, "heavier = more genuine signed blocks" — forgery is impossible (forging would require stealing a builder's private key), so a heavier
   candidate necessarily contains more genuine preconfirmed blocks, and its winning is better for users (a more complete tail is finalized). The only party harmed
   is the earlier lander, in gas — an economic residual risk, not a safety residual risk. A fixed window therefore suffices, with no need for a chess clock or extensions (an extension would instead introduce
   gameable timing). Withholding a block body and releasing it late (a builder withholds the body → the fallback lands the visible tail → before close the attacker releases the body, lands the full tail and
@@ -1738,7 +1738,7 @@ transfer of a single slot), and its frequency is constrained by the honest-major
     (Solidity-level `acceptCandidate` storage and gas, the Inbox integration path, an item-by-item disposition of (a)/(b)/(c) below and
     a list of what remains open — of which (b), the precise definition of the lookahead sampling operator, is still open and must be closed before electing is implemented;
     the final judgment is the owner plus a human safety review, and this gate does not pass anything automatically). The original list: (a) a single set of pseudocode or state machines for block legality /
-    parent selection / the best-chain total order （the §5.2 quadruple, including irreflexivity, totality and transitivity property tests — r42） / the settlement-window
+    parent selection / the best-chain total order （the §5.2 triple, including irreflexivity, totality and transitivity property tests — r42/v1.51） / the settlement-window
     `openWindow/acceptCandidate/replaceCandidate/closeWindow` state machine （§5.6, including double-candidate supersession,
     baseline freezing when the forced or message queue is non-empty, and L1-reorg and lazy-close tests — r42 blocking, must be completed before implementation） /
     landing / forced inclusion / the window
@@ -1842,7 +1842,7 @@ transfer of a single slot), and its frequency is constrained by the honest-major
 
 | Property | Content | Corresponding finding |
 | --- | --- | --- |
-| P1 | The total-order key `(lane, count, tip_slot, tip_hash)` is irreflexive, total and transitive; the round-5 `A>B>C>A` cycle resolves to `B>C>A` | Severe 1 |
+| P1 | The total-order key `(count, tip_slot, tip_hash)` is irreflexive, total and transitive （v1.51 dropped `lane`, so the ordering is by block count first）; the round-5 `A>B>C>A` cycle resolves to `B>C>A` | Severe 1 |
 | P2 | The winner at the close is independent of the order in which candidates were submitted (verified over all permutations) | Corollary of severe 1 |
 | P3 | When the message queue is non-empty: a provisional landing does not change what is canonical; a heavier candidate can be verified against the same frozen baseline and supersede it; the close commits the winner's outcome exactly once; the cursor is monotone with no double consumption | Severe 2 |
 | P5 | A lazy close does not change the winner; after the close, a candidate can only open the next window | Close boundary |
