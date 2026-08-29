@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Focused executable model for the bounded perpetual seat reverse auction.
+"""Executable model for the bounded perpetual seat reverse auction.
 
-This file intentionally models only the Task-2 surface: the shared four-cell
-offer-book geometry, pending offer/tranche lifecycle, generation purge, exact
-bond credits, and pull-payment rollback semantics.  Staging, installation,
-premium accrual, release, and enforcement are added by later tasks.
+The model owns waiting offers, SLA bonds, premium reserves, exact pull credits,
+installed-bond release and breach enforcement.  Canonical lineup/duty authority
+is deliberately represented only by immutable exact-view inputs: Task 4 composes
+these Market primitives with the Settlement model in one simulated revert domain.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from functools import lru_cache
 from pathlib import Path
 import re
 import runpy
+from types import MappingProxyType
 from typing import Callable
 
 
@@ -33,6 +34,8 @@ D_AUTHORIZATION = b"TAIKO_SEAT_TARGET_AUTHORIZATION_V1"
 D_TRANCHE = b"TAIKO_SEAT_TRANCHE_V1"
 D_OFFER = b"TAIKO_SEAT_OFFER_V1"
 D_CREDIT = b"TAIKO_SEAT_BOND_CREDIT_V1"
+D_PREMIUM_CREDIT = b"TAIKO_SEAT_PREMIUM_CREDIT_V1"
+D_STAGE = b"TAIKO_SEAT_STAGE_V1"
 
 
 class TransitionRejected(Exception):
@@ -66,6 +69,15 @@ def checked_sub(left: int, right: int) -> int:
     if right > left:
         raise ArithmeticFault("uint256 subtraction underflow")
     return left - right
+
+
+def checked_mul(left: int, right: int) -> int:
+    left = _uint(left, "left operand")
+    right = _uint(right, "right operand")
+    result = left * right
+    if result > UINT256_MAX:
+        raise ArithmeticFault("uint256 multiplication overflow")
+    return result
 
 
 def u8(value: int) -> bytes:
@@ -145,6 +157,70 @@ class BondDisposition(Enum):
     PENALTY_CREDITED = 2
 
 
+class ReserveLifecycle(Enum):
+    ABSENT = 0
+    UNSTARTED = 1
+    OPEN = 2
+    CLOSED_TAIL = 3
+
+
+class ResultCode(Enum):
+    STAGED = 1
+    NO_FEASIBLE_OFFER = 2
+    UNDERFUNDED = 3
+
+
+# Exact Section 4.4 lifecycle freeze for the Market transitions introduced in
+# Task 3.  Tests pair this normative table with reachable-state fixtures and
+# introspection over the complete public mutation surface.
+TASK3_EVENT_FREEZE = MappingProxyType({
+    "stage_best": (
+        (OfferLocation.PENDING, TrancheUsage.OFFER, BondDisposition.NONE),
+        (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
+    ),
+    "expire_stage": (
+        (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
+        (OfferLocation.PENDING, TrancheUsage.OFFER, BondDisposition.NONE),
+    ),
+    "invalidate_stage": (
+        (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
+        (OfferLocation.PENDING, TrancheUsage.OFFER, BondDisposition.NONE),
+    ),
+    "cancel_stage_for_migration": (
+        (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
+        (
+            OfferLocation.NONE,
+            TrancheUsage.CLOSED_UNINSTALLED,
+            BondDisposition.OWNER_CREDITED,
+        ),
+    ),
+    "install_stage": (
+        (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
+        (OfferLocation.NONE, TrancheUsage.INSTALLED, BondDisposition.NONE),
+    ),
+    "request_release": (
+        (OfferLocation.NONE, TrancheUsage.INSTALLED, BondDisposition.NONE),
+        (OfferLocation.NONE, TrancheUsage.INSTALLED, BondDisposition.NONE),
+    ),
+    "finalize_release": (
+        (OfferLocation.NONE, TrancheUsage.INSTALLED, BondDisposition.NONE),
+        (
+            OfferLocation.NONE,
+            TrancheUsage.INSTALLED,
+            BondDisposition.OWNER_CREDITED,
+        ),
+    ),
+    "enforce_breach": (
+        (OfferLocation.NONE, TrancheUsage.INSTALLED, BondDisposition.NONE),
+        (
+            OfferLocation.NONE,
+            TrancheUsage.INSTALLED,
+            BondDisposition.PENALTY_CREDITED,
+        ),
+    ),
+})
+
+
 @dataclass(frozen=True)
 class Clock:
     timestamp: int
@@ -165,6 +241,8 @@ class BondTranche:
     installed_term_id: bytes | None = None
     pending_refund_at: int | None = None
     release_requested_at: int | None = None
+    terminalized_at: int | None = None
+    terminal_horizon_at: int | None = None
 
 
 @dataclass
@@ -197,6 +275,12 @@ class Offer:
 class Stage:
     stage_id: bytes
     offer_id: bytes
+    selected_rank: int = 0
+    outgoing_primary_term_id: bytes | None = None
+    lineup_commitment: bytes = b"\x00" * 32
+    handover_at: int = 0
+    expires_at: int = 0
+    reserve_id: bytes | None = None
 
 
 @dataclass
@@ -210,9 +294,96 @@ class ExactCredit:
 
 
 @dataclass
+class PremiumCredit:
+    credit_id: bytes
+    reserve_id: bytes
+    beneficiary: str
+    amount: int
+    sequence: int
+    claimed: bool = False
+
+
+@dataclass
 class PremiumReserve:
     reserve_id: bytes
     reserved_wei: int
+    lifecycle: ReserveLifecycle = ReserveLifecycle.UNSTARTED
+    tranche_id: bytes | None = None
+    owner_id: bytes | None = None
+    term_id: bytes | None = None
+    payout: str | None = None
+    ask_wei_per_second: int = 0
+    premium_funded_until: int | None = None
+    last_accrued_at: int | None = None
+    settlement_cap: int | None = None
+    reserve_mature_at: int | None = None
+
+
+@dataclass(frozen=True)
+class LineupTerm:
+    term_id: bytes
+    tranche_id: bytes
+    offer_id: bytes
+    operator: str
+    payout: str
+    ask_wei_per_second: int
+    minimum_tenure_until: int
+    service_eligible_until: int
+    healthy: bool = True
+
+
+@dataclass(frozen=True)
+class LineupSnapshot:
+    target: str
+    authorization_id: bytes
+    generation: int
+    commitment: bytes
+    terms: tuple[LineupTerm, ...] = ()
+
+
+@dataclass(frozen=True)
+class InstallationView:
+    target: str
+    authorization_id: bytes
+    generation: int
+    stage_id: bytes
+    term_id: bytes
+    offer_id: bytes
+    lineup_commitment: bytes
+    applied_at: int
+
+
+@dataclass(frozen=True)
+class ServiceView:
+    """Permanent, exact Settlement record used by a Market economic call."""
+
+    target: str
+    authorization_id: bytes
+    settlement_chain_id: int
+    protocol_version: int
+    runtime_hash: bytes
+    configuration_hash: bytes
+    magic: bytes
+    generation: int
+    term_id: bytes
+    tranche_id: bytes
+    offer_id: bytes
+    operator: str
+    payout: str
+    ask_wei_per_second: int
+    responsibility_start: int | None
+    premium_funded_until: int | None
+    settlement_cap: int | None
+    closed: bool
+    refundable: bool = False
+    disposition_at: int | None = None
+    last_liability_at: int | None = None
+    duty_id: bytes | None = None
+    duty_disposition: str | None = None
+    breached: bool = False
+    breach_recorded_at: int | None = None
+    roster_occupied: bool = False
+    history_retained: bool = True
 
 
 @dataclass
@@ -379,6 +550,11 @@ class TransitionResult:
     credit_id: bytes | None = None
     purged_count: int = 0
     amount: int = 0
+    code: ResultCode | None = None
+    stage: Stage | None = None
+    reserve_id: bytes | None = None
+    premium_credit_id: bytes | None = None
+    deadline: int | None = None
 
 
 TransferCallback = Callable[[str, int, "SeatMarket"], None]
@@ -392,6 +568,14 @@ class SeatMarket:
             "_penalty_sink",
             "_sla_bond",
             "_immutable_maximum_ask",
+            "_seat_runway_seconds",
+            "_handover_delay_seconds",
+            "_stage_grace_seconds",
+            "_maximum_inclusion_seconds",
+            "_premium_claim_delay_seconds",
+            "_release_challenge_seconds",
+            "_reorg_stability_seconds",
+            "_evidence_delay_seconds",
         } and name in self.__dict__:
             raise AttributeError(f"{name[1:]} is immutable")
         object.__setattr__(self, name, value)
@@ -412,6 +596,14 @@ class SeatMarket:
         cached_generation: int | None,
         starting_quote_sequence: int = 0,
         starting_creation_sequence: int = 0,
+        seat_runway_seconds: int = 100,
+        handover_delay_seconds: int = 5,
+        stage_grace_seconds: int = 5,
+        maximum_inclusion_seconds: int = 5,
+        premium_claim_delay_seconds: int = 10,
+        release_challenge_seconds: int = 20,
+        reorg_stability_seconds: int = 30,
+        evidence_delay_seconds: int = 40,
     ) -> None:
         self.market_chain_id = _uint(market_chain_id, "market chain id")
         self.market_address = _canonical_address(market_address, "market address")
@@ -429,6 +621,30 @@ class SeatMarket:
             quote_maturity_blocks, "quote maturity blocks"
         )
         self.exit_delay_seconds = _uint(exit_delay_seconds, "exit delay seconds")
+        self._seat_runway_seconds = _uint(
+            seat_runway_seconds, "seat runway seconds"
+        )
+        self._handover_delay_seconds = _uint(
+            handover_delay_seconds, "handover delay seconds"
+        )
+        self._stage_grace_seconds = _uint(
+            stage_grace_seconds, "stage grace seconds"
+        )
+        self._maximum_inclusion_seconds = _uint(
+            maximum_inclusion_seconds, "maximum inclusion seconds"
+        )
+        self._premium_claim_delay_seconds = _uint(
+            premium_claim_delay_seconds, "premium claim delay seconds"
+        )
+        self._release_challenge_seconds = _uint(
+            release_challenge_seconds, "release challenge seconds"
+        )
+        self._reorg_stability_seconds = _uint(
+            reorg_stability_seconds, "reorg stability seconds"
+        )
+        self._evidence_delay_seconds = _uint(
+            evidence_delay_seconds, "evidence delay seconds"
+        )
         self._validate_authorization_record(authorization)
         if type(insertion_enabled) is not bool:
             raise TransitionRejected("insertion-enabled flag must be boolean")
@@ -455,10 +671,15 @@ class SeatMarket:
         self.offers: dict[bytes, Offer] = {}
         self.tranches: dict[bytes, BondTranche] = {}
         self.credits: dict[bytes, ExactCredit] = {}
+        self.premium_credits: dict[bytes, PremiumCredit] = {}
         self.pending_offer_ids: list[bytes] = []
         self.stage: Stage | None = None
         self.accounting = MarketAccounting()
         self.actual_balance = 0
+        self.premium_credit_sequence = 0
+        self.claim_active = False
+        self.claim_class: str | None = None
+        self.fault_point: str | None = None
         self.assert_valid()
 
     def __eq__(self, other: object) -> bool:
@@ -475,6 +696,38 @@ class SeatMarket:
     @property
     def immutable_maximum_ask(self) -> int:
         return self._immutable_maximum_ask
+
+    @property
+    def seat_runway_seconds(self) -> int:
+        return self._seat_runway_seconds
+
+    @property
+    def handover_delay_seconds(self) -> int:
+        return self._handover_delay_seconds
+
+    @property
+    def stage_grace_seconds(self) -> int:
+        return self._stage_grace_seconds
+
+    @property
+    def maximum_inclusion_seconds(self) -> int:
+        return self._maximum_inclusion_seconds
+
+    @property
+    def premium_claim_delay_seconds(self) -> int:
+        return self._premium_claim_delay_seconds
+
+    @property
+    def release_challenge_seconds(self) -> int:
+        return self._release_challenge_seconds
+
+    @property
+    def reorg_stability_seconds(self) -> int:
+        return self._reorg_stability_seconds
+
+    @property
+    def evidence_delay_seconds(self) -> int:
+        return self._evidence_delay_seconds
 
     @property
     def authorization(self) -> TargetAuthorization:
@@ -599,6 +852,180 @@ class SeatMarket:
             self.__dict__.clear()
             self.__dict__.update(snapshot)
             raise
+
+    def _fault(self, name: str) -> None:
+        """Deterministic model-only fault injection; never an authority input."""
+
+        if self.fault_point == name:
+            raise RuntimeError(f"injected fault: {name}")
+
+    def sponsor_premium(self, amount: int) -> TransitionResult:
+        """Attribute an exact native-ETH sponsorship to the free-premium bucket."""
+
+        def transition() -> TransitionResult:
+            value = _uint(amount, "premium sponsorship")
+            self.actual_balance = checked_add(self.actual_balance, value)
+            self.accounting.free_premium = checked_add(
+                self.accounting.free_premium, value
+            )
+            return TransitionResult(amount=value)
+
+        return self._atomic(transition)
+
+    @staticmethod
+    def _validate_lineup(snapshot: LineupSnapshot) -> None:
+        if type(snapshot) is not LineupSnapshot:
+            raise TransitionRejected("malformed lineup snapshot")
+        _canonical_address(snapshot.target, "lineup target")
+        _bytes32(snapshot.authorization_id, "lineup authorization ID")
+        u64(snapshot.generation)
+        _bytes32(snapshot.commitment, "lineup commitment")
+        if type(snapshot.terms) is not tuple or len(snapshot.terms) > 4:
+            raise TransitionRejected("lineup exceeds fixed four-term geometry")
+        seen: set[bytes] = set()
+        for term in snapshot.terms:
+            if type(term) is not LineupTerm:
+                raise TransitionRejected("malformed lineup term")
+            _bytes32(term.term_id, "lineup term ID")
+            _bytes32(term.tranche_id, "lineup tranche ID")
+            _bytes32(term.offer_id, "lineup offer ID")
+            _canonical_address(term.operator, "lineup operator")
+            _canonical_address(term.payout, "lineup payout")
+            _uint(term.ask_wei_per_second, "lineup ask")
+            _uint(term.minimum_tenure_until, "minimum tenure until")
+            _uint(term.service_eligible_until, "service eligible until")
+            if type(term.healthy) is not bool:
+                raise TransitionRejected("lineup health must be boolean")
+            if term.term_id in seen:
+                raise TransitionRejected("duplicate lineup term")
+            seen.add(term.term_id)
+
+    def _validate_lineup_authority(self, snapshot: LineupSnapshot) -> None:
+        self._validate_lineup(snapshot)
+        if (
+            snapshot.target != self.authorization.target
+            or snapshot.authorization_id != self.current_authorization_id
+            or self.cached_generation is None
+            or snapshot.generation != self.cached_generation
+            or not self.insertion_enabled
+        ):
+            raise TransitionRejected("lineup authority is stale")
+
+    def _validate_service_view(
+        self, view: ServiceView, tranche: BondTranche
+    ) -> PremiumReserve | None:
+        if type(view) is not ServiceView:
+            raise TransitionRejected("malformed service view")
+        _canonical_address(view.target, "service target")
+        _bytes32(view.authorization_id, "service authorization ID")
+        _uint(view.settlement_chain_id, "service Settlement chain ID")
+        u64(view.protocol_version)
+        _bytes32(view.runtime_hash, "service runtime hash")
+        _bytes32(view.configuration_hash, "service configuration hash")
+        _bytes4(view.magic, "service magic")
+        u64(view.generation)
+        _bytes32(view.term_id, "service term ID")
+        _bytes32(view.tranche_id, "service tranche ID")
+        _bytes32(view.offer_id, "service offer ID")
+        _canonical_address(view.operator, "service operator")
+        _canonical_address(view.payout, "service payout")
+        _uint(view.ask_wei_per_second, "service ask")
+        for name, value in (
+            ("responsibility start", view.responsibility_start),
+            ("premium funded until", view.premium_funded_until),
+            ("settlement cap", view.settlement_cap),
+            ("disposition at", view.disposition_at),
+            ("last liability at", view.last_liability_at),
+            ("breach recorded at", view.breach_recorded_at),
+        ):
+            if value is not None:
+                _uint(value, name)
+        for name, value in (
+            ("closed", view.closed),
+            ("refundable", view.refundable),
+            ("breached", view.breached),
+            ("roster occupied", view.roster_occupied),
+            ("history retained", view.history_retained),
+        ):
+            if type(value) is not bool:
+                raise TransitionRejected(f"{name} flag must be boolean")
+        if view.duty_id is not None:
+            _bytes32(view.duty_id, "duty ID")
+        if view.duty_disposition is not None and type(view.duty_disposition) is not str:
+            raise TransitionRejected("duty disposition must be exact text")
+        offer = self.offers.get(tranche.current_offer_id)
+        auth = self.authorizations.get(tranche.authorization_id)
+        exact = (
+            tranche.usage is TrancheUsage.INSTALLED
+            and tranche.installed_term_id == view.term_id
+            and tranche.tranche_id == view.tranche_id
+            and auth is not None
+            and view.authorization_id == tranche.authorization_id
+            and view.target == auth.target
+            and view.settlement_chain_id == auth.settlement_chain_id
+            and view.protocol_version == auth.protocol_version
+            and view.runtime_hash == auth.runtime_hash
+            and view.configuration_hash == auth.configuration_hash
+            and view.magic == auth.expected_magic
+            and tranche.generation == view.generation
+            and offer is not None
+            and offer.offer_id == view.offer_id
+            and offer.operator == view.operator == tranche.operator
+            and offer.payout == view.payout
+            and offer.ask_wei_per_second == view.ask_wei_per_second
+        )
+        if not exact:
+            raise TransitionRejected("service view does not match immutable binding")
+        return self.accounting.live_reserves.get(view.term_id)
+
+    @staticmethod
+    def _validate_installed_duty_view(view: ServiceView) -> None:
+        """Fail closed on every installed release/enforcement history tuple."""
+
+        if view.last_liability_at is None:
+            raise TransitionRejected(
+                "installed term lacks exact last-liability timestamp"
+            )
+        _uint(view.last_liability_at, "last liability at")
+        disposition = view.duty_disposition
+        if disposition == "NO_DUTY":
+            if (
+                view.duty_id is not None
+                or view.disposition_at is not None
+                or view.breached
+                or view.breach_recorded_at is not None
+            ):
+                raise TransitionRejected("NO_DUTY history is inconsistent")
+            return
+        if disposition in ("SATISFIED", "EXCUSED", "EXCUSED_MIGRATION"):
+            if (
+                view.duty_id is None
+                or view.disposition_at is None
+                or view.breached
+                or view.breach_recorded_at is not None
+            ):
+                raise TransitionRejected("refundable duty history is inconsistent")
+            return
+        if disposition == "BREACHED":
+            if (
+                view.duty_id is None
+                or view.disposition_at is None
+                or not view.breached
+                or view.breach_recorded_at is None
+                or view.disposition_at != view.breach_recorded_at
+            ):
+                raise TransitionRejected("breach duty history is inconsistent")
+            return
+        if disposition == "OPEN":
+            if (
+                view.duty_id is None
+                or view.disposition_at is not None
+                or view.breached
+                or view.breach_recorded_at is not None
+            ):
+                raise TransitionRejected("open duty history is inconsistent")
+            return
+        raise TransitionRejected("unknown installed duty disposition")
 
     def _require_current_authority(self, target: str, generation: int) -> None:
         if not self.insertion_enabled:
@@ -934,16 +1361,381 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def _terminalize_owner(self, tranche_id: bytes) -> bytes:
-        return self._terminalize(tranche_id, BondDisposition.OWNER_CREDITED)
+    def stage_best(
+        self, snapshot: LineupSnapshot, clock: Clock
+    ) -> TransitionResult:
+        """Select and reserve the first mature structurally-feasible offer.
 
-    def _terminalize_penalty(self, tranche_id: bytes) -> bytes:
+        This is a Market-side unit primitive.  Task 4 invokes it only inside a
+        two-component transaction together with Settlement stage recording.
+        """
+
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            self._validate_lineup_authority(snapshot)
+            if self.stage is not None:
+                raise TransitionRejected("one stage already exists")
+            free_snapshot = self.accounting.free_premium
+            candidate: Offer | None = None
+            selected_rank = 0
+            outgoing: bytes | None = None
+            reserve_wei = 0
+            for offer_id in tuple(self.pending_offer_ids[:PENDING_COUNT]):
+                offer = self.offers[offer_id]
+                tranche = self.tranches[offer.tranche_id]
+                if (
+                    clock.timestamp < offer.eligible_at_timestamp
+                    or clock.block_number < offer.eligible_at_block
+                ):
+                    continue
+                if (
+                    offer.location is not OfferLocation.PENDING
+                    or tranche.usage is not TrancheUsage.OFFER
+                    or tranche.disposition is not BondDisposition.NONE
+                    or tranche.pending_refund_at is not None
+                    or offer.authorization_id != self.current_authorization_id
+                    or offer.generation != snapshot.generation
+                ):
+                    continue
+
+                terms = snapshot.terms
+                structural = False
+                rank = 0
+                outgoing_term: bytes | None = None
+                if len(terms) == 0:
+                    structural = True
+                else:
+                    active = terms[0]
+                    if active.healthy:
+                        short_handover = checked_add(
+                            clock.timestamp, self.handover_delay_seconds
+                        )
+                        if offer.ask_wei_per_second < active.ask_wei_per_second:
+                            expires = checked_add(
+                                max(active.minimum_tenure_until, short_handover),
+                                self.stage_grace_seconds,
+                            )
+                            has_headroom = (
+                                checked_add(
+                                    expires, self.maximum_inclusion_seconds
+                                )
+                                <= active.service_eligible_until
+                            )
+                            structural = has_headroom
+                            outgoing_term = active.term_id
+                            rank = 0
+                        elif len(terms) < 4:
+                            # Standby fill never reads or waits for the primary's
+                            # minimum tenure because it does not replace service.
+                            expires = checked_add(
+                                short_handover, self.stage_grace_seconds
+                            )
+                            has_headroom = (
+                                checked_add(
+                                    expires, self.maximum_inclusion_seconds
+                                )
+                                <= active.service_eligible_until
+                            )
+                            structural = has_headroom
+                            # Preserve the primary and insert among standby asks.
+                            rank = 1
+                            while (
+                                rank < len(terms)
+                                and terms[rank].ask_wei_per_second
+                                <= offer.ask_wei_per_second
+                            ):
+                                rank += 1
+                if not structural:
+                    continue
+                reserve = checked_mul(
+                    offer.ask_wei_per_second, self.seat_runway_seconds
+                )
+                candidate = offer
+                selected_rank = rank
+                outgoing = outgoing_term
+                reserve_wei = reserve
+                self._fault("after_candidate_selection")
+                if reserve > free_snapshot:
+                    return TransitionResult(
+                        code=ResultCode.UNDERFUNDED,
+                        offer=offer,
+                        tranche=tranche,
+                        amount=reserve,
+                    )
+                break
+
+            if candidate is None:
+                return TransitionResult(code=ResultCode.NO_FEASIBLE_OFFER)
+
+            handover_floor = checked_add(
+                clock.timestamp, self.handover_delay_seconds
+            )
+            if outgoing is not None:
+                handover_at = max(
+                    snapshot.terms[0].minimum_tenure_until, handover_floor
+                )
+            else:
+                handover_at = handover_floor
+            expires_at = checked_add(handover_at, self.stage_grace_seconds)
+            stage_id = hash_fixed(
+                D_STAGE,
+                self.current_authorization_id,
+                u64(snapshot.generation),
+                snapshot.commitment,
+                candidate.offer_id,
+                u256(selected_rank),
+                u256(handover_at),
+                u256(expires_at),
+            )
+            reserve_id = stage_id if reserve_wei != 0 else None
+            self.accounting.free_premium = checked_sub(
+                self.accounting.free_premium, reserve_wei
+            )
+            self.accounting.reserved_premium = checked_add(
+                self.accounting.reserved_premium, reserve_wei
+            )
+            if reserve_id is not None:
+                if reserve_id in self.accounting.live_reserves:
+                    raise TransitionRejected("stage reserve identity collision")
+                self.accounting.live_reserves[reserve_id] = PremiumReserve(
+                    reserve_id=reserve_id,
+                    reserved_wei=reserve_wei,
+                    lifecycle=ReserveLifecycle.UNSTARTED,
+                    tranche_id=candidate.tranche_id,
+                    owner_id=stage_id,
+                    payout=candidate.payout,
+                    ask_wei_per_second=candidate.ask_wei_per_second,
+                )
+            self._fault("after_reserve_debit")
+            self.pending_offer_ids.remove(candidate.offer_id)
+            candidate.location = OfferLocation.STAGED
+            self._fault("after_offer_location_change")
+            tranche = self.tranches[candidate.tranche_id]
+            tranche.usage = TrancheUsage.STAGED
+            self._fault("after_tranche_usage_change")
+            self.stage = Stage(
+                stage_id=stage_id,
+                offer_id=candidate.offer_id,
+                selected_rank=selected_rank,
+                outgoing_primary_term_id=outgoing,
+                lineup_commitment=snapshot.commitment,
+                handover_at=handover_at,
+                expires_at=expires_at,
+                reserve_id=reserve_id,
+            )
+            return TransitionResult(
+                code=ResultCode.STAGED,
+                offer=candidate,
+                tranche=tranche,
+                stage=self.stage,
+                reserve_id=reserve_id,
+                amount=reserve_wei,
+            )
+
+        return self._atomic(transition)
+
+    def _restore_stage(self, stage_id: bytes) -> TransitionResult:
+        stage = self.stage
+        if stage is None or stage.stage_id != _bytes32(stage_id, "stage ID"):
+            raise TransitionRejected("stage identity mismatch")
+        offer = self.offers[stage.offer_id]
+        tranche = self.tranches[offer.tranche_id]
+        if (
+            offer.location is not OfferLocation.STAGED
+            or tranche.usage is not TrancheUsage.STAGED
+            or tranche.disposition is not BondDisposition.NONE
+        ):
+            raise TransitionRejected("stage binding is not restorable")
+        if self.pending_count >= PENDING_COUNT:
+            raise TransitionRejected("reserved stage capacity was consumed")
+        if stage.reserve_id is not None:
+            reserve = self.accounting.live_reserves.pop(stage.reserve_id, None)
+            if (
+                reserve is None
+                or reserve.lifecycle is not ReserveLifecycle.UNSTARTED
+                or reserve.owner_id != stage.stage_id
+            ):
+                raise TransitionRejected("stage reserve is not exact and unstarted")
+            self.accounting.reserved_premium = checked_sub(
+                self.accounting.reserved_premium, reserve.reserved_wei
+            )
+            self.accounting.free_premium = checked_add(
+                self.accounting.free_premium, reserve.reserved_wei
+            )
+        offer.location = OfferLocation.PENDING
+        tranche.usage = TrancheUsage.OFFER
+        self.pending_offer_ids.append(offer.offer_id)
+        self._sort_pending()
+        self.stage = None
+        self._fault("after_stage_clear")
+        return TransitionResult(offer=offer, tranche=tranche, amount=0)
+
+    def expire_stage(self, stage_id: bytes, clock: Clock) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            if self.stage is None or clock.timestamp < self.stage.expires_at:
+                raise TransitionRejected("stage has not expired")
+            return self._restore_stage(stage_id)
+
+        return self._atomic(transition)
+
+    def invalidate_stage(
+        self, stage_id: bytes, lineup_commitment: bytes
+    ) -> TransitionResult:
+        """Reconcile an exact Settlement lineup-invalidation tombstone."""
+
+        def transition() -> TransitionResult:
+            if (
+                self.stage is None
+                or self.stage.lineup_commitment
+                != _bytes32(lineup_commitment, "lineup commitment")
+            ):
+                raise TransitionRejected("lineup tombstone does not bind stage")
+            return self._restore_stage(stage_id)
+
+        return self._atomic(transition)
+
+    def cancel_stage_for_migration(
+        self, stage_id: bytes, lineup_commitment: bytes, clock: Clock
+    ) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            stage = self.stage
+            if (
+                stage is None
+                or stage.stage_id != _bytes32(stage_id, "stage ID")
+                or stage.lineup_commitment
+                != _bytes32(lineup_commitment, "lineup commitment")
+            ):
+                raise TransitionRejected("migration tombstone does not bind stage")
+            offer = self.offers[stage.offer_id]
+            tranche = self.tranches[offer.tranche_id]
+            if stage.reserve_id is not None:
+                reserve = self.accounting.live_reserves.pop(stage.reserve_id)
+                self.accounting.reserved_premium = checked_sub(
+                    self.accounting.reserved_premium, reserve.reserved_wei
+                )
+                self.accounting.free_premium = checked_add(
+                    self.accounting.free_premium, reserve.reserved_wei
+                )
+            offer.location = OfferLocation.NONE
+            self._fault("after_offer_location_change")
+            tranche.usage = TrancheUsage.CLOSED_UNINSTALLED
+            self._fault("after_tranche_usage_change")
+            credit_id = self._terminalize_owner(
+                tranche.tranche_id, terminalized_at=clock.timestamp
+            )
+            self.stage = None
+            self._fault("after_stage_clear")
+            return TransitionResult(
+                offer=offer, tranche=tranche, credit_id=credit_id
+            )
+
+        return self._atomic(transition)
+
+    def install_stage(self, view: InstallationView) -> TransitionResult:
+        """Consume/rekey the Market half of an exact Settlement installation."""
+
+        def transition() -> TransitionResult:
+            stage = self.stage
+            if type(view) is not InstallationView:
+                raise TransitionRejected("malformed installation view")
+            _canonical_address(view.target, "installation target")
+            _bytes32(view.authorization_id, "installation authorization ID")
+            generation = int.from_bytes(u64(view.generation), "big")
+            stage_id = _bytes32(view.stage_id, "stage ID")
+            term = _bytes32(view.term_id, "term ID")
+            offer_id = _bytes32(view.offer_id, "installation offer ID")
+            commitment = _bytes32(
+                view.lineup_commitment, "installation lineup commitment"
+            )
+            applied_at = _uint(view.applied_at, "installation applied at")
+            if (
+                view.target != self.authorization.target
+                or view.authorization_id != self.current_authorization_id
+                or self.cached_generation is None
+                or generation != self.cached_generation
+            ):
+                raise TransitionRejected("installation authority is stale")
+            if stage is None or stage.stage_id != stage_id:
+                raise TransitionRejected("stage identity mismatch")
+            if (
+                stage.offer_id != offer_id
+                or stage.lineup_commitment != commitment
+            ):
+                raise TransitionRejected("installation view does not bind exact stage")
+            if applied_at < stage.handover_at or applied_at > stage.expires_at:
+                raise TransitionRejected("installation is outside exact stage interval")
+            offer = self.offers[stage.offer_id]
+            tranche = self.tranches[offer.tranche_id]
+            if (
+                offer.location is not OfferLocation.STAGED
+                or tranche.usage is not TrancheUsage.STAGED
+                or tranche.installed_term_id is not None
+                or tranche.disposition is not BondDisposition.NONE
+            ):
+                raise TransitionRejected("stage is not installable")
+            if stage.reserve_id is not None:
+                reserve = self.accounting.live_reserves.pop(stage.reserve_id)
+                if term in self.accounting.live_reserves:
+                    raise TransitionRejected("term reserve identity collision")
+                reserve.reserve_id = term
+                reserve.owner_id = term
+                reserve.term_id = term
+                self.accounting.live_reserves[term] = reserve
+                self._fault("after_reserve_rekey")
+            offer.location = OfferLocation.NONE
+            self._fault("after_offer_location_change")
+            tranche.usage = TrancheUsage.INSTALLED
+            tranche.installed_term_id = term
+            self._fault("after_tranche_usage_change")
+            self.stage = None
+            self._fault("after_stage_clear")
+            return TransitionResult(
+                offer=offer,
+                tranche=tranche,
+                reserve_id=term if stage.reserve_id is not None else None,
+            )
+
+        return self._atomic(transition)
+
+    def _terminalize_owner(
+        self,
+        tranche_id: bytes,
+        *,
+        terminalized_at: int | None = None,
+        terminal_horizon_at: int | None = None,
+    ) -> bytes:
+        return self._terminalize(
+            tranche_id,
+            BondDisposition.OWNER_CREDITED,
+            terminalized_at=terminalized_at,
+            terminal_horizon_at=terminal_horizon_at,
+        )
+
+    def _terminalize_penalty(
+        self,
+        tranche_id: bytes,
+        *,
+        terminalized_at: int | None = None,
+        terminal_horizon_at: int | None = None,
+    ) -> bytes:
         """Model-only primitive for Task-3 breach tests; not a public transition."""
 
-        return self._terminalize(tranche_id, BondDisposition.PENALTY_CREDITED)
+        return self._terminalize(
+            tranche_id,
+            BondDisposition.PENALTY_CREDITED,
+            terminalized_at=terminalized_at,
+            terminal_horizon_at=terminal_horizon_at,
+        )
 
     def _terminalize(
-        self, tranche_id: bytes, disposition: BondDisposition
+        self,
+        tranche_id: bytes,
+        disposition: BondDisposition,
+        *,
+        terminalized_at: int | None = None,
+        terminal_horizon_at: int | None = None,
     ) -> bytes:
         tranche = self.tranches.get(tranche_id)
         if tranche is None:
@@ -952,7 +1744,8 @@ class SeatMarket:
             raise TransitionRejected("bond already terminalized")
         if (
             disposition is BondDisposition.OWNER_CREDITED
-            and tranche.usage is not TrancheUsage.CLOSED_UNINSTALLED
+            and tranche.usage
+            not in (TrancheUsage.CLOSED_UNINSTALLED, TrancheUsage.INSTALLED)
         ):
             raise TransitionRejected("owner credit requires a closed uninstalled tranche")
         if (
@@ -992,8 +1785,484 @@ class SeatMarket:
                 self.accounting.outstanding_penalty_credits, tranche.bond_amount
             )
         tranche.disposition = disposition
+        if terminalized_at is not None:
+            tranche.terminalized_at = _uint(terminalized_at, "terminalized at")
+        if terminal_horizon_at is not None:
+            tranche.terminal_horizon_at = _uint(
+                terminal_horizon_at, "terminal horizon at"
+            )
         self.credits[credit_id] = credit
+        self._fault("after_credit_creation")
         return credit_id
+
+    def _lazy_start_reserve(
+        self, reserve: PremiumReserve, view: ServiceView
+    ) -> None:
+        if reserve.lifecycle is not ReserveLifecycle.UNSTARTED:
+            return
+        if view.responsibility_start is None:
+            return
+        if view.premium_funded_until is None:
+            raise TransitionRejected("started service lacks funded-until timestamp")
+        expected_funded = checked_add(
+            view.responsibility_start, self.seat_runway_seconds
+        )
+        if view.premium_funded_until != expected_funded:
+            raise TransitionRejected("service funded interval is not exact runway")
+        expected_reserve = checked_mul(
+            view.ask_wei_per_second, self.seat_runway_seconds
+        )
+        if reserve.reserved_wei != expected_reserve:
+            raise TransitionRejected("unstarted reserve differs from exact runway")
+        reserve.lifecycle = ReserveLifecycle.OPEN
+        reserve.last_accrued_at = view.responsibility_start
+        reserve.premium_funded_until = view.premium_funded_until
+
+    def _fresh_premium_credit_sequence(self) -> int:
+        self.premium_credit_sequence = checked_add(
+            self.premium_credit_sequence, 1
+        )
+        return self.premium_credit_sequence
+
+    def _credit_premium(
+        self, reserve: PremiumReserve, amount: int
+    ) -> bytes | None:
+        amount = _uint(amount, "premium credit amount")
+        if amount == 0:
+            return None
+        if reserve.payout is None:
+            raise TransitionRejected("reserve lost immutable payout")
+        if amount > reserve.reserved_wei:
+            raise TransitionRejected("premium credit exceeds reserve")
+        sequence = self._fresh_premium_credit_sequence()
+        credit_id = hash_fixed(
+            D_PREMIUM_CREDIT,
+            u256(self.market_chain_id),
+            address20(self.market_address, "market address"),
+            _bytes32(reserve.reserve_id, "reserve ID"),
+            address20(reserve.payout, "premium payout"),
+            u256(amount),
+            u256(sequence),
+        )
+        if credit_id in self.premium_credits:
+            raise TransitionRejected("premium credit identity collision")
+        reserve.reserved_wei = checked_sub(reserve.reserved_wei, amount)
+        self.accounting.reserved_premium = checked_sub(
+            self.accounting.reserved_premium, amount
+        )
+        self.accounting.outstanding_premium_claims = checked_add(
+            self.accounting.outstanding_premium_claims, amount
+        )
+        self.premium_credits[credit_id] = PremiumCredit(
+            credit_id=credit_id,
+            reserve_id=reserve.reserve_id,
+            beneficiary=reserve.payout,
+            amount=amount,
+            sequence=sequence,
+        )
+        self._fault("after_credit_creation")
+        return credit_id
+
+    def accrue_premium(
+        self, view: ServiceView, clock: Clock
+    ) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            tranche = self.tranches.get(view.tranche_id) if type(view) is ServiceView else None
+            if tranche is None:
+                raise TransitionRejected("unknown installed tranche")
+            reserve = self._validate_service_view(view, tranche)
+            if view.closed:
+                raise TransitionRejected("ordinary accrual requires an open term")
+            if reserve is None:
+                if view.ask_wei_per_second != 0:
+                    raise TransitionRejected("nonzero ask has no reserve")
+                return TransitionResult(tranche=tranche, amount=0)
+            self._lazy_start_reserve(reserve, view)
+            if reserve.lifecycle is ReserveLifecycle.UNSTARTED:
+                return TransitionResult(
+                    tranche=tranche, reserve_id=reserve.reserve_id, amount=0
+                )
+            if reserve.lifecycle is not ReserveLifecycle.OPEN:
+                raise TransitionRejected("ordinary accrual requires OPEN reserve")
+            if (
+                reserve.last_accrued_at is None
+                or reserve.premium_funded_until is None
+                or view.settlement_cap is None
+            ):
+                raise TransitionRejected("started reserve lacks exact cap metadata")
+            cap = _uint(view.settlement_cap, "Settlement premium cap")
+            matured_through = (
+                0
+                if clock.timestamp < self.premium_claim_delay_seconds
+                else checked_sub(clock.timestamp, self.premium_claim_delay_seconds)
+            )
+            accrue_to = max(
+                reserve.last_accrued_at,
+                min(matured_through, cap, reserve.premium_funded_until),
+            )
+            elapsed = checked_sub(accrue_to, reserve.last_accrued_at)
+            earned = checked_mul(reserve.ask_wei_per_second, elapsed)
+            reserve.last_accrued_at = accrue_to
+            credit_id = self._credit_premium(reserve, earned)
+            return TransitionResult(
+                tranche=tranche,
+                reserve_id=reserve.reserve_id,
+                premium_credit_id=credit_id,
+                amount=earned,
+            )
+
+        return self._atomic(transition)
+
+    def close_reserve(
+        self,
+        view: ServiceView,
+        clock: Clock,
+        *,
+        atomic_healthy: bool = True,
+    ) -> TransitionResult:
+        """Partition a healthy close or reconcile an asynchronous exact close."""
+
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            if type(atomic_healthy) is not bool:
+                raise TransitionRejected("close mode must be boolean")
+            tranche = self.tranches.get(view.tranche_id) if type(view) is ServiceView else None
+            if tranche is None:
+                raise TransitionRejected("unknown installed tranche")
+            reserve = self._validate_service_view(view, tranche)
+            if not view.closed or view.settlement_cap is None:
+                raise TransitionRejected("close requires exact permanent Settlement cap")
+            cap = _uint(view.settlement_cap, "Settlement premium cap")
+            if reserve is None:
+                if view.ask_wei_per_second != 0:
+                    raise TransitionRejected("nonzero ask has no reserve")
+                return TransitionResult(tranche=tranche, amount=0)
+            self._lazy_start_reserve(reserve, view)
+            if reserve.lifecycle is ReserveLifecycle.CLOSED_TAIL:
+                raise TransitionRejected("reserve already closed to a tail")
+            if reserve.lifecycle is ReserveLifecycle.UNSTARTED:
+                returned = reserve.reserved_wei
+                self.accounting.reserved_premium = checked_sub(
+                    self.accounting.reserved_premium, returned
+                )
+                self.accounting.free_premium = checked_add(
+                    self.accounting.free_premium, returned
+                )
+                del self.accounting.live_reserves[view.term_id]
+                return TransitionResult(
+                    tranche=tranche, reserve_id=view.term_id, amount=returned
+                )
+            if (
+                reserve.lifecycle is not ReserveLifecycle.OPEN
+                or reserve.last_accrued_at is None
+                or reserve.premium_funded_until is None
+            ):
+                raise TransitionRejected("reserve is not reconcilable")
+            a = reserve.last_accrued_at
+            f = reserve.premium_funded_until
+            c = min(cap, f)
+            if not a <= c <= f:
+                raise TransitionRejected("close interval is nonmonotone")
+            mature_at = checked_add(c, self.premium_claim_delay_seconds)
+            if not atomic_healthy and clock.timestamp < mature_at:
+                raise TransitionRejected("asynchronous reserve is not mature")
+            matured_through = (
+                0
+                if clock.timestamp < self.premium_claim_delay_seconds
+                else checked_sub(clock.timestamp, self.premium_claim_delay_seconds)
+            )
+            m = max(a, min(c, matured_through))
+            matured = checked_mul(reserve.ask_wei_per_second, checked_sub(m, a))
+            tail = checked_mul(reserve.ask_wei_per_second, checked_sub(c, m))
+            unearned = checked_mul(reserve.ask_wei_per_second, checked_sub(f, c))
+            if checked_add(checked_add(matured, tail), unearned) != reserve.reserved_wei:
+                raise TransitionRejected("premium close partition is not conservative")
+            credit_id = self._credit_premium(reserve, matured)
+            reserve.reserved_wei = checked_sub(reserve.reserved_wei, unearned)
+            self.accounting.reserved_premium = checked_sub(
+                self.accounting.reserved_premium, unearned
+            )
+            self.accounting.free_premium = checked_add(
+                self.accounting.free_premium, unearned
+            )
+            if tail == 0:
+                del self.accounting.live_reserves[view.term_id]
+            else:
+                reserve.lifecycle = ReserveLifecycle.CLOSED_TAIL
+                reserve.last_accrued_at = c
+                reserve.premium_funded_until = c
+                reserve.settlement_cap = c
+                reserve.reserve_mature_at = mature_at
+            return TransitionResult(
+                tranche=tranche,
+                reserve_id=view.term_id,
+                premium_credit_id=credit_id,
+                amount=matured,
+                deadline=mature_at,
+            )
+
+        return self._atomic(transition)
+
+    def reconcile_tail(self, term_id: bytes, clock: Clock) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            term = _bytes32(term_id, "term ID")
+            reserve = self.accounting.live_reserves.get(term)
+            if (
+                reserve is None
+                or reserve.lifecycle is not ReserveLifecycle.CLOSED_TAIL
+                or reserve.reserve_mature_at is None
+            ):
+                raise TransitionRejected("term has no closed premium tail")
+            if clock.timestamp < reserve.reserve_mature_at:
+                raise TransitionRejected("closed premium tail is not mature")
+            amount = reserve.reserved_wei
+            credit_id = self._credit_premium(reserve, amount)
+            if reserve.reserved_wei != 0:
+                raise TransitionRejected("tail credit did not exhaust reserve")
+            del self.accounting.live_reserves[term]
+            return TransitionResult(
+                tranche=self.tranches[reserve.tranche_id],
+                reserve_id=term,
+                premium_credit_id=credit_id,
+                amount=amount,
+            )
+
+        return self._atomic(transition)
+
+    def _reserve_mature_at(self, view: ServiceView) -> int:
+        reserve = self.accounting.live_reserves.get(view.term_id)
+        if reserve is None:
+            return 0
+        # Start authority is Settlement's permanent service record, never the
+        # Market lifecycle sentinel.  A canonically promoted standby may still
+        # be locally UNSTARTED on its first release/enforcement call.
+        if view.responsibility_start is None:
+            if reserve.lifecycle is not ReserveLifecycle.UNSTARTED:
+                raise TransitionRejected("started reserve lacks service start")
+            return 0
+        if view.settlement_cap is None:
+            raise TransitionRejected("started reserve lacks Settlement cap")
+        return checked_add(view.settlement_cap, self.premium_claim_delay_seconds)
+
+    def _release_times(
+        self, tranche: BondTranche, view: ServiceView
+    ) -> tuple[int, int, int, int]:
+        self._validate_installed_duty_view(view)
+        if tranche.release_requested_at is None:
+            raise TransitionRejected("release was not requested")
+        challenge = checked_add(
+            tranche.release_requested_at, self.release_challenge_seconds
+        )
+        disposition_stable = (
+            0
+            if view.disposition_at is None
+            else checked_add(view.disposition_at, self.reorg_stability_seconds)
+        )
+        evidence_safe = checked_add(
+            checked_add(view.last_liability_at, self.evidence_delay_seconds),
+            self.reorg_stability_seconds,
+        )
+        finalize_at = max(challenge, disposition_stable, evidence_safe)
+        reserve_mature_at = self._reserve_mature_at(view)
+        return (
+            disposition_stable,
+            evidence_safe,
+            finalize_at,
+            max(finalize_at, reserve_mature_at),
+        )
+
+    def request_release(
+        self, tranche_id: bytes, view: ServiceView, clock: Clock
+    ) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            tranche = self.tranches.get(_bytes32(tranche_id, "tranche ID"))
+            if tranche is None:
+                raise TransitionRejected("unknown installed tranche")
+            self._validate_service_view(view, tranche)
+            self._validate_installed_duty_view(view)
+            if (
+                tranche.usage is not TrancheUsage.INSTALLED
+                or tranche.disposition is not BondDisposition.NONE
+                or not view.closed
+                or not view.refundable
+                or view.breached
+                or view.duty_disposition
+                not in (
+                    "SATISFIED",
+                    "EXCUSED",
+                    "EXCUSED_MIGRATION",
+                    "NO_DUTY",
+                )
+            ):
+                raise TransitionRejected("installed tranche is not releasable")
+            if tranche.release_requested_at is None:
+                tranche.release_requested_at = clock.timestamp
+            return TransitionResult(tranche=tranche, deadline=tranche.release_requested_at)
+
+        return self._atomic(transition)
+
+    def finalize_release(
+        self, tranche_id: bytes, view: ServiceView, clock: Clock
+    ) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            tranche = self.tranches.get(_bytes32(tranche_id, "tranche ID"))
+            if tranche is None:
+                raise TransitionRejected("unknown installed tranche")
+            self._validate_service_view(view, tranche)
+            self._validate_installed_duty_view(view)
+            if (
+                tranche.usage is not TrancheUsage.INSTALLED
+                or tranche.disposition is not BondDisposition.NONE
+                or not view.closed
+                or not view.refundable
+                or view.breached
+                or view.duty_disposition
+                not in (
+                    "SATISFIED",
+                    "EXCUSED",
+                    "EXCUSED_MIGRATION",
+                    "NO_DUTY",
+                )
+            ):
+                raise TransitionRejected("installed release is no longer refundable")
+            _, _, _, owner_at = self._release_times(tranche, view)
+            if clock.timestamp < owner_at:
+                raise TransitionRejected("installed owner release is not mature")
+            reserve = self.accounting.live_reserves.get(view.term_id)
+            if reserve is not None:
+                if reserve.lifecycle is ReserveLifecycle.CLOSED_TAIL:
+                    self.reconcile_tail(view.term_id, clock)
+                else:
+                    self.close_reserve(view, clock, atomic_healthy=False)
+            if view.term_id in self.accounting.live_reserves:
+                raise TransitionRejected("reserve remains live at owner terminalization")
+            credit_id = self._terminalize_owner(
+                tranche.tranche_id,
+                terminalized_at=clock.timestamp,
+                terminal_horizon_at=owner_at,
+            )
+            return TransitionResult(
+                tranche=tranche, credit_id=credit_id, deadline=owner_at
+            )
+
+        return self._atomic(transition)
+
+    def enforce_breach(
+        self, tranche_id: bytes, view: ServiceView, clock: Clock
+    ) -> TransitionResult:
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            tranche = self.tranches.get(_bytes32(tranche_id, "tranche ID"))
+            if tranche is None:
+                raise TransitionRejected("unknown installed tranche")
+            self._validate_service_view(view, tranche)
+            self._validate_installed_duty_view(view)
+            if (
+                tranche.usage is not TrancheUsage.INSTALLED
+                or tranche.disposition is not BondDisposition.NONE
+                or not view.closed
+                or not view.breached
+                or view.breach_recorded_at is None
+                or view.duty_disposition != "BREACHED"
+            ):
+                raise TransitionRejected("exact stable breach is absent")
+            receipt_stable = checked_add(
+                view.breach_recorded_at, self.reorg_stability_seconds
+            )
+            penalty_at = max(receipt_stable, self._reserve_mature_at(view))
+            if clock.timestamp < penalty_at:
+                raise TransitionRejected("breach penalty is not mature")
+            reserve = self.accounting.live_reserves.get(view.term_id)
+            if reserve is not None:
+                if reserve.lifecycle is ReserveLifecycle.CLOSED_TAIL:
+                    self.reconcile_tail(view.term_id, clock)
+                else:
+                    self.close_reserve(view, clock, atomic_healthy=False)
+            if view.term_id in self.accounting.live_reserves:
+                raise TransitionRejected("reserve remains live at penalty terminalization")
+            credit_id = self._terminalize_penalty(
+                tranche.tranche_id,
+                terminalized_at=clock.timestamp,
+                terminal_horizon_at=penalty_at,
+            )
+            return TransitionResult(
+                tranche=tranche, credit_id=credit_id, deadline=penalty_at
+            )
+
+        return self._atomic(transition)
+
+    def is_duty_history_safe(
+        self,
+        duty_id: bytes,
+        seat_term_id: bytes,
+        tranche_id: bytes,
+        view: ServiceView,
+        clock: Clock,
+    ) -> bool:
+        """Return the monotone Market reclamation predicate for one exact binding."""
+
+        try:
+            self._validate_clock(clock)
+            duty = _bytes32(duty_id, "duty ID")
+            term = _bytes32(seat_term_id, "seat term ID")
+            tranche = self.tranches.get(_bytes32(tranche_id, "tranche ID"))
+            if tranche is None:
+                return False
+            self._validate_service_view(view, tranche)
+            self._validate_installed_duty_view(view)
+            offer = self.offers[tranche.current_offer_id]
+            stage_uses_tranche = False
+            if self.stage is not None:
+                staged_offer = self.offers.get(self.stage.offer_id)
+                stage_uses_tranche = (
+                    staged_offer is not None
+                    and staged_offer.tranche_id == tranche.tranche_id
+                )
+            horizon_is_exact = False
+            evidence_history_safe_at = checked_add(
+                checked_add(view.last_liability_at, self.evidence_delay_seconds),
+                self.reorg_stability_seconds,
+            )
+            if tranche.terminal_horizon_at is not None:
+                if tranche.disposition is BondDisposition.OWNER_CREDITED:
+                    _, _, finalize_at, _ = self._release_times(tranche, view)
+                    horizon_is_exact = tranche.terminal_horizon_at >= finalize_at
+                elif (
+                    tranche.disposition is BondDisposition.PENALTY_CREDITED
+                    and view.breach_recorded_at is not None
+                ):
+                    horizon_is_exact = tranche.terminal_horizon_at >= checked_add(
+                        view.breach_recorded_at, self.reorg_stability_seconds
+                    )
+            exact = (
+                view.duty_id == duty
+                and view.term_id == term
+                and view.tranche_id == tranche.tranche_id
+                and view.history_retained
+                and view.closed
+                and not view.roster_occupied
+                and offer.location is OfferLocation.NONE
+                and not stage_uses_tranche
+                and term not in self.accounting.live_reserves
+                and tranche.usage is TrancheUsage.INSTALLED
+                and tranche.disposition
+                in (
+                    BondDisposition.OWNER_CREDITED,
+                    BondDisposition.PENALTY_CREDITED,
+                )
+                and tranche.terminalized_at is not None
+                and tranche.terminal_horizon_at is not None
+                and horizon_is_exact
+                and clock.timestamp >= tranche.terminal_horizon_at
+                and clock.timestamp >= evidence_history_safe_at
+            )
+            return bool(exact)
+        except (TransitionRejected, ArithmeticFault, KeyError, TypeError, ValueError):
+            return False
 
     def sync_seat_generation(self, view: ExactTargetView) -> TransitionResult:
         def transition() -> TransitionResult:
@@ -1040,6 +2309,8 @@ class SeatMarket:
         self, credit_id: bytes, transfer: TransferCallback
     ) -> TransitionResult:
         def transition() -> TransitionResult:
+            if self.claim_active and self.claim_class != "BOND":
+                raise TransitionRejected("credit claim reentrancy")
             credit = self.credits.get(credit_id)
             if credit is None:
                 raise TransitionRejected("unknown exact credit")
@@ -1052,6 +2323,10 @@ class SeatMarket:
 
             # Effects precede interaction.  Any exception restores the complete
             # pre-call snapshot, including successful nested model transitions.
+            previous_active = self.claim_active
+            previous_class = self.claim_class
+            self.claim_active = True
+            self.claim_class = "BOND"
             credit.claimed = True
             if credit.disposition is BondDisposition.OWNER_CREDITED:
                 self.accounting.outstanding_owner_credits = checked_sub(
@@ -1065,10 +2340,43 @@ class SeatMarket:
                 raise TransitionRejected("credit has nonterminal disposition")
             self.actual_balance = checked_sub(self.actual_balance, credit.amount)
             transfer(credit.beneficiary, credit.amount, self)
+            self.claim_active = previous_active
+            self.claim_class = previous_class
             return TransitionResult(
                 tranche=self.tranches[credit.tranche_id],
                 credit_id=credit_id,
                 amount=credit.amount,
+            )
+
+        return self._atomic(transition)
+
+    def claim_premium_credit(
+        self, credit_id: bytes, transfer: TransferCallback
+    ) -> TransitionResult:
+        def transition() -> TransitionResult:
+            if self.claim_active:
+                raise TransitionRejected("credit claim reentrancy")
+            credit = self.premium_credits.get(credit_id)
+            if credit is None:
+                raise TransitionRejected("unknown premium credit")
+            if credit.claimed:
+                raise TransitionRejected("premium credit already claimed")
+            if credit.amount == 0:
+                raise TransitionRejected("zero premium credit cannot be claimed")
+            if not callable(transfer):
+                raise TransitionRejected("transfer callback is not callable")
+            self.claim_active = True
+            self.claim_class = "PREMIUM"
+            credit.claimed = True
+            self.accounting.outstanding_premium_claims = checked_sub(
+                self.accounting.outstanding_premium_claims, credit.amount
+            )
+            self.actual_balance = checked_sub(self.actual_balance, credit.amount)
+            transfer(credit.beneficiary, credit.amount, self)
+            self.claim_active = False
+            self.claim_class = None
+            return TransitionResult(
+                premium_credit_id=credit_id, amount=credit.amount
             )
 
         return self._atomic(transition)
@@ -1102,6 +2410,25 @@ class SeatMarket:
         _uint(self.sla_bond, "SLA bond")
         _uint(self.quote_sequence, "quote sequence")
         _uint(self.creation_sequence, "creation sequence")
+        _uint(self.premium_credit_sequence, "premium credit sequence")
+        if type(self.claim_active) is not bool:
+            raise AssertionError("claim reentrancy flag is not boolean")
+        if self.claim_class not in (None, "BOND", "PREMIUM"):
+            raise AssertionError("unknown claim reentrancy class")
+        if self.claim_active != (self.claim_class is not None):
+            raise AssertionError("claim reentrancy state is inconsistent")
+        known_faults = {
+            None,
+            "after_candidate_selection",
+            "after_reserve_debit",
+            "after_offer_location_change",
+            "after_reserve_rekey",
+            "after_tranche_usage_change",
+            "after_credit_creation",
+            "after_stage_clear",
+        }
+        if self.fault_point not in known_faults:
+            raise AssertionError("unknown model-only fault point")
         _bytes32(self.current_authorization_id, "current authorization ID")
         if set(self.authorizations) != set(self.authorization_enabled):
             raise AssertionError("authorization registry/enabled keys differ")
@@ -1140,6 +2467,30 @@ class SeatMarket:
         if self.stage is not None:
             _bytes32(self.stage.stage_id, "stage ID")
             _bytes32(self.stage.offer_id, "staged offer ID")
+            _uint(self.stage.selected_rank, "selected rank")
+            if self.stage.selected_rank >= 4:
+                raise AssertionError("selected rank exceeds fixed lineup")
+            if self.stage.outgoing_primary_term_id is not None:
+                _bytes32(
+                    self.stage.outgoing_primary_term_id,
+                    "outgoing primary term ID",
+                )
+            _bytes32(self.stage.lineup_commitment, "lineup commitment")
+            _uint(self.stage.handover_at, "handover at")
+            _uint(self.stage.expires_at, "stage expires at")
+            if self.stage.expires_at < self.stage.handover_at:
+                raise AssertionError("stage expiry precedes handover")
+            if self.stage.reserve_id is not None:
+                _bytes32(self.stage.reserve_id, "stage reserve ID")
+                stage_reserve = self.accounting.live_reserves.get(
+                    self.stage.reserve_id
+                )
+                if (
+                    stage_reserve is None
+                    or stage_reserve.lifecycle is not ReserveLifecycle.UNSTARTED
+                    or stage_reserve.owner_id != self.stage.stage_id
+                ):
+                    raise AssertionError("stage reserve binding mismatch")
             staged_offer_id = self.stage.offer_id
             staged_offer = self.offers.get(self.stage.offer_id)
             if staged_offer is None or staged_offer.location is not OfferLocation.STAGED:
@@ -1267,6 +2618,16 @@ class SeatMarket:
                 raise AssertionError("current offer/tranche binding mismatch")
             if current_offer.operator != tranche.operator:
                 raise AssertionError("current offer operator changed")
+            if tranche.release_requested_at is not None:
+                _uint(tranche.release_requested_at, "release requested at")
+                if tranche.usage is not TrancheUsage.INSTALLED:
+                    raise AssertionError("never-installed tranche requested release")
+            if tranche.terminalized_at is not None:
+                _uint(tranche.terminalized_at, "terminalized at")
+            if tranche.terminal_horizon_at is not None:
+                _uint(tranche.terminal_horizon_at, "terminal horizon at")
+                if tranche.terminalized_at is None:
+                    raise AssertionError("terminal horizon lacks terminal timestamp")
 
             if tranche.usage is TrancheUsage.OFFER:
                 if current_offer.location is not OfferLocation.PENDING:
@@ -1362,6 +2723,93 @@ class SeatMarket:
                 raise AssertionError("credit and tranche dispositions differ")
             if type(credit.claimed) is not bool:
                 raise AssertionError("credit claimed flag is not boolean")
+        premium_outstanding = 0
+        premium_sequences: set[int] = set()
+        for premium_credit_id, credit in self.premium_credits.items():
+            _bytes32(premium_credit_id, "premium credit key")
+            if credit.credit_id != premium_credit_id:
+                raise AssertionError("premium credit key mismatch")
+            _bytes32(credit.reserve_id, "premium credit reserve ID")
+            _canonical_address(credit.beneficiary, "premium beneficiary")
+            _uint(credit.amount, "premium credit amount")
+            _uint(credit.sequence, "premium credit sequence")
+            if credit.amount == 0:
+                raise AssertionError("zero premium credit exists")
+            if credit.sequence in premium_sequences:
+                raise AssertionError("premium credit sequence reused")
+            if credit.sequence > self.premium_credit_sequence:
+                raise AssertionError("premium credit sequence exceeds counter")
+            premium_sequences.add(credit.sequence)
+            if type(credit.claimed) is not bool:
+                raise AssertionError("premium claimed flag is not boolean")
+            expected_id = hash_fixed(
+                D_PREMIUM_CREDIT,
+                u256(self.market_chain_id),
+                address20(self.market_address, "market address"),
+                credit.reserve_id,
+                address20(credit.beneficiary, "premium payout"),
+                u256(credit.amount),
+                u256(credit.sequence),
+            )
+            if expected_id != premium_credit_id:
+                raise AssertionError("premium credit immutable identity changed")
+            if not credit.claimed:
+                premium_outstanding = checked_add(
+                    premium_outstanding, credit.amount
+                )
+        if premium_outstanding != self.accounting.outstanding_premium_claims:
+            raise AssertionError("premium-credit summary mismatch")
+
+        for reserve_id, reserve in self.accounting.live_reserves.items():
+            _bytes32(reserve_id, "live reserve ID")
+            if reserve.reserve_id != reserve_id:
+                raise AssertionError("live reserve key mismatch")
+            _uint(reserve.reserved_wei, "reserve amount")
+            if type(reserve.lifecycle) is not ReserveLifecycle or reserve.lifecycle is ReserveLifecycle.ABSENT:
+                raise AssertionError("invalid stored reserve lifecycle")
+            if (
+                reserve.reserved_wei == 0
+                and reserve.lifecycle is not ReserveLifecycle.OPEN
+            ):
+                raise AssertionError("only a fully accrued OPEN reserve may be zero")
+            if reserve.tranche_id is None or reserve.tranche_id not in self.tranches:
+                raise AssertionError("reserve references unknown tranche")
+            _bytes32(reserve.owner_id, "reserve owner ID")
+            if reserve.term_id is not None:
+                _bytes32(reserve.term_id, "reserve term ID")
+                if reserve.term_id != reserve_id:
+                    raise AssertionError("term reserve is not keyed by term")
+            if reserve.payout is None:
+                raise AssertionError("reserve lacks immutable payout")
+            _canonical_address(reserve.payout, "reserve payout")
+            _uint(reserve.ask_wei_per_second, "reserve ask")
+            if reserve.lifecycle is ReserveLifecycle.UNSTARTED:
+                if any(
+                    value is not None
+                    for value in (
+                        reserve.premium_funded_until,
+                        reserve.last_accrued_at,
+                        reserve.settlement_cap,
+                        reserve.reserve_mature_at,
+                    )
+                ):
+                    raise AssertionError("unstarted reserve has started metadata")
+            elif reserve.lifecycle is ReserveLifecycle.OPEN:
+                if (
+                    reserve.premium_funded_until is None
+                    or reserve.last_accrued_at is None
+                    or reserve.settlement_cap is not None
+                    or reserve.reserve_mature_at is not None
+                ):
+                    raise AssertionError("open reserve metadata is malformed")
+            elif reserve.lifecycle is ReserveLifecycle.CLOSED_TAIL:
+                if (
+                    reserve.premium_funded_until is None
+                    or reserve.last_accrued_at is None
+                    or reserve.settlement_cap is None
+                    or reserve.reserve_mature_at is None
+                ):
+                    raise AssertionError("closed-tail metadata is incomplete")
         if escrow != self.accounting.bond_escrow:
             raise AssertionError("bond escrow summary mismatch")
         if owner_outstanding != self.accounting.outstanding_owner_credits:

@@ -484,10 +484,11 @@ expire/invalidate A -> A returns exactly; pending=4/staged=0
 
 Also cover empty-roster primary, pre-tenure standby fill, competitive replacement, caller rank
 tampering, quote maturity immediately before/equal/after its threshold, immature structural poison,
-one-wei-under/equal funding, and `SYNCED` with Market unchanged. Add deterministic timestamp-skip and
-sync-order traces where a funded post-tenure interval remains installable, plus monotone sponsorship
-fuzzing that proves added funding cannot turn a feasible candidate infeasible or change selection to
-a higher ask.
+one-wei-under/equal funding. Add deterministic timestamp-skip and sync-order traces where a funded
+post-tenure interval remains installable, plus monotone sponsorship fuzzing that proves added
+funding cannot turn a feasible candidate infeasible or change selection to a higher ask. The
+coordinator-produced `SYNCED` result and proof that Market remains unchanged belong to the composed
+Settlement harness in Task 4 Step 6; Task 3 must not expose a caller-controlled Market substitute.
 
 Declare the expected model-only fault-point names in red tests now: after candidate selection,
 reserve debit, offer-location change, reserve rekey, tranche-usage change, credit creation, and stage

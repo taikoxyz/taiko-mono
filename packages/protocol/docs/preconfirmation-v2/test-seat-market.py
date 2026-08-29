@@ -9,6 +9,7 @@ import importlib.util
 import inspect
 import itertools
 from pathlib import Path
+import random
 import sys
 import unittest
 
@@ -507,6 +508,10 @@ class EnumAndRecordTests(unittest.TestCase):
         self.assertEqual(model.BondDisposition.NONE.value, 0)
         self.assertEqual(model.BondDisposition.OWNER_CREDITED.value, 1)
         self.assertEqual(model.BondDisposition.PENALTY_CREDITED.value, 2)
+        self.assertEqual(model.ReserveLifecycle.ABSENT.value, 0)
+        self.assertEqual(model.ReserveLifecycle.UNSTARTED.value, 1)
+        self.assertEqual(model.ReserveLifecycle.OPEN.value, 2)
+        self.assertEqual(model.ReserveLifecycle.CLOSED_TAIL.value, 3)
 
     def test_authority_and_clock_inputs_are_immutable(self):
         auth = authorization()
@@ -515,6 +520,9 @@ class EnumAndRecordTests(unittest.TestCase):
             auth.target = "evil"
         with self.assertRaises((AttributeError, TypeError)):
             clock.timestamp = 3
+        snapshot = lineup()
+        with self.assertRaises((AttributeError, TypeError)):
+            snapshot.generation = 8
 
     def test_ethereum_legacy_keccak_empty_vector(self):
         self.assertEqual(
@@ -1286,6 +1294,21 @@ class EdgeMatrixTests(AtomicAssertions):
         "claim_credit",
         "force_eth",
     }
+    TASK3_MUTATING_PUBLIC_EVENTS = {
+        "sponsor_premium",
+        "stage_best",
+        "expire_stage",
+        "invalidate_stage",
+        "cancel_stage_for_migration",
+        "install_stage",
+        "accrue_premium",
+        "close_reserve",
+        "reconcile_tail",
+        "request_release",
+        "finalize_release",
+        "enforce_breach",
+        "claim_premium_credit",
+    }
 
     def staged_fixture(self):
         market = make_market()
@@ -1333,7 +1356,9 @@ class EdgeMatrixTests(AtomicAssertions):
         }
         self.assertEqual(
             public_functions,
-            self.MUTATING_PUBLIC_EVENTS | {"assert_valid", "credit_id"},
+            self.MUTATING_PUBLIC_EVENTS
+            | self.TASK3_MUTATING_PUBLIC_EVENTS
+            | {"assert_valid", "credit_id", "is_duty_history_safe"},
         )
 
     def test_complete_public_event_success_matrix_uses_only_valid_fixtures(self):
@@ -1647,6 +1672,2054 @@ class ArithmeticAndInputTests(AtomicAssertions):
         self.assert_rejects_unchanged(
             creation_saturated, lambda: insert(creation_saturated, "alice", 1)
         )
+
+
+def lineup(*terms, generation=7, commitment=b"L" * 32):
+    auth = authorization()
+    return model.LineupSnapshot(
+        target=auth.target,
+        authorization_id=model.authorization_identity(1, addr("market"), auth),
+        generation=generation,
+        commitment=commitment,
+        terms=tuple(terms),
+    )
+
+
+def lineup_term(
+    label="primary",
+    ask=50,
+    minimum_tenure_until=100,
+    service_eligible_until=1_000,
+    healthy=True,
+):
+    return model.LineupTerm(
+        term_id=(label.encode("ascii")[:1] or b"t") * 32,
+        tranche_id=(label.encode("ascii")[-1:] or b"r") * 32,
+        offer_id=b"o" * 32,
+        operator=addr(f"op-{label}"),
+        payout=addr(f"pay-{label}"),
+        ask_wei_per_second=ask,
+        minimum_tenure_until=minimum_tenure_until,
+        service_eligible_until=service_eligible_until,
+        healthy=healthy,
+    )
+
+
+def stage_and_install(market, operator="alice", ask=5, term_id=b"T" * 32):
+    market.sponsor_premium(ask * market.seat_runway_seconds)
+    row = insert(market, operator, ask)
+    result = market.stage_best(lineup(), model.Clock(110, 53))
+    if result.code is not model.ResultCode.STAGED:
+        raise AssertionError("test fixture did not stage")
+    market.install_stage(installation_view(market, result.stage, term_id))
+    return row, term_id
+
+
+def installation_view(market, stage, term_id, applied_at=None):
+    return model.InstallationView(
+        target=market.authorization.target,
+        authorization_id=market.current_authorization_id,
+        generation=market.cached_generation,
+        stage_id=stage.stage_id,
+        term_id=term_id,
+        offer_id=stage.offer_id,
+        lineup_commitment=stage.lineup_commitment,
+        applied_at=stage.handover_at if applied_at is None else applied_at,
+    )
+
+
+def service_view(
+    row,
+    term_id,
+    *,
+    start=120,
+    funded_until=220,
+    cap=170,
+    closed=False,
+    refundable=False,
+    disposition_at=None,
+    last_liability_at=None,
+    duty_id=b"D" * 32,
+    duty_disposition="NONE",
+    breached=False,
+    breach_recorded_at=None,
+    roster_occupied=False,
+    history_retained=True,
+):
+    auth = authorization()
+    return model.ServiceView(
+        target=auth.target,
+        authorization_id=row.tranche.authorization_id,
+        settlement_chain_id=auth.settlement_chain_id,
+        protocol_version=auth.protocol_version,
+        runtime_hash=auth.runtime_hash,
+        configuration_hash=auth.configuration_hash,
+        magic=auth.expected_magic,
+        generation=7,
+        term_id=term_id,
+        tranche_id=row.tranche.tranche_id,
+        offer_id=row.offer.offer_id,
+        operator=row.tranche.operator,
+        payout=row.offer.payout,
+        ask_wei_per_second=row.offer.ask_wei_per_second,
+        responsibility_start=start,
+        premium_funded_until=funded_until,
+        settlement_cap=cap,
+        closed=closed,
+        refundable=refundable,
+        disposition_at=disposition_at,
+        last_liability_at=last_liability_at,
+        duty_id=duty_id,
+        duty_disposition=duty_disposition,
+        breached=breached,
+        breach_recorded_at=breach_recorded_at,
+        roster_occupied=roster_occupied,
+        history_retained=history_retained,
+    )
+
+
+class Task3StagingTests(AtomicAssertions):
+    def test_pretenure_standby_uses_its_own_short_deadline_not_primary_tenure(self):
+        for service_eligible_until, expected in (
+            (124, model.ResultCode.NO_FEASIBLE_OFFER),
+            (125, model.ResultCode.STAGED),
+            (126, model.ResultCode.STAGED),
+        ):
+            market = make_market()
+            market.sponsor_premium(1_100)
+            insert(market, f"sb-{service_eligible_until}", 11)
+            primary = lineup_term(
+                ask=10,
+                minimum_tenure_until=1_000,
+                service_eligible_until=service_eligible_until,
+            )
+            result = market.stage_best(lineup(primary), model.Clock(110, 53))
+            self.assertEqual(result.code, expected)
+            if expected is model.ResultCode.STAGED:
+                self.assertEqual(result.stage.handover_at, 115)
+                self.assertEqual(result.stage.expires_at, 120)
+
+    def test_shared_capacity_trace_stage_insert_displace_and_exact_restore(self):
+        market = make_market()
+        market.sponsor_premium(10_000)
+        rows = [insert(market, name, ask) for name, ask in zip("ABCD", (1, 2, 3, 4))]
+        staged = market.stage_best(lineup(), model.Clock(110, 53))
+        self.assertEqual((market.pending_count, market.staged_count), (3, 1))
+        self.assertEqual(staged.offer.offer_id, rows[0].offer.offer_id)
+        fifth = insert(market, "E", 3)
+        self.assertEqual((market.pending_count, market.staged_count), (3, 1))
+        self.assertEqual(fifth.displaced_offer_id, rows[3].offer.offer_id)
+        market.expire_stage(staged.stage.stage_id, model.Clock(staged.stage.expires_at, 53))
+        self.assertEqual((market.pending_count, market.staged_count), (4, 0))
+        self.assertIn(rows[0].offer.offer_id, market.pending_offer_ids)
+        self.assertEqual(market.accounting.reserved_premium, 0)
+        market.assert_valid()
+
+    def test_maturity_empty_roster_standby_and_replacement_boundaries(self):
+        for clock, expected in (
+            (model.Clock(109, 53), model.ResultCode.NO_FEASIBLE_OFFER),
+            (model.Clock(110, 52), model.ResultCode.NO_FEASIBLE_OFFER),
+            (model.Clock(110, 53), model.ResultCode.STAGED),
+            (model.Clock(111, 54), model.ResultCode.STAGED),
+        ):
+            market = make_market()
+            market.sponsor_premium(10_000)
+            insert(market, "alice", 9)
+            self.assertEqual(market.stage_best(lineup(), clock).code, expected)
+
+        primary = lineup_term(ask=10, minimum_tenure_until=200)
+        replacement = make_market()
+        replacement.sponsor_premium(900)
+        insert(replacement, "alice", 9)
+        result = replacement.stage_best(lineup(primary), model.Clock(110, 53))
+        self.assertEqual(result.stage.selected_rank, 0)
+        self.assertEqual(result.stage.outgoing_primary_term_id, primary.term_id)
+        self.assertEqual(result.stage.handover_at, 200)
+
+        standby = make_market()
+        standby.sponsor_premium(1_100)
+        insert(standby, "bob", 11)
+        result = standby.stage_best(lineup(primary), model.Clock(110, 53))
+        self.assertEqual(result.stage.selected_rank, 1)
+        self.assertIsNone(result.stage.outgoing_primary_term_id)
+        self.assertEqual(result.stage.handover_at, 115)
+
+    def test_structural_infeasibility_is_skipped_but_first_feasible_underfunded_stops(self):
+        # The best quote is structurally poisoned only by being immature; the
+        # later mature quote must still stage.
+        market = make_market()
+        market.sponsor_premium(1_000)
+        insert(market, "immature", 1, clock=model.Clock(105, 50))
+        mature = insert(market, "mature", 2, clock=model.Clock(100, 50))
+        result = market.stage_best(lineup(), model.Clock(110, 53))
+        self.assertEqual(result.offer.offer_id, mature.offer.offer_id)
+
+        underfunded = make_market()
+        insert(underfunded, "best", 2)
+        insert(underfunded, "later", 3)
+        underfunded.sponsor_premium(199)
+        before = copy.deepcopy(underfunded)
+        result = underfunded.stage_best(lineup(), model.Clock(110, 53))
+        self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
+        self.assertEqual(result.offer.ask_wei_per_second, 2)
+        self.assertEqual(underfunded, before)
+        underfunded.sponsor_premium(1)
+        self.assertEqual(
+            underfunded.stage_best(lineup(), model.Clock(110, 53)).code,
+            model.ResultCode.STAGED,
+        )
+
+    def test_live_primary_headroom_and_gross_reserve_do_not_use_outgoing_release(self):
+        primary = lineup_term(
+            ask=10, minimum_tenure_until=200, service_eligible_until=209
+        )
+        market = make_market()
+        market.sponsor_premium(10_000)
+        insert(market, "alice", 9)
+        before = copy.deepcopy(market)
+        self.assertEqual(
+            market.stage_best(lineup(primary), model.Clock(110, 53)).code,
+            model.ResultCode.NO_FEASIBLE_OFFER,
+        )
+        self.assertEqual(market, before)
+
+        # A large incumbent reserve exists, but only current freePremium counts.
+        incumbent = make_market()
+        old, old_term = stage_and_install(incumbent, "old", 50, b"O" * 32)
+        challenger = insert(incumbent, "new", 9)
+        active = model.LineupTerm(
+            term_id=old_term,
+            tranche_id=old.tranche.tranche_id,
+            offer_id=old.offer.offer_id,
+            operator=old.tranche.operator,
+            payout=old.offer.payout,
+            ask_wei_per_second=50,
+            minimum_tenure_until=100,
+            service_eligible_until=1_000,
+        )
+        self.assertEqual(incumbent.accounting.free_premium, 0)
+        result = incumbent.stage_best(lineup(active), model.Clock(110, 53))
+        self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
+        self.assertEqual(result.offer.offer_id, challenger.offer.offer_id)
+
+    def test_monotone_sponsorship_and_rank_is_not_caller_controlled(self):
+        for funding in range(0, 1_001, 37):
+            market = make_market()
+            insert(market, "a", 3)
+            insert(market, "b", 5)
+            market.sponsor_premium(funding)
+            result = market.stage_best(lineup(), model.Clock(110, 53))
+            if funding < 300:
+                self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
+            else:
+                self.assertEqual(result.code, model.ResultCode.STAGED)
+                self.assertEqual(result.offer.ask_wei_per_second, 3)
+        with self.assertRaises(TypeError):
+            make_market().stage_best(lineup(), model.Clock(110, 53), rank=3)
+
+    def test_every_declared_stage_fault_rolls_back_byte_identically(self):
+        stage_faults = (
+            "after_candidate_selection",
+            "after_reserve_debit",
+            "after_offer_location_change",
+            "after_tranche_usage_change",
+        )
+        for fault in stage_faults:
+            market = make_market()
+            market.sponsor_premium(1_000)
+            insert(market, fault[-8:], 5)
+            market.fault_point = fault
+            self.assert_rejects_unchanged(
+                market,
+                lambda market=market: market.stage_best(
+                    lineup(), model.Clock(110, 53)
+                ),
+                RuntimeError,
+            )
+        for fault in ("after_reserve_rekey", "after_stage_clear"):
+            market = make_market()
+            market.sponsor_premium(1_000)
+            insert(market, fault[-8:], 5)
+            staged = market.stage_best(lineup(), model.Clock(110, 53))
+            market.fault_point = fault
+            self.assert_rejects_unchanged(
+                market,
+                lambda market=market, staged=staged: market.install_stage(
+                    installation_view(market, staged.stage, b"T" * 32)
+                ),
+                RuntimeError,
+            )
+        market = make_market()
+        market.sponsor_premium(1_000)
+        insert(market, "credit", 5)
+        staged = market.stage_best(lineup(), model.Clock(110, 53))
+        market.fault_point = "after_credit_creation"
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.cancel_stage_for_migration(
+                staged.stage.stage_id,
+                staged.stage.lineup_commitment,
+                model.Clock(120, 53),
+            ),
+            RuntimeError,
+        )
+
+    def test_expiry_invalidation_migration_and_install_match_section_4_4(self):
+        # Ordinary expiry and authenticated lineup invalidation restore the
+        # exact staged offer without terminalizing its bond.
+        for event in ("expire", "invalidate"):
+            market = make_market()
+            market.sponsor_premium(500)
+            row = insert(market, event, 5)
+            staged = market.stage_best(lineup(), model.Clock(110, 53))
+            if event == "expire":
+                self.assert_rejects_unchanged(
+                    market,
+                    lambda: market.expire_stage(
+                        staged.stage.stage_id,
+                        model.Clock(staged.stage.expires_at - 1, 53),
+                    ),
+                )
+                market.expire_stage(
+                    staged.stage.stage_id,
+                    model.Clock(staged.stage.expires_at, 53),
+                )
+            else:
+                self.assert_rejects_unchanged(
+                    market,
+                    lambda: market.invalidate_stage(
+                        staged.stage.stage_id, b"X" * 32
+                    ),
+                )
+                market.invalidate_stage(
+                    staged.stage.stage_id, staged.stage.lineup_commitment
+                )
+            tranche = market.tranches[row.tranche.tranche_id]
+            self.assertEqual(tranche.usage, model.TrancheUsage.OFFER)
+            self.assertEqual(tranche.disposition, model.BondDisposition.NONE)
+            self.assertEqual(
+                market.offers[row.offer.offer_id].location,
+                model.OfferLocation.PENDING,
+            )
+
+        migration = make_market()
+        migration.sponsor_premium(500)
+        row = insert(migration, "migration", 5)
+        staged = migration.stage_best(lineup(), model.Clock(110, 53))
+        result = migration.cancel_stage_for_migration(
+            staged.stage.stage_id,
+            staged.stage.lineup_commitment,
+            model.Clock(120, 53),
+        )
+        self.assertEqual(
+            migration.tranches[row.tranche.tranche_id].usage,
+            model.TrancheUsage.CLOSED_UNINSTALLED,
+        )
+        self.assertEqual(
+            migration.tranches[row.tranche.tranche_id].disposition,
+            model.BondDisposition.OWNER_CREDITED,
+        )
+        self.assertEqual(
+            migration.credits[result.credit_id].beneficiary, row.tranche.operator
+        )
+
+        installed = make_market()
+        installed.sponsor_premium(500)
+        row = insert(installed, "installed", 5)
+        staged = installed.stage_best(lineup(), model.Clock(110, 53))
+        installed.install_stage(
+            installation_view(installed, staged.stage, b"I" * 32)
+        )
+        tranche = installed.tranches[row.tranche.tranche_id]
+        self.assertEqual(tranche.usage, model.TrancheUsage.INSTALLED)
+        self.assertEqual(tranche.disposition, model.BondDisposition.NONE)
+        self.assertEqual(
+            installed.accounting.live_reserves[b"I" * 32].owner_id, b"I" * 32
+        )
+
+    def test_higher_generation_sync_preserves_stage_but_stale_install_fails_closed(self):
+        market = make_market()
+        market.sponsor_premium(500)
+        row = insert(market, "old-stage", 5)
+        staged = market.stage_best(lineup(), model.Clock(110, 53))
+        stage_before = copy.deepcopy(market.stage)
+        market.sync_seat_generation(target_view(8))
+        self.assertEqual(market.stage, stage_before)
+        self.assertEqual(market.cached_generation, 8)
+        stale_install = installation_view(market, staged.stage, b"I" * 32)
+        stale_install = replace(stale_install, generation=7)
+        self.assert_rejects_unchanged(
+            market, lambda: market.install_stage(stale_install)
+        )
+        # Only the authenticated migration tombstone path owns the old stage.
+        result = market.cancel_stage_for_migration(
+            staged.stage.stage_id,
+            staged.stage.lineup_commitment,
+            model.Clock(120, 53),
+        )
+        self.assertEqual(
+            market.tranches[row.tranche.tranche_id].disposition,
+            model.BondDisposition.OWNER_CREDITED,
+        )
+        self.assertIsNotNone(result.credit_id)
+
+    def test_posttenure_timestamp_skip_and_equal_sync_keep_funded_stage_installable(self):
+        primary = lineup_term(
+            ask=10,
+            minimum_tenure_until=200,
+            service_eligible_until=400,
+        )
+        for applied_at, succeeds in ((199, False), (200, True), (205, True), (206, False)):
+            market = make_market()
+            market.sponsor_premium(900)
+            insert(market, f"pt-{applied_at}", 9)
+            staged = market.stage_best(
+                lineup(primary), model.Clock(110, 53)
+            )
+            self.assertEqual(staged.stage.handover_at, 200)
+            self.assertEqual(staged.stage.expires_at, 205)
+            before_sync = copy.deepcopy(market)
+            self.assertEqual(
+                market.sync_seat_generation(target_view(7)).purged_count, 0
+            )
+            self.assertEqual(market, before_sync)
+            install = installation_view(
+                market, staged.stage, b"P" * 32, applied_at=applied_at
+            )
+            if succeeds:
+                market.install_stage(install)
+                self.assertEqual(market.staged_count, 0)
+            else:
+                self.assert_rejects_unchanged(
+                    market, lambda: market.install_stage(install)
+                )
+
+
+class Task3PremiumTests(AtomicAssertions):
+    def installed(self, ask=5):
+        market = make_market(
+            seat_runway_seconds=100, premium_claim_delay_seconds=10
+        )
+        row, term_id = stage_and_install(market, ask=ask)
+        return market, row, term_id
+
+    def test_lazy_promotion_and_accrual_delay_cap_funding_and_repeat(self):
+        market, row, term = self.installed()
+        view = service_view(row, term)
+        reserve = market.accounting.live_reserves[term]
+        self.assertEqual(reserve.lifecycle, model.ReserveLifecycle.UNSTARTED)
+        self.assertEqual(market.accrue_premium(view, model.Clock(129, 1)).amount, 0)
+        self.assertEqual(reserve.lifecycle, model.ReserveLifecycle.OPEN)
+        self.assertEqual(market.accrue_premium(view, model.Clock(130, 1)).amount, 0)
+        one = market.accrue_premium(view, model.Clock(131, 1))
+        self.assertEqual(one.amount, 5)
+        self.assertEqual(
+            market.premium_credits[one.premium_credit_id].beneficiary,
+            row.offer.payout,
+        )
+        capped = market.accrue_premium(view, model.Clock(1_000, 1))
+        self.assertEqual(capped.amount, 5 * 49)
+        self.assertEqual(market.accrue_premium(view, model.Clock(1_001, 1)).amount, 0)
+        funding_cap = service_view(row, term, cap=300)
+        # Settlement cap is higher, but immutable fundedUntil remains 220.
+        self.assertEqual(
+            market.accrue_premium(funding_cap, model.Clock(1_002, 1)).amount,
+            5 * 50,
+        )
+        market.assert_valid()
+
+    def test_unstarted_sentinel_cannot_hide_started_service_and_checked_mul_rolls_back(self):
+        market, row, term = self.installed(ask=5)
+        reserve = market.accounting.live_reserves[term]
+        reserve.lifecycle = model.ReserveLifecycle.UNSTARTED
+        reserve.last_accrued_at = None
+        reserve.premium_funded_until = None
+        earned = market.accrue_premium(
+            service_view(row, term), model.Clock(140, 1)
+        )
+        self.assertEqual(earned.amount, 50)
+
+        overflow = make_market(
+            immutable_maximum_ask=model.UINT256_MAX,
+            seat_runway_seconds=2,
+        )
+        overflow.sponsor_premium(1)
+        insert(overflow, "overflow", model.UINT256_MAX)
+        self.assert_rejects_unchanged(
+            overflow,
+            lambda: overflow.stage_best(lineup(), model.Clock(110, 53)),
+            model.ArithmeticFault,
+        )
+
+    def test_every_exact_target_identity_field_fails_closed(self):
+        market, row, term = self.installed(ask=5)
+        view = service_view(row, term)
+        substitutions = (
+            {"target": addr("other-target")},
+            {"authorization_id": b"a" * 32},
+            {"settlement_chain_id": 2},
+            {"protocol_version": 26},
+            {"runtime_hash": b"x" * 32},
+            {"configuration_hash": b"y" * 32},
+            {"magic": b"NOPE"},
+            {"generation": 8},
+            {"term_id": b"x" * 32},
+            {"tranche_id": b"y" * 32},
+            {"offer_id": b"z" * 32},
+            {"operator": addr("other-operator")},
+            {"payout": addr("other-payout")},
+            {"ask_wei_per_second": 6},
+        )
+        for changes in substitutions:
+            bad = replace(view, **changes)
+            self.assert_rejects_unchanged(
+                market,
+                lambda bad=bad: market.accrue_premium(
+                    bad, model.Clock(140, 1)
+                ),
+            )
+
+    def test_healthy_partition_tail_equality_and_forced_eth_surplus(self):
+        market, row, term = self.installed(ask=5)
+        market.force_eth(777)
+        before_surplus = market.surplus
+        view = service_view(row, term, closed=True)
+        close = market.close_reserve(view, model.Clock(160, 1))
+        self.assertEqual(close.amount, 5 * 30)
+        reserve = market.accounting.live_reserves[term]
+        self.assertEqual(reserve.lifecycle, model.ReserveLifecycle.CLOSED_TAIL)
+        self.assertEqual(reserve.reserved_wei, 5 * 20)
+        self.assertEqual(market.accounting.free_premium, 5 * 50)
+        self.assertEqual(market.surplus, before_surplus)
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.reconcile_tail(term, model.Clock(179, 1)),
+        )
+        tail = market.reconcile_tail(term, model.Clock(180, 1))
+        self.assertEqual(tail.amount, 5 * 20)
+        self.assertNotIn(term, market.accounting.live_reserves)
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.close_reserve(view, model.Clock(181, 1)),
+        )
+        market.assert_valid()
+
+    def test_async_close_before_equal_after_and_unstarted_zero_ask(self):
+        for now, succeeds in ((179, False), (180, True), (181, True)):
+            market, row, term = self.installed(ask=5)
+            view = service_view(row, term, closed=True)
+            if succeeds:
+                result = market.close_reserve(
+                    view, model.Clock(now, 1), atomic_healthy=False
+                )
+                self.assertEqual(result.amount, 5 * 50)
+                self.assertNotIn(term, market.accounting.live_reserves)
+            else:
+                self.assert_rejects_unchanged(
+                    market,
+                    lambda: market.close_reserve(
+                        view, model.Clock(now, 1), atomic_healthy=False
+                    ),
+                )
+
+        zero, row, term = self.installed(ask=0)
+        self.assertNotIn(term, zero.accounting.live_reserves)
+        result = zero.close_reserve(
+            service_view(row, term, closed=True), model.Clock(0, 0)
+        )
+        self.assertEqual(result.amount, 0)
+
+    def test_random_partition_identity_checked_for_500_inputs(self):
+        rng = random.Random(0x5EA7)
+        for _ in range(500):
+            ask = rng.randrange(0, 10**12)
+            a = rng.randrange(0, 10**9)
+            c = rng.randrange(a, 10**9 + 1)
+            f = rng.randrange(c, 10**9 + 1)
+            now = rng.randrange(0, 10**9)
+            delay = rng.randrange(0, 10**6)
+            m = max(a, min(c, max(0, now - delay)))
+            matured = model.checked_mul(ask, model.checked_sub(m, a))
+            tail = model.checked_mul(ask, model.checked_sub(c, m))
+            unearned = model.checked_mul(ask, model.checked_sub(f, c))
+            total = model.checked_mul(ask, model.checked_sub(f, a))
+            self.assertEqual(model.checked_add(model.checked_add(matured, tail), unearned), total)
+
+    def test_premium_claim_guard_effects_and_full_rollback(self):
+        market, row, term = self.installed(ask=5)
+        credit = market.accrue_premium(
+            service_view(row, term), model.Clock(140, 1)
+        ).premium_credit_id
+        second = market.accrue_premium(
+            service_view(row, term), model.Clock(150, 1)
+        ).premium_credit_id
+        observations = []
+
+        def guarded(beneficiary, amount, callback_market):
+            observations.append((beneficiary, amount, callback_market.premium_credits[credit].claimed))
+            with self.assertRaises(model.TransitionRejected):
+                callback_market.claim_premium_credit(second, lambda *_: None)
+            bond_id = callback_market.credit_id(
+                row.tranche.tranche_id, model.BondDisposition.OWNER_CREDITED
+            )
+            with self.assertRaises(model.TransitionRejected):
+                callback_market.claim_credit(bond_id, lambda *_: None)
+
+        market.claim_premium_credit(credit, guarded)
+        self.assertEqual(observations, [(row.offer.payout, 50, True)])
+        self.assertFalse(market.premium_credits[second].claimed)
+
+        before = copy.deepcopy(market)
+        with self.assertRaisesRegex(RuntimeError, "payout reverted"):
+            market.claim_premium_credit(
+                second,
+                lambda *_: (_ for _ in ()).throw(RuntimeError("payout reverted")),
+            )
+        self.assertEqual(market, before)
+
+
+class Task3ReleaseAndHistoryTests(AtomicAssertions):
+    def installed(self, ask=0):
+        market = make_market(
+            seat_runway_seconds=100,
+            premium_claim_delay_seconds=10,
+            release_challenge_seconds=20,
+            reorg_stability_seconds=30,
+            evidence_delay_seconds=40,
+        )
+        row, term = stage_and_install(market, ask=ask)
+        return market, row, term
+
+    def refundable_view(self, row, term, **overrides):
+        values = dict(
+            closed=True,
+            refundable=True,
+            disposition_at=110,
+            last_liability_at=50,
+            duty_disposition="SATISFIED",
+            roster_occupied=False,
+        )
+        values.update(overrides)
+        return service_view(row, term, **values)
+
+    def test_release_request_is_permissionless_one_shot_and_three_max_boundaries(self):
+        market, row, term = self.installed()
+        view = self.refundable_view(row, term)
+        first = market.request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
+        again = market.request_release(row.tranche.tranche_id, view, model.Clock(130, 2))
+        self.assertEqual(first.deadline, 100)
+        self.assertEqual(again.deadline, 100)
+        # max(100+20, 110+30, 50+40+30) == 140
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.finalize_release(
+                row.tranche.tranche_id, view, model.Clock(139, 3)
+            ),
+        )
+        result = market.finalize_release(
+            row.tranche.tranche_id, view, model.Clock(140, 3)
+        )
+        credit = market.credits[result.credit_id]
+        self.assertEqual(credit.beneficiary, row.tranche.operator)
+        self.assertEqual(
+            market.tranches[row.tranche.tranche_id].disposition,
+            model.BondDisposition.OWNER_CREDITED,
+        )
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.enforce_breach(
+                row.tranche.tranche_id,
+                self.refundable_view(
+                    row,
+                    term,
+                    refundable=False,
+                    breached=True,
+                    breach_recorded_at=100,
+                    duty_disposition="BREACHED",
+                ),
+                model.Clock(200, 3),
+            ),
+        )
+
+    def test_each_release_max_component_and_zero_sentinels(self):
+        cases = (
+            # request challenge dominates
+            (100, 0, 0, 120),
+            # disposition stability dominates
+            (0, 100, 0, 130),
+            # evidence safety dominates
+            (0, 0, 100, 170),
+        )
+        for requested, disposition, liability, boundary in cases:
+            market, row, term = self.installed()
+            view = self.refundable_view(
+                row,
+                term,
+                disposition_at=disposition,
+                last_liability_at=liability,
+            )
+            market.request_release(
+                row.tranche.tranche_id, view, model.Clock(requested, 1)
+            )
+            self.assert_rejects_unchanged(
+                market,
+                lambda market=market, row=row, view=view, boundary=boundary: market.finalize_release(
+                    row.tranche.tranche_id, view, model.Clock(boundary - 1, 1)
+                ),
+            )
+            market.finalize_release(
+                row.tranche.tranche_id, view, model.Clock(boundary, 1)
+            )
+
+    def test_breach_overrides_request_and_waits_for_receipt_and_reserve(self):
+        market, row, term = self.installed(ask=5)
+        refundable = self.refundable_view(row, term)
+        market.request_release(row.tranche.tranche_id, refundable, model.Clock(100, 1))
+        breach = self.refundable_view(
+            row,
+            term,
+            refundable=False,
+            disposition_at=130,
+            breached=True,
+            breach_recorded_at=130,
+            duty_disposition="BREACHED",
+        )
+        # receipt stable 160; reserve maturity 180, so the reserve dominates.
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.enforce_breach(
+                row.tranche.tranche_id, breach, model.Clock(179, 1)
+            ),
+        )
+        result = market.enforce_breach(
+            row.tranche.tranche_id, breach, model.Clock(180, 1)
+        )
+        self.assertEqual(
+            market.credits[result.credit_id].beneficiary, market.penalty_sink
+        )
+        self.assertEqual(
+            market.tranches[row.tranche.tranche_id].disposition,
+            model.BondDisposition.PENALTY_CREDITED,
+        )
+        self.assertNotIn(term, market.accounting.live_reserves)
+
+        receipt_market, receipt_row, receipt_term = self.installed()
+        receipt_view = self.refundable_view(
+            receipt_row,
+            receipt_term,
+            refundable=False,
+            disposition_at=200,
+            breached=True,
+            breach_recorded_at=200,
+            duty_disposition="BREACHED",
+        )
+        self.assert_rejects_unchanged(
+            receipt_market,
+            lambda: receipt_market.enforce_breach(
+                receipt_row.tranche.tranche_id,
+                receipt_view,
+                model.Clock(229, 1),
+            ),
+        )
+        receipt_market.enforce_breach(
+            receipt_row.tranche.tranche_id,
+            receipt_view,
+            model.Clock(230, 1),
+        )
+
+    def test_reserve_absent_is_required_and_timing_overflow_is_atomic(self):
+        market, row, term = self.installed(ask=5)
+        view = self.refundable_view(row, term)
+        market.request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.finalize_release(
+                row.tranche.tranche_id, view, model.Clock(179, 1)
+            ),
+        )
+        market.finalize_release(
+            row.tranche.tranche_id, view, model.Clock(180, 1)
+        )
+        self.assertNotIn(term, market.accounting.live_reserves)
+
+        overflow, row, term = self.installed()
+        bad = self.refundable_view(row, term, disposition_at=model.UINT256_MAX)
+        overflow.request_release(row.tranche.tranche_id, bad, model.Clock(0, 1))
+        self.assert_rejects_unchanged(
+            overflow,
+            lambda: overflow.finalize_release(
+                row.tranche.tranche_id, bad, model.Clock(model.UINT256_MAX, 1)
+            ),
+            model.ArithmeticFault,
+        )
+
+    def test_unresolved_or_breached_duty_cannot_create_owner_credit(self):
+        for disposition, breached in (("OPEN", False), ("BREACHED", True)):
+            market, row, term = self.installed()
+            view = self.refundable_view(
+                row,
+                term,
+                duty_disposition=disposition,
+                breached=breached,
+                breach_recorded_at=100 if breached else None,
+            )
+            self.assert_rejects_unchanged(
+                market,
+                lambda market=market, row=row, view=view: market.request_release(
+                    row.tranche.tranche_id, view, model.Clock(100, 1)
+                ),
+            )
+
+    def test_installed_release_never_uses_missing_liability_zero_branch(self):
+        market, row, term = self.installed()
+        missing = self.refundable_view(row, term, last_liability_at=None)
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.request_release(
+                row.tranche.tranche_id, missing, model.Clock(100, 1)
+            ),
+        )
+
+        valid = self.refundable_view(row, term, last_liability_at=50)
+        market.request_release(row.tranche.tranche_id, valid, model.Clock(100, 1))
+        market.finalize_release(
+            row.tranche.tranche_id, valid, model.Clock(140, 1)
+        )
+        self.assertFalse(
+            market.is_duty_history_safe(
+                valid.duty_id,
+                term,
+                row.tranche.tranche_id,
+                missing,
+                model.Clock(10_000, 1),
+            )
+        )
+
+    def test_penalty_history_waits_for_independent_evidence_horizon(self):
+        market, row, term = self.installed()
+        breach = self.refundable_view(
+            row,
+            term,
+            refundable=False,
+            disposition_at=150,
+            last_liability_at=149,
+            breached=True,
+            breach_recorded_at=150,
+            duty_disposition="BREACHED",
+        )
+        market.enforce_breach(
+            row.tranche.tranche_id, breach, model.Clock(180, 1)
+        )
+        self.assertFalse(
+            market.is_duty_history_safe(
+                breach.duty_id,
+                term,
+                row.tranche.tranche_id,
+                breach,
+                model.Clock(218, 1),
+            )
+        )
+        self.assertTrue(
+            market.is_duty_history_safe(
+                breach.duty_id,
+                term,
+                row.tranche.tranche_id,
+                breach,
+                model.Clock(219, 1),
+            )
+        )
+
+    def test_duty_timestamp_combinations_fail_closed(self):
+        market, row, term = self.installed()
+        base = self.refundable_view(row, term, last_liability_at=50)
+        inconsistent = (
+            replace(base, duty_disposition="NO_DUTY"),
+            replace(base, duty_disposition="SATISFIED", disposition_at=None),
+            replace(base, duty_disposition="EXCUSED", disposition_at=None),
+            replace(
+                base,
+                duty_disposition="BREACHED",
+                breached=True,
+                breach_recorded_at=None,
+            ),
+        )
+        for view in inconsistent:
+            self.assert_rejects_unchanged(
+                market,
+                lambda view=view: market.request_release(
+                    row.tranche.tranche_id, view, model.Clock(100, 1)
+                ),
+            )
+
+    def test_task3_freeze_matrix_is_a_model_constant(self):
+        self.assertTrue(hasattr(model, "TASK3_EVENT_FREEZE"))
+
+    def test_history_safety_is_monotone_and_claim_independent(self):
+        market, row, term = self.installed()
+        view = self.refundable_view(row, term)
+        duty = view.duty_id
+        self.assertFalse(
+            market.is_duty_history_safe(
+                duty, term, row.tranche.tranche_id, view, model.Clock(139, 1)
+            )
+        )
+        market.request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
+        result = market.finalize_release(
+            row.tranche.tranche_id, view, model.Clock(140, 1)
+        )
+        for now in (140, 141, 10_000):
+            self.assertTrue(
+                market.is_duty_history_safe(
+                    duty, term, row.tranche.tranche_id, view, model.Clock(now, 1)
+                )
+            )
+        self.assertFalse(market.credits[result.credit_id].claimed)
+        wrong = market.is_duty_history_safe(
+            b"X" * 32, term, row.tranche.tranche_id, view, model.Clock(10_000, 1)
+        )
+        self.assertFalse(wrong)
+        # An unrelated live stage must not make an already-safe binding unsafe.
+        insert(market, "unrelated", 1, clock=model.Clock(200, 100))
+        market.sponsor_premium(100)
+        market.stage_best(lineup(), model.Clock(210, 103))
+        self.assertTrue(
+            market.is_duty_history_safe(
+                duty,
+                term,
+                row.tranche.tranche_id,
+                view,
+                model.Clock(10_001, 1),
+            )
+        )
+        # Terminal history cannot enter any waiting or installed path again.
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.request_pending_exit(
+                row.tranche.operator, row.offer.offer_id, model.Clock(200, 1)
+            ),
+        )
+
+    def test_never_installed_cannot_release_or_breach_and_installed_never_reenters(self):
+        market = make_market()
+        row = insert(market, "pending", 5)
+        fake = service_view(row, b"T" * 32, closed=True, refundable=True)
+        for call in (
+            lambda: market.request_release(row.tranche.tranche_id, fake, model.Clock(1, 1)),
+            lambda: market.enforce_breach(row.tranche.tranche_id, fake, model.Clock(1, 1)),
+        ):
+            self.assert_rejects_unchanged(market, call)
+
+    def test_task3_events_reject_every_wrong_reachable_lifecycle_class(self):
+        pending = make_market()
+        pending_row = insert(pending, "p-matrix", 5)
+        fake_term = b"F" * 32
+        fake_view = service_view(
+            pending_row,
+            fake_term,
+            closed=True,
+            refundable=True,
+            duty_disposition="SATISFIED",
+        )
+        pending_calls = (
+            lambda: pending.expire_stage(b"S" * 32, model.Clock(1_000, 1)),
+            lambda: pending.invalidate_stage(b"S" * 32, b"L" * 32),
+            lambda: pending.cancel_stage_for_migration(
+                b"S" * 32, b"L" * 32, model.Clock(1_000, 1)
+            ),
+            lambda: pending.install_stage(
+                model.InstallationView(
+                    target=pending.authorization.target,
+                    authorization_id=pending.current_authorization_id,
+                    generation=7,
+                    stage_id=b"S" * 32,
+                    term_id=fake_term,
+                    offer_id=pending_row.offer.offer_id,
+                    lineup_commitment=b"L" * 32,
+                    applied_at=0,
+                )
+            ),
+            lambda: pending.accrue_premium(fake_view, model.Clock(1_000, 1)),
+            lambda: pending.close_reserve(fake_view, model.Clock(1_000, 1)),
+            lambda: pending.request_release(
+                pending_row.tranche.tranche_id,
+                fake_view,
+                model.Clock(1_000, 1),
+            ),
+            lambda: pending.finalize_release(
+                pending_row.tranche.tranche_id,
+                fake_view,
+                model.Clock(1_000, 1),
+            ),
+            lambda: pending.enforce_breach(
+                pending_row.tranche.tranche_id,
+                fake_view,
+                model.Clock(1_000, 1),
+            ),
+            lambda: pending.reconcile_tail(fake_term, model.Clock(1_000, 1)),
+            lambda: pending.claim_premium_credit(b"C" * 32, lambda *_: None),
+        )
+        for call in pending_calls:
+            self.assert_rejects_unchanged(pending, call)
+
+        staged = make_market()
+        staged.sponsor_premium(500)
+        insert(staged, "s-matrix", 5)
+        staged.stage_best(lineup(), model.Clock(110, 53))
+        self.assert_rejects_unchanged(
+            staged,
+            lambda: staged.stage_best(lineup(), model.Clock(111, 54)),
+        )
+
+        installed, installed_row, installed_term = self.installed()
+        for call in (
+            lambda: installed.expire_stage(b"S" * 32, model.Clock(1_000, 1)),
+            lambda: installed.invalidate_stage(b"S" * 32, b"L" * 32),
+            lambda: installed.cancel_stage_for_migration(
+                b"S" * 32, b"L" * 32, model.Clock(1_000, 1)
+            ),
+            lambda: installed.install_stage(
+                model.InstallationView(
+                    target=installed.authorization.target,
+                    authorization_id=installed.current_authorization_id,
+                    generation=7,
+                    stage_id=b"S" * 32,
+                    term_id=b"N" * 32,
+                    offer_id=installed_row.offer.offer_id,
+                    lineup_commitment=b"L" * 32,
+                    applied_at=0,
+                )
+            ),
+            lambda: installed.request_pending_exit(
+                installed_row.tranche.operator,
+                installed_row.offer.offer_id,
+                model.Clock(1_000, 1),
+            ),
+        ):
+            self.assert_rejects_unchanged(installed, call)
+
+        closed = make_market()
+        closed_row = insert(closed, "c-matrix", 5)
+        closed.request_pending_exit(
+            closed_row.tranche.operator,
+            closed_row.offer.offer_id,
+            model.Clock(100, 50),
+        )
+        closed_view = service_view(
+            closed_row,
+            b"X" * 32,
+            closed=True,
+            refundable=True,
+            duty_disposition="SATISFIED",
+        )
+        for call in (
+            lambda: closed.request_release(
+                closed_row.tranche.tranche_id,
+                closed_view,
+                model.Clock(1_000, 1),
+            ),
+            lambda: closed.enforce_breach(
+                closed_row.tranche.tranche_id,
+                closed_view,
+                model.Clock(1_000, 1),
+            ),
+        ):
+            self.assert_rejects_unchanged(closed, call)
+
+
+class Task3FrozenMatrixTests(AtomicAssertions):
+    ROWS = (
+        "pending",
+        "staged",
+        "closed-none",
+        "closed-owner",
+        "installed-none",
+        "installed-owner",
+        "installed-penalty",
+    )
+    TASK3_EVENT_COVERAGE = {
+        "sponsor_premium": "GLOBAL_ACCOUNTING",
+        "stage_best": "SECTION_4_4",
+        "expire_stage": "SECTION_4_4",
+        "invalidate_stage": "SECTION_4_4",
+        "cancel_stage_for_migration": "SECTION_4_4",
+        "install_stage": "SECTION_4_4",
+        "accrue_premium": "INSTALLED_NONE",
+        "close_reserve": "INSTALLED_NONE",
+        "reconcile_tail": "INSTALLED_NONE",
+        "request_release": "SECTION_4_4",
+        "finalize_release": "SECTION_4_4",
+        "enforce_breach": "SECTION_4_4",
+        "claim_premium_credit": "EXACT_CREDIT",
+    }
+
+    @staticmethod
+    def lifecycle(market, row):
+        offer = market.offers[row.offer.offer_id]
+        tranche = market.tranches[row.tranche.tranche_id]
+        return offer.location, tranche.usage, tranche.disposition
+
+    def fixture(self, kind):
+        market = make_market(
+            seat_runway_seconds=100,
+            premium_claim_delay_seconds=10,
+            release_challenge_seconds=20,
+            reorg_stability_seconds=30,
+            evidence_delay_seconds=40,
+        )
+        stage = None
+        term = b"M" * 32
+        view = None
+        if kind == "pending":
+            market.sponsor_premium(500)
+            row = insert(market, "mx-pending", 5)
+        elif kind == "staged":
+            market.sponsor_premium(500)
+            row = insert(market, "mx-staged", 5)
+            stage = market.stage_best(lineup(), model.Clock(110, 53)).stage
+        elif kind in ("closed-none", "closed-owner"):
+            row = insert(market, f"mx-{kind[-5:]}", 5)
+            market.request_pending_exit(
+                row.tranche.operator, row.offer.offer_id, model.Clock(100, 50)
+            )
+            if kind == "closed-owner":
+                market.finalize_pending_exit(
+                    row.tranche.tranche_id, model.Clock(120, 50)
+                )
+        else:
+            row, term = stage_and_install(market, "mx-installed", 0, term)
+            view = service_view(
+                row,
+                term,
+                closed=True,
+                refundable=True,
+                disposition_at=10,
+                last_liability_at=0,
+                duty_disposition="SATISFIED",
+            )
+            if kind == "installed-owner":
+                market.request_release(
+                    row.tranche.tranche_id, view, model.Clock(0, 1)
+                )
+                market.finalize_release(
+                    row.tranche.tranche_id, view, model.Clock(70, 1)
+                )
+            elif kind == "installed-penalty":
+                view = replace(
+                    view,
+                    refundable=False,
+                    disposition_at=10,
+                    breached=True,
+                    breach_recorded_at=10,
+                    duty_disposition="BREACHED",
+                )
+                market.enforce_breach(
+                    row.tranche.tranche_id, view, model.Clock(40, 1)
+                )
+        market.assert_valid()
+        return dict(market=market, row=row, stage=stage, term=term, view=view)
+
+    def invoke(self, event, fixture):
+        market = fixture["market"]
+        row = fixture["row"]
+        stage = fixture["stage"]
+        term = fixture["term"]
+        view = fixture["view"]
+        if event == "stage_best":
+            return market.stage_best(lineup(), model.Clock(110, 53))
+        if event == "expire_stage":
+            return market.expire_stage(
+                stage.stage_id if stage else b"S" * 32,
+                model.Clock(stage.expires_at if stage else 1_000, 53),
+            )
+        if event == "invalidate_stage":
+            return market.invalidate_stage(
+                stage.stage_id if stage else b"S" * 32,
+                stage.lineup_commitment if stage else b"L" * 32,
+            )
+        if event == "cancel_stage_for_migration":
+            return market.cancel_stage_for_migration(
+                stage.stage_id if stage else b"S" * 32,
+                stage.lineup_commitment if stage else b"L" * 32,
+                model.Clock(1_000, 53),
+            )
+        if event == "install_stage":
+            install = (
+                installation_view(market, stage, term)
+                if stage
+                else model.InstallationView(
+                    target=market.authorization.target,
+                    authorization_id=market.current_authorization_id,
+                    generation=market.cached_generation,
+                    stage_id=b"S" * 32,
+                    term_id=term,
+                    offer_id=row.offer.offer_id,
+                    lineup_commitment=b"L" * 32,
+                    applied_at=0,
+                )
+            )
+            return market.install_stage(install)
+        exact = view or service_view(
+            row,
+            term,
+            closed=True,
+            refundable=True,
+            disposition_at=10,
+            last_liability_at=0,
+            duty_disposition="SATISFIED",
+        )
+        if event == "request_release":
+            return market.request_release(
+                row.tranche.tranche_id, exact, model.Clock(0, 1)
+            )
+        if event == "finalize_release":
+            return market.finalize_release(
+                row.tranche.tranche_id, exact, model.Clock(1_000, 1)
+            )
+        if event == "enforce_breach":
+            breach = replace(
+                exact,
+                refundable=False,
+                disposition_at=10,
+                breached=True,
+                breach_recorded_at=10,
+                duty_disposition="BREACHED",
+            )
+            return market.enforce_breach(
+                row.tranche.tranche_id, breach, model.Clock(1_000, 1)
+            )
+        raise AssertionError(f"unhandled matrix event {event}")
+
+    def test_introspection_requires_a_row_for_every_task3_public_event(self):
+        self.assertEqual(
+            set(self.TASK3_EVENT_COVERAGE), EdgeMatrixTests.TASK3_MUTATING_PUBLIC_EVENTS
+        )
+        section_events = {
+            event
+            for event, category in self.TASK3_EVENT_COVERAGE.items()
+            if category == "SECTION_4_4"
+        }
+        self.assertEqual(section_events, set(model.TASK3_EVENT_FREEZE))
+
+    def test_every_section_4_4_success_edge_matches_the_frozen_table(self):
+        for event, (expected_before, expected_after) in model.TASK3_EVENT_FREEZE.items():
+            fixture = self.fixture(
+                "pending" if event == "stage_best" else
+                "staged" if event in {
+                    "expire_stage",
+                    "invalidate_stage",
+                    "cancel_stage_for_migration",
+                    "install_stage",
+                } else
+                "installed-none"
+            )
+            market, row = fixture["market"], fixture["row"]
+            if event == "finalize_release":
+                market.request_release(
+                    row.tranche.tranche_id, fixture["view"], model.Clock(0, 1)
+                )
+            before = self.lifecycle(market, row)
+            self.assertEqual(before, expected_before, event)
+            self.invoke(event, fixture)
+            self.assertEqual(self.lifecycle(market, row), expected_after, event)
+            market.assert_valid()
+
+    def test_every_nonnormative_reachable_row_rejects_or_returns_no_edge_unchanged(self):
+        for event, (allowed_source, _target) in model.TASK3_EVENT_FREEZE.items():
+            for kind in self.ROWS:
+                fixture = self.fixture(kind)
+                market, row = fixture["market"], fixture["row"]
+                if self.lifecycle(market, row) == allowed_source:
+                    continue
+                before = copy.deepcopy(market)
+                try:
+                    result = self.invoke(event, fixture)
+                except model.TransitionRejected:
+                    pass
+                else:
+                    self.assertEqual(
+                        result.code,
+                        model.ResultCode.NO_FEASIBLE_OFFER,
+                        (event, kind),
+                    )
+                self.assertEqual(market, before, (event, kind))
+
+
+class Task3StatefulTests(unittest.TestCase):
+    def test_stateful_gate_is_not_four_fixed_modulo_templates(self):
+        source = inspect.getsource(
+            Task3StatefulTests.test_1000_deterministic_pseudorandom_full_lifecycle_sequences
+        )
+        self.assertNotIn("branch = sequence % 4", source)
+
+    def assert_reference_oracle(self, market, shadow_surplus=0):
+        """Independent sums and direct identities, without assert_valid()."""
+
+        self.assertLessEqual(
+            len(market.pending_offer_ids) + (market.stage is not None), 4
+        )
+        self.assertEqual(len(market.pending_offer_ids), len(set(market.pending_offer_ids)))
+        self.assertEqual(
+            market.pending_offer_ids,
+            sorted(
+                market.pending_offer_ids,
+                key=lambda offer_id: market.offers[offer_id].order_key,
+            ),
+        )
+        bond_escrow = sum(
+            tranche.bond_amount
+            for tranche in market.tranches.values()
+            if tranche.disposition is model.BondDisposition.NONE
+        )
+        owner_outstanding = sum(
+            credit.amount
+            for credit in market.credits.values()
+            if credit.disposition is model.BondDisposition.OWNER_CREDITED
+            and not credit.claimed
+        )
+        penalty_outstanding = sum(
+            credit.amount
+            for credit in market.credits.values()
+            if credit.disposition is model.BondDisposition.PENALTY_CREDITED
+            and not credit.claimed
+        )
+        premium_outstanding = sum(
+            credit.amount
+            for credit in market.premium_credits.values()
+            if not credit.claimed
+        )
+        reserved = sum(
+            reserve.reserved_wei
+            for reserve in market.accounting.live_reserves.values()
+        )
+        self.assertEqual(market.accounting.bond_escrow, bond_escrow)
+        self.assertEqual(market.accounting.outstanding_owner_credits, owner_outstanding)
+        self.assertEqual(market.accounting.outstanding_penalty_credits, penalty_outstanding)
+        self.assertEqual(market.accounting.outstanding_premium_claims, premium_outstanding)
+        self.assertEqual(market.accounting.reserved_premium, reserved)
+        independent_accounted = sum((
+            bond_escrow,
+            owner_outstanding,
+            penalty_outstanding,
+            market.accounting.free_premium,
+            reserved,
+            premium_outstanding,
+        ))
+        self.assertEqual(
+            market.actual_balance,
+            independent_accounted + shadow_surplus,
+        )
+
+        for tranche in market.tranches.values():
+            owner_id = model.keccak256(
+                b"TAIKO_SEAT_BOND_CREDIT_V1"
+                + model.u256(market.market_chain_id)
+                + model.address20(market.market_address)
+                + tranche.tranche_id
+                + model.u8(model.BondDisposition.OWNER_CREDITED.value)
+            )
+            penalty_id = model.keccak256(
+                b"TAIKO_SEAT_BOND_CREDIT_V1"
+                + model.u256(market.market_chain_id)
+                + model.address20(market.market_address)
+                + tranche.tranche_id
+                + model.u8(model.BondDisposition.PENALTY_CREDITED.value)
+            )
+            present = {credit_id for credit_id in (owner_id, penalty_id) if credit_id in market.credits}
+            if tranche.disposition is model.BondDisposition.NONE:
+                self.assertEqual(present, set())
+            elif tranche.disposition is model.BondDisposition.OWNER_CREDITED:
+                self.assertEqual(present, {owner_id})
+            else:
+                self.assertEqual(present, {penalty_id})
+            current_offer = market.offers[tranche.current_offer_id]
+            self.assertEqual(current_offer.tranche_id, tranche.tranche_id)
+            if tranche.disposition is not model.BondDisposition.NONE:
+                self.assertEqual(current_offer.location, model.OfferLocation.NONE)
+                self.assertNotIn(current_offer.offer_id, market.pending_offer_ids)
+                if market.stage is not None:
+                    self.assertNotEqual(market.stage.offer_id, current_offer.offer_id)
+            if tranche.usage is model.TrancheUsage.INSTALLED:
+                self.assertIsNotNone(tranche.installed_term_id)
+            else:
+                self.assertIsNone(tranche.installed_term_id)
+
+        installed_terms = [
+            tranche.installed_term_id
+            for tranche in market.tranches.values()
+            if tranche.installed_term_id is not None
+        ]
+        self.assertEqual(len(installed_terms), len(set(installed_terms)))
+
+        for credit_id, credit in market.premium_credits.items():
+            direct = model.keccak256(
+                b"TAIKO_SEAT_PREMIUM_CREDIT_V1"
+                + model.u256(market.market_chain_id)
+                + model.address20(market.market_address)
+                + credit.reserve_id
+                + model.address20(credit.beneficiary)
+                + model.u256(credit.amount)
+                + model.u256(credit.sequence)
+            )
+            self.assertEqual(credit_id, direct)
+
+    def assert_atomic_rejection(self, market, call, shadow_surplus=0):
+        before = copy.deepcopy(market)
+        with self.assertRaises(model.TransitionRejected):
+            call()
+        self.assertEqual(market, before)
+        self.assert_reference_oracle(market, shadow_surplus)
+
+    def test_1000_deterministic_pseudorandom_full_lifecycle_sequences(self):
+        names = (
+            "sponsor_premium", "force_eth", "insert", "requote", "stage",
+            "expire", "invalidate", "migration_cancel", "pending_exit",
+            "pending_finalize", "generation_sync", "install", "accrue",
+            "healthy_close", "async_close", "tail_reconcile",
+            "request_release", "finalize_release", "enforce_breach",
+            "claim_owner", "claim_penalty", "claim_premium",
+            "owner_history_unclaimed_premium", "penalty_history",
+            "atomic_rejection",
+        )
+        counts = {name: 0 for name in names}
+        traces: set[tuple[str, ...]] = set()
+        pair_counts = {name: 0 for name in (
+            "release_then_breach", "accrue_then_close",
+            "close_then_tail", "terminalize_then_claim",
+            "stage_then_invalidate", "stage_then_migration_cancel",
+            "stage_then_install",
+        )}
+
+        for sequence in range(1_000):
+            rng = random.Random(0x51A7E000 + sequence)
+            trace: list[str] = []
+            shadow_surplus = 0
+            ask = rng.randrange(1, 6)
+            market = make_market(
+                seat_runway_seconds=100,
+                premium_claim_delay_seconds=10,
+                release_challenge_seconds=20,
+                reorg_stability_seconds=30,
+                evidence_delay_seconds=40,
+            )
+
+            def record(name, call):
+                result = call()
+                counts[name] += 1
+                trace.append(name)
+                self.assert_reference_oracle(market, shadow_surplus)
+                return result
+
+            def reject(name, call):
+                self.assert_atomic_rejection(market, call, shadow_surplus)
+                counts["atomic_rejection"] += 1
+                trace.append(f"reject:{name}")
+
+            def force():
+                nonlocal shadow_surplus
+                amount = rng.randrange(1, 8)
+                market.force_eth(amount)
+                shadow_surplus += amount
+                counts["force_eth"] += 1
+                trace.append("force_eth")
+                self.assert_reference_oracle(market, shadow_surplus)
+
+            record(
+                "sponsor_premium", lambda: market.sponsor_premium((ask + 1) * 100)
+            )
+            row = record("insert", lambda: insert(market, f"q{sequence}", ask + 1))
+
+            # Seeded per-step prefix.  It deliberately mixes valid no-op syncs,
+            # requotes, forced surplus, and invalid lifecycle calls.
+            for step in range(rng.randrange(2, 6)):
+                action = rng.choice((
+                    "force", "sync", "requote", "bad_tail",
+                    "bad_install", "bad_release", "bad_claim",
+                ))
+                if action == "force":
+                    force()
+                elif action == "sync":
+                    before = copy.deepcopy(market)
+                    result = record(
+                        "generation_sync",
+                        lambda: market.sync_seat_generation(target_view(7)),
+                    )
+                    self.assertEqual(result.purged_count, 0)
+                    self.assertEqual(market, before)
+                elif action == "requote":
+                    result = record(
+                        "requote",
+                        lambda step=step: market.requote(
+                            caller=row.tranche.operator,
+                            offer_id=row.offer.offer_id,
+                            payout=addr(f"p{sequence}x{step}"),
+                            ask_wei_per_second=ask,
+                            target=addr("settlement-v1"),
+                            generation=7,
+                            clock=model.Clock(100, 50),
+                        ),
+                    )
+                    row = model.TransitionResult(
+                        offer=result.offer, tranche=result.tranche
+                    )
+                elif action == "bad_tail":
+                    reject(
+                        action,
+                        lambda: market.reconcile_tail(
+                            b"X" * 32, model.Clock(1_000, 1)
+                        ),
+                    )
+                elif action == "bad_install":
+                    reject(
+                        action,
+                        lambda: market.install_stage(
+                            model.InstallationView(
+                                target=market.authorization.target,
+                                authorization_id=market.current_authorization_id,
+                                generation=7,
+                                stage_id=b"S" * 32,
+                                term_id=b"T" * 32,
+                                offer_id=row.offer.offer_id,
+                                lineup_commitment=b"L" * 32,
+                                applied_at=0,
+                            )
+                        ),
+                    )
+                elif action == "bad_release":
+                    fake = service_view(
+                        row,
+                        b"F" * 32,
+                        closed=True,
+                        refundable=True,
+                        disposition_at=10,
+                        last_liability_at=0,
+                        duty_disposition="SATISFIED",
+                    )
+                    reject(
+                        action,
+                        lambda fake=fake: market.request_release(
+                            row.tranche.tranche_id,
+                            fake,
+                            model.Clock(100, 1),
+                        ),
+                    )
+                else:
+                    reject(
+                        action,
+                        lambda: market.claim_premium_credit(
+                            b"C" * 32, lambda *_: None
+                        ),
+                    )
+
+            staged = record(
+                "stage",
+                lambda: market.stage_best(lineup(), model.Clock(110, 53)),
+            )
+            self.assertEqual(staged.code, model.ResultCode.STAGED)
+
+            for _ in range(rng.randrange(1, 4)):
+                action = rng.choice((
+                    "force", "sync", "bad_requote", "bad_exit",
+                    "bad_second_stage", "bad_claim",
+                ))
+                if action == "force":
+                    force()
+                elif action == "sync":
+                    before = copy.deepcopy(market)
+                    record(
+                        "generation_sync",
+                        lambda: market.sync_seat_generation(target_view(7)),
+                    )
+                    self.assertEqual(market, before)
+                elif action == "bad_requote":
+                    reject(
+                        action,
+                        lambda: market.requote(
+                            caller=row.tranche.operator,
+                            offer_id=row.offer.offer_id,
+                            payout=addr("bad-stage-rq"),
+                            ask_wei_per_second=ask,
+                            target=addr("settlement-v1"),
+                            generation=7,
+                            clock=model.Clock(120, 56),
+                        ),
+                    )
+                elif action == "bad_exit":
+                    reject(
+                        action,
+                        lambda: market.request_pending_exit(
+                            row.tranche.operator,
+                            row.offer.offer_id,
+                            model.Clock(120, 56),
+                        ),
+                    )
+                elif action == "bad_second_stage":
+                    reject(
+                        action,
+                        lambda: market.stage_best(
+                            lineup(), model.Clock(120, 56)
+                        ),
+                    )
+                else:
+                    reject(
+                        action,
+                        lambda: market.claim_premium_credit(
+                            b"C" * 32, lambda *_: None
+                        ),
+                    )
+
+            resolution = rng.choice(("expire", "invalidate", "cancel", "install"))
+            terminal_credit = None
+            if resolution == "expire":
+                reject(
+                    "early_expire",
+                    lambda: market.expire_stage(
+                        staged.stage.stage_id,
+                        model.Clock(staged.stage.expires_at - 1, 56),
+                    ),
+                )
+                record(
+                    "expire",
+                    lambda: market.expire_stage(
+                        staged.stage.stage_id,
+                        model.Clock(staged.stage.expires_at, 56),
+                    ),
+                )
+            elif resolution == "invalidate":
+                record(
+                    "invalidate",
+                    lambda: market.invalidate_stage(
+                        staged.stage.stage_id,
+                        staged.stage.lineup_commitment,
+                    ),
+                )
+            elif resolution == "cancel":
+                canceled = record(
+                    "migration_cancel",
+                    lambda: market.cancel_stage_for_migration(
+                        staged.stage.stage_id,
+                        staged.stage.lineup_commitment,
+                        model.Clock(120, 56),
+                    ),
+                )
+                terminal_credit = canceled.credit_id
+
+            if resolution in ("expire", "invalidate"):
+                for step in range(rng.randrange(0, 3)):
+                    if rng.choice((True, False)):
+                        force()
+                    else:
+                        before = copy.deepcopy(market)
+                        record(
+                            "generation_sync",
+                            lambda: market.sync_seat_generation(target_view(7)),
+                        )
+                        self.assertEqual(market, before)
+                staged = record(
+                    "stage",
+                    lambda: market.stage_best(lineup(), model.Clock(130, 59)),
+                )
+                if rng.choice((True, False)):
+                    canceled = record(
+                        "migration_cancel",
+                        lambda: market.cancel_stage_for_migration(
+                            staged.stage.stage_id,
+                            staged.stage.lineup_commitment,
+                            model.Clock(140, 59),
+                        ),
+                    )
+                    terminal_credit = canceled.credit_id
+                    resolution = "cancel"
+                else:
+                    resolution = "install"
+
+            if resolution == "install":
+                term = (sequence + 1).to_bytes(32, "big")
+                record(
+                    "install",
+                    lambda: market.install_stage(
+                        installation_view(market, staged.stage, term)
+                    ),
+                )
+                open_view = service_view(row, term, cap=170)
+                closed_owner = service_view(
+                    row,
+                    term,
+                    cap=170,
+                    closed=True,
+                    refundable=True,
+                    disposition_at=150,
+                    last_liability_at=100,
+                    duty_disposition="SATISFIED",
+                )
+                for step in range(rng.randrange(1, 4)):
+                    action = rng.choice((
+                        "accrue", "force", "bad_close",
+                        "bad_release", "bad_claim", "sponsor",
+                    ))
+                    if action == "accrue":
+                        record(
+                            "accrue",
+                            lambda: market.accrue_premium(
+                                open_view,
+                                model.Clock(rng.choice((131, 135, 140, 145)), 1),
+                            ),
+                        )
+                    elif action == "force":
+                        force()
+                    elif action == "bad_close":
+                        reject(
+                            action,
+                            lambda: market.close_reserve(
+                                open_view, model.Clock(160, 1)
+                            ),
+                        )
+                    elif action == "bad_release":
+                        missing = replace(
+                            closed_owner, last_liability_at=None
+                        )
+                        reject(
+                            action,
+                            lambda missing=missing: market.request_release(
+                                row.tranche.tranche_id,
+                                missing,
+                                model.Clock(140, 1),
+                            ),
+                        )
+                    elif action == "bad_claim":
+                        reject(
+                            action,
+                            lambda: market.claim_premium_credit(
+                                b"C" * 32, lambda *_: None
+                            ),
+                        )
+                    else:
+                        record(
+                            "sponsor_premium",
+                            lambda: market.sponsor_premium(rng.randrange(1, 8)),
+                        )
+
+                record(
+                    "accrue",
+                    lambda: market.accrue_premium(
+                        open_view, model.Clock(150, 1)
+                    ),
+                )
+                terminal = rng.choice(("healthy_owner", "async_owner", "penalty"))
+                if terminal == "healthy_owner":
+                    requested_before = rng.choice((True, False))
+                    if requested_before:
+                        record(
+                            "request_release",
+                            lambda: market.request_release(
+                                row.tranche.tranche_id,
+                                closed_owner,
+                                model.Clock(150, 1),
+                            ),
+                        )
+                    record(
+                        "healthy_close",
+                        lambda: market.close_reserve(
+                            closed_owner, model.Clock(160, 1)
+                        ),
+                    )
+                    reject(
+                        "early_tail",
+                        lambda: market.reconcile_tail(
+                            term, model.Clock(179, 1)
+                        ),
+                    )
+                    record(
+                        "tail_reconcile",
+                        lambda: market.reconcile_tail(
+                            term, model.Clock(180, 1)
+                        ),
+                    )
+                    if not requested_before:
+                        record(
+                            "request_release",
+                            lambda: market.request_release(
+                                row.tranche.tranche_id,
+                                closed_owner,
+                                model.Clock(180, 1),
+                            ),
+                        )
+                    owner_at = 180 if requested_before else 200
+                    reject(
+                        "early_finalize",
+                        lambda: market.finalize_release(
+                            row.tranche.tranche_id,
+                            closed_owner,
+                            model.Clock(owner_at - 1, 1),
+                        ),
+                    )
+                    owner = record(
+                        "finalize_release",
+                        lambda: market.finalize_release(
+                            row.tranche.tranche_id,
+                            closed_owner,
+                            model.Clock(owner_at, 1),
+                        ),
+                    )
+                    terminal_credit = owner.credit_id
+                    self.assertTrue(
+                        market.is_duty_history_safe(
+                            closed_owner.duty_id,
+                            term,
+                            row.tranche.tranche_id,
+                            closed_owner,
+                            model.Clock(owner_at, 1),
+                        )
+                    )
+                    counts["owner_history_unclaimed_premium"] += 1
+                    trace.append("owner_history_unclaimed_premium")
+                elif terminal == "async_owner":
+                    record(
+                        "request_release",
+                        lambda: market.request_release(
+                            row.tranche.tranche_id,
+                            closed_owner,
+                            model.Clock(160, 1),
+                        ),
+                    )
+                    reject(
+                        "early_async_close",
+                        lambda: market.close_reserve(
+                            closed_owner,
+                            model.Clock(179, 1),
+                            atomic_healthy=False,
+                        ),
+                    )
+                    record(
+                        "async_close",
+                        lambda: market.close_reserve(
+                            closed_owner,
+                            model.Clock(180, 1),
+                            atomic_healthy=False,
+                        ),
+                    )
+                    owner = record(
+                        "finalize_release",
+                        lambda: market.finalize_release(
+                            row.tranche.tranche_id,
+                            closed_owner,
+                            model.Clock(180, 1),
+                        ),
+                    )
+                    terminal_credit = owner.credit_id
+                else:
+                    record(
+                        "request_release",
+                        lambda: market.request_release(
+                            row.tranche.tranche_id,
+                            closed_owner,
+                            model.Clock(140, 1),
+                        ),
+                    )
+                    breach = replace(
+                        closed_owner,
+                        refundable=False,
+                        disposition_at=150,
+                        breached=True,
+                        breach_recorded_at=150,
+                        duty_disposition="BREACHED",
+                    )
+                    reject(
+                        "early_breach",
+                        lambda: market.enforce_breach(
+                            row.tranche.tranche_id,
+                            breach,
+                            model.Clock(179, 1),
+                        ),
+                    )
+                    penalty = record(
+                        "enforce_breach",
+                        lambda: market.enforce_breach(
+                            row.tranche.tranche_id,
+                            breach,
+                            model.Clock(180, 1),
+                        ),
+                    )
+                    terminal_credit = penalty.credit_id
+                    self.assertTrue(
+                        market.is_duty_history_safe(
+                            breach.duty_id,
+                            term,
+                            row.tranche.tranche_id,
+                            breach,
+                            model.Clock(180, 1),
+                        )
+                    )
+                    counts["penalty_history"] += 1
+                    trace.append("penalty_history")
+
+            claim_actions = []
+            if terminal_credit is not None:
+                disposition = market.credits[terminal_credit].disposition
+                claim_name = (
+                    "claim_penalty"
+                    if disposition is model.BondDisposition.PENALTY_CREDITED
+                    else "claim_owner"
+                )
+                claim_actions.append((
+                    claim_name,
+                    terminal_credit,
+                    lambda credit_id=terminal_credit: market.claim_credit(
+                        credit_id, lambda *_: None
+                    ),
+                ))
+            for premium_credit_id, credit in tuple(market.premium_credits.items()):
+                if not credit.claimed:
+                    claim_actions.append((
+                        "claim_premium",
+                        premium_credit_id,
+                        lambda credit_id=premium_credit_id: market.claim_premium_credit(
+                            credit_id, lambda *_: None
+                        ),
+                    ))
+            rng.shuffle(claim_actions)
+            for claim_name, _credit_id, call in claim_actions:
+                record(claim_name, call)
+
+            # Random Task-2 suffixes keep exit and higher-generation purge in
+            # the same varied traces without disturbing installed history.
+            if market.cached_generation == 7 and rng.random() < 0.45:
+                extra = record(
+                    "insert",
+                    lambda: insert(
+                        market,
+                        f"e{sequence}",
+                        rng.randrange(0, 6),
+                        clock=model.Clock(220, 100),
+                    ),
+                )
+                record(
+                    "pending_exit",
+                    lambda: market.request_pending_exit(
+                        extra.tranche.operator,
+                        extra.offer.offer_id,
+                        model.Clock(220, 100),
+                    ),
+                )
+                reject(
+                    "early_pending_finalize",
+                    lambda: market.finalize_pending_exit(
+                        extra.tranche.tranche_id, model.Clock(239, 100)
+                    ),
+                )
+                refund = record(
+                    "pending_finalize",
+                    lambda: market.finalize_pending_exit(
+                        extra.tranche.tranche_id, model.Clock(240, 100)
+                    ),
+                )
+                record(
+                    "claim_owner",
+                    lambda: market.claim_credit(refund.credit_id, lambda *_: None),
+                )
+            if market.cached_generation == 7 and rng.random() < 0.45:
+                old = record(
+                    "insert",
+                    lambda: insert(
+                        market,
+                        f"g{sequence}",
+                        rng.randrange(0, 6),
+                        clock=model.Clock(250, 120),
+                    ),
+                )
+                purged = record(
+                    "generation_sync",
+                    lambda: market.sync_seat_generation(target_view(8)),
+                )
+                self.assertEqual(purged.purged_count, 1)
+                purge_credit = market.credit_id(
+                    old.tranche.tranche_id,
+                    model.BondDisposition.OWNER_CREDITED,
+                )
+                record(
+                    "claim_owner",
+                    lambda: market.claim_credit(purge_credit, lambda *_: None),
+                )
+
+            self.assert_reference_oracle(market, shadow_surplus)
+            market.assert_valid()
+            traces.add(tuple(trace))
+            ordered_pairs = {
+                "release_then_breach": ("request_release", "enforce_breach"),
+                "accrue_then_close": ("accrue", None),
+                "close_then_tail": ("healthy_close", "tail_reconcile"),
+                "terminalize_then_claim": (None, None),
+                "stage_then_invalidate": ("stage", "invalidate"),
+                "stage_then_migration_cancel": ("stage", "migration_cancel"),
+                "stage_then_install": ("stage", "install"),
+            }
+            for name, (left, right) in ordered_pairs.items():
+                if name == "accrue_then_close":
+                    closes = ("healthy_close", "async_close", "enforce_breach")
+                    matched = "accrue" in trace and any(
+                        trace.index("accrue") < trace.index(close)
+                        for close in closes if close in trace
+                    )
+                elif name == "terminalize_then_claim":
+                    terminals = (
+                        "migration_cancel", "pending_finalize",
+                        "finalize_release", "enforce_breach", "generation_sync",
+                    )
+                    claims = ("claim_owner", "claim_penalty", "claim_premium")
+                    matched = any(
+                        terminal in trace and claim in trace
+                        and trace.index(terminal) < trace.index(claim)
+                        for terminal in terminals for claim in claims
+                    )
+                else:
+                    matched = (
+                        left in trace and right in trace
+                        and trace.index(left) < trace.index(right)
+                    )
+                if matched:
+                    pair_counts[name] += 1
+
+        self.assertEqual(sequence + 1, 1_000)
+        self.assertGreater(len(traces), 900)
+        minimum_counts = {
+            "sponsor_premium": 1_000,
+            "force_eth": 300,
+            "insert": 1_000,
+            "requote": 100,
+            "stage": 1_000,
+            "expire": 150,
+            "invalidate": 150,
+            "migration_cancel": 200,
+            "pending_exit": 300,
+            "pending_finalize": 300,
+            "generation_sync": 300,
+            "install": 300,
+            "accrue": 300,
+            "healthy_close": 80,
+            "async_close": 80,
+            "tail_reconcile": 80,
+            "request_release": 250,
+            "finalize_release": 150,
+            "enforce_breach": 80,
+            "claim_owner": 400,
+            "claim_penalty": 80,
+            "claim_premium": 300,
+            "owner_history_unclaimed_premium": 80,
+            "penalty_history": 80,
+            "atomic_rejection": 1_000,
+        }
+        self.assertEqual(set(counts), set(minimum_counts))
+        for name, minimum in minimum_counts.items():
+            self.assertGreaterEqual(counts[name], minimum, (name, counts))
+        for name, count in pair_counts.items():
+            self.assertGreaterEqual(count, 80, (name, pair_counts))
+        self.assertGreater(sum(counts.values()), 10_000)
+        global STATEFUL_COVERAGE
+        STATEFUL_COVERAGE = {
+            "unique_traces": len(traces),
+            "action_counts": dict(counts),
+            "pair_counts": dict(pair_counts),
+            "total_actions": sum(counts.values()),
+        }
 
 
 if __name__ == "__main__":
