@@ -900,7 +900,8 @@ class BridgeRecord:
 class BridgeSupportEntry:
     protocol_version: int
     manifest_hash: str
-    activated_at_block: int
+    staged_at_block: int
+    confirmed_at_block: int | None = None
 
 
 @dataclass
@@ -908,11 +909,11 @@ class BridgeDomainRegistry:
     entries: dict[tuple[str, str, str], BridgeSupportEntry] = field(default_factory=dict)
     profile_additions: dict[int, int] = field(default_factory=dict)
 
-    def register(self, source_domain_id: str, execution_hash: str,
-                 destination_domain_id: str,
-                 protocol_version: int, manifest_hash: str,
-                 activated_at_block: int, *, caller_is_version_manager: bool,
-                 manifest_active: bool) -> bool:
+    def stage(self, source_domain_id: str, execution_hash: str,
+              destination_domain_id: str,
+              protocol_version: int, manifest_hash: str,
+              staged_at_block: int, *, caller_is_version_manager: bool,
+              manifest_active: bool) -> bool:
         if (not caller_is_version_manager or not manifest_active
                 or protocol_version <= 0 or not manifest_hash
                 or not source_domain_id or not execution_hash
@@ -920,7 +921,7 @@ class BridgeDomainRegistry:
             return False
         key = (source_domain_id, execution_hash, destination_domain_id)
         entry = BridgeSupportEntry(
-            protocol_version, manifest_hash, activated_at_block)
+            protocol_version, manifest_hash, staged_at_block)
         if key in self.entries:
             return self.entries[key] == entry
         if self.profile_additions.get(protocol_version, 0) \
@@ -931,14 +932,29 @@ class BridgeDomainRegistry:
             self.profile_additions.get(protocol_version, 0) + 1)
         return True
 
+    def confirm(self, source_domain_id: str, execution_hash: str,
+                destination_domain_id: str, confirmed_at_block: int, *,
+                finalized_l2_registration_proof_valid: bool,
+                registration_matches_manifest: bool) -> bool:
+        entry = self.entries.get(
+            (source_domain_id, execution_hash, destination_domain_id))
+        if (entry is None or entry.confirmed_at_block is not None
+                or not finalized_l2_registration_proof_valid
+                or not registration_matches_manifest
+                or confirmed_at_block < entry.staged_at_block):
+            return False
+        entry.confirmed_at_block = confirmed_at_block
+        return True
+
     def final(self, source_domain_id: str, execution_hash: str,
               destination_domain_id: str,
               block_number: int) -> bool:
         entry = self.entries.get(
             (source_domain_id, execution_hash, destination_domain_id))
         return (entry is not None
+                and entry.confirmed_at_block is not None
                 and block_number
-                    >= entry.activated_at_block + SUPPORT_FINALITY_BLOCKS)
+                    >= entry.confirmed_at_block + SUPPORT_FINALITY_BLOCKS)
 
     def remove(self, source_domain_id: str, execution_hash: str,
                destination_domain_id: str) -> bool:
@@ -974,12 +990,63 @@ class CanonicalTerminalCommitment:
     block_hash: str
     terminal_root: str
     terminal_count: int
+    protocol_version: int = 1
+    execution_profile_hash: str = "profile:1"
+
+
+@dataclass
+class ActiveSettlementRouter:
+    """Non-proxy router with one manifest-authenticated version transition."""
+
+    protocol_version: int
+    execution_profile_hash: str
+    active_settlement: str
+    canonical: CanonicalTerminalCommitment
+
+    def activate_version(
+            self, *, protocol_version: int, execution_profile_hash: str,
+            settlement: str, imported: CanonicalTerminalCommitment,
+            caller_is_version_manager: bool, manifest_active: bool,
+            target_runtime_approved: bool, target_profile_matches: bool,
+            prior_terminal_import_exact: bool) -> bool:
+        if (not caller_is_version_manager or not manifest_active
+                or not target_runtime_approved or not target_profile_matches
+                or not prior_terminal_import_exact
+                or protocol_version <= self.protocol_version
+                or not execution_profile_hash or not settlement
+                or imported.protocol_version != protocol_version
+                or imported.execution_profile_hash != execution_profile_hash
+                or imported.terminal_root != self.canonical.terminal_root
+                or imported.terminal_count != self.canonical.terminal_count):
+            return False
+        self.protocol_version = protocol_version
+        self.execution_profile_hash = execution_profile_hash
+        self.active_settlement = settlement
+        self.canonical = imported
+        return True
+
+    def record_canonical(self, canonical: CanonicalTerminalCommitment,
+                         *, caller: str) -> bool:
+        if (caller != self.active_settlement
+                or canonical.protocol_version != self.protocol_version
+                or canonical.execution_profile_hash != self.execution_profile_hash
+                or canonical.l2_block_number <= self.canonical.l2_block_number
+                or canonical.terminal_count < self.canonical.terminal_count
+                or (canonical.terminal_count == self.canonical.terminal_count
+                    and canonical.terminal_root != self.canonical.terminal_root)):
+            return False
+        self.canonical = canonical
+        return True
+
+    def latest_canonical_terminal(self) -> CanonicalTerminalCommitment:
+        return self.canonical
 
 
 @dataclass
 class TerminalCheckpointStore:
     """Permissionless copier of a proof-bound canonical terminal commitment."""
 
+    router: ActiveSettlementRouter
     capacity: int = 256
     publication_count: int = 0
     latest_l2_block: int = 0
@@ -989,9 +1056,11 @@ class TerminalCheckpointStore:
     checkpoints: dict[int, tuple[int, CanonicalTerminalCommitment]] = field(
         default_factory=dict)
 
-    def publish(self, canonical: CanonicalTerminalCommitment, *, l1_block: int,
-                canonical_reader_exact: bool = True) -> int | None:
-        if (not canonical_reader_exact
+    def publish(self, *, l1_block: int) -> int | None:
+        canonical = self.router.latest_canonical_terminal()
+        if (canonical.protocol_version != self.router.protocol_version
+                or canonical.execution_profile_hash
+                    != self.router.execution_profile_hash
                 or canonical.l2_block_number <= self.latest_l2_block
                 or l1_block <= self.last_l1_block
                 or not canonical.block_hash or not canonical.terminal_root
@@ -1063,7 +1132,9 @@ def source_send_mode(selector: str) -> str:
     if selector == "sendMessage(Message)":
         return "V1"
     if selector == "sendMessageV2(Message)":
-        return "V2"
+        return "V2_DIRECT"
+    if selector == "sendMessageFromVaultV2(Message)":
+        return "V2_CAPSULE"
     return "REJECTED"
 
 
@@ -1073,6 +1144,7 @@ class CreditAuthorization:
     owner: str
     value: int
     fee: int
+    refund_mode: str = "DIRECT"
     refund_vault: str = ""
 
 
@@ -1097,15 +1169,20 @@ class SourceBridgeLedger:
 
     def open(self, credit_id: str, *, now: int, enqueue_by: int,
              owner: str, value: int, fee: int, refund_vault: str = "",
-             refund_capsule_hash: str = "") -> bool:
+             refund_capsule_hash: str = "", refund_mode: str = "DIRECT",
+             caller: str = "") -> bool:
         if (not credit_id or credit_id in self.authorizations or not owner
                 or enqueue_by != now + MAX_BRIDGE_ENQUEUE_DELAY
-                or value < 0 or fee < 0 or refund_capsule_hash):
+                or value < 0 or fee < 0 or refund_capsule_hash
+                or refund_mode not in {"DIRECT", "CAPSULE"}
+                or (refund_mode == "DIRECT" and refund_vault)
+                or (refund_mode == "CAPSULE"
+                    and (not caller or refund_vault != caller))):
             return False
         self.authorizations[credit_id] = CreditAuthorization(
-            enqueue_by, owner, value, fee, refund_vault)
+            enqueue_by, owner, value, fee, refund_mode, refund_vault)
         self.credits[credit_id] = SourceCredit(
-            value, fee, "", "DRAFT" if refund_vault else "NEW")
+            value, fee, "", "DRAFT" if refund_mode == "CAPSULE" else "NEW")
         self.balance += value + fee
         self.total_live_liability += value + fee
         return True
@@ -1354,6 +1431,7 @@ class TerminalAccumulatorV2:
     """Protocol-lifetime append-only terminal vector with immutable old writers."""
 
     domains: dict[str, str]
+    registrar: str = "terminal-domain-registrar"
     leaves: list[str] = field(default_factory=list)
 
     @property
@@ -1364,7 +1442,12 @@ class TerminalAccumulatorV2:
     def root(self) -> str:
         return "terminal-root:" + "|".join(self.leaves)
 
-    def register_domain(self, domain_id: str, bridge: str) -> bool:
+    def register_domain(self, domain_id: str, bridge: str, *, caller: str,
+                        release_active: bool, descriptor_valid: bool,
+                        activation_order_valid: bool) -> bool:
+        if (caller != self.registrar or not release_active
+                or not descriptor_valid or not activation_order_valid):
+            return False
         existing = self.domains.get(domain_id)
         if existing is not None:
             return existing == bridge
@@ -2050,34 +2133,48 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not invalid_protocol.messages and not invalid_adapter.records)
 
     support = BridgeDomainRegistry()
-    assert not support.register(
+    assert not support.stage(
         "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=False, manifest_active=True)
-    assert not support.register(
+    assert not support.stage(
         "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=True, manifest_active=False)
-    assert support.register(
+    assert support.stage(
         "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
         caller_is_version_manager=True, manifest_active=True)
+    assert not support.final(
+        "domain:R1", "execution:B", "domain:D1", 1000)
+    assert not support.confirm(
+        "domain:R1", "execution:B", "domain:D1", 110,
+        finalized_l2_registration_proof_valid=False,
+        registration_matches_manifest=True)
+    assert support.confirm(
+        "domain:R1", "execution:B", "domain:D1", 110,
+        finalized_l2_registration_proof_valid=True,
+        registration_matches_manifest=True)
     check("P50u bridge endpoint support waits for active-profile finality",
           not support.final(
               "domain:R1", "execution:B", "domain:D1",
-              100 + SUPPORT_FINALITY_BLOCKS - 1)
+              110 + SUPPORT_FINALITY_BLOCKS - 1)
           and support.final(
               "domain:R1", "execution:B", "domain:D1",
-              100 + SUPPORT_FINALITY_BLOCKS))
-    assert support.register(
+              110 + SUPPORT_FINALITY_BLOCKS))
+    assert support.stage(
         "domain:R1", "execution:B", "domain:D2", 2, "manifest:2", 150,
         caller_is_version_manager=True, manifest_active=True)
+    assert support.confirm(
+        "domain:R1", "execution:B", "domain:D2", 160,
+        finalized_l2_registration_proof_valid=True,
+        registration_matches_manifest=True)
     check("P50an old execution cannot use a new destination before tuple finality",
           not support.final(
               "domain:R1", "execution:B", "domain:D2",
-              150 + SUPPORT_FINALITY_BLOCKS - 1)
+              160 + SUPPORT_FINALITY_BLOCKS - 1)
           and support.final(
               "domain:R1", "execution:B", "domain:D2",
-              150 + SUPPORT_FINALITY_BLOCKS))
+              160 + SUPPORT_FINALITY_BLOCKS))
     bounded_support = BridgeDomainRegistry()
-    assert all(bounded_support.register(
+    assert all(bounded_support.stage(
         "domain:R1", f"execution:{i}", "domain:D1", 3, "manifest:3", 200,
         caller_is_version_manager=True, manifest_active=True)
         for i in range(MAX_BRIDGE_TOPOLOGIES_PER_PROFILE))
@@ -2085,12 +2182,12 @@ def test_data_gc_reorg_and_geometry() -> None:
           not support.remove("domain:R1", "execution:B", "domain:D1")
           and support.final(
               "domain:R1", "execution:B", "domain:D1",
-              100 + SUPPORT_FINALITY_BLOCKS)
-          and not bounded_support.register(
+              110 + SUPPORT_FINALITY_BLOCKS)
+          and not bounded_support.stage(
               "domain:R1", "execution:overflow", "domain:D1", 3,
               "manifest:3", 200, caller_is_version_manager=True,
               manifest_active=True)
-          and bounded_support.register(
+          and bounded_support.stage(
               "domain:R2", "execution:new-profile", "domain:D2", 4,
               "manifest:4", 300, caller_is_version_manager=True,
               manifest_active=True))
@@ -2109,7 +2206,9 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not frozen_facade.upgrade("runtime:B"))
     check("P50ao V2 is additive and the legacy send selector stays exact V1",
           source_send_mode("sendMessage(Message)") == "V1"
-          and source_send_mode("sendMessageV2(Message)") == "V2"
+          and source_send_mode("sendMessageV2(Message)") == "V2_DIRECT"
+          and source_send_mode("sendMessageFromVaultV2(Message)")
+              == "V2_CAPSULE"
           and source_send_mode("unknown") == "REJECTED")
 
     capacity_protocol = protocol(tip_slot=100)
@@ -2236,7 +2335,16 @@ def test_data_gc_reorg_and_geometry() -> None:
         1, "domain:R1", 1, "bridge:A", "domain:D1", "capsule")
     assert capsule_source.open(
         capsule_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-        owner="alice", value=3, fee=1, refund_vault="erc721-vault")
+        owner="alice", value=3, fee=1, refund_vault="erc721-vault",
+        refund_mode="CAPSULE", caller="erc721-vault")
+    check("P50az V2 refund mode is selector-explicit and cannot be inferred",
+          not SourceBridgeLedger().open(
+              "ambiguous", now=prepared_clock.timestamp, enqueue_by=enqueue_by,
+              owner="alice", value=3, fee=1, refund_vault="erc721-vault")
+          and not SourceBridgeLedger().open(
+              "spoofed", now=prepared_clock.timestamp, enqueue_by=enqueue_by,
+              owner="alice", value=3, fee=1, refund_vault="erc721-vault",
+              refund_mode="CAPSULE", caller="attacker"))
     refund_vault = RefundVaultLedger(balance=100)
     assert refund_vault.register(
         capsule_id, owner="alice", amount=40, capsule_hash="capsule-hash",
@@ -2338,10 +2446,30 @@ def test_data_gc_reorg_and_geometry() -> None:
               != TerminalSignalVerifier.terminal_leaf(
                   0, "domain:D1", "bridge:A", credit_b, "FAILED"))
     check("P50ax new terminal domains cannot redirect an old domain writer",
-          accumulator.register_domain("domain:D2", "bridge:B")
-          and accumulator.register_domain("domain:D1", "bridge:A")
-          and not accumulator.register_domain("domain:D1", "bridge:B")
-          and not accumulator.register_domain("domain:D3", "bridge:A")
+          not accumulator.register_domain(
+              "domain:squat", "bridge:squat", caller="attacker",
+              release_active=True, descriptor_valid=True,
+              activation_order_valid=True)
+          and accumulator.register_domain(
+              "domain:D2", "bridge:B", caller="terminal-domain-registrar",
+              release_active=True, descriptor_valid=True,
+              activation_order_valid=True)
+          and accumulator.register_domain(
+              "domain:D1", "bridge:A", caller="terminal-domain-registrar",
+              release_active=True, descriptor_valid=True,
+              activation_order_valid=True)
+          and not accumulator.register_domain(
+              "domain:D1", "bridge:B", caller="terminal-domain-registrar",
+              release_active=True, descriptor_valid=True,
+              activation_order_valid=True)
+          and not accumulator.register_domain(
+              "domain:D3", "bridge:A", caller="terminal-domain-registrar",
+              release_active=True, descriptor_valid=True,
+              activation_order_valid=True)
+          and not accumulator.register_domain(
+              "domain:D4", "bridge:D", caller="terminal-domain-registrar",
+              release_active=True, descriptor_valid=True,
+              activation_order_valid=False)
           and accumulator.domains["domain:D1"] == "bridge:A")
     manual_credit = "credit:manual-failure"
     assert destination.pin(
@@ -2367,25 +2495,56 @@ def test_data_gc_reorg_and_geometry() -> None:
               now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1))
     destination.paused = False
     source.paused = True
-    checkpoint_store = TerminalCheckpointStore()
+    canonical_499 = CanonicalTerminalCommitment(
+        499, "block:499", accumulator.root, accumulator.count)
+    active_router = ActiveSettlementRouter(
+        1, "profile:1", "settlement:1", canonical_499)
+    checkpoint_store = TerminalCheckpointStore(active_router)
     canonical_500 = CanonicalTerminalCommitment(
         500, "block:500", accumulator.root, accumulator.count)
-    sequence_0 = checkpoint_store.publish(canonical_500, l1_block=50)
+    assert active_router.record_canonical(canonical_500, caller="settlement:1")
+    sequence_0 = checkpoint_store.publish(l1_block=50)
     assert sequence_0 == 0
     check("P50at terminal checkpoints are retained by publication sequence",
           checkpoint_store.contains(sequence_0, canonical_500)
-          and checkpoint_store.publish(
-              CanonicalTerminalCommitment(
-                  501, "other", accumulator.root, accumulator.count),
-              l1_block=50) is None
+          and checkpoint_store.publish(l1_block=50) is None
           and len(checkpoint_store.checkpoints) == 1)
     canonical_756 = CanonicalTerminalCommitment(
         756, "block:756", accumulator.root, accumulator.count)
-    sequence_1 = checkpoint_store.publish(canonical_756, l1_block=51)
+    assert active_router.record_canonical(canonical_756, caller="settlement:1")
+    sequence_1 = checkpoint_store.publish(l1_block=51)
     check("P50av sparse L2-height jumps cannot collide in the checkpoint ring",
           sequence_1 == 1
           and checkpoint_store.contains(sequence_0, canonical_500)
           and checkpoint_store.contains(sequence_1, canonical_756))
+    fake_import = CanonicalTerminalCommitment(
+        756, "fake", "attacker-root", accumulator.count,
+        2, "profile:2")
+    exact_import = CanonicalTerminalCommitment(
+        756, "block:756", accumulator.root, accumulator.count,
+        2, "profile:2")
+    check("P50ba router rejects fake, unauthorized and discontinuous targets",
+          not active_router.record_canonical(
+              replace(canonical_756, l2_block_number=757,
+                      terminal_root="attacker-root"), caller="attacker")
+          and not active_router.activate_version(
+              protocol_version=2, execution_profile_hash="profile:2",
+              settlement="settlement:fake", imported=fake_import,
+              caller_is_version_manager=True, manifest_active=True,
+              target_runtime_approved=True, target_profile_matches=True,
+              prior_terminal_import_exact=True)
+          and not active_router.activate_version(
+              protocol_version=2, execution_profile_hash="profile:2",
+              settlement="settlement:2", imported=exact_import,
+              caller_is_version_manager=False, manifest_active=True,
+              target_runtime_approved=True, target_profile_matches=True,
+              prior_terminal_import_exact=True)
+          and not active_router.activate_version(
+              protocol_version=2, execution_profile_hash="profile:2",
+              settlement="settlement:2", imported=exact_import,
+              caller_is_version_manager=True, manifest_active=True,
+              target_runtime_approved=False, target_profile_matches=True,
+              prior_terminal_import_exact=True))
     terminal_verifier = TerminalSignalVerifier(
         checkpoint_store, "bridge:A", "domain:D1")
     failed_index = destination.terminal_index[credit_a]
