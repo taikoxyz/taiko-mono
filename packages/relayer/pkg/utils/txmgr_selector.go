@@ -115,9 +115,11 @@ func (s *TxMgrSelector) RecordFailure(index int) {
 	}
 }
 
-// RecordSuccess clears the failure count for the private endpoint at index. Only consecutive
-// failures trip an endpoint, so one transaction it could not land does not cost it its turn. An
-// index outside the private list is ignored.
+// RecordSuccess returns the private endpoint at index to full health. Only consecutive failures
+// trip an endpoint, so one transaction it could not land does not cost it its turn. A send that
+// lands after the endpoint was already tripped — one that was in flight when it went out of
+// rotation — also re-admits it: an endpoint that just landed a transaction is not down. An index
+// outside the private list is ignored.
 func (s *TxMgrSelector) RecordSuccess(index int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -127,6 +129,7 @@ func (s *TxMgrSelector) RecordSuccess(index int) {
 	}
 
 	s.failures[index] = 0
+	s.failedAt[index] = time.Time{}
 }
 
 // NumPrivateTxMgrs returns how many private endpoints the selector was configured with.

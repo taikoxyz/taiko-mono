@@ -280,3 +280,21 @@ func TestTxMgrSelector_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
 	mgr, _ = s.Select()
 	assert.Same(t, first, mgr)
 }
+
+func TestTxMgrSelector_RecordSuccessReadmitsATrippedEndpoint(t *testing.T) {
+	s, _, first, second, _ := newTestSelector(t, nil)
+
+	trip(s, 0)
+
+	mgr, _ := s.Select()
+	require.Same(t, second, mgr)
+
+	// A send that was already in flight when the endpoint went out of rotation can still land. An
+	// endpoint that just landed a transaction is not down, so it goes straight back into rotation
+	// rather than sitting out the rest of the interval.
+	s.RecordSuccess(0)
+
+	mgr, index := s.Select()
+	assert.Same(t, first, mgr)
+	assert.Equal(t, 0, index)
+}

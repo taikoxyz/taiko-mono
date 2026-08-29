@@ -597,7 +597,7 @@ func Test_sendProcessMessageCall_failsOverToTheNextPrivateEndpoint(t *testing.T)
 	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
 
 	event := newProcessMessageEvent(100)
-	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures)
+	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))
 
 	// Each failed send is requeued by the caller rather than lost, so the retries are the sends
 	// below. It takes a run of them to conclude the endpoint itself is down.
@@ -608,7 +608,7 @@ func Test_sendProcessMessageCall_failsOverToTheNextPrivateEndpoint(t *testing.T)
 
 	assert.Equal(t,
 		float64(utils.DefaultPrivateTxMgrFailureThreshold),
-		testutil.ToFloat64(relayer.PrivateTxMgrFailures)-failuresBefore,
+		testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))-failuresBefore,
 		"private endpoint failures should be visible in metrics",
 	)
 
@@ -731,7 +731,7 @@ func Test_sendProcessMessageCall_keepsUsingThePublicEndpointAfterItFails(t *test
 	public := &countingTxManager{err: errors.New("dial tcp: connect: connection refused")}
 	p.txmgrSelector = utils.NewTxMgrSelector(public, nil, nil)
 
-	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures)
+	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))
 
 	// Nothing sits behind the public endpoint, so its failure is neither counted as a private
 	// endpoint failure nor allowed to take it out of rotation.
@@ -741,5 +741,54 @@ func Test_sendProcessMessageCall_keepsUsingThePublicEndpointAfterItFails(t *test
 	}
 
 	assert.Equal(t, 2, public.calls)
-	assert.Equal(t, float64(0), testutil.ToFloat64(relayer.PrivateTxMgrFailures)-failuresBefore)
+	assert.Equal(t, float64(0),
+		testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))-failuresBefore)
+}
+
+func Test_sendProcessMessageCall_countsSendingPubliclyWhilePrivateIsConfigured(t *testing.T) {
+	p := newTestProcessor(false)
+
+	connectionRefused := errors.New("dial tcp: connect: connection refused")
+	public := &countingTxManager{receipt: successfulReceipt()}
+	first := &countingTxManager{err: connectionRefused}
+	second := &countingTxManager{err: connectionRefused}
+	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
+
+	event := newProcessMessageEvent(100)
+	unavailableBefore := testutil.ToFloat64(relayer.PrivateTxMgrUnavailable)
+	secondFailuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("1"))
+
+	for i := 0; i < 2*utils.DefaultPrivateTxMgrFailureThreshold; i++ {
+		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+		require.Error(t, err)
+	}
+
+	assert.Equal(t,
+		float64(utils.DefaultPrivateTxMgrFailureThreshold),
+		testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("1"))-secondFailuresBefore,
+		"failures should be attributed to the endpoint that produced them",
+	)
+
+	assert.Equal(t, unavailableBefore, testutil.ToFloat64(relayer.PrivateTxMgrUnavailable),
+		"nothing has gone out publicly yet")
+
+	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	require.NoError(t, err)
+
+	// Degrading to the public mempool is the exposure this feature removes, so it has to be
+	// visible rather than silent.
+	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateTxMgrUnavailable)-unavailableBefore)
+}
+
+func Test_sendProcessMessageCall_doesNotCountPublicSendsWhenNoPrivateIsConfigured(t *testing.T) {
+	p := newTestProcessor(false)
+	p.txmgrSelector = utils.NewTxMgrSelector(&countingTxManager{receipt: successfulReceipt()}, nil, nil)
+
+	before := testutil.ToFloat64(relayer.PrivateTxMgrUnavailable)
+
+	_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
+	require.NoError(t, err)
+
+	assert.Equal(t, before, testutil.ToFloat64(relayer.PrivateTxMgrUnavailable),
+		"a relayer that configured no private endpoint is not degraded")
 }

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -447,6 +448,17 @@ func (p *Processor) sendProcessMessageCall(
 
 	txMgr, txMgrIndex := p.txmgrSelector.Select()
 
+	if txMgrIndex == utils.PublicTxMgrIndex && p.txmgrSelector.NumPrivateTxMgrs() != 0 {
+		// Private endpoints are configured but none is in rotation, so this claim and its proof are
+		// about to reach the public mempool. That is the exposure this is meant to remove, so it is
+		// worth alerting on rather than degrading quietly.
+		relayer.PrivateTxMgrUnavailable.Inc()
+
+		slog.Warn("No private endpoint in rotation, sending ProcessMessage publicly",
+			"srcTxHash", event.Raw.TxHash.Hex(),
+		)
+	}
+
 	receipt, err := txMgr.Send(ctx, candidate)
 	if err != nil {
 		// Count the failure against the endpoint. Enough of them in a row takes it out of rotation
@@ -454,7 +466,7 @@ func (p *Processor) sendProcessMessageCall(
 		p.txmgrSelector.RecordFailure(txMgrIndex)
 
 		if txMgrIndex != utils.PublicTxMgrIndex {
-			relayer.PrivateTxMgrFailures.Inc()
+			relayer.PrivateTxMgrFailures.WithLabelValues(strconv.Itoa(txMgrIndex)).Inc()
 
 			err = fmt.Errorf("%w: %w", errPrivateTxMgrSend, err)
 		}

@@ -103,6 +103,12 @@ take one particular claim — one that would revert because a competitor already
 message, say — is still healthy for everything else, and one such claim should not push unrelated
 ones into the public mempool.
 
+Two metrics are worth alerting on. `private_tx_mgr_failures_ops_total` is labelled by the failing
+endpoint's position in the failover order, so it says which relay is unhealthy.
+`private_tx_mgr_unavailable_ops_total` counts claims that went out through `DEST_RPC_URL` while
+private endpoints were configured — that is the relayer running exposed, and matters more than any
+individual failure.
+
 ```sh
 DEST_PRIVATE_RPC_URLS=https://rpc.flashbots.net?hint=hash,https://rpc.mevblocker.io/fullprivacy
 ```
