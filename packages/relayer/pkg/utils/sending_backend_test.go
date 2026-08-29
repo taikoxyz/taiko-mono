@@ -76,7 +76,13 @@ func (f *fakeSender) SendTransaction(_ context.Context, tx *types.Transaction) e
 func (f *fakeSender) Close() { f.closed = true }
 
 func testTx() *types.Transaction {
-	return types.NewTx(&types.DynamicFeeTx{Nonce: 7, Gas: 21_000})
+	return txWithNonce(7)
+}
+
+// txWithNonce builds a transaction distinct from any other nonce, so a test can tell "this relay
+// refused three different claims" from "this relay refused the same claim three times".
+func txWithNonce(nonce uint64) *types.Transaction {
+	return types.NewTx(&types.DynamicFeeTx{Nonce: nonce, Gas: 21_000})
 }
 
 // newTestBackend builds a backend over one public endpoint and two private ones, with a clock the
@@ -103,10 +109,10 @@ func newTestBackend(t *testing.T, retryInterval *time.Duration) (
 	return b, public, first, second, clock
 }
 
-// trip refuses enough sends in a row to take a private endpoint out of rotation.
+// trip refuses enough distinct transactions in a row to take a private endpoint out of rotation.
 func trip(b *SendingBackend, index int) {
 	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
-		b.recordFailure(index)
+		b.recordFailure(index, txWithNonce(uint64(i)).Hash())
 	}
 }
 
@@ -187,14 +193,54 @@ func TestSendingBackend_TripsAnEndpointOnlyAtTheFailureThreshold(t *testing.T) {
 	b, _, first, _, _ := newTestBackend(t, nil)
 	first.err = errors.New("dial tcp: connect: connection refused")
 
+	// Distinct transactions: an endpoint refusing everything it is handed is what being down
+	// looks like, and that is the only thing that should trip it.
 	for i := 1; i < DefaultPrivateRPCFailureThreshold; i++ {
-		require.NoError(t, b.SendTransaction(context.Background(), testTx()))
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(uint64(i))))
 		require.Equal(t, []int{0, 1}, b.inRotation(), "still in rotation after %d refusals", i)
 	}
 
-	require.NoError(t, b.SendTransaction(context.Background(), testTx()))
+	require.NoError(t, b.SendTransaction(
+		context.Background(),
+		txWithNonce(uint64(DefaultPrivateRPCFailureThreshold)),
+	))
 
 	assert.Equal(t, []int{1}, b.inRotation())
+}
+
+func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T) {
+	b, public, first, _, _ := newTestBackend(t, nil)
+	// What a relay does with a claim that would revert, because a competitor already processed
+	// the message. The transaction manager resubmits the same transaction on its own, so without
+	// per-transaction attribution one such claim would spend the endpoint's whole budget.
+	first.err = errors.New("failed to get tx into the mempool")
+
+	tx := testTx()
+
+	for i := 0; i < 3*DefaultPrivateRPCFailureThreshold; i++ {
+		require.NoError(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Equal(t, []int{0, 1}, b.inRotation(),
+		"one claim a relay will not take must not cost it its turn for every other message")
+	assert.Equal(t, 1, b.failures[0], "the same transaction is charged once, however often it is retried")
+	assert.Empty(t, public.sent, "unrelated claims must not be pushed into the public mempool")
+}
+
+func TestSendingBackend_ChargesEachDistinctTransactionOnce(t *testing.T) {
+	b, _, first, _, _ := newTestBackend(t, nil)
+	first.err = errors.New("failed to get tx into the mempool")
+
+	// The same claim retried, then a different one: the second is new information about the
+	// endpoint, the retries are not.
+	for i := 0; i < 5; i++ {
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(1)))
+	}
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(2)))
+
+	assert.Equal(t, 2, b.failures[0])
+	assert.Equal(t, []int{0, 1}, b.inRotation())
 }
 
 func TestSendingBackend_GoesPublicOnlyOnceEveryEndpointIsTripped(t *testing.T) {
@@ -273,7 +319,7 @@ func TestSendingBackend_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
 	require.Equal(t, []int{0, 1}, b.inRotation())
 
 	// The spent count must not carry over, or the first refusal after recovery would trip it again.
-	b.recordFailure(0)
+	b.recordFailure(0, txWithNonce(99).Hash())
 
 	assert.Equal(t, []int{0, 1}, b.inRotation())
 }

@@ -3,6 +3,7 @@ package processor
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -114,12 +115,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	// Order is preserved: sends are offered to these in the order they were given.
-	privateRPCUrls := make([]string, 0, len(c.StringSlice(flags.DestPrivateRPCUrls.Name)))
-
-	for _, url := range c.StringSlice(flags.DestPrivateRPCUrls.Name) {
-		if url = strings.TrimSpace(url); url != "" {
-			privateRPCUrls = append(privateRPCUrls, url)
-		}
+	privateRPCUrls, err := parsePrivateRPCUrls(c.StringSlice(flags.DestPrivateRPCUrls.Name))
+	if err != nil {
+		return nil, err
 	}
 
 	return &Config{
@@ -202,4 +200,44 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return q, nil
 		},
 	}, nil
+}
+
+// parsePrivateRPCUrls trims and validates the configured private endpoints, preserving order and
+// skipping blank entries, which a trailing separator in an env var leaves behind.
+//
+// Only http and https are accepted. Those transports are built without contacting the endpoint, so
+// a relay that is down cannot stop the processor from starting; ws and ipc connect while dialling,
+// which would make startup depend on a relay being up. A rejected URL fails startup on purpose:
+// quietly dropping one would leave the relayer broadcasting publicly while its operator believed
+// otherwise.
+func parsePrivateRPCUrls(configured []string) ([]string, error) {
+	urls := make([]string, 0, len(configured))
+
+	for _, raw := range configured {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+
+		parsed, err := url.Parse(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s entry: %w", flags.DestPrivateRPCUrls.Name, err)
+		}
+
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return nil, fmt.Errorf(
+				"invalid %s entry: scheme %q is not supported, use http or https",
+				flags.DestPrivateRPCUrls.Name,
+				parsed.Scheme,
+			)
+		}
+
+		if parsed.Host == "" {
+			return nil, fmt.Errorf("invalid %s entry: no host", flags.DestPrivateRPCUrls.Name)
+		}
+
+		urls = append(urls, raw)
+	}
+
+	return urls, nil
 }

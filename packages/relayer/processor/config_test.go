@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
@@ -258,4 +259,76 @@ func TestNewConfigFromCliContext_PrivateRPCUrlsAsOneCommaSeparatedValue(t *testi
 		"--"+flags.DestPrivateRPCUrls.Name,
 		"https://rpc.flashbots.net?hint=hash, https://rpc.mevblocker.io/fullprivacy",
 	)))
+}
+
+func TestParsePrivateRPCUrls(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured []string
+		want       []string
+		wantErr    string
+	}{
+		{
+			name:       "none configured",
+			configured: nil,
+			want:       []string{},
+		},
+		{
+			name:       "order is the failover order and has to survive parsing",
+			configured: []string{"https://rpc.flashbots.net?hint=hash", "https://rpc.mevblocker.io/fullprivacy"},
+			want:       []string{"https://rpc.flashbots.net?hint=hash", "https://rpc.mevblocker.io/fullprivacy"},
+		},
+		{
+			// A trailing separator or padded entry is easy to leave in a deployment env var.
+			name:       "blank and padded entries are skipped",
+			configured: []string{" https://rpc.flashbots.net ", "", "   "},
+			want:       []string{"https://rpc.flashbots.net"},
+		},
+		{
+			name:       "plain http is allowed",
+			configured: []string{"http://localhost:8545"},
+			want:       []string{"http://localhost:8545"},
+		},
+		{
+			// http and https transports are built without contacting the endpoint, so a relay
+			// that is down cannot stop the processor starting. ws dials while connecting, which
+			// would make startup depend on a relay being up.
+			name:       "websocket is rejected",
+			configured: []string{"wss://rpc.example.com"},
+			wantErr:    "scheme \"wss\" is not supported",
+		},
+		{
+			name:       "a bare host with no scheme is rejected",
+			configured: []string{"rpc.flashbots.net"},
+			wantErr:    "is not supported",
+		},
+		{
+			// Quietly dropping this would leave the relayer broadcasting publicly while its
+			// operator believed otherwise, which is the whole exposure this feature removes.
+			name:       "an unparseable entry is rejected rather than skipped",
+			configured: []string{"https://rpc.flashbots.net", "https://  bad host"},
+			wantErr:    "invalid",
+		},
+		{
+			name:       "a scheme with no host is rejected",
+			configured: []string{"https://"},
+			wantErr:    "no host",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parsePrivateRPCUrls(tt.configured)
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Nil(t, got, "a rejected configuration must not yield a partial endpoint list")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

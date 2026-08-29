@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -18,13 +19,15 @@ import (
 // been tripped.
 const DefaultPrivateRPCRetryInterval = 5 * time.Minute
 
-// DefaultPrivateRPCFailureThreshold is how many consecutive failures take a private endpoint out of
-// rotation.
+// DefaultPrivateRPCFailureThreshold is how many consecutive transactions an endpoint has to refuse
+// before it is taken out of rotation.
 //
-// One failure is not enough. A relay that drops a single transaction — because that transaction
-// would revert, say, which is what happens when a competitor already claimed the message — is still
+// One is not enough. A relay that drops a single transaction — because that transaction would
+// revert, say, which is what happens when a competitor already claimed the message — is still
 // healthy for every other message. Tripping on it would route unrelated claims through the public
 // mempool, which is the thing this is meant to avoid.
+//
+// The transactions also have to be distinct; see recordFailure.
 const DefaultPrivateRPCFailureThreshold = 3
 
 // urlInErrorText matches a URL inside an error message, so it can be kept out of the logs.
@@ -58,6 +61,7 @@ type SendingBackend struct {
 	private          []TxSender
 	failures         []int
 	failedAt         []time.Time
+	lastCharged      []common.Hash
 	failureThreshold int
 	retryInterval    time.Duration
 	now              func() time.Time
@@ -83,6 +87,7 @@ func NewSendingBackend(
 		private:          private,
 		failures:         make([]int, len(private)),
 		failedAt:         make([]time.Time, len(private)),
+		lastCharged:      make([]common.Hash, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		retryInterval:    interval,
 		now:              time.Now,
@@ -137,7 +142,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			return err
 		}
 
-		b.recordFailure(i)
+		b.recordFailure(i, tx.Hash())
 		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(i)).Inc()
 
 		slog.Warn("Private endpoint refused a transaction",
@@ -208,6 +213,7 @@ func (b *SendingBackend) inRotation() []int {
 			// again on its first failure.
 			b.failedAt[i] = time.Time{}
 			b.failures[i] = 0
+			b.lastCharged[i] = common.Hash{}
 		}
 
 		indices = append(indices, i)
@@ -216,12 +222,24 @@ func (b *SendingBackend) inRotation() []int {
 	return indices
 }
 
-// recordFailure counts a refused send against the endpoint at index, taking it out of rotation once
-// it has refused failureThreshold sends in a row.
-func (b *SendingBackend) recordFailure(index int) {
+// recordFailure counts a refused transaction against the endpoint at index, taking it out of
+// rotation once it has refused failureThreshold distinct transactions in a row.
+//
+// Refusing the same transaction again is not counted. A relay that will not take one particular
+// claim — one that would revert because a competitor already processed the message — looks exactly
+// like a relay that is down if you only count errors, and the transaction manager resubmits the
+// same transaction repeatedly, so one such claim could spend the whole budget on its own. Requiring
+// distinct transactions separates the two without having to classify error strings: an endpoint
+// that is genuinely down refuses whatever it is handed, so it still trips.
+func (b *SendingBackend) recordFailure(index int, txHash common.Hash) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if b.failures[index] > 0 && b.lastCharged[index] == txHash {
+		return
+	}
+
+	b.lastCharged[index] = txHash
 	b.failures[index]++
 
 	if b.failures[index] >= b.failureThreshold {
@@ -238,4 +256,5 @@ func (b *SendingBackend) recordSuccess(index int) {
 
 	b.failures[index] = 0
 	b.failedAt[index] = time.Time{}
+	b.lastCharged[index] = common.Hash{}
 }
