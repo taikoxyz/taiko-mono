@@ -947,9 +947,12 @@ git commit -m "docs(protocol): model atomic seat migration handshake"
 
 **Files:**
 
+- Modify: `packages/protocol/docs/preconfirmation-v2/seat-market-model.py`
+- Modify: `packages/protocol/docs/preconfirmation-v2/settlement-window-model.py`
 - Modify: `packages/protocol/docs/preconfirmation-v2/commitment-model.py`
 - Create: `packages/protocol/docs/preconfirmation-v2/seat-market-vectors.json`
 - Modify: `packages/protocol/docs/preconfirmation-v2/test-seat-market.py`
+- Modify: `packages/protocol/docs/preconfirmation-v2/test-settlement-window.py`
 - Reference: `docs/superpowers/specs/2026-08-29-seat-market-freeze-repair-design.md:154`
 
 - [ ] **Step 1: Add failing golden-vector assertions**
@@ -980,11 +983,15 @@ python3 test-seat-market.py
 
 Expected: FAIL because the JSON vectors/domains are not yet present.
 
-- [ ] **Step 3: Implement fixed-width encodings in `commitment-model.py`**
+- [ ] **Step 3: Reuse one fixed-width identity codec in the model and vectors**
 
-Reuse the existing Ethereum Keccak and width-check helpers. Do not introduce `hashlib.sha3_256`,
-dynamic ABI encoding, implicit address padding, or silent narrowing. Expose one deterministic mapping
-of vector name to lowercase `0x` hash.
+Keep `seat-market-model.py` as the single implementation of the already-frozen identity domains and
+fixed-width field encodings. Reuse its exact functions from `settlement-window-model.py` and
+`commitment-model.py`; do not create another codec that can diverge from either state machine.
+Continue using the existing Ethereum Keccak and width-check helpers. Do not introduce
+`hashlib.sha3_256`, dynamic ABI encoding, implicit address padding, or silent narrowing. Expose one
+deterministic mapping of vector name to lowercase `0x` hash, and assert that every Market and
+Settlement state-machine identity equals the vector mapping for the same inputs.
 
 - [ ] **Step 4: Generate and then pin `seat-market-vectors.json`**
 
@@ -997,6 +1004,7 @@ on every subsequent run.
 ```bash
 python3 commitment-model.py
 python3 test-seat-market.py
+python3 test-settlement-window.py
 ```
 
 Expected: all vectors pass and the output prints the exact new total count.
@@ -1005,8 +1013,11 @@ Expected: all vectors pass and the output prints the exact new total count.
 
 ```bash
 git add packages/protocol/docs/preconfirmation-v2/commitment-model.py \
+  packages/protocol/docs/preconfirmation-v2/seat-market-model.py \
+  packages/protocol/docs/preconfirmation-v2/settlement-window-model.py \
   packages/protocol/docs/preconfirmation-v2/seat-market-vectors.json \
-  packages/protocol/docs/preconfirmation-v2/test-seat-market.py
+  packages/protocol/docs/preconfirmation-v2/test-seat-market.py \
+  packages/protocol/docs/preconfirmation-v2/test-settlement-window.py
 git commit -m "docs(protocol): freeze seat market commitment vectors"
 ```
 
