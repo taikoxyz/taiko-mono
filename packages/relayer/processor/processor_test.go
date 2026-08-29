@@ -460,3 +460,37 @@ func TestHandleUnprofitableMessageSurvivesQueueErrors(t *testing.T) {
 	_, nacked := q.counts()
 	assert.Equal(t, 1, nacked)
 }
+
+func TestDialPrivateSenders(t *testing.T) {
+	t.Run("no endpoints configured", func(t *testing.T) {
+		senders, err := dialPrivateSenders(context.Background(), nil)
+
+		require.NoError(t, err)
+		assert.Empty(t, senders)
+	})
+
+	t.Run("order is preserved and no endpoint is contacted", func(t *testing.T) {
+		// Nothing is listening on either port. http clients are built without dialling, so this
+		// has to succeed — a private relay being down must never stop the processor starting.
+		senders, err := dialPrivateSenders(context.Background(), []string{
+			"http://127.0.0.1:1",
+			"https://127.0.0.1:2",
+		})
+
+		require.NoError(t, err)
+		assert.Len(t, senders, 2)
+	})
+
+	t.Run("a failing endpoint closes the ones already opened", func(t *testing.T) {
+		// A scheme the RPC client has no transport for fails after the first client is already
+		// open. Nothing owns that client yet, so it has to be closed here or it leaks for the
+		// life of the process.
+		senders, err := dialPrivateSenders(context.Background(), []string{
+			"http://127.0.0.1:1",
+			"ftp://127.0.0.1:2",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, senders, "a partial list would leave the relayer believing it is private")
+	})
+}

@@ -274,35 +274,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	// behind the single transaction manager below: separate managers over the same key would each
 	// resolve the nonce against their own endpoint, and a private endpoint does not gossip, so two
 	// concurrent claims could be signed with the same nonce.
-	privateSenders := make([]*ethclient.Client, 0, len(cfg.DestPrivateRPCUrls))
-
-	// Nothing owns these until the backend below does, so a failure part-way through has to hand
-	// back the ones already dialled rather than leak them.
-	closePrivateSenders := func() {
-		for _, client := range privateSenders {
-			client.Close()
-		}
-	}
-
-	for _, url := range cfg.DestPrivateRPCUrls {
-		client, err := ethclient.DialContext(ctx, url)
-		if err != nil {
-			closePrivateSenders()
-
-			return err
-		}
-
-		privateSenders = append(privateSenders, client)
-	}
-
-	senders := make([]utils.TxSender, 0, len(privateSenders))
-	for _, client := range privateSenders {
-		senders = append(senders, client)
+	privateSenders, err := dialPrivateSenders(ctx, cfg.DestPrivateRPCUrls)
+	if err != nil {
+		return err
 	}
 
 	sendingBackend := utils.NewSendingBackend(
 		txmgrConfig.Backend,
-		senders,
+		privateSenders,
 		&cfg.PrivateRPCRetryInterval,
 	)
 	txmgrConfig.Backend = sendingBackend
@@ -378,6 +357,36 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	slog.Info("minFeeToProcess", "minFeeToProcess", p.minFeeToProcess)
 
 	return nil
+}
+
+// dialPrivateSenders opens a client for each private endpoint, preserving the configured failover
+// order. Nothing owns these until the sending backend does, so a URL that fails part-way through
+// closes the clients already opened rather than leaking them for the life of the process.
+//
+// For http and https the client is built without contacting the endpoint, so a relay that is down
+// does not fail this; config parsing rejects every other scheme for that reason.
+func dialPrivateSenders(ctx context.Context, urls []string) ([]utils.TxSender, error) {
+	clients := make([]*ethclient.Client, 0, len(urls))
+
+	for _, url := range urls {
+		client, err := ethclient.DialContext(ctx, url)
+		if err != nil {
+			for _, opened := range clients {
+				opened.Close()
+			}
+
+			return nil, err
+		}
+
+		clients = append(clients, client)
+	}
+
+	senders := make([]utils.TxSender, 0, len(clients))
+	for _, client := range clients {
+		senders = append(senders, client)
+	}
+
+	return senders, nil
 }
 
 func (p *Processor) Name() string {
