@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -547,4 +548,154 @@ func processorHeaderWithBaseFee(baseFee *big.Int) *types.Header {
 	header.BaseFee = baseFee
 
 	return &header
+}
+
+// msgStatusErrBridge fails the message status read, as an unreachable destination node would.
+type msgStatusErrBridge struct {
+	mock.Bridge
+	err error
+}
+
+func (b *msgStatusErrBridge) MessageStatus(_ *bind.CallOpts, _ [32]byte) (uint8, error) {
+	return 0, b.err
+}
+
+func Test_eventStatusFromMsgHash(t *testing.T) {
+	p := newTestProcessor(false)
+
+	status, err := p.eventStatusFromMsgHash(context.Background(), mock.SuccessMsgHash)
+
+	require.NoError(t, err)
+	assert.Equal(t, relayer.EventStatusNew, status)
+}
+
+func Test_eventStatusFromMsgHashReturnsTheCallError(t *testing.T) {
+	p := newTestProcessor(false)
+	p.destBridge = &msgStatusErrBridge{err: errors.New("dial tcp: connect: connection refused")}
+
+	// An unreadable status must not read as EventStatusNew, which is the value a zero would give:
+	// that would send a claim for a message that may already be processed.
+	status, err := p.eventStatusFromMsgHash(context.Background(), mock.SuccessMsgHash)
+
+	require.ErrorContains(t, err, "svc.destBridge.MessageStatus")
+	assert.Equal(t, relayer.EventStatus(0), status)
+}
+
+// blockErrClient fails the block lookup the base fee is derived from.
+type blockErrClient struct {
+	mock.EthClient
+}
+
+func (c *blockErrClient) BlockByNumber(_ context.Context, _ *big.Int) (*types.Block, error) {
+	return nil, errors.New("dial tcp: connect: connection refused")
+}
+
+func Test_getBaseFeeReturnsTheBlockError(t *testing.T) {
+	p := newTestProcessor(false)
+	p.destEthClient = &blockErrClient{}
+
+	baseFee, err := p.getBaseFee(context.Background())
+
+	require.ErrorContains(t, err, "connection refused")
+	assert.Nil(t, baseFee)
+}
+
+func Test_relayerFeeFromReceiptIgnoresUnrelatedLogs(t *testing.T) {
+	p := newTestProcessor(false)
+
+	// Logs from another contract, or for another message, must not be decoded as this claim's
+	// MessageProcessed event: the fee that comes out drives the profitability accounting.
+	receipt := &types.Receipt{
+		Logs: []*types.Log{
+			nil,
+			{Address: common.HexToAddress("0xdead"), Topics: []common.Hash{{}, {}}},
+			{Address: p.cfg.DestBridgeAddress, Topics: []common.Hash{{}}},
+		},
+	}
+
+	fee, err := p.relayerFeeFromReceipt(
+		context.Background(),
+		receipt,
+		&bridge.BridgeMessageSent{MsgHash: [32]byte{1}},
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, fee)
+}
+
+// balanceErrClient fails the balance read the relayer gauge is fed from.
+type balanceErrClient struct {
+	mock.EthClient
+}
+
+func (c *balanceErrClient) BalanceAt(_ context.Context, _ common.Address, _ *big.Int) (*big.Int, error) {
+	return nil, errors.New("dial tcp: connect: connection refused")
+}
+
+func Test_logRelayerBalanceToleratesAFailedRead(t *testing.T) {
+	p := newTestProcessor(false)
+	p.destEthClient = &balanceErrClient{}
+
+	before := testutil.ToFloat64(relayer.RelayerKeyBalanceGauge)
+
+	// The balance is only reported, never acted on, so a node that will not answer must not stop
+	// the claim that triggered the read.
+	assert.NotPanics(t, func() { p.logRelayerBalance(context.Background()) })
+
+	assert.Equal(t, before, testutil.ToFloat64(relayer.RelayerKeyBalanceGauge),
+		"a failed read must not publish a stale or zero balance")
+}
+
+func Test_saveMessageStatusChangedEventSkipsAReceiptWithoutTheEvent(t *testing.T) {
+	repo := mock.NewEventRepository()
+	p := newTestProcessor(false)
+	p.eventRepo = repo
+
+	// Nothing in this receipt is a MessageStatusChanged, so there is no status to record. Saving
+	// anything here would put a row with a zero status into the event table.
+	receipt := &types.Receipt{
+		TxHash: common.HexToHash("0xabc"),
+		Logs: []*types.Log{
+			nil,
+			{Topics: []common.Hash{}},
+			{Topics: []common.Hash{common.HexToHash("0xdead")}},
+		},
+	}
+
+	err := p.saveMessageStatusChangedEvent(context.Background(), receipt, &bridge.BridgeMessageSent{
+		Message: bridge.IBridgeMessage{SrcChainId: 1, DestChainId: 2},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, repo.SavedCount())
+}
+
+// singleReceiptClient returns a receipt whose logs the test controls.
+type singleReceiptClient struct {
+	mock.EthClient
+	receipt *types.Receipt
+}
+
+func (c *singleReceiptClient) TransactionReceipt(
+	_ context.Context,
+	_ common.Hash,
+) (*types.Receipt, error) {
+	return c.receipt, nil
+}
+
+func Test_processSingleSkipsLogsThatAreNotMessageSent(t *testing.T) {
+	p := newTestProcessor(false)
+
+	txHash := mock.SucceedTxHash
+	p.targetTxHash = &txHash
+	p.srcEthClient = &singleReceiptClient{receipt: &types.Receipt{
+		Logs: []*types.Log{
+			{Topics: []common.Hash{}},
+			{Topics: []common.Hash{common.HexToHash("0xdead")}},
+		},
+	}}
+
+	// A targeted transaction that emitted no MessageSent has nothing to claim, and that is a
+	// clean outcome rather than an error.
+	assert.NoError(t, p.processSingle(context.Background()))
 }

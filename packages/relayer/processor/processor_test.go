@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
@@ -57,12 +60,24 @@ func newTestProcessor(profitableOnly bool) *Processor {
 }
 
 type recordingQueue struct {
+	mu             sync.Mutex
 	publishErr     error
+	ackErr         error
+	nackErr        error
 	publishedBody  []byte
 	publishedQueue string
 	acked          int
 	nacked         int
 	requeued       bool
+}
+
+// counts reads the tallies under the lock, for tests where the queue is driven from the
+// goroutine eventLoop spawns rather than from the test's own.
+func (q *recordingQueue) counts() (acked, nacked int) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	return q.acked, q.nacked
 }
 
 func (q *recordingQueue) Start(ctx context.Context, queueName string) error { return nil }
@@ -80,20 +95,30 @@ func (q *recordingQueue) Publish(
 	headers map[string]interface{},
 	expiration *string,
 ) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	q.publishedQueue = queueName
 	q.publishedBody = msg
 
 	return q.publishErr
 }
 func (q *recordingQueue) Ack(ctx context.Context, msg queue.Message) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	q.acked++
-	return nil
+
+	return q.ackErr
 }
 func (q *recordingQueue) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	q.nacked++
 	q.requeued = requeue
 
-	return nil
+	return q.nackErr
 }
 
 func TestHandleProcessMessageResultNacksWhenUnprofitableRepublishFails(t *testing.T) {
@@ -175,4 +200,263 @@ func TestHandleProcessMessageResultRequeuesDeadlineExceeded(t *testing.T) {
 	assert.Equal(t, 0, q.acked)
 	assert.Equal(t, 1, q.nacked)
 	assert.True(t, q.requeued)
+}
+
+func TestHandleProcessMessageResultAcksUnprocessableMessages(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	// An unprocessable message will never succeed, so requeueing it would spin forever. It is
+	// acked away deliberately.
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		true,
+		0,
+		errUnprocessable,
+	)
+
+	assert.Equal(t, 1, q.acked)
+	assert.Equal(t, 0, q.nacked)
+}
+
+func TestHandleProcessMessageResultRespectsShouldRequeueOnUnknownErrors(t *testing.T) {
+	for _, shouldRequeue := range []bool{true, false} {
+		t.Run(fmt.Sprintf("shouldRequeue=%v", shouldRequeue), func(t *testing.T) {
+			q := &recordingQueue{}
+			p := newTestProcessor(false)
+			p.queue = q
+
+			// An error the classifier does not recognise leaves the decision to the caller, which
+			// knows whether the message is worth another attempt.
+			p.handleProcessMessageResult(
+				context.Background(),
+				queue.Message{Body: []byte(`{}`)},
+				shouldRequeue,
+				0,
+				errors.New("execution reverted"),
+			)
+
+			assert.Equal(t, 0, q.acked)
+			assert.Equal(t, 1, q.nacked)
+			assert.Equal(t, shouldRequeue, q.requeued)
+		})
+	}
+}
+
+func TestHandleProcessMessageResultAcksOnSuccess(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	p.handleProcessMessageResult(context.Background(), queue.Message{Body: []byte(`{}`)}, false, 0, nil)
+
+	assert.Equal(t, 1, q.acked)
+	assert.Equal(t, 0, q.nacked)
+}
+
+func TestHandleProcessMessageResultRequeuesOnSuccessWhenAsked(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	// No error, but the caller knows the message is not done — a message waiting on quota, say.
+	p.handleProcessMessageResult(context.Background(), queue.Message{Body: []byte(`{}`)}, true, 0, nil)
+
+	assert.Equal(t, 0, q.acked)
+	assert.Equal(t, 1, q.nacked)
+	assert.True(t, q.requeued)
+}
+
+func TestHandleUnprofitableMessageNacksUndecodableBodies(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	// A body that will not decode cannot be republished with an incremented retry count, and
+	// requeueing it unchanged would loop on the same decode failure.
+	p.handleUnprofitableMessage(context.Background(), queue.Message{Body: []byte(`not json`)}, 0)
+
+	assert.Equal(t, 0, q.acked)
+	assert.Equal(t, 1, q.nacked)
+	assert.False(t, q.requeued)
+	assert.Nil(t, q.publishedBody, "nothing should reach the unprofitable queue")
+}
+
+func TestHandleUnprofitableMessagePublishesToTheUnprofitableQueue(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	p.handleUnprofitableMessage(context.Background(), queue.Message{Body: []byte(`{}`)}, 4)
+
+	assert.Equal(t, p.queueName()+"-unprofitable", q.publishedQueue)
+	assert.Equal(t, 1, q.acked)
+	assert.Equal(t, 0, q.nacked)
+
+	var published queue.QueueMessageSentBody
+
+	assert.NoError(t, json.Unmarshal(q.publishedBody, &published))
+	assert.Equal(t, uint64(5), published.TimesRetried)
+}
+
+func TestIsTransientProcessMessageError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "cancelled context", err: context.Canceled, want: true},
+		{
+			// A send that ran out of time matches none of the substrings below, so it needs the
+			// explicit case; without it a slow endpoint silently loses the claim.
+			name: "deadline exceeded",
+			err:  context.DeadlineExceeded,
+			want: true,
+		},
+		{
+			name: "deadline exceeded, wrapped",
+			err:  fmt.Errorf("send failed: %w", context.DeadlineExceeded),
+			want: true,
+		},
+		{name: "i/o timeout", err: errors.New("read tcp: i/o timeout"), want: true},
+		{name: "connection refused", err: errors.New("dial tcp: connect: connection refused"), want: true},
+		{
+			// A relay refusing one transaction is transient for the message, which is retried
+			// against the endpoint behind it.
+			name: "relay would not take the transaction",
+			err:  errors.New("failed to get tx into the mempool"),
+			want: true,
+		},
+		{
+			// A revert will revert again. Retrying it burns gas on every attempt.
+			name: "execution reverted",
+			err:  errors.New("execution reverted"),
+			want: false,
+		},
+		{name: "nonce too low", err: errors.New("nonce too low"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isTransientProcessMessageError(tt.err))
+		})
+	}
+}
+
+func TestProcessorName(t *testing.T) {
+	assert.Equal(t, "processor", newTestProcessor(false).Name())
+}
+
+func TestEventLoopProcessesQueuedMessages(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+	p.msgCh = make(chan queue.Message, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+
+	go func() {
+		p.eventLoop(ctx)
+		close(done)
+	}()
+
+	// A body with no event decodes but has nothing to process, which resolves without touching a
+	// chain — enough to prove the loop hands messages to the result handler.
+	p.msgCh <- queue.Message{Body: []byte(`{}`)}
+
+	require.Eventually(t, func() bool {
+		_, nacked := q.counts()
+
+		return nacked == 1
+	}, 5*time.Second, 10*time.Millisecond, "the loop should have handled the message")
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("eventLoop did not return on a cancelled context")
+	}
+
+	// The loop registers itself on the WaitGroup that Close waits on, so a shutdown cannot race
+	// past a loop that is still running.
+	p.wg.Wait()
+}
+
+func TestCloseCancelsAndDrains(t *testing.T) {
+	p := newTestProcessor(false)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel = cancel
+
+	p.wg.Add(1)
+
+	go func() {
+		<-ctx.Done()
+		p.wg.Done()
+	}()
+
+	p.Close(context.Background())
+
+	// Close must cancel the work it started and wait for it before closing the db underneath it.
+	assert.ErrorIs(t, ctx.Err(), context.Canceled)
+}
+
+func TestHandleProcessMessageResultSurvivesQueueErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "ack path", err: errUnprocessable},
+		{name: "transient nack path", err: errors.New("i/o timeout")},
+		{name: "default nack path", err: errors.New("execution reverted")},
+		{name: "no error", err: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q := &recordingQueue{
+				ackErr:  errors.New("channel closed"),
+				nackErr: errors.New("channel closed"),
+			}
+			p := newTestProcessor(false)
+			p.queue = q
+
+			// A queue that will not take the acknowledgement is logged and moved past. Panicking
+			// here would take down the worker over a message that is already handled.
+			assert.NotPanics(t, func() {
+				p.handleProcessMessageResult(
+					context.Background(),
+					queue.Message{Body: []byte(`{}`)},
+					false,
+					0,
+					tt.err,
+				)
+			})
+
+			acked, nacked := q.counts()
+			assert.Equal(t, 1, acked+nacked)
+		})
+	}
+}
+
+func TestHandleUnprofitableMessageSurvivesQueueErrors(t *testing.T) {
+	q := &recordingQueue{
+		publishErr: errors.New("channel closed"),
+		nackErr:    errors.New("channel closed"),
+	}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	assert.NotPanics(t, func() {
+		p.handleUnprofitableMessage(context.Background(), queue.Message{Body: []byte(`{}`)}, 0)
+	})
+
+	_, nacked := q.counts()
+	assert.Equal(t, 1, nacked)
 }
