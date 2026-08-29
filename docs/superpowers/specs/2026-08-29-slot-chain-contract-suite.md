@@ -67,7 +67,10 @@ must never import a test verifier or a caller-configurable verifier.
 ### 4.1 Shared primitives and custody
 
 - `LibSlotChainEncoding`: byte-exact domain-separated encodings from the normative appendix.
-- `LibFixedMerkle`: depth-6, depth-9, and depth-64 trees with pinned empty nodes and bit order.
+- `LibFixedMerkle`: the depth-6 registry tree, depth-9 tranche tree, depth-11 admission
+  tree, and depth-64 force/terminal trees. Each tree has its own pinned leaf/node domains, empty
+  nodes, and bit order; callers cannot select a depth while accidentally reusing another tree's
+  hashing domain.
 - `LibMMR`: the bounded 2,100-leaf data-session frontier.
 - `LibSafeStaticCall`: exact return-length, gas-cap, and code-hash checked static calls.
 - `ISlotChainVerifier`: immutable validity-proof boundary returning only exact success magic.
@@ -114,8 +117,13 @@ callers. Any authority that exists only for bootstrap is one-shot and irreversib
   version/sequence history routing, router-owned migration gate, and atomic proof-first activation.
 - `ProtocolVersionManager`: delayed manifest and cancellation authorization, exact runtime/config
   checking, generation monotonicity, and one-shot activation consumption.
-- `MigrationCoordinator`: launch import and later proof-first cutover orchestration. It performs all
-  validation before authority transfer and keeps transfer, queue advancement, history write, old
+- one-shot `LegacySlotChainLaunchAdapter`: proves the drained legacy Inbox boundary and proxy/fork
+  topology, imports the authenticated checkpoint, supports the separately delayed launch-cancel
+  path, and permanently burns its legacy freeze/import authority after either launch or
+  cancellation.
+- later V2-to-V2 proof-first activation: authorized by `ProtocolVersionManager` and executed through
+  `ActiveSettlementRouter`, without any retained legacy import or freeze authority. It validates
+  everything before authority transfer and keeps transfer, queue advancement, history write, old
   freeze, new initialization, and router activation in one revert domain.
 - `RewardDistributor`: optional best-effort payouts from recorded receipts; its failure or
   exhaustion cannot affect canonical settlement.
@@ -133,61 +141,67 @@ after deployment.
   append-only domain routes, at most 64 contiguous-run calls, and exact return magic.
 - `InboxCreditStoreV2`: endpoint-local, callback-free, idempotent credit pins with immutable router,
   Bridge, gate, and registrar bindings.
-- `ProtocolReleaseAuthorityV2`: one-shot release-manifest authentication bound to the reserved
-  system origin and exact AnchorV4 caller.
+- `ProtocolReleaseAuthorityV2`: protocol-lifetime release-manifest authentication bound to the
+  reserved system origin and manifest namespace. Each version is one-shot; its manifest supplies
+  the exact `anchorV4` and `anchorRuntimeHash`, both of which the authority checks at activation.
 - `TerminalDomainRegistrarV2`: atomic endpoint sealing, route registration, accumulator-writer
   registration, and permanent release commitment.
 - `TerminalAccumulatorV2`: protocol-lifetime depth-64 append-only terminal vector and fixed-depth
   historical proofs.
-- `AnchorV4`: exact activation and per-block anchoring entry point for the reserved custom system
-  transaction.
+- `AnchorV4`: the profile-exact implementation installed into the authenticated legacy Anchor/fork
+  topology, providing activation and per-block anchoring for the reserved custom system
+  transaction. Its implementation, beacon, and fork-selector slots are proved against the manifest
+  rather than assumed to be a new non-proxy deployment.
 
-All L2 components are non-proxy and unpausable. The router is the only credit-store writer; the
-registrar is the only route/writer registrar; the registered Bridge is the only caller allowed to
-verify and consume its endpoint credit.
+The router, store, release authority, registrar, accumulator, and gate are non-proxy and
+unpausable. The router is the only credit-store writer; the registrar is the only route/writer
+registrar; the registered Bridge is the only caller allowed to verify its endpoint's permanent
+credit pin. The Bridge prevents replay through its own V2 lifecycle status; a successful verification
+does not consume or delete the store pin.
 
 ## 5. Dependency and Activation Rules
 
-The deployment dependency graph is intentionally acyclic:
+The normative configuration has address cycles. They are resolved only by precomputing the fixed
+deployment coordinator's CREATE nonce sequence recorded in the manifest and by the narrowly scoped
+one-shot seals below. No general post-deployment dependency setter is allowed.
 
-```text
-shared libraries/interfaces
-       |
-       +--> L1 registries / queue / sessions / schedule
-       |          |
-       |          +--> Settlement --> ActiveSettlementRouter
-       |                              |
-       |                              +--> adapters / version manager / migration
-       |
-       +--> L2 gate / authority / accumulator / router
-                  |
-                  +--> endpoint store / registrar / AnchorV4
-       |
-       +--> credit registry --> frozen Bridge facade --> vault refund components
-```
+| Relationship | Binding mechanism | Initial state and sole writer | Validation and terminal behavior |
+| --- | --- | --- | --- |
+| `ActiveSettlementRouter` <-> `ForcedQueue` | Both constructor immutables use precomputed addresses. | No setter. Queue starts with the router and launch Settlement identities fixed. | Runtime/config hashes and empty queue commitments are manifest/proof checked. Launch cancellation leaves the original authority; activation transfers only through the router's atomic path. |
+| router <-> `ProtocolVersionManager` | Constructor immutables use precomputed addresses. | No setter. | Only the manager may arm/activate an exact delayed manifest; only the router may expose/consume its exact migration generation. Cancellation restores the unchanged old authority. |
+| `Settlement` -> router/queue/registry/schedule/session/verifier/profile | Constructor immutables use precomputed addresses. | Settlement starts `PREACTIVE`; no dependency setter. | Router registration checks runtime, configuration, and profile. A failed or cancelled activation leaves it permanently inert; a successful version can later only become `FROZEN`. |
+| L2 registrar <-> inbox router/accumulator | Constructor immutables use precomputed addresses. | Registrar is their sole route/writer-registration caller. | Each version/domain/writer entry is append-only. Revert/cancel leaves every entry absent; success permanently records the exact manifest entry. |
+| endpoint store <-> registrar/Bridge/gate/inbox router | Constructor immutables use precomputed addresses; only `destinationDomainId` is sealed. | Domain starts zero; registrar is sole one-shot writer during atomic activation. | Store runtime/config and every constructor binding are checked first. Failure reverts to zero; success writes the exact manifest domain and burns the seal authority. |
+| activation gate -> AnchorV4 release path | Gate fixes the release authority/registrar activation path; Anchor identity comes from the per-version manifest. | `active=false`; only the authenticated activation transaction may set it. | Exact origin, Anchor runtime, manifest, release, and registrar effects are checked atomically. Cancellation before activation leaves it false; activation makes it permanently true. |
+| accumulator <-> destination Bridge | Registrar appends one writer binding after checking the manifest and Bridge identity. | Writer entry starts absent; registrar is sole writer. | Failed activation reverts the entry; successful registration is permanent and cannot be redirected. |
+| `BridgeCreditRegistry` <-> frozen source Bridge | Constructor immutables use precomputed addresses. | No setter. | Registry accepts only the exact Bridge; Bridge's stored registry/config and final runtime/layout are profile checked. A cancelled launch leaves both V2 paths disabled; success never permits replacement. |
+| source `BridgeInboxAdapter.destinationDomainId` | One-shot manager seal. Other adapter dependencies are constructor immutables from precomputed addresses. | Domain starts zero; `ProtocolVersionManager` is sole writer. | The active manifest, runtime/config, source generation, Bridge, registry, and router are checked. The authority bit is burned on success. A cancelled generation remains unusable because router/generation checks reject it; it is never repointed. |
+| L2 Bridge/store/accumulator endpoint identity | One-shot registrar seals for the launch legacy-proxy endpoint; fresh endpoints are immutable non-proxies. | Identity/domain/index namespaces start unset; registrar is sole writer. | The launch proof authenticates actual proxy implementation/authority/fork slots. Failure reverts all seals; success burns their authorities. A later release must exactly reproduce the stored identity. |
 
-Where two deployed addresses refer to one another, deterministic deployment order and one-shot
-sealing replace circular constructor dependencies. A seal may only change an unset value to the one
-manifest-authenticated value, validates runtime/configuration, and burns its authority in the same
-transaction.
+Every precomputed address, CREATE nonce, constructor argument, initial-zero slot, seal authority, and
+burned-authority slot is emitted into the release manifest and checked by deployment tests. A
+partially initialized cycle is invalid, not repairable through a public setter.
 
-## 6. State-Machine Rules
+## 6. State-Machine Ordering
 
-Every external state transition follows this order:
+The Appendix's exact transition ordering is normative. There is no universal effects-before-calls
+rule because several consensus transitions intentionally validate or call a fixed component before
+the final cursor/root write.
 
-1. synchronize the shared migration phase when applicable;
-2. reject if the phase does not permit the operation, before taking custody or writing a durable
-   record;
-3. validate widths, domains, sequence tags, deadlines, code hashes, configuration hashes, exact
-   return lengths, and caller authority;
-4. compute all derived identifiers and commitments using a single shared library implementation;
-5. update status, liabilities, roots, counts, cursors, and replay markers;
-6. perform only fixed-target external calls required for the atomic transition; and
-7. emit the past-tense event after state is committed.
+| Subsystem | Required ordering |
+| --- | --- |
+| Registry, schedule, and data session | Synchronize migration phase; authenticate headers/proofs and all inputs; derive commitments; then write the bounded local transition. Authentication calls are static, code-hash checked, gas capped, and occur before writes. |
+| Forced ingress | Synchronize and require `ACTIVE` before custody; validate/fund the complete descriptor; router stamps the generation; queue appends and accounts funds; a Bridge credit append then calls the fixed source Bridge to mark that exact record `QUEUED`. Any failure reverts queue and adapter effects together. |
+| L2 inbox application | Validate the entire interval, descriptors, result hashes, routes, code/config hashes, and contiguous runs before the first call; call each fixed endpoint store; require exact success magic; advance `nextQueueIndex` only after every store call succeeds. Each store validates its complete run before writing permanent idempotent pins and makes no external call. |
+| Settlement commit | Synchronize and validate candidate/context/history/queue inputs; call the immutable verifier before canonical writes; call `ForcedQueue.advanceCursor` for the exact proved interval in the specified atomic commit sequence; then write canonical core/history and best-effort reward receipt. Any queue or history failure reverts the whole commit. No reward, burn, Bridge callback, or caller-selected call occurs. |
+| Destination Bridge terminalization | Authenticate the permanent pin and lifecycle; execute the bounded recipient operation while protected against reentrancy; decide DONE/FAILED; write the terminal sentinel; call the fixed accumulator; replace the sentinel with the returned index; then expose pull-credit effects. Any failure reverts the whole terminal transition. |
+| Source Bridge finalization/recall/cancel | Verify the fixed terminal proof or deadline first; write the terminal lifecycle and reduce the exact liability; credit the owner's pull balance; transfer only in a later withdrawal call. |
+| Launch and V2 migration | Authenticate all manifests, code/configuration, old state, queue state, target proof, and output before an irreversible write. Then perform the specification's bounded freeze, authority transfer, queue advancement, target initialization/history write, and router activation in one revert domain. No caller-controlled external call occurs after authority transfer. Cancellation runs while old authority is unchanged. |
+| Pull claims and vault restoration | Authenticate the exact credit/capsule, set claimed/consumed state and reduce only the matching reserve, then perform the asset transfer/restoration. A failed transfer reverts that claim but cannot block canonical progress or other claimants. |
 
-Potentially failing asset transfers are separated from canonical commits and use pull claims.
-Canonical settlement performs no reward transfer, burn transfer, Bridge callback, or caller-selected
-external call.
+All paths still validate widths, domains, sequence tags, deadlines, code hashes, configuration hashes,
+return lengths, and caller authority before trusting an external result. All identifiers and
+commitments use the shared encoding libraries.
 
 ## 7. Cryptographic Boundary
 
@@ -229,9 +243,20 @@ Required test classes are:
 - bounded-gas tests at every normative maximum, retaining the specified 30% margin; and
 - differential tests against the three Python reference models and generated encoding vectors.
 
-Tests mirror contract paths, inherit `CommonTest`, and follow current naming conventions. The
-relevant Foundry profile is run after each focused test; all Layer 1, Layer 2, and shared suites run
-at integration boundaries.
+Tests mirror contract paths, inherit `CommonTest`, and follow current naming conventions. Layer 1,
+Layer 2, and shared contracts are always compiled and tested under their own profiles and artifact
+directories; no integration command recompiles all three under one EVM version.
+
+Cross-chain tests live under `packages/protocol/integration/slotchain/`. A TypeScript harness loads
+the already-built `out/layer1`, `out/layer2`, and `out/shared` artifacts and deploys them to separate
+Anvil instances configured for their respective chain profiles. Shared bytecode is built once under
+the oldest supported fork and deployed to either instance. The harness relays only commitment-
+authenticated outputs between chains and cannot replace a verifier or inject a root.
+
+Forge tests may directly exercise the contract effects of the reserved system call by using a test
+harness sender. They do not claim to validate the custom type-`0x7f` envelope, fork decoding,
+receipt construction, or block-level ordering. Those checks belong to the executable-profile/client
+conformance harness and real circuit vectors and remain an explicit production gate.
 
 ## 9. Round and Commit Policy
 
