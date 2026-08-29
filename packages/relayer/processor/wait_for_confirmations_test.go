@@ -53,3 +53,85 @@ func Test_waitForConfirmationsRespectsItsTimeout(t *testing.T) {
 
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
+
+// countingEthClient records how many receipt lookups the wait made.
+type countingEthClient struct {
+	mock.EthClient
+	receiptCalls int
+}
+
+func (c *countingEthClient) TransactionReceipt(
+	ctx context.Context,
+	txHash common.Hash,
+) (*types.Receipt, error) {
+	c.receiptCalls++
+
+	return c.EthClient.TransactionReceipt(ctx, txHash)
+}
+
+// Test_waitForConfirmationsReturnsWithoutPolling guards against reintroducing a stall for a
+// transaction that is already confirmed. Exactly one receipt lookup proves the wait returned on
+// its first check instead of falling through to the poll loop and sleeping until its first tick.
+func Test_waitForConfirmationsReturnsWithoutPolling(t *testing.T) {
+	p := newTestProcessor(true)
+
+	client := &countingEthClient{}
+	p.srcEthClient = client
+
+	err := p.waitForConfirmations(context.Background(), mock.SucceedTxHash)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, client.receiptCalls)
+}
+
+// Test_waitForConfirmationsDoesNotReturnEarlyWithoutConfirmations is the counterpart to the test
+// above: that first check may only short circuit when the confirmations are actually satisfied,
+// never unconditionally.
+func Test_waitForConfirmationsDoesNotReturnEarlyWithoutConfirmations(t *testing.T) {
+	p := newTestProcessor(true)
+	p.confTimeoutInSeconds = 0
+	// the mock receipt sits one block behind the latest block, so requiring more confirmations
+	// than there are blocks can never be satisfied.
+	p.confirmations = uint64(mock.BlockNum) + 1
+
+	err := p.waitForConfirmations(context.Background(), mock.SucceedTxHash)
+
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+// Test_waitForConfirmationsReturnsWhenContextIsCanceled asserts a cancelled caller context
+// unblocks the wait, and does so on the first pass rather than after a tick.
+func Test_waitForConfirmationsReturnsWhenContextIsCanceled(t *testing.T) {
+	p := newTestProcessor(true)
+
+	client := &countingEthClient{}
+	p.srcEthClient = client
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := p.waitForConfirmations(ctx, mock.NotFoundTxHash)
+
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, client.receiptCalls)
+}
+
+// Test_waitForConfirmationsReturnsConfirmedOverACanceledContext pins the precedence between
+// the two. A transaction that already holds its confirmations reports success, because they
+// are present whether or not the context survived. Before the early return this case fell
+// through to the poll loop and surfaced ctx.Err() instead, so the precedence is worth
+// stating outright rather than leaving to the order of two branches.
+func Test_waitForConfirmationsReturnsConfirmedOverACanceledContext(t *testing.T) {
+	p := newTestProcessor(true)
+
+	client := &countingEthClient{}
+	p.srcEthClient = client
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := p.waitForConfirmations(ctx, mock.SucceedTxHash)
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, client.receiptCalls)
+}

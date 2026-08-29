@@ -57,7 +57,9 @@ var (
 )
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
-// on destination chain, or context is cancelled.
+// on destination chain, or context is cancelled. A transaction that already has
+// them reports success even when the context is already cancelled: the
+// confirmations the caller asked about are present either way.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
 	checkConfs := func() error {
 		receipt, err := confirmer.TransactionReceipt(ctx, txHash)
@@ -81,7 +83,14 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		return nil
 	}
 
-	if err := checkConfs(); err != nil && err != ethereum.NotFound && err != errStillWaiting {
+	// the transaction may already have the confirmations we need, in which case
+	// we are done without ever waiting on the ticker below.
+	err := checkConfs()
+	if err == nil {
+		return nil
+	}
+
+	if err != ethereum.NotFound && err != errStillWaiting {
 		slog.Error("encountered error getting receipt", "txHash", txHash.Hex(), "error", err)
 
 		return err

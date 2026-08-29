@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockConfirmer struct{}
+type mockConfirmer struct {
+	receiptErr     error
+	blockNumberErr error
+}
 
 var (
 	notFoundTxHash = common.HexToHash("0x123")
@@ -23,6 +26,10 @@ var (
 )
 
 func (m *mockConfirmer) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	if m.receiptErr != nil {
+		return nil, m.receiptErr
+	}
+
 	if txHash == notFoundTxHash {
 		return nil, ethereum.NotFound
 	}
@@ -41,6 +48,10 @@ func (m *mockConfirmer) TransactionReceipt(ctx context.Context, txHash common.Ha
 }
 
 func (m *mockConfirmer) BlockNumber(ctx context.Context) (uint64, error) {
+	if m.blockNumberErr != nil {
+		return 0, m.blockNumberErr
+	}
+
 	return uint64(blockNum), nil
 }
 
@@ -100,15 +111,19 @@ func Test_WaitConfirmations(t *testing.T) {
 	defer cancel()
 
 	tests := []struct {
-		name    string
-		ctx     context.Context
-		confs   uint64
-		txHash  common.Hash
-		wantErr error
+		name      string
+		ctx       context.Context
+		timeout   time.Duration
+		confirmer *mockConfirmer
+		confs     uint64
+		txHash    common.Hash
+		wantErr   error
 	}{
 		{
 			"success",
 			context.Background(),
+			0,
+			&mockConfirmer{},
 			1,
 			succeedTxHash,
 			nil,
@@ -116,15 +131,58 @@ func Test_WaitConfirmations(t *testing.T) {
 		{
 			"ticker timeout",
 			timeoutTicker,
+			0,
+			&mockConfirmer{},
 			1,
 			notFoundTxHash,
 			errors.New("context deadline exceeded"),
+		},
+		{
+			// the receipt sits one block behind the latest, so asking for more
+			// confirmations than there are blocks can never be satisfied and the
+			// wait has to keep polling until the context gives out.
+			"still waiting when the confirmations are short",
+			context.Background(),
+			100 * time.Millisecond,
+			&mockConfirmer{},
+			uint64(blockNum) + 1,
+			succeedTxHash,
+			errors.New("context deadline exceeded"),
+		},
+		{
+			// a broken client is neither NotFound nor "still waiting", so it has to
+			// surface instead of being waited out.
+			"receipt lookup error",
+			context.Background(),
+			0,
+			&mockConfirmer{receiptErr: errors.New("receipt lookup failed")},
+			1,
+			succeedTxHash,
+			errors.New("receipt lookup failed"),
+		},
+		{
+			"block number lookup error",
+			context.Background(),
+			0,
+			&mockConfirmer{blockNumberErr: errors.New("block number lookup failed")},
+			1,
+			succeedTxHash,
+			errors.New("block number lookup failed"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := WaitConfirmations(tt.ctx, &mockConfirmer{}, tt.confs, tt.txHash)
+			ctx := tt.ctx
+
+			if tt.timeout > 0 {
+				var cancel context.CancelFunc
+
+				ctx, cancel = context.WithTimeout(context.Background(), tt.timeout)
+				defer cancel()
+			}
+
+			err := WaitConfirmations(ctx, tt.confirmer, tt.confs, tt.txHash)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
