@@ -111,7 +111,7 @@ type Processor struct {
 
 	cfg *Config
 
-	txmgrSelector *utils.TxMgrSelector
+	txmgr txmgr.TxManager
 
 	maxMessageRetries uint64
 
@@ -265,37 +265,45 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 	}
 
-	publicTxMgr, err := txmgr.NewSimpleTxManager(
-		"processor",
-		log.Root(),
-		new(txmgrMetrics.NoopTxMetrics),
-		*cfg.TxmgrConfigs,
-	)
+	txmgrConfig, err := txmgr.NewConfig(*cfg.TxmgrConfigs, log.Root())
 	if err != nil {
 		return err
 	}
 
-	// Private endpoints keep a processMessage call out of the public mempool, where its message and
-	// proof would be free for a competitor to copy and use to take the processing fee.
-	privateTxMgrs := make([]txmgr.TxManager, 0, len(cfg.PrivateTxmgrConfigs))
+	// Only the broadcast goes private. Reads stay on cfg.DestRPCUrl, which keeps one nonce source
+	// behind the single transaction manager below: separate managers over the same key would each
+	// resolve the nonce against their own endpoint, and a private endpoint does not gossip, so two
+	// concurrent claims could be signed with the same nonce.
+	privateSenders := make([]utils.TxSender, 0, len(cfg.DestPrivateRPCUrls))
 
-	for i, privateTxmgrConfig := range cfg.PrivateTxmgrConfigs {
-		privateTxMgr, err := txmgr.NewSimpleTxManager(
-			fmt.Sprintf("processor_private_%d", i),
-			log.Root(),
-			new(txmgrMetrics.NoopTxMetrics),
-			*privateTxmgrConfig,
-		)
+	for _, url := range cfg.DestPrivateRPCUrls {
+		client, err := ethclient.DialContext(ctx, url)
 		if err != nil {
 			return err
 		}
 
-		privateTxMgrs = append(privateTxMgrs, privateTxMgr)
+		privateSenders = append(privateSenders, client)
 	}
 
-	p.txmgrSelector = utils.NewTxMgrSelector(publicTxMgr, privateTxMgrs, &cfg.PrivateRPCRetryInterval)
+	sendingBackend := utils.NewSendingBackend(
+		txmgrConfig.Backend,
+		privateSenders,
+		&cfg.PrivateRPCRetryInterval,
+	)
+	txmgrConfig.Backend = sendingBackend
 
-	slog.Info("Processor tx managers initialized", "privateEndpoints", len(privateTxMgrs))
+	if p.txmgr, err = txmgr.NewSimpleTxManagerFromConfig(
+		"processor",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		txmgrConfig,
+	); err != nil {
+		return err
+	}
+
+	slog.Info("Processor tx manager initialized",
+		"privateEndpoints", sendingBackend.NumPrivateEndpoints(),
+	)
 
 	// Mirror the tx manager's minimum tip cap so the profitability estimate can
 	// floor the suggested tip at the same value the tx manager will pay.
@@ -559,7 +567,9 @@ func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Messa
 
 func isTransientProcessMessageError(err error) bool {
 	return errors.Is(err, context.Canceled) ||
-		errors.Is(err, errPrivateTxMgrSend) ||
+		// A send that ran out of time is worth retrying. Its text matches none of the strings
+		// below, and without this the queue would drop the claim.
+		errors.Is(err, context.DeadlineExceeded) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||

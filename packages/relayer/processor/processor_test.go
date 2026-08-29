@@ -15,7 +15,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
@@ -47,7 +46,7 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		ethClientTimeout:          10 * time.Second,
 		srcChainId:                mock.MockChainID,
 		destChainId:               mock.MockChainID,
-		txmgrSelector:             utils.NewTxMgrSelector(&mock.TxManager{}, nil, nil),
+		txmgr:                     &mock.TxManager{},
 		cfg: &Config{
 			DestBridgeAddress: common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 		},
@@ -155,4 +154,25 @@ func TestHandleProcessMessageResultPersistsUnprofitableRetryCount(t *testing.T) 
 	assert.Equal(t, uint64(3), published.TimesRetried)
 	assert.Equal(t, 1, q.acked)
 	assert.Equal(t, 0, q.nacked)
+}
+
+func TestHandleProcessMessageResultRequeuesDeadlineExceeded(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	// shouldRequeue is false on the send path, so the claim only survives if the error is
+	// recognised as transient. "context deadline exceeded" matches none of the strings the
+	// classifier looks for, which is how a timed-out send used to lose a claim outright.
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		false,
+		0,
+		context.DeadlineExceeded,
+	)
+
+	assert.Equal(t, 0, q.acked)
+	assert.Equal(t, 1, q.nacked)
+	assert.True(t, q.requeued)
 }

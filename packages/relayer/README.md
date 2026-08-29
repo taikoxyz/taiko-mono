@@ -93,21 +93,7 @@ to submit the same call, take the fee, and leave this relayer paying gas for a c
 reverts.
 
 Set `DEST_PRIVATE_RPC_URLS` to one or more endpoints that pass transactions to block builders
-without gossiping them. They are tried in the order given; one that fails several sends in a row is
-taken out of rotation for `PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default) so the next message
-falls through to the endpoint behind it, and finally to `DEST_RPC_URL`. A message whose send failed
-is requeued, so a failover costs a retry rather than the message.
-
-Only consecutive failures count, and a landed transaction clears the tally. A relay that will not
-take one particular claim — one that would revert because a competitor already processed the
-message, say — is still healthy for everything else, and one such claim should not push unrelated
-ones into the public mempool.
-
-Two metrics are worth alerting on. `private_tx_mgr_failures_ops_total` is labelled by the failing
-endpoint's position in the failover order, so it says which relay is unhealthy.
-`private_tx_mgr_unavailable_ops_total` counts claims that went out through `DEST_RPC_URL` while
-private endpoints were configured — that is the relayer running exposed, and matters more than any
-individual failure.
+without gossiping them.
 
 ```sh
 DEST_PRIVATE_RPC_URLS=https://rpc.flashbots.net?hint=hash,https://rpc.mevblocker.io/fullprivacy
@@ -117,11 +103,24 @@ Both endpoints above are free and take no service fee. Use their maximum-privacy
 the default on either shares transaction data with searchers, which is the opposite of what is
 wanted here.
 
-The processor's own reads — message status, gas estimation, base fee — keep going through
-`DEST_RPC_URL`. A private endpoint only serves the tx manager sending through it, which still means
-nonce lookups, gas price suggestions and receipt polling, so it has to answer ordinary JSON-RPC
-calls; both of the endpoints above do. If one starts rejecting those, for instance by rate limiting,
-its sends fail and it drops out of rotation until the retry interval elapses.
+Only the broadcast goes private. Nonces, gas prices, receipts and every other read still come from
+`DEST_RPC_URL`, so the relayer keeps one nonce source and its reads do not depend on a relay being
+up or within its rate limit.
+
+Endpoints are offered each transaction in the order given. Because it is the same signed
+transaction every time, offering it to the next endpoint after one refuses is idempotent — at most
+one of them can land it. An endpoint that refuses several sends in a row drops out of rotation for
+`PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default), and comes back with a fresh budget once that
+elapses. Only consecutive refusals count, and a transaction it does take clears the tally: a relay
+that will not take one particular claim — one that would revert because a competitor already
+processed the message, say — is still healthy for everything else. Only once no endpoint is left in
+rotation does a transaction go out through `DEST_RPC_URL`.
+
+Two metrics are worth alerting on. `private_rpc_failures_ops_total` is labelled by the refusing
+endpoint's position in the failover order, so it says which relay is unhealthy.
+`private_rpc_unavailable_ops_total` counts transactions that went out through `DEST_RPC_URL` while
+private endpoints were configured — that is the relayer running exposed, and matters more than any
+individual refusal.
 
 Leave this unset when the destination chain is Taiko: private relays exist for Ethereum only, so
 L1 to L2 claims keep using `DEST_RPC_URL`.

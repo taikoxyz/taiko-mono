@@ -73,10 +73,10 @@ type Config struct {
 
 	TxmgrConfigs *txmgr.CLIConfig
 
-	// PrivateTxmgrConfigs are tx manager configs for destination chain endpoints that do not
-	// broadcast to the public mempool, in priority order. Empty when none are configured, in
-	// which case every processMessage call goes through TxmgrConfigs.
-	PrivateTxmgrConfigs []*txmgr.CLIConfig
+	// DestPrivateRPCUrls are destination chain endpoints that hand transactions to block builders
+	// without broadcasting them to the public mempool, in priority order. Empty when none are
+	// configured, in which case every processMessage call goes out through DestRPCUrl.
+	DestPrivateRPCUrls []string
 	// PrivateRPCRetryInterval is how long a private endpoint is taken out of rotation after a
 	// send through it fails.
 	PrivateRPCRetryInterval time.Duration
@@ -113,21 +113,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
 	}
 
-	// One tx manager per private endpoint, identical to the public one except for where it sends.
-	// Order is preserved: the processor tries them in the order they were given.
-	privateRPCUrls := c.StringSlice(flags.DestPrivateRPCUrls.Name)
-	privateTxmgrConfigs := make([]*txmgr.CLIConfig, 0, len(privateRPCUrls))
+	// Order is preserved: sends are offered to these in the order they were given.
+	privateRPCUrls := make([]string, 0, len(c.StringSlice(flags.DestPrivateRPCUrls.Name)))
 
-	for _, url := range privateRPCUrls {
-		url = strings.TrimSpace(url)
-		if url == "" {
-			continue
+	for _, url := range c.StringSlice(flags.DestPrivateRPCUrls.Name) {
+		if url = strings.TrimSpace(url); url != "" {
+			privateRPCUrls = append(privateRPCUrls, url)
 		}
-
-		privateTxmgrConfigs = append(
-			privateTxmgrConfigs,
-			pkgFlags.InitTxmgrConfigsFromCli(url, processorPrivateKey, c),
-		)
 	}
 
 	return &Config{
@@ -168,7 +160,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			processorPrivateKey,
 			c,
 		),
-		PrivateTxmgrConfigs:     privateTxmgrConfigs,
+		DestPrivateRPCUrls:      privateRPCUrls,
 		PrivateRPCRetryInterval: c.Duration(flags.PrivateRPCRetryInterval.Name),
 		MaxMessageRetries:       c.Uint64(flags.MaxMessageRetries.Name),
 		MinFeeToProcess:         c.Uint64(flags.MinFeeToProcess.Name),

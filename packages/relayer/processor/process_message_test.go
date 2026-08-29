@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 func Test_sendProcessMessageCall(t *testing.T) {
@@ -199,7 +197,7 @@ func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
 					big.NewInt(tt.receiptBlockBaseFee),
 				),
 			}
-			p.txmgrSelector = utils.NewTxMgrSelector(&receiptTxManager{receipt: receipt}, nil, nil)
+			p.txmgr = &receiptTxManager{receipt: receipt}
 
 			profBefore := testutil.ToFloat64(relayer.ProfitableMessageAfterTransacting)
 			unprofBefore := testutil.ToFloat64(relayer.UnprofitableMessageAfterTransacting)
@@ -238,11 +236,11 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilityEvaluationErrors(t
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newTestProcessor(true)
-			p.txmgrSelector = utils.NewTxMgrSelector(&receiptTxManager{receipt: &types.Receipt{
+			p.txmgr = &receiptTxManager{receipt: &types.Receipt{
 				Status:            types.ReceiptStatusSuccessful,
 				GasUsed:           1,
 				EffectiveGasPrice: tt.effectiveGasPrice,
-			}}, nil, nil)
+			}}
 
 			before := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
 
@@ -262,12 +260,12 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilityEvaluationErrors(t
 
 func Test_sendProcessMessageCall_afterTransactingProfitabilitySkipsNilReceiptLogs(t *testing.T) {
 	p := newTestProcessor(true)
-	p.txmgrSelector = utils.NewTxMgrSelector(&receiptTxManager{receipt: &types.Receipt{
+	p.txmgr = &receiptTxManager{receipt: &types.Receipt{
 		Status:            types.ReceiptStatusSuccessful,
 		GasUsed:           1,
 		EffectiveGasPrice: big.NewInt(1),
 		Logs:              []*types.Log{nil},
-	}}, nil, nil)
+	}}
 
 	before := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
 
@@ -549,246 +547,4 @@ func processorHeaderWithBaseFee(baseFee *big.Int) *types.Header {
 	header.BaseFee = baseFee
 
 	return &header
-}
-
-// countingTxManager records the sends it received and can be made to fail, standing in for an
-// endpoint that is down.
-type countingTxManager struct {
-	mock.TxManager
-	receipt *types.Receipt
-	err     error
-	calls   int
-}
-
-func (t *countingTxManager) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
-	t.calls++
-
-	if t.err != nil {
-		return nil, t.err
-	}
-
-	return t.receipt, nil
-}
-
-func successfulReceipt() *types.Receipt {
-	return &types.Receipt{Status: types.ReceiptStatusSuccessful}
-}
-
-func Test_sendProcessMessageCall_sendsThroughThePrivateEndpoint(t *testing.T) {
-	p := newTestProcessor(false)
-
-	public := &countingTxManager{receipt: successfulReceipt()}
-	private := &countingTxManager{receipt: successfulReceipt()}
-	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{private}, nil)
-
-	_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
-	require.NoError(t, err)
-
-	assert.Equal(t, 1, private.calls, "the claim should not reach the public mempool")
-	assert.Equal(t, 0, public.calls)
-}
-
-func Test_sendProcessMessageCall_failsOverToTheNextPrivateEndpoint(t *testing.T) {
-	p := newTestProcessor(false)
-
-	public := &countingTxManager{receipt: successfulReceipt()}
-	first := &countingTxManager{err: errors.New("dial tcp: connect: connection refused")}
-	second := &countingTxManager{receipt: successfulReceipt()}
-	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
-
-	event := newProcessMessageEvent(100)
-	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))
-
-	// Each failed send is requeued by the caller rather than lost, so the retries are the sends
-	// below. It takes a run of them to conclude the endpoint itself is down.
-	for i := 0; i < utils.DefaultPrivateTxMgrFailureThreshold; i++ {
-		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-		require.Error(t, err)
-	}
-
-	assert.Equal(t,
-		float64(utils.DefaultPrivateTxMgrFailureThreshold),
-		testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))-failuresBefore,
-		"private endpoint failures should be visible in metrics",
-	)
-
-	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-	require.NoError(t, err)
-
-	assert.Equal(t, utils.DefaultPrivateTxMgrFailureThreshold, first.calls,
-		"the tripped endpoint should be out of rotation")
-	assert.Equal(t, 1, second.calls)
-	assert.Equal(t, 0, public.calls)
-}
-
-func Test_sendProcessMessageCall_failsOverToPublicOnceEveryPrivateEndpointIsDown(t *testing.T) {
-	p := newTestProcessor(false)
-
-	connectionRefused := errors.New("dial tcp: connect: connection refused")
-	public := &countingTxManager{receipt: successfulReceipt()}
-	first := &countingTxManager{err: connectionRefused}
-	second := &countingTxManager{err: connectionRefused}
-	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
-
-	event := newProcessMessageEvent(100)
-
-	for i := 0; i < 2*utils.DefaultPrivateTxMgrFailureThreshold; i++ {
-		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-		require.Error(t, err)
-	}
-
-	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-	require.NoError(t, err)
-
-	assert.Equal(t, 1, public.calls, "messages must still be processed when no private endpoint is up")
-}
-
-func Test_sendProcessMessageCall_keepsAPrivateEndpointThatDropsOneMessage(t *testing.T) {
-	p := newTestProcessor(false)
-
-	public := &countingTxManager{receipt: successfulReceipt()}
-	// A relay that will not land one particular claim — one that would revert because a competitor
-	// already processed the message — is still healthy for everything else.
-	private := &countingTxManager{err: errors.New("failed to get tx into the mempool")}
-	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{private}, nil)
-
-	event := newProcessMessageEvent(100)
-
-	for i := 0; i < utils.DefaultPrivateTxMgrFailureThreshold-1; i++ {
-		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-		require.Error(t, err)
-	}
-
-	// A message it does land clears the count, so those drops cost it nothing.
-	private.err = nil
-	private.receipt = successfulReceipt()
-
-	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-	require.NoError(t, err)
-
-	private.err = errors.New("failed to get tx into the mempool")
-
-	for i := 0; i < utils.DefaultPrivateTxMgrFailureThreshold-1; i++ {
-		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-		require.Error(t, err)
-	}
-
-	private.err = nil
-
-	_, err = p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-	require.NoError(t, err)
-
-	assert.Equal(t, 0, public.calls, "unrelated claims must not be pushed into the public mempool")
-}
-
-func Test_sendProcessMessageCall_marksPrivateSendFailuresRetryable(t *testing.T) {
-	p := newTestProcessor(false)
-
-	// "context deadline exceeded" and rate-limit responses match none of the strings the transient
-	// classifier looks for, so without the explicit marking the queue would drop the claim rather
-	// than let it retry through the endpoint behind this one.
-	for _, sendErr := range []error{context.DeadlineExceeded, errors.New("429 Too Many Requests")} {
-		private := &countingTxManager{err: sendErr}
-		p.txmgrSelector = utils.NewTxMgrSelector(
-			&countingTxManager{receipt: successfulReceipt()},
-			[]txmgr.TxManager{private},
-			nil,
-		)
-
-		_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
-
-		require.Error(t, err)
-		assert.ErrorIs(t, err, errPrivateTxMgrSend)
-		assert.ErrorIs(t, err, sendErr)
-		assert.True(t, isTransientProcessMessageError(err),
-			"a failover must requeue the message, not drop it")
-	}
-}
-
-func Test_handleProcessMessageResult_requeuesPrivateSendFailures(t *testing.T) {
-	q := &recordingQueue{}
-	p := newTestProcessor(false)
-	p.queue = q
-
-	// shouldRequeue is false on this path, so the requeue depends entirely on the error being
-	// recognised as transient.
-	p.handleProcessMessageResult(
-		context.Background(),
-		queue.Message{Body: []byte(`{}`)},
-		false,
-		0,
-		fmt.Errorf("%w: %w", errPrivateTxMgrSend, context.DeadlineExceeded),
-	)
-
-	assert.Equal(t, 0, q.acked)
-	assert.Equal(t, 1, q.nacked)
-	assert.True(t, q.requeued, "a claim must survive a private endpoint failing")
-}
-
-func Test_sendProcessMessageCall_keepsUsingThePublicEndpointAfterItFails(t *testing.T) {
-	p := newTestProcessor(false)
-
-	public := &countingTxManager{err: errors.New("dial tcp: connect: connection refused")}
-	p.txmgrSelector = utils.NewTxMgrSelector(public, nil, nil)
-
-	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))
-
-	// Nothing sits behind the public endpoint, so its failure is neither counted as a private
-	// endpoint failure nor allowed to take it out of rotation.
-	for i := 0; i < 2; i++ {
-		_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
-		require.Error(t, err)
-	}
-
-	assert.Equal(t, 2, public.calls)
-	assert.Equal(t, float64(0),
-		testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("0"))-failuresBefore)
-}
-
-func Test_sendProcessMessageCall_countsSendingPubliclyWhilePrivateIsConfigured(t *testing.T) {
-	p := newTestProcessor(false)
-
-	connectionRefused := errors.New("dial tcp: connect: connection refused")
-	public := &countingTxManager{receipt: successfulReceipt()}
-	first := &countingTxManager{err: connectionRefused}
-	second := &countingTxManager{err: connectionRefused}
-	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
-
-	event := newProcessMessageEvent(100)
-	unavailableBefore := testutil.ToFloat64(relayer.PrivateTxMgrUnavailable)
-	secondFailuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("1"))
-
-	for i := 0; i < 2*utils.DefaultPrivateTxMgrFailureThreshold; i++ {
-		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-		require.Error(t, err)
-	}
-
-	assert.Equal(t,
-		float64(utils.DefaultPrivateTxMgrFailureThreshold),
-		testutil.ToFloat64(relayer.PrivateTxMgrFailures.WithLabelValues("1"))-secondFailuresBefore,
-		"failures should be attributed to the endpoint that produced them",
-	)
-
-	assert.Equal(t, unavailableBefore, testutil.ToFloat64(relayer.PrivateTxMgrUnavailable),
-		"nothing has gone out publicly yet")
-
-	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-	require.NoError(t, err)
-
-	// Degrading to the public mempool is the exposure this feature removes, so it has to be
-	// visible rather than silent.
-	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateTxMgrUnavailable)-unavailableBefore)
-}
-
-func Test_sendProcessMessageCall_doesNotCountPublicSendsWhenNoPrivateIsConfigured(t *testing.T) {
-	p := newTestProcessor(false)
-	p.txmgrSelector = utils.NewTxMgrSelector(&countingTxManager{receipt: successfulReceipt()}, nil, nil)
-
-	before := testutil.ToFloat64(relayer.PrivateTxMgrUnavailable)
-
-	_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
-	require.NoError(t, err)
-
-	assert.Equal(t, before, testutil.ToFloat64(relayer.PrivateTxMgrUnavailable),
-		"a relayer that configured no private endpoint is not degraded")
 }

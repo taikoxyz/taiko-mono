@@ -10,16 +10,16 @@ var (
 		Name: "blocks_scanned_ops_total",
 		Help: "The total number of blocks scanned",
 	})
-	PrivateTxMgrFailures = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "private_tx_mgr_failures_ops_total",
-		Help: "The total number of times sending through a private RPC endpoint failed, " +
+	PrivateRPCFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_failures_ops_total",
+		Help: "The total number of times a private RPC endpoint refused a transaction, " +
 			"labelled by that endpoint's position in the configured failover order",
 	}, []string{"endpoint"})
-	PrivateTxMgrUnavailable = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "private_tx_mgr_unavailable_ops_total",
-		Help: "The total number of processMessage sends that went through the public endpoint " +
-			"while private endpoints were configured, meaning none was in rotation and the " +
-			"message and its proof reached the public mempool",
+	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_unavailable_ops_total",
+		Help: "The total number of transactions broadcast through the public endpoint while " +
+			"private endpoints were configured, meaning none was in rotation and the message " +
+			"and its proof reached the public mempool",
 	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
