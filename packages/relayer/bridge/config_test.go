@@ -3,6 +3,7 @@ package bridge
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
 	"github.com/urfave/cli/v2"
@@ -35,4 +36,64 @@ func TestNewConfigFromCliContextRejectsInvalidBridgeAddress(t *testing.T) {
 	})
 
 	assert.ErrorContains(t, err, "invalid srcBridgeAddress")
+}
+
+func Test_parseRequiredAddress(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr string
+	}{
+		{
+			name:  "a valid address",
+			value: "0xC4279588B8dA563D264e286E2ee7CE8c244444d6",
+		},
+		{
+			name:  "lowercase is accepted, checksum casing is not required",
+			value: "0xc4279588b8da563d264e286e2ee7ce8c244444d6",
+		},
+		{
+			name:    "not hex at all",
+			value:   "not-an-address",
+			wantErr: "invalid test address",
+		},
+		{
+			name:    "hex but the wrong length",
+			value:   "0xC4279588B8dA563D264e286E2ee7CE8c2444",
+			wantErr: "invalid test address",
+		},
+		{
+			// HexToAddress would happily return the zero address here, and a bridge pointed at it
+			// would burn every message it was given, so this has to be rejected rather than
+			// defaulted.
+			name:    "the zero address",
+			value:   "0x0000000000000000000000000000000000000000",
+			wantErr: "zero address",
+		},
+		{
+			name:    "empty",
+			value:   "",
+			wantErr: "invalid test address",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			address, err := parseRequiredAddress(tt.value, "test address")
+
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Equal(t, common.Address{}, address)
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, common.HexToAddress(tt.value), address)
+		})
+	}
+}
+
+func TestBridgeName(t *testing.T) {
+	assert.Equal(t, "bridge", new(Bridge).Name())
 }
