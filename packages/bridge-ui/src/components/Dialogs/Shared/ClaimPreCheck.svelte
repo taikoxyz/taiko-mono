@@ -7,6 +7,7 @@
   import Alert from '$components/Alert/Alert.svelte';
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
+  import { MevProtectionNotice } from '$components/MevProtection';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { Tooltip } from '$components/Tooltip';
   import { claimConfig } from '$config';
@@ -182,6 +183,9 @@
       </div>
     {/if}
   </div>
+  {#if correctChain && !onlyDestOwnerCanClaimWarning}
+    <MevProtectionNotice chainId={Number(tx.destChainId)} />
+  {/if}
   {#if !canContinue && !correctChain && !onlyDestOwnerCanClaimWarning}
     <div class="h-sep" />
     <div class="f-col space-y-[16px]">

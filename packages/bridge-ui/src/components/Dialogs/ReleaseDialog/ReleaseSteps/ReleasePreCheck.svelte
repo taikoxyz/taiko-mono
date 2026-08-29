@@ -4,6 +4,7 @@
 
   import { ActionButton } from '$components/Button';
   import { Icon } from '$components/Icon';
+  import { MevProtectionNotice } from '$components/MevProtection';
   import type { BridgeTransaction } from '$libs/bridge';
   import { getChainName } from '$libs/chain';
   import { config } from '$libs/wagmi';
@@ -55,6 +56,9 @@
       </div>
     </div>
   </div>
+  {#if correctChain}
+    <MevProtectionNotice chainId={Number(tx.srcChainId)} />
+  {/if}
   {#if !canContinue && !correctChain}
     <div class="h-sep" />
     <div class="f-col space-y-[16px]">

@@ -171,3 +171,7 @@ export class ClientError extends Error {
 export class TransactionTimeoutError extends Error {
   name = 'TransactionTimeoutError';
 }
+
+export class UnsupportedPrivateRpcError extends Error {
+  name = 'UnsupportedPrivateRpcError';
+}

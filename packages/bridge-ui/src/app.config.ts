@@ -19,6 +19,7 @@ export const pendingTransaction = {
 export const storageService = {
   bridgeTxPrefix: 'transactions',
   customTokenPrefix: 'custom-tokens',
+  mevProtectionPrefix: 'mev-protection',
 };
 
 export const bridgeTransactionPoller = {

@@ -379,6 +379,12 @@
       "switching": "Switching network"
     }
   },
+  "mev_protection": {
+    "description": "Claiming is a public transaction. Anyone watching the mempool can copy it and take the processing fee, leaving you with a failed claim you still paid gas for. {relay} relays it straight to block builders instead, at no extra cost.",
+    "enable": "Protect claims with {relay}",
+    "failed": "Your wallet did not accept the endpoint. You can still claim, but the transaction will be public.",
+    "learn_more": "How this works"
+  },
   "nav": {
     "bridge": "Bridge",
     "explorer": "Explorer",
