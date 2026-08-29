@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.21}
+\large\mdseries Audited Design Candidate --- v2.22}
 \author{}
 \date{August 2026}
 \maketitle
@@ -1192,8 +1192,14 @@ The facade contains the complete V1 and V2 state machine.  It exposes no upgrade
 selector, generic storage primitive or caller-chosen call target and never
 \code{delegatecall}s another contract.  The proxy's one unavoidable
 \code{delegatecall} therefore always targets the same profile-proved facade.
-The migration proof checks the EIP-1967 slot and the facade runtime; selector
-and fuzz corpora prove that no calldata can rewrite that slot.  The official
+The first post-cutover execution circuit directly constrains the proxy account,
+the actual EIP-1967 implementation storage word, the implementation account and
+runtime hash, and the proxy's actual upgrade-authority storage word against the
+release manifest; it does not call a getter through the implementation it is
+authenticating.  That proof transition writes a one-shot immutable
+\code{GENESIS\_LEGACY\_PROXY} identity into TerminalDomainRegistrarV2.  Selector
+and fuzz corpora prove that no calldata can rewrite the slot after the authority
+is burned.  The official
 refund-vault proxies are frozen under the same rule.  This prohibition is a
 consensus safety boundary: a scheduled delegatecall executor could overwrite
 the implementation, liability or capsule slots despite any dispatcher policy.
@@ -1277,7 +1283,10 @@ nonce, chain IDs, byte/gas fields, fee, validity, refund address, enqueue/due
 times, deposit and every bridge-credit field remain durable.  The Merkle leaf
 is always recomputed from this stored descriptor; admission atomically writes
 the descriptor, deposit/escrow accounting, append frontier and root or writes
-nothing.  Settlement reads its \code{dueAt} directly for the canonical head and
+nothing.  \code{ForcedQueue} is also the sole owner of \code{cursor}; neither
+Settlement, Protocol nor either ingress adapter has a second descriptor array,
+root, count, cursor or due-time cache.  Settlement reads the queue's
+\code{dueAt} directly for the canonical head and
 a stored best's live boundary; there is no callback, cached deadline or
 duplicated scalar.  Missing indices return \code{UINT64_MAX}.  Thus \code{dueAt}
 is nondecreasing and force-due/coverage checks are one authoritative O(1) read.
@@ -1297,19 +1306,23 @@ The deliberately unused final tree leaf avoids a nonexistent height-32
 frontier slot when the old index has all 32 bits set.
 
 Each proved block consumes the unique maximum FIFO prefix satisfying all three
-bounds simultaneously:
+bounds simultaneously.  \code{forceGasBudget} is 13,000,000 exactly for the
+first release-activation block and 20,000,000 for every steady block:
 \[
 count\le64,\qquad \sum byteLength\le1{,}048{,}576,\qquad
-\sum accountedGas\le20{,}000{,}000.
+\sum accountedGas\le forceGasBudget.
 \]
 Every admitted item individually fits all three.  The circuit exposes
 \code{(start,end,count,totalBytes,totalAccountedGas,forceRoot,forceCutoff,
-nextDueAt)} and verifies the range multiproof.  Maximality means either
+nextDueAt,forceGasBudget)} and verifies the range multiproof.  Maximality means either
 \code{end=forceCutoff}, or the authenticated next leaf would exceed at least one
 remaining per-block cap; an early stop with a fitting leaf rejects.  Candidate
 totals are independently capped as stated in \S\ref{sec:blocks}.  Launch enforces
-\code{ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN <=
-L2_BLOCK_GAS_LIMIT} and the analogous witness-byte bound.
+the separate activation and steady Anchor/force/margin inequalities in
+\S\ref{sec:implementation}, plus the analogous witness-byte bounds.  Because an
+item is at most 5,000,000 accounted gas, even the activation cap always admits
+the due FIFO head; a 20m backlog is split maximally under 13m in that one block
+and 20m thereafter rather than making activation invalid.
 
 For the candidate's exact consumed interval, Settlement reads at most 256
 descriptors plus the first excluded boundary descriptor when one exists under
@@ -1703,8 +1716,13 @@ The first AnchorV4 custom system transaction invokes selector
 with the ordinary checkpoint, complete manifest and one \code{MptProofV1}, under
 the same 132-node, 80,000-byte and 8,000,000-gas proof limits above.  Before
 activation it performs the identical checkpoint validation, ancestor update and
-state transition as steady-state \code{anchorV4}.  The circuit authenticates the transaction's exact
-\code{l1OriginStateRoot} as the finalized L1 origin for this L2 block.  Anchor
+state transition as steady-state \code{anchorV4}.  The circuit requires the
+exact equality
+\code{checkpoint.stateRoot = statement.anchorStateRoot =
+authenticatedL1Origin.stateRoot} for this L2 block; the latter is the finalized
+L1 origin selected by the profile's origin rule.  No independently supplied
+\code{l1OriginStateRoot} exists.  The release bundle includes a negative vector
+where either checkpoint or statement root differs by one bit.  Anchor
 verifies under that root the profile-pinned L1 ProtocolVersionManager account,
 runtime code hash and the exact
 \code{releaseManifestHash[protocolVersion]} storage word; it recomputes the
@@ -1742,12 +1760,16 @@ bytes, and recomputes all nine runtime/config descriptors, the exact 196-byte
 infrastructure hash and the destination domain using the separately named
 \code{destinationNamespace}.  The descriptor's Store, accumulator, gate,
 registrar and Bridge addresses must equal the corresponding manifest rows.  For
-the frozen proxy Bridge the registrar reads the exact EIP-1967 implementation
-slot through the profile-pinned fixed getter, requires exact 32-byte returndata,
-checks that implementation's \code{EXTCODEHASH} against
-\code{facadeRuntimeHash}, and requires the proxy upgrade authority to be
-irreversibly burned; the proxy's own \code{EXTCODEHASH} is not substituted for
-its implementation identity.  Components 1--3 are L1 contracts:
+the one existing Bridge, the same proof verifies the direct storage constraints
+above and the registrar accepts only the resulting immutable
+\code{GENESIS\_LEGACY\_PROXY} identity.  It never trusts delegated returndata.
+Every later fresh Bridge endpoint must instead be
+\code{IMMUTABLE\_NONPROXY}: its account \code{EXTCODEHASH} must itself equal
+\code{facadeRuntimeHash}, its component config commits that topology, and no
+implementation address, delegate target or upgrade authority may exist.  An
+already registered endpoint under a later release must reproduce the exact
+stored identity.  A second fresh legacy-proxy topology is invalid, even if its
+implementation claims an approved slot or burned authority.  Components 1--3 are L1 contracts:
 the ProtocolVersionManager validated their exact addresses, runtime/config
 hashes before storing the proved manifest hash; the L2 registrar never pretends
 to execute \code{EXTCODEHASH} across a
@@ -1790,7 +1812,12 @@ use the same public-output constraint.  A caller cannot supply an unconstrained
 root; no checkpoint publisher exists in this revision.
 The same proof authenticates the protocol-lifetime InboxApplyRouterV2 account
 and requires its post-state \code{nextQueueIndex} to equal
-\code{CanonicalCore.messageCursor}; migration proves the same equality.
+\code{CanonicalCore.messageCursor}, and authenticates the ForcedQueue account
+whose \code{cursor} must equal both.  Settlement checks this three-way equality
+before every canonical-history write; mismatch reverts the entire candidate
+commit.  Bootstrap and every migration generation check the same three object
+identities and cursor values before importing state.  No activation transaction
+may repair, overwrite or select among divergent cursors.
 
 The vector root is
 \begin{verbatim}
@@ -1955,6 +1982,33 @@ receipt is exactly \code{0x7f||rlp([status,cumulativeGasUsed,bloom,logs])}; both
 transactions contribute normally to transaction/receipt roots and cumulative
 gas.
 
+The type's state transition is fully separate from EIP-1559 signing.  Decoding
+requires \code{chainId=block.chainid=destinationChainId<=UINT64_MAX}; a foreign,
+zero or nonminimal chain ID rejects before execution.  The profile maps each
+kind to exactly one reserved sender and target.  Both \code{CALLER} and
+\code{ORIGIN} are that reserved sender, and sender and target start warm.  No
+sender account nonce is read, compared or incremented; no sender balance is
+read, debited or credited; \code{GASPRICE} returns zero while \code{BASEFEE}
+retains the block's ordinary value.  There is no access list, creation target,
+blob field or value transfer.  Intrinsic gas is exactly
+\code{21000 + 4*zeroCalldataBytes + 16*nonzeroCalldataBytes}; execution starts
+with \code{gasLimit-intrinsicGas}.  A malformed envelope or intrinsic gas above
+the exact kind gas limit makes the block invalid.
+
+The transaction hash is legacy Keccak-256 of the complete typed envelope above,
+and that same byte string is the transaction-trie value.  After execution let
+\code{spentBeforeRefund=gasLimit-gasRemaining} (therefore including intrinsic
+gas).  Under the launch fork's London refund quotient 5,
+\code{refundGas=min(refundCounter,floor(spentBeforeRefund/5))} and
+\code{gasUsed=spentBeforeRefund-refundGas}; unused or refunded gas creates no
+account credit.  REVERT or exceptional halt produces status zero and reverts
+state/logs under ordinary EVM rules while retaining that gas accounting; success
+produces status one.  The typed receipt bytes above are the receipt-trie value,
+and \code{cumulativeGasUsed} is the ordinary running sum in exact transaction
+order.  The block rejects any mismatch in envelope bytes, injected environment,
+warm set, state change, transaction hash/root, receipt bytes/root, gas used or
+cumulative gas.
+
 The steady kind-0 call has gas limit 1,000,000, selector
 \code{0x523e6854} and ABI tuple
 \begin{verbatim}
@@ -1963,7 +2017,12 @@ The steady kind-0 call has gas limit 1,000,000, selector
 from the candidate's
 one batch anchor.  The first activation kind-0 call has gas limit 12,000,000 and
 the activation selector/calldata defined above.  Its kind-1 forced budget is
-13,000,000 and that block permits no discretionary gas.  Activation uses
+13,000,000 and that block permits no discretionary gas.  Kind 1 always targets
+the protocol-lifetime InboxApplyRouterV2, has gas limit 5,000,000, selector
+\code{0x6b326168} for
+\code{apply(uint64,(uint64,uint8,uint32,bytes32,bytes)[])}, and uses the exact
+ABI rows derived in \S\ref{sec:escape}; the empty vector is still a canonical
+call.  Activation uses
 12m Anchor + 13m forced + 5m margin, exactly the 30m block limit.  Steady
 blocks use 1m Anchor + 20m forced + 5m margin, at most 30m.
 Its timestamp is \code{GENESIS_TIMESTAMP+escapeSlot}, coinbase is the protocol sink and there
@@ -2238,6 +2297,8 @@ otherwise decoding rejects rather than attempting a hash fixed point.
   addresses and runtime hashes; every append-only source, destination and
   support descriptor and manifest schema/validation binding; each nonzero domain namespace,
   frozen Bridge/vault facade and credit-registry runtime, implementation slot,
+  destination Bridge topology/config, the launch Bridge's direct slot
+  constraints and the ban on later fresh proxies,
   terminal verifier, immutable settlement router, Bridge inbox adapter,
   InboxApply router, InboxCredit Store, release authority, terminal registrar
   and accumulator runtime plus every
@@ -2254,7 +2315,9 @@ otherwise decoding rejects rather than attempting a hash fixed point.
   frozen bridged-token restoration template addresses and runtime code hashes,
   every expanded V1/V2 selector and ABI tuple; the unsigned custom system
   transaction type and unforgeable reserved senders; system nonce rules, fee
-  exception, activation latch and gas ceilings;
+  exception, chain-ID equality, caller/origin injection, warm set, intrinsic
+  gas, refund rule, zero GASPRICE, account non-transition, exact typed trie
+  values, activation latch and gas ceilings;
 \item the exact AnchorV4 checkpoint/ancestors transition, forced disposition
   rules, InboxApplyRouterV2 global cursor, route and batch transition, immutable
   store inbox slot, result and deadline storage, Bridge V2 aggregate and
@@ -2486,9 +2549,15 @@ the live ledger and decrements the gate counter on its RESERVED-to-terminal
 transition; the window transition clears all expired slots before admitting a
 new reservation.  The permanent \code{reservationsClosed} bit is used only for
 exit/replacement, never for the reversible migration veto.  Thus at arm the
-counter contains only the 17 current/future windows.  With at most 1,024 sessions and
-$64\times17=1,088$ reservations, at most 136 permissionless cleanup calls are
-needed after the existing boundary.  READY is derived solely from zero counters,
+counter contains only the 17 current/future windows of the 64 active seats.  On
+replacement or effective exit, every still-live RESERVED row is atomically
+converted to a claim-only LIABLE tranche under the displaced generation's
+retained root, removed from the refundable-reservation ledger, and decremented
+from the gate counter.  It remains slashable/releasable by the ordinary evidence
+deadline but cannot veto migration.  Thus the exact refundable maximum remains
+$64\times17=1,088$ reservations.  With at most 1,024 sessions, the two
+eight-item cursors reach zero after at most 136 permissionless cleanup calls.
+READY is derived solely from zero counters,
 no normal boundary and no recovery; no calldata supplies those facts.
 The process preserves
 slash/evidence tranches in the protocol-lifetime registry, and leaves matured
@@ -2504,7 +2573,9 @@ Settlement to reference by object identity the router's one protocol-lifetime,
 mutable ForcedQueue and the router-owned migration gate.  The queue itself owns
 root/count/frontier/cursor/escrow/lastDueAt and appends at its live count; no
 parallel ingress list or caller-built queue snapshot exists.  The transaction
-imports the exact post-boundary Canonical and InboxApplyRouterV2 cursor
+imports the exact post-boundary Canonical only after requiring
+\code{CanonicalCore.messageCursor = ForcedQueue.cursor =
+InboxApplyRouterV2.nextQueueIndex}; it imports no independently selectable cursor
 without narrowing into an empty PREACTIVE immutable Settlement, writes the
 imported version-namespaced history cell, registers its code/profile, and makes
 it ACTIVE.  It then updates \code{activeProtocolVersion}, and as its final
@@ -2610,7 +2681,10 @@ execution result:
   \code{executionProfileHash}, plus a rejecting decoder corpus;
 \item an immutable manifest binding protocol version, chain IDs, activation,
   profile hash, verifier address/runtime hash and verifier-key hash;
-\item exact predeploy/proxy/facade topology, terminal runtime code hashes,
+\item exact predeploy/proxy/facade topology, including the launch Bridge's
+  directly constrained EIP-1967 implementation/burn slots, its immutable
+  registrar identity and the non-proxy rule for every later fresh endpoint;
+  terminal runtime code hashes,
   constructor immutables and relevant storage selectors for AnchorV4,
   InboxV2ActivationGate, InboxApplyRouterV2, InboxCreditStoreV2,
   ProtocolReleaseAuthorityV2,
@@ -2632,7 +2706,10 @@ execution result:
   registration proof, router activation ABI/invariants, direct-call limits and
   valid/invalid fixed-return corpus;
 \item exact unsigned system transaction type and reserved sender addresses;
-  activation-latch and cutover proof; system nonces; separate direct/vault
+  chain-ID equality, caller/origin injection, initial warm set, intrinsic gas,
+  refund quotient, zero GASPRICE, nonce/balance non-transition and exact typed
+  transaction/receipt trie values; activation-latch and cutover proof; system
+  nonces; separate direct/vault
   additive BridgeV2 selectors and
   bounded immutable inbox-store batch ABI, selectors and storage; fee handling, gas
   ceilings and all fork and header recurrence rules, including byte-exact first
@@ -2908,6 +2985,22 @@ address20(inboxCreditStoreV2) || address20(terminalAccumulatorV2) ||
 address20(activationGate) || address20(terminalDomainRegistrarV2)
 \end{verbatim}
 Every field is nonzero and \code{bridge=destinationBridge}.  It commits the
+facade behavior but not an ambiguous proxy claim.  Component 9's
+\code{configHash} is exactly
+\begin{verbatim}
+H("slot-chain-destination-bridge-topology-v1" || u8(topology) ||
+  bytes32(accountRuntimeHash) || bytes32(facadeRuntimeHash))
+\end{verbatim}
+The only valid values are:
+\begin{verbatim}
+0  IMMUTABLE_NONPROXY
+1  GENESIS_LEGACY_PROXY
+\end{verbatim}
+Topology 0 requires the account and facade runtime hashes to be equal.
+Topology 1 is legal only for the launch manifest's one profile-named Bridge,
+and requires the direct EIP-1967 implementation and
+burned-authority proof constraints in \S\ref{sec:implementation}.  No other
+topology byte is valid.  It commits the
 destination facade separately from the infrastructure record so its custody,
 terminal handshake and storage layout cannot be inferred from a source-only
 descriptor.  The hash is:
@@ -3304,7 +3397,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 171 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 175 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded

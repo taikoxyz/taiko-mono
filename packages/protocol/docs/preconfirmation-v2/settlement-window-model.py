@@ -43,11 +43,13 @@ ANCHOR_GAS_MAX = 1_000_000
 ANCHOR_ACTIVATION_GAS_MAX = 12_000_000
 ACTIVATION_FORCE_GAS_BUDGET = 13_000_000
 SYSTEM_GAS_MARGIN = 5_000_000
+INBOX_APPLY_GAS_MAX = SYSTEM_GAS_MARGIN
 SYSTEM_TX_TYPE = 0x7F
 SYSTEM_KIND_ANCHOR = 0
 SYSTEM_KIND_INBOX_APPLY = 1
 ANCHOR_STEADY_SELECTOR = "0x523e6854"
 ANCHOR_ACTIVATION_SELECTOR = "0x0e58dc58"
+INBOX_APPLY_SELECTOR = "0x6b326168"
 MAX_BLOCKS_PER_CANDIDATE = 4_096
 MAX_WINDOWS_PER_CANDIDATE = 12
 MAX_DATA_SESSIONS_PER_CANDIDATE = 16
@@ -62,6 +64,9 @@ MAX_TRANCHE_AHEAD_WINDOWS = 16
 EVIDENCE_DELAY_SECONDS = 86_400
 MAX_REPLACEMENTS_PER_WINDOW = 4
 MAX_LIABILITY_GENERATIONS = MAX_REPLACEMENTS_PER_WINDOW * MAX_LIVE_WINDOWS
+MAX_LIVE_RESERVATIONS = 64 * (MAX_TRANCHE_AHEAD_WINDOWS + 1)
+MAX_MIGRATION_RESERVATION_CLEANUP_CALLS = (
+    MAX_LIVE_RESERVATIONS + MAX_GC_STEPS - 1) // MAX_GC_STEPS
 DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
 UINT64_MAX = (1 << 64) - 1
@@ -113,18 +118,65 @@ class SystemTransactionV2:
     signed: bool = False
 
     def valid(self, *, block_number: int, activation_block: int,
-              first_activation: bool) -> bool:
-        expected_selector = (ANCHOR_ACTIVATION_SELECTOR if first_activation
-                             else ANCHOR_STEADY_SELECTOR)
-        expected_gas = (ANCHOR_ACTIVATION_GAS_MAX if first_activation
-                        else ANCHOR_GAS_MAX)
+              first_activation: bool, l2_chain_id: int,
+              anchor_address: str = "anchor:v2",
+              inbox_apply_address: str = "inbox-apply") -> bool:
+        if self.system_kind == SYSTEM_KIND_ANCHOR:
+            expected_selector = (ANCHOR_ACTIVATION_SELECTOR if first_activation
+                                 else ANCHOR_STEADY_SELECTOR)
+            expected_gas = (ANCHOR_ACTIVATION_GAS_MAX if first_activation
+                            else ANCHOR_GAS_MAX)
+            expected_to = anchor_address
+        elif self.system_kind == SYSTEM_KIND_INBOX_APPLY:
+            expected_selector = INBOX_APPLY_SELECTOR
+            expected_gas = INBOX_APPLY_GAS_MAX
+            expected_to = inbox_apply_address
+        else:
+            return False
         return (self.tx_type == SYSTEM_TX_TYPE
-                and 0 < self.chain_id <= UINT64_MAX
-                and self.system_kind == SYSTEM_KIND_ANCHOR
+                and self.chain_id == l2_chain_id
+                and 0 < l2_chain_id <= UINT64_MAX
                 and self.system_nonce == block_number - activation_block
                 and block_number >= activation_block and self.gas_limit == expected_gas
-                and bool(self.to) and self.value == 0
+                and self.to == expected_to and self.value == 0
                 and self.selector == expected_selector and not self.signed)
+
+
+@dataclass(frozen=True)
+class SystemExecutionRulesV2:
+    """Consensus effects not inherited from any ordinary account transaction."""
+
+    reserved_sender: str
+    caller: str
+    origin: str
+    sender_nonce_before: int
+    sender_nonce_after: int
+    sender_balance_before: int
+    sender_balance_after: int
+    gas_price_opcode: int
+    zero_calldata_bytes: int
+    nonzero_calldata_bytes: int
+    intrinsic_gas: int
+    sender_warm: bool
+    target_warm: bool
+    typed_tx_trie_value: bool
+    typed_receipt_trie_value: bool
+
+    def valid(self, tx: SystemTransactionV2) -> bool:
+        expected_intrinsic = (21_000 + 4 * self.zero_calldata_bytes
+                              + 16 * self.nonzero_calldata_bytes)
+        return (self.caller == self.reserved_sender
+                and self.origin == self.reserved_sender
+                and self.sender_nonce_after == self.sender_nonce_before
+                and self.sender_balance_after == self.sender_balance_before
+                and self.gas_price_opcode == 0
+                and self.zero_calldata_bytes >= 0
+                and self.nonzero_calldata_bytes >= 4
+                and self.intrinsic_gas == expected_intrinsic
+                and self.intrinsic_gas <= tx.gas_limit
+                and self.sender_warm and self.target_warm
+                and self.typed_tx_trie_value
+                and self.typed_receipt_trie_value)
 
 
 @dataclass
@@ -238,6 +290,8 @@ class Block:
     context_id: str
     admission_version: int
     admission_root: str
+    force_gas_budget: int = FORCE_GAS_BUDGET
+    release_activation: bool = False
     data_records: tuple[tuple[str, int], ...] = ()
     dispositions_ok: bool = True
     discretionary_body: bool = True
@@ -421,6 +475,7 @@ class RegistryLifecycle:
     movement_sequence: int = 0
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     open_reservations: set[tuple[str, int]] = field(default_factory=set)
+    liable_reservations: set[tuple[str, int]] = field(default_factory=set)
 
     @property
     def liabilities(self) -> list[Generation]:
@@ -451,8 +506,7 @@ class RegistryLifecycle:
             if reservation not in self.open_reservations:
                 self.open_reservations.add(reservation)
                 self.migration_gate.unsettled_builder_reservations += 1
-                assert (len(self.open_reservations)
-                        <= 64 * (MAX_TRANCHE_AHEAD_WINDOWS + 1))
+                assert len(self.open_reservations) <= MAX_LIVE_RESERVATIONS
             return True
         return False
 
@@ -471,11 +525,21 @@ class RegistryLifecycle:
             removed += 1
         return removed
 
+    def _move_reservations_to_liability(self, address: str) -> int:
+        moved = {row for row in self.open_reservations if row[0] == address}
+        self.open_reservations.difference_update(moved)
+        self.liable_reservations.update(moved)
+        self.migration_gate.unsettled_builder_reservations -= len(moved)
+        return len(moved)
+
     def release_liability(self, ring_index: int, current_window: int) -> bool:
         occupant = self.liability_ring[ring_index]
         if occupant is None or occupant[1] > current_window:
             return False
+        address = occupant[0].address
         self.liability_ring[ring_index] = None
+        self.liable_reservations = {
+            row for row in self.liable_reservations if row[0] != address}
         return True
 
     def admit(self, entry: Generation, current_window: int) -> bool:
@@ -501,6 +565,7 @@ class RegistryLifecycle:
             victim.max_reserved_window + 1
             + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
         )
+        self._move_reservations_to_liability(victim.address)
         self.active.remove(victim)
         self.active.append(entry)
         self.liability_ring[ring_index] = (replace(victim, reservations_closed=True), release_window)
@@ -526,8 +591,10 @@ def normal_context_id(base_hash: str, admission_version: int, admission_root: st
 class Protocol:
     canonical: Canonical
     history: dict[int, L1Header]
+    forced_queue: "QueueContinuity"
+    inbox_apply_router: "InboxApplyRouterV2"
     mode: Mode = Mode.NORMAL
-    messages: list[Message] = field(default_factory=list)
+    release_activation_pending: bool = False
     queue_capacity: int = MAX_FORCE_QUEUE_ITEMS  # model-only capacity override
     episode: int = 0
     recovery: RecoveryRound | None = None
@@ -555,7 +622,6 @@ class Protocol:
     canonical_code_preimages_available: bool = True
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     versioned_history: object | None = None
-    forced_queue_state: object | None = None
 
     @property
     def core(self) -> CanonicalCore:
@@ -566,6 +632,11 @@ class Protocol:
 
     def identical(self, other: "Protocol") -> bool:
         return self == other
+
+    @property
+    def messages(self) -> list[Message]:
+        """Compatibility view: Protocol owns no independent message list."""
+        return self.forced_queue.descriptors
 
     def force_root(self, cutoff: int) -> str:
         return f"merkle:{cutoff}:" + ":".join(m.payload_hash for m in self.messages[:cutoff])
@@ -582,13 +653,14 @@ class Protocol:
     def force_due(self, clock: Clock) -> bool:
         return self.next_due_at(self.core.message_cursor) <= clock.timestamp
 
-    def _prefix_end(self, start: int, cutoff: int) -> int:
+    def _prefix_end(self, start: int, cutoff: int,
+                    gas_budget: int = FORCE_GAS_BUDGET) -> int:
         gas = size = count = 0
         cursor = start
         while cursor < min(cutoff, len(self.messages)):
             msg = self.messages[cursor]
             if (count + 1 > MAX_FORCE_MESSAGES
-                    or gas + msg.accounted_gas > FORCE_GAS_BUDGET
+                    or gas + msg.accounted_gas > gas_budget
                     or size + msg.byte_length > FORCE_BYTES_BUDGET):
                 break
             count += 1
@@ -802,6 +874,7 @@ class Protocol:
             return False
         self.canonical = copy.deepcopy(imported)
         self.mode = Mode.NORMAL
+        self.release_activation_pending = True
         self.events.append("MIGRATION_ACTIVATED_ATOMICALLY")
         return True
 
@@ -826,12 +899,12 @@ class Protocol:
         deferred = (self.recovery.expires_at + 1
                     if self.mode is Mode.RECOVERY and self.recovery else 0)
         due = max(clock.timestamp + FORCE_DELAY, prior_due, deferred)
-        if self.forced_queue_state is not None:
-            queue = self.forced_queue_state
-            assert queue.append(
-                message.payload_hash, deposit=message.prepaid,
-                due_at=due) == len(self.messages)
-        self.messages.append(replace(message, enqueued_at=clock.timestamp, due_at=due))
+        assert self.forced_queue.count == len(self.messages)
+        expected_index = self.forced_queue.count
+        assert self.forced_queue.append(
+            replace(message, enqueued_at=clock.timestamp),
+            deposit=message.prepaid,
+            due_at=due) == expected_index
 
     def admit_message(self, clock: Clock, message: Message) -> str:
         if self.mode is Mode.PREACTIVE:
@@ -987,6 +1060,12 @@ class Protocol:
         first = candidate.blocks[0]
         total_items = total_bytes = total_gas = 0
         for block in candidate.blocks:
+            expected_activation = (
+                self.release_activation_pending
+                and block is candidate.blocks[0])
+            expected_force_gas_budget = (
+                ACTIVATION_FORCE_GAS_BUDGET if expected_activation
+                else FORCE_GAS_BUDGET)
             if (block.evm_timestamp != GENESIS_TIMESTAMP + block.slot
                     or block.parent_hash != parent or block.slot <= prior_slot
                     or (candidate.tier is Tier.NORMAL_SIGNED
@@ -994,9 +1073,14 @@ class Protocol:
                     or block.message_start != cursor or not block.dispositions_ok
                     or block.anchor_number != first.anchor_number
                     or block.force_cutoff != first.force_cutoff
-                    or block.force_root != first.force_root):
+                    or block.force_root != first.force_root
+                    or block.release_activation != expected_activation
+                    or block.force_gas_budget != expected_force_gas_budget
+                    or (expected_activation and block.discretionary_body)):
                 return False
-            expected = self._prefix_end(cursor, block.force_cutoff)
+            expected = self._prefix_end(
+                cursor, block.force_cutoff,
+                gas_budget=block.force_gas_budget)
             if block.message_end != expected:
                 return False
             for msg in self.messages[cursor:block.message_end]:
@@ -1095,6 +1179,13 @@ class Protocol:
         return "COMMITTED"
 
     def _commit(self, candidate: Candidate, clock: Clock) -> None:
+        assert (self.forced_queue.cursor
+                == self.inbox_apply_router.next_queue_index
+                == self.core.message_cursor)
+        self.forced_queue.cursor = candidate.tip.message_end
+        self.inbox_apply_router.next_queue_index = candidate.tip.message_end
+        if candidate.blocks[0].release_activation:
+            self.release_activation_pending = False
         self.canonical = Canonical(
             CanonicalCore(candidate.end_l2_block_number,
                           candidate.tip.block_hash, candidate.tip.slot,
@@ -1111,8 +1202,6 @@ class Protocol:
             assert history.record_canonical(
                 copy.deepcopy(self.canonical.core),
                 l1_block=clock.block_number) is not None
-        if self.forced_queue_state is not None:
-            self.forced_queue_state.cursor = candidate.tip.message_end
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
 
 
@@ -1247,18 +1336,22 @@ class QueueContinuity:
     cursor: int
     escrow_balance: int
     last_due_at: int
-    descriptors: list[str] = field(default_factory=list)
+    descriptors: list[Message] = field(default_factory=list)
 
-    def append(self, descriptor: str, *, deposit: int, due_at: int) -> int | None:
-        if (not descriptor or deposit < 0 or due_at < self.last_due_at
-                or self.count >= UINT32_MAX):
+    def append(self, descriptor: Message, *, deposit: int,
+               due_at: int) -> int | None:
+        if (not descriptor.payload_hash or deposit < 0
+                or due_at < self.last_due_at or self.count >= UINT32_MAX
+                or self.count != len(self.descriptors)):
             return None
         index = self.count
-        self.root = f"queue-root:{index + 1}:{self.root}:{descriptor}"
+        stored = replace(descriptor, due_at=due_at)
+        self.root = (f"queue-root:{index + 1}:{self.root}:"
+                     f"{stored.payload_hash}")
         self.count += 1
         self.escrow_balance += deposit
         self.last_due_at = due_at
-        self.descriptors.append(descriptor)
+        self.descriptors.append(stored)
         return index
 
 
@@ -1298,6 +1391,7 @@ class VersionedSettlementHistory:
         default_factory=dict)
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     live_protocol: Protocol | None = None
+    inbox_apply_router: "InboxApplyRouterV2 | None" = None
 
     def _entry(self, sequence: int, core: CanonicalCore,
                canonicalized_at_block: int) -> CanonicalTerminalCommitment:
@@ -1321,6 +1415,10 @@ class VersionedSettlementHistory:
 
     def record_canonical(self, core: CanonicalCore, *, l1_block: int) -> int | None:
         if (self.mode not in {"ACTIVE", "MIGRATION_ARMED"}
+                or self.inbox_apply_router is None
+                or core.message_cursor != self.forced_queue.cursor
+                or core.message_cursor
+                    != self.inbox_apply_router.next_queue_index
                 or l1_block <= self.last_canonical_l1_block
                 or self.current_sequence < 0
                 or self.current_sequence + 1 >= UINT64_MAX
@@ -1381,6 +1479,7 @@ class ActiveSettlementRouter:
 
     version_manager: str
     forced_queue: QueueContinuity
+    inbox_apply_router: "InboxApplyRouterV2"
     address: str = "active-settlement-router"
     active_version: int = 0
     registrations: dict[int, SettlementRegistration] = field(default_factory=dict)
@@ -1393,6 +1492,10 @@ class ActiveSettlementRouter:
                   activation_block: int) -> bool:
         if (self.registrations or settlement.protocol_version <= 0
                 or settlement.forced_queue is not self.forced_queue
+                or settlement.inbox_apply_router is not self.inbox_apply_router
+                or settlement.core.message_cursor != self.forced_queue.cursor
+                or settlement.core.message_cursor
+                    != self.inbox_apply_router.next_queue_index
                 or not settlement.nonproxy or not settlement.selfdestruct_disabled
                 or not settlement.migration_gate.bootstrap(
                     settlement.protocol_version, self.version_manager)
@@ -1439,11 +1542,17 @@ class ActiveSettlementRouter:
                     != old.canonicalized_at_block
                 or settlement.forced_queue is not self.forced_queue
                 or old.forced_queue is not self.forced_queue
+                or settlement.inbox_apply_router is not self.inbox_apply_router
+                or old.inbox_apply_router is not self.inbox_apply_router
                 or old.live_protocol is None
                 or old.live_protocol.versioned_history is not old
-                or old.live_protocol.forced_queue_state is not self.forced_queue
+                or old.live_protocol.forced_queue is not self.forced_queue
+                or old.live_protocol.inbox_apply_router
+                    is not self.inbox_apply_router
                 or old.live_protocol.canonical.core != old.core
                 or old.core.message_cursor != self.forced_queue.cursor
+                or old.core.message_cursor
+                    != self.inbox_apply_router.next_queue_index
                 or l1_block < old.last_canonical_l1_block):
             return False
         if not settlement.install_imported(
@@ -1484,7 +1593,7 @@ class ActiveSettlementRouter:
             return None
         return entry
 
-    def sync_and_append(self, descriptor: str, *, bound_router: str,
+    def sync_and_append(self, descriptor: Message, *, bound_router: str,
                         queue_address: str,
                         active_settlement_sync_changed: bool,
                         deposit: int = 0, due_at: int | None = None) -> str:
@@ -1823,6 +1932,7 @@ class BridgeAdapter:
                 or source_authorization.enqueue_by != enqueue_by
                 or clock_.timestamp > enqueue_by):
             return "REJECTED"
+        queue_snapshot = copy.deepcopy(protocol_.forced_queue)
         result = protocol_.admit_bridge_direct(clock_, envelope)
         if result == "SYNCED":
             self.refunds[caller] = self.refunds.get(caller, 0) + deposit
@@ -1831,7 +1941,8 @@ class BridgeAdapter:
             index = len(protocol_.messages) - 1
             if not source_ledger.mark_queued(
                     credit_id, index, caller_is_bound_adapter=domain_authorized):
-                protocol_.messages.pop()  # models atomic EVM rollback
+                protocol_.forced_queue.__dict__.update(
+                    queue_snapshot.__dict__)  # models atomic EVM rollback
                 return "REJECTED"
             self.records[credit_id] = BridgeRecord(
                 envelope, index, caller, deposit)
@@ -2263,6 +2374,58 @@ class EndpointActivationStateV2:
         return True
 
 
+@dataclass(frozen=True)
+class BridgeDeploymentStateV2:
+    """Only immutable facades or the one fork-attested legacy proxy qualify."""
+
+    topology: str
+    address: str
+    account_runtime_hash: str
+    implementation_address: str = ""
+    implementation_runtime_hash: str = ""
+    direct_prestate_slot_constraint: bool = False
+    upgrade_authority_burned: bool = True
+    delegate_target_reachable: bool = False
+
+    @property
+    def config_hash(self) -> str:
+        return ("bridge-topology:" + repr((
+            self.topology, self.account_runtime_hash,
+            self.implementation_runtime_hash)))
+
+    @property
+    def identity(self) -> tuple[str, ...]:
+        return (self.topology, self.address, self.account_runtime_hash,
+                self.implementation_address,
+                self.implementation_runtime_hash, self.config_hash)
+
+    def authenticates(
+            self, manifest: ReleaseManifestV2, *,
+            known_identity: tuple[str, ...] | None = None) -> bool:
+        bridge_row = manifest.components[8]
+        descriptor = manifest.destination_bridge_descriptor
+        common = (self.address == manifest.destination_bridge
+                  and self.account_runtime_hash == bridge_row.runtime_hash
+                  and self.config_hash == bridge_row.config_hash
+                  and self.upgrade_authority_burned)
+        if self.topology == "IMMUTABLE_NONPROXY":
+            return (common and not self.delegate_target_reachable
+                    and not self.implementation_address
+                    and not self.implementation_runtime_hash
+                    and self.account_runtime_hash
+                        == descriptor.facade_runtime_hash)
+        if self.topology == "GENESIS_LEGACY_PROXY":
+            return (common
+                    and ((known_identity == self.identity)
+                         or (known_identity is None
+                             and manifest.protocol_version == 1
+                             and self.direct_prestate_slot_constraint))
+                    and bool(self.implementation_address)
+                    and self.implementation_runtime_hash
+                        == descriptor.facade_runtime_hash)
+        return False
+
+
 @dataclass
 class AnchorV4Model:
     address: str
@@ -2312,6 +2475,7 @@ class TerminalDomainRegistrarV2:
     inbox_router: InboxApplyRouterV2
     address: str = "terminal-domain-registrar"
     registrations: dict[int, str] = field(default_factory=dict)
+    bridge_identities: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def activate_domain(self, manifest: ReleaseManifestV2,
                         store: InboxCreditStoreV2, *,
@@ -2320,11 +2484,12 @@ class TerminalDomainRegistrarV2:
                         observed_bridge_descriptor:
                             DestinationBridgeDescriptorV2,
                         endpoint_state: EndpointActivationStateV2,
-                        fixed_selector_calls_succeed: bool) -> bool:
+                        bridge_deployment: BridgeDeploymentStateV2) -> bool:
         protocol_version = manifest.protocol_version
         manifest_hash = manifest.commitment
         domain_id = manifest.destination_domain_id
         bridge = manifest.destination_bridge
+        known_bridge_identity = self.bridge_identities.get(bridge)
         store_row = manifest.components[4] if len(manifest.components) == 9 \
             else ReleaseComponentV2("", "", "")
         if (not manifest.structurally_valid()
@@ -2338,10 +2503,13 @@ class TerminalDomainRegistrarV2:
                 or store_row.config_hash != store.component_config_hash
                 or not (endpoint_state.activatable
                         or endpoint_state.exact_existing)
-                or not fixed_selector_calls_succeed):
+                or not bridge_deployment.authenticates(
+                    manifest, known_identity=known_bridge_identity)):
             return False
         fresh_endpoint = endpoint_state.activatable
         prior_routes = dict(self.inbox_router.routes)
+        prior_domains = dict(self.accumulator.domains)
+        endpoint_snapshot = copy.deepcopy(endpoint_state)
         if (not self.inbox_router.register_route(
                 domain_id, store, bridge, store_row.runtime_hash,
                 caller=self.address,
@@ -2352,15 +2520,27 @@ class TerminalDomainRegistrarV2:
                     activation_order_valid=True)
                 or (fresh_endpoint and not endpoint_state.seal())):
             self.inbox_router.routes = prior_routes
+            self.accumulator.domains = prior_domains
+            endpoint_state.__dict__.update(endpoint_snapshot.__dict__)
             return False
+        self.bridge_identities.setdefault(bridge, bridge_deployment.identity)
         self.registrations[protocol_version] = manifest.registration_commitment
         return True
 
 
 def release_manifest_fixture(protocol_version: int, domain_id: str,
                              bridge: str, store: InboxCreditStoreV2,
-                             anchor: str | None = None) -> ReleaseManifestV2:
+                             anchor: str | None = None, *,
+                             legacy_proxy: bool = False) -> ReleaseManifestV2:
     anchor_address = anchor or f"anchor:v{protocol_version}"
+    facade_runtime_hash = f"facade-code:{bridge}"
+    topology = ("GENESIS_LEGACY_PROXY" if legacy_proxy
+                else "IMMUTABLE_NONPROXY")
+    bridge_runtime_hash = (f"proxy-code:{bridge}" if legacy_proxy
+                           else facade_runtime_hash)
+    topology_impl_hash = facade_runtime_hash if legacy_proxy else ""
+    topology_config_hash = "bridge-topology:" + repr((
+        topology, bridge_runtime_hash, topology_impl_hash))
     components = (
         ReleaseComponentV2("bridge-inbox-adapter", "code:adapter", "cfg:adapter"),
         ReleaseComponentV2("active-settlement-router", "code:router", "cfg:router"),
@@ -2371,10 +2551,11 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
         ReleaseComponentV2("release-authority", "code:authority", "cfg:authority"),
         ReleaseComponentV2("terminal-domain-registrar", "code:registrar", "cfg:registrar"),
         ReleaseComponentV2("terminal-accumulator", "code:accumulator", "cfg:accumulator"),
-        ReleaseComponentV2(bridge, f"code:{bridge}", f"cfg:{bridge}"),
+        ReleaseComponentV2(
+            bridge, bridge_runtime_hash, topology_config_hash),
     )
     bridge_descriptor = DestinationBridgeDescriptorV2(
-        bridge, f"facade-code:{bridge}", f"storage-layout:{bridge}",
+        bridge, facade_runtime_hash, f"storage-layout:{bridge}",
         f"kernel-profile:{bridge}", store.address, "terminal-accumulator",
         "activation-gate", "terminal-domain-registrar")
     return ReleaseManifestV2(
@@ -2394,16 +2575,22 @@ def activate_release_transaction(
         observed_l2_components: tuple[ReleaseComponentV2, ...] | None = None,
         observed_bridge_descriptor: DestinationBridgeDescriptorV2 | None = None,
         endpoint_state: EndpointActivationStateV2 | None = None,
+        bridge_deployment: BridgeDeploymentStateV2 | None = None,
         settlement_chain_id: int = 1,
         destination_chain_id: int = 167_000,
-        fixed_selector_calls_succeed: bool = True) -> bool:
+        direct_component_checks_succeed: bool = True) -> bool:
     """Model the single system transaction and its all-or-revert EVM calls."""
     releases = dict(authority.releases)
     registrations = dict(registrar.registrations)
+    bridge_identities = dict(registrar.bridge_identities)
     routes = dict(registrar.inbox_router.routes)
     domains = dict(registrar.accumulator.domains)
     state = endpoint_state or EndpointActivationStateV2()
     endpoint_snapshot = copy.deepcopy(state)
+    deployment = bridge_deployment or BridgeDeploymentStateV2(
+        "IMMUTABLE_NONPROXY", manifest.destination_bridge,
+        manifest.components[8].runtime_hash,
+        upgrade_authority_burned=direct_component_checks_succeed)
     active_manifest = anchor.active_release_manifest_hash
     if (transaction_sender != authority.system_sender
             or manifest.settlement_chain_id != settlement_chain_id
@@ -2421,9 +2608,10 @@ def activate_release_transaction(
                     if observed_bridge_descriptor is None
                     else observed_bridge_descriptor),
                 endpoint_state=state,
-                fixed_selector_calls_succeed=fixed_selector_calls_succeed)):
+                bridge_deployment=deployment)):
         authority.releases = releases
         registrar.registrations = registrations
+        registrar.bridge_identities = bridge_identities
         registrar.inbox_router.routes = routes
         registrar.accumulator.domains = domains
         anchor.active_release_manifest_hash = active_manifest
@@ -2572,17 +2760,33 @@ def make_history(messages: list[Message] | None = None) -> dict[int, L1Header]:
 
 
 def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
-             mode: Mode = Mode.NORMAL, messages: list[Message] | None = None) -> Protocol:
+             mode: Mode = Mode.NORMAL, messages: list[Message] | None = None,
+             forced_queue: QueueContinuity | None = None,
+             inbox_apply_router: InboxApplyRouterV2 | None = None) -> Protocol:
     msgs = list(messages or [])
+    if forced_queue is None:
+        root = f"queue-root:{len(msgs)}:" + ":".join(
+            row.payload_hash for row in msgs)
+        forced_queue = QueueContinuity(
+            "model-forced-queue", root, len(msgs), cursor,
+            sum(row.prepaid for row in msgs),
+            max((row.due_at for row in msgs), default=0), msgs)
+    else:
+        assert not messages or forced_queue.descriptors == msgs
+        msgs = forced_queue.descriptors
+    if inbox_apply_router is None:
+        inbox_apply_router = InboxApplyRouterV2(next_queue_index=cursor)
     canonical = Canonical(CanonicalCore(900, "a" * 64, tip_slot, "b" * 64, cursor), 900)
     active = Seat("aggregator", 100) if seat else None
-    return Protocol(canonical, make_history(msgs), mode, msgs, active_seat=active,
-                    standby=[Seat("standby", 70)])
+    return Protocol(
+        canonical, make_history(msgs), forced_queue, inbox_apply_router,
+        mode=mode, active_seat=active, standby=[Seat("standby", 70)])
 
 
 def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
           signed: bool = True, message_end: int | None = None,
-          dispositions_ok: bool = True, discretionary: bool = True) -> Block:
+          dispositions_ok: bool = True, discretionary: bool = True,
+          release_activation: bool | None = None) -> Block:
     if slot is None:
         slot = (c.l2_slot if p.mode is Mode.RECOVERY
                 else c.l2_slot)
@@ -2599,7 +2803,12 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
         root = p.normal_admission_root or p.admission_root
     header = p.history[anchor_number]
     start = p.core.message_cursor
-    end = p._prefix_end(start, cutoff) if message_end is None else message_end
+    if release_activation is None:
+        release_activation = p.release_activation_pending
+    force_gas_budget = (ACTIVATION_FORCE_GAS_BUDGET if release_activation
+                        else FORCE_GAS_BUDGET)
+    end = (p._prefix_end(start, cutoff, gas_budget=force_gas_budget)
+           if message_end is None else message_end)
     context = (p.recovery.recovery_id if p.mode is Mode.RECOVERY and p.recovery
                else normal_context_id(p.canonical.base_hash, version, root,
                                       anchor_number, header.block_hash))
@@ -2609,14 +2818,18 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
                  header.timestamp, force_root, cutoff,
                  context,
                  version, root,
+                 force_gas_budget=force_gas_budget,
+                 release_activation=release_activation,
                  dispositions_ok=dispositions_ok, discretionary_body=discretionary)
 
 
 def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGNED,
               signed=True, slot=None, message_end=None, discretionary=True,
-              force_range_proof_ok=True, recovery_fields_zero=True) -> Candidate:
+              force_range_proof_ok=True, recovery_fields_zero=True,
+              release_activation: bool | None = None) -> Candidate:
     b = block(p, c, ident, slot=slot, signed=signed, message_end=message_end,
-              discretionary=discretionary)
+              discretionary=discretionary,
+              release_activation=release_activation)
     r = p.recovery
     next_due = p.next_due_at(b.message_end, b.force_cutoff)
     return Candidate(
@@ -2816,19 +3029,82 @@ def test_force_merkle_bounds_and_auth() -> None:
     steady_tx = replace(
         activation_tx, system_nonce=1, gas_limit=ANCHOR_GAS_MAX,
         selector=ANCHOR_STEADY_SELECTOR)
+    inbox_tx = replace(
+        activation_tx, system_kind=SYSTEM_KIND_INBOX_APPLY,
+        gas_limit=INBOX_APPLY_GAS_MAX, to="inbox-apply",
+        selector=INBOX_APPLY_SELECTOR)
     check("P17a one unsigned system envelope covers activation and steady Anchor",
           activation_tx.valid(
               block_number=100, activation_block=100,
-              first_activation=True)
+              first_activation=True, l2_chain_id=167_000)
           and steady_tx.valid(
               block_number=101, activation_block=100,
-              first_activation=False)
+              first_activation=False, l2_chain_id=167_000)
           and not replace(activation_tx, signed=True).valid(
               block_number=100, activation_block=100,
-              first_activation=True)
+              first_activation=True, l2_chain_id=167_000)
           and not replace(activation_tx, gas_limit=ANCHOR_GAS_MAX).valid(
               block_number=100, activation_block=100,
-              first_activation=True))
+              first_activation=True, l2_chain_id=167_000)
+          and not activation_tx.valid(
+              block_number=100, activation_block=100,
+              first_activation=True, l2_chain_id=167_001))
+    system_rules = SystemExecutionRulesV2(
+        "system:inbox", "system:inbox", "system:inbox", 0, 0, 0, 0, 0,
+        20, 100, 21_000 + 4 * 20 + 16 * 100,
+        True, True, True, True)
+    check("P17d kind-1 and accountless system execution are fully distinct",
+          inbox_tx.valid(
+              block_number=100, activation_block=100,
+              first_activation=True, l2_chain_id=167_000)
+          and system_rules.valid(inbox_tx)
+          and not replace(inbox_tx, signed=True).valid(
+              block_number=100, activation_block=100,
+              first_activation=True, l2_chain_id=167_000)
+          and not replace(
+              system_rules, sender_nonce_after=1).valid(inbox_tx))
+    activation_backlog = protocol(messages=[
+        message(0, f"activation-backlog-{index}", gas=5_000_000)
+        for index in range(4)])
+    activation_backlog.release_activation_pending = True
+    activation_clock = clock(1_100, 1_100)
+    assert activation_backlog.arm_normal_context(
+        clock(1_099, 1_099)) == "ARMED"
+    assert activation_backlog.activate_normal_context(
+        activation_clock) == "ACTIVATED"
+    activation_candidate = candidate(
+        activation_backlog, activation_clock, "activation-prefix",
+        discretionary=False)
+    activation_first = activation_candidate.tip
+    activation_second = replace(
+        activation_first, slot=activation_first.slot + 1,
+        evm_timestamp=activation_first.evm_timestamp + 1,
+        block_hash="activation-second", parent_hash=activation_first.block_hash,
+        message_start=activation_first.message_end, message_end=4,
+        force_gas_budget=FORCE_GAS_BUDGET, release_activation=False)
+    activation_candidate = replace(
+        activation_candidate,
+        blocks=(activation_first, activation_second),
+        end_l2_block_number=activation_backlog.core.l2_block_number + 2,
+        next_due_at=activation_backlog.next_due_at(4, 4))
+    activation_end = activation_first.message_end
+    invalid_20m_block = replace(
+        activation_first, message_end=4,
+        force_gas_budget=FORCE_GAS_BUDGET)
+    invalid_20m_candidate = replace(
+        activation_candidate, blocks=(invalid_20m_block,),
+        next_due_at=activation_backlog.next_due_at(4, 4))
+    check("P17c activation uses its explicit 13m maximal-prefix budget",
+          activation_end == 2
+          and activation_backlog._prefix_end(activation_end, 4) == 4
+          and not activation_backlog._valid_normal(
+              invalid_20m_candidate, activation_clock)
+          and activation_backlog.submit(
+              activation_candidate, activation_clock) == "ACCEPTED"
+          and ANCHOR_ACTIVATION_GAS_MAX
+              + sum(row.accounted_gas
+                    for row in activation_backlog.messages[:activation_end])
+              + SYSTEM_GAS_MARGIN <= L2_BLOCK_GAS_LIMIT)
     too_long = replace(message(1_100, "too-long"),
                        valid_until=c.timestamp + MAX_FORCE_VALIDITY_SECONDS + 1)
     check("P17a user payload validity is bounded",
@@ -3015,6 +3291,40 @@ def test_registry_liability_and_release_units() -> None:
           and bounded.settle_reservations_before(2_015) == 16
           and bounded_gate.unsettled_builder_reservations == 1)
 
+    churn_gate = MigrationGate()
+    assert churn_gate.bootstrap(1)
+    reservation_churn = RegistryLifecycle(
+        [Generation(f"seat-{index}", index + 1, index, 0)
+         for index in range(64)], migration_gate=churn_gate)
+    next_registration = 64
+    for current_window in range(MAX_TRANCHE_AHEAD_WINDOWS + 1):
+        for generation in tuple(reservation_churn.active):
+            for target_window in range(
+                    current_window,
+                    current_window + MAX_TRANCHE_AHEAD_WINDOWS + 1):
+                assert reservation_churn.reserve(
+                    generation.address, target_window, current_window)
+        for move in range(MAX_REPLACEMENTS_PER_WINDOW):
+            newcomer = Generation(
+                f"replacement-{current_window}-{move}",
+                10_000 + next_registration, next_registration,
+                current_window + ENTRY_DELAY_WINDOWS)
+            next_registration += 1
+            assert reservation_churn.admit(newcomer, current_window)
+            for target_window in range(
+                    current_window,
+                    current_window + MAX_TRANCHE_AHEAD_WINDOWS + 1):
+                assert reservation_churn.reserve(
+                    newcomer.address, target_window, current_window)
+    check("P41c replacement converts future reservations to claim-only liability",
+          MAX_LIVE_RESERVATIONS == 1_088
+          and len(reservation_churn.open_reservations)
+              == MAX_LIVE_RESERVATIONS
+          and len(reservation_churn.liable_reservations) == 1_156
+          and churn_gate.unsettled_builder_reservations
+              == MAX_LIVE_RESERVATIONS
+          and MAX_MIGRATION_RESERVATION_CLEANUP_CALLS == 136)
+
 
 def test_data_gc_reorg_and_geometry() -> None:
     p = protocol()
@@ -3166,10 +3476,13 @@ def test_data_gc_reorg_and_geometry() -> None:
         terminal_root="terminal:registration", terminal_count=0)
     shared_queue = QueueContinuity(
         "forced-queue", "queue:root", 0, 0, 0, UINT64_MAX)
+    support_inbox_apply = InboxApplyRouterV2(next_queue_index=0)
     support_settlement = VersionedSettlementHistory(
         "settlement:2", "runtime:2", 2, "profile:2",
-        copy.deepcopy(support_core), 40, shared_queue)
-    support_router = ActiveSettlementRouter("version-manager", shared_queue)
+        copy.deepcopy(support_core), 40, shared_queue,
+        inbox_apply_router=support_inbox_apply)
+    support_router = ActiveSettlementRouter(
+        "version-manager", shared_queue, support_inbox_apply)
     assert support_router.bootstrap(
         support_settlement, sequence=7, activation_block=40)
     support_proof = dict(
@@ -3453,12 +3766,20 @@ def test_data_gc_reorg_and_geometry() -> None:
     registrar = TerminalDomainRegistrarV2(
         release_authority, accumulator, inbox_apply_router)
     manifest_v1 = release_manifest_fixture(
-        1, "domain:D1", "bridge:A", inbox_store)
+        1, "domain:D1", "bridge:A", inbox_store, legacy_proxy=True)
     anchor_v1 = AnchorV4Model(
         manifest_v1.anchor, manifest_v1.anchor_runtime_hash,
         manifest_v1.commitment)
     endpoint_v1 = EndpointActivationStateV2(
         legacy_v1_state_fingerprint="custody-and-status-v1:D1")
+    legacy_bridge_v1 = BridgeDeploymentStateV2(
+        "GENESIS_LEGACY_PROXY", manifest_v1.destination_bridge,
+        manifest_v1.components[8].runtime_hash,
+        "implementation:bridge:A",
+        manifest_v1.destination_bridge_descriptor.facade_runtime_hash,
+        direct_prestate_slot_constraint=True,
+        upgrade_authority_burned=True,
+        delegate_target_reachable=True)
     check("P50ca direct reserved-sender and Bridge release calls are rejected",
           not release_authority.activate(
               manifest_v1,
@@ -3476,7 +3797,8 @@ def test_data_gc_reorg_and_geometry() -> None:
           activate_release_transaction(
               release_authority, registrar, manifest=manifest_v1,
               transaction_sender="system:anchor", anchor=anchor_v1,
-              store=inbox_store, endpoint_state=endpoint_v1)
+              store=inbox_store, endpoint_state=endpoint_v1,
+              bridge_deployment=legacy_bridge_v1)
           and endpoint_v1.gate_active
           and endpoint_v1.legacy_v1_state_fingerprint
               == "custody-and-status-v1:D1")
@@ -3492,7 +3814,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               release_authority, registrar, manifest=manifest_v3,
               transaction_sender="system:anchor", anchor=anchor_v3,
               store=failed_store,
-              fixed_selector_calls_succeed=False)
+              direct_component_checks_succeed=False)
           and 3 not in release_authority.releases
           and 3 not in registrar.registrations
           and "domain:D3" not in inbox_apply_router.routes)
@@ -3700,7 +4022,19 @@ def test_data_gc_reorg_and_geometry() -> None:
                   manifest_v6.commitment), store=store_v6,
               endpoint_state=partial_endpoint_state)
           and 6 not in release_authority.releases)
-    check("P50cp chain IDs and Bridge descriptor preimages are authenticated",
+    store_v8 = InboxCreditStoreV2(
+        "inbox-apply", "bridge:G", "domain:D8")
+    manifest_v8 = release_manifest_fixture(
+        8, "domain:D8", "bridge:G", store_v8, legacy_proxy=True)
+    delegated_proxy_lie = BridgeDeploymentStateV2(
+        "GENESIS_LEGACY_PROXY", manifest_v8.destination_bridge,
+        manifest_v8.components[8].runtime_hash,
+        "implementation:attacker",
+        manifest_v8.destination_bridge_descriptor.facade_runtime_hash,
+        direct_prestate_slot_constraint=False,
+        upgrade_authority_burned=True,
+        delegate_target_reachable=True)
+    check("P50cp chain IDs, Bridge preimages and topology are authenticated",
           not replace(
               manifest_v6,
               destination_chain_id=UINT64_MAX + 1).structurally_valid()
@@ -3717,7 +4051,15 @@ def test_data_gc_reorg_and_geometry() -> None:
                   manifest_v6.commitment), store=store_v6,
               observed_bridge_descriptor=replace(
                   manifest_v6.destination_bridge_descriptor,
-                  facade_runtime_hash="observed-attacker-facade")))
+                  facade_runtime_hash="observed-attacker-facade"))
+          and not activate_release_transaction(
+              release_authority, registrar, manifest=manifest_v8,
+              transaction_sender="system:anchor",
+              anchor=AnchorV4Model(
+                  manifest_v8.anchor, manifest_v8.anchor_runtime_hash,
+                  manifest_v8.commitment), store=store_v8,
+              bridge_deployment=delegated_proxy_lie)
+          and 8 not in release_authority.releases)
     destination_d2 = DestinationBridgeLedger(
         address="bridge:B", local_domain_id="domain:D2",
         inbox_store=inbox_store_d2, terminal_accumulator=accumulator)
@@ -3856,21 +4198,29 @@ def test_data_gc_reorg_and_geometry() -> None:
         winning_data_commitment="data:499", next_base_fee=100,
         next_excess_blob_gas=2, terminal_root=accumulator.root,
         terminal_count=accumulator.count)
+    initial_queue_descriptors = [
+        replace(message(0, f"preserved-{index}"), due_at=1_001_500)
+        for index in range(17)]
     terminal_queue = QueueContinuity(
-        "forced-queue", "queue:root", 17, 12, 9_000, 1_000_000)
+        "forced-queue", "queue:root", 17, 12, 9_000, 1_001_500,
+        initial_queue_descriptors)
+    migration_inbox_apply = InboxApplyRouterV2(next_queue_index=12)
     shared_migration_gate = MigrationGate()
     settlement_1 = VersionedSettlementHistory(
         "settlement:1", "runtime:1", 1, "profile:1",
         copy.deepcopy(canonical_core_499), 49, terminal_queue,
-        migration_gate=shared_migration_gate)
-    active_router = ActiveSettlementRouter("version-manager", terminal_queue)
+        migration_gate=shared_migration_gate,
+        inbox_apply_router=migration_inbox_apply)
+    active_router = ActiveSettlementRouter(
+        "version-manager", terminal_queue, migration_inbox_apply)
     assert active_router.bootstrap(
         settlement_1, sequence=0, activation_block=49)
     assert active_router.sync_and_append(
-        "old-adapter-row", bound_router=active_router.address,
+        message(1, "old-adapter-row", kind=ForceKind.BRIDGE_CREDIT),
+        bound_router=active_router.address,
         queue_address=terminal_queue.address,
         active_settlement_sync_changed=False, deposit=7,
-        due_at=1_000_001) == "QUEUED:17"
+        due_at=1_001_501) == "QUEUED:17"
     canonical_core_500 = replace(
         canonical_core_499, l2_block_number=500, tip_hash="block:500",
         state_root="state:500")
@@ -3895,17 +4245,15 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50av sparse L2-height jumps cannot choose a history cell",
           active_router.canonical_at(1, sequence_1) == canonical_500
           and active_router.canonical_at(1, sequence_2) == canonical_756)
-    migration_messages = [message(0, f"preserved-{index}")
-                          for index in range(18)]
     migration_protocol = protocol(
         tip_slot=canonical_core_756.tip_slot,
         cursor=canonical_core_756.message_cursor,
-        messages=migration_messages)
+        forced_queue=terminal_queue,
+        inbox_apply_router=migration_inbox_apply)
     migration_protocol.canonical = Canonical(
         copy.deepcopy(canonical_core_756), 51)
     migration_protocol.migration_gate = shared_migration_gate
     migration_protocol.versioned_history = settlement_1
-    migration_protocol.forced_queue_state = terminal_queue
     settlement_1.live_protocol = migration_protocol
     migration_registry = RegistryLifecycle(
         [Generation("migration-builder", 10, 0, 0)],
@@ -3916,6 +4264,11 @@ def test_data_gc_reorg_and_geometry() -> None:
         migration_open_clock.timestamp + DATA_TTL_SECONDS) == "OPENED"
     assert migration_registry.reserve("migration-builder", 1, 0)
     migration_outage_clock = clock(181, 4_000)
+    check("P50cq router ingress is immediately visible to forced liveness",
+          migration_protocol.forced_queue is terminal_queue
+          and terminal_queue.count == len(migration_protocol.messages) == 18
+          and migration_protocol.next_due_at(12) == 1_001_500
+          and migration_protocol.force_due(migration_outage_clock))
     assert migration_protocol.sync(migration_outage_clock)
     assert migration_protocol.mode is Mode.RECOVERY
     migration_revision = migration_protocol.recovery.revision
@@ -3962,7 +4315,8 @@ def test_data_gc_reorg_and_geometry() -> None:
               candidate(migration_protocol, after_expiry, "ready-veto"),
               after_expiry) == "MIGRATION_ARMED"
           and active_router.sync_and_append(
-              "ready-row", bound_router=active_router.address,
+              message(2, "ready-row", kind=ForceKind.BRIDGE_CREDIT),
+              bound_router=active_router.address,
               queue_address=terminal_queue.address,
               active_settlement_sync_changed=False) == "SYNCED")
 
@@ -3973,14 +4327,25 @@ def test_data_gc_reorg_and_geometry() -> None:
     exact_settlement = VersionedSettlementHistory(
         "settlement:2", "runtime:2", 2, "profile:2",
         copy.deepcopy(canonical_core_756), 51, terminal_queue,
-        migration_gate=shared_migration_gate)
+        migration_gate=shared_migration_gate,
+        inbox_apply_router=migration_inbox_apply)
     wrong_queue_settlement = VersionedSettlementHistory(
         "settlement:wrong-queue", "runtime:2", 2, "profile:2",
         copy.deepcopy(canonical_core_756), 51,
-        replace(terminal_queue, address="replacement-queue"))
+        replace(terminal_queue, address="replacement-queue"),
+        inbox_apply_router=migration_inbox_apply)
     fresh_gate_settlement = VersionedSettlementHistory(
         "settlement:fresh-gate", "runtime:2", 2, "profile:2",
-        copy.deepcopy(canonical_core_756), 51, terminal_queue)
+        copy.deepcopy(canonical_core_756), 51, terminal_queue,
+        inbox_apply_router=migration_inbox_apply)
+    migration_inbox_apply.next_queue_index = 13
+    split_cursor_rejected = not active_router.activate_version(
+        settlement=exact_settlement, l1_block=51,
+        caller_is_version_manager=True, manifest_active=True,
+        target_manifest_hash="manifest:2",
+        target_runtime_approved=True, target_profile_matches=True,
+        full_core_import_exact=True, queue_import_exact=True)
+    migration_inbox_apply.next_queue_index = 12
     live_canonical = migration_protocol.canonical
     migration_protocol.canonical = Canonical(
         replace(canonical_core_756, state_root="stale-live-state"), 51)
@@ -3992,7 +4357,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         full_core_import_exact=True, queue_import_exact=True)
     migration_protocol.canonical = live_canonical
     check("P50ba router rejects fake, unauthorized and discontinuous targets",
-          stale_live_state_rejected
+          split_cursor_rejected and stale_live_state_rejected
           and not active_router.activate_version(
               settlement=exact_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
@@ -4043,17 +4408,20 @@ def test_data_gc_reorg_and_geometry() -> None:
               replace(canonical_core_756, l2_block_number=757),
               l1_block=51) is None
           and active_router.sync_and_append(
-              "same-old-adapter-after-v2", bound_router=active_router.address,
+              message(2, "same-old-adapter-after-v2",
+                      kind=ForceKind.BRIDGE_CREDIT),
+              bound_router=active_router.address,
               queue_address=terminal_queue.address,
               active_settlement_sync_changed=False, deposit=5,
-              due_at=1_000_002) == "QUEUED:18"
+              due_at=1_001_502) == "QUEUED:18"
           and shared_migration_gate.mode == "ACTIVE"
           and shared_migration_gate.active_protocol_version == 2
           and shared_migration_gate.target_protocol_version == 0
           and terminal_queue.count == 19
           and terminal_queue.escrow_balance == 9_012
-          and terminal_queue.descriptors
+          and [row.payload_hash for row in terminal_queue.descriptors[-2:]]
               == ["old-adapter-row", "same-old-adapter-after-v2"]
+          and migration_protocol.messages is terminal_queue.descriptors
           and migration_registry.reserve("migration-builder", 2, 0))
     check("P50bn the same gate can authorize a second bounded migration",
           shared_migration_gate.arm(
