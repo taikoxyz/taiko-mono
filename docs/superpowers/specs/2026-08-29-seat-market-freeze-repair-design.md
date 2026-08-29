@@ -98,13 +98,35 @@ target.
 
 ### 3.3 Release Manager and target reads
 
-Release Manager alone authorizes, disables, and atomically rotates installation targets. Historical
-targets remain authorized only for claims, release, enforcement, and history reclamation.
+The non-proxy `ActiveSettlementRouter` is the protocol-lifetime root of the Settlement authority
+graph. It immutably owns the shared migration gate, forced queue, inbox-apply router, and a read-only
+`L1HeaderOracle` modeling the authenticated EIP-2935/system-history source, with exact immutable
+`{address, runtimeHash, configurationHash}`. Bootstrap, `PREACTIVE` validation, activation, every
+consensus read, and rollback validate and preserve those three values plus exact object identity. Every active,
+`PREACTIVE`, and historical Settlement history and live Protocol must identity-alias those exact
+objects; copy-equal, target-owned, or substituted sources fail closed. The Protocol's oracle,
+queue/router, gate, and Settlement bindings are immutable during ordinary execution. EVM
+`block.number` and `block.timestamp`, represented by one exact environment `Clock` in the model, and
+the router-owned header oracle are the only time and L1-header authorities. A caller never supplies
+an authoritative activation block, timestamp, header, or raw canonical core.
+
+Release Manager owns the append-only target-authorization registry and executes Market rotation
+against activation receipts read from the exact Router. The Router is the sole durable activation-
+receipt store, including the successor index keyed by an old authorization ID; Release Manager has
+no receipt mirror or recording fallback. Historical targets remain authenticated through their
+immutable authorization and exact router-root graph. Their closed allowed surface is premium
+accrual, premium-credit claim, reserve reconciliation, breach enforcement, installed release,
+bond-credit claim, and duty-history safety/reclamation. Their closed forbidden surface is new
+insertion or requote, stage/apply/expiry, new session or ingress, and every other install-side or
+new-economic transition.
 
 `syncSeatGeneration` is the offer-book module's sole permissionless Settlement read. It derives the
 current authorized target rather than accepting a free address, then performs a gas-capped
 `STATICCALL` with exact chain, version, address, runtime hash, configuration hash, return length, and
-magic checks. Offer insertion, requote, pending exit/refund, and pulls perform no Settlement read.
+magic checks. The target may derive phase and generation only from the complete exact router-bound
+graph: Router registration/route, History authority, HeaderOracle, migration gate, forced queue,
+inbox router, and live Protocol aliases. Offer insertion, requote, pending exit/refund, and pulls
+perform no Settlement read.
 
 Other post-install Market operations may authenticate exact permanent Settlement records through
 their separately specified bounded static-read interfaces. None accepts a caller-supplied authority
@@ -722,9 +744,14 @@ refusing to claim.
 
 ### 8.1 Globally authorized Settlement-local arm and abort
 
-The non-proxy `ActiveSettlementRouter` remains the sole protocol-lifetime migration gate. Its exact
-word binds `(routerGeneration, activeProtocolVersion, targetProtocolVersion, targetManifestHash,
-phase)`. Only `ProtocolVersionManager` may consume the delayed exact arm or cancel manifest.
+The non-proxy `ActiveSettlementRouter` remains the sole protocol-lifetime migration gate and owns
+that exact immutable shared gate object. Its exact word binds `(routerGeneration,
+activeProtocolVersion, targetProtocolVersion, targetManifestHash, phase)`. Every History and
+Protocol must identity-alias the Router's gate, header oracle, forced queue, and inbox router before
+bootstrap, arm, abort, activation, canonical recording, or rollback. Only
+`ProtocolVersionManager` may consume the delayed exact arm or cancel manifest. Its Router, Release
+Manager, Market identity, governance, and exact positive arm/cancel delays are immutable deployment
+bindings.
 
 Seat migration arm is not an independently callable Settlement function. In the same transaction and
 revert domain as the globally authorized router `ACTIVE -> ARMED` transition, ProtocolVersionManager
@@ -771,6 +798,11 @@ acknowledges abort. Any mismatch or incomplete callback reverts the global abort
 `seatGeneration` and never resurrects a term, duty, successor, quote, or stage. A later active
 installation begins from the incremented seat generation.
 
+Each post-abort response fault is tested in one retained fixture: the faulting transaction restores
+the complete router/Protocol graph, clearing that fault permits exactly one authenticated cleanup,
+and replay is rejected. This authenticated post-abort stage/tombstone cleanup never restores
+consumed economics.
+
 The existing global statement that cancellation changes no reservation or liability state remains
 true for pre-arm builder/queue liabilities, but must not be read as restoring consumed seat state:
 seat closures, excuses, generation increment, and stage tombstone created by the atomic arm remain
@@ -780,6 +812,22 @@ Old cached-generation insertions before the next Market sync are inert capital o
 cannot stage or install while Settlement is armed and are purged when generation is synchronized or
 the target is rotated.
 
+Activation accepts only a registered, independently constructed `PREACTIVE` target with the exact
+router-owned authority aliases and completely empty non-imported transient state: no local
+canonical-history entries, active/recovery context, candidates, sessions, seat terms/services/
+duties/stages, tombstones, events, or aliased mutable containers. The exact sentinels are History
+`currentSequence = -1`, `lastCanonicalBlock = 0`, and unset Router authority; Protocol
+`seatGeneration = 0`, lineup revision, duty sequence, scan/query/GC counters all zero; and exactly
+four default empty, reusable duty cells. Only immutable target configuration, the new Market
+authorization binding, and the exact Router-shared authority aliases may already exist. The target
+imports the exact proven admission version/root with the canonical core; queue capacity is immutable
+profile configuration and must equal the old target. No other mutable predecessor state imports.
+Its canonical
+writer derives the core and block from the exact live Protocol plus environment `Clock`; only the
+exact Router may install an imported initial history row. Raw public canonical/import writers do not exist. Activation and
+rollback preserve every identity alias, switch old to `FROZEN` and successor to `ACTIVE`, and are
+independent of Market availability or mutation.
+
 ### 8.2 Market synchronization and rotation
 
 Equal generation sync is idempotent. A lower generation, malformed read, armed/non-installable phase,
@@ -787,14 +835,29 @@ or wrong authorization fails without Market mutation. A higher active generation
 at most four old pending offers to exact owner credits and writes the generation cache last. It does
 not touch a staged offer; the authenticated tombstone path owns that transition.
 
-Rotation verifies the exact immutable release-manager route, old/new authorization commitments,
-consumed manifest and generation, old `FROZEN` phase, and new `ACTIVE` phase before mutation. When an
-old stage exists, rotation first performs the identical authenticated migration-stage cancellation.
-It then purges old pending offers, disables old insertion, enables new insertion with an uninitialized
-generation cache, and writes the current target pointer. Any failure rolls the entire operation back.
+Every successful Router activation writes one immutable receipt binding `routerGeneration`, old/new
+protocol versions, old/new target addresses, target manifest, resulting `seatGeneration`, old/new
+authorization IDs, activation block, and the optional exact migration `stageId` plus
+`lineupCommitment`. It is keyed by router generation and manifest and indexed as the unique successor
+of the old authorization ID. Rotation validates every payload field. That successor index is
+valid even when aborted arms consumed intervening router generations. Market catch-up is O(1) per
+call: `current_authorization_id` is the single installation pointer and rotation cursor, and one call
+may consume exactly the receipt whose `old_authorization_id` equals that cursor. There is no separate
+`currentInstallationTarget` state and no receipt scan.
 
-Claims, old breach enforcement, release, and history reclamation remain available on every authorized
-historical target.
+Rotation verifies the exact immutable Release Manager/Router route, receipt, old/new authorization
+commitments, old `FROZEN` phase, and receipt successor phase before mutation. When an old stage
+exists, rotation first performs the identical authenticated migration-stage cancellation. It then
+purges old pending offers, disables old insertion, installs the successor authorization, resets the
+generation cache to `None`, advances `current_authorization_id`, and marks that receipt consumed.
+If the successor is an intermediate `FROZEN` hop, it remains insertion-disabled with cache `None`;
+the next call consumes one further successor receipt. Only the exact `ACTIVE` tip is enabled and may
+resynchronize generation. Any failure rolls the complete Market/authorization/accounting state back.
+
+On every authorized historical target, premium accrual and credit claim, reserve reconciliation,
+breach enforcement and penalty claim, installed release and owner claim, and duty-history safety/
+reclamation remain available. New insert/requote, stage/apply/expiry, session, and ingress surfaces
+remain unavailable.
 
 ## 9. Economic profile
 

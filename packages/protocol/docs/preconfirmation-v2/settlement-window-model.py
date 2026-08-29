@@ -14,6 +14,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum, IntFlag, auto
 import hashlib
 import sys
+from types import MappingProxyType
 from typing import Any, Callable
 
 GENESIS_TIMESTAMP = 1_000_000
@@ -99,6 +100,11 @@ NON_PROTOCOL_MARKET_UNIT_PRIMITIVES = frozenset({
     "enforce_breach",
     "is_duty_history_safe",
 })
+SEAT_ARMED_MAGIC = b"SARM"
+SEAT_ABORTED_MAGIC = b"SABT"
+SEAT_MIGRATION_RESPONSE_LENGTH = 4 + 8 + 8 + 8 + 32 + 8
+SEAT_MIGRATION_MANIFEST_DELAY = 100
+SEAT_MIGRATION_CANCEL_DELAY = 100
 
 
 def seat_u256(value: int, name: str) -> int:
@@ -130,6 +136,9 @@ MAX_BRIDGE_TOPOLOGIES_PER_PROFILE = 64
 MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
 BRIDGE_PROCESS_TTL_SECONDS = 30 * 86_400
 CANONICAL_HISTORY_CAPACITY = 256
+L1_HEADER_ORACLE_ADDRESS = "eip-2935-header-oracle"
+L1_HEADER_ORACLE_RUNTIME_HASH = "code:eip2935-header-oracle:v1"
+L1_HEADER_ORACLE_CONFIGURATION_HASH = "config:eip2935:8191:v1"
 MAX_REGISTRATION_PROOF_NODES = 132
 MAX_REGISTRATION_PROOF_BYTES = 80_000
 APPENDING_SENTINEL = UINT64_MAX
@@ -284,6 +293,54 @@ class L1Header:
     state_root: str
     force_root: str
     force_cutoff: int
+
+
+@dataclass(frozen=True, eq=False)
+class L1HeaderOracle:
+    """Protocol-lifetime authenticated EIP-2935/system header source."""
+
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+    _headers: object = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            not self.address
+            or not self.runtime_hash
+            or not self.configuration_hash
+            or type(self._headers) is not dict
+            or any(
+                type(number) is not int
+                or number < 0
+                or type(header) is not L1Header
+                for number, header in self._headers.items()
+            )
+        ):
+            raise ValueError("L1 header oracle deployment is invalid")
+        object.__setattr__(
+            self, "_headers", MappingProxyType(dict(self._headers))
+        )
+
+    def __deepcopy__(self, memo: dict[int, object]) -> "L1HeaderOracle":
+        return self
+
+    def header(self, block_number: int) -> L1Header:
+        if type(block_number) is not int or block_number < 0:
+            raise KeyError("invalid L1 header number")
+        return self._headers[block_number]
+
+    def fork_for_test(
+        self, substitutions: dict[int, L1Header]
+    ) -> "L1HeaderOracle":
+        headers = dict(self._headers)
+        headers.update(substitutions)
+        return L1HeaderOracle(
+            self.address,
+            self.runtime_hash,
+            self.configuration_hash,
+            headers,
+        )
 
 
 @dataclass(frozen=True)
@@ -583,6 +640,112 @@ class StageTombstone:
     lineup_commitment: bytes
     reason: str
     reconciled: bool = False
+    migration_terminal: bool = False
+
+
+class RouterPhase(Enum):
+    ACTIVE = 1
+    ARMED = 2
+    READY = 3
+
+
+@dataclass(frozen=True)
+class RouterWord:
+    generation: int
+    active_version: int
+    target_version: int
+    target_manifest_hash: bytes
+    phase: RouterPhase
+
+
+@dataclass(frozen=True)
+class SeatMigrationResponse:
+    magic: bytes
+    router_generation: int
+    active_protocol_version: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    seat_generation: int
+
+
+@dataclass(frozen=True)
+class SeatMigrationArm:
+    router_word: RouterWord
+    seat_generation: int
+    completed_at: int
+    migration_stage_id: bytes | None = None
+    migration_lineup_commitment: bytes | None = None
+
+
+@dataclass(frozen=True)
+class SeatMigrationAbort:
+    canceled_arm: RouterWord
+    seat_generation: int
+    completed_at: int
+
+
+@dataclass(frozen=True)
+class ScheduledSeatMigration:
+    generation: int
+    active_protocol_version: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    scheduled_at: int
+    executable_at: int
+    old_authorization_id: bytes = b""
+    new_authorization_id: bytes = b""
+
+    @property
+    def key(self) -> tuple[int, int, int, bytes]:
+        return (
+            self.generation,
+            self.active_protocol_version,
+            self.target_protocol_version,
+            self.target_manifest_hash,
+        )
+
+
+def _migration_u64(value: int, name: str) -> bytes:
+    value = seat_u256(value, name)
+    if value > UINT64_MAX:
+        raise ValueError(f"{name} is outside uint64")
+    return value.to_bytes(8, "big")
+
+
+def encode_seat_migration_response(response: SeatMigrationResponse) -> bytes:
+    if type(response) is not SeatMigrationResponse:
+        raise ValueError("malformed seat migration response")
+    if response.magic not in (SEAT_ARMED_MAGIC, SEAT_ABORTED_MAGIC):
+        raise ValueError("unknown seat migration response magic")
+    if (
+        type(response.target_manifest_hash) is not bytes
+        or len(response.target_manifest_hash) != 32
+    ):
+        raise ValueError("migration manifest must be exact bytes32")
+    return b"".join((
+        response.magic,
+        _migration_u64(response.router_generation, "router generation"),
+        _migration_u64(response.active_protocol_version, "active protocol version"),
+        _migration_u64(response.target_protocol_version, "target protocol version"),
+        response.target_manifest_hash,
+        _migration_u64(response.seat_generation, "seat generation"),
+    ))
+
+
+def decode_seat_migration_response(raw: bytes) -> SeatMigrationResponse:
+    if type(raw) is not bytes or len(raw) != SEAT_MIGRATION_RESPONSE_LENGTH:
+        raise ValueError("seat migration response has noncanonical length")
+    magic = raw[:4]
+    if magic not in (SEAT_ARMED_MAGIC, SEAT_ABORTED_MAGIC):
+        raise ValueError("seat migration response has wrong magic")
+    return SeatMigrationResponse(
+        magic,
+        int.from_bytes(raw[4:12], "big"),
+        int.from_bytes(raw[12:20], "big"),
+        int.from_bytes(raw[20:28], "big"),
+        raw[28:60],
+        int.from_bytes(raw[60:68], "big"),
+    )
 
 
 @dataclass(frozen=True)
@@ -603,20 +766,54 @@ class MigrationGate:
     generation: int = 0
     active_protocol_version: int = 0
     target_protocol_version: int = 0
-    target_manifest_hash: str = ""
+    target_manifest_hash: str | bytes = ""
     coordinator: str = ""
     live_data_sessions: int = 0
     canceled_generations: set[int] = field(default_factory=set)
+    canceled_words: dict[int, RouterWord] = field(default_factory=dict)
 
-    def bootstrap(self, protocol_version: int, coordinator: str = "version-manager") -> bool:
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "coordinator" and name in self.__dict__:
+            raise AttributeError("migration coordinator is immutable")
+        object.__setattr__(self, name, value)
+
+    @property
+    def router_word(self) -> RouterWord:
+        phases = {
+            "ACTIVE": RouterPhase.ACTIVE,
+            "ARMED": RouterPhase.ARMED,
+            "READY": RouterPhase.READY,
+        }
+        phase = phases.get(self.mode)
+        if phase is None:
+            raise ValueError("migration router phase is invalid")
+        manifest = self.target_manifest_hash
+        if manifest == "":
+            exact_manifest = b"\x00" * 32
+        elif type(manifest) is bytes and len(manifest) == 32:
+            exact_manifest = manifest
+        else:
+            raise ValueError("migration router manifest is not exact bytes32")
+        return RouterWord(
+            self.generation,
+            self.active_protocol_version,
+            self.target_protocol_version,
+            exact_manifest,
+            phase,
+        )
+
+    def _bootstrap_from_router(
+        self, protocol_version: int, coordinator: str = "version-manager"
+    ) -> bool:
         if (self.active_protocol_version != 0 or protocol_version <= 0
-                or self.mode != "ACTIVE" or not coordinator):
+                or self.mode != "ACTIVE" or self.coordinator != ""
+                or not coordinator):
             return False
         self.active_protocol_version = protocol_version
-        self.coordinator = coordinator
+        object.__setattr__(self, "coordinator", coordinator)
         return True
 
-    def arm(self, generation: int, active_protocol_version: int,
+    def _arm_from_manager(self, generation: int, active_protocol_version: int,
             target_protocol_version: int, manifest_hash: str, *, caller: str) -> bool:
         if (self.mode == "ARMED" and generation == self.generation
                 and active_protocol_version == self.active_protocol_version
@@ -635,14 +832,20 @@ class MigrationGate:
         self.mode = "ARMED"
         return True
 
-    def try_ready(self, *, normal_open: bool, recovery_active: bool) -> bool:
+    def _try_ready_from_protocol(
+        self,
+        *,
+        normal_open: bool,
+        recovery_active: bool,
+        local_arm_complete: bool = True,
+    ) -> bool:
         if (self.mode != "ARMED" or normal_open or recovery_active
-                or self.live_data_sessions != 0):
+                or self.live_data_sessions != 0 or not local_arm_complete):
             return False
         self.mode = "READY"
         return True
 
-    def activate_target(self, generation: int, old_protocol_version: int,
+    def _activate_from_router(self, generation: int, old_protocol_version: int,
                         new_protocol_version: int) -> bool:
         if (self.mode != "READY" or generation != self.generation
                 or old_protocol_version != self.active_protocol_version
@@ -654,18 +857,21 @@ class MigrationGate:
         self.mode = "ACTIVE"
         return True
 
-    def abort(self, generation: int, active_protocol_version: int,
+    def _abort_from_manager(self, generation: int, active_protocol_version: int,
               target_protocol_version: int, manifest_hash: str, *,
-              cancel_manifest_active: bool) -> bool:
+              cancel_manifest_active: bool, caller: str) -> bool:
         """Permissionless execution of a separately delayed exact cancel."""
-        if (self.mode not in {"ARMED", "READY"}
+        if (caller != self.coordinator
+                or self.mode not in {"ARMED", "READY"}
                 or not cancel_manifest_active
                 or generation != self.generation
                 or active_protocol_version != self.active_protocol_version
                 or target_protocol_version != self.target_protocol_version
                 or manifest_hash != self.target_manifest_hash):
             return False
+        canceled_word = self.router_word
         self.canceled_generations.add(generation)
+        self.canceled_words[generation] = canceled_word
         self.target_protocol_version = 0
         self.target_manifest_hash = ""
         self.mode = "ACTIVE"
@@ -798,7 +1004,7 @@ def normal_context_id(base_hash: str, admission_version: int, admission_root: st
 @dataclass
 class Protocol:
     canonical: Canonical
-    history: dict[int, L1Header]
+    header_oracle: L1HeaderOracle
     forced_queue: "QueueContinuity"
     inbox_apply_router: "InboxApplyRouterV2"
     settlement_address: str = "model-settlement"
@@ -837,6 +1043,7 @@ class Protocol:
     seat_selection: SelectionRecord | None = None
     settlement_seat_stage: SettlementSeatStage | None = None
     stage_tombstones: dict[bytes, StageTombstone] = field(default_factory=dict)
+    outstanding_stage_tombstone_id: bytes | None = None
     seat_generation: int = 7
     seat_lineup_revision: int = 0
     seat_authorization_id: bytes | None = None
@@ -849,6 +1056,9 @@ class Protocol:
     seat_scan_count: int = 0
     seat_scan_visits_total: int = 0
     seat_sla_trigger_pending: bool = False
+    seat_migration_arm: SeatMigrationArm | None = None
+    seat_migration_abort: SeatMigrationAbort | None = None
+    seat_migration_local_generation: int | None = None
     sessions: dict[str, DataSession] = field(default_factory=dict)
     gc_cursor: int = 0
     events: list[str] = field(default_factory=list)
@@ -860,9 +1070,38 @@ class Protocol:
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     versioned_history: object | None = None
 
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "header_oracle", "forced_queue", "inbox_apply_router",
+            "migration_gate", "settlement_address",
+        } and name in self.__dict__:
+            raise AttributeError(f"Protocol {name} is immutable")
+        object.__setattr__(self, name, value)
+
     @property
     def core(self) -> CanonicalCore:
         return self.canonical.core
+
+    def _is_current_settlement_target(self) -> bool:
+        history = self.versioned_history
+        if history is not None and not isinstance(
+            history, VersionedSettlementHistory
+        ):
+            # Narrow unit-history adapters still exercise the transaction
+            # rollback path; they do not model a router registration.
+            return True
+        if history is None:
+            return True
+        try:
+            target_state = history.exact_market_target_state()
+        except ValueError:
+            return False
+        return (
+            target_state[0] == self.settlement_address
+            and target_state[6] in {"ACTIVE", "ARMED", "READY"}
+            and self.forced_queue.active_settlement_address
+                == self.settlement_address
+        )
 
     def snapshot(self) -> "Protocol":
         return copy.deepcopy(self)
@@ -1225,6 +1464,7 @@ class Protocol:
         self.stage_tombstones[stage.stage_id] = StageTombstone(
             stage.stage_id, stage.lineup_commitment, reason
         )
+        self.outstanding_stage_tombstone_id = stage.stage_id
         self.settlement_seat_stage = None
         self._seat_fault("after_stage_tombstone")
 
@@ -1763,9 +2003,13 @@ class Protocol:
         return True
 
     def _scan_seat_duties(
-        self, clock: Clock, *, allow_cure: bool
+        self,
+        clock: Clock,
+        *,
+        allow_cure: bool,
+        excuse_for_migration: bool = False,
     ) -> SeatDutyScanOutcome:
-        """Visit each ring cell once, ordering outcomes before optional cure."""
+        """Visit each ring cell once: objective outcome, cure, then excuse."""
 
         changed = False
         reusable_index: int | None = None
@@ -1796,6 +2040,13 @@ class Protocol:
             ):
                 self._satisfy_activated_duty(duty, clock)
                 satisfied += 1
+                changed = True
+            if (
+                excuse_for_migration
+                and duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+            ):
+                duty.status = DutyStatus.EXCUSED_MIGRATION
+                duty.disposition_at = clock.timestamp
                 changed = True
             if (
                 duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
@@ -1838,7 +2089,11 @@ class Protocol:
         return True
 
     def _sync_prospective_deadline(
-        self, clock: Clock, reusable_index: int | None
+        self,
+        clock: Clock,
+        reusable_index: int | None,
+        *,
+        excuse_for_migration: bool = False,
     ) -> tuple[bool, bool]:
         changed = False
         sla_missed = False
@@ -1867,6 +2122,14 @@ class Protocol:
                             raise AssertionError("attached duty result is empty")
                         changed = True
                         changed |= self._process_activated_duty(attached, clock)
+                        if (
+                            excuse_for_migration
+                            and attached.status
+                            in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                        ):
+                            attached.status = DutyStatus.EXCUSED_MIGRATION
+                            attached.disposition_at = clock.timestamp
+                            changed = True
                         sla_missed = attached.status in (
                             DutyStatus.OPEN, DutyStatus.FAILED_OVER
                         )
@@ -1923,19 +2186,10 @@ class Protocol:
         )
         return scan.changed or prospective_changed
 
-    def close_seats_for_migration(self, close_at: int) -> None:
-        """Canonical-local migration excuse; Task 5 binds its global caller."""
+    def _close_seats_for_migration(self, close_at: int) -> None:
+        """Vacate the roster after the one-pass migration duty settlement."""
 
         close_at = seat_u256(close_at, "migration seat close")
-        self.seat_scan_count = 0
-        for cell in self.duty_ring:
-            self.seat_scan_count += 1
-            if cell.reusable or cell.duty_id is None:
-                continue
-            duty = self.seat_duties[cell.duty_id]
-            if duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
-                duty.status = DutyStatus.EXCUSED_MIGRATION
-                duty.disposition_at = close_at
         self._vacate_entire_lineup(close_at, "MIGRATION")
         self._assert_seat_valid()
 
@@ -1975,6 +2229,7 @@ class Protocol:
         history = self.versioned_history
         return {
             "protocol": copy.deepcopy(self.__dict__),
+            "header_oracle": self.header_oracle,
             "forced_queue": self.forced_queue,
             "forced_queue_state": copy.deepcopy(self.forced_queue.__dict__),
             "inbox_apply_router": self.inbox_apply_router,
@@ -1984,8 +2239,16 @@ class Protocol:
             "migration_gate": self.migration_gate,
             "migration_gate_state": copy.deepcopy(self.migration_gate.__dict__),
             "history": history,
+            "history_router_authority": (
+                getattr(history, "_router_authority", None)
+                if history is not None else None
+            ),
             "history_state": (
-                copy.deepcopy(history.__dict__) if history is not None else None
+                copy.deepcopy({
+                    key: value for key, value in history.__dict__.items()
+                    if key != "_router_authority"
+                })
+                if history is not None else None
             ),
         }
 
@@ -2003,6 +2266,13 @@ class Protocol:
             or getattr(history, "live_protocol", None) is not self
         ):
             raise AssertionError("invalid canonical history authority graph")
+        if isinstance(history, VersionedSettlementHistory):
+            try:
+                history.exact_market_target_state()
+            except ValueError as exc:
+                raise AssertionError(
+                    "invalid canonical history authority graph"
+                ) from exc
 
     def _restore_canonical_transaction(
         self, snapshot: dict[str, object]
@@ -2014,27 +2284,38 @@ class Protocol:
         gate = snapshot["migration_gate"]
         history = snapshot["history"]
         self._restore_object(self, snapshot["protocol"])
+        object.__setattr__(self, "header_oracle", snapshot["header_oracle"])
         self._restore_object(queue, snapshot["forced_queue_state"])
         self._restore_object(router, snapshot["inbox_apply_router_state"])
         self._restore_object(gate, snapshot["migration_gate_state"])
-        self.forced_queue = queue
-        self.inbox_apply_router = router
-        self.migration_gate = gate
+        object.__setattr__(self, "forced_queue", queue)
+        object.__setattr__(self, "inbox_apply_router", router)
+        object.__setattr__(self, "migration_gate", gate)
         self.versioned_history = history
         if history is None:
             return
         self._restore_object(history, snapshot["history_state"])
-        history.forced_queue = queue
-        history.inbox_apply_router = router
-        history.migration_gate = gate
+        object.__setattr__(history, "forced_queue", queue)
+        object.__setattr__(history, "inbox_apply_router", router)
+        object.__setattr__(history, "migration_gate", gate)
         history.live_protocol = self
+        if hasattr(history, "_router_authority"):
+            object.__setattr__(
+                history,
+                "_router_authority",
+                snapshot["history_router_authority"],
+            )
 
     def _composed_seat_call(
         self, market: object, transition: Callable[[], object]
     ) -> object:
         self._assert_canonical_history_binding()
         settlement_snapshot = self._canonical_transaction_snapshot()
-        market_snapshot = copy.deepcopy(market.__dict__)
+        market_snapshotter = getattr(market, "_transaction_snapshot", None)
+        market_restorer = getattr(market, "_restore_transaction", None)
+        if not callable(market_snapshotter) or not callable(market_restorer):
+            raise ValueError("Market lacks the exact rollback surface")
+        market_snapshot = market_snapshotter()
         try:
             self._assert_seat_valid()
             market.assert_valid()
@@ -2044,11 +2325,19 @@ class Protocol:
             return result
         except BaseException:
             self._restore_canonical_transaction(settlement_snapshot)
-            self._restore_object(market, market_snapshot)
+            market_restorer(market_snapshot)
             raise
 
     def _leading_seat_sync(self, clock: Clock) -> bool:
         """Run canonical sync without persisting model-only read counters."""
+
+        if (
+            self.versioned_history is not None
+            and self.versioned_history.mode == "FROZEN"
+        ):
+            # Historical economic calls read this target-local retained ledger;
+            # they never replay current canonical maintenance through it.
+            return False
 
         boundary_queries = self.boundary_queries
         seat_scan_count = self.seat_scan_count
@@ -2059,6 +2348,75 @@ class Protocol:
             self.seat_scan_count = seat_scan_count
             self.seat_scan_visits_total = seat_scan_visits_total
         return changed
+
+    def execute_market_target_rotation(
+        self,
+        market: object,
+        manager: object,
+        receipt_key: tuple[int, bytes],
+        clock: Clock,
+    ) -> object:
+        """Compose exact frozen-tombstone acknowledgement with Market rotation."""
+
+        history = self.versioned_history
+        receipt_reader = getattr(manager, "activation_receipt", None)
+        receipt = (
+            None if not callable(receipt_reader) else receipt_reader(receipt_key)
+        )
+        if (
+            history is None
+            or history.live_protocol is not self
+            or history.mode != "FROZEN"
+            or self.settlement_address != history.address
+            or getattr(market, "release_manager", None) is not manager
+            or getattr(market, "market_address", None)
+            != self.seat_market_address
+            or receipt is None
+            or receipt.old_target != self.settlement_address
+            or receipt.old_protocol_version != history.protocol_version
+            or receipt.old_authorization_id != self.seat_authorization_id
+        ):
+            raise ValueError("rotation missed the exact frozen Settlement target")
+        runtime = manager.target_runtimes.get(receipt.old_authorization_id)
+        if runtime is None or runtime.authority is not history:
+            raise ValueError("rotation old-target read route is not exact")
+        tombstone = None
+        if receipt.migration_stage_id is not None:
+            tombstone = self.stage_tombstones.get(receipt.migration_stage_id)
+            if (
+                tombstone is None
+                or tombstone.reconciled
+                or not tombstone.migration_terminal
+                or tombstone.stage_id != receipt.migration_stage_id
+                or tombstone.lineup_commitment
+                != receipt.migration_lineup_commitment
+            ):
+                raise ValueError("migration stage tombstone is not exact")
+        elif receipt.migration_lineup_commitment is not None:
+            raise ValueError("migration stage tuple is partial")
+
+        self._assert_canonical_history_binding()
+        settlement_snapshot = self._canonical_transaction_snapshot()
+        market_snapshot = market._transaction_snapshot()
+        try:
+            result = market._rotate_installation_target(
+                manager=manager,
+                receipt_key=receipt_key,
+                clock=clock,
+                migration_stage_authenticated=tombstone is not None,
+            )
+            if tombstone is not None:
+                tombstone.reconciled = True
+                if self.outstanding_stage_tombstone_id == tombstone.stage_id:
+                    self.outstanding_stage_tombstone_id = None
+                market._fault("after_migration_tombstone_ack")
+            self._assert_seat_valid()
+            market.assert_valid()
+            return result
+        except BaseException:
+            self._restore_canonical_transaction(settlement_snapshot)
+            market._restore_transaction(market_snapshot)
+            raise
 
     def bind_seat_market_for_test(self, market: object) -> None:
         """Model fixture for immutable constructor/release-manager bindings."""
@@ -2245,11 +2603,16 @@ class Protocol:
             return "SYNCED"
         if self.mode is not Mode.NORMAL or self.migration_gate.mode != "ACTIVE":
             raise ValueError("seat staging is unavailable")
+        if (
+            self.versioned_history is not None
+            and self.versioned_history.mode != "ACTIVE"
+        ):
+            raise ValueError("historical Settlement cannot stage seats")
 
         def transition() -> object:
             module = self._bound_market_module(market)
             snapshot = self._lineup_snapshot_for_market(market)
-            result = market.stage_best(
+            result = market._settlement_stage_best(
                 snapshot, module.Clock(clock.timestamp, clock.block_number)
             )
             if result.code is not module.ResultCode.STAGED:
@@ -2287,6 +2650,11 @@ class Protocol:
             return "SYNCED"
         if self.mode is not Mode.NORMAL or self.migration_gate.mode != "ACTIVE":
             raise ValueError("seat stage cannot apply outside healthy active mode")
+        if (
+            self.versioned_history is not None
+            and self.versioned_history.mode != "ACTIVE"
+        ):
+            raise ValueError("historical Settlement cannot apply a seat stage")
 
         def transition() -> object:
             module = self._bound_market_module(market)
@@ -2337,7 +2705,7 @@ class Protocol:
                     raise ValueError("outgoing primary is no longer healthy/funded")
                 self._close_service(outgoing, clock.timestamp, "HEALTHY_HANDOVER")
                 self._remove_lineup_term(outgoing, clock.timestamp)
-                market.close_reserve(
+                market._settlement_close_reserve(
                     self._market_service_view(market, outgoing),
                     module.Clock(clock.timestamp, clock.block_number),
                     atomic_healthy=True,
@@ -2353,7 +2721,7 @@ class Protocol:
                 lineup_commitment=stage.lineup_commitment,
                 applied_at=clock.timestamp,
             )
-            market_result = market.install_stage(install)
+            market_result = market._settlement_install_stage(install)
             self._seat_fault("after_market_install")
             term = SeatTerm(
                 term_id,
@@ -2409,13 +2777,18 @@ class Protocol:
             if market != market_before:
                 raise AssertionError("canonical leading sync called Market")
             return "SYNCED"
+        if (
+            self.versioned_history is not None
+            and self.versioned_history.mode != "ACTIVE"
+        ):
+            raise ValueError("historical Settlement cannot expire a seat stage")
 
         def transition() -> object:
             module = self._bound_market_module(market)
             stage = self.settlement_seat_stage
             if stage is None or clock.timestamp < stage.expires_at:
                 raise ValueError("exact stage has not expired")
-            result = market.expire_stage(
+            result = market._settlement_expire_stage(
                 stage.stage_id, module.Clock(clock.timestamp, clock.block_number)
             )
             self._seat_fault("after_market_expiry")
@@ -2442,16 +2815,63 @@ class Protocol:
 
         def transition() -> object:
             tombstone = self.stage_tombstones.get(stage_id)
+            history_active = (
+                self.versioned_history is None
+                or self.versioned_history.mode == "ACTIVE"
+            )
+            abort_cancel = (
+                tombstone is not None
+                and tombstone.migration_terminal
+                and self.seat_migration_abort is not None
+                and self.seat_migration_arm is not None
+                and self.seat_migration_abort.canceled_arm.phase
+                in (RouterPhase.ARMED, RouterPhase.READY)
+                and self.migration_gate.canceled_words.get(
+                    self.seat_migration_abort.canceled_arm.generation
+                ) == self.seat_migration_abort.canceled_arm
+                and self.seat_migration_abort.canceled_arm.generation
+                == self.seat_migration_arm.router_word.generation
+                and self.seat_migration_abort.canceled_arm.active_version
+                == self.seat_migration_arm.router_word.active_version
+                and self.seat_migration_abort.canceled_arm.target_version
+                == self.seat_migration_arm.router_word.target_version
+                and self.seat_migration_abort.canceled_arm.target_manifest_hash
+                == self.seat_migration_arm.router_word.target_manifest_hash
+                and self.seat_migration_arm.migration_stage_id
+                == tombstone.stage_id
+                and self.seat_migration_arm.migration_lineup_commitment
+                == tombstone.lineup_commitment
+                and history_active
+            )
             if (
                 tombstone is None
                 or tombstone.reconciled
+                or (tombstone.migration_terminal and not abort_cancel)
+                or (
+                    self.seat_migration_arm is not None
+                    and self.seat_migration_abort is None
+                    and not abort_cancel
+                )
+                or not history_active
                 or tombstone.stage_id != stage_id
                 or tombstone.lineup_commitment != lineup_commitment
             ):
                 raise ValueError("stale or mismatched stage tombstone")
-            result = market.invalidate_stage(stage_id, lineup_commitment)
+            result = (
+                market._settlement_cancel_stage_for_migration(
+                    stage_id, lineup_commitment, self._market_module(market).Clock(
+                        clock.timestamp, clock.block_number
+                    )
+                )
+                if abort_cancel
+                else market._settlement_invalidate_stage(
+                    stage_id, lineup_commitment
+                )
+            )
             self._seat_fault("after_market_invalidation")
             tombstone.reconciled = True
+            if self.outstanding_stage_tombstone_id == stage_id:
+                self.outstanding_stage_tombstone_id = None
             self._seat_fault("after_tombstone_reconciliation")
             return result
 
@@ -2542,7 +2962,7 @@ class Protocol:
             self._close_service(term_id, clock.timestamp, "VOLUNTARY_EXIT")
             self._remove_lineup_term(term_id, clock.timestamp)
             self._seat_fault("after_exit_roster_removal")
-            result = market.close_reserve(
+            result = market._settlement_close_reserve(
                 self._market_service_view(market, term_id),
                 module.Clock(clock.timestamp, clock.block_number),
                 atomic_healthy=True,
@@ -2585,7 +3005,7 @@ class Protocol:
         if term_id == self.selected_successor_term_id:
             raise ValueError("selected successor has not started service")
         module = self._bound_market_module(market)
-        return market.accrue_premium(
+        return market._settlement_accrue_premium(
             self._market_service_view(market, term_id),
             module.Clock(clock.timestamp, clock.block_number),
         )
@@ -2603,7 +3023,7 @@ class Protocol:
         module = self._bound_market_module(market)
         return self._composed_seat_call(
             market,
-            lambda: market.close_reserve(
+            lambda: market._settlement_close_reserve(
                 self._market_service_view(market, term_id),
                 module.Clock(clock.timestamp, clock.block_number),
                 atomic_healthy=False,
@@ -2621,7 +3041,7 @@ class Protocol:
                 raise AssertionError("canonical leading sync called Market")
             return "SYNCED"
         module = self._bound_market_module(market)
-        return market.request_release(
+        return market._settlement_request_release(
             tranche_id,
             self._market_service_view(market, term_id),
             module.Clock(clock.timestamp, clock.block_number),
@@ -2640,7 +3060,7 @@ class Protocol:
         module = self._bound_market_module(market)
         return self._composed_seat_call(
             market,
-            lambda: market.finalize_release(
+            lambda: market._settlement_finalize_release(
                 tranche_id,
                 self._market_service_view(market, term_id),
                 module.Clock(clock.timestamp, clock.block_number),
@@ -2660,7 +3080,7 @@ class Protocol:
         module = self._bound_market_module(market)
         return self._composed_seat_call(
             market,
-            lambda: market.enforce_breach(
+            lambda: market._settlement_enforce_breach(
                 tranche_id,
                 self._market_service_view(market, term_id),
                 module.Clock(clock.timestamp, clock.block_number),
@@ -2706,7 +3126,7 @@ class Protocol:
             ):
                 raise ValueError("duty cell tag is stale or already reusable")
             module = self._bound_market_module(market)
-            safe = market.is_duty_history_safe(
+            safe = market._settlement_is_duty_history_safe(
                 duty_id,
                 term_id,
                 tranche_id,
@@ -2775,6 +3195,8 @@ class Protocol:
         self.normal_arm_block_number = None
 
     def arm_normal_context(self, clock: Clock) -> str:
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL"
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
@@ -2794,6 +3216,8 @@ class Protocol:
         return "ARMED"
 
     def activate_normal_context(self, clock: Clock) -> str:
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL"
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
@@ -2804,7 +3228,7 @@ class Protocol:
         if (self.mode is not Mode.NORMAL or armed is None
                 or not armed < clock.block_number <= armed + MAX_ARM_AGE_BLOCKS):
             return "REJECTED"
-        header = self.history[armed]
+        header = self.header_oracle.header(armed)
         self.normal_deadline = clock.timestamp + W_SETTLE_SECONDS
         self.normal_required_through = self.normal_deadline + T_INCLUDE_MAX_SECONDS
         self.normal_min_admissible = max(0, clock.l2_slot - DELTA_TIP)
@@ -2819,7 +3243,7 @@ class Protocol:
         return "ACTIVATED"
 
     def _close_mature_normal(
-        self, clock: Clock
+        self, clock: Clock, *, excuse_for_migration: bool = False
     ) -> tuple[bool, SeatDutyScanOutcome | None]:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
             return False, None
@@ -2832,7 +3256,11 @@ class Protocol:
                         > clock.timestamp
                     and clock.timestamp + REORG_MARGIN_SECONDS
                         <= self.normal_best_min_data_expiry):
-                outcome = self._commit(self.normal_best, clock)
+                outcome = self._commit(
+                    self.normal_best,
+                    clock,
+                    excuse_for_migration=excuse_for_migration,
+                )
                 self.events.append("NORMAL_COMMITTED")
             else:
                 self.events.append("NORMAL_CANCELED_FORCE_OMISSION")
@@ -2844,7 +3272,7 @@ class Protocol:
 
     def _new_round(self, clock: Clock, causes: Cause, revision: int) -> RecoveryRound:
         anchor_number = clock.block_number - 1
-        anchor = self.history[anchor_number]
+        anchor = self.header_oracle.header(anchor_number)
         cutoff = len(self.messages)
         escape_slot = max(clock.l2_slot + ESCAPE_OFFSET, self.core.tip_slot + 1)
         return RecoveryRound(
@@ -2875,7 +3303,199 @@ class Protocol:
         self.events.append(f"RECOVERY_ROLLED:{self.recovery.revision}")
         return True
 
-    def arm_migration(self, generation: int) -> bool:
+    def _migration_callback_response(
+        self, magic: bytes, word: RouterWord
+    ) -> bytes:
+        response = SeatMigrationResponse(
+            magic,
+            word.generation,
+            word.active_version,
+            word.target_version,
+            word.target_manifest_hash,
+            self.seat_generation,
+        )
+        raw = encode_seat_migration_response(response)
+        prefix = "arm" if magic == SEAT_ARMED_MAGIC else "abort"
+        if self.seat_fault_point == f"{prefix}_response_short":
+            return raw[:-1]
+        if self.seat_fault_point == f"{prefix}_response_empty":
+            return b""
+        if self.seat_fault_point in {
+            f"{prefix}_response_long", f"{prefix}_response_trailing"
+        }:
+            return raw + b"\x00"
+        if self.seat_fault_point == f"{prefix}_response_wrong_magic":
+            return b"FAIL" + raw[4:]
+        if self.seat_fault_point == f"{prefix}_response_wrong_generation":
+            forged = replace(response, router_generation=response.router_generation + 1)
+            return encode_seat_migration_response(forged)
+        if self.seat_fault_point == f"{prefix}_response_wrong_active_version":
+            forged = replace(
+                response,
+                active_protocol_version=response.active_protocol_version + 1,
+            )
+            return encode_seat_migration_response(forged)
+        if self.seat_fault_point == f"{prefix}_response_wrong_target_version":
+            forged = replace(
+                response,
+                target_protocol_version=response.target_protocol_version + 1,
+            )
+            return encode_seat_migration_response(forged)
+        if self.seat_fault_point == f"{prefix}_response_wrong_manifest":
+            forged = replace(response, target_manifest_hash=b"x" * 32)
+            return encode_seat_migration_response(forged)
+        if self.seat_fault_point == f"{prefix}_response_wrong_seat_generation":
+            forged = replace(response, seat_generation=response.seat_generation + 1)
+            return encode_seat_migration_response(forged)
+        return raw
+
+    def complete_seat_migration_arm(
+        self,
+        *,
+        caller: str,
+        router_word: RouterWord,
+        clock: Clock,
+    ) -> bytes:
+        """Manager-only local completion; never returns generic ``SYNCED``."""
+
+        if (
+            caller != self.migration_gate.coordinator
+            or type(router_word) is not RouterWord
+            or router_word != self.migration_gate.router_word
+            or router_word.phase is not RouterPhase.ARMED
+            or router_word.active_version <= 0
+            or router_word.target_version <= router_word.active_version
+            or self.seat_migration_local_generation == router_word.generation
+        ):
+            raise ValueError("seat migration arm authority tuple is invalid")
+        if self.versioned_history is not None and (
+            self.versioned_history.protocol_version != router_word.active_version
+            or self.versioned_history.live_protocol is not self
+            or self.versioned_history.mode != "MIGRATION_ARMED"
+        ):
+            raise ValueError("seat migration arm history binding is invalid")
+
+        snapshot = self._canonical_transaction_snapshot()
+        try:
+            stage = self.settlement_seat_stage
+            stage_id = (
+                stage.stage_id
+                if stage is not None
+                else self.outstanding_stage_tombstone_id
+            )
+            retained_tombstone = (
+                None if stage_id is None else self.stage_tombstones.get(stage_id)
+            )
+            stage_commitment = (
+                stage.lineup_commitment
+                if stage is not None
+                else (
+                    None
+                    if retained_tombstone is None
+                    else retained_tombstone.lineup_commitment
+                )
+            )
+            self._sync_impl(
+                clock,
+                allow_migration_ready=False,
+                excuse_for_migration=True,
+            )
+            if self.migration_gate.router_word != router_word:
+                raise AssertionError("local arm leading sync changed router word")
+            if self.seat_generation >= UINT64_MAX:
+                raise ValueError("seat generation is exhausted")
+            self.seat_generation += 1
+            self._close_seats_for_migration(clock.timestamp)
+            # A leading sync may already have tombstoned the stage for a more
+            # specific canonical reason.  The arm binds that same exact record
+            # so rotation can terminally cancel the Market half once.
+            if stage_id is not None:
+                tombstone = self.stage_tombstones.get(stage_id)
+                if (
+                    tombstone is None
+                    or tombstone.lineup_commitment != stage_commitment
+                ):
+                    raise AssertionError("migration lost the exact stage tombstone")
+                tombstone.migration_terminal = True
+            self.seat_migration_local_generation = router_word.generation
+            self.seat_migration_arm = SeatMigrationArm(
+                router_word,
+                self.seat_generation,
+                clock.timestamp,
+                stage_id,
+                stage_commitment,
+            )
+            self.seat_migration_abort = None
+            self.events.append(
+                f"SEAT_MIGRATION_ARMED:{router_word.generation}:"
+                f"{self.seat_generation}"
+            )
+            self._seat_fault("after_local_migration_arm")
+            self._assert_seat_valid()
+            return self._migration_callback_response(SEAT_ARMED_MAGIC, router_word)
+        except BaseException:
+            self._restore_canonical_transaction(snapshot)
+            raise
+
+    def complete_seat_migration_abort(
+        self,
+        *,
+        caller: str,
+        canceled_arm: RouterWord,
+        clock: Clock,
+    ) -> bytes:
+        """Authenticate the retained canceled tuple and complete post-abort sync."""
+
+        active_word = self.migration_gate.router_word
+        armed_word = (
+            None
+            if self.seat_migration_arm is None
+            else self.seat_migration_arm.router_word
+        )
+        if (
+            caller != self.migration_gate.coordinator
+            or type(canceled_arm) is not RouterWord
+            or canceled_arm.phase not in (RouterPhase.ARMED, RouterPhase.READY)
+            or self.migration_gate.canceled_words.get(canceled_arm.generation)
+            != canceled_arm
+            or active_word.phase is not RouterPhase.ACTIVE
+            or active_word.generation != canceled_arm.generation
+            or active_word.active_version != canceled_arm.active_version
+            or active_word.target_version != 0
+            or active_word.target_manifest_hash != b"\x00" * 32
+            or armed_word is None
+            or armed_word.generation != canceled_arm.generation
+            or armed_word.active_version != canceled_arm.active_version
+            or armed_word.target_version != canceled_arm.target_version
+            or armed_word.target_manifest_hash
+            != canceled_arm.target_manifest_hash
+            or armed_word.phase is not RouterPhase.ARMED
+        ):
+            raise ValueError("seat migration abort authority tuple is invalid")
+        snapshot = self._canonical_transaction_snapshot()
+        try:
+            retained_generation = self.seat_generation
+            self.sync(clock)
+            if self.seat_generation != retained_generation:
+                raise AssertionError("migration abort changed seat generation")
+            self.seat_migration_abort = SeatMigrationAbort(
+                canceled_arm, self.seat_generation, clock.timestamp
+            )
+            self.events.append(
+                f"SEAT_MIGRATION_ABORTED:{canceled_arm.generation}:"
+                f"{self.seat_generation}"
+            )
+            self._seat_fault("after_local_migration_abort")
+            return self._migration_callback_response(
+                SEAT_ABORTED_MAGIC, canceled_arm
+            )
+        except BaseException:
+            self._restore_canonical_transaction(snapshot)
+            raise
+
+    def _arm_migration_for_test(self, generation: int) -> bool:
+        """Legacy model fixture only; production uses ProtocolVersionManager."""
+
         if (self.mode is Mode.PREACTIVE
                 or self.release_activation_pending
                 or self.migration_gate.mode != "ARMED"
@@ -2883,6 +3503,7 @@ class Protocol:
             return False
         if self.mode is Mode.NORMAL and self.normal_deadline is None:
             self._clear_normal()
+        self.seat_migration_local_generation = generation
         self.events.append(f"MIGRATION_ARMED:{generation}")
         return True
 
@@ -2896,7 +3517,9 @@ class Protocol:
             self.events.append(f"MIGRATION_SESSION_REFUNDS:{removed}")
         return removed
 
-    def _sync_migration(self, clock: Clock) -> bool:
+    def _sync_migration(
+        self, clock: Clock, *, allow_ready: bool = True
+    ) -> bool:
         changed = False
         if self.mode is Mode.RECOVERY:
             assert self.recovery is not None
@@ -2924,15 +3547,27 @@ class Protocol:
                          or self.normal_arm_block_number is not None)
         if not boundary_open:
             changed |= self._cleanup_migration_sessions() > 0
-        if self.migration_gate.try_ready(
+        if self.migration_gate._try_ready_from_protocol(
                 normal_open=boundary_open and self.mode is Mode.NORMAL,
-                recovery_active=self.mode is Mode.RECOVERY):
+                recovery_active=self.mode is Mode.RECOVERY,
+                local_arm_complete=(
+                    allow_ready
+                    and self.seat_migration_local_generation
+                    == self.migration_gate.generation
+                )):
+            if (
+                self.versioned_history is not None
+                and self.versioned_history.mode == "MIGRATION_ARMED"
+            ):
+                self.versioned_history.mode = "MIGRATION_READY"
             self.events.append("MIGRATION_READY")
             changed = True
         return changed
 
     def sync(self, clock: Clock) -> bool:
         if self.mode is Mode.PREACTIVE:
+            return False
+        if not self._is_current_settlement_target():
             return False
         self._assert_canonical_history_binding()
         snapshot = self._canonical_transaction_snapshot()
@@ -2942,7 +3577,13 @@ class Protocol:
             self._restore_canonical_transaction(snapshot)
             raise
 
-    def _sync_impl(self, clock: Clock) -> bool:
+    def _sync_impl(
+        self,
+        clock: Clock,
+        *,
+        allow_migration_ready: bool = True,
+        excuse_for_migration: bool = False,
+    ) -> bool:
         normal_changed = False
         commit_outcome: SeatDutyScanOutcome | None = None
         if (
@@ -2950,18 +3591,32 @@ class Protocol:
             and self.normal_deadline is not None
             and clock.timestamp >= self.normal_deadline
         ):
-            normal_changed, commit_outcome = self._close_mature_normal(clock)
+            normal_changed, commit_outcome = self._close_mature_normal(
+                clock, excuse_for_migration=excuse_for_migration
+            )
         if commit_outcome is None:
-            scan = self._scan_seat_duties(clock, allow_cure=False)
+            scan = self._scan_seat_duties(
+                clock,
+                allow_cure=False,
+                excuse_for_migration=excuse_for_migration,
+            )
             prospective_changed, prospective_sla = \
-                self._sync_prospective_deadline(clock, scan.reusable_index)
+                self._sync_prospective_deadline(
+                    clock,
+                    scan.reusable_index,
+                    excuse_for_migration=excuse_for_migration,
+                )
             seat_changed = scan.changed or prospective_changed
             seat_sla_missed = scan.sla_missed or prospective_sla
         else:
             seat_changed = commit_outcome.changed
             seat_sla_missed = commit_outcome.sla_missed
         if self.migration_gate.mode == "ARMED":
-            return self._sync_migration(clock) or seat_changed or normal_changed
+            return (
+                self._sync_migration(clock, allow_ready=allow_migration_ready)
+                or seat_changed
+                or normal_changed
+            )
         if self.migration_gate.mode == "READY":
             return True
         if self.mode is Mode.RECOVERY:
@@ -3056,6 +3711,8 @@ class Protocol:
             caller=self.forced_queue.router_address) == expected_index
 
     def admit_message(self, clock: Clock, message: Message) -> str:
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL"
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
@@ -3081,6 +3738,8 @@ class Protocol:
 
     def sync_ingress(self, clock: Clock) -> tuple[str, tuple[int, int] | None]:
         """Nonpayable half: persist at most one sync decision and issue a stamp."""
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL", None
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE", None
         if self.sync(clock):
@@ -3094,6 +3753,7 @@ class Protocol:
                             stamp: tuple[int, int]) -> str:
         """Payable half: no second sync; require the exact still-live stamp."""
         if (self.mode is Mode.PREACTIVE
+                or not self._is_current_settlement_target()
                 or self.migration_gate.mode != "ACTIVE"
                 or stamp != (self.migration_gate.active_protocol_version,
                              self.migration_gate.generation)):
@@ -3112,6 +3772,8 @@ class Protocol:
         return self.append_from_adapter(clock, message, stamp)
 
     def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL"
         if self.sync(clock):
             return "SYNCED"
         if self.migration_gate.mode != "ACTIVE":
@@ -3129,6 +3791,8 @@ class Protocol:
 
     def post_data(self, clock: Clock, session_id: str, caller: str, *,
                   body_root: str, same_tx_blobhash: bool, kzg_opening_ok: bool) -> str:
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL"
         if self.sync(clock):
             return "SYNCED"
         if self.migration_gate.mode != "ACTIVE":
@@ -3146,6 +3810,8 @@ class Protocol:
         return "POSTED"
 
     def seal_session(self, clock: Clock, session_id: str, caller: str) -> bool:
+        if not self._is_current_settlement_target():
+            return False
         if self.sync(clock):
             return False
         if self.migration_gate.mode != "ACTIVE":
@@ -3191,7 +3857,10 @@ class Protocol:
         if len(anchors) != 1:
             return False
         block = candidate.blocks[0]
-        header = self.history.get(block.anchor_number)
+        try:
+            header = self.header_oracle.header(block.anchor_number)
+        except KeyError:
+            header = None
         if (header is None or block.anchor_number >= clock.block_number
                 or header.block_hash != block.anchor_hash
                 or header.timestamp != block.anchor_timestamp
@@ -3327,6 +3996,8 @@ class Protocol:
         return False
 
     def submit(self, candidate: Candidate, clock: Clock) -> str:
+        if not self._is_current_settlement_target():
+            return "REJECTED_HISTORICAL"
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
         if self.mode is Mode.RECOVERY:
@@ -3364,7 +4035,11 @@ class Protocol:
         raise AssertionError("non-recovery submit reached recovery branch")
 
     def _commit(
-        self, candidate: Candidate, clock: Clock
+        self,
+        candidate: Candidate,
+        clock: Clock,
+        *,
+        excuse_for_migration: bool = False,
     ) -> SeatDutyScanOutcome:
         self._assert_canonical_history_binding()
         protocol_snapshot = self._canonical_transaction_snapshot()
@@ -3398,15 +4073,23 @@ class Protocol:
             )
             if self.versioned_history is not None:
                 history = self.versioned_history
-                if history.record_canonical(
-                    copy.deepcopy(self.canonical.core),
-                        l1_block=clock.block_number) is None:
+                if history._record_canonical_from_protocol(
+                    protocol=self, clock=clock
+                ) is None:
                     raise AssertionError("atomic canonical-history write rejected")
                 self._seat_fault("after_history_record")
-            scan = self._scan_seat_duties(clock, allow_cure=True)
+            scan = self._scan_seat_duties(
+                clock,
+                allow_cure=True,
+                excuse_for_migration=excuse_for_migration,
+            )
             refreshed = self._refresh_prospective_after_commit()
             prospective_changed, prospective_sla = \
-                self._sync_prospective_deadline(clock, scan.reusable_index)
+                self._sync_prospective_deadline(
+                    clock,
+                    scan.reusable_index,
+                    excuse_for_migration=excuse_for_migration,
+                )
             outcome = SeatDutyScanOutcome(
                 scan.changed or refreshed or prospective_changed,
                 scan.reusable_index,
@@ -3565,6 +4248,15 @@ class QueueContinuity:
     unconsumed_escrow: int | None = None
     total_claimable: int | None = None
 
+    def __setattr__(self, name: str, value: object) -> None:
+        immutable = {
+            "address", "router_address", "runtime_hash", "config_hash",
+            "nonproxy", "selfdestruct_disabled", "delegate_target_reachable",
+        }
+        if name in immutable and name in self.__dict__:
+            raise AttributeError(f"forced queue {name} is immutable")
+        object.__setattr__(self, name, value)
+
     def __post_init__(self) -> None:
         if not self.deposit_prefix:
             self.deposit_prefix = [0]
@@ -3696,6 +4388,80 @@ class VersionedSettlementHistory:
     inbox_apply_router: "InboxApplyRouterV2 | None" = None
     builder_registry_id: str = "builder-registry"
     schedule_oracle_id: str = "schedule-oracle"
+    market_settlement_chain_id: int = 1
+    market_runtime_hash: bytes = b"r" * 32
+    market_configuration_hash: bytes = b"c" * 32
+    market_magic: bytes = b"SEAT"
+    header_oracle: L1HeaderOracle | None = field(default=None, compare=False)
+    _router_authority: object | None = field(
+        default=None, compare=False, repr=False
+    )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        immutable = {
+            "address", "runtime_hash", "protocol_version",
+            "execution_profile_hash", "forced_queue", "migration_gate",
+            "inbox_apply_router", "builder_registry_id", "schedule_oracle_id",
+            "market_settlement_chain_id", "market_runtime_hash",
+            "market_configuration_hash", "market_magic", "header_oracle",
+            "_router_authority",
+        }
+        if name in immutable and name in self.__dict__:
+            raise AttributeError(f"Settlement {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def exact_market_target_state(self) -> tuple[object, ...]:
+        """Derive the Market read word from this exact target-local graph."""
+
+        phases = {
+            "ACTIVE": "ACTIVE",
+            "MIGRATION_ARMED": "ARMED",
+            "MIGRATION_READY": "READY",
+            "FROZEN": "FROZEN",
+        }
+        protocol = self.live_protocol
+        router = self._router_authority
+        registration = (
+            None
+            if type(router) is not ActiveSettlementRouter
+            else router.registrations.get(self.protocol_version)
+        )
+        if (
+            protocol is None
+            or type(router) is not ActiveSettlementRouter
+            or registration is None
+            or registration.settlement is not self
+            or (
+                self.mode == "FROZEN"
+                and router.active_version <= self.protocol_version
+            )
+            or (
+                self.mode != "FROZEN"
+                and router.active_version != self.protocol_version
+            )
+            or protocol.versioned_history is not self
+            or protocol.settlement_address != self.address
+            or self.header_oracle is not router.header_oracle
+            or protocol.header_oracle is not router.header_oracle
+            or self.forced_queue is not router.forced_queue
+            or protocol.forced_queue is not router.forced_queue
+            or self.inbox_apply_router is not router.inbox_apply_router
+            or protocol.inbox_apply_router is not router.inbox_apply_router
+            or self.migration_gate is not router.migration_gate
+            or protocol.migration_gate is not self.migration_gate
+            or self.mode not in phases
+        ):
+            raise ValueError("Settlement target/history graph is split")
+        return (
+            self.address,
+            self.market_settlement_chain_id,
+            self.protocol_version,
+            self.market_runtime_hash,
+            self.market_configuration_hash,
+            self.market_magic,
+            phases[self.mode],
+            protocol.seat_generation,
+        )
 
     def _entry(self, sequence: int, core: CanonicalCore,
                canonicalized_at_block: int) -> CanonicalTerminalCommitment:
@@ -3704,43 +4470,94 @@ class VersionedSettlementHistory:
             core.l2_block_number, core.tip_hash, core.state_root,
             core.terminal_root, core.terminal_count, canonicalized_at_block)
 
-    def install_imported(self, *, sequence: int,
-                         history_write_block: int) -> bool:
-        if (self.mode != "PREACTIVE" or self.history or sequence < 0
+    def _install_imported_from_router(
+        self,
+        *,
+        router: object,
+        sequence: int,
+        clock: Clock,
+    ) -> bool:
+        """Install one imported core only through the exact bound router."""
+
+        if (type(router) is not ActiveSettlementRouter
+                or type(clock) is not Clock
+                or self.header_oracle is not router.header_oracle
+                or self.migration_gate is not router.migration_gate
+                or router.forced_queue is not self.forced_queue
+                or router.inbox_apply_router is not self.inbox_apply_router
+                or (
+                    self._router_authority is not None
+                    and self._router_authority is not router
+                )
+                or self.mode != "PREACTIVE" or self.history or sequence < 0
                 or sequence >= UINT64_MAX
                 or self.canonicalized_at_block <= 0
-                or history_write_block < self.canonicalized_at_block):
+                or clock.block_number < self.canonicalized_at_block):
             return False
         entry = self._entry(sequence, self.core, self.canonicalized_at_block)
         self.history[sequence % CANONICAL_HISTORY_CAPACITY] = (sequence, entry)
         self.current_sequence = sequence
-        self.last_canonical_l1_block = history_write_block
+        self.last_canonical_l1_block = clock.block_number
+        object.__setattr__(self, "_router_authority", router)
         return True
 
-    def record_canonical(self, core: CanonicalCore, *, l1_block: int) -> int | None:
-        if (self.mode not in {"ACTIVE", "MIGRATION_ARMED"}
+    def _record_canonical_from_protocol(
+        self,
+        *,
+        protocol: object,
+        clock: Clock,
+    ) -> int | None:
+        """Derive and append canonical state from the exact live Protocol."""
+
+        router = self._router_authority
+        registration = (
+            None
+            if type(router) is not ActiveSettlementRouter
+            else router.registrations.get(self.protocol_version)
+        )
+        if (type(protocol) is not Protocol
+                or type(clock) is not Clock
+                or type(router) is not ActiveSettlementRouter
+                or protocol is not self.live_protocol
+                or protocol.header_oracle is not router.header_oracle
+                or self.header_oracle is not router.header_oracle
+                or self.migration_gate is not router.migration_gate
+                or self.forced_queue is not router.forced_queue
+                or self.inbox_apply_router is not router.inbox_apply_router
+                or protocol.versioned_history is not self
+                or protocol.forced_queue is not self.forced_queue
+                or protocol.inbox_apply_router is not self.inbox_apply_router
+                or protocol.migration_gate is not self.migration_gate
+                or protocol.settlement_address != self.address
+                or protocol.canonical.canonicalized_at_block
+                    != clock.block_number
+                or registration is None
+                or registration.settlement is not self
+                or router.active_version != self.protocol_version
+                or self.mode not in {"ACTIVE", "MIGRATION_ARMED"}
                 or self.inbox_apply_router is None
-                or core.message_cursor != self.forced_queue.cursor
-                or core.message_cursor
+                or protocol.core.message_cursor != self.forced_queue.cursor
+                or protocol.core.message_cursor
                     != self.inbox_apply_router.next_queue_index
-                or l1_block <= self.last_canonical_l1_block
+                or clock.block_number <= self.last_canonical_l1_block
                 or self.current_sequence < 0
                 or self.current_sequence + 1 >= UINT64_MAX
-                or core.l2_block_number <= self.core.l2_block_number
-                or core.terminal_count < self.core.terminal_count
-                or (core.terminal_count == self.core.terminal_count
-                    and core.terminal_root != self.core.terminal_root)):
+                or protocol.core.l2_block_number <= self.core.l2_block_number
+                or protocol.core.terminal_count < self.core.terminal_count
+                or (protocol.core.terminal_count == self.core.terminal_count
+                    and protocol.core.terminal_root != self.core.terminal_root)):
             return None
         sequence = self.current_sequence + 1
-        entry = self._entry(sequence, core, l1_block)
+        core = copy.deepcopy(protocol.core)
+        entry = self._entry(sequence, core, clock.block_number)
         self.history[sequence % CANONICAL_HISTORY_CAPACITY] = (sequence, entry)
-        self.core = copy.deepcopy(core)
-        self.canonicalized_at_block = l1_block
+        self.core = core
+        self.canonicalized_at_block = clock.block_number
         self.current_sequence = sequence
-        self.last_canonical_l1_block = l1_block
+        self.last_canonical_l1_block = clock.block_number
         return sequence
 
-    def arm_migration(self, *, caller_is_version_manager: bool,
+    def _arm_migration_for_test(self, *, caller_is_version_manager: bool,
                       delayed_manifest_active: bool,
                       generation: int = 1,
                       target_protocol_version: int = 2) -> bool:
@@ -3757,6 +4574,8 @@ class VersionedSettlementHistory:
         return True
 
     def enter_migration_ready(self) -> bool:
+        if self.mode == "MIGRATION_READY" and self.migration_gate.mode == "READY":
+            return True
         if (self.mode != "MIGRATION_ARMED"
                 or self.migration_gate.mode != "READY"):
             return False
@@ -3791,6 +4610,26 @@ class MigrationActivationProof:
     target_components_valid: bool = True
 
 
+@dataclass(frozen=True)
+class MigrationActivationReceipt:
+    router_generation: int
+    old_protocol_version: int
+    new_protocol_version: int
+    old_target: str
+    new_target: str
+    target_manifest_hash: bytes
+    seat_generation: int
+    old_authorization_id: bytes
+    new_authorization_id: bytes
+    activation_block: int
+    migration_stage_id: bytes | None
+    migration_lineup_commitment: bytes | None
+
+    @property
+    def key(self) -> tuple[int, bytes]:
+        return self.router_generation, self.target_manifest_hash
+
+
 @dataclass
 class ActiveSettlementRouter:
     """Append-only immutable registry and read-only history router."""
@@ -3798,6 +4637,8 @@ class ActiveSettlementRouter:
     version_manager: str
     forced_queue: QueueContinuity
     inbox_apply_router: "InboxApplyRouterV2"
+    migration_gate: MigrationGate
+    header_oracle: L1HeaderOracle
     address: str = "active-settlement-router"
     forced_queue_runtime_hash: str = "code:forced-queue:v2"
     forced_queue_config_hash: str = "config:forced-queue:depth64:v2"
@@ -3805,16 +4646,63 @@ class ActiveSettlementRouter:
     schedule_oracle_id: str = "schedule-oracle"
     active_version: int = 0
     registrations: dict[int, SettlementRegistration] = field(default_factory=dict)
-    authorized_ingress: set[str] = field(
-        default_factory=lambda: {"bridge-inbox-adapter", "kind0-adapter"})
+    activation_receipts: dict[
+        tuple[int, bytes], MigrationActivationReceipt
+    ] = field(default_factory=dict)
+    activation_receipt_keys_by_generation: dict[
+        int, tuple[int, bytes]
+    ] = field(default_factory=dict)
+    successor_receipt_key_by_old_authorization_id: dict[
+        bytes, tuple[int, bytes]
+    ] = field(default_factory=dict)
+    used_target_addresses: set[str] = field(default_factory=set)
+    authorized_ingress: frozenset[str] = field(
+        default_factory=lambda: frozenset({
+            "bridge-inbox-adapter", "kind0-adapter"
+        })
+    )
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.header_oracle) is not L1HeaderOracle
+            or self.header_oracle.address != L1_HEADER_ORACLE_ADDRESS
+            or self.header_oracle.runtime_hash
+                != L1_HEADER_ORACLE_RUNTIME_HASH
+            or self.header_oracle.configuration_hash
+                != L1_HEADER_ORACLE_CONFIGURATION_HASH
+        ):
+            raise ValueError("active router header oracle is not exact")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "version_manager", "forced_queue", "inbox_apply_router",
+            "migration_gate", "header_oracle", "address",
+            "forced_queue_runtime_hash", "forced_queue_config_hash",
+            "builder_registry_id", "schedule_oracle_id", "authorized_ingress",
+        } and name in self.__dict__:
+            raise AttributeError(f"active-router {name} is immutable")
+        object.__setattr__(self, name, value)
 
     @property
     def forced_queue_address(self) -> str:
         return self.forced_queue.address
 
     def bootstrap(self, settlement: VersionedSettlementHistory, *, sequence: int,
-                  activation_block: int) -> bool:
-        if (self.registrations or settlement.protocol_version <= 0
+                  clock: Clock, caller: str) -> bool:
+        if (type(clock) is not Clock or caller != self.version_manager
+                or self.registrations or settlement.protocol_version <= 0
+                or settlement.migration_gate is not self.migration_gate
+                or settlement.header_oracle is not self.header_oracle
+                or (
+                    settlement.live_protocol is not None
+                    and settlement.live_protocol.migration_gate
+                        is not self.migration_gate
+                )
+                or (
+                    settlement.live_protocol is not None
+                    and settlement.live_protocol.header_oracle
+                        is not self.header_oracle
+                )
                 or settlement.forced_queue is not self.forced_queue
                 or self.forced_queue.router_address != self.address
                 or self.forced_queue.runtime_hash
@@ -3832,25 +4720,81 @@ class ActiveSettlementRouter:
                 or settlement.core.message_cursor != self.forced_queue.cursor
                 or settlement.core.message_cursor
                     != self.inbox_apply_router.next_queue_index
-                or not settlement.nonproxy or not settlement.selfdestruct_disabled
-                or not settlement.migration_gate.bootstrap(
-                    settlement.protocol_version, self.version_manager)
-                or not settlement.install_imported(
-                    sequence=sequence, history_write_block=activation_block)):
+                or not settlement.nonproxy or not settlement.selfdestruct_disabled):
             return False
-        if not self.forced_queue.set_active_settlement(
-                expected_old=self.forced_queue.active_settlement_address,
-                new=settlement.address, caller=self.address):
-            raise AssertionError("validated queue bootstrap failed")
-        settlement.mode = "ACTIVE"
-        self.registrations[settlement.protocol_version] = SettlementRegistration(
-            settlement, settlement.runtime_hash,
-            settlement.execution_profile_hash, activation_block, 0)
-        self.active_version = settlement.protocol_version
-        return True
+        authority_keys = {
+            "migration_gate", "forced_queue", "inbox_apply_router", "live_protocol",
+            "_router_authority",
+        }
+        settlement_snapshot = copy.deepcopy({
+            key: value for key, value in settlement.__dict__.items()
+            if key not in authority_keys
+        })
+        gate = settlement.migration_gate
+        live_protocol = settlement.live_protocol
+        prior_router_authority = settlement._router_authority
+        gate_snapshot = copy.deepcopy(gate.__dict__)
+        queue_snapshot = copy.deepcopy(self.forced_queue.__dict__)
+        registrations_snapshot = dict(self.registrations)
+        active_snapshot = self.active_version
+        used_targets_snapshot = set(self.used_target_addresses)
+        try:
+            activation_block = clock.block_number
+            if (
+                not gate._bootstrap_from_router(
+                    settlement.protocol_version, self.version_manager
+                )
+                or not settlement._install_imported_from_router(
+                    router=self, sequence=sequence, clock=clock
+                )
+                or not self.forced_queue.set_active_settlement(
+                    expected_old=self.forced_queue.active_settlement_address,
+                    new=settlement.address,
+                    caller=self.address,
+                )
+            ):
+                raise ValueError("router bootstrap transition rejected")
+            settlement.mode = "ACTIVE"
+            self.registrations[settlement.protocol_version] = SettlementRegistration(
+                settlement, settlement.runtime_hash,
+                settlement.execution_profile_hash, activation_block, 0)
+            self.active_version = settlement.protocol_version
+            self.used_target_addresses.add(settlement.address)
+            return True
+        except BaseException:
+            settlement.__dict__.clear()
+            settlement.__dict__.update(settlement_snapshot)
+            gate.__dict__.clear()
+            gate.__dict__.update(gate_snapshot)
+            self.forced_queue.__dict__.clear()
+            self.forced_queue.__dict__.update(queue_snapshot)
+            object.__setattr__(settlement, "migration_gate", gate)
+            object.__setattr__(settlement, "forced_queue", self.forced_queue)
+            object.__setattr__(
+                settlement, "inbox_apply_router", self.inbox_apply_router
+            )
+            settlement.live_protocol = live_protocol
+            object.__setattr__(
+                settlement, "_router_authority", prior_router_authority
+            )
+            if live_protocol is not None:
+                object.__setattr__(live_protocol, "migration_gate", gate)
+                object.__setattr__(
+                    live_protocol, "forced_queue", self.forced_queue
+                )
+                object.__setattr__(
+                    live_protocol,
+                    "inbox_apply_router",
+                    self.inbox_apply_router,
+                )
+                live_protocol.versioned_history = settlement
+            self.registrations = registrations_snapshot
+            self.active_version = active_snapshot
+            self.used_target_addresses = used_targets_snapshot
+            return False
 
-    def activate_version_with_proof(
-            self, *, settlement: VersionedSettlementHistory, l1_block: int,
+    def _activate_version_with_proof(
+            self, *, settlement: VersionedSettlementHistory, clock: Clock,
             caller_is_version_manager: bool, manifest_active: bool,
             target_manifest_hash: str,
             activation_proof: MigrationActivationProof,
@@ -3860,7 +4804,9 @@ class ActiveSettlementRouter:
         if old_registration is None:
             return False
         old = old_registration.settlement
-        if (not caller_is_version_manager or not manifest_active
+        target_protocol = settlement.live_protocol
+        if (type(clock) is not Clock
+                or not caller_is_version_manager or not manifest_active
                 or not target_runtime_approved or not target_profile_matches
                 or not full_core_import_exact or not queue_import_exact
                 or not activation_proof.proof_valid
@@ -3868,15 +4814,108 @@ class ActiveSettlementRouter:
                 or not activation_proof.release_activation
                 or settlement.protocol_version <= self.active_version
                 or settlement.protocol_version in self.registrations
+                or settlement.address in self.used_target_addresses
                 or not settlement.execution_profile_hash
                 or not settlement.runtime_hash
                 or not settlement.nonproxy or not settlement.selfdestruct_disabled
                 or settlement.mode != "PREACTIVE" or settlement.history
+                or settlement.current_sequence != -1
+                or settlement.last_canonical_l1_block != 0
+                or settlement._router_authority is not None
+                or target_protocol is None
+                or target_protocol is old.live_protocol
+                or old.live_protocol is None
+                or target_protocol.versioned_history is not settlement
+                or target_protocol.header_oracle is not self.header_oracle
+                or settlement.header_oracle is not self.header_oracle
+                or old.header_oracle is not self.header_oracle
+                or old.live_protocol is None
+                or old.live_protocol.header_oracle is not self.header_oracle
+                or target_protocol.mode is not Mode.PREACTIVE
+                or target_protocol.settlement_address != settlement.address
+                or target_protocol.canonical.core != settlement.core
+                or target_protocol.canonical.canonicalized_at_block
+                    != settlement.canonicalized_at_block
+                or target_protocol.release_activation_pending
+                or target_protocol.pending_release_protocol_version != 0
+                or target_protocol.pending_release_manifest_hash != ""
+                or target_protocol.first_v2_block_number != 0
+                or target_protocol.episode != 0
+                or target_protocol.recovery is not None
+                or target_protocol.normal_best is not None
+                or target_protocol.normal_best_min_data_expiry != UINT64_MAX
+                or target_protocol.normal_deadline is not None
+                or target_protocol.normal_required_through is not None
+                or target_protocol.normal_min_admissible is not None
+                or target_protocol.normal_admission_version is not None
+                or target_protocol.normal_admission_root is not None
+                or target_protocol.normal_anchor_number is not None
+                or target_protocol.normal_anchor_hash is not None
+                or target_protocol.normal_context_id is not None
+                or target_protocol.normal_arm_block_number is not None
+                or target_protocol.admission_version
+                != old.live_protocol.admission_version
+                or target_protocol.admission_root
+                != old.live_protocol.admission_root
+                or target_protocol.queue_capacity
+                != old.live_protocol.queue_capacity
+                or target_protocol.canonical is old.live_protocol.canonical
+                or target_protocol.forced_queue is not self.forced_queue
+                or target_protocol.inbox_apply_router is not self.inbox_apply_router
+                or target_protocol.migration_gate is not settlement.migration_gate
+                or target_protocol.seat_terms
+                or target_protocol.seat_services
+                or target_protocol.seat_lineup
+                or target_protocol.seat_duties
+                or target_protocol.term_duty
+                or target_protocol.seat_selections
+                or target_protocol.term_selection
+                or target_protocol.seat_selection is not None
+                or target_protocol.settlement_seat_stage is not None
+                or target_protocol.stage_tombstones
+                or target_protocol.outstanding_stage_tombstone_id is not None
+                or target_protocol.seat_generation != 0
+                or target_protocol.seat_lineup_revision != 0
+                or target_protocol.duty_sequence != 0
+                or target_protocol.seat_sla_trigger_pending
+                or target_protocol.seat_migration_arm is not None
+                or target_protocol.seat_migration_abort is not None
+                or target_protocol.seat_migration_local_generation is not None
+                or target_protocol.seat_scan_count != 0
+                or target_protocol.seat_scan_visits_total != 0
+                or target_protocol.events
+                or target_protocol.gc_cursor != 0
+                or target_protocol.boundary_queries != 0
+                or target_protocol.seat_fault_point is not None
+                or not target_protocol.canonical_state_witness_available
+                or not target_protocol.canonical_code_preimages_available
+                or target_protocol.sessions
+                or target_protocol.seat_terms is old.live_protocol.seat_terms
+                or target_protocol.seat_services is old.live_protocol.seat_services
+                or target_protocol.seat_lineup is old.live_protocol.seat_lineup
+                or target_protocol.seat_duties is old.live_protocol.seat_duties
+                or target_protocol.term_duty is old.live_protocol.term_duty
+                or target_protocol.duty_ring is old.live_protocol.duty_ring
+                or target_protocol.seat_selections
+                    is old.live_protocol.seat_selections
+                or target_protocol.term_selection
+                    is old.live_protocol.term_selection
+                or target_protocol.stage_tombstones
+                    is old.live_protocol.stage_tombstones
+                or target_protocol.sessions is old.live_protocol.sessions
+                or target_protocol.events is old.live_protocol.events
+                or len(target_protocol.duty_ring) != DUTY_RING_CAPACITY
+                or any(
+                    cell != SeatDutyCell()
+                    for cell in target_protocol.duty_ring
+                )
                 or old.mode != "MIGRATION_READY"
                 or old.migration_gate.mode != "READY"
                 or old.migration_gate.active_protocol_version
                     != self.active_version
-                or settlement.migration_gate is not old.migration_gate
+                or old.migration_gate is not self.migration_gate
+                or settlement.migration_gate is not self.migration_gate
+                or target_protocol.migration_gate is not self.migration_gate
                 or old.migration_gate.target_protocol_version
                     != settlement.protocol_version
                 or old.migration_gate.target_manifest_hash
@@ -3932,8 +4971,9 @@ class ActiveSettlementRouter:
                 or self.forced_queue.escrow_balance
                     < self.forced_queue.accounted_liabilities
                 or old.current_sequence + 1 >= UINT64_MAX
-                or l1_block <= old.last_canonical_l1_block):
+                or clock.block_number <= old.last_canonical_l1_block):
             return False
+        l1_block = clock.block_number
         old_version = self.active_version
         if not self.forced_queue.set_active_settlement(
                 expected_old=old.address, new=settlement.address,
@@ -3947,9 +4987,8 @@ class ActiveSettlementRouter:
         self.inbox_apply_router.next_queue_index = activation_proof.end_cursor
         settlement.core = copy.deepcopy(activation_proof.output_core)
         settlement.canonicalized_at_block = l1_block
-        if not settlement.install_imported(
-                sequence=old.current_sequence + 1,
-                history_write_block=l1_block):
+        if not settlement._install_imported_from_router(
+                router=self, sequence=old.current_sequence + 1, clock=clock):
             raise AssertionError("validated target history write failed")
         old.mode = "FROZEN"
         settlement.mode = "ACTIVE"
@@ -3957,21 +4996,24 @@ class ActiveSettlementRouter:
             settlement, settlement.runtime_hash,
             settlement.execution_profile_hash, l1_block, old_version)
         self.active_version = settlement.protocol_version
-        settlement.live_protocol = old.live_protocol
-        settlement.live_protocol.versioned_history = settlement
-        settlement.live_protocol.settlement_address = settlement.address
-        settlement.live_protocol.canonical = Canonical(
+        self.used_target_addresses.add(settlement.address)
+        successor = target_protocol
+        active_gate = old.migration_gate
+        successor.canonical = Canonical(
             copy.deepcopy(activation_proof.output_core), l1_block)
-        settlement.live_protocol.release_activation_pending = False
-        settlement.live_protocol.pending_release_protocol_version = 0
-        settlement.live_protocol.pending_release_manifest_hash = ""
-        activated = old.migration_gate.activate_target(
-            old.migration_gate.generation, old_version,
+        successor.mode = Mode.NORMAL
+        successor.seat_generation = old.live_protocol.seat_generation
+        successor.first_v2_block_number = old.live_protocol.first_v2_block_number
+        successor.release_activation_pending = False
+        successor.pending_release_protocol_version = 0
+        successor.pending_release_manifest_hash = ""
+        activated = active_gate._activate_from_router(
+            active_gate.generation, old_version,
             settlement.protocol_version)
         assert activated
         return True
 
-    def abort_migration(self, *, generation: int,
+    def _abort_migration_for_test(self, *, generation: int,
                         target_protocol_version: int,
                         target_manifest_hash: str,
                         cancel_manifest_active: bool,
@@ -3984,10 +5026,11 @@ class ActiveSettlementRouter:
         if (old.mode not in {"MIGRATION_ARMED", "MIGRATION_READY"}
                 or self.forced_queue.active_settlement_address != old.address
                 or old.live_protocol is None
-                or not old.migration_gate.abort(
+                or not old.migration_gate._abort_from_manager(
                     generation, self.active_version, target_protocol_version,
                     target_manifest_hash,
-                    cancel_manifest_active=cancel_manifest_active)):
+                    cancel_manifest_active=cancel_manifest_active,
+                    caller=self.version_manager)):
             return False
         old.mode = "ACTIVE"
         old.live_protocol.sync(clock)
@@ -4028,8 +5071,17 @@ class ActiveSettlementRouter:
             return "REJECTED"
         settlement = registration.settlement
         live_protocol = settlement.live_protocol
-        if (live_protocol.settlement_address != settlement.address
-                or live_protocol.forced_queue is not self.forced_queue):
+        if (settlement._router_authority is not self
+                or settlement.header_oracle is not self.header_oracle
+                or settlement.migration_gate is not self.migration_gate
+                or settlement.forced_queue is not self.forced_queue
+                or settlement.inbox_apply_router is not self.inbox_apply_router
+                or live_protocol.versioned_history is not settlement
+                or live_protocol.settlement_address != settlement.address
+                or live_protocol.header_oracle is not self.header_oracle
+                or live_protocol.migration_gate is not self.migration_gate
+                or live_protocol.forced_queue is not self.forced_queue
+                or live_protocol.inbox_apply_router is not self.inbox_apply_router):
             return "REJECTED"
         if settlement.mode != "ACTIVE":
             return "SYNCED"
@@ -4040,6 +5092,492 @@ class ActiveSettlementRouter:
             assert self.forced_queue.count == before + 1
             return f"QUEUED:{before}"
         return result
+
+
+@dataclass
+class ProtocolVersionManager:
+    """Exact global migration coordinator bound to one immutable router."""
+
+    address: str
+    router: ActiveSettlementRouter
+    release_manager: object | None = field(default=None, compare=False)
+    market_chain_id: int = 0
+    market_address: str = ""
+    governance: str = "seat-governance"
+    manifest_delay_seconds: int = SEAT_MIGRATION_MANIFEST_DELAY
+    cancel_delay_seconds: int = SEAT_MIGRATION_CANCEL_DELAY
+    arm_manifests: dict[
+        tuple[int, int, int, bytes], ScheduledSeatMigration
+    ] = field(default_factory=dict)
+    cancel_manifests: dict[
+        tuple[int, int, int, bytes], ScheduledSeatMigration
+    ] = field(default_factory=dict)
+    arm_responses: dict[int, bytes] = field(default_factory=dict)
+    abort_responses: dict[int, bytes] = field(default_factory=dict)
+    fault_point: str | None = None
+
+    def __post_init__(self) -> None:
+        bound = self.release_manager is not None
+        if (
+            type(self.router) is not ActiveSettlementRouter
+            or self.router.version_manager != self.address
+            or self.router.migration_gate.coordinator != self.address
+            or bound != (self.market_chain_id > 0 and bool(self.market_address))
+            or not self.governance
+            or self.manifest_delay_seconds != SEAT_MIGRATION_MANIFEST_DELAY
+            or self.cancel_delay_seconds != SEAT_MIGRATION_CANCEL_DELAY
+            or (
+                bound
+                and getattr(self.release_manager, "activation_authority", None)
+                is not self.router
+            )
+        ):
+            raise ValueError("manager Market binding must be all-or-none")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "address", "router", "release_manager",
+            "market_chain_id", "market_address", "governance",
+            "manifest_delay_seconds", "cancel_delay_seconds",
+        } and name in self.__dict__:
+            raise AttributeError(f"{name} is immutable after deployment")
+        object.__setattr__(self, name, value)
+
+    def activate_seat_migration(
+        self,
+        *,
+        manifest_key: tuple[int, int, int, bytes],
+        activation_proof: MigrationActivationProof,
+        executor: str,
+        clock: Clock,
+    ) -> MigrationActivationReceipt:
+        """Consume the exact arm and activate a distinct target-local ledger."""
+
+        old_history, old_protocol, gate = self._active_target()
+        if type(clock) is not Clock:
+            raise ValueError("activation requires the exact environment clock")
+        l1_block = clock.block_number
+        release_manager = self.release_manager
+        market_chain_id = self.market_chain_id
+        market_address = self.market_address
+        manifest = self.arm_manifests.get(manifest_key)
+        old_auth_id = manifest.old_authorization_id if manifest is not None else b""
+        new_auth_id = manifest.new_authorization_id if manifest is not None else b""
+        authorizations = getattr(release_manager, "authorizations", {})
+        runtimes = getattr(release_manager, "target_runtimes", {})
+        old_auth = authorizations.get(old_auth_id)
+        new_auth = authorizations.get(new_auth_id)
+        old_runtime = runtimes.get(old_auth_id)
+        new_runtime = runtimes.get(new_auth_id)
+        settlement = None if new_runtime is None else new_runtime.authority
+        target_bindings = getattr(release_manager, "target_bindings", {})
+        if (
+            manifest is None
+            or type(settlement) is not VersionedSettlementHistory
+            or release_manager is None
+            or not executor
+            or manifest.generation not in self.arm_responses
+            or gate.mode != "READY"
+            or old_history.mode != "MIGRATION_READY"
+            or manifest.generation != gate.generation
+            or manifest.active_protocol_version != self.router.active_version
+            or manifest.target_protocol_version != settlement.protocol_version
+            or manifest.target_manifest_hash != activation_proof.target_manifest_hash
+            or len(old_auth_id) != 32
+            or len(new_auth_id) != 32
+            or getattr(release_manager, "activation_authority", None)
+            is not self.router
+            or old_auth is None
+            or new_auth is None
+            or release_manager.exact_authorization_id(
+                market_chain_id, market_address, old_auth
+            ) != old_auth_id
+            or release_manager.exact_authorization_id(
+                market_chain_id, market_address, new_auth
+            ) != new_auth_id
+            or old_runtime is None
+            or new_runtime is None
+            or old_runtime.authority is not old_history
+            or new_runtime.authority is not settlement
+            or target_bindings.get(old_auth_id)
+            != (market_chain_id, market_address)
+            or target_bindings.get(new_auth_id)
+            != (market_chain_id, market_address)
+            or old_auth.target != old_history.address
+            or new_auth.target != settlement.address
+            or old_auth.settlement_chain_id
+            != old_history.market_settlement_chain_id
+            or new_auth.settlement_chain_id
+            != settlement.market_settlement_chain_id
+            or old_auth.protocol_version != old_history.protocol_version
+            or new_auth.protocol_version != settlement.protocol_version
+            or old_auth.runtime_hash != old_history.market_runtime_hash
+            or new_auth.runtime_hash != settlement.market_runtime_hash
+            or old_auth.configuration_hash
+            != old_history.market_configuration_hash
+            or new_auth.configuration_hash
+            != settlement.market_configuration_hash
+            or old_auth.expected_magic != old_history.market_magic
+            or new_auth.expected_magic != settlement.market_magic
+            or old_protocol.seat_market_address != market_address
+            or old_protocol.seat_authorization_id != old_auth_id
+            or settlement.live_protocol.seat_authorization_id != new_auth_id
+            or settlement.live_protocol.seat_market_address != market_address
+            or settlement.live_protocol.seat_runway_seconds
+            != old_protocol.seat_runway_seconds
+            or settlement.live_protocol.minimum_primary_tenure_seconds
+            != old_protocol.minimum_primary_tenure_seconds
+            or settlement.live_protocol.minimum_standby_tenure_seconds
+            != old_protocol.minimum_standby_tenure_seconds
+            or settlement.live_protocol.exit_delay_seconds
+            != old_protocol.exit_delay_seconds
+            or not settlement.live_protocol.seat_profile_ready
+            or not settlement.live_protocol.seat_configuration_ready
+        ):
+            raise ValueError("seat migration activation authority is invalid")
+        receipt_key = (manifest.generation, manifest.target_manifest_hash)
+        if (
+            receipt_key in self.router.activation_receipts
+            or old_auth_id
+            in self.router.successor_receipt_key_by_old_authorization_id
+            or release_manager.activation_receipt(receipt_key) is not None
+        ):
+            raise ValueError("seat migration activation receipt was consumed")
+
+        old_protocol._assert_canonical_history_binding()
+        old_snapshot = old_protocol._canonical_transaction_snapshot()
+        target_authority_refs = (
+            settlement.forced_queue,
+            settlement.inbox_apply_router,
+            settlement.migration_gate,
+            settlement.live_protocol,
+            settlement._router_authority,
+        )
+        target_snapshot = copy.deepcopy({
+            key: value for key, value in settlement.__dict__.items()
+            if key not in {
+                "forced_queue", "inbox_apply_router", "migration_gate", "live_protocol",
+                "_router_authority",
+            }
+        })
+        router_snapshot = (
+            self.router.active_version,
+            dict(self.router.registrations),
+            dict(self.router.activation_receipts),
+            dict(self.router.activation_receipt_keys_by_generation),
+            dict(self.router.successor_receipt_key_by_old_authorization_id),
+            set(self.router.used_target_addresses),
+        )
+        target_protocol_refs = (
+            settlement.live_protocol.forced_queue,
+            settlement.live_protocol.inbox_apply_router,
+            settlement.live_protocol.migration_gate,
+            settlement.live_protocol.versioned_history,
+        )
+        target_protocol_snapshot = copy.deepcopy({
+            key: value for key, value in settlement.live_protocol.__dict__.items()
+            if key not in {
+                "forced_queue", "inbox_apply_router", "migration_gate",
+                "versioned_history"
+            }
+        })
+        try:
+            activated = self.router._activate_version_with_proof(
+                settlement=settlement,
+                clock=clock,
+                caller_is_version_manager=True,
+                manifest_active=True,
+                target_manifest_hash=manifest.target_manifest_hash,
+                activation_proof=activation_proof,
+                target_runtime_approved=True,
+                target_profile_matches=True,
+                full_core_import_exact=True,
+                queue_import_exact=True,
+            )
+            if not activated:
+                raise ValueError("seat migration activation proof was rejected")
+            if self.fault_point == "after_target_import":
+                raise RuntimeError("injected activation fault: after_target_import")
+            successor = settlement.live_protocol
+            if (
+                successor is None
+                or successor is old_protocol
+                or successor.seat_lineup
+                or successor.seat_duties
+                or any(not cell.reusable for cell in successor.duty_ring)
+                or successor.seat_generation != old_protocol.seat_generation
+            ):
+                raise AssertionError("activated target did not start as a fresh ledger")
+            if (
+                successor.seat_authorization_id != new_auth_id
+                or successor.seat_market_address != market_address
+            ):
+                raise AssertionError("activated target authority binding changed")
+            arm = old_protocol.seat_migration_arm
+            if arm is None or arm.router_word.generation != manifest.generation:
+                raise AssertionError("activation lost exact local arm")
+            receipt = MigrationActivationReceipt(
+                manifest.generation,
+                manifest.active_protocol_version,
+                manifest.target_protocol_version,
+                old_history.address,
+                settlement.address,
+                manifest.target_manifest_hash,
+                arm.seat_generation,
+                old_auth_id,
+                new_auth_id,
+                l1_block,
+                arm.migration_stage_id,
+                arm.migration_lineup_commitment,
+            )
+            self.router.activation_receipts[receipt.key] = receipt
+            self.router.activation_receipt_keys_by_generation[
+                receipt.router_generation
+            ] = receipt.key
+            self.router.successor_receipt_key_by_old_authorization_id[
+                receipt.old_authorization_id
+            ] = receipt.key
+            if self.fault_point == "after_activation_receipt_write":
+                raise RuntimeError(
+                    "injected activation fault: after_activation_receipt_write"
+                )
+            return receipt
+        except BaseException:
+            old_protocol._restore_canonical_transaction(old_snapshot)
+            settlement.__dict__.clear()
+            settlement.__dict__.update(target_snapshot)
+            (
+                settlement.forced_queue,
+                settlement.inbox_apply_router,
+                settlement.migration_gate,
+                settlement.live_protocol,
+                settlement._router_authority,
+            ) = target_authority_refs
+            (
+                self.router.active_version,
+                self.router.registrations,
+                self.router.activation_receipts,
+                self.router.activation_receipt_keys_by_generation,
+                self.router.successor_receipt_key_by_old_authorization_id,
+                self.router.used_target_addresses,
+            ) = router_snapshot
+            target_protocol = target_authority_refs[3]
+            if target_protocol is not None:
+                target_protocol.__dict__.clear()
+                target_protocol.__dict__.update(target_protocol_snapshot)
+                (
+                    target_protocol.forced_queue,
+                    target_protocol.inbox_apply_router,
+                    target_protocol.migration_gate,
+                    target_protocol.versioned_history,
+                ) = target_protocol_refs
+            raise
+
+    def schedule_seat_migration(
+        self,
+        manifest: ScheduledSeatMigration,
+        *,
+        caller: str,
+        clock: Clock,
+        cancel: bool = False,
+    ) -> tuple[int, int, int, bytes]:
+        if (
+            caller != self.governance
+            or type(manifest) is not ScheduledSeatMigration
+            or type(clock) is not Clock
+            or manifest.scheduled_at != clock.timestamp
+            or type(manifest.target_manifest_hash) is not bytes
+            or len(manifest.target_manifest_hash) != 32
+            or manifest.generation <= 0
+            or manifest.active_protocol_version <= 0
+            or manifest.target_protocol_version
+            <= manifest.active_protocol_version
+            or manifest.executable_at < 0
+            or (
+                (manifest.old_authorization_id, manifest.new_authorization_id)
+                != (b"", b"")
+                and (
+                    type(manifest.old_authorization_id) is not bytes
+                    or len(manifest.old_authorization_id) != 32
+                    or type(manifest.new_authorization_id) is not bytes
+                    or len(manifest.new_authorization_id) != 32
+                )
+            )
+            or type(cancel) is not bool
+        ):
+            raise ValueError("scheduled seat migration manifest is invalid")
+        delay = (
+            self.cancel_delay_seconds if cancel else self.manifest_delay_seconds
+        )
+        if manifest.executable_at < seat_checked_add(
+            clock.timestamp, delay, "seat migration schedule delay"
+        ):
+            raise ValueError("seat migration manifest delay is too short")
+        records = self.cancel_manifests if cancel else self.arm_manifests
+        if manifest.key in records:
+            raise ValueError("scheduled seat migration manifest is append-only")
+        records[manifest.key] = manifest
+        return manifest.key
+
+    def _active_target(
+        self,
+    ) -> tuple[VersionedSettlementHistory, Protocol, MigrationGate]:
+        if (
+            type(self.router) is not ActiveSettlementRouter
+            or self.router.version_manager != self.address
+        ):
+            raise ValueError("version manager is not bound to the active router")
+        registration = self.router.registrations.get(self.router.active_version)
+        if registration is None:
+            raise ValueError("active Settlement registration is absent")
+        history = registration.settlement
+        protocol = history.live_protocol
+        if (
+            protocol is None
+            or protocol.versioned_history is not history
+            or protocol.header_oracle is not self.router.header_oracle
+            or history.header_oracle is not self.router.header_oracle
+            or protocol.migration_gate is not self.router.migration_gate
+            or history.migration_gate is not self.router.migration_gate
+            or self.router.migration_gate.coordinator != self.address
+            or protocol.forced_queue is not self.router.forced_queue
+            or history.forced_queue is not self.router.forced_queue
+            or protocol.inbox_apply_router is not self.router.inbox_apply_router
+            or history.inbox_apply_router is not self.router.inbox_apply_router
+            or protocol.settlement_address != history.address
+            or history.protocol_version != self.router.active_version
+        ):
+            raise ValueError("active router/Settlement graph is split")
+        return history, protocol, self.router.migration_gate
+
+    @staticmethod
+    def _response_matches(
+        response: SeatMigrationResponse,
+        magic: bytes,
+        word: RouterWord,
+        seat_generation: int,
+    ) -> bool:
+        return (
+            response.magic == magic
+            and response.router_generation == word.generation
+            and response.active_protocol_version == word.active_version
+            and response.target_protocol_version == word.target_version
+            and response.target_manifest_hash == word.target_manifest_hash
+            and response.seat_generation == seat_generation
+        )
+
+    def arm_seat_migration(
+        self,
+        *,
+        manifest_key: tuple[int, int, int, bytes],
+        executor: str,
+        clock: Clock,
+    ) -> bytes:
+        history, protocol, gate = self._active_target()
+        manifest = self.arm_manifests.get(manifest_key)
+        if (
+            manifest is None
+            or not executor
+            or clock.timestamp < manifest.executable_at
+            or manifest.generation in self.arm_responses
+            or gate.mode != "ACTIVE"
+            or manifest.generation != gate.generation + 1
+            or manifest.active_protocol_version != self.router.active_version
+            or manifest.active_protocol_version != gate.active_protocol_version
+            or history.mode != "ACTIVE"
+        ):
+            raise ValueError("global seat migration arm is invalid")
+        protocol._assert_canonical_history_binding()
+        protocol_snapshot = protocol._canonical_transaction_snapshot()
+        manager_snapshot = copy.deepcopy(
+            (self.arm_responses, self.abort_responses)
+        )
+        try:
+            if not gate._arm_from_manager(
+                manifest.generation,
+                manifest.active_protocol_version,
+                manifest.target_protocol_version,
+                manifest.target_manifest_hash,
+                caller=self.address,
+            ):
+                raise AssertionError("validated router arm failed")
+            history.mode = "MIGRATION_ARMED"
+            word = gate.router_word
+            raw = protocol.complete_seat_migration_arm(
+                caller=self.address, router_word=word, clock=clock
+            )
+            decoded = decode_seat_migration_response(raw)
+            if not self._response_matches(
+                decoded, SEAT_ARMED_MAGIC, word, protocol.seat_generation
+            ):
+                raise ValueError("local arm response does not bind global tuple")
+            self.arm_responses[manifest.generation] = raw
+            return raw
+        except BaseException:
+            protocol._restore_canonical_transaction(protocol_snapshot)
+            self.arm_responses, self.abort_responses = manager_snapshot
+            raise
+
+    def abort_seat_migration(
+        self,
+        *,
+        manifest_key: tuple[int, int, int, bytes],
+        executor: str,
+        clock: Clock,
+    ) -> bytes:
+        history, protocol, gate = self._active_target()
+        manifest = self.cancel_manifests.get(manifest_key)
+        if (
+            manifest is None
+            or not executor
+            or clock.timestamp < manifest.executable_at
+            or manifest.generation not in self.arm_responses
+            or manifest.generation in self.abort_responses
+            or gate.mode not in {"ARMED", "READY"}
+            or manifest.generation != gate.generation
+            or manifest.active_protocol_version != self.router.active_version
+            or manifest.active_protocol_version != gate.active_protocol_version
+            or manifest.target_protocol_version != gate.target_protocol_version
+            or manifest.target_manifest_hash != gate.target_manifest_hash
+            or history.mode not in {"MIGRATION_ARMED", "MIGRATION_READY"}
+        ):
+            raise ValueError("global seat migration abort is invalid")
+        protocol._assert_canonical_history_binding()
+        protocol_snapshot = protocol._canonical_transaction_snapshot()
+        manager_snapshot = copy.deepcopy(
+            (self.arm_responses, self.abort_responses)
+        )
+        try:
+            canceled_word = gate.router_word
+            if not gate._abort_from_manager(
+                manifest.generation,
+                manifest.active_protocol_version,
+                manifest.target_protocol_version,
+                manifest.target_manifest_hash,
+                cancel_manifest_active=True,
+                caller=self.address,
+            ):
+                raise AssertionError("validated router abort failed")
+            history.mode = "ACTIVE"
+            raw = protocol.complete_seat_migration_abort(
+                caller=self.address,
+                canceled_arm=canceled_word,
+                clock=clock,
+            )
+            decoded = decode_seat_migration_response(raw)
+            if not self._response_matches(
+                decoded,
+                SEAT_ABORTED_MAGIC,
+                canceled_word,
+                protocol.seat_generation,
+            ):
+                raise ValueError("local abort response does not bind canceled tuple")
+            self.abort_responses[manifest.generation] = raw
+            return raw
+        except BaseException:
+            protocol._restore_canonical_transaction(protocol_snapshot)
+            self.arm_responses, self.abort_responses = manager_snapshot
+            raise
 
 
 @dataclass(frozen=True)
@@ -4510,6 +6048,11 @@ class InboxApplyRouterV2:
     next_queue_index: int = 0
     last_applied_l2_block: int = -1
     routes: dict[str, InboxRoute] = field(default_factory=dict)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {"address", "registrar"} and name in self.__dict__:
+            raise AttributeError(f"InboxApply {name} is immutable")
+        object.__setattr__(self, name, value)
 
     def register_route(self, domain_id: str, store: InboxCreditStoreV2,
                        destination_bridge: str, store_codehash: str, *,
@@ -5206,17 +6749,32 @@ def message(enqueued_l2: int, ident: str, gas: int = 100_000, size: int = 100,
                                 else GENESIS_TIMESTAMP + enqueued_l2 + DATA_TTL_SECONDS))
 
 
-def make_history(messages: list[Message] | None = None) -> dict[int, L1Header]:
+def make_header_oracle(
+    messages: list[Message] | None = None,
+) -> L1HeaderOracle:
     queue = list(messages or [])
     root = model_force_root(queue)
-    return {n: L1Header(f"{n:064x}", GENESIS_TIMESTAMP + n,
-                        f"state-{n}", root, len(queue)) for n in range(1, 20_000)}
+    headers = {
+        n: L1Header(
+            f"{n:064x}", GENESIS_TIMESTAMP + n,
+            f"state-{n}", root, len(queue),
+        )
+        for n in range(1, 20_000)
+    }
+    return L1HeaderOracle(
+        L1_HEADER_ORACLE_ADDRESS,
+        L1_HEADER_ORACLE_RUNTIME_HASH,
+        L1_HEADER_ORACLE_CONFIGURATION_HASH,
+        headers,
+    )
 
 
 def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              mode: Mode = Mode.NORMAL, messages: list[Message] | None = None,
              forced_queue: QueueContinuity | None = None,
              inbox_apply_router: InboxApplyRouterV2 | None = None,
+             header_oracle: L1HeaderOracle | None = None,
+             migration_gate: MigrationGate | None = None,
              settlement_address: str = "model-settlement") -> Protocol:
     msgs = list(messages or [])
     if forced_queue is None:
@@ -5231,10 +6789,15 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
         msgs = forced_queue.descriptors
     if inbox_apply_router is None:
         inbox_apply_router = InboxApplyRouterV2(next_queue_index=cursor)
+    if header_oracle is None:
+        header_oracle = make_header_oracle(msgs)
+    if migration_gate is None:
+        migration_gate = MigrationGate()
     canonical = Canonical(CanonicalCore(900, "a" * 64, tip_slot, "b" * 64, cursor), 900)
     result = Protocol(
-        canonical, make_history(msgs), forced_queue, inbox_apply_router,
+        canonical, header_oracle, forced_queue, inbox_apply_router,
         settlement_address=settlement_address, mode=mode,
+        migration_gate=migration_gate,
     )
     if seat:
         installed_at = GENESIS_TIMESTAMP + tip_slot
@@ -5265,11 +6828,11 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
     else:
         anchor_number = (p.normal_anchor_number if p.normal_anchor_number is not None
                          else min(c.block_number - 1, slot))
-        header = p.history[anchor_number]
+        header = p.header_oracle.header(anchor_number)
         force_root, cutoff = header.force_root, header.force_cutoff
         version = p.normal_admission_version if p.normal_admission_version is not None else p.admission_version
         root = p.normal_admission_root or p.admission_root
-    header = p.history[anchor_number]
+    header = p.header_oracle.header(anchor_number)
     start = p.core.message_cursor
     if release_activation is None:
         release_activation = p.release_activation_pending
@@ -5477,8 +7040,14 @@ def test_admission_freeze_and_tier_canonicalization() -> None:
     arm_clock = clock(1_099, 1_088)
     assert armed.arm_normal_context(arm_clock) == "ARMED"
     fork_a, fork_b = armed.snapshot(), armed.snapshot()
-    fork_b.history[1_099] = replace(
-        fork_b.history[1_099], block_hash="f" * 64)
+    fork_header = fork_b.header_oracle.header(1_099)
+    object.__setattr__(
+        fork_b,
+        "header_oracle",
+        fork_b.header_oracle.fork_for_test({
+            1_099: replace(fork_header, block_hash="f" * 64)
+        }),
+    )
     assert fork_a.activate_normal_context(c) == "ACTIVATED"
     assert fork_b.activate_normal_context(c) == "ACTIVATED"
     check("P11b reorged arm blocks cannot share a slash context",
@@ -5717,11 +7286,14 @@ def test_recovery_refresh_and_historical_immutability() -> None:
     p = protocol(seat=False, messages=[message(0, "forced")])
     trigger = open_recovery(p)
     original = copy.deepcopy(p.recovery)
-    parent_before = p.history[original.anchor_number]
+    parent_before = p.header_oracle.header(original.anchor_number)
     during = clock(trigger.block_number + 1, trigger.l2_slot + 1)
     check("P27 append during recovery admits", p.admit_message(during, message(during.l2_slot, "during")) == "ADMITTED")
     check("P28 append defers beyond live round", p.messages[-1].due_at == original.expires_at + 1)
-    check("P29 historical parent is never rewritten", p.history[original.anchor_number] == parent_before)
+    check(
+        "P29 historical parent is never rewritten",
+        p.header_oracle.header(original.anchor_number) == parent_before,
+    )
     early = clock(original.anchor_number + F_L1 - 1, original.escape_slot + 1)
     check("P30 insufficient depth rejects", p.submit(escape_candidate(p, early), early) == "REJECTED")
     old = escape_candidate(p, recovery_submit_clock(p), "old")
@@ -5803,7 +7375,7 @@ def test_registry_liability_and_release_units() -> None:
           and len(churn.liabilities) == MAX_LIABILITY_GENERATIONS)
 
     bounded_gate = MigrationGate()
-    assert bounded_gate.bootstrap(1)
+    assert bounded_gate._bootstrap_from_router(1)
     bounded = RegistryLifecycle(
         [Generation("long-lived", 10, 0, 0)], migration_gate=bounded_gate)
     for current_window in range(2_000):
@@ -5816,7 +7388,7 @@ def test_registry_liability_and_release_units() -> None:
           and len(bounded.open_reservations) == 1)
 
     churn_gate = MigrationGate()
-    assert churn_gate.bootstrap(1)
+    assert churn_gate._bootstrap_from_router(1)
     reservation_churn = RegistryLifecycle(
         [Generation(f"seat-{index}", index + 1, index, 0)
          for index in range(64)], migration_gate=churn_gate)
@@ -5936,10 +7508,10 @@ def test_data_gc_reorg_and_geometry() -> None:
           and adapter.balance == 0 and not adapter.records
           and bridge_protocol.mode is Mode.RECOVERY)
     stamped_protocol = protocol(seat=False)
-    assert stamped_protocol.migration_gate.bootstrap(1)
+    assert stamped_protocol.migration_gate._bootstrap_from_router(1)
     stamp_status, ingress_stamp = stamped_protocol.sync_ingress(prepared_clock)
     assert ingress_stamp is not None
-    assert stamped_protocol.migration_gate.arm(
+    assert stamped_protocol.migration_gate._arm_from_manager(
         1, 1, 2, "manifest:2", caller="version-manager")
     check("P50cu payable ingress cannot rerun sync or use a stale stamp",
           stamp_status == "ACTIVE"
@@ -6018,14 +7590,19 @@ def test_data_gc_reorg_and_geometry() -> None:
     shared_queue = QueueContinuity(
         "forced-queue", model_force_root([]), 0, 0, 0, UINT64_MAX)
     support_inbox_apply = InboxApplyRouterV2(next_queue_index=0)
+    support_header_oracle = make_header_oracle([])
     support_settlement = VersionedSettlementHistory(
         "settlement:2", "runtime:2", 2, "profile:2",
         copy.deepcopy(support_core), 40, shared_queue,
-        inbox_apply_router=support_inbox_apply)
+        inbox_apply_router=support_inbox_apply,
+        header_oracle=support_header_oracle)
     support_router = ActiveSettlementRouter(
-        "version-manager", shared_queue, support_inbox_apply)
+        "version-manager", shared_queue, support_inbox_apply,
+        support_settlement.migration_gate, support_header_oracle)
     assert support_router.bootstrap(
-        support_settlement, sequence=7, activation_block=40)
+        support_settlement, sequence=7,
+        clock=Clock(40, GENESIS_TIMESTAMP + support_core.tip_slot),
+        caller=support_router.version_manager)
     support_proof = dict(
         protocol_version=2, canonical_sequence=7, router=support_router,
         proof_state_root="state:registration", mpt_proof_valid=True,
@@ -6748,26 +8325,32 @@ def test_data_gc_reorg_and_geometry() -> None:
         claimable={"historical-prover": 12})
     migration_inbox_apply = InboxApplyRouterV2(next_queue_index=12)
     shared_migration_gate = MigrationGate()
+    migration_header_oracle = make_header_oracle(initial_queue_descriptors)
     settlement_1 = VersionedSettlementHistory(
         "settlement:1", "runtime:1", 1, "profile:1",
         copy.deepcopy(canonical_core_499), 49, terminal_queue,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply)
+        inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle)
     active_router = ActiveSettlementRouter(
-        "version-manager", terminal_queue, migration_inbox_apply)
+        "version-manager", terminal_queue, migration_inbox_apply,
+        shared_migration_gate, migration_header_oracle)
     assert active_router.bootstrap(
-        settlement_1, sequence=0, activation_block=49)
+        settlement_1, sequence=0,
+        clock=Clock(49, GENESIS_TIMESTAMP + canonical_core_499.tip_slot),
+        caller=active_router.version_manager)
     migration_protocol = protocol(
         tip_slot=canonical_core_499.tip_slot,
         cursor=canonical_core_499.message_cursor,
         seat=False,
         forced_queue=terminal_queue,
         inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle,
+        migration_gate=shared_migration_gate,
         settlement_address="settlement:1")
     migration_protocol.canonical = Canonical(
         copy.deepcopy(canonical_core_499), 49)
     migration_protocol.first_v2_block_number = 1
-    migration_protocol.migration_gate = shared_migration_gate
     migration_protocol.versioned_history = settlement_1
     settlement_1.live_protocol = migration_protocol
     assert active_router.sync_and_append(
@@ -6779,21 +8362,28 @@ def test_data_gc_reorg_and_geometry() -> None:
     canonical_core_500 = replace(
         canonical_core_499, l2_block_number=500, tip_hash="block:500",
         state_root="state:500")
-    sequence_1 = settlement_1.record_canonical(
-        canonical_core_500, l1_block=50)
+    migration_protocol.canonical = Canonical(copy.deepcopy(canonical_core_500), 50)
+    sequence_1 = settlement_1._record_canonical_from_protocol(
+        protocol=migration_protocol, clock=Clock(50, GENESIS_TIMESTAMP + 2))
     assert sequence_1 == 1
     canonical_500 = active_router.canonical_at(1, sequence_1)
     assert canonical_500 is not None
+    same_block_history = copy.deepcopy(settlement_1.history)
+    same_block_core = copy.deepcopy(settlement_1.core)
     check("P50at canonical history is internal and one commit per L1 block",
-          settlement_1.record_canonical(
-              replace(canonical_core_500, l2_block_number=501),
-              l1_block=50) is None
+          not hasattr(settlement_1, "record_canonical")
+          and settlement_1._record_canonical_from_protocol(
+              protocol=migration_protocol,
+              clock=Clock(50, GENESIS_TIMESTAMP + 3)) is None
+          and settlement_1.history == same_block_history
+          and settlement_1.core == same_block_core
           and active_router.canonical_at(1, sequence_1) == canonical_500)
     canonical_core_756 = replace(
         canonical_core_500, l2_block_number=756, tip_hash="block:756",
         state_root="state:756")
-    sequence_2 = settlement_1.record_canonical(
-        canonical_core_756, l1_block=51)
+    migration_protocol.canonical = Canonical(copy.deepcopy(canonical_core_756), 51)
+    sequence_2 = settlement_1._record_canonical_from_protocol(
+        protocol=migration_protocol, clock=Clock(51, GENESIS_TIMESTAMP + 4))
     assert sequence_2 == 2
     canonical_756 = active_router.canonical_at(1, sequence_2)
     assert canonical_756 is not None
@@ -6906,13 +8496,16 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert migration_protocol.sync(migration_outage_clock)
     assert migration_protocol.mode is Mode.RECOVERY
     migration_revision = migration_protocol.recovery.revision
-    assert not shared_migration_gate.arm(
-        1, 1, 2, "manifest:2", caller="attacker")
-    assert shared_migration_gate.arm(
-        1, 1, 2, "manifest:2", caller="version-manager")
-    assert migration_protocol.arm_migration(1)
+    legacy_manifest_2 = b"2" * 32
+    legacy_manifest_3_bad = b"x" * 32
+    legacy_manifest_3 = b"3" * 32
+    assert not shared_migration_gate._arm_from_manager(
+        1, 1, 2, legacy_manifest_2, caller="attacker")
+    assert shared_migration_gate._arm_from_manager(
+        1, 1, 2, legacy_manifest_2, caller="version-manager")
+    assert migration_protocol._arm_migration_for_test(1)
     migration_registry.arm_migration()
-    assert settlement_1.arm_migration(
+    assert settlement_1._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
         generation=1, target_protocol_version=2)
     check("P50bm migration arm closes new transient and ingress work",
@@ -6977,7 +8570,23 @@ def test_data_gc_reorg_and_geometry() -> None:
         "settlement:2", "runtime:2", 2, "profile:2",
         copy.deepcopy(canonical_core_756), 51, terminal_queue,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply)
+        inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle)
+    exact_target_protocol = protocol(
+        tip_slot=canonical_core_756.tip_slot,
+        cursor=canonical_core_756.message_cursor,
+        seat=False,
+        mode=Mode.PREACTIVE,
+        forced_queue=terminal_queue,
+        inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle,
+        migration_gate=shared_migration_gate,
+        settlement_address=exact_settlement.address)
+    exact_target_protocol.seat_generation = 0
+    exact_target_protocol.canonical = Canonical(
+        copy.deepcopy(canonical_core_756), 51)
+    exact_target_protocol.versioned_history = exact_settlement
+    exact_settlement.live_protocol = exact_target_protocol
     wrong_queue_settlement = VersionedSettlementHistory(
         "settlement:wrong-queue", "runtime:2", 2, "profile:2",
         copy.deepcopy(canonical_core_756), 51,
@@ -6999,100 +8608,118 @@ def test_data_gc_reorg_and_geometry() -> None:
         state_root="state:release-2", message_cursor=terminal_queue.count)
     activation_proof = MigrationActivationProof(
         copy.deepcopy(canonical_core_756), activation_output_core,
-        2, "manifest:2", canonical_core_756.message_cursor,
+        2, legacy_manifest_2, canonical_core_756.message_cursor,
         terminal_queue.count, "activation-prover")
-    original_queue_runtime = terminal_queue.runtime_hash
-    terminal_queue.runtime_hash = "attacker-queue-runtime"
-    queue_code_rejected = not active_router.activate_version_with_proof(
-        settlement=exact_settlement, l1_block=52,
+    wrong_runtime_queue = replace(
+        terminal_queue, runtime_hash="attacker-queue-runtime"
+    )
+    wrong_runtime_settlement = replace(
+        exact_settlement, forced_queue=wrong_runtime_queue
+    )
+    queue_code_rejected = not active_router._activate_version_with_proof(
+        settlement=wrong_runtime_settlement,
+        clock=Clock(52, GENESIS_TIMESTAMP + 52),
         caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash="manifest:2", activation_proof=activation_proof,
+        target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
         target_runtime_approved=True, target_profile_matches=True,
         full_core_import_exact=True, queue_import_exact=True)
-    terminal_queue.runtime_hash = original_queue_runtime
     live_canonical = migration_protocol.canonical
     migration_protocol.canonical = Canonical(
         replace(canonical_core_756, state_root="stale-live-state"), 51)
-    stale_live_state_rejected = not active_router.activate_version_with_proof(
-        settlement=exact_settlement, l1_block=52,
+    stale_live_state_rejected = not active_router._activate_version_with_proof(
+        settlement=exact_settlement,
+        clock=Clock(52, GENESIS_TIMESTAMP + 52),
         caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash="manifest:2", activation_proof=activation_proof,
+        target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
         target_runtime_approved=True, target_profile_matches=True,
         full_core_import_exact=True, queue_import_exact=True)
     migration_protocol.canonical = live_canonical
     check("P50ba router rejects fake, unauthorized and discontinuous targets",
           queue_code_rejected and stale_live_state_rejected
-          and not active_router.activate_version_with_proof(
-              settlement=exact_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2",
+              target_manifest_hash=legacy_manifest_2,
               activation_proof=replace(activation_proof, proof_valid=False),
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=exact_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2",
+              target_manifest_hash=legacy_manifest_2,
               activation_proof=replace(
                   activation_proof, target_components_valid=False),
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=exact_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
               target_manifest_hash="manifest:attacker",
               activation_proof=activation_proof,
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=fake_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=fake_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2", activation_proof=activation_proof,
+              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=exact_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=False, manifest_active=True,
-              target_manifest_hash="manifest:2", activation_proof=activation_proof,
+              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=exact_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2", activation_proof=activation_proof,
+              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
               target_runtime_approved=False, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=wrong_queue_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=wrong_queue_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2", activation_proof=activation_proof,
+              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=fresh_gate_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=fresh_gate_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2", activation_proof=activation_proof,
+              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True)
-          and not active_router.activate_version_with_proof(
-              settlement=wrong_schedule_settlement, l1_block=52,
+          and not active_router._activate_version_with_proof(
+              settlement=wrong_schedule_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
               caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:2", activation_proof=activation_proof,
+              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
               target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True))
-    assert active_router.activate_version_with_proof(
-        settlement=exact_settlement, l1_block=52,
+    assert active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=Clock(52, GENESIS_TIMESTAMP + 52),
         caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash="manifest:2", activation_proof=activation_proof,
+        target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
         target_runtime_approved=True, target_profile_matches=True,
         full_core_import_exact=True, queue_import_exact=True)
+    migration_protocol = exact_settlement.live_protocol
+    assert migration_protocol is not settlement_1.live_protocol
     check("P50bc proof-first migration atomically adopts target activation",
           settlement_1.mode == "FROZEN"
           and active_router.canonical_at(1, sequence_2) == canonical_756
           and active_router.canonical_at(2, sequence_2 + 1) is not None
-          and exact_settlement.record_canonical(
-              replace(activation_output_core, l2_block_number=758),
-              l1_block=52) is None
+          and not hasattr(exact_settlement, "record_canonical")
+          and exact_settlement._record_canonical_from_protocol(
+              protocol=settlement_1.live_protocol,
+              clock=Clock(52, GENESIS_TIMESTAMP + 5)) is None
           and active_router.sync_and_append(
               message(2, "same-old-adapter-after-v2",
                       kind=ForceKind.BRIDGE_CREDIT),
@@ -7152,11 +8779,11 @@ def test_data_gc_reorg_and_geometry() -> None:
           and terminal_queue.total_claimable == 12
           and terminal_queue.escrow_balance
               >= terminal_queue.accounted_liabilities)
-    assert shared_migration_gate.arm(
-        2, 2, 3, "manifest:3-bad", caller="version-manager")
-    assert migration_protocol.arm_migration(2)
+    assert shared_migration_gate._arm_from_manager(
+        2, 2, 3, legacy_manifest_3_bad, caller="version-manager")
+    assert migration_protocol._arm_migration_for_test(2)
     migration_registry.arm_migration()
-    assert exact_settlement.arm_migration(
+    assert exact_settlement._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
         generation=2, target_protocol_version=3)
     abort_ready_clock = Clock(
@@ -7164,19 +8791,19 @@ def test_data_gc_reorg_and_geometry() -> None:
         migration_activation_clock.timestamp + 1)
     assert migration_protocol.sync(abort_ready_clock)
     assert exact_settlement.enter_migration_ready()
-    assert not active_router.abort_migration(
+    assert not active_router._abort_migration_for_test(
         generation=2, target_protocol_version=3,
-        target_manifest_hash="manifest:3-bad",
+        target_manifest_hash=legacy_manifest_3_bad,
         cancel_manifest_active=False, clock=abort_ready_clock)
-    assert active_router.abort_migration(
+    assert active_router._abort_migration_for_test(
         generation=2, target_protocol_version=3,
-        target_manifest_hash="manifest:3-bad",
+        target_manifest_hash=legacy_manifest_3_bad,
         cancel_manifest_active=True, clock=abort_ready_clock)
-    assert shared_migration_gate.arm(
-        3, 2, 3, "manifest:3", caller="version-manager")
-    assert migration_protocol.arm_migration(3)
+    assert shared_migration_gate._arm_from_manager(
+        3, 2, 3, legacy_manifest_3, caller="version-manager")
+    assert migration_protocol._arm_migration_for_test(3)
     migration_registry.arm_migration()
-    assert exact_settlement.arm_migration(
+    assert exact_settlement._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
         generation=3, target_protocol_version=3)
     second_ready_clock = Clock(
@@ -7188,7 +8815,24 @@ def test_data_gc_reorg_and_geometry() -> None:
         copy.deepcopy(exact_settlement.core),
         exact_settlement.canonicalized_at_block, terminal_queue,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply)
+        inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle)
+    target_protocol_3 = protocol(
+        tip_slot=exact_settlement.core.tip_slot,
+        cursor=exact_settlement.core.message_cursor,
+        seat=False,
+        mode=Mode.PREACTIVE,
+        forced_queue=terminal_queue,
+        inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle,
+        migration_gate=shared_migration_gate,
+        settlement_address=settlement_3.address)
+    target_protocol_3.seat_generation = 0
+    target_protocol_3.canonical = Canonical(
+        copy.deepcopy(exact_settlement.core),
+        exact_settlement.canonicalized_at_block)
+    target_protocol_3.versioned_history = settlement_3
+    settlement_3.live_protocol = target_protocol_3
     activation_output_3 = replace(
         exact_settlement.core,
         l2_block_number=exact_settlement.core.l2_block_number + 1,
@@ -7196,15 +8840,16 @@ def test_data_gc_reorg_and_geometry() -> None:
         state_root="state:release-3")
     activation_proof_3 = MigrationActivationProof(
         copy.deepcopy(exact_settlement.core), activation_output_3,
-        3, "manifest:3", terminal_queue.cursor, terminal_queue.cursor,
+        3, legacy_manifest_3, terminal_queue.cursor, terminal_queue.cursor,
         "activation-prover-3")
     second_cutover_block = max(
         second_ready_clock.block_number + 1,
         exact_settlement.last_canonical_l1_block + 1)
-    assert active_router.activate_version_with_proof(
-        settlement=settlement_3, l1_block=second_cutover_block,
+    assert active_router._activate_version_with_proof(
+        settlement=settlement_3,
+        clock=Clock(second_cutover_block, second_ready_clock.timestamp + 1),
         caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash="manifest:3", activation_proof=activation_proof_3,
+        target_manifest_hash=legacy_manifest_3, activation_proof=activation_proof_3,
         target_runtime_approved=True, target_profile_matches=True,
         full_core_import_exact=True, queue_import_exact=True)
     check("P50bn abort is delayed and the same gate completes a later migration",
@@ -7280,13 +8925,14 @@ def test_data_gc_reorg_and_geometry() -> None:
           and source.finalize_done(
               credit_d2, verifier=terminal_verifier, proof=d2_proof))
     frozen_runtime = settlement_1.runtime_hash
-    settlement_1.runtime_hash = "runtime:mutated"
+    try:
+        settlement_1.runtime_hash = "runtime:mutated"
+        runtime_replacement_rejected = False
+    except AttributeError:
+        runtime_replacement_rejected = True
     check("P50bd historical Settlement code identity is pinned",
-          not terminal_verifier.verify(
-              proof=failed_proof, credit_id=credit_a, terminal="FAILED",
-              destination_domain_id="domain:D1",
-              destination_bridge="bridge:A"))
-    settlement_1.runtime_hash = frozen_runtime
+          runtime_replacement_rejected
+          and settlement_1.runtime_hash == frozen_runtime)
     check("P50aj permanent terminal proofs release exactly one source liability",
           source.recall_failed(
               credit_a, verifier=terminal_verifier, proof=failed_proof)

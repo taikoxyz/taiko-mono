@@ -11,6 +11,7 @@ import itertools
 from pathlib import Path
 import random
 import sys
+from types import SimpleNamespace
 import unittest
 
 
@@ -57,6 +58,78 @@ def immutable_authorization(target="settlement-v1", **overrides):
     return model.TargetAuthorization(**values)
 
 
+class StandaloneSettlementAuthority:
+    """Explicit test-only exact target; production model never fabricates one."""
+
+    def __init__(self, authorization, phase, generation):
+        self.authorization = authorization
+        self.phase = phase
+        self.generation = generation
+        self.live_protocol = self
+
+    def exact_market_target_state(self):
+        auth = self.authorization
+        return (
+            auth.target,
+            auth.settlement_chain_id,
+            auth.protocol_version,
+            auth.runtime_hash,
+            auth.configuration_hash,
+            auth.expected_magic,
+            self.phase,
+            self.generation,
+        )
+
+    def execute_market_target_rotation(self, seat_market, manager, receipt_key, clock):
+        receipt = manager.activation_receipt(receipt_key)
+        if (
+            receipt is None
+            or self.phase != "FROZEN"
+            or receipt.old_target != self.authorization.target
+            or receipt.old_protocol_version != self.authorization.protocol_version
+            or receipt.migration_stage_id is not None
+        ):
+            raise model.TransitionRejected(
+                "fake Settlement rotation authority is not exact"
+            )
+        return seat_market._rotate_installation_target(
+            manager=manager,
+            receipt_key=receipt_key,
+            clock=clock,
+            migration_stage_authenticated=False,
+        )
+
+
+def authenticated_target(
+    authorization, generation, *, market_chain_id, market_address
+):
+    router = SimpleNamespace(
+        version_manager=addr("version-manager"),
+        activation_receipts={},
+        successor_receipt_key_by_old_authorization_id={},
+        active_version=authorization.protocol_version,
+        registrations={},
+    )
+    manager = model.ReleaseManager(
+        addr("release-manager"), activation_authority=router
+    )
+    authority = StandaloneSettlementAuthority(
+        authorization, "ACTIVE", generation
+    )
+    runtime = model.TargetRuntime(authorization, authority)
+    manager.register_router_target(
+        router.version_manager,
+        market_chain_id,
+        market_address,
+        authorization,
+        runtime,
+    )
+    router.registrations[authorization.protocol_version] = SimpleNamespace(
+        settlement=authority
+    )
+    return manager, runtime
+
+
 def make_codec_market(**overrides):
     values = dict(
         market_chain_id=1,
@@ -72,6 +145,15 @@ def make_codec_market(**overrides):
         cached_generation=7,
     )
     values.update(overrides)
+    if "release_manager" not in values or "target_runtime" not in values:
+        manager, runtime = authenticated_target(
+            values["authorization"],
+            values["cached_generation"],
+            market_chain_id=values["market_chain_id"],
+            market_address=values["market_address"],
+        )
+        values.setdefault("release_manager", manager)
+        values.setdefault("target_runtime", runtime)
     return model.SeatMarket(**values)
 
 
@@ -177,7 +259,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
             expected_credit,
         )
 
-    def test_disable_and_current_rotation_preserve_historical_authority(self):
+    def test_manager_registration_cannot_repoint_market_or_historical_rows(self):
         market = make_codec_market()
         owner = market.insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
@@ -203,30 +285,30 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
         market.assert_valid()
 
         old_id = market.current_authorization_id
-        market._set_authorization_enabled(old_id, False)
-        self.assertEqual(market.current_authorization_id, old_id)
+        self.assertFalse(hasattr(market, "_set_authorization_enabled"))
+        self.assertFalse(hasattr(market, "_register_authorization"))
         self.assertEqual(
             model.authorization_identity(1, addr("market"), immutable_authorization()),
             old_id,
         )
-        market.assert_valid()
-        before = copy.deepcopy(market)
-        with self.assertRaises(model.TransitionRejected):
-            market.insert_offer(
-                caller=addr("carol"), payout=addr("carol-payout"),
-                ask_wei_per_second=1, target=addr("settlement-v1"), generation=7,
-                clock=model.Clock(200, 100), value=1_000,
-            )
-        self.assertEqual(market, before)
 
         new_auth = immutable_authorization(
             target="settlement-v2", protocol_version=26,
             runtime_hash=b"x" * 32, configuration_hash=b"y" * 32,
         )
-        new_id = market._register_authorization(
-            new_auth, enabled=True, make_current=True
+        new_runtime = model.TargetRuntime(
+            new_auth, StandaloneSettlementAuthority(new_auth, "ACTIVE", 7)
+        )
+        new_id = market.release_manager.register_router_target(
+            market.release_manager.activation_authority.version_manager,
+            market.market_chain_id,
+            market.market_address,
+            new_auth,
+            new_runtime,
         )
         self.assertNotEqual(new_id, old_id)
+        self.assertNotIn(new_id, market.authorizations)
+        self.assertEqual(market.current_authorization_id, old_id)
         market.assert_valid()
         self.assertEqual(
             market.tranches[owner.tranche.tranche_id].authorization_id, old_id
@@ -247,24 +329,12 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
         market.assert_valid()
         before = copy.deepcopy(market)
         with self.assertRaises(model.TransitionRejected):
-            market.requote(
-                caller=addr("alice"), offer_id=owner.offer.offer_id,
-                payout=addr("new"), ask_wei_per_second=9,
-                target=addr("settlement-v1"), generation=7,
-                clock=model.Clock(200, 100),
-            )
-        self.assertEqual(market, before)
-        self.assertEqual(market.current_authorization_id, new_id)
-        before = copy.deepcopy(market)
-        with self.assertRaises(model.TransitionRejected):
-            market.insert_offer(
-                caller=addr("carol"), payout=addr("carol-payout"),
-                ask_wei_per_second=1, target=addr("settlement-v1"), generation=7,
-                clock=model.Clock(200, 100), value=1_000,
+            market.release_manager.execute_rotation(
+                market, (1, b"m" * 32), model.Clock(200, 100)
             )
         self.assertEqual(market, before)
 
-    def test_registry_control_primitives_reject_atomically_and_live_rows_gate_state(self):
+    def test_registry_has_no_direct_market_control_and_live_rows_gate_state(self):
         live = make_codec_market()
         row = live.insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
@@ -272,30 +342,49 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
             clock=model.Clock(100, 50), value=1_000,
         )
         current = live.current_authorization_id
-        before = copy.deepcopy(live)
-        with self.assertRaises(model.TransitionRejected):
-            live._set_authorization_enabled(current, False)
-        self.assertEqual(live, before)
-        with self.assertRaises(model.TransitionRejected):
-            live._set_authorization_enabled(b"u" * 32, True)
-        self.assertEqual(live, before)
+        self.assertFalse(hasattr(live, "_set_authorization_enabled"))
+        self.assertFalse(hasattr(live, "_register_authorization"))
 
         new_auth = immutable_authorization(
             target="settlement-v2", protocol_version=26,
             runtime_hash=b"x" * 32, configuration_hash=b"y" * 32,
         )
-        with self.assertRaises(model.TransitionRejected):
-            live._register_authorization(new_auth, enabled=True, make_current=True)
-        self.assertEqual(live, before)
-
-        registered = live._register_authorization(
-            new_auth, enabled=True, make_current=False
+        new_runtime = model.TargetRuntime(
+            new_auth, StandaloneSettlementAuthority(new_auth, "ACTIVE", 7)
+        )
+        registered = live.release_manager.register_router_target(
+            live.release_manager.activation_authority.version_manager,
+            live.market_chain_id,
+            live.market_address,
+            new_auth,
+            new_runtime,
         )
         live.assert_valid()
-        before_duplicate = copy.deepcopy(live)
+        self.assertNotIn(registered, live.authorizations)
+        self.assertEqual(live.current_authorization_id, current)
+        manager_before = (
+            dict(live.release_manager.authorizations),
+            dict(live.release_manager.target_runtimes),
+            dict(live.release_manager.target_bindings),
+            set(live.release_manager.used_target_addresses),
+        )
         with self.assertRaises(model.TransitionRejected):
-            live._register_authorization(new_auth, enabled=True, make_current=False)
-        self.assertEqual(live, before_duplicate)
+            live.release_manager.register_router_target(
+                live.release_manager.activation_authority.version_manager,
+                live.market_chain_id,
+                live.market_address,
+                new_auth,
+                new_runtime,
+            )
+        self.assertEqual(
+            (
+                live.release_manager.authorizations,
+                live.release_manager.target_runtimes,
+                live.release_manager.target_bindings,
+                live.release_manager.used_target_addresses,
+            ),
+            manager_before,
+        )
 
         disabled_live = copy.deepcopy(live)
         disabled_live.authorization_enabled[current] = False
@@ -457,6 +546,16 @@ def target_view(generation, target="settlement-v1", phase="ACTIVE"):
     )
 
 
+def sync_generation(market, view):
+    runtime = market.target_runtimes[market.current_authorization_id]
+    old_override = runtime.response_override
+    runtime.response_override = model.encode_exact_target_view(view)
+    try:
+        return market.sync_seat_generation()
+    finally:
+        runtime.response_override = old_override
+
+
 def make_market(**overrides):
     values = dict(
         market_chain_id=1,
@@ -472,6 +571,15 @@ def make_market(**overrides):
         cached_generation=7,
     )
     values.update(overrides)
+    if "release_manager" not in values or "target_runtime" not in values:
+        manager, runtime = authenticated_target(
+            values["authorization"],
+            values["cached_generation"],
+            market_chain_id=values["market_chain_id"],
+            market_address=values["market_address"],
+        )
+        values.setdefault("release_manager", manager)
+        values.setdefault("target_runtime", runtime)
     return model.SeatMarket(**values)
 
 
@@ -713,7 +821,7 @@ class OfferBookTests(AtomicAssertions):
     def test_generation_sync_purges_pending_to_owner_credits_and_writes_cache_last(self):
         market = make_market()
         rows = [insert(market, f"op-{index}", index) for index in range(4)]
-        result = market.sync_seat_generation(target_view(8))
+        result = sync_generation(market, target_view(8))
         self.assertEqual(result.purged_count, 4)
         self.assertEqual(market.cached_generation, 8)
         self.assertEqual(market.pending_count, 0)
@@ -741,8 +849,10 @@ class OfferBookTests(AtomicAssertions):
             model.ExactTargetView(**{**good.__dict__, "settlement_chain_id": 2}),
         ])
         for view in bad_views:
-            self.assert_rejects_unchanged(market, lambda view=view: market.sync_seat_generation(view))
-        same = market.sync_seat_generation(target_view(7))
+            self.assert_rejects_unchanged(
+                market, lambda view=view: sync_generation(market, view)
+            )
+        same = sync_generation(market, target_view(7))
         self.assertEqual(same.purged_count, 0)
 
     def test_exact_target_view_rejects_every_wrong_runtime_type_and_width(self):
@@ -776,7 +886,7 @@ class OfferBookTests(AtomicAssertions):
         )
         for view in invalid:
             self.assert_rejects_unchanged(
-                market, lambda view=view: market.sync_seat_generation(view)
+                market, lambda view=view: sync_generation(market, view)
             )
 
     def test_ids_bind_full_authorization_identity_and_generation(self):
@@ -1296,6 +1406,9 @@ class EdgeMatrixTests(AtomicAssertions):
     }
     TASK3_MUTATING_PUBLIC_EVENTS = {
         "sponsor_premium",
+        "claim_premium_credit",
+    }
+    TASK3_INTERNAL_SETTLEMENT_EVENTS = {
         "stage_best",
         "expire_stage",
         "invalidate_stage",
@@ -1307,7 +1420,6 @@ class EdgeMatrixTests(AtomicAssertions):
         "request_release",
         "finalize_release",
         "enforce_breach",
-        "claim_premium_credit",
     }
 
     def staged_fixture(self):
@@ -1358,8 +1470,24 @@ class EdgeMatrixTests(AtomicAssertions):
             public_functions,
             self.MUTATING_PUBLIC_EVENTS
             | self.TASK3_MUTATING_PUBLIC_EVENTS
-            | {"assert_valid", "credit_id", "is_duty_history_safe"},
+            | {"assert_valid", "credit_id"},
         )
+        for forbidden in (
+            "stage_best",
+            "expire_stage",
+            "invalidate_stage",
+            "cancel_stage_for_migration",
+            "install_stage",
+            "accrue_premium",
+            "close_reserve",
+            "reconcile_tail",
+            "request_release",
+            "finalize_release",
+            "enforce_breach",
+            "is_duty_history_safe",
+            "rotate_installation_target",
+        ):
+            self.assertFalse(hasattr(model.SeatMarket, forbidden), forbidden)
 
     def test_complete_public_event_success_matrix_uses_only_valid_fixtures(self):
         covered = set()
@@ -1418,7 +1546,7 @@ class EdgeMatrixTests(AtomicAssertions):
         insert(equal_sync_market, "alice", 10)
         equal_sync_market.assert_valid()
         equal_before = copy.deepcopy(equal_sync_market)
-        equal = equal_sync_market.sync_seat_generation(target_view(7))
+        equal = sync_generation(equal_sync_market, target_view(7))
         covered.add("sync_seat_generation")
         self.assertEqual(equal.purged_count, 0)
         self.assertEqual(equal_sync_market, equal_before)
@@ -1426,7 +1554,7 @@ class EdgeMatrixTests(AtomicAssertions):
         purge_market = make_market()
         insert(purge_market, "alice", 10)
         purge_market.assert_valid()
-        purged = purge_market.sync_seat_generation(target_view(8))
+        purged = sync_generation(purge_market, target_view(8))
         self.assertEqual(purged.purged_count, 1)
         self.assertEqual(purge_market.cached_generation, 8)
         self.assertEqual(purge_market.accounting.outstanding_owner_credits, 1_000)
@@ -1555,7 +1683,7 @@ class EdgeMatrixTests(AtomicAssertions):
             ),
             "sync_seat_generation": (
                 stale_sync,
-                lambda: stale_sync.sync_seat_generation(target_view(6)),
+                lambda: sync_generation(stale_sync, target_view(6)),
             ),
             "claim_credit": (
                 claimed,
@@ -1708,10 +1836,10 @@ def lineup_term(
 def stage_and_install(market, operator="alice", ask=5, term_id=b"T" * 32):
     market.sponsor_premium(ask * market.seat_runway_seconds)
     row = insert(market, operator, ask)
-    result = market.stage_best(lineup(), model.Clock(110, 53))
+    result = market._settlement_stage_best(lineup(), model.Clock(110, 53))
     if result.code is not model.ResultCode.STAGED:
         raise AssertionError("test fixture did not stage")
-    market.install_stage(installation_view(market, result.stage, term_id))
+    market._settlement_install_stage(installation_view(market, result.stage, term_id))
     return row, term_id
 
 
@@ -1793,7 +1921,7 @@ class Task3StagingTests(AtomicAssertions):
                 minimum_tenure_until=1_000,
                 service_eligible_until=service_eligible_until,
             )
-            result = market.stage_best(lineup(primary), model.Clock(110, 53))
+            result = market._settlement_stage_best(lineup(primary), model.Clock(110, 53))
             self.assertEqual(result.code, expected)
             if expected is model.ResultCode.STAGED:
                 self.assertEqual(result.stage.handover_at, 115)
@@ -1803,13 +1931,13 @@ class Task3StagingTests(AtomicAssertions):
         market = make_market()
         market.sponsor_premium(10_000)
         rows = [insert(market, name, ask) for name, ask in zip("ABCD", (1, 2, 3, 4))]
-        staged = market.stage_best(lineup(), model.Clock(110, 53))
+        staged = market._settlement_stage_best(lineup(), model.Clock(110, 53))
         self.assertEqual((market.pending_count, market.staged_count), (3, 1))
         self.assertEqual(staged.offer.offer_id, rows[0].offer.offer_id)
         fifth = insert(market, "E", 3)
         self.assertEqual((market.pending_count, market.staged_count), (3, 1))
         self.assertEqual(fifth.displaced_offer_id, rows[3].offer.offer_id)
-        market.expire_stage(staged.stage.stage_id, model.Clock(staged.stage.expires_at, 53))
+        market._settlement_expire_stage(staged.stage.stage_id, model.Clock(staged.stage.expires_at, 53))
         self.assertEqual((market.pending_count, market.staged_count), (4, 0))
         self.assertIn(rows[0].offer.offer_id, market.pending_offer_ids)
         self.assertEqual(market.accounting.reserved_premium, 0)
@@ -1825,13 +1953,13 @@ class Task3StagingTests(AtomicAssertions):
             market = make_market()
             market.sponsor_premium(10_000)
             insert(market, "alice", 9)
-            self.assertEqual(market.stage_best(lineup(), clock).code, expected)
+            self.assertEqual(market._settlement_stage_best(lineup(), clock).code, expected)
 
         primary = lineup_term(ask=10, minimum_tenure_until=200)
         replacement = make_market()
         replacement.sponsor_premium(900)
         insert(replacement, "alice", 9)
-        result = replacement.stage_best(lineup(primary), model.Clock(110, 53))
+        result = replacement._settlement_stage_best(lineup(primary), model.Clock(110, 53))
         self.assertEqual(result.stage.selected_rank, 0)
         self.assertEqual(result.stage.outgoing_primary_term_id, primary.term_id)
         self.assertEqual(result.stage.handover_at, 200)
@@ -1839,7 +1967,7 @@ class Task3StagingTests(AtomicAssertions):
         standby = make_market()
         standby.sponsor_premium(1_100)
         insert(standby, "bob", 11)
-        result = standby.stage_best(lineup(primary), model.Clock(110, 53))
+        result = standby._settlement_stage_best(lineup(primary), model.Clock(110, 53))
         self.assertEqual(result.stage.selected_rank, 1)
         self.assertIsNone(result.stage.outgoing_primary_term_id)
         self.assertEqual(result.stage.handover_at, 115)
@@ -1851,7 +1979,7 @@ class Task3StagingTests(AtomicAssertions):
         market.sponsor_premium(1_000)
         insert(market, "immature", 1, clock=model.Clock(105, 50))
         mature = insert(market, "mature", 2, clock=model.Clock(100, 50))
-        result = market.stage_best(lineup(), model.Clock(110, 53))
+        result = market._settlement_stage_best(lineup(), model.Clock(110, 53))
         self.assertEqual(result.offer.offer_id, mature.offer.offer_id)
 
         underfunded = make_market()
@@ -1859,13 +1987,13 @@ class Task3StagingTests(AtomicAssertions):
         insert(underfunded, "later", 3)
         underfunded.sponsor_premium(199)
         before = copy.deepcopy(underfunded)
-        result = underfunded.stage_best(lineup(), model.Clock(110, 53))
+        result = underfunded._settlement_stage_best(lineup(), model.Clock(110, 53))
         self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
         self.assertEqual(result.offer.ask_wei_per_second, 2)
         self.assertEqual(underfunded, before)
         underfunded.sponsor_premium(1)
         self.assertEqual(
-            underfunded.stage_best(lineup(), model.Clock(110, 53)).code,
+            underfunded._settlement_stage_best(lineup(), model.Clock(110, 53)).code,
             model.ResultCode.STAGED,
         )
 
@@ -1878,7 +2006,7 @@ class Task3StagingTests(AtomicAssertions):
         insert(market, "alice", 9)
         before = copy.deepcopy(market)
         self.assertEqual(
-            market.stage_best(lineup(primary), model.Clock(110, 53)).code,
+            market._settlement_stage_best(lineup(primary), model.Clock(110, 53)).code,
             model.ResultCode.NO_FEASIBLE_OFFER,
         )
         self.assertEqual(market, before)
@@ -1898,7 +2026,7 @@ class Task3StagingTests(AtomicAssertions):
             service_eligible_until=1_000,
         )
         self.assertEqual(incumbent.accounting.free_premium, 0)
-        result = incumbent.stage_best(lineup(active), model.Clock(110, 53))
+        result = incumbent._settlement_stage_best(lineup(active), model.Clock(110, 53))
         self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
         self.assertEqual(result.offer.offer_id, challenger.offer.offer_id)
 
@@ -1908,14 +2036,14 @@ class Task3StagingTests(AtomicAssertions):
             insert(market, "a", 3)
             insert(market, "b", 5)
             market.sponsor_premium(funding)
-            result = market.stage_best(lineup(), model.Clock(110, 53))
+            result = market._settlement_stage_best(lineup(), model.Clock(110, 53))
             if funding < 300:
                 self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
             else:
                 self.assertEqual(result.code, model.ResultCode.STAGED)
                 self.assertEqual(result.offer.ask_wei_per_second, 3)
         with self.assertRaises(TypeError):
-            make_market().stage_best(lineup(), model.Clock(110, 53), rank=3)
+            make_market()._settlement_stage_best(lineup(), model.Clock(110, 53), rank=3)
 
     def test_every_declared_stage_fault_rolls_back_byte_identically(self):
         stage_faults = (
@@ -1931,7 +2059,7 @@ class Task3StagingTests(AtomicAssertions):
             market.fault_point = fault
             self.assert_rejects_unchanged(
                 market,
-                lambda market=market: market.stage_best(
+                lambda market=market: market._settlement_stage_best(
                     lineup(), model.Clock(110, 53)
                 ),
                 RuntimeError,
@@ -1940,11 +2068,11 @@ class Task3StagingTests(AtomicAssertions):
             market = make_market()
             market.sponsor_premium(1_000)
             insert(market, fault[-8:], 5)
-            staged = market.stage_best(lineup(), model.Clock(110, 53))
+            staged = market._settlement_stage_best(lineup(), model.Clock(110, 53))
             market.fault_point = fault
             self.assert_rejects_unchanged(
                 market,
-                lambda market=market, staged=staged: market.install_stage(
+                lambda market=market, staged=staged: market._settlement_install_stage(
                     installation_view(market, staged.stage, b"T" * 32)
                 ),
                 RuntimeError,
@@ -1952,11 +2080,11 @@ class Task3StagingTests(AtomicAssertions):
         market = make_market()
         market.sponsor_premium(1_000)
         insert(market, "credit", 5)
-        staged = market.stage_best(lineup(), model.Clock(110, 53))
+        staged = market._settlement_stage_best(lineup(), model.Clock(110, 53))
         market.fault_point = "after_credit_creation"
         self.assert_rejects_unchanged(
             market,
-            lambda: market.cancel_stage_for_migration(
+            lambda: market._settlement_cancel_stage_for_migration(
                 staged.stage.stage_id,
                 staged.stage.lineup_commitment,
                 model.Clock(120, 53),
@@ -1971,27 +2099,27 @@ class Task3StagingTests(AtomicAssertions):
             market = make_market()
             market.sponsor_premium(500)
             row = insert(market, event, 5)
-            staged = market.stage_best(lineup(), model.Clock(110, 53))
+            staged = market._settlement_stage_best(lineup(), model.Clock(110, 53))
             if event == "expire":
                 self.assert_rejects_unchanged(
                     market,
-                    lambda: market.expire_stage(
+                    lambda: market._settlement_expire_stage(
                         staged.stage.stage_id,
                         model.Clock(staged.stage.expires_at - 1, 53),
                     ),
                 )
-                market.expire_stage(
+                market._settlement_expire_stage(
                     staged.stage.stage_id,
                     model.Clock(staged.stage.expires_at, 53),
                 )
             else:
                 self.assert_rejects_unchanged(
                     market,
-                    lambda: market.invalidate_stage(
+                    lambda: market._settlement_invalidate_stage(
                         staged.stage.stage_id, b"X" * 32
                     ),
                 )
-                market.invalidate_stage(
+                market._settlement_invalidate_stage(
                     staged.stage.stage_id, staged.stage.lineup_commitment
                 )
             tranche = market.tranches[row.tranche.tranche_id]
@@ -2005,8 +2133,8 @@ class Task3StagingTests(AtomicAssertions):
         migration = make_market()
         migration.sponsor_premium(500)
         row = insert(migration, "migration", 5)
-        staged = migration.stage_best(lineup(), model.Clock(110, 53))
-        result = migration.cancel_stage_for_migration(
+        staged = migration._settlement_stage_best(lineup(), model.Clock(110, 53))
+        result = migration._settlement_cancel_stage_for_migration(
             staged.stage.stage_id,
             staged.stage.lineup_commitment,
             model.Clock(120, 53),
@@ -2026,8 +2154,8 @@ class Task3StagingTests(AtomicAssertions):
         installed = make_market()
         installed.sponsor_premium(500)
         row = insert(installed, "installed", 5)
-        staged = installed.stage_best(lineup(), model.Clock(110, 53))
-        installed.install_stage(
+        staged = installed._settlement_stage_best(lineup(), model.Clock(110, 53))
+        installed._settlement_install_stage(
             installation_view(installed, staged.stage, b"I" * 32)
         )
         tranche = installed.tranches[row.tranche.tranche_id]
@@ -2041,18 +2169,18 @@ class Task3StagingTests(AtomicAssertions):
         market = make_market()
         market.sponsor_premium(500)
         row = insert(market, "old-stage", 5)
-        staged = market.stage_best(lineup(), model.Clock(110, 53))
+        staged = market._settlement_stage_best(lineup(), model.Clock(110, 53))
         stage_before = copy.deepcopy(market.stage)
-        market.sync_seat_generation(target_view(8))
+        sync_generation(market, target_view(8))
         self.assertEqual(market.stage, stage_before)
         self.assertEqual(market.cached_generation, 8)
         stale_install = installation_view(market, staged.stage, b"I" * 32)
         stale_install = replace(stale_install, generation=7)
         self.assert_rejects_unchanged(
-            market, lambda: market.install_stage(stale_install)
+            market, lambda: market._settlement_install_stage(stale_install)
         )
         # Only the authenticated migration tombstone path owns the old stage.
-        result = market.cancel_stage_for_migration(
+        result = market._settlement_cancel_stage_for_migration(
             staged.stage.stage_id,
             staged.stage.lineup_commitment,
             model.Clock(120, 53),
@@ -2073,25 +2201,25 @@ class Task3StagingTests(AtomicAssertions):
             market = make_market()
             market.sponsor_premium(900)
             insert(market, f"pt-{applied_at}", 9)
-            staged = market.stage_best(
+            staged = market._settlement_stage_best(
                 lineup(primary), model.Clock(110, 53)
             )
             self.assertEqual(staged.stage.handover_at, 200)
             self.assertEqual(staged.stage.expires_at, 205)
             before_sync = copy.deepcopy(market)
             self.assertEqual(
-                market.sync_seat_generation(target_view(7)).purged_count, 0
+                sync_generation(market, target_view(7)).purged_count, 0
             )
             self.assertEqual(market, before_sync)
             install = installation_view(
                 market, staged.stage, b"P" * 32, applied_at=applied_at
             )
             if succeeds:
-                market.install_stage(install)
+                market._settlement_install_stage(install)
                 self.assertEqual(market.staged_count, 0)
             else:
                 self.assert_rejects_unchanged(
-                    market, lambda: market.install_stage(install)
+                    market, lambda: market._settlement_install_stage(install)
                 )
 
 
@@ -2108,22 +2236,22 @@ class Task3PremiumTests(AtomicAssertions):
         view = service_view(row, term)
         reserve = market.accounting.live_reserves[term]
         self.assertEqual(reserve.lifecycle, model.ReserveLifecycle.UNSTARTED)
-        self.assertEqual(market.accrue_premium(view, model.Clock(129, 1)).amount, 0)
+        self.assertEqual(market._settlement_accrue_premium(view, model.Clock(129, 1)).amount, 0)
         self.assertEqual(reserve.lifecycle, model.ReserveLifecycle.OPEN)
-        self.assertEqual(market.accrue_premium(view, model.Clock(130, 1)).amount, 0)
-        one = market.accrue_premium(view, model.Clock(131, 1))
+        self.assertEqual(market._settlement_accrue_premium(view, model.Clock(130, 1)).amount, 0)
+        one = market._settlement_accrue_premium(view, model.Clock(131, 1))
         self.assertEqual(one.amount, 5)
         self.assertEqual(
             market.premium_credits[one.premium_credit_id].beneficiary,
             row.offer.payout,
         )
-        capped = market.accrue_premium(view, model.Clock(1_000, 1))
+        capped = market._settlement_accrue_premium(view, model.Clock(1_000, 1))
         self.assertEqual(capped.amount, 5 * 49)
-        self.assertEqual(market.accrue_premium(view, model.Clock(1_001, 1)).amount, 0)
+        self.assertEqual(market._settlement_accrue_premium(view, model.Clock(1_001, 1)).amount, 0)
         funding_cap = service_view(row, term, cap=300)
         # Settlement cap is higher, but immutable fundedUntil remains 220.
         self.assertEqual(
-            market.accrue_premium(funding_cap, model.Clock(1_002, 1)).amount,
+            market._settlement_accrue_premium(funding_cap, model.Clock(1_002, 1)).amount,
             5 * 50,
         )
         market.assert_valid()
@@ -2134,7 +2262,7 @@ class Task3PremiumTests(AtomicAssertions):
         reserve.lifecycle = model.ReserveLifecycle.UNSTARTED
         reserve.last_accrued_at = None
         reserve.premium_funded_until = None
-        earned = market.accrue_premium(
+        earned = market._settlement_accrue_premium(
             service_view(row, term), model.Clock(140, 1)
         )
         self.assertEqual(earned.amount, 50)
@@ -2147,7 +2275,7 @@ class Task3PremiumTests(AtomicAssertions):
         insert(overflow, "overflow", model.UINT256_MAX)
         self.assert_rejects_unchanged(
             overflow,
-            lambda: overflow.stage_best(lineup(), model.Clock(110, 53)),
+            lambda: overflow._settlement_stage_best(lineup(), model.Clock(110, 53)),
             model.ArithmeticFault,
         )
 
@@ -2174,7 +2302,7 @@ class Task3PremiumTests(AtomicAssertions):
             bad = replace(view, **changes)
             self.assert_rejects_unchanged(
                 market,
-                lambda bad=bad: market.accrue_premium(
+                lambda bad=bad: market._settlement_accrue_premium(
                     bad, model.Clock(140, 1)
                 ),
             )
@@ -2184,7 +2312,7 @@ class Task3PremiumTests(AtomicAssertions):
         market.force_eth(777)
         before_surplus = market.surplus
         view = service_view(row, term, closed=True)
-        close = market.close_reserve(view, model.Clock(160, 1))
+        close = market._settlement_close_reserve(view, model.Clock(160, 1))
         self.assertEqual(close.amount, 5 * 30)
         reserve = market.accounting.live_reserves[term]
         self.assertEqual(reserve.lifecycle, model.ReserveLifecycle.CLOSED_TAIL)
@@ -2193,14 +2321,14 @@ class Task3PremiumTests(AtomicAssertions):
         self.assertEqual(market.surplus, before_surplus)
         self.assert_rejects_unchanged(
             market,
-            lambda: market.reconcile_tail(term, model.Clock(179, 1)),
+            lambda: market._settlement_reconcile_tail(term, model.Clock(179, 1)),
         )
-        tail = market.reconcile_tail(term, model.Clock(180, 1))
+        tail = market._settlement_reconcile_tail(term, model.Clock(180, 1))
         self.assertEqual(tail.amount, 5 * 20)
         self.assertNotIn(term, market.accounting.live_reserves)
         self.assert_rejects_unchanged(
             market,
-            lambda: market.close_reserve(view, model.Clock(181, 1)),
+            lambda: market._settlement_close_reserve(view, model.Clock(181, 1)),
         )
         market.assert_valid()
 
@@ -2209,7 +2337,7 @@ class Task3PremiumTests(AtomicAssertions):
             market, row, term = self.installed(ask=5)
             view = service_view(row, term, closed=True)
             if succeeds:
-                result = market.close_reserve(
+                result = market._settlement_close_reserve(
                     view, model.Clock(now, 1), atomic_healthy=False
                 )
                 self.assertEqual(result.amount, 5 * 50)
@@ -2217,14 +2345,14 @@ class Task3PremiumTests(AtomicAssertions):
             else:
                 self.assert_rejects_unchanged(
                     market,
-                    lambda: market.close_reserve(
+                    lambda: market._settlement_close_reserve(
                         view, model.Clock(now, 1), atomic_healthy=False
                     ),
                 )
 
         zero, row, term = self.installed(ask=0)
         self.assertNotIn(term, zero.accounting.live_reserves)
-        result = zero.close_reserve(
+        result = zero._settlement_close_reserve(
             service_view(row, term, closed=True), model.Clock(0, 0)
         )
         self.assertEqual(result.amount, 0)
@@ -2247,10 +2375,10 @@ class Task3PremiumTests(AtomicAssertions):
 
     def test_premium_claim_guard_effects_and_full_rollback(self):
         market, row, term = self.installed(ask=5)
-        credit = market.accrue_premium(
+        credit = market._settlement_accrue_premium(
             service_view(row, term), model.Clock(140, 1)
         ).premium_credit_id
-        second = market.accrue_premium(
+        second = market._settlement_accrue_premium(
             service_view(row, term), model.Clock(150, 1)
         ).premium_credit_id
         observations = []
@@ -2305,18 +2433,18 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
     def test_release_request_is_permissionless_one_shot_and_three_max_boundaries(self):
         market, row, term = self.installed()
         view = self.refundable_view(row, term)
-        first = market.request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
-        again = market.request_release(row.tranche.tranche_id, view, model.Clock(130, 2))
+        first = market._settlement_request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
+        again = market._settlement_request_release(row.tranche.tranche_id, view, model.Clock(130, 2))
         self.assertEqual(first.deadline, 100)
         self.assertEqual(again.deadline, 100)
         # max(100+20, 110+30, 50+40+30) == 140
         self.assert_rejects_unchanged(
             market,
-            lambda: market.finalize_release(
+            lambda: market._settlement_finalize_release(
                 row.tranche.tranche_id, view, model.Clock(139, 3)
             ),
         )
-        result = market.finalize_release(
+        result = market._settlement_finalize_release(
             row.tranche.tranche_id, view, model.Clock(140, 3)
         )
         credit = market.credits[result.credit_id]
@@ -2327,7 +2455,7 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         )
         self.assert_rejects_unchanged(
             market,
-            lambda: market.enforce_breach(
+            lambda: market._settlement_enforce_breach(
                 row.tranche.tranche_id,
                 self.refundable_view(
                     row,
@@ -2358,23 +2486,23 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
                 disposition_at=disposition,
                 last_liability_at=liability,
             )
-            market.request_release(
+            market._settlement_request_release(
                 row.tranche.tranche_id, view, model.Clock(requested, 1)
             )
             self.assert_rejects_unchanged(
                 market,
-                lambda market=market, row=row, view=view, boundary=boundary: market.finalize_release(
+                lambda market=market, row=row, view=view, boundary=boundary: market._settlement_finalize_release(
                     row.tranche.tranche_id, view, model.Clock(boundary - 1, 1)
                 ),
             )
-            market.finalize_release(
+            market._settlement_finalize_release(
                 row.tranche.tranche_id, view, model.Clock(boundary, 1)
             )
 
     def test_breach_overrides_request_and_waits_for_receipt_and_reserve(self):
         market, row, term = self.installed(ask=5)
         refundable = self.refundable_view(row, term)
-        market.request_release(row.tranche.tranche_id, refundable, model.Clock(100, 1))
+        market._settlement_request_release(row.tranche.tranche_id, refundable, model.Clock(100, 1))
         breach = self.refundable_view(
             row,
             term,
@@ -2387,11 +2515,11 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         # receipt stable 160; reserve maturity 180, so the reserve dominates.
         self.assert_rejects_unchanged(
             market,
-            lambda: market.enforce_breach(
+            lambda: market._settlement_enforce_breach(
                 row.tranche.tranche_id, breach, model.Clock(179, 1)
             ),
         )
-        result = market.enforce_breach(
+        result = market._settlement_enforce_breach(
             row.tranche.tranche_id, breach, model.Clock(180, 1)
         )
         self.assertEqual(
@@ -2415,13 +2543,13 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         )
         self.assert_rejects_unchanged(
             receipt_market,
-            lambda: receipt_market.enforce_breach(
+            lambda: receipt_market._settlement_enforce_breach(
                 receipt_row.tranche.tranche_id,
                 receipt_view,
                 model.Clock(229, 1),
             ),
         )
-        receipt_market.enforce_breach(
+        receipt_market._settlement_enforce_breach(
             receipt_row.tranche.tranche_id,
             receipt_view,
             model.Clock(230, 1),
@@ -2430,24 +2558,24 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
     def test_reserve_absent_is_required_and_timing_overflow_is_atomic(self):
         market, row, term = self.installed(ask=5)
         view = self.refundable_view(row, term)
-        market.request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
+        market._settlement_request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
         self.assert_rejects_unchanged(
             market,
-            lambda: market.finalize_release(
+            lambda: market._settlement_finalize_release(
                 row.tranche.tranche_id, view, model.Clock(179, 1)
             ),
         )
-        market.finalize_release(
+        market._settlement_finalize_release(
             row.tranche.tranche_id, view, model.Clock(180, 1)
         )
         self.assertNotIn(term, market.accounting.live_reserves)
 
         overflow, row, term = self.installed()
         bad = self.refundable_view(row, term, disposition_at=model.UINT256_MAX)
-        overflow.request_release(row.tranche.tranche_id, bad, model.Clock(0, 1))
+        overflow._settlement_request_release(row.tranche.tranche_id, bad, model.Clock(0, 1))
         self.assert_rejects_unchanged(
             overflow,
-            lambda: overflow.finalize_release(
+            lambda: overflow._settlement_finalize_release(
                 row.tranche.tranche_id, bad, model.Clock(model.UINT256_MAX, 1)
             ),
             model.ArithmeticFault,
@@ -2465,7 +2593,7 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
             )
             self.assert_rejects_unchanged(
                 market,
-                lambda market=market, row=row, view=view: market.request_release(
+                lambda market=market, row=row, view=view: market._settlement_request_release(
                     row.tranche.tranche_id, view, model.Clock(100, 1)
                 ),
             )
@@ -2475,18 +2603,18 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         missing = self.refundable_view(row, term, last_liability_at=None)
         self.assert_rejects_unchanged(
             market,
-            lambda: market.request_release(
+            lambda: market._settlement_request_release(
                 row.tranche.tranche_id, missing, model.Clock(100, 1)
             ),
         )
 
         valid = self.refundable_view(row, term, last_liability_at=50)
-        market.request_release(row.tranche.tranche_id, valid, model.Clock(100, 1))
-        market.finalize_release(
+        market._settlement_request_release(row.tranche.tranche_id, valid, model.Clock(100, 1))
+        market._settlement_finalize_release(
             row.tranche.tranche_id, valid, model.Clock(140, 1)
         )
         self.assertFalse(
-            market.is_duty_history_safe(
+            market._settlement_is_duty_history_safe(
                 valid.duty_id,
                 term,
                 row.tranche.tranche_id,
@@ -2507,11 +2635,11 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
             breach_recorded_at=150,
             duty_disposition="BREACHED",
         )
-        market.enforce_breach(
+        market._settlement_enforce_breach(
             row.tranche.tranche_id, breach, model.Clock(180, 1)
         )
         self.assertFalse(
-            market.is_duty_history_safe(
+            market._settlement_is_duty_history_safe(
                 breach.duty_id,
                 term,
                 row.tranche.tranche_id,
@@ -2520,7 +2648,7 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
             )
         )
         self.assertTrue(
-            market.is_duty_history_safe(
+            market._settlement_is_duty_history_safe(
                 breach.duty_id,
                 term,
                 row.tranche.tranche_id,
@@ -2546,7 +2674,7 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         for view in inconsistent:
             self.assert_rejects_unchanged(
                 market,
-                lambda view=view: market.request_release(
+                lambda view=view: market._settlement_request_release(
                     row.tranche.tranche_id, view, model.Clock(100, 1)
                 ),
             )
@@ -2559,31 +2687,31 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         view = self.refundable_view(row, term)
         duty = view.duty_id
         self.assertFalse(
-            market.is_duty_history_safe(
+            market._settlement_is_duty_history_safe(
                 duty, term, row.tranche.tranche_id, view, model.Clock(139, 1)
             )
         )
-        market.request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
-        result = market.finalize_release(
+        market._settlement_request_release(row.tranche.tranche_id, view, model.Clock(100, 1))
+        result = market._settlement_finalize_release(
             row.tranche.tranche_id, view, model.Clock(140, 1)
         )
         for now in (140, 141, 10_000):
             self.assertTrue(
-                market.is_duty_history_safe(
+                market._settlement_is_duty_history_safe(
                     duty, term, row.tranche.tranche_id, view, model.Clock(now, 1)
                 )
             )
         self.assertFalse(market.credits[result.credit_id].claimed)
-        wrong = market.is_duty_history_safe(
+        wrong = market._settlement_is_duty_history_safe(
             b"X" * 32, term, row.tranche.tranche_id, view, model.Clock(10_000, 1)
         )
         self.assertFalse(wrong)
         # An unrelated live stage must not make an already-safe binding unsafe.
         insert(market, "unrelated", 1, clock=model.Clock(200, 100))
         market.sponsor_premium(100)
-        market.stage_best(lineup(), model.Clock(210, 103))
+        market._settlement_stage_best(lineup(), model.Clock(210, 103))
         self.assertTrue(
-            market.is_duty_history_safe(
+            market._settlement_is_duty_history_safe(
                 duty,
                 term,
                 row.tranche.tranche_id,
@@ -2604,8 +2732,8 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         row = insert(market, "pending", 5)
         fake = service_view(row, b"T" * 32, closed=True, refundable=True)
         for call in (
-            lambda: market.request_release(row.tranche.tranche_id, fake, model.Clock(1, 1)),
-            lambda: market.enforce_breach(row.tranche.tranche_id, fake, model.Clock(1, 1)),
+            lambda: market._settlement_request_release(row.tranche.tranche_id, fake, model.Clock(1, 1)),
+            lambda: market._settlement_enforce_breach(row.tranche.tranche_id, fake, model.Clock(1, 1)),
         ):
             self.assert_rejects_unchanged(market, call)
 
@@ -2621,12 +2749,12 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
             duty_disposition="SATISFIED",
         )
         pending_calls = (
-            lambda: pending.expire_stage(b"S" * 32, model.Clock(1_000, 1)),
-            lambda: pending.invalidate_stage(b"S" * 32, b"L" * 32),
-            lambda: pending.cancel_stage_for_migration(
+            lambda: pending._settlement_expire_stage(b"S" * 32, model.Clock(1_000, 1)),
+            lambda: pending._settlement_invalidate_stage(b"S" * 32, b"L" * 32),
+            lambda: pending._settlement_cancel_stage_for_migration(
                 b"S" * 32, b"L" * 32, model.Clock(1_000, 1)
             ),
-            lambda: pending.install_stage(
+            lambda: pending._settlement_install_stage(
                 model.InstallationView(
                     target=pending.authorization.target,
                     authorization_id=pending.current_authorization_id,
@@ -2638,24 +2766,24 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
                     applied_at=0,
                 )
             ),
-            lambda: pending.accrue_premium(fake_view, model.Clock(1_000, 1)),
-            lambda: pending.close_reserve(fake_view, model.Clock(1_000, 1)),
-            lambda: pending.request_release(
+            lambda: pending._settlement_accrue_premium(fake_view, model.Clock(1_000, 1)),
+            lambda: pending._settlement_close_reserve(fake_view, model.Clock(1_000, 1)),
+            lambda: pending._settlement_request_release(
                 pending_row.tranche.tranche_id,
                 fake_view,
                 model.Clock(1_000, 1),
             ),
-            lambda: pending.finalize_release(
+            lambda: pending._settlement_finalize_release(
                 pending_row.tranche.tranche_id,
                 fake_view,
                 model.Clock(1_000, 1),
             ),
-            lambda: pending.enforce_breach(
+            lambda: pending._settlement_enforce_breach(
                 pending_row.tranche.tranche_id,
                 fake_view,
                 model.Clock(1_000, 1),
             ),
-            lambda: pending.reconcile_tail(fake_term, model.Clock(1_000, 1)),
+            lambda: pending._settlement_reconcile_tail(fake_term, model.Clock(1_000, 1)),
             lambda: pending.claim_premium_credit(b"C" * 32, lambda *_: None),
         )
         for call in pending_calls:
@@ -2664,20 +2792,20 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
         staged = make_market()
         staged.sponsor_premium(500)
         insert(staged, "s-matrix", 5)
-        staged.stage_best(lineup(), model.Clock(110, 53))
+        staged._settlement_stage_best(lineup(), model.Clock(110, 53))
         self.assert_rejects_unchanged(
             staged,
-            lambda: staged.stage_best(lineup(), model.Clock(111, 54)),
+            lambda: staged._settlement_stage_best(lineup(), model.Clock(111, 54)),
         )
 
         installed, installed_row, installed_term = self.installed()
         for call in (
-            lambda: installed.expire_stage(b"S" * 32, model.Clock(1_000, 1)),
-            lambda: installed.invalidate_stage(b"S" * 32, b"L" * 32),
-            lambda: installed.cancel_stage_for_migration(
+            lambda: installed._settlement_expire_stage(b"S" * 32, model.Clock(1_000, 1)),
+            lambda: installed._settlement_invalidate_stage(b"S" * 32, b"L" * 32),
+            lambda: installed._settlement_cancel_stage_for_migration(
                 b"S" * 32, b"L" * 32, model.Clock(1_000, 1)
             ),
-            lambda: installed.install_stage(
+            lambda: installed._settlement_install_stage(
                 model.InstallationView(
                     target=installed.authorization.target,
                     authorization_id=installed.current_authorization_id,
@@ -2712,12 +2840,12 @@ class Task3ReleaseAndHistoryTests(AtomicAssertions):
             duty_disposition="SATISFIED",
         )
         for call in (
-            lambda: closed.request_release(
+            lambda: closed._settlement_request_release(
                 closed_row.tranche.tranche_id,
                 closed_view,
                 model.Clock(1_000, 1),
             ),
-            lambda: closed.enforce_breach(
+            lambda: closed._settlement_enforce_breach(
                 closed_row.tranche.tranche_id,
                 closed_view,
                 model.Clock(1_000, 1),
@@ -2775,7 +2903,7 @@ class Task3FrozenMatrixTests(AtomicAssertions):
         elif kind == "staged":
             market.sponsor_premium(500)
             row = insert(market, "mx-staged", 5)
-            stage = market.stage_best(lineup(), model.Clock(110, 53)).stage
+            stage = market._settlement_stage_best(lineup(), model.Clock(110, 53)).stage
         elif kind in ("closed-none", "closed-owner"):
             row = insert(market, f"mx-{kind[-5:]}", 5)
             market.request_pending_exit(
@@ -2797,10 +2925,10 @@ class Task3FrozenMatrixTests(AtomicAssertions):
                 duty_disposition="SATISFIED",
             )
             if kind == "installed-owner":
-                market.request_release(
+                market._settlement_request_release(
                     row.tranche.tranche_id, view, model.Clock(0, 1)
                 )
-                market.finalize_release(
+                market._settlement_finalize_release(
                     row.tranche.tranche_id, view, model.Clock(70, 1)
                 )
             elif kind == "installed-penalty":
@@ -2812,7 +2940,7 @@ class Task3FrozenMatrixTests(AtomicAssertions):
                     breach_recorded_at=10,
                     duty_disposition="BREACHED",
                 )
-                market.enforce_breach(
+                market._settlement_enforce_breach(
                     row.tranche.tranche_id, view, model.Clock(40, 1)
                 )
         market.assert_valid()
@@ -2825,19 +2953,19 @@ class Task3FrozenMatrixTests(AtomicAssertions):
         term = fixture["term"]
         view = fixture["view"]
         if event == "stage_best":
-            return market.stage_best(lineup(), model.Clock(110, 53))
+            return market._settlement_stage_best(lineup(), model.Clock(110, 53))
         if event == "expire_stage":
-            return market.expire_stage(
+            return market._settlement_expire_stage(
                 stage.stage_id if stage else b"S" * 32,
                 model.Clock(stage.expires_at if stage else 1_000, 53),
             )
         if event == "invalidate_stage":
-            return market.invalidate_stage(
+            return market._settlement_invalidate_stage(
                 stage.stage_id if stage else b"S" * 32,
                 stage.lineup_commitment if stage else b"L" * 32,
             )
         if event == "cancel_stage_for_migration":
-            return market.cancel_stage_for_migration(
+            return market._settlement_cancel_stage_for_migration(
                 stage.stage_id if stage else b"S" * 32,
                 stage.lineup_commitment if stage else b"L" * 32,
                 model.Clock(1_000, 53),
@@ -2857,7 +2985,7 @@ class Task3FrozenMatrixTests(AtomicAssertions):
                     applied_at=0,
                 )
             )
-            return market.install_stage(install)
+            return market._settlement_install_stage(install)
         exact = view or service_view(
             row,
             term,
@@ -2868,11 +2996,11 @@ class Task3FrozenMatrixTests(AtomicAssertions):
             duty_disposition="SATISFIED",
         )
         if event == "request_release":
-            return market.request_release(
+            return market._settlement_request_release(
                 row.tranche.tranche_id, exact, model.Clock(0, 1)
             )
         if event == "finalize_release":
-            return market.finalize_release(
+            return market._settlement_finalize_release(
                 row.tranche.tranche_id, exact, model.Clock(1_000, 1)
             )
         if event == "enforce_breach":
@@ -2884,14 +3012,16 @@ class Task3FrozenMatrixTests(AtomicAssertions):
                 breach_recorded_at=10,
                 duty_disposition="BREACHED",
             )
-            return market.enforce_breach(
+            return market._settlement_enforce_breach(
                 row.tranche.tranche_id, breach, model.Clock(1_000, 1)
             )
         raise AssertionError(f"unhandled matrix event {event}")
 
     def test_introspection_requires_a_row_for_every_task3_public_event(self):
         self.assertEqual(
-            set(self.TASK3_EVENT_COVERAGE), EdgeMatrixTests.TASK3_MUTATING_PUBLIC_EVENTS
+            set(self.TASK3_EVENT_COVERAGE),
+            EdgeMatrixTests.TASK3_INTERNAL_SETTLEMENT_EVENTS
+            | EdgeMatrixTests.TASK3_MUTATING_PUBLIC_EVENTS,
         )
         section_events = {
             event
@@ -2914,7 +3044,7 @@ class Task3FrozenMatrixTests(AtomicAssertions):
             )
             market, row = fixture["market"], fixture["row"]
             if event == "finalize_release":
-                market.request_release(
+                market._settlement_request_release(
                     row.tranche.tranche_id, fixture["view"], model.Clock(0, 1)
                 )
             before = self.lifecycle(market, row)
@@ -3141,7 +3271,7 @@ class Task3StatefulTests(unittest.TestCase):
                     before = copy.deepcopy(market)
                     result = record(
                         "generation_sync",
-                        lambda: market.sync_seat_generation(target_view(7)),
+                        lambda: sync_generation(market, target_view(7)),
                     )
                     self.assertEqual(result.purged_count, 0)
                     self.assertEqual(market, before)
@@ -3164,14 +3294,14 @@ class Task3StatefulTests(unittest.TestCase):
                 elif action == "bad_tail":
                     reject(
                         action,
-                        lambda: market.reconcile_tail(
+                        lambda: market._settlement_reconcile_tail(
                             b"X" * 32, model.Clock(1_000, 1)
                         ),
                     )
                 elif action == "bad_install":
                     reject(
                         action,
-                        lambda: market.install_stage(
+                        lambda: market._settlement_install_stage(
                             model.InstallationView(
                                 target=market.authorization.target,
                                 authorization_id=market.current_authorization_id,
@@ -3196,7 +3326,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     reject(
                         action,
-                        lambda fake=fake: market.request_release(
+                        lambda fake=fake: market._settlement_request_release(
                             row.tranche.tranche_id,
                             fake,
                             model.Clock(100, 1),
@@ -3212,7 +3342,7 @@ class Task3StatefulTests(unittest.TestCase):
 
             staged = record(
                 "stage",
-                lambda: market.stage_best(lineup(), model.Clock(110, 53)),
+                lambda: market._settlement_stage_best(lineup(), model.Clock(110, 53)),
             )
             self.assertEqual(staged.code, model.ResultCode.STAGED)
 
@@ -3227,7 +3357,7 @@ class Task3StatefulTests(unittest.TestCase):
                     before = copy.deepcopy(market)
                     record(
                         "generation_sync",
-                        lambda: market.sync_seat_generation(target_view(7)),
+                        lambda: sync_generation(market, target_view(7)),
                     )
                     self.assertEqual(market, before)
                 elif action == "bad_requote":
@@ -3255,7 +3385,7 @@ class Task3StatefulTests(unittest.TestCase):
                 elif action == "bad_second_stage":
                     reject(
                         action,
-                        lambda: market.stage_best(
+                        lambda: market._settlement_stage_best(
                             lineup(), model.Clock(120, 56)
                         ),
                     )
@@ -3272,14 +3402,14 @@ class Task3StatefulTests(unittest.TestCase):
             if resolution == "expire":
                 reject(
                     "early_expire",
-                    lambda: market.expire_stage(
+                    lambda: market._settlement_expire_stage(
                         staged.stage.stage_id,
                         model.Clock(staged.stage.expires_at - 1, 56),
                     ),
                 )
                 record(
                     "expire",
-                    lambda: market.expire_stage(
+                    lambda: market._settlement_expire_stage(
                         staged.stage.stage_id,
                         model.Clock(staged.stage.expires_at, 56),
                     ),
@@ -3287,7 +3417,7 @@ class Task3StatefulTests(unittest.TestCase):
             elif resolution == "invalidate":
                 record(
                     "invalidate",
-                    lambda: market.invalidate_stage(
+                    lambda: market._settlement_invalidate_stage(
                         staged.stage.stage_id,
                         staged.stage.lineup_commitment,
                     ),
@@ -3295,7 +3425,7 @@ class Task3StatefulTests(unittest.TestCase):
             elif resolution == "cancel":
                 canceled = record(
                     "migration_cancel",
-                    lambda: market.cancel_stage_for_migration(
+                    lambda: market._settlement_cancel_stage_for_migration(
                         staged.stage.stage_id,
                         staged.stage.lineup_commitment,
                         model.Clock(120, 56),
@@ -3311,17 +3441,17 @@ class Task3StatefulTests(unittest.TestCase):
                         before = copy.deepcopy(market)
                         record(
                             "generation_sync",
-                            lambda: market.sync_seat_generation(target_view(7)),
+                            lambda: sync_generation(market, target_view(7)),
                         )
                         self.assertEqual(market, before)
                 staged = record(
                     "stage",
-                    lambda: market.stage_best(lineup(), model.Clock(130, 59)),
+                    lambda: market._settlement_stage_best(lineup(), model.Clock(130, 59)),
                 )
                 if rng.choice((True, False)):
                     canceled = record(
                         "migration_cancel",
-                        lambda: market.cancel_stage_for_migration(
+                        lambda: market._settlement_cancel_stage_for_migration(
                             staged.stage.stage_id,
                             staged.stage.lineup_commitment,
                             model.Clock(140, 59),
@@ -3336,7 +3466,7 @@ class Task3StatefulTests(unittest.TestCase):
                 term = (sequence + 1).to_bytes(32, "big")
                 record(
                     "install",
-                    lambda: market.install_stage(
+                    lambda: market._settlement_install_stage(
                         installation_view(market, staged.stage, term)
                     ),
                 )
@@ -3359,7 +3489,7 @@ class Task3StatefulTests(unittest.TestCase):
                     if action == "accrue":
                         record(
                             "accrue",
-                            lambda: market.accrue_premium(
+                            lambda: market._settlement_accrue_premium(
                                 open_view,
                                 model.Clock(rng.choice((131, 135, 140, 145)), 1),
                             ),
@@ -3369,7 +3499,7 @@ class Task3StatefulTests(unittest.TestCase):
                     elif action == "bad_close":
                         reject(
                             action,
-                            lambda: market.close_reserve(
+                            lambda: market._settlement_close_reserve(
                                 open_view, model.Clock(160, 1)
                             ),
                         )
@@ -3379,7 +3509,7 @@ class Task3StatefulTests(unittest.TestCase):
                         )
                         reject(
                             action,
-                            lambda missing=missing: market.request_release(
+                            lambda missing=missing: market._settlement_request_release(
                                 row.tranche.tranche_id,
                                 missing,
                                 model.Clock(140, 1),
@@ -3400,7 +3530,7 @@ class Task3StatefulTests(unittest.TestCase):
 
                 record(
                     "accrue",
-                    lambda: market.accrue_premium(
+                    lambda: market._settlement_accrue_premium(
                         open_view, model.Clock(150, 1)
                     ),
                 )
@@ -3410,7 +3540,7 @@ class Task3StatefulTests(unittest.TestCase):
                     if requested_before:
                         record(
                             "request_release",
-                            lambda: market.request_release(
+                            lambda: market._settlement_request_release(
                                 row.tranche.tranche_id,
                                 closed_owner,
                                 model.Clock(150, 1),
@@ -3418,26 +3548,26 @@ class Task3StatefulTests(unittest.TestCase):
                         )
                     record(
                         "healthy_close",
-                        lambda: market.close_reserve(
+                        lambda: market._settlement_close_reserve(
                             closed_owner, model.Clock(160, 1)
                         ),
                     )
                     reject(
                         "early_tail",
-                        lambda: market.reconcile_tail(
+                        lambda: market._settlement_reconcile_tail(
                             term, model.Clock(179, 1)
                         ),
                     )
                     record(
                         "tail_reconcile",
-                        lambda: market.reconcile_tail(
+                        lambda: market._settlement_reconcile_tail(
                             term, model.Clock(180, 1)
                         ),
                     )
                     if not requested_before:
                         record(
                             "request_release",
-                            lambda: market.request_release(
+                            lambda: market._settlement_request_release(
                                 row.tranche.tranche_id,
                                 closed_owner,
                                 model.Clock(180, 1),
@@ -3446,7 +3576,7 @@ class Task3StatefulTests(unittest.TestCase):
                     owner_at = 180 if requested_before else 200
                     reject(
                         "early_finalize",
-                        lambda: market.finalize_release(
+                        lambda: market._settlement_finalize_release(
                             row.tranche.tranche_id,
                             closed_owner,
                             model.Clock(owner_at - 1, 1),
@@ -3454,7 +3584,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     owner = record(
                         "finalize_release",
-                        lambda: market.finalize_release(
+                        lambda: market._settlement_finalize_release(
                             row.tranche.tranche_id,
                             closed_owner,
                             model.Clock(owner_at, 1),
@@ -3462,7 +3592,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     terminal_credit = owner.credit_id
                     self.assertTrue(
-                        market.is_duty_history_safe(
+                        market._settlement_is_duty_history_safe(
                             closed_owner.duty_id,
                             term,
                             row.tranche.tranche_id,
@@ -3475,7 +3605,7 @@ class Task3StatefulTests(unittest.TestCase):
                 elif terminal == "async_owner":
                     record(
                         "request_release",
-                        lambda: market.request_release(
+                        lambda: market._settlement_request_release(
                             row.tranche.tranche_id,
                             closed_owner,
                             model.Clock(160, 1),
@@ -3483,7 +3613,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     reject(
                         "early_async_close",
-                        lambda: market.close_reserve(
+                        lambda: market._settlement_close_reserve(
                             closed_owner,
                             model.Clock(179, 1),
                             atomic_healthy=False,
@@ -3491,7 +3621,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     record(
                         "async_close",
-                        lambda: market.close_reserve(
+                        lambda: market._settlement_close_reserve(
                             closed_owner,
                             model.Clock(180, 1),
                             atomic_healthy=False,
@@ -3499,7 +3629,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     owner = record(
                         "finalize_release",
-                        lambda: market.finalize_release(
+                        lambda: market._settlement_finalize_release(
                             row.tranche.tranche_id,
                             closed_owner,
                             model.Clock(180, 1),
@@ -3509,7 +3639,7 @@ class Task3StatefulTests(unittest.TestCase):
                 else:
                     record(
                         "request_release",
-                        lambda: market.request_release(
+                        lambda: market._settlement_request_release(
                             row.tranche.tranche_id,
                             closed_owner,
                             model.Clock(140, 1),
@@ -3525,7 +3655,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     reject(
                         "early_breach",
-                        lambda: market.enforce_breach(
+                        lambda: market._settlement_enforce_breach(
                             row.tranche.tranche_id,
                             breach,
                             model.Clock(179, 1),
@@ -3533,7 +3663,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     penalty = record(
                         "enforce_breach",
-                        lambda: market.enforce_breach(
+                        lambda: market._settlement_enforce_breach(
                             row.tranche.tranche_id,
                             breach,
                             model.Clock(180, 1),
@@ -3541,7 +3671,7 @@ class Task3StatefulTests(unittest.TestCase):
                     )
                     terminal_credit = penalty.credit_id
                     self.assertTrue(
-                        market.is_duty_history_safe(
+                        market._settlement_is_duty_history_safe(
                             breach.duty_id,
                             term,
                             row.tranche.tranche_id,
@@ -3628,7 +3758,7 @@ class Task3StatefulTests(unittest.TestCase):
                 )
                 purged = record(
                     "generation_sync",
-                    lambda: market.sync_seat_generation(target_view(8)),
+                    lambda: sync_generation(market, target_view(8)),
                 )
                 self.assertEqual(purged.purged_count, 1)
                 purge_credit = market.credit_id(
@@ -3720,6 +3850,295 @@ class Task3StatefulTests(unittest.TestCase):
             "pair_counts": dict(pair_counts),
             "total_actions": sum(counts.values()),
         }
+
+
+class ExactTargetReader:
+    def __init__(self, views, *, fault=None):
+        self.views = dict(views)
+        self.fault = fault
+        self.calls = []
+
+    def __call__(self, target):
+        self.calls.append(target)
+        if self.fault == "revert":
+            raise RuntimeError("target read reverted")
+        if self.fault == "oog":
+            raise MemoryError("target read exhausted its bound")
+        raw = model.encode_exact_target_view(self.views[target])
+        if self.fault == "short":
+            return raw[:-1]
+        if self.fault == "long":
+            return raw + b"\x00"
+        if self.fault == "wrong_magic":
+            return raw[:-13] + b"FAIL" + raw[-9:]
+        return raw
+
+
+class MigrationGenerationAndRotationTests(AtomicAssertions):
+    def test_equal_generation_is_idempotent_and_lower_generation_rolls_back(self):
+        market = make_market()
+        row = insert(market, "gen-boundary", 1)
+        runtime = market.target_runtimes[market.current_authorization_id]
+        reads = runtime.read_count
+        before = copy.deepcopy(market)
+        equal = market.sync_seat_generation()
+        self.assertEqual(equal.purged_count, 0)
+        self.assertEqual(runtime.read_count - reads, 1)
+        self.assertEqual(market, before)
+        self.assertEqual(
+            market.offers[row.offer.offer_id].location,
+            model.OfferLocation.PENDING,
+        )
+        runtime.authority.generation = market.cached_generation - 1
+        lower_before = copy.deepcopy(market)
+        with self.assertRaises(model.TransitionRejected):
+            market.sync_seat_generation()
+        self.assertEqual(market, lower_before)
+
+    def test_insert_requote_and_pending_refund_never_read_settlement(self):
+        market = make_market()
+        runtime = market.target_runtimes[market.current_authorization_id]
+        reads = runtime.read_count
+        row = insert(market, "zero-read", 10)
+        self.assertEqual(runtime.read_count, reads)
+        requoted = market.requote(
+            caller=addr("zero-read"),
+            offer_id=row.offer.offer_id,
+            ask_wei_per_second=9,
+            payout=addr("zero-read-new-pay"),
+            target=market.authorization.target,
+            generation=market.cached_generation,
+            clock=model.Clock(101, 51),
+        )
+        self.assertEqual(runtime.read_count, reads)
+        market.request_pending_exit(
+            addr("zero-read"), requoted.offer.offer_id, model.Clock(102, 52)
+        )
+        self.assertEqual(runtime.read_count, reads)
+        market.finalize_pending_exit(
+            row.tranche.tranche_id,
+            model.Clock(102 + market.exit_delay_seconds, 53),
+        )
+        self.assertEqual(runtime.read_count, reads)
+
+    def test_higher_generation_purges_only_pending_and_preserves_stage(self):
+        market = make_market()
+        market.sponsor_premium(market.seat_runway_seconds)
+        staged_row = insert(market, "staged-gen", 1)
+        staged = market._settlement_stage_best(
+            lineup(), model.Clock(110, 53)
+        ).stage
+        pending_rows = [
+            insert(market, f"pgen-{index}", index + 2)
+            for index in range(3)
+        ]
+        runtime = market.target_runtimes[market.current_authorization_id]
+        runtime.authority.generation = market.cached_generation + 1
+        result = market.sync_seat_generation()
+        self.assertEqual(result.purged_count, 3)
+        self.assertEqual(market.stage, staged)
+        self.assertEqual(
+            market.offers[staged_row.offer.offer_id].location,
+            model.OfferLocation.STAGED,
+        )
+        self.assertTrue(all(
+            market.tranches[row.tranche.tranche_id].disposition
+            is model.BondDisposition.OWNER_CREDITED
+            for row in pending_rows
+        ))
+
+    def test_generation_sync_derives_current_target_and_reads_exactly_once(self):
+        market = make_market()
+        rows = [insert(market, f"sync-{index}", index) for index in range(4)]
+        runtime = market.target_runtimes[market.current_authorization_id]
+        runtime.authority.generation = 8
+        reads_before = runtime.read_count
+        result = market.sync_seat_generation()
+        self.assertEqual(runtime.read_count - reads_before, 1)
+        self.assertEqual(result.purged_count, 4)
+        self.assertEqual(market.cached_generation, 8)
+        self.assertTrue(
+            all(
+                market.tranches[row.tranche.tranche_id].disposition
+                is model.BondDisposition.OWNER_CREDITED
+                for row in rows
+            )
+        )
+        forged = ExactTargetReader({market.authorization.target: target_view(9)})
+        with self.assertRaises(TypeError):
+            market.sync_seat_generation(forged)
+        self.assertEqual(forged.calls, [])
+
+    def test_generation_read_faults_and_authority_substitutions_roll_back(self):
+        for index, fault in enumerate(
+            ("revert", "oog", "short", "long", "wrong_magic")
+        ):
+            market = make_market()
+            insert(market, f"fault-{index}", 1)
+            runtime = market.target_runtimes[market.current_authorization_id]
+            runtime.authority.generation = 8
+            runtime.fault = fault
+            manager = market.release_manager
+            self.assert_rejects_unchanged(
+                market,
+                market.sync_seat_generation,
+                (RuntimeError, MemoryError, model.TransitionRejected),
+            )
+            self.assertIs(market.release_manager, manager)
+            self.assertIs(
+                market.target_runtimes[market.current_authorization_id], runtime
+            )
+        for index, (field, value) in enumerate((
+            ("target", addr("evil")),
+            ("settlement_chain_id", 2),
+            ("protocol_version", 24),
+            ("runtime_hash", b"x" * 32),
+            ("configuration_hash", b"x" * 32),
+            ("phase", "ARMED"),
+            ("generation", 6),
+        )):
+            market = make_market()
+            insert(market, f"bad-{index}", 1)
+            bad = replace(target_view(8), **{field: value})
+            runtime = market.target_runtimes[market.current_authorization_id]
+            runtime.response_override = model.encode_exact_target_view(bad)
+            self.assert_rejects_unchanged(
+                market, market.sync_seat_generation
+            )
+
+    def test_rotation_is_receipt_bound_append_only_and_fault_atomic(self):
+        def fixture():
+            router_authority = SimpleNamespace(
+                version_manager=addr("version-manager"),
+                activation_receipts={},
+                successor_receipt_key_by_old_authorization_id={},
+                active_version=0,
+                registrations={},
+            )
+            manager = model.ReleaseManager(
+                addr("release-manager"),
+                activation_authority=router_authority,
+            )
+            old_auth = authorization()
+            old_authority = StandaloneSettlementAuthority(
+                old_auth, "ACTIVE", 7
+            )
+            old_runtime = model.TargetRuntime(old_auth, old_authority)
+            manager.register_router_target(
+                router_authority.version_manager,
+                1,
+                addr("market"),
+                old_auth,
+                old_runtime,
+            )
+            router_authority.registrations[old_auth.protocol_version] = (
+                SimpleNamespace(settlement=old_authority)
+            )
+            market = make_market(
+                release_manager=manager, target_runtime=old_runtime
+            )
+            market.sponsor_premium(1_000)
+            rows = [insert(market, f"rotate-{index}", index + 1)
+                    for index in range(4)]
+            old_id = market.current_authorization_id
+            new_auth = authorization("settlement-v2")
+            new_auth = replace(
+                new_auth,
+                protocol_version=26,
+                runtime_hash=b"2" * 32,
+                configuration_hash=b"d" * 32,
+            )
+            new_id = model.authorization_identity(
+                market.market_chain_id, market.market_address, new_auth
+            )
+            new_runtime = model.TargetRuntime(
+                new_auth,
+                StandaloneSettlementAuthority(new_auth, "ACTIVE", 8),
+            )
+            self.assertEqual(
+                manager.register_router_target(
+                    router_authority.version_manager,
+                    market.market_chain_id,
+                    market.market_address,
+                    new_auth,
+                    new_runtime,
+                ),
+                new_id,
+            )
+            receipt = model.ActivationReceiptView(
+                router_generation=1,
+                old_protocol_version=25,
+                new_protocol_version=26,
+                old_target=market.authorization.target,
+                new_target=new_auth.target,
+                target_manifest_hash=b"m" * 32,
+                seat_generation=8,
+                old_authorization_id=old_id,
+                new_authorization_id=new_id,
+                activation_block=1_000,
+            )
+            router_authority.activation_receipts[receipt.key] = receipt
+            router_authority.active_version = new_auth.protocol_version
+            router_authority.registrations[new_auth.protocol_version] = (
+                SimpleNamespace(settlement=new_runtime.authority)
+            )
+            old_runtime = market.target_runtimes[old_id]
+            old_runtime.authority.phase = "FROZEN"
+            old_runtime.authority.generation = 8
+            return market, rows, new_auth, new_id, receipt, manager
+
+        market, rows, new_auth, new_id, receipt, manager = fixture()
+        old_runtime = market.target_runtimes[receipt.old_authorization_id]
+        new_runtime = manager.target_runtimes[receipt.new_authorization_id]
+        result = manager.execute_rotation(
+            market, receipt.key, model.Clock(1_001, 1_001)
+        )
+        self.assertEqual((old_runtime.read_count, new_runtime.read_count), (1, 1))
+        self.assertEqual(market.current_authorization_id, new_id)
+        self.assertFalse(market.authorization_enabled[receipt.old_authorization_id])
+        self.assertTrue(market.authorization_enabled[new_id])
+        self.assertIsNone(market.cached_generation)
+        self.assertEqual(result.purged_count, 4)
+        self.assertIsNone(market.stage)
+        self.assertIn((1, b"m" * 32), market.consumed_activation_receipts)
+        self.assertEqual(len(market.authorizations), 2)
+        self.assertFalse(hasattr(manager, "activation_receipts"))
+        self.assertFalse(hasattr(manager, "_record_activation_for_test"))
+        self.assertFalse(hasattr(manager, "record_router_activation"))
+        before = copy.deepcopy(market)
+        with self.assertRaises(model.TransitionRejected):
+            manager.execute_rotation(market, receipt.key, model.Clock(1_002, 1_002))
+        self.assertEqual(market, before)
+
+        fault_points = (
+            "after_credit_creation",
+            "after_rotation_pending_purge_1",
+            "after_rotation_pending_purge_2",
+            "after_rotation_pending_purge_3",
+            "after_rotation_pending_purge_4",
+            "after_old_target_disablement",
+            "after_new_target_enablement",
+            "after_generation_cache_reset",
+            "after_current_target_update",
+            "after_activation_receipt_consumption",
+        )
+        for fault in fault_points:
+            market, _, new_auth, _, receipt, manager = fixture()
+            old_runtime = market.target_runtimes[receipt.old_authorization_id]
+            new_runtime = manager.target_runtimes[receipt.new_authorization_id]
+            market.fault_point = fault
+            self.assert_rejects_unchanged(
+                market,
+                lambda: manager.execute_rotation(
+                    market, receipt.key, model.Clock(1_001, 1_001)
+                ),
+                RuntimeError,
+            )
+            self.assertIs(market.release_manager, manager)
+            self.assertIs(
+                market.target_runtimes[receipt.old_authorization_id], old_runtime
+            )
+            self.assertIs(manager.target_runtimes[receipt.new_authorization_id], new_runtime)
 
 
 if __name__ == "__main__":

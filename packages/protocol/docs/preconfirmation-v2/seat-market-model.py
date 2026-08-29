@@ -36,6 +36,7 @@ D_OFFER = b"TAIKO_SEAT_OFFER_V1"
 D_CREDIT = b"TAIKO_SEAT_BOND_CREDIT_V1"
 D_PREMIUM_CREDIT = b"TAIKO_SEAT_PREMIUM_CREDIT_V1"
 D_STAGE = b"TAIKO_SEAT_STAGE_V1"
+TARGET_VIEW_RESPONSE_LENGTH = 20 + 32 + 8 + 32 + 32 + 4 + 1 + 8
 
 
 class TransitionRejected(Exception):
@@ -456,6 +457,231 @@ class ExactTargetView:
     generation: int
 
 
+@dataclass
+class TargetRuntime:
+    """Read facade bound to one exact Settlement authority object.
+
+    Phase and generation are never stored here. A production read derives both
+    from the registered target-local Settlement history/Protocol graph. The
+    response/fault fields are deterministic unit-test instrumentation only.
+    """
+
+    authorization: TargetAuthorization
+    authority: object = field(compare=False)
+    fault: str | None = None
+    response_override: bytes | None = None
+    read_count: int = field(default=0, compare=False)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {"authorization", "authority"} and name in self.__dict__:
+            raise AttributeError(f"target runtime {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def read_exact_target(self, target: str) -> bytes:
+        self.read_count += 1
+        if target != self.authorization.target:
+            raise TransitionRejected("runtime read used the wrong target")
+        if self.fault == "revert":
+            raise RuntimeError("target read reverted")
+        if self.fault == "oog":
+            raise MemoryError("target read exhausted its bound")
+        if self.response_override is not None:
+            return self.response_override
+        reader = getattr(self.authority, "exact_market_target_state", None)
+        if not callable(reader):
+            raise TransitionRejected("target authority has no exact read surface")
+        row = reader()
+        if type(row) is not tuple or len(row) != 8:
+            raise TransitionRejected("target authority returned malformed state")
+        raw = encode_exact_target_view(ExactTargetView(*row))
+        if self.fault == "short":
+            return raw[:-1]
+        if self.fault == "long":
+            return raw + b"\x00"
+        if self.fault == "wrong_magic":
+            return raw[:124] + b"FAIL" + raw[128:]
+        return raw
+
+
+@dataclass(frozen=True)
+class ActivationReceiptView:
+    router_generation: int
+    old_protocol_version: int
+    new_protocol_version: int
+    old_target: str
+    new_target: str
+    target_manifest_hash: bytes
+    seat_generation: int
+    old_authorization_id: bytes
+    new_authorization_id: bytes
+    activation_block: int
+    migration_stage_id: bytes | None = None
+    migration_lineup_commitment: bytes | None = None
+
+    @property
+    def key(self) -> tuple[int, bytes]:
+        return self.router_generation, self.target_manifest_hash
+
+
+@dataclass
+class ReleaseManager:
+    address: str
+    activation_authority: object | None = field(default=None, compare=False)
+    authorizations: dict[bytes, TargetAuthorization] = field(default_factory=dict)
+    target_runtimes: dict[bytes, TargetRuntime] = field(default_factory=dict)
+    target_bindings: dict[bytes, tuple[int, str]] = field(default_factory=dict)
+    used_target_addresses: set[str] = field(default_factory=set)
+
+    @staticmethod
+    def exact_authorization_id(
+        market_chain_id: int,
+        market_address: str,
+        authorization: TargetAuthorization,
+    ) -> bytes:
+        return authorization_identity(
+            market_chain_id, market_address, authorization
+        )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {"address", "activation_authority"} and name in self.__dict__:
+            raise AttributeError(f"release-manager {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def _is_activation_manager(self, caller: object) -> bool:
+        router = self.activation_authority
+        return (
+            router is not None
+            and type(caller) is str
+            and caller == getattr(router, "version_manager", None)
+        )
+
+    def activation_receipt(
+        self, receipt_key: tuple[int, bytes]
+    ) -> ActivationReceiptView | None:
+        router = self.activation_authority
+        receipt = getattr(router, "activation_receipts", {}).get(receipt_key)
+        if receipt is None:
+            return None
+        try:
+            return ActivationReceiptView(
+                receipt.router_generation,
+                receipt.old_protocol_version,
+                receipt.new_protocol_version,
+                receipt.old_target,
+                receipt.new_target,
+                receipt.target_manifest_hash,
+                receipt.seat_generation,
+                receipt.old_authorization_id,
+                receipt.new_authorization_id,
+                receipt.activation_block,
+                receipt.migration_stage_id,
+                receipt.migration_lineup_commitment,
+            )
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    def _register_target(
+        self,
+        market_chain_id: int,
+        market_address: str,
+        authorization: TargetAuthorization,
+        runtime: TargetRuntime,
+    ) -> bytes:
+        if runtime.authorization != authorization:
+            raise TransitionRejected("target runtime authorization differs")
+        authorization_id = authorization_identity(
+            market_chain_id, market_address, authorization
+        )
+        exact_binding = (
+            _uint(market_chain_id, "market chain id"),
+            _canonical_address(market_address, "market address"),
+        )
+        if authorization_id in self.authorizations:
+            raise TransitionRejected("release-manager target is append-only")
+        if authorization.target in self.used_target_addresses:
+            raise TransitionRejected("Settlement target address was already registered")
+        self.authorizations[authorization_id] = authorization
+        self.target_runtimes[authorization_id] = runtime
+        self.target_bindings[authorization_id] = exact_binding
+        self.used_target_addresses.add(authorization.target)
+        return authorization_id
+
+    def register_router_target(
+        self,
+        caller: str,
+        market_chain_id: int,
+        market_address: str,
+        authorization: TargetAuthorization,
+        runtime: TargetRuntime,
+    ) -> bytes:
+        if not self._is_activation_manager(caller):
+            raise TransitionRejected("target registration caller is unauthorized")
+        return self._register_target(
+            market_chain_id, market_address, authorization, runtime
+        )
+
+    def execute_rotation(
+        self, market: object, receipt_key: tuple[int, bytes], clock: Clock
+    ) -> TransitionResult:
+        """Route rotation through the exact old frozen Settlement authority."""
+
+        if getattr(market, "release_manager", None) is not self:
+            raise TransitionRejected("rotation Market is not manager-bound")
+        receipt = self.activation_receipt(receipt_key)
+        if type(receipt) is not ActivationReceiptView:
+            raise TransitionRejected("exact activation receipt is absent")
+        runtime = self.target_runtimes.get(receipt.old_authorization_id)
+        authority = None if runtime is None else runtime.authority
+        protocol = None if authority is None else getattr(authority, "live_protocol", None)
+        executor = getattr(protocol, "execute_market_target_rotation", None)
+        if not callable(executor):
+            raise TransitionRejected("rotation lacks old Settlement authority")
+        return executor(market, self, receipt_key, clock)
+
+
+def encode_exact_target_view(view: ExactTargetView) -> bytes:
+    if type(view) is not ExactTargetView:
+        raise TransitionRejected("malformed target view")
+    _canonical_address(view.target, "view target")
+    _uint(view.settlement_chain_id, "view settlement chain id")
+    protocol_version = u64(view.protocol_version)
+    runtime_hash = _bytes32(view.runtime_hash, "view runtime hash")
+    config_hash = _bytes32(view.configuration_hash, "view configuration hash")
+    magic = _bytes4(view.magic, "view magic")
+    phases = {"ACTIVE": 1, "ARMED": 2, "READY": 3, "FROZEN": 4}
+    if type(view.phase) is not str or view.phase not in phases:
+        raise TransitionRejected("view phase is invalid")
+    return b"".join((
+        address20(view.target, "view target"),
+        u256(view.settlement_chain_id),
+        protocol_version,
+        runtime_hash,
+        config_hash,
+        magic,
+        bytes((phases[view.phase],)),
+        u64(view.generation),
+    ))
+
+
+def decode_exact_target_view(raw: bytes) -> ExactTargetView:
+    if type(raw) is not bytes or len(raw) != TARGET_VIEW_RESPONSE_LENGTH:
+        raise TransitionRejected("target view has noncanonical length")
+    phases = {1: "ACTIVE", 2: "ARMED", 3: "READY", 4: "FROZEN"}
+    phase = phases.get(raw[128])
+    if phase is None:
+        raise TransitionRejected("target view phase is invalid")
+    return ExactTargetView(
+        target="0x" + raw[:20].hex(),
+        settlement_chain_id=int.from_bytes(raw[20:52], "big"),
+        protocol_version=int.from_bytes(raw[52:60], "big"),
+        runtime_hash=raw[60:92],
+        configuration_hash=raw[92:124],
+        magic=raw[124:128],
+        phase=phase,
+        generation=int.from_bytes(raw[129:137], "big"),
+    )
+
+
 def authorization_identity(
     market_chain_id: int, market_address: str, auth: TargetAuthorization
 ) -> bytes:
@@ -576,6 +802,7 @@ class SeatMarket:
             "_release_challenge_seconds",
             "_reorg_stability_seconds",
             "_evidence_delay_seconds",
+            "_release_manager",
         } and name in self.__dict__:
             raise AttributeError(f"{name[1:]} is immutable")
         object.__setattr__(self, name, value)
@@ -594,6 +821,8 @@ class SeatMarket:
         authorization: TargetAuthorization,
         insertion_enabled: bool,
         cached_generation: int | None,
+        release_manager: ReleaseManager,
+        target_runtime: TargetRuntime,
         starting_quote_sequence: int = 0,
         starting_creation_sequence: int = 0,
         seat_runway_seconds: int = 100,
@@ -645,28 +874,59 @@ class SeatMarket:
         self._evidence_delay_seconds = _uint(
             evidence_delay_seconds, "evidence delay seconds"
         )
+        exact_quote_sequence = _uint(
+            starting_quote_sequence, "starting quote sequence"
+        )
+        exact_creation_sequence = _uint(
+            starting_creation_sequence, "starting creation sequence"
+        )
+        exact_cached_generation = (
+            None
+            if cached_generation is None
+            else int.from_bytes(u64(cached_generation), "big")
+        )
         self._validate_authorization_record(authorization)
         if type(insertion_enabled) is not bool:
             raise TransitionRejected("insertion-enabled flag must be boolean")
         initial_authorization_id = authorization_identity(
             self.market_chain_id, self.market_address, authorization
         )
+        if (
+            type(release_manager) is not ReleaseManager
+            or release_manager.activation_authority is None
+        ):
+            raise TransitionRejected("release manager must be an exact object")
+        _canonical_address(release_manager.address, "release manager")
+        if (
+            type(target_runtime) is not TargetRuntime
+            or target_runtime.authorization != authorization
+        ):
+            raise TransitionRejected("initial target runtime is not exact")
+        if (
+            release_manager.authorizations.get(initial_authorization_id)
+            != authorization
+            or release_manager.target_runtimes.get(initial_authorization_id)
+            is not target_runtime
+            or release_manager.target_bindings.get(initial_authorization_id)
+            != (self.market_chain_id, self.market_address)
+            or authorization.target not in release_manager.used_target_addresses
+        ):
+            raise TransitionRejected("initial target is not manager-authenticated")
+        self._release_manager = release_manager
         self.authorizations: dict[bytes, TargetAuthorization] = {
             initial_authorization_id: authorization
+        }
+        self.target_runtimes: dict[bytes, TargetRuntime] = {
+            initial_authorization_id: target_runtime
         }
         self.authorization_enabled: dict[bytes, bool] = {
             initial_authorization_id: insertion_enabled
         }
         self.current_authorization_id = initial_authorization_id
-        self.cached_generation = (
-            None
-            if cached_generation is None
-            else int.from_bytes(u64(cached_generation), "big")
-        )
-        self.quote_sequence = _uint(starting_quote_sequence, "starting quote sequence")
-        self.creation_sequence = _uint(
-            starting_creation_sequence, "starting creation sequence"
-        )
+        self.consumed_activation_receipts: set[tuple[int, bytes]] = set()
+        self.cached_generation = exact_cached_generation
+        self.quote_sequence = exact_quote_sequence
+        self.creation_sequence = exact_creation_sequence
 
         self.offers: dict[bytes, Offer] = {}
         self.tranches: dict[bytes, BondTranche] = {}
@@ -734,72 +994,12 @@ class SeatMarket:
         return self.authorizations[self.current_authorization_id]
 
     @property
+    def release_manager(self) -> ReleaseManager:
+        return self._release_manager
+
+    @property
     def insertion_enabled(self) -> bool:
         return self.authorization_enabled[self.current_authorization_id]
-
-    def _set_authorization_enabled(self, authorization_id: bytes, enabled: bool) -> None:
-        """Test-only primitive for the future release-manager authorization path."""
-
-        snapshot = copy.deepcopy(self.__dict__)
-        try:
-            self.assert_valid()
-            _bytes32(authorization_id, "authorization ID")
-            if authorization_id not in self.authorizations:
-                raise TransitionRejected("unknown authorization ID")
-            if type(enabled) is not bool:
-                raise TransitionRejected("enabled flag must be boolean")
-            if not enabled:
-                for offer in self.offers.values():
-                    if (
-                        offer.authorization_id == authorization_id
-                        and offer.location in (
-                            OfferLocation.PENDING,
-                            OfferLocation.STAGED,
-                        )
-                    ):
-                        raise TransitionRejected(
-                            "live waiting records must be closed before disable"
-                        )
-            self.authorization_enabled[authorization_id] = enabled
-            self.assert_valid()
-        except BaseException:
-            self.__dict__.clear()
-            self.__dict__.update(snapshot)
-            raise
-
-    def _register_authorization(
-        self,
-        auth: TargetAuthorization,
-        *,
-        enabled: bool,
-        make_current: bool,
-    ) -> bytes:
-        """Test-only append/point primitive; Task 2 exposes no public rotation."""
-
-        snapshot = copy.deepcopy(self.__dict__)
-        try:
-            self.assert_valid()
-            self._validate_authorization_record(auth)
-            if type(enabled) is not bool or type(make_current) is not bool:
-                raise TransitionRejected("authorization flags must be boolean")
-            authorization_id = authorization_identity(
-                self.market_chain_id, self.market_address, auth
-            )
-            if authorization_id in self.authorizations:
-                raise TransitionRejected("authorization registry is append-only")
-            if make_current and (self.pending_count != 0 or self.stage is not None):
-                raise TransitionRejected("rotation requires no live waiting records")
-            self.authorizations[authorization_id] = auth
-            self.authorization_enabled[authorization_id] = enabled
-            if make_current:
-                self.current_authorization_id = authorization_id
-                self.cached_generation = None
-            self.assert_valid()
-            return authorization_id
-        except BaseException:
-            self.__dict__.clear()
-            self.__dict__.update(snapshot)
-            raise
 
     @staticmethod
     def _validate_clock(clock: Clock) -> None:
@@ -838,8 +1038,64 @@ class SeatMarket:
     def surplus(self) -> int:
         return checked_sub(self.actual_balance, self.accounting.accounted_balance)
 
+    def _transaction_snapshot(self) -> dict[str, object]:
+        manager = self._release_manager
+        runtimes = dict(self.target_runtimes)
+        state = copy.deepcopy({
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in {"_release_manager", "target_runtimes"}
+        })
+        return {
+            "state": state,
+            "manager": manager,
+            "runtimes": runtimes,
+            "runtime_states": {
+                authorization_id: (
+                    runtime.authority,
+                    copy.deepcopy({
+                        key: value for key, value in runtime.__dict__.items()
+                        if key != "authority"
+                    }),
+                )
+                for authorization_id, runtime in runtimes.items()
+            },
+            "manager_runtime_states": {
+                authorization_id: (
+                    runtime.authority,
+                    copy.deepcopy({
+                        key: value for key, value in runtime.__dict__.items()
+                        if key != "authority"
+                    }),
+                )
+                for authorization_id, runtime
+                in manager.target_runtimes.items()
+            },
+        }
+
+    def _restore_transaction(self, snapshot: dict[str, object]) -> None:
+        runtimes = snapshot["runtimes"]
+        runtime_states = snapshot["runtime_states"]
+        manager = snapshot["manager"]
+        for authorization_id, (authority, state) in snapshot[
+            "manager_runtime_states"
+        ].items():
+            runtime = manager.target_runtimes[authorization_id]
+            runtime.__dict__.clear()
+            runtime.__dict__.update(state)
+            runtime.authority = authority
+        for authorization_id, runtime in runtimes.items():
+            authority, state = runtime_states[authorization_id]
+            runtime.__dict__.clear()
+            runtime.__dict__.update(state)
+            runtime.authority = authority
+        self.__dict__.clear()
+        self.__dict__.update(snapshot["state"])
+        self._release_manager = manager
+        self.target_runtimes = runtimes
+
     def _atomic(self, transition: Callable[[], TransitionResult]) -> TransitionResult:
-        snapshot = copy.deepcopy(self.__dict__)
+        snapshot = self._transaction_snapshot()
         try:
             try:
                 self.assert_valid()
@@ -849,8 +1105,7 @@ class SeatMarket:
             self.assert_valid()
             return result
         except BaseException:
-            self.__dict__.clear()
-            self.__dict__.update(snapshot)
+            self._restore_transaction(snapshot)
             raise
 
     def _fault(self, name: str) -> None:
@@ -1039,7 +1294,9 @@ class SeatMarket:
         if generation_value != self.cached_generation:
             raise TransitionRejected("stale generation")
 
-    def _validate_exact_target_view(self, view: ExactTargetView) -> int:
+    def _validate_exact_target_view(
+        self, view: ExactTargetView, *, expected_phase: str = "ACTIVE"
+    ) -> int:
         if type(view) is not ExactTargetView:
             raise TransitionRejected("malformed target view")
         _canonical_address(view.target, "view target")
@@ -1048,9 +1305,38 @@ class SeatMarket:
         _bytes32(view.runtime_hash, "view runtime hash")
         _bytes32(view.configuration_hash, "view configuration hash")
         _bytes4(view.magic, "view magic")
-        if type(view.phase) is not str or view.phase != "ACTIVE":
-            raise TransitionRejected("view phase is not exact ACTIVE")
+        if type(view.phase) is not str or view.phase != expected_phase:
+            raise TransitionRejected(f"view phase is not exact {expected_phase}")
         return int.from_bytes(u64(view.generation), "big")
+
+    def _read_authorized_target(
+        self, authorization_id: bytes, *, expected_phase: str
+    ) -> ExactTargetView:
+        auth = self.authorizations.get(authorization_id)
+        runtime = self.target_runtimes.get(authorization_id)
+        if auth is None or runtime is None:
+            raise TransitionRejected("authorized target runtime is absent")
+        if (
+            self._release_manager.authorizations.get(authorization_id) != auth
+            or self._release_manager.target_runtimes.get(authorization_id)
+            is not runtime
+            or runtime.authorization != auth
+        ):
+            raise TransitionRejected("authorized target runtime identity changed")
+        raw = runtime.read_exact_target(auth.target)
+        view = decode_exact_target_view(raw)
+        self._validate_exact_target_view(view, expected_phase=expected_phase)
+        exact = (
+            view.target == auth.target
+            and view.settlement_chain_id == auth.settlement_chain_id
+            and view.protocol_version == auth.protocol_version
+            and view.runtime_hash == auth.runtime_hash
+            and view.configuration_hash == auth.configuration_hash
+            and view.magic == auth.expected_magic
+        )
+        if not exact:
+            raise TransitionRejected("target view does not match authorization")
+        return view
 
     def _new_tranche_id(
         self,
@@ -1361,7 +1647,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def stage_best(
+    def _settlement_stage_best(
         self, snapshot: LineupSnapshot, clock: Clock
     ) -> TransitionResult:
         """Select and reserve the first mature structurally-feasible offer.
@@ -1570,7 +1856,9 @@ class SeatMarket:
         self._fault("after_stage_clear")
         return TransitionResult(offer=offer, tranche=tranche, amount=0)
 
-    def expire_stage(self, stage_id: bytes, clock: Clock) -> TransitionResult:
+    def _settlement_expire_stage(
+        self, stage_id: bytes, clock: Clock
+    ) -> TransitionResult:
         def transition() -> TransitionResult:
             self._validate_clock(clock)
             if self.stage is None or clock.timestamp < self.stage.expires_at:
@@ -1579,7 +1867,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def invalidate_stage(
+    def _settlement_invalidate_stage(
         self, stage_id: bytes, lineup_commitment: bytes
     ) -> TransitionResult:
         """Reconcile an exact Settlement lineup-invalidation tombstone."""
@@ -1595,7 +1883,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def cancel_stage_for_migration(
+    def _settlement_cancel_stage_for_migration(
         self, stage_id: bytes, lineup_commitment: bytes, clock: Clock
     ) -> TransitionResult:
         def transition() -> TransitionResult:
@@ -1633,7 +1921,9 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def install_stage(self, view: InstallationView) -> TransitionResult:
+    def _settlement_install_stage(
+        self, view: InstallationView
+    ) -> TransitionResult:
         """Consume/rekey the Market half of an exact Settlement installation."""
 
         def transition() -> TransitionResult:
@@ -1863,7 +2153,7 @@ class SeatMarket:
         self._fault("after_credit_creation")
         return credit_id
 
-    def accrue_premium(
+    def _settlement_accrue_premium(
         self, view: ServiceView, clock: Clock
     ) -> TransitionResult:
         def transition() -> TransitionResult:
@@ -1872,8 +2162,10 @@ class SeatMarket:
             if tranche is None:
                 raise TransitionRejected("unknown installed tranche")
             reserve = self._validate_service_view(view, tranche)
-            if view.closed:
-                raise TransitionRejected("ordinary accrual requires an open term")
+            if view.closed and view.settlement_cap is None:
+                raise TransitionRejected(
+                    "closed historical accrual requires its permanent cap"
+                )
             if reserve is None:
                 if view.ask_wei_per_second != 0:
                     raise TransitionRejected("nonzero ask has no reserve")
@@ -1914,7 +2206,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def close_reserve(
+    def _settlement_close_reserve(
         self,
         view: ServiceView,
         clock: Clock,
@@ -2004,7 +2296,9 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def reconcile_tail(self, term_id: bytes, clock: Clock) -> TransitionResult:
+    def _settlement_reconcile_tail(
+        self, term_id: bytes, clock: Clock
+    ) -> TransitionResult:
         def transition() -> TransitionResult:
             self._validate_clock(clock)
             term = _bytes32(term_id, "term ID")
@@ -2073,7 +2367,7 @@ class SeatMarket:
             max(finalize_at, reserve_mature_at),
         )
 
-    def request_release(
+    def _settlement_request_release(
         self, tranche_id: bytes, view: ServiceView, clock: Clock
     ) -> TransitionResult:
         def transition() -> TransitionResult:
@@ -2104,7 +2398,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def finalize_release(
+    def _settlement_finalize_release(
         self, tranche_id: bytes, view: ServiceView, clock: Clock
     ) -> TransitionResult:
         def transition() -> TransitionResult:
@@ -2135,9 +2429,11 @@ class SeatMarket:
             reserve = self.accounting.live_reserves.get(view.term_id)
             if reserve is not None:
                 if reserve.lifecycle is ReserveLifecycle.CLOSED_TAIL:
-                    self.reconcile_tail(view.term_id, clock)
+                    self._settlement_reconcile_tail(view.term_id, clock)
                 else:
-                    self.close_reserve(view, clock, atomic_healthy=False)
+                    self._settlement_close_reserve(
+                        view, clock, atomic_healthy=False
+                    )
             if view.term_id in self.accounting.live_reserves:
                 raise TransitionRejected("reserve remains live at owner terminalization")
             credit_id = self._terminalize_owner(
@@ -2151,7 +2447,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def enforce_breach(
+    def _settlement_enforce_breach(
         self, tranche_id: bytes, view: ServiceView, clock: Clock
     ) -> TransitionResult:
         def transition() -> TransitionResult:
@@ -2179,9 +2475,11 @@ class SeatMarket:
             reserve = self.accounting.live_reserves.get(view.term_id)
             if reserve is not None:
                 if reserve.lifecycle is ReserveLifecycle.CLOSED_TAIL:
-                    self.reconcile_tail(view.term_id, clock)
+                    self._settlement_reconcile_tail(view.term_id, clock)
                 else:
-                    self.close_reserve(view, clock, atomic_healthy=False)
+                    self._settlement_close_reserve(
+                        view, clock, atomic_healthy=False
+                    )
             if view.term_id in self.accounting.live_reserves:
                 raise TransitionRejected("reserve remains live at penalty terminalization")
             credit_id = self._terminalize_penalty(
@@ -2195,7 +2493,7 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def is_duty_history_safe(
+    def _settlement_is_duty_history_safe(
         self,
         duty_id: bytes,
         seat_term_id: bytes,
@@ -2264,21 +2562,12 @@ class SeatMarket:
         except (TransitionRejected, ArithmeticFault, KeyError, TypeError, ValueError):
             return False
 
-    def sync_seat_generation(self, view: ExactTargetView) -> TransitionResult:
+    def sync_seat_generation(self) -> TransitionResult:
         def transition() -> TransitionResult:
-            generation = self._validate_exact_target_view(view)
-            auth = self.authorization
-            exact = (
-                view.target == auth.target
-                and view.settlement_chain_id == auth.settlement_chain_id
-                and view.protocol_version == auth.protocol_version
-                and view.runtime_hash == auth.runtime_hash
-                and view.configuration_hash == auth.configuration_hash
-                and view.magic == auth.expected_magic
-                and view.phase == "ACTIVE"
+            view = self._read_authorized_target(
+                self.current_authorization_id, expected_phase="ACTIVE"
             )
-            if not exact:
-                raise TransitionRejected("target view does not match authorization")
+            generation = self._validate_exact_target_view(view)
             if self.cached_generation is not None and generation < self.cached_generation:
                 raise TransitionRejected("generation cannot decrease")
             if generation == self.cached_generation:
@@ -2301,6 +2590,179 @@ class SeatMarket:
                 purged = checked_add(purged, 1)
             # Cache commits last, after every bounded purge and credit succeeds.
             self.cached_generation = generation
+            return TransitionResult(purged_count=purged)
+
+        return self._atomic(transition)
+
+    def _rotate_installation_target(
+        self,
+        *,
+        manager: ReleaseManager,
+        receipt_key: tuple[int, bytes],
+        clock: Clock,
+        migration_stage_authenticated: bool,
+    ) -> TransitionResult:
+        """Atomically consume one exact manager-owned activation receipt."""
+
+        def transition() -> TransitionResult:
+            self._validate_clock(clock)
+            if manager is not self._release_manager:
+                raise TransitionRejected("rotation missed immutable release manager")
+            if (
+                type(receipt_key) is not tuple
+                or len(receipt_key) != 2
+                or type(receipt_key[0]) is not int
+                or type(receipt_key[1]) is not bytes
+                or len(receipt_key[1]) != 32
+            ):
+                raise TransitionRejected("rotation receipt key is malformed")
+            receipt = manager.activation_receipt(receipt_key)
+            if (
+                type(receipt) is not ActivationReceiptView
+                or receipt.key != receipt_key
+                or receipt_key in self.consumed_activation_receipts
+                or receipt.old_authorization_id
+                != self.current_authorization_id
+                or receipt.new_protocol_version <= receipt.old_protocol_version
+            ):
+                raise TransitionRejected("rotation receipt is stale or mismatched")
+            old_auth = self.authorizations.get(receipt.old_authorization_id)
+            if (
+                old_auth is None
+                or receipt.old_target != old_auth.target
+                or receipt.old_protocol_version != old_auth.protocol_version
+            ):
+                raise TransitionRejected("rotation cursor authorization differs")
+            new_auth = manager.authorizations.get(receipt.new_authorization_id)
+            new_runtime = manager.target_runtimes.get(receipt.new_authorization_id)
+            if (
+                new_auth is None
+                or new_runtime is None
+                or receipt.new_target != new_auth.target
+                or receipt.new_protocol_version != new_auth.protocol_version
+                or authorization_identity(
+                    self.market_chain_id, self.market_address, new_auth
+                ) != receipt.new_authorization_id
+                or (
+                    receipt.new_authorization_id in self.authorizations
+                    and receipt.new_authorization_id
+                    != self.current_authorization_id
+                )
+            ):
+                raise TransitionRejected("new target authorization is not exact")
+            old_view = self._read_authorized_target(
+                receipt.old_authorization_id, expected_phase="FROZEN"
+            )
+            # The new target is manager-authorized but not yet Market-current.
+            raw_new = new_runtime.read_exact_target(new_auth.target)
+            new_view = decode_exact_target_view(raw_new)
+            if new_view.phase not in {"ACTIVE", "FROZEN"}:
+                raise TransitionRejected("rotation new target is not activated")
+            self._validate_exact_target_view(
+                new_view, expected_phase=new_view.phase
+            )
+            if (
+                new_view.target != new_auth.target
+                or new_view.settlement_chain_id != new_auth.settlement_chain_id
+                or new_view.protocol_version != new_auth.protocol_version
+                or new_view.runtime_hash != new_auth.runtime_hash
+                or new_view.configuration_hash != new_auth.configuration_hash
+                or new_view.magic != new_auth.expected_magic
+                or old_view.generation != receipt.seat_generation
+                or new_view.generation < receipt.seat_generation
+            ):
+                raise TransitionRejected("rotation target states do not bind receipt")
+            router = manager.activation_authority
+            if router is None:
+                raise TransitionRejected("rotation Router authority is absent")
+            if new_view.phase == "ACTIVE":
+                registration = getattr(router, "registrations", {}).get(
+                    new_auth.protocol_version
+                )
+                if (
+                    getattr(router, "active_version", None)
+                    != new_auth.protocol_version
+                    or registration is None
+                    or registration.settlement is not new_runtime.authority
+                ):
+                    raise TransitionRejected("ACTIVE rotation tip is not router-current")
+            else:
+                next_key = getattr(
+                    router,
+                    "successor_receipt_key_by_old_authorization_id",
+                    {},
+                ).get(receipt.new_authorization_id)
+                next_receipt = manager.activation_receipt(next_key)
+                if (
+                    next_receipt is None
+                    or next_receipt.old_authorization_id
+                    != receipt.new_authorization_id
+                    or next_receipt.seat_generation != new_view.generation
+                ):
+                    raise TransitionRejected("FROZEN rotation hop has no exact successor")
+
+            if receipt.migration_stage_id is not None:
+                if (
+                    not migration_stage_authenticated
+                    or receipt.migration_lineup_commitment is None
+                    or self.stage is None
+                ):
+                    raise TransitionRejected("migration stage was not authenticated")
+                if (
+                    receipt.migration_stage_id != self.stage.stage_id
+                    or receipt.migration_lineup_commitment
+                    != self.stage.lineup_commitment
+                ):
+                    raise TransitionRejected("receipt does not bind live stage")
+                self._settlement_cancel_stage_for_migration(
+                    self.stage.stage_id,
+                    self.stage.lineup_commitment,
+                    clock,
+                )
+                self._fault("after_migration_stage_cancellation")
+            elif (
+                receipt.migration_lineup_commitment is not None
+                or migration_stage_authenticated
+            ):
+                raise TransitionRejected("rotation stage authentication is spurious")
+
+            purged = 0
+            for offer_id in tuple(self.pending_offer_ids):
+                offer = self.offers[offer_id]
+                tranche = self.tranches[offer.tranche_id]
+                if (
+                    offer.authorization_id != receipt.old_authorization_id
+                    or offer.location is not OfferLocation.PENDING
+                    or tranche.usage is not TrancheUsage.OFFER
+                    or tranche.disposition is not BondDisposition.NONE
+                ):
+                    raise TransitionRejected("rotation found a corrupt pending cell")
+                self.pending_offer_ids.remove(offer_id)
+                offer.location = OfferLocation.NONE
+                tranche.usage = TrancheUsage.CLOSED_UNINSTALLED
+                self._terminalize_owner(
+                    tranche.tranche_id, terminalized_at=clock.timestamp
+                )
+                purged = checked_add(purged, 1)
+                self._fault(f"after_rotation_pending_purge_{purged}")
+
+            self.authorization_enabled[receipt.old_authorization_id] = False
+            self._fault("after_old_target_disablement")
+            self.authorizations[receipt.new_authorization_id] = new_auth
+            self.target_runtimes[receipt.new_authorization_id] = new_runtime
+            self.authorization_enabled[receipt.new_authorization_id] = (
+                new_view.phase == "ACTIVE"
+            )
+            self._fault("after_new_target_enablement")
+            self.cached_generation = None
+            self._fault("after_generation_cache_reset")
+            # The single current authorization is also the bounded rotation
+            # cursor.  An intermediate FROZEN hop is current but disabled;
+            # only the exact ACTIVE router tip becomes installable.
+            self.current_authorization_id = receipt.new_authorization_id
+            self._fault("after_current_target_update")
+            self.consumed_activation_receipts.add(receipt_key)
+            self._fault("after_activation_receipt_consumption")
             return TransitionResult(purged_count=purged)
 
         return self._atomic(transition)
@@ -2382,7 +2844,7 @@ class SeatMarket:
         return self._atomic(transition)
 
     def force_eth(self, amount: int) -> None:
-        snapshot = copy.deepcopy(self.__dict__)
+        snapshot = self._transaction_snapshot()
         try:
             try:
                 self.assert_valid()
@@ -2391,8 +2853,7 @@ class SeatMarket:
             self.actual_balance = checked_add(self.actual_balance, amount)
             self.assert_valid()
         except BaseException:
-            self.__dict__.clear()
-            self.__dict__.update(snapshot)
+            self._restore_transaction(snapshot)
             raise
 
     def assert_valid(self) -> None:
@@ -2426,12 +2887,27 @@ class SeatMarket:
             "after_tranche_usage_change",
             "after_credit_creation",
             "after_stage_clear",
+            "after_migration_stage_cancellation",
+            "after_rotation_pending_purge_1",
+            "after_rotation_pending_purge_2",
+            "after_rotation_pending_purge_3",
+            "after_rotation_pending_purge_4",
+            "after_old_target_disablement",
+            "after_new_target_enablement",
+            "after_generation_cache_reset",
+            "after_current_target_update",
+            "after_activation_receipt_consumption",
+            "after_migration_tombstone_ack",
         }
         if self.fault_point not in known_faults:
             raise AssertionError("unknown model-only fault point")
         _bytes32(self.current_authorization_id, "current authorization ID")
         if set(self.authorizations) != set(self.authorization_enabled):
             raise AssertionError("authorization registry/enabled keys differ")
+        if set(self.authorizations) != set(self.target_runtimes):
+            raise AssertionError("authorization/runtime keys differ")
+        if type(self._release_manager) is not ReleaseManager:
+            raise AssertionError("immutable release manager object changed")
         if self.current_authorization_id not in self.authorizations:
             raise AssertionError("current authorization is not registered")
         for authorization_id, auth in self.authorizations.items():
@@ -2446,6 +2922,25 @@ class SeatMarket:
                 raise AssertionError("registered immutable authorization changed")
             if type(self.authorization_enabled[authorization_id]) is not bool:
                 raise AssertionError("authorization enabled state is not boolean")
+            runtime = self.target_runtimes[authorization_id]
+            if (
+                type(runtime) is not TargetRuntime
+                or runtime.authorization != auth
+                or self._release_manager.authorizations.get(authorization_id)
+                != auth
+                or self._release_manager.target_runtimes.get(authorization_id)
+                is not runtime
+                or self._release_manager.target_bindings.get(authorization_id)
+                != (self.market_chain_id, self.market_address)
+            ):
+                raise AssertionError("authorization runtime route changed")
+        for receipt_key in self.consumed_activation_receipts:
+            if self._release_manager.activation_receipt(receipt_key) is None:
+                raise AssertionError("consumed activation receipt is unknown")
+        if self._release_manager.used_target_addresses != {
+            auth.target for auth in self._release_manager.authorizations.values()
+        }:
+            raise AssertionError("release-manager target reverse index differs")
         if self.cached_generation is not None:
             u64(self.cached_generation)
         if self.staged_count > MAX_STAGE:

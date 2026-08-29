@@ -936,7 +936,9 @@ git commit -m "docs(protocol): model seat duties and fail-open recovery"
 - Modify: `packages/protocol/docs/preconfirmation-v2/test-settlement-window.py`
 - Modify: `packages/protocol/docs/preconfirmation-v2/seat-market-model.py`
 - Modify: `packages/protocol/docs/preconfirmation-v2/test-seat-market.py`
-- Reference: `docs/superpowers/specs/2026-08-29-seat-market-freeze-repair-design.md:588`
+- Modify: `docs/superpowers/specs/2026-08-29-seat-market-freeze-repair-design.md`
+- Modify: `docs/superpowers/plans/2026-08-29-seat-market-freeze-repair-implementation.md`
+- Reference: `docs/superpowers/specs/2026-08-29-seat-market-freeze-repair-design.md` §§3.3, 8
 
 - [ ] **Step 1: Write failing arm/abort completion tests**
 
@@ -950,7 +952,9 @@ local seat arm still completes
 manager receives exact SEAT_ARMED_MAGIC tuple
 ```
 
-and abort where internal sync changes mode before exact `SEAT_ABORTED_MAGIC`.
+and abort where internal sync changes mode before exact `SEAT_ABORTED_MAGIC`. For every post-abort
+response or stage-cleanup fault, retain the same fixture, prove complete rollback, clear that one
+fault, complete the authenticated cleanup exactly once, and reject replay.
 
 Add arm traces one second before, exactly at, and one second after every strict slash boundary. After
 the leading sync, every already-objective slash must create and retain the exact breach disposition/
@@ -977,8 +981,26 @@ class RouterWord:
 ```
 
 The manager writes the proposed global word, calls the manager-only Settlement completion callback,
-validates fixed-length bound magic, and commits only if the whole call returns. Use one cloned global
-state in tests so any callback failure restores router and Settlement bytes.
+validates fixed-length bound magic, and commits only if the whole call returns. Snapshot mutable
+state while retaining the exact authority objects, then restore those objects in place; never clone
+or replace the Router, gate, HeaderOracle, queue, inbox router, History, or Protocol authority graph.
+Every callback failure must restore router and Settlement bytes without changing any identity alias.
+
+Make `ActiveSettlementRouter` the immutable protocol-lifetime owner of the shared `MigrationGate`,
+forced queue, inbox-apply router, and read-only `L1HeaderOracle` (the modeled EIP-2935/system-history
+source) with exact immutable `{address, runtimeHash, configurationHash}`. Bootstrap, `PREACTIVE`
+validation, activation, every consensus read, and rollback must validate and preserve those three
+metadata values plus exact object identity. Every active, `PREACTIVE`, and historical
+History/Protocol must identity-alias that exact graph. Freeze deployment identity on Router,
+History, Protocol, queue, inbox router, target runtime,
+Release Manager, and ProtocolVersionManager; the manager's arm/cancel delays must be exact and
+positive. EVM `block.number`/`block.timestamp` enter only as one environment `Clock`, and activation,
+bootstrap, and canonical writes accept no caller-supplied scalar block/timestamp/header authority.
+
+Router is the sole durable activation-receipt store and owns the successor index by old
+authorization ID. Remove Release Manager receipt mirrors and test-only recording fallbacks. Remove
+public raw canonical/import writers: the exact live Protocol derives its canonical core and block
+from its bound graph and `Clock`, while only the exact Router installs the initial imported history.
 
 - [ ] **Step 3: Implement local arm/abort completion semantics**
 
@@ -986,7 +1008,16 @@ The callback runs one bounded leading sync internally. Generic `SYNCED` is never
 manager; after any sync delta it recomputes local state and continues. Arm increments seat generation
 once, materializes every already-objective strict slash/breach first, then closes/excuses only the
 remaining lineups and duties, records the exact tombstone, and leaves Market untouched. Abort retains
-that generation and never resurrects consumed state.
+that generation and never resurrects consumed state. The core activation/abort migration path must
+remain executable and atomic without calling or depending on Market.
+
+Activation must reject every dirty or graph-split successor. Require a separately constructed
+`PREACTIVE` target with the exact router-owned gate/header/queue/inbox identities, independent mutable
+containers, an empty History ring and router authority, and no candidates, rounds, sessions, seat
+ledger, stage/tombstone, migration record, counters, events, or other non-imported transient state.
+Import the exact proven admission version/root with the canonical core and require queue capacity to
+equal the immutable old/profile configuration; import no other mutable predecessor state. Copy-equal
+or substituted header oracles and aliases fail with complete rollback.
 
 - [ ] **Step 4: Write failing Market generation-sync fault tests**
 
@@ -994,29 +1025,42 @@ Cover equal/lower/higher generation, ACTIVE versus ARMED, revert/OOG/short/long/
 chain ID, Settlement protocol version, Settlement address, runtime hash, and configuration hash,
 staged untouched, and maximum-four pending purge. Every fault must preserve a complete Market
 deep-copy snapshot. Insert/requote/pending-refund call counts to Settlement must remain zero. Add an
-append-only authorization-registry trace with two old targets and one current target: old insertion,
-requote, and staging must be disabled, while exact credit claim, breach enforcement, installed
-release, and duty-history safety/reclamation must still succeed against each tranche's immutable
-historical target.
+append-only authorization-registry trace with two old targets and one current target. Each old exact
+target must retain two genuinely installed terms: a primary duty objectively breached before arm and
+a standby/second term closed by migration. After both rotations, each old target must perform
+historical premium accrual and reserve reconciliation, breach enforcement and penalty-credit claim,
+installed owner release and owner-credit claim, and primary duty-cell reclamation. Old insertion,
+requote, stage, and apply must fail; the exact v3 target must synchronize generation, insert, and
+stage successfully.
 
 Add rotation fault points after exact migration-stage cancellation, owner-credit creation, each
 individual pending purge, old-target disablement, new-target enablement, generation-cache reset, and
-current-target pointer update. Reuse the Market model's deterministic fault mechanism and require
+current-authorization cursor update. Reuse the Market model's deterministic fault mechanism and require
 complete Market/authorization/accounting deep-copy equality after every injected failure.
 
 - [ ] **Step 5: Implement `sync_seat_generation` and rotation**
 
 Use the exact authorized target derived from Market state. A higher ACTIVE generation purges pending
 offers to owner credits and writes the cache last. Stage cancellation belongs only to the exact
-migration tombstone path. Rotation validates old FROZEN/new ACTIVE and exact release-manager route,
-performs stage cancellation and old purge, then changes installation target atomically.
+migration tombstone path. Rotation validates the old `FROZEN` target, exact receipt successor, and
+exact Release Manager/Router route, performs stage cancellation and old purge, then changes the
+installation cursor atomically. For delayed
+Market catch-up, the exact receipt successor may itself now be `FROZEN`; such a hop is authenticated
+but remains non-installable until the next one-receipt call reaches the `ACTIVE` Router tip.
 
-Store target authorization in an append-only mapping keyed by the exact target authorization ID,
-with separate `currentInstallationTarget` and `insertionEnabled` state. Never rewrite a historical
-tranche to the current target. Release, enforcement, claim, and reclamation derive and authenticate
-the target from the immutable tranche/term binding and remain executable after any number of
-rotations. Rotation may disable new economic activity on an old target but cannot delete the exact
-authorization or historical-operation route.
+Store target authorization in an append-only mapping keyed by the exact target authorization ID.
+`current_authorization_id` is the single installation pointer and O(1) receipt cursor; do not add a
+separate `currentInstallationTarget`. Each call consumes exactly the Router receipt whose old
+authorization equals that cursor. The Router successor index must bridge abort-generation gaps
+without scanning receipts. A successor that is already `FROZEN` is an intermediate hop: advance the
+cursor, keep insertion disabled, and leave the generation cache `None`. Only the exact `ACTIVE` tip
+is enabled and may synchronize its cache.
+
+Never rewrite a historical tranche to the current target. Historical premium accrual/claim, reserve
+reconciliation, breach enforcement/penalty claim, installed release/owner claim, and duty-history
+safety/reclamation derive and authenticate the immutable tranche/term target and remain executable
+after any number of rotations. The closed forbidden old-target surface is insertion, requote,
+stage/apply/expiry, new session/ingress, and other new-economic/install activity.
 
 - [ ] **Step 6: Run migration and complete model regressions**
 
@@ -1029,7 +1073,9 @@ python3 lookahead-model.py
 
 Expected: all pass; snapshot tests prove arm/abort leave every Market byte, bucket, and ETH balance
 unchanged, and multi-rotation tests prove historical operations remain permanent while old target
-insertion/staging remains impossible.
+insertion/staging remains impossible. Add `py_compile`, forbidden legacy-signature/raw-writer search,
+and diff checks proving scalar activation blocks cannot enter and the router-root aliases survive
+success, rollback, copy-equal substitution, and split-root attempts.
 
 - [ ] **Step 7: Commit Task 5**
 
@@ -1037,7 +1083,9 @@ insertion/staging remains impossible.
 git add packages/protocol/docs/preconfirmation-v2/settlement-window-model.py \
   packages/protocol/docs/preconfirmation-v2/test-settlement-window.py \
   packages/protocol/docs/preconfirmation-v2/seat-market-model.py \
-  packages/protocol/docs/preconfirmation-v2/test-seat-market.py
+  packages/protocol/docs/preconfirmation-v2/test-seat-market.py \
+  docs/superpowers/specs/2026-08-29-seat-market-freeze-repair-design.md \
+  docs/superpowers/plans/2026-08-29-seat-market-freeze-repair-implementation.md
 git commit -m "docs(protocol): model atomic seat migration handshake"
 ```
 

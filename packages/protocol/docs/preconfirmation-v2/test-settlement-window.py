@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 import inspect
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 
 
@@ -48,12 +49,50 @@ def authorization():
     )
 
 
+class StandaloneSettlementAuthority:
+    """Explicit unit target for non-migration composed Market tests."""
+
+    def __init__(self, auth, generation):
+        self.authorization = auth
+        self.generation = generation
+
+    def exact_market_target_state(self):
+        auth = self.authorization
+        return (
+            auth.target,
+            auth.settlement_chain_id,
+            auth.protocol_version,
+            auth.runtime_hash,
+            auth.configuration_hash,
+            auth.expected_magic,
+            "ACTIVE",
+            self.generation,
+        )
+
+
 def make_pair(
     *,
     tip_slot=1_000,
     runway=settlement.SEAT_RUNWAY_SECONDS,
     market_label="market",
 ):
+    auth = authorization()
+    authority = StandaloneSettlementAuthority(auth, 7)
+    runtime = market.TargetRuntime(auth, authority)
+    release_manager = market.ReleaseManager(
+        addr("release-manager"),
+        activation_authority=SimpleNamespace(
+            version_manager=addr("version-manager"),
+            activation_receipts={},
+        ),
+    )
+    release_manager.register_router_target(
+        release_manager.activation_authority.version_manager,
+        1,
+        addr(market_label),
+        auth,
+        runtime,
+    )
     seat_market = market.SeatMarket(
         market_chain_id=1,
         market_address=addr(market_label),
@@ -63,9 +102,11 @@ def make_pair(
         quote_maturity_blocks=3,
         exit_delay_seconds=settlement.EXIT_DELAY_SECONDS,
         penalty_sink=addr("penalty"),
-        authorization=authorization(),
+        authorization=auth,
         insertion_enabled=True,
         cached_generation=7,
+        release_manager=release_manager,
+        target_runtime=runtime,
         seat_runway_seconds=runway,
         handover_delay_seconds=settlement.HANDOVER_DELAY_SECONDS,
         stage_grace_seconds=settlement.STAGE_GRACE_SECONDS,
@@ -128,6 +169,44 @@ def install_offer(
     )
     term_id = installed.tranche.installed_term_id
     return row, term_id
+
+
+def install_current_offer(
+    protocol,
+    seat_market,
+    operator,
+    ask,
+    *,
+    quoted_at,
+    quoted_block,
+):
+    seat_market.sponsor_premium(ask * seat_market.seat_runway_seconds)
+    row = seat_market.insert_offer(
+        caller=addr(operator),
+        payout=addr(f"pay-{operator}"),
+        ask_wei_per_second=ask,
+        target=protocol.settlement_address,
+        generation=protocol.seat_generation,
+        clock=market.Clock(quoted_at, quoted_block),
+        value=seat_market.sla_bond,
+    )
+    staged = protocol.stage_best(
+        seat_market,
+        settlement.Clock(
+            quoted_block + seat_market.quote_maturity_blocks,
+            quoted_at + seat_market.quote_maturity_seconds,
+        ),
+    )
+    if staged == "SYNCED" or staged.code is not market.ResultCode.STAGED:
+        raise AssertionError("fixture did not stage current target")
+    installed = protocol.apply_stage(
+        seat_market,
+        settlement.Clock(
+            quoted_block + seat_market.quote_maturity_blocks + 1,
+            staged.stage.handover_at,
+        ),
+    )
+    return row, installed.tranche.installed_term_id
 
 
 def synthetic_term(index: int, installed_at: int, ask: int = 1):
@@ -219,7 +298,7 @@ class RejectingCanonicalHistory:
     live_protocol: object
     attempts: int = 0
 
-    def record_canonical(self, _core, *, l1_block):
+    def _record_canonical_from_protocol(self, *, protocol, clock):
         self.attempts += 1
         return None
 
@@ -247,6 +326,7 @@ def canonical_graph_state(protocol, history):
             "inbox_apply_router",
             "migration_gate",
             "live_protocol",
+            "_router_authority",
         }
     }
     return copy.deepcopy(
@@ -266,6 +346,43 @@ def canonical_graph_state(protocol, history):
             history.live_protocol is protocol,
         )
     )
+
+
+def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash):
+    """Attach one exact bootstrapped History for rollback-focused fixtures."""
+
+    history = settlement.VersionedSettlementHistory(
+        protocol.settlement_address,
+        runtime_hash,
+        authorization().protocol_version,
+        execution_profile_hash,
+        copy.deepcopy(protocol.core),
+        protocol.canonical.canonicalized_at_block,
+        protocol.forced_queue,
+        migration_gate=protocol.migration_gate,
+        live_protocol=protocol,
+        inbox_apply_router=protocol.inbox_apply_router,
+        header_oracle=protocol.header_oracle,
+    )
+    protocol.versioned_history = history
+    router = settlement.ActiveSettlementRouter(
+        addr("version-manager"),
+        protocol.forced_queue,
+        protocol.inbox_apply_router,
+        protocol.migration_gate,
+        protocol.header_oracle,
+    )
+    if not router.bootstrap(
+        history,
+        sequence=0,
+        clock=settlement.Clock(
+            protocol.canonical.canonicalized_at_block,
+            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+        ),
+        caller=router.version_manager,
+    ):
+        raise AssertionError("fixture failed to bootstrap exact History graph")
+    return history, router
 
 
 class SourceFreezeTests(unittest.TestCase):
@@ -1028,14 +1145,25 @@ class ComposedTransactionTests(unittest.TestCase):
             copy.deepcopy(protocol.core),
             99,
             protocol.forced_queue,
-            mode="ACTIVE",
-            current_sequence=0,
-            last_canonical_l1_block=100,
             migration_gate=protocol.migration_gate,
             live_protocol=protocol,
             inbox_apply_router=protocol.inbox_apply_router,
+            header_oracle=protocol.header_oracle,
         )
         protocol.versioned_history = history
+        active_router = settlement.ActiveSettlementRouter(
+            addr("version-manager"),
+            protocol.forced_queue,
+            protocol.inbox_apply_router,
+            protocol.migration_gate,
+            protocol.header_oracle,
+        )
+        self.assertTrue(active_router.bootstrap(
+            history,
+            sequence=0,
+            clock=settlement.Clock(100, settlement.GENESIS_TIMESTAMP + 999),
+            caller=active_router.version_manager,
+        ))
         queue = protocol.forced_queue
         router = protocol.inbox_apply_router
         gate = protocol.migration_gate
@@ -1126,22 +1254,11 @@ class ComposedTransactionTests(unittest.TestCase):
             seat_market, settlement.Clock(103, tip_time + 10)
         )
         stage = copy.deepcopy(protocol.settlement_seat_stage)
-        history = settlement.VersionedSettlementHistory(
-            protocol.settlement_address,
-            "runtime:composed-fault",
-            1,
-            "profile:composed-fault",
-            copy.deepcopy(protocol.core),
-            99,
-            protocol.forced_queue,
-            mode="ACTIVE",
-            current_sequence=0,
-            last_canonical_l1_block=100,
-            migration_gate=protocol.migration_gate,
-            live_protocol=protocol,
-            inbox_apply_router=protocol.inbox_apply_router,
+        history, _active_router = bind_router_active_history(
+            protocol,
+            runtime_hash="runtime:composed-fault",
+            execution_profile_hash="profile:composed-fault",
         )
-        protocol.versioned_history = history
         queue = protocol.forced_queue
         router = protocol.inbox_apply_router
         gate = protocol.migration_gate
@@ -1198,22 +1315,13 @@ class ComposedTransactionTests(unittest.TestCase):
                 sync_at = attachment.duty.failover_at + 1
             else:
                 sync_at = recovery_at + 1
-            history = settlement.VersionedSettlementHistory(
-                protocol.settlement_address,
-                f"runtime:sync-fault:{activate_before_sync}",
-                1,
-                f"profile:sync-fault:{activate_before_sync}",
-                copy.deepcopy(protocol.core),
-                99,
-                protocol.forced_queue,
-                mode="ACTIVE",
-                current_sequence=0,
-                last_canonical_l1_block=100,
-                migration_gate=protocol.migration_gate,
-                live_protocol=protocol,
-                inbox_apply_router=protocol.inbox_apply_router,
+            history, _active_router = bind_router_active_history(
+                protocol,
+                runtime_hash=f"runtime:sync-fault:{activate_before_sync}",
+                execution_profile_hash=(
+                    f"profile:sync-fault:{activate_before_sync}"
+                ),
             )
-            protocol.versioned_history = history
             protocol.seat_fault_point = "after_stage_tombstone"
             before = canonical_graph_state(protocol, history)
             with self.assertRaises(RuntimeError):
@@ -2743,23 +2851,32 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
 
     def test_migration_excuses_unresolved_duties_and_ignores_tenure(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
+        protocol.minimum_primary_tenure_seconds = 10_000
+        protocol.seat_runway_seconds = 20_000
         primary = synthetic_term(1, settlement.GENESIS_TIMESTAMP + 1_000)
         standby = synthetic_term(2, primary.installed_at)
         protocol.install_seat_term_for_test(primary, rank=0, start_primary=True)
         protocol.install_seat_term_for_test(standby, rank=1, start_primary=False)
         duty = activate_current_duty(protocol)
-        close_at = primary.installed_at + 1
+        close_at = duty.recovery_at + 1
         self.assertLess(
             close_at,
             protocol.seat_services[primary.term_id].minimum_tenure_until,
         )
-        protocol.close_seats_for_migration(close_at)
+        before_visits = protocol.seat_scan_visits_total
+        protocol._scan_seat_duties(
+            settlement.Clock(901, close_at),
+            allow_cure=False,
+            excuse_for_migration=True,
+        )
+        protocol._close_seats_for_migration(close_at)
         self.assertEqual(
             protocol.seat_duties[duty.duty_id].status,
             settlement.DutyStatus.EXCUSED_MIGRATION,
         )
         self.assertEqual(protocol.seat_lineup, [])
         self.assertEqual(protocol.seat_scan_count, 4)
+        self.assertEqual(protocol.seat_scan_visits_total - before_visits, 4)
 
     def test_migration_excuses_failover_selection_and_clears_record(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
@@ -2776,7 +2893,12 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
         self.assertEqual(
             protocol.seat_selection.predecessor_duty_id, duty.duty_id
         )
-        protocol.close_seats_for_migration(duty.failover_at + 2)
+        protocol._scan_seat_duties(
+            settlement.Clock(901, duty.failover_at + 2),
+            allow_cure=False,
+            excuse_for_migration=True,
+        )
+        protocol._close_seats_for_migration(duty.failover_at + 2)
         self.assertIsNone(protocol.seat_selection)
         self.assertEqual(
             protocol.seat_duties[duty.duty_id].status,
@@ -2940,6 +3062,2114 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             wrong_protocol.bind_seat_market_for_test(seat_market)
+
+
+def migration_manager_fixture(*, seat=True):
+    protocol = settlement.protocol(
+        tip_slot=1_000,
+        seat=seat,
+        settlement_address=addr("settlement"),
+    )
+    history = settlement.VersionedSettlementHistory(
+        protocol.settlement_address,
+        "runtime:seat-v1",
+        25,
+        "profile:seat-v1",
+        copy.deepcopy(protocol.core),
+        protocol.canonical.canonicalized_at_block,
+        protocol.forced_queue,
+        migration_gate=protocol.migration_gate,
+        live_protocol=protocol,
+        inbox_apply_router=protocol.inbox_apply_router,
+        header_oracle=protocol.header_oracle,
+    )
+    protocol.versioned_history = history
+    router = settlement.ActiveSettlementRouter(
+        addr("version-manager"),
+        protocol.forced_queue,
+        protocol.inbox_apply_router,
+        protocol.migration_gate,
+        protocol.header_oracle,
+    )
+    if not router.bootstrap(
+        history,
+        sequence=0,
+        clock=settlement.Clock(
+            protocol.canonical.canonicalized_at_block,
+            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+        ),
+        caller=router.version_manager,
+    ):
+        raise AssertionError("fixture did not bootstrap active router")
+    manager = settlement.ProtocolVersionManager(
+        address=addr("version-manager"),
+        router=router,
+    )
+    return protocol, manager
+
+
+def migration_graph_projection(protocol, manager):
+    history = protocol.versioned_history
+    protocol_state = {
+        key: copy.deepcopy(value)
+        for key, value in protocol.__dict__.items()
+        if key not in {
+            "forced_queue",
+            "inbox_apply_router",
+            "migration_gate",
+            "versioned_history",
+        }
+    }
+    history_state = {
+        key: copy.deepcopy(value)
+        for key, value in history.__dict__.items()
+        if key not in {
+            "forced_queue",
+            "inbox_apply_router",
+            "migration_gate",
+            "live_protocol",
+            "_router_authority",
+        }
+    }
+    return (
+        protocol_state,
+        history_state,
+        copy.deepcopy(protocol.forced_queue),
+        copy.deepcopy(protocol.inbox_apply_router),
+        copy.deepcopy(protocol.migration_gate),
+        copy.deepcopy(manager.arm_responses),
+        copy.deepcopy(manager.abort_responses),
+        copy.deepcopy(manager.arm_manifests),
+        copy.deepcopy(manager.cancel_manifests),
+        manager.router.active_version,
+        tuple(manager.router.registrations),
+        copy.deepcopy(manager.router.activation_receipts),
+        copy.deepcopy(manager.router.activation_receipt_keys_by_generation),
+        copy.deepcopy(
+            manager.router.successor_receipt_key_by_old_authorization_id
+        ),
+        set(manager.router.used_target_addresses),
+    )
+
+
+def execute_manager_arm(manager, clock, *, executable_at=None):
+    manifest = settlement.ScheduledSeatMigration(
+        1,
+        25,
+        26,
+        b"m" * 32,
+        clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+        clock.timestamp if executable_at is None else executable_at,
+    )
+    if manifest.key not in manager.arm_manifests:
+        manager.schedule_seat_migration(
+            manifest,
+            caller=manager.governance,
+            clock=settlement.Clock(
+                max(0, clock.block_number - 1), manifest.scheduled_at
+            ),
+        )
+    return manager.arm_seat_migration(
+        manifest_key=manifest.key,
+        executor=addr("executor"),
+        clock=clock,
+    )
+
+
+def execute_manager_abort(manager, clock, *, executable_at=None):
+    manifest = settlement.ScheduledSeatMigration(
+        1,
+        25,
+        26,
+        b"m" * 32,
+        clock.timestamp - settlement.SEAT_MIGRATION_CANCEL_DELAY,
+        clock.timestamp if executable_at is None else executable_at,
+    )
+    if manifest.key not in manager.cancel_manifests:
+        manager.schedule_seat_migration(
+            manifest,
+            caller=manager.governance,
+            clock=settlement.Clock(
+                max(0, clock.block_number - 1), manifest.scheduled_at
+            ),
+            cancel=True,
+        )
+    return manager.abort_seat_migration(
+        manifest_key=manifest.key,
+        executor=addr("executor"),
+        clock=clock,
+    )
+
+
+def production_migration_fixture(*, target_header_variant: str = "exact"):
+    old_auth = authorization()
+    old_protocol = settlement.protocol(
+        tip_slot=1_000, seat=False, settlement_address=old_auth.target
+    )
+    old_protocol.first_v2_block_number = 1
+    old_history = settlement.VersionedSettlementHistory(
+        old_auth.target,
+        "runtime:seat-v1",
+        old_auth.protocol_version,
+        "profile:seat-v1",
+        copy.deepcopy(old_protocol.core),
+        old_protocol.canonical.canonicalized_at_block,
+        old_protocol.forced_queue,
+        migration_gate=old_protocol.migration_gate,
+        live_protocol=old_protocol,
+        inbox_apply_router=old_protocol.inbox_apply_router,
+        header_oracle=old_protocol.header_oracle,
+        market_runtime_hash=old_auth.runtime_hash,
+        market_configuration_hash=old_auth.configuration_hash,
+        market_magic=old_auth.expected_magic,
+    )
+    old_protocol.versioned_history = old_history
+    router = settlement.ActiveSettlementRouter(
+        addr("version-manager"),
+        old_protocol.forced_queue,
+        old_protocol.inbox_apply_router,
+        old_protocol.migration_gate,
+        old_protocol.header_oracle,
+    )
+    assert router.bootstrap(
+        old_history,
+        sequence=0,
+        clock=settlement.Clock(
+            old_protocol.canonical.canonicalized_at_block,
+            settlement.GENESIS_TIMESTAMP + old_protocol.core.tip_slot,
+        ),
+        caller=router.version_manager,
+    )
+    release_manager = market.ReleaseManager(
+        addr("release-manager"), activation_authority=router
+    )
+    manager = settlement.ProtocolVersionManager(
+        addr("version-manager"),
+        router,
+        release_manager=release_manager,
+        market_chain_id=1,
+        market_address=addr("market"),
+    )
+    old_runtime = market.TargetRuntime(old_auth, old_history)
+    old_id = release_manager.register_router_target(
+        manager.address, 1, addr("market"), old_auth, old_runtime
+    )
+    seat_market = market.SeatMarket(
+        market_chain_id=1,
+        market_address=addr("market"),
+        sla_bond=1_000,
+        immutable_maximum_ask=100,
+        quote_maturity_seconds=10,
+        quote_maturity_blocks=3,
+        exit_delay_seconds=settlement.EXIT_DELAY_SECONDS,
+        penalty_sink=addr("penalty"),
+        authorization=old_auth,
+        insertion_enabled=True,
+        cached_generation=old_protocol.seat_generation,
+        release_manager=release_manager,
+        target_runtime=old_runtime,
+        seat_runway_seconds=old_protocol.seat_runway_seconds,
+        handover_delay_seconds=settlement.HANDOVER_DELAY_SECONDS,
+        stage_grace_seconds=settlement.STAGE_GRACE_SECONDS,
+        maximum_inclusion_seconds=settlement.T_INCLUDE_MAX_SECONDS,
+    )
+    old_protocol.bind_seat_market_for_test(seat_market)
+
+    new_auth = replace(
+        old_auth,
+        target=addr("settlement-v2"),
+        protocol_version=old_auth.protocol_version + 1,
+        runtime_hash=b"2" * 32,
+        configuration_hash=b"d" * 32,
+    )
+    if target_header_variant == "exact":
+        target_header_oracle = old_protocol.header_oracle
+    elif target_header_variant == "copy-equal":
+        target_header_oracle = old_protocol.header_oracle.fork_for_test({})
+    elif target_header_variant == "forged-header":
+        original = old_protocol.header_oracle.header(1)
+        target_header_oracle = old_protocol.header_oracle.fork_for_test({
+            1: replace(original, block_hash="f" * 64)
+        })
+    elif target_header_variant == "substituted-runtime":
+        target_header_oracle = settlement.L1HeaderOracle(
+            settlement.L1_HEADER_ORACLE_ADDRESS,
+            "other-runtime",
+            settlement.L1_HEADER_ORACLE_CONFIGURATION_HASH,
+            dict(old_protocol.header_oracle._headers),
+        )
+    else:
+        raise ValueError("unknown target header variant")
+    new_protocol = settlement.protocol(
+        tip_slot=old_protocol.core.tip_slot,
+        cursor=old_protocol.core.message_cursor,
+        seat=False,
+        mode=settlement.Mode.PREACTIVE,
+        forced_queue=old_protocol.forced_queue,
+        inbox_apply_router=old_protocol.inbox_apply_router,
+        header_oracle=target_header_oracle,
+        migration_gate=old_protocol.migration_gate,
+        settlement_address=new_auth.target,
+    )
+    new_protocol.seat_generation = 0
+    new_protocol.canonical = copy.deepcopy(old_protocol.canonical)
+    new_history = settlement.VersionedSettlementHistory(
+        new_auth.target,
+        "runtime:seat-v2",
+        new_auth.protocol_version,
+        "profile:seat-v2",
+        copy.deepcopy(old_protocol.core),
+        old_protocol.canonical.canonicalized_at_block,
+        old_protocol.forced_queue,
+        migration_gate=old_protocol.migration_gate,
+        live_protocol=new_protocol,
+        inbox_apply_router=old_protocol.inbox_apply_router,
+        header_oracle=target_header_oracle,
+        market_runtime_hash=new_auth.runtime_hash,
+        market_configuration_hash=new_auth.configuration_hash,
+        market_magic=new_auth.expected_magic,
+    )
+    new_protocol.versioned_history = new_history
+    new_runtime = market.TargetRuntime(new_auth, new_history)
+    new_id = release_manager.register_router_target(
+        manager.address, 1, addr("market"), new_auth, new_runtime
+    )
+    new_protocol.seat_authorization_id = new_id
+    new_protocol.seat_market_address = addr("market")
+    return (
+        old_protocol, old_history, new_history, seat_market, manager,
+        release_manager, old_id, new_id,
+    )
+
+
+def prepare_production_activation(rows, *, clock=None):
+    (
+        old_protocol, old_history, new_history, seat_market, manager,
+        release_manager, old_id, new_id,
+    ) = rows
+    arm_clock = clock or settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+    manifest = settlement.ScheduledSeatMigration(
+        1, 25, 26, b"m" * 32,
+        arm_clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+        arm_clock.timestamp,
+        old_id,
+        new_id,
+    )
+    manager.schedule_seat_migration(
+        manifest,
+        caller=manager.governance,
+        clock=settlement.Clock(
+            max(0, arm_clock.block_number - 1), manifest.scheduled_at
+        ),
+    )
+    manager.arm_seat_migration(
+        manifest_key=manifest.key, executor=addr("executor"), clock=arm_clock
+    )
+    manager.router.registrations[25].settlement.live_protocol.sync(arm_clock)
+    assert old_history.enter_migration_ready()
+    output = replace(
+        old_history.core,
+        l2_block_number=old_history.core.l2_block_number + 1,
+        tip_slot=old_history.core.tip_slot + 1,
+        tip_hash="f" * 64,
+    )
+    proof = settlement.MigrationActivationProof(
+        copy.deepcopy(old_history.core), output, 26, b"m" * 32,
+        old_history.core.message_cursor, old_history.core.message_cursor,
+        addr("beneficiary"),
+    )
+    return manifest, proof
+
+
+def activate_production_fixture(rows, *, clock=None):
+    activation_clock = clock or settlement.Clock(
+        rows[1].last_canonical_l1_block + 1,
+        settlement.GENESIS_TIMESTAMP + 1_001,
+    )
+    manifest, proof = prepare_production_activation(
+        rows, clock=activation_clock
+    )
+    old_history, manager = rows[1], rows[4]
+    return manager.activate_seat_migration(
+        manifest_key=manifest.key,
+        activation_proof=proof,
+        executor=addr("executor"),
+        clock=settlement.Clock(
+            old_history.last_canonical_l1_block + 1,
+            activation_clock.timestamp + 1,
+        ),
+    )
+
+
+def register_production_successor(rows, *, label: str, protocol_version: int):
+    manager, release_manager = rows[4], rows[5]
+    old_history = manager.router.registrations[manager.router.active_version].settlement
+    old_protocol = old_history.live_protocol
+    old_auth = release_manager.authorizations[old_protocol.seat_authorization_id]
+    new_auth = replace(
+        old_auth,
+        target=addr(f"settlement-{label}"),
+        protocol_version=protocol_version,
+        runtime_hash=label.encode().ljust(32, b"r")[:32],
+        configuration_hash=label.encode().ljust(32, b"c")[:32],
+    )
+    new_protocol = settlement.protocol(
+        tip_slot=old_protocol.core.tip_slot,
+        cursor=old_protocol.core.message_cursor,
+        seat=False,
+        mode=settlement.Mode.PREACTIVE,
+        forced_queue=old_protocol.forced_queue,
+        inbox_apply_router=old_protocol.inbox_apply_router,
+        header_oracle=manager.router.header_oracle,
+        migration_gate=manager.router.migration_gate,
+        settlement_address=new_auth.target,
+    )
+    new_protocol.seat_generation = 0
+    new_protocol.canonical = copy.deepcopy(old_protocol.canonical)
+    new_history = settlement.VersionedSettlementHistory(
+        new_auth.target,
+        f"runtime:{label}",
+        protocol_version,
+        f"profile:{label}",
+        copy.deepcopy(old_history.core),
+        old_history.canonicalized_at_block,
+        old_protocol.forced_queue,
+        migration_gate=old_protocol.migration_gate,
+        live_protocol=new_protocol,
+        inbox_apply_router=old_protocol.inbox_apply_router,
+        header_oracle=manager.router.header_oracle,
+        market_runtime_hash=new_auth.runtime_hash,
+        market_configuration_hash=new_auth.configuration_hash,
+        market_magic=new_auth.expected_magic,
+    )
+    new_protocol.versioned_history = new_history
+    runtime = market.TargetRuntime(new_auth, new_history)
+    authorization_id = release_manager.register_router_target(
+        manager.address,
+        manager.market_chain_id,
+        manager.market_address,
+        new_auth,
+        runtime,
+    )
+    new_protocol.seat_authorization_id = authorization_id
+    new_protocol.seat_market_address = manager.market_address
+    return new_history, authorization_id
+
+
+def activate_registered_successor(
+    rows,
+    new_history,
+    old_authorization_id,
+    new_authorization_id,
+    *,
+    manifest_byte: bytes,
+    clock: settlement.Clock | None = None,
+):
+    manager = rows[4]
+    old_history = manager.router.registrations[manager.router.active_version].settlement
+    old_protocol = old_history.live_protocol
+    generation = old_protocol.migration_gate.generation + 1
+    timestamp = settlement.GENESIS_TIMESTAMP + 1_000 + generation * 100
+    clock = clock or settlement.Clock(
+        max(old_history.last_canonical_l1_block + 10, 1_000 + generation * 10),
+        timestamp,
+    )
+    timestamp = clock.timestamp
+    manifest_hash = manifest_byte * 32
+    manifest = settlement.ScheduledSeatMigration(
+        generation,
+        old_history.protocol_version,
+        new_history.protocol_version,
+        manifest_hash,
+        timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+        timestamp,
+        old_authorization_id,
+        new_authorization_id,
+    )
+    manager.schedule_seat_migration(
+        manifest,
+        caller=manager.governance,
+        clock=settlement.Clock(
+            max(0, clock.block_number - 1), manifest.scheduled_at
+        ),
+    )
+    manager.arm_seat_migration(
+        manifest_key=manifest.key, executor=addr("executor"), clock=clock
+    )
+    old_protocol.sync(clock)
+    output = replace(
+        old_history.core,
+        l2_block_number=old_history.core.l2_block_number + 1,
+        tip_slot=old_history.core.tip_slot + 1,
+        tip_hash=manifest_byte.hex().ljust(64, "0")[:64],
+    )
+    proof = settlement.MigrationActivationProof(
+        copy.deepcopy(old_history.core),
+        output,
+        new_history.protocol_version,
+        manifest_hash,
+        old_history.core.message_cursor,
+        old_history.core.message_cursor,
+        addr("beneficiary"),
+    )
+    return manager.activate_seat_migration(
+        manifest_key=manifest.key,
+        activation_proof=proof,
+        executor=addr("executor"),
+        clock=settlement.Clock(
+            old_history.last_canonical_l1_block + 1,
+            clock.timestamp + 1,
+        ),
+    )
+
+
+def abort_current_migration_generation(rows, *, target_version: int, manifest_byte: bytes):
+    manager = rows[4]
+    history = manager.router.registrations[manager.router.active_version].settlement
+    protocol = history.live_protocol
+    generation = protocol.migration_gate.generation + 1
+    timestamp = settlement.GENESIS_TIMESTAMP + 1_000 + generation * 100
+    clock = settlement.Clock(
+        max(history.last_canonical_l1_block + 10, 1_000 + generation * 10),
+        timestamp,
+    )
+    manifest_hash = manifest_byte * 32
+    arm = settlement.ScheduledSeatMigration(
+        generation,
+        history.protocol_version,
+        target_version,
+        manifest_hash,
+        timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+        timestamp,
+    )
+    manager.schedule_seat_migration(
+        arm,
+        caller=manager.governance,
+        clock=settlement.Clock(
+            max(0, clock.block_number - 1), arm.scheduled_at
+        ),
+    )
+    manager.arm_seat_migration(
+        manifest_key=arm.key, executor=addr("executor"), clock=clock
+    )
+    cancel_timestamp = timestamp + settlement.SEAT_MIGRATION_CANCEL_DELAY
+    cancel = replace(
+        arm,
+        scheduled_at=timestamp,
+        executable_at=cancel_timestamp,
+    )
+    manager.schedule_seat_migration(
+        cancel,
+        caller=manager.governance,
+        clock=settlement.Clock(clock.block_number, cancel.scheduled_at),
+        cancel=True,
+    )
+    manager.abort_seat_migration(
+        manifest_key=cancel.key,
+        executor=addr("executor"),
+        clock=settlement.Clock(clock.block_number + 1, cancel_timestamp),
+    )
+
+
+class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
+    def test_canonical_writer_and_stamped_ingress_require_exact_router_graph(self):
+        rows = production_migration_fixture()
+        protocol, history, _target, _seat_market, manager = rows[:5]
+        self.assertFalse(hasattr(history, "record_canonical"))
+        self.assertFalse(hasattr(history, "install_imported"))
+
+        history_before = (
+            copy.deepcopy(history.core),
+            history.canonicalized_at_block,
+            history.current_sequence,
+            history.last_canonical_l1_block,
+            copy.deepcopy(history.history),
+        )
+        forged_protocol = settlement.protocol(
+            tip_slot=protocol.core.tip_slot,
+            cursor=protocol.core.message_cursor,
+            seat=False,
+            settlement_address=protocol.settlement_address,
+        )
+        self.assertIsNone(history._record_canonical_from_protocol(
+            protocol=forged_protocol,
+            clock=settlement.Clock(
+                history.last_canonical_l1_block + 1,
+                settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot + 1,
+            ),
+        ))
+        self.assertEqual(
+            (
+                history.core,
+                history.canonicalized_at_block,
+                history.current_sequence,
+                history.last_canonical_l1_block,
+                history.history,
+            ),
+            history_before,
+        )
+
+        ingress_clock = settlement.Clock(
+            history.last_canonical_l1_block + 1,
+            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+        )
+        status, stamp = protocol.sync_ingress(ingress_clock)
+        self.assertEqual(status, "ACTIVE")
+        self.assertIsNotNone(stamp)
+        queue_before = copy.deepcopy(manager.router.forced_queue)
+        exact_gate = protocol.migration_gate
+        split_gate = copy.deepcopy(exact_gate)
+        object.__setattr__(protocol, "migration_gate", split_gate)
+        descriptor = settlement.message(
+            ingress_clock.block_number,
+            "split-router-root",
+            kind=settlement.ForceKind.BRIDGE_CREDIT,
+        )
+        self.assertEqual(
+            protocol.append_from_adapter(ingress_clock, descriptor, stamp),
+            "REJECTED_STALE_STAMP",
+        )
+        self.assertIsNone(history._record_canonical_from_protocol(
+            protocol=protocol,
+            clock=settlement.Clock(
+                history.last_canonical_l1_block + 1,
+                ingress_clock.timestamp + 1,
+            ),
+        ))
+        self.assertEqual(manager.router.forced_queue, queue_before)
+        self.assertEqual(
+            (
+                history.core,
+                history.canonicalized_at_block,
+                history.current_sequence,
+                history.last_canonical_l1_block,
+                history.history,
+            ),
+            history_before,
+        )
+        object.__setattr__(protocol, "migration_gate", exact_gate)
+
+    def test_production_authority_surfaces_reject_lookalikes_and_raw_bypasses(self):
+        rows = production_migration_fixture()
+        old_protocol, old_history, new_history, _seat_market, manager, release_manager = rows[:6]
+
+        class Lookalike:
+            router = manager.router
+            address = manager.address
+
+        auth = replace(
+            authorization(),
+            target=addr("lookalike-target"),
+            protocol_version=99,
+        )
+        runtime = market.TargetRuntime(auth, new_history)
+        before = (
+            dict(release_manager.authorizations),
+            dict(release_manager.target_runtimes),
+            dict(release_manager.target_bindings),
+            set(release_manager.used_target_addresses),
+        )
+        with self.assertRaises(market.TransitionRejected):
+            release_manager.register_router_target(
+                Lookalike(), 1, addr("market"), auth, runtime
+            )
+        self.assertEqual(
+            (
+                release_manager.authorizations,
+                release_manager.target_runtimes,
+                release_manager.target_bindings,
+                release_manager.used_target_addresses,
+            ),
+            before,
+        )
+        old_runtime = release_manager.target_runtimes[rows[6]]
+        detached_gate = settlement.MigrationGate()
+        immutable_replacements = (
+            (manager, "address", addr("replacement-manager")),
+            (manager, "router", settlement.ActiveSettlementRouter(
+                addr("replacement-manager"),
+                manager.router.forced_queue,
+                manager.router.inbox_apply_router,
+                manager.router.migration_gate,
+                manager.router.header_oracle,
+            )),
+            (manager, "release_manager", market.ReleaseManager(
+                addr("other-release"), activation_authority=manager.router
+            )),
+            (manager, "market_chain_id", 2),
+            (manager, "market_address", addr("other-market")),
+            (manager, "governance", addr("repl-governance")),
+            (manager, "manifest_delay_seconds", 0),
+            (manager, "cancel_delay_seconds", 0),
+            (release_manager, "address", addr("replacement-release")),
+            (release_manager, "activation_authority", object()),
+            (old_runtime, "authorization", auth),
+            (old_runtime, "authority", new_history),
+            (manager.router, "version_manager", addr("other-manager")),
+            (manager.router, "forced_queue", copy.deepcopy(
+                manager.router.forced_queue
+            )),
+            (manager.router, "inbox_apply_router", copy.deepcopy(
+                manager.router.inbox_apply_router
+            )),
+            (manager.router, "migration_gate", settlement.MigrationGate()),
+            (manager.router, "header_oracle", settlement.make_header_oracle()),
+            (manager.router, "address", addr("other-router")),
+            (manager.router, "forced_queue_runtime_hash", "other-runtime"),
+            (manager.router, "forced_queue_config_hash", "other-config"),
+            (manager.router, "builder_registry_id", "other-builders"),
+            (manager.router, "schedule_oracle_id", "other-oracle"),
+            (manager.router, "authorized_ingress", frozenset({"attacker"})),
+            (manager.router.forced_queue, "address", "other-queue"),
+            (manager.router.forced_queue, "router_address", "attacker"),
+            (manager.router.forced_queue, "runtime_hash", "other-runtime"),
+            (manager.router.forced_queue, "config_hash", "other-config"),
+            (manager.router.forced_queue, "nonproxy", False),
+            (manager.router.forced_queue, "selfdestruct_disabled", False),
+            (manager.router.forced_queue, "delegate_target_reachable", True),
+            (manager.router.inbox_apply_router, "address", "other-inbox"),
+            (manager.router.inbox_apply_router, "registrar", "other-registrar"),
+            (manager.router.migration_gate, "coordinator", addr("attacker")),
+            (detached_gate, "coordinator", addr("attacker")),
+            (old_history, "address", addr("other-settlement")),
+            (old_history, "runtime_hash", "other-runtime"),
+            (old_history, "protocol_version", 99),
+            (old_history, "execution_profile_hash", "other-profile"),
+            (old_history, "forced_queue", copy.deepcopy(old_history.forced_queue)),
+            (old_history, "migration_gate", settlement.MigrationGate()),
+            (old_history, "inbox_apply_router", copy.deepcopy(
+                old_history.inbox_apply_router
+            )),
+            (old_history, "builder_registry_id", "other-builders"),
+            (old_history, "schedule_oracle_id", "other-schedule"),
+            (old_history, "market_settlement_chain_id", 2),
+            (old_history, "market_runtime_hash", b"x" * 32),
+            (old_history, "market_configuration_hash", b"x" * 32),
+            (old_history, "market_magic", b"FAIL"),
+            (old_history, "header_oracle", settlement.make_header_oracle()),
+            (old_history, "_router_authority", object()),
+            (old_protocol, "forced_queue", copy.deepcopy(old_protocol.forced_queue)),
+            (old_protocol, "inbox_apply_router", copy.deepcopy(
+                old_protocol.inbox_apply_router
+            )),
+            (old_protocol, "migration_gate", settlement.MigrationGate()),
+            (old_protocol, "header_oracle", settlement.make_header_oracle()),
+        )
+        for target, field_name, value in immutable_replacements:
+            original = getattr(target, field_name)
+            with self.assertRaises(AttributeError):
+                setattr(target, field_name, value)
+            self.assertIs(getattr(target, field_name), original)
+        for delay_field in ("manifest_delay_seconds", "cancel_delay_seconds"):
+            kwargs = {delay_field: 0}
+            with self.assertRaises(ValueError):
+                settlement.ProtocolVersionManager(
+                    manager.address,
+                    manager.router,
+                    release_manager=release_manager,
+                    market_chain_id=manager.market_chain_id,
+                    market_address=manager.market_address,
+                    **kwargs,
+                )
+        self.assertFalse(hasattr(release_manager, "activation_receipts"))
+        self.assertFalse(hasattr(release_manager, "_record_activation_for_test"))
+        self.assertFalse(hasattr(release_manager, "_register_target_for_test"))
+        self.assertNotIn(
+            "activation_block",
+            inspect.signature(manager.router.bootstrap).parameters,
+        )
+        self.assertNotIn(
+            "l1_block",
+            inspect.signature(manager.activate_seat_migration).parameters,
+        )
+        queue_before = copy.deepcopy(manager.router.forced_queue)
+        descriptor = settlement.message(0, "immutability-bypass")
+        self.assertIsNone(manager.router.forced_queue.append(
+            descriptor,
+            deposit=descriptor.prepaid,
+            due_at=descriptor.due_at,
+            caller=addr("attacker"),
+        ))
+        self.assertEqual(manager.router.forced_queue, queue_before)
+        clock_rows = production_migration_fixture()
+        manifest, proof = prepare_production_activation(clock_rows)
+        clock_before = migration_graph_projection(clock_rows[0], clock_rows[4])
+        with self.assertRaises(TypeError):
+            clock_rows[4].activate_seat_migration(
+                manifest_key=manifest.key,
+                activation_proof=proof,
+                executor=addr("executor"),
+                l1_block=settlement.UINT64_MAX,
+            )
+        self.assertEqual(
+            migration_graph_projection(clock_rows[0], clock_rows[4]),
+            clock_before,
+        )
+        for forbidden in (
+            "bootstrap",
+            "arm",
+            "try_ready",
+            "activate_target",
+            "abort",
+        ):
+            self.assertFalse(hasattr(settlement.MigrationGate, forbidden))
+        self.assertFalse(
+            hasattr(settlement.Protocol, "close_seats_for_migration")
+        )
+        self.assertFalse(
+            hasattr(settlement.ActiveSettlementRouter, "abort_migration")
+        )
+        self.assertFalse(
+            hasattr(settlement.VersionedSettlementHistory, "arm_migration")
+        )
+
+    def test_router_bootstrap_is_authenticated_atomic_and_retryable(self):
+        protocol = settlement.protocol(seat=False)
+        history = settlement.VersionedSettlementHistory(
+            protocol.settlement_address,
+            "runtime:bootstrap",
+            25,
+            "profile:bootstrap",
+            copy.deepcopy(protocol.core),
+            protocol.canonical.canonicalized_at_block,
+            protocol.forced_queue,
+            migration_gate=protocol.migration_gate,
+            live_protocol=protocol,
+            inbox_apply_router=protocol.inbox_apply_router,
+            header_oracle=protocol.header_oracle,
+        )
+        protocol.versioned_history = history
+        router = settlement.ActiveSettlementRouter(
+            addr("version-manager"), protocol.forced_queue,
+            protocol.inbox_apply_router,
+            protocol.migration_gate,
+            protocol.header_oracle,
+        )
+        gate = protocol.migration_gate
+        queue = protocol.forced_queue
+        inbox = protocol.inbox_apply_router
+        projection = lambda: (
+            copy.deepcopy(history.core), history.mode, history.current_sequence,
+            copy.deepcopy(history.history), copy.deepcopy(gate.__dict__),
+            copy.deepcopy(queue.__dict__), router.active_version,
+            tuple(router.registrations),
+        )
+        before = projection()
+        bootstrap_clock = settlement.Clock(
+            protocol.canonical.canonicalized_at_block,
+            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+        )
+        self.assertFalse(router.bootstrap(
+            history, sequence=0,
+            clock=bootstrap_clock,
+            caller=addr("attacker"),
+        ))
+        self.assertEqual(projection(), before)
+        self.assertFalse(router.bootstrap(
+            history, sequence=-1,
+            clock=bootstrap_clock,
+            caller=router.version_manager,
+        ))
+        self.assertEqual(projection(), before)
+        self.assertIs(history.live_protocol, protocol)
+        self.assertIs(history.migration_gate, gate)
+        self.assertIs(history.forced_queue, queue)
+        self.assertIs(history.inbox_apply_router, inbox)
+        self.assertIs(protocol.versioned_history, history)
+        self.assertTrue(router.bootstrap(
+            history, sequence=0,
+            clock=bootstrap_clock,
+            caller=router.version_manager,
+        ))
+        activated = projection()
+        with self.assertRaises(TypeError):
+            router.bootstrap(
+                history, sequence=1,
+                activation_block=settlement.UINT64_MAX,
+                caller=router.version_manager,
+            )
+        self.assertEqual(projection(), activated)
+
+    @staticmethod
+    def _stage_old_target(rows):
+        old_protocol, _old_history, _new_history, seat_market = rows[:4]
+        seat_market.sponsor_premium(seat_market.seat_runway_seconds)
+        seat_market.insert_offer(
+            caller=addr("stage-old"),
+            payout=addr("stage-old-pay"),
+            ask_wei_per_second=1,
+            target=old_protocol.settlement_address,
+            generation=old_protocol.seat_generation,
+            clock=market.Clock(100, 100),
+            value=seat_market.sla_bond,
+        )
+        staged = old_protocol.stage_best(
+            seat_market, settlement.Clock(103, 110)
+        )
+        return staged.stage.stage_id, staged.stage.lineup_commitment
+
+    def test_rotation_authenticates_and_atomically_acks_old_tombstone(self):
+        for fault in (
+            "after_migration_stage_cancellation",
+            "after_migration_tombstone_ack",
+        ):
+            rows = production_migration_fixture()
+            stage_id, lineup = self._stage_old_target(rows)
+            old_protocol, old_history, _new_history, seat_market = rows[:4]
+            receipt = activate_production_fixture(rows)
+            tombstone = old_protocol.stage_tombstones[stage_id]
+            self.assertTrue(tombstone.migration_terminal)
+            self.assertFalse(tombstone.reconciled)
+            self.assertIsNotNone(seat_market.stage)
+            with self.assertRaises(ValueError):
+                old_protocol.reconcile_stage_invalidation(
+                    seat_market,
+                    stage_id,
+                    lineup,
+                    settlement.Clock(1_001, settlement.GENESIS_TIMESTAMP + 1_001),
+                )
+            manager = rows[5]
+            runtime = seat_market.target_runtimes[receipt.old_authorization_id]
+            seat_market.fault_point = fault
+            market_before = copy.deepcopy(seat_market)
+            with self.assertRaises(RuntimeError):
+                manager.execute_rotation(
+                    seat_market,
+                    receipt.key,
+                    market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001),
+                )
+            self.assertEqual(seat_market, market_before)
+            self.assertFalse(old_protocol.stage_tombstones[stage_id].reconciled)
+            self.assertEqual(old_protocol.outstanding_stage_tombstone_id, stage_id)
+            self.assertIs(seat_market.release_manager, manager)
+            self.assertIs(runtime.authority, old_history)
+            seat_market.fault_point = None
+            manager.execute_rotation(
+                seat_market,
+                receipt.key,
+                market.Clock(2_002, settlement.GENESIS_TIMESTAMP + 2_002),
+            )
+            self.assertTrue(old_protocol.stage_tombstones[stage_id].reconciled)
+            self.assertIsNone(old_protocol.outstanding_stage_tombstone_id)
+            self.assertIsNone(seat_market.stage)
+
+    def test_post_abort_stage_cancel_is_permissionless_atomic_and_does_not_poison_future_stages(self):
+        for market_fault, seat_fault in (
+            ("after_tranche_usage_change", None),
+            ("after_credit_creation", None),
+            (None, "after_market_invalidation"),
+            (None, "after_tombstone_reconciliation"),
+        ):
+            rows = production_migration_fixture()
+            stage_id, lineup = self._stage_old_target(rows)
+            old_protocol, _old_history, _new_history, seat_market, manager = rows[:5]
+            execute_manager_arm(
+                manager,
+                settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000),
+            )
+            execute_manager_abort(
+                manager,
+                settlement.Clock(1_001, settlement.GENESIS_TIMESTAMP + 1_001),
+            )
+            tombstone = old_protocol.stage_tombstones[stage_id]
+            self.assertTrue(tombstone.migration_terminal)
+            self.assertFalse(tombstone.reconciled)
+            self.assertIsNotNone(seat_market.stage)
+            manager_ref = seat_market.release_manager
+            runtime_ref = seat_market.target_runtimes[
+                seat_market.current_authorization_id
+            ]
+            seat_market.fault_point = market_fault
+            old_protocol.seat_fault_point = seat_fault
+            market_before = copy.deepcopy(seat_market)
+            graph_before = migration_graph_projection(old_protocol, manager)
+            with self.assertRaises(RuntimeError):
+                old_protocol.reconcile_stage_invalidation(
+                    seat_market,
+                    stage_id,
+                    lineup,
+                    settlement.Clock(
+                        1_002, settlement.GENESIS_TIMESTAMP + 1_002
+                    ),
+                )
+            self.assertEqual(seat_market, market_before)
+            self.assertEqual(
+                migration_graph_projection(old_protocol, manager), graph_before
+            )
+            self.assertIs(seat_market.release_manager, manager_ref)
+            self.assertIs(
+                seat_market.target_runtimes[
+                    seat_market.current_authorization_id
+                ],
+                runtime_ref,
+            )
+            seat_market.fault_point = None
+            old_protocol.seat_fault_point = None
+            result = old_protocol.reconcile_stage_invalidation(
+                seat_market,
+                stage_id,
+                lineup,
+                settlement.Clock(
+                    1_003, settlement.GENESIS_TIMESTAMP + 1_003
+                ),
+            )
+            self.assertIsNotNone(result.credit_id)
+            self.assertTrue(old_protocol.stage_tombstones[stage_id].reconciled)
+            self.assertIsNone(seat_market.stage)
+            with self.assertRaises(ValueError):
+                old_protocol.reconcile_stage_invalidation(
+                    seat_market,
+                    stage_id,
+                    lineup,
+                    settlement.Clock(
+                        1_004, settlement.GENESIS_TIMESTAMP + 1_004
+                    ),
+                )
+
+        rows = production_migration_fixture()
+        stage_id, lineup = self._stage_old_target(rows)
+        old_protocol, _old_history, _new_history, seat_market, manager = rows[:5]
+        execute_manager_arm(
+            manager,
+            settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000),
+        )
+        old_protocol.sync(
+            settlement.Clock(1_001, settlement.GENESIS_TIMESTAMP + 1_001)
+        )
+        self.assertEqual(old_protocol.migration_gate.mode, "READY")
+        execute_manager_abort(
+            manager,
+            settlement.Clock(1_002, settlement.GENESIS_TIMESTAMP + 1_002),
+        )
+        result = old_protocol.reconcile_stage_invalidation(
+            seat_market,
+            stage_id,
+            lineup,
+            settlement.Clock(1_003, settlement.GENESIS_TIMESTAMP + 1_003),
+        )
+        self.assertIsNotNone(result.credit_id)
+        self.assertTrue(old_protocol.stage_tombstones[stage_id].reconciled)
+        self.assertIsNone(old_protocol.outstanding_stage_tombstone_id)
+        with self.assertRaises(ValueError):
+            old_protocol.reconcile_stage_invalidation(
+                seat_market,
+                stage_id,
+                lineup,
+                settlement.Clock(1_004, settlement.GENESIS_TIMESTAMP + 1_004),
+            )
+
+        self.assertEqual(
+            seat_market.sync_seat_generation().purged_count, 0
+        )
+        inserted = seat_market.insert_offer(
+            caller=addr("after-abort"),
+            payout=addr("after-abort-pay"),
+            ask_wei_per_second=1,
+            target=old_protocol.settlement_address,
+            generation=old_protocol.seat_generation,
+            clock=market.Clock(1_010, 1_010),
+            value=seat_market.sla_bond,
+        )
+        ordinary = old_protocol.stage_best(
+            seat_market,
+            settlement.Clock(1_020, settlement.GENESIS_TIMESTAMP + 1_020),
+        )
+        self.assertEqual(ordinary.stage.offer_id, inserted.offer.offer_id)
+        old_protocol._invalidate_local_stage("ORDINARY_TEST")
+        ordinary_tombstone = old_protocol.stage_tombstones[ordinary.stage.stage_id]
+        self.assertFalse(ordinary_tombstone.migration_terminal)
+        old_protocol.reconcile_stage_invalidation(
+            seat_market,
+            ordinary.stage.stage_id,
+            ordinary.stage.lineup_commitment,
+            settlement.Clock(1_021, settlement.GENESIS_TIMESTAMP + 1_021),
+        )
+        self.assertTrue(ordinary_tombstone.reconciled)
+        self.assertEqual(
+            seat_market.offers[inserted.offer.offer_id].location,
+            market.OfferLocation.PENDING,
+        )
+
+    def test_real_activation_uses_distinct_ledgers_and_composed_rotation(self):
+        rows = production_migration_fixture()
+        (
+            old_protocol, old_history, new_history, seat_market, manager,
+            release_manager, old_id, new_id,
+        ) = rows
+        for index in range(4):
+            seat_market.insert_offer(
+                caller=addr(f"pending-{index}"),
+                payout=addr(f"pay-{index}"),
+                ask_wei_per_second=index + 1,
+                target=old_history.address,
+                generation=old_protocol.seat_generation,
+                clock=market.Clock(100 + index, 100 + index),
+                value=seat_market.sla_bond,
+            )
+        receipt = activate_production_fixture(rows)
+        new_protocol = new_history.live_protocol
+        self.assertIsNot(new_protocol, old_protocol)
+        self.assertIs(old_history.live_protocol, old_protocol)
+        self.assertIs(new_history.live_protocol, new_protocol)
+        self.assertIs(old_protocol.migration_gate, new_protocol.migration_gate)
+        self.assertEqual(old_history.mode, "FROZEN")
+        self.assertEqual(new_history.mode, "ACTIVE")
+        self.assertEqual(old_protocol.seat_lineup, [])
+        self.assertEqual(new_protocol.seat_lineup, [])
+        self.assertTrue(all(cell.reusable for cell in new_protocol.duty_ring))
+        gate_sessions = new_protocol.migration_gate.live_data_sessions
+        self.assertEqual(
+            old_protocol.open_session(
+                settlement.Clock(2_000, settlement.GENESIS_TIMESTAMP + 2_000),
+                "frozen-grief",
+                addr("attacker"),
+                settlement.GENESIS_TIMESTAMP + 9_000,
+            ),
+            "REJECTED_HISTORICAL",
+        )
+        self.assertEqual(new_protocol.migration_gate.live_data_sessions, gate_sessions)
+        result = release_manager.execute_rotation(
+            seat_market,
+            receipt.key,
+            market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001),
+        )
+        self.assertEqual(result.purged_count, 4)
+        self.assertEqual(seat_market.current_authorization_id, new_id)
+        self.assertIn(old_id, seat_market.authorizations)
+        self.assertFalse(seat_market.authorization_enabled[old_id])
+        self.assertTrue(seat_market.authorization_enabled[new_id])
+        self.assertIs(seat_market.target_runtimes[old_id].authority, old_history)
+        self.assertIs(seat_market.target_runtimes[new_id].authority, new_history)
+        sync = seat_market.sync_seat_generation()
+        self.assertEqual(sync.purged_count, 0)
+        self.assertEqual(seat_market.cached_generation, new_protocol.seat_generation)
+        inserted = seat_market.insert_offer(
+            caller=addr("new-operator"),
+            payout=addr("new-payout"),
+            ask_wei_per_second=1,
+            target=new_history.address,
+            generation=new_protocol.seat_generation,
+            clock=market.Clock(2_010, 2_010),
+            value=seat_market.sla_bond,
+        )
+        self.assertEqual(inserted.offer.authorization_id, new_id)
+
+    def test_dirty_preactive_seat_scalars_reject_before_activation(self):
+        dirty_rows = (
+            ("release_activation_pending", True),
+            ("pending_release_protocol_version", 1),
+            ("pending_release_manifest_hash", "dirty"),
+            ("first_v2_block_number", 1),
+            ("episode", 1),
+            ("recovery", "dirty"),
+            ("normal_best", "dirty"),
+            ("normal_best_min_data_expiry", 0),
+            ("normal_deadline", 0),
+            ("normal_required_through", 0),
+            ("normal_min_admissible", 0),
+            ("normal_admission_version", 0),
+            ("normal_admission_root", "dirty"),
+            ("normal_anchor_number", 0),
+            ("normal_anchor_hash", "dirty"),
+            ("normal_context_id", "dirty"),
+            ("normal_arm_block_number", 0),
+            ("admission_version", 1),
+            ("admission_root", "dirty"),
+            ("canonical", settlement.Canonical(
+                settlement.CanonicalCore(
+                    1, "dirty", 1, "dirty", 0
+                ),
+                1,
+            )),
+            ("seat_terms", {b"t" * 32: "dirty"}),
+            ("seat_services", {b"t" * 32: "dirty"}),
+            ("seat_lineup", [b"t" * 32]),
+            ("seat_duties", {b"d" * 32: "dirty"}),
+            ("term_duty", {b"t" * 32: b"d" * 32}),
+            ("seat_selections", {b"s" * 32: "dirty"}),
+            ("term_selection", {b"t" * 32: b"s" * 32}),
+            ("seat_selection", "dirty"),
+            ("settlement_seat_stage", "dirty"),
+            ("stage_tombstones", {b"s" * 32: "dirty"}),
+            ("seat_lineup_revision", (1 << 256) - 1),
+            ("duty_sequence", settlement.UINT64_MAX),
+            ("outstanding_stage_tombstone_id", b"x" * 32),
+            ("seat_generation", 1),
+            ("seat_migration_local_generation", 1),
+            ("seat_migration_arm", "dirty"),
+            ("seat_migration_abort", "dirty"),
+            ("seat_sla_trigger_pending", True),
+            ("seat_scan_count", 1),
+            ("seat_scan_visits_total", 1),
+            ("events", ["DIRTY"]),
+            ("duty_ring", []),
+            (
+                "duty_ring",
+                [settlement.SeatDutyCell() for _ in range(5)],
+            ),
+            (
+                "duty_ring",
+                [settlement.SeatDutyCell(sequence=1)]
+                + [settlement.SeatDutyCell() for _ in range(3)],
+            ),
+            ("seat_runway_seconds", settlement.SEAT_RUNWAY_SECONDS + 1),
+            (
+                "minimum_primary_tenure_seconds",
+                settlement.MIN_PRIMARY_TENURE_SECONDS + 1,
+            ),
+            (
+                "minimum_standby_tenure_seconds",
+                settlement.MIN_STANDBY_TENURE_SECONDS + 1,
+            ),
+            ("exit_delay_seconds", settlement.EXIT_DELAY_SECONDS + 1),
+            ("seat_profile_ready", False),
+            ("seat_configuration_ready", False),
+            ("gc_cursor", 1),
+            ("boundary_queries", 1),
+            ("seat_fault_point", "dirty"),
+            ("canonical_state_witness_available", False),
+            ("canonical_code_preimages_available", False),
+            ("sessions", {"dirty": "dirty"}),
+        )
+        for field_name, value in dirty_rows:
+            rows = production_migration_fixture()
+            old_protocol, _old_history, new_history, seat_market, manager = rows[:5]
+            target = new_history.live_protocol
+            setattr(target, field_name, value)
+            manifest, proof = prepare_production_activation(rows)
+            graph_before = migration_graph_projection(old_protocol, manager)
+            market_before = copy.deepcopy(seat_market)
+            target_before = copy.deepcopy({
+                key: row for key, row in target.__dict__.items()
+                if key not in {
+                    "forced_queue", "inbox_apply_router", "migration_gate",
+                    "versioned_history",
+                }
+            })
+            target_refs = (
+                target.forced_queue,
+                target.inbox_apply_router,
+                target.migration_gate,
+                target.versioned_history,
+            )
+            with self.assertRaises(ValueError, msg=field_name):
+                manager.activate_seat_migration(
+                    manifest_key=manifest.key,
+                    activation_proof=proof,
+                    executor=addr("executor"),
+                    clock=settlement.Clock(
+                        rows[1].last_canonical_l1_block + 1,
+                        settlement.GENESIS_TIMESTAMP + 1_001,
+                    ),
+                )
+            self.assertEqual(
+                migration_graph_projection(old_protocol, manager), graph_before
+            )
+            self.assertEqual(seat_market, market_before)
+            self.assertEqual(
+                {
+                    key: row for key, row in target.__dict__.items()
+                    if key not in {
+                        "forced_queue", "inbox_apply_router", "migration_gate",
+                        "versioned_history",
+                    }
+                },
+                target_before,
+            )
+            self.assertEqual(
+                (
+                    target.forced_queue,
+                    target.inbox_apply_router,
+                    target.migration_gate,
+                    target.versioned_history,
+                ),
+                target_refs,
+            )
+
+    def test_late_activation_fault_restores_old_new_and_router_graphs(self):
+        for fault in ("after_target_import", "after_activation_receipt_write"):
+            rows = production_migration_fixture()
+            old_protocol, _old_history, new_history, seat_market, manager = rows[:5]
+            manifest, proof = prepare_production_activation(rows)
+            target = new_history.live_protocol
+            manager.fault_point = fault
+            graph_before = migration_graph_projection(old_protocol, manager)
+            market_before = copy.deepcopy(seat_market)
+            history_before = copy.deepcopy({
+                key: row for key, row in new_history.__dict__.items()
+                if key not in {
+                    "forced_queue", "inbox_apply_router", "migration_gate",
+                    "live_protocol",
+                }
+            })
+            target_before = copy.deepcopy({
+                key: row for key, row in target.__dict__.items()
+                if key not in {
+                    "forced_queue", "inbox_apply_router", "migration_gate",
+                    "versioned_history",
+                }
+            })
+            refs = (
+                new_history.forced_queue,
+                new_history.inbox_apply_router,
+                new_history.migration_gate,
+                new_history.live_protocol,
+            )
+            with self.assertRaises(RuntimeError):
+                manager.activate_seat_migration(
+                    manifest_key=manifest.key,
+                    activation_proof=proof,
+                    executor=addr("executor"),
+                    clock=settlement.Clock(
+                        rows[1].last_canonical_l1_block + 1,
+                        settlement.GENESIS_TIMESTAMP + 1_001,
+                    ),
+                )
+            self.assertEqual(
+                migration_graph_projection(old_protocol, manager), graph_before
+            )
+            self.assertEqual(seat_market, market_before)
+            self.assertEqual(
+                {
+                    key: row for key, row in new_history.__dict__.items()
+                    if key not in {
+                        "forced_queue", "inbox_apply_router", "migration_gate",
+                        "live_protocol",
+                    }
+                },
+                history_before,
+            )
+            self.assertEqual(
+                {
+                    key: row for key, row in target.__dict__.items()
+                    if key not in {
+                        "forced_queue", "inbox_apply_router", "migration_gate",
+                        "versioned_history",
+                    }
+                },
+                target_before,
+            )
+            self.assertEqual(
+                (
+                    new_history.forced_queue,
+                    new_history.inbox_apply_router,
+                    new_history.migration_gate,
+                    new_history.live_protocol,
+                ),
+                refs,
+            )
+
+    def test_preactive_history_and_header_source_must_be_exact_and_fresh(self):
+        for field_name, value in (
+            ("mode", "ACTIVE"),
+            ("history", {0: "dirty"}),
+            ("current_sequence", 0),
+            ("last_canonical_l1_block", 1),
+            ("_router_authority", object()),
+        ):
+            rows = production_migration_fixture()
+            old_protocol, _old_history, target_history, seat_market, manager = rows[:5]
+            if field_name == "_router_authority":
+                object.__setattr__(target_history, field_name, value)
+            else:
+                setattr(target_history, field_name, value)
+            manifest, proof = prepare_production_activation(rows)
+            before = migration_graph_projection(old_protocol, manager)
+            market_before = copy.deepcopy(seat_market)
+            with self.assertRaises(ValueError, msg=field_name):
+                manager.activate_seat_migration(
+                    manifest_key=manifest.key,
+                    activation_proof=proof,
+                    executor=addr("executor"),
+                    clock=settlement.Clock(
+                        rows[1].last_canonical_l1_block + 1,
+                        settlement.GENESIS_TIMESTAMP + 1_001,
+                    ),
+                )
+            self.assertEqual(migration_graph_projection(old_protocol, manager), before)
+            self.assertEqual(seat_market, market_before)
+
+        for variant in (
+            "copy-equal", "forged-header", "substituted-runtime"
+        ):
+            rows = production_migration_fixture(
+                target_header_variant=variant
+            )
+            old_protocol, _old_history, target_history, seat_market, manager = rows[:5]
+            self.assertIsNot(
+                target_history.header_oracle, manager.router.header_oracle
+            )
+            manifest, proof = prepare_production_activation(rows)
+            graph_before = migration_graph_projection(old_protocol, manager)
+            market_before = copy.deepcopy(seat_market)
+            with self.assertRaises(ValueError, msg=variant):
+                manager.activate_seat_migration(
+                    manifest_key=manifest.key,
+                    activation_proof=proof,
+                    executor=addr("executor"),
+                    clock=settlement.Clock(
+                        rows[1].last_canonical_l1_block + 1,
+                        settlement.GENESIS_TIMESTAMP + 1_001,
+                    ),
+                )
+            self.assertEqual(
+                migration_graph_projection(old_protocol, manager), graph_before
+            )
+            self.assertEqual(seat_market, market_before)
+
+    def test_skipped_rotation_catches_up_one_receipt_per_call_across_abort_gap(self):
+        rows = production_migration_fixture()
+        (
+            old_protocol, old_history, second_history, seat_market, manager,
+            release_manager, first_id, second_id,
+        ) = rows
+        first_receipt = activate_production_fixture(rows)
+        second_protocol = second_history.live_protocol
+        self.assertEqual(seat_market.current_authorization_id, first_id)
+
+        # An aborted arm consumes a router generation but creates no receipt.
+        abort_current_migration_generation(
+            rows, target_version=27, manifest_byte=b"a"
+        )
+        third_history, third_id = register_production_successor(
+            rows, label="v3", protocol_version=27
+        )
+        third_receipt = activate_registered_successor(
+            rows,
+            third_history,
+            second_id,
+            third_id,
+            manifest_byte=b"n",
+        )
+        self.assertGreater(
+            third_receipt.router_generation,
+            first_receipt.router_generation + 1,
+        )
+        self.assertEqual(old_history.mode, "FROZEN")
+        self.assertEqual(second_history.mode, "FROZEN")
+        self.assertEqual(third_history.mode, "ACTIVE")
+        self.assertIs(old_protocol.migration_gate, second_protocol.migration_gate)
+        self.assertIs(
+            second_protocol.migration_gate,
+            third_history.live_protocol.migration_gate,
+        )
+
+        first = release_manager.execute_rotation(
+            seat_market,
+            first_receipt.key,
+            market.Clock(3_000, settlement.GENESIS_TIMESTAMP + 3_000),
+        )
+        self.assertEqual(first.purged_count, 0)
+        self.assertEqual(seat_market.current_authorization_id, second_id)
+        self.assertFalse(seat_market.authorization_enabled[second_id])
+        self.assertIsNone(seat_market.cached_generation)
+        with self.assertRaises(market.TransitionRejected):
+            seat_market.sync_seat_generation()
+        with self.assertRaises(market.TransitionRejected):
+            seat_market.insert_offer(
+                caller=addr("frozen-hop"), payout=addr("frozen-hop-pay"),
+                ask_wei_per_second=1,
+                target=second_history.address,
+                generation=second_protocol.seat_generation,
+                clock=market.Clock(3_001, 3_001),
+                value=seat_market.sla_bond,
+            )
+
+        second = release_manager.execute_rotation(
+            seat_market,
+            third_receipt.key,
+            market.Clock(3_002, settlement.GENESIS_TIMESTAMP + 3_002),
+        )
+        self.assertEqual(second.purged_count, 0)
+        self.assertEqual(seat_market.current_authorization_id, third_id)
+        self.assertTrue(seat_market.authorization_enabled[third_id])
+        self.assertFalse(seat_market.authorization_enabled[first_id])
+        self.assertFalse(seat_market.authorization_enabled[second_id])
+        self.assertEqual(
+            seat_market.consumed_activation_receipts,
+            {first_receipt.key, third_receipt.key},
+        )
+        seat_market.sync_seat_generation()
+        with self.assertRaises(market.TransitionRejected):
+            release_manager.execute_rotation(
+                seat_market,
+                first_receipt.key,
+                market.Clock(3_003, settlement.GENESIS_TIMESTAMP + 3_003),
+            )
+        self.assertEqual(old_history.mode, "FROZEN")
+        self.assertEqual(second_history.mode, "FROZEN")
+        self.assertEqual(third_history.mode, "ACTIVE")
+
+    def test_three_version_rotation_retains_real_historical_economic_lifecycles(self):
+        rows = production_migration_fixture()
+        (
+            first_protocol, first_history, second_history, seat_market, manager,
+            release_manager, first_id, second_id,
+        ) = rows
+
+        def install_live(protocol, label, ask, timestamp, block_number):
+            seat_market.sponsor_premium(
+                ask * seat_market.seat_runway_seconds
+            )
+            inserted = seat_market.insert_offer(
+                caller=addr(label),
+                payout=addr(f"pay-{label}"),
+                ask_wei_per_second=ask,
+                target=protocol.settlement_address,
+                generation=protocol.seat_generation,
+                clock=market.Clock(timestamp, block_number),
+                value=seat_market.sla_bond,
+            )
+            staged = protocol.stage_best(
+                seat_market,
+                settlement.Clock(
+                    block_number + seat_market.quote_maturity_blocks,
+                    timestamp + seat_market.quote_maturity_seconds,
+                ),
+            )
+            if staged == "SYNCED":
+                staged = protocol.stage_best(
+                    seat_market,
+                    settlement.Clock(
+                        block_number + seat_market.quote_maturity_blocks + 1,
+                        timestamp + seat_market.quote_maturity_seconds + 1,
+                    ),
+                )
+            self.assertIs(staged.code, market.ResultCode.STAGED)
+            installed = protocol.apply_stage(
+                seat_market,
+                settlement.Clock(
+                    block_number + seat_market.quote_maturity_blocks + 1,
+                    staged.stage.handover_at,
+                ),
+            )
+            return inserted, installed.tranche.installed_term_id
+
+        def claim_premium(result):
+            if result.premium_credit_id is not None and result.amount > 0:
+                seat_market.claim_premium_credit(
+                    result.premium_credit_id,
+                    lambda _beneficiary, _amount, _market: None,
+                )
+
+        first_row, first_term = install_live(
+            first_protocol,
+            "v1-owner",
+            2,
+            settlement.GENESIS_TIMESTAMP + first_protocol.core.tip_slot,
+            100,
+        )
+        first_release_row, first_release_term = install_live(
+            first_protocol,
+            "v1-release",
+            3,
+            settlement.GENESIS_TIMESTAMP + first_protocol.core.tip_slot + 20,
+            120,
+        )
+        first_duty = activate_current_duty(
+            first_protocol, open_recovery=False
+        )
+        first_activation_clock = settlement.Clock(
+            max(first_history.last_canonical_l1_block + 10, 1_000),
+            first_duty.slash_at + 1,
+        )
+        first_receipt = activate_production_fixture(
+            rows, clock=first_activation_clock
+        )
+        self.assertIs(
+            first_protocol.seat_duties[first_duty.duty_id].status,
+            settlement.DutyStatus.BREACHED,
+        )
+        release_manager.execute_rotation(
+            seat_market,
+            first_receipt.key,
+            market.Clock(
+                first_activation_clock.timestamp + 2,
+                first_activation_clock.block_number + 2,
+            ),
+        )
+        seat_market.sync_seat_generation()
+        second_protocol = second_history.live_protocol
+        second_catchup_clock = settlement.Clock(
+            second_history.last_canonical_l1_block + 1,
+            first_activation_clock.timestamp + 3,
+        )
+        second_protocol._commit(
+            settlement.candidate(
+                second_protocol,
+                second_catchup_clock,
+                "v2-post-activation-catchup",
+                slot=second_catchup_clock.l2_slot,
+            ),
+            second_catchup_clock,
+        )
+        self.assertEqual(seat_market.current_authorization_id, second_id)
+
+        second_row, second_term = install_live(
+            second_protocol,
+            "v2-owner",
+            3,
+            first_activation_clock.timestamp + 20,
+            first_activation_clock.block_number + 20,
+        )
+        second_release_row, second_release_term = install_live(
+            second_protocol,
+            "v2-release",
+            4,
+            first_activation_clock.timestamp + 40,
+            first_activation_clock.block_number + 40,
+        )
+        second_duty = activate_current_duty(
+            second_protocol, open_recovery=False
+        )
+        third_history, third_id = register_production_successor(
+            rows, label="v3-ledger", protocol_version=27
+        )
+        second_activation_clock = settlement.Clock(
+            max(second_history.last_canonical_l1_block + 10, 2_000),
+            second_duty.slash_at + 1,
+        )
+        second_receipt = activate_registered_successor(
+            rows,
+            third_history,
+            second_id,
+            third_id,
+            manifest_byte=b"v",
+            clock=second_activation_clock,
+        )
+        self.assertIs(
+            second_protocol.seat_duties[second_duty.duty_id].status,
+            settlement.DutyStatus.BREACHED,
+        )
+        release_manager.execute_rotation(
+            seat_market,
+            second_receipt.key,
+            market.Clock(
+                second_activation_clock.timestamp + 2,
+                second_activation_clock.block_number + 2,
+            ),
+        )
+        seat_market.sync_seat_generation()
+        third_protocol = third_history.live_protocol
+        self.assertEqual(seat_market.current_authorization_id, third_id)
+        self.assertEqual(
+            (first_history.mode, second_history.mode, third_history.mode),
+            ("FROZEN", "FROZEN", "ACTIVE"),
+        )
+
+        economic_at = max(first_duty.slash_at, second_duty.slash_at) + 200
+
+        def settle_historical_breach(protocol, row, term_id, duty, block, at):
+            claim_premium(protocol.accrue_seat_premium(
+                seat_market, term_id, settlement.Clock(block, at)
+            ))
+            claim_premium(protocol.reconcile_seat_reserve(
+                seat_market, term_id, settlement.Clock(block + 1, at + 1)
+            ))
+            penalty = protocol.enforce_seat_breach(
+                seat_market,
+                row.tranche.tranche_id,
+                term_id,
+                settlement.Clock(block + 2, at + 2),
+            )
+            seat_market.claim_credit(
+                penalty.credit_id,
+                lambda _beneficiary, _amount, _market: None,
+            )
+            self.assertTrue(protocol.reclaim_duty_cell(
+                seat_market,
+                duty.duty_id,
+                term_id,
+                row.tranche.tranche_id,
+                settlement.Clock(block + 3, at + 3),
+            ))
+            self.assertIs(
+                seat_market.tranches[row.tranche.tranche_id].disposition,
+                market.BondDisposition.PENALTY_CREDITED,
+            )
+
+        def settle_historical_release(protocol, row, term_id, block, at):
+            claim_premium(protocol.accrue_seat_premium(
+                seat_market, term_id, settlement.Clock(block, at)
+            ))
+            claim_premium(protocol.reconcile_seat_reserve(
+                seat_market, term_id, settlement.Clock(block + 1, at + 1)
+            ))
+            protocol.request_bond_release(
+                seat_market,
+                row.tranche.tranche_id,
+                term_id,
+                settlement.Clock(block + 2, at + 2),
+            )
+            owner_release = protocol.finalize_bond_release(
+                seat_market,
+                row.tranche.tranche_id,
+                term_id,
+                settlement.Clock(block + 3, at + 200),
+            )
+            seat_market.claim_credit(
+                owner_release.credit_id,
+                lambda _beneficiary, _amount, _market: None,
+            )
+            self.assertIs(
+                seat_market.tranches[row.tranche.tranche_id].disposition,
+                market.BondDisposition.OWNER_CREDITED,
+            )
+
+        settle_historical_breach(
+            first_protocol, first_row, first_term, first_duty,
+            3_000, economic_at,
+        )
+        settle_historical_release(
+            first_protocol, first_release_row, first_release_term,
+            3_100, economic_at + 300,
+        )
+        settle_historical_breach(
+            second_protocol, second_row, second_term, second_duty,
+            3_200, economic_at + 600,
+        )
+        settle_historical_release(
+            second_protocol, second_release_row, second_release_term,
+            3_300, economic_at + 900,
+        )
+
+        for old_protocol, old_row, old_term in (
+            (first_protocol, first_row, first_term),
+            (second_protocol, second_row, second_term),
+        ):
+            with self.assertRaises(market.TransitionRejected):
+                seat_market.insert_offer(
+                    caller=addr("old-insert"),
+                    payout=addr("old-insert-pay"),
+                    ask_wei_per_second=1,
+                    target=old_protocol.settlement_address,
+                    generation=old_protocol.seat_generation,
+                    clock=market.Clock(economic_at + 1_200, 3_400),
+                    value=seat_market.sla_bond,
+                )
+            with self.assertRaises(market.TransitionRejected):
+                seat_market.requote(
+                    caller=old_row.offer.operator,
+                    offer_id=old_row.offer.offer_id,
+                    payout=old_row.offer.payout,
+                    ask_wei_per_second=old_row.offer.ask_wei_per_second,
+                    target=old_protocol.settlement_address,
+                    generation=old_protocol.seat_generation,
+                    clock=market.Clock(economic_at + 1_200, 3_400),
+                )
+            with self.assertRaises(ValueError):
+                old_protocol.stage_best(
+                    seat_market,
+                    settlement.Clock(3_400, economic_at + 1_200),
+                )
+            with self.assertRaises(ValueError):
+                old_protocol.apply_stage(
+                    seat_market,
+                    settlement.Clock(3_400, economic_at + 1_200),
+                )
+
+        third_catchup_clock = settlement.Clock(
+            max(third_history.last_canonical_l1_block + 1, 3_400),
+            economic_at + 1_200,
+        )
+        third_protocol._commit(
+            settlement.candidate(
+                third_protocol,
+                third_catchup_clock,
+                "v3-historical-settlement-catchup",
+                slot=third_catchup_clock.l2_slot,
+            ),
+            third_catchup_clock,
+        )
+        seat_market.sponsor_premium(seat_market.seat_runway_seconds)
+        third_insert = seat_market.insert_offer(
+            caller=addr("v3-owner"),
+            payout=addr("pay-v3-owner"),
+            ask_wei_per_second=1,
+            target=third_protocol.settlement_address,
+            generation=third_protocol.seat_generation,
+            clock=market.Clock(economic_at + 1_201, 3_401),
+            value=seat_market.sla_bond,
+        )
+        third_stage = third_protocol.stage_best(
+            seat_market,
+            settlement.Clock(
+                3_401 + seat_market.quote_maturity_blocks,
+                economic_at + 1_201 + seat_market.quote_maturity_seconds,
+            ),
+        )
+        self.assertIs(third_stage.code, market.ResultCode.STAGED)
+        self.assertEqual(third_stage.offer.offer_id, third_insert.offer.offer_id)
+
+    def test_manager_arm_is_raw_exact_and_strict_slash_precedes_excuse(self):
+        for delta, expected in (
+            (-1, settlement.DutyStatus.EXCUSED_MIGRATION),
+            (0, settlement.DutyStatus.EXCUSED_MIGRATION),
+            (1, settlement.DutyStatus.BREACHED),
+        ):
+            protocol, manager = migration_manager_fixture()
+            duty = activate_current_duty(protocol, open_recovery=False)
+            before_generation = protocol.seat_generation
+            visits_before = protocol.seat_scan_visits_total
+            response = execute_manager_arm(
+                manager,
+                settlement.Clock(1_100, duty.slash_at + delta),
+            )
+            decoded = settlement.decode_seat_migration_response(response)
+            self.assertEqual(len(response), settlement.SEAT_MIGRATION_RESPONSE_LENGTH)
+            self.assertEqual(decoded.magic, settlement.SEAT_ARMED_MAGIC)
+            self.assertEqual(
+                (
+                    decoded.router_generation,
+                    decoded.active_protocol_version,
+                    decoded.target_protocol_version,
+                    decoded.target_manifest_hash,
+                    decoded.seat_generation,
+                ),
+                (1, 25, 26, b"m" * 32, before_generation + 1),
+            )
+            self.assertEqual(protocol.migration_gate.mode, "ARMED")
+            self.assertEqual(protocol.seat_generation, before_generation + 1)
+            self.assertEqual(
+                protocol.seat_scan_visits_total - visits_before, 4
+            )
+            self.assertEqual(protocol.seat_lineup, [])
+            self.assertIs(protocol.seat_duties[duty.duty_id].status, expected)
+            if expected is settlement.DutyStatus.BREACHED:
+                self.assertGreater(
+                    protocol.seat_duties[duty.duty_id].breach_recorded_at,
+                    duty.slash_at,
+                )
+
+    def test_arm_commits_mature_best_without_ready_race_and_market_call(self):
+        protocol, seat_market = make_pair()
+        tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
+        _, term_id = install_offer(
+            protocol,
+            seat_market,
+            "mig",
+            1,
+            quoted_at=tip_time,
+            quoted_block=100,
+        )
+        history = settlement.VersionedSettlementHistory(
+            protocol.settlement_address,
+            "runtime:seat-v1",
+            25,
+            "profile:seat-v1",
+            copy.deepcopy(protocol.core),
+            protocol.canonical.canonicalized_at_block,
+            protocol.forced_queue,
+            migration_gate=protocol.migration_gate,
+            live_protocol=protocol,
+            inbox_apply_router=protocol.inbox_apply_router,
+            header_oracle=protocol.header_oracle,
+        )
+        protocol.versioned_history = history
+        router = settlement.ActiveSettlementRouter(
+            addr("version-manager"),
+            protocol.forced_queue,
+            protocol.inbox_apply_router,
+            protocol.migration_gate,
+            protocol.header_oracle,
+        )
+        self.assertTrue(router.bootstrap(
+            history,
+            sequence=0,
+            clock=settlement.Clock(
+                protocol.canonical.canonicalized_at_block,
+                settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+            ),
+            caller=router.version_manager,
+        ))
+        gate = protocol.migration_gate
+        manager = settlement.ProtocolVersionManager(
+            addr("version-manager"), router
+        )
+        accepted = accept_qualifying_normal_best(
+            protocol, term_id, block_number=1_000
+        )
+        canonical_before = protocol.core.l2_block_number
+        visits_before = protocol.seat_scan_visits_total
+        market_before = copy.deepcopy(seat_market)
+        execute_manager_arm(
+            manager,
+            settlement.Clock(
+                accepted.blocks[0].anchor_number + settlement.F_L1 + 2,
+                protocol.normal_deadline,
+            ),
+        )
+        self.assertGreater(protocol.core.l2_block_number, canonical_before)
+        self.assertEqual(gate.mode, "ARMED")
+        self.assertIsNotNone(protocol.seat_migration_arm)
+        self.assertEqual(seat_market, market_before)
+        self.assertEqual(protocol.seat_scan_visits_total - visits_before, 4)
+
+    def test_arm_response_and_tuple_faults_restore_exact_router_protocol_graph(self):
+        for fault in (
+            "arm_response_empty",
+            "arm_response_short",
+            "arm_response_long",
+            "arm_response_trailing",
+            "arm_response_wrong_magic",
+            "arm_response_wrong_generation",
+            "arm_response_wrong_active_version",
+            "arm_response_wrong_target_version",
+            "arm_response_wrong_manifest",
+            "arm_response_wrong_seat_generation",
+            "after_local_migration_arm",
+        ):
+            protocol, manager = migration_manager_fixture()
+            protocol.seat_fault_point = fault
+            gate = protocol.migration_gate
+            clock = settlement.Clock(
+                1_100, settlement.GENESIS_TIMESTAMP + 1_001
+            )
+            manifest = settlement.ScheduledSeatMigration(
+                1,
+                25,
+                26,
+                b"m" * 32,
+                clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+                clock.timestamp,
+            )
+            manager.schedule_seat_migration(
+                manifest,
+                caller=manager.governance,
+                clock=settlement.Clock(
+                    clock.block_number - 1, manifest.scheduled_at
+                ),
+            )
+            before = migration_graph_projection(protocol, manager)
+            with self.assertRaises((RuntimeError, ValueError, AssertionError)):
+                manager.arm_seat_migration(
+                    manifest_key=manifest.key,
+                    executor=addr("executor"),
+                    clock=clock,
+                )
+            self.assertEqual(
+                migration_graph_projection(protocol, manager), before, fault
+            )
+            self.assertIs(protocol.migration_gate, gate)
+            self.assertIs(
+                manager.router.registrations[25].settlement.migration_gate,
+                gate,
+            )
+
+    def test_direct_arm_and_abort_callbacks_bind_every_router_tuple_field(self):
+        substitutions = (
+            lambda word: replace(word, generation=word.generation + 1),
+            lambda word: replace(word, active_version=word.active_version + 1),
+            lambda word: replace(word, target_version=word.target_version + 1),
+            lambda word: replace(word, target_manifest_hash=b"x" * 32),
+            lambda word: replace(word, phase=settlement.RouterPhase.READY),
+        )
+        for substitute in substitutions:
+            protocol, manager = migration_manager_fixture(seat=False)
+            gate = protocol.migration_gate
+            self.assertTrue(gate._arm_from_manager(
+                1, 25, 26, b"m" * 32, caller=manager.address
+            ))
+            protocol.versioned_history.mode = "MIGRATION_ARMED"
+            before = migration_graph_projection(protocol, manager)
+            with self.assertRaises(ValueError):
+                protocol.complete_seat_migration_arm(
+                    caller=manager.address,
+                    router_word=substitute(gate.router_word),
+                    clock=settlement.Clock(
+                        1_000, settlement.GENESIS_TIMESTAMP + 1_000
+                    ),
+                )
+            self.assertEqual(migration_graph_projection(protocol, manager), before)
+
+        protocol, manager = migration_manager_fixture(seat=False)
+        gate = protocol.migration_gate
+        self.assertTrue(gate._arm_from_manager(
+            1, 25, 26, b"m" * 32, caller=manager.address
+        ))
+        protocol.versioned_history.mode = "MIGRATION_ARMED"
+        before = migration_graph_projection(protocol, manager)
+        with self.assertRaises(ValueError):
+            protocol.complete_seat_migration_arm(
+                caller=addr("attacker"), router_word=gate.router_word,
+                clock=settlement.Clock(
+                    1_000, settlement.GENESIS_TIMESTAMP + 1_000
+                ),
+            )
+        self.assertEqual(migration_graph_projection(protocol, manager), before)
+
+        for substitute in substitutions:
+            protocol, manager = migration_manager_fixture(seat=False)
+            execute_manager_arm(
+                manager,
+                settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000),
+            )
+            gate = protocol.migration_gate
+            canceled = protocol.seat_migration_arm.router_word
+            self.assertTrue(gate._abort_from_manager(
+                canceled.generation,
+                canceled.active_version,
+                canceled.target_version,
+                canceled.target_manifest_hash,
+                cancel_manifest_active=True,
+                caller=manager.address,
+            ))
+            protocol.versioned_history.mode = "ACTIVE"
+            before = migration_graph_projection(protocol, manager)
+            with self.assertRaises(ValueError):
+                protocol.complete_seat_migration_abort(
+                    caller=manager.address,
+                    canceled_arm=substitute(canceled),
+                    clock=settlement.Clock(
+                        1_001, settlement.GENESIS_TIMESTAMP + 1_001
+                    ),
+                )
+            self.assertEqual(migration_graph_projection(protocol, manager), before)
+
+    def test_delayed_manifest_authority_boundaries_and_replay_are_exact(self):
+        protocol, manager = migration_manager_fixture(seat=False)
+        now = settlement.GENESIS_TIMESTAMP + 1_000
+        too_early = settlement.ScheduledSeatMigration(
+            1, 25, 26, b"e" * 32, now,
+            now + settlement.SEAT_MIGRATION_MANIFEST_DELAY - 1,
+        )
+        before = migration_graph_projection(protocol, manager)
+        with self.assertRaises(ValueError):
+            manager.schedule_seat_migration(
+                too_early,
+                caller=manager.governance,
+                clock=settlement.Clock(999, now),
+            )
+        self.assertEqual(migration_graph_projection(protocol, manager), before)
+        exact = replace(
+            too_early,
+            target_manifest_hash=b"m" * 32,
+            executable_at=now + settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+        )
+        with self.assertRaises(ValueError):
+            manager.schedule_seat_migration(
+                exact,
+                caller=addr("attacker"),
+                clock=settlement.Clock(999, now),
+            )
+        with self.assertRaises(ValueError):
+            manager.schedule_seat_migration(
+                replace(
+                    exact,
+                    scheduled_at=now - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+                ),
+                caller=manager.governance,
+                clock=settlement.Clock(999, now),
+            )
+        manager.schedule_seat_migration(
+            exact,
+            caller=manager.governance,
+            clock=settlement.Clock(999, now),
+        )
+        with self.assertRaises(ValueError):
+            manager.arm_seat_migration(
+                manifest_key=exact.key,
+                executor=addr("executor"),
+                clock=settlement.Clock(1_000, exact.executable_at - 1),
+            )
+        manager.arm_seat_migration(
+            manifest_key=exact.key,
+            executor=addr("executor"),
+            clock=settlement.Clock(1_001, exact.executable_at),
+        )
+        with self.assertRaises(ValueError):
+            manager.arm_seat_migration(
+                manifest_key=exact.key,
+                executor=addr("executor"),
+                clock=settlement.Clock(1_002, exact.executable_at + 1),
+            )
+    def test_abort_response_fault_matrix_restores_global_and_local_graph(self):
+        for fault in (
+            "abort_response_empty",
+            "abort_response_short",
+            "abort_response_long",
+            "abort_response_trailing",
+            "abort_response_wrong_magic",
+            "abort_response_wrong_generation",
+            "abort_response_wrong_active_version",
+            "abort_response_wrong_target_version",
+            "abort_response_wrong_manifest",
+            "abort_response_wrong_seat_generation",
+            "after_local_migration_abort",
+        ):
+            protocol, manager = migration_manager_fixture(seat=False)
+            execute_manager_arm(
+                manager,
+                settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000),
+            )
+            protocol.seat_fault_point = fault
+            clock = settlement.Clock(
+                1_001, settlement.GENESIS_TIMESTAMP + 1_001
+            )
+            manifest = settlement.ScheduledSeatMigration(
+                1, 25, 26, b"m" * 32,
+                clock.timestamp - settlement.SEAT_MIGRATION_CANCEL_DELAY,
+                clock.timestamp,
+            )
+            manager.schedule_seat_migration(
+                manifest,
+                caller=manager.governance,
+                clock=settlement.Clock(
+                    clock.block_number - 1, manifest.scheduled_at
+                ),
+                cancel=True,
+            )
+            before = migration_graph_projection(protocol, manager)
+            with self.assertRaises((RuntimeError, ValueError, AssertionError)):
+                manager.abort_seat_migration(
+                    manifest_key=manifest.key,
+                    executor=addr("executor"),
+                    clock=clock,
+                )
+            self.assertEqual(migration_graph_projection(protocol, manager), before)
+            protocol.seat_fault_point = None
+            response = manager.abort_seat_migration(
+                manifest_key=manifest.key,
+                executor=addr("executor"),
+                clock=clock,
+            )
+            self.assertEqual(
+                settlement.decode_seat_migration_response(response).magic,
+                settlement.SEAT_ABORTED_MAGIC,
+            )
+            self.assertEqual(protocol.migration_gate.mode, "ACTIVE")
+            with self.assertRaises(ValueError):
+                manager.abort_seat_migration(
+                    manifest_key=manifest.key,
+                    executor=addr("executor"),
+                    clock=clock,
+                )
+
+    def test_abort_validates_retained_canceled_tuple_and_never_lowers_generation(self):
+        protocol, manager = migration_manager_fixture(seat=False)
+        execute_manager_arm(
+            manager,
+            settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000),
+        )
+        retained_generation = protocol.seat_generation
+        clock = settlement.Clock(
+            1_001,
+            settlement.GENESIS_TIMESTAMP
+            + protocol.core.tip_slot
+            + settlement.DELTA_FINAL_LAG
+            + 1,
+        )
+        response = execute_manager_abort(manager, clock)
+        decoded = settlement.decode_seat_migration_response(response)
+        self.assertEqual(decoded.magic, settlement.SEAT_ABORTED_MAGIC)
+        self.assertEqual(decoded.target_manifest_hash, b"m" * 32)
+        self.assertEqual(protocol.seat_generation, retained_generation)
+        self.assertEqual(protocol.migration_gate.mode, "ACTIVE")
+        self.assertIs(protocol.mode, settlement.Mode.RECOVERY)
+        self.assertEqual(
+            protocol.seat_migration_abort.canceled_arm,
+            protocol.seat_migration_arm.router_word,
+        )
 
 
 if __name__ == "__main__":
