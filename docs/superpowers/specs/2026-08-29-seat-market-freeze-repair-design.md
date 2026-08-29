@@ -452,12 +452,22 @@ revert domain. No candidate produces `NO_FEASIBLE_OFFER` with no Market mutation
 structurally feasible underfunded candidate produces `UNDERFUNDED` with no mutation; monotonicity
 proves later candidates cannot succeed at that snapshot.
 
-The stage stores selected rank, exact outgoing primary or zero, lineup commitment, and:
+The stage stores selected rank, exact outgoing primary or zero, lineup commitment, and one of these
+exact deadlines:
 
 ```text
-handoverAt = max(minimumTenureUntil, now + HANDOVER_DELAY_SECONDS)
+handoverAt =
+    max(active.minimumTenureUntil, now + HANDOVER_DELAY_SECONDS)
+        if replacing an existing primary
+    now + HANDOVER_DELAY_SECONDS
+        if filling a vacancy or inserting a standby
+
 stageExpiresAt = handoverAt + STAGE_GRACE_SECONDS
 ```
+
+Vacancy has no primary tenure to read. Standby insertion does not remove or weaken the serving
+primary and therefore never waits for its tenure. A primary's minimum tenure gates only its own
+competitive replacement.
 
 Admission additionally requires:
 
@@ -586,13 +596,21 @@ phase)`. Only `ProtocolVersionManager` may consume the delayed exact arm or canc
 Seat migration arm is not an independently callable Settlement function. In the same transaction and
 revert domain as the globally authorized router `ACTIVE -> ARMED` transition, ProtocolVersionManager
 first validates the exact current router word and delayed manifest, writes the exact ARMED word, and
-then calls the exact old Settlement. Settlement requires the immutable manager caller, rereads the
-router word, and requires exact equality of router generation, old/target versions, manifest hash,
-and `ARMED` phase. Any mismatch or local failure reverts the global arm and every component delta.
+then calls the exact old Settlement's manager-only completion callback. Settlement requires the
+immutable manager caller, rereads the router word, and requires exact equality of router generation,
+old/target versions, manifest hash, and `ARMED` phase. Any mismatch or local failure reverts the
+global arm and every component delta.
 
-The Settlement-local arm begins with leading sync and a mature-best commit. Any already-objective
-slash is materialized first. It stores the exact router-generation/manifest binding and performs one
-local transition that:
+The manager-only completion callback is explicitly not an ordinary state-mutating wrapper. It runs
+the same bounded leading-sync logic internally but does not externally return the generic `SYNCED`
+early-return status. If leading sync commits a mature candidate or changes mode, the callback
+recomputes all seat inputs from the resulting local state and continues in the same transaction until
+the local arm below is complete. No caller-supplied pre-sync lineup, duty, or stage snapshot survives
+that change.
+
+After that single leading sync and any mature-best commit, every already-objective slash is
+materialized. The callback stores the exact router-generation/manifest binding and performs one local
+transition that:
 
 - increments monotone `seatGeneration`;
 - closes active and standby services non-fault;
@@ -602,13 +620,21 @@ local transition that:
 - makes the Settlement economically vacant.
 
 It performs no Market or ETH call. Exactly one local arm may consume a router generation; it checkedly
-increments `seatGeneration` once.
+increments `seatGeneration` once. It then returns an exact fixed-length `SEAT_ARMED_MAGIC` response
+binding the router generation, old/target versions, target manifest hash, and resulting
+`seatGeneration`. ProtocolVersionManager must validate every field and the magic before its outer
+arm call may succeed. A generic `SYNCED` value, empty/trailing returndata, or a partial binding always
+reverts the global transition.
 
 Abort is likewise reachable only through the matured exact global cancel-manifest transaction. In
 one revert domain ProtocolVersionManager validates and marks that router generation canceled, writes
-the exact old-version `ACTIVE` router word, and calls the old Settlement. Settlement authenticates
-the immutable manager, canceled generation, old/target versions, target manifest, and new ACTIVE
-word before recording the local abort. Any mismatch reverts the global abort. Abort never lowers
+the exact old-version `ACTIVE` router word, and calls the old Settlement's manager-only abort
+completion callback. Settlement authenticates the immutable manager, canceled generation,
+old/target versions, target manifest, and new ACTIVE word. It runs the required bounded post-abort
+sync internally, recomputes local inputs after any commit/mode change, records the exact local abort,
+and returns fixed-length `SEAT_ABORTED_MAGIC` bound to the canceled tuple and retained
+`seatGeneration`. ProtocolVersionManager validates that complete response; `SYNCED` alone never
+acknowledges abort. Any mismatch or incomplete callback reverts the global abort. Abort never lowers
 `seatGeneration` and never resurrects a term, duty, successor, quote, or stage. A later active
 installation begins from the incremented seat generation.
 
@@ -727,6 +753,7 @@ include:
 - unified direct/promoted reserve debit and service start;
 - monotone funding fuzzing and structurally infeasible poison skipping;
 - one-wei-under/equal funding and gross-reserve staging;
+- empty-roster staging without a tenure read and standby insertion before incumbent tenure expiry;
 - a funded post-tenure interval that survives sync ordering and timestamp skips;
 - healthy-close matured/tail/unearned conservation;
 - closed-tail maturity before/equal/after and repeated reconciliation;
@@ -740,6 +767,8 @@ include:
 - arm/abort leaving every Market byte, bucket, and ETH balance unchanged;
 - router/local arm and abort mismatch, duplicate-generation, wrong-manifest, wrong-version, wrong
   phase, unauthorized caller, and partial-transition rollback;
+- arm with a mature candidate committed by leading sync, and abort whose internal sync changes mode,
+  proving that only the exact completion magic can commit the global gate transition;
 - strict target-read fault injection: revert, OOG, short, long, wrong magic, chain, runtime, config,
   phase, and generation;
 - rotation with stage cancellation and pending purge as one rollback domain;
