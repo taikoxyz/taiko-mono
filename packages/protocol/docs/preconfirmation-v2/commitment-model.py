@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.20 consensus commitments.
+"""Golden vectors for Slot-Chain v2.21 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -86,6 +86,13 @@ D_RELEASE_MANIFEST = b"slot-chain-release-manifest-v1"
 D_DESTINATION_REGISTRATION = b"slot-chain-destination-registration-v1"
 D_RELEASE_MANIFEST_SLOT = b"slot-chain-protocol-version-manager.releaseManifestHash.v1"
 D_REGISTRATION_SLOT = b"slot-chain-terminal-domain-registrar.registrationCommitment.v1"
+ACTIVATE_RELEASE_V2_SIGNATURE = (
+    b"activateReleaseV2((uint48,bytes32,bytes32),"
+    b"(uint64,uint256,uint256,bytes32,bytes32,bytes32,bytes32,address,bytes32,"
+    b"address,bytes32,bytes32,address,bytes32,"
+    b"(address,bytes32,bytes32,bytes32,address,address,address,address),bytes32,"
+    b"(address,bytes32,bytes32)[9]),bytes)"
+)
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
@@ -541,6 +548,7 @@ class ReleaseManifestDescriptor:
     destination_genesis_hash: bytes
     execution_profile_hash: bytes
     manifest_namespace: bytes
+    destination_namespace: bytes
     anchor: int
     anchor_runtime_hash: bytes
     activation_gate: int
@@ -548,28 +556,69 @@ class ReleaseManifestDescriptor:
     destination_domain_id: bytes
     destination_bridge: int
     destination_bridge_execution_hash: bytes
+    destination_bridge_descriptor: DestinationBridgeDescriptor
     destination_infrastructure_hash: bytes
     components: tuple[ComponentDescriptor, ...]
 
 
+PROFILE_FORBIDDEN_REVERSE_DEPENDENCIES = frozenset({
+    "releaseManifestHash", "registrationCommitment",
+    "destinationRegistrationCommitment",
+})
+
+
+def execution_profile_dependency_keys_valid(keys: tuple[str, ...]) -> bool:
+    """The profile is an ancestor of the manifest, never its descendant."""
+    return (len(keys) == len(set(keys))
+            and not PROFILE_FORBIDDEN_REVERSE_DEPENDENCIES.intersection(keys))
+
+
 def canonical_release_manifest(descriptor: ReleaseManifestDescriptor) -> bytes:
     assert (descriptor.protocol_version > 0
-            and descriptor.settlement_chain_id > 0
-            and descriptor.destination_chain_id > 0
+            and 0 < descriptor.settlement_chain_id <= UINT64_MAX
+            and 0 < descriptor.destination_chain_id <= UINT64_MAX
             and descriptor.destination_genesis_hash != bytes(32)
             and descriptor.execution_profile_hash != bytes(32)
             and descriptor.manifest_namespace != bytes(32)
+            and descriptor.destination_namespace != bytes(32)
             and descriptor.anchor != 0
             and descriptor.anchor_runtime_hash != bytes(32)
             and descriptor.activation_gate != 0
             and descriptor.activation_gate_runtime_hash != bytes(32)
             and descriptor.destination_domain_id != bytes(32)
             and descriptor.destination_bridge != 0
-            and descriptor.destination_bridge_execution_hash != bytes(32)
+            and descriptor.destination_bridge_execution_hash
+                == destination_bridge_execution_hash(
+                    descriptor.destination_bridge_descriptor)
             and descriptor.destination_infrastructure_hash
                 == destination_infrastructure_hash(descriptor.components)
             and descriptor.components[8].address
-                == descriptor.destination_bridge)
+                == descriptor.destination_bridge
+            and descriptor.destination_bridge_descriptor.bridge
+                == descriptor.destination_bridge
+            and descriptor.destination_bridge_descriptor.inbox_credit_store
+                == descriptor.components[4].address
+            and descriptor.destination_bridge_descriptor.terminal_accumulator
+                == descriptor.components[7].address
+            and descriptor.destination_bridge_descriptor.activation_gate
+                == descriptor.activation_gate
+            and descriptor.destination_bridge_descriptor.terminal_domain_registrar
+                == descriptor.components[6].address
+            and descriptor.destination_domain_id == destination_domain_id(
+                descriptor.destination_chain_id,
+                descriptor.destination_genesis_hash,
+                descriptor.components[0].address,
+                descriptor.components[1].address,
+                descriptor.components[2].address,
+                descriptor.components[3].address,
+                descriptor.components[4].address,
+                descriptor.components[5].address,
+                descriptor.components[6].address,
+                descriptor.components[7].address,
+                descriptor.destination_bridge,
+                descriptor.destination_bridge_execution_hash,
+                descriptor.destination_infrastructure_hash,
+                descriptor.destination_namespace))
     addresses = tuple(component.address for component in descriptor.components)
     assert len(set(addresses)) == 9
     encoded = (
@@ -579,6 +628,7 @@ def canonical_release_manifest(descriptor: ReleaseManifestDescriptor) -> bytes:
         + b32(descriptor.destination_genesis_hash)
         + b32(descriptor.execution_profile_hash)
         + b32(descriptor.manifest_namespace)
+        + b32(descriptor.destination_namespace)
         + address20(descriptor.anchor)
         + b32(descriptor.anchor_runtime_hash)
         + address20(descriptor.activation_gate)
@@ -586,12 +636,14 @@ def canonical_release_manifest(descriptor: ReleaseManifestDescriptor) -> bytes:
         + b32(descriptor.destination_domain_id)
         + address20(descriptor.destination_bridge)
         + b32(descriptor.destination_bridge_execution_hash)
+        + canonical_destination_bridge_descriptor(
+            descriptor.destination_bridge_descriptor)
         + b32(descriptor.destination_infrastructure_hash)
         + b"".join(address20(component.address)
                     + b32(component.runtime_hash)
                     + b32(component.config_hash)
                     for component in descriptor.components))
-    assert len(encoded) == 1_144
+    assert len(encoded) == 1_372
     return encoded
 
 
@@ -602,18 +654,18 @@ def release_manifest_hash(descriptor: ReleaseManifestDescriptor) -> bytes:
 
 def destination_registration_commitment(
         protocol_version: int, manifest_hash: bytes,
-        destination_chain_id: int, manifest_namespace: bytes,
+        destination_chain_id: int, destination_namespace: bytes,
         destination_domain: bytes, destination_bridge: int,
         destination_infrastructure: bytes,
         execution_profile_hash: bytes) -> bytes:
     assert (protocol_version > 0 and manifest_hash != bytes(32)
-            and destination_chain_id > 0
-            and manifest_namespace != bytes(32)
+            and 0 < destination_chain_id <= UINT64_MAX
+            and destination_namespace != bytes(32)
             and destination_domain != bytes(32) and destination_bridge != 0
             and destination_infrastructure != bytes(32)
             and execution_profile_hash != bytes(32))
     encoded = (u64(protocol_version) + b32(manifest_hash)
-               + u256(destination_chain_id) + b32(manifest_namespace)
+               + u256(destination_chain_id) + b32(destination_namespace)
                + b32(destination_domain) + address20(destination_bridge)
                + b32(destination_infrastructure)
                + b32(execution_profile_hash))
@@ -1294,10 +1346,12 @@ def vectors() -> dict[str, str]:
         destination_bridge_execution, infrastructure, bytes.fromhex("36" * 32))
     release_manifest = ReleaseManifestDescriptor(
         2, settlement_chain_id, l2_chain_id, bytes.fromhex("35" * 32),
-        bytes.fromhex("fe" * 32), bytes.fromhex("36" * 32),
+        bytes.fromhex("fe" * 32), bytes.fromhex("37" * 32),
+        bytes.fromhex("36" * 32),
         0xA004, bytes.fromhex("a4" * 32),
         0x5104, bytes.fromhex("54" * 32), destination_domain, 0xB200,
-        destination_bridge_execution, infrastructure,
+        destination_bridge_execution, destination_bridge_descriptor,
+        infrastructure,
         infrastructure_components)
     release_hash = release_manifest_hash(release_manifest)
     registration = destination_registration_commitment(
@@ -1438,8 +1492,8 @@ EXPECTED = {
     "bridge_execution_hash": "1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2",
     "destination_bridge_execution_hash": "66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d",
     "destination_infrastructure_hash": "d0933ad1f03a0ebe485c8372d9d4efa6d8ec3a1655353830bf27d5ba82a857ca",
-    "release_manifest_hash": "c471ab85901ae32270ad08f89ce49285ca8077b373d9f1adc66c5a42cd4f06d6",
-    "destination_registration_commitment": "74c48390918a5cb1c131f5a821f035aee1af7fbd37259606282701b3e52c9693",
+    "release_manifest_hash": "346912cc16cd80334d4594c8bb90d38665f867ae0b6284f30cb15dc15c2fce1c",
+    "destination_registration_commitment": "94220d3e6d03bd74d34b636b9cc9a30ba74e67778348c6ad80165a69214ab147",
     "registration_commitment_base_slot": "20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3",
     "registration_commitment_slot": "dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b",
     "registration_commitment_trie_key": "200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8",
@@ -1471,6 +1525,7 @@ if __name__ == "__main__":
             print(f'    "{key}": "{value}",')
         raise SystemExit("populate EXPECTED with the vectors above")
     assert actual == EXPECTED
+    assert keccak256(ACTIVATE_RELEASE_V2_SIGNATURE)[:4].hex() == "0e58dc58"
     payload = b"alpha" * 100
     blob = encode_blob_payload(payload)
     assert decode_blob_payload(blob) == payload
@@ -1728,14 +1783,26 @@ if __name__ == "__main__":
 
     release_manifest = ReleaseManifestDescriptor(
         2, 1, 16_788, bytes.fromhex("35" * 32),
-        bytes.fromhex("fe" * 32), bytes.fromhex("36" * 32),
+        bytes.fromhex("fe" * 32), bytes.fromhex("37" * 32),
+        bytes.fromhex("36" * 32),
         0xA004, bytes.fromhex("a4" * 32),
         0x5104, bytes.fromhex("54" * 32),
         bytes.fromhex(actual["destination_domain_id"]), 0xB200,
         bytes.fromhex(actual["destination_bridge_execution_hash"]),
+        destination_descriptor,
         infrastructure, components)
+    assert execution_profile_dependency_keys_valid((
+        "manifestSchemaVersion", "protocolVersionManager",
+        "protocolReleaseAuthority", "terminalDomainRegistrar",
+        "manifestNamespace", "destinationNamespace", "activationRules"))
+    assert not execution_profile_dependency_keys_valid((
+        "manifestSchemaVersion", "releaseManifestHash"))
+    assert not execution_profile_dependency_keys_valid((
+        "registrationCommitment", "activationRules"))
+    assert not execution_profile_dependency_keys_valid((
+        "manifestSchemaVersion", "manifestSchemaVersion"))
     release_hash = release_manifest_hash(release_manifest)
-    assert len(canonical_release_manifest(release_manifest)) == 1_144
+    assert len(canonical_release_manifest(release_manifest)) == 1_372
     assert release_hash.hex() == actual["release_manifest_hash"]
     for changed_manifest in (
         replace(release_manifest, protocol_version=3),
@@ -1771,7 +1838,24 @@ if __name__ == "__main__":
                 replace(components[0], runtime_hash=bytes.fromhex("63" * 32)),
                 *components[1:]))),
     ):
-        assert release_manifest_hash(changed_manifest) != release_hash
+        try:
+            changed_hash = release_manifest_hash(changed_manifest)
+        except AssertionError:
+            continue
+        assert changed_hash != release_hash
+    for invalid_manifest in (
+        replace(release_manifest, settlement_chain_id=UINT64_MAX + 1),
+        replace(release_manifest, destination_chain_id=UINT64_MAX + 1),
+        replace(release_manifest,
+                destination_bridge_descriptor=replace(
+                    destination_descriptor,
+                    facade_runtime_hash=bytes.fromhex("59" * 32))),
+    ):
+        try:
+            release_manifest_hash(invalid_manifest)
+            raise AssertionError("invalid manifest accepted")
+        except AssertionError as error:
+            assert str(error) != "invalid manifest accepted"
 
     registration = destination_registration_commitment(
         2, release_hash, 16_788, bytes.fromhex("36" * 32),
@@ -1834,6 +1918,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 150 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 158 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")
