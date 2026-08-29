@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.21 consensus commitments.
+"""Golden vectors for Slot-Chain v2.24 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
-registry/admission/entry/tranche trees, the depth-32 forced vector and canonical
+registry/admission/entry/tranche trees, the depth-64 forced vector and canonical
 range proof, session MMR, data chunks/manifests, dispositions, recovery ID and
 blob framing. It intentionally does not pretend that zero KZG bytes are a valid
 opening; a valid c-kzg vector remains a production conformance gate.
@@ -29,7 +29,7 @@ u256 = LOOK["u256"]
 BLS_MODULUS = int("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001", 16)
 UINT64_MAX = (1 << 64) - 1
 UINT32_MAX = (1 << 32) - 1
-FORCE_DEPTH = 32
+FORCE_DEPTH = 64
 TERMINAL_DEPTH = 64
 
 TYPE_STRING = (
@@ -58,6 +58,8 @@ D_FORCE_DESCRIPTOR_LIST = b"slot-chain-force-descriptor-list-v2"
 D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
 D_FORCE_ROOT = b"slot-chain-force-root-v2"
+D_FORCED_DESCRIPTOR_SCHEMA = b"slot-chain-force-descriptor-schema-v10"
+D_FORCED_QUEUE_CONFIG = b"slot-chain-forced-queue-config-v1"
 D_MMR_LEAF = b"slot-chain-data-leaf-v1"
 D_MMR_NODE = b"slot-chain-data-node-v1"
 D_MMR_BAG = b"slot-chain-data-bag-v1"
@@ -242,6 +244,7 @@ def execution_outputs(state_root: bytes, transactions_root: bytes,
 
 STATEMENT_KINDS = (
     "uint", "uint", "uint", "bytes", "address",
+    "uint", "bytes",
     "uint", "bytes", "bytes", "uint", "uint", "bytes", "uint", "uint",
     "bytes", "bytes", "uint", "uint", "bytes", "uint", "uint", "uint",
     "uint", "bytes", "bytes", "uint", "bytes", "uint", "bytes", "uint",
@@ -422,13 +425,13 @@ def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
 def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
     descriptor = forced_descriptor(envelope)
     assert len(descriptor) == 220
-    return keccak256(D_FORCE_USER + u32(index) + descriptor)
+    return keccak256(D_FORCE_USER + u64(index) + descriptor)
 
 
 def bridge_leaf(index: int, envelope: BridgeEnvelope) -> bytes:
     descriptor = bridge_descriptor(envelope)
     assert len(descriptor) == 533
-    return keccak256(D_FORCE_BRIDGE + u32(index) + descriptor)
+    return keccak256(D_FORCE_BRIDGE + u64(index) + descriptor)
 
 
 @dataclass(frozen=True)
@@ -522,8 +525,16 @@ class ComponentDescriptor:
 
 def component_config_hash(kind: int, config: bytes) -> bytes:
     assert 1 <= kind <= 9 and 0 < len(config) < 1 << 16
-    assert len(config) == (80, 72, 21, 73, 80, 52, 60, 21, 177)[kind - 1]
+    assert len(config) == (80, 136, 21, 73, 80, 52, 60, 21, 177)[kind - 1]
     return keccak256(D_COMPONENT_CONFIG + u8(kind) + u16(len(config)) + config)
+
+
+def forced_queue_config_hash(active_settlement_router: int) -> bytes:
+    encoded = (address20(active_settlement_router) + u8(FORCE_DEPTH)
+               + u64(UINT64_MAX) + b32(keccak256(D_FORCE_EMPTY))
+               + b32(keccak256(D_FORCED_DESCRIPTOR_SCHEMA)))
+    assert len(encoded) == 93
+    return keccak256(D_FORCED_QUEUE_CONFIG + u16(len(encoded)) + encoded)
 
 
 def destination_bridge_component_config(
@@ -738,10 +749,13 @@ def inbox_route_config_hash(inbox_apply_router: int, destination_bridge: int,
 
 def fixture_destination_components() -> tuple[ComponentDescriptor, ...]:
     """Fully derived fixture for the nine canonical component grammars."""
+    queue_config = forced_queue_config_hash(0xAD01)
     configs = (
         address20(0xD001) + address20(0xB123) + address20(0xAD01)
         + address20(0xD200),
-        address20(0xD200) + address20(0xF000) + bytes.fromhex("41" * 32),
+        address20(0xD200) + address20(0xF000)
+        + bytes.fromhex("5a" * 32) + queue_config
+        + bytes.fromhex("41" * 32),
         address20(0xAD01) + u8(64),
         address20(0x5103) + address20(0x5105)
         + bytes.fromhex("43" * 32) + u8(64),
@@ -817,7 +831,7 @@ def force_descriptor_list(start: int,
                           boundary: tuple[int, bytes] | None) -> bytes:
     rows = consumed + (() if boundary is None else (boundary,))
     payload = b"".join(
-        u32(start + offset) + u8(kind) + u16(len(descriptor)) + descriptor
+        u64(start + offset) + u8(kind) + u16(len(descriptor)) + descriptor
         for offset, (kind, descriptor) in enumerate(rows)
     )
     return keccak256(D_FORCE_DESCRIPTOR_LIST + u64(start) + u16(len(consumed))
@@ -868,11 +882,11 @@ class ForceVector:
 
 
 def append_frontier_height(old_count: int) -> int:
-    assert 0 <= old_count < UINT32_MAX
+    assert 0 <= old_count < UINT64_MAX
     for height in range(FORCE_DEPTH):
         if not (old_count >> height) & 1:
             return height
-    raise AssertionError("unreachable below UINT32_MAX")
+    raise AssertionError("unreachable below UINT64_MAX")
 
 
 def verify_force_range(count: int, start: int, revealed: tuple[bytes, ...],
@@ -1339,7 +1353,8 @@ def vectors() -> dict[str, str]:
         (0, forced_descriptor(envs[66])),
     )
     statement_values = (
-        settlement_chain_id, l2_chain_id, 2, bytes.fromhex("fe" * 32), contract, 1, base,
+        settlement_chain_id, l2_chain_id, 2, bytes.fromhex("fe" * 32), contract,
+        2, bytes.fromhex("b7" * 32), 1, base,
         candidate_hash, 1, 8_001, bytes.fromhex("88" * 32), 8_001, 8_001,
         bytes.fromhex("66" * 32), empty_terminal.root, 0, 66,
         winning, envs[66].due_at,
@@ -1459,6 +1474,7 @@ def vectors() -> dict[str, str]:
         "release_manifest_trie_key": release_manifest_trie_key(2).hex(),
         "inbox_route_config_hash": inbox_route_config_hash(
             0x5100, 0xB200, 0x5104, 0x5103, destination_domain).hex(),
+        "forced_queue_config_hash": forced_queue_config_hash(0xAD01).hex(),
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
@@ -1482,53 +1498,54 @@ def vectors() -> dict[str, str]:
 EXPECTED = {
     "typehash": "ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c",
     "domain_separator": "e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c",
-    "block_struct_hash": "51e1c13fa12530ad6a43ce5a9cb5d66d1656b4416c6ddb9734fd3a4acb5abce3",
-    "eip712_digest": "cb59aa5955c50b9b02a12d18f95ad60f9df29928fc734d34dff63f45b933316e",
+    "block_struct_hash": "36ae418ad776b952d88490d165e925060dbc4305eed9bc1f181e856401e1df79",
+    "eip712_digest": "5212e0c88f2232640299fd56e034f3af78e09d040cece90513d9ac4326abc7a8",
     "canonical_core": "20525f9b18a79b1db160ee06cd37198770e623b95aec0a597c6c76f5561c6b3f",
     "base_canonical": "19a015f3c2d65fe1dee2903d7a9afb82aa658e23d98265baad5ab278c8e35569",
     "migration_data": "a3588b50c1f4e768cb2c35a622452527ab3cb953520ef018af3ff2d2362b86a5",
-    "candidate_commitment": "6c9ea7e1f8982c06c0586605902111d1e5ff4892643d92c62b23aff2017c7c35",
-    "candidate_commitment_2": "154a2bf68205ffeaf92419b663352a12c033204f5a17a1f8793832dd572b4f1e",
+    "candidate_commitment": "8ea120d25000666f1c6d722f98f3a5fd0a1b01db8e5a6dba6439a6c564247708",
+    "candidate_commitment_2": "66773051b43c75acc62e59691a0bf8d1a87cd54e6c22513b21cd2bc90cecf21c",
     "normal_context": "bdec611a765250c0e964b4e3c95c648fec0c126a0f2c8f8fc3c13f691ede455b",
-    "winning_data": "9b7418cffd7b88f9f3d3799fb287cd47dee2e34edb1d41590dbdd12f0859a34d",
-    "forced_descriptors": "193cc93014b8472b5f951472c3b8a9d60ebfd294ff18e43c21d60af6e0853de3",
+    "winning_data": "8df2c90f60ee2b627466d8c99dea5c56de579b65d70db45a84a881517a0a363e",
+    "forced_descriptors": "ccc81a65638181195f6ebd5b5902bc3a62716d7c3e70b32cbabdd250b9ebf42f",
     "schedule_list": "7ab789362dd8b411e1bc42af1270bcb14d2a7571fc28ab614c6afcc33b7de8e7",
     "session_list": "9cbf4ca60afc8aee2ccaa68a45bb6568a04812cf282aa703f194e017092fb264",
     "execution_outputs": "585d5b4b9f931a3d89641ea4467eabaf5f87bc765a3ced91f9418c4db2b8f83a",
-    "statement_hash": "17c45efbdb95e3511eb9e96d054fb3d1a4b4dec3b7aee5c499741b44863de0b6",
+    "statement_hash": "f280bab76e6124cac6302f22c401583cb11d9139f9da496f606fd91a8c59eb05",
     "registry_root": "0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd",
     "admission_root": "3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b",
     "admission_reuse_root": "a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca",
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
-    "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "595ddfeb7dc3508201aaff8ed61c0257c15a9fbf010fe6497c3d354c1a9f7c08",
-    "bridge_result": "6ce29a650e1e109ca3f4239fd6baf0f428e7172d8d0c69e0b3416978a56b4f77",
-    "bridge_credit_id": "c3dad3057283d897e3c5d5ebd7a9d44a17452d48a8057fafe013694c2fa85e9d",
-    "bridge_escrow_id": "9b18a64e9b2288fae90dd2b3aec4540b427f437ac5e3a13f23e10e9599057c38",
-    "inbox_credit_slot": "92506eceb5d583eb0d2c8d81819806114bc6bb203c246a128138924f8d473a17",
-    "terminal_done_leaf": "a775c7a258052075774451b51ca10c7553c1b2ff1028fa888450ea385a0cd37c",
-    "terminal_failed_leaf": "bcbbd7b7d9e3ca7b935aaebd2341f7d10bc0802624e3d2019a1eb030d46fd9f7",
-    "terminal_root_2": "33d3534926e82fb7baf4aa3bffd5d39f8823f2b41ecf7d64b5f8688c14a2d6f6",
+    "forced_leaf": "c75c50d8b8573f217a20c9018a3d23d7fa5cda240f2a2e9eb4260c4af4c367e4",
+    "bridge_leaf": "66bcd88bef22eb209489e01723a439022c999e04430222e37da57e7bcf3c6719",
+    "bridge_result": "0468b541504bd7a5299df2c93abd6ada50a9554299ae6a2157e45254dc2b03c3",
+    "bridge_credit_id": "7753446844b4fdf9bdcc662b3c89573832d86d1d0174c14b805262b61dabf60d",
+    "bridge_escrow_id": "fd681753cf64169e49729e63171cf32401a9459301a6d7c951280b9a5887d0c3",
+    "inbox_credit_slot": "d772b92091893b4b01615561ca1392155158c7cb4b4d54645039979ce9a95d90",
+    "terminal_done_leaf": "b45b474d7a2edf48055525e5b55895894d7f6db1790bbbdd23861b4300652430",
+    "terminal_failed_leaf": "0593b40a7dca722217df57a593ca37b6151ddc177310ea63c0673465dbbaa27b",
+    "terminal_root_2": "8691ef54c13a85e6ab072203f2df0f7558f7ca8b040e046199211f2ff06a528d",
     "empty_terminal_root": "0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2",
     "source_domain_id": "9f207cb5f32747635be6496e957827270c0b62aa5a7d0bd39657e28c0fedf7b1",
-    "destination_domain_id": "7051b0bcdb16e6d5c6ddc9ac020f69d25ef27775faa0edea44db1f75ec50bf8d",
+    "destination_domain_id": "4b9836a28078ede4e366e4c7b948accad964921d8fe6725771900f95727c8d0c",
     "bridge_kernel_profile_hash": "371700b6908037409059b484e1eff1a1511464447af6c67ea98cc96d35443cc6",
     "bridge_execution_hash": "1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2",
     "destination_bridge_execution_hash": "66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d",
-    "destination_infrastructure_hash": "4c6f4196c3819423a8cfc8058101a1091361511fb776c83b06a2b9ff608aaef7",
-    "release_manifest_hash": "608210697d315431f6a2ad7792247925bd880886a0e31f0cc390cb4f5928583c",
-    "destination_registration_commitment": "97476c5cf0ebe4cb5976429dd00f421c16e9913043f2992cbab7a38428aba274",
+    "destination_infrastructure_hash": "c2f554dcf15eb16fecd68f0540dc72ffd8cf0f37388c045d9a256ae7aac81823",
+    "release_manifest_hash": "a372b8d37aeb477cbb4e4f9c57073e462ed3a22475a51289940bc08c6b95a5b2",
+    "destination_registration_commitment": "59dc887998a458ddb71d68855dcac32d634cd0e2b1eb6646b98837603ebc050a",
     "registration_commitment_base_slot": "20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3",
     "registration_commitment_slot": "dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b",
     "registration_commitment_trie_key": "200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8",
     "release_manifest_base_slot": "a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f",
     "release_manifest_slot": "719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8",
     "release_manifest_trie_key": "dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2",
-    "inbox_route_config_hash": "cc0abc6afb89cbb61c91f35ff69039a3ab872ac3b497925a969629699387f484",
-    "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
-    "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
-    "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
+    "inbox_route_config_hash": "e36fc74e3dd74e4f4f0da665ba9c19709ec36ff0027082ea687b6eb682ffa4a3",
+    "forced_queue_config_hash": "288d7cb2d08d4939d0db4c9630fdf109453864f6f27edccdcc720f01d4b788e5",
+    "forced_root": "a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57",
+    "empty_forced_root": "4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592",
+    "force_range_digest": "75c75611d9eaa6c05e56a1fb646cea4c9d796adfd205df5c5ff1b0b52cc93dd2",
     "session_id": "98cbb8b158cb6732a806e2fac0e50c53e88feafd5e3dade0a0ed7edeb7a5a0b1",
     "mmr_root_2": "d20459aeb2fe916a18dd584d39b2ae25075c6b6c14104d9d64a8b1d7882eb4df",
     "manifest_root": "417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f",
@@ -1537,7 +1554,7 @@ EXPECTED = {
     "empty_manifest_root": "0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6",
     "empty_session_list": "8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279",
     "dispositions": "ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93",
-    "recovery_id": "b710e3a0629fa9ba438e5661ece58060cf547a0444d8b59b266fd500a4020c3a",
+    "recovery_id": "7a2b4940a7e507e6908c38ab664d052aeb7deac145123c22cd68b3a0fe4e92b2",
     "body_root": "0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9",
     "chunk_root_0": "e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e",
 }
@@ -1563,13 +1580,13 @@ if __name__ == "__main__":
     vector = ForceVector(leaves)
     proof = vector.range_proof(2, 66)
     revealed = leaves[2:67]
-    assert len(proof) <= 129
+    assert len(proof) <= 257
     assert verify_force_range(70, 2, revealed, proof, vector.root)
     assert not verify_force_range(70, 2, revealed[1:], proof, vector.root)
     assert not verify_force_range(70, 2, (revealed[1], revealed[0], *revealed[2:]), proof, vector.root)
     assert not verify_force_range(69, 2, revealed, proof, vector.root)
     assert not verify_force_range(70, 2, revealed, proof + (bytes(32),), vector.root)
-    assert append_frontier_height(UINT32_MAX - 1) == 0
+    assert append_frontier_height(UINT64_MAX - 1) == 0
     descriptor_commitment = force_descriptor_list(
         2, tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
         (0, forced_descriptor(envs[66])))
@@ -1935,6 +1952,13 @@ if __name__ == "__main__":
     assert inbox_route_config_hash(
         0x5100, 0xB201, 0x5104, 0x5103,
         bytes.fromhex(actual["destination_domain_id"])) != route_config
+    queue_config = forced_queue_config_hash(0xAD01)
+    assert queue_config.hex() == actual["forced_queue_config_hash"]
+    assert forced_queue_config_hash(0xAD02) != queue_config
+    assert components[1].config_hash == component_config_hash(
+        2, address20(0xD200) + address20(0xF000)
+        + bytes.fromhex("5a" * 32) + queue_config
+        + bytes.fromhex("41" * 32))
 
     published = Path(__file__).with_name("tex").joinpath("main.tex").read_text()
     for key in ("bridge_leaf", "bridge_result", "bridge_credit_id",
@@ -1951,7 +1975,8 @@ if __name__ == "__main__":
                 "registration_commitment_slot",
                 "registration_commitment_trie_key",
                 "release_manifest_base_slot", "release_manifest_slot",
-                "release_manifest_trie_key", "inbox_route_config_hash"):
+                "release_manifest_trie_key", "inbox_route_config_hash",
+                "forced_queue_config_hash"):
         assert actual[key] in published
 
     sid = bytes.fromhex(actual["session_id"])
@@ -1960,6 +1985,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 160 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 161 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

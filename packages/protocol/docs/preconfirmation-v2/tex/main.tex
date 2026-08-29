@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.23}
+\large\mdseries Audited Design Candidate --- v2.24}
 \author{}
 \date{August 2026}
 \maketitle
@@ -649,6 +649,7 @@ constructs the following Solidity struct in exactly this order and computes
 \begin{verbatim}
 S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
      bytes32 executionProfileHash, address verifyingContract,
+     uint64 releaseProtocolVersion, bytes32 releaseManifestHash,
      uint8 tier, bytes32 baseCanonicalHash,
      bytes32 candidateCommitment, uint64 blockCount,
      uint64 firstSlot, bytes32 tipHash, uint64 tipSlot,
@@ -697,8 +698,16 @@ described in \S\ref{sec:machine}.  After every commit and on every activation
 check, the sole authoritative live head value is
 \code{ForcedQueue.dueAt(canonical.messageCursor)}; no recovery-round or
 canonical-core scalar caches it.
-\code{proofBeneficiary} is a proof input, never builder-signed block data or
-coinbase.  Copying proof bytes cannot redirect a later optional reward.
+While the router has a pending release, Settlement requires
+\code{releaseProtocolVersion=protocolVersion} and
+\code{releaseManifestHash} equal the exact pending word; otherwise both fields
+must be zero.  The circuit uses the nonzero pair to require the first block's
+activation Anchor call and the exact manifest, and requires the latch already
+active in every later block of that candidate.  The pair is cleared only by the
+same successful canonical commit that advances queue and history state.
+\code{proofBeneficiary} is a nonzero proof input, never builder-signed block
+data or coinbase.  It receives the consumed queue-fee interval and any separate
+proof reward; copying proof bytes cannot redirect either payment.
 
 \subsection{Preconfirmation semantics}
 
@@ -1001,7 +1010,8 @@ and fee while recording both \code{escrowLiability[creditId]} and aggregate
 \code{totalLiveLiability}.  Every V1/V2 ETH outflow and governance sweep must
 leave \code{address(this).balance>=totalLiveLiability}; a bookkeeping entry
 without this solvency check is invalid.  The destination adapter separately
-escrows only its caller-funded queue deposit.  Its
+temporarily retains its caller-funded processing fee only across the sync
+decision; a successful append forwards it entirely to ForcedQueue.  Its
 only forced effect is an idempotent inbox/signal credit keyed by the immutable
 identifier
 \begin{verbatim}
@@ -1241,18 +1251,23 @@ value path.  A different destination uses a distinct adapter/domain; an old
 adapter remains executable for its existing records.
 
 The adapter is the exactly-once machine \code{NONE -> QUEUED(index)}, keyed by
-\code{creditId}.  Any caller supplies the separate queue deposit and the full
-message preimage.  In one transaction the adapter derives both domains and the
-ID, direct-reads the immutable record and live source liability, validates all
-fixed bounds including \code{block.timestamp<=enqueueBy}, and calls
-\code{ActiveSettlementRouter}.  If router \code{sync()}
-changes mode, that transition must persist: the adapter records no credit or
-queue leaf, credits the caller's entire \code{msg.value} to a pull-refund
-ledger and returns \code{SYNCED}.  The caller retries in a later transaction.
-Otherwise the router checks \code{queueCount<UINT32_MAX},
-appends at the current count, timestamps the deadline, the source Bridge changes
-NEW to QUEUED at that exact index, and the adapter records the returned index,
-all atomically.  No reservation, source proof, PENDING state or
+\code{creditId}.  Any caller supplies the separate queue processing fee and the
+full message preimage.  The payable adapter initially retains \code{msg.value},
+derives both domains and the ID, direct-reads the immutable record and live
+source liability, and validates all fixed bounds including
+\code{block.timestamp<=enqueueBy}.  It first calls the router's nonpayable
+\code{syncIngress()} as a registered immutable adapter.  If that call changes
+mode, the adapter records no credit or queue leaf, adds the still-local full
+value to \code{claimable[msg.sender]}, and returns \code{SYNCED}; a CEI pull
+withdrawal is callable independently of protocol mode and the caller retries
+in a later transaction.  If unchanged, the same adapter immediately calls the
+router's payable \code{appendFromAdapter\{value:msg.value\}}.  The router again
+checks the registered caller and ACTIVE phase, runs bounded \code{sync()}, and
+forwards all value with the exact descriptor to the queue.  A successful router
+retains zero wei.  The queue checks \code{queueCount<UINT64_MAX}, appends at the
+current count and timestamps the deadline; then the source Bridge changes NEW
+to QUEUED at that exact index and the adapter records the returned index, all in
+the same revert domain.  No reservation, source proof, PENDING state or
 finalization call exists.  A repeated zero-value query returns the stored index;
 a duplicate with funds reverts.  The source event alone never means queued.
 
@@ -1268,17 +1283,26 @@ permanent calldata/state costs.  The adapter verifies kind-1 escrow and all
 static bounds before calling the router; failure leaves neither deposit, queue
 leaf nor partial credit.
 
-Only \code{ActiveSettlementRouter} may append.  It calls the active
-Settlement's \code{sync()} under a non-reentrant guard and reports \code{SYNCED}
-without appending if any transition occurred.  Its adapter caller preserves
-that transition, creates no admission record and makes the entire supplied
-deposit immediately withdrawable by the original caller.  Otherwise it computes
+Only \code{ActiveSettlementRouter} may append, and it accepts these two entry
+points only from an \code{authorizedIngress[caller]} entry.  That mapping is
+append-only: ProtocolVersionManager may add an adapter only while atomically
+activating a delayed manifest, after direct runtime/config checks against the
+profile-named kind-0 adapter or row-1 BridgeInboxAdapter; there is no public
+setter, delete or redirect.  Every adapter fixes this router and queue in
+constructor/configuration, and old adapters remain usable.  The router calls the
+active Settlement's \code{sync()} under a non-reentrant guard and reports
+\code{SYNCED} without accepting value if any transition occurred.  Its adapter
+caller preserves that transition, creates no admission record and keeps the
+entire fee locally claimable by the original caller.  Otherwise it computes
 \code{enqueuedAt=block.timestamp} and
 \code{dueAt=max(enqueuedAt+FORCE_DELAY,lastDueAt,recoveryExpiry+1)} (the last
 term is zero outside recovery), and appends atomically.  Neither a sync-result Boolean, enqueue timestamp
 nor due time is accepted in router calldata; the router rechecks the shared gate
-is ACTIVE after \code{sync()} and before any retained deposit or external queue
-write.  \code{ForcedQueue} stores one authoritative \code{QueueDescriptor} per
+is ACTIVE after \code{sync()} and before forwarding the exact value to the
+queue.  Router, queue and adapter are non-reentrant, and failure of any later
+append/Bridge/adapter write reverts the value transfer and all state.  No public
+caller can invoke the forwarding path.  \code{ForcedQueue} stores one
+authoritative \code{QueueDescriptor} per
 index.  It is the complete fixed-width
 kind-0 or kind-1 leaf preimage in Appendix~\ref{sec:encodings}, excluding only
 kind-0 \code{rawTx} bytes themselves but including their hash.  Thus sender,
@@ -1286,7 +1310,11 @@ nonce, chain IDs, byte/gas fields, fee, validity, refund address, enqueue/due
 times, deposit and every bridge-credit field remain durable.  The Merkle leaf
 is always recomputed from this stored descriptor; admission atomically writes
 the descriptor, deposit/escrow accounting, append frontier and root or writes
-nothing.  \code{ForcedQueue} is also the sole owner of \code{cursor}; neither
+nothing.  The fee is deliberately nonrefundable after append: it buys FIFO
+storage, proving and processing even when an expired or invalid kind-0 item has
+no Ethereum transaction.  The queue stores
+\code{depositPrefix[i+1]=depositPrefix[i]+deposit[i]} with checked addition.
+It is also the sole owner of \code{cursor}; neither
 Settlement, Protocol nor either ingress adapter has a second descriptor array,
 root, count, cursor or due-time cache.  Settlement reads the queue's
 \code{dueAt} directly for the canonical head and
@@ -1295,27 +1323,40 @@ duplicated scalar.  Missing indices return \code{UINT64_MAX}.  Thus \code{dueAt}
 is nondecreasing and force-due/coverage checks are one authoritative O(1) read.
 The queue exposes exactly two cursor-authority transitions:
 \begin{verbatim}
-advanceCursor(uint32 expectedStart, uint32 end)       // active Settlement only
+advanceCursor(uint64 expectedStart, uint64 end,
+              address proofBeneficiary)               // active Settlement only
 setActiveSettlement(address expectedOld, address new) // router only
 \end{verbatim}
 \code{advanceCursor} requires \code{cursor=expectedStart<=end<=count} and
-writes only \code{cursor}.  \code{setActiveSettlement} requires the stored old
-address and is called only inside bootstrap or an atomic version switch.  The
+writes the cursor and, in O(1), moves
+\code{depositPrefix[end]-depositPrefix[expectedStart]} from unconsumed escrow
+to \code{claimable[proofBeneficiary]}.  The beneficiary is the exact nonzero
+public input authenticated by the accepted proof; it is not chosen by the
+queue caller.  The queue remains the ETH custodian, enforces
+\code{balance=unconsumedEscrow+totalClaimable}; every claim-ledger mutation
+updates \code{totalClaimable} by the same checked amount, so no global sum or
+scan is performed.  It exposes an unpausable CEI pull withdrawal.  There is no
+per-item callback and no ``unused'' refund.
+\code{setActiveSettlement} requires the stored old address and is called only
+inside bootstrap or an atomic version switch.  The
 ingress router never advances consumption, and a frozen Settlement cannot do so.
 
-The queue is a depth-32 append-only Merkle vector with fixed capacity
-\code{UINT32_MAX} items,
-stored root, count and 32-node append frontier.  Admission rejects at capacity;
-an upgrade must occur before exhaustion, but already admitted items remain
-live.  A canonical DFS range multiproof authenticates the consumed leaves and,
+The queue is a protocol-lifetime, depth-64 append-only Merkle vector with fixed
+capacity \code{UINT64_MAX} items: the final leaf is deliberately unused.
+It stores root, \code{uint64} count/cursor, cumulative deposit prefix and a
+64-node append frontier.  Admission rejects only when
+\code{count=UINT64_MAX}; no version migration rotates or resizes the queue.
+A canonical DFS range multiproof authenticates the consumed leaves and,
 when present, the first excluded boundary leaf under the frozen
 \code{(forceRoot,forceCutoff)}.  It supplies no fully covered subtree and no
-unused hash; at most 129 sibling hashes authenticate a 65-leaf block range.
+unused hash; at most 257 sibling hashes authenticate a 65-leaf block range.
 Skipping, reordering, changing the start index or claiming an early boundary
 changes the reconstructed root.  Kind-0 raw bytes are enqueue calldata and
 their hash is in the leaf; blobs are forbidden on this availability path.
-The deliberately unused final tree leaf avoids a nonexistent height-32
-frontier slot when the old index has all 32 bits set.
+The deliberately unused final tree leaf avoids a nonexistent height-64
+frontier slot when the old index has all 64 bits set.  At one billion appends
+per second the usable space lasts more than five centuries, so exhaustion is
+outside any credible Ethereum lifetime while remaining an explicit hard stop.
 
 Each proved block consumes the unique maximum FIFO prefix satisfying all three
 bounds simultaneously.  \code{forceGasBudget} is 13,000,000 exactly for the
@@ -1343,14 +1384,14 @@ consumed descriptor.  It computes
 \begin{verbatim}
 H("slot-chain-force-descriptor-list-v2" || u64(start) ||
   u16(consumedCount) || u8(hasBoundary) ||
-  (u32(index)||u8(kind)||u16(descriptorByteLength)||descriptorBytes)*)
+  (u64(index)||u8(kind)||u16(descriptorByteLength)||descriptorBytes)*)
 \end{verbatim}
 as \code{forcedDescriptorCommitment}.  The number of rows is the consumed count
 plus the zero-or-one boundary and is at most 257.  \code{descriptorBytes} is the exact
 kind-specific packed sequence used by the leaf after its ASCII domain and
 index; its length is the unique constant for that kind.  The circuit
 reconstructs every leaf, range proof, per-block maximum, candidate total and
-refund from these L1-authenticated descriptors.  It additionally requires raw
+processing-fee transfer from these L1-authenticated descriptors.  It additionally requires raw
 bytes for an unexpired kind 0 and the durable credit record for kind 1.  An
 expired kind 0 needs neither historical calldata nor any unstored preimage.
 
@@ -1367,8 +1408,11 @@ Kind 1 always produces its idempotent inbox credit inside \code{InboxApplyRouter
 never calls the eventual destination.  The system calldata commits
 \code{(forceStart,forceEnd,(queueIndex,disposition,txIndex,resultHash)*)}; the
 circuit derives the transaction and receipt roots from this exact order.
-Unused deposit is later credited to \code{refundAddress}; failure there cannot
-change consumption.
+The full consumed fee interval is pull-credited to the proof beneficiary by the
+same L1 canonical commit.  \code{refundAddress} remains part of the signed
+kind-0 descriptor for transaction-level compatibility but creates no queue-fee
+entitlement in this version; changing consumption or payment requires changing
+the descriptor and proof statement.
 
 Disposition bytes are fixed: \code{0=EXPIRED_NO_TX},
 \code{1=NONCE_NO_TX}, \code{2=FUNDS_NO_TX},
@@ -1523,7 +1567,7 @@ sendMessageFromVaultV2(Message) -> (bytes32 msgHash, Message)
 messageContextV2(bytes32 msgHash)
   -> (bytes32 creditId, SourceContextV2, DestinationContextV2)
 finalizeRefundCapsuleV2(bytes32 creditId, bytes32 capsuleHash)
-markQueuedV2(bytes32 creditId, uint32 queueIndex)
+markQueuedV2(bytes32 creditId, uint64 queueIndex)
 cancelUnqueuedMessageV2(bytes32 creditId)
 finalizeDoneV2(bytes32 creditId, bytes proof)
 processMessageV2(Message, SourceContextV2, DestinationContextV2)
@@ -1547,7 +1591,7 @@ TerminalSignalVerifier.verifyTerminalSignal(
 \begin{verbatim}
 (uint64 protocolVersion, bytes32 executionProfileHash,
  uint64 canonicalSequence, uint48 l2BlockNumber, bytes32 blockHash,
- uint64 tipSlot, bytes32 stateRoot, uint32 messageCursor,
+ uint64 tipSlot, bytes32 stateRoot, uint64 messageCursor,
  bytes32 winningDataCommitment, uint256 nextBaseFee,
  uint64 nextExcessBlobGas, bytes32 terminalRoot,
  uint64 terminalCount, uint64 canonicalizedAtBlock)
@@ -1830,12 +1874,16 @@ block's \code{messageStart} and its post-state value to equal
 L2 pre-state cursor equals the same start.  The final proved L2 post-state cursor
 and new \code{CanonicalCore.messageCursor} both equal the candidate end.  After
 proof verification and before its history write, the active Settlement calls
-\code{ForcedQueue.advanceCursor(start,end)}.  A failed call reverts the entire
+\code{ForcedQueue.advanceCursor(start,end,proofBeneficiary)}.  That call moves
+the exact cumulative processing-fee interval to the beneficiary's pull claim.
+A failed call reverts the entire
 canonical commit.  L1 never writes the L2 router; the end value is authenticated
-L2 poststate adopted by the proof.  Bootstrap and every migration generation
-instead occur at a canonical boundary and require the current three base values
-equal before importing state.  No activation transaction may repair, overwrite
-or select among divergent cursors.
+L2 poststate adopted by the proof.  Launch bootstrap proves all three base
+values equal in the imported L2 state.  A later migration occurs only at a
+canonical boundary, checks the two L1 values directly, and inherits L2 equality
+inductively from the last accepted proof; the target profile must preserve that
+same cursor slot and transition.  No activation transaction may repair,
+overwrite or select among divergent cursors.
 
 The vector root is
 \begin{verbatim}
@@ -1852,12 +1900,16 @@ append-only mapping from protocol version to exact Settlement address,
 \code{EXTCODEHASH} and execution-profile hash.  Historical entries cannot be
 deleted, redirected or reactivated.  Its only switch is:
 \begin{verbatim}
-activateVersion(protocolVersion, executionProfileHash,
-                settlement, importProof)
+activateVersion(protocolVersion, executionProfileHash, settlement)
 \end{verbatim}
 It is callable by the delayed ProtocolVersionManager while activating that exact
 manifest.  It requires a strictly increasing version, approved Settlement
-runtime/profile and one atomic migration-coordinator transaction.  That
+runtime/profile and one atomic migration-coordinator transaction.  Launch MPT
+import-proof verification belongs to the audited migration adapter and is not
+an opaque argument to this switch.  A later switch relies on induction from the
+last validity proof and checks on L1 that the old
+\code{CanonicalCore.messageCursor=ForcedQueue.cursor}; it does not pretend to
+read the live L2 Inbox cursor.  That
 transaction irreversibly freezes the old Settlement, reads its exact full
 \code{Canonical}, canonical sequence and \code{lastCanonicalCommitBlock}, and
 requires the new empty PREACTIVE Settlement to import every \code{CanonicalCore}
@@ -1865,18 +1917,23 @@ field and \code{canonicalizedAtBlock} without narrowing.  Both versions use the
 same protocol-lifetime ForcedQueue address; the coordinator checks its exact
 root, count, frontier, cursor, escrow balance and \code{lastDueAt}, rather than
 copying scalars into a replacement queue.  It also derives that no normal best,
-recovery episode, live data session, unclaimed reward receipt, builder escrow or
-other transient reservation remains, or completes its exact refund/claim path
+recovery episode, live data session or other transient preparation remains.
+Mature reward/refund/capsule/queue claims are permanent claim-only state and do
+not gate cutover.  Any live preparation completes its exact cancellation path
 before freezing.  The new Settlement writes the imported full core at the same
 sequence in its own version-namespaced ring, sets
-\code{lastHistoryWriteBlock=block.number}, and only then becomes ACTIVE.  Its
-first later canonical commit requires a strictly greater L1 block.  Failure of
+\code{lastHistoryWriteBlock=block.number}, and only then becomes ACTIVE.  The
+router simultaneously installs the exact pending
+\code{(protocolVersion,releaseManifestHash)}; no new migration may arm while
+that pair is pending.  Its first later canonical commit requires a strictly
+greater L1 block and must prove the release-activation transition.  Failure of
 any step reverts the freeze, import and switch together.
 
-The router's stable \code{syncAndAppend} forced-ingress facade remains available
-to every old immutable BridgeInboxAdapter.  It resolves the active version,
-calls that Settlement's bounded \code{sync()}, preserves a SYNCED transition
-without appending, and otherwise appends only to the singleton ForcedQueue.  No
+The router's stable \code{syncIngress}/\code{appendFromAdapter} forced-ingress
+facade remains available to every registered old immutable BridgeInboxAdapter.
+It resolves the active version, calls that Settlement's bounded \code{sync()},
+preserves a SYNCED transition without accepting value, and otherwise forwards
+the exact value and descriptor only to the singleton ForcedQueue.  No
 Settlement calls the ingress/version router while committing canonical state;
 it calls only the queue's non-callback \code{advanceCursor}.  Router
 \code{canonicalAt(protocolVersion,canonicalSequence)} performs a bounded
@@ -1992,8 +2049,13 @@ system envelope is exactly
 0x7f || rlp([chainId, systemKind, systemNonce, gasLimit, to, value, data])
 \end{verbatim}
 with minimal RLP integers, a 20-byte \code{to}, zero value, no signature fields
-and \code{systemNonce=block.number-activationBlock} independently for each
-kind.  Kind 0 is Anchor at transaction index 0 and kind 1 is InboxApply at index
+and
+\code{systemNonce=block.number-firstV2BlockNumber} independently for each kind.
+\code{firstV2BlockNumber} is the protocol-lifetime value
+\code{launchImportedCanonical.l2BlockNumber+1}; launch installs it in the
+cutover commitment and execution profile, every later profile must reproduce
+it exactly, and checked subtraction rejects a pre-cutover block.  Kind 0 is
+Anchor at transaction index 0 and kind 1 is InboxApply at index
 1; the fork injects their distinct reserved senders.  Ordinary accounts cannot
 submit type \code{0x7f}.  System gas counts against the block limit, but the
 envelope has zero tip and is exempt from account balance/base-fee charging.  Its
@@ -2035,7 +2097,8 @@ The steady kind-0 call has gas limit 1,000,000, selector
 (uint48(anchorNumber), anchorHash, anchorStateRoot)
 \end{verbatim}
 from the candidate's
-one batch anchor.  The first activation kind-0 call has gas limit 12,000,000 and
+one batch anchor.  The first pending-release activation kind-0 call has gas
+limit 12,000,000 and
 the activation selector/calldata defined above.  Its kind-1 forced budget is
 13,000,000 and that block permits no discretionary gas.  Kind 1 always targets
 the protocol-lifetime InboxApplyRouterV2, has gas limit 5,000,000, selector
@@ -2176,10 +2239,10 @@ meaningful entry barrier.  The product must distinguish these two claims.
 \subsection{L1 modules and bounded storage}
 
 \begin{itemize}
-\item \code{BuilderRegistry}: 64 active cells, 1,072 liability generations,
+\item \code{BuilderRegistry}: protocol-lifetime non-proxy, with 64 active cells, 1,072 liability generations,
 512-leaf tranche roots, tombstones, replacement counters and the versioned
 \code{admissionRoot}.  Every transition is fixed-depth or constant-size.
-\item \code{ScheduleOracle}: sealed window root/seed in a ring covering
+\item \code{ScheduleOracle}: protocol-lifetime non-proxy sealed window root/seed in a ring covering
 \code{MAX_LIVE_WINDOWS=268}.  \code{MAX_EARLY_SEAL_WINDOWS=8} covers the
 earliest snapshot geometry.  In window units the capacity is at least:
 \begin{verbatim}
@@ -2193,11 +2256,12 @@ checks the release predicate and no stored normal best/round reference.
 owner, each with owner/nonce ID, 2,100-leaf MMR frontier, sealed root/count and
 expiry; no on-chain leaf array.  Expired eviction advances at most eight cells
 per call.
-\item \code{ForcedQueue}: depth-32 append-only Merkle root/count/frontier,
-last due time, complete fixed-width per-index descriptors and deposits; an
-expired kind-0 descriptor reconstructs its leaf, prefix accounting and refund
-without historical calldata, while kind-1 credits remain durable.  Only the
-router appends.
+\item \code{ForcedQueue}: protocol-lifetime immutable non-proxy depth-64
+append-only Merkle root/count/frontier, last due time, complete fixed-width
+per-index descriptors, deposit prefix, unconsumed escrow and pull claims.  An
+expired kind-0 descriptor reconstructs its leaf and prefix accounting without
+historical calldata, while kind-1 credits remain durable.  Only the router
+appends and only the active Settlement advances the cursor/payment interval.
 \item \code{BridgeDomainRegistry}: non-proxy append-only source,
 destination and frozen-endpoint-support mappings.  Only bounded entries from the
   manifest being atomically activated by ProtocolVersionManager may be added,
@@ -2205,10 +2269,11 @@ destination and frozen-endpoint-support mappings.  Only bounded entries from the
   of the exact registrar record;
 there is no delete, redirect or age-proportional iteration.
 \item \code{BridgeInboxAdapter}: exactly-once NONE/QUEUED records and
-caller-funded queue deposits.  It direct-reads same-L1 CreditRecord and Bridge
+caller-funded queue processing fees.  It direct-reads same-L1 CreditRecord and Bridge
 liability state, rejects while PREACTIVE and, after router SYNCED, commits that
-transition, creates no record and pull-credits the full caller deposit before a
-nonreverting return.  A successful append atomically marks the permanent source
+transition, creates no record and pull-credits the still-local full caller fee
+before a nonreverting return.  A successful append forwards the whole fee to
+ForcedQueue and atomically marks the permanent source
   record QUEUED.  It is non-proxy and immutable; its runtime and constructor-fixed
   registry, Bridge, router and version manager plus its one-shot sealed
   destination-domain slot are profile/domain-bound, with no
@@ -2253,8 +2318,9 @@ cannot veto migration by continuously creating a best or recovery round.
 Rewards and burn disposal remain separate; no loop is proportional to chain age.
 \item \code{ActiveSettlementRouter}: non-proxy, no generic target setter.  Its
   append-only version registry permanently binds Settlement address/code/profile;
-  activation imports the exact full core, same ForcedQueue and migration-ready
-  state.  Its stable sync/append facade preserves old adapters, while
+  activation imports the exact full core, same ForcedQueue/registry/schedule
+  objects and migration-ready state, and installs an exact pending release pair.
+  Its stable two-call sync/append facade preserves old adapters, while
   \code{canonicalAt(version,sequence)} only reads exact historical cells.
 \item Terminal verifier: immutable, read-only and unpausable; it checks one
 fixed 64-sibling vector proof against an exact router-routed version and
@@ -2313,13 +2379,16 @@ otherwise decoding rejects rather than attempting a hash fixed point.
 
 \begin{itemize}
 \item settlement/L2 chain IDs, both genesis hashes, fork digest, EIP-2935
-  address and activation block; domain-registry and version-manager
-  addresses and runtime hashes; every append-only source, destination and
+  address and protocol-lifetime \code{firstV2BlockNumber}; BuilderRegistry,
+  ScheduleOracle, domain-registry and version-manager addresses, runtime hashes
+  and exact immutable/configuration commitments; every append-only source, destination and
   support descriptor and manifest schema/validation binding; each nonzero domain namespace,
   frozen Bridge/vault facade and credit-registry runtime, implementation slot,
   destination Bridge topology/config, the launch Bridge's direct slot
   constraints and the ban on later fresh proxies,
-  terminal verifier, immutable settlement router, Bridge inbox adapter,
+  terminal verifier, immutable settlement router, its append-only ingress
+  authorization rules, immutable ForcedQueue runtime and exact configuration
+  hash, the kind-0 ingress adapter and Bridge inbox adapter,
   InboxApply router, InboxCredit Store, release authority, terminal registrar
   and accumulator runtime plus every
   constructor immutable, infrastructure hash, ABI,
@@ -2494,6 +2563,7 @@ nextExcessBlobGas   = profile.nextExcessBlobGas(header)
 terminalRoot        = authenticatedAccumulator.root
 terminalCount       = authenticatedAccumulator.count
 canonicalizedAtBlock = block.number
+firstV2BlockNumber    = header.number + 1
 \end{verbatim}
 It rejects a pre-genesis timestamp, arithmetic overflow, missing fork-required
 header fields or any profile mismatch.  It freezes old proposal/forced ingress,
@@ -2503,14 +2573,17 @@ BridgeInboxAdapter with no \code{QUEUED} record or deposit, invokes the router's
 sole \code{activateVersion} transition to authenticate the singleton queue and
 atomically register the new Settlement, writes the imported full core into that
 Settlement's sequence-zero history cell, changes PREACTIVE to ACTIVE, and
-stores the L1 activation commitment consumed by the first new
+stores the protocol-lifetime \code{firstV2BlockNumber} and exact pending
+\code{(protocolVersion,releaseManifestHash)} consumed by the first new
 AnchorV4 transaction.  It does not write L2 code or storage.  L1 kind-1 ingress is enabled only
 after the authenticated L2 code/authorization proofs and router-history
 authorization have all succeeded.  That same atomic cutover enables kind-0
 ingress, but both V2 send selectors and kind-1 ingress remain disabled.  The old
 \code{sendMessage} selector and all L2-to-L1 sends retain exact V1 signals and
 events for every caller.
-The first post-cutover L2 block must begin with the custom AnchorV4 transaction.
+At launch and after every later version cutover, the first canonical L2 block
+from the imported state must begin with the custom AnchorV4 activation
+transaction for the router's exact pending release pair.
 The circuit authenticates the L1 cutover commitment, exact imported parent and
 execution-profile hash.  Its top-level sender is the reserved Anchor-system
 sender.  AnchorV4 first calls
@@ -2525,9 +2598,11 @@ under the legacy fork and its reserved sender has no ordinary signing key, so
 neither a legacy block nor an EOA can preactivate the latch.  Any first block
 that omits, duplicates, calls authority directly or through Bridge, substitutes
 an Anchor, or mismatches this transition is unprovable.  All calls occur in one
-EVM transaction, so any failure rolls release and registration back together.  Subsequent
-blocks require the latch already true and cannot repeat activation.  After that
-block becomes canonical and final, anyone submits its version/sequence and
+EVM transaction, so any failure rolls release and registration back together.
+Subsequent blocks in that candidate require the latch already true and cannot
+repeat activation.  The L1 canonical commit clears the pending pair only after
+this proved transition, queue payment/cursor advance and history write all
+succeed.  After that block becomes canonical and final, anyone submits its version/sequence and
 bounded \code{MptProofV1} registrar proof to BridgeDomainRegistry.  Only that confirmation plus 214 L1
 blocks enables \code{sendMessageV2}, \code{sendMessageFromVaultV2} and kind-1
 ingress for the exact tuple.  Thus no source credit can target an unregistered
@@ -2540,13 +2615,14 @@ gate word owned by the non-proxy \code{ActiveSettlementRouter}, not a
 caller-supplied quiescence Boolean or replaceable contract.  Its exact state is
 \begin{verbatim}
 (uint64 generation, uint64 activeProtocolVersion,
- uint64 targetProtocolVersion, bytes32 targetManifestHash, uint8 phase)
+ uint64 targetProtocolVersion, bytes32 targetManifestHash, uint8 phase,
+ uint64 pendingReleaseProtocolVersion, bytes32 pendingReleaseManifestHash)
 \end{verbatim}
 where phase is
 ACTIVE, ARMED or READY.  Only ProtocolVersionManager may arm
 \code{generation=current+1} for the exact current version, greater target
-version and active delayed manifest; stale, skipped, public or mismatched calls
-reject atomically.  Settlement,
+version and active delayed manifest, and only while both pending-release fields
+are zero; stale, skipped, public or mismatched calls reject atomically.  Settlement,
 registry, data-session, reward/preparation and both forced-ingress adapters all
 read that same router-owned word.  Arming atomically closes new
 normal contexts/candidates, sessions, data posts, builder reservations and
@@ -2562,65 +2638,71 @@ cancels it.  A current recovery proof may commit until that round's existing
 \code{expiresAt}; after expiry \code{sync()} cancels the round and is forbidden
 to increment its revision or open another episode.  If neither is open, arm
 clears a merely armed normal context immediately.  At and after that boundary,
-two authenticated cursors handle at most eight rows each per call.  The session
-cursor refunds/deletes live data sessions.  The builder cursor never refunds or
-deletes slash backing: it converts each gate-counted \code{RESERVED} tranche to
-claim-only \code{LIABLE}, preserving its generation/window key, bond and evidence
-deadline, then decrements the gate counter.  During ordinary operation an expired
-\code{RESERVED} row performs the same conversion before leaving the gate counter;
-it is released only by the ordinary evidence-safe transition.  The window
-transition processes all expired rows before admitting a new reservation, and a
-generation cannot reserve a window whose old tranche is still LIABLE.  The
-permanent \code{reservationsClosed} bit is used only for
-exit/replacement, never for the reversible migration veto.  Thus at arm the
-counter contains only the 17 current/future windows of the 64 active seats.  On
-replacement or effective exit, every still-live RESERVED row is atomically
-converted to a claim-only LIABLE tranche under the displaced generation's
-retained root, removed from the refundable-reservation ledger, and decremented
-from the gate counter.  It remains slashable/releasable by the ordinary evidence
-deadline but cannot veto migration.  Thus the exact gate-counted live maximum is
-$64\times17=1,088$ reservations.  With at most 1,024 sessions, the two
-eight-item cursors reach zero after at most 136 permissionless cleanup calls.
-READY is derived solely from zero counters,
-no normal boundary and no recovery; no calldata supplies those facts.
-The process preserves
-slash/evidence tranches in the protocol-lifetime registry, and leaves matured
+one authenticated cursor refunds/deletes at most eight live data sessions per
+call, so the 1,024-cell ring reaches zero after at most 128 permissionless
+cleanup calls.  BuilderRegistry, ScheduleOracle, generation records, tranche
+rings and reservations are protocol-lifetime objects shared by identity across
+every Settlement.  Existing \code{RESERVED} tranches remain byte-for-byte
+\code{RESERVED}; migration never counts, scans, refunds, converts or releases
+them.  Arming only closes creation of new reservations until ACTIVE returns.
+Ordinary expiry, replacement, exit, slashing and evidence-safe
+\code{RESERVED -> LIABLE -> RELEASED} transitions continue under their existing
+rules and are not migration cleanup.  This keeps all already-funded
+current/future schedules usable after cutover and prevents a version change
+from manufacturing either a refund or a liability.  READY is derived solely
+from zero live-session count, no normal boundary and no recovery; no calldata
+supplies those facts.  The process preserves all schedule and slash/evidence
+state and leaves matured
 reward/capsule/refund claims callable on permanent claim-only surfaces.  It then
 enters MIGRATION\_READY before another \code{sync()} decision.  A due queue head
-is not drained or discarded; old adapters receive SYNCED with their caller
-deposit refunded during READY and retry after activation.
+is not drained or discarded; old adapters receive SYNCED while their caller fee
+remains in the adapter pull-claim ledger and retry after activation.
 
 One ProtocolVersionManager-authorized router transaction then freezes the old
 immutable Settlement, reads its exact full live Canonical, sequence,
 history-write block and MIGRATION\_READY state, and requires the old and new
 Settlement to reference by object identity the router's one protocol-lifetime,
-mutable ForcedQueue and the router-owned migration gate.  The queue itself owns
-root/count/frontier/cursor/escrow/lastDueAt and appends at its live count; no
+immutable non-proxy ForcedQueue, BuilderRegistry, ScheduleOracle and the
+router-owned migration gate.  The Queue has no delegatecall, selfdestruct,
+arbitrary setter or upgrade surface.  The manager directly checks its exact
+runtime hash and Appendix-defined configuration hash at launch and every
+version switch.  The queue itself owns
+root/count/frontier/cursor/deposit-prefix/escrow/claims/lastDueAt and appends at
+its live count; no
 parallel ingress list or caller-built queue snapshot exists.  The transaction
 imports the exact post-boundary Canonical only after requiring
-\code{CanonicalCore.messageCursor = ForcedQueue.cursor =
-InboxApplyRouterV2.nextQueueIndex}; it imports no independently selectable cursor
+\code{CanonicalCore.messageCursor = ForcedQueue.cursor}.  Launch separately
+proved the imported L2 Inbox cursor equal; every accepted proof thereafter
+preserves that equality inductively.  The migration transaction neither reads
+nor fabricates an L2 cursor.  It imports no independently selectable cursor
 without narrowing into an empty PREACTIVE immutable Settlement, writes the
 imported version-namespaced history cell, registers its code/profile, and makes
 it ACTIVE.  In the same revert domain the router calls
 \code{ForcedQueue.setActiveSettlement(old,new)}; the queue requires its stored
 authority to be exactly old, so the frozen Settlement loses cursor authority and
 the new one gains it without a public setter race.  It then updates
-\code{activeProtocolVersion}, and as its final
-trusted internal write performs READY-to-ACTIVE for the same generation, clears
-the target fields and makes no caller-controlled external call afterward.  Any
+\code{activeProtocolVersion}, installs the exact pending
+\code{(targetProtocolVersion,targetManifestHash)} release pair, and as its final
+trusted internal write performs READY-to-ACTIVE for the same generation and
+clears only the cutover target fields.  Another migration cannot arm until that
+pending release is cleared by a canonical activation commit.  It makes no
+caller-controlled external call afterward.  Any
 failure reverts the freeze, import, router switch and gate transition.  The new Settlement's
 manifest must reproduce the protocol-lifetime kind-0 v2/kind-1 v10 decoder,
 global InboxApply row ABI and disposition transitions for every preserved queue
 entry; an incompatible decoder cannot activate.  Existing kind-1 descriptors
 remain complete on L1, and an unavailable kind-0 preimage retains its original
 bounded expiry/discard path.
-The new Settlement's
-first history write requires a later L1 block, and its first \code{sync()}
-immediately opens recovery if the preserved head is due.  Continuous builder
+The new Settlement's first later history write requires a later L1 block and
+the first candidate from the imported state must carry the exact pending
+release pair and execute its activation Anchor before InboxApply.  A successful
+commit clears the pair atomically; a revert or rejected proof leaves it pending.
+Its first \code{sync()} immediately opens recovery if the preserved head is due.
+Continuous builder
 submissions or a recovery backlog therefore cannot veto an armed upgrade.
-Non-exited incumbent builder generations can reserve immediately after that
-ACTIVE transition; exited/tombstoned generations remain closed.
+Existing incumbent reservations never closed or changed; non-exited generations
+may add later reservations immediately after that ACTIVE transition, while
+exited/tombstoned generations remain closed.
 The operation
 contains only bounded non-reverting internal writes after its assertions; any
 revert rolls all contracts back.  The adapter cannot cancel or convert legacy
@@ -2650,8 +2732,8 @@ Entry/exit/reservation ahead; moves & 8 / 268 / 16 windows; 4 per window & Liabi
 \code{FORCE_DELAY} & 1,500 s & At least settlement window plus \code{T_INCLUDE_MAX_SECONDS=120}. \\
 Forced prefix & 64 items; 1,048,576 B; 20m gas & Each item at most 131,072 B and 5m accounted gas; descriptors and one boundary remain durable. \\
 Candidate caps & 4,096 blocks; 12 windows; 1 anchor; 16 sessions; 2,100 records & Also 256 forced items, 4 MiB, 80m accounted gas. \\
-Queue / range proof & depth 32 / at most 129 hashes &
-\code{queueCount<UINT32_MAX}; canonical contiguous range proof. \\
+Queue / range proof & depth 64 / at most 257 hashes &
+\code{queueCount<UINT64_MAX}; final leaf unused; canonical contiguous range proof. \\
 Same-L1 credit read & fixed-size record / bounded staticcall &
 Launch source equals settlement Ethereum; registry runtime, return length,
 record, source generation and Bridge liability are checked directly and atomically. \\
@@ -2712,11 +2794,15 @@ execution result:
 \item exact predeploy/proxy/facade topology, including the launch Bridge's
   directly constrained EIP-1967 implementation/burn slots, its immutable
   registrar identity and the non-proxy rule for every later fresh endpoint;
-  terminal runtime code hashes,
+  BuilderRegistry and ScheduleOracle runtime/configuration hashes and retained
+  object identities; terminal runtime code hashes,
   constructor immutables and relevant storage selectors for AnchorV4,
   InboxV2ActivationGate, InboxApplyRouterV2, InboxCreditStoreV2,
   ProtocolReleaseAuthorityV2,
   TerminalDomainRegistrarV2, TerminalAccumulatorV2, ActiveSettlementRouter,
+  ForcedQueue (including its depth, capacity, empty leaf, descriptor schema,
+  router binding and \code{forcedQueueConfigHash}), both immutable ingress
+  adapter runtimes/configurations and their append-only router registrations,
   L1/L2 legacy SignalService, official refund
   vaults, frozen bridged-token restoration templates and both permanent Bridge
   facades, including proof that no
@@ -2938,7 +3024,7 @@ including canonical empty and \code{FREE} leaves.
 
 Kind-0 forced leaf $i$ is legacy Keccak over this exact packed sequence:
 \begin{verbatim}
-"slot-chain-force-user-v2" || u32(i) ||
+"slot-chain-force-user-v2" || u64(i) ||
 address20(sender) || u64(nonce) || u256(l2ChainId) || bytes32(rawTxHash) ||
 u32(byteLength) || u64(gasLimit) || u64(accountedGas) ||
 u256(maxFee) || u64(validUntil) || address20(refundAddress) ||
@@ -2946,7 +3032,7 @@ u64(enqueuedAt) || u64(dueAt) || u256(deposit)
 \end{verbatim}
 A kind-1 leaf is:
 \begin{verbatim}
-"slot-chain-force-bridge-v10" || u32(i) || msgHash ||
+"slot-chain-force-bridge-v10" || u64(i) || msgHash ||
 u256(srcChainId) || sourceDomainId || u64(srcEpoch) || address20(srcBridge) ||
 bridgeExecutionHash || u64(emittedAtBlock) || destinationDomainId ||
 u256(destChainId) || u64(enqueueBy) ||
@@ -2961,7 +3047,7 @@ Its application has no expiry; no
 \code{validUntil} field exists.
 
 For \code{forcedDescriptorCommitment}, \code{descriptorBytes} is exactly the
-corresponding leaf sequence beginning immediately after \code{u32(i)}; the list
+corresponding leaf sequence beginning immediately after \code{u64(i)}; the list
 already supplies index and kind, so neither leaf ASCII domain nor index is
 duplicated inside it.  Its fixed byte length is 220 for kind 0 and 533 for kind
 1.  The list encoding and optional first excluded boundary are defined in
@@ -3024,8 +3110,10 @@ The only valid values are:
 1  GENESIS_LEGACY_PROXY
 \end{verbatim}
 Topology 0 requires the account and facade runtime hashes to be equal.
-Topology 1 is legal only for the launch manifest's one profile-named Bridge,
-and requires the direct EIP-1967 implementation and
+Topology 1 is legal only for the launch manifest's one profile-named Bridge or
+an exact later reuse of that already-stored immutable identity; a later
+manifest cannot introduce a fresh topology-1 endpoint.  It requires the direct
+EIP-1967 implementation and
 burned-authority proof constraints in \S\ref{sec:implementation}.  No other
 topology byte is valid.  It commits the
 destination facade separately from the infrastructure record so its custody,
@@ -3061,13 +3149,14 @@ A checking side requires
 exactly 32 bytes equal to this value under the manifest-pinned runtime hash.
 Empty, short, trailing or malformed returndata rejects.  L1 checks rows 1--3
 directly and L2 checks rows 4--9 directly; neither substitutes a Boolean result
-for the fixed call and hash comparison.  The launch-only topology-1 row 9 is
-instead authenticated by the circuit-constrained account runtime, exact direct
+for the fixed call and hash comparison.  The launch-first-registration
+topology-1 row 9, and any exact later reuse, is instead authenticated by the
+circuit-constrained account runtime, exact direct
 implementation/beacon/fork-selector slots, frozen facade runtime and storage
 layout under the imported canonical state root.  Any delegated getter is only a
 redundant consistency check and is never an authority for that row's hash.
 The nine \code{configBytes} lengths are exactly
-80, 72, 21, 73, 80, 52, 60, 21 and 177 bytes, respectively, and their contents are:
+80, 136, 21, 73, 80, 52, 60, 21 and 177 bytes, respectively, and their contents are:
 \begin{enumerate}
 \item\begin{verbatim}
 address20(bridgeCreditRegistry) || address20(sourceBridge) ||
@@ -3075,6 +3164,7 @@ address20(activeSettlementRouter) || address20(protocolVersionManager)
 \end{verbatim}
 \item\begin{verbatim}
 address20(protocolVersionManager) || address20(forcedQueue) ||
+bytes32(forcedQueueRuntimeHash) || bytes32(forcedQueueConfigHash) ||
 bytes32(routerNamespace)
 \end{verbatim}
 \item\begin{verbatim}
@@ -3105,7 +3195,8 @@ address20(activationGate) || address20(terminalDomainRegistrarV2) ||
 bytes32(storageLayoutHash)
 \end{verbatim}
 \end{enumerate}
-The runtime semantics for kind 1 fix its stated initializer authority.  Kind 4
+The runtime semantics for kind 1 fix its stated initializer authority and bind
+the protocol-lifetime Queue code/configuration into every release.  Kind 4
 is protocol-lifetime and preserves its cursor and existing routes while
 requiring the new route absent.  Kind 5 requires fresh endpoint V2 domain/pin
 state or an exact already-sealed match.  Kinds 6--8 preserve all old append-only
@@ -3132,11 +3223,21 @@ directly checks only rows 4--9 against L2 code/configuration.  Both sides
 recompute the same 756-byte descriptor and hash.  No contract is required or
 permitted to treat a cross-chain address as locally inspectable code.
 
-The depth-32 vector empty leaf is \code{H("slot-chain-force-empty-v2")}.
-A parent at height $h=0,\ldots,31$ is
+The Queue exposes this exact constructor/configuration commitment:
+\begin{verbatim}
+descriptorSchemaHash = H("slot-chain-force-descriptor-schema-v10")
+queueConfigBytes = address20(activeSettlementRouter) || u8(64) ||
+                   u64(UINT64_MAX) ||
+                   H("slot-chain-force-empty-v2") || descriptorSchemaHash
+forcedQueueConfigHash =
+  H("slot-chain-forced-queue-config-v1" || u16(93) || queueConfigBytes)
+\end{verbatim}
+Its account runtime hash and this config hash are the two row-2 fields above.
+The depth-64 vector empty leaf is \code{H("slot-chain-force-empty-v2")}.
+A parent at height $h=0,\ldots,63$ is
 \code{H("slot-chain-force-node-v2"||u8(h)||left||right)}.  The queue commitment
 is \code{H("slot-chain-force-root-v2"||u64(count)||treeRoot)}; leaves at indices
-\code{count..2^32-1} are empty.  The canonical range proof recursively visits
+\code{count..2^64-1} are empty.  The canonical range proof recursively visits
 the smallest tree covering \code{[start,end]} (including a boundary leaf when
 \code{end<count}); it emits in DFS order exactly one hash for each maximal
 outside subtree.  The verifier rejects extra/missing nodes, a nonempty padding
@@ -3145,7 +3246,8 @@ Append at old index $i$ starts with the new leaf at height zero, repeatedly
 hashes \code{frontier[h]} on the left while bit $h$ of $i$ is one, stores the
 carry in the first zero-bit frontier position, increments count, and reconstructs
 all higher right subtrees from \code{FORCE_EMPTY[h]}.  This is the same root as
-the full vector and uses exactly 32 frontier words.
+the full vector and uses exactly 64 frontier words.  Every leaf and descriptor
+list uses \code{u64(index)}; no queue index is narrowed to 32 bits.
 
 The terminal vector uses depth 64.  Its empty leaf is
 \code{H("slot-chain-terminal-empty-v1")}; a parent at height
@@ -3244,37 +3346,38 @@ TYPEHASH      ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
 registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
 admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
-forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
+forcedRoot    a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57
 sourceDomain  9f207cb5f32747635be6496e957827270c0b62aa5a7d0bd39657e28c0fedf7b1
-destDomain    7051b0bcdb16e6d5c6ddc9ac020f69d25ef27775faa0edea44db1f75ec50bf8d
+destDomain    4b9836a28078ede4e366e4c7b948accad964921d8fe6725771900f95727c8d0c
 bridgeKernel  371700b6908037409059b484e1eff1a1511464447af6c67ea98cc96d35443cc6
 bridgeExec    1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2
 destBrExec    66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d
-destInfra     4c6f4196c3819423a8cfc8058101a1091361511fb776c83b06a2b9ff608aaef7
-relManifest   608210697d315431f6a2ad7792247925bd880886a0e31f0cc390cb4f5928583c
-destReg       97476c5cf0ebe4cb5976429dd00f421c16e9913043f2992cbab7a38428aba274
+destInfra     c2f554dcf15eb16fecd68f0540dc72ffd8cf0f37388c045d9a256ae7aac81823
+relManifest   a372b8d37aeb477cbb4e4f9c57073e462ed3a22475a51289940bc08c6b95a5b2
+destReg       59dc887998a458ddb71d68855dcac32d634cd0e2b1eb6646b98837603ebc050a
 regBase       20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
 regSlot       dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
 regTrie       200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
 relBase       a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
 relSlot       719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
 relTrie       dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
-routeConfig   cc0abc6afb89cbb61c91f35ff69039a3ab872ac3b497925a969629699387f484
-bridgeLeaf    595ddfeb7dc3508201aaff8ed61c0257c15a9fbf010fe6497c3d354c1a9f7c08
-creditId      c3dad3057283d897e3c5d5ebd7a9d44a17452d48a8057fafe013694c2fa85e9d
-escrowId      9b18a64e9b2288fae90dd2b3aec4540b427f437ac5e3a13f23e10e9599057c38
-inboxSlot     92506eceb5d583eb0d2c8d81819806114bc6bb203c246a128138924f8d473a17
-terminalDone  a775c7a258052075774451b51ca10c7553c1b2ff1028fa888450ea385a0cd37c
-terminalFail  bcbbd7b7d9e3ca7b935aaebd2341f7d10bc0802624e3d2019a1eb030d46fd9f7
-terminalRoot2 33d3534926e82fb7baf4aa3bffd5d39f8823f2b41ecf7d64b5f8688c14a2d6f6
+routeConfig   e36fc74e3dd74e4f4f0da665ba9c19709ec36ff0027082ea687b6eb682ffa4a3
+queueConfig   288d7cb2d08d4939d0db4c9630fdf109453864f6f27edccdcc720f01d4b788e5
+bridgeLeaf    66bcd88bef22eb209489e01723a439022c999e04430222e37da57e7bcf3c6719
+creditId      7753446844b4fdf9bdcc662b3c89573832d86d1d0174c14b805262b61dabf60d
+escrowId      fd681753cf64169e49729e63171cf32401a9459301a6d7c951280b9a5887d0c3
+inboxSlot     d772b92091893b4b01615561ca1392155158c7cb4b4d54645039979ce9a95d90
+terminalDone  b45b474d7a2edf48055525e5b55895894d7f6db1790bbbdd23861b4300652430
+terminalFail  0593b40a7dca722217df57a593ca37b6151ddc177310ea63c0673465dbbaa27b
+terminalRoot2 8691ef54c13a85e6ab072203f2df0f7558f7ca8b040e046199211f2ff06a528d
 emptyTermRoot 0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2
-bridgeResult  6ce29a650e1e109ca3f4239fd6baf0f428e7172d8d0c69e0b3416978a56b4f77
+bridgeResult  0468b541504bd7a5299df2c93abd6ada50a9554299ae6a2157e45254dc2b03c3
 manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 normalContext bdec611a765250c0e964b4e3c95c648fec0c126a0f2c8f8fc3c13f691ede455b
 migrationData a3588b50c1f4e768cb2c35a622452527ab3cb953520ef018af3ff2d2362b86a5
-winningData   9b7418cffd7b88f9f3d3799fb287cd47dee2e34edb1d41590dbdd12f0859a34d
-statementHash 17c45efbdb95e3511eb9e96d054fb3d1a4b4dec3b7aee5c499741b44863de0b6
-recoveryId    b710e3a0629fa9ba438e5661ece58060cf547a0444d8b59b266fd500a4020c3a
+winningData   8df2c90f60ee2b627466d8c99dea5c56de579b65d70db45a84a881517a0a363e
+statementHash f280bab76e6124cac6302f22c401583cb11d9139f9da496f606fd91a8c59eb05
+recoveryId    7a2b4940a7e507e6908c38ab664d052aeb7deac145123c22cd68b3a0fe4e92b2
 bodyRoot      0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
@@ -3337,8 +3440,8 @@ function sync() returns (bool changed) {
             changed = true;
         }
         if (refundAtMost8DataSessions() != 0) changed = true;
-        if (refundAtMost8BuilderReservations() != 0) changed = true;
-        if (authenticated counters are zero && no boundary/recovery) {
+        // Existing protocol-lifetime reservations are never migration work.
+        if (liveSessionCount == 0 && no boundary/recovery) {
             migrationGate.phase = READY;
             changed = true;
         }
@@ -3434,7 +3537,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 177 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 178 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -3450,7 +3553,7 @@ gating, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 160 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 161 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors, vector/range proofs, session MMR and
 per-block manifests.  It also covers source/destination domains, acyclic
@@ -3500,12 +3603,13 @@ constants and safe eviction.
 orphaned transactions together.
 \item An armed later migration shares one generation gate across ingress,
 Settlement and transient ledgers, opens no new context, ends the current boundary
-without recovery renewal and reaches READY after at most 136 bounded cleanup
-calls.  Cutover freezes the old Settlement, imports canonical/bridge cursors into
+without recovery renewal and reaches READY after at most 128 bounded cleanup
+calls.  Cutover freezes the old Settlement, imports canonical/bridge state into
 the inactive target, switches the one active queue router and finally returns
 the same router-owned gate READY-to-ACTIVE with its target version installed.
-The one mutable ForcedQueue and gate are shared by object identity across both
-Settlements, and incumbent non-exited builders reopen immediately.  At launch, V2 L2 entry points remain
+The immutable non-proxy ForcedQueue, registry, schedule oracle and gate are
+shared by object identity across both Settlements; incumbent reservations remain
+RESERVED throughout.  At launch, V2 L2 entry points remain
 disabled under legacy rules; the first custom post-cutover Anchor transaction
 atomically registers/seals the destination and activates their shared gate.
 Source V2 waits for a finalized proof of that record plus 214 L1 blocks.

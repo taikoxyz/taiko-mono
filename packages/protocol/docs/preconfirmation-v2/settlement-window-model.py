@@ -35,8 +35,8 @@ MAX_FORCE_MESSAGE_GAS = 5_000_000
 MAX_FORCE_MESSAGE_BYTES = 131_072
 UINT32_MAX = (1 << 32) - 1
 MIN_FORCE_ACCOUNTED_GAS = 21_000
-MAX_FORCE_RANGE_PROOF_HASHES = 129
-FORCE_TREE_DEPTH = 32
+MAX_FORCE_RANGE_PROOF_HASHES = 257
+FORCE_TREE_DEPTH = 64
 MAX_FORCE_QUEUE_ITEMS = (1 << FORCE_TREE_DEPTH) - 1
 L2_BLOCK_GAS_LIMIT = 30_000_000
 ANCHOR_GAS_MAX = 1_000_000
@@ -65,8 +65,6 @@ EVIDENCE_DELAY_SECONDS = 86_400
 MAX_REPLACEMENTS_PER_WINDOW = 4
 MAX_LIABILITY_GENERATIONS = MAX_REPLACEMENTS_PER_WINDOW * MAX_LIVE_WINDOWS
 MAX_LIVE_RESERVATIONS = 64 * (MAX_TRANCHE_AHEAD_WINDOWS + 1)
-MAX_MIGRATION_RESERVATION_CLEANUP_CALLS = (
-    MAX_LIVE_RESERVATIONS + MAX_GC_STEPS - 1) // MAX_GC_STEPS
 DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
 UINT64_MAX = (1 << 64) - 1
@@ -120,7 +118,8 @@ class SystemTransactionV2:
     selector: str
     signed: bool = False
 
-    def valid(self, *, block_number: int, activation_block: int,
+    def valid(self, *, block_number: int, first_v2_block_number: int,
+              launch_imported_l2_block_number: int,
               first_activation: bool, l2_chain_id: int,
               anchor_address: str = "anchor:v2",
               inbox_apply_address: str = "inbox-apply") -> bool:
@@ -139,8 +138,12 @@ class SystemTransactionV2:
         return (self.tx_type == SYSTEM_TX_TYPE
                 and self.chain_id == l2_chain_id
                 and 0 < l2_chain_id <= UINT64_MAX
-                and self.system_nonce == block_number - activation_block
-                and block_number >= activation_block and self.gas_limit == expected_gas
+                and first_v2_block_number
+                    == launch_imported_l2_block_number + 1
+                and self.system_nonce
+                    == block_number - first_v2_block_number
+                and block_number >= first_v2_block_number
+                and self.gas_limit == expected_gas
                 and self.to == expected_to and self.value == 0
                 and self.selector == expected_selector and not self.signed)
 
@@ -303,6 +306,8 @@ class Block:
     inbox_post_cursor: int = 0
     force_gas_budget: int = FORCE_GAS_BUDGET
     release_activation: bool = False
+    release_protocol_version: int = 0
+    release_manifest_hash: str = ""
     data_records: tuple[tuple[str, int], ...] = ()
     dispositions_ok: bool = True
     discretionary_body: bool = True
@@ -427,7 +432,8 @@ class MigrationGate:
     target_manifest_hash: str = ""
     coordinator: str = ""
     live_data_sessions: int = 0
-    unsettled_builder_reservations: int = 0
+    pending_release_protocol_version: int = 0
+    pending_release_manifest_hash: str = ""
 
     def bootstrap(self, protocol_version: int, coordinator: str = "version-manager") -> bool:
         if (self.active_protocol_version != 0 or protocol_version <= 0
@@ -445,7 +451,9 @@ class MigrationGate:
                 and manifest_hash == self.target_manifest_hash
                 and caller == self.coordinator):
             return True
-        if (self.mode != "ACTIVE" or generation != self.generation + 1
+        if (self.mode != "ACTIVE" or self.pending_release_protocol_version != 0
+                or self.pending_release_manifest_hash
+                or generation != self.generation + 1
                 or caller != self.coordinator or not manifest_hash
                 or active_protocol_version != self.active_protocol_version
                 or target_protocol_version <= active_protocol_version):
@@ -458,8 +466,7 @@ class MigrationGate:
 
     def try_ready(self, *, normal_open: bool, recovery_active: bool) -> bool:
         if (self.mode != "ARMED" or normal_open or recovery_active
-                or self.live_data_sessions != 0
-                or self.unsettled_builder_reservations != 0):
+                or self.live_data_sessions != 0):
             return False
         self.mode = "READY"
         return True
@@ -502,13 +509,12 @@ class RegistryLifecycle:
         return len(releasable)
 
     def settle_reservations_before(self, current_window: int) -> int:
-        """Normal lifecycle removal; only the 17 live windows enter the gate."""
+        """Ordinary evidence-safe lifecycle; migration never mutates tranches."""
         self._prune_liable_reservations(current_window)
         expired = {row for row in self.open_reservations
                    if row[1] < current_window}
         self.open_reservations.difference_update(expired)
         self.liable_reservations.update(expired)
-        self.migration_gate.unsettled_builder_reservations -= len(expired)
         return len(expired)
 
     def reserve(self, address: str, window: int, current_window: int) -> bool:
@@ -529,7 +535,6 @@ class RegistryLifecycle:
                 return False
             if reservation not in self.open_reservations:
                 self.open_reservations.add(reservation)
-                self.migration_gate.unsettled_builder_reservations += 1
                 assert len(self.open_reservations) <= MAX_LIVE_RESERVATIONS
             return True
         return False
@@ -539,23 +544,11 @@ class RegistryLifecycle:
         # reservations_closed bit remains reserved for exit/replacement.
         assert self.migration_gate.mode == "ARMED"
 
-    def cleanup_migration_reservations(self, limit: int = MAX_GC_STEPS) -> int:
-        if self.migration_gate.mode != "ARMED":
-            return 0
-        moved = 0
-        for reservation in sorted(self.open_reservations)[:limit]:
-            self.open_reservations.remove(reservation)
-            self.liable_reservations.add(reservation)
-            self.migration_gate.unsettled_builder_reservations -= 1
-            moved += 1
-        return moved
-
     def _move_reservations_to_liability(self, registration_index: int) -> int:
         moved = {row for row in self.open_reservations
                  if row[0] == registration_index}
         self.open_reservations.difference_update(moved)
         self.liable_reservations.update(moved)
-        self.migration_gate.unsettled_builder_reservations -= len(moved)
         return len(moved)
 
     def release_liability(self, ring_index: int, current_window: int) -> bool:
@@ -623,6 +616,9 @@ class Protocol:
     settlement_address: str = "model-settlement"
     mode: Mode = Mode.NORMAL
     release_activation_pending: bool = False
+    pending_release_protocol_version: int = 0
+    pending_release_manifest_hash: str = ""
+    first_v2_block_number: int = 0
     queue_capacity: int = MAX_FORCE_QUEUE_ITEMS  # model-only capacity override
     episode: int = 0
     recovery: RecoveryRound | None = None
@@ -806,6 +802,9 @@ class Protocol:
 
     def arm_migration(self, generation: int) -> bool:
         if (self.mode is Mode.PREACTIVE
+                or self.release_activation_pending
+                or self.migration_gate.pending_release_protocol_version != 0
+                or self.migration_gate.pending_release_manifest_hash
                 or self.migration_gate.mode != "ARMED"
                 or self.migration_gate.generation != generation):
             return False
@@ -864,7 +863,7 @@ class Protocol:
         if self.migration_gate.mode == "ARMED":
             return self._sync_migration(clock)
         if self.migration_gate.mode == "READY":
-            return False
+            return True
         if self.mode is Mode.RECOVERY:
             return self._roll_recovery(clock)
         changed = False
@@ -906,6 +905,11 @@ class Protocol:
         self.canonical = copy.deepcopy(imported)
         self.mode = Mode.NORMAL
         self.release_activation_pending = True
+        self.pending_release_protocol_version = 1
+        self.pending_release_manifest_hash = "manifest:1"
+        self.migration_gate.pending_release_protocol_version = 1
+        self.migration_gate.pending_release_manifest_hash = "manifest:1"
+        self.first_v2_block_number = imported.core.l2_block_number + 1
         self.events.append("MIGRATION_ACTIVATED_ATOMICALLY")
         return True
 
@@ -963,11 +967,21 @@ class Protocol:
         return "ADMITTED"
 
     def admit_bridge_direct(self, clock: Clock, message: Message) -> str:
+        """Behavioral model of adapter syncIngress then payable append.
+
+        Value remains adapter-local until the second transition calls _append;
+        the EVM's call-level rollback supplies the same atomicity modeled here.
+        """
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
         if self.migration_gate.mode != "ACTIVE":
+            return "SYNCED"
+        # No external callback or clock advance occurs between the adapter's
+        # nonpayable sync and its immediate payable append. Recheck the gate
+        # before value forwarding, just as the router does.
+        if self.sync(clock) or self.migration_gate.mode != "ACTIVE":
             return "SYNCED"
         if (len(self.messages) >= self.queue_capacity
                 or not self._valid_bridge_static(message)):
@@ -1074,6 +1088,10 @@ class Protocol:
     def _validate_common(self, candidate: Candidate, clock: Clock, min_slot: int) -> bool:
         if (not self.canonical_state_witness_available
                 or not self.canonical_code_preimages_available
+                or self.migration_gate.pending_release_protocol_version
+                    != self.pending_release_protocol_version
+                or self.migration_gate.pending_release_manifest_hash
+                    != self.pending_release_manifest_hash
                 or not candidate.proof_ok or not candidate.force_range_proof_ok
                 or candidate.base_canonical_hash != self.canonical.base_hash
                 or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
@@ -1109,6 +1127,12 @@ class Protocol:
                     or block.inbox_pre_cursor != block.message_start
                     or block.inbox_post_cursor != block.message_end
                     or block.release_activation != expected_activation
+                    or block.release_protocol_version
+                        != (self.pending_release_protocol_version
+                            if expected_activation else 0)
+                    or block.release_manifest_hash
+                        != (self.pending_release_manifest_hash
+                            if expected_activation else "")
                     or block.force_gas_budget != expected_force_gas_budget
                     or (expected_activation and block.discretionary_body)):
                 return False
@@ -1218,18 +1242,32 @@ class Protocol:
                 == self.core.message_cursor)
         prior_canonical = self.canonical
         prior_queue_cursor = self.forced_queue.cursor
+        prior_queue_claimable = dict(self.forced_queue.claimable)
+        prior_queue_unconsumed = self.forced_queue.unconsumed_escrow
+        prior_queue_total_claimable = self.forced_queue.total_claimable
         prior_inbox_cursor = self.inbox_apply_router.next_queue_index
         prior_activation_pending = self.release_activation_pending
+        prior_pending_release_version = self.pending_release_protocol_version
+        prior_pending_release_hash = self.pending_release_manifest_hash
+        prior_gate_pending_release_version = \
+            self.migration_gate.pending_release_protocol_version
+        prior_gate_pending_release_hash = \
+            self.migration_gate.pending_release_manifest_hash
         assert self.forced_queue.advance_cursor(
             candidate.blocks[0].inbox_pre_cursor,
             candidate.tip.inbox_post_cursor,
-            caller=self.settlement_address)
+            caller=self.settlement_address,
+            beneficiary=candidate.beneficiary)
         # This object represents adoption of the proof-authenticated L2
         # poststate; no L1 call writes the L2 router.
         self.inbox_apply_router.next_queue_index = \
             candidate.tip.inbox_post_cursor
         if candidate.blocks[0].release_activation:
             self.release_activation_pending = False
+            self.pending_release_protocol_version = 0
+            self.pending_release_manifest_hash = ""
+            self.migration_gate.pending_release_protocol_version = 0
+            self.migration_gate.pending_release_manifest_hash = ""
         self.canonical = Canonical(
             CanonicalCore(candidate.end_l2_block_number,
                           candidate.tip.block_hash, candidate.tip.slot,
@@ -1248,8 +1286,19 @@ class Protocol:
                     l1_block=clock.block_number) is None:
                 self.canonical = prior_canonical
                 self.forced_queue.cursor = prior_queue_cursor
+                self.forced_queue.claimable = prior_queue_claimable
+                self.forced_queue.unconsumed_escrow = prior_queue_unconsumed
+                self.forced_queue.total_claimable = \
+                    prior_queue_total_claimable
                 self.inbox_apply_router.next_queue_index = prior_inbox_cursor
                 self.release_activation_pending = prior_activation_pending
+                self.pending_release_protocol_version = \
+                    prior_pending_release_version
+                self.pending_release_manifest_hash = prior_pending_release_hash
+                self.migration_gate.pending_release_protocol_version = \
+                    prior_gate_pending_release_version
+                self.migration_gate.pending_release_manifest_hash = \
+                    prior_gate_pending_release_hash
                 raise AssertionError("atomic canonical-history write rejected")
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
 
@@ -1388,18 +1437,48 @@ class QueueContinuity:
     descriptors: list[Message] = field(default_factory=list)
     active_settlement_address: str = ""
     router_address: str = "active-settlement-router"
+    claimable: dict[str, int] = field(default_factory=dict)
+    runtime_hash: str = "code:forced-queue:v2"
+    config_hash: str = "config:forced-queue:depth64:v2"
+    nonproxy: bool = True
+    selfdestruct_disabled: bool = True
+    delegate_target_reachable: bool = False
+    deposit_prefix: list[int] = field(default_factory=list)
+    unconsumed_escrow: int | None = None
+    total_claimable: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.deposit_prefix:
+            self.deposit_prefix = [0]
+            for row in self.descriptors:
+                self.deposit_prefix.append(
+                    self.deposit_prefix[-1] + row.prepaid)
+        assert len(self.deposit_prefix) == self.count + 1
+        if self.unconsumed_escrow is None:
+            self.unconsumed_escrow = (
+                self.deposit_prefix[self.count]
+                - self.deposit_prefix[self.cursor])
+        if self.total_claimable is None:
+            self.total_claimable = sum(self.claimable.values())
+        assert (self.escrow_balance
+                == self.unconsumed_escrow + self.total_claimable)
 
     def append(self, descriptor: Message, *, deposit: int,
                due_at: int, caller: str) -> int | None:
         if (caller != self.router_address
-                or not descriptor.payload_hash or deposit < 0
-                or due_at < self.last_due_at or self.count >= UINT32_MAX
+                or not descriptor.payload_hash or deposit <= 0
+                or descriptor.prepaid != deposit
+                or due_at < self.last_due_at
+                or self.count >= MAX_FORCE_QUEUE_ITEMS
                 or self.count != len(self.descriptors)):
             return None
         index = self.count
         stored = replace(descriptor, due_at=due_at)
         self.count += 1
         self.escrow_balance += deposit
+        assert self.unconsumed_escrow is not None
+        self.unconsumed_escrow += deposit
+        self.deposit_prefix.append(self.deposit_prefix[-1] + deposit)
         self.last_due_at = due_at
         self.descriptors.append(stored)
         self.root = model_force_root(self.descriptors)
@@ -1414,13 +1493,38 @@ class QueueContinuity:
         return True
 
     def advance_cursor(self, expected_start: int, end: int, *,
-                       caller: str) -> bool:
+                       caller: str, beneficiary: str) -> bool:
         if (caller != self.active_settlement_address
+                or not beneficiary
                 or expected_start != self.cursor
                 or not expected_start <= end <= self.count):
             return False
+        consumed_deposit = (self.deposit_prefix[end]
+                            - self.deposit_prefix[expected_start])
+        if consumed_deposit:
+            self.claimable[beneficiary] = (
+                self.claimable.get(beneficiary, 0) + consumed_deposit)
+            assert (self.unconsumed_escrow is not None
+                    and self.total_claimable is not None
+                    and consumed_deposit <= self.unconsumed_escrow)
+            self.unconsumed_escrow -= consumed_deposit
+            self.total_claimable += consumed_deposit
         self.cursor = end
+        assert (self.escrow_balance
+                == self.unconsumed_escrow + self.total_claimable)
         return True
+
+    def withdraw_claimable(self, beneficiary: str) -> int:
+        amount = self.claimable.get(beneficiary, 0)
+        if amount <= 0 or amount > self.escrow_balance:
+            return 0
+        self.claimable[beneficiary] = 0
+        assert self.total_claimable is not None
+        self.total_claimable -= amount
+        self.escrow_balance -= amount
+        assert (self.escrow_balance
+                == self.unconsumed_escrow + self.total_claimable)
+        return amount
 
 
 @dataclass(frozen=True)
@@ -1428,14 +1532,14 @@ class MigrationTransientState:
     normal_best_present: bool
     recovery_active: bool
     live_data_sessions: int
-    unsettled_builder_escrow: int
+    unsettled_reward_preparation: int
     claim_only_surfaces_preserved: bool
 
     @property
     def settled(self) -> bool:
         return (not self.normal_best_present and not self.recovery_active
                 and self.live_data_sessions == 0
-                and self.unsettled_builder_escrow == 0
+                and self.unsettled_reward_preparation == 0
                 and self.claim_only_surfaces_preserved)
 
 
@@ -1460,6 +1564,8 @@ class VersionedSettlementHistory:
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     live_protocol: Protocol | None = None
     inbox_apply_router: "InboxApplyRouterV2 | None" = None
+    builder_registry_id: str = "builder-registry"
+    schedule_oracle_id: str = "schedule-oracle"
 
     def _entry(self, sequence: int, core: CanonicalCore,
                canonicalized_at_block: int) -> CanonicalTerminalCommitment:
@@ -1549,8 +1655,14 @@ class ActiveSettlementRouter:
     forced_queue: QueueContinuity
     inbox_apply_router: "InboxApplyRouterV2"
     address: str = "active-settlement-router"
+    forced_queue_runtime_hash: str = "code:forced-queue:v2"
+    forced_queue_config_hash: str = "config:forced-queue:depth64:v2"
+    builder_registry_id: str = "builder-registry"
+    schedule_oracle_id: str = "schedule-oracle"
     active_version: int = 0
     registrations: dict[int, SettlementRegistration] = field(default_factory=dict)
+    authorized_ingress: set[str] = field(
+        default_factory=lambda: {"bridge-inbox-adapter", "kind0-adapter"})
 
     @property
     def forced_queue_address(self) -> str:
@@ -1561,6 +1673,15 @@ class ActiveSettlementRouter:
         if (self.registrations or settlement.protocol_version <= 0
                 or settlement.forced_queue is not self.forced_queue
                 or self.forced_queue.router_address != self.address
+                or self.forced_queue.runtime_hash
+                    != self.forced_queue_runtime_hash
+                or self.forced_queue.config_hash
+                    != self.forced_queue_config_hash
+                or not self.forced_queue.nonproxy
+                or not self.forced_queue.selfdestruct_disabled
+                or self.forced_queue.delegate_target_reachable
+                or settlement.builder_registry_id != self.builder_registry_id
+                or settlement.schedule_oracle_id != self.schedule_oracle_id
                 or self.forced_queue.active_settlement_address
                     not in {"", settlement.address}
                 or settlement.inbox_apply_router is not self.inbox_apply_router
@@ -1618,6 +1739,17 @@ class ActiveSettlementRouter:
                 or settlement.forced_queue is not self.forced_queue
                 or old.forced_queue is not self.forced_queue
                 or self.forced_queue.active_settlement_address != old.address
+                or self.forced_queue.runtime_hash
+                    != self.forced_queue_runtime_hash
+                or self.forced_queue.config_hash
+                    != self.forced_queue_config_hash
+                or not self.forced_queue.nonproxy
+                or not self.forced_queue.selfdestruct_disabled
+                or self.forced_queue.delegate_target_reachable
+                or settlement.builder_registry_id != self.builder_registry_id
+                or old.builder_registry_id != self.builder_registry_id
+                or settlement.schedule_oracle_id != self.schedule_oracle_id
+                or old.schedule_oracle_id != self.schedule_oracle_id
                 or settlement.inbox_apply_router is not self.inbox_apply_router
                 or old.inbox_apply_router is not self.inbox_apply_router
                 or old.live_protocol is None
@@ -1627,8 +1759,10 @@ class ActiveSettlementRouter:
                     is not self.inbox_apply_router
                 or old.live_protocol.canonical.core != old.core
                 or old.core.message_cursor != self.forced_queue.cursor
-                or old.core.message_cursor
-                    != self.inbox_apply_router.next_queue_index
+                or old.live_protocol.release_activation_pending
+                or old.migration_gate.pending_release_protocol_version != 0
+                or old.migration_gate.pending_release_manifest_hash
+                or old.live_protocol.first_v2_block_number <= 0
                 or l1_block < old.last_canonical_l1_block):
             return False
         if not settlement.install_imported(
@@ -1648,6 +1782,14 @@ class ActiveSettlementRouter:
         settlement.live_protocol = old.live_protocol
         settlement.live_protocol.versioned_history = settlement
         settlement.live_protocol.settlement_address = settlement.address
+        settlement.live_protocol.release_activation_pending = True
+        settlement.live_protocol.pending_release_protocol_version = \
+            settlement.protocol_version
+        settlement.live_protocol.pending_release_manifest_hash = \
+            target_manifest_hash
+        old.migration_gate.pending_release_protocol_version = \
+            settlement.protocol_version
+        old.migration_gate.pending_release_manifest_hash = target_manifest_hash
         activated = old.migration_gate.activate_target(
             old.migration_gate.generation, old_version,
             settlement.protocol_version)
@@ -1676,9 +1818,11 @@ class ActiveSettlementRouter:
 
     def sync_and_append(self, descriptor: Message, *, clock: Clock,
                         bound_router: str, queue_address: str,
-                        deposit: int) -> str:
+                        deposit: int,
+                        caller_adapter: str = "bridge-inbox-adapter") -> str:
         registration = self.registrations.get(self.active_version)
         if (bound_router != self.address
+                or caller_adapter not in self.authorized_ingress
                 or queue_address != self.forced_queue_address
                 or registration is None
                 or registration.settlement.live_protocol is None
@@ -1980,6 +2124,7 @@ class BridgeAdapter:
     source_bridge: str = "bridge:A"
     records: dict[str, BridgeRecord] = field(default_factory=dict)
     refunds: dict[str, int] = field(default_factory=dict)
+    balance: int = 0
 
     @staticmethod
     def credit_id(src_chain_id: int, source_domain_id: str, src_epoch: int,
@@ -2022,6 +2167,9 @@ class BridgeAdapter:
         result = protocol_.admit_bridge_direct(
             clock_, replace(envelope, prepaid=deposit))
         if result == "SYNCED":
+            # msg.value never left the adapter because syncIngress was
+            # nonpayable and no append call occurred.
+            self.balance += deposit
             self.refunds[caller] = self.refunds.get(caller, 0) + deposit
             return "SYNCED_REFUNDED"
         if result == "ADMITTED":
@@ -2035,6 +2183,14 @@ class BridgeAdapter:
                 envelope, index, caller, deposit)
             return f"QUEUED:{index}"
         return result
+
+    def withdraw_refund(self, caller: str) -> int:
+        amount = self.refunds.pop(caller, 0)
+        if amount > self.balance:
+            self.refunds[caller] = amount
+            return 0
+        self.balance -= amount
+        return amount
 
 
 @dataclass(frozen=True)
@@ -2924,6 +3080,12 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
                  inbox_pre_cursor=start, inbox_post_cursor=end,
                  force_gas_budget=force_gas_budget,
                  release_activation=release_activation,
+                 release_protocol_version=(
+                     p.pending_release_protocol_version
+                     if release_activation else 0),
+                 release_manifest_hash=(
+                     p.pending_release_manifest_hash
+                     if release_activation else ""),
                  dispositions_ok=dispositions_ok, discretionary_body=discretionary)
 
 
@@ -3111,7 +3273,8 @@ def test_force_merkle_bounds_and_auth() -> None:
     for i in range(100):
         assert p.admit_message(c, message(1_100, f"m{i}", gas=MIN_FORCE_ACCOUNTED_GAS, size=1)) == "ADMITTED"
     check("P13 per-block count cap", p._prefix_end(0, 100) == 64)
-    check("P14 range proof has a fixed bound", FORCE_TREE_DEPTH == 32 and MAX_FORCE_RANGE_PROOF_HASHES == 129)
+    check("P14 range proof has a fixed bound",
+          FORCE_TREE_DEPTH == 64 and MAX_FORCE_RANGE_PROOF_HASHES == 257)
     anchored = protocol(messages=[message(1_100, "a")])
     activate_normal(anchored, c)
     good = candidate(anchored, c, "good")
@@ -3139,31 +3302,42 @@ def test_force_merkle_bounds_and_auth() -> None:
         selector=INBOX_APPLY_SELECTOR)
     check("P17a one unsigned system envelope covers activation and steady Anchor",
           activation_tx.valid(
-              block_number=100, activation_block=100,
+              block_number=100, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
               first_activation=True, l2_chain_id=167_000)
           and steady_tx.valid(
-              block_number=101, activation_block=100,
+              block_number=101, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
               first_activation=False, l2_chain_id=167_000)
           and not replace(activation_tx, signed=True).valid(
-              block_number=100, activation_block=100,
+              block_number=100, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
               first_activation=True, l2_chain_id=167_000)
           and not replace(activation_tx, gas_limit=ANCHOR_GAS_MAX).valid(
-              block_number=100, activation_block=100,
+              block_number=100, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
               first_activation=True, l2_chain_id=167_000)
           and not activation_tx.valid(
-              block_number=100, activation_block=100,
-              first_activation=True, l2_chain_id=167_001))
+              block_number=100, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
+              first_activation=True, l2_chain_id=167_001)
+          and not activation_tx.valid(
+              block_number=100, first_v2_block_number=99,
+              launch_imported_l2_block_number=99,
+              first_activation=True, l2_chain_id=167_000))
     system_rules = SystemExecutionRulesV2(
         "system:inbox", "system:inbox", "system:inbox", 0, 0, 0, 0, 0,
         20, 100, 21_000 + 4 * 20 + 16 * 100,
         True, True, True, True)
     check("P17d kind-1 and accountless system execution are fully distinct",
           inbox_tx.valid(
-              block_number=100, activation_block=100,
+              block_number=100, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
               first_activation=True, l2_chain_id=167_000)
           and system_rules.valid(inbox_tx)
           and not replace(inbox_tx, signed=True).valid(
-              block_number=100, activation_block=100,
+              block_number=100, first_v2_block_number=100,
+              launch_imported_l2_block_number=99,
               first_activation=True, l2_chain_id=167_000)
           and not replace(
               system_rules, sender_nonce_after=1).valid(inbox_tx))
@@ -3171,6 +3345,12 @@ def test_force_merkle_bounds_and_auth() -> None:
         message(0, f"activation-backlog-{index}", gas=5_000_000)
         for index in range(4)])
     activation_backlog.release_activation_pending = True
+    activation_backlog.pending_release_protocol_version = 1
+    activation_backlog.pending_release_manifest_hash = "manifest:1"
+    activation_backlog.migration_gate.pending_release_protocol_version = \
+        activation_backlog.pending_release_protocol_version
+    activation_backlog.migration_gate.pending_release_manifest_hash = \
+        activation_backlog.pending_release_manifest_hash
     activation_clock = clock(1_100, 1_100)
     assert activation_backlog.arm_normal_context(
         clock(1_099, 1_099)) == "ARMED"
@@ -3186,7 +3366,8 @@ def test_force_merkle_bounds_and_auth() -> None:
         block_hash="activation-second", parent_hash=activation_first.block_hash,
         message_start=activation_first.message_end, message_end=4,
         inbox_pre_cursor=activation_first.message_end, inbox_post_cursor=4,
-        force_gas_budget=FORCE_GAS_BUDGET, release_activation=False)
+        force_gas_budget=FORCE_GAS_BUDGET, release_activation=False,
+        release_protocol_version=0, release_manifest_hash="")
     activation_candidate = replace(
         activation_candidate,
         blocks=(activation_first, activation_second),
@@ -3214,8 +3395,8 @@ def test_force_merkle_bounds_and_auth() -> None:
                        valid_until=c.timestamp + MAX_FORCE_VALIDITY_SECONDS + 1)
     check("P17a user payload validity is bounded",
           protocol().admit_message(c, too_long) == "REJECTED")
-    check("P17b depth-32 frontier leaves final index unused",
-          MAX_FORCE_QUEUE_ITEMS == (1 << 32) - 1)
+    check("P17b depth-64 frontier leaves final index unused",
+          MAX_FORCE_QUEUE_ITEMS == (1 << 64) - 1)
 
 
 def test_late_close_and_constant_boundary() -> None:
@@ -3390,11 +3571,10 @@ def test_registry_liability_and_release_units() -> None:
         assert bounded.reserve("long-lived", current_window + 16,
                                current_window)
         assert len(bounded.open_reservations) <= 17
-    check("P41b historical reservations leave the migration counter",
-          bounded_gate.unsettled_builder_reservations == 17
-          and len(bounded.open_reservations) == 17
+    check("P41b historical reservations enter evidence-safe liability",
+          len(bounded.open_reservations) == 17
           and bounded.settle_reservations_before(2_015) == 16
-          and bounded_gate.unsettled_builder_reservations == 1)
+          and len(bounded.open_reservations) == 1)
 
     churn_gate = MigrationGate()
     assert churn_gate.bootstrap(1)
@@ -3426,9 +3606,8 @@ def test_registry_liability_and_release_units() -> None:
           and len(reservation_churn.open_reservations)
               == MAX_LIVE_RESERVATIONS
           and len(reservation_churn.liable_reservations) == 2_180
-          and churn_gate.unsettled_builder_reservations
-              == MAX_LIVE_RESERVATIONS
-          and MAX_MIGRATION_RESERVATION_CLEANUP_CALLS == 136)
+          and all(row[1] >= MAX_TRANCHE_AHEAD_WINDOWS
+                  for row in reservation_churn.open_reservations))
 
 
 def test_data_gc_reorg_and_geometry() -> None:
@@ -3513,7 +3692,9 @@ def test_data_gc_reorg_and_geometry() -> None:
           adapter.enqueue(
               bridge_protocol, transition_clock, source, src_epoch=7,
               src_bridge="bridge:A", **common) == "SYNCED_REFUNDED"
-          and adapter.refunds["relayer"] == 5 and not adapter.records
+          and adapter.refunds["relayer"] == 5 and adapter.balance == 5
+          and adapter.withdraw_refund("relayer") == 5
+          and adapter.balance == 0 and not adapter.records
           and bridge_protocol.mode is Mode.RECOVERY)
     check("P50d clean retry queues exactly once and funded duplicates reject",
           adapter.enqueue(
@@ -4311,8 +4492,8 @@ def test_data_gc_reorg_and_geometry() -> None:
         for index in range(17)]
     terminal_queue = QueueContinuity(
         "forced-queue", model_force_root(initial_queue_descriptors),
-        17, 12, 9_000, 1_001_500,
-        initial_queue_descriptors)
+        17, 12, 17, 1_001_500, initial_queue_descriptors,
+        claimable={"historical-prover": 12})
     migration_inbox_apply = InboxApplyRouterV2(next_queue_index=12)
     shared_migration_gate = MigrationGate()
     settlement_1 = VersionedSettlementHistory(
@@ -4332,6 +4513,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         settlement_address="settlement:1")
     migration_protocol.canonical = Canonical(
         copy.deepcopy(canonical_core_499), 49)
+    migration_protocol.first_v2_block_number = 1
     migration_protocol.migration_gate = shared_migration_gate
     migration_protocol.versioned_history = settlement_1
     settlement_1.live_protocol = migration_protocol
@@ -4368,13 +4550,21 @@ def test_data_gc_reorg_and_geometry() -> None:
     migration_protocol.canonical = Canonical(
         copy.deepcopy(canonical_core_756), 51)
     migration_registry = RegistryLifecycle(
-        [Generation("migration-builder", 10, 0, 0)],
+        [Generation("migration-builder" if index == 0
+                    else f"migration-builder-{index}", 10, index, 0)
+         for index in range(64)],
         migration_gate=shared_migration_gate)
     migration_open_clock = clock(180, 100)
     assert migration_protocol.open_session(
         migration_open_clock, "migration-session", "alice",
         migration_open_clock.timestamp + DATA_TTL_SECONDS) == "OPENED"
-    assert migration_registry.reserve("migration-builder", 1, 0)
+    for generation in migration_registry.active:
+        for window in range(MAX_TRANCHE_AHEAD_WINDOWS + 1):
+            assert migration_registry.reserve(
+                generation.address, window, 0)
+    migration_reservations_before = frozenset(
+        migration_registry.open_reservations)
+    assert len(migration_reservations_before) == MAX_LIVE_RESERVATIONS
     migration_outage_clock = clock(181, 4_000)
     check("P50cq router ingress is immediately visible to forced liveness",
           migration_protocol.forced_queue is terminal_queue
@@ -4459,6 +4649,13 @@ def test_data_gc_reorg_and_geometry() -> None:
               bound_router=active_router.address,
               queue_address=terminal_queue.address,
               deposit=3) == "SYNCED"
+          and active_router.sync_and_append(
+              message(4_000, "unauthorized-router-ingress",
+                      kind=ForceKind.BRIDGE_CREDIT),
+              clock=migration_outage_clock,
+              bound_router=active_router.address,
+              queue_address=terminal_queue.address,
+              deposit=3, caller_adapter="attacker") == "REJECTED"
           and len(migration_protocol.messages) == 18)
     recovery_expiry_slot = (
         migration_protocol.recovery.expires_at - GENESIS_TIMESTAMP)
@@ -4466,23 +4663,23 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert not migration_protocol.sync(before_expiry)
     after_expiry = clock(183, recovery_expiry_slot + 1)
     assert migration_protocol.sync(after_expiry)
-    assert migration_registry.cleanup_migration_reservations() == 1
-    assert migration_protocol.sync(after_expiry)
     check("P50bg delayed cutover reaches migration-ready without reopening",
           migration_protocol.recovery is None
           and migration_revision == 1
           and shared_migration_gate.mode == "READY"
           and shared_migration_gate.live_data_sessions == 0
-          and shared_migration_gate.unsettled_builder_reservations == 0
           and len(migration_protocol.messages) == 18
+          and migration_registry.open_reservations
+              == migration_reservations_before
+          and not migration_registry.liable_reservations
           and settlement_1.enter_migration_ready()
           and migration_protocol.arm_normal_context(after_expiry)
-              == "MIGRATION_ARMED"
+              == "SYNCED"
           and migration_protocol.activate_normal_context(after_expiry)
-              == "MIGRATION_ARMED"
+              == "SYNCED"
           and migration_protocol.submit(
               candidate(migration_protocol, after_expiry, "ready-veto"),
-              after_expiry) == "MIGRATION_ARMED"
+              after_expiry) == "SYNCED"
           and active_router.sync_and_append(
               message(2, "ready-row", kind=ForceKind.BRIDGE_CREDIT),
               clock=after_expiry,
@@ -4508,14 +4705,21 @@ def test_data_gc_reorg_and_geometry() -> None:
         "settlement:fresh-gate", "runtime:2", 2, "profile:2",
         copy.deepcopy(canonical_core_756), 51, terminal_queue,
         inbox_apply_router=migration_inbox_apply)
-    migration_inbox_apply.next_queue_index = 13
-    split_cursor_rejected = not active_router.activate_version(
+    wrong_schedule_settlement = VersionedSettlementHistory(
+        "settlement:wrong-schedule", "runtime:2", 2, "profile:2",
+        copy.deepcopy(canonical_core_756), 51, terminal_queue,
+        migration_gate=shared_migration_gate,
+        inbox_apply_router=migration_inbox_apply,
+        schedule_oracle_id="replacement-schedule-oracle")
+    original_queue_runtime = terminal_queue.runtime_hash
+    terminal_queue.runtime_hash = "attacker-queue-runtime"
+    queue_code_rejected = not active_router.activate_version(
         settlement=exact_settlement, l1_block=51,
         caller_is_version_manager=True, manifest_active=True,
         target_manifest_hash="manifest:2",
         target_runtime_approved=True, target_profile_matches=True,
         full_core_import_exact=True, queue_import_exact=True)
-    migration_inbox_apply.next_queue_index = 12
+    terminal_queue.runtime_hash = original_queue_runtime
     live_canonical = migration_protocol.canonical
     migration_protocol.canonical = Canonical(
         replace(canonical_core_756, state_root="stale-live-state"), 51)
@@ -4527,7 +4731,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         full_core_import_exact=True, queue_import_exact=True)
     migration_protocol.canonical = live_canonical
     check("P50ba router rejects fake, unauthorized and discontinuous targets",
-          split_cursor_rejected and stale_live_state_rejected
+          queue_code_rejected and stale_live_state_rejected
           and not active_router.activate_version(
               settlement=exact_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
@@ -4563,6 +4767,12 @@ def test_data_gc_reorg_and_geometry() -> None:
               caller_is_version_manager=True, manifest_active=True,
               target_manifest_hash="manifest:2",
               target_runtime_approved=True, target_profile_matches=True,
+              full_core_import_exact=True, queue_import_exact=True)
+          and not active_router.activate_version(
+              settlement=wrong_schedule_settlement, l1_block=51,
+              caller_is_version_manager=True, manifest_active=True,
+              target_manifest_hash="manifest:2",
+              target_runtime_approved=True, target_profile_matches=True,
               full_core_import_exact=True, queue_import_exact=True))
     assert active_router.activate_version(
         settlement=exact_settlement, l1_block=51,
@@ -4589,22 +4799,59 @@ def test_data_gc_reorg_and_geometry() -> None:
           and shared_migration_gate.target_protocol_version == 0
           and terminal_queue.active_settlement_address == "settlement:2"
           and not terminal_queue.advance_cursor(
-              12, 12, caller="settlement:1")
+              12, 12, caller="settlement:1", beneficiary="old")
           and not terminal_queue.advance_cursor(
-              12, 13, caller="attacker")
+              12, 13, caller="attacker", beneficiary="attacker")
           and terminal_queue.count == 19
-          and terminal_queue.escrow_balance == 9_012
+          and terminal_queue.escrow_balance == 29
           and [row.payload_hash for row in terminal_queue.descriptors[-2:]]
               == ["old-adapter-row", "same-old-adapter-after-v2"]
           and migration_protocol.messages is terminal_queue.descriptors
-          and (0, 1) in migration_registry.liable_reservations
-          and not migration_registry.reserve("migration-builder", 1, 0)
+          and migration_protocol.release_activation_pending
+          and migration_protocol.pending_release_protocol_version == 2
+          and migration_protocol.pending_release_manifest_hash == "manifest:2"
+          and migration_registry.reserve("migration-builder", 1, 0)
           and migration_registry.reserve("migration-builder", 2, 0))
+    migration_activation_trigger = clock(200, 4_001)
+    assert migration_protocol.sync(migration_activation_trigger)
+    migration_activation_clock = recovery_submit_clock(migration_protocol)
+    migration_activation_candidate = escape_candidate(
+        migration_protocol, migration_activation_clock,
+        "migration-release-activation")
+    forged_steady = replace(
+        migration_activation_candidate,
+        blocks=(replace(
+            migration_activation_candidate.blocks[0],
+            release_activation=False, release_protocol_version=0,
+            release_manifest_hash="", force_gas_budget=FORCE_GAS_BUDGET),))
+    check("P50ct migration arms and canonically consumes the exact release",
+          migration_activation_candidate.blocks[0].release_activation
+          and migration_activation_candidate.blocks[0].release_protocol_version == 2
+          and migration_activation_candidate.blocks[0].release_manifest_hash
+              == "manifest:2"
+          and not migration_protocol._valid_recovery(
+              forged_steady, migration_activation_clock)
+          and migration_protocol.submit(
+              migration_activation_candidate,
+              migration_activation_clock) == "COMMITTED"
+          and not migration_protocol.release_activation_pending
+          and migration_protocol.core.message_cursor == 19
+          and terminal_queue.claimable.get("prover") == 17
+          and terminal_queue.withdraw_claimable("prover") == 17
+          and terminal_queue.escrow_balance == 12
+          and terminal_queue.unconsumed_escrow == 0
+          and terminal_queue.total_claimable == 12
+          and terminal_queue.escrow_balance
+              == terminal_queue.unconsumed_escrow
+                 + terminal_queue.total_claimable)
     check("P50bn the same gate can authorize a second bounded migration",
           shared_migration_gate.arm(
               2, 2, 3, "manifest:3", caller="version-manager")
           and shared_migration_gate.mode == "ARMED"
-          and shared_migration_gate.target_protocol_version == 3)
+          and shared_migration_gate.target_protocol_version == 3
+          and migration_registry.open_reservations
+              == migration_reservations_before
+          and not migration_registry.liable_reservations)
 
     terminal_verifier = TerminalSignalVerifier(active_router)
     failed_index = destination.terminal_index[credit_a]
