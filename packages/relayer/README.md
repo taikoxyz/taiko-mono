@@ -107,13 +107,24 @@ Only the broadcast goes private. Nonces, gas prices, receipts and every other re
 `DEST_RPC_URL`, so the relayer keeps one nonce source and its reads do not depend on a relay being
 up or within its rate limit.
 
-Endpoints are offered each transaction in the order given. Because it is the same signed
+Endpoints are offered each transaction in the order given, with one exception: an endpoint that
+already accepted a given nonce is offered a resend of that nonce last. Accepting only means the
+relay received the transaction, never that a builder included it, and the transaction manager only
+re-sends a nonce it has not seen confirmed — so the replacement is better spent on a different
+builder. Nothing is charged for that reordering.
+
+Each endpoint also gets its own share of the time left on the send, so one that accepts the
+connection and then never answers cannot spend the budget the endpoints behind it need.
+
+Because it is the same signed
 transaction every time, offering it to the next endpoint after one refuses is idempotent — at most
 one of them can land it. An endpoint that refuses several sends in a row drops out of rotation for
 `PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default), and comes back with a fresh budget once that
-elapses. Only consecutive refusals count, and a transaction it does take clears the tally: a relay
-that will not take one particular claim — one that would revert because a competitor already
-processed the message, say — is still healthy for everything else. Only once no endpoint is left in
+elapses. A relay that answers that it will not take one particular claim — one that would revert
+because a competitor already processed the message, say — is charged once for it rather than on
+every resubmission, so one such claim does not cost a healthy relay its turn. A timeout or a
+transport failure always counts, even for the same transaction, since that is what an endpoint
+being down looks like. Only once no endpoint is left in
 rotation does a transaction go out through `DEST_RPC_URL`.
 
 Two metrics are worth alerting on. `private_rpc_failures_ops_total` is labelled by the refusing
@@ -121,6 +132,12 @@ endpoint's position in the failover order, so it says which relay is unhealthy.
 `private_rpc_unavailable_ops_total` counts transactions that went out through `DEST_RPC_URL` while
 private endpoints were configured — that is the relayer running exposed, and matters more than any
 individual refusal.
+
+**Set `TX_SEND_TIMEOUT` when using private endpoints.** It defaults to disabled. A relay can accept
+a transaction and never have it included — Flashbots Protect drops would-revert transactions by
+design — and accepting is the only signal the relayer gets, since receipts are polled through
+`DEST_RPC_URL`. Without a send timeout the transaction manager waits for that receipt indefinitely,
+so the claim stalls rather than being retried. The processor warns at startup if this is left unset.
 
 Leave this unset when the destination chain is Taiko: private relays exist for Ethereum only, so
 L1 to L2 claims keep using `DEST_RPC_URL`.

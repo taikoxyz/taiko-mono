@@ -126,9 +126,9 @@ var (
 	DestPrivateRPCUrls = &cli.StringSliceFlag{
 		Name: "destPrivateRpcUrls",
 		Usage: "RPC endpoints for the destination chain that hand transactions to block builders " +
-			"without broadcasting them to the public mempool, in priority order. processMessage " +
-			"transactions are sent through the first endpoint still in rotation, falling back to " +
-			"the next and finally to destRpcUrl",
+			"without broadcasting them to the public mempool, in priority order. Each transaction " +
+			"is offered to every endpoint still in rotation, in order, before destRpcUrl is used; " +
+			"an endpoint that refuses repeatedly drops out of rotation for privateRpcRetryInterval",
 		Category: processorCategory,
 		Required: false,
 		EnvVars:  []string{"DEST_PRIVATE_RPC_URLS"},

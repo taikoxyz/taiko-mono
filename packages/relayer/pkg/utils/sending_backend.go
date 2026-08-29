@@ -33,6 +33,13 @@ const DefaultPrivateRPCRetryInterval = 5 * time.Minute
 // The transactions also have to be distinct; see recordFailure.
 const DefaultPrivateRPCFailureThreshold = 3
 
+// DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
+//
+// The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
+// apply in the processor. It keeps the guarantee that one hanging endpoint cannot starve the ones
+// behind it from depending on the caller.
+const DefaultPrivateRPCAttemptTimeout = 30 * time.Second
+
 // urlInErrorText matches a URL inside an error message, so it can be kept out of the logs.
 var urlInErrorText = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s"]*`)
 
@@ -125,7 +132,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			)
 		}
 
-		return b.ETHBackend.SendTransaction(ctx, tx)
+		// DEST_RPC_URL can carry an API key too, so the public path is redacted the same way.
+		return redacted(b.ETHBackend.SendTransaction(ctx, tx))
 	}
 
 	inRotation = b.deprioritiseAlreadyAccepted(inRotation, tx.Nonce())
@@ -141,7 +149,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 				err = ctxErr
 			}
 
-			return err
+			return redacted(err)
 		}
 
 		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
@@ -171,7 +179,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		)
 	}
 
-	return err
+	return redacted(err)
 }
 
 // attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
@@ -180,7 +188,13 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 // and the last endpoint gets everything that is left. A ctx with no deadline is passed through.
 func attemptContext(ctx context.Context, remaining int) (context.Context, context.CancelFunc) {
 	deadline, ok := ctx.Deadline()
-	if !ok || remaining <= 1 {
+	if !ok {
+		// Nothing to divide. Cap the attempt anyway so an endpoint that accepts the connection and
+		// never answers cannot hold the send open for good.
+		return context.WithTimeout(ctx, DefaultPrivateRPCAttemptTimeout)
+	}
+
+	if remaining <= 1 {
 		return context.WithCancel(ctx)
 	}
 
@@ -192,6 +206,29 @@ func attemptContext(ctx context.Context, remaining int) (context.Context, contex
 // alongside, and that is what identifies the relay without publishing a credential.
 func redactURLs(err error) string {
 	return urlInErrorText.ReplaceAllString(err.Error(), "[redacted]")
+}
+
+// redactedError carries a send failure with the endpoint URLs taken out of its text.
+//
+// Redacting only our own log line is not enough: the error is returned to the transaction manager,
+// which logs it, and on to the processor, which logs it again. Either would put an API key in the
+// logs, so the redaction has to travel with the error rather than be applied at one call site.
+//
+// Unwrap keeps errors.Is and errors.As working on the original, and only URLs are removed, so the
+// substrings the transaction manager classifies on — "nonce too low", "already known",
+// "replacement transaction underpriced" — survive intact.
+type redactedError struct{ err error }
+
+func (e redactedError) Error() string { return redactURLs(e.err) }
+func (e redactedError) Unwrap() error { return e.err }
+
+// redacted wraps err so its text carries no endpoint URL, passing nil through unchanged.
+func redacted(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return redactedError{err}
 }
 
 // Close closes the public backend and every private endpoint. The transaction manager closes its

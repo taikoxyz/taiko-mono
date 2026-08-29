@@ -17,9 +17,10 @@ var (
 	}, []string{"endpoint"})
 	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "private_rpc_unavailable_ops_total",
-		Help: "The total number of transactions broadcast through the public endpoint while " +
-			"private endpoints were configured, meaning none was in rotation and the message " +
-			"and its proof reached the public mempool",
+		Help: "The total number of sends that went out through the public endpoint while private " +
+			"endpoints were configured, meaning none was in rotation and the message and its " +
+			"proof reached the public mempool. Counts sends rather than distinct claims, so a " +
+			"resubmitted transaction is counted each time it is broadcast",
 	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",

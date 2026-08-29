@@ -55,6 +55,14 @@ func (f *fakeBackend) Close() {
 	f.closeCalls++
 }
 
+// errBackend is a public backend whose sends always fail.
+type errBackend struct {
+	fakeBackend
+	err error
+}
+
+func (f *errBackend) SendTransaction(_ context.Context, _ *types.Transaction) error { return f.err }
+
 // fakeSender stands in for a private endpoint.
 type fakeSender struct {
 	mu     sync.Mutex
@@ -709,4 +717,65 @@ func TestSendingBackend_OffersAResentNonceToAnotherEndpointFirst(t *testing.T) {
 	// A different claim goes back to the configured order.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
 	assert.Len(t, first.sent, 2)
+}
+
+func TestSendingBackend_ReturnedErrorsCarryNoEndpointURL(t *testing.T) {
+	secret := "https://relay.example.com/v1/SUPERSECRETKEY?auth=alsosecret"
+
+	b, _, first, second, _ := newTestBackend(t, nil)
+	first.err = fmt.Errorf(`Post %q: dial tcp: i/o timeout`, secret)
+	second.err = fmt.Errorf(`Post %q: dial tcp: i/o timeout`, secret)
+
+	err := b.SendTransaction(context.Background(), testTx())
+
+	// Redacting only our own log line is not enough: this error is returned to the transaction
+	// manager, which logs it, and then to the processor, which logs it again. The redaction has to
+	// travel with the error.
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "SUPERSECRETKEY")
+	assert.NotContains(t, err.Error(), "alsosecret")
+	assert.NotContains(t, err.Error(), "relay.example.com")
+	assert.Contains(t, err.Error(), "i/o timeout", "the reason has to survive")
+}
+
+func TestSendingBackend_PublicSendErrorsAreRedactedToo(t *testing.T) {
+	public := &errBackend{err: fmt.Errorf(`Post %q: connection refused`, "https://eth.example.com/v2/PUBLICKEY")}
+
+	b := NewSendingBackend(public, nil, nil)
+
+	err := b.SendTransaction(context.Background(), testTx())
+
+	// DEST_RPC_URL is just as likely to carry an API key as a relay URL is.
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "PUBLICKEY")
+	assert.Contains(t, err.Error(), "connection refused")
+}
+
+func TestSendingBackend_RedactionKeepsErrorIdentityAndClassification(t *testing.T) {
+	sentinel := errors.New("nonce too low")
+	only := &fakeSender{err: fmt.Errorf(`Post "https://relay.example.com/KEY": %w`, sentinel)}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil)
+
+	err := b.SendTransaction(context.Background(), testTx())
+	require.Error(t, err)
+
+	// The transaction manager classifies send failures by matching substrings such as
+	// "nonce too low" and by errors.Is, so redaction must not disturb either. Only URLs go.
+	assert.ErrorIs(t, err, sentinel)
+	assert.Contains(t, err.Error(), "nonce too low")
+	assert.NotContains(t, err.Error(), "relay.example.com")
+}
+
+func TestSendingBackend_CapsAnAttemptWhenTheCallerGivesNoDeadline(t *testing.T) {
+	// The transaction manager always supplies its NetworkTimeout, so this guards a direct caller
+	// rather than the processor: without a cap, an endpoint that hangs would hold the send open
+	// with no deadline to divide.
+	ctx, cancel := attemptContext(context.Background(), 1)
+	defer cancel()
+
+	deadline, ok := ctx.Deadline()
+
+	require.True(t, ok, "an attempt must always be bounded")
+	assert.InDelta(t, DefaultPrivateRPCAttemptTimeout, time.Until(deadline), float64(time.Second))
 }

@@ -276,6 +276,10 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	// concurrent claims could be signed with the same nonce.
 	privateSenders, err := dialPrivateSenders(ctx, cfg.DestPrivateRPCUrls)
 	if err != nil {
+		// NewConfig already dialled the public endpoint; nothing owns it until the backend below
+		// wraps it, so it has to be closed here rather than left open for the process's life.
+		txmgrConfig.Backend.Close()
+
 		return err
 	}
 
