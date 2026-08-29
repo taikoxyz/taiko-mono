@@ -75,11 +75,12 @@ D_TERMINAL_LEAF = b"slot-chain-terminal-leaf-v1"
 D_TERMINAL_NODE = b"slot-chain-terminal-node-v1"
 D_TERMINAL_ROOT = b"slot-chain-terminal-root-v1"
 D_SOURCE_DOMAIN = b"slot-chain-source-domain-v4"
-D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v5"
+D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v6"
 D_BRIDGE_EXECUTION = b"slot-chain-frozen-bridge-execution-v2"
+D_DESTINATION_BRIDGE_EXECUTION = b"slot-chain-destination-bridge-execution-v1"
 D_BRIDGE_KERNEL = b"slot-chain-bridge-kernel-profile-v1"
 D_COMPONENT_CONFIG = b"slot-chain-component-config-v1"
-D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v1"
+D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v2"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
@@ -460,6 +461,47 @@ def bridge_execution_hash(descriptor: FrozenBridgeDescriptor) -> bytes:
 
 
 @dataclass(frozen=True)
+class DestinationBridgeDescriptor:
+    bridge: int
+    facade_runtime_hash: bytes
+    storage_layout_hash: bytes
+    bridge_kernel_profile_hash: bytes
+    inbox_credit_store: int
+    terminal_accumulator: int
+    activation_gate: int
+    terminal_domain_registrar: int
+
+
+def canonical_destination_bridge_descriptor(
+        descriptor: DestinationBridgeDescriptor) -> bytes:
+    assert (descriptor.bridge != 0
+            and descriptor.facade_runtime_hash != bytes(32)
+            and descriptor.storage_layout_hash != bytes(32)
+            and descriptor.bridge_kernel_profile_hash != bytes(32)
+            and descriptor.inbox_credit_store != 0
+            and descriptor.terminal_accumulator != 0
+            and descriptor.activation_gate != 0
+            and descriptor.terminal_domain_registrar != 0)
+    encoded = (address20(descriptor.bridge)
+               + b32(descriptor.facade_runtime_hash)
+               + b32(descriptor.storage_layout_hash)
+               + b32(descriptor.bridge_kernel_profile_hash)
+               + address20(descriptor.inbox_credit_store)
+               + address20(descriptor.terminal_accumulator)
+               + address20(descriptor.activation_gate)
+               + address20(descriptor.terminal_domain_registrar))
+    assert len(encoded) == 196
+    return encoded
+
+
+def destination_bridge_execution_hash(
+        descriptor: DestinationBridgeDescriptor) -> bytes:
+    encoded = canonical_destination_bridge_descriptor(descriptor)
+    return keccak256(
+        D_DESTINATION_BRIDGE_EXECUTION + u32(len(encoded)) + encoded)
+
+
+@dataclass(frozen=True)
 class ComponentDescriptor:
     address: int
     runtime_hash: bytes
@@ -468,7 +510,7 @@ class ComponentDescriptor:
 
 def component_config_hash(kind: int, config: bytes) -> bytes:
     assert 1 <= kind <= 9 and 0 < len(config) < 1 << 16
-    assert len(config) == (80, 52, 22, 21, 60, 80, 100, 21, 112)[kind - 1]
+    assert len(config) == (80, 72, 21, 73, 80, 52, 60, 21, 112)[kind - 1]
     return keccak256(D_COMPONENT_CONFIG + u8(kind) + u16(len(config)) + config)
 
 
@@ -491,20 +533,20 @@ def fixture_destination_components() -> tuple[ComponentDescriptor, ...]:
     configs = (
         address20(0xD001) + address20(0xB123) + address20(0xAD01)
         + address20(0xD200),
-        address20(0xD200) + bytes.fromhex("41" * 32),
-        address20(0xAD01) + u16(256),
-        address20(0xD100) + u8(64),
-        address20(0x5101) + address20(0x5104) + address20(0x5105),
+        address20(0xD200) + address20(0xF000) + bytes.fromhex("41" * 32),
+        address20(0xAD01) + u8(64),
+        address20(0x5103) + address20(0x5105)
+        + bytes.fromhex("43" * 32) + u8(64),
         address20(0x5100) + address20(0xB200) + address20(0x5104)
         + address20(0x5103),
-        address20(0x5106) + address20(0x5102) + address20(0x5101)
-        + address20(0xB200) + address20(0x5104),
+        address20(0x5105) + bytes.fromhex("43" * 32),
+        address20(0x5106) + address20(0x5100) + address20(0x5102),
         address20(0x5103) + u8(64),
         address20(0x5101) + address20(0x5102) + address20(0x5104)
         + address20(0x5103) + bytes.fromhex("42" * 32),
     )
-    addresses = (0xAD00, 0xAD01, 0xD100, 0xD101, 0x5100,
-                 0x5101, 0x5103, 0x5102, 0xB200)
+    addresses = (0xAD00, 0xAD01, 0xD101, 0x5100, 0x5101,
+                 0x5106, 0x5103, 0x5102, 0xB200)
     return tuple(ComponentDescriptor(
         address, bytes([0x50 + index]) * 32,
         component_config_hash(index + 1, configs[index]))
@@ -527,8 +569,9 @@ def source_domain_id(src_chain_id: int, genesis_hash: bytes,
 def destination_domain_id(dest_chain_id: int, genesis_hash: bytes,
                           bridge_inbox_adapter: int,
                           active_settlement_router: int,
-                          checkpoint_store: int, terminal_verifier: int,
+                          terminal_verifier: int,
                           inbox_apply: int, inbox_credit_store: int,
+                          protocol_release_authority: int,
                           terminal_domain_registrar: int,
                           terminal_accumulator: int, bridge: int,
                           bridge_execution_hash: bytes,
@@ -539,18 +582,19 @@ def destination_domain_id(dest_chain_id: int, genesis_hash: bytes,
             and infrastructure_hash != bytes(32)
             and bridge_inbox_adapter != 0
             and active_settlement_router != 0
-            and checkpoint_store != 0 and terminal_verifier != 0
+            and terminal_verifier != 0
             and inbox_apply != 0 and inbox_credit_store != 0
+            and protocol_release_authority != 0
             and terminal_domain_registrar != 0
             and terminal_accumulator != 0 and bridge != 0)
     return keccak256(D_DESTINATION_DOMAIN + u64(dest_chain_id)
                      + b32(genesis_hash)
                      + address20(bridge_inbox_adapter)
                      + address20(active_settlement_router)
-                     + address20(checkpoint_store)
                      + address20(terminal_verifier)
                      + address20(inbox_apply)
                      + address20(inbox_credit_store)
+                     + address20(protocol_release_authority)
                      + address20(terminal_domain_registrar)
                      + address20(terminal_accumulator)
                      + address20(bridge)
@@ -813,40 +857,67 @@ class TerminalVector:
 
 
 class PersistentTerminalTree:
-    """Exact current-state node store used by TerminalAccumulatorV2."""
+    """Immutable complete-subtree store used by TerminalAccumulatorV2.
+
+    A node is written only when its fixed interval becomes completely occupied.
+    Thus no historical proof dependency is overwritten.  A node for any prefix
+    count is reconstructed from completed subtrees and canonical empty nodes.
+    """
 
     def __init__(self) -> None:
         self.count = 0
-        self.nodes: dict[tuple[int, int], bytes] = {}
+        self.completed_nodes: dict[tuple[int, int], bytes] = {}
 
-    def node(self, height: int, node_index: int) -> bytes:
+    def node_at(self, count: int, height: int, node_index: int) -> bytes:
+        assert 0 <= count <= self.count
         assert 0 <= height <= TERMINAL_DEPTH and node_index >= 0
-        return self.nodes.get((height, node_index), TERMINAL_EMPTY[height])
+        start = node_index << height
+        end = start + (1 << height)
+        if start >= count:
+            return TERMINAL_EMPTY[height]
+        if end <= count:
+            node = self.completed_nodes.get((height, node_index))
+            assert node is not None
+            return node
+        assert height > 0
+        return keccak256(
+            D_TERMINAL_NODE + u8(height - 1)
+            + self.node_at(count, height - 1, node_index * 2)
+            + self.node_at(count, height - 1, node_index * 2 + 1))
+
+    def root_at(self, count: int) -> bytes:
+        assert 0 <= count <= self.count
+        return keccak256(
+            D_TERMINAL_ROOT + u64(count)
+            + self.node_at(count, TERMINAL_DEPTH, 0))
 
     @property
     def root(self) -> bytes:
-        return keccak256(D_TERMINAL_ROOT + u64(self.count)
-                         + self.node(TERMINAL_DEPTH, 0))
+        return self.root_at(self.count)
 
     def append(self, leaf: bytes) -> int:
         assert self.count < UINT64_MAX
         index = self.count
         node = b32(leaf)
-        self.nodes[(0, index)] = node
-        for height in range(TERMINAL_DEPTH):
-            child_index = index >> height
-            sibling = self.node(height, child_index ^ 1)
-            node = (keccak256(D_TERMINAL_NODE + u8(height) + sibling + node)
-                    if child_index & 1 else
-                    keccak256(D_TERMINAL_NODE + u8(height) + node + sibling))
-            self.nodes[(height + 1, child_index >> 1)] = node
+        self.completed_nodes[(0, index)] = node
+        node_index = index
+        height = 0
+        while height < TERMINAL_DEPTH and node_index & 1:
+            left = self.completed_nodes[(height, node_index - 1)]
+            node = keccak256(D_TERMINAL_NODE + u8(height) + left + node)
+            node_index >>= 1
+            height += 1
+            self.completed_nodes[(height, node_index)] = node
         self.count += 1
         return index
 
-    def proof(self, index: int) -> tuple[bytes, ...]:
-        assert 0 <= index < self.count
-        return tuple(self.node(height, (index >> height) ^ 1)
+    def proof_at(self, count: int, index: int) -> tuple[bytes, ...]:
+        assert 0 <= index < count <= self.count
+        return tuple(self.node_at(count, height, (index >> height) ^ 1)
                      for height in range(TERMINAL_DEPTH))
+
+    def proof(self, index: int) -> tuple[bytes, ...]:
+        return self.proof_at(self.count, index)
 
 
 def verify_terminal_proof(count: int, index: int, leaf: bytes,
@@ -1080,10 +1151,15 @@ def vectors() -> dict[str, str]:
         bridge_execution, bytes.fromhex("26" * 32))
     infrastructure_components = fixture_destination_components()
     infrastructure = destination_infrastructure_hash(infrastructure_components)
+    destination_bridge_descriptor = DestinationBridgeDescriptor(
+        0xB200, bytes.fromhex("58" * 32), bytes.fromhex("42" * 32),
+        bridge_kernel, 0x5101, 0x5102, 0x5104, 0x5103)
+    destination_bridge_execution = destination_bridge_execution_hash(
+        destination_bridge_descriptor)
     destination_domain = destination_domain_id(
         l2_chain_id, bytes.fromhex("35" * 32), 0xAD00, 0xAD01,
-        0xD100, 0xD101, 0x5100, 0x5101, 0x5103, 0x5102, 0xB200,
-        bytes.fromhex("37" * 32), infrastructure, bytes.fromhex("36" * 32))
+        0xD101, 0x5100, 0x5101, 0x5106, 0x5103, 0x5102, 0xB200,
+        destination_bridge_execution, infrastructure, bytes.fromhex("36" * 32))
     bridge_msg_hash = bytes.fromhex("21" * 32)
     bridge_credit = bridge_credit_id(
         1, source_domain, 7, 0xB123, destination_domain, bridge_msg_hash)
@@ -1146,6 +1222,7 @@ def vectors() -> dict[str, str]:
         "destination_domain_id": destination_domain.hex(),
         "bridge_kernel_profile_hash": bridge_kernel.hex(),
         "bridge_execution_hash": bridge_execution.hex(),
+        "destination_bridge_execution_hash": destination_bridge_execution.hex(),
         "destination_infrastructure_hash": infrastructure.hex(),
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
@@ -1190,20 +1267,21 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "304d7527d48dee55f5001f4e853cfad75f7abbc2a958417fa24405aab6fad6db",
-    "bridge_result": "430b031d4b9d6d75f52a41b74aca29fb11082bbdf76e71563aea98975ee227fc",
-    "bridge_credit_id": "b8fb091226c8f41770635403116bef1af2f3a9f668feaa3b37f6c47bd9c08563",
-    "bridge_escrow_id": "0d8fa41f2f12c9f8a0192469ba8343326bc029ba6a6d3662acda673f45c03cb8",
-    "inbox_credit_slot": "97702e945d3c61421ed9813146b6b215218d2aac249b254dd19ffab60e5e4737",
-    "terminal_done_leaf": "d5e4df51f467c1c42fd7b1785dab71cbcc3d63d5462643320edeaaed0af58746",
-    "terminal_failed_leaf": "8b315fb68285bee6e192631fdbdde9639f97d6ac410fb998727022a5059bd20d",
-    "terminal_root_2": "b5c1e544f5430104c6e7d4b9b2aeff471a5c7c16fd77c8d63c9c4c7790784ad9",
+    "bridge_leaf": "6d0fc74112a9208b01c1cf652d2aae15fda421e71efc7d5f0333b8028908366d",
+    "bridge_result": "ca4e2ae3710db4146239a2ca871eff81822b03a493ecb984872bd4e097ae98d2",
+    "bridge_credit_id": "80f6872de8b64760514c16f68f4dd62828bf2f715cf7ceaecb4e28db077a0c85",
+    "bridge_escrow_id": "dda628a9c5230f1493589515a189c645e422f5ef104ac83af5200c3a05da1617",
+    "inbox_credit_slot": "bd52439306c8d3a956854adb849c42bb9c2b3810e736c6a16b65b810ce876452",
+    "terminal_done_leaf": "308c81b638c0d7027182f6e75dde3fa7b982b2b33f37ae5e7e25f0337cc51bb4",
+    "terminal_failed_leaf": "405fc99d08d18751652bf01196c948d5c713e65d9154a8fc9af592b11b14fd81",
+    "terminal_root_2": "430278faec9d7c7610c7a659b12bdc7bf3c8f16c5f6e01030e86900b59d5cdae",
     "empty_terminal_root": "0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2",
     "source_domain_id": "9f207cb5f32747635be6496e957827270c0b62aa5a7d0bd39657e28c0fedf7b1",
-    "destination_domain_id": "a05715f43be50a8835dde7ead6c1cdf9135f7c6fbaf5bf64ab254ab2e7993be6",
+    "destination_domain_id": "78cd6a4469c1e6ba8e7e3719955e330e68a66c48b70d9fc02600fa9244bb0eba",
     "bridge_kernel_profile_hash": "371700b6908037409059b484e1eff1a1511464447af6c67ea98cc96d35443cc6",
     "bridge_execution_hash": "1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2",
-    "destination_infrastructure_hash": "bd7188b5bce6e92061ccdd9e7cda1c5cb4251a8e4dc623851508bb17cbacd8ab",
+    "destination_bridge_execution_hash": "66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d",
+    "destination_infrastructure_hash": "d0933ad1f03a0ebe485c8372d9d4efa6d8ec3a1655353830bf27d5ba82a857ca",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -1267,10 +1345,12 @@ if __name__ == "__main__":
     domain_r1 = source_domain_id(
         1, bytes.fromhex("25" * 32), 0xD001, 0xD003, 0xB123,
         execution_hash, bytes.fromhex("26" * 32))
+    destination_execution_hash = bytes.fromhex(
+        actual["destination_bridge_execution_hash"])
     destination_domain = destination_domain_id(
         16_788, bytes.fromhex("35" * 32), 0xAD00, 0xAD01,
-        0xD100, 0xD101, 0x5100, 0x5101, 0x5103, 0x5102, 0xB200,
-        bytes.fromhex("37" * 32),
+        0xD101, 0x5100, 0x5101, 0x5106, 0x5103, 0x5102, 0xB200,
+        destination_execution_hash,
         bytes.fromhex(actual["destination_infrastructure_hash"]),
         bytes.fromhex("36" * 32))
     bridge_msg_hash = bytes.fromhex("21" * 32)
@@ -1415,14 +1495,17 @@ if __name__ == "__main__":
     first_root = persistent_terminal.root
     assert persistent_terminal.append(failed_leaf) == 1
     current_done_proof = persistent_terminal.proof(0)
+    historical_done_proof = persistent_terminal.proof_at(1, 0)
     assert (persistent_terminal.root == terminal_vector.root
             and current_done_proof == done_proof
             and verify_terminal_proof(
                 persistent_terminal.count, 0, done_leaf,
                 current_done_proof, persistent_terminal.root)
+            and verify_terminal_proof(
+                1, 0, done_leaf, historical_done_proof, first_root)
             and first_root != persistent_terminal.root
-            and len(persistent_terminal.nodes)
-                < 2 * persistent_terminal.count + 65)
+            and len(persistent_terminal.completed_nodes)
+                < 2 * persistent_terminal.count)
 
     bridge_kernel = bridge_kernel_profile_hash(
         bytes.fromhex("2a" * 32), bytes.fromhex("2b" * 32),
@@ -1450,6 +1533,23 @@ if __name__ == "__main__":
         except AssertionError as error:
             assert str(error) != "invalid frozen bridge descriptor accepted"
 
+    destination_descriptor = DestinationBridgeDescriptor(
+        0xB200, bytes.fromhex("58" * 32), bytes.fromhex("42" * 32),
+        bridge_kernel, 0x5101, 0x5102, 0x5104, 0x5103)
+    assert destination_bridge_execution_hash(destination_descriptor).hex() \
+        == actual["destination_bridge_execution_hash"]
+    for changed_destination_descriptor in (
+        replace(destination_descriptor, bridge=0xB201),
+        replace(destination_descriptor,
+                facade_runtime_hash=bytes.fromhex("59" * 32)),
+        replace(destination_descriptor, inbox_credit_store=0x5111),
+        replace(destination_descriptor, terminal_accumulator=0x5112),
+        replace(destination_descriptor, activation_gate=0x5114),
+        replace(destination_descriptor, terminal_domain_registrar=0x5113),
+    ):
+        assert (destination_bridge_execution_hash(changed_destination_descriptor)
+                != destination_bridge_execution_hash(destination_descriptor))
+
     components = fixture_destination_components()
     infrastructure = destination_infrastructure_hash(components)
     assert infrastructure.hex() == actual["destination_infrastructure_hash"]
@@ -1469,6 +1569,7 @@ if __name__ == "__main__":
                 "empty_terminal_root",
                 "source_domain_id", "destination_domain_id",
                 "bridge_kernel_profile_hash", "bridge_execution_hash",
+                "destination_bridge_execution_hash",
                 "destination_infrastructure_hash"):
         assert actual[key] in published
 
@@ -1478,6 +1579,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 101 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 109 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

@@ -9,9 +9,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context plus terminal root/count, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, same-L1 direct bridge enqueue, immutable authorization versus mutable liability, frozen Bridge/vault facades, aggregate ETH/token solvency, quota-independent refunds, selector-explicit refund modes/capsules, finalized destination registration, authenticated router activation, immutable destination pins, local destination binding, publication-sequence terminal checkpoints, exact accumulator proof binding, bridged-token restoration, atomic capacity and enqueue/cancel races, persistent SYNCED refund/retry, PREACTIVE ingress and L2 activation gating, migration and reorg replay. 147 assertions. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context plus terminal root/count, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, same-L1 direct bridge enqueue, immutable authorization versus mutable liability, frozen Bridge/vault facades, aggregate ETH/token solvency, quota-independent refunds, selector-explicit refund modes/capsules, finalized destination registration, authenticated version routing, immutable destination pins, global mixed-domain inbox application, per-Settlement canonical history, historical accumulator proofs, atomic manifest-Anchor activation, bridged-token restoration, capacity and enqueue/cancel races, persistent SYNCED refund/retry, PREACTIVE ingress, L2 activation gating, migration and reorg replay. 161 assertions. |
 | [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, capped quotas, ring capacity and placement. 36 assertions. |
-| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, complete kind-0/kind-1 durable descriptors and dispositions, same-L1 source and permanent destination domains, acyclic Bridge-kernel/frozen-facade/nine-component infrastructure descriptors, generation/Bridge/destination-bound credits, escrow, immutable inbox slots, DONE/FAILED terminal leaves, persistent current-state nodes and depth-64 vector proofs, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 101 vectors/properties. |
+| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, complete kind-0/kind-1 durable descriptors and dispositions, same-L1 source and permanent destination domains, acyclic Bridge-kernel/frozen source facade/destination facade/nine-component infrastructure descriptors, generation/Bridge/destination-bound credits, escrow, immutable inbox slots, DONE/FAILED terminal leaves, immutable completed-subtree nodes and historical depth-64 vector proofs, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 109 vectors/properties. |
 
 ## Building the PDF
 
@@ -33,9 +33,9 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 147 assertions
+python3 settlement-window-model.py   # 161 assertions
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 101 vectors/properties
+python3 commitment-model.py          # 109 vectors/properties
 ```
 
 All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
@@ -75,8 +75,9 @@ economics, operations and external review. Five properties are worth knowing bef
   after the immutable pin store's `processBy`. Direct and vault V2 sends use distinct additive
   selectors; the old send selector remains exact V1. V2 custody/recovery facades and stores are
   frozen and never delegatecall mutable executors. Terminal outcomes enter a protocol-lifetime
-  vector whose permanent current-state nodes support refreshed proofs retained on L1 by publication
-  sequence, and reserved refunds remain usable through guardian pauses and zero ordinary quotas.
+  vector whose immutable leaves and completed subtrees reconstruct historical-prefix proofs against
+  each Settlement's internally written version/sequence history; reserved refunds remain usable
+  through guardian pauses and zero ordinary quotas.
   Destination processing is local-domain-bound and source enablement waits for finalized one-shot L2
   registrar proof plus finality. A post-cutover L2 activation gate excludes legacy calls from V2.
   Cross-L1 kind-1 ingress is not part of this version.

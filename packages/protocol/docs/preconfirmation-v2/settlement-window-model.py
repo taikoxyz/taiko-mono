@@ -33,6 +33,7 @@ MAX_FORCE_CANDIDATE_BYTES = 4 * 1_048_576
 MAX_FORCE_CANDIDATE_GAS = 80_000_000
 MAX_FORCE_MESSAGE_GAS = 5_000_000
 MAX_FORCE_MESSAGE_BYTES = 131_072
+UINT32_MAX = (1 << 32) - 1
 MIN_FORCE_ACCOUNTED_GAS = 21_000
 MAX_FORCE_RANGE_PROOF_HASHES = 129
 FORCE_TREE_DEPTH = 32
@@ -67,6 +68,10 @@ SUPPORT_FINALITY_BLOCKS = F_L1 + (
 MAX_BRIDGE_TOPOLOGIES_PER_PROFILE = 64
 MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
 BRIDGE_PROCESS_TTL_SECONDS = 30 * 86_400
+CANONICAL_HISTORY_CAPACITY = 256
+MAX_REGISTRATION_PROOF_NODES = 132
+MAX_REGISTRATION_PROOF_BYTES = 80_000
+APPENDING_SENTINEL = UINT64_MAX
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -934,13 +939,23 @@ class BridgeDomainRegistry:
 
     def confirm(self, source_domain_id: str, execution_hash: str,
                 destination_domain_id: str, confirmed_at_block: int, *,
-                finalized_l2_registration_proof_valid: bool,
-                registration_matches_manifest: bool) -> bool:
+                protocol_version: int, canonical_sequence: int,
+                router: ActiveSettlementRouter, proof_state_root: str,
+                mpt_proof_valid: bool, registration_matches_manifest: bool,
+                proof_node_count: int, proof_byte_length: int) -> bool:
         entry = self.entries.get(
             (source_domain_id, execution_hash, destination_domain_id))
+        canonical = router.canonical_at(protocol_version, canonical_sequence)
         if (entry is None or entry.confirmed_at_block is not None
-                or not finalized_l2_registration_proof_valid
+                or entry.protocol_version != protocol_version
+                or canonical is None
+                or canonical.state_root != proof_state_root
+                or confirmed_at_block
+                    < canonical.canonicalized_at_block + F_L1
+                or not mpt_proof_valid
                 or not registration_matches_manifest
+                or not 0 < proof_node_count <= MAX_REGISTRATION_PROOF_NODES
+                or not 0 < proof_byte_length <= MAX_REGISTRATION_PROOF_BYTES
                 or confirmed_at_block < entry.staged_at_block):
             return False
         entry.confirmed_at_block = confirmed_at_block
@@ -986,106 +1001,239 @@ class FrozenBridgeFacade:
 
 @dataclass(frozen=True)
 class CanonicalTerminalCommitment:
+    protocol_version: int
+    execution_profile_hash: str
+    canonical_sequence: int
     l2_block_number: int
     block_hash: str
+    state_root: str
     terminal_root: str
     terminal_count: int
-    protocol_version: int = 1
-    execution_profile_hash: str = "profile:1"
+    canonicalized_at_block: int
+
+
+@dataclass(frozen=True)
+class QueueContinuity:
+    address: str
+    root: str
+    count: int
+    cursor: int
+    escrow_balance: int
+    last_due_at: int
+
+
+@dataclass(frozen=True)
+class MigrationTransientState:
+    normal_best_present: bool
+    recovery_active: bool
+    live_data_sessions: int
+    unsettled_builder_escrow: int
+    claim_only_surfaces_preserved: bool
+
+    @property
+    def settled(self) -> bool:
+        return (not self.normal_best_present and not self.recovery_active
+                and self.live_data_sessions == 0
+                and self.unsettled_builder_escrow == 0
+                and self.claim_only_surfaces_preserved)
+
+
+@dataclass
+class VersionedSettlementHistory:
+    """Immutable Settlement whose history ring is written internally."""
+
+    address: str
+    runtime_hash: str
+    protocol_version: int
+    execution_profile_hash: str
+    core: CanonicalCore
+    canonicalized_at_block: int
+    forced_queue: QueueContinuity
+    mode: str = "PREACTIVE"
+    nonproxy: bool = True
+    selfdestruct_disabled: bool = True
+    current_sequence: int = -1
+    last_canonical_l1_block: int = 0
+    history: dict[int, tuple[int, CanonicalTerminalCommitment]] = field(
+        default_factory=dict)
+
+    def _entry(self, sequence: int, core: CanonicalCore,
+               canonicalized_at_block: int) -> CanonicalTerminalCommitment:
+        return CanonicalTerminalCommitment(
+            self.protocol_version, self.execution_profile_hash, sequence,
+            core.l2_block_number, core.tip_hash, core.state_root,
+            core.terminal_root, core.terminal_count, canonicalized_at_block)
+
+    def install_imported(self, *, sequence: int,
+                         history_write_block: int) -> bool:
+        if (self.mode != "PREACTIVE" or self.history or sequence < 0
+                or sequence >= UINT64_MAX
+                or self.canonicalized_at_block <= 0
+                or history_write_block < self.canonicalized_at_block):
+            return False
+        entry = self._entry(sequence, self.core, self.canonicalized_at_block)
+        self.history[sequence % CANONICAL_HISTORY_CAPACITY] = (sequence, entry)
+        self.current_sequence = sequence
+        self.last_canonical_l1_block = history_write_block
+        return True
+
+    def record_canonical(self, core: CanonicalCore, *, l1_block: int) -> int | None:
+        if (self.mode not in {"ACTIVE", "MIGRATION_ARMED"}
+                or l1_block <= self.last_canonical_l1_block
+                or self.current_sequence < 0
+                or self.current_sequence + 1 >= UINT64_MAX
+                or core.l2_block_number <= self.core.l2_block_number
+                or core.terminal_count < self.core.terminal_count
+                or (core.terminal_count == self.core.terminal_count
+                    and core.terminal_root != self.core.terminal_root)):
+            return None
+        sequence = self.current_sequence + 1
+        entry = self._entry(sequence, core, l1_block)
+        self.history[sequence % CANONICAL_HISTORY_CAPACITY] = (sequence, entry)
+        self.core = copy.deepcopy(core)
+        self.canonicalized_at_block = l1_block
+        self.current_sequence = sequence
+        self.last_canonical_l1_block = l1_block
+        return sequence
+
+    def arm_migration(self, *, caller_is_version_manager: bool,
+                      delayed_manifest_active: bool) -> bool:
+        if (self.mode != "ACTIVE" or not caller_is_version_manager
+                or not delayed_manifest_active):
+            return False
+        self.mode = "MIGRATION_ARMED"
+        return True
+
+    def enter_migration_ready(self,
+                              transient_state: MigrationTransientState) -> bool:
+        if self.mode != "MIGRATION_ARMED" or not transient_state.settled:
+            return False
+        self.mode = "MIGRATION_READY"
+        return True
+
+    def canonical_at(self, sequence: int) -> CanonicalTerminalCommitment | None:
+        row = self.history.get(sequence % CANONICAL_HISTORY_CAPACITY)
+        return row[1] if row is not None and row[0] == sequence else None
+
+
+@dataclass(frozen=True)
+class SettlementRegistration:
+    settlement: VersionedSettlementHistory
+    runtime_hash: str
+    execution_profile_hash: str
+    activation_block: int
+    predecessor_version: int
 
 
 @dataclass
 class ActiveSettlementRouter:
-    """Non-proxy router with one manifest-authenticated version transition."""
+    """Append-only immutable registry and read-only history router."""
 
-    protocol_version: int
-    execution_profile_hash: str
-    active_settlement: str
-    canonical: CanonicalTerminalCommitment
+    version_manager: str
+    forced_queue_address: str
+    address: str = "active-settlement-router"
+    active_version: int = 0
+    registrations: dict[int, SettlementRegistration] = field(default_factory=dict)
+    ingress_records: list[str] = field(default_factory=list)
+
+    def bootstrap(self, settlement: VersionedSettlementHistory, *, sequence: int,
+                  activation_block: int) -> bool:
+        if (self.registrations or settlement.protocol_version <= 0
+                or settlement.forced_queue.address != self.forced_queue_address
+                or not settlement.nonproxy or not settlement.selfdestruct_disabled
+                or not settlement.install_imported(
+                    sequence=sequence, history_write_block=activation_block)):
+            return False
+        settlement.mode = "ACTIVE"
+        self.registrations[settlement.protocol_version] = SettlementRegistration(
+            settlement, settlement.runtime_hash,
+            settlement.execution_profile_hash, activation_block, 0)
+        self.active_version = settlement.protocol_version
+        return True
 
     def activate_version(
-            self, *, protocol_version: int, execution_profile_hash: str,
-            settlement: str, imported: CanonicalTerminalCommitment,
+            self, *, settlement: VersionedSettlementHistory, l1_block: int,
             caller_is_version_manager: bool, manifest_active: bool,
             target_runtime_approved: bool, target_profile_matches: bool,
-            prior_terminal_import_exact: bool) -> bool:
+            full_core_import_exact: bool, queue_import_exact: bool,
+            transient_state: MigrationTransientState) -> bool:
+        old_registration = self.registrations.get(self.active_version)
+        if old_registration is None:
+            return False
+        old = old_registration.settlement
         if (not caller_is_version_manager or not manifest_active
                 or not target_runtime_approved or not target_profile_matches
-                or not prior_terminal_import_exact
-                or protocol_version <= self.protocol_version
-                or not execution_profile_hash or not settlement
-                or imported.protocol_version != protocol_version
-                or imported.execution_profile_hash != execution_profile_hash
-                or imported.terminal_root != self.canonical.terminal_root
-                or imported.terminal_count != self.canonical.terminal_count):
+                or not full_core_import_exact or not queue_import_exact
+                or not transient_state.settled
+                or settlement.protocol_version <= self.active_version
+                or settlement.protocol_version in self.registrations
+                or not settlement.execution_profile_hash
+                or not settlement.runtime_hash
+                or not settlement.nonproxy or not settlement.selfdestruct_disabled
+                or settlement.mode != "PREACTIVE" or settlement.history
+                or old.mode != "MIGRATION_READY"
+                or settlement.core != old.core
+                or settlement.canonicalized_at_block
+                    != old.canonicalized_at_block
+                or settlement.forced_queue != old.forced_queue
+                or settlement.forced_queue.address != self.forced_queue_address
+                or l1_block < old.last_canonical_l1_block):
             return False
-        self.protocol_version = protocol_version
-        self.execution_profile_hash = execution_profile_hash
-        self.active_settlement = settlement
-        self.canonical = imported
+        if not settlement.install_imported(
+                sequence=old.current_sequence, history_write_block=l1_block):
+            return False
+        old.mode = "FROZEN"
+        settlement.mode = "ACTIVE"
+        self.registrations[settlement.protocol_version] = SettlementRegistration(
+            settlement, settlement.runtime_hash,
+            settlement.execution_profile_hash, l1_block, self.active_version)
+        self.active_version = settlement.protocol_version
         return True
 
-    def record_canonical(self, canonical: CanonicalTerminalCommitment,
-                         *, caller: str) -> bool:
-        if (caller != self.active_settlement
-                or canonical.protocol_version != self.protocol_version
-                or canonical.execution_profile_hash != self.execution_profile_hash
-                or canonical.l2_block_number <= self.canonical.l2_block_number
-                or canonical.terminal_count < self.canonical.terminal_count
-                or (canonical.terminal_count == self.canonical.terminal_count
-                    and canonical.terminal_root != self.canonical.terminal_root)):
-            return False
-        self.canonical = canonical
-        return True
-
-    def latest_canonical_terminal(self) -> CanonicalTerminalCommitment:
-        return self.canonical
-
-
-@dataclass
-class TerminalCheckpointStore:
-    """Permissionless copier of a proof-bound canonical terminal commitment."""
-
-    router: ActiveSettlementRouter
-    capacity: int = 256
-    publication_count: int = 0
-    latest_l2_block: int = 0
-    latest_terminal_count: int = 0
-    latest_terminal_root: str = ""
-    last_l1_block: int = 0
-    checkpoints: dict[int, tuple[int, CanonicalTerminalCommitment]] = field(
-        default_factory=dict)
-
-    def publish(self, *, l1_block: int) -> int | None:
-        canonical = self.router.latest_canonical_terminal()
-        if (canonical.protocol_version != self.router.protocol_version
-                or canonical.execution_profile_hash
-                    != self.router.execution_profile_hash
-                or canonical.l2_block_number <= self.latest_l2_block
-                or l1_block <= self.last_l1_block
-                or not canonical.block_hash or not canonical.terminal_root
-                or canonical.terminal_count < self.latest_terminal_count
-                or (canonical.terminal_count == self.latest_terminal_count
-                    and self.latest_terminal_root
-                    and canonical.terminal_root != self.latest_terminal_root)):
+    def canonical_at(self, protocol_version: int,
+                     sequence: int) -> CanonicalTerminalCommitment | None:
+        registration = self.registrations.get(protocol_version)
+        if registration is None:
             return None
-        sequence = self.publication_count
-        self.checkpoints[sequence % self.capacity] = (sequence, canonical)
-        self.publication_count += 1
-        self.latest_l2_block = canonical.l2_block_number
-        self.latest_terminal_count = canonical.terminal_count
-        self.latest_terminal_root = canonical.terminal_root
-        self.last_l1_block = l1_block
-        return sequence
+        settlement = registration.settlement
+        if (settlement.runtime_hash != registration.runtime_hash
+                or settlement.execution_profile_hash
+                    != registration.execution_profile_hash
+                or not settlement.nonproxy or not settlement.selfdestruct_disabled
+                or settlement.mode not in {
+                    "ACTIVE", "MIGRATION_ARMED", "MIGRATION_READY", "FROZEN"}):
+            return None
+        entry = settlement.canonical_at(sequence)
+        if (entry is None or entry.protocol_version != protocol_version
+                or entry.execution_profile_hash
+                    != registration.execution_profile_hash):
+            return None
+        return entry
 
-    def contains(self, sequence: int, canonical: CanonicalTerminalCommitment) -> bool:
-        row = self.checkpoints.get(sequence % self.capacity)
-        return row == (sequence, canonical)
+    def sync_and_append(self, descriptor: str, *, bound_router: str,
+                        queue_address: str,
+                        active_settlement_sync_changed: bool) -> str:
+        registration = self.registrations.get(self.active_version)
+        if (bound_router != self.address
+                or queue_address != self.forced_queue_address
+                or registration is None
+                or registration.settlement.mode
+                    not in {"ACTIVE", "MIGRATION_ARMED", "MIGRATION_READY"}):
+            return "REJECTED"
+        if registration.settlement.mode == "MIGRATION_READY":
+            return "SYNCED"
+        if active_settlement_sync_changed:
+            return "SYNCED"
+        if not descriptor:
+            return "REJECTED"
+        self.ingress_records.append(descriptor)
+        return f"QUEUED:{len(self.ingress_records) - 1}"
 
 
 @dataclass(frozen=True)
 class TerminalProof:
-    publication_sequence: int
+    protocol_version: int
+    canonical_sequence: int
     canonical: CanonicalTerminalCommitment
     leaf_index: int
     destination_bridge: str
@@ -1099,9 +1247,7 @@ class TerminalProof:
 
 @dataclass(frozen=True)
 class TerminalSignalVerifier:
-    checkpoint_store: TerminalCheckpointStore
-    destination_bridge: str
-    destination_domain_id: str
+    router: ActiveSettlementRouter
 
     @staticmethod
     def terminal_leaf(index: int, destination_domain_id: str,
@@ -1111,18 +1257,23 @@ class TerminalSignalVerifier:
                 f"{destination_bridge}:{credit_id}:{terminal}")
 
     def verify(self, *, proof: TerminalProof, credit_id: str,
-               terminal: str) -> bool:
+               terminal: str, destination_domain_id: str,
+               destination_bridge: str) -> bool:
         expected_leaf = self.terminal_leaf(
-            proof.leaf_index, self.destination_domain_id,
-            self.destination_bridge, credit_id, terminal)
+            proof.leaf_index, destination_domain_id,
+            destination_bridge, credit_id, terminal)
         return (terminal in {"DONE", "FAILED"}
                 and proof.merkle_proof_valid
-                and self.checkpoint_store.contains(
-                    proof.publication_sequence, proof.canonical)
+                and self.router.canonical_at(
+                    proof.protocol_version, proof.canonical_sequence)
+                    == proof.canonical
+                and proof.canonical.protocol_version == proof.protocol_version
+                and proof.canonical.canonical_sequence
+                    == proof.canonical_sequence
                 and proof.proof_root == proof.canonical.terminal_root
                 and 0 <= proof.leaf_index < proof.canonical.terminal_count
-                and proof.destination_bridge == self.destination_bridge
-                and proof.destination_domain_id == self.destination_domain_id
+                and proof.destination_bridge == destination_bridge
+                and proof.destination_domain_id == destination_domain_id
                 and proof.credit_id == credit_id
                 and proof.terminal == terminal
                 and proof.leaf_hash == expected_leaf)
@@ -1146,6 +1297,7 @@ class CreditAuthorization:
     fee: int
     refund_mode: str = "DIRECT"
     refund_vault: str = ""
+    destination_domain_id: str = "domain:D1"
 
 
 @dataclass
@@ -1166,11 +1318,13 @@ class SourceBridgeLedger:
     total_live_liability: int = 0
     ether_quota: int = UINT64_MAX
     paused: bool = False
+    destination_bridges: dict[str, str] = field(default_factory=lambda: {
+        "domain:D1": "bridge:A", "domain:D2": "bridge:B"})
 
     def open(self, credit_id: str, *, now: int, enqueue_by: int,
              owner: str, value: int, fee: int, refund_vault: str = "",
              refund_capsule_hash: str = "", refund_mode: str = "DIRECT",
-             caller: str = "") -> bool:
+             caller: str = "", destination_domain_id: str = "domain:D1") -> bool:
         if (not credit_id or credit_id in self.authorizations or not owner
                 or enqueue_by != now + MAX_BRIDGE_ENQUEUE_DELAY
                 or value < 0 or fee < 0 or refund_capsule_hash
@@ -1180,7 +1334,8 @@ class SourceBridgeLedger:
                     and (not caller or refund_vault != caller))):
             return False
         self.authorizations[credit_id] = CreditAuthorization(
-            enqueue_by, owner, value, fee, refund_mode, refund_vault)
+            enqueue_by, owner, value, fee, refund_mode, refund_vault,
+            destination_domain_id)
         self.credits[credit_id] = SourceCredit(
             value, fee, "", "DRAFT" if refund_mode == "CAPSULE" else "NEW")
         self.balance += value + fee
@@ -1225,9 +1380,16 @@ class SourceBridgeLedger:
     def finalize_done(self, credit_id: str, *, verifier: TerminalSignalVerifier,
                       proof: TerminalProof) -> bool:
         credit = self.credits.get(credit_id)
+        authorization = self.authorizations.get(credit_id)
+        destination_bridge = (None if authorization is None else
+                              self.destination_bridges.get(
+                                  authorization.destination_domain_id))
         if (credit is None or credit.status != "QUEUED"
+                or authorization is None or destination_bridge is None
                 or not verifier.verify(
-                    proof=proof, credit_id=credit_id, terminal="DONE")):
+                    proof=proof, credit_id=credit_id, terminal="DONE",
+                    destination_domain_id=authorization.destination_domain_id,
+                    destination_bridge=destination_bridge)):
             return False
         credit.status = "DELIVERED"
         self.total_live_liability -= credit.value
@@ -1237,9 +1399,15 @@ class SourceBridgeLedger:
                       proof: TerminalProof) -> bool:
         credit = self.credits.get(credit_id)
         authorization = self.authorizations.get(credit_id)
+        destination_bridge = (None if authorization is None else
+                              self.destination_bridges.get(
+                                  authorization.destination_domain_id))
         if (credit is None or credit.status != "QUEUED"
+                or authorization is None or destination_bridge is None
                 or not verifier.verify(
-                    proof=proof, credit_id=credit_id, terminal="FAILED")):
+                    proof=proof, credit_id=credit_id, terminal="FAILED",
+                    destination_domain_id=authorization.destination_domain_id,
+                    destination_bridge=destination_bridge)):
             return False
         credit.status = "RECALLED"
         assert authorization is not None
@@ -1338,6 +1506,7 @@ class RefundRestorableToken:
 
 @dataclass
 class BridgeAdapter:
+    source_bridge: str = "bridge:A"
     records: dict[str, BridgeRecord] = field(default_factory=dict)
     refunds: dict[str, int] = field(default_factory=dict)
 
@@ -1369,6 +1538,7 @@ class BridgeAdapter:
         source_credit = source_ledger.credits.get(credit_id)
         if (not caller or deposit <= 0
                 or envelope.kind is not ForceKind.BRIDGE_CREDIT
+                or src_bridge != self.source_bridge
                 or not source_record_present or not source_record_matches
                 or not source_liability_live or not domain_authorized
                 or not direct_call_bounded or source_credit is None
@@ -1405,6 +1575,18 @@ class InboxCreditStoreV2:
     destination_bridge: str
     destination_domain_id: str
     pins: dict[str, InboxPin] = field(default_factory=dict)
+    runtime_codehash: str = ""
+    returns_success_magic: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.runtime_codehash:
+            suffix = self.destination_domain_id.split(":")[-1]
+            self.runtime_codehash = f"codehash:store:{suffix}"
+
+    @property
+    def route_config_hash(self) -> str:
+        return (f"config:{self.authorized_inbox_apply}:"
+                f"{self.destination_bridge}:{self.destination_domain_id}")
 
     def pin(self, credit_id: str, result_hash: str, *, now: int,
             caller: str) -> bool:
@@ -1414,7 +1596,7 @@ class InboxCreditStoreV2:
         expected = InboxPin(result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
         existing = self.pins.get(credit_id)
         if existing is not None:
-            return existing == expected
+            return existing.result_hash == result_hash
         self.pins[credit_id] = expected
         return True
 
@@ -1424,6 +1606,165 @@ class InboxCreditStoreV2:
                 or destination_domain_id != self.destination_domain_id):
             return None
         return self.pins.get(credit_id)
+
+    def pin_batch(self, rows: tuple[tuple[str, str], ...], *, now: int,
+                  caller: str) -> bool:
+        if caller != self.authorized_inbox_apply or not self.returns_success_magic:
+            return False
+        for credit_id, result_hash in rows:
+            existing = self.pins.get(credit_id)
+            if (not credit_id or not result_hash
+                    or (existing is not None
+                        and existing.result_hash != result_hash)):
+                return False
+        for credit_id, result_hash in rows:
+            if credit_id not in self.pins:
+                self.pins[credit_id] = InboxPin(
+                    result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
+        return True
+
+
+@dataclass(frozen=True)
+class InboxRoute:
+    store: InboxCreditStoreV2
+    destination_bridge: str
+    store_codehash: str
+    store_config_hash: str
+
+
+def inbox_kind1_descriptor(domain_id: str, credit_id: str) -> bytes:
+    """Behavioral proxy; byte-exact 533-byte vectors live in commitment-model."""
+    payload = domain_id.encode() + b"\x00" + credit_id.encode()
+    assert 0 < len(payload) <= 531
+    return len(payload).to_bytes(2, "big") + payload + bytes(531 - len(payload))
+
+
+def decode_inbox_kind1_descriptor(descriptor: bytes) -> tuple[str, str] | None:
+    if len(descriptor) != 533:
+        return None
+    length = int.from_bytes(descriptor[:2], "big")
+    if not 0 < length <= 531 or any(descriptor[2 + length:]):
+        return None
+    try:
+        domain_raw, credit_raw = descriptor[2:2 + length].split(b"\x00", 1)
+        domain_id, credit_id = domain_raw.decode(), credit_raw.decode()
+    except (UnicodeDecodeError, ValueError):
+        return None
+    if not domain_id or not credit_id:
+        return None
+    return domain_id, credit_id
+
+
+def inbox_kind1_result(index: int, domain_id: str, credit_id: str) -> str:
+    return f"result:{index}:{domain_id}:{credit_id}"
+
+
+@dataclass
+class InboxApplyRouterV2:
+    """Lifetime dispatcher for mixed-domain forced-credit rows."""
+
+    address: str = "inbox-apply"
+    registrar: str = "terminal-domain-registrar"
+    next_queue_index: int = 0
+    last_applied_l2_block: int = -1
+    routes: dict[str, InboxRoute] = field(default_factory=dict)
+
+    def register_route(self, domain_id: str, store: InboxCreditStoreV2,
+                       destination_bridge: str, store_codehash: str, *,
+                       caller: str, manifest_exact: bool) -> bool:
+        if (caller != self.registrar or not manifest_exact or not domain_id
+                or store.authorized_inbox_apply != self.address
+                or store.destination_domain_id != domain_id
+                or store.destination_bridge != destination_bridge
+                or not store_codehash):
+            return False
+        if store.runtime_codehash != store_codehash:
+            return False
+        route = InboxRoute(
+            store, destination_bridge, store_codehash,
+            store.route_config_hash)
+        existing = self.routes.get(domain_id)
+        if existing is not None:
+            return existing == route
+        if any(row.store is store for row in self.routes.values()):
+            return False
+        self.routes[domain_id] = route
+        return True
+
+    def apply(self, force_start: int,
+              rows: tuple[tuple[int, int, int, str, bytes], ...], *,
+              now: int, l2_block_number: int,
+              caller_is_system_sender: bool) -> bool:
+        if (not caller_is_system_sender
+                or not 0 <= len(rows) <= MAX_FORCE_MESSAGES
+                or force_start != self.next_queue_index
+                or l2_block_number <= self.last_applied_l2_block
+                or tuple(row[0] for row in rows)
+                    != tuple(range(
+                        self.next_queue_index,
+                        self.next_queue_index + len(rows)))):
+            return False
+        staged: list[tuple[str, InboxCreditStoreV2 | None, str, str]] = []
+        seen_credits: set[tuple[str, str]] = set()
+        for index, disposition, tx_index, result_hash, descriptor in rows:
+            if disposition != 5:
+                if (descriptor or disposition not in range(5)
+                        or (disposition < 4 and
+                            (tx_index != UINT32_MAX or result_hash))
+                        or (disposition == 4 and
+                            (not 0 <= tx_index < UINT32_MAX
+                             or not result_hash))):
+                    return False
+                staged.append(("", None, "", ""))
+                continue
+            decoded = decode_inbox_kind1_descriptor(descriptor)
+            if decoded is None or tx_index != UINT32_MAX:
+                return False
+            domain_id, credit_id = decoded
+            route = self.routes.get(domain_id)
+            expected_result = inbox_kind1_result(
+                index, domain_id, credit_id)
+            if (route is None or result_hash != expected_result
+                    or route.store.runtime_codehash != route.store_codehash
+                    or route.store.route_config_hash != route.store_config_hash
+                    or route.store.authorized_inbox_apply != self.address
+                    or route.store.destination_bridge
+                        != route.destination_bridge
+                    or route.store.destination_domain_id != domain_id
+                    or (domain_id, credit_id) in seen_credits):
+                return False
+            seen_credits.add((domain_id, credit_id))
+            existing = route.store.pins.get(credit_id)
+            if existing is not None:
+                if existing.result_hash != result_hash:
+                    return False
+            staged.append((domain_id, route.store, credit_id, result_hash))
+
+        runs: list[tuple[InboxCreditStoreV2, list[tuple[str, str]]]] = []
+        for _, store, credit_id, result_hash in staged:
+            if store is None:
+                if runs:
+                    runs.append((None, []))
+                continue
+            if not runs or runs[-1][0] is not store:
+                runs.append((store, []))
+            runs[-1][1].append((credit_id, result_hash))
+        journal: list[tuple[InboxCreditStoreV2, str, InboxPin | None]] = []
+        for store, run in runs:
+            if store is None:
+                continue
+            for credit_id, _ in run:
+                journal.append((store, credit_id, store.pins.get(credit_id)))
+            if not store.pin_batch(tuple(run), now=now, caller=self.address):
+                for touched_store, credit_id, prior in reversed(journal):
+                    if prior is None:
+                        touched_store.pins.pop(credit_id, None)
+                    else:
+                        touched_store.pins[credit_id] = prior
+                return False
+        self.next_queue_index += len(rows)
+        self.last_applied_l2_block = l2_block_number
+        return True
 
 
 @dataclass
@@ -1456,15 +1797,116 @@ class TerminalAccumulatorV2:
         self.domains[domain_id] = bridge
         return True
 
-    def append(self, *, caller: str, credit_id: str, terminal: str) -> int | None:
-        matches = [domain for domain, bridge in self.domains.items()
-                   if bridge == caller]
-        if len(matches) != 1 or not credit_id or terminal not in {"DONE", "FAILED"}:
+    def append_terminal(self, *, caller: DestinationBridgeLedger,
+                        credit_id: str) -> int | None:
+        commitment = caller.terminal_commitment_v2(credit_id)
+        if commitment is None:
+            return None
+        domain_id, bridge, terminal, terminal_index = commitment
+        if (self.domains.get(domain_id) != bridge or bridge != caller.address
+                or not credit_id or terminal not in {"DONE", "FAILED"}
+                or terminal_index != APPENDING_SENTINEL):
             return None
         index = self.count
         self.leaves.append(TerminalSignalVerifier.terminal_leaf(
-            index, matches[0], caller, credit_id, terminal))
+            index, domain_id, bridge, credit_id, terminal))
         return index
+
+
+@dataclass
+class ProtocolReleaseAuthorityV2:
+    """Lifetime authority reached by the manifest Anchor in a system tx."""
+
+    system_sender: str = "system:anchor"
+    manifest_namespace: str = "manifest:v2"
+    releases: dict[int, str] = field(default_factory=dict)
+
+    def activate(self, protocol_version: int, manifest_hash: str, *,
+                 caller: str, manifest_anchor: str, tx_origin: str,
+                 finalized_l1_manifest_proof_valid: bool) -> bool:
+        if (caller != manifest_anchor or tx_origin != self.system_sender
+                or not finalized_l1_manifest_proof_valid
+                or protocol_version <= 0 or not manifest_hash):
+            return False
+        existing = self.releases.get(protocol_version)
+        if existing is not None:
+            return existing == manifest_hash
+        self.releases[protocol_version] = manifest_hash
+        return True
+
+
+@dataclass
+class TerminalDomainRegistrarV2:
+    """Lifetime registrar; endpoints come only from an authenticated manifest."""
+
+    authority: ProtocolReleaseAuthorityV2
+    accumulator: TerminalAccumulatorV2
+    inbox_router: InboxApplyRouterV2
+    address: str = "terminal-domain-registrar"
+    registrations: dict[int, tuple[str, str, str]] = field(default_factory=dict)
+
+    def activate_domain(self, protocol_version: int, manifest_hash: str,
+                        domain_id: str, bridge: str,
+                        store: InboxCreditStoreV2, store_codehash: str, *,
+                        endpoint_codehashes_match: bool,
+                        endpoint_configs_match: bool,
+                        endpoint_zero_prestate: bool,
+                        fixed_selector_calls_succeed: bool) -> bool:
+        if (self.authority.releases.get(protocol_version) != manifest_hash
+                or protocol_version in self.registrations
+                or not endpoint_codehashes_match or not endpoint_configs_match
+                or not endpoint_zero_prestate or not fixed_selector_calls_succeed):
+            return False
+        prior_routes = dict(self.inbox_router.routes)
+        if (not self.inbox_router.register_route(
+                domain_id, store, bridge, store_codehash, caller=self.address,
+                manifest_exact=True)
+                or not self.accumulator.register_domain(
+                    domain_id, bridge, caller=self.address,
+                    release_active=True, descriptor_valid=True,
+                    activation_order_valid=True)):
+            self.inbox_router.routes = prior_routes
+            return False
+        self.registrations[protocol_version] = (
+            domain_id, bridge, manifest_hash)
+        return True
+
+
+def activate_release_transaction(
+        authority: ProtocolReleaseAuthorityV2,
+        registrar: TerminalDomainRegistrarV2, *, protocol_version: int,
+        manifest_hash: str, transaction_sender: str, anchor: str,
+        manifest_anchor: str, finalized_l1_manifest_proof_valid: bool,
+        domain_id: str, bridge: str, store: InboxCreditStoreV2,
+        store_codehash: str, endpoint_codehashes_match: bool = True,
+        endpoint_configs_match: bool = True,
+        endpoint_zero_prestate: bool = True,
+        fixed_selector_calls_succeed: bool = True) -> bool:
+    """Model the single system transaction and its all-or-revert EVM calls."""
+    releases = dict(authority.releases)
+    registrations = dict(registrar.registrations)
+    routes = dict(registrar.inbox_router.routes)
+    domains = dict(registrar.accumulator.domains)
+    if (transaction_sender != authority.system_sender
+            or not authority.activate(
+                protocol_version, manifest_hash, caller=anchor,
+                manifest_anchor=manifest_anchor,
+                tx_origin=transaction_sender,
+                finalized_l1_manifest_proof_valid=
+                    finalized_l1_manifest_proof_valid)
+            or not registrar.activate_domain(
+                protocol_version, manifest_hash, domain_id, bridge,
+                store, store_codehash,
+                endpoint_codehashes_match=endpoint_codehashes_match,
+                endpoint_configs_match=endpoint_configs_match,
+                endpoint_zero_prestate=endpoint_zero_prestate,
+                fixed_selector_calls_succeed=fixed_selector_calls_succeed)):
+        authority.releases = releases
+        registrar.registrations = registrations
+        registrar.inbox_router.routes = routes
+        registrar.accumulator.domains = domains
+        return False
+    return True
 
 
 @dataclass
@@ -1496,13 +1938,28 @@ class DestinationBridgeLedger:
     def _terminalize(self, credit_id: str, terminal: str) -> bool:
         if credit_id in self.terminal_index:
             return False
-        index = self.terminal_accumulator.append(
-            caller=self.address, credit_id=credit_id, terminal=terminal)
-        if index is None:
-            return False
+        prior_status = self.status.get(credit_id)
         self.status[credit_id] = terminal
+        self.terminal_index[credit_id] = APPENDING_SENTINEL
+        index = self.terminal_accumulator.append_terminal(
+            caller=self, credit_id=credit_id)
+        if index is None:
+            self.status[credit_id] = prior_status if prior_status is not None else "NEW"
+            self.terminal_index.pop(credit_id, None)
+            return False
         self.terminal_index[credit_id] = index
         return True
+
+    def terminal_commitment_v2(
+            self, credit_id: str) -> tuple[str, str, str, int] | None:
+        terminal = self.status.get(credit_id)
+        index = self.terminal_index.get(credit_id)
+        if terminal not in {"DONE", "FAILED"} or index is None:
+            return None
+        return self.local_domain_id, self.address, terminal, index
+
+    def accepts_message_target(self, target: str, *, version: str) -> bool:
+        return not (version == "V2" and target == "terminal-accumulator")
 
     def process(self, credit_id: str, *, now: int,
                 message_available: bool, result_hash_matches: bool,
@@ -2051,13 +2508,16 @@ def test_data_gc_reorg_and_geometry() -> None:
             1, domain, epoch, bridge, destination, msg_hash)
         assert ledger.open(
             credit_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-            owner="alice", value=10, fee=2)
+            owner="alice", value=10, fee=2,
+            destination_domain_id=destination)
         return credit_id
 
     credit_a = open_credit(7, "bridge:A", "msg")
-    credit_b = open_credit(8, "bridge:B", "msg")
+    credit_b = open_credit(8, "bridge:A", "msg")
     credit_a_reused = open_credit(9, "bridge:A", "msg")
-    check("P50e A-B-A source generations have distinct exactly-once identities",
+    credit_d2 = open_credit(
+        10, "bridge:A", "msg-d2", destination="domain:D2")
+    check("P50e permanent source endpoint epochs have distinct identities",
           len({credit_a, credit_b, credit_a_reused}) == 3)
     transition_clock = clock(1_100, 4_601)
     common = dict(
@@ -2082,11 +2542,11 @@ def test_data_gc_reorg_and_geometry() -> None:
               bridge_protocol, transition_clock, source, src_epoch=7,
               src_bridge="bridge:A", **common) == "REJECTED_DUPLICATE_FUNDS"
           and len(bridge_protocol.messages) == 1)
-    check("P50g same message from next source generation queues independently",
+    check("P50g same message from next source epoch queues independently",
           adapter.enqueue(
               bridge_protocol, transition_clock, source, src_epoch=8,
-              src_bridge="bridge:B", **common) == "QUEUED:1")
-    check("P50h same address reused in a later source generation queues independently",
+              src_bridge="bridge:A", **common) == "QUEUED:1")
+    check("P50h a later permanent-endpoint epoch queues independently",
           adapter.enqueue(
               bridge_protocol, transition_clock, source, src_epoch=9,
               src_bridge="bridge:A", **common) == "QUEUED:2")
@@ -2132,6 +2592,23 @@ def test_data_gc_reorg_and_geometry() -> None:
               deposit=1) == "REJECTED"
           and not invalid_protocol.messages and not invalid_adapter.records)
 
+    support_core = CanonicalCore(
+        100, "block:registration", 100, "state:registration", 0,
+        terminal_root="terminal:registration", terminal_count=0)
+    shared_queue = QueueContinuity(
+        "forced-queue", "queue:root", 0, 0, 0, UINT64_MAX)
+    support_settlement = VersionedSettlementHistory(
+        "settlement:2", "runtime:2", 2, "profile:2",
+        copy.deepcopy(support_core), 40, shared_queue)
+    support_router = ActiveSettlementRouter(
+        "version-manager", shared_queue.address)
+    assert support_router.bootstrap(
+        support_settlement, sequence=7, activation_block=40)
+    support_proof = dict(
+        protocol_version=2, canonical_sequence=7, router=support_router,
+        proof_state_root="state:registration", mpt_proof_valid=True,
+        registration_matches_manifest=True, proof_node_count=4,
+        proof_byte_length=2_048)
     support = BridgeDomainRegistry()
     assert not support.stage(
         "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
@@ -2146,12 +2623,18 @@ def test_data_gc_reorg_and_geometry() -> None:
         "domain:R1", "execution:B", "domain:D1", 1000)
     assert not support.confirm(
         "domain:R1", "execution:B", "domain:D1", 110,
-        finalized_l2_registration_proof_valid=False,
-        registration_matches_manifest=True)
+        **{**support_proof, "mpt_proof_valid": False})
+    check("P50bf registration proof is bound to routed state and exact bounds",
+          not support.confirm(
+              "domain:R1", "execution:B", "domain:D1", 110,
+              **{**support_proof, "proof_state_root": "attacker-root"})
+          and not support.confirm(
+              "domain:R1", "execution:B", "domain:D1", 110,
+              **{**support_proof,
+                 "proof_node_count": MAX_REGISTRATION_PROOF_NODES + 1}))
     assert support.confirm(
         "domain:R1", "execution:B", "domain:D1", 110,
-        finalized_l2_registration_proof_valid=True,
-        registration_matches_manifest=True)
+        **support_proof)
     check("P50u bridge endpoint support waits for active-profile finality",
           not support.final(
               "domain:R1", "execution:B", "domain:D1",
@@ -2164,8 +2647,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         caller_is_version_manager=True, manifest_active=True)
     assert support.confirm(
         "domain:R1", "execution:B", "domain:D2", 160,
-        finalized_l2_registration_proof_valid=True,
-        registration_matches_manifest=True)
+        **support_proof)
     check("P50an old execution cannot use a new destination before tuple finality",
           not support.final(
               "domain:R1", "execution:B", "domain:D2",
@@ -2390,7 +2872,42 @@ def test_data_gc_reorg_and_geometry() -> None:
 
     inbox_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:A", "domain:D1")
-    accumulator = TerminalAccumulatorV2({"domain:D1": "bridge:A"})
+    inbox_apply_router = InboxApplyRouterV2(next_queue_index=70)
+    accumulator = TerminalAccumulatorV2({})
+    release_authority = ProtocolReleaseAuthorityV2()
+    registrar = TerminalDomainRegistrarV2(
+        release_authority, accumulator, inbox_apply_router)
+    check("P50ca direct reserved-sender and Bridge release calls are rejected",
+          not release_authority.activate(
+              1, "manifest:1", caller="system:anchor",
+              manifest_anchor="anchor:v1", tx_origin="system:anchor",
+              finalized_l1_manifest_proof_valid=True)
+          and not release_authority.activate(
+              1, "manifest:1", caller="bridge:A",
+              manifest_anchor="anchor:v1", tx_origin="system:anchor",
+              finalized_l1_manifest_proof_valid=True))
+    check("P50cc Anchor release and registrar seal are one atomic system trace",
+          activate_release_transaction(
+              release_authority, registrar, protocol_version=1,
+              manifest_hash="manifest:1", transaction_sender="system:anchor",
+              anchor="anchor:v1", manifest_anchor="anchor:v1",
+              finalized_l1_manifest_proof_valid=True,
+              domain_id="domain:D1", bridge="bridge:A", store=inbox_store,
+              store_codehash="codehash:store:D1"))
+    failed_store = InboxCreditStoreV2(
+        "inbox-apply", "bridge:C", "domain:D3")
+    check("P50cd a failed registrar seal rolls release authority back",
+          not activate_release_transaction(
+              release_authority, registrar, protocol_version=3,
+              manifest_hash="manifest:3", transaction_sender="system:anchor",
+              anchor="anchor:v3", manifest_anchor="anchor:v3",
+              finalized_l1_manifest_proof_valid=True,
+              domain_id="domain:D3", bridge="bridge:C", store=failed_store,
+              store_codehash="codehash:store:D3",
+              fixed_selector_calls_succeed=False)
+          and 3 not in release_authority.releases
+          and 3 not in registrar.registrations
+          and "domain:D3" not in inbox_apply_router.routes)
     destination = DestinationBridgeLedger(
         inbox_store=inbox_store, terminal_accumulator=accumulator)
     pin_now = prepared_clock.timestamp
@@ -2416,6 +2933,13 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert destination.process(
         credit_a, now=pin_now + 1, message_available=False,
         result_hash_matches=True, callback_ok=True) == "RETRIABLE"
+    check("P50bb Bridge authority cannot be confused by a message callback",
+          accumulator.append_terminal(
+              caller=destination, credit_id=credit_a) is None
+          and destination.accepts_message_target(
+              "terminal-accumulator", version="V1")
+          and not destination.accepts_message_target(
+              "terminal-accumulator", version="V2"))
     destination.paused = True
     check("P50ac lost post-pin Message becomes permissionlessly FAILED",
           not destination.expire(credit_a, now=process_by)
@@ -2445,15 +2969,20 @@ def test_data_gc_reorg_and_geometry() -> None:
               0, "domain:D1", "bridge:A", credit_b, "DONE")
               != TerminalSignalVerifier.terminal_leaf(
                   0, "domain:D1", "bridge:A", credit_b, "FAILED"))
+    inbox_store_d2 = InboxCreditStoreV2(
+        "inbox-apply", "bridge:B", "domain:D2")
     check("P50ax new terminal domains cannot redirect an old domain writer",
           not accumulator.register_domain(
               "domain:squat", "bridge:squat", caller="attacker",
               release_active=True, descriptor_valid=True,
               activation_order_valid=True)
-          and accumulator.register_domain(
-              "domain:D2", "bridge:B", caller="terminal-domain-registrar",
-              release_active=True, descriptor_valid=True,
-              activation_order_valid=True)
+          and activate_release_transaction(
+              release_authority, registrar, protocol_version=2,
+              manifest_hash="manifest:2", transaction_sender="system:anchor",
+              anchor="anchor:v2", manifest_anchor="anchor:v2",
+              finalized_l1_manifest_proof_valid=True,
+              domain_id="domain:D2", bridge="bridge:B", store=inbox_store_d2,
+              store_codehash="codehash:store:D2")
           and accumulator.register_domain(
               "domain:D1", "bridge:A", caller="terminal-domain-registrar",
               release_active=True, descriptor_valid=True,
@@ -2471,6 +3000,88 @@ def test_data_gc_reorg_and_geometry() -> None:
               release_active=True, descriptor_valid=True,
               activation_order_valid=False)
           and accumulator.domains["domain:D1"] == "bridge:A")
+    destination_d2 = DestinationBridgeLedger(
+        address="bridge:B", local_domain_id="domain:D2",
+        inbox_store=inbox_store_d2, terminal_accumulator=accumulator)
+    assert source.mark_queued(
+        credit_d2, 99, caller_is_bound_adapter=True)
+    assert destination_d2.pin(
+        credit_d2, "result:D2", now=pin_now,
+        caller_is_inbox_apply=True)
+    assert destination_d2.process(
+        credit_d2, now=pin_now + 1, message_available=True,
+        result_hash_matches=True, callback_ok=True,
+        destination_domain_id="domain:D2",
+        context_dest_bridge="bridge:B") == "DONE"
+    def bridge_inbox_row(index: int, domain_id: str,
+                         credit_id: str) -> tuple[int, int, int, str, bytes]:
+        return (index, 5, UINT32_MAX,
+                inbox_kind1_result(index, domain_id, credit_id),
+                inbox_kind1_descriptor(domain_id, credit_id))
+
+    mixed_rows = (
+        bridge_inbox_row(70, "domain:D1", "credit:D1:late"),
+        bridge_inbox_row(71, "domain:D2", "credit:D2:new"),
+        bridge_inbox_row(72, "domain:D1", "credit:D1:later"),
+    )
+    check("P50be old and new endpoint credits cannot wedge the shared FIFO",
+          inbox_apply_router.apply(
+              70, mixed_rows, now=pin_now, l2_block_number=1,
+              caller_is_system_sender=True)
+          and "credit:D1:late" in inbox_store.pins
+          and "credit:D2:new" in inbox_store_d2.pins
+          and not inbox_apply_router.apply(
+              73,
+              (bridge_inbox_row(73, "domain:D1", "credit:staged"),
+               bridge_inbox_row(74, "domain:missing", "credit:missing")),
+              now=pin_now, l2_block_number=2, caller_is_system_sender=True)
+          and "credit:staged" not in inbox_store.pins
+          and inbox_apply_router.next_queue_index == 73
+          and not inbox_apply_router.register_route(
+              "domain:D1", inbox_store_d2, "bridge:B", "codehash:store:D2",
+              caller="terminal-domain-registrar", manifest_exact=True))
+    original_d1_codehash = inbox_store.runtime_codehash
+    inbox_store.runtime_codehash = "codehash:mutated"
+    check("P50ce inbox routes recheck code before any pin write",
+          not inbox_apply_router.apply(
+              73, (bridge_inbox_row(
+                  73, "domain:D1", "credit:code-mismatch"),),
+              now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True)
+          and "credit:code-mismatch" not in inbox_store.pins
+          and inbox_apply_router.next_queue_index == 73)
+    inbox_store.runtime_codehash = original_d1_codehash
+    original_d1_bridge = inbox_store.destination_bridge
+    inbox_store.destination_bridge = "bridge:mutated"
+    check("P50cg inbox routes recheck immutable config before any pin write",
+          not inbox_apply_router.apply(
+              73, (bridge_inbox_row(
+                  73, "domain:D1", "credit:config-mismatch"),),
+              now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True)
+          and "credit:config-mismatch" not in inbox_store.pins
+          and inbox_apply_router.next_queue_index == 73)
+    inbox_store.destination_bridge = original_d1_bridge
+    inbox_store_d2.returns_success_magic = False
+    check("P50cf a later contiguous-run failure rolls earlier pins back",
+          not inbox_apply_router.apply(
+              73,
+              (bridge_inbox_row(73, "domain:D1", "credit:rolled-back"),
+               bridge_inbox_row(74, "domain:D2", "credit:failing-run")),
+              now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True)
+          and "credit:rolled-back" not in inbox_store.pins
+          and "credit:failing-run" not in inbox_store_d2.pins
+          and inbox_apply_router.next_queue_index == 73)
+    inbox_store_d2.returns_success_magic = True
+    check("P50bh empty InboxApply is canonical and once per L2 block",
+          inbox_apply_router.apply(
+              73, (), now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True)
+          and inbox_apply_router.next_queue_index == 73
+          and not inbox_apply_router.apply(
+              73, (), now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True))
     manual_credit = "credit:manual-failure"
     assert destination.pin(
         manual_credit, "result:C", now=pin_now, caller_is_inbox_apply=True)
@@ -2495,85 +3106,184 @@ def test_data_gc_reorg_and_geometry() -> None:
               now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1))
     destination.paused = False
     source.paused = True
-    canonical_499 = CanonicalTerminalCommitment(
-        499, "block:499", accumulator.root, accumulator.count)
+    canonical_core_499 = CanonicalCore(
+        499, "block:499", 499, "state:499", 12,
+        winning_data_commitment="data:499", next_base_fee=100,
+        next_excess_blob_gas=2, terminal_root=accumulator.root,
+        terminal_count=accumulator.count)
+    terminal_queue = QueueContinuity(
+        "forced-queue", "queue:root", 17, 12, 9_000, 1_000_000)
+    settlement_1 = VersionedSettlementHistory(
+        "settlement:1", "runtime:1", 1, "profile:1",
+        copy.deepcopy(canonical_core_499), 49, terminal_queue)
     active_router = ActiveSettlementRouter(
-        1, "profile:1", "settlement:1", canonical_499)
-    checkpoint_store = TerminalCheckpointStore(active_router)
-    canonical_500 = CanonicalTerminalCommitment(
-        500, "block:500", accumulator.root, accumulator.count)
-    assert active_router.record_canonical(canonical_500, caller="settlement:1")
-    sequence_0 = checkpoint_store.publish(l1_block=50)
-    assert sequence_0 == 0
-    check("P50at terminal checkpoints are retained by publication sequence",
-          checkpoint_store.contains(sequence_0, canonical_500)
-          and checkpoint_store.publish(l1_block=50) is None
-          and len(checkpoint_store.checkpoints) == 1)
-    canonical_756 = CanonicalTerminalCommitment(
-        756, "block:756", accumulator.root, accumulator.count)
-    assert active_router.record_canonical(canonical_756, caller="settlement:1")
-    sequence_1 = checkpoint_store.publish(l1_block=51)
-    check("P50av sparse L2-height jumps cannot collide in the checkpoint ring",
-          sequence_1 == 1
-          and checkpoint_store.contains(sequence_0, canonical_500)
-          and checkpoint_store.contains(sequence_1, canonical_756))
-    fake_import = CanonicalTerminalCommitment(
-        756, "fake", "attacker-root", accumulator.count,
-        2, "profile:2")
-    exact_import = CanonicalTerminalCommitment(
-        756, "block:756", accumulator.root, accumulator.count,
-        2, "profile:2")
+        "version-manager", terminal_queue.address)
+    assert active_router.bootstrap(
+        settlement_1, sequence=0, activation_block=49)
+    assert active_router.sync_and_append(
+        "old-adapter-row", bound_router=active_router.address,
+        queue_address=terminal_queue.address,
+        active_settlement_sync_changed=False) == "QUEUED:0"
+    canonical_core_500 = replace(
+        canonical_core_499, l2_block_number=500, tip_hash="block:500",
+        state_root="state:500")
+    sequence_1 = settlement_1.record_canonical(
+        canonical_core_500, l1_block=50)
+    assert sequence_1 == 1
+    canonical_500 = active_router.canonical_at(1, sequence_1)
+    assert canonical_500 is not None
+    check("P50at canonical history is internal and one commit per L1 block",
+          settlement_1.record_canonical(
+              replace(canonical_core_500, l2_block_number=501),
+              l1_block=50) is None
+          and active_router.canonical_at(1, sequence_1) == canonical_500)
+    canonical_core_756 = replace(
+        canonical_core_500, l2_block_number=756, tip_hash="block:756",
+        state_root="state:756")
+    sequence_2 = settlement_1.record_canonical(
+        canonical_core_756, l1_block=51)
+    assert sequence_2 == 2
+    canonical_756 = active_router.canonical_at(1, sequence_2)
+    assert canonical_756 is not None
+    check("P50av sparse L2-height jumps cannot choose a history cell",
+          active_router.canonical_at(1, sequence_1) == canonical_500
+          and active_router.canonical_at(1, sequence_2) == canonical_756)
+    settled_transient = MigrationTransientState(False, False, 0, 0, True)
+    check("P50bg delayed cutover reaches migration-ready without reopening",
+          settlement_1.arm_migration(
+              caller_is_version_manager=True, delayed_manifest_active=True)
+          and settlement_1.enter_migration_ready(settled_transient)
+          and active_router.sync_and_append(
+              "ready-row", bound_router=active_router.address,
+              queue_address=terminal_queue.address,
+              active_settlement_sync_changed=False) == "SYNCED")
+
+    fake_settlement = VersionedSettlementHistory(
+        "settlement:fake", "runtime:2", 2, "profile:2",
+        replace(canonical_core_756, state_root="attacker-state"),
+        51, terminal_queue)
+    exact_settlement = VersionedSettlementHistory(
+        "settlement:2", "runtime:2", 2, "profile:2",
+        copy.deepcopy(canonical_core_756), 51, terminal_queue)
+    wrong_queue_settlement = VersionedSettlementHistory(
+        "settlement:wrong-queue", "runtime:2", 2, "profile:2",
+        copy.deepcopy(canonical_core_756), 51,
+        replace(terminal_queue, address="replacement-queue"))
     check("P50ba router rejects fake, unauthorized and discontinuous targets",
-          not active_router.record_canonical(
-              replace(canonical_756, l2_block_number=757,
-                      terminal_root="attacker-root"), caller="attacker")
-          and not active_router.activate_version(
-              protocol_version=2, execution_profile_hash="profile:2",
-              settlement="settlement:fake", imported=fake_import,
+          not active_router.activate_version(
+              settlement=fake_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
               target_runtime_approved=True, target_profile_matches=True,
-              prior_terminal_import_exact=True)
+              full_core_import_exact=True, queue_import_exact=True,
+              transient_state=settled_transient)
           and not active_router.activate_version(
-              protocol_version=2, execution_profile_hash="profile:2",
-              settlement="settlement:2", imported=exact_import,
+              settlement=exact_settlement, l1_block=51,
               caller_is_version_manager=False, manifest_active=True,
               target_runtime_approved=True, target_profile_matches=True,
-              prior_terminal_import_exact=True)
+              full_core_import_exact=True, queue_import_exact=True,
+              transient_state=settled_transient)
           and not active_router.activate_version(
-              protocol_version=2, execution_profile_hash="profile:2",
-              settlement="settlement:2", imported=exact_import,
+              settlement=exact_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
               target_runtime_approved=False, target_profile_matches=True,
-              prior_terminal_import_exact=True))
-    terminal_verifier = TerminalSignalVerifier(
-        checkpoint_store, "bridge:A", "domain:D1")
+              full_core_import_exact=True, queue_import_exact=True,
+              transient_state=settled_transient)
+          and not active_router.activate_version(
+              settlement=wrong_queue_settlement, l1_block=51,
+              caller_is_version_manager=True, manifest_active=True,
+              target_runtime_approved=True, target_profile_matches=True,
+              full_core_import_exact=True, queue_import_exact=True,
+              transient_state=settled_transient)
+          and not active_router.activate_version(
+              settlement=exact_settlement, l1_block=51,
+              caller_is_version_manager=True, manifest_active=True,
+              target_runtime_approved=True, target_profile_matches=True,
+              full_core_import_exact=True, queue_import_exact=True,
+              transient_state=MigrationTransientState(
+                  True, False, 0, 0, True)))
+    assert active_router.activate_version(
+        settlement=exact_settlement, l1_block=51,
+        caller_is_version_manager=True, manifest_active=True,
+        target_runtime_approved=True, target_profile_matches=True,
+        full_core_import_exact=True, queue_import_exact=True,
+        transient_state=settled_transient)
+    check("P50bc migration freezes old history and imports the complete core",
+          settlement_1.mode == "FROZEN"
+          and active_router.canonical_at(1, sequence_2) == canonical_756
+          and active_router.canonical_at(2, sequence_2) is not None
+          and exact_settlement.record_canonical(
+              replace(canonical_core_756, l2_block_number=757),
+              l1_block=51) is None
+          and active_router.sync_and_append(
+              "same-old-adapter-after-v2", bound_router=active_router.address,
+              queue_address=terminal_queue.address,
+              active_settlement_sync_changed=False) == "QUEUED:1")
+
+    terminal_verifier = TerminalSignalVerifier(active_router)
     failed_index = destination.terminal_index[credit_a]
     done_index = destination.terminal_index[credit_b]
     failed_proof = TerminalProof(
-        sequence_1, canonical_756, failed_index, "bridge:A", "domain:D1",
+        1, sequence_2, canonical_756, failed_index, "bridge:A", "domain:D1",
         credit_a, "FAILED", accumulator.leaves[failed_index], accumulator.root)
     done_proof = TerminalProof(
-        sequence_1, canonical_756, done_index, "bridge:A", "domain:D1",
+        1, sequence_2, canonical_756, done_index, "bridge:A", "domain:D1",
         credit_b, "DONE", accumulator.leaves[done_index], accumulator.root)
+    done_d2_index = destination_d2.terminal_index[credit_d2]
+    d2_proof = TerminalProof(
+        1, sequence_2, canonical_756, done_d2_index, "bridge:B", "domain:D2",
+        credit_d2, "DONE", accumulator.leaves[done_d2_index],
+        accumulator.root)
     legacy_signal_service_paused = True
     check("P50as V2 terminal verifier is independent of legacy SignalService pause",
           legacy_signal_service_paused
           and terminal_verifier.verify(
-              proof=failed_proof, credit_id=credit_a, terminal="FAILED")
+              proof=failed_proof, credit_id=credit_a, terminal="FAILED",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=replace(failed_proof, destination_bridge="bridge:B"),
-              credit_id=credit_a, terminal="FAILED"))
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A"))
     check("P50aw terminal proof substitutions fail closed",
           not terminal_verifier.verify(
-              proof=failed_proof, credit_id=credit_b, terminal="FAILED")
+              proof=failed_proof, credit_id=credit_b, terminal="FAILED",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A")
           and not terminal_verifier.verify(
-              proof=failed_proof, credit_id=credit_a, terminal="DONE")
+              proof=failed_proof, credit_id=credit_a, terminal="DONE",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=replace(failed_proof, proof_root="forged"),
-              credit_id=credit_a, terminal="FAILED")
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A")
           and not terminal_verifier.verify(
-              proof=replace(failed_proof, publication_sequence=99),
-              credit_id=credit_a, terminal="FAILED"))
+              proof=replace(failed_proof, canonical_sequence=99),
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A"))
+    check("P50cb one source verifier handles old D1 and later D2 endpoints",
+          terminal_verifier.verify(
+              proof=done_proof, credit_id=credit_b, terminal="DONE",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
+              proof=replace(d2_proof, destination_bridge="bridge:A"),
+              credit_id=credit_d2, terminal="DONE",
+              destination_domain_id="domain:D2",
+              destination_bridge="bridge:B")
+          and source.finalize_done(
+              credit_d2, verifier=terminal_verifier, proof=d2_proof))
+    frozen_runtime = settlement_1.runtime_hash
+    settlement_1.runtime_hash = "runtime:mutated"
+    check("P50bd historical Settlement code identity is pinned",
+          not terminal_verifier.verify(
+              proof=failed_proof, credit_id=credit_a, terminal="FAILED",
+              destination_domain_id="domain:D1",
+              destination_bridge="bridge:A"))
+    settlement_1.runtime_hash = frozen_runtime
     check("P50aj permanent terminal proofs release exactly one source liability",
           source.recall_failed(
               credit_a, verifier=terminal_verifier, proof=failed_proof)
