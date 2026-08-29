@@ -13,6 +13,7 @@
   import { claimConfig } from '$config';
   import { type BridgeTransaction } from '$libs/bridge';
   import { getChainName } from '$libs/chain';
+  import { isClaimFeeContestable } from '$libs/mev';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -183,7 +184,7 @@
       </div>
     {/if}
   </div>
-  {#if correctChain && !onlyDestOwnerCanClaimWarning}
+  {#if correctChain && tx.message && isClaimFeeContestable(tx.message)}
     <MevProtectionNotice chainId={Number(tx.destChainId)} />
   {/if}
   {#if !canContinue && !correctChain && !onlyDestOwnerCanClaimWarning}
