@@ -305,7 +305,7 @@ func TestParsePrivateRPCUrls(t *testing.T) {
 		{
 			// Quietly dropping this would leave the relayer broadcasting publicly while its
 			// operator believed otherwise, which is the whole exposure this feature removes.
-			name:       "an unparseable entry is rejected rather than skipped",
+			name:       "an unparsable entry is rejected rather than skipped",
 			configured: []string{"https://rpc.flashbots.net", "https://  bad host"},
 			wantErr:    "invalid",
 		},
