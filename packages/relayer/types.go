@@ -57,9 +57,14 @@ var (
 )
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
-// on destination chain, or context is cancelled. A transaction that already has
-// them reports success even when the context is already cancelled: the
-// confirmations the caller asked about are present either way.
+// on destination chain, or context is cancelled. It checks once before polling,
+// so a transaction that already has its confirmations returns without waiting
+// for a tick.
+//
+// That first check still goes through the client, so with a real one an already
+// cancelled context fails the receipt lookup and this returns that error rather
+// than the receipt. Only a client that ignores its context, such as the test
+// mock, can report success over a cancelled context.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
 	checkConfs := func() error {
 		receipt, err := confirmer.TransactionReceipt(ctx, txHash)

@@ -3,6 +3,7 @@ package processor
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -236,8 +237,59 @@ func parsePrivateRPCUrls(configured []string) ([]string, error) {
 			return nil, fmt.Errorf("invalid %s entry: no host", flags.DestPrivateRPCUrls.Name)
 		}
 
+		if parsed.Scheme == "http" && !isLocalHost(parsed.Hostname()) {
+			return nil, fmt.Errorf(
+				"invalid %s entry: %q sends signed transactions in cleartext, use https",
+				flags.DestPrivateRPCUrls.Name,
+				parsed.Hostname(),
+			)
+		}
+
 		urls = append(urls, raw)
 	}
 
 	return urls, nil
+}
+
+// isLocalHost reports whether host is reachable without leaving the machine or a private network.
+//
+// Plain http to anything else would put a signed processMessage on the wire in cleartext, where it
+// can be read and front-run — the exact exposure private endpoints exist to remove, arrived at by
+// a different route. A relay behind localhost or on a trusted subnet is a legitimate deployment,
+// so those are still allowed.
+func isLocalHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
+}
+
+// validatePrivateRPCConfig rejects a configuration that would let a claim stall indefinitely.
+//
+// A private relay can accept a transaction and never have it included — Flashbots Protect drops
+// would-revert transactions by design — and acceptance is the only signal this relayer gets, since
+// receipts are polled through DEST_RPC_URL. With no send timeout the transaction manager waits for
+// that receipt for as long as it takes, so the claim stalls and its worker with it.
+//
+// This refuses to start rather than warning, because the failure it prevents is silent and the
+// remedy is one environment variable. It does not pick a value: the right one depends on the
+// destination chain's block time and the operator's fee policy. Nothing is required of deployments
+// that configure no private endpoints, which is every deployment that predates them.
+func validatePrivateRPCConfig(privateEndpoints int, txSendTimeout time.Duration) error {
+	if privateEndpoints != 0 && txSendTimeout == 0 {
+		return fmt.Errorf(
+			"%s requires %s to be set: a relay can accept a transaction and never include it, "+
+				"and without a send timeout that claim waits for a receipt indefinitely",
+			flags.DestPrivateRPCUrls.Name,
+			flags.TxSendTimeout.Name,
+		)
+	}
+
+	return nil
 }

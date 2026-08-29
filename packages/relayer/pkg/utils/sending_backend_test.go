@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -467,7 +468,7 @@ func TestSendingBackend_AHangingEndpointDoesNotStarveTheNextOne(t *testing.T) {
 
 	b := NewSendingBackend(public, []TxSender{first, second}, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
 	defer cancel()
 
 	require.NoError(t, b.SendTransaction(ctx, testTx()))
@@ -572,7 +573,7 @@ func TestSendingBackend_AnEndpointThatOnlyHangsStillTrips(t *testing.T) {
 	// the relay's" and never charge it: the endpoint would hang forever, never trip, and claims
 	// would keep timing out with no fallback and nothing to alert on.
 	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 
 		require.Error(t, b.SendTransaction(ctx, txWithNonce(uint64(i))))
 
@@ -582,7 +583,7 @@ func TestSendingBackend_AnEndpointThatOnlyHangsStillTrips(t *testing.T) {
 	require.Equal(t, DefaultPrivateRPCFailureThreshold, hanging.calls())
 	assert.Empty(t, b.inRotation(), "an endpoint that only ever hangs has to leave rotation")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
 
 	require.NoError(t, b.SendTransaction(ctx, txWithNonce(99)))
@@ -608,7 +609,7 @@ func TestSendingBackend_RepeatedTimeoutsOnOneTransactionStillTrip(t *testing.T) 
 	tx := txWithNonce(7)
 
 	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 
 		require.Error(t, b.SendTransaction(ctx, tx))
 
@@ -617,7 +618,7 @@ func TestSendingBackend_RepeatedTimeoutsOnOneTransactionStillTrip(t *testing.T) 
 
 	assert.Empty(t, b.inRotation(), "repeated timeouts on one claim still have to trip the endpoint")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
 
 	require.NoError(t, b.SendTransaction(ctx, tx))
@@ -765,6 +766,10 @@ func TestSendingBackend_RedactionKeepsErrorIdentityAndClassification(t *testing.
 	assert.ErrorIs(t, err, sentinel)
 	assert.Contains(t, err.Error(), "nonce too low")
 	assert.NotContains(t, err.Error(), "relay.example.com")
+
+	// This repository also uses github.com/pkg/errors, which reaches for Cause rather than
+	// following Unwrap, so the wrapper has to answer both.
+	assert.ErrorIs(t, pkgerrors.Cause(err), sentinel)
 }
 
 func TestSendingBackend_CapsAnAttemptWhenTheCallerGivesNoDeadline(t *testing.T) {
@@ -898,4 +903,46 @@ func TestSendingBackend_DoesNotCountAPublicBroadcastThatFailed(t *testing.T) {
 	// A send that failed against our own node never reached the mempool, so counting it would
 	// overstate the exposure this metric exists to alert on.
 	assert.Equal(t, before, testutil.ToFloat64(relayer.PrivateRPCUnavailable))
+}
+
+// cancellingSender cancels the caller's context and reports that, standing in for a send abandoned
+// from our side — a shutdown, or the transaction manager giving up — rather than refused by the
+// relay.
+type cancellingSender struct {
+	mu     sync.Mutex
+	cancel context.CancelFunc
+	calls  int
+}
+
+func (s *cancellingSender) SendTransaction(_ context.Context, _ *types.Transaction) error {
+	s.mu.Lock()
+	s.calls++
+	s.mu.Unlock()
+
+	s.cancel()
+
+	return context.Canceled
+}
+
+func TestSendingBackend_DoesNotChargeAnEndpointForOurCancellation(t *testing.T) {
+	public := &fakeBackend{}
+	first := &cancellingSender{}
+	second := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{first, second}, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	first.cancel = cancel
+
+	require.ErrorIs(t, b.SendTransaction(ctx, testTx()), context.Canceled)
+
+	// A cancel only ever comes from the caller, unlike a deadline an endpoint can exhaust by going
+	// quiet. Charging for it would trip healthy relays on every shutdown.
+	assert.Equal(t, 1, first.calls)
+	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, 0, b.failures[0])
+	assert.Equal(t, 0, b.consecutive[0])
+	assert.Empty(t, public.sent)
 }

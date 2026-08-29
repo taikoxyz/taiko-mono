@@ -188,6 +188,14 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			return nil
 		}
 
+		// A cancellation from our side is not the endpoint's doing. Unlike a deadline — which an
+		// endpoint can exhaust by going quiet, and must therefore still count — a cancel only ever
+		// comes from the caller, so charging for it could trip healthy relays during shutdown or
+		// whenever the transaction manager abandons a send.
+		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+			return redacted(err)
+		}
+
 		// The endpoint had a usable context and still did not take the transaction. That counts
 		// against it whether it refused outright or spent its whole share without answering:
 		// hanging is the outage mode this is most meant to survive, so an endpoint that hangs has
@@ -246,6 +254,10 @@ type redactedError struct{ err error }
 
 func (e redactedError) Error() string { return redactURLs(e.err) }
 func (e redactedError) Unwrap() error { return e.err }
+
+// Cause satisfies github.com/pkg/errors, which this repository also uses and which does not follow
+// Unwrap. Without it, code reaching for the cause would stop at the wrapper.
+func (e redactedError) Cause() error { return e.err }
 
 // redacted wraps err so its text carries no endpoint URL, passing nil through unchanged.
 func redacted(err error) error {
@@ -369,7 +381,8 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 }
 
 // deprioritiseAlreadyAccepted moves endpoints that already accepted this nonce to the back of the
-// order, preserving the configured order within each group.
+// order, preserving the configured order within each group. "Already accepted" means at or below
+// the highest nonce the endpoint has taken, not that exact nonce; see below.
 //
 // The transaction manager only re-sends a nonce it has not seen confirmed, so an endpoint that took
 // this one and did not get it included has had its turn; offering the replacement to a different

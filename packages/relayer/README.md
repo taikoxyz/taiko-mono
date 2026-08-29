@@ -107,11 +107,18 @@ Only the broadcast goes private. Nonces, gas prices, receipts and every other re
 `DEST_RPC_URL`, so the relayer keeps one nonce source and its reads do not depend on a relay being
 up or within its rate limit.
 
-Endpoints are offered each transaction in the order given, with one exception: an endpoint that
-already accepted a given nonce is offered a resend of that nonce last. Accepting only means the
-relay received the transaction, never that a builder included it, and the transaction manager only
-re-sends a nonce it has not seen confirmed — so the replacement is better spent on a different
-builder. Nothing is charged for that reordering.
+Endpoints are offered each transaction in the order given, with one exception: an endpoint is
+offered last any transaction whose nonce is at or below the highest it has already accepted.
+Accepting only means the relay received the transaction, never that a builder included it, and the
+transaction manager only re-sends a nonce it has not seen confirmed — so the replacement is better
+spent on a different builder. Claims are handled concurrently, so this is a high-water mark rather
+than a record of each nonce; the cost is that a first send arriving out of order behind a higher
+nonce is also offered last, which only reorders private endpoints against each other. Nothing is
+charged for that reordering.
+
+Plain `http://` is rejected for anything but a loopback or private-network host: a signed claim on
+the wire in cleartext can be read and front-run, which is the exposure these endpoints exist to
+remove, reached by another route.
 
 Each endpoint also gets its own share of the time left on the send, so one that accepts the
 connection and then never answers cannot spend the budget the endpoints behind it need.
@@ -133,11 +140,12 @@ endpoint's position in the failover order, so it says which relay is unhealthy.
 private endpoints were configured — that is the relayer running exposed, and matters more than any
 individual refusal.
 
-**Set `TX_SEND_TIMEOUT` when using private endpoints.** It defaults to disabled. A relay can accept
-a transaction and never have it included — Flashbots Protect drops would-revert transactions by
-design — and accepting is the only signal the relayer gets, since receipts are polled through
-`DEST_RPC_URL`. Without a send timeout the transaction manager waits for that receipt indefinitely,
-so the claim stalls rather than being retried. The processor warns at startup if this is left unset.
+**`TX_SEND_TIMEOUT` is required when private endpoints are configured**, and the processor refuses
+to start without it. It defaults to disabled. A relay can accept a transaction and never have it
+included — Flashbots Protect drops would-revert transactions by design — and accepting is the only
+signal the relayer gets, since receipts are polled through `DEST_RPC_URL`. Without a send timeout
+the transaction manager waits for that receipt indefinitely, so the claim stalls and holds its
+worker. Nothing is required of deployments that configure no private endpoints.
 
 Leave this unset when the destination chain is Taiko: private relays exist for Ethereum only, so
 L1 to L2 claims keep using `DEST_RPC_URL`.

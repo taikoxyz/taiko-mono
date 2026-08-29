@@ -332,3 +332,54 @@ func TestParsePrivateRPCUrls(t *testing.T) {
 		})
 	}
 }
+
+func Test_parsePrivateRPCUrlsRejectsCleartextToRemoteHosts(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr string
+	}{
+		{
+			// A signed claim on the wire in cleartext can be read and front-run, which is the
+			// exposure private endpoints exist to remove, reached by another route.
+			name:    "plain http to a public host",
+			url:     "http://rpc.flashbots.net",
+			wantErr: "cleartext",
+		},
+		{name: "plain http to a public IP", url: "http://8.8.8.8:8545", wantErr: "cleartext"},
+		{name: "https to a public host", url: "https://rpc.flashbots.net"},
+		{name: "http to localhost", url: "http://localhost:8545"},
+		{name: "http to loopback", url: "http://127.0.0.1:8545"},
+		{name: "http to IPv6 loopback", url: "http://[::1]:8545"},
+		{name: "http to a private subnet", url: "http://10.0.0.7:8545"},
+		{name: "http to another private subnet", url: "http://192.168.1.5:8545"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parsePrivateRPCUrls([]string{tt.url})
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Nil(t, got)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []string{tt.url}, got)
+		})
+	}
+}
+
+func Test_validatePrivateRPCConfig(t *testing.T) {
+	// A relay can accept a transaction and never include it, and acceptance is the only signal
+	// this relayer gets, so without a send timeout the claim waits for a receipt indefinitely.
+	require.ErrorContains(t, validatePrivateRPCConfig(2, 0), flags.TxSendTimeout.Name)
+
+	assert.NoError(t, validatePrivateRPCConfig(2, time.Minute))
+
+	// Nothing is required of a deployment that configures no private endpoints, which is every
+	// deployment that predates them.
+	assert.NoError(t, validatePrivateRPCConfig(0, 0))
+}

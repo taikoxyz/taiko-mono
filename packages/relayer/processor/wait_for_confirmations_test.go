@@ -116,11 +116,13 @@ func Test_waitForConfirmationsReturnsWhenContextIsCanceled(t *testing.T) {
 	assert.Equal(t, 1, client.receiptCalls)
 }
 
-// Test_waitForConfirmationsReturnsConfirmedOverACanceledContext pins the precedence between
-// the two. A transaction that already holds its confirmations reports success, because they
-// are present whether or not the context survived. Before the early return this case fell
-// through to the poll loop and surfaced ctx.Err() instead, so the precedence is worth
-// stating outright rather than leaving to the order of two branches.
+// Test_waitForConfirmationsReturnsConfirmedOverACanceledContext pins that the first check runs
+// before the context is consulted, so a client that can still answer reports the confirmations.
+//
+// This is mock-only behaviour and deliberately so: mock.EthClient ignores its context, whereas a
+// real ethclient sends the receipt lookup through the context and would fail it. What the test
+// actually guards is the ordering — the early return happens on the first check rather than after
+// a tick — not a promise that production returns success over a cancelled context.
 func Test_waitForConfirmationsReturnsConfirmedOverACanceledContext(t *testing.T) {
 	p := newTestProcessor(true)
 
