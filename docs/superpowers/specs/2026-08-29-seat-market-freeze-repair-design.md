@@ -86,8 +86,8 @@ economically unmaintained, canonical code closes the affected economics to vacan
 
 Market is a protocol-lifetime, non-proxy L1 contract. It owns:
 
-- four pending book cells;
-- one staged offer and its premium reserve;
+- four shared waiting-capacity cells, at most one of which may be held by the staged offer;
+- one staged-offer record and its premium reserve;
 - immutable offer, tranche, seat-term binding, reserve, and credit records;
 - native-ETH bond escrow and premium buckets; and
 - append-only exact Settlement authorizations installed through Release Manager.
@@ -123,6 +123,19 @@ OfferLocation:
 
 Only `PENDING` occupies a pending cell. Only `STAGED` occupies the single stage. Installation sets
 the location to `NONE`; immutable `SeatTerm.offerId` retains the historical binding.
+
+The stage retains the logical capacity of the pending cell from which it was selected. The invariant
+is:
+
+```text
+pendingCount + stagedCount <= PENDING_COUNT
+stagedCount <= 1
+```
+
+Staging changes `(pendingCount, stagedCount)` by `(-1, +1)`. While a stage exists, insertion may fill
+or replace only the remaining pending capacity; it cannot consume the stage's reserved capacity.
+Ordinary expiry or lineup invalidation changes the counts by `(+1, -1)` and therefore always restores
+the exact offer without displacing, overwriting, refunding, or allocating a fifth pending entry.
 
 ### 4.2 Tranche usage
 
@@ -270,6 +283,23 @@ earnedWei = askWeiPerSecond * (accrueTo - lastAccruedAt)
 Accrual moves `earnedWei` from the exact reserve to the immutable payout's pull credit before any
 withdrawal. All arithmetic is checked.
 
+`previewPremiumCap` is a bounded local Settlement view and cannot depend only on a previously
+materialized `closedAt`. It returns the earliest applicable cap implied by the surviving canonical
+state, including:
+
+- an immutable healthy or migration `closedAt` when present;
+- an exact latched `satisfiedAt`;
+- the objective `failoverAt` of an attached duty that has missed its qualifying commit;
+- `serviceEligibleUntil` when no duty was attached before eligibility ended; and
+- the objective `recoveryAt` at which an omitted leading sync would have closed seat economics to
+  vacancy because the canonical lag was already due and no duty-ring cell was locally reusable.
+
+If canonical tip/term state already proves that recovery, failover, funding expiry, or ring-full
+vacancy should have occurred, the view derives the same cap even when no caller has materialized that
+transition. A duty validly attached before `serviceEligibleUntil` keeps its separately funded SLA
+tail and uses its satisfaction/failover cap. The view performs no write or Market call, scans only the
+fixed seat/duty geometry, and cannot increase a cap because maintenance was omitted.
+
 ### 5.5 Healthy handover or healthy installed exit
 
 The exact noncanonical close and Market accounting occur in one revert domain. Let:
@@ -326,6 +356,8 @@ deletes the reserve atomically. An unstarted standby has earned zero and returns
 SEAT_COUNT    = 4  // one primary plus three standbys
 PENDING_COUNT = 4
 MAX_STAGE      = 1
+
+pendingCount + stagedCount <= PENDING_COUNT
 ```
 
 The auction has no epoch or closing window. A healthy funded primary persists until competitive
@@ -471,8 +503,9 @@ economics to vacancy and creates no new duty. It does not call Market or revert 
 ### 7.2 Installed release
 
 Only a tranche with `TrancheUsage.INSTALLED`, `BondDisposition.NONE`, an exact closed Settlement term,
-and a refundable terminal duty disposition may request installed release. The request timestamp is
-one-shot and cannot reset.
+and a refundable terminal duty disposition may request installed release. Anyone may request release
+for an eligible tranche. The request is one-shot/idempotent: it records the first timestamp and no
+caller can reset or postpone it.
 
 ```text
 dispositionStableAt =
@@ -497,9 +530,10 @@ reserveMatureAt =
 ownerTerminalAt = max(finalizeReleaseAt, reserveMatureAt)
 ```
 
-Finalization at or after equality rereads exact Settlement state, reconciles and deletes the exact
-reserve, then terminalizes the bond to its owner credit. A breached or unresolved duty cannot create
-an owner credit.
+Anyone may finalize at or after equality. Finalization rereads exact Settlement state, reconciles and
+deletes the exact reserve, then terminalizes the bond only to the immutable operator's owner credit;
+the caller cannot redirect it. A breached or unresolved duty cannot create an owner credit. An
+uncooperative operator therefore cannot pin a terminal duty cell by refusing either release call.
 
 ### 7.3 Breach enforcement
 
@@ -528,9 +562,14 @@ It is true only when:
 
 1. the retained exact three-way binding matches;
 2. the bond disposition is `OWNER_CREDITED` or `PENALTY_CREDITED`;
-3. no stage, term, open reserve, or closed-tail reserve remains;
+3. no live offer, stage, or roster occupancy uses the tranche, and no open or closed-tail reserve
+   remains;
 4. all release, evidence, reorg, and premium-maturity horizons were enforced; and
 5. the terminal tranche can never bind another offer, term, or duty.
+
+The immutable closed `SeatTerm` and exact three-way historical binding remain queryable forever;
+their retention is required, not forbidden. Because terminal disposition is monotone and
+terminalization already authenticated Settlement closure, the safety predicate is also monotone.
 
 `reclaimDutyCell` is a noncanonical Settlement maintenance call that authenticates this predicate and
 caches a local reusable flag. Canonical code reads only that flag. Actual withdrawal of any pull
@@ -538,10 +577,22 @@ credit is irrelevant, so a beneficiary cannot pin history by refusing to claim.
 
 ## 8. Migration
 
-### 8.1 Settlement-local arm and abort
+### 8.1 Globally authorized Settlement-local arm and abort
 
-Migration arm begins with leading sync and a mature-best commit. Any already-objective slash is
-materialized first. One local atomic transition then:
+The non-proxy `ActiveSettlementRouter` remains the sole protocol-lifetime migration gate. Its exact
+word binds `(routerGeneration, activeProtocolVersion, targetProtocolVersion, targetManifestHash,
+phase)`. Only `ProtocolVersionManager` may consume the delayed exact arm or cancel manifest.
+
+Seat migration arm is not an independently callable Settlement function. In the same transaction and
+revert domain as the globally authorized router `ACTIVE -> ARMED` transition, ProtocolVersionManager
+first validates the exact current router word and delayed manifest, writes the exact ARMED word, and
+then calls the exact old Settlement. Settlement requires the immutable manager caller, rereads the
+router word, and requires exact equality of router generation, old/target versions, manifest hash,
+and `ARMED` phase. Any mismatch or local failure reverts the global arm and every component delta.
+
+The Settlement-local arm begins with leading sync and a mature-best commit. Any already-objective
+slash is materialized first. It stores the exact router-generation/manifest binding and performs one
+local transition that:
 
 - increments monotone `seatGeneration`;
 - closes active and standby services non-fault;
@@ -550,8 +601,21 @@ materialized first. One local atomic transition then:
 - invalidates the exact stage and retains its migration tombstone; and
 - makes the Settlement economically vacant.
 
-It performs no Market or ETH call. Abort never lowers generation and never resurrects a term, duty,
-successor, quote, or stage. A later active installation begins from the new generation.
+It performs no Market or ETH call. Exactly one local arm may consume a router generation; it checkedly
+increments `seatGeneration` once.
+
+Abort is likewise reachable only through the matured exact global cancel-manifest transaction. In
+one revert domain ProtocolVersionManager validates and marks that router generation canceled, writes
+the exact old-version `ACTIVE` router word, and calls the old Settlement. Settlement authenticates
+the immutable manager, canceled generation, old/target versions, target manifest, and new ACTIVE
+word before recording the local abort. Any mismatch reverts the global abort. Abort never lowers
+`seatGeneration` and never resurrects a term, duty, successor, quote, or stage. A later active
+installation begins from the incremented seat generation.
+
+The existing global statement that cancellation changes no reservation or liability state remains
+true for pre-arm builder/queue liabilities, but must not be read as restoring consumed seat state:
+seat closures, excuses, generation increment, and stage tombstone created by the atomic arm remain
+terminal across abort.
 
 Old cached-generation insertions before the next Market sync are inert capital operations: they
 cannot stage or install while Settlement is armed and are purged when generation is synchronized or
@@ -655,6 +719,8 @@ Tests cover every allowed state edge above and reject every other edge. Required
 include:
 
 - fifth-offer displacement and full deterministic ordering;
+- stage from a full pending book, insertion/displacement while staged, then ordinary expiry and
+  lineup invalidation, proving `pendingCount + stagedCount <= 4` throughout;
 - pending-only requote across every nonpending usage/location;
 - pending exit freeing capacity but not bond before equality;
 - exact before/equality/after quote maturity;
@@ -664,10 +730,16 @@ include:
 - a funded post-tenure interval that survives sync ordering and timestamp skips;
 - healthy-close matured/tail/unearned conservation;
 - closed-tail maturity before/equal/after and repeated reconciliation;
+- omitted sync past objective recovery/failover/funding expiry cannot increase `previewPremiumCap` or
+  withdrawable premium, including the ring-full vacancy cap;
 - canonical promotion followed by lazy start authentication;
 - owner-versus-penalty terminal exclusivity under release/breach races;
+- four satisfied/excused operators refusing all actions cannot prevent permissionless release
+  request, finalization, and later duty-cell reuse;
 - exact-credit replay, malicious payout, reentrancy, and forced ETH;
 - arm/abort leaving every Market byte, bucket, and ETH balance unchanged;
+- router/local arm and abort mismatch, duplicate-generation, wrong-manifest, wrong-version, wrong
+  phase, unauthorized caller, and partial-transition rollback;
 - strict target-read fault injection: revert, OOG, short, long, wrong magic, chain, runtime, config,
   phase, and generation;
 - rotation with stage cancellation and pending purge as one rollback domain;
@@ -694,6 +766,8 @@ Integration deletes every superseded occurrence of:
 - Market migration coordinator and Market arm/abort;
 - distinct activation and promotion runway fields;
 - `REFUND_CREDIT -> RELEASE_REQUESTED`; and
+- any globally independent or caller-selectable Settlement seat arm/abort path, plus any statement
+  that migration cancellation restores seat terms, duties, generation, or stage state; and
 - any statement that every Round-8 function avoids Settlement while generation sync reads it.
 
 The documentation checker must fail if old terms remain, required new terms are absent, model counts
