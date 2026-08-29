@@ -54,6 +54,20 @@ const DefaultPrivateRPCAttemptTimeout = 30 * time.Second
 // urlInErrorText matches a URL inside an error message, so it can be kept out of the logs.
 var urlInErrorText = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s"]*`)
 
+// admission is one endpoint's place in a send's rotation snapshot: which endpoint, and which of
+// that endpoint's admissions the send was let in under.
+//
+// The snapshot is taken once, under the lock, and the sends that follow it run without holding the
+// lock, so an endpoint admitted here can leave the rotation before its result comes back — a
+// concurrent send can trip it — and can even be re-admitted after that. The generation is what
+// tells those apart: it changes every time the endpoint leaves the rotation, so a result that
+// outlived the admission it belongs to can be recognised and dropped rather than charged to the
+// admission that replaced it. See recordFailure.
+type admission struct {
+	index      int
+	generation uint64
+}
+
 // TxSender hands a signed transaction to one endpoint. *ethclient.Client satisfies it.
 type TxSender interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
@@ -84,6 +98,7 @@ type SendingBackend struct {
 	failedAt         []time.Time
 	lastCharged      []common.Hash
 	consecutive      []int
+	generation       []uint64
 	highestAccepted  []uint64
 	hasAccepted      []bool
 	failureThreshold int
@@ -114,6 +129,7 @@ func NewSendingBackend(
 		failedAt:         make([]time.Time, len(private)),
 		lastCharged:      make([]common.Hash, len(private)),
 		consecutive:      make([]int, len(private)),
+		generation:       make([]uint64, len(private)),
 		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
@@ -160,7 +176,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 	var err error
 
-	for attempt, i := range inRotation {
+	for attempt, endpoint := range inRotation {
 		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
 
 		// Checking the attempt's own context rather than the parent's covers both a budget that
@@ -182,12 +198,12 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			return redacted(attemptErr)
 		}
 
-		err = b.private[i].SendTransaction(attemptCtx, tx)
+		err = b.private[endpoint.index].SendTransaction(attemptCtx, tx)
 
 		cancel()
 
 		if err == nil {
-			b.recordSuccess(i, tx.Nonce())
+			b.recordSuccess(endpoint.index, tx.Nonce())
 
 			return nil
 		}
@@ -206,11 +222,11 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// to be able to trip. Checking the deadline before the send rather than after is what
 		// keeps that true for the last endpoint in rotation, whose share is the rest of the
 		// budget and which therefore always finds ctx expired once it has hung.
-		tripped := b.recordFailure(i, tx.Hash(), answeredWithRejection(err))
-		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(i)).Inc()
+		tripped := b.recordFailure(endpoint, tx.Hash(), answeredWithRejection(err))
+		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 		slog.Warn("Private endpoint refused a transaction",
-			"endpoint", i,
+			"endpoint", endpoint.index,
 			"txHash", tx.Hash().Hex(),
 			"error", redactURLs(err),
 		)
@@ -219,10 +235,10 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// privately, and the last one leaving means claims reach the public mempool — so it is
 		// logged and counted separately from the refusals that led to it.
 		if tripped {
-			relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(i)).Inc()
+			relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 			slog.Warn("Private endpoint taken out of rotation",
-				"endpoint", i,
+				"endpoint", endpoint.index,
 				"retryIn", b.retryInterval,
 			)
 		}
@@ -355,13 +371,13 @@ func (b *SendingBackend) NumPrivateEndpoints() int {
 	return len(b.private)
 }
 
-// inRotation returns the indices of the private endpoints currently usable, in priority order,
-// re-admitting any whose retry interval has elapsed.
-func (b *SendingBackend) inRotation() []int {
+// inRotation returns the private endpoints currently usable, in priority order and each carrying
+// the generation it is admitted under, re-admitting any whose retry interval has elapsed.
+func (b *SendingBackend) inRotation() []admission {
 	b.mu.Lock()
 
 	now := b.now()
-	indices := make([]int, 0, len(b.private))
+	admitted := make([]admission, 0, len(b.private))
 
 	var readmitted []int
 
@@ -373,6 +389,11 @@ func (b *SendingBackend) inRotation() []int {
 
 			// Back from a trip with a fresh budget, rather than the spent one that would trip it
 			// again on its first failure.
+			//
+			// The generation is deliberately not touched here. It was already moved on when the
+			// endpoint left the rotation, which is what makes a send still in flight from before
+			// that trip recognisable — and a fresh budget is exactly what such a send must not be
+			// allowed to spend.
 			b.failedAt[i] = time.Time{}
 			b.failures[i] = 0
 			b.lastCharged[i] = common.Hash{}
@@ -387,7 +408,7 @@ func (b *SendingBackend) inRotation() []int {
 			readmitted = append(readmitted, i)
 		}
 
-		indices = append(indices, i)
+		admitted = append(admitted, admission{index: i, generation: b.generation[i]})
 	}
 
 	b.mu.Unlock()
@@ -401,11 +422,11 @@ func (b *SendingBackend) inRotation() []int {
 		)
 	}
 
-	return indices
+	return admitted
 }
 
-// recordFailure counts a refused transaction against the endpoint at index, taking it out of
-// rotation once it has refused failureThreshold distinct transactions in a row.
+// recordFailure counts a refused transaction against the endpoint the send was admitted to, taking
+// it out of rotation once it has refused failureThreshold distinct transactions in a row.
 //
 // A rejection of the same transaction as the previous charge is not counted again. A relay that
 // will not take one particular claim — one that would revert because a competitor already processed
@@ -423,18 +444,41 @@ func (b *SendingBackend) inRotation() []int {
 // arriving alternately can still trip an endpoint. That is the intended trade: remembering every
 // transaction would grow without bound, and repeated refusals of more than one claim are weaker
 // evidence of health than of trouble.
+//
+// A failure belonging to an admission the endpoint has already left is dropped entirely. Sends run
+// concurrently and each takes its own rotation snapshot, so when an endpoint goes down several
+// sends are typically in flight against it and only the first of them to come back trips it; the
+// rest were admitted under the same generation and would otherwise each re-run the whole tally.
+// That would push a later timestamp into failedAt every time — restarting the retry interval from
+// the last straggler instead of from the moment the endpoint left the rotation, which under
+// sustained load can hold a recovered endpoint out for far longer than the configured interval —
+// and would report the one departure as a trip once per straggler, inflating a metric that exists
+// to count exactly that transition. Comparing generations also covers the longer-lived case the
+// zero check on failedAt does not: a send that outlives the whole trip and lands after the endpoint
+// has been re-admitted, whose failure belongs to the outage that is over rather than to the fresh
+// budget it would otherwise spend.
+//
+// A success is not screened this way. It is proof the endpoint is taking transactions right now,
+// whichever admission asked, and that is worth acting on immediately; see recordSuccess.
+//
 // It reports whether this failure is what took the endpoint out of rotation, so the caller can log
 // and count that transition without holding the lock.
-func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection bool) (tripped bool) {
+func (b *SendingBackend) recordFailure(endpoint admission, txHash common.Hash, rejection bool) (tripped bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	index := endpoint.index
+
+	if b.generation[index] != endpoint.generation {
+		return false
+	}
 
 	b.consecutive[index]++
 
 	// An endpoint refusing this many sends in a row is not being fussy about one claim, whatever
 	// its errors say, so it steps aside without consulting the deduplication below.
 	if b.consecutive[index] >= b.failureCeiling {
-		b.failedAt[index] = b.now()
+		b.leaveRotation(index)
 
 		return true
 	}
@@ -447,7 +491,7 @@ func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection 
 	b.failures[index]++
 
 	if b.failures[index] >= b.failureThreshold {
-		b.failedAt[index] = b.now()
+		b.leaveRotation(index)
 
 		return true
 	}
@@ -455,9 +499,22 @@ func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection 
 	return false
 }
 
+// leaveRotation takes the endpoint at index out of rotation for the retry interval, ending the
+// admission its in-flight sends were let in under so their results cannot be charged to the next
+// one. The caller holds the lock.
+func (b *SendingBackend) leaveRotation(index int) {
+	b.failedAt[index] = b.now()
+	b.generation[index]++
+}
+
 // recordSuccess returns the endpoint at index to full health. Only consecutive failures trip an
 // endpoint, so one transaction it would not take does not cost it its turn, and an endpoint that
 // just took one is not down whatever its recent record.
+//
+// This holds even for a send admitted before a trip that only now came back: the endpoint has
+// demonstrably just accepted a transaction, so it belongs back in rotation whatever the tally from
+// the outage says. The generation is left alone, which keeps the failures still in flight from that
+// outage from being charged against the budget this clears.
 func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -497,21 +554,21 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 // lost, not an unhealthy relay, and tripping an endpoint for it would push claims into the public
 // mempool for reasons that have nothing to do with the endpoint — the exposure this exists to
 // remove. Bounding how long a send waits for inclusion is TX_SEND_TIMEOUT's job.
-func (b *SendingBackend) deprioritiseAlreadyAccepted(indices []int, nonce uint64) []int {
+func (b *SendingBackend) deprioritiseAlreadyAccepted(admitted []admission, nonce uint64) []admission {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	fresh := make([]int, 0, len(indices))
-	alreadyTried := make([]int, 0, len(indices))
+	fresh := make([]admission, 0, len(admitted))
+	alreadyTried := make([]admission, 0, len(admitted))
 
-	for _, i := range indices {
-		if b.hasAccepted[i] && nonce <= b.highestAccepted[i] {
-			alreadyTried = append(alreadyTried, i)
+	for _, endpoint := range admitted {
+		if b.hasAccepted[endpoint.index] && nonce <= b.highestAccepted[endpoint.index] {
+			alreadyTried = append(alreadyTried, endpoint)
 
 			continue
 		}
 
-		fresh = append(fresh, i)
+		fresh = append(fresh, endpoint)
 	}
 
 	return append(fresh, alreadyTried...)

@@ -129,10 +129,31 @@ func newTestBackend(t *testing.T, retryInterval *time.Duration) (
 	return b, public, first, second, clock
 }
 
+// rotation is the endpoint order inRotation returned, without the admission generations, which
+// only the send path has any use for.
+func rotation(b *SendingBackend) []int {
+	admitted := b.inRotation()
+	indices := make([]int, 0, len(admitted))
+
+	for _, endpoint := range admitted {
+		indices = append(indices, endpoint.index)
+	}
+
+	return indices
+}
+
+// admit is the endpoint at index as a send taking a rotation snapshot right now would see it.
+func admit(b *SendingBackend, index int) admission {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return admission{index: index, generation: b.generation[index]}
+}
+
 // trip refuses enough distinct transactions in a row to take a private endpoint out of rotation.
 func trip(b *SendingBackend, index int) {
 	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
-		b.recordFailure(index, txWithNonce(uint64(i)).Hash(), false)
+		b.recordFailure(admit(b, index), txWithNonce(uint64(i)).Hash(), false)
 	}
 }
 
@@ -206,7 +227,7 @@ func TestSendingBackend_KeepsAnEndpointAfterASingleRefusal(t *testing.T) {
 
 	// A relay that will not take one claim — one that would revert because a competitor already
 	// processed the message — is still healthy for everything else.
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_TripsAnEndpointOnlyAtTheFailureThreshold(t *testing.T) {
@@ -217,7 +238,7 @@ func TestSendingBackend_TripsAnEndpointOnlyAtTheFailureThreshold(t *testing.T) {
 	// looks like, and that is the only thing that should trip it.
 	for i := 1; i < DefaultPrivateRPCFailureThreshold; i++ {
 		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(uint64(i))))
-		require.Equal(t, []int{0, 1}, b.inRotation(), "still in rotation after %d refusals", i)
+		require.Equal(t, []int{0, 1}, rotation(b), "still in rotation after %d refusals", i)
 	}
 
 	require.NoError(t, b.SendTransaction(
@@ -225,7 +246,7 @@ func TestSendingBackend_TripsAnEndpointOnlyAtTheFailureThreshold(t *testing.T) {
 		txWithNonce(uint64(DefaultPrivateRPCFailureThreshold)),
 	))
 
-	assert.Equal(t, []int{1}, b.inRotation())
+	assert.Equal(t, []int{1}, rotation(b))
 }
 
 func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T) {
@@ -242,7 +263,7 @@ func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T)
 		require.NoError(t, b.SendTransaction(context.Background(), tx))
 	}
 
-	assert.Equal(t, []int{0, 1}, b.inRotation(),
+	assert.Equal(t, []int{0, 1}, rotation(b),
 		"one claim a relay will not take must not cost it its turn for every other message")
 	assert.Equal(t, 1, b.failures[0], "the same transaction is charged once, however often it is retried")
 	assert.Empty(t, public.sent, "unrelated claims must not be pushed into the public mempool")
@@ -261,7 +282,7 @@ func TestSendingBackend_ChargesEachDistinctTransactionOnce(t *testing.T) {
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(2)))
 
 	assert.Equal(t, 2, b.failures[0])
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_GoesPublicOnlyOnceEveryEndpointIsTripped(t *testing.T) {
@@ -308,12 +329,12 @@ func TestSendingBackend_ASuccessfulSendReadmitsATrippedEndpoint(t *testing.T) {
 	b, _, _, _, _ := newTestBackend(t, nil)
 
 	trip(b, 0)
-	require.Equal(t, []int{1}, b.inRotation())
+	require.Equal(t, []int{1}, rotation(b))
 
 	// An endpoint that just took a transaction is not down, whatever its recent record.
 	b.recordSuccess(0, 1)
 
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_ReturnsATrippedEndpointAfterTheRetryInterval(t *testing.T) {
@@ -323,11 +344,11 @@ func TestSendingBackend_ReturnsATrippedEndpointAfterTheRetryInterval(t *testing.
 
 	*clock = clock.Add(DefaultPrivateRPCRetryInterval - time.Nanosecond)
 
-	require.Equal(t, []int{1}, b.inRotation())
+	require.Equal(t, []int{1}, rotation(b))
 
 	*clock = clock.Add(time.Nanosecond)
 
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
@@ -337,12 +358,12 @@ func TestSendingBackend_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
 
 	*clock = clock.Add(DefaultPrivateRPCRetryInterval)
 
-	require.Equal(t, []int{0, 1}, b.inRotation())
+	require.Equal(t, []int{0, 1}, rotation(b))
 
 	// The spent count must not carry over, or the first refusal after recovery would trip it again.
-	b.recordFailure(0, txWithNonce(99).Hash(), false)
+	b.recordFailure(admit(b, 0), txWithNonce(99).Hash(), false)
 
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_HonoursACustomRetryInterval(t *testing.T) {
@@ -350,11 +371,11 @@ func TestSendingBackend_HonoursACustomRetryInterval(t *testing.T) {
 	b, _, _, _, clock := newTestBackend(t, &retryInterval)
 
 	trip(b, 0)
-	require.Equal(t, []int{1}, b.inRotation())
+	require.Equal(t, []int{1}, rotation(b))
 
 	*clock = clock.Add(retryInterval)
 
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_UsesTheDefaultRetryIntervalWhenNoneIsUsable(t *testing.T) {
@@ -485,7 +506,7 @@ func TestSendingBackend_AHangingEndpointDoesNotStarveTheNextOne(t *testing.T) {
 
 	// The endpoint that spent its whole share without answering is the one that failed; the one
 	// that took the transaction is untouched.
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 1, b.failures[0])
 	assert.Equal(t, 0, b.failures[1])
 }
@@ -506,7 +527,7 @@ func TestSendingBackend_DoesNotCountEndpointsAgainstOurOwnDeadline(t *testing.T)
 
 	// The budget was gone before any endpoint was reached. Counting that against them would trip
 	// healthy relays whenever the transaction manager's own timeout ran out.
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 0, b.failures[0])
 	assert.Equal(t, 0, b.failures[1])
 	assert.Equal(t, float64(0),
@@ -581,7 +602,7 @@ func TestSendingBackend_AnEndpointThatOnlyHangsStillTrips(t *testing.T) {
 	}
 
 	require.Equal(t, DefaultPrivateRPCFailureThreshold, hanging.calls())
-	assert.Empty(t, b.inRotation(), "an endpoint that only ever hangs has to leave rotation")
+	assert.Empty(t, rotation(b), "an endpoint that only ever hangs has to leave rotation")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
@@ -616,7 +637,7 @@ func TestSendingBackend_RepeatedTimeoutsOnOneTransactionStillTrip(t *testing.T) 
 		cancel()
 	}
 
-	assert.Empty(t, b.inRotation(), "repeated timeouts on one claim still have to trip the endpoint")
+	assert.Empty(t, rotation(b), "repeated timeouts on one claim still have to trip the endpoint")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
@@ -642,7 +663,7 @@ func TestSendingBackend_TransportFailuresOnOneTransactionStillTrip(t *testing.T)
 		require.Error(t, b.SendTransaction(context.Background(), tx))
 	}
 
-	assert.Empty(t, b.inRotation())
+	assert.Empty(t, rotation(b))
 
 	require.NoError(t, b.SendTransaction(context.Background(), tx))
 	assert.Len(t, public.sent, 1)
@@ -712,7 +733,7 @@ func TestSendingBackend_OffersAResentNonceToAnotherEndpointFirst(t *testing.T) {
 
 	// Nothing is charged for this: non-inclusion is usually a fee or a lost race, and tripping on
 	// it would push claims public for reasons that have nothing to do with the endpoint.
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 0, b.failures[0])
 
 	// A different claim goes back to the configured order.
@@ -852,7 +873,7 @@ func TestSendingBackend_AnEndpointRefusingEverythingStepsAside(t *testing.T) {
 		require.Error(t, b.SendTransaction(context.Background(), tx))
 	}
 
-	assert.Empty(t, b.inRotation(), "refusing everything in a row has to cost the endpoint its place")
+	assert.Empty(t, rotation(b), "refusing everything in a row has to cost the endpoint its place")
 
 	require.NoError(t, b.SendTransaction(context.Background(), tx))
 
@@ -880,7 +901,7 @@ func TestSendingBackend_ASuccessResetsTheConsecutiveCount(t *testing.T) {
 
 	// The run is broken, so the count starts again rather than tripping on the next refusal.
 	require.NoError(t, b.SendTransaction(context.Background(), tx))
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 1, b.consecutive[0])
 }
 
@@ -899,7 +920,7 @@ func TestSendingBackend_DoesNotChargeAnEndpointForOurExpiredBudget(t *testing.T)
 	assert.Empty(t, first.sent)
 	assert.Empty(t, second.sent)
 	assert.Empty(t, public.sent)
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 0, b.failures[0])
 	assert.Equal(t, 0, b.consecutive[0])
 }
@@ -909,7 +930,7 @@ func TestSendingBackend_DoesNotCountAPublicBroadcastThatFailed(t *testing.T) {
 	b := NewSendingBackend(public, []TxSender{&fakeSender{}}, nil)
 
 	trip(b, 0)
-	require.Empty(t, b.inRotation())
+	require.Empty(t, rotation(b))
 
 	before := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
 
@@ -956,7 +977,7 @@ func TestSendingBackend_DoesNotChargeAnEndpointForOurCancellation(t *testing.T) 
 	// A cancel only ever comes from the caller, unlike a deadline an endpoint can exhaust by going
 	// quiet. Charging for it would trip healthy relays on every shutdown.
 	assert.Equal(t, 1, first.calls)
-	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 0, b.failures[0])
 	assert.Equal(t, 0, b.consecutive[0])
 	assert.Empty(t, public.sent)
@@ -1053,11 +1074,151 @@ func TestSendingBackend_CountsLeavingTheRotationOnceRatherThanEveryRefusal(t *te
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(DefaultPrivateRPCFailureThreshold)))
 
 	assert.Equal(t, float64(1), trips())
-	assert.Equal(t, []int{1}, b.inRotation())
+	assert.Equal(t, []int{1}, rotation(b))
 
 	// Out of rotation, it is not asked again, so the count does not keep climbing.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(99)))
 	assert.Equal(t, float64(1), trips())
+}
+
+// gatedSender holds every send inside the endpoint until the test releases it by nonce, so two
+// sends can be made to overlap on one endpoint at a chosen point in each other's progress. That is
+// what the processor does routinely — it claims several messages at once — and what a snapshot of
+// the rotation taken per send exposes to.
+type gatedSender struct {
+	entered chan uint64
+	release map[uint64]chan struct{}
+	err     error
+}
+
+// newGatedSender gates the given nonces. The release channels are all created up front, so the map
+// is only ever read once a send is in flight.
+func newGatedSender(err error, nonces ...uint64) *gatedSender {
+	s := &gatedSender{
+		entered: make(chan uint64, len(nonces)),
+		release: make(map[uint64]chan struct{}, len(nonces)),
+		err:     err,
+	}
+
+	for _, nonce := range nonces {
+		s.release[nonce] = make(chan struct{})
+	}
+
+	return s
+}
+
+func (s *gatedSender) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	s.entered <- tx.Nonce()
+
+	select {
+	case <-s.release[tx.Nonce()]:
+		return s.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// newGatedBackend builds a backend whose first private endpoint is gated and whose second is
+// ordinary, with a clock the test moves by hand. The clock is only written while every send is
+// parked in the gate, so the channel handover orders it against the sends' own reads.
+func newGatedBackend(gate *gatedSender, second *fakeSender) (*SendingBackend, *time.Time) {
+	now := time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{gate, second}, nil)
+	b.now = func() time.Time { return now }
+
+	return b, &now
+}
+
+func TestSendingBackend_AConcurrentFailureFromTheSameSnapshotDoesNotRetrip(t *testing.T) {
+	gate := newGatedSender(errors.New("down"), 1, 2)
+	b, clock := newGatedBackend(gate, &fakeSender{err: errors.New("down")})
+	tripped := *clock
+
+	before := testutil.ToFloat64(relayer.PrivateRPCTrips.WithLabelValues("0"))
+	trips := func() float64 {
+		return testutil.ToFloat64(relayer.PrivateRPCTrips.WithLabelValues("0")) - before
+	}
+
+	// One refusal short of the threshold, so the next failure is the one that costs the endpoint
+	// its place.
+	for i := 0; i < DefaultPrivateRPCFailureThreshold-1; i++ {
+		b.recordFailure(admit(b, 0), txWithNonce(uint64(100+i)).Hash(), false)
+	}
+
+	// Both sends take their rotation snapshot and reach the endpoint before either has a result, so
+	// both were admitted while it was still healthy.
+	done := make(chan uint64, 2)
+
+	for _, nonce := range []uint64{1, 2} {
+		go func(nonce uint64) {
+			_ = b.SendTransaction(context.Background(), txWithNonce(nonce))
+
+			done <- nonce
+		}(nonce)
+	}
+
+	require.NotEqual(t, <-gate.entered, <-gate.entered, "both sends have to be inside the endpoint")
+
+	// The first result to come back trips the endpoint.
+	close(gate.release[1])
+	require.Equal(t, uint64(1), <-done)
+
+	require.Equal(t, float64(1), trips())
+	require.Equal(t, []int{1}, rotation(b))
+
+	// The second comes back a minute later, from the snapshot taken before that trip.
+	*clock = tripped.Add(time.Minute)
+
+	close(gate.release[2])
+	require.Equal(t, uint64(2), <-done)
+
+	assert.Equal(t, float64(1), trips(), "one outage is one departure, however many sends it caught")
+	assert.Equal(t, tripped, b.failedAt[0],
+		"the retry interval runs from the trip, not from the last straggler to come back")
+
+	// So the endpoint is due back a retry interval after it left. Charging the straggler again would
+	// have pushed that out by a minute — and by a minute per send still in flight when it went down,
+	// which under sustained load is how a recovered endpoint stays out for far longer than the
+	// interval an operator configured.
+	*clock = tripped.Add(DefaultPrivateRPCRetryInterval)
+
+	assert.Equal(t, []int{0, 1}, rotation(b))
+}
+
+func TestSendingBackend_AFailureOutlivingATripDoesNotSpendTheFreshBudget(t *testing.T) {
+	gate := newGatedSender(errors.New("down"), 1)
+	b, clock := newGatedBackend(gate, &fakeSender{})
+	start := *clock
+
+	done := make(chan struct{})
+
+	go func() {
+		_ = b.SendTransaction(context.Background(), txWithNonce(1))
+
+		close(done)
+	}()
+
+	require.Equal(t, uint64(1), <-gate.entered)
+
+	// While that send sits in the gate the endpoint goes down, leaves the rotation, and is let back
+	// in with a clean budget once the retry interval has passed.
+	trip(b, 0)
+	require.Equal(t, []int{1}, rotation(b))
+
+	*clock = start.Add(DefaultPrivateRPCRetryInterval)
+
+	require.Equal(t, []int{0, 1}, rotation(b))
+
+	// Only now does the send from before the trip come back. Its failure is evidence about the
+	// outage that is over, not about the endpoint that was just re-admitted, so it buys none of the
+	// budget the re-admission handed out.
+	close(gate.release[1])
+	<-done
+
+	assert.Zero(t, b.failures[0])
+	assert.Zero(t, b.consecutive[0])
+	assert.Equal(t, []int{0, 1}, rotation(b))
 }
 
 func TestSendingBackend_KeepsTheAcceptedMarkAcrossATrip(t *testing.T) {
@@ -1070,12 +1231,12 @@ func TestSendingBackend_KeepsTheAcceptedMarkAcrossATrip(t *testing.T) {
 	first.err = errors.New("down")
 
 	trip(b, 0)
-	require.Equal(t, []int{1}, b.inRotation())
+	require.Equal(t, []int{1}, rotation(b))
 
 	*clock = clock.Add(DefaultPrivateRPCRetryInterval)
 	first.err = nil
 
-	require.Equal(t, []int{0, 1}, b.inRotation())
+	require.Equal(t, []int{0, 1}, rotation(b))
 
 	// Re-admission clears the failure record but not what the endpoint has already accepted. A
 	// resend of nonce 5 is still better offered elsewhere first: endpoint 0 may well be holding
