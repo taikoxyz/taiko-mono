@@ -372,16 +372,23 @@ func Test_parsePrivateRPCUrlsRejectsCleartextToRemoteHosts(t *testing.T) {
 	}
 }
 
-func Test_validatePrivateRPCConfig(t *testing.T) {
+func Test_privateRPCSendTimeout(t *testing.T) {
 	// A relay can accept a transaction and never include it, and acceptance is the only signal
 	// this relayer gets, so without a send timeout the claim waits for a receipt indefinitely.
-	require.ErrorContains(t, validatePrivateRPCConfig(2, 0), flags.TxSendTimeout.Name)
+	timeout, defaulted := privateRPCSendTimeout(2, 0)
+	assert.Equal(t, DefaultPrivateRPCSendTimeout, timeout)
+	assert.True(t, defaulted)
 
-	assert.NoError(t, validatePrivateRPCConfig(2, time.Minute))
+	// An operator who picked a bound keeps it.
+	timeout, defaulted = privateRPCSendTimeout(2, time.Minute)
+	assert.Equal(t, time.Minute, timeout)
+	assert.False(t, defaulted)
 
-	// Nothing is required of a deployment that configures no private endpoints, which is every
-	// deployment that predates them.
-	assert.NoError(t, validatePrivateRPCConfig(0, 0))
+	// Nothing is imposed on a deployment that configures no private endpoints, which is every
+	// deployment that predates them — this timeout governs the public path too.
+	timeout, defaulted = privateRPCSendTimeout(0, 0)
+	assert.Zero(t, timeout)
+	assert.False(t, defaulted)
 }
 
 func Test_parsePrivateRPCUrlsKeepsRejectedEntriesOutOfTheError(t *testing.T) {

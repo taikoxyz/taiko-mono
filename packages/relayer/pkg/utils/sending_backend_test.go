@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -696,6 +697,20 @@ func Test_answeredWithRejection(t *testing.T) {
 		{
 			name: "a dial failure",
 			err:  &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")},
+			want: false,
+		},
+		{
+			// go-ethereum surfaces a non-2xx HTTP response as rpc.HTTPError, which carries a
+			// status code but no ErrorCode and therefore does not satisfy rpc.Error. That is the
+			// right answer: a 429 or a 502 is the relay's health, not an opinion about this one
+			// transaction, so it must count every time rather than be deduplicated per claim.
+			name: "a rate limit",
+			err:  rpc.HTTPError{StatusCode: 429, Status: "429 Too Many Requests"},
+			want: false,
+		},
+		{
+			name: "a gateway error wrapped in context",
+			err:  fmt.Errorf("sending: %w", rpc.HTTPError{StatusCode: 502, Status: "502 Bad Gateway"}),
 			want: false,
 		},
 		{

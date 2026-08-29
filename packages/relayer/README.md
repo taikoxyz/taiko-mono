@@ -153,12 +153,20 @@ delayed by a round, and its fee may be gone by then. `TX_SEND_TIMEOUT` bounds ho
 send can be outstanding but does not help across a restart. The exposure is proportional to how
 long a relay holds transactions, so it is smallest with relays that drop rather than queue.
 
-**`TX_SEND_TIMEOUT` is required when private endpoints are configured**, and the processor refuses
-to start without it. It defaults to disabled. A relay can accept a transaction and never have it
-included — Flashbots Protect drops would-revert transactions by design — and accepting is the only
-signal the relayer gets, since receipts are polled through `DEST_RPC_URL`. Without a send timeout
-the transaction manager waits for that receipt indefinitely, so the claim stalls and holds its
-worker. Nothing is required of deployments that configure no private endpoints.
+**`TX_SEND_TIMEOUT` defaults to 5 minutes when private endpoints are configured**, rather than to
+disabled. A relay can accept a transaction and never have it included — Flashbots Protect drops
+would-revert transactions by design — and accepting is the only signal the relayer gets, since
+receipts are polled through `DEST_RPC_URL`. Without a send timeout the transaction manager waits for
+that receipt indefinitely, so the claim stalls and holds its worker.
+
+Five minutes is where the relays themselves stop: about twenty-five Ethereum blocks, which is how
+long Flashbots Protect keeps offering a transaction to builders, so a claim is given up only once
+nobody is still trying to land it. It is also six fee bumps at the 48s `RESUBMISSION_TIMEOUT`
+default, and it matches `PRIVATE_RPC_RETRY_INTERVAL`, so a stalled claim and a tripped endpoint come
+back on the same timescale. Set `TX_SEND_TIMEOUT` to choose a different bound; the one value it
+cannot take alongside private endpoints is no bound at all. Deployments that configure no private
+endpoint are untouched — this timeout governs the public path too, and they have been running
+without it.
 
 Leave this unset when the destination chain is Taiko: private relays exist for Ethereum only, so
 L1 to L2 claims keep using `DEST_RPC_URL`.

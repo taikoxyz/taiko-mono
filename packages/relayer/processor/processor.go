@@ -265,19 +265,22 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 	}
 
-	txmgrConfig, err := txmgr.NewConfig(*cfg.TxmgrConfigs, log.Root())
-	if err != nil {
-		return err
+	// Settled before anything is dialled: NewConfig below copies TxSendTimeout across unchanged,
+	// so this is the last point at which it can still be supplied.
+	if timeout, defaulted := privateRPCSendTimeout(
+		len(cfg.DestPrivateRPCUrls),
+		cfg.TxmgrConfigs.TxSendTimeout,
+	); defaulted {
+		cfg.TxmgrConfigs.TxSendTimeout = timeout
+
+		slog.Info("Bounding sends for private endpoints",
+			"txSendTimeout", timeout,
+			"reason", "a relay can accept a transaction and never include it",
+		)
 	}
 
-	// Checked before anything is dialled, so a configuration that cannot work costs no
-	// connections and leaves nothing half-built to unwind.
-	if err := validatePrivateRPCConfig(
-		len(cfg.DestPrivateRPCUrls),
-		txmgrConfig.TxSendTimeout,
-	); err != nil {
-		txmgrConfig.Backend.Close()
-
+	txmgrConfig, err := txmgr.NewConfig(*cfg.TxmgrConfigs, log.Root())
+	if err != nil {
 		return err
 	}
 

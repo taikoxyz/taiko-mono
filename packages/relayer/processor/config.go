@@ -299,26 +299,41 @@ func isLocalHost(host string) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }
 
-// validatePrivateRPCConfig rejects a configuration that would let a claim stall indefinitely.
+// DefaultPrivateRPCSendTimeout bounds one send when private endpoints are configured and the
+// operator left TX_SEND_TIMEOUT disabled.
 //
 // A private relay can accept a transaction and never have it included — Flashbots Protect drops
 // would-revert transactions by design — and acceptance is the only signal this relayer gets, since
 // receipts are polled through DEST_RPC_URL. With no send timeout the transaction manager waits for
 // that receipt for as long as it takes, so the claim stalls and its worker with it.
 //
-// This refuses to start rather than warning, because the failure it prevents is silent and the
-// remedy is one environment variable. It does not pick a value: the right one depends on the
-// destination chain's block time and the operator's fee policy. Nothing is required of deployments
-// that configure no private endpoints, which is every deployment that predates them.
-func validatePrivateRPCConfig(privateEndpoints int, txSendTimeout time.Duration) error {
-	if privateEndpoints != 0 && txSendTimeout == 0 {
-		return fmt.Errorf(
-			"%s requires %s to be set: a relay can accept a transaction and never include it, "+
-				"and without a send timeout that claim waits for a receipt indefinitely",
-			flags.DestPrivateRPCUrls.Name,
-			flags.TxSendTimeout.Name,
-		)
+// Five minutes is where the relays themselves stop. It is roughly twenty-five Ethereum blocks,
+// which is how long Flashbots Protect keeps offering a transaction to builders, so the claim is
+// abandoned only once nobody is still trying to land it — giving up earlier would replace a stall
+// with a resend racing a transaction that may yet be included. It is also six fee bumps at the 48s
+// RESUBMISSION_TIMEOUT default, so a claim that was merely underpriced gets a real chance to catch
+// up first, and it matches the PRIVATE_RPC_RETRY_INTERVAL default, so a stalled claim and a tripped
+// endpoint come back on the same timescale.
+const DefaultPrivateRPCSendTimeout = 5 * time.Minute
+
+// privateRPCSendTimeout returns the send timeout to run with, supplying a default rather than
+// leaving a claim able to wait for a receipt indefinitely.
+//
+// The default only applies where the problem exists. Deployments that configure no private endpoint
+// keep the transaction manager's own behaviour: this timeout governs the public path too, and every
+// deployment that predates private endpoints has been running without it. An operator who wants a
+// different bound sets TX_SEND_TIMEOUT; the one value that cannot be asked for alongside private
+// endpoints is no bound at all, which is the configuration this exists to rule out.
+//
+// It reports whether it supplied the default, so the caller can say so in the log without this
+// having to.
+func privateRPCSendTimeout(privateEndpoints int, configured time.Duration) (
+	timeout time.Duration,
+	defaulted bool,
+) {
+	if privateEndpoints == 0 || configured != 0 {
+		return configured, false
 	}
 
-	return nil
+	return DefaultPrivateRPCSendTimeout, true
 }

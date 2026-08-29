@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"regexp"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -112,6 +113,10 @@ type SendingBackend struct {
 // NewSendingBackend wraps public so that sends are routed through private, in priority order.
 // private may be empty, in which case every send goes through public unchanged. A nil or
 // non-positive retryInterval means DefaultPrivateRPCRetryInterval.
+//
+// The slice is copied. Everything below is indexed by position in it and read without the caller's
+// knowledge from several goroutines, so the backend owns its own order rather than sharing one a
+// caller could still be holding.
 func NewSendingBackend(
 	public txmgr.ETHBackend,
 	private []TxSender,
@@ -124,7 +129,7 @@ func NewSendingBackend(
 
 	return &SendingBackend{
 		ETHBackend:       public,
-		private:          private,
+		private:          slices.Clone(private),
 		failures:         make([]int, len(private)),
 		failedAt:         make([]time.Time, len(private)),
 		lastCharged:      make([]common.Hash, len(private)),
