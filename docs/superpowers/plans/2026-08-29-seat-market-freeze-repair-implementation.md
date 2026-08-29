@@ -718,6 +718,13 @@ class SeatService:
     premium_funded_until: int
     service_eligible_until: int
     closed_at: int | None = None
+    duty_base_tip_slot: int | None = None
+    duty_base_sequence: int | None = None
+    prospective_target_tip: int | None = None
+    prospective_recovery_at: int | None = None
+    prospective_failover_at: int | None = None
+    prospective_slash_at: int | None = None
+    term_removed_at: int | None = None
 
 
 @dataclass
@@ -732,7 +739,10 @@ class Duty:
 ```
 
 Use a four-cell lineup and fixed sequence-tagged duty ring. No canonical method accepts a Market
-object or function.
+object or function. Add one checked monotone `lineupRevision`; its commitment binds the revision and
+exact four ordered term-ID cells with zero placeholders, not mutable service/prospective-duty clocks.
+Each atomic roster or role transition advances it exactly once, while healthy canonical progress
+does not.
 
 - [ ] **Step 4: Implement common service start and funded handover interval**
 
@@ -746,7 +756,9 @@ serviceEligibleUntil = fundedUntil - slaTail
 
 Tenure gates only competitive replacement and voluntary exit. Failover, funding expiry, ring-full
 vacancy, and migration override it. Promotion reuses the existing term/tranche identity and creates no
-Market delta.
+Market delta. Service start records only the prospective base/target/thresholds; it allocates no duty
+and consumes no ring cell. Qualifying ordinary progress rolls the still-serving primary's
+prospective base forward without terminalizing it.
 
 - [ ] **Step 5: Implement objective duties and `preview_premium_cap`**
 
@@ -762,6 +774,26 @@ ring-full objective recoveryAt
 
 Add explicit omitted-sync tests: advance beyond recovery/failover/funding expiry, call preview and
 Market accrual, and prove the omission cannot increase withdrawable premium.
+
+Implement one fixed four-cell synchronization pass. A mature accepted normal best is adopted before
+deriving a prospective miss, even when maintenance was omitted past the old prospective thresholds;
+then evaluate the refreshed interval. No seat write may precede successful canonical-history
+adoption. Inside the pass, already-activated failover/slash precedes optional cure, so post-failover
+cure retains the predecessor cap and post-slash catch-up never cures breach. The pass also returns
+the first reusable cell and surviving SLA bit; prospective attachment is constant-time.
+
+For recovery submission, perform only an O(1) mode/round preflight before validating a candidate.
+A valid candidate adopts history and runs the one four-cell outcome-before-cure pass; do not call an
+earlier scanning sync. An invalid candidate runs ordinary sync exactly once so due maintenance still
+returns `SYNCED`. Pin aggregate visit deltas at four for valid no-change, valid failover-plus-cure,
+and invalid-with-due-maintenance paths. A cured `FAILED_OVER` duty may start the current successor
+only when its exact `predecessorDutyId` equals the cured duty ID; add later-duty and healthy-expiry
+pointer-isolation traces.
+
+Use a structured attachment result. The maximum duty sequence is allocatable; the next strict miss
+returns `SEQUENCE_EXHAUSTED` and follows ring-full fail-open at objective `recoveryAt`, with
+`termRemovedAt` set to the actual sync time and immediate SLA recovery. It creates no duty and never
+reverts or backdates removal to responsibility start. Preview derives the same recovery cap.
 
 - [ ] **Step 6: Add the composed Market/Settlement transaction harness**
 
@@ -781,10 +813,28 @@ stage expiry, and asynchronous lineup-invalidation reconciliation as one EVM-sty
 - stale lineup, target, generation, health, maturity, funded headroom, tombstone, or stage identity
   rolls both component clones back byte-for-byte.
 
+The stage stores no final term ID. At apply, compute checked `installRevision = lineupRevision + 1`
+and derive the exact term ID from authorization ID/commitment, install generation, offer, tranche,
+actual apply timestamp, and `installRevision`. Pass that ID to Market for reserve rekey/tranche
+binding, then record the exact `SeatTerm` and install revision in the same rollback domain. Twin
+clones applying one stage at two permitted timestamps must produce distinct exact term IDs and
+funding intervals; substitute each bound field independently.
+
+Require `apply_stage` itself to observe `mode == NORMAL` and an `ACTIVE` migration gate. Recovery
+activation tombstones the exact stage, so a first `SYNCED` apply cannot be retried successfully in
+recovery.
+
 Inject failure after each intermediate write in candidate selection, reserve debit, location change,
 stage recording, outgoing close, reserve rekey, term install, and stage clear. No split-brain state
 may survive. Keep these entry points explicitly noncanonical; canonical commit/recovery/failover code
 still never receives or calls a Market object.
+
+When `VersionedSettlementHistory` is bound, validate before the first write that Protocol and history
+share the exact forced queue, inbox router, migration gate, and live-Protocol backpointer. Public
+sync and every composed call form one rollback domain and restore those authoritative objects in
+place on failure; a value-equal detached deep copy is not a valid restoration. Test wrong graph
+bindings, failure after a successful history write, public no-commit sync faults, and mid-apply
+faults with byte equality plus exact alias identity.
 
 - [ ] **Step 7: Implement installed voluntary exit**
 
@@ -796,11 +846,54 @@ standbyExitAt = max(exitRequestedAt + EXIT_DELAY, minimumStandbyTenureUntil)
 ```
 
 Competitive primary tenure applies only to primary voluntary exit/replacement. Reject exit of a
-selected successor, prevent request-time reset, and leave tranche bond, reserve, and all existing
-duty liability unchanged until exact roster removal. Funding expiry may close service before the
-requested exit. Later sponsorship may extend funding but must never move the immutable exit deadline
-later. Removal must preserve unaffected rank IDs/order and use the same two-component rollback
-harness when Market reserve reconciliation is required.
+selected successor, require the immutable operator for the one-shot request, prevent request-time
+reset, and leave tranche bond, reserve, and all existing duty liability unchanged until exact roster
+removal. Finalization is permissionless and performs a mandatory leading canonical sync; if it
+changes canonical or seat state, return `SYNCED` with zero Market calls and recompute exact occupancy,
+selection, duty, and tenure on retry. Funding expiry may close service before the requested exit.
+Each installed term keeps the fixed runway already reserved at staging; later sponsorship funds
+future admission and neither extends that term nor moves its immutable exit deadline. Removal must
+preserve unaffected rank IDs/order and use the same two-component rollback harness when Market
+reserve reconciliation is required.
+
+Persist an immutable one-shot `termRemovedAt` for every exact roster removal. Installed-liability
+views use the maximum of removal time, service closure/responsibility basis, and any bound duty's
+`slashAt`, so delayed maintenance cannot shorten the evidence-safe release horizon. A healthy
+voluntary primary exit atomically starts exact `standby[0]` under the common service-start policy and
+creates no `SelectionRecord`; retained historical duties remain independent.
+
+Pin healthy fixed-runway expiry behind objective duty processing. After replaying any already-
+accepted valid normal best that has matured, leading sync derives recovery from the resulting
+immutable canonical tip. If no such replay refreshed the interval and
+`recoveryAt < serviceEligibleUntil` with the strict boundary passed, attach/process that duty
+(including objective failover or breach) and forbid healthy expiry. Only
+`recoveryAt >= serviceEligibleUntil` permits a healthy close at the exact cutoff. Start
+exact `standby[0]` only through the uniform selected-but-unstarted path: expiry sync selects it without
+starting or backpay, and the next qualifying canonical commit or next usable recovery revision starts
+it at that event's timestamp with fresh thresholds and normal runway/proof checks, else vacate the
+full lineup. No standby means vacancy. Canonical paths make no Market call, preserve untouched
+identities/order/reserve bytes, and never assign a successor liability for an outage predating its
+responsibility.
+
+Treat a healthy-expiry selected-but-unstarted successor as seatless for the existing
+`DELTA_FINAL_LAG` / `G_MAX` permissionless recovery trigger; the selected pointer cannot suppress
+recovery. If lag is already strictly beyond the trigger during expiry sync, open recovery in that
+same Settlement-only transition without starting the successor. The next usable revision starts it
+with fresh thresholds, while an unusable revision vacates the full lineup. Add the no-normal-commit,
+no-force trace proving the selection cannot deadlock recovery.
+
+Represent selection with a standalone immutable record: unique `selectionId`, exact
+term/tranche/offer, selected revision/time, and source `DUTY_FAILOVER` or `HEALTHY_EXPIRY`. Bind a
+predecessor duty only for the duty source. Healthy expiry allocates no fake duty/ring cell. All start,
+exit-lock, recovery, replay, and history paths authenticate the record and its source.
+
+Before either a qualifying commit or recovery revision assigns the selected successor liability,
+require one canonical-local usability predicate covering the exact witness, both required code-
+preimage flags, profile/configuration readiness, runway, checked fresh-threshold arithmetic, and
+exact selection binding. An unusable revision vacates the full lineup rather than starting or
+framing the successor. When strict prospective recovery finds the ring full, close optional seat
+economics at objective `recoveryAt` and open `RECOVERY` with the SLA cause in the same sync; never
+defer that recovery to the seatless `G_MAX` trigger.
 
 - [ ] **Step 8: Write the composed reclamation trace, then implement the local cache**
 
@@ -809,9 +902,13 @@ request release, finalize, claim, or reclaim, and unrelated callers must still d
 release request/finalization and reuse every duty cell. Include wrong three-way binding, premature
 Market-safety false, replay, and terminal-credit-but-unclaimed cases.
 
-Then implement `reclaim_duty_cell` as a noncanonical call that accepts only the exact immutable Market
-safety result for the three-way binding. Canonical code reuses only the local monotone flag. A full
-ring closes optional seat economics to vacancy and never reverts proof/commit/recovery.
+Then implement `reclaim_duty_cell` as a noncanonical call with a mandatory leading canonical sync.
+If that sync changes canonical recovery or seat state, return `SYNCED` with zero Market calls and
+permit only the exact Settlement delta; retry reclamation afterward. This pins an objectively
+ring-full recovery vacancy and its premium cap before any late reclamation can make a cell reusable.
+Otherwise accept only the exact immutable Market safety result for the three-way binding. Canonical
+code reuses only the local monotone flag. A full ring closes optional seat economics to vacancy and
+never reverts proof/commit/recovery.
 
 - [ ] **Step 9: Run new and legacy Settlement tests**
 

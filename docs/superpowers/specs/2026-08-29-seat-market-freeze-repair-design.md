@@ -453,7 +453,7 @@ structurally feasible underfunded candidate produces `UNDERFUNDED` with no mutat
 proves later candidates cannot succeed at that snapshot.
 
 The stage stores selected rank, exact outgoing primary or zero, lineup commitment, and one of these
-exact deadlines:
+exact deadlines. It does not precommit a final `seatTermId`:
 
 ```text
 handoverAt =
@@ -469,6 +469,23 @@ Vacancy has no primary tenure to read. Standby insertion does not remove or weak
 primary and therefore never waits for its tenure. A primary's minimum tenure gates only its own
 competitive replacement.
 
+The lineup commitment excludes service clocks and prospective-duty fields:
+
+```text
+lineupCommitment = H(
+    "TAIKO_SEAT_LINEUP_V1",
+    lineupRevision,
+    primarySeatTermId,
+    standbySeatTermIds[0],
+    standbySeatTermIds[1],
+    standbySeatTermIds[2])
+```
+
+Absent cells use fixed zero placeholders. `lineupRevision` advances exactly once for each atomic
+roster or role transition, including a compound primary replacement, and never for ordinary healthy
+canonical progress that only refreshes a prospective duty base. Therefore such progress cannot
+silently stale an otherwise live stage, while any genuine roster/promotion change is observable.
+
 Admission additionally requires:
 
 ```text
@@ -483,7 +500,29 @@ Permissionless apply performs another leading sync and requires exact unchanged 
 target, generation, health, maturity, and funded headroom. It atomically consumes the Market stage,
 closes only an outgoing primary when applicable, installs the selected term, and preserves every
 untouched standby ID. A failure reverts this noncanonical handover; the incumbent and canonical
-chain continue.
+chain continue. Apply is available only while canonical mode is `NORMAL` and the migration gate is
+`ACTIVE`. Opening recovery permanently tombstones any surviving stage before returning `SYNCED`, so
+a retry cannot consume a healthy-stage snapshot in recovery.
+
+Apply derives the final immutable lifecycle identity only after its actual timestamp is fixed:
+
+```text
+installRevision = checked(lineupRevision + 1)
+seatTermId = H(
+    "TAIKO_SEAT_TERM_V1",
+    authorizationCommitment,
+    seatGeneration,
+    offerId,
+    trancheId,
+    installedAt,
+    installRevision)
+```
+
+Market rekeys the exact stage reserve and binds the tranche to that ID in the same revert domain in
+which Settlement records the `SeatTerm` and sets `lineupRevision = installRevision`. Applying the
+same stage at two different permitted timestamps therefore creates different term identities and
+funding intervals. Timestamp, revision, authorization, generation, offer, or tranche substitution
+cannot alias the term.
 
 Primary voluntary exit uses:
 
@@ -494,10 +533,87 @@ primaryExitAt = max(
 ```
 
 Standby exit also observes its independent minimum standby tenure. A selected successor cannot exit.
-An installed exit request never moves or refunds its bond. Until exact roster removal succeeds, the
-term remains bonded and retains every existing duty liability. Funding expiry may close service
-earlier than the requested exit because the protocol does not require unpaid service; sponsorship
-cannot move the immutable requested exit later.
+Only the immutable operator may create the one-shot installed exit request; finalization is
+permissionless and performs a mandatory leading canonical sync. If that sync changes canonical or
+seat state, finalization returns `SYNCED` with zero Market calls and recomputes occupancy, successor,
+duty, and tenure on retry. The request never moves or refunds its bond. Until exact roster removal
+succeeds, the term remains bonded and retains every existing duty liability. Funding expiry may
+close service earlier than the requested exit because the protocol does not require unpaid service.
+The installed term has one fixed runway: later sponsorship funds future admission and cannot extend
+that term or move its immutable requested-exit deadline later.
+
+Every exact roster removal records one immutable `termRemovedAt`, including replacement, voluntary
+exit, satisfaction, failover, funding expiry, ring-full vacancy, and migration. A healthy voluntary
+primary exit starts exact `standby[0]` atomically at removal under the common service-start policy;
+it creates no `SelectionRecord`. Any already-activated predecessor duty remains independent retained
+history. Funding expiry, by contrast, continues to use the selected-but-unstarted path below.
+
+Leading sync orders an apparently healthy primary expiry behind every duty that was objectively due
+through the cutoff. After replaying any already-accepted valid normal best that has matured, it
+derives `recoveryAt` from the resulting immutable canonical tip before inspecting stored duty state.
+If no such replay refreshed the interval and `recoveryAt < serviceEligibleUntil` with the strict
+recovery boundary passed, sync must attach and process that duty, including any already-objective
+failover or breach; it cannot launder the liability into a healthy expiry. Healthy expiry is
+available only when `recoveryAt >= serviceEligibleUntil`, and closes the outgoing premium cap
+exactly at `serviceEligibleUntil`.
+
+Service start allocates no duty and consumes no ring cell. It stores an immutable prospective base
+sequence/tip, target tip, and recovery/failover/slash thresholds for the next interval. A qualifying
+ordinary canonical commit at or before the prospective recovery boundary keeps the primary serving
+and rolls that prospective base to the newly adopted canonical tip. The same is true when a valid
+normal best was accepted on time, became mature, and maintenance was then omitted: synchronization
+replays that already-mature adoption first even if wall time crossed the old prospective
+failover/slash thresholds, then evaluates the refreshed interval. It never fabricates an old duty.
+A candidate submitted only after strict recovery cannot obtain this treatment because submit's
+leading sync first materializes the miss.
+
+Canonical synchronization performs exactly one fixed four-cell pass. If a mature normal adoption is
+attempted, no seat write precedes successful canonical-history adoption. After adoption, that pass
+applies objective failover/slash to already-activated duties before considering cure, captures the
+first reusable cell and whether an SLA miss survives, and performs prospective/selection work in
+constant time. Without a commit the same pass runs without cure eligibility. A commit after an
+activated duty's strict failover first fixes the predecessor cap and may then satisfy it; a commit
+after strict slash can advance canonical state but cannot cure `BREACHED`. Failed history adoption
+restores the complete Settlement state, including counters and events.
+
+A valid recovery submission uses only an O(1) round/mode preflight before history adoption and then
+that single four-cell outcome-before-cure pass; it does not run a separate no-cure sync scan first.
+An invalid recovery candidate instead runs ordinary sync exactly once, so due maintenance still
+materializes and returns `SYNCED`. Satisfying a retained `FAILED_OVER` duty starts a successor only
+when the current selection's exact `predecessorDutyId` equals that cured duty ID. An older duty can
+never promote a successor selected for a later duty or for healthy expiry.
+
+Every public canonical sync and composed Market/Settlement call is one rollback domain over the
+exact bound Settlement history, forced queue, inbox router, migration gate, and Market where
+applicable. The bound history must share those exact authority objects and point back to the live
+Settlement before the first write. A failed transition restores each object in place and preserves
+all aliases; it cannot replace authoritative collaborators with deep-copied lookalikes.
+
+After that valid healthy close, sync moves exact `standby[0]` into the existing
+selected-but-unstarted path with its identity, order, and reserve unchanged. It never starts service
+merely because delayed maintenance materialized the expiry. The next qualifying canonical commit or
+next usable recovery revision starts it at that event's canonical timestamp, with fresh thresholds
+derived after selection and the normal runway/proof checks; failure vacates the full lineup. No
+standby also means vacancy. This uniform delayed-start rule is never backdated and never assigns a
+successor liability for an outage predating its responsibility. Canonical expiry/selection/promotion
+makes no Market call; later Market reconciliation authenticates the permanent records.
+
+A selected-but-unstarted successor created by healthy expiry counts as seatless for the existing
+`DELTA_FINAL_LAG` / `G_MAX` permissionless recovery trigger. The selected pointer must not suppress
+recovery. If lag is already strictly beyond that trigger when expiry is materialized, the same
+leading sync also opens recovery without starting the successor. A later usable revision starts it
+with fresh thresholds; an unusable revision vacates the full lineup. Thus absence of a normal commit
+or forced ingress cannot lock the selected term or duty geometry indefinitely.
+
+The common canonical-local usability predicate requires the exact canonical witness, required code
+preimages, ready profile and configuration, feasible runway, and checked fresh-threshold arithmetic.
+Both a qualifying commit and a recovery revision must pass it before assigning successor liability.
+
+Successor selection is retained in an immutable standalone record with a unique `selectionId`, exact
+term/tranche/offer binding, selection revision/time, and source `DUTY_FAILOVER` or
+`HEALTHY_EXPIRY`. A duty-backed selection additionally binds the predecessor duty ID; a healthy
+expiry selection has no predecessor duty and allocates no fake duty or ring cell. Start, exit lock,
+recovery, replay protection, and history queries authenticate this record and its source.
 
 ## 7. Fair duty, release, and reclamation
 
@@ -507,8 +623,16 @@ Each installed tranche can secure only one seat term and one duty. Settlement ow
 sequence-tagged duty ring. Every canonical commit scans at most `SEAT_COUNT` unresolved cells and
 permanently latches exact qualifying satisfaction on the surviving L1 fork.
 
-If no locally reusable duty cell exists, canonical synchronization closes the affected optional seat
-economics to vacancy and creates no new duty. It does not call Market or revert chain progress.
+A prospective duty is allocated only after strict `now > recoveryAt`; equality remains curable and
+does not consume a cell. If the one fixed scan finds no reusable cell, the same synchronization
+vacates optional seat economics at objective `recoveryAt` and immediately opens recovery with the
+SLA cause. It creates no duty, calls no Market function, and never delays core recovery to `G_MAX`.
+
+The maximum duty sequence remains allocatable. The next strict prospective activation returns the
+structured `SEQUENCE_EXHAUSTED` outcome and follows the same fail-open result as ring exhaustion: it
+closes optional economics at objective `recoveryAt`, records `termRemovedAt` at the actual sync,
+opens recovery immediately with the SLA cause, and creates no duty. It never reverts canonical
+progress or backdates removal to responsibility start.
 
 ### 7.2 Installed release
 
@@ -539,6 +663,10 @@ reserveMatureAt =
 
 ownerTerminalAt = max(finalizeReleaseAt, reserveMatureAt)
 ```
+
+For an installed term, `lastLiabilityAt` is the maximum of immutable `termRemovedAt`, the applicable
+service closure/responsibility basis, and any bound duty's `slashAt`. Delayed synchronization can
+therefore lengthen, but never shorten, the evidence-safe release horizon.
 
 Anyone may finalize at or after equality. Finalization rereads exact Settlement state, reconciles and
 deletes the exact reserve, then terminalizes the bond only to the immutable operator's owner credit;
@@ -581,9 +709,14 @@ The immutable closed `SeatTerm` and exact three-way historical binding remain qu
 their retention is required, not forbidden. Because terminal disposition is monotone and
 terminalization already authenticated Settlement closure, the safety predicate is also monotone.
 
-`reclaimDutyCell` is a noncanonical Settlement maintenance call that authenticates this predicate and
-caches a local reusable flag. Canonical code reads only that flag. Actual withdrawal of any pull
-credit is irrelevant, so a beneficiary cannot pin history by refusing to claim.
+`reclaimDutyCell` is a noncanonical Settlement maintenance call with a mandatory leading canonical
+sync. If that sync changes canonical recovery or seat state, the call returns `SYNCED`, performs no
+Market call, and permits only the exact Settlement delta; the caller may retry reclamation afterward.
+This prevents a late reclamation from turning an objectively ring-full recovery vacancy into a
+retroactively attached duty or increasing `previewPremiumCap`. Otherwise reclamation authenticates
+the exact Market safety predicate and caches a local reusable flag. Canonical code reads only that
+flag. Actual withdrawal of any pull credit is irrelevant, so a beneficiary cannot pin history by
+refusing to claim.
 
 ## 8. Migration
 

@@ -12,6 +12,9 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass, field, replace
 from enum import Enum, IntFlag, auto
+import hashlib
+import sys
+from typing import Any, Callable
 
 GENESIS_TIMESTAMP = 1_000_000
 W_SETTLE_SECONDS = 1_200
@@ -68,7 +71,55 @@ MAX_LIVE_RESERVATIONS = 64 * (MAX_TRANCHE_AHEAD_WINDOWS + 1)
 DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
 UINT64_MAX = (1 << 64) - 1
+SEAT_UINT256_MAX = (1 << 256) - 1
 G_MAX = DELTA_FINAL_LAG
+SEAT_COUNT = 4
+DUTY_RING_CAPACITY = SEAT_COUNT
+DELTA_RECOVERY_LAG = 1_200
+DELTA_SLASH_LAG = 5_164
+MIN_PRIMARY_TENURE_SECONDS = 1_000
+MIN_STANDBY_TENURE_SECONDS = 600
+HANDOVER_DELAY_SECONDS = 5
+STAGE_GRACE_SECONDS = 5
+EXIT_DELAY_SECONDS = 20
+SLA_TAIL_SECONDS = DELTA_SLASH_LAG - DELTA_RECOVERY_LAG
+HANDOVER_EXECUTION_BUFFER_SECONDS = (
+    HANDOVER_DELAY_SECONDS + STAGE_GRACE_SECONDS + T_INCLUDE_MAX_SECONDS
+)
+SEAT_RUNWAY_SECONDS = 6_000
+NON_PROTOCOL_MARKET_UNIT_PRIMITIVES = frozenset({
+    "stage_best",
+    "install_stage",
+    "expire_stage",
+    "invalidate_stage",
+    "accrue_premium",
+    "close_reserve",
+    "request_release",
+    "finalize_release",
+    "enforce_breach",
+    "is_duty_history_safe",
+})
+
+
+def seat_u256(value: int, name: str) -> int:
+    if type(value) is not int or value < 0 or value > SEAT_UINT256_MAX:
+        raise ValueError(f"{name} is outside uint256")
+    return value
+
+
+def seat_checked_add(left: int, right: int, name: str) -> int:
+    result = seat_u256(left, f"{name} left") + seat_u256(right, f"{name} right")
+    if result > SEAT_UINT256_MAX:
+        raise ValueError(f"{name} overflows uint256")
+    return result
+
+
+def seat_checked_sub(left: int, right: int, name: str) -> int:
+    left = seat_u256(left, f"{name} left")
+    right = seat_u256(right, f"{name} right")
+    if right > left:
+        raise ValueError(f"{name} underflows uint256")
+    return left - right
 MAX_ARM_AGE_BLOCKS = 255
 EIP2935_HISTORY_ENTRIES = 8_191
 L1_SLOT_SECONDS = 12
@@ -404,11 +455,134 @@ class RecoveryRound:
                 f"{self.escape_slot}:{int(self.causes)}")
 
 
-@dataclass
-class Seat:
+class DutyStatus(Enum):
+    OPEN = 1
+    FAILED_OVER = 2
+    SATISFIED = 3
+    BREACHED = 4
+    EXCUSED = 5
+    EXCUSED_MIGRATION = 6
+
+
+class DutyAttachmentStatus(Enum):
+    ATTACHED = 1
+    RING_FULL = 2
+    SEQUENCE_EXHAUSTED = 3
+
+
+class SelectionSource(Enum):
+    DUTY_FAILOVER = 1
+    HEALTHY_EXPIRY = 2
+
+
+@dataclass(frozen=True)
+class SeatTerm:
+    term_id: bytes
+    tranche_id: bytes
+    offer_id: bytes
     operator: str
-    penalty_bond: int
-    terminated: bool = False
+    payout: str
+    ask: int
+    installed_at: int
+
+
+@dataclass
+class SeatService:
+    responsibility_start: int | None
+    minimum_tenure_until: int
+    premium_funded_until: int | None
+    service_eligible_until: int | None
+    closed_at: int | None = None
+    close_reason: str | None = None
+    ring_full_recovery_at: int | None = None
+    exit_requested_at: int | None = None
+    duty_base_tip_slot: int | None = None
+    duty_base_sequence: int | None = None
+    prospective_target_tip: int | None = None
+    prospective_recovery_at: int | None = None
+    prospective_failover_at: int | None = None
+    prospective_slash_at: int | None = None
+    term_removed_at: int | None = None
+
+
+@dataclass
+class Duty:
+    duty_id: bytes
+    term_id: bytes
+    tranche_id: bytes
+    operator: str
+    sequence: int
+    ring_index: int
+    base_sequence: int
+    base_tip_slot: int
+    target_tip: int
+    recovery_at: int
+    failover_at: int
+    slash_at: int
+    satisfied_at: int | None = None
+    disposition_at: int | None = None
+    breach_recorded_at: int | None = None
+    status: DutyStatus = DutyStatus.OPEN
+
+
+@dataclass
+class SeatDutyCell:
+    sequence: int = 0
+    duty_id: bytes | None = None
+    reusable: bool = True
+
+
+@dataclass(frozen=True)
+class SeatDutyScanOutcome:
+    changed: bool
+    reusable_index: int | None
+    sla_missed: bool
+    satisfied: int
+
+
+@dataclass(frozen=True)
+class DutyAttachmentOutcome:
+    status: DutyAttachmentStatus
+    duty: Duty | None = None
+
+
+@dataclass(frozen=True)
+class SelectionRecord:
+    selection_id: bytes
+    term_id: bytes
+    tranche_id: bytes
+    offer_id: bytes
+    selected_canonical_sequence: int
+    selected_at: int
+    target_tip: int
+    source: SelectionSource
+    predecessor_duty_id: bytes | None = None
+
+
+@dataclass(frozen=True)
+class SettlementSeatStage:
+    stage_id: bytes
+    offer_id: bytes
+    tranche_id: bytes
+    operator: str
+    payout: str
+    ask: int
+    selected_rank: int
+    outgoing_primary_term_id: bytes | None
+    lineup_commitment: bytes
+    handover_at: int
+    expires_at: int
+    target: str
+    authorization_id: bytes
+    generation: int
+
+
+@dataclass
+class StageTombstone:
+    stage_id: bytes
+    lineup_commitment: bytes
+    reason: str
+    reconciled: bool = False
 
 
 @dataclass(frozen=True)
@@ -649,15 +823,40 @@ class Protocol:
     normal_arm_block_number: int | None = None
     admission_version: int = 0
     admission_root: str = "admission:0"
-    active_seat: Seat | None = None
-    standby: list[Seat] = field(default_factory=list)
-    burned_local: int = 0
+    seat_terms: dict[bytes, SeatTerm] = field(default_factory=dict)
+    seat_services: dict[bytes, SeatService] = field(default_factory=dict)
+    seat_lineup: list[bytes] = field(default_factory=list)
+    seat_duties: dict[bytes, Duty] = field(default_factory=dict)
+    term_duty: dict[bytes, bytes] = field(default_factory=dict)
+    duty_ring: list[SeatDutyCell] = field(
+        default_factory=lambda: [SeatDutyCell() for _ in range(DUTY_RING_CAPACITY)]
+    )
+    duty_sequence: int = 0
+    seat_selections: dict[bytes, SelectionRecord] = field(default_factory=dict)
+    term_selection: dict[bytes, bytes] = field(default_factory=dict)
+    seat_selection: SelectionRecord | None = None
+    settlement_seat_stage: SettlementSeatStage | None = None
+    stage_tombstones: dict[bytes, StageTombstone] = field(default_factory=dict)
+    seat_generation: int = 7
+    seat_lineup_revision: int = 0
+    seat_authorization_id: bytes | None = None
+    seat_market_address: str | None = None
+    seat_runway_seconds: int = SEAT_RUNWAY_SECONDS
+    minimum_primary_tenure_seconds: int = MIN_PRIMARY_TENURE_SECONDS
+    minimum_standby_tenure_seconds: int = MIN_STANDBY_TENURE_SECONDS
+    exit_delay_seconds: int = EXIT_DELAY_SECONDS
+    seat_fault_point: str | None = None
+    seat_scan_count: int = 0
+    seat_scan_visits_total: int = 0
+    seat_sla_trigger_pending: bool = False
     sessions: dict[str, DataSession] = field(default_factory=dict)
     gc_cursor: int = 0
     events: list[str] = field(default_factory=list)
     boundary_queries: int = 0
     canonical_state_witness_available: bool = True
     canonical_code_preimages_available: bool = True
+    seat_profile_ready: bool = True
+    seat_configuration_ready: bool = True
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     versioned_history: object | None = None
 
@@ -670,6 +869,1858 @@ class Protocol:
 
     def identical(self, other: "Protocol") -> bool:
         return self == other
+
+    @staticmethod
+    def _seat_hash(*parts: object) -> bytes:
+        encoded = b"TAIKO_SETTLEMENT_SEAT_MODEL_V1"
+        for part in parts:
+            if isinstance(part, bytes):
+                encoded += len(part).to_bytes(4, "big") + part
+            elif isinstance(part, int) and not isinstance(part, bool) and part >= 0:
+                encoded += seat_u256(part, "seat commitment integer").to_bytes(
+                    32, "big"
+                )
+            elif isinstance(part, str):
+                raw = part.encode("utf-8")
+                encoded += len(raw).to_bytes(4, "big") + raw
+            else:
+                raise ValueError("seat commitment input is not canonical")
+        return hashlib.sha256(encoded).digest()
+
+    def _seat_fault(self, name: str) -> None:
+        if self.seat_fault_point == name:
+            raise RuntimeError(f"injected Settlement seat fault: {name}")
+
+    @property
+    def selected_successor_term_id(self) -> bytes | None:
+        return self.seat_selection.term_id if self.seat_selection is not None else None
+
+    @property
+    def active_primary_term_id(self) -> bytes | None:
+        if not self.seat_lineup:
+            return None
+        term_id = self.seat_lineup[0]
+        service = self.seat_services[term_id]
+        if (
+            term_id == self.selected_successor_term_id
+            or service.responsibility_start is None
+            or service.closed_at is not None
+        ):
+            return None
+        return term_id
+
+    def seat_lineup_commitment(self) -> bytes:
+        fixed_ids = list(self.seat_lineup[:SEAT_COUNT])
+        fixed_ids.extend([b""] * (SEAT_COUNT - len(fixed_ids)))
+        return self._seat_hash(
+            "LINEUP",
+            self.seat_lineup_revision,
+            fixed_ids[0],
+            fixed_ids[1],
+            fixed_ids[2],
+            fixed_ids[3],
+        )
+
+    def _advance_lineup_revision(self) -> None:
+        self.seat_lineup_revision = seat_checked_add(
+            self.seat_lineup_revision, 1, "seat lineup revision"
+        )
+
+    def _seat_term_id(
+        self,
+        authorization_id: bytes,
+        generation: int,
+        offer_id: bytes,
+        tranche_id: bytes,
+        installed_at: int,
+        lineup_revision_at_install: int,
+    ) -> bytes:
+        """Bind a final term to its exact applied lifecycle identity."""
+
+        return self._seat_hash(
+            "TERM",
+            authorization_id,
+            generation,
+            offer_id,
+            tranche_id,
+            installed_at,
+            lineup_revision_at_install,
+        )
+
+    def _assert_seat_valid(self) -> None:
+        seat_u256(self.seat_lineup_revision, "seat lineup revision")
+        if (
+            type(self.duty_sequence) is not int
+            or not 0 <= self.duty_sequence <= UINT64_MAX
+        ):
+            raise AssertionError("duty sequence is outside uint64")
+        if len(self.seat_lineup) > SEAT_COUNT:
+            raise AssertionError("seat lineup exceeds four terms")
+        if len(self.seat_lineup) != len(set(self.seat_lineup)):
+            raise AssertionError("seat lineup contains duplicate terms")
+        if len(self.duty_ring) != DUTY_RING_CAPACITY:
+            raise AssertionError("duty ring geometry changed")
+        if self.seat_selection is not None:
+            selection = self.seat_selection
+            if (
+                not self.seat_lineup
+                or self.seat_lineup[0] != selection.term_id
+            ):
+                raise AssertionError("selected successor is not rank zero")
+            selected_term = self.seat_terms[selection.term_id]
+            selected_service = self.seat_services[selection.term_id]
+            if selected_service.responsibility_start is not None:
+                raise AssertionError("selected successor started before a cure/revision")
+            if (
+                selection.tranche_id != selected_term.tranche_id
+                or selection.offer_id != selected_term.offer_id
+            ):
+                raise AssertionError("selected successor identity is not exact")
+            if (
+                selection.predecessor_duty_id is not None
+                and selection.predecessor_duty_id not in self.seat_duties
+            ):
+                raise AssertionError("selected successor trigger duty is unknown")
+            if (
+                (selection.source is SelectionSource.DUTY_FAILOVER)
+                != (selection.predecessor_duty_id is not None)
+            ):
+                raise AssertionError("selection source/duty binding is ambiguous")
+            expected_selection_id = self._seat_hash(
+                "SELECTION",
+                selection.term_id,
+                selection.tranche_id,
+                selection.offer_id,
+                selection.selected_canonical_sequence,
+                selection.selected_at,
+                selection.target_tip,
+                selection.source.name,
+                selection.predecessor_duty_id or b"",
+            )
+            if selection.selection_id != expected_selection_id:
+                raise AssertionError("selected successor record commitment changed")
+            if (
+                self.seat_selections.get(selection.selection_id) != selection
+                or self.term_selection.get(selection.term_id)
+                    != selection.selection_id
+            ):
+                raise AssertionError("live selection is not retained exactly")
+        seen_selected_terms: set[bytes] = set()
+        for selection_id, selection in self.seat_selections.items():
+            term = self.seat_terms.get(selection.term_id)
+            if (
+                selection_id != selection.selection_id
+                or term is None
+                or selection.term_id in seen_selected_terms
+                or self.term_selection.get(selection.term_id) != selection_id
+                or selection.tranche_id != term.tranche_id
+                or selection.offer_id != term.offer_id
+                or (
+                    (selection.source is SelectionSource.DUTY_FAILOVER)
+                    != (selection.predecessor_duty_id is not None)
+                )
+                or selection.selection_id
+                    != self._seat_hash(
+                        "SELECTION",
+                        selection.term_id,
+                        selection.tranche_id,
+                        selection.offer_id,
+                        selection.selected_canonical_sequence,
+                        selection.selected_at,
+                        selection.target_tip,
+                        selection.source.name,
+                        selection.predecessor_duty_id or b"",
+                    )
+            ):
+                raise AssertionError("retained selection history is not exact")
+            seen_selected_terms.add(selection.term_id)
+        if set(self.term_selection) != seen_selected_terms:
+            raise AssertionError("selection reverse index is incomplete")
+        seen_tranches: set[bytes] = set()
+        for term_id, term in self.seat_terms.items():
+            if term_id != term.term_id or len(term_id) != 32:
+                raise AssertionError("seat term identity mismatch")
+            if term.tranche_id in seen_tranches:
+                raise AssertionError("installed tranche bound more than once")
+            seen_tranches.add(term.tranche_id)
+            if term_id not in self.seat_services:
+                raise AssertionError("seat term lacks service record")
+            service = self.seat_services[term_id]
+            if (term_id in self.seat_lineup) == (
+                service.term_removed_at is not None
+            ):
+                raise AssertionError("seat roster removal timestamp is inconsistent")
+            if service.term_removed_at is not None and (
+                service.closed_at is None
+                or service.term_removed_at < service.closed_at
+            ):
+                raise AssertionError("seat removal predates immutable closure")
+            prospective = (
+                service.duty_base_tip_slot,
+                service.duty_base_sequence,
+                service.prospective_target_tip,
+                service.prospective_recovery_at,
+                service.prospective_failover_at,
+                service.prospective_slash_at,
+            )
+            if service.responsibility_start is None:
+                if any(value is not None for value in prospective):
+                    raise AssertionError("unstarted standby has prospective duty state")
+            elif any(value is None for value in prospective):
+                raise AssertionError("started service lost prospective duty state")
+            else:
+                tip_time = seat_checked_add(
+                    GENESIS_TIMESTAMP,
+                    service.duty_base_tip_slot,
+                    "prospective duty tip time",
+                )
+                if (
+                    service.prospective_target_tip
+                    != seat_checked_add(
+                        service.duty_base_tip_slot,
+                        DELTA_RECOVERY_LAG,
+                        "prospective duty target",
+                    )
+                    or service.prospective_recovery_at
+                    != seat_checked_add(
+                        tip_time,
+                        DELTA_RECOVERY_LAG,
+                        "prospective duty recovery",
+                    )
+                    or service.prospective_failover_at
+                    != seat_checked_add(
+                        tip_time,
+                        DELTA_FINAL_LAG,
+                        "prospective duty failover",
+                    )
+                    or service.prospective_slash_at
+                    != seat_checked_add(
+                        tip_time,
+                        DELTA_SLASH_LAG,
+                        "prospective duty slash",
+                    )
+                ):
+                    raise AssertionError("prospective duty thresholds changed")
+        for term_id, duty_id in self.term_duty.items():
+            duty = self.seat_duties.get(duty_id)
+            if duty is None or duty.term_id != term_id:
+                raise AssertionError("term/duty binding mismatch")
+        for duty_id, duty in self.seat_duties.items():
+            term = self.seat_terms.get(duty.term_id)
+            tip_time = seat_checked_add(
+                GENESIS_TIMESTAMP, duty.base_tip_slot, "retained duty tip time"
+            )
+            if (
+                duty_id != duty.duty_id
+                or term is None
+                or self.term_duty.get(duty.term_id) != duty_id
+                or duty.tranche_id != term.tranche_id
+                or duty.operator != term.operator
+                or duty.duty_id
+                    != self._seat_hash(
+                        "DUTY",
+                        duty.term_id,
+                        duty.sequence,
+                        duty.base_sequence,
+                        duty.base_tip_slot,
+                    )
+                or not 0 < duty.sequence <= self.duty_sequence
+                or not 0 <= duty.ring_index < DUTY_RING_CAPACITY
+                or duty.target_tip
+                    != seat_checked_add(
+                        duty.base_tip_slot,
+                        DELTA_RECOVERY_LAG,
+                        "retained duty target",
+                    )
+                or duty.recovery_at
+                    != seat_checked_add(
+                        tip_time,
+                        DELTA_RECOVERY_LAG,
+                        "retained duty recovery",
+                    )
+                or duty.failover_at
+                    != seat_checked_add(
+                        tip_time,
+                        DELTA_FINAL_LAG,
+                        "retained duty failover",
+                    )
+                or duty.slash_at
+                    != seat_checked_add(
+                        tip_time,
+                        DELTA_SLASH_LAG,
+                        "retained duty slash",
+                    )
+            ):
+                raise AssertionError("retained duty lost its exact reverse binding")
+            service = self.seat_services[duty.term_id]
+            if (
+                service.duty_base_tip_slot != duty.base_tip_slot
+                or service.duty_base_sequence != duty.base_sequence
+                or service.prospective_target_tip != duty.target_tip
+                or service.prospective_recovery_at != duty.recovery_at
+                or service.prospective_failover_at != duty.failover_at
+                or service.prospective_slash_at != duty.slash_at
+            ):
+                raise AssertionError("service/duty objective base changed")
+            if duty.status is DutyStatus.OPEN and any(
+                value is not None
+                for value in (
+                    duty.satisfied_at,
+                    duty.disposition_at,
+                    duty.breach_recorded_at,
+                )
+            ):
+                raise AssertionError("open duty has a terminal timestamp")
+            if duty.status is DutyStatus.FAILED_OVER and (
+                duty.satisfied_at is not None
+                or duty.disposition_at != duty.failover_at
+                or duty.breach_recorded_at is not None
+            ):
+                raise AssertionError("failed-over duty timestamps are inconsistent")
+            if duty.status is DutyStatus.SATISFIED and (
+                duty.satisfied_at is None
+                or duty.disposition_at != duty.satisfied_at
+                or duty.satisfied_at > duty.slash_at
+                or duty.breach_recorded_at is not None
+            ):
+                raise AssertionError("satisfied duty timestamps are inconsistent")
+            if duty.status is DutyStatus.BREACHED and (
+                duty.satisfied_at is not None
+                or duty.breach_recorded_at is None
+                or duty.disposition_at != duty.breach_recorded_at
+                or duty.breach_recorded_at <= duty.slash_at
+            ):
+                raise AssertionError("breached duty timestamps are inconsistent")
+            if duty.status in (
+                DutyStatus.EXCUSED, DutyStatus.EXCUSED_MIGRATION
+            ) and (
+                duty.satisfied_at is not None
+                or duty.disposition_at is None
+                or duty.breach_recorded_at is not None
+            ):
+                raise AssertionError("excused duty timestamps are inconsistent")
+        occupied: set[bytes] = set()
+        for index, cell in enumerate(self.duty_ring):
+            if cell.reusable:
+                continue
+            if cell.duty_id is None or cell.duty_id in occupied:
+                raise AssertionError("live duty cell is empty or duplicated")
+            duty = self.seat_duties.get(cell.duty_id)
+            if (
+                duty is None
+                or duty.ring_index != index
+                or duty.sequence != cell.sequence
+            ):
+                raise AssertionError("duty ring sequence tag mismatch")
+            occupied.add(cell.duty_id)
+        if self.settlement_seat_stage is not None:
+            stage = self.settlement_seat_stage
+            if stage.stage_id in self.stage_tombstones:
+                raise AssertionError("live stage also has a tombstone")
+
+    def _invalidate_local_stage(self, reason: str) -> None:
+        stage = self.settlement_seat_stage
+        if stage is None:
+            return
+        self.stage_tombstones[stage.stage_id] = StageTombstone(
+            stage.stage_id, stage.lineup_commitment, reason
+        )
+        self.settlement_seat_stage = None
+        self._seat_fault("after_stage_tombstone")
+
+    def _close_service(self, term_id: bytes, close_at: int, reason: str) -> None:
+        service = self.seat_services[term_id]
+        if service.closed_at is None:
+            service.closed_at = close_at
+            service.close_reason = reason
+        elif service.closed_at != close_at:
+            raise AssertionError("immutable service close changed")
+
+    def _record_term_removal(self, term_id: bytes, removed_at: int) -> None:
+        """Persist the exact roster-removal time once for liability horizons."""
+
+        service = self.seat_services[term_id]
+        removed_at = seat_u256(removed_at, "seat term removal time")
+        if service.term_removed_at is None:
+            service.term_removed_at = removed_at
+        elif service.term_removed_at != removed_at:
+            raise AssertionError("immutable seat term removal time changed")
+
+    def _remove_lineup_term(self, term_id: bytes, removed_at: int) -> None:
+        if term_id not in self.seat_lineup:
+            raise AssertionError("seat term is not roster occupied")
+        self._record_term_removal(term_id, removed_at)
+        self.seat_lineup.remove(term_id)
+
+    def _runway_feasible(self) -> bool:
+        return self.seat_runway_seconds >= (
+            self.minimum_primary_tenure_seconds
+            + HANDOVER_EXECUTION_BUFFER_SECONDS
+            + SLA_TAIL_SECONDS
+        )
+
+    def _vacate_entire_lineup(
+        self,
+        close_at: int,
+        reason: str,
+        *,
+        removed_at: int | None = None,
+    ) -> None:
+        self._invalidate_local_stage(reason)
+        exact_removed_at = close_at if removed_at is None else removed_at
+        had_lineup = bool(self.seat_lineup)
+        for term_id in tuple(self.seat_lineup):
+            self._close_service(term_id, close_at, reason)
+            self._record_term_removal(term_id, exact_removed_at)
+        self.seat_lineup.clear()
+        self._clear_selected_successor()
+        if had_lineup:
+            self._advance_lineup_revision()
+        self.events.append(f"SEAT_VACANT:{reason}:{close_at}")
+
+    def _clear_selected_successor(self) -> None:
+        self.seat_selection = None
+
+    def _set_prospective_duty(
+        self, term_id: bytes, base_tip_slot: int, base_sequence: int
+    ) -> None:
+        """Roll the unallocated next-duty interval to a healthy canonical tip."""
+
+        if term_id in self.term_duty:
+            raise AssertionError("activated duty base cannot be refreshed")
+        service = self.seat_services[term_id]
+        tip_time = seat_checked_add(
+            GENESIS_TIMESTAMP, base_tip_slot, "prospective duty tip time"
+        )
+        service.duty_base_tip_slot = seat_u256(
+            base_tip_slot, "prospective duty base tip"
+        )
+        service.duty_base_sequence = seat_u256(
+            base_sequence, "prospective duty base sequence"
+        )
+        service.prospective_target_tip = seat_checked_add(
+            base_tip_slot, DELTA_RECOVERY_LAG, "prospective duty target"
+        )
+        service.prospective_recovery_at = seat_checked_add(
+            tip_time, DELTA_RECOVERY_LAG, "prospective duty recovery"
+        )
+        service.prospective_failover_at = seat_checked_add(
+            tip_time, DELTA_FINAL_LAG, "prospective duty failover"
+        )
+        service.prospective_slash_at = seat_checked_add(
+            tip_time, DELTA_SLASH_LAG, "prospective duty slash"
+        )
+        service.ring_full_recovery_at = None
+
+    def _attach_duty(
+        self,
+        term_id: bytes,
+        base_tip_slot: int | None = None,
+        base_sequence: int | None = None,
+        *,
+        chosen_ring_index: int | None = None,
+    ) -> DutyAttachmentOutcome:
+        if term_id in self.term_duty:
+            raise AssertionError("one duty per seat term")
+        service = self.seat_services[term_id]
+        exact_base_tip_slot = service.duty_base_tip_slot
+        exact_base_sequence = service.duty_base_sequence
+        if exact_base_tip_slot is None or exact_base_sequence is None:
+            raise AssertionError("prospective duty lacks immutable base")
+        if (
+            base_tip_slot is not None and base_tip_slot != exact_base_tip_slot
+        ) or (
+            base_sequence is not None and base_sequence != exact_base_sequence
+        ):
+            raise AssertionError("pending duty clock was reset")
+        chosen = chosen_ring_index
+        if chosen is not None:
+            if (
+                not 0 <= chosen < DUTY_RING_CAPACITY
+                or not self.duty_ring[chosen].reusable
+            ):
+                raise AssertionError("cached duty cell is not reusable")
+        else:
+            start_index = self.duty_sequence % DUTY_RING_CAPACITY
+            self.seat_scan_count = 0
+            for offset in range(DUTY_RING_CAPACITY):
+                self.seat_scan_count += 1
+                self.seat_scan_visits_total += 1
+                index = (start_index + offset) % DUTY_RING_CAPACITY
+                if self.duty_ring[index].reusable:
+                    chosen = index
+                    break
+        tip_time = seat_checked_add(
+            GENESIS_TIMESTAMP, exact_base_tip_slot, "duty tip time"
+        )
+        target_tip = service.prospective_target_tip
+        recovery_at = service.prospective_recovery_at
+        failover_at = service.prospective_failover_at
+        slash_at = service.prospective_slash_at
+        if None in (target_tip, recovery_at, failover_at, slash_at):
+            raise AssertionError("prospective duty thresholds are incomplete")
+        if chosen is None:
+            service.ring_full_recovery_at = seat_checked_add(
+                tip_time, DELTA_RECOVERY_LAG, "ring-full recovery"
+            )
+            return DutyAttachmentOutcome(DutyAttachmentStatus.RING_FULL)
+        if self.duty_sequence >= UINT64_MAX:
+            service.ring_full_recovery_at = seat_checked_add(
+                tip_time, DELTA_RECOVERY_LAG, "sequence-exhausted recovery"
+            )
+            return DutyAttachmentOutcome(
+                DutyAttachmentStatus.SEQUENCE_EXHAUSTED
+            )
+        self.duty_sequence += 1
+        sequence = self.duty_sequence
+        duty_id = self._seat_hash(
+            "DUTY", term_id, sequence, exact_base_sequence, exact_base_tip_slot
+        )
+        duty = Duty(
+            duty_id=duty_id,
+            term_id=term_id,
+            tranche_id=self.seat_terms[term_id].tranche_id,
+            operator=self.seat_terms[term_id].operator,
+            sequence=sequence,
+            ring_index=chosen,
+            base_sequence=exact_base_sequence,
+            base_tip_slot=exact_base_tip_slot,
+            target_tip=target_tip,
+            recovery_at=recovery_at,
+            failover_at=failover_at,
+            slash_at=slash_at,
+        )
+        self.seat_duties[duty_id] = duty
+        self.term_duty[term_id] = duty_id
+        self.duty_ring[chosen] = SeatDutyCell(sequence, duty_id, False)
+        service.ring_full_recovery_at = None
+        return DutyAttachmentOutcome(DutyAttachmentStatus.ATTACHED, duty)
+
+    def _start_seat_service(
+        self,
+        term_id: bytes,
+        start: int,
+        *,
+        base_tip_slot: int,
+        base_sequence: int,
+    ) -> bool:
+        service = self.seat_services[term_id]
+        if service.closed_at is not None or service.responsibility_start is not None:
+            raise AssertionError("seat service cannot start twice")
+        if not self._runway_feasible():
+            self._vacate_entire_lineup(start, "PROMOTION_RUNWAY_INFEASIBLE")
+            return False
+        minimum_tenure_until = seat_checked_add(
+            start, self.minimum_primary_tenure_seconds, "minimum primary tenure"
+        )
+        premium_funded_until = seat_checked_add(
+            start, self.seat_runway_seconds, "premium funded until"
+        )
+        service_eligible_until = seat_checked_sub(
+            premium_funded_until,
+            SLA_TAIL_SECONDS,
+            "service eligible until",
+        )
+        service.responsibility_start = start
+        service.minimum_tenure_until = minimum_tenure_until
+        service.premium_funded_until = premium_funded_until
+        service.service_eligible_until = service_eligible_until
+        self._set_prospective_duty(term_id, base_tip_slot, base_sequence)
+        self._clear_selected_successor()
+        return True
+
+    def install_seat_term_for_test(
+        self,
+        term: SeatTerm,
+        *,
+        rank: int,
+        start_primary: bool,
+    ) -> None:
+        """Focused fixture primitive; production installation uses apply_stage."""
+
+        if (
+            type(term) is not SeatTerm
+            or len(term.term_id) != 32
+            or len(term.tranche_id) != 32
+            or len(term.offer_id) != 32
+            or term.term_id in self.seat_terms
+            or any(row.tranche_id == term.tranche_id for row in self.seat_terms.values())
+            or not 0 <= rank <= len(self.seat_lineup) < SEAT_COUNT
+        ):
+            raise ValueError("invalid synthetic seat term")
+        self.seat_terms[term.term_id] = term
+        self.seat_services[term.term_id] = SeatService(
+            None,
+            seat_checked_add(
+                term.installed_at,
+                self.minimum_standby_tenure_seconds,
+                "minimum standby tenure",
+            ),
+            None,
+            None,
+        )
+        revision_before = self.seat_lineup_revision
+        self.seat_lineup.insert(rank, term.term_id)
+        if start_primary:
+            if rank != 0 or self.active_primary_term_id is not None:
+                raise ValueError("direct service must fill a primary vacancy")
+            self._start_seat_service(
+                term.term_id,
+                term.installed_at,
+                base_tip_slot=self.core.tip_slot,
+                base_sequence=self.core.l2_block_number,
+            )
+        if self.seat_lineup_revision == revision_before:
+            self._advance_lineup_revision()
+        self._assert_seat_valid()
+
+    def preview_premium_cap(self, term_id: bytes) -> int:
+        """Bounded canonical-local upper cap, including omitted sync effects."""
+
+        service = self.seat_services.get(term_id)
+        if service is None:
+            raise KeyError("unknown seat term")
+        candidates: list[int] = []
+        if service.closed_at is not None:
+            candidates.append(service.closed_at)
+        duty_id = self.term_duty.get(term_id)
+        if duty_id is not None:
+            duty = self.seat_duties[duty_id]
+            candidates.append(duty.failover_at)
+            if duty.satisfied_at is not None:
+                candidates.append(duty.satisfied_at)
+        else:
+            recovery_at = service.prospective_recovery_at
+            eligible_at = service.service_eligible_until
+            if (
+                recovery_at is not None
+                and eligible_at is not None
+                and recovery_at < eligible_at
+            ):
+                if (
+                    self.duty_sequence < UINT64_MAX
+                    and any(cell.reusable for cell in self.duty_ring)
+                ):
+                    candidates.append(
+                        seat_checked_add(
+                            recovery_at,
+                            DELTA_FINAL_LAG - DELTA_RECOVERY_LAG,
+                            "implied duty failover",
+                        )
+                    )
+                else:
+                    candidates.append(recovery_at)
+            elif eligible_at is not None:
+                candidates.append(eligible_at)
+            elif recovery_at is not None:
+                candidates.append(recovery_at)
+        if not candidates:
+            return 0
+        return min(candidates)
+
+    def _select_successor(
+        self,
+        *,
+        selected_at: int,
+        source: SelectionSource,
+        trigger_duty_id: bytes | None = None,
+        target_tip: int | None = None,
+    ) -> None:
+        if not self.seat_lineup:
+            self._clear_selected_successor()
+            return
+        if (
+            (source is SelectionSource.DUTY_FAILOVER)
+            != (trigger_duty_id is not None)
+        ):
+            raise ValueError("selection source requires one exact predecessor duty")
+        selected_at = seat_u256(selected_at, "successor selection time")
+        term = self.seat_terms[self.seat_lineup[0]]
+        if term.term_id in self.term_selection:
+            self._vacate_entire_lineup(selected_at, "SELECTION_REPLAY")
+            return
+        exact_target_tip = (
+            seat_checked_add(
+                self.core.tip_slot,
+                DELTA_RECOVERY_LAG,
+                "selected successor target tip",
+            )
+            if target_tip is None
+            else seat_u256(target_tip, "selected successor target tip")
+        )
+        selection_id = self._seat_hash(
+            "SELECTION",
+            term.term_id,
+            term.tranche_id,
+            term.offer_id,
+            self.core.l2_block_number,
+            selected_at,
+            exact_target_tip,
+            source.name,
+            trigger_duty_id or b"",
+        )
+        self.seat_selection = SelectionRecord(
+            selection_id,
+            term.term_id,
+            term.tranche_id,
+            term.offer_id,
+            self.core.l2_block_number,
+            selected_at,
+            exact_target_tip,
+            source,
+            trigger_duty_id,
+        )
+        if selection_id in self.seat_selections:
+            self._vacate_entire_lineup(selected_at, "SELECTION_ID_COLLISION")
+            return
+        self.seat_selections[selection_id] = self.seat_selection
+        self.term_selection[term.term_id] = selection_id
+
+    def _promote_selected(
+        self, start: int, *, advance_lineup_revision: bool = True
+    ) -> bool:
+        term_id = self.selected_successor_term_id
+        if term_id is None:
+            return False
+        if not self._recovery_revision_usable(start):
+            self._vacate_entire_lineup(start, "PROMOTION_REVISION_UNUSABLE")
+            return False
+        fresh_base_tip = max(
+            self.core.tip_slot,
+            seat_checked_sub(start, GENESIS_TIMESTAMP, "promotion start slot"),
+        )
+        started = self._start_seat_service(
+            term_id,
+            start,
+            base_tip_slot=fresh_base_tip,
+            base_sequence=self.core.l2_block_number,
+        )
+        if started:
+            self._invalidate_local_stage("PROMOTION")
+        if started and advance_lineup_revision:
+            self._advance_lineup_revision()
+        return started
+
+    def _recovery_revision_usable(self, start: int) -> bool:
+        """Authenticate every canonical fact needed before successor liability."""
+
+        if (
+            self.seat_selection is None
+            or not self.canonical_state_witness_available
+            or not self.canonical_code_preimages_available
+            or not self.seat_profile_ready
+            or not self.seat_configuration_ready
+            or not self._runway_feasible()
+        ):
+            return False
+        selection = self.seat_selection
+        term = self.seat_terms.get(selection.term_id)
+        service = self.seat_services.get(selection.term_id)
+        if (
+            term is None
+            or service is None
+            or selection.term_id not in self.seat_lineup
+            or self.seat_lineup[0] != selection.term_id
+            or service.responsibility_start is not None
+            or service.closed_at is not None
+            or term.tranche_id != selection.tranche_id
+            or term.offer_id != selection.offer_id
+        ):
+            return False
+        if selection.source is SelectionSource.DUTY_FAILOVER:
+            duty = self.seat_duties.get(selection.predecessor_duty_id)
+            if (
+                duty is None
+                or duty.status not in (
+                    DutyStatus.FAILED_OVER,
+                    DutyStatus.SATISFIED,
+                    DutyStatus.BREACHED,
+                )
+            ):
+                return False
+        try:
+            exact_start = seat_u256(start, "selected responsibility start")
+            fresh_base_tip = max(
+                self.core.tip_slot,
+                seat_checked_sub(
+                    exact_start,
+                    GENESIS_TIMESTAMP,
+                    "selected responsibility slot",
+                ),
+            )
+            tip_time = seat_checked_add(
+                GENESIS_TIMESTAMP,
+                fresh_base_tip,
+                "selected prospective tip time",
+            )
+            seat_checked_add(
+                fresh_base_tip,
+                DELTA_RECOVERY_LAG,
+                "selected prospective target",
+            )
+            seat_checked_add(
+                tip_time,
+                DELTA_RECOVERY_LAG,
+                "selected prospective recovery",
+            )
+            seat_checked_add(
+                tip_time,
+                DELTA_FINAL_LAG,
+                "selected prospective failover",
+            )
+            seat_checked_add(
+                tip_time,
+                DELTA_SLASH_LAG,
+                "selected prospective slash",
+            )
+            seat_checked_add(
+                exact_start,
+                self.minimum_primary_tenure_seconds,
+                "selected primary tenure",
+            )
+            funded_until = seat_checked_add(
+                exact_start,
+                self.seat_runway_seconds,
+                "selected premium runway",
+            )
+            seat_checked_sub(
+                funded_until,
+                SLA_TAIL_SECONDS,
+                "selected service eligibility",
+            )
+        except ValueError:
+            return False
+        return True
+
+    def _process_activated_duty(self, duty: Duty, clock: Clock) -> bool:
+        """Apply objective outcomes to one exact already-allocated duty."""
+
+        changed = False
+        if duty.status is DutyStatus.OPEN and clock.timestamp > duty.failover_at:
+            duty.status = DutyStatus.FAILED_OVER
+            duty.disposition_at = duty.failover_at
+            if self.seat_services[duty.term_id].closed_at is None:
+                self._close_service(duty.term_id, duty.failover_at, "FAILED_OVER")
+            if duty.term_id in self.seat_lineup:
+                was_primary = self.seat_lineup[0] == duty.term_id
+                self._remove_lineup_term(duty.term_id, clock.timestamp)
+                if was_primary:
+                    self._select_successor(
+                        selected_at=clock.timestamp,
+                        source=SelectionSource.DUTY_FAILOVER,
+                        trigger_duty_id=duty.duty_id,
+                        target_tip=duty.target_tip,
+                    )
+                self._advance_lineup_revision()
+                self._invalidate_local_stage("FAILOVER")
+            self.events.append(f"SEAT_FAILED_OVER:{duty.duty_id.hex()}")
+            changed = True
+        if duty.status is DutyStatus.FAILED_OVER and clock.timestamp > duty.slash_at:
+            duty.status = DutyStatus.BREACHED
+            duty.disposition_at = clock.timestamp
+            duty.breach_recorded_at = clock.timestamp
+            self.events.append(f"SEAT_BREACH_RECORDED:{duty.duty_id.hex()}")
+            changed = True
+        return changed
+
+    def _satisfy_activated_duty(self, duty: Duty, clock: Clock) -> bool:
+        if duty.status not in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
+            return False
+        prior = duty.status
+        revision_before = self.seat_lineup_revision
+        duty.status = DutyStatus.SATISFIED
+        if duty.satisfied_at is None:
+            duty.satisfied_at = clock.timestamp
+            duty.disposition_at = clock.timestamp
+        start_successor = False
+        roster_changed = False
+        if prior is DutyStatus.OPEN and duty.term_id in self.seat_lineup:
+            was_primary = self.seat_lineup[0] == duty.term_id
+            self._close_service(duty.term_id, clock.timestamp, "SATISFIED")
+            self._remove_lineup_term(duty.term_id, clock.timestamp)
+            roster_changed = True
+            if was_primary:
+                self._select_successor(
+                    selected_at=clock.timestamp,
+                    source=SelectionSource.DUTY_FAILOVER,
+                    trigger_duty_id=duty.duty_id,
+                    target_tip=duty.target_tip,
+                )
+                start_successor = True
+            self._invalidate_local_stage("DUTY_SATISFIED")
+        elif prior is DutyStatus.FAILED_OVER:
+            start_successor = (
+                self.seat_selection is not None
+                and self.seat_selection.predecessor_duty_id == duty.duty_id
+            )
+        if start_successor and self.selected_successor_term_id is not None:
+            self._promote_selected(
+                clock.timestamp,
+                advance_lineup_revision=not roster_changed,
+            )
+        if roster_changed and self.seat_lineup_revision == revision_before:
+            self._advance_lineup_revision()
+        return True
+
+    def _scan_seat_duties(
+        self, clock: Clock, *, allow_cure: bool
+    ) -> SeatDutyScanOutcome:
+        """Visit each ring cell once, ordering outcomes before optional cure."""
+
+        changed = False
+        reusable_index: int | None = None
+        satisfied = 0
+        start_successor = False
+        sla_missed = self.seat_sla_trigger_pending
+        self.seat_scan_count = 0
+        for index, cell in enumerate(tuple(self.duty_ring)):
+            self.seat_scan_count += 1
+            self.seat_scan_visits_total += 1
+            if cell.reusable:
+                if reusable_index is None:
+                    reusable_index = index
+                continue
+            if cell.duty_id is None:
+                continue
+            duty = self.seat_duties[cell.duty_id]
+            changed |= self._process_activated_duty(duty, clock)
+            if (
+                allow_cure
+                and duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                and clock.timestamp <= duty.slash_at
+                and duty.operator == self.seat_terms[duty.term_id].operator
+                and duty.tranche_id == self.seat_terms[duty.term_id].tranche_id
+                and duty.term_id == self.seat_terms[duty.term_id].term_id
+                and self.core.l2_block_number > duty.base_sequence
+                and self.core.tip_slot >= duty.target_tip
+            ):
+                self._satisfy_activated_duty(duty, clock)
+                satisfied += 1
+                changed = True
+            if (
+                duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                and clock.timestamp > duty.recovery_at
+            ):
+                sla_missed = True
+        if (
+            allow_cure
+            and not start_successor
+            and self.seat_selection is not None
+            and self.seat_selection.predecessor_duty_id is None
+            and self.core.l2_block_number
+                > self.seat_selection.selected_canonical_sequence
+            and self.core.tip_slot >= self.seat_selection.target_tip
+        ):
+            start_successor = True
+        if start_successor and self.selected_successor_term_id is not None:
+            changed |= self._promote_selected(clock.timestamp)
+        return SeatDutyScanOutcome(
+            changed, reusable_index, sla_missed, satisfied
+        )
+
+    def _refresh_prospective_after_commit(self) -> bool:
+        active = self.active_primary_term_id
+        if active is None or active in self.term_duty:
+            return False
+        service = self.seat_services[active]
+        if (
+            service.duty_base_sequence is None
+            or service.prospective_target_tip is None
+            or self.core.l2_block_number <= service.duty_base_sequence
+            or self.core.tip_slot < service.prospective_target_tip
+        ):
+            return False
+        self._set_prospective_duty(
+            active,
+            self.core.tip_slot,
+            self.core.l2_block_number,
+        )
+        return True
+
+    def _sync_prospective_deadline(
+        self, clock: Clock, reusable_index: int | None
+    ) -> tuple[bool, bool]:
+        changed = False
+        sla_missed = False
+        # Resolve an implied duty before healthy expiry whenever its objective
+        # recovery boundary is due through the funded cutoff.  A reclaimed
+        # cell may attach only with the immutable original base; otherwise the
+        # ring-full outcome wins at that same objective recovery timestamp.
+        active = self.active_primary_term_id
+        if active is not None and active not in self.term_duty:
+            service = self.seat_services[active]
+            eligible_at = service.service_eligible_until
+            recovery_at = service.prospective_recovery_at
+            if (
+                eligible_at is not None
+                and recovery_at is not None
+                and recovery_at < eligible_at
+                and clock.timestamp > recovery_at
+            ):
+                if reusable_index is not None:
+                    attachment = self._attach_duty(
+                        active, chosen_ring_index=reusable_index
+                    )
+                    if attachment.status is DutyAttachmentStatus.ATTACHED:
+                        attached = attachment.duty
+                        if attached is None:
+                            raise AssertionError("attached duty result is empty")
+                        changed = True
+                        changed |= self._process_activated_duty(attached, clock)
+                        sla_missed = attached.status in (
+                            DutyStatus.OPEN, DutyStatus.FAILED_OVER
+                        )
+                    else:
+                        service.ring_full_recovery_at = recovery_at
+                        self.seat_sla_trigger_pending = True
+                        reason = (
+                            "DUTY_SEQUENCE_EXHAUSTED"
+                            if attachment.status
+                            is DutyAttachmentStatus.SEQUENCE_EXHAUSTED
+                            else "DUTY_RING_FULL"
+                        )
+                        self._vacate_entire_lineup(
+                            recovery_at,
+                            reason,
+                            removed_at=clock.timestamp,
+                        )
+                        return True, True
+                else:
+                    service.ring_full_recovery_at = recovery_at
+                    self.seat_sla_trigger_pending = True
+                    self._vacate_entire_lineup(
+                        recovery_at,
+                        "DUTY_RING_FULL",
+                        removed_at=clock.timestamp,
+                    )
+                    return True, True
+            elif eligible_at is not None and clock.timestamp >= eligible_at:
+                self._close_service(active, eligible_at, "FUNDING_EXPIRED")
+                self._remove_lineup_term(active, clock.timestamp)
+                target_tip = (
+                    service.prospective_target_tip
+                    if service.prospective_target_tip is not None
+                    else self.core.tip_slot
+                )
+                self._select_successor(
+                    selected_at=clock.timestamp,
+                    source=SelectionSource.HEALTHY_EXPIRY,
+                    target_tip=target_tip,
+                )
+                self._advance_lineup_revision()
+                self._invalidate_local_stage("FUNDING_EXPIRED")
+                self._assert_seat_valid()
+                return True, False
+        self._assert_seat_valid()
+        return changed, sla_missed
+
+    def _sync_seat_deadlines(self, clock: Clock) -> bool:
+        """Test/maintenance wrapper for a no-commit single-scan sync."""
+
+        scan = self._scan_seat_duties(clock, allow_cure=False)
+        prospective_changed, _ = self._sync_prospective_deadline(
+            clock, scan.reusable_index
+        )
+        return scan.changed or prospective_changed
+
+    def close_seats_for_migration(self, close_at: int) -> None:
+        """Canonical-local migration excuse; Task 5 binds its global caller."""
+
+        close_at = seat_u256(close_at, "migration seat close")
+        self.seat_scan_count = 0
+        for cell in self.duty_ring:
+            self.seat_scan_count += 1
+            if cell.reusable or cell.duty_id is None:
+                continue
+            duty = self.seat_duties[cell.duty_id]
+            if duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
+                duty.status = DutyStatus.EXCUSED_MIGRATION
+                duty.disposition_at = close_at
+        self._vacate_entire_lineup(close_at, "MIGRATION")
+        self._assert_seat_valid()
+
+    def _latch_canonical_cures(self, clock: Clock) -> int:
+        """Compatibility probe over the one canonical four-cell scan."""
+
+        scan = self._scan_seat_duties(clock, allow_cure=True)
+        self._refresh_prospective_after_commit()
+        self._assert_seat_valid()
+        return scan.satisfied
+
+    @staticmethod
+    def _market_module(market: object) -> Any:
+        module = sys.modules.get(market.__class__.__module__)
+        if module is None:
+            raise TypeError("Market model module is unavailable")
+        required = (
+            "Clock",
+            "InstallationView",
+            "LineupSnapshot",
+            "LineupTerm",
+            "ServiceView",
+            "ResultCode",
+        )
+        if any(not hasattr(module, name) for name in required):
+            raise TypeError("object is not the exact SeatMarket model")
+        return module
+
+    @staticmethod
+    def _restore_object(target: object, snapshot: dict[str, object]) -> None:
+        target.__dict__.clear()
+        target.__dict__.update(snapshot)
+
+    def _canonical_transaction_snapshot(self) -> dict[str, object]:
+        """Snapshot canonical state and every shared authoritative object."""
+
+        history = self.versioned_history
+        return {
+            "protocol": copy.deepcopy(self.__dict__),
+            "forced_queue": self.forced_queue,
+            "forced_queue_state": copy.deepcopy(self.forced_queue.__dict__),
+            "inbox_apply_router": self.inbox_apply_router,
+            "inbox_apply_router_state": copy.deepcopy(
+                self.inbox_apply_router.__dict__
+            ),
+            "migration_gate": self.migration_gate,
+            "migration_gate_state": copy.deepcopy(self.migration_gate.__dict__),
+            "history": history,
+            "history_state": (
+                copy.deepcopy(history.__dict__) if history is not None else None
+            ),
+        }
+
+    def _assert_canonical_history_binding(self) -> None:
+        """Require the one active Settlement transaction/authority graph."""
+
+        history = self.versioned_history
+        if history is None:
+            return
+        if (
+            getattr(history, "forced_queue", None) is not self.forced_queue
+            or getattr(history, "inbox_apply_router", None)
+            is not self.inbox_apply_router
+            or getattr(history, "migration_gate", None) is not self.migration_gate
+            or getattr(history, "live_protocol", None) is not self
+        ):
+            raise AssertionError("invalid canonical history authority graph")
+
+    def _restore_canonical_transaction(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        """Restore a failed canonical transaction without breaking aliases."""
+
+        queue = snapshot["forced_queue"]
+        router = snapshot["inbox_apply_router"]
+        gate = snapshot["migration_gate"]
+        history = snapshot["history"]
+        self._restore_object(self, snapshot["protocol"])
+        self._restore_object(queue, snapshot["forced_queue_state"])
+        self._restore_object(router, snapshot["inbox_apply_router_state"])
+        self._restore_object(gate, snapshot["migration_gate_state"])
+        self.forced_queue = queue
+        self.inbox_apply_router = router
+        self.migration_gate = gate
+        self.versioned_history = history
+        if history is None:
+            return
+        self._restore_object(history, snapshot["history_state"])
+        history.forced_queue = queue
+        history.inbox_apply_router = router
+        history.migration_gate = gate
+        history.live_protocol = self
+
+    def _composed_seat_call(
+        self, market: object, transition: Callable[[], object]
+    ) -> object:
+        self._assert_canonical_history_binding()
+        settlement_snapshot = self._canonical_transaction_snapshot()
+        market_snapshot = copy.deepcopy(market.__dict__)
+        try:
+            self._assert_seat_valid()
+            market.assert_valid()
+            result = transition()
+            self._assert_seat_valid()
+            market.assert_valid()
+            return result
+        except BaseException:
+            self._restore_canonical_transaction(settlement_snapshot)
+            self._restore_object(market, market_snapshot)
+            raise
+
+    def _leading_seat_sync(self, clock: Clock) -> bool:
+        """Run canonical sync without persisting model-only read counters."""
+
+        boundary_queries = self.boundary_queries
+        seat_scan_count = self.seat_scan_count
+        seat_scan_visits_total = self.seat_scan_visits_total
+        changed = self.sync(clock)
+        if not changed:
+            self.boundary_queries = boundary_queries
+            self.seat_scan_count = seat_scan_count
+            self.seat_scan_visits_total = seat_scan_visits_total
+        return changed
+
+    def bind_seat_market_for_test(self, market: object) -> None:
+        """Model fixture for immutable constructor/release-manager bindings."""
+
+        self._market_module(market)
+        if (
+            market.authorization.target != self.settlement_address
+            or market.cached_generation != self.seat_generation
+            or market.seat_runway_seconds != self.seat_runway_seconds
+            or market.handover_delay_seconds != HANDOVER_DELAY_SECONDS
+            or market.stage_grace_seconds != STAGE_GRACE_SECONDS
+            or market.maximum_inclusion_seconds != T_INCLUDE_MAX_SECONDS
+        ):
+            raise ValueError("Market/Settlement immutable configuration mismatch")
+        if self.seat_authorization_id not in (None, market.current_authorization_id):
+            raise ValueError("Settlement authorization binding changed")
+        if self.seat_market_address not in (None, market.market_address):
+            raise ValueError("Settlement Market target binding changed")
+        self.seat_authorization_id = market.current_authorization_id
+        self.seat_market_address = market.market_address
+
+    def _bound_market_module(self, market: object) -> Any:
+        module = self._market_module(market)
+        if (
+            self.seat_market_address is None
+            or market.market_address != self.seat_market_address
+        ):
+            raise ValueError("call did not reach the immutable Market target")
+        return module
+
+    def _lineup_snapshot_for_market(self, market: object) -> object:
+        module = self._bound_market_module(market)
+        if (
+            self.seat_authorization_id is None
+            or self.seat_authorization_id != market.current_authorization_id
+            or market.authorization.target != self.settlement_address
+            or market.cached_generation != self.seat_generation
+        ):
+            raise ValueError("Market is not the bound installation target")
+        rows = []
+        active = self.active_primary_term_id
+        for term_id in self.seat_lineup[:SEAT_COUNT]:
+            term = self.seat_terms[term_id]
+            service = self.seat_services[term_id]
+            rows.append(
+                module.LineupTerm(
+                    term_id=term.term_id,
+                    tranche_id=term.tranche_id,
+                    offer_id=term.offer_id,
+                    operator=term.operator,
+                    payout=term.payout,
+                    ask_wei_per_second=term.ask,
+                    minimum_tenure_until=service.minimum_tenure_until,
+                    service_eligible_until=(
+                        service.service_eligible_until
+                        if service.service_eligible_until is not None
+                        else service.minimum_tenure_until
+                    ),
+                    healthy=(term_id == active),
+                )
+            )
+        return module.LineupSnapshot(
+            target=self.settlement_address,
+            authorization_id=self.seat_authorization_id,
+            generation=self.seat_generation,
+            commitment=self.seat_lineup_commitment(),
+            terms=tuple(rows),
+        )
+
+    def _market_service_view(self, market: object, term_id: bytes) -> object:
+        """Derive the only ServiceView admitted by the production-facing façade."""
+
+        module = self._bound_market_module(market)
+        term = self.seat_terms.get(term_id)
+        service = self.seat_services.get(term_id)
+        if term is None or service is None:
+            raise ValueError("unknown exact seat term")
+        tranche = market.tranches.get(term.tranche_id)
+        if tranche is None or tranche.installed_term_id != term_id:
+            raise ValueError("Market lacks exact installed tranche binding")
+        auth = market.authorizations.get(tranche.authorization_id)
+        if auth is None or auth.target != self.settlement_address:
+            raise ValueError("historical Settlement authorization is absent")
+        duty_id = self.term_duty.get(term_id)
+        duty = self.seat_duties.get(duty_id) if duty_id is not None else None
+        if duty is None:
+            disposition = "NO_DUTY"
+            disposition_at = None
+            breached = False
+            breach_at = None
+            last_liability_at = max(
+                value
+                for value in (
+                    term.installed_at,
+                    service.responsibility_start,
+                    service.closed_at,
+                    service.term_removed_at,
+                )
+                if value is not None
+            )
+        elif duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
+            disposition = "OPEN"
+            disposition_at = None
+            breached = False
+            breach_at = None
+            last_liability_at = duty.slash_at
+        elif duty.status is DutyStatus.SATISFIED:
+            disposition = "SATISFIED"
+            disposition_at = duty.disposition_at
+            breached = False
+            breach_at = None
+            last_liability_at = duty.slash_at
+        elif duty.status is DutyStatus.BREACHED:
+            disposition = "BREACHED"
+            disposition_at = duty.disposition_at
+            breached = True
+            breach_at = duty.breach_recorded_at
+            last_liability_at = duty.slash_at
+        elif duty.status is DutyStatus.EXCUSED_MIGRATION:
+            disposition = "EXCUSED_MIGRATION"
+            disposition_at = duty.disposition_at
+            breached = False
+            breach_at = None
+            last_liability_at = duty.slash_at
+        else:
+            disposition = "EXCUSED"
+            disposition_at = duty.disposition_at
+            breached = False
+            breach_at = None
+            last_liability_at = duty.slash_at
+        last_liability_at = max(
+            value
+            for value in (
+                last_liability_at,
+                service.responsibility_start,
+                service.closed_at,
+                service.term_removed_at,
+            )
+            if value is not None
+        )
+        refundable = (
+            service.closed_at is not None
+            and disposition in {
+                "NO_DUTY", "SATISFIED", "EXCUSED", "EXCUSED_MIGRATION"
+            }
+        )
+        return module.ServiceView(
+            target=auth.target,
+            authorization_id=tranche.authorization_id,
+            settlement_chain_id=auth.settlement_chain_id,
+            protocol_version=auth.protocol_version,
+            runtime_hash=auth.runtime_hash,
+            configuration_hash=auth.configuration_hash,
+            magic=auth.expected_magic,
+            generation=tranche.generation,
+            term_id=term.term_id,
+            tranche_id=term.tranche_id,
+            offer_id=term.offer_id,
+            operator=term.operator,
+            payout=term.payout,
+            ask_wei_per_second=term.ask,
+            responsibility_start=service.responsibility_start,
+            premium_funded_until=service.premium_funded_until,
+            settlement_cap=self.preview_premium_cap(term_id),
+            closed=service.closed_at is not None,
+            refundable=refundable,
+            disposition_at=disposition_at,
+            last_liability_at=last_liability_at,
+            duty_id=duty_id,
+            duty_disposition=disposition,
+            breached=breached,
+            breach_recorded_at=breach_at,
+            roster_occupied=term_id in self.seat_lineup,
+            history_retained=True,
+        )
+
+    def stage_best(self, market: object, clock: Clock) -> object:
+        """Noncanonical façade; raw caller-supplied lineup views are not accepted."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        if self.mode is not Mode.NORMAL or self.migration_gate.mode != "ACTIVE":
+            raise ValueError("seat staging is unavailable")
+
+        def transition() -> object:
+            module = self._bound_market_module(market)
+            snapshot = self._lineup_snapshot_for_market(market)
+            result = market.stage_best(
+                snapshot, module.Clock(clock.timestamp, clock.block_number)
+            )
+            if result.code is not module.ResultCode.STAGED:
+                return result
+            self._seat_fault("after_market_stage")
+            market_stage = result.stage
+            self.settlement_seat_stage = SettlementSeatStage(
+                stage_id=market_stage.stage_id,
+                offer_id=result.offer.offer_id,
+                tranche_id=result.tranche.tranche_id,
+                operator=result.offer.operator,
+                payout=result.offer.payout,
+                ask=result.offer.ask_wei_per_second,
+                selected_rank=market_stage.selected_rank,
+                outgoing_primary_term_id=market_stage.outgoing_primary_term_id,
+                lineup_commitment=market_stage.lineup_commitment,
+                handover_at=market_stage.handover_at,
+                expires_at=market_stage.expires_at,
+                target=self.settlement_address,
+                authorization_id=self.seat_authorization_id,
+                generation=self.seat_generation,
+            )
+            self._seat_fault("after_stage_recording")
+            return result
+
+        return self._composed_seat_call(market, transition)
+
+    def apply_stage(self, market: object, clock: Clock) -> object:
+        """Noncanonical exact-stage installation in one two-component domain."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        if self.mode is not Mode.NORMAL or self.migration_gate.mode != "ACTIVE":
+            raise ValueError("seat stage cannot apply outside healthy active mode")
+
+        def transition() -> object:
+            module = self._bound_market_module(market)
+            stage = self.settlement_seat_stage
+            if stage is None:
+                raise ValueError("Settlement has no live stage")
+            if (
+                stage.target != self.settlement_address
+                or stage.authorization_id != self.seat_authorization_id
+                or stage.generation != self.seat_generation
+                or stage.lineup_commitment != self.seat_lineup_commitment()
+                or market.stage is None
+                or market.stage.stage_id != stage.stage_id
+                or market.stage.offer_id != stage.offer_id
+                or clock.timestamp < stage.handover_at
+                or clock.timestamp > stage.expires_at
+            ):
+                raise ValueError("stage is stale or outside its exact interval")
+            install_revision = seat_checked_add(
+                self.seat_lineup_revision,
+                1,
+                "installed seat lineup revision",
+            )
+            term_id = self._seat_term_id(
+                stage.authorization_id,
+                stage.generation,
+                stage.offer_id,
+                stage.tranche_id,
+                clock.timestamp,
+                install_revision,
+            )
+            outgoing = stage.outgoing_primary_term_id
+            if outgoing is not None:
+                active = self.active_primary_term_id
+                service = self.seat_services.get(outgoing)
+                required_headroom_until = seat_checked_add(
+                    stage.expires_at,
+                    T_INCLUDE_MAX_SECONDS,
+                    "stage inclusion headroom",
+                )
+                if (
+                    active != outgoing
+                    or service is None
+                    or service.closed_at is not None
+                    or service.service_eligible_until is None
+                    or required_headroom_until > service.service_eligible_until
+                ):
+                    raise ValueError("outgoing primary is no longer healthy/funded")
+                self._close_service(outgoing, clock.timestamp, "HEALTHY_HANDOVER")
+                self._remove_lineup_term(outgoing, clock.timestamp)
+                market.close_reserve(
+                    self._market_service_view(market, outgoing),
+                    module.Clock(clock.timestamp, clock.block_number),
+                    atomic_healthy=True,
+                )
+                self._seat_fault("after_outgoing_close")
+            install = module.InstallationView(
+                target=stage.target,
+                authorization_id=stage.authorization_id,
+                generation=stage.generation,
+                stage_id=stage.stage_id,
+                term_id=term_id,
+                offer_id=stage.offer_id,
+                lineup_commitment=stage.lineup_commitment,
+                applied_at=clock.timestamp,
+            )
+            market_result = market.install_stage(install)
+            self._seat_fault("after_market_install")
+            term = SeatTerm(
+                term_id,
+                stage.tranche_id,
+                stage.offer_id,
+                stage.operator,
+                stage.payout,
+                stage.ask,
+                clock.timestamp,
+            )
+            if (
+                term.term_id in self.seat_terms
+                or any(row.tranche_id == term.tranche_id
+                       for row in self.seat_terms.values())
+                or not 0 <= stage.selected_rank <= len(self.seat_lineup)
+                or len(self.seat_lineup) >= SEAT_COUNT
+            ):
+                raise ValueError("term installation collides with retained history")
+            self.seat_terms[term.term_id] = term
+            self.seat_services[term.term_id] = SeatService(
+                None,
+                seat_checked_add(
+                    clock.timestamp,
+                    self.minimum_standby_tenure_seconds,
+                    "minimum standby tenure",
+                ),
+                None,
+                None,
+            )
+            self.seat_lineup.insert(stage.selected_rank, term.term_id)
+            if stage.selected_rank == 0:
+                self._start_seat_service(
+                    term.term_id,
+                    clock.timestamp,
+                    base_tip_slot=self.core.tip_slot,
+                    base_sequence=self.core.l2_block_number,
+                )
+            if self.seat_lineup_revision != install_revision - 1:
+                raise AssertionError("compound install changed lineup revision twice")
+            self.seat_lineup_revision = install_revision
+            self._seat_fault("after_term_install")
+            self.settlement_seat_stage = None
+            self._seat_fault("after_settlement_stage_clear")
+            return market_result
+
+        return self._composed_seat_call(market, transition)
+
+    def expire_stage(self, market: object, clock: Clock) -> object:
+        """Permissionless ordinary expiry, atomic across both components."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+
+        def transition() -> object:
+            module = self._bound_market_module(market)
+            stage = self.settlement_seat_stage
+            if stage is None or clock.timestamp < stage.expires_at:
+                raise ValueError("exact stage has not expired")
+            result = market.expire_stage(
+                stage.stage_id, module.Clock(clock.timestamp, clock.block_number)
+            )
+            self._seat_fault("after_market_expiry")
+            self.settlement_seat_stage = None
+            self._seat_fault("after_settlement_stage_clear")
+            return result
+
+        return self._composed_seat_call(market, transition)
+
+    def reconcile_stage_invalidation(
+        self,
+        market: object,
+        stage_id: bytes,
+        lineup_commitment: bytes,
+        clock: Clock,
+    ) -> object:
+        """Authenticate one permanent canonical tombstone before Market restore."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+
+        def transition() -> object:
+            tombstone = self.stage_tombstones.get(stage_id)
+            if (
+                tombstone is None
+                or tombstone.reconciled
+                or tombstone.stage_id != stage_id
+                or tombstone.lineup_commitment != lineup_commitment
+            ):
+                raise ValueError("stale or mismatched stage tombstone")
+            result = market.invalidate_stage(stage_id, lineup_commitment)
+            self._seat_fault("after_market_invalidation")
+            tombstone.reconciled = True
+            self._seat_fault("after_tombstone_reconciliation")
+            return result
+
+        return self._composed_seat_call(market, transition)
+
+    def installed_exit_at(self, term_id: bytes) -> int:
+        term = self.seat_terms.get(term_id)
+        service = self.seat_services.get(term_id)
+        if term is None or service is None or service.exit_requested_at is None:
+            raise ValueError("installed exit was not requested")
+        delay_at = seat_checked_add(
+            service.exit_requested_at, self.exit_delay_seconds, "installed exit delay"
+        )
+        if self.active_primary_term_id == term_id:
+            return max(delay_at, service.minimum_tenure_until)
+        return max(
+            delay_at,
+            seat_checked_add(
+                term.installed_at,
+                self.minimum_standby_tenure_seconds,
+                "standby exit tenure",
+            ),
+        )
+
+    def request_installed_exit(
+        self, caller: str, term_id: bytes, clock: Clock
+    ) -> object:
+        """Immutable operator-only request; a leading sync owns due changes."""
+
+        if self._leading_seat_sync(clock):
+            return "SYNCED"
+        term = self.seat_terms.get(term_id)
+        service = self.seat_services.get(term_id)
+        if (
+            term is None
+            or service is None
+            or caller != term.operator
+            or term_id not in self.seat_lineup
+            or term_id == self.selected_successor_term_id
+        ):
+            raise ValueError("installed term cannot request exit")
+        if service.exit_requested_at is None:
+            delay_at = seat_checked_add(
+                clock.timestamp, self.exit_delay_seconds, "installed exit delay"
+            )
+            role_floor = (
+                service.minimum_tenure_until
+                if self.active_primary_term_id == term_id
+                else seat_checked_add(
+                    term.installed_at,
+                    self.minimum_standby_tenure_seconds,
+                    "standby exit tenure",
+                )
+            )
+            service.exit_requested_at = clock.timestamp
+            deadline = max(delay_at, role_floor)
+        else:
+            deadline = self.installed_exit_at(term_id)
+        self._assert_seat_valid()
+        return deadline
+
+    def finalize_installed_exit(
+        self, market: object, term_id: bytes, clock: Clock
+    ) -> object:
+        """Permissionless exact roster removal with mandatory leading sync."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+
+        def transition() -> object:
+            module = self._bound_market_module(market)
+            if (
+                term_id not in self.seat_lineup
+                or term_id == self.selected_successor_term_id
+                or clock.timestamp < self.installed_exit_at(term_id)
+            ):
+                raise ValueError("installed exit is not removable")
+            was_primary = self.active_primary_term_id == term_id
+            duty_id = self.term_duty.get(term_id)
+            duty = self.seat_duties.get(duty_id) if duty_id is not None else None
+            unresolved = duty is not None and duty.status in (
+                DutyStatus.OPEN, DutyStatus.FAILED_OVER
+            )
+            revision_before = self.seat_lineup_revision
+            self._close_service(term_id, clock.timestamp, "VOLUNTARY_EXIT")
+            self._remove_lineup_term(term_id, clock.timestamp)
+            self._seat_fault("after_exit_roster_removal")
+            result = market.close_reserve(
+                self._market_service_view(market, term_id),
+                module.Clock(clock.timestamp, clock.block_number),
+                atomic_healthy=True,
+            )
+            self._seat_fault("after_exit_reserve_reconciliation")
+            if was_primary and self.seat_lineup:
+                successor = self.seat_lineup[0]
+                if self.seat_services[successor].responsibility_start is not None:
+                    raise AssertionError("voluntary successor already started")
+                self._start_seat_service(
+                    successor,
+                    clock.timestamp,
+                    base_tip_slot=max(
+                        self.core.tip_slot,
+                        seat_checked_sub(
+                            clock.timestamp,
+                            GENESIS_TIMESTAMP,
+                            "voluntary successor start slot",
+                        ),
+                    ),
+                    base_sequence=self.core.l2_block_number,
+                )
+            if self.seat_lineup_revision == revision_before:
+                self._advance_lineup_revision()
+            self._invalidate_local_stage("VOLUNTARY_EXIT")
+            return result
+
+        return self._composed_seat_call(market, transition)
+
+    def accrue_seat_premium(
+        self, market: object, term_id: bytes, clock: Clock
+    ) -> object:
+        """Production façade: callers supply an ID, never a dynamic ServiceView."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        if term_id == self.selected_successor_term_id:
+            raise ValueError("selected successor has not started service")
+        module = self._bound_market_module(market)
+        return market.accrue_premium(
+            self._market_service_view(market, term_id),
+            module.Clock(clock.timestamp, clock.block_number),
+        )
+
+    def reconcile_seat_reserve(
+        self, market: object, term_id: bytes, clock: Clock
+    ) -> object:
+        """Permissionless asynchronous close using only the bound term ID."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        module = self._bound_market_module(market)
+        return self._composed_seat_call(
+            market,
+            lambda: market.close_reserve(
+                self._market_service_view(market, term_id),
+                module.Clock(clock.timestamp, clock.block_number),
+                atomic_healthy=False,
+            ),
+        )
+
+    def request_bond_release(
+        self, market: object, tranche_id: bytes, term_id: bytes, clock: Clock
+    ) -> object:
+        """Permissionless façade deriving the exact retained Settlement view."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        module = self._bound_market_module(market)
+        return market.request_release(
+            tranche_id,
+            self._market_service_view(market, term_id),
+            module.Clock(clock.timestamp, clock.block_number),
+        )
+
+    def finalize_bond_release(
+        self, market: object, tranche_id: bytes, term_id: bytes, clock: Clock
+    ) -> object:
+        """Permissionless terminalization with a coordinator-derived view."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        module = self._bound_market_module(market)
+        return self._composed_seat_call(
+            market,
+            lambda: market.finalize_release(
+                tranche_id,
+                self._market_service_view(market, term_id),
+                module.Clock(clock.timestamp, clock.block_number),
+            ),
+        )
+
+    def enforce_seat_breach(
+        self, market: object, tranche_id: bytes, term_id: bytes, clock: Clock
+    ) -> object:
+        """Permissionless breach façade; no caller-supplied receipt/view exists."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+        module = self._bound_market_module(market)
+        return self._composed_seat_call(
+            market,
+            lambda: market.enforce_breach(
+                tranche_id,
+                self._market_service_view(market, term_id),
+                module.Clock(clock.timestamp, clock.block_number),
+            ),
+        )
+
+    def reclaim_duty_cell(
+        self,
+        market: object,
+        duty_id: bytes,
+        term_id: bytes,
+        tranche_id: bytes,
+        clock: Clock,
+    ) -> object:
+        """Cache exact Market safety; leading sync defeats late ring-full races."""
+
+        market_before = copy.deepcopy(market)
+        if self._leading_seat_sync(clock):
+            if market != market_before:
+                raise AssertionError("canonical leading sync called Market")
+            return "SYNCED"
+
+        def transition() -> object:
+            duty = self.seat_duties.get(duty_id)
+            if (
+                duty is None
+                or duty.term_id != term_id
+                or duty.tranche_id != tranche_id
+                or duty.status
+                    not in (
+                        DutyStatus.SATISFIED,
+                        DutyStatus.BREACHED,
+                        DutyStatus.EXCUSED,
+                        DutyStatus.EXCUSED_MIGRATION,
+                    )
+            ):
+                raise ValueError("duty binding is not terminal and exact")
+            cell = self.duty_ring[duty.ring_index]
+            if (
+                cell.reusable
+                or cell.duty_id != duty_id
+                or cell.sequence != duty.sequence
+            ):
+                raise ValueError("duty cell tag is stale or already reusable")
+            module = self._bound_market_module(market)
+            safe = market.is_duty_history_safe(
+                duty_id,
+                term_id,
+                tranche_id,
+                self._market_service_view(market, term_id),
+                module.Clock(clock.timestamp, clock.block_number),
+            )
+            self._seat_fault("after_market_history_read")
+            if safe is not True:
+                raise ValueError("Market duty history is not yet safe")
+            cell.reusable = True
+            self._seat_fault("after_duty_reusable_cache")
+            return True
+
+        return self._composed_seat_call(market, transition)
 
     @property
     def messages(self) -> list[Message]:
@@ -767,19 +2818,29 @@ class Protocol:
         self.events.append(f"NORMAL_ACTIVATED:{self.normal_context_id}")
         return "ACTIVATED"
 
-    def _close_mature_normal(self, clock: Clock) -> bool:
+    def _close_mature_normal(
+        self, clock: Clock
+    ) -> tuple[bool, SeatDutyScanOutcome | None]:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
-            return False
-        if (self.normal_best is not None
-                and self.next_due_at(self.normal_best.tip.message_end) > clock.timestamp
-                and clock.timestamp + REORG_MARGIN_SECONDS
-                    <= self.normal_best_min_data_expiry):
-            self._commit(self.normal_best, clock)
-            self.events.append("NORMAL_COMMITTED")
-        else:
-            self.events.append("NORMAL_CANCELED_FORCE_OMISSION")
-        self._clear_normal()
-        return True
+            return False, None
+        self._assert_canonical_history_binding()
+        protocol_snapshot = self._canonical_transaction_snapshot()
+        try:
+            outcome = None
+            if (self.normal_best is not None
+                    and self.next_due_at(self.normal_best.tip.message_end)
+                        > clock.timestamp
+                    and clock.timestamp + REORG_MARGIN_SECONDS
+                        <= self.normal_best_min_data_expiry):
+                outcome = self._commit(self.normal_best, clock)
+                self.events.append("NORMAL_COMMITTED")
+            else:
+                self.events.append("NORMAL_CANCELED_FORCE_OMISSION")
+            self._clear_normal()
+            return True, outcome
+        except BaseException:
+            self._restore_canonical_transaction(protocol_snapshot)
+            raise
 
     def _new_round(self, clock: Clock, causes: Cause, revision: int) -> RecoveryRound:
         anchor_number = clock.block_number - 1
@@ -796,13 +2857,11 @@ class Protocol:
 
     def _activate(self, clock: Clock, causes: Cause) -> None:
         self._clear_normal()
+        self._invalidate_local_stage("RECOVERY_OPEN")
+        self.seat_sla_trigger_pending = False
         self.mode = Mode.RECOVERY
         self.episode += 1
         self.recovery = self._new_round(clock, causes, 1)
-        if causes & Cause.SLA and self.active_seat is not None:
-            self.active_seat.terminated = True
-            self.burned_local += self.active_seat.penalty_bond
-            self.active_seat = next((s for s in self.standby if not s.terminated), None)
         self.events.append(f"RECOVERY_OPEN:{self.episode}:{int(causes)}")
 
     def _roll_recovery(self, clock: Clock) -> bool:
@@ -811,6 +2870,8 @@ class Protocol:
             return False
         old = self.recovery
         self.recovery = self._new_round(clock, old.causes, old.revision + 1)
+        if self.selected_successor_term_id is not None:
+            self._promote_selected(clock.timestamp)
         self.events.append(f"RECOVERY_ROLLED:{self.recovery.revision}")
         return True
 
@@ -852,7 +2913,8 @@ class Protocol:
                     self.events.append("MIGRATION_NORMAL_CANCELED_FORCE_DUE")
                     changed = True
                 elif clock.timestamp >= self.normal_deadline:
-                    changed |= self._close_mature_normal(clock)
+                    normal_closed, _ = self._close_mature_normal(clock)
+                    changed |= normal_closed
             elif self.normal_arm_block_number is not None:
                 self._clear_normal()
                 changed = True
@@ -872,22 +2934,51 @@ class Protocol:
     def sync(self, clock: Clock) -> bool:
         if self.mode is Mode.PREACTIVE:
             return False
+        self._assert_canonical_history_binding()
+        snapshot = self._canonical_transaction_snapshot()
+        try:
+            return self._sync_impl(clock)
+        except BaseException:
+            self._restore_canonical_transaction(snapshot)
+            raise
+
+    def _sync_impl(self, clock: Clock) -> bool:
+        normal_changed = False
+        commit_outcome: SeatDutyScanOutcome | None = None
+        if (
+            self.mode is Mode.NORMAL
+            and self.normal_deadline is not None
+            and clock.timestamp >= self.normal_deadline
+        ):
+            normal_changed, commit_outcome = self._close_mature_normal(clock)
+        if commit_outcome is None:
+            scan = self._scan_seat_duties(clock, allow_cure=False)
+            prospective_changed, prospective_sla = \
+                self._sync_prospective_deadline(clock, scan.reusable_index)
+            seat_changed = scan.changed or prospective_changed
+            seat_sla_missed = scan.sla_missed or prospective_sla
+        else:
+            seat_changed = commit_outcome.changed
+            seat_sla_missed = commit_outcome.sla_missed
         if self.migration_gate.mode == "ARMED":
-            return self._sync_migration(clock)
+            return self._sync_migration(clock) or seat_changed or normal_changed
         if self.migration_gate.mode == "READY":
             return True
         if self.mode is Mode.RECOVERY:
-            return self._roll_recovery(clock)
-        changed = False
+            return self._roll_recovery(clock) or seat_changed or normal_changed
+        changed = seat_changed or normal_changed
         due = self.force_due(clock)
         if due and self.normal_deadline is not None and clock.timestamp < self.normal_deadline:
             self._clear_normal()
             self.events.append("NORMAL_CANCELED_FORCE_DUE")
             changed = True
-        elif self.normal_deadline is not None and clock.timestamp >= self.normal_deadline:
-            changed |= self._close_mature_normal(clock)
         causes = Cause.NONE
-        if clock.l2_slot - self.core.tip_slot > DELTA_FINAL_LAG:
+        if seat_sla_missed:
+            causes |= Cause.SLA
+        elif (
+            self.active_primary_term_id is None
+            and clock.l2_slot - self.core.tip_slot > DELTA_FINAL_LAG
+        ):
             causes |= Cause.SLA
         if self.force_due(clock):
             causes |= Cause.FORCE_DUE
@@ -1238,6 +3329,21 @@ class Protocol:
     def submit(self, candidate: Candidate, clock: Clock) -> str:
         if self.mode is Mode.PREACTIVE:
             return "REJECTED_PREACTIVE"
+        if self.mode is Mode.RECOVERY:
+            round_ = self.recovery
+            if (
+                round_ is None
+                or self.migration_gate.mode == "READY"
+                or clock.timestamp > round_.expires_at
+            ):
+                return "SYNCED" if self.sync(clock) else "REJECTED"
+            if not self._valid_recovery(candidate, clock):
+                return "SYNCED" if self.sync(clock) else "REJECTED"
+            self._commit(candidate, clock)
+            self.mode = Mode.NORMAL
+            self.recovery = None
+            self.events.append("RECOVERY_COMMITTED")
+            return "COMMITTED"
         if self.sync(clock):
             return "SYNCED"
         if (self.migration_gate.mode != "ACTIVE"
@@ -1255,69 +3361,64 @@ class Protocol:
                 )
                 return "ACCEPTED"
             return "IGNORED"
-        if not self._valid_recovery(candidate, clock):
-            return "REJECTED"
-        self._commit(candidate, clock)
-        self.mode = Mode.NORMAL
-        self.recovery = None
-        self.events.append("RECOVERY_COMMITTED")
-        return "COMMITTED"
+        raise AssertionError("non-recovery submit reached recovery branch")
 
-    def _commit(self, candidate: Candidate, clock: Clock) -> None:
-        assert (self.forced_queue.cursor
-                == self.inbox_apply_router.next_queue_index
-                == self.core.message_cursor)
-        prior_canonical = self.canonical
-        prior_queue_cursor = self.forced_queue.cursor
-        prior_queue_claimable = dict(self.forced_queue.claimable)
-        prior_queue_unconsumed = self.forced_queue.unconsumed_escrow
-        prior_queue_total_claimable = self.forced_queue.total_claimable
-        prior_inbox_cursor = self.inbox_apply_router.next_queue_index
-        prior_activation_pending = self.release_activation_pending
-        prior_pending_release_version = self.pending_release_protocol_version
-        prior_pending_release_hash = self.pending_release_manifest_hash
-        assert self.forced_queue.advance_cursor(
-            candidate.blocks[0].inbox_pre_cursor,
-            candidate.tip.inbox_post_cursor,
-            caller=self.settlement_address,
-            beneficiary=candidate.beneficiary)
-        # This object represents adoption of the proof-authenticated L2
-        # poststate; no L1 call writes the L2 router.
-        self.inbox_apply_router.next_queue_index = \
-            candidate.tip.inbox_post_cursor
-        if candidate.blocks[0].release_activation:
-            self.release_activation_pending = False
-            self.pending_release_protocol_version = 0
-            self.pending_release_manifest_hash = ""
-        self.canonical = Canonical(
-            CanonicalCore(candidate.end_l2_block_number,
-                          candidate.tip.block_hash, candidate.tip.slot,
-                          candidate.end_state_root, candidate.tip.message_end,
-                          candidate.winning_data_commitment,
-                          candidate.next_base_fee,
-                          candidate.next_excess_blob_gas,
-                          candidate.end_terminal_root,
-                          candidate.end_terminal_count),
-            clock.block_number,
-        )
-        if self.versioned_history is not None:
-            history = self.versioned_history
-            if history.record_canonical(
-                copy.deepcopy(self.canonical.core),
-                    l1_block=clock.block_number) is None:
-                self.canonical = prior_canonical
-                self.forced_queue.cursor = prior_queue_cursor
-                self.forced_queue.claimable = prior_queue_claimable
-                self.forced_queue.unconsumed_escrow = prior_queue_unconsumed
-                self.forced_queue.total_claimable = \
-                    prior_queue_total_claimable
-                self.inbox_apply_router.next_queue_index = prior_inbox_cursor
-                self.release_activation_pending = prior_activation_pending
-                self.pending_release_protocol_version = \
-                    prior_pending_release_version
-                self.pending_release_manifest_hash = prior_pending_release_hash
-                raise AssertionError("atomic canonical-history write rejected")
-        self.events.append(f"CANONICAL:{candidate.candidate_id}")
+    def _commit(
+        self, candidate: Candidate, clock: Clock
+    ) -> SeatDutyScanOutcome:
+        self._assert_canonical_history_binding()
+        protocol_snapshot = self._canonical_transaction_snapshot()
+        try:
+            assert (self.forced_queue.cursor
+                    == self.inbox_apply_router.next_queue_index
+                    == self.core.message_cursor)
+            assert self.forced_queue.advance_cursor(
+                candidate.blocks[0].inbox_pre_cursor,
+                candidate.tip.inbox_post_cursor,
+                caller=self.settlement_address,
+                beneficiary=candidate.beneficiary)
+            # This object represents adoption of the proof-authenticated L2
+            # poststate; no L1 call writes the L2 router.
+            self.inbox_apply_router.next_queue_index = \
+                candidate.tip.inbox_post_cursor
+            if candidate.blocks[0].release_activation:
+                self.release_activation_pending = False
+                self.pending_release_protocol_version = 0
+                self.pending_release_manifest_hash = ""
+            self.canonical = Canonical(
+                CanonicalCore(candidate.end_l2_block_number,
+                              candidate.tip.block_hash, candidate.tip.slot,
+                              candidate.end_state_root, candidate.tip.message_end,
+                              candidate.winning_data_commitment,
+                              candidate.next_base_fee,
+                              candidate.next_excess_blob_gas,
+                              candidate.end_terminal_root,
+                              candidate.end_terminal_count),
+                clock.block_number,
+            )
+            if self.versioned_history is not None:
+                history = self.versioned_history
+                if history.record_canonical(
+                    copy.deepcopy(self.canonical.core),
+                        l1_block=clock.block_number) is None:
+                    raise AssertionError("atomic canonical-history write rejected")
+                self._seat_fault("after_history_record")
+            scan = self._scan_seat_duties(clock, allow_cure=True)
+            refreshed = self._refresh_prospective_after_commit()
+            prospective_changed, prospective_sla = \
+                self._sync_prospective_deadline(clock, scan.reusable_index)
+            outcome = SeatDutyScanOutcome(
+                scan.changed or refreshed or prospective_changed,
+                scan.reusable_index,
+                scan.sla_missed or prospective_sla,
+                scan.satisfied,
+            )
+            self.events.append(f"CANONICAL:{candidate.candidate_id}")
+            self._assert_seat_valid()
+            return outcome
+        except BaseException:
+            self._restore_canonical_transaction(protocol_snapshot)
+            raise
 
 
 @dataclass(frozen=True)
@@ -3131,11 +5232,23 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
     if inbox_apply_router is None:
         inbox_apply_router = InboxApplyRouterV2(next_queue_index=cursor)
     canonical = Canonical(CanonicalCore(900, "a" * 64, tip_slot, "b" * 64, cursor), 900)
-    active = Seat("aggregator", 100) if seat else None
-    return Protocol(
+    result = Protocol(
         canonical, make_history(msgs), forced_queue, inbox_apply_router,
         settlement_address=settlement_address, mode=mode,
-        active_seat=active, standby=[Seat("standby", 70)])
+    )
+    if seat:
+        installed_at = GENESIS_TIMESTAMP + tip_slot
+        primary = SeatTerm(
+            b"P" * 32, b"p" * 32, b"o" * 32,
+            "aggregator", "aggregator-payout", 1, installed_at,
+        )
+        standby = SeatTerm(
+            b"S" * 32, b"s" * 32, b"q" * 32,
+            "standby", "standby-payout", 2, installed_at,
+        )
+        result.install_seat_term_for_test(primary, rank=0, start_primary=True)
+        result.install_seat_term_for_test(standby, rank=1, start_primary=False)
+    return result
 
 
 def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
@@ -3562,13 +5675,13 @@ def test_late_close_and_constant_boundary() -> None:
     check("P26 current-root boundary rejects post-anchor due omission",
           old_anchor.submit(omitted, submit_at) == "REJECTED")
 
-    gap = protocol(tip_slot=100)
+    gap = protocol(tip_slot=100, seat=False)
     gap_clock = clock(200, 100 + G_MAX)
     activate_normal(gap, gap_clock)
     exact_gap = candidate(gap, gap_clock, "exact-gap", slot=100 + G_MAX)
     check("P26a exact tier-1 parent gap is accepted",
           gap.submit(exact_gap, gap_clock) == "ACCEPTED")
-    beyond = protocol(tip_slot=100)
+    beyond = protocol(tip_slot=100, seat=False)
     assert beyond.arm_normal_context(clock(199, 100 + G_MAX - 12)) == "ARMED"
     check("P26aa gap beyond G_MAX objectively enters recovery",
           beyond.activate_normal_context(clock(200, 100 + G_MAX + 1)) == "SYNCED"
@@ -3822,7 +5935,7 @@ def test_data_gc_reorg_and_geometry() -> None:
           and adapter.withdraw_refund("relayer") == 5
           and adapter.balance == 0 and not adapter.records
           and bridge_protocol.mode is Mode.RECOVERY)
-    stamped_protocol = protocol()
+    stamped_protocol = protocol(seat=False)
     assert stamped_protocol.migration_gate.bootstrap(1)
     stamp_status, ingress_stamp = stamped_protocol.sync_ingress(prepared_clock)
     assert ingress_stamp is not None
@@ -4647,6 +6760,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     migration_protocol = protocol(
         tip_slot=canonical_core_499.tip_slot,
         cursor=canonical_core_499.message_cursor,
+        seat=False,
         forced_queue=terminal_queue,
         inbox_apply_router=migration_inbox_apply,
         settlement_address="settlement:1")
@@ -4736,16 +6850,30 @@ def test_data_gc_reorg_and_geometry() -> None:
         copy.deepcopy(atomic_protocol.core), 99,
         atomic_protocol.forced_queue, mode="ACTIVE", current_sequence=0,
         last_canonical_l1_block=100,
+        migration_gate=atomic_protocol.migration_gate,
+        live_protocol=atomic_protocol,
         inbox_apply_router=atomic_protocol.inbox_apply_router)
     atomic_protocol.versioned_history = atomic_history
     atomic_clock = clock(100, 1_100)
     atomic_candidate = candidate(atomic_protocol, atomic_clock, "atomic")
+    atomic_queue = atomic_protocol.forced_queue
+    atomic_inbox = atomic_protocol.inbox_apply_router
+    atomic_gate = atomic_protocol.migration_gate
+    atomic_history_before = (
+        copy.deepcopy(atomic_history.core),
+        atomic_history.canonicalized_at_block,
+        atomic_history.current_sequence,
+        atomic_history.last_canonical_l1_block,
+        copy.deepcopy(atomic_history.history),
+        copy.deepcopy(atomic_queue),
+        copy.deepcopy(atomic_inbox),
+        copy.deepcopy(atomic_gate),
+    )
     atomic_before = (
         copy.deepcopy(atomic_protocol.canonical),
         atomic_protocol.forced_queue.cursor,
         atomic_protocol.inbox_apply_router.next_queue_index,
         atomic_protocol.release_activation_pending,
-        copy.deepcopy(atomic_history),
     )
     atomic_rejected = False
     try:
@@ -4759,7 +6887,22 @@ def test_data_gc_reorg_and_geometry() -> None:
           and atomic_protocol.inbox_apply_router.next_queue_index
               == atomic_before[2]
           and atomic_protocol.release_activation_pending == atomic_before[3]
-          and atomic_history == atomic_before[4])
+          and atomic_history.core == atomic_history_before[0]
+          and atomic_history.canonicalized_at_block == atomic_history_before[1]
+          and atomic_history.current_sequence == atomic_history_before[2]
+          and atomic_history.last_canonical_l1_block == atomic_history_before[3]
+          and atomic_history.history == atomic_history_before[4]
+          and atomic_queue == atomic_history_before[5]
+          and atomic_inbox == atomic_history_before[6]
+          and atomic_gate == atomic_history_before[7]
+          and atomic_protocol.versioned_history is atomic_history
+          and atomic_protocol.forced_queue is atomic_queue
+          and atomic_protocol.inbox_apply_router is atomic_inbox
+          and atomic_protocol.migration_gate is atomic_gate
+          and atomic_history.forced_queue is atomic_queue
+          and atomic_history.inbox_apply_router is atomic_inbox
+          and atomic_history.migration_gate is atomic_gate
+          and atomic_history.live_protocol is atomic_protocol)
     assert migration_protocol.sync(migration_outage_clock)
     assert migration_protocol.mode is Mode.RECOVERY
     migration_revision = migration_protocol.recovery.revision
