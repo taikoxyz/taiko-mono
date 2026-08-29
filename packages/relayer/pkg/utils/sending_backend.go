@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"regexp"
@@ -168,14 +169,17 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// send: charging it would trip relays that were never tried. The endpoints already tried
 		// keep the failures they earned. This is deliberately read before the send, so an endpoint
 		// that spends its whole share in silence still counts.
+		//
+		// What comes back is the context's error, never the last endpoint's. The two say different
+		// things: a rejection describes a send that concluded, and the caller classifies on it —
+		// the processor drops a claim whose error is not transient, so an "execution reverted"
+		// carried out of here would discard a message whose remaining endpoints were never asked.
+		// Running out of budget is transient by definition. Nothing is lost by dropping the
+		// rejection, since each one is logged below against the endpoint that produced it.
 		if attemptErr := attemptCtx.Err(); attemptErr != nil {
 			cancel()
 
-			if err == nil {
-				err = attemptErr
-			}
-
-			return redacted(err)
+			return redacted(attemptErr)
 		}
 
 		err = b.private[i].SendTransaction(attemptCtx, tx)
@@ -224,6 +228,11 @@ func attemptContext(ctx context.Context, remaining int) (context.Context, contex
 	if !ok {
 		// Nothing to divide. Cap the attempt anyway so an endpoint that accepts the connection and
 		// never answers cannot hold the send open for good.
+		//
+		// The cap is per attempt, so with no deadline to divide a send across N endpoints can take
+		// up to N times it. That is the price of having no budget to share out, and it is bounded,
+		// which is the property that matters. Callers wanting a bound on the whole send pass a
+		// deadline; the transaction manager always does, via NetworkTimeout.
 		return context.WithTimeout(ctx, DefaultPrivateRPCAttemptTimeout)
 	}
 
@@ -258,6 +267,32 @@ func (e redactedError) Unwrap() error { return e.err }
 // Cause satisfies github.com/pkg/errors, which this repository also uses and which does not follow
 // Unwrap. Without it, code reaching for the cause would stop at the wrapper.
 func (e redactedError) Cause() error { return e.err }
+
+// Format keeps the redaction in place whichever verb prints the error.
+//
+// Error covers %s, %v and %q, but %#v does not consult it: it prints the struct's fields, and the
+// field is the unredacted error. fmt asks a Formatter first, so implementing one is what makes the
+// guarantee hold regardless of how a caller logs what it is handed.
+func (e redactedError) Format(f fmt.State, verb rune) {
+	switch verb {
+	case 'v':
+		if f.Flag('#') {
+			// Deliberately not Go syntax. A compilable representation would have to name the
+			// wrapped error, which is the thing being kept out of the output.
+			fmt.Fprintf(f, "utils.redactedError{err:%q}", e.Error())
+
+			return
+		}
+
+		fmt.Fprint(f, e.Error())
+	case 's':
+		fmt.Fprint(f, e.Error())
+	case 'q':
+		fmt.Fprintf(f, "%q", e.Error())
+	default:
+		fmt.Fprintf(f, "%%!%c(utils.redactedError=%s)", verb, e.Error())
+	}
+}
 
 // redacted wraps err so its text carries no endpoint URL, passing nil through unchanged.
 func redacted(err error) error {

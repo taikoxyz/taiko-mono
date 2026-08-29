@@ -270,6 +270,17 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
+	// Checked before anything is dialled, so a configuration that cannot work costs no
+	// connections and leaves nothing half-built to unwind.
+	if err := validatePrivateRPCConfig(
+		len(cfg.DestPrivateRPCUrls),
+		txmgrConfig.TxSendTimeout,
+	); err != nil {
+		txmgrConfig.Backend.Close()
+
+		return err
+	}
+
 	// Only the broadcast goes private. Reads stay on cfg.DestRPCUrl, which keeps one nonce source
 	// behind the single transaction manager below: separate managers over the same key would each
 	// resolve the nonce against their own endpoint, and a private endpoint does not gossip, so two
@@ -304,15 +315,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	slog.Info("Processor tx manager initialized",
 		"privateEndpoints", sendingBackend.NumPrivateEndpoints(),
 	)
-
-	if err := validatePrivateRPCConfig(
-		sendingBackend.NumPrivateEndpoints(),
-		txmgrConfig.TxSendTimeout,
-	); err != nil {
-		sendingBackend.Close()
-
-		return err
-	}
 
 	// Mirror the tx manager's minimum tip cap so the profitability estimate can
 	// floor the suggested tip at the same value the tx manager will pay.

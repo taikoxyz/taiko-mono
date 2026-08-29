@@ -946,3 +946,74 @@ func TestSendingBackend_DoesNotChargeAnEndpointForOurCancellation(t *testing.T) 
 	assert.Equal(t, 0, b.consecutive[0])
 	assert.Empty(t, public.sent)
 }
+
+// stubbornSender overruns its share of the budget and only then answers with a rejection.
+//
+// It ignores the context on purpose. Not every step of a send watches one — a blocking DNS lookup
+// or a slow TLS handshake will not — so an endpoint can spend more than the share it was given and
+// still come back with an answer. That is the case where the send concluded but the endpoints
+// behind it no longer have any time to be asked.
+type stubbornSender struct {
+	delay time.Duration
+
+	mu   sync.Mutex
+	sent []common.Hash
+}
+
+func (s *stubbornSender) SendTransaction(_ context.Context, tx *types.Transaction) error {
+	s.mu.Lock()
+	s.sent = append(s.sent, tx.Hash())
+	s.mu.Unlock()
+
+	time.Sleep(s.delay)
+
+	return rpcRejection{"execution reverted"}
+}
+
+func TestSendingBackend_ARejectionDoesNotMaskAnExpiredBudget(t *testing.T) {
+	slow := &stubbornSender{delay: 400 * time.Millisecond}
+	second := &fakeSender{}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{slow, second}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := b.SendTransaction(ctx, testTx())
+	require.Error(t, err)
+
+	// The first endpoint answered, but only after the budget the second one needed. Returning its
+	// rejection would describe a send whose remaining endpoint was never asked, and the processor
+	// classifies on what comes back: "execution reverted" is not transient, so the claim would be
+	// dropped instead of retried. Running out of time is.
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.NotContains(t, err.Error(), "execution reverted")
+
+	assert.Len(t, slow.sent, 1)
+	assert.Empty(t, second.sent, "there was no budget left to offer it")
+
+	// The endpoint that hung still earned its failure; the one that never got a context did not.
+	assert.Equal(t, 1, b.failures[0])
+	assert.Equal(t, 0, b.failures[1])
+}
+
+func TestSendingBackend_GoSyntaxPrintingCarriesNoEndpointURL(t *testing.T) {
+	secret := "https://relay.example.com/v1/SUPERSECRETKEY"
+	only := &fakeSender{err: fmt.Errorf(`Post %q: dial tcp: i/o timeout`, secret)}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil)
+
+	err := b.SendTransaction(context.Background(), testTx())
+	require.Error(t, err)
+
+	// %v and %s go through Error, but %#v prints the struct's fields, and the field is the
+	// unredacted error. A logger reaching for a Go-syntax dump must not be the hole.
+	for _, verb := range []string{"%v", "%s", "%q", "%#v", "%+v", "%d"} {
+		printed := fmt.Sprintf(verb, err)
+
+		assert.NotContains(t, printed, "SUPERSECRETKEY", verb)
+		assert.NotContains(t, printed, "relay.example.com", verb)
+	}
+
+	assert.Contains(t, fmt.Sprintf("%#v", err), "i/o timeout", "the reason still has to survive")
+}
