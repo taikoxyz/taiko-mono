@@ -206,7 +206,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// to be able to trip. Checking the deadline before the send rather than after is what
 		// keeps that true for the last endpoint in rotation, whose share is the rest of the
 		// budget and which therefore always finds ctx expired once it has hung.
-		b.recordFailure(i, tx.Hash(), answeredWithRejection(err))
+		tripped := b.recordFailure(i, tx.Hash(), answeredWithRejection(err))
 		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(i)).Inc()
 
 		slog.Warn("Private endpoint refused a transaction",
@@ -214,6 +214,18 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			"txHash", tx.Hash().Hex(),
 			"error", redactURLs(err),
 		)
+
+		// Leaving the rotation is the transition an operator cares about — one fewer place to send
+		// privately, and the last one leaving means claims reach the public mempool — so it is
+		// logged and counted separately from the refusals that led to it.
+		if tripped {
+			relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(i)).Inc()
+
+			slog.Warn("Private endpoint taken out of rotation",
+				"endpoint", i,
+				"retryIn", b.retryInterval,
+			)
+		}
 	}
 
 	return redacted(err)
@@ -250,36 +262,29 @@ func redactURLs(err error) string {
 	return urlInErrorText.ReplaceAllString(err.Error(), "[redacted]")
 }
 
-// redactedError carries a send failure with the endpoint URLs taken out of its text.
+// redactedLink is one step of a redacted error chain: its text carries no URL, and unwrapping it
+// continues to the error it was built from.
 //
-// Redacting only our own log line is not enough: the error is returned to the transaction manager,
-// which logs it, and on to the processor, which logs it again. Either would put an API key in the
-// logs, so the redaction has to travel with the error rather than be applied at one call site.
-//
-// Unwrap keeps errors.Is and errors.As working on the original, and only URLs are removed, so the
-// substrings the transaction manager classifies on — "nonce too low", "already known",
-// "replacement transaction underpriced" — survive intact.
-type redactedError struct{ err error }
+// It exists so that redactedError.Unwrap and .Cause can hand out something that still prints
+// redacted. Returning the wrapped error directly from either would undo the redaction for any
+// caller that logs what it was given, which is what Cause in particular exists to be used for.
+type redactedLink struct{ err error }
 
-func (e redactedError) Error() string { return redactURLs(e.err) }
-func (e redactedError) Unwrap() error { return e.err }
-
-// Cause satisfies github.com/pkg/errors, which this repository also uses and which does not follow
-// Unwrap. Without it, code reaching for the cause would stop at the wrapper.
-func (e redactedError) Cause() error { return e.err }
+func (e redactedLink) Error() string { return redactURLs(e.err) }
+func (e redactedLink) Unwrap() error { return e.err }
 
 // Format keeps the redaction in place whichever verb prints the error.
 //
 // Error covers %s, %v and %q, but %#v does not consult it: it prints the struct's fields, and the
 // field is the unredacted error. fmt asks a Formatter first, so implementing one is what makes the
 // guarantee hold regardless of how a caller logs what it is handed.
-func (e redactedError) Format(f fmt.State, verb rune) {
+func (e redactedLink) Format(f fmt.State, verb rune) {
 	switch verb {
 	case 'v':
 		if f.Flag('#') {
 			// Deliberately not Go syntax. A compilable representation would have to name the
 			// wrapped error, which is the thing being kept out of the output.
-			fmt.Fprintf(f, "utils.redactedError{err:%q}", e.Error())
+			fmt.Fprintf(f, "utils.redacted(%q)", e.Error())
 
 			return
 		}
@@ -290,9 +295,37 @@ func (e redactedError) Format(f fmt.State, verb rune) {
 	case 'q':
 		fmt.Fprintf(f, "%q", e.Error())
 	default:
-		fmt.Fprintf(f, "%%!%c(utils.redactedError=%s)", verb, e.Error())
+		fmt.Fprintf(f, "%%!%c(utils.redacted=%s)", verb, e.Error())
 	}
 }
+
+// redactedError carries a send failure with the endpoint URLs taken out of its text.
+//
+// Redacting only our own log line is not enough: the error is returned to the transaction manager,
+// which logs it, and on to the processor, which logs it again. Either would put an API key in the
+// logs, so the redaction has to travel with the error rather than be applied at one call site.
+//
+// The chain is redactedError -> redactedLink -> the original. errors.Is and errors.As walk it to
+// the end, so identity is preserved, and only URLs are removed from the text, so the substrings
+// the transaction manager classifies on — "nonce too low", "already known", "replacement
+// transaction underpriced" — survive intact. What the extra link buys is that the first step out
+// of the wrapper, by either Unwrap or Cause, still prints redacted.
+//
+// The guarantee is about printing, not reachability: errors.As into the concrete type hands over
+// the original, as it must, and so does unwrapping twice. Both are deliberate acts by a caller
+// that wants the underlying error, rather than the incidental logging this protects against.
+type redactedError struct{ redactedLink }
+
+// Unwrap returns the next link rather than the original, so a caller that logs what it unwraps
+// still gets redacted text. errors.Is and errors.As traverse transitively, so they are unaffected.
+func (e redactedError) Unwrap() error { return e.redactedLink }
+
+// Cause satisfies github.com/pkg/errors, which this repository also uses and which does not follow
+// Unwrap. Without it, code reaching for the cause would stop at the wrapper. It returns the
+// redacted link rather than the original: Cause exists to be inspected and logged, and it walks
+// the whole chain in one call, which makes it the likeliest way for an endpoint URL to reach a log
+// by accident. The link implements no Cause of its own, so the walk stops there.
+func (e redactedError) Cause() error { return e.redactedLink }
 
 // redacted wraps err so its text carries no endpoint URL, passing nil through unchanged.
 func redacted(err error) error {
@@ -300,7 +333,7 @@ func redacted(err error) error {
 		return nil
 	}
 
-	return redactedError{err}
+	return redactedError{redactedLink{err}}
 }
 
 // Close closes the public backend and every private endpoint. The transaction manager closes its
@@ -326,10 +359,11 @@ func (b *SendingBackend) NumPrivateEndpoints() int {
 // re-admitting any whose retry interval has elapsed.
 func (b *SendingBackend) inRotation() []int {
 	b.mu.Lock()
-	defer b.mu.Unlock()
 
 	now := b.now()
 	indices := make([]int, 0, len(b.private))
+
+	var readmitted []int
 
 	for i := range b.private {
 		if !b.failedAt[i].IsZero() {
@@ -343,9 +377,28 @@ func (b *SendingBackend) inRotation() []int {
 			b.failures[i] = 0
 			b.lastCharged[i] = common.Hash{}
 			b.consecutive[i] = 0
+
+			// highestAccepted and hasAccepted are deliberately kept. They record which nonces this
+			// endpoint has already taken, which does not stop being true because it went quiet for
+			// a while: a resend of one of them is still better offered elsewhere first. Clearing
+			// them would re-offer a nonce the endpoint already holds, which is the duplicate the
+			// mark exists to avoid. The cost is that the mark never shrinks, which is fine — it
+			// only ever moves a resend later in the order, never out of it.
+			readmitted = append(readmitted, i)
 		}
 
 		indices = append(indices, i)
+	}
+
+	b.mu.Unlock()
+
+	// Logged outside the lock, and after it rather than under a defer, so a rare transition does
+	// not put a write to the log inside the path every send takes.
+	for _, i := range readmitted {
+		slog.Info("Private endpoint back in rotation",
+			"endpoint", i,
+			"after", b.retryInterval,
+		)
 	}
 
 	return indices
@@ -370,7 +423,9 @@ func (b *SendingBackend) inRotation() []int {
 // arriving alternately can still trip an endpoint. That is the intended trade: remembering every
 // transaction would grow without bound, and repeated refusals of more than one claim are weaker
 // evidence of health than of trouble.
-func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection bool) {
+// It reports whether this failure is what took the endpoint out of rotation, so the caller can log
+// and count that transition without holding the lock.
+func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection bool) (tripped bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -381,11 +436,11 @@ func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection 
 	if b.consecutive[index] >= b.failureCeiling {
 		b.failedAt[index] = b.now()
 
-		return
+		return true
 	}
 
 	if rejection && b.failures[index] > 0 && b.lastCharged[index] == txHash {
-		return
+		return false
 	}
 
 	b.lastCharged[index] = txHash
@@ -393,7 +448,11 @@ func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection 
 
 	if b.failures[index] >= b.failureThreshold {
 		b.failedAt[index] = b.now()
+
+		return true
 	}
+
+	return false
 }
 
 // recordSuccess returns the endpoint at index to full health. Only consecutive failures trip an

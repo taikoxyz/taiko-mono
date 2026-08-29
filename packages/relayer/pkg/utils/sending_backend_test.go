@@ -770,6 +770,21 @@ func TestSendingBackend_RedactionKeepsErrorIdentityAndClassification(t *testing.
 	// This repository also uses github.com/pkg/errors, which reaches for Cause rather than
 	// following Unwrap, so the wrapper has to answer both.
 	assert.ErrorIs(t, pkgerrors.Cause(err), sentinel)
+
+	// Cause walks the whole chain in one call and exists to be inspected and logged, which makes
+	// it the likeliest way for an endpoint URL to reach a log by accident. It — and the first step
+	// out of the wrapper by Unwrap, which had the same hole — must still print redacted.
+	for name, step := range map[string]error{
+		"Cause":  pkgerrors.Cause(err),
+		"Unwrap": errors.Unwrap(err),
+	} {
+		require.Error(t, step, name)
+
+		assert.NotContains(t, step.Error(), "relay.example.com", name)
+		assert.NotContains(t, fmt.Sprintf("%#v", step), "relay.example.com", name)
+		assert.Contains(t, step.Error(), "nonce too low", name)
+		assert.ErrorIs(t, step, sentinel, name)
+	}
 }
 
 func TestSendingBackend_CapsAnAttemptWhenTheCallerGivesNoDeadline(t *testing.T) {
@@ -1016,4 +1031,61 @@ func TestSendingBackend_GoSyntaxPrintingCarriesNoEndpointURL(t *testing.T) {
 	}
 
 	assert.Contains(t, fmt.Sprintf("%#v", err), "i/o timeout", "the reason still has to survive")
+}
+
+func TestSendingBackend_CountsLeavingTheRotationOnceRatherThanEveryRefusal(t *testing.T) {
+	b, _, first, _, _ := newTestBackend(t, nil)
+	first.err = errors.New("down")
+
+	before := testutil.ToFloat64(relayer.PrivateRPCTrips.WithLabelValues("0"))
+	trips := func() float64 {
+		return testutil.ToFloat64(relayer.PrivateRPCTrips.WithLabelValues("0")) - before
+	}
+
+	// Refusals below the threshold are counted by PrivateRPCFailures, not by this. Leaving the
+	// rotation is a different event: one fewer place to send privately, which is what an operator
+	// alerts on.
+	for nonce := uint64(1); nonce < DefaultPrivateRPCFailureThreshold; nonce++ {
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+		assert.Zero(t, trips(), "still in rotation after %d refusals", nonce)
+	}
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(DefaultPrivateRPCFailureThreshold)))
+
+	assert.Equal(t, float64(1), trips())
+	assert.Equal(t, []int{1}, b.inRotation())
+
+	// Out of rotation, it is not asked again, so the count does not keep climbing.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(99)))
+	assert.Equal(t, float64(1), trips())
+}
+
+func TestSendingBackend_KeepsTheAcceptedMarkAcrossATrip(t *testing.T) {
+	b, _, first, second, clock := newTestBackend(t, nil)
+
+	// The first endpoint takes nonce 5, then goes down and leaves the rotation.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
+	require.Len(t, first.sent, 1)
+
+	first.err = errors.New("down")
+
+	trip(b, 0)
+	require.Equal(t, []int{1}, b.inRotation())
+
+	*clock = clock.Add(DefaultPrivateRPCRetryInterval)
+	first.err = nil
+
+	require.Equal(t, []int{0, 1}, b.inRotation())
+
+	// Re-admission clears the failure record but not what the endpoint has already accepted. A
+	// resend of nonce 5 is still better offered elsewhere first: endpoint 0 may well be holding
+	// that transaction, and handing it back is the duplicate the mark exists to avoid.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
+
+	assert.Len(t, first.sent, 1, "the resend went elsewhere")
+	assert.Len(t, second.sent, 1)
+
+	// A nonce above the mark is unaffected — it goes to the first endpoint as usual.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
+	assert.Len(t, first.sent, 2)
 }

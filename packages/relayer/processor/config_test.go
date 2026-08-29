@@ -383,3 +383,54 @@ func Test_validatePrivateRPCConfig(t *testing.T) {
 	// deployment that predates them.
 	assert.NoError(t, validatePrivateRPCConfig(0, 0))
 }
+
+func Test_parsePrivateRPCUrlsKeepsRejectedEntriesOutOfTheError(t *testing.T) {
+	// url.Parse builds a *url.Error whose text quotes the raw input, so wrapping it verbatim puts
+	// the endpoint — and any API key in its path or query — into whatever logs the startup error.
+	// That is the same exposure the returned-error redaction closes, reached through config
+	// parsing instead of through a send.
+	tests := []struct {
+		name   string
+		url    string
+		reason string
+	}{
+		{
+			name:   "invalid escape",
+			url:    "https://relay.example.com/v1/SUPERSECRETKEY%zz",
+			reason: "invalid URL escape",
+		},
+		{
+			name:   "control character",
+			url:    "https://relay.example.com/v1/SUPERSECRETKEY\x7f",
+			reason: "invalid control character",
+		},
+		{
+			name:   "invalid port",
+			url:    "https://relay.example.com:notaport/v1/SUPERSECRETKEY",
+			reason: "invalid port",
+		},
+		{
+			// No scheme, so a regex looking for one would not find a URL to remove here. The
+			// endpoint has to be kept out by construction rather than by matching.
+			name:   "no scheme",
+			url:    "relay.example.com/v1/SUPERSECRETKEY%zz",
+			reason: "invalid URL escape",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parsePrivateRPCUrls([]string{tt.url})
+
+			require.Error(t, err)
+			assert.Nil(t, got)
+
+			assert.NotContains(t, err.Error(), "SUPERSECRETKEY")
+			assert.NotContains(t, err.Error(), "relay.example.com")
+
+			// The operator still has to be able to act on it: which entry, and what was wrong.
+			assert.Contains(t, err.Error(), tt.reason)
+			assert.Contains(t, err.Error(), "entry 0")
+		})
+	}
+}

@@ -134,11 +134,24 @@ transport failure always counts, even for the same transaction, since that is wh
 being down looks like. Only once no endpoint is left in
 rotation does a transaction go out through `DEST_RPC_URL`.
 
-Two metrics are worth alerting on. `private_rpc_failures_ops_total` is labelled by the refusing
-endpoint's position in the failover order, so it says which relay is unhealthy.
-`private_rpc_unavailable_ops_total` counts transactions that went out through `DEST_RPC_URL` while
-private endpoints were configured — that is the relayer running exposed, and matters more than any
-individual refusal.
+Three metrics are worth alerting on, all labelled or counted so they can be read without access to
+the logs. `private_rpc_failures_ops_total` is labelled by the refusing endpoint's position in the
+failover order, so it says which relay is unhealthy. `private_rpc_trips_ops_total`, labelled the
+same way, counts an endpoint actually leaving the rotation rather than each refusal on the way
+there — one fewer place to send privately. `private_rpc_unavailable_ops_total` counts transactions
+that went out through `DEST_RPC_URL` while private endpoints were configured — that is the relayer
+running exposed, and matters more than any individual refusal. Both transitions are logged as well,
+`Private endpoint taken out of rotation` and `Private endpoint back in rotation`, each carrying the
+endpoint's position.
+
+A restart while a relay is holding an accepted transaction is worth knowing about. Nonces come from
+`DEST_RPC_URL`, and a privately accepted transaction is never gossiped there, so a relayer that
+restarts before that transaction is included sees its nonce as free and may sign a different claim
+with it. Whichever lands first wins and the other becomes invalid, so no funds are at risk and the
+losing message is redelivered by the queue and retried under a fresh nonce — but that claim is
+delayed by a round, and its fee may be gone by then. `TX_SEND_TIMEOUT` bounds how long a single
+send can be outstanding but does not help across a restart. The exposure is proportional to how
+long a relay holds transactions, so it is smallest with relays that drop rather than queue.
 
 **`TX_SEND_TIMEOUT` is required when private endpoints are configured**, and the processor refuses
 to start without it. It defaults to disabled. A relay can accept a transaction and never have it

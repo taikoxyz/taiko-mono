@@ -2,6 +2,7 @@ package processor
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -211,10 +212,16 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 // which would make startup depend on a relay being up. A rejected URL fails startup on purpose:
 // quietly dropping one would leave the relayer broadcasting publicly while its operator believed
 // otherwise.
+//
+// No rejection quotes the entry itself. A private relay URL carries its credential in the path or
+// query, and a startup error is logged like any other, so an error naming the bad entry would put
+// that credential in the logs — the same exposure the redaction on send errors closes, reached
+// through configuration instead. Entries are identified by position, which is what identifies a
+// relay in the logs everywhere else in this feature.
 func parsePrivateRPCUrls(configured []string) ([]string, error) {
 	urls := make([]string, 0, len(configured))
 
-	for _, raw := range configured {
+	for i, raw := range configured {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
 			continue
@@ -222,25 +229,32 @@ func parsePrivateRPCUrls(configured []string) ([]string, error) {
 
 		parsed, err := url.Parse(raw)
 		if err != nil {
-			return nil, fmt.Errorf("invalid %s entry: %w", flags.DestPrivateRPCUrls.Name, err)
+			return nil, fmt.Errorf(
+				"invalid %s entry %d: %w",
+				flags.DestPrivateRPCUrls.Name,
+				i,
+				parseFailureReason(err),
+			)
 		}
 
 		if parsed.Scheme != "http" && parsed.Scheme != "https" {
 			return nil, fmt.Errorf(
-				"invalid %s entry: scheme %q is not supported, use http or https",
+				"invalid %s entry %d: scheme %q is not supported, use http or https",
 				flags.DestPrivateRPCUrls.Name,
+				i,
 				parsed.Scheme,
 			)
 		}
 
 		if parsed.Host == "" {
-			return nil, fmt.Errorf("invalid %s entry: no host", flags.DestPrivateRPCUrls.Name)
+			return nil, fmt.Errorf("invalid %s entry %d: no host", flags.DestPrivateRPCUrls.Name, i)
 		}
 
 		if parsed.Scheme == "http" && !isLocalHost(parsed.Hostname()) {
 			return nil, fmt.Errorf(
-				"invalid %s entry: %q sends signed transactions in cleartext, use https",
+				"invalid %s entry %d: %q sends signed transactions in cleartext, use https",
 				flags.DestPrivateRPCUrls.Name,
+				i,
 				parsed.Hostname(),
 			)
 		}
@@ -249,6 +263,21 @@ func parsePrivateRPCUrls(configured []string) ([]string, error) {
 	}
 
 	return urls, nil
+}
+
+// parseFailureReason strips the URL that url.Parse quotes back at us, leaving only why it failed.
+//
+// url.Parse always returns a *url.Error, whose Error() is `parse "<the whole raw input>": <why>`.
+// Redacting that text with a regex is not enough: an entry with no scheme — which is one of the
+// ways to land here — has nothing for a URL pattern to match, so the input has to be dropped by
+// taking the reason out of the error rather than by rewriting its text.
+func parseFailureReason(err error) error {
+	var parseErr *url.Error
+	if errors.As(err, &parseErr) {
+		return parseErr.Err
+	}
+
+	return err
 }
 
 // isLocalHost reports whether host is reachable without leaving the machine or a private network.

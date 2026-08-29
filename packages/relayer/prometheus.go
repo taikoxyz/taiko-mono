@@ -15,6 +15,13 @@ var (
 		Help: "The total number of times a private RPC endpoint refused a transaction, " +
 			"labelled by that endpoint's position in the configured failover order",
 	}, []string{"endpoint"})
+	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_trips_ops_total",
+		Help: "The total number of times a private RPC endpoint was taken out of the failover " +
+			"rotation, labelled by that endpoint's position in the configured order. This is the " +
+			"transition worth alerting on: an endpoint out of rotation is one fewer place to " +
+			"send privately, and the last one leaving means claims go to the public mempool",
+	}, []string{"endpoint"})
 	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "private_rpc_unavailable_ops_total",
 		Help: "The total number of sends that went out through the public endpoint while private " +
