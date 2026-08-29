@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.15 consensus commitments.
+"""Golden vectors for Slot-Chain v2.16 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -30,6 +30,7 @@ BLS_MODULUS = int("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000
 UINT64_MAX = (1 << 64) - 1
 UINT32_MAX = (1 << 32) - 1
 FORCE_DEPTH = 32
+TERMINAL_DEPTH = 64
 
 TYPE_STRING = (
     "SlotChainBlock(uint256 settlementChainId,uint256 l2ChainId,"
@@ -68,28 +69,29 @@ D_DISPOSITIONS = b"slot-chain-dispositions-v1"
 D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v8"
 D_BRIDGE_CREDIT_ID = b"slot-chain-bridge-credit-id-v5"
 D_BRIDGE_ESCROW = b"slot-chain-bridge-escrow-v1"
-D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v3"
-D_BRIDGE_DONE = b"slot-chain-bridge-done-v1"
-D_BRIDGE_FAILED = b"slot-chain-bridge-failed-v4"
-D_BRIDGE_TERMINAL_SLOT = b"slot-chain-bridge-terminal-slot-v1"
+D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v4"
+D_TERMINAL_EMPTY = b"slot-chain-terminal-empty-v1"
+D_TERMINAL_LEAF = b"slot-chain-terminal-leaf-v1"
+D_TERMINAL_NODE = b"slot-chain-terminal-node-v1"
+D_TERMINAL_ROOT = b"slot-chain-terminal-root-v1"
 D_SOURCE_DOMAIN = b"slot-chain-source-domain-v4"
-D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v3"
+D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v4"
 D_BRIDGE_EXECUTION = b"slot-chain-frozen-bridge-execution-v2"
 D_RECOVERY = b"slot-chain-recovery-v2"
 D_BODY = b"slot-chain-body-v1"
 D_CHUNK = b"slot-chain-body-chunk-v1"
 D_SESSION = b"slot-chain-session-v1"
 D_FS = b"slot-chain-data-fs-v2"
-D_CORE = b"slot-chain-core-v2"
+D_CORE = b"slot-chain-core-v3"
 D_CANONICAL = b"slot-chain-canonical-v2"
 D_CANDIDATE = b"slot-chain-candidate-v2"
 D_WINNING_DATA = b"slot-chain-winning-data-v1"
 D_SCHEDULE_LIST = b"slot-chain-schedule-list-v1"
 D_SESSION_LIST = b"slot-chain-session-list-v1"
-D_OUTPUTS = b"slot-chain-outputs-v1"
-D_STATEMENT = b"slot-chain-statement-v1"
+D_OUTPUTS = b"slot-chain-outputs-v2"
+D_STATEMENT = b"slot-chain-statement-v2"
 D_NORMAL_CONTEXT = b"slot-chain-normal-context-v1"
-D_MIGRATION_DATA = b"slot-chain-migration-data-v1"
+D_MIGRATION_DATA = b"slot-chain-migration-data-v2"
 
 
 def u8(value: int) -> bytes:
@@ -156,11 +158,13 @@ def eip712_digest(chain_id: int, contract: int,
 
 def canonical_core(l2_block_number: int, tip_hash: bytes, tip_slot: int, state_root: bytes,
                    cursor: int, data_commitment: bytes, next_base_fee: int,
-                   next_excess_blob_gas: int) -> bytes:
+                   next_excess_blob_gas: int, terminal_root: bytes,
+                   terminal_count: int) -> bytes:
     return keccak256(D_CORE + u64(l2_block_number) + b32(tip_hash)
                      + u64(tip_slot) + b32(state_root)
                      + u64(cursor) + b32(data_commitment)
-                     + u256(next_base_fee) + u64(next_excess_blob_gas))
+                     + u256(next_base_fee) + u64(next_excess_blob_gas)
+                     + b32(terminal_root) + u64(terminal_count))
 
 
 def base_canonical(core_hash: bytes, canonicalized_at_block: int) -> bytes:
@@ -176,9 +180,11 @@ def normal_context(base_hash: bytes, admission_version: int,
 
 
 def migration_data(settlement_chain_id: int, l2_chain_id: int,
-                   tip_hash: bytes, state_root: bytes) -> bytes:
+                   tip_hash: bytes, state_root: bytes,
+                   terminal_root: bytes, terminal_count: int) -> bytes:
     return keccak256(D_MIGRATION_DATA + u256(settlement_chain_id)
-                     + u256(l2_chain_id) + b32(tip_hash) + b32(state_root))
+                     + u256(l2_chain_id) + b32(tip_hash) + b32(state_root)
+                     + b32(terminal_root) + u64(terminal_count))
 
 
 def candidate_commitment(base_hash: bytes,
@@ -210,16 +216,18 @@ def session_list(rows: tuple[tuple[bytes, int, bytes], ...]) -> bytes:
 
 def execution_outputs(state_root: bytes, transactions_root: bytes,
                       receipts_root: bytes, logs_bloom_hash: bytes,
-                      withdrawals_root: bytes) -> bytes:
+                      withdrawals_root: bytes, terminal_root: bytes,
+                      terminal_count: int) -> bytes:
     return keccak256(D_OUTPUTS + b32(state_root) + b32(transactions_root)
                      + b32(receipts_root) + b32(logs_bloom_hash)
-                     + b32(withdrawals_root))
+                     + b32(withdrawals_root) + b32(terminal_root)
+                     + u64(terminal_count))
 
 
 STATEMENT_KINDS = (
     "uint", "uint", "uint", "bytes", "address",
     "uint", "bytes", "bytes", "uint", "uint", "bytes", "uint", "uint",
-    "bytes", "uint", "bytes", "uint", "uint", "uint",
+    "bytes", "bytes", "uint", "uint", "bytes", "uint", "uint", "uint",
     "uint", "bytes", "bytes", "uint", "bytes", "uint", "bytes", "uint",
     "uint", "bytes", "uint", "uint", "bytes", "bytes", "uint", "bytes",
     "uint", "uint", "bytes", "address",
@@ -445,25 +453,33 @@ def source_domain_id(src_chain_id: int, genesis_hash: bytes,
 
 def destination_domain_id(dest_chain_id: int, genesis_hash: bytes,
                           bridge_inbox_adapter: int,
-                          settlement_checkpoint_adapter: int,
+                          active_settlement_router: int,
                           checkpoint_store: int, terminal_verifier: int,
-                          l2_signal_service: int, bridge: int,
+                          inbox_apply: int, inbox_credit_store: int,
+                          terminal_accumulator: int, bridge: int,
                           bridge_execution_hash: bytes,
+                          infrastructure_hash: bytes,
                           namespace: bytes) -> bytes:
     assert (genesis_hash != bytes(32) and namespace != bytes(32)
             and bridge_execution_hash != bytes(32)
+            and infrastructure_hash != bytes(32)
             and bridge_inbox_adapter != 0
-            and settlement_checkpoint_adapter != 0
+            and active_settlement_router != 0
             and checkpoint_store != 0 and terminal_verifier != 0
-            and l2_signal_service != 0 and bridge != 0)
+            and inbox_apply != 0 and inbox_credit_store != 0
+            and terminal_accumulator != 0 and bridge != 0)
     return keccak256(D_DESTINATION_DOMAIN + u64(dest_chain_id)
                      + b32(genesis_hash)
                      + address20(bridge_inbox_adapter)
-                     + address20(settlement_checkpoint_adapter)
+                     + address20(active_settlement_router)
                      + address20(checkpoint_store)
                      + address20(terminal_verifier)
-                     + address20(l2_signal_service) + address20(bridge)
+                     + address20(inbox_apply)
+                     + address20(inbox_credit_store)
+                     + address20(terminal_accumulator)
+                     + address20(bridge)
                      + b32(bridge_execution_hash)
+                     + b32(infrastructure_hash)
                      + b32(namespace))
 
 
@@ -675,19 +691,60 @@ def inbox_credit_slot(source_domain_id_: bytes, src_bridge: int,
                      + b32(credit_id))
 
 
-def bridge_failed_signal(destination_domain_id_: bytes, credit_id: bytes) -> bytes:
-    return keccak256(D_BRIDGE_FAILED + b32(destination_domain_id_)
-                     + b32(credit_id))
+def terminal_leaf(index: int, destination_domain_id_: bytes,
+                  destination_bridge: int, credit_id: bytes,
+                  terminal: int) -> bytes:
+    assert terminal in (1, 2)
+    return keccak256(D_TERMINAL_LEAF + u64(index)
+                     + b32(destination_domain_id_)
+                     + address20(destination_bridge) + b32(credit_id)
+                     + u8(terminal))
 
 
-def bridge_done_signal(destination_domain_id_: bytes, credit_id: bytes) -> bytes:
-    return keccak256(D_BRIDGE_DONE + b32(destination_domain_id_)
-                     + b32(credit_id))
+TERMINAL_EMPTY: list[bytes] = [keccak256(D_TERMINAL_EMPTY)]
+for _height in range(TERMINAL_DEPTH):
+    TERMINAL_EMPTY.append(keccak256(D_TERMINAL_NODE + u8(_height)
+                                    + TERMINAL_EMPTY[-1]
+                                    + TERMINAL_EMPTY[-1]))
 
 
-def bridge_terminal_slot(destination_domain_id_: bytes, credit_id: bytes) -> bytes:
-    return keccak256(D_BRIDGE_TERMINAL_SLOT + b32(destination_domain_id_)
-                     + b32(credit_id))
+class TerminalVector:
+    def __init__(self, leaves: tuple[bytes, ...]):
+        assert len(leaves) < UINT64_MAX
+        self.leaves = tuple(b32(leaf) for leaf in leaves)
+
+    @lru_cache(maxsize=None)
+    def node(self, height: int, node_index: int) -> bytes:
+        start = node_index << height
+        if start >= len(self.leaves):
+            return TERMINAL_EMPTY[height]
+        if height == 0:
+            return self.leaves[start]
+        return keccak256(D_TERMINAL_NODE + u8(height - 1)
+                         + self.node(height - 1, node_index * 2)
+                         + self.node(height - 1, node_index * 2 + 1))
+
+    @property
+    def root(self) -> bytes:
+        return keccak256(D_TERMINAL_ROOT + u64(len(self.leaves))
+                         + self.node(TERMINAL_DEPTH, 0))
+
+    def proof(self, index: int) -> tuple[bytes, ...]:
+        assert 0 <= index < len(self.leaves)
+        return tuple(self.node(height, (index >> height) ^ 1)
+                     for height in range(TERMINAL_DEPTH))
+
+
+def verify_terminal_proof(count: int, index: int, leaf: bytes,
+                          proof: tuple[bytes, ...], expected_root: bytes) -> bool:
+    if not (0 <= index < count < UINT64_MAX) or len(proof) != TERMINAL_DEPTH:
+        return False
+    node = b32(leaf)
+    for height, sibling in enumerate(proof):
+        node = (keccak256(D_TERMINAL_NODE + u8(height) + sibling + node)
+                if (index >> height) & 1 else
+                keccak256(D_TERMINAL_NODE + u8(height) + node + sibling))
+    return keccak256(D_TERMINAL_ROOT + u64(count) + node) == expected_root
 
 
 def bridge_escrow_id(credit_id: bytes) -> bytes:
@@ -851,8 +908,10 @@ def vectors() -> dict[str, str]:
         ManifestEntry(1, sid, 0, 0, 2, len(chunk0), body, c0),
         ManifestEntry(1, sid, 1, 1, 2, len(chunk1), body, c1),
     ))
+    empty_terminal = TerminalVector(())
     core = canonical_core(8_000, bytes.fromhex("77" * 32), 8_000,
-                          bytes.fromhex("66" * 32), 2, manifest, 100, 0)
+                          bytes.fromhex("66" * 32), 2, manifest, 100, 0,
+                          empty_terminal.root, 0)
     base = base_canonical(core, 1_000)
     schedules_hash = schedule_list(((20, ent_root, bytes.fromhex("12" * 32)),))
     sessions_hash = session_list(((sid, 2, mmr_root((leaf0, leaf1))),))
@@ -860,7 +919,8 @@ def vectors() -> dict[str, str]:
                                      bytes.fromhex("13" * 32),
                                      bytes.fromhex("14" * 32),
                                      bytes.fromhex("15" * 32),
-                                     bytes.fromhex("16" * 32))
+                                     bytes.fromhex("16" * 32),
+                                     empty_terminal.root, 0)
     context = normal_context(base, 12, adm_root, 1_000, bytes.fromhex("99" * 32))
     block_values = (
         settlement_chain_id, l2_chain_id, 2, contract,
@@ -887,7 +947,8 @@ def vectors() -> dict[str, str]:
     statement_values = (
         settlement_chain_id, l2_chain_id, 2, bytes.fromhex("fe" * 32), contract, 1, base,
         candidate_hash, 1, 8_001, bytes.fromhex("88" * 32), 8_001, 8_001,
-        bytes.fromhex("66" * 32), 66, winning, envs[66].due_at,
+        bytes.fromhex("66" * 32), empty_terminal.root, 0, 66,
+        winning, envs[66].due_at,
         101, 0, 1_000, bytes.fromhex("99" * 32), bytes.fromhex("aa" * 32), 999,
         force.root, len(envs), forced_descriptors, 2, 12, adm_root,
         0, 0, bytes(32), schedules_hash, 1,
@@ -902,7 +963,8 @@ def vectors() -> dict[str, str]:
         bridge_execution, bytes.fromhex("26" * 32))
     destination_domain = destination_domain_id(
         l2_chain_id, bytes.fromhex("35" * 32), 0xAD00, 0xAD01,
-        0xD100, 0xD101, 0x5100, 0xB200, bytes.fromhex("37" * 32),
+        0xD100, 0xD101, 0x5100, 0x5101, 0x5102, 0xB200,
+        bytes.fromhex("37" * 32), bytes.fromhex("38" * 32),
         bytes.fromhex("36" * 32))
     bridge_msg_hash = bytes.fromhex("21" * 32)
     bridge_credit = bridge_credit_id(
@@ -916,6 +978,10 @@ def vectors() -> dict[str, str]:
         0xBEEF, 700, 2_200, 10**16,
     )
     bridge_hash = bridge_leaf(70, bridge)
+    done_leaf = terminal_leaf(0, destination_domain, 0xB200, bridge_credit, 1)
+    failed_leaf = terminal_leaf(1, destination_domain, 0xB200,
+                                bytes.fromhex("24" * 32), 2)
+    terminal_vector = TerminalVector((done_leaf, failed_leaf))
     empty_body = body_root(())
     empty_manifest = manifest_root(())
     empty_sessions = session_list(())
@@ -930,7 +996,8 @@ def vectors() -> dict[str, str]:
         "base_canonical": base.hex(),
         "migration_data": migration_data(settlement_chain_id, l2_chain_id,
                                            bytes.fromhex("77" * 32),
-                                           bytes.fromhex("66" * 32)).hex(),
+                                           bytes.fromhex("66" * 32),
+                                           empty_terminal.root, 0).hex(),
         "candidate_commitment": candidate_hash.hex(),
         "candidate_commitment_2": candidate_hash_2.hex(),
         "normal_context": context.hex(),
@@ -953,12 +1020,10 @@ def vectors() -> dict[str, str]:
         "inbox_credit_slot": inbox_credit_slot(
             bridge.source_domain_id, bridge.src_bridge,
             bridge.destination_domain_id, bridge_credit).hex(),
-        "bridge_failed_signal": bridge_failed_signal(
-            bridge.destination_domain_id, bridge_credit).hex(),
-        "bridge_done_signal": bridge_done_signal(
-            bridge.destination_domain_id, bridge_credit).hex(),
-        "bridge_terminal_slot": bridge_terminal_slot(
-            bridge.destination_domain_id, bridge_credit).hex(),
+        "terminal_done_leaf": done_leaf.hex(),
+        "terminal_failed_leaf": failed_leaf.hex(),
+        "terminal_root_2": terminal_vector.root.hex(),
+        "empty_terminal_root": empty_terminal.root.hex(),
         "source_domain_id": source_domain.hex(),
         "destination_domain_id": destination_domain.hex(),
         "bridge_execution_hash": bridge_execution.hex(),
@@ -985,36 +1050,37 @@ def vectors() -> dict[str, str]:
 EXPECTED = {
     "typehash": "ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c",
     "domain_separator": "e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c",
-    "block_struct_hash": "bebf898d1d6af4275c77cbcb425b191ff222696c3d6a4b7e88ed0d086f37b561",
-    "eip712_digest": "34f50d01fdbf1f78cbc0101d380ede1064428bbe6822f406821dd54bebfcfbac",
-    "canonical_core": "c5320e571a33500079a14a281b01b4127ef7ff251a8b6d1a8cfa101d44521f0e",
-    "base_canonical": "ec599dbdc93695f1c8d8bfa46c0e9920055218f484492b023074709a76d297c4",
-    "migration_data": "916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399",
-    "candidate_commitment": "c53ecbd8216071f0cfde0fabffbc9351e6b5beda09b49c9f0a38459d46ab0702",
-    "candidate_commitment_2": "2b8a867796c4cac7e22fecfadc255d677760a225492529110b819bc1fab27f23",
-    "normal_context": "441dee77fdcd856bfb41504fdcbcbd97de481a881e53017a5983d1210f6d22a8",
-    "winning_data": "d28b2d74341e9c5d90835e5051b2fc8189e1814f178d9580f4e9f66a88cfa631",
+    "block_struct_hash": "51e1c13fa12530ad6a43ce5a9cb5d66d1656b4416c6ddb9734fd3a4acb5abce3",
+    "eip712_digest": "cb59aa5955c50b9b02a12d18f95ad60f9df29928fc734d34dff63f45b933316e",
+    "canonical_core": "20525f9b18a79b1db160ee06cd37198770e623b95aec0a597c6c76f5561c6b3f",
+    "base_canonical": "19a015f3c2d65fe1dee2903d7a9afb82aa658e23d98265baad5ab278c8e35569",
+    "migration_data": "a3588b50c1f4e768cb2c35a622452527ab3cb953520ef018af3ff2d2362b86a5",
+    "candidate_commitment": "6c9ea7e1f8982c06c0586605902111d1e5ff4892643d92c62b23aff2017c7c35",
+    "candidate_commitment_2": "154a2bf68205ffeaf92419b663352a12c033204f5a17a1f8793832dd572b4f1e",
+    "normal_context": "bdec611a765250c0e964b4e3c95c648fec0c126a0f2c8f8fc3c13f691ede455b",
+    "winning_data": "9b7418cffd7b88f9f3d3799fb287cd47dee2e34edb1d41590dbdd12f0859a34d",
     "forced_descriptors": "193cc93014b8472b5f951472c3b8a9d60ebfd294ff18e43c21d60af6e0853de3",
     "schedule_list": "7ab789362dd8b411e1bc42af1270bcb14d2a7571fc28ab614c6afcc33b7de8e7",
     "session_list": "9cbf4ca60afc8aee2ccaa68a45bb6568a04812cf282aa703f194e017092fb264",
-    "execution_outputs": "64649dc4a113bf0936e248a1ae89031e76747d3a0c7b23a404ef71cd2196f5f5",
-    "statement_hash": "5bd1192b005ebce2f290d11924d3e9548a18e12e72aa4626d8397a85ad36f8f7",
+    "execution_outputs": "585d5b4b9f931a3d89641ea4467eabaf5f87bc765a3ced91f9418c4db2b8f83a",
+    "statement_hash": "17c45efbdb95e3511eb9e96d054fb3d1a4b4dec3b7aee5c499741b44863de0b6",
     "registry_root": "0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd",
     "admission_root": "3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b",
     "admission_reuse_root": "a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca",
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "d191acda5807510b44e213fda10eaa0b911847d36da1c9c336c339595f8b6e03",
-    "bridge_result": "1294b74f39a7694c9cb278738c924cd4b070e31e832c5903441b0beb491455ba",
-    "bridge_credit_id": "8d4ffd9e013b99fdf0f4a7c7bf5b03ee65c24726c6d745e433219f8f4664a254",
-    "bridge_escrow_id": "5f6be02b6c2adbc51415e404e485ce953f2f9a0e7bd76a369f1a3e80e8b8cfca",
-    "inbox_credit_slot": "f07356f77d2096da92d155bb3ef7d39972688130613da4038cdb403997677a1a",
-    "bridge_failed_signal": "424c316165269bda83f72f6810634124967f32359f77754b885e3157ac536b30",
-    "bridge_done_signal": "5ed48516740f437091f50f158f6aa7bb2d54a8d6325da4a1a2941972aefab8f9",
-    "bridge_terminal_slot": "034a96b047abfe3fc467fb834df5338d8767ddd3868138c4ab95d27c536cb5b8",
+    "bridge_leaf": "76f3734736ada9d27506b799aec3ab548e18a7a6e7ec0d2d1476a4bda228d188",
+    "bridge_result": "3716bbf7e3c2dd592f22451c41d64407341560282c3f40d0e20e8a3c82a7e2d6",
+    "bridge_credit_id": "8090aea1a82caa2a6d6bbf37ab465f65baa5830885fe567e5793535ff0812552",
+    "bridge_escrow_id": "0326050d230e0f94596ba258c32106677acfc766bc3b42d29b90571238dd6a19",
+    "inbox_credit_slot": "065914265b8f183cf218df07e7452ee23585a8178ee7f22412e60ef7d2194a64",
+    "terminal_done_leaf": "96cbf4e57bbf9c8eb2903744d39ed9628c9884d703f85d1124aea5a3d5a98098",
+    "terminal_failed_leaf": "5166704c6342bbc2b35952f9ead59ae93c7b6dc0595ff2906d9eb28f9860e5de",
+    "terminal_root_2": "1147f52c8931156dddef7b4a9b387f949563525a96a2c02d9b833c710a0574b6",
+    "empty_terminal_root": "0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2",
     "source_domain_id": "c95f5c31ea09c4bf997614e9bc345b0826eeb4daf56d6ae27716542117606ced",
-    "destination_domain_id": "e2c5e0a04fddef68ac5bef4ceb8e6ef7aae49a06310ba0d381581e5d24ee9f1a",
+    "destination_domain_id": "0748c195cb659279624bd51e9726cb484525894c945060d3677a88df96312700",
     "bridge_execution_hash": "8da04c9a8990e7ec330e832792299c52ceabc120f16ed9cf60664d53e047dd21",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
@@ -1027,7 +1093,7 @@ EXPECTED = {
     "empty_manifest_root": "0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6",
     "empty_session_list": "8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279",
     "dispositions": "ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93",
-    "recovery_id": "84ea35ee4c31975fc4499964ea6d1f72abc6291666c89dc2ef1a61447644103b",
+    "recovery_id": "b710e3a0629fa9ba438e5661ece58060cf547a0444d8b59b266fd500a4020c3a",
     "body_root": "0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9",
     "chunk_root_0": "e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e",
 }
@@ -1081,7 +1147,8 @@ if __name__ == "__main__":
         execution_hash, bytes.fromhex("26" * 32))
     destination_domain = destination_domain_id(
         16_788, bytes.fromhex("35" * 32), 0xAD00, 0xAD01,
-        0xD100, 0xD101, 0x5100, 0xB200, bytes.fromhex("37" * 32),
+        0xD100, 0xD101, 0x5100, 0x5101, 0x5102, 0xB200,
+        bytes.fromhex("37" * 32), bytes.fromhex("38" * 32),
         bytes.fromhex("36" * 32))
     bridge_msg_hash = bytes.fromhex("21" * 32)
     bridge_credit = bridge_credit_id(
@@ -1203,6 +1270,22 @@ if __name__ == "__main__":
         replacement_result)
     assert len(pins) == 4
 
+    done_leaf = bytes.fromhex(actual["terminal_done_leaf"])
+    failed_leaf = bytes.fromhex(actual["terminal_failed_leaf"])
+    terminal_vector = TerminalVector((done_leaf, failed_leaf))
+    done_proof = terminal_vector.proof(0)
+    assert terminal_vector.root.hex() == actual["terminal_root_2"]
+    assert verify_terminal_proof(
+        2, 0, done_leaf, done_proof, terminal_vector.root)
+    assert not verify_terminal_proof(
+        2, 0, failed_leaf, done_proof, terminal_vector.root)
+    assert not verify_terminal_proof(
+        2, 1, done_leaf, done_proof, terminal_vector.root)
+    assert not verify_terminal_proof(
+        3, 0, done_leaf, done_proof, terminal_vector.root)
+    assert not verify_terminal_proof(
+        2, 0, done_leaf, done_proof[:-1], terminal_vector.root)
+
     descriptor = FrozenBridgeDescriptor(
         0xB123, 0xD001, 0xD003, bytes.fromhex("32" * 32),
         bytes.fromhex("33" * 32), bytes.fromhex("34" * 32))
@@ -1225,8 +1308,9 @@ if __name__ == "__main__":
     published = Path(__file__).with_name("tex").joinpath("main.tex").read_text()
     for key in ("bridge_leaf", "bridge_result", "bridge_credit_id",
                 "bridge_escrow_id",
-                "inbox_credit_slot", "bridge_failed_signal", "bridge_done_signal",
-                "bridge_terminal_slot",
+                "inbox_credit_slot", "terminal_done_leaf",
+                "terminal_failed_leaf", "terminal_root_2",
+                "empty_terminal_root",
                 "source_domain_id", "destination_domain_id",
                 "bridge_execution_hash"):
         assert actual[key] in published
@@ -1237,6 +1321,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 87 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 92 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

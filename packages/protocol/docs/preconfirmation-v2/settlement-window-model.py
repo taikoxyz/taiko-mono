@@ -223,6 +223,8 @@ class Candidate:
     manifest_exact: bool = True
     beneficiary: str = "prover"
     recovery_fields_zero: bool = True
+    end_terminal_root: str = "terminal:empty"
+    end_terminal_count: int = 0
 
     @property
     def tip(self) -> Block:
@@ -247,6 +249,8 @@ class CanonicalCore:
     winning_data_commitment: str = "empty"
     next_base_fee: int = 100
     next_excess_blob_gas: int = 0
+    terminal_root: str = "terminal:empty"
+    terminal_count: int = 0
 
 
 @dataclass
@@ -260,6 +264,7 @@ class Canonical:
         return (f"canonical:{c.l2_block_number}:{c.tip_hash}:{c.tip_slot}:{c.state_root}:"
                 f"{c.message_cursor}:{c.winning_data_commitment}:"
                 f"{c.next_base_fee}:{c.next_excess_blob_gas}:"
+                f"{c.terminal_root}:{c.terminal_count}:"
                 f"{self.canonicalized_at_block}")
 
 
@@ -875,7 +880,9 @@ class Protocol:
                           candidate.end_state_root, candidate.tip.message_end,
                           candidate.winning_data_commitment,
                           candidate.next_base_fee,
-                          candidate.next_excess_blob_gas),
+                          candidate.next_excess_blob_gas,
+                          candidate.end_terminal_root,
+                          candidate.end_terminal_count),
             clock.block_number,
         )
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
@@ -961,30 +968,64 @@ class FrozenBridgeFacade:
         return False
 
 
+@dataclass(frozen=True)
+class CanonicalTerminalCommitment:
+    l2_block_number: int
+    block_hash: str
+    terminal_root: str
+    terminal_count: int
+
+
 @dataclass
 class TerminalCheckpointStore:
-    authorized_adapter: str
+    """Permissionless copier of a proof-bound canonical terminal commitment."""
+
     capacity: int = 256
-    latest_block: int = 0
+    publication_count: int = 0
+    latest_l2_block: int = 0
+    latest_terminal_count: int = 0
+    latest_terminal_root: str = ""
     last_l1_block: int = 0
-    checkpoints: dict[int, tuple[int, str, str]] = field(default_factory=dict)
+    checkpoints: dict[int, tuple[int, CanonicalTerminalCommitment]] = field(
+        default_factory=dict)
 
-    def publish(self, block_number: int, block_hash: str, state_root: str,
-                *, caller: str, l1_block: int) -> bool:
-        if (caller != self.authorized_adapter
-                or block_number <= self.latest_block
+    def publish(self, canonical: CanonicalTerminalCommitment, *, l1_block: int,
+                canonical_reader_exact: bool = True) -> int | None:
+        if (not canonical_reader_exact
+                or canonical.l2_block_number <= self.latest_l2_block
                 or l1_block <= self.last_l1_block
-                or not block_hash or not state_root):
-            return False
-        self.checkpoints[block_number % self.capacity] = (
-            block_number, block_hash, state_root)
-        self.latest_block = block_number
+                or not canonical.block_hash or not canonical.terminal_root
+                or canonical.terminal_count < self.latest_terminal_count
+                or (canonical.terminal_count == self.latest_terminal_count
+                    and self.latest_terminal_root
+                    and canonical.terminal_root != self.latest_terminal_root)):
+            return None
+        sequence = self.publication_count
+        self.checkpoints[sequence % self.capacity] = (sequence, canonical)
+        self.publication_count += 1
+        self.latest_l2_block = canonical.l2_block_number
+        self.latest_terminal_count = canonical.terminal_count
+        self.latest_terminal_root = canonical.terminal_root
         self.last_l1_block = l1_block
-        return True
+        return sequence
 
-    def contains(self, block_number: int) -> bool:
-        row = self.checkpoints.get(block_number % self.capacity)
-        return row is not None and row[0] == block_number
+    def contains(self, sequence: int, canonical: CanonicalTerminalCommitment) -> bool:
+        row = self.checkpoints.get(sequence % self.capacity)
+        return row == (sequence, canonical)
+
+
+@dataclass(frozen=True)
+class TerminalProof:
+    publication_sequence: int
+    canonical: CanonicalTerminalCommitment
+    leaf_index: int
+    destination_bridge: str
+    destination_domain_id: str
+    credit_id: str
+    terminal: str
+    leaf_hash: str
+    proof_root: str
+    merkle_proof_valid: bool = True
 
 
 @dataclass(frozen=True)
@@ -993,17 +1034,37 @@ class TerminalSignalVerifier:
     destination_bridge: str
     destination_domain_id: str
 
-    def verify(self, *, proof_valid: bool, checkpoint_block: int,
-               destination_bridge: str,
-               destination_domain_id: str) -> bool:
-        return (proof_valid and self.checkpoint_store.contains(checkpoint_block)
-                and destination_bridge == self.destination_bridge
-                and destination_domain_id == self.destination_domain_id)
+    @staticmethod
+    def terminal_leaf(index: int, destination_domain_id: str,
+                      destination_bridge: str, credit_id: str,
+                      terminal: str) -> str:
+        return (f"terminal-leaf:{index}:{destination_domain_id}:"
+                f"{destination_bridge}:{credit_id}:{terminal}")
+
+    def verify(self, *, proof: TerminalProof, credit_id: str,
+               terminal: str) -> bool:
+        expected_leaf = self.terminal_leaf(
+            proof.leaf_index, self.destination_domain_id,
+            self.destination_bridge, credit_id, terminal)
+        return (terminal in {"DONE", "FAILED"}
+                and proof.merkle_proof_valid
+                and self.checkpoint_store.contains(
+                    proof.publication_sequence, proof.canonical)
+                and proof.proof_root == proof.canonical.terminal_root
+                and 0 <= proof.leaf_index < proof.canonical.terminal_count
+                and proof.destination_bridge == self.destination_bridge
+                and proof.destination_domain_id == self.destination_domain_id
+                and proof.credit_id == credit_id
+                and proof.terminal == terminal
+                and proof.leaf_hash == expected_leaf)
 
 
-def source_send_mode(*, supports_legacy_recall: bool,
-                     supports_refund_v2: bool) -> str:
-    return "V1" if supports_legacy_recall and not supports_refund_v2 else "V2"
+def source_send_mode(selector: str) -> str:
+    if selector == "sendMessage(Message)":
+        return "V1"
+    if selector == "sendMessageV2(Message)":
+        return "V2"
+    return "REJECTED"
 
 
 @dataclass
@@ -1085,29 +1146,23 @@ class SourceBridgeLedger:
         return True
 
     def finalize_done(self, credit_id: str, *, verifier: TerminalSignalVerifier,
-                      proof_valid: bool, checkpoint_block: int,
-                      destination_domain_id: str = "domain:D1") -> bool:
+                      proof: TerminalProof) -> bool:
         credit = self.credits.get(credit_id)
         if (credit is None or credit.status != "QUEUED"
                 or not verifier.verify(
-                    proof_valid=proof_valid, checkpoint_block=checkpoint_block,
-                    destination_bridge="bridge:A",
-                    destination_domain_id=destination_domain_id)):
+                    proof=proof, credit_id=credit_id, terminal="DONE")):
             return False
         credit.status = "DELIVERED"
         self.total_live_liability -= credit.value
         return True
 
     def recall_failed(self, credit_id: str, *, verifier: TerminalSignalVerifier,
-                      proof_valid: bool, checkpoint_block: int,
-                      destination_domain_id: str = "domain:D1") -> bool:
+                      proof: TerminalProof) -> bool:
         credit = self.credits.get(credit_id)
         authorization = self.authorizations.get(credit_id)
         if (credit is None or credit.status != "QUEUED"
                 or not verifier.verify(
-                    proof_valid=proof_valid, checkpoint_block=checkpoint_block,
-                    destination_bridge="bridge:A",
-                    destination_domain_id=destination_domain_id)):
+                    proof=proof, credit_id=credit_id, terminal="FAILED")):
             return False
         credit.status = "RECALLED"
         assert authorization is not None
@@ -1268,32 +1323,102 @@ class InboxPin:
 
 
 @dataclass
-class DestinationBridgeLedger:
-    address: str = "bridge:A"
-    local_domain_id: str = "domain:D1"
-    paused: bool = False
+class InboxCreditStoreV2:
+    authorized_inbox_apply: str
+    destination_bridge: str
+    destination_domain_id: str
     pins: dict[str, InboxPin] = field(default_factory=dict)
-    status: dict[str, str] = field(default_factory=dict)
-    terminal_signals: dict[str, str] = field(default_factory=dict)
-
-    @staticmethod
-    def failure_signal(destination_domain_id: str, credit_id: str) -> str:
-        return f"failed:{destination_domain_id}:{credit_id}"
-
-    @staticmethod
-    def done_signal(destination_domain_id: str, credit_id: str) -> str:
-        return f"done:{destination_domain_id}:{credit_id}"
 
     def pin(self, credit_id: str, result_hash: str, *, now: int,
-            caller_is_inbox_apply: bool) -> bool:
-        if not caller_is_inbox_apply or not credit_id or not result_hash:
+            caller: str) -> bool:
+        if (caller != self.authorized_inbox_apply or not credit_id
+                or not result_hash):
             return False
         expected = InboxPin(result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
         existing = self.pins.get(credit_id)
         if existing is not None:
             return existing == expected
         self.pins[credit_id] = expected
-        self.status[credit_id] = "NEW"
+        return True
+
+    def read(self, credit_id: str, *, caller: str,
+             destination_domain_id: str) -> InboxPin | None:
+        if (caller != self.destination_bridge
+                or destination_domain_id != self.destination_domain_id):
+            return None
+        return self.pins.get(credit_id)
+
+
+@dataclass
+class TerminalAccumulatorV2:
+    """Protocol-lifetime append-only terminal vector with immutable old writers."""
+
+    domains: dict[str, str]
+    leaves: list[str] = field(default_factory=list)
+
+    @property
+    def count(self) -> int:
+        return len(self.leaves)
+
+    @property
+    def root(self) -> str:
+        return "terminal-root:" + "|".join(self.leaves)
+
+    def register_domain(self, domain_id: str, bridge: str) -> bool:
+        existing = self.domains.get(domain_id)
+        if existing is not None:
+            return existing == bridge
+        if not domain_id or not bridge or bridge in self.domains.values():
+            return False
+        self.domains[domain_id] = bridge
+        return True
+
+    def append(self, *, caller: str, credit_id: str, terminal: str) -> int | None:
+        matches = [domain for domain, bridge in self.domains.items()
+                   if bridge == caller]
+        if len(matches) != 1 or not credit_id or terminal not in {"DONE", "FAILED"}:
+            return None
+        index = self.count
+        self.leaves.append(TerminalSignalVerifier.terminal_leaf(
+            index, matches[0], caller, credit_id, terminal))
+        return index
+
+
+@dataclass
+class DestinationBridgeLedger:
+    address: str = "bridge:A"
+    local_domain_id: str = "domain:D1"
+    paused: bool = False
+    inbox_store: InboxCreditStoreV2 = field(default_factory=lambda:
+        InboxCreditStoreV2("inbox-apply", "bridge:A", "domain:D1"))
+    terminal_accumulator: TerminalAccumulatorV2 = field(default_factory=lambda:
+        TerminalAccumulatorV2({"domain:D1": "bridge:A"}))
+    status: dict[str, str] = field(default_factory=dict)
+    terminal_index: dict[str, int] = field(default_factory=dict)
+
+    def pin(self, credit_id: str, result_hash: str, *, now: int,
+            caller_is_inbox_apply: bool) -> bool:
+        accepted = self.inbox_store.pin(
+            credit_id, result_hash, now=now,
+            caller="inbox-apply" if caller_is_inbox_apply else "attacker")
+        if accepted and credit_id not in self.status:
+            self.status[credit_id] = "NEW"
+        return accepted
+
+    def _pin(self, credit_id: str, destination_domain_id: str) -> InboxPin | None:
+        return self.inbox_store.read(
+            credit_id, caller=self.address,
+            destination_domain_id=destination_domain_id)
+
+    def _terminalize(self, credit_id: str, terminal: str) -> bool:
+        if credit_id in self.terminal_index:
+            return False
+        index = self.terminal_accumulator.append(
+            caller=self.address, credit_id=credit_id, terminal=terminal)
+        if index is None:
+            return False
+        self.status[credit_id] = terminal
+        self.terminal_index[credit_id] = index
         return True
 
     def process(self, credit_id: str, *, now: int,
@@ -1301,7 +1426,7 @@ class DestinationBridgeLedger:
                 callback_ok: bool,
                 destination_domain_id: str = "domain:D1",
                 context_dest_bridge: str = "bridge:A") -> str:
-        pin = self.pins.get(credit_id)
+        pin = self._pin(credit_id, destination_domain_id)
         current = self.status.get(credit_id)
         if (self.paused or pin is None or current in {"DONE", "FAILED"}
                 or now > pin.process_by or not result_hash_matches
@@ -1311,10 +1436,7 @@ class DestinationBridgeLedger:
         if not message_available or not callback_ok:
             self.status[credit_id] = "RETRIABLE"
             return "RETRIABLE"
-        self.status[credit_id] = "DONE"
-        self.terminal_signals[credit_id] = self.done_signal(
-            destination_domain_id, credit_id)
-        return "DONE"
+        return "DONE" if self._terminalize(credit_id, "DONE") else "REJECTED"
 
     def retry(self, credit_id: str, *, now: int, caller_is_dest_owner: bool,
               is_last_attempt: bool, message_available: bool,
@@ -1337,25 +1459,19 @@ class DestinationBridgeLedger:
                 or context_dest_bridge != self.address
                 or destination_domain_id != self.local_domain_id):
             return False
-        self.status[credit_id] = "FAILED"
-        self.terminal_signals[credit_id] = self.failure_signal(
-            destination_domain_id, credit_id)
-        return True
+        return self._terminalize(credit_id, "FAILED")
 
     def expire(self, credit_id: str, *, now: int,
                destination_domain_id: str = "domain:D1",
                context_dest_bridge: str = "bridge:A") -> bool:
-        pin = self.pins.get(credit_id)
+        pin = self._pin(credit_id, destination_domain_id)
         current = self.status.get(credit_id)
         if (pin is None or current not in {"NEW", "RETRIABLE"}
                 or context_dest_bridge != self.address
                 or destination_domain_id != self.local_domain_id
                 or now <= pin.process_by):
             return False
-        self.status[credit_id] = "FAILED"
-        self.terminal_signals[credit_id] = self.failure_signal(
-            destination_domain_id, credit_id)
-        return True
+        return self._terminalize(credit_id, "FAILED")
 
 
 PASS: list[str] = []
@@ -1441,6 +1557,8 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
         recovery_revision=r.revision if r else 0,
         recovery_id=r.recovery_id if r else "",
         recovery_fields_zero=recovery_fields_zero,
+        end_terminal_root=p.core.terminal_root,
+        end_terminal_count=p.core.terminal_count,
     )
 
 
@@ -1989,13 +2107,10 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50x frozen facade has no delegated or upgradeable executor",
           frozen_facade.delegate_target() is None
           and not frozen_facade.upgrade("runtime:B"))
-    check("P50ao unchanged send ABI preserves legacy callback applications",
-          source_send_mode(
-              supports_legacy_recall=True, supports_refund_v2=False) == "V1"
-          and source_send_mode(
-              supports_legacy_recall=True, supports_refund_v2=True) == "V2"
-          and source_send_mode(
-              supports_legacy_recall=False, supports_refund_v2=False) == "V2")
+    check("P50ao V2 is additive and the legacy send selector stays exact V1",
+          source_send_mode("sendMessage(Message)") == "V1"
+          and source_send_mode("sendMessageV2(Message)") == "V2"
+          and source_send_mode("unknown") == "REJECTED")
 
     capacity_protocol = protocol(tip_slot=100)
     capacity_protocol.queue_capacity = 1
@@ -2165,24 +2280,31 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not restorable_token.restore(
               "other", caller="attacker", capsule_matches=True))
 
-    destination = DestinationBridgeLedger()
+    inbox_store = InboxCreditStoreV2(
+        "inbox-apply", "bridge:A", "domain:D1")
+    accumulator = TerminalAccumulatorV2({"domain:D1": "bridge:A"})
+    destination = DestinationBridgeLedger(
+        inbox_store=inbox_store, terminal_accumulator=accumulator)
     pin_now = prepared_clock.timestamp
     assert destination.pin(
         credit_a, "result:A", now=pin_now, caller_is_inbox_apply=True)
-    process_by = destination.pins[credit_a].process_by
-    check("P50ab inbox pin and deadline live in the frozen endpoint",
-          destination.pins[credit_a]
-              == InboxPin("result:A", pin_now + BRIDGE_PROCESS_TTL_SECONDS))
+    process_by = inbox_store.pins[credit_a].process_by
+    check("P50ab inbox pin and deadline live in the immutable V2 store",
+          inbox_store.pins[credit_a]
+              == InboxPin("result:A", pin_now + BRIDGE_PROCESS_TTL_SECONDS)
+          and inbox_store.read(
+              credit_a, caller="bridge:B",
+              destination_domain_id="domain:D1") is None)
     clone = DestinationBridgeLedger(
         address="bridge:B", local_domain_id="domain:D2",
-        pins=destination.pins)
+        inbox_store=inbox_store, terminal_accumulator=accumulator)
     check("P50ar destination context cannot replay across funded Bridges",
           clone.process(
               credit_a, now=pin_now + 1, message_available=True,
               result_hash_matches=True, callback_ok=True,
               destination_domain_id="domain:D1",
               context_dest_bridge="bridge:A") == "REJECTED"
-          and credit_a not in clone.terminal_signals)
+          and credit_a not in clone.terminal_index)
     assert destination.process(
         credit_a, now=pin_now + 1, message_available=False,
         result_hash_matches=True, callback_ok=True) == "RETRIABLE"
@@ -2206,11 +2328,21 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not destination.pin(
               credit_b, "conflict", now=pin_now,
               caller_is_inbox_apply=True))
-    check("P50ae failure signals bind the permanent destination domain",
-          destination.failure_signal("domain:D1", credit_a)
-              != destination.failure_signal("domain:D2", credit_a)
-          and destination.done_signal("domain:D1", credit_b)
-              != destination.failure_signal("domain:D1", credit_b))
+    check("P50ae terminal leaves bind index, domain, Bridge, credit and result",
+          TerminalSignalVerifier.terminal_leaf(
+              0, "domain:D1", "bridge:A", credit_a, "FAILED")
+              != TerminalSignalVerifier.terminal_leaf(
+                  0, "domain:D2", "bridge:A", credit_a, "FAILED")
+          and TerminalSignalVerifier.terminal_leaf(
+              0, "domain:D1", "bridge:A", credit_b, "DONE")
+              != TerminalSignalVerifier.terminal_leaf(
+                  0, "domain:D1", "bridge:A", credit_b, "FAILED"))
+    check("P50ax new terminal domains cannot redirect an old domain writer",
+          accumulator.register_domain("domain:D2", "bridge:B")
+          and accumulator.register_domain("domain:D1", "bridge:A")
+          and not accumulator.register_domain("domain:D1", "bridge:B")
+          and not accumulator.register_domain("domain:D3", "bridge:A")
+          and accumulator.domains["domain:D1"] == "bridge:A")
     manual_credit = "credit:manual-failure"
     assert destination.pin(
         manual_credit, "result:C", now=pin_now, caller_is_inbox_apply=True)
@@ -2235,44 +2367,65 @@ def test_data_gc_reorg_and_geometry() -> None:
               now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1))
     destination.paused = False
     source.paused = True
-    checkpoint_store = TerminalCheckpointStore("checkpoint-adapter")
-    assert not checkpoint_store.publish(
-        500, "block:500", "state:500", caller="attacker", l1_block=50)
-    assert checkpoint_store.publish(
-        500, "block:500", "state:500", caller="checkpoint-adapter", l1_block=50)
-    check("P50at terminal checkpoint store is writer-bound and fixed-ring",
-          checkpoint_store.contains(500)
-          and not checkpoint_store.publish(
-              501, "other", "other", caller="checkpoint-adapter", l1_block=50)
+    checkpoint_store = TerminalCheckpointStore()
+    canonical_500 = CanonicalTerminalCommitment(
+        500, "block:500", accumulator.root, accumulator.count)
+    sequence_0 = checkpoint_store.publish(canonical_500, l1_block=50)
+    assert sequence_0 == 0
+    check("P50at terminal checkpoints are retained by publication sequence",
+          checkpoint_store.contains(sequence_0, canonical_500)
+          and checkpoint_store.publish(
+              CanonicalTerminalCommitment(
+                  501, "other", accumulator.root, accumulator.count),
+              l1_block=50) is None
           and len(checkpoint_store.checkpoints) == 1)
+    canonical_756 = CanonicalTerminalCommitment(
+        756, "block:756", accumulator.root, accumulator.count)
+    sequence_1 = checkpoint_store.publish(canonical_756, l1_block=51)
+    check("P50av sparse L2-height jumps cannot collide in the checkpoint ring",
+          sequence_1 == 1
+          and checkpoint_store.contains(sequence_0, canonical_500)
+          and checkpoint_store.contains(sequence_1, canonical_756))
     terminal_verifier = TerminalSignalVerifier(
         checkpoint_store, "bridge:A", "domain:D1")
+    failed_index = destination.terminal_index[credit_a]
+    done_index = destination.terminal_index[credit_b]
+    failed_proof = TerminalProof(
+        sequence_1, canonical_756, failed_index, "bridge:A", "domain:D1",
+        credit_a, "FAILED", accumulator.leaves[failed_index], accumulator.root)
+    done_proof = TerminalProof(
+        sequence_1, canonical_756, done_index, "bridge:A", "domain:D1",
+        credit_b, "DONE", accumulator.leaves[done_index], accumulator.root)
     legacy_signal_service_paused = True
     check("P50as V2 terminal verifier is independent of legacy SignalService pause",
           legacy_signal_service_paused
           and terminal_verifier.verify(
-              proof_valid=True, checkpoint_block=500,
-              destination_bridge="bridge:A",
-              destination_domain_id="domain:D1")
+              proof=failed_proof, credit_id=credit_a, terminal="FAILED")
           and not terminal_verifier.verify(
-              proof_valid=True, checkpoint_block=500,
-              destination_bridge="bridge:B",
-              destination_domain_id="domain:D1"))
+              proof=replace(failed_proof, destination_bridge="bridge:B"),
+              credit_id=credit_a, terminal="FAILED"))
+    check("P50aw terminal proof substitutions fail closed",
+          not terminal_verifier.verify(
+              proof=failed_proof, credit_id=credit_b, terminal="FAILED")
+          and not terminal_verifier.verify(
+              proof=failed_proof, credit_id=credit_a, terminal="DONE")
+          and not terminal_verifier.verify(
+              proof=replace(failed_proof, proof_root="forged"),
+              credit_id=credit_a, terminal="FAILED")
+          and not terminal_verifier.verify(
+              proof=replace(failed_proof, publication_sequence=99),
+              credit_id=credit_a, terminal="FAILED"))
     check("P50aj permanent terminal proofs release exactly one source liability",
           source.recall_failed(
-              credit_a, verifier=terminal_verifier,
-              proof_valid=True, checkpoint_block=500)
+              credit_a, verifier=terminal_verifier, proof=failed_proof)
           and source.credits[credit_a].status == "RECALLED"
           and source.finalize_done(
-              credit_b, verifier=terminal_verifier,
-              proof_valid=True, checkpoint_block=500)
+              credit_b, verifier=terminal_verifier, proof=done_proof)
           and source.credits[credit_b].status == "DELIVERED"
           and not source.finalize_done(
-              credit_a, verifier=terminal_verifier,
-              proof_valid=True, checkpoint_block=500)
+              credit_a, verifier=terminal_verifier, proof=done_proof)
           and not source.recall_failed(
-              credit_b, verifier=terminal_verifier,
-              proof_valid=True, checkpoint_block=500))
+              credit_b, verifier=terminal_verifier, proof=failed_proof))
 
     reorg_protocol = protocol(tip_slot=100)
     reorg_adapter = BridgeAdapter()

@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.15}
+\large\mdseries Audited Design Candidate --- v2.16}
 \author{}
 \date{August 2026}
 \maketitle
@@ -154,6 +154,13 @@ profile-authenticated, append-only Bridge registry, the protocol claims:
   Official token vaults participate only after installing the bounded durable
   refund-capsule path below; a legacy callback-only contract cannot originate
   a post-cutover V2 message and remains on the V1 compatibility path.
+\item The immutable V2 custody kernel is not self-healing.  A defect in its
+compiled Bridge, vault, inbox store, accumulator, checkpoint store or fixed
+Merkle verifier cannot be patched for an already-live credit without introducing
+an authority able to forge delivery/failure and take reserved value.  This
+design chooses fail-closed immutability; production status therefore requires
+the compiled-code, formal-invariant and differential-test gates in
+\S\ref{sec:gates}, not merely this document.
 \item A reserve and valid claim cannot force an externally governed ERC20,
   ERC721 or ERC1155 contract to transfer while that token is paused, blacklists
   the recipient or changes semantics.  The protocol keeps the capsule and
@@ -192,6 +199,12 @@ registry, immutable terminal verifier and namespace.  The adapter direct-reads i
 credit record on the same L1.  Registry governance is an external safety
 dependency; a current resolver lookup never substitutes for the emission
 record.
+\item[Protocol governance.] Delayed governance selects each validity verifier,
+execution profile and Settlement implementation.  It is already a safety root:
+an authorized malicious verifier can finalize an arbitrary state transition.
+V2 recovery adds no stronger writer.  Its L1 terminal store copies only the
+proof-bound canonical accumulator commitment exposed by the active Settlement
+through the immutable router; it has no governor or caller-supplied-root setter.
 \item[Bridge message archive.] Any untrusted, replaceable source of the full
 Message bytes emitted on L1.  Correctness follows from \code{msgHash}; successful
 destination execution needs one copy until processing.  Loss before
@@ -235,7 +248,8 @@ The L1 contract stores a proved core and local L1 metadata:
 
 \begin{verbatim}
 CanonicalCore = (l2BlockNumber, tipHash, tipSlot, stateRoot, messageCursor,
-                 winningDataCommitment, nextBaseFee, nextExcessBlobGas)
+                 winningDataCommitment, nextBaseFee, nextExcessBlobGas,
+                 terminalRoot, terminalCount)
 Canonical = (CanonicalCore core, uint64 canonicalizedAtBlock)
 \end{verbatim}
 
@@ -254,7 +268,10 @@ next consecutive EVM block number.  While the deployed \code{ICheckpointStore}
 uses \code{uint48}, launch and every transition additionally require
 \code{endL2BlockNumber <= UINT48_MAX}; changing that interface and bound is a
 protocol-version upgrade.  The canonical event always emits
-\code{(l2BlockNumber,tipHash,stateRoot)} for bridge checkpointing.
+\code{(l2BlockNumber,tipHash,stateRoot,terminalRoot,terminalCount)}.
+The proof constrains the latter pair to the exact post-state slots of the
+protocol-lifetime \code{TerminalAccumulatorV2}; Settlement never accepts them as
+unverified auxiliary calldata.
 \code{nextBaseFee} and \code{nextExcessBlobGas} are the exact fork-rule outputs
 needed to construct the next header without retrieving a prunable historical
 parent body/header.  The proof derives them from the last executed header;
@@ -620,14 +637,15 @@ are independent of the per-block caps.
 The L1 verifier accepts \code{verify(proof,uint256[2] digestLimbs)}.  Settlement
 constructs the following Solidity struct in exactly this order and computes
 \code{statementHash} as legacy Keccak of the ASCII domain
-\code{"slot-chain-statement-v1"} followed by \code{abi.encode(S)}:
+\code{"slot-chain-statement-v2"} followed by \code{abi.encode(S)}:
 \begin{verbatim}
 S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
      bytes32 executionProfileHash, address verifyingContract,
      uint8 tier, bytes32 baseCanonicalHash,
      bytes32 candidateCommitment, uint64 blockCount,
      uint64 firstSlot, bytes32 tipHash, uint64 tipSlot,
-     uint64 endL2BlockNumber, bytes32 endStateRoot, uint64 endCursor,
+     uint64 endL2BlockNumber, bytes32 endStateRoot,
+     bytes32 endTerminalRoot, uint64 endTerminalCount, uint64 endCursor,
      bytes32 winningDataCommitment, uint64 nextDueAt,
      uint256 nextBaseFee, uint64 nextExcessBlobGas,
      uint64 anchorNumber, bytes32 anchorHash,
@@ -654,9 +672,13 @@ queue storage, recomputes \code{winningDataCommitment} from the candidate and
 sealed-session commitments, requires
 \code{endL2BlockNumber=stored.l2BlockNumber+blockCount}, and constructs the new
 core from the explicit
-\code{(endL2BlockNumber,tipHash,tipSlot,endStateRoot,endCursor)} fields plus that
+\code{(endL2BlockNumber,tipHash,tipSlot,endStateRoot,endTerminalRoot,
+endTerminalCount,endCursor)} fields plus that
 recomputed value and proved
 \code{(nextBaseFee,nextExcessBlobGas)}.
+It recomputes \code{executionOutputsCommitment} including the same explicit
+terminal pair; the circuit proves that pair equals the accumulator's exact
+post-state slots, so neither calldata nor Settlement can substitute a root.
 It rejects zero/ill-typed fields, cursor regression, or disagreement with the
 last proved block, then stamps \code{canonicalizedAtBlock=block.number} outside
 the proof.  \code{candidateId=statementHash}.  \code{nextDueAt} is authenticated
@@ -979,12 +1001,14 @@ sourceDomainId = H("slot-chain-source-domain-v4" || u64(srcChainId) ||
   bytes32(sourceGenesisHash) || address20(bridgeCreditRegistry) ||
   address20(terminalSignalVerifier) || address20(srcBridge) ||
   bridgeExecutionHash || bytes32(registryNamespace))
-destinationDomainId = H("slot-chain-destination-domain-v3" ||
+destinationDomainId = H("slot-chain-destination-domain-v4" ||
   u64(destChainId) || bytes32(destinationGenesisHash) ||
-  address20(bridgeInboxAdapter) || address20(settlementCheckpointAdapter) ||
+  address20(bridgeInboxAdapter) || address20(activeSettlementRouter) ||
   address20(terminalCheckpointStore) || address20(terminalSignalVerifier) ||
-  address20(l2SignalService) || address20(destinationBridge) ||
+  address20(inboxApplyV2) || address20(inboxCreditStoreV2) ||
+  address20(terminalAccumulatorV2) || address20(destinationBridge) ||
   bytes32(destinationBridgeExecutionHash) ||
+  bytes32(destinationInfrastructureHash) ||
   bytes32(destinationNamespace))
 creditId = H("slot-chain-bridge-credit-id-v5" || u64(srcChainId) ||
   sourceDomainId || u64(srcEpoch) || address20(srcBridge) ||
@@ -993,13 +1017,16 @@ escrowId = H("slot-chain-bridge-escrow-v1" || creditId)
 \end{verbatim}
 Both domain descriptors are append-only and source-approved; no message sender
 supplies an arbitrary destination trust root.  The destination descriptor binds
-two distinct L1 adapters and the stable reverse-proof path: L2 genesis, the
-\code{BridgeInboxAdapter}, permissionless \code{SettlementCheckpointAdapter},
-immutable \code{TerminalCheckpointStore}, immutable
-\code{TerminalSignalVerifier}, L2 SignalService and frozen destination Bridge
-facade.  The source and destination Bridge addresses and official refund vaults
+the full stable recovery path: L2 genesis, non-proxy \code{BridgeInboxAdapter},
+immutable \code{ActiveSettlementRouter}, \code{TerminalCheckpointStore},
+\code{TerminalSignalVerifier}, \code{InboxApplyV2},
+\code{InboxCreditStoreV2}, protocol-lifetime
+\code{TerminalAccumulatorV2} and frozen destination Bridge facade.
+The destination infrastructure hash is the Appendix-defined commitment to the
+deployed runtimes and constructor immutables of every one of those components;
+address-only binding is insufficient.  The source and destination Bridge addresses and official refund vaults
 are lifetime constants for that domain; neither resolver rotation nor a
-replacement proxy may change their callback, custody, status or signal identity.
+replacement proxy may change their callback, custody, status or terminal identity.
 An incompatible implementation requires a separately named endpoint and new
 domain, while every old endpoint remains callable for its old credits.
 Arbitrary destination invocation and RETRIABLE
@@ -1019,33 +1046,34 @@ retry from the still-durable record on the surviving chain.  Cross-L1 sources
 require a separately reviewed protocol version and are not silently routed
 through this path.
 
-The source Bridge keeps the deployed \code{sendMessage(Message)} selector and
-its \code{(msgHash,Message)} return layout so existing token vaults and apps do
-not break.  After L1 cutover that same selector derives the delayed,
-source-approved destination domain, locks \code{value+fee}, assigns the ordinary
-message ID, and---for V2 mode---atomically asks \code{BridgeCreditRegistry} to create the V2
-record; it emits \code{MessageSentV2} but no legacy \code{msgHash} signal.
+\begin{sloppypar}
+The deployed \code{sendMessage(Message)} selector, return layout, message-ID
+counter, \code{MessageSent} event, source signal and every V1 status/recall
+semantic remain byte-for-byte V1 for every caller after cutover.  It never probes
+ERC-165 and never silently creates a V2 record.  The additive
+\code{sendMessageV2(Message)} selector shares the same checked monotonic message-ID
+counter, derives the delayed source-approved destination domain, locks
+\code{value+fee}, atomically asks \code{BridgeCreditRegistry} to create the V2
+record, and emits only the profile-exact \code{MessageSentV2}; its return is the
+same \code{(msgHash,Message)} shape for tooling convenience, not ABI aliasing.
 The record sets \code{enqueueBy=block.timestamp+MAX_BRIDGE_ENQUEUE_DELAY},
 initially 604,800 seconds, with checked \code{uint64} arithmetic.
-Before cutover it retains V1 behavior.  L2-to-L1 sending remains V1; the V2
-forced-inbox switch is deliberately directional.  After cutover a bounded
-ERC-165 query fixes the source mode in the emitted event: a contract advertising
-legacy \code{IRecallableSender} but not \code{IRefundVaultV2} stays on the exact
-V1 signal/proof/callback path, while an \code{IRefundVaultV2} sender and every
-direct-refund sender use V2.  Reverting or malformed interface responses are
-treated as no interface.  The query runs under the Bridge reentrancy guard with
-a profile-fixed gas cap.  Thus immutable third-party callback applications keep
-working, but only explicitly V2 messages receive forced admission and
-Message-loss recovery.  Official vault entry points require V2 mode and revert
-unless the same-transaction \code{messageContextV2(msgHash)} returns the newly
-created credit before they finalize its capsule.
+Before cutover \code{sendMessageV2} reverts.  L2-to-L1 sending remains V1; the V2
+forced-inbox switch is deliberately directional.  A direct sender or upgraded
+application opts in by choosing the new selector.  Official vaults expose
+separate \code{sendTokenV2} entry points and choose V1/V2 per asset; an old token
+without refund restoration can therefore remain V1 even though the vault also
+supports V2.  A V2 vault entry point reverts unless its same-transaction context
+query returns the newly created credit before capsule finalization.  No
+sender-interface heuristic selects wire semantics.
+\end{sloppypar}
 
 \code{BridgeCreditRegistry} recomputes \code{creditId}, requires its immutable
 frozen-Bridge caller, loads the one final source generation and execution hash,
 and rejects duplicate IDs.  The same transaction records the
 Bridge's per-credit and aggregate liabilities; \code{escrowId} is the committed
 external identifier, not a second storage key.  A contract refund vault first
-creates a \code{DRAFT}; after \code{sendMessage} returns in the same outer
+creates a \code{DRAFT}; after \code{sendMessageV2} returns in the same outer
 transaction it persists a bounded capsule keyed by \code{creditId} and calls
 \code{finalizeRefundCapsuleV2}.  The Bridge checks the caller and capsule hash
 and changes \code{DRAFT->NEW}.  Official vault entry points revert the entire
@@ -1077,8 +1105,8 @@ append and source transition together.  Cancellation reads only this permanent
 source status---never replaceable adapter-local state---and changes DRAFT/NEW
 to CANCELLED after \code{enqueueBy}, crediting value plus fee to the source
 owner's pull balance.  At QUEUED the fee reservation becomes ordinary bridge
-liquidity, while value remains reserved.  The destination emits a permanent
-terminal DONE or FAILED signal.  Permissionless \code{finalizeDoneV2} proves
+liquidity, while value remains reserved.  The destination appends a permanent
+terminal DONE or FAILED accumulator leaf.  Permissionless \code{finalizeDoneV2} proves
 DONE and changes QUEUED to DELIVERED, releasing the value reservation;
 permissionless \code{recallMessageV2} proves FAILED, changes QUEUED to RECALLED
 and credits value to the source owner's pull balance.  Terminal state is written
@@ -1125,6 +1153,13 @@ nonzero \code{sourceDomainId}, \code{0<srcEpoch<=UINT64_MAX},
 \code{destinationDomainId} and a
 nonzero \code{srcBridge}; no narrowing cast or destination-chain inference is
 permitted.
+
+\code{BridgeInboxAdapter} is a non-proxy immutable contract.  Its profile-bound
+runtime and constructor values fix the credit registry, source Bridge,
+destination domain and immutable settlement router.  It has no upgrade,
+delegatecall, mutable target, arbitrary-call or caller-supplied authenticated
+value path.  A different destination uses a distinct adapter/domain; an old
+adapter remains executable for its existing records.
 
 The adapter is the exactly-once machine \code{NONE -> QUEUED(index)}, keyed by
 \code{creditId}.  Any caller supplies the separate queue deposit and the full
@@ -1259,9 +1294,10 @@ H("slot-chain-bridge-credit-result-v8" || u64(queueIndex) || creditId ||
   refundCapsuleHash || escrowId)
 \end{verbatim}
 InboxApply recomputes it from the authenticated descriptor before including the
-exact tuple and \code{resultHash} in the one bounded SignalService batch below.
-SignalService, not Bridge, owns the persistent destination pin.  Resolver
-rotation cannot retarget or orphan an existing credit.  Unknown codes or
+exact tuple and \code{resultHash} in one bounded \code{InboxCreditStoreV2} batch.
+That immutable store, neither Bridge nor legacy SignalService, owns the
+persistent destination pin.  Resolver rotation and SignalService upgrades
+cannot retarget, fabricate or orphan an existing credit.  Unknown codes or
 noncanonical auxiliary fields reject.
 
 AnchorV4 and InboxApply use a profile-defined, unsigned custom L2 system
@@ -1274,7 +1310,8 @@ sender.  InboxApply also stores the last applied L2 block number and rejects a
 second application in that block.  An ordinary caller therefore cannot invoke
 the privileged path before or after cutover.
 
-The launch fork adds these exact SignalService operations:
+The launch fork deploys non-proxy immutable \code{InboxApplyV2} and
+\code{InboxCreditStoreV2} contracts with these exact store operations:
 \begin{verbatim}
 struct InboxCreditV2 {
   uint64 queueIndex; uint64 srcChainId; bytes32 sourceDomainId;
@@ -1290,35 +1327,40 @@ getInboxCreditSlot(bytes32 sourceDomainId, address srcBridge,
                    bytes32 destinationDomainId,
                    bytes32 creditId) pure returns (bytes32)
 \end{verbatim}
-Only the immutable \code{InboxApply} predeploy may call the batch operation,
+Only the exact immutable \code{InboxApplyV2} predeploy fixed in the store's
+constructor may call the batch operation,
 and only while the L2 V2 activation latch is true.  Every block calls it once,
 with exactly its zero to 64 code-5 dispositions in strictly increasing queue
 index and with no duplicate credit ID.  InboxApply has already recomputed each
-result from the queue descriptor.  SignalService validates widths and nonzero
+result from the queue descriptor.  The store validates widths and nonzero
 fields and performs all writes atomically.  The slot is exactly
 \begin{verbatim}
-H("slot-chain-inbox-credit-slot-v3" || sourceDomainId ||
+H("slot-chain-inbox-credit-slot-v4" || sourceDomainId ||
   address20(srcBridge) || destinationDomainId || creditId)
 \end{verbatim}
-At the unversioned, append-only \code{inboxResultHash[slot]} and
+At the append-only \code{inboxResultHash[slot]} and
 \code{inboxProcessBy[slot]}, an empty value stores the result and
 \code{block.timestamp+BRIDGE_PROCESS_TTL_SECONDS}.  The initial TTL is
-2,592,000 seconds.  Neither mapping uses SignalService's mutable
-\code{VERSION}: an implementation upgrade cannot orphan an accepted credit.
+2,592,000 seconds.  The contract exposes no proxy, upgrade, delegatecall,
+mutable writer/reader/domain target, arbitrary storage primitive or pause gate.
 A repeated row succeeds without writes only when the stored result matches and
 never extends \code{processBy}; any conflict, ordering error or excess row
 reverts the whole batch before a write.  \code{verifyInboxCredit} recomputes
 \code{creditId} and the slot, requires the received bit and nonzero result, and
-requires \code{msg.sender} to be the frozen destination Bridge registered for
-that exact local domain before returning the ID and deadline.  This is a new bytes32-domain ABI; it never
+requires \code{msg.sender} to be the constructor-fixed destination Bridge for
+that exact local domain before returning the ID and deadline.  Runtime hash,
+constructor writer/Bridge/gate values, the one-shot sealed local-domain slot and
+initial empty mappings are migration-proved; the noncircular construction
+descriptor deliberately excludes the derived domain value.  This is a new bytes32-domain ABI; it never
 overloads legacy \code{getSignalSlot(uint64,address,bytes32)}.
 
 BridgeV2 introduces \code{SourceContextV2}.  Its three fields are a
 \code{bytes32} \code{sourceDomainId}, a \code{uint64} \code{srcEpoch} and an
 \code{address} \code{srcBridge}.  \code{DestinationContextV2} contains the
 \code{bytes32 destinationDomainId} and permanent \code{address destBridge}.
-The existing send ABI remains unchanged; the complete additional V2 ABI is:
+The existing send ABI remains V1; the complete additive V2/recovery ABI is:
 \begin{verbatim}
+sendMessageV2(Message) -> (bytes32 msgHash, Message)
 messageContextV2(bytes32 msgHash)
   -> (bytes32 creditId, SourceContextV2, DestinationContextV2)
 finalizeRefundCapsuleV2(bytes32 creditId, bytes32 capsuleHash)
@@ -1333,33 +1375,36 @@ failMessageV2(Message, SourceContextV2, DestinationContextV2)
 expireMessageV2(bytes32 creditId, SourceContextV2, DestinationContextV2)
 recallMessageV2(bytes32 creditId, bytes proof)
 withdrawSourceCreditV2(address payable recipient)
-isMessageFailedV2(bytes32 creditId, bytes proof) -> bool
+isMessageFailedV2(bytes32 creditId, TerminalProofV2 proof) -> bool
 messageStatusV2(bytes32 creditId) -> Status
-SettlementCheckpointAdapter.publish()
-TerminalCheckpointStore.getCheckpoint(uint48 blockNumber)
-  -> (bytes32 blockHash, bytes32 stateRoot)
+TerminalCheckpointStore.publish() -> uint64 publicationSequence
+TerminalCheckpointStore.getCheckpoint(uint64 publicationSequence)
+  -> (uint48 l2BlockNumber, bytes32 blockHash,
+      bytes32 terminalRoot, uint64 terminalCount)
 TerminalSignalVerifier.verifyTerminalSignal(
   bytes32 destinationDomainId, address destBridge,
   bytes32 creditId, uint8 terminal, TerminalProofV2 proof) -> bool
 \end{verbatim}
 \code{TerminalProofV2} is
 \begin{verbatim}
-(uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot,
- bytes[] accountProof, bytes[] storageProof)
+(uint64 publicationSequence, uint48 l2BlockNumber, bytes32 blockHash,
+ bytes32 terminalRoot, uint64 terminalCount, uint64 leafIndex,
+ bytes32[64] siblings)
 \end{verbatim}
-Each proof array has at most 64
-canonical RLP nodes, each node is at most 1,024 bytes, the total encoding is at
-most 32,768 bytes, and no trailing or unused node is accepted.  The verifier
-requires the exact ring entry and authenticates the frozen destination Bridge
-account, then its raw terminal storage slot whose value equals the exact DONE
-or FAILED word.  \code{terminal} is exactly 1 for DONE or 2 for FAILED;
-all other values reject.
+\begin{sloppypar}
+The verifier requires the exact sequence-tagged ring entry, requires
+\code{leafIndex<terminalCount}, derives the exact domain-separated leaf from
+index, domain, Bridge, credit ID and terminal, and folds exactly 64 siblings to
+the stored root.  There are no dynamic arrays, RLP nodes, current EVM state
+proof or trailing elements.  \code{terminal} is exactly 1 for DONE or 2 for
+FAILED; all other values reject.
 Here \code{Message} is the existing IBridge tuple and
 \code{msgHash=hashMessage(Message)}.  Destination processing first requires the
 context's destination Bridge to equal its own address and the context's domain
-to equal its immutable local destination domain.  It then recomputes that domain from the profile-pinned chain ID,
-genesis, both adapters, checkpoint store, terminal verifier, L2 SignalService,
-Bridge address/frozen execution hash and namespace.  Only then do they recompute
+to equal its one-shot sealed local destination domain.  It then recomputes that domain from the pinned chain ID,
+genesis, BridgeInboxAdapter, active settlement router, checkpoint store,
+terminal verifier, InboxApplyV2, InboxCreditStoreV2, terminal accumulator,
+Bridge address/frozen execution hash, infrastructure hash and namespace.  Only then do they recompute
 \code{creditId} from the Message hash and context before any status, value or
 external effect.  No caller-supplied foreign domain may query a pin through a
 different funded Bridge.  Source terminal functions load the immutable
@@ -1371,9 +1416,10 @@ recorded destination domain.  The read-only status view accepts the derived key.
 The source facade records both contexts.  Its profile-pinned V2 event carries
 the credit ID, message hash, both contexts and Message; destination changes emit
 the credit ID and new status.
+\end{sloppypar}
 
 The destination domain's frozen Bridge facade owns the V2 status, retry state,
-ETH custody and failure-signal app identity for the domain's entire lifetime.
+ETH custody and terminal index for the domain's entire lifetime.
 Its address, runtime and storage never rotate and it never delegates execution.
 This prevents another implementation or address from seeing an empty status
 and processing a pinned credit twice, and keeps RETRIABLE liquidity in the same
@@ -1386,39 +1432,71 @@ deadline passes, anyone may atomically change \code{NEW} or \code{RETRIABLE} to
 authorized only to \code{destOwner} and only from RETRIABLE.  A retry with
 \code{gasLimit=0} or \code{isLastAttempt=true} likewise requires destOwner;
 no observer can force early failure.  Send/process/retry/manual-fail remain
-pausable.  In contrast, destination expiry and terminal-signal emission, source
+pausable.  In contrast, destination expiry and terminal-accumulator append, source
 cancellation, DONE finalization, FAILED recall, pull withdrawal and official
 vault refund claims are explicitly outside every guardian pause gate.  Thus
 loss of the full Message preimage cannot
 lock source value forever.  On transition to DONE or FAILED, the frozen
-destination Bridge stores exactly one of these mutually exclusive terminal words:
+destination Bridge makes exactly one call to the immutable protocol-lifetime
+\code{TerminalAccumulatorV2}.  That accumulator derives the domain from its
+append-only \code{domainWriter[msg.sender]} registration and appends:
 \begin{verbatim}
-H("slot-chain-bridge-done-v1" || destinationDomainId || creditId)
-H("slot-chain-bridge-failed-v4" || destinationDomainId || creditId)
+leaf = H("slot-chain-terminal-leaf-v1" || u64(terminalIndex) ||
+         destinationDomainId || address20(destBridge) ||
+         creditId || u8(terminal))
 \end{verbatim}
-at the raw, unversioned slot
+The accumulator stores a checked \code{uint64 count}, 64-word frontier and root
+for the Appendix-defined depth-64 append-only vector.  Append rejects at
+\code{count=UINT64_MAX}; the unreachable final index preserves the sentinel.
+Registration is append-only: a domain or Bridge can be registered once, never
+deleted or redirected, and a new endpoint/domain cannot disable an old writer.
+The accumulator is a non-proxy immutable, unpausable contract with no arbitrary
+root setter or external call.  It returns \code{terminalIndex}; the Bridge stores
+that index with its DONE/FAILED status and emits it.  Status, accumulator append
+and index are one atomic transition.  The accumulator leaf sequence, not a
+versioned EVM storage proof, is the permanent recovery statement.
+Every future Settlement/profile migration must import the exact prior
+root/count, authenticate the same accumulator account and prove root/count
+induction from that base; reset, fork or replacement is invalid while any V2
+domain exists.
+
+Every execution proof additionally authenticates the accumulator account and
+proves that the candidate's \code{terminalRoot} and \code{terminalCount} equal
+its exact post-state root/count slots.  These fields are part of
+\code{CanonicalCore} and \code{executionOutputsCommitment}; tier-2 and tier-3
+use the same public-output constraint.  A caller or checkpoint publisher cannot
+supply an unconstrained root.
+
+The vector root is
 \begin{verbatim}
-H("slot-chain-bridge-terminal-slot-v1" || destinationDomainId || creditId)
+H("slot-chain-terminal-root-v1" || u64(terminalCount) || treeRoot)
 \end{verbatim}
-in the exact \code{destBridge}.  Status and terminal word are written in one
-transition with no external call.  The permissionless, unpausable
-\code{SettlementCheckpointAdapter.publish()} copies the latest canonical tuple
-from Settlement into a non-proxy \code{TerminalCheckpointStore}; only that
-exact adapter may write, block numbers strictly increase, and a 256-cell ring
-retains more checkpoints than the inclusion/reorg horizon.  It accepts at most
-one publication per L1 block and that publication reads Settlement's latest
-core, so repeated calls cannot churn the ring.  The non-proxy,
-unpausable \code{TerminalSignalVerifier} accepts only a bounded account/storage
-MPT proof against one retained checkpoint, the descriptor's exact frozen
-\code{destBridge}, domain and terminal slot.  It has
-no resolver, cache, mutable version, pause flag or external call other than the
-checkpoint store's fixed-size view.  Source terminal functions call only this
-verifier; they never call legacy SignalService \code{proveSignalReceived} or
-\code{verifySignalReceived}.  Because a terminal slot persists in later state,
-any retained later checkpoint suffices.  Recall never depends on the resolver's
-current Bridge address.  No V2 failure,
+where the Appendix fixes empty nodes, node hashing and bit order.
+
+Permissionless, unpausable \code{TerminalCheckpointStore.publish()} accepts no
+root arguments.  It staticcalls the constructor-fixed immutable
+\code{ActiveSettlementRouter}, requires its exact fixed-size
+\code{latestCanonicalTerminal()} return, and copies
+\code{(l2BlockNumber,tipHash,terminalRoot,terminalCount)}.  The router exposes
+only the active Settlement's stored proved core.  L2 heights strictly increase;
+terminal count never decreases, and equal count requires equal root.  The store
+assigns a checked monotonic \code{publicationSequence}, writes cell
+at \code{publicationSequence} modulo 256 with the exact sequence and tuple, and accepts
+at most one publication per L1 block.  Sparse or 4,096-block L2 height jumps
+therefore cannot target a ring cell.  The non-proxy, unpausable
+\code{TerminalSignalVerifier} accepts only the fixed 64-sibling proof against one
+retained tuple and exact domain/Bridge/credit/terminal leaf.  It has no resolver,
+cache, mutable version, pause flag or external call other than the checkpoint
+store's fixed-size view.  Source terminal functions call only this verifier;
+they never call legacy SignalService.  Because the vector is append-only, any
+later retained root still contains an old leaf; a proof can be refreshed from
+canonical execution data.  The frozen accumulator emits every indexed leaf and
+the Bridge stores \code{terminalIndex[creditId]}, so any canonical archive can
+reconstruct the frontier and membership proof without a privileged indexer.
+Loss of every historical execution/receipt copy is the same explicit archive
+non-claim as loss of the canonical prestate.  No V2 failure,
 recall, delivery finalization or view falls back to \code{msgHash}.  The release profile pins every
-selector, event, status, liability and signal slot plus positive and negative
+selector, event, status, liability and accumulator slot plus positive and negative
 lifecycle vectors.
 
 Official ERC20, ERC721 and ERC1155 vaults add an unversioned
@@ -1453,21 +1531,20 @@ locked externally governed canonical token, the capsule remains claimable but
 the actual transfer is conditional on that token's own liveness as stated in
 \S\ref{sec:status}.
 
-The cutover latch enables interface-selected L1-to-L2 V2 records in the same
-transition that enables L2 V2 processing.  There is no overlap or gap for a V2
-sender.  Pre-activation messages and post-cutover legacy-callback-only senders
-retain V1 process/retry/fail/recall; L2-to-L1 \code{sendMessage} remains V1.
-InboxApply
-makes one bounded batch
-external call, and neither it nor SignalService invokes a message recipient.
+The cutover latch enables explicit \code{sendMessageV2} records in the same
+transition that enables L2 V2 processing.  There is no overlap or gap for an
+opt-in V2 sender.  Every old \code{sendMessage} call and all L2-to-L1 sends retain
+V1 process/retry/fail/recall.  InboxApply makes one bounded batch call to the
+immutable InboxCreditStoreV2, and neither contract invokes a message recipient.
 Legacy proof-based \code{proveSignalReceived} remains unchanged for V1 and is
 never a V2 terminal dependency.  AnchorV4 and InboxApply are
 profile-defined system transactions: their custom type, reserved senders,
 system nonces, zero beneficiary tip and fee treatment are consensus fork rules,
 not ordinary user accounts.  Their gas and the batch loop still count
-against the block limit.  Deployment and migration require upgraded,
-vector-tested SignalService and InboxApply bytecode.  Authorizing an
-unreviewed caller is invalid.
+against the block limit.  Deployment and migration require vector-tested
+InboxApplyV2, InboxCreditStoreV2 and TerminalAccumulatorV2 bytecode.  Legacy
+SignalService remains V1-only and may be upgraded without entering a V2 trust
+path.  Authorizing an unreviewed caller is invalid.
 
 An unexpired kind-0 item must reveal raw bytes hashing to its stored
 \code{rawTxHash}; the circuit decodes them and matches every duplicated
@@ -1499,7 +1576,8 @@ cannot selectively veto the FIFO head.
 An escape block is deterministic under a governance-frozen
 \code{executionProfileHash}.  That profile commits the L2 fork rules; complete
 header-field derivation (gas limit, base fee, extra data, withdrawals/requests
-roots and randomness); the deployed AnchorV4 and InboxApply bytecode hashes;
+roots and randomness); the deployed AnchorV4, InboxApplyV2,
+InboxCreditStoreV2 and TerminalAccumulatorV2 bytecode/constructor hashes;
 reserved senders, nonces and gas; AnchorV4 checkpoint calldata and
 \code{ancestorsHash} transition; and the transaction/receipt derivation above.
 For the initial profile the anchor is an EIP-1559 transaction from
@@ -1615,12 +1693,13 @@ Builder equivocation & Competing signed branches; one may win normal order. & Di
 Builder skips/withholds body & Honest tail may be unprovable or omitted. & Not objectively slashable; eventual escape restores state progress but may revoke promises. \\
 Data-session spam & Sessions are publisher-owned and bonded. & Attacker fills only its session; escape uses no blob session. \\
 Missing/pruned kind-0 bytes & Unexpired head waits; after validity it is consumed as EXPIRED\_NO\_TX from its durable descriptor. & Adds at most seven days; a kind-1 descriptor is durable, while successful destination invocation still needs Message bytes. \\
-Bridge or vault upgrade exploit & V2 custody/recovery facades are frozen and never delegatecall another implementation. & An incompatible design needs a new endpoint/domain; every old endpoint remains terminal-capable. \\
+Bridge or vault upgrade exploit & V2 custody/recovery facades are frozen and never delegatecall another implementation. & A new endpoint/domain cannot redirect an old writer; every old endpoint appends to the protocol-lifetime terminal vector. \\
 Unauthorized source-support fill & Version manager rejects entries absent from the active delayed manifest. & At most 64 audited additions per release; no attacker-consumable lifetime cap. \\
 Message bytes disappear & Enqueue expires to source cancellation; a pinned credit expires to destination FAILED. & ETH pull credit and bounded official-vault capsules make refund permissionless by credit ID; successful destination invocation is lost. \\
 Pooled source liquidity drains & Every V1/V2 payout and sweep checks post-balance against live ETH liability; vault payouts check fungible or exact-NFT reserves. & QUEUED value releases only after proved DONE or as a pull refund after proved FAILED. \\
 Guardian pause or zero quota & Risky sends/process/retries stop; expiry, terminal verification and reserved refunds continue. & Frozen V2 proof/refund paths have no transitive pause or ordinary quota dependency. \\
-Foreign destination replay & Local domain and \code{destBridge==address(this)} checks reject before status or value effects. & A shared SignalService pin cannot fund two Bridge instances. \\
+Foreign destination replay & Local domain and \code{destBridge==address(this)} checks reject before status or value effects. & The immutable pin store and accumulator both bind one exact domain/Bridge pair. \\
+Terminal proof-format change & Canonical state carries a stable application-level depth-64 vector root/count. & Source verification does not parse the destination EVM state format; later roots preserve old leaves. \\
 Legacy call to installed V2 code & Shared L2 gate is false and the custom system transaction type is invalid. & First proved post-cutover Anchor activates once; all V2 modules recheck the gate. \\
 All canonical prestate copies lost & No party can construct the next EVM witness from a root alone; proof generation stops without changing canonical state. & Explicit information-theoretic availability limit; restore any root-verifiable archive copy. \\
 Transparent-mempool front-run & First valid recovery transaction wins. & Proof statement binds beneficiary, episode, revision and outputs; copying cannot redirect payment or state. \\
@@ -1671,7 +1750,17 @@ caller-funded queue deposits.  It direct-reads same-L1 CreditRecord and Bridge
 liability state, rejects while PREACTIVE and, after router SYNCED, commits that
 transition, creates no record and pull-credits the full caller deposit before a
 nonreverting return.  A successful append atomically marks the permanent source
-record QUEUED.
+record QUEUED.  It is non-proxy and immutable; its runtime and constructor-fixed
+registry, Bridge, destination domain and router are profile/domain-bound, with no
+mutable target, delegatecall or arbitrary-call selector.
+\item \code{InboxApplyV2} and \code{InboxCreditStoreV2}: non-proxy immutable,
+unpausable destination ingress.  The store accepts one bounded ordered batch
+only from the exact system predeploy and serves a pin only to the exact frozen
+Bridge/domain; neither has an upgrade, resolver or caller-selected target.
+\item \code{TerminalAccumulatorV2}: protocol-lifetime non-proxy depth-64
+append-only vector with checked count, frontier, root, permanent one-to-one
+domain/Bridge writer registration and no root setter.  Each Bridge terminal
+transition stores the returned index atomically.
 \item Permanent source/destination \code{BridgeV2Facade} endpoints retain
 custody, aggregate/per-credit liabilities, status, pull credits and signal-app
 identity.  Their old proxy upgrade surface is disabled, their implementation
@@ -1686,17 +1775,16 @@ restoration selector.
 recovery episode/round, seat pointer and a 256-cell
 best-effort receipt ring.  Rewards and burn disposal are separate.  No loop is
 proportional to chain age.
-\item The \code{SettlementCheckpointAdapter} is the sole writer authorized by
-the immutable checkpoint store.  Its
-permissionless \code{publish()} reads the current Settlement core, requires a
-strictly greater \code{l2BlockNumber}, checked-casts the globally bounded value
-to \code{uint48}, and writes exactly the L2 block number, tip hash and state
-root.  Failure or non-use delays bridge
-proofs but cannot affect canonical settlement; anyone may catch it up in one
-O(1) call to the latest core.
-\item \code{TerminalSignalVerifier}: immutable, read-only and unpausable; it
-checks one bounded destination-Bridge account/storage proof against the retained
-checkpoint ring and exact domain/Bridge/terminal slot.
+\item \code{TerminalCheckpointStore}: non-proxy immutable and permissionless.
+Its no-argument \code{publish()} reads the exact canonical terminal tuple through
+its constructor-fixed immutable Settlement router, assigns a publication
+sequence and retains 256 sequence-tagged tuples.  It accepts no caller-provided
+root and no more than one publication per L1 block.  Failure or non-use delays
+bridge proofs but cannot affect canonical settlement; anyone may catch it up in
+one O(1) call to the latest core.
+\item Terminal verifier: immutable, read-only and unpausable; it
+checks one fixed 64-sibling vector proof against a retained root/count and exact
+index/domain/Bridge/credit/terminal leaf.
 \end{itemize}
 
 The non-authoritative \code{CanonicalArchive} is independently mirrored
@@ -1740,22 +1828,25 @@ indefinite lengths and zero code hashes.  The profile contains:
   addresses and runtime hashes; every append-only source, destination and
   support descriptor and manifest binding; each nonzero domain namespace,
   frozen Bridge/vault facade and credit-registry runtime, implementation slot,
-  terminal verifier/store, distinct inbox and checkpoint adapters, constructor
-  ABI, CreditRecord/liability/status layouts and direct-call gas limit;
+  terminal verifier/store, immutable settlement router, BridgeInboxAdapter,
+  InboxApplyV2, InboxCreditStoreV2 and TerminalAccumulatorV2 runtime plus every
+  constructor immutable, infrastructure hash, ABI,
+  CreditRecord/liability/status/index layouts and direct-call gas limit;
 \item gas limit, EIP-1559 elasticity/change denominator, blob target/update
   fraction, empty ommers/withdrawals/requests constants and exact derivation of
   base fee, blob fields, logs bloom, randomness, parent beacon root, requests
   hash and every post-fork header field;
-\item the Anchor, V2 activation gate, InboxApply, both SignalService contracts,
+\item the Anchor, V2 activation gate, InboxApplyV2, InboxCreditStoreV2,
+  TerminalAccumulatorV2 and both legacy SignalService contracts,
   permanent source/destination Bridge facades, official refund vaults and
   frozen bridged-token restoration template addresses and runtime code hashes,
   every expanded V1/V2 selector and ABI tuple; the unsigned custom system
   transaction type and unforgeable reserved senders; system nonce rules, fee
   exception, activation latch and gas ceilings;
 \item the exact AnchorV4 checkpoint/ancestors transition, forced disposition
-  rules, InboxApply one-shot/batch transition, unversioned SignalService
+  rules, InboxApply one-shot/batch transition, immutable store
   inbox-slot/result/deadline storage, Bridge V2 aggregate/per-credit liability,
-  both endpoint statuses, DONE and FAILED signals, pull credits, refund
+  both endpoint statuses, terminal indices, vector count/frontier/root, pull credits, refund
   capsule, reservation and claim layouts, cancellation, expiry, delivery and recall
   transitions and the sole inbox-pin path; and
 \item at least six complete vectors, each covering parent, prestate, input,
@@ -1765,7 +1856,7 @@ indefinite lengths and zero code hashes.  The profile contains:
   domain replacement, direct-record absence and mismatch, enqueue and cancel ordering,
   router-SYNCED refund and retry, capacity race, delayed append, PREACTIVE kind 0 and kind 1
   rejection, legacy attempts to invoke inbound V2, first post-cutover latch
-  activation, unversioned pin survival across a SignalService upgrade,
+  activation, pin survival across arbitrary legacy SignalService upgrades,
   endpoint-support manifest authorization/finality, conflicting registration,
   multi-credit batch ordering/conflict, Message loss before enqueue and after
   pin, deadline expiration, DONE/FAILED terminal replay and a cap-limited
@@ -1773,7 +1864,9 @@ indefinite lengths and zero code hashes.  The profile contains:
   mismatched/local-foreign domains, capsule absence/hash mismatch/double claim,
   pooled-balance drain attempts, zero ordinary quota during V2 refund, legacy
   SignalService pause during V2 terminal proof, forbidden upgrade/delegatecall,
-  interface-selected V1 compatibility, conflicting result/terminal-signal hash
+  exact legacy-send compatibility, explicit V2 opt-in, old-domain accumulator
+  append after new-domain activation, publication-sequence collision attempts,
+  terminal leaf/index/root substitution, conflicting result/terminal hash
   and every V1/V2 boundary.
 \end{itemize}
 
@@ -1825,18 +1918,21 @@ fee and ownership/value/calldata fields,
 while destination invocation remains a later bridge operation.
 
 After that drain, migration has three phases.  First, before quiescence, the
-legacy L2 governance path deploys the profile-exact InboxApply runtime and
-upgrades the L2 SignalService with the bounded inbox-credit batch, setting its
-sole authorized caller to that InboxApply address.  It also installs any
-profile-required AnchorV4 runtime and the final frozen Bridge facade whose V2
-path queries SignalService's locally bound pinned credit instead of the live
-resolver.  The L1 side installs the same frozen facade, the non-proxy
+legacy L2 governance path deploys the profile-exact non-proxy InboxApplyV2,
+InboxCreditStoreV2 and protocol-lifetime TerminalAccumulatorV2 runtimes.  The
+store's constructor fixes InboxApply, Bridge and activation gate; after every
+address/runtime/config hash is known, the deployment coordinator writes the
+derived local domain exactly once and permanently burns that initializer.  The
+accumulator permanently registers that exact domain/Bridge writer.  It also
+installs any profile-required AnchorV4 runtime and the final frozen Bridge facade
+whose V2 path queries the immutable inbox store.  Legacy SignalService remains
+V1-only.  The L1 side installs the same frozen facade, the non-proxy
 BridgeCreditRegistry, TerminalCheckpointStore/TerminalSignalVerifier and every
 official token vault's final capsule/reservation/claim facade before V2 send is
 enabled; every bridged-token admitted to V2 burn/mint mode has already installed
 and frozen \code{IRefundRestorableV2}.  Every legacy Bridge/vault proxy upgrade selector is no longer
 reachable and none of those facades delegatecalls another implementation.  One
-non-proxy \code{InboxV2ActivationGate} is initialized false.  InboxApply, the SignalService
+non-proxy \code{InboxV2ActivationGate} is initialized false.  InboxApplyV2, the immutable-store
 batch and every L2 inbound-V2 process/retry/fail/expire path independently
 require its \code{active()} value; only AnchorV4's one-shot custom-system transaction may set it.  This is an ordinary finalized L2 governance
 block; no L1 transaction is claimed to mutate an imported L2 state root.  Its
@@ -1849,11 +1945,12 @@ proposal ID plus one, the old core's finalized block-hash field, an empty native
 forced queue and no unsettled
 escrow.  The caller supplies the canonical RLP of that final L2 header and
 fixed-depth MPT account/storage proofs under its state root for the exact
-AnchorV4, InboxApply, SignalService and final Bridge-facade runtime code hashes;
+AnchorV4, InboxApplyV2, InboxCreditStoreV2, TerminalAccumulatorV2 and final Bridge-facade runtime code hashes;
 every EIP-1967 implementation/beacon slot and profile-defined fork-selector
-slot; the absence of any reachable upgrade/delegate target; InboxApply one-shot initial state; SignalService
-authorized-caller storage; each module's immutable gate address; and the gate's
-\code{active=false} state.
+slot; the absence of any reachable upgrade/delegate target; InboxApply one-shot
+initial state; inbox-store writer/Bridge/domain immutables and empty mappings;
+accumulator domain writer, empty count/frontier/root; each module's immutable
+gate address; and the gate's \code{active=false} state.
 The proof follows the exact proxy/router topology
 encoded in the profile and rejects an unlisted hop, delegate target or mutable
 upgrade path.  Every terminal implementation and value must equal the immutable
@@ -1872,11 +1969,14 @@ tipHash             = H(RLP(header))
 tipSlot             = header.timestamp - GENESIS_TIMESTAMP
 stateRoot           = header.stateRoot
 messageCursor       = 0
-winningDataCommitment = H("slot-chain-migration-data-v1" ||
+winningDataCommitment = H("slot-chain-migration-data-v2" ||
                           u256(settlementChainId) || u256(l2ChainId) ||
-                          tipHash || stateRoot)
+                          tipHash || stateRoot || terminalRoot ||
+                          u64(terminalCount))
 nextBaseFee         = profile.nextBaseFee(header)
 nextExcessBlobGas   = profile.nextExcessBlobGas(header)
+terminalRoot        = authenticatedAccumulator.root
+terminalCount       = authenticatedAccumulator.count
 canonicalizedAtBlock = block.number
 \end{verbatim}
 It rejects a pre-genesis timestamp, arithmetic overflow, missing fork-required
@@ -1886,15 +1986,16 @@ golden empty root/count/cursor and \code{dueAt(0)=UINT64_MAX}, and an empty
 BridgeInboxAdapter with no \code{QUEUED} record or deposit, atomically points router
 authority at the new queue/Settlement,
 changes new PREACTIVE to NORMAL\_IDLE, initializes the immutable
-TerminalCheckpointStore so the exact SettlementCheckpointAdapter is its sole
-writer, publishes the imported tuple, and stores the L1 activation commitment consumed by the first new
+TerminalCheckpointStore with the exact ActiveSettlementRouter and no writer,
+publishes the imported canonical terminal tuple through its no-argument read,
+and stores the L1 activation commitment consumed by the first new
 AnchorV4 transaction.  It does not write L2 code or storage.  L1 kind-1 ingress is enabled only
 after the authenticated L2 code/authorization proofs and this L1 checkpoint
 authorization have all succeeded.  That same atomic cutover is the first state
 in which kind-0 or kind-1 ingress is enabled and in which the permanent L1
-Bridge facade's existing \code{sendMessage} selector may emit V2 records for
-V2-capable/direct senders.  Legacy-callback-only L1-to-L2 and all L2-to-L1
-sends retain V1 signals.
+Bridge facade's new \code{sendMessageV2} selector may emit V2 records.  The old
+\code{sendMessage} selector and all L2-to-L1 sends retain exact V1 signals and
+events for every caller.
 The first post-cutover L2 block must begin with the custom AnchorV4 transaction.
 The circuit authenticates the L1 cutover commitment, exact imported parent and
 execution-profile hash; AnchorV4 then flips the gate exactly once
@@ -1950,10 +2051,13 @@ Kind-0 validity / kind-1 enqueue & 604,800 / 604,800 s & Bounds missing bytes
 before expiry or source cancellation. \\
 \code{BRIDGE_PROCESS_TTL_SECONDS} & 2,592,000 s & Starts at the immutable L2 pin;
 afterward anyone transitions NEW/RETRIABLE to FAILED without Message bytes. \\
-Terminal checkpoint ring/proof & 256 cells / 64+64 nodes / 32,768 B &
+Terminal accumulator/proof & depth 64 / 64 siblings / 2,048 B &
+Checked \code{uint64 count<UINT64_MAX}; leaf commits index, domain, Bridge,
+credit and terminal; exact proof length has no dynamic-node grammar. \\
+Terminal checkpoint ring & 256 publication-sequence cells &
 $256>\lceil(T_{include}+REORG\_MARGIN)/12\rceil+2$ with at most one write per
-L1 block; exact block number prevents a ring collision and canonical RLP has no
-unused node. \\
+L1 block; exact publication sequence prevents sparse L2 heights from choosing
+or churning one cell. \\
 Body chunks & 9 / 1,142,748 B & Per-body chunks / maximum discretionary bytes. \\
 \code{DATA_TTL} & 86,400 s & Greater than candidate, settlement, proof and reorg path. \\
 \code{REORG_MARGIN}, \code{EVIDENCE_DELAY} & 1,800 / 86,400 s & Data resubmission and finite liability retention. \\
@@ -1985,7 +2089,8 @@ execution result:
   profile hash, verifier address/runtime hash and verifier-key hash;
 \item exact predeploy/proxy/facade topology, terminal runtime code hashes,
   constructor immutables and relevant storage selectors for AnchorV4,
-  InboxV2ActivationGate, InboxApply, L1/L2 SignalService, official refund
+  InboxV2ActivationGate, InboxApplyV2, InboxCreditStoreV2,
+  TerminalAccumulatorV2, ActiveSettlementRouter, L1/L2 legacy SignalService, official refund
   vaults, frozen bridged-token restoration templates and both permanent Bridge
   facades, including proof that no
   upgrade selector or second delegate target is reachable;
@@ -1993,11 +2098,12 @@ execution result:
   append-only BridgeDomainRegistry authorization, BridgeCreditRegistry direct
   ABI/runtime/record layout, frozen source generations, Bridge aggregate and
   per-credit liability/status/pull-credit layouts, vault capsule/reservation/
-  claim layouts, TerminalCheckpointStore ring and TerminalSignalVerifier MPT
-  grammar, distinct adapter bindings, direct-call limits and valid/invalid fixed-return corpus;
+  claim layouts, TerminalCheckpointStore publication ring and fixed-depth
+  TerminalSignalVerifier vector grammar, destination-infrastructure descriptor,
+  immutable adapter/store bindings, direct-call limits and valid/invalid fixed-return corpus;
 \item exact unsigned system transaction type and reserved sender addresses;
-  activation-latch and cutover proof; system nonces; expanded BridgeV2 and
-  bounded SignalService batch ABI, selectors and storage; fee handling, gas
+  activation-latch and cutover proof; system nonces; additive BridgeV2 and
+  bounded immutable inbox-store batch ABI, selectors and storage; fee handling, gas
   ceilings and all fork and header recurrence rules; and
 \item complete positive and negative vectors for parent, prestate, input,
   transactions, receipts, headers and poststate, as listed in
@@ -2005,10 +2111,12 @@ execution result:
   domain/frozen-generation changes, unauthorized clones and foreign local-domain replay,
   enqueue/cancel and capacity races, PREACTIVE rejection, legacy preactivation
   attempts, first-block latch activation, direct-record absence, router-SYNCED
-  refund/retry, old-domain routing, permanent-pin upgrade survival, processing
+  refund/retry, old-domain routing, permanent-pin independence from legacy upgrades, processing
   expiry, DONE release, FAILED recall, legacy SignalService pause, zero ordinary
   ETH/token quota, pooled-balance drain attempts, capsule claims, endpoint
-  authorization, interface-selected V1 compatibility, multi-credit batches and
+  authorization, exact old-selector V1 compatibility, explicit V2 opt-in,
+  terminal-root/count public-output binding, publication-sequence collisions,
+  old-domain terminal append after new-domain activation, multi-credit batches and
   every V1/V2 replay path.
 \end{itemize}
 
@@ -2097,9 +2205,10 @@ are represented by \code{H(rawTx)} plus an explicit \code{u32(byteLength)}.
 The canonical core/base, candidate, schedule list, sealed-session list and execution
 outputs use these exact encodings:
 \begin{verbatim}
-coreHash = H("slot-chain-core-v2" || u64(l2BlockNumber) || tipHash ||
+coreHash = H("slot-chain-core-v3" || u64(l2BlockNumber) || tipHash ||
   u64(tipSlot) || stateRoot || u64(messageCursor) || winningDataCommitment ||
-  u256(nextBaseFee) || u64(nextExcessBlobGas))
+  u256(nextBaseFee) || u64(nextExcessBlobGas) || terminalRoot ||
+  u64(terminalCount))
 baseCanonicalHash = H("slot-chain-canonical-v2" || coreHash ||
   u64(canonicalizedAtBlock))
 H("slot-chain-candidate-v2" || baseCanonicalHash || u16(n) ||
@@ -2111,8 +2220,8 @@ H("slot-chain-session-list-v1" || u8(count) ||
   (sessionId || u16(recordCount) || root)*)
 winningDataCommitment = H("slot-chain-winning-data-v1" ||
   candidateCommitment || sessionRefsCommitment)
-H("slot-chain-outputs-v1" || stateRoot || transactionsRoot || receiptsRoot ||
-  logsBloomHash || withdrawalsRoot)
+H("slot-chain-outputs-v2" || stateRoot || transactionsRoot || receiptsRoot ||
+  logsBloomHash || withdrawalsRoot || terminalRoot || u64(terminalCount))
 \end{verbatim}
 Here $n\le4096$; schedule windows are ascending and sessions are ascending by
 ID.  \code{blockStructHash} is the EIP-712 struct hash of the exact signed
@@ -2233,6 +2342,29 @@ there is no block-indexed executor.  Direct admission checks the frozen runtime
 and record on the same L1.  No source state root, beacon walk or caller-chosen
 topology proof exists in that path.
 
+\code{canonicalDestinationInfrastructureDescriptor} is exactly eight component
+records in this order: \code{BridgeInboxAdapter},
+\code{ActiveSettlementRouter}, \code{TerminalCheckpointStore},
+\code{TerminalSignalVerifier}, \code{InboxApplyV2},
+\code{InboxCreditStoreV2}, \code{TerminalAccumulatorV2}, destination Bridge.
+Each record is
+\begin{verbatim}
+address20(component) || bytes32(runtimeHash) || bytes32(configHash)
+\end{verbatim}
+so the descriptor is exactly 672 bytes.  \code{configHash} commits the canonical
+constructor/init-code ABI, every immutable address/value and the one-shot domain
+initializer authority and burn rule, but excludes the derived
+\code{destinationDomainId} value itself to avoid a self-reference.  After the
+domain formula is evaluated, the deployment coordinator seals that value once;
+migration proves the exact value and permanently consumed initializer.  Every
+component address/runtime/config hash is nonzero and equals the separately named
+domain/profile field.  The infrastructure commitment is:
+\begin{verbatim}
+destinationInfrastructureHash =
+  H("slot-chain-destination-infrastructure-v1" || u32(672) ||
+    canonicalDestinationInfrastructureDescriptor)
+\end{verbatim}
+
 The depth-32 vector empty leaf is \code{H("slot-chain-force-empty-v2")}.
 A parent at height $h=0,\ldots,31$ is
 \code{H("slot-chain-force-node-v2"||u8(h)||left||right)}.  The queue commitment
@@ -2247,6 +2379,28 @@ hashes \code{frontier[h]} on the left while bit $h$ of $i$ is one, stores the
 carry in the first zero-bit frontier position, increments count, and reconstructs
 all higher right subtrees from \code{FORCE_EMPTY[h]}.  This is the same root as
 the full vector and uses exactly 32 frontier words.
+
+The terminal vector uses depth 64.  Its empty leaf is
+\code{H("slot-chain-terminal-empty-v1")}; a parent at height
+$h=0,\ldots,63$ is
+\begin{verbatim}
+H("slot-chain-terminal-node-v1" || u8(h) || left || right)
+\end{verbatim}
+and leaf index $i$ is
+\begin{verbatim}
+H("slot-chain-terminal-leaf-v1" || u64(i) || destinationDomainId ||
+  address20(destBridge) || creditId || u8(terminal))
+\end{verbatim}
+with \code{terminal=1} for DONE or 2 for FAILED.  The committed root is
+\begin{verbatim}
+H("slot-chain-terminal-root-v1" || u64(count) || treeRoot)
+\end{verbatim}
+The accumulator uses the same first-zero-bit frontier append algorithm as the
+forced vector, with 64 frontier words and \code{count<UINT64_MAX}.  A membership
+proof contains exactly 64 siblings in ascending height; bit $h$ of the index
+selects whether the sibling is left or right.  A verifier rejects an index not
+below the committed count, any wrong leaf field, wrong proof length or root/count
+mismatch.
 
 A data-chunk leaf is:
 \begin{verbatim}
@@ -2309,22 +2463,23 @@ admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
 sourceDomain  c95f5c31ea09c4bf997614e9bc345b0826eeb4daf56d6ae27716542117606ced
-destDomain    e2c5e0a04fddef68ac5bef4ceb8e6ef7aae49a06310ba0d381581e5d24ee9f1a
+destDomain    0748c195cb659279624bd51e9726cb484525894c945060d3677a88df96312700
 bridgeExec    8da04c9a8990e7ec330e832792299c52ceabc120f16ed9cf60664d53e047dd21
-bridgeLeaf    d191acda5807510b44e213fda10eaa0b911847d36da1c9c336c339595f8b6e03
-creditId      8d4ffd9e013b99fdf0f4a7c7bf5b03ee65c24726c6d745e433219f8f4664a254
-escrowId      5f6be02b6c2adbc51415e404e485ce953f2f9a0e7bd76a369f1a3e80e8b8cfca
-inboxSlot     f07356f77d2096da92d155bb3ef7d39972688130613da4038cdb403997677a1a
-failedSignal  424c316165269bda83f72f6810634124967f32359f77754b885e3157ac536b30
-doneSignal    5ed48516740f437091f50f158f6aa7bb2d54a8d6325da4a1a2941972aefab8f9
-terminalSlot  034a96b047abfe3fc467fb834df5338d8767ddd3868138c4ab95d27c536cb5b8
-bridgeResult  1294b74f39a7694c9cb278738c924cd4b070e31e832c5903441b0beb491455ba
+bridgeLeaf    76f3734736ada9d27506b799aec3ab548e18a7a6e7ec0d2d1476a4bda228d188
+creditId      8090aea1a82caa2a6d6bbf37ab465f65baa5830885fe567e5793535ff0812552
+escrowId      0326050d230e0f94596ba258c32106677acfc766bc3b42d29b90571238dd6a19
+inboxSlot     065914265b8f183cf218df07e7452ee23585a8178ee7f22412e60ef7d2194a64
+terminalDone  96cbf4e57bbf9c8eb2903744d39ed9628c9884d703f85d1124aea5a3d5a98098
+terminalFail  5166704c6342bbc2b35952f9ead59ae93c7b6dc0595ff2906d9eb28f9860e5de
+terminalRoot2 1147f52c8931156dddef7b4a9b387f949563525a96a2c02d9b833c710a0574b6
+emptyTermRoot 0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2
+bridgeResult  3716bbf7e3c2dd592f22451c41d64407341560282c3f40d0e20e8a3c82a7e2d6
 manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
-normalContext 441dee77fdcd856bfb41504fdcbcbd97de481a881e53017a5983d1210f6d22a8
-migrationData 916b1b24deee7fde4484c3cebe42937c32b41deb7b39529feb517986e7414399
-winningData   d28b2d74341e9c5d90835e5051b2fc8189e1814f178d9580f4e9f66a88cfa631
-statementHash 5bd1192b005ebce2f290d11924d3e9548a18e12e72aa4626d8397a85ad36f8f7
-recoveryId    84ea35ee4c31975fc4499964ea6d1f72abc6291666c89dc2ef1a61447644103b
+normalContext bdec611a765250c0e964b4e3c95c648fec0c126a0f2c8f8fc3c13f691ede455b
+migrationData a3588b50c1f4e768cb2c35a622452527ab3cb953520ef018af3ff2d2362b86a5
+winningData   9b7418cffd7b88f9f3d3799fb287cd47dee2e34edb1d41590dbdd12f0859a34d
+statementHash 17c45efbdb95e3511eb9e96d054fb3d1a4b4dec3b7aee5c499741b44863de0b6
+recoveryId    b710e3a0629fa9ba438e5661ece58060cf547a0444d8b59b266fd500a4020c3a
 bodyRoot      0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
@@ -2432,12 +2587,20 @@ EIP-1967 implementation, liability, status or capsule slots.  Custody/recovery
 facades are frozen; new semantics require a new endpoint and domain.
 \item \textbf{Legacy SignalService as the V2 terminal verifier.} Rejected
 because its verification entry points are guardian-pausable and versioned.
-The immutable V2 verifier proves the destination Bridge's raw terminal word
-against a separate bounded checkpoint ring.
-\item \textbf{One post-cutover mode for every legacy sender.} Rejected because
-forcing callback-only applications into V2 would silently break their recall
-contract.  Interface-selected V1 preserves exact old semantics; only V2 gets
-the stronger forced-admission and Message-loss guarantees.
+The V2 pin store is separate and immutable; the terminal verifier proves a
+stable application-level vector leaf against a proved canonical root.
+\item \textbf{Implicit V2 behind the legacy selector.} Rejected because it
+silently changes events, signals, relayer/status APIs and EOA behavior, while a
+vault-wide interface probe cannot choose V1 per asset.  \code{sendMessage} is
+always exact V1 and \code{sendMessageV2} is an explicit additive opt-in.
+\item \textbf{L2-height-indexed checkpoint ring.} Rejected because a candidate
+may advance 4,096 L2 blocks and collide modulo 256 in the next L1 publication.
+The ring is indexed only by its own publication sequence.
+\item \textbf{Frozen EVM account/storage terminal proof.} Rejected because a
+future state-proof format or verifier defect can strand already-queued credits.
+Canonical settlement instead carries a profile-independent depth-64 terminal
+vector root/count, while governance remains only the pre-existing validity-
+verifier safety root.
 \end{enumerate}
 
 \section{Executable consensus models}\label{app:models}
@@ -2448,27 +2611,27 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 142 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 145 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
 replacement/liability generations, tranche release units, atomic direct bridge
 enqueue and capacity races, persistent SYNCED refund/retry, enqueue/cancel
-ordering, source-generation/domain support, permanent destination pins, processing expiry,
+ordering, source-generation/domain support, immutable destination pins, processing expiry,
 aggregate ETH/token reserves, quota-independent refunds, immutable authorization
-versus mutable liability, frozen Bridge/vault facades, interface-selected V1
-compatibility, local destination binding, refund capsules, unpausable terminal
-checkpoint proofs and bridged-token restoration, pause-independent escape, L2 activation
+versus mutable liability, frozen Bridge/vault facades, exact legacy-selector V1
+compatibility and explicit V2 opt-in, immutable pin storage, local destination
+binding, refund capsules, sequence-retained accumulator proofs and bridged-token restoration, pause-independent escape, L2 activation
 gating, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 87 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 92 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors, vector/range proofs, session MMR and
 per-block manifests.  It also covers source/destination domains, frozen-facade
 descriptors and complete credit leaves,
-credit/escrow/inbox/DONE/FAILED slots
+credit/escrow/inbox IDs, terminal leaves/vector roots
 and atomic ordered batches,
 dispositions, recovery ID, Fiat--Shamir input, body
 chunks and blob codec.  The
@@ -2517,8 +2680,8 @@ append-only CreditRecord, frozen source generation, source-approved destination
 domain and live liability at the permanent source Bridge facade.
 Enqueue and queue deposit are atomic; a reorg removes both observation and
 append.  Missing Message bytes cause bounded source cancellation before
-enqueue or destination expiry after the permanent unversioned pin.  The exact
-  destination domain and permanent Bridge signal app bind recall, every
+enqueue or destination expiry after the immutable pin.  The exact
+  destination domain, Bridge and terminal accumulator leaf bind recall, every
   destination action checks its local domain and \code{address(this)}, and no L2
   nonempty source-proof path exists.  Terminal proof and reserved refund paths
   have no transitive guardian-pause or ordinary-quota dependency.

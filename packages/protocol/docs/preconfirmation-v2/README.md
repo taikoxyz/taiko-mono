@@ -9,9 +9,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | --- | --- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
 | [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, same-L1 direct bridge enqueue, immutable authorization versus mutable liability, frozen Bridge/vault facades, aggregate ETH/token solvency, quota-independent refunds, refund capsules, local destination binding, unpausable terminal checkpoint proofs, bridged-token restoration, V1 callback compatibility, atomic capacity and enqueue/cancel races, persistent SYNCED refund/retry, permanent destination pins, PREACTIVE ingress and L2 activation gating, migration and reorg replay. 142 assertions. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context plus terminal root/count, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable queue descriptors, renewable recovery, bounded payload loss, fixed liability ring, same-L1 direct bridge enqueue, immutable authorization versus mutable liability, frozen Bridge/vault facades, aggregate ETH/token solvency, quota-independent refunds, refund capsules, explicit V2 opt-in, immutable destination pins, local destination binding, publication-sequence terminal checkpoints, exact accumulator proof binding, bridged-token restoration, atomic capacity and enqueue/cancel races, persistent SYNCED refund/retry, PREACTIVE ingress and L2 activation gating, migration and reorg replay. 145 assertions. |
 | [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, capped quotas, ring capacity and placement. 36 assertions. |
-| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, complete kind-0/kind-1 durable descriptors and dispositions, same-L1 source and permanent destination domains, frozen-facade descriptors, generation/Bridge/destination-bound credits, escrow, inbox and DONE/FAILED terminal IDs/slots/results plus atomic ordered batches, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 87 vectors/properties. |
+| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, profile-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, complete kind-0/kind-1 durable descriptors and dispositions, same-L1 source and permanent destination domains, frozen-facade descriptors, generation/Bridge/destination-bound credits, escrow, immutable inbox slots, DONE/FAILED terminal leaves and depth-64 vector proofs, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 92 vectors/properties. |
 
 ## Building the PDF
 
@@ -33,9 +33,9 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 142 assertions
+python3 settlement-window-model.py   # 145 assertions
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 87 vectors/properties
+python3 commitment-model.py          # 92 vectors/properties
 ```
 
 All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
@@ -72,10 +72,11 @@ economics, operations and external review. Five properties are worth knowing bef
   permanent source record and atomically enqueue with a caller-funded deposit; a maintenance sync
   commits while the full deposit becomes withdrawable, then the caller retries. Missing Message
   bytes lead to permissionless source cancellation after `enqueueBy`, or destination `FAILED`
-  after the permanent unversioned pin's `processBy`. V2 custody/recovery facades are frozen and
-  never delegatecall mutable executors; terminal proof and reserved refund paths remain usable
-  through guardian pauses and zero ordinary quotas. Destination processing is local-domain-bound,
-  while legacy callback-only applications retain the V1 path. A post-cutover L2 activation gate
+  after the immutable pin store's `processBy`. V2 is an explicit additive selector; the old send
+  selector remains exact V1. V2 custody/recovery facades and stores are frozen and never delegatecall
+  mutable executors. Terminal outcomes enter a proof-bound protocol-lifetime vector retained on L1
+  by publication sequence, and reserved refunds remain usable through guardian pauses and zero
+  ordinary quotas. Destination processing is local-domain-bound. A post-cutover L2 activation gate
   excludes legacy calls from V2. Cross-L1 kind-1 ingress is not part of this version.
 
 Final acceptance requires a human safety review. The models and the specification are a gate, not
