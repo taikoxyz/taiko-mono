@@ -12,7 +12,6 @@ except ImportError:  # The exact pure-Python fallback below keeps the model stan
     _native_keccak = None
 
 SETTLEMENT_CHAIN_ID = 1
-PROTOCOL_VERSION = 2
 GENESIS_TIMESTAMP = 1_000_000
 BEACON_GENESIS_TIME = 900_000
 BEACON_SLOT_SECONDS = 12
@@ -33,7 +32,7 @@ VACANT = 0
 BOND_MAX = (1 << 192) - 1
 MASK64 = (1 << 64) - 1
 
-DOMAIN_SEED = b"slot-chain-seed-v1"
+DOMAIN_SEED = b"slot-chain-seed-v2"
 DOMAIN_QUOTA = b"slot-chain-quota-tie-v1"
 DOMAIN_SLOT = b"slot-chain-slot-order-v1"
 
@@ -213,7 +212,7 @@ def seal_window(window: int, seal_l2_slot: int, current_block_number: int,
 
 
 def seed(window: int, snapshot: Snapshot) -> bytes:
-    return keccak256(DOMAIN_SEED + u256(SETTLEMENT_CHAIN_ID) + u256(PROTOCOL_VERSION)
+    return keccak256(DOMAIN_SEED + u256(SETTLEMENT_CHAIN_ID)
                      + u256(window) + snapshot.randao)
 
 
@@ -369,10 +368,10 @@ def test_keccak_and_encoding_vectors():
     assert snapshot is not None
     check("L2 exact seed golden vector",
           seed(0, snapshot).hex()
-          == "3a2dd06afd564d2e6fa5978befc3182cc8f1926ca6cd59848ab90c1781e16fd4")
+          == "54c14caf9644741f706662347eb5a567f763302ea4b023d122ec7db03e812a94")
     check("L3 exact full-schedule golden vector",
           digest_schedule(list(base_schedule()))
-          == "2c52d91b3dd0468ac2d08675d063d085b660e09d53ff3fdd517805ed6b8e6e9d")
+          == "a995246db69a7f133e333ce45934d7edc4dbe6a7431be0b232f7f12295274362")
 
 
 def test_determinism_geometry_and_missed_slots():

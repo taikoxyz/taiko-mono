@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.24}
+\large\mdseries Audited Design Candidate --- v2.25}
 \author{}
 \date{August 2026}
 \maketitle
@@ -485,15 +485,22 @@ pay its event in a later transaction.  A missing seal fails closed to
 age plus 64-slot carrier scan, finality and seal margin fits the eight-epoch
 geometry and remains far below EIP-4788's 8,191-slot history window.  Consensus
 constants include the Deneb SSZ generalized indices; an L1 fork that changes
-them requires a protocol-version upgrade, never runtime guessing.
+them requires an explicitly registered verifier, never runtime guessing.
 
 For Deneb, Electra and Fulu, the generalized index from \code{BeaconBlock} root
 to \code{slot} is 8 and to \code{body.execution_payload} is 201.  Within the
 composed tree, payload \code{state_root}, \code{prev_randao}, \code{timestamp}
 and \code{block_hash} are 6,434, 6,437, 6,441 and 6,444 respectively.  The seal
 input names the L1 fork digest; only these configured digests are accepted.
-Gloas or any fork that changes the container requires new constants, fixtures
-and a protocol-version upgrade before its activation.
+The protocol-lifetime ScheduleOracle holds a one-shot append-only
+\code{forkDigest -> (verifier,codeHash,configHash,gasLimit)} registry controlled
+only by a delayed ProtocolVersionManager manifest.  Seal dispatch uses a
+bounded \code{STATICCALL}, exact return length and rechecked \code{EXTCODEHASH};
+failure resolves VACANT and cannot mutate an old seal.  Gloas or any fork that
+changes the container requires a reviewed verifier, constants, fixtures and
+delayed registration before its activation.  That registration may change
+witness parsing only: it cannot change the protocol-lifetime seed,
+eligibility, allocation or placement rules.
 
 \subsection{Consensus byte encoding and allocation}
 
@@ -501,8 +508,8 @@ All hashes use Ethereum legacy Keccak-256.  Concatenation below is packed fixed
 width; strings are the literal ASCII bytes without a length prefix:
 
 \begin{align*}
-seed_W &= H(\texttt{"slot-chain-seed-v1"} \| u256(settlementChainId) \\
-       &\quad \| u256(protocolVersion) \| u256(W) \| bytes32(prevRandao)),\\
+seed_W &= H(\texttt{"slot-chain-seed-v2"} \| u256(settlementChainId) \\
+       &\quad \| u256(W) \| bytes32(prevRandao)),\\
 qTie_i &= H(\texttt{"slot-chain-quota-tie-v1"} \| seed_W \| u64(regIndex_i)),\\
 sTie_{p,i} &= H(\texttt{"slot-chain-slot-order-v1"} \| seed_W
                    \| u16(p) \| address20(i)).
@@ -520,6 +527,16 @@ a ticket remaining, differs from the preceding real address, and removing it
 preserves \code{remaining[a] <= otherRemaining + 1} for every real address.
 Choose the feasible value with smallest \code{sTie}; \code{VACANT} may repeat.
 The executable model and its golden vectors are normative test fixtures.
+
+The seed and allocation/placement algorithm are protocol-lifetime scheduling
+rules, not release-profile rules.  In particular, neither a seal nor its seed
+contains a Settlement protocol version.  A sealed future window therefore has
+identical meaning before and after a Settlement migration, matching the
+protocol-lifetime ScheduleOracle and retained reservations.  An incompatible
+scheduling change cannot ride an ordinary profile migration: it requires a
+separately specified schedule-epoch transition that waits until every old-epoch
+seal and liability is outside the retention horizon.  This document defines no
+such transition.
 
 \section{Blocks, promises and proof statement}\label{sec:blocks}
 
@@ -698,13 +715,16 @@ described in \S\ref{sec:machine}.  After every commit and on every activation
 check, the sole authoritative live head value is
 \code{ForcedQueue.dueAt(canonical.messageCursor)}; no recovery-round or
 canonical-core scalar caches it.
-While the router has a pending release, Settlement requires
-\code{releaseProtocolVersion=protocolVersion} and
-\code{releaseManifestHash} equal the exact pending word; otherwise both fields
-must be zero.  The circuit uses the nonzero pair to require the first block's
-activation Anchor call and the exact manifest, and requires the latch already
-active in every later block of that candidate.  The pair is cleared only by the
-same successful canonical commit that advances queue and history state.
+For the one proof-first launch or migration candidate, Settlement requires
+\code{releaseProtocolVersion=targetProtocolVersion} and
+\code{releaseManifestHash=targetManifestHash} from the authenticated launch or
+migration gate; every ordinary candidate requires both fields to be zero.  The
+circuit uses the nonzero pair to require the first block's activation Anchor
+call and the exact manifest, and requires the latch already active in every
+later block of that candidate.  The L1 coordinator verifies this proof before
+the old Settlement or queue authority changes, then adopts its output and
+consumes the target pair in the same atomic cutover.  No ACTIVE Settlement can
+be left waiting on a newly activated verifier to clear a pending release.
 \code{proofBeneficiary} is a nonzero proof input, never builder-signed block
 data or coinbase.  It receives the consumed queue-fee interval and any separate
 proof reward; copying proof bytes cannot redirect either payment.
@@ -891,8 +911,9 @@ submissions.  An empty activated window merely cancels at deadline, so an
 opener gains no censorship right.  Every candidate first
 proves its frozen-prefix boundary in the circuit.  It also supplies a canonical
 single-leaf Merkle proof at \code{endCursor} under the queue's current
-root/count, or proves \code{endCursor==currentCount}.  Settlement verifies at
-most 32 sibling hashes and requires the resulting
+root/count, or proves \code{endCursor==currentCount}.  Settlement verifies the
+canonical depth-64 singleton proof, which contains exactly 64 sibling hashes,
+and requires the resulting
 \code{currentBoundaryDueAt} to exceed
 \code{requiredThrough}.  This prevents an old but valid anchor from hiding a
 post-anchor append.  Because due times are monotone, one current boundary leaf
@@ -1256,14 +1277,24 @@ full message preimage.  The payable adapter initially retains \code{msg.value},
 derives both domains and the ID, direct-reads the immutable record and live
 source liability, and validates all fixed bounds including
 \code{block.timestamp<=enqueueBy}.  It first calls the router's nonpayable
-\code{syncIngress()} as a registered immutable adapter.  If that call changes
+\code{syncIngress()}, which returns either \code{SYNCED} or an exact
+\code{(activeProtocolVersion,generation)} stamp, as a registered immutable
+adapter.  If that call changes
 mode, the adapter records no credit or queue leaf, adds the still-local full
 value to \code{claimable[msg.sender]}, and returns \code{SYNCED}; a CEI pull
 withdrawal is callable independently of protocol mode and the caller retries
 in a later transaction.  If unchanged, the same adapter immediately calls the
-router's payable \code{appendFromAdapter\{value:msg.value\}}.  The router again
-checks the registered caller and ACTIVE phase, runs bounded \code{sync()}, and
-forwards all value with the exact descriptor to the queue.  A successful router
+router's payable
+\code{appendFromAdapter\{value:msg.value\}(activeProtocolVersion,generation,
+descriptor)}.  This second entry point does not call \code{sync()} again: it
+requires the registered caller, ACTIVE phase, and exact current version and
+generation stamp, then forwards all value with the exact descriptor to the
+queue.  The immutable adapter has no entry point that can split, defer or
+redirect this pair and makes the second call before any other external call in
+the same top-level transaction.  EVM call execution supplies no interleaving
+between them.  A stale stamp after any migration transition rejects and returns
+the value by call-level rollback; it cannot preserve a second state transition
+inside a reverting payable call.  A successful router
 retains zero wei.  The queue checks \code{queueCount<UINT64_MAX}, appends at the
 current count and timestamps the deadline; then the source Bridge changes NEW
 to QUEUED at that exact index and the adapter records the returned index, all in
@@ -1290,16 +1321,17 @@ activating a delayed manifest, after direct runtime/config checks against the
 profile-named kind-0 adapter or row-1 BridgeInboxAdapter; there is no public
 setter, delete or redirect.  Every adapter fixes this router and queue in
 constructor/configuration, and old adapters remain usable.  The router calls the
-active Settlement's \code{sync()} under a non-reentrant guard and reports
+active Settlement's \code{sync()} only in nonpayable \code{syncIngress} under a
+non-reentrant guard and reports
 \code{SYNCED} without accepting value if any transition occurred.  Its adapter
 caller preserves that transition, creates no admission record and keeps the
 entire fee locally claimable by the original caller.  Otherwise it computes
 \code{enqueuedAt=block.timestamp} and
 \code{dueAt=max(enqueuedAt+FORCE_DELAY,lastDueAt,recoveryExpiry+1)} (the last
 term is zero outside recovery), and appends atomically.  Neither a sync-result Boolean, enqueue timestamp
-nor due time is accepted in router calldata; the router rechecks the shared gate
-is ACTIVE after \code{sync()} and before forwarding the exact value to the
-queue.  Router, queue and adapter are non-reentrant, and failure of any later
+nor due time is accepted in router calldata; payable append rechecks the shared
+gate is ACTIVE and the exact stamp before forwarding value, without a second
+sync decision.  Router, queue and adapter are non-reentrant, and failure of any later
 append/Bridge/adapter write reverts the value transfer and all state.  No public
 caller can invoke the forwarding path.  \code{ForcedQueue} stores one
 authoritative \code{QueueDescriptor} per
@@ -1332,10 +1364,14 @@ writes the cursor and, in O(1), moves
 \code{depositPrefix[end]-depositPrefix[expectedStart]} from unconsumed escrow
 to \code{claimable[proofBeneficiary]}.  The beneficiary is the exact nonzero
 public input authenticated by the accepted proof; it is not chosen by the
-queue caller.  The queue remains the ETH custodian, enforces
-\code{balance=unconsumedEscrow+totalClaimable}; every claim-ledger mutation
+queue caller.  The queue remains the ETH custodian and enforces the solvency
+lower bound
+\code{address(this).balance >= unconsumedEscrow+totalClaimable}; every
+claim-ledger mutation
 updates \code{totalClaimable} by the same checked amount, so no global sum or
-scan is performed.  It exposes an unpausable CEI pull withdrawal.  There is no
+scan is performed.  ETH forced into the contract without an append is surplus,
+never enters either liability and cannot make an append, advance or withdrawal
+revert.  It exposes an unpausable CEI pull withdrawal.  There is no
 per-item callback and no ``unused'' refund.
 \code{setActiveSettlement} requires the stored old address and is called only
 inside bootstrap or an atomic version switch.  The
@@ -1900,40 +1936,48 @@ append-only mapping from protocol version to exact Settlement address,
 \code{EXTCODEHASH} and execution-profile hash.  Historical entries cannot be
 deleted, redirected or reactivated.  Its only switch is:
 \begin{verbatim}
-activateVersion(protocolVersion, executionProfileHash, settlement)
+activateVersionWithProof(protocolVersion, executionProfileHash, settlement,
+                         activationCandidate, validityProof)
 \end{verbatim}
 It is callable by the delayed ProtocolVersionManager while activating that exact
 manifest.  It requires a strictly increasing version, approved Settlement
-runtime/profile and one atomic migration-coordinator transaction.  Launch MPT
-import-proof verification belongs to the audited migration adapter and is not
-an opaque argument to this switch.  A later switch relies on induction from the
-last validity proof and checks on L1 that the old
+runtime/profile, one exact target-verifier proof from the frozen current core,
+and one atomic migration-coordinator transaction.  Launch MPT import-proof
+verification belongs to the audited migration adapter and is not an opaque
+argument to this switch.  A later switch relies on induction from the last
+validity proof and checks on L1 that the old
 \code{CanonicalCore.messageCursor=ForcedQueue.cursor}; it does not pretend to
-read the live L2 Inbox cursor.  That
-transaction irreversibly freezes the old Settlement, reads its exact full
-\code{Canonical}, canonical sequence and \code{lastCanonicalCommitBlock}, and
-requires the new empty PREACTIVE Settlement to import every \code{CanonicalCore}
-field and \code{canonicalizedAtBlock} without narrowing.  Both versions use the
-same protocol-lifetime ForcedQueue address; the coordinator checks its exact
-root, count, frontier, cursor, escrow balance and \code{lastDueAt}, rather than
-copying scalars into a replacement queue.  It also derives that no normal best,
-recovery episode, live data session or other transient preparation remains.
-Mature reward/refund/capsule/queue claims are permanent claim-only state and do
-not gate cutover.  Any live preparation completes its exact cancellation path
-before freezing.  The new Settlement writes the imported full core at the same
-sequence in its own version-namespaced ring, sets
-\code{lastHistoryWriteBlock=block.number}, and only then becomes ACTIVE.  The
-router simultaneously installs the exact pending
-\code{(protocolVersion,releaseManifestHash)}; no new migration may arm while
-that pair is pending.  Its first later canonical commit requires a strictly
-greater L1 block and must prove the release-activation transition.  Failure of
-any step reverts the freeze, import and switch together.
+read the live L2 Inbox cursor.  Before any irreversible write the coordinator
+reads the old Settlement's exact full \code{Canonical}, sequence and
+\code{lastCanonicalCommitBlock}; checks the queue's root, count, frontier,
+cursor, accounted liabilities, actual-balance lower bound and
+\code{lastDueAt}; verifies the target proof's imported base, release pair,
+execution profile, queue range and poststate; and requires the new empty
+PREACTIVE Settlement to share the exact protocol-lifetime queue, registry,
+schedule and gate objects.  The target proof executes the release Anchor and
+directly validates L2 component rows 4--9.  A missing component, route
+collision, bad verifier or proving outage therefore leaves the old Settlement
+and queue authority unchanged.
+
+Only after every proof and configuration check succeeds does the same revert
+domain freeze the old Settlement, transfer queue authority, advance the proved
+queue interval, adopt the proof-authenticated L2 Inbox cursor, initialize the
+new Settlement directly at the proved poststate and next sequence, write its
+first version-namespaced history cell, consume the target pair and change the
+router/gate to the new ACTIVE version.  The imported base remains in the old
+version's permanent history; it is not duplicated as a target canonical
+history entry.  Mature reward/refund/capsule/queue claims remain claim-only and
+do not gate cutover.  No external target call occurs after authority transfer.
+Failure of any step reverts the proof adoption, queue payment, freeze, history
+write and switch together.
 
 The router's stable \code{syncIngress}/\code{appendFromAdapter} forced-ingress
 facade remains available to every registered old immutable BridgeInboxAdapter.
-It resolves the active version, calls that Settlement's bounded \code{sync()},
-preserves a SYNCED transition without accepting value, and otherwise forwards
-the exact value and descriptor only to the singleton ForcedQueue.  No
+Its nonpayable half resolves the active version, calls that Settlement's bounded
+\code{sync()}, preserves a SYNCED transition without accepting value, and
+otherwise returns the exact version/generation stamp.  Its payable half makes
+no second sync decision and forwards the exact value and descriptor only after
+that stamp still matches the singleton ForcedQueue's ACTIVE authority.  No
 Settlement calls the ingress/version router while committing canonical state;
 it calls only the queue's non-callback \code{advanceCursor}.  Router
 \code{canonicalAt(protocolVersion,canonicalSequence)} performs a bounded
@@ -2242,7 +2286,9 @@ meaningful entry barrier.  The product must distinguish these two claims.
 \item \code{BuilderRegistry}: protocol-lifetime non-proxy, with 64 active cells, 1,072 liability generations,
 512-leaf tranche roots, tombstones, replacement counters and the versioned
 \code{admissionRoot}.  Every transition is fixed-depth or constant-size.
-\item \code{ScheduleOracle}: protocol-lifetime non-proxy sealed window root/seed in a ring covering
+\item \code{ScheduleOracle}: protocol-lifetime non-proxy sealed window root/seed
+under the version-independent \code{slot-chain-seed-v2} and frozen allocation/
+placement rules, plus the one-shot delayed fork-verifier registry, in a ring covering
 \code{MAX_LIVE_WINDOWS=268}.  \code{MAX_EARLY_SEAL_WINDOWS=8} covers the
 earliest snapshot geometry.  In window units the capacity is at least:
 \begin{verbatim}
@@ -2318,9 +2364,11 @@ cannot veto migration by continuously creating a best or recovery round.
 Rewards and burn disposal remain separate; no loop is proportional to chain age.
 \item \code{ActiveSettlementRouter}: non-proxy, no generic target setter.  Its
   append-only version registry permanently binds Settlement address/code/profile;
-  activation imports the exact full core, same ForcedQueue/registry/schedule
-  objects and migration-ready state, and installs an exact pending release pair.
-  Its stable two-call sync/append facade preserves old adapters, while
+  proof-first activation binds the exact old core, same
+  ForcedQueue/registry/schedule objects and migration-ready state, then
+  atomically installs the proved target poststate.  Delayed exact-target abort
+  restores the unchanged old authority before cutover.  Its stable stamped
+  two-call sync/append facade preserves old adapters, while
   \code{canonicalAt(version,sequence)} only reads exact historical cells.
 \item Terminal verifier: immutable, read-only and unpausable; it checks one
 fixed 64-sibling vector proof against an exact router-routed version and
@@ -2380,7 +2428,9 @@ otherwise decoding rejects rather than attempting a hash fixed point.
 \begin{itemize}
 \item settlement/L2 chain IDs, both genesis hashes, fork digest, EIP-2935
   address and protocol-lifetime \code{firstV2BlockNumber}; BuilderRegistry,
-  ScheduleOracle, domain-registry and version-manager addresses, runtime hashes
+  ScheduleOracle, its protocol-lifetime schedule-rules hash and every
+  fork-verifier address/code/config/gas tuple, domain-registry and
+  version-manager addresses, runtime hashes
   and exact immutable/configuration commitments; every append-only source, destination and
   support descriptor and manifest schema/validation binding; each nonzero domain namespace,
   frozen Bridge/vault facade and credit-registry runtime, implementation slot,
@@ -2541,13 +2591,15 @@ encoded in the profile and rejects an unlisted hop, delegate target or mutable
 upgrade path.  Every terminal implementation and value must equal the immutable
 execution profile.
 The adapter requires its hash to equal that stored finalized hash, its
-\code{number <= UINT48_MAX}, and the legacy SignalService checkpoint at that
+\code{number < UINT48_MAX}, and the legacy SignalService checkpoint at that
 exact number to equal its block hash and state root.  This binds the height and
 state root that the current Inbox core does not store.
 
-Third, the governance executor invokes the audited migration adapter.  From
-that authenticated header and the frozen execution profile it constructs every
-initial field exactly:
+Third, the delayed launch manifest arms a reversible QUIESCENT phase.  It stops
+new legacy proposal/forced ingress only after the old boundary above is exact,
+while retaining the old Inbox's authority.  From the authenticated header and
+frozen execution profile the audited migration adapter constructs the target
+proof's base fields exactly:
 \begin{verbatim}
 l2BlockNumber       = header.number
 tipHash             = H(RLP(header))
@@ -2562,30 +2614,18 @@ nextBaseFee         = profile.nextBaseFee(header)
 nextExcessBlobGas   = profile.nextExcessBlobGas(header)
 terminalRoot        = authenticatedAccumulator.root
 terminalCount       = authenticatedAccumulator.count
-canonicalizedAtBlock = block.number
 firstV2BlockNumber    = header.number + 1
 \end{verbatim}
-It rejects a pre-genesis timestamp, arithmetic overflow, missing fork-required
-header fields or any profile mismatch.  It freezes old proposal/forced ingress,
-imports this complete core into new PREACTIVE state, verifies the new queue's
-golden empty root/count/cursor and \code{dueAt(0)=UINT64_MAX}, and an empty
-BridgeInboxAdapter with no \code{QUEUED} record or deposit, invokes the router's
-sole \code{activateVersion} transition to authenticate the singleton queue and
-atomically register the new Settlement, writes the imported full core into that
-Settlement's sequence-zero history cell, changes PREACTIVE to ACTIVE, and
-stores the protocol-lifetime \code{firstV2BlockNumber} and exact pending
-\code{(protocolVersion,releaseManifestHash)} consumed by the first new
-AnchorV4 transaction.  It does not write L2 code or storage.  L1 kind-1 ingress is enabled only
-after the authenticated L2 code/authorization proofs and router-history
-authorization have all succeeded.  That same atomic cutover enables kind-0
-ingress, but both V2 send selectors and kind-1 ingress remain disabled.  The old
-\code{sendMessage} selector and all L2-to-L1 sends retain exact V1 signals and
-events for every caller.
-At launch and after every later version cutover, the first canonical L2 block
-from the imported state must begin with the custom AnchorV4 activation
-transaction for the router's exact pending release pair.
-The circuit authenticates the L1 cutover commitment, exact imported parent and
-execution-profile hash.  Its top-level sender is the reserved Anchor-system
+It rejects a pre-genesis timestamp, checked-addition overflow, missing
+fork-required header fields or any profile mismatch.  Before cutover, an
+untrusted prover supplies the exact target-verifier proof for the first V2
+block from this base.  The block number is \code{firstV2BlockNumber}, and the
+block must begin with the custom AnchorV4 activation transaction for the staged
+\code{(protocolVersion,releaseManifestHash)}.  The circuit authenticates the
+staged manifest commitment under an already published L1 anchor, the exact
+imported parent, execution-profile hash, empty
+depth-64 queue and exact L2 component rows 4--9.  Its top-level sender is the
+reserved Anchor-system
 sender.  AnchorV4 first calls
 \code{ProtocolReleaseAuthorityV2.activateRelease}; the authority verifies both
 \code{msg.sender=manifest.anchorV4} and
@@ -2600,9 +2640,32 @@ that omits, duplicates, calls authority directly or through Bridge, substitutes
 an Anchor, or mismatches this transition is unprovable.  All calls occur in one
 EVM transaction, so any failure rolls release and registration back together.
 Subsequent blocks in that candidate require the latch already true and cannot
-repeat activation.  The L1 canonical commit clears the pending pair only after
-this proved transition, queue payment/cursor advance and history write all
-succeed.  After that block becomes canonical and final, anyone submits its version/sequence and
+repeat activation.
+
+The proof has no input derived from the future cutover transaction or its block
+hash.  The L1 coordinator instead compares the proof's exact base,
+generation/profile/manifest and queue snapshot with live state immediately
+before adoption.  This removes an otherwise circular requirement to prove a
+commitment that can exist only after the proof is available.
+
+Only after this proof verifies does one migration-adapter transaction freeze
+legacy proposal/ingress, authenticate the singleton queue and empty
+BridgeInboxAdapter, register the new Settlement, adopt the proved poststate as
+its sequence-zero canonical history cell with
+\code{canonicalizedAtBlock=block.number}, store the protocol-lifetime
+\code{firstV2BlockNumber}, consume the launch target and make the router ACTIVE.
+It does not write L2 code or storage; it adopts the proved L2 poststate.  Proof
+failure, bad component configuration or proving unavailability leaves the old
+authority intact.  A separately delayed launch-cancel manifest is
+permissionlessly executable while QUIESCENT and restores legacy operation
+without changing the imported checkpoint; a canceled generation cannot later
+activate.  L1 kind-1 ingress is enabled only after the authenticated L2
+code/authorization proofs and router-history authorization have all succeeded.
+That atomic cutover enables kind-0 ingress, but both V2 send selectors and
+kind-1 ingress remain disabled.  The old \code{sendMessage} selector and all
+L2-to-L1 sends retain exact V1 signals and events for every caller.
+
+After the activation block becomes canonical and final, anyone submits its version/sequence and
 bounded \code{MptProofV1} registrar proof to BridgeDomainRegistry.  Only that confirmation plus 214 L1
 blocks enables \code{sendMessageV2}, \code{sendMessageFromVaultV2} and kind-1
 ingress for the exact tuple.  Thus no source credit can target an unregistered
@@ -2615,14 +2678,15 @@ gate word owned by the non-proxy \code{ActiveSettlementRouter}, not a
 caller-supplied quiescence Boolean or replaceable contract.  Its exact state is
 \begin{verbatim}
 (uint64 generation, uint64 activeProtocolVersion,
- uint64 targetProtocolVersion, bytes32 targetManifestHash, uint8 phase,
- uint64 pendingReleaseProtocolVersion, bytes32 pendingReleaseManifestHash)
+ uint64 targetProtocolVersion, bytes32 targetManifestHash, uint8 phase)
 \end{verbatim}
 where phase is
 ACTIVE, ARMED or READY.  Only ProtocolVersionManager may arm
 \code{generation=current+1} for the exact current version, greater target
-version and active delayed manifest, and only while both pending-release fields
-are zero; stale, skipped, public or mismatched calls reject atomically.  Settlement,
+version and active delayed manifest.  Before arm, the manager checks every
+target address, runtime/configuration hash, object identity and L1 component
+that is knowable without executing the target L2 transition; stale, skipped,
+public or mismatched calls reject atomically.  Settlement,
 registry, data-session, reward/preparation and both forced-ingress adapters all
 read that same router-owned word.  Arming atomically closes new
 normal contexts/candidates, sessions, data posts, builder reservations and
@@ -2631,6 +2695,20 @@ Every new-work entrypoint rechecks phase ACTIVE after \code{sync()}; every ARMED
 cleanup and READY write returns a non-continuation status.  Reaching READY sets
 \code{changed=true}, so no call can fall through and reopen normal work.
 Already-mature claim-only withdrawals remain callable.
+
+ARMED and READY are reversible because authority has not moved.  A separate
+cancel manifest binds the exact generation, old version, target version and
+target manifest hash and receives the same governance delay as an upgrade.
+After that manifest matures, \code{abortMigration} is permissionlessly
+executable.  It requires the old Settlement and queue still authoritative,
+marks that generation canceled, clears the target fields and returns the old
+version to ACTIVE without restoring deleted sessions or an already-settled
+candidate.  The same transaction runs one bounded old-version \code{sync()}:
+a due head or stale tip opens ordinary recovery, otherwise normal work may open
+again.  A canceled generation can never cut over, and the next arm uses the
+next generation.  Thus a bad deployment, unavailable proof or abandoned
+upgrade cannot strand the protocol in ARMED or READY.  Cancellation changes no
+reservation, canonical, queue, claim or liability state.
 
 The old Settlement finishes only the already-open boundary.  An open normal
 window may commit its already-recorded best at its deadline; a newly due head
@@ -2658,54 +2736,51 @@ enters MIGRATION\_READY before another \code{sync()} decision.  A due queue head
 is not drained or discarded; old adapters receive SYNCED while their caller fee
 remains in the adapter pull-claim ledger and retry after activation.
 
-One ProtocolVersionManager-authorized router transaction then freezes the old
-immutable Settlement, reads its exact full live Canonical, sequence,
-history-write block and MIGRATION\_READY state, and requires the old and new
-Settlement to reference by object identity the router's one protocol-lifetime,
-immutable non-proxy ForcedQueue, BuilderRegistry, ScheduleOracle and the
-router-owned migration gate.  The Queue has no delegatecall, selfdestruct,
-arbitrary setter or upgrade surface.  The manager directly checks its exact
-runtime hash and Appendix-defined configuration hash at launch and every
-version switch.  The queue itself owns
-root/count/frontier/cursor/deposit-prefix/escrow/claims/lastDueAt and appends at
-its live count; no
-parallel ingress list or caller-built queue snapshot exists.  The transaction
-imports the exact post-boundary Canonical only after requiring
-\code{CanonicalCore.messageCursor = ForcedQueue.cursor}.  Launch separately
-proved the imported L2 Inbox cursor equal; every accepted proof thereafter
-preserves that equality inductively.  The migration transaction neither reads
-nor fabricates an L2 cursor.  It imports no independently selectable cursor
-without narrowing into an empty PREACTIVE immutable Settlement, writes the
-imported version-namespaced history cell, registers its code/profile, and makes
-it ACTIVE.  In the same revert domain the router calls
-\code{ForcedQueue.setActiveSettlement(old,new)}; the queue requires its stored
-authority to be exactly old, so the frozen Settlement loses cursor authority and
-the new one gains it without a public setter race.  It then updates
-\code{activeProtocolVersion}, installs the exact pending
-\code{(targetProtocolVersion,targetManifestHash)} release pair, and as its final
-trusted internal write performs READY-to-ACTIVE for the same generation and
-clears only the cutover target fields.  Another migration cannot arm until that
-pending release is cleared by a canonical activation commit.  It makes no
-caller-controlled external call afterward.  Any
-failure reverts the freeze, import, router switch and gate transition.  The new Settlement's
-manifest must reproduce the protocol-lifetime kind-0 v2/kind-1 v10 decoder,
-global InboxApply row ABI and disposition transitions for every preserved queue
-entry; an incompatible decoder cannot activate.  Existing kind-1 descriptors
-remain complete on L1, and an unavailable kind-0 preimage retains its original
-bounded expiry/discard path.
-The new Settlement's first later history write requires a later L1 block and
-the first candidate from the imported state must carry the exact pending
-release pair and execute its activation Anchor before InboxApply.  A successful
-commit clears the pair atomically; a revert or rejected proof leaves it pending.
-Its first \code{sync()} immediately opens recovery if the preserved head is due.
+While READY, any prover may construct the target's exact first candidate from
+the frozen old Canonical and live queue snapshot.  It carries the gate's exact
+target release pair, executes the activation Anchor before InboxApply, and is
+verified by the manifest-bound target verifier.  The proof statement binds the
+old full core, old sequence, target version/profile/manifest, queue
+root/count/cursor and consumed range, proof beneficiary, output core and every
+release-activation effect.  It also proves the target decoder handles the
+preserved kind-0 v2/kind-1 v10 descriptors and directly checks local component
+rows 4--9.  Proof generation and verification do not mutate the old Settlement
+or queue.
+
+One ProtocolVersionManager-authorized
+\code{activateVersionWithProof} transaction then re-reads the exact
+MIGRATION\_READY generation and every bound input.  It requires the old and new
+Settlement to reference by object identity the router's protocol-lifetime
+immutable non-proxy ForcedQueue, BuilderRegistry, ScheduleOracle and migration
+gate.  The Queue has no delegatecall, selfdestruct, arbitrary setter or upgrade
+surface.  The manager directly checks its exact runtime/configuration hash,
+actual balance at least its accounted liabilities, and exact
+root/count/frontier/cursor/deposit-prefix/claims/lastDueAt commitments.  Launch
+separately proved the imported L2 Inbox cursor equal; every accepted proof
+thereafter preserves that equality inductively.  The transaction neither reads
+nor fabricates an L2 cursor.
+
+After all assertions and target-proof verification, the same revert domain
+freezes the old Settlement, registers the target code/profile, calls
+\code{ForcedQueue.setActiveSettlement(old,new)}, advances exactly the proved
+queue interval and proof-beneficiary claim, adopts the proved Inbox cursor,
+initializes the new Settlement directly with the proof's output core at
+\code{oldSequence+1}, writes that first target history cell, consumes the gate's
+target pair and performs READY-to-ACTIVE for the target version.  The queue
+requires its stored authority to be exactly old before the transfer.  No
+caller-controlled external call occurs after it.  Any failure reverts proof
+adoption, queue payment, freeze, history write, authority transfer and gate
+transition.  An incompatible decoder or component therefore cannot activate;
+an unavailable kind-0 preimage retains its original bounded expiry/discard path.
+The new active Settlement has no pending release.  Its first later
+\code{sync()} immediately opens recovery if the preserved next head is due.
 Continuous builder
 submissions or a recovery backlog therefore cannot veto an armed upgrade.
 Existing incumbent reservations never closed or changed; non-exited generations
 may add later reservations immediately after that ACTIVE transition, while
 exited/tombstoned generations remain closed.
-The operation
-contains only bounded non-reverting internal writes after its assertions; any
-revert rolls all contracts back.  The adapter cannot cancel or convert legacy
+The operation contains only bounded non-reverting internal writes after proof
+verification; any revert rolls all contracts back.  The adapter cannot cancel or convert legacy
 forced records; a nonempty legacy predicate simply blocks migration.  Old bridge signals keep their original claim
 semantics, so the migration makes no unenforceable claim to enumerate all
 historical pending messages.
@@ -2717,7 +2792,7 @@ historical pending messages.
 \textbf{Parameter} & \textbf{Initial value} & \textbf{Enforced relation} \\
 \midrule
 L2 slot / schedule window & 1 s / 384 slots & Aligned by genesis timestamp. \\
-L2 height / timestamp & \code{uint48} checkpoint bound & Header number is consecutive and at most \code{UINT48_MAX}; header timestamp equals genesis plus signed slot. \\
+L2 height / timestamp & \code{uint48} checkpoint bound & Launch import is strictly below \code{UINT48_MAX}; every later header is checked consecutive and at most that maximum.  Timestamp equals genesis plus signed slot. \\
 \code{N_MAX}, \code{Q_MAX} & 64 / 76 & Six addresses fill 384 tickets. \\
 \code{BOND_MAX} & $2^{192}-1$ & \code{bond*(Q_MAX+1) < 2^256}. \\
 Entry/exit/reservation ahead; moves & 8 / 268 / 16 windows; 4 per window & Liability residence $<268$; capacity $4\times268$. \\
@@ -2801,7 +2876,8 @@ execution result:
   ProtocolReleaseAuthorityV2,
   TerminalDomainRegistrarV2, TerminalAccumulatorV2, ActiveSettlementRouter,
   ForcedQueue (including its depth, capacity, empty leaf, descriptor schema,
-  router binding and \code{forcedQueueConfigHash}), both immutable ingress
+  router binding, accounted-liability lower bound, forced-ETH surplus behavior
+  and \code{forcedQueueConfigHash}), both immutable ingress
   adapter runtimes/configurations and their append-only router registrations,
   L1/L2 legacy SignalService, official refund
   vaults, frozen bridged-token restoration templates and both permanent Bridge
@@ -2817,7 +2893,9 @@ execution result:
   fixed-depth TerminalSignalVerifier vector grammar, permanent accumulator-node layout and
   append gas bound, byte-exact Bridge-kernel and destination-infrastructure
   descriptors, registrar/adapter/store one-shot bindings, finalized L2
-  registration proof, router activation ABI/invariants, direct-call limits and
+  registration proof, stamped two-call ingress ABI, proof-first router
+  activation ABI/invariants, exact delayed-cancel manifest/transition,
+  direct-call limits and
   valid/invalid fixed-return corpus;
 \item exact unsigned system transaction type and reserved sender addresses;
   chain-ID equality, caller/origin injection, initial warm set, intrinsic gas,
@@ -2846,7 +2924,10 @@ execution result:
   domain/Bridge proof substitutions, multi-credit batches and
   every V1/V2 replay path, manifest/profile dependency-cycle rejection,
   chain-ID overflow/local mismatch, fresh/partial/exact-reuse endpoint state,
-  shared-gate identity and two successive migration generations.
+  singleton queue proofs at and across the $2^{32}$ boundary, forced-ETH
+  surplus, stale ingress stamps, failed target proofs/components,
+  ARMED/READY cancellation, shared-gate identity and two complete successive
+  migration generations.
 \end{itemize}
 
 Those values are outputs of real compiled contracts, fork code and a real
@@ -3534,15 +3615,18 @@ verifier safety root.
 \code{lookahead-model.py} reports 36 assertions over legacy Keccak, EIP-4788
 carrier/parent selection, immutable seal deadlines, post-seal tombstones,
 partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and feasible placement, including
-absolute clock conversion, execution-block finality depth, fixed seed and
+absolute clock conversion, execution-block finality depth, version-independent
+protocol-lifetime seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 178 assertions over PREACTIVE/migration,
-early-return semantics, force-due precedence, renewable recovery, no-seat
+\code{settlement-window-model.py} reports 181 assertions over PREACTIVE/migration,
+proof-first launch/cutover, delayed exact-target abort, early-return semantics,
+force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
-replacement/liability generations, tranche release units, atomic direct bridge
-enqueue and capacity races, persistent SYNCED refund/retry, enqueue/cancel
+replacement/liability generations, tranche release units, stamped direct bridge
+enqueue, forced-ETH-tolerant fee custody and capacity races, persistent SYNCED
+refund/retry, enqueue/cancel
 ordering, source-generation/domain support, immutable destination pins, processing expiry,
 aggregate ETH/token reserves, quota-independent refunds, immutable authorization
 versus mutable liability, frozen Bridge/vault facades, exact legacy-selector V1
@@ -3604,14 +3688,18 @@ orphaned transactions together.
 \item An armed later migration shares one generation gate across ingress,
 Settlement and transient ledgers, opens no new context, ends the current boundary
 without recovery renewal and reaches READY after at most 128 bounded cleanup
-calls.  Cutover freezes the old Settlement, imports canonical/bridge state into
-the inactive target, switches the one active queue router and finally returns
-the same router-owned gate READY-to-ACTIVE with its target version installed.
+calls.  While old authority remains intact, a target proof executes the exact
+release activation from that frozen base; cutover verifies it before freezing
+the old Settlement, then atomically adopts its canonical/bridge output, switches
+the one active queue authority and returns the same router-owned gate
+READY-to-ACTIVE with no pending release.  A separately delayed exact-target
+cancel restores old ACTIVE operation from ARMED or READY if no cutover occurred.
 The immutable non-proxy ForcedQueue, registry, schedule oracle and gate are
 shared by object identity across both Settlements; incumbent reservations remain
 RESERVED throughout.  At launch, V2 L2 entry points remain
-disabled under legacy rules; the first custom post-cutover Anchor transaction
-atomically registers/seals the destination and activates their shared gate.
+disabled under legacy rules; the first custom Anchor transaction is proved
+before cutover and atomically registers/seals the destination and activates
+their shared gate in the adopted L2 poststate.
 Source V2 waits for a finalized proof of that record plus 214 L1 blocks.
 \item A kind-1 credit is enqueued only by direct same-L1 comparison with an
 append-only CreditRecord, frozen source generation, source-approved destination

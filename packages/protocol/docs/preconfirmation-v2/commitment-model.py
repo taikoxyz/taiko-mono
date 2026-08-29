@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.24 consensus commitments.
+"""Golden vectors for Slot-Chain v2.25 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -1581,6 +1581,11 @@ if __name__ == "__main__":
     proof = vector.range_proof(2, 66)
     revealed = leaves[2:67]
     assert len(proof) <= 257
+    singleton_proof = vector.range_proof(2, 2)
+    assert len(singleton_proof) == FORCE_DEPTH
+    assert verify_force_range(70, 2, leaves[2:3], singleton_proof, vector.root)
+    assert not verify_force_range(
+        70, 2, leaves[2:3], singleton_proof[:32], vector.root)
     assert verify_force_range(70, 2, revealed, proof, vector.root)
     assert not verify_force_range(70, 2, revealed[1:], proof, vector.root)
     assert not verify_force_range(70, 2, (revealed[1], revealed[0], *revealed[2:]), proof, vector.root)
