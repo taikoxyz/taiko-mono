@@ -81,7 +81,14 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 		return nil
 	}
 
-	if err := checkConfs(); err != nil && err != ethereum.NotFound && err != errStillWaiting {
+	// the transaction may already have the confirmations we need, in which case
+	// we are done without ever waiting on the ticker below.
+	err := checkConfs()
+	if err == nil {
+		return nil
+	}
+
+	if err != ethereum.NotFound && err != errStillWaiting {
 		slog.Error("encountered error getting receipt", "txHash", txHash.Hex(), "error", err)
 
 		return err
