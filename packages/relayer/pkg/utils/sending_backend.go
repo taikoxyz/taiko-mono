@@ -2,7 +2,9 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"net"
 	"regexp"
 	"strconv"
 	"sync"
@@ -11,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
@@ -62,6 +65,8 @@ type SendingBackend struct {
 	failures         []int
 	failedAt         []time.Time
 	lastCharged      []common.Hash
+	acceptedNonce    []uint64
+	hasAccepted      []bool
 	failureThreshold int
 	retryInterval    time.Duration
 	now              func() time.Time
@@ -88,6 +93,8 @@ func NewSendingBackend(
 		failures:         make([]int, len(private)),
 		failedAt:         make([]time.Time, len(private)),
 		lastCharged:      make([]common.Hash, len(private)),
+		acceptedNonce:    make([]uint64, len(private)),
+		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		retryInterval:    interval,
 		now:              time.Now,
@@ -121,6 +128,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		return b.ETHBackend.SendTransaction(ctx, tx)
 	}
 
+	inRotation = b.deprioritiseAlreadyAccepted(inRotation, tx.Nonce())
+
 	var err error
 
 	for attempt, i := range inRotation {
@@ -141,7 +150,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		cancel()
 
 		if err == nil {
-			b.recordSuccess(i)
+			b.recordSuccess(i, tx.Nonce())
 
 			return nil
 		}
@@ -152,7 +161,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// to be able to trip. Checking the deadline before the send rather than after is what
 		// keeps that true for the last endpoint in rotation, whose share is the rest of the
 		// budget and which therefore always finds ctx expired once it has hung.
-		b.recordFailure(i, tx.Hash())
+		b.recordFailure(i, tx.Hash(), answeredWithRejection(err))
 		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(i)).Inc()
 
 		slog.Warn("Private endpoint refused a transaction",
@@ -235,22 +244,27 @@ func (b *SendingBackend) inRotation() []int {
 // recordFailure counts a refused transaction against the endpoint at index, taking it out of
 // rotation once it has refused failureThreshold distinct transactions in a row.
 //
-// Refusing the same transaction as the previous charge is not counted again. A relay that will not
-// take one particular claim — one that would revert because a competitor already processed the
-// message — looks exactly like a relay that is down if you only count errors, and the transaction
-// manager resubmits the same transaction repeatedly, so one such claim could spend the whole budget
-// on its own. Comparing against the last charge separates the two without having to classify error
-// strings: an endpoint that is genuinely down refuses whatever it is handed, so it still trips.
+// A rejection of the same transaction as the previous charge is not counted again. A relay that
+// will not take one particular claim — one that would revert because a competitor already processed
+// the message — is healthy for everything else, and the transaction manager resubmits that claim
+// repeatedly, so without this one bad claim could spend the endpoint's whole budget.
+//
+// Only an answered rejection is deduplicated. A timeout or a transport failure always counts, even
+// for the same transaction: the transaction manager republishes an unchanged transaction after a
+// generic send error, so a down or hanging endpoint would otherwise be charged exactly once for a
+// claim and never reach the threshold — the endpoint would never leave rotation and the fallback
+// to the public endpoint would never happen. That is the outage this failover exists for, so the
+// two cases have to be told apart; see answeredWithRejection.
 //
 // Only the immediately preceding charge is compared, not every transaction seen, so two bad claims
 // arriving alternately can still trip an endpoint. That is the intended trade: remembering every
 // transaction would grow without bound, and repeated refusals of more than one claim are weaker
 // evidence of health than of trouble.
-func (b *SendingBackend) recordFailure(index int, txHash common.Hash) {
+func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.failures[index] > 0 && b.lastCharged[index] == txHash {
+	if rejection && b.failures[index] > 0 && b.lastCharged[index] == txHash {
 		return
 	}
 
@@ -265,11 +279,69 @@ func (b *SendingBackend) recordFailure(index int, txHash common.Hash) {
 // recordSuccess returns the endpoint at index to full health. Only consecutive failures trip an
 // endpoint, so one transaction it would not take does not cost it its turn, and an endpoint that
 // just took one is not down whatever its recent record.
-func (b *SendingBackend) recordSuccess(index int) {
+func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	b.failures[index] = 0
 	b.failedAt[index] = time.Time{}
 	b.lastCharged[index] = common.Hash{}
+	b.acceptedNonce[index] = nonce
+	b.hasAccepted[index] = true
+}
+
+// deprioritiseAlreadyAccepted moves endpoints that already accepted this nonce to the back of the
+// order, preserving the configured order within each group.
+//
+// The transaction manager only re-sends a nonce it has not seen confirmed, so an endpoint that took
+// this one and did not get it included has had its turn; offering the replacement to a different
+// builder first is a better use of the retry than asking the same one again. Accepting a
+// transaction only means the relay received it, never that a builder included it, and that is the
+// only signal available here — receipts are polled through the public endpoint, which the backend
+// does not see.
+//
+// Nothing is charged for this. Non-inclusion is usually a fee that was too low or a race already
+// lost, not an unhealthy relay, and tripping an endpoint for it would push claims into the public
+// mempool for reasons that have nothing to do with the endpoint — the exposure this exists to
+// remove. Bounding how long a send waits for inclusion is TX_SEND_TIMEOUT's job.
+func (b *SendingBackend) deprioritiseAlreadyAccepted(indices []int, nonce uint64) []int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	fresh := make([]int, 0, len(indices))
+	alreadyTried := make([]int, 0, len(indices))
+
+	for _, i := range indices {
+		if b.hasAccepted[i] && b.acceptedNonce[i] == nonce {
+			alreadyTried = append(alreadyTried, i)
+
+			continue
+		}
+
+		fresh = append(fresh, i)
+	}
+
+	return append(fresh, alreadyTried...)
+}
+
+// answeredWithRejection reports whether err is the endpoint saying it will not take this particular
+// transaction, as opposed to us never hearing back from it at all.
+//
+// A JSON-RPC error response means the relay was reachable and formed an opinion about this one
+// transaction. A deadline, a cancellation or a transport error means there was no answer, which
+// says nothing about the transaction and everything about the endpoint. Classifying on the shape of
+// the error rather than on its text keeps this from depending on relay-specific wording.
+func answeredWithRejection(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return false
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return false
+	}
+
+	var rpcErr rpc.Error
+
+	return errors.As(err, &rpcErr)
 }

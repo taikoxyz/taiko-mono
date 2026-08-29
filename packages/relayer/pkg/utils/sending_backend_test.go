@@ -3,6 +3,9 @@ package utils
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/big"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -75,6 +78,14 @@ func (f *fakeSender) SendTransaction(_ context.Context, tx *types.Transaction) e
 
 func (f *fakeSender) Close() { f.closed = true }
 
+// rpcRejection models a JSON-RPC error response: the relay was reachable and answered that it will
+// not take this transaction. go-ethereum surfaces these as rpc.Error, which is how the backend
+// tells them apart from never hearing back at all.
+type rpcRejection struct{ msg string }
+
+func (e rpcRejection) Error() string  { return e.msg }
+func (e rpcRejection) ErrorCode() int { return -32000 }
+
 func testTx() *types.Transaction {
 	return txWithNonce(7)
 }
@@ -112,7 +123,7 @@ func newTestBackend(t *testing.T, retryInterval *time.Duration) (
 // trip refuses enough distinct transactions in a row to take a private endpoint out of rotation.
 func trip(b *SendingBackend, index int) {
 	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
-		b.recordFailure(index, txWithNonce(uint64(i)).Hash())
+		b.recordFailure(index, txWithNonce(uint64(i)).Hash(), false)
 	}
 }
 
@@ -180,7 +191,7 @@ func TestSendingBackend_ReportsTheLastErrorRatherThanGoingPublic(t *testing.T) {
 
 func TestSendingBackend_KeepsAnEndpointAfterASingleRefusal(t *testing.T) {
 	b, _, first, _, _ := newTestBackend(t, nil)
-	first.err = errors.New("failed to get tx into the mempool")
+	first.err = rpcRejection{"failed to get tx into the mempool"}
 
 	require.NoError(t, b.SendTransaction(context.Background(), testTx()))
 
@@ -211,9 +222,10 @@ func TestSendingBackend_TripsAnEndpointOnlyAtTheFailureThreshold(t *testing.T) {
 func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T) {
 	b, public, first, _, _ := newTestBackend(t, nil)
 	// What a relay does with a claim that would revert, because a competitor already processed
-	// the message. The transaction manager resubmits the same transaction on its own, so without
-	// per-transaction attribution one such claim would spend the endpoint's whole budget.
-	first.err = errors.New("failed to get tx into the mempool")
+	// the message: it answers. The transaction manager resubmits the same transaction on its own,
+	// so without per-transaction attribution one such claim would spend the endpoint's whole
+	// budget.
+	first.err = rpcRejection{"failed to get tx into the mempool"}
 
 	tx := testTx()
 
@@ -229,7 +241,7 @@ func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T)
 
 func TestSendingBackend_ChargesEachDistinctTransactionOnce(t *testing.T) {
 	b, _, first, _, _ := newTestBackend(t, nil)
-	first.err = errors.New("failed to get tx into the mempool")
+	first.err = rpcRejection{"failed to get tx into the mempool"}
 
 	// The same claim retried, then a different one: the second is new information about the
 	// endpoint, the retries are not.
@@ -290,7 +302,7 @@ func TestSendingBackend_ASuccessfulSendReadmitsATrippedEndpoint(t *testing.T) {
 	require.Equal(t, []int{1}, b.inRotation())
 
 	// An endpoint that just took a transaction is not down, whatever its recent record.
-	b.recordSuccess(0)
+	b.recordSuccess(0, 1)
 
 	assert.Equal(t, []int{0, 1}, b.inRotation())
 }
@@ -319,7 +331,7 @@ func TestSendingBackend_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
 	require.Equal(t, []int{0, 1}, b.inRotation())
 
 	// The spent count must not carry over, or the first refusal after recovery would trip it again.
-	b.recordFailure(0, txWithNonce(99).Hash())
+	b.recordFailure(0, txWithNonce(99).Hash(), false)
 
 	assert.Equal(t, []int{0, 1}, b.inRotation())
 }
@@ -571,4 +583,130 @@ func TestSendingBackend_AnEndpointThatOnlyHangsStillTrips(t *testing.T) {
 	assert.Equal(t, float64(1),
 		testutil.ToFloat64(relayer.PrivateRPCUnavailable)-unavailableBefore,
 		"running exposed has to be visible")
+}
+
+func TestSendingBackend_RepeatedTimeoutsOnOneTransactionStillTrip(t *testing.T) {
+	public := &fakeBackend{}
+	hanging := &hangingSender{}
+
+	b := NewSendingBackend(public, []TxSender{hanging}, nil)
+
+	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
+
+	// The transaction manager republishes an *unchanged* transaction after a generic send error —
+	// publishTx only bumps fees once a send succeeds — so a down endpoint sees the same hash for
+	// as long as the claim lives. Deduplicating that would charge it once and leave it in rotation
+	// forever, which is the outage this failover exists for.
+	tx := txWithNonce(7)
+
+	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+
+		require.Error(t, b.SendTransaction(ctx, tx))
+
+		cancel()
+	}
+
+	assert.Empty(t, b.inRotation(), "repeated timeouts on one claim still have to trip the endpoint")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	require.NoError(t, b.SendTransaction(ctx, tx))
+
+	assert.Len(t, public.sent, 1, "the claim must reach the public endpoint once nothing is left")
+	assert.Equal(t, float64(1),
+		testutil.ToFloat64(relayer.PrivateRPCUnavailable)-unavailableBefore)
+}
+
+func TestSendingBackend_TransportFailuresOnOneTransactionStillTrip(t *testing.T) {
+	b, public, first, second, _ := newTestBackend(t, nil)
+
+	// A dial failure is a net.Error, not an answer from the relay.
+	down := &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")}
+	first.err = down
+	second.err = down
+
+	tx := testTx()
+
+	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Empty(t, b.inRotation())
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	assert.Len(t, public.sent, 1)
+}
+
+func Test_answeredWithRejection(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			// The relay answered: it is up, and has an opinion about this one transaction.
+			name: "a JSON-RPC error response",
+			err:  rpcRejection{"failed to get tx into the mempool"},
+			want: true,
+		},
+		{
+			name: "a JSON-RPC error wrapped in context",
+			err:  fmt.Errorf("sending: %w", rpcRejection{"nonce too low"}),
+			want: true,
+		},
+		{
+			// No answer: these say nothing about the transaction and everything about the endpoint.
+			name: "our deadline ran out",
+			err:  context.DeadlineExceeded,
+			want: false,
+		},
+		{name: "cancelled", err: context.Canceled, want: false},
+		{
+			name: "a dial failure",
+			err:  &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")},
+			want: false,
+		},
+		{
+			name: "a bare error of unknown shape",
+			err:  errors.New("something went wrong"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, answeredWithRejection(tt.err))
+		})
+	}
+}
+
+func TestSendingBackend_OffersAResentNonceToAnotherEndpointFirst(t *testing.T) {
+	b, _, first, second, _ := newTestBackend(t, nil)
+
+	tx := txWithNonce(5)
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	require.Len(t, first.sent, 1)
+	require.Empty(t, second.sent)
+
+	// The transaction manager only re-sends a nonce it has not seen confirmed, so the first
+	// endpoint took this one and did not get it included. Accepting is not inclusion, and the
+	// replacement is better spent on a different builder than on the one that already had it.
+	bumped := types.NewTx(&types.DynamicFeeTx{Nonce: 5, Gas: 21_000, GasTipCap: big.NewInt(2)})
+
+	require.NoError(t, b.SendTransaction(context.Background(), bumped))
+
+	assert.Len(t, second.sent, 1, "the replacement should go to the endpoint that has not had it")
+	assert.Len(t, first.sent, 1)
+
+	// Nothing is charged for this: non-inclusion is usually a fee or a lost race, and tripping on
+	// it would push claims public for reasons that have nothing to do with the endpoint.
+	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, 0, b.failures[0])
+
+	// A different claim goes back to the configured order.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
+	assert.Len(t, first.sent, 2)
 }

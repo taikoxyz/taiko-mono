@@ -301,6 +301,18 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		"privateEndpoints", sendingBackend.NumPrivateEndpoints(),
 	)
 
+	if sendingBackend.NumPrivateEndpoints() != 0 && cfg.TxmgrConfigs.TxSendTimeout == 0 {
+		// A private relay accepting a transaction only means it received it, never that a builder
+		// included it. With no send timeout the transaction manager waits for a receipt for as
+		// long as it takes, so a relay that accepts and never includes stalls that claim instead
+		// of letting it be retried.
+		slog.Warn("TX_SEND_TIMEOUT is disabled while private endpoints are configured; "+
+			"a relay that accepts a transaction but never includes it will stall the claim. "+
+			"Set TX_SEND_TIMEOUT to bound how long a send waits for inclusion.",
+			"privateEndpoints", sendingBackend.NumPrivateEndpoints(),
+		)
+	}
+
 	// Mirror the tx manager's minimum tip cap so the profitability estimate can
 	// floor the suggested tip at the same value the tx manager will pay.
 	minTipCap, err := eth.GweiToWei(cfg.TxmgrConfigs.MinTipCapGwei)
