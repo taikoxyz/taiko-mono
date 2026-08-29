@@ -522,8 +522,32 @@ class ComponentDescriptor:
 
 def component_config_hash(kind: int, config: bytes) -> bytes:
     assert 1 <= kind <= 9 and 0 < len(config) < 1 << 16
-    assert len(config) == (80, 72, 21, 73, 80, 52, 60, 21, 112)[kind - 1]
+    assert len(config) == (80, 72, 21, 73, 80, 52, 60, 21, 177)[kind - 1]
     return keccak256(D_COMPONENT_CONFIG + u8(kind) + u16(len(config)) + config)
+
+
+def destination_bridge_component_config(
+        topology: int, account_runtime_hash: bytes,
+        facade_runtime_hash: bytes, inbox_credit_store: int,
+        terminal_accumulator: int, activation_gate: int,
+        terminal_domain_registrar: int, storage_layout_hash: bytes) -> bytes:
+    assert topology in (0, 1)
+    assert (account_runtime_hash != bytes(32)
+            and facade_runtime_hash != bytes(32)
+            and inbox_credit_store != 0 and terminal_accumulator != 0
+            and activation_gate != 0 and terminal_domain_registrar != 0
+            and storage_layout_hash != bytes(32))
+    if topology == 0:
+        assert account_runtime_hash == facade_runtime_hash
+    else:
+        assert account_runtime_hash != facade_runtime_hash
+    encoded = (u8(topology) + b32(account_runtime_hash)
+               + b32(facade_runtime_hash) + address20(inbox_credit_store)
+               + address20(terminal_accumulator) + address20(activation_gate)
+               + address20(terminal_domain_registrar)
+               + b32(storage_layout_hash))
+    assert len(encoded) == 177
+    return encoded
 
 
 def destination_infrastructure_hash(
@@ -726,8 +750,9 @@ def fixture_destination_components() -> tuple[ComponentDescriptor, ...]:
         address20(0x5105) + bytes.fromhex("43" * 32),
         address20(0x5106) + address20(0x5100) + address20(0x5102),
         address20(0x5103) + u8(64),
-        address20(0x5101) + address20(0x5102) + address20(0x5104)
-        + address20(0x5103) + bytes.fromhex("42" * 32),
+        destination_bridge_component_config(
+            0, bytes.fromhex("58" * 32), bytes.fromhex("58" * 32),
+            0x5101, 0x5102, 0x5104, 0x5103, bytes.fromhex("42" * 32)),
     )
     addresses = (0xAD00, 0xAD01, 0xD101, 0x5100, 0x5101,
                  0x5106, 0x5103, 0x5102, 0xB200)
@@ -1477,30 +1502,30 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "d87daf7664bb204e89adb2cc983b182cfb0a084603d99d6e6c64496d14988837",
-    "bridge_leaf": "6d0fc74112a9208b01c1cf652d2aae15fda421e71efc7d5f0333b8028908366d",
-    "bridge_result": "ca4e2ae3710db4146239a2ca871eff81822b03a493ecb984872bd4e097ae98d2",
-    "bridge_credit_id": "80f6872de8b64760514c16f68f4dd62828bf2f715cf7ceaecb4e28db077a0c85",
-    "bridge_escrow_id": "dda628a9c5230f1493589515a189c645e422f5ef104ac83af5200c3a05da1617",
-    "inbox_credit_slot": "bd52439306c8d3a956854adb849c42bb9c2b3810e736c6a16b65b810ce876452",
-    "terminal_done_leaf": "308c81b638c0d7027182f6e75dde3fa7b982b2b33f37ae5e7e25f0337cc51bb4",
-    "terminal_failed_leaf": "405fc99d08d18751652bf01196c948d5c713e65d9154a8fc9af592b11b14fd81",
-    "terminal_root_2": "430278faec9d7c7610c7a659b12bdc7bf3c8f16c5f6e01030e86900b59d5cdae",
+    "bridge_leaf": "595ddfeb7dc3508201aaff8ed61c0257c15a9fbf010fe6497c3d354c1a9f7c08",
+    "bridge_result": "6ce29a650e1e109ca3f4239fd6baf0f428e7172d8d0c69e0b3416978a56b4f77",
+    "bridge_credit_id": "c3dad3057283d897e3c5d5ebd7a9d44a17452d48a8057fafe013694c2fa85e9d",
+    "bridge_escrow_id": "9b18a64e9b2288fae90dd2b3aec4540b427f437ac5e3a13f23e10e9599057c38",
+    "inbox_credit_slot": "92506eceb5d583eb0d2c8d81819806114bc6bb203c246a128138924f8d473a17",
+    "terminal_done_leaf": "a775c7a258052075774451b51ca10c7553c1b2ff1028fa888450ea385a0cd37c",
+    "terminal_failed_leaf": "bcbbd7b7d9e3ca7b935aaebd2341f7d10bc0802624e3d2019a1eb030d46fd9f7",
+    "terminal_root_2": "33d3534926e82fb7baf4aa3bffd5d39f8823f2b41ecf7d64b5f8688c14a2d6f6",
     "empty_terminal_root": "0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2",
     "source_domain_id": "9f207cb5f32747635be6496e957827270c0b62aa5a7d0bd39657e28c0fedf7b1",
-    "destination_domain_id": "78cd6a4469c1e6ba8e7e3719955e330e68a66c48b70d9fc02600fa9244bb0eba",
+    "destination_domain_id": "7051b0bcdb16e6d5c6ddc9ac020f69d25ef27775faa0edea44db1f75ec50bf8d",
     "bridge_kernel_profile_hash": "371700b6908037409059b484e1eff1a1511464447af6c67ea98cc96d35443cc6",
     "bridge_execution_hash": "1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2",
     "destination_bridge_execution_hash": "66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d",
-    "destination_infrastructure_hash": "d0933ad1f03a0ebe485c8372d9d4efa6d8ec3a1655353830bf27d5ba82a857ca",
-    "release_manifest_hash": "346912cc16cd80334d4594c8bb90d38665f867ae0b6284f30cb15dc15c2fce1c",
-    "destination_registration_commitment": "94220d3e6d03bd74d34b636b9cc9a30ba74e67778348c6ad80165a69214ab147",
+    "destination_infrastructure_hash": "4c6f4196c3819423a8cfc8058101a1091361511fb776c83b06a2b9ff608aaef7",
+    "release_manifest_hash": "608210697d315431f6a2ad7792247925bd880886a0e31f0cc390cb4f5928583c",
+    "destination_registration_commitment": "97476c5cf0ebe4cb5976429dd00f421c16e9913043f2992cbab7a38428aba274",
     "registration_commitment_base_slot": "20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3",
     "registration_commitment_slot": "dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b",
     "registration_commitment_trie_key": "200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8",
     "release_manifest_base_slot": "a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f",
     "release_manifest_slot": "719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8",
     "release_manifest_trie_key": "dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2",
-    "inbox_route_config_hash": "faa8da419cafcc9ef8eb8a4d1f6c49c1626a72d8e8cab4826ba7cc887c2df526",
+    "inbox_route_config_hash": "cc0abc6afb89cbb61c91f35ff69039a3ab872ac3b497925a969629699387f484",
     "forced_root": "ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67",
     "empty_forced_root": "646c80c24e65a38013e25e1387d2a26166d33ca1ab34878b272fef83f41cd72e",
     "force_range_digest": "3c3e3735e00bee4aad3451ce63a8b5fbb7c821444defe7064c78af9de56cca64",
@@ -1773,6 +1798,23 @@ if __name__ == "__main__":
     components = fixture_destination_components()
     infrastructure = destination_infrastructure_hash(components)
     assert infrastructure.hex() == actual["destination_infrastructure_hash"]
+    for invalid_topology in (2, 255):
+        try:
+            destination_bridge_component_config(
+                invalid_topology, bytes.fromhex("58" * 32),
+                bytes.fromhex("58" * 32), 0x5101, 0x5102, 0x5104,
+                0x5103, bytes.fromhex("42" * 32))
+            raise AssertionError("unknown Bridge topology accepted")
+        except AssertionError as error:
+            assert str(error) != "unknown Bridge topology accepted"
+    try:
+        destination_bridge_component_config(
+            0, bytes.fromhex("57" * 32), bytes.fromhex("58" * 32),
+            0x5101, 0x5102, 0x5104, 0x5103,
+            bytes.fromhex("42" * 32))
+        raise AssertionError("nonproxy runtime mismatch accepted")
+    except AssertionError as error:
+        assert str(error) != "nonproxy runtime mismatch accepted"
     assert destination_infrastructure_hash(tuple(reversed(components))) != infrastructure
     assert destination_infrastructure_hash(
         (replace(components[0], runtime_hash=bytes.fromhex("61" * 32)),
@@ -1918,6 +1960,6 @@ if __name__ == "__main__":
     z = fs_challenge(1, 2, sid, bytes.fromhex("99" * 32), root,
                      0, 0, 2, 5, croot, 0xCAFE, 9_999)
     assert 0 <= z < BLS_MODULUS
-    print("RESULTS: commitment encoding model — ALL 158 VECTORS/PROPERTIES PASS")
+    print("RESULTS: commitment encoding model — ALL 160 VECTORS/PROPERTIES PASS")
     for key, value in actual.items():
         print(f"  {key}: {value}")

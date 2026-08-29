@@ -91,6 +91,9 @@ MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
     + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
 )
+RESERVATION_EVIDENCE_RETENTION_WINDOWS = (
+    1 + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
+)
 
 
 class Mode(Enum):
@@ -248,6 +251,12 @@ class Message:
     payload_available: bool = True
 
 
+def model_force_root(descriptors: list[Message]) -> str:
+    """Single behavioral queue-root oracle; byte-exact Merkle lives elsewhere."""
+    return (f"merkle:{len(descriptors)}:"
+            + ":".join(row.payload_hash for row in descriptors))
+
+
 @dataclass(frozen=True)
 class DataRecord:
     index: int
@@ -290,6 +299,8 @@ class Block:
     context_id: str
     admission_version: int
     admission_root: str
+    inbox_pre_cursor: int = 0
+    inbox_post_cursor: int = 0
     force_gas_budget: int = FORCE_GAS_BUDGET
     release_activation: bool = False
     data_records: tuple[tuple[str, int], ...] = ()
@@ -474,18 +485,29 @@ class RegistryLifecycle:
     replacements: dict[int, int] = field(default_factory=dict)
     movement_sequence: int = 0
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
-    open_reservations: set[tuple[str, int]] = field(default_factory=set)
-    liable_reservations: set[tuple[str, int]] = field(default_factory=set)
+    open_reservations: set[tuple[int, int]] = field(default_factory=set)
+    liable_reservations: set[tuple[int, int]] = field(default_factory=set)
 
     @property
     def liabilities(self) -> list[Generation]:
         return [item[0] for item in self.liability_ring if item is not None]
 
+    def _prune_liable_reservations(self, current_window: int) -> int:
+        releasable = {
+            row for row in self.liable_reservations
+            if row[1] + RESERVATION_EVIDENCE_RETENTION_WINDOWS
+            <= current_window
+        }
+        self.liable_reservations.difference_update(releasable)
+        return len(releasable)
+
     def settle_reservations_before(self, current_window: int) -> int:
         """Normal lifecycle removal; only the 17 live windows enter the gate."""
+        self._prune_liable_reservations(current_window)
         expired = {row for row in self.open_reservations
                    if row[1] < current_window}
         self.open_reservations.difference_update(expired)
+        self.liable_reservations.update(expired)
         self.migration_gate.unsettled_builder_reservations -= len(expired)
         return len(expired)
 
@@ -502,7 +524,9 @@ class RegistryLifecycle:
                 return False
             self.active[index] = replace(
                 generation, max_reserved_window=max(generation.max_reserved_window, window))
-            reservation = (address, window)
+            reservation = (generation.registration_index, window)
+            if reservation in self.liable_reservations:
+                return False
             if reservation not in self.open_reservations:
                 self.open_reservations.add(reservation)
                 self.migration_gate.unsettled_builder_reservations += 1
@@ -518,15 +542,17 @@ class RegistryLifecycle:
     def cleanup_migration_reservations(self, limit: int = MAX_GC_STEPS) -> int:
         if self.migration_gate.mode != "ARMED":
             return 0
-        removed = 0
+        moved = 0
         for reservation in sorted(self.open_reservations)[:limit]:
             self.open_reservations.remove(reservation)
+            self.liable_reservations.add(reservation)
             self.migration_gate.unsettled_builder_reservations -= 1
-            removed += 1
-        return removed
+            moved += 1
+        return moved
 
-    def _move_reservations_to_liability(self, address: str) -> int:
-        moved = {row for row in self.open_reservations if row[0] == address}
+    def _move_reservations_to_liability(self, registration_index: int) -> int:
+        moved = {row for row in self.open_reservations
+                 if row[0] == registration_index}
         self.open_reservations.difference_update(moved)
         self.liable_reservations.update(moved)
         self.migration_gate.unsettled_builder_reservations -= len(moved)
@@ -536,10 +562,11 @@ class RegistryLifecycle:
         occupant = self.liability_ring[ring_index]
         if occupant is None or occupant[1] > current_window:
             return False
-        address = occupant[0].address
+        registration_index = occupant[0].registration_index
         self.liability_ring[ring_index] = None
         self.liable_reservations = {
-            row for row in self.liable_reservations if row[0] != address}
+            row for row in self.liable_reservations
+            if row[0] != registration_index}
         return True
 
     def admit(self, entry: Generation, current_window: int) -> bool:
@@ -565,7 +592,7 @@ class RegistryLifecycle:
             victim.max_reserved_window + 1
             + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
         )
-        self._move_reservations_to_liability(victim.address)
+        self._move_reservations_to_liability(victim.registration_index)
         self.active.remove(victim)
         self.active.append(entry)
         self.liability_ring[ring_index] = (replace(victim, reservations_closed=True), release_window)
@@ -593,6 +620,7 @@ class Protocol:
     history: dict[int, L1Header]
     forced_queue: "QueueContinuity"
     inbox_apply_router: "InboxApplyRouterV2"
+    settlement_address: str = "model-settlement"
     mode: Mode = Mode.NORMAL
     release_activation_pending: bool = False
     queue_capacity: int = MAX_FORCE_QUEUE_ITEMS  # model-only capacity override
@@ -639,7 +667,10 @@ class Protocol:
         return self.forced_queue.descriptors
 
     def force_root(self, cutoff: int) -> str:
-        return f"merkle:{cutoff}:" + ":".join(m.payload_hash for m in self.messages[:cutoff])
+        root = model_force_root(self.messages[:cutoff])
+        if cutoff == self.forced_queue.count:
+            assert root == self.forced_queue.root
+        return root
 
     @staticmethod
     def _due_at(message: Message) -> int:
@@ -904,7 +935,8 @@ class Protocol:
         assert self.forced_queue.append(
             replace(message, enqueued_at=clock.timestamp),
             deposit=message.prepaid,
-            due_at=due) == expected_index
+            due_at=due,
+            caller=self.forced_queue.router_address) == expected_index
 
     def admit_message(self, clock: Clock, message: Message) -> str:
         if self.mode is Mode.PREACTIVE:
@@ -1074,6 +1106,8 @@ class Protocol:
                     or block.anchor_number != first.anchor_number
                     or block.force_cutoff != first.force_cutoff
                     or block.force_root != first.force_root
+                    or block.inbox_pre_cursor != block.message_start
+                    or block.inbox_post_cursor != block.message_end
                     or block.release_activation != expected_activation
                     or block.force_gas_budget != expected_force_gas_budget
                     or (expected_activation and block.discretionary_body)):
@@ -1182,8 +1216,18 @@ class Protocol:
         assert (self.forced_queue.cursor
                 == self.inbox_apply_router.next_queue_index
                 == self.core.message_cursor)
-        self.forced_queue.cursor = candidate.tip.message_end
-        self.inbox_apply_router.next_queue_index = candidate.tip.message_end
+        prior_canonical = self.canonical
+        prior_queue_cursor = self.forced_queue.cursor
+        prior_inbox_cursor = self.inbox_apply_router.next_queue_index
+        prior_activation_pending = self.release_activation_pending
+        assert self.forced_queue.advance_cursor(
+            candidate.blocks[0].inbox_pre_cursor,
+            candidate.tip.inbox_post_cursor,
+            caller=self.settlement_address)
+        # This object represents adoption of the proof-authenticated L2
+        # poststate; no L1 call writes the L2 router.
+        self.inbox_apply_router.next_queue_index = \
+            candidate.tip.inbox_post_cursor
         if candidate.blocks[0].release_activation:
             self.release_activation_pending = False
         self.canonical = Canonical(
@@ -1199,9 +1243,14 @@ class Protocol:
         )
         if self.versioned_history is not None:
             history = self.versioned_history
-            assert history.record_canonical(
+            if history.record_canonical(
                 copy.deepcopy(self.canonical.core),
-                l1_block=clock.block_number) is not None
+                    l1_block=clock.block_number) is None:
+                self.canonical = prior_canonical
+                self.forced_queue.cursor = prior_queue_cursor
+                self.inbox_apply_router.next_queue_index = prior_inbox_cursor
+                self.release_activation_pending = prior_activation_pending
+                raise AssertionError("atomic canonical-history write rejected")
         self.events.append(f"CANONICAL:{candidate.candidate_id}")
 
 
@@ -1337,22 +1386,41 @@ class QueueContinuity:
     escrow_balance: int
     last_due_at: int
     descriptors: list[Message] = field(default_factory=list)
+    active_settlement_address: str = ""
+    router_address: str = "active-settlement-router"
 
     def append(self, descriptor: Message, *, deposit: int,
-               due_at: int) -> int | None:
-        if (not descriptor.payload_hash or deposit < 0
+               due_at: int, caller: str) -> int | None:
+        if (caller != self.router_address
+                or not descriptor.payload_hash or deposit < 0
                 or due_at < self.last_due_at or self.count >= UINT32_MAX
                 or self.count != len(self.descriptors)):
             return None
         index = self.count
         stored = replace(descriptor, due_at=due_at)
-        self.root = (f"queue-root:{index + 1}:{self.root}:"
-                     f"{stored.payload_hash}")
         self.count += 1
         self.escrow_balance += deposit
         self.last_due_at = due_at
         self.descriptors.append(stored)
+        self.root = model_force_root(self.descriptors)
         return index
+
+    def set_active_settlement(self, *, expected_old: str, new: str,
+                              caller: str) -> bool:
+        if (caller != self.router_address or not new
+                or self.active_settlement_address != expected_old):
+            return False
+        self.active_settlement_address = new
+        return True
+
+    def advance_cursor(self, expected_start: int, end: int, *,
+                       caller: str) -> bool:
+        if (caller != self.active_settlement_address
+                or expected_start != self.cursor
+                or not expected_start <= end <= self.count):
+            return False
+        self.cursor = end
+        return True
 
 
 @dataclass(frozen=True)
@@ -1492,6 +1560,9 @@ class ActiveSettlementRouter:
                   activation_block: int) -> bool:
         if (self.registrations or settlement.protocol_version <= 0
                 or settlement.forced_queue is not self.forced_queue
+                or self.forced_queue.router_address != self.address
+                or self.forced_queue.active_settlement_address
+                    not in {"", settlement.address}
                 or settlement.inbox_apply_router is not self.inbox_apply_router
                 or settlement.core.message_cursor != self.forced_queue.cursor
                 or settlement.core.message_cursor
@@ -1502,6 +1573,10 @@ class ActiveSettlementRouter:
                 or not settlement.install_imported(
                     sequence=sequence, history_write_block=activation_block)):
             return False
+        if not self.forced_queue.set_active_settlement(
+                expected_old=self.forced_queue.active_settlement_address,
+                new=settlement.address, caller=self.address):
+            raise AssertionError("validated queue bootstrap failed")
         settlement.mode = "ACTIVE"
         self.registrations[settlement.protocol_version] = SettlementRegistration(
             settlement, settlement.runtime_hash,
@@ -1542,6 +1617,7 @@ class ActiveSettlementRouter:
                     != old.canonicalized_at_block
                 or settlement.forced_queue is not self.forced_queue
                 or old.forced_queue is not self.forced_queue
+                or self.forced_queue.active_settlement_address != old.address
                 or settlement.inbox_apply_router is not self.inbox_apply_router
                 or old.inbox_apply_router is not self.inbox_apply_router
                 or old.live_protocol is None
@@ -1565,8 +1641,13 @@ class ActiveSettlementRouter:
             settlement, settlement.runtime_hash,
             settlement.execution_profile_hash, l1_block, old_version)
         self.active_version = settlement.protocol_version
+        if not self.forced_queue.set_active_settlement(
+                expected_old=old.address, new=settlement.address,
+                caller=self.address):
+            raise AssertionError("validated queue authority switch failed")
         settlement.live_protocol = old.live_protocol
         settlement.live_protocol.versioned_history = settlement
+        settlement.live_protocol.settlement_address = settlement.address
         activated = old.migration_gate.activate_target(
             old.migration_gate.generation, old_version,
             settlement.protocol_version)
@@ -1593,26 +1674,31 @@ class ActiveSettlementRouter:
             return None
         return entry
 
-    def sync_and_append(self, descriptor: Message, *, bound_router: str,
-                        queue_address: str,
-                        active_settlement_sync_changed: bool,
-                        deposit: int = 0, due_at: int | None = None) -> str:
+    def sync_and_append(self, descriptor: Message, *, clock: Clock,
+                        bound_router: str, queue_address: str,
+                        deposit: int) -> str:
         registration = self.registrations.get(self.active_version)
         if (bound_router != self.address
                 or queue_address != self.forced_queue_address
                 or registration is None
+                or registration.settlement.live_protocol is None
                 or registration.settlement.mode
                     not in {"ACTIVE", "MIGRATION_ARMED", "MIGRATION_READY"}):
             return "REJECTED"
-        if registration.settlement.mode == "MIGRATION_READY":
+        settlement = registration.settlement
+        live_protocol = settlement.live_protocol
+        if (live_protocol.settlement_address != settlement.address
+                or live_protocol.forced_queue is not self.forced_queue):
+            return "REJECTED"
+        if settlement.mode != "ACTIVE":
             return "SYNCED"
-        if active_settlement_sync_changed:
-            return "SYNCED"
-        index = self.forced_queue.append(
-            descriptor, deposit=deposit,
-            due_at=(self.forced_queue.last_due_at
-                    if due_at is None else due_at))
-        return "REJECTED" if index is None else f"QUEUED:{index}"
+        before = self.forced_queue.count
+        result = live_protocol.admit_bridge_direct(
+            clock, replace(descriptor, prepaid=deposit))
+        if result == "ADMITTED":
+            assert self.forced_queue.count == before + 1
+            return f"QUEUED:{before}"
+        return result
 
 
 @dataclass(frozen=True)
@@ -1933,7 +2019,8 @@ class BridgeAdapter:
                 or clock_.timestamp > enqueue_by):
             return "REJECTED"
         queue_snapshot = copy.deepcopy(protocol_.forced_queue)
-        result = protocol_.admit_bridge_direct(clock_, envelope)
+        result = protocol_.admit_bridge_direct(
+            clock_, replace(envelope, prepaid=deposit))
         if result == "SYNCED":
             self.refunds[caller] = self.refunds.get(caller, 0) + deposit
             return "SYNCED_REFUNDED"
@@ -2387,26 +2474,34 @@ class BridgeDeploymentStateV2:
     upgrade_authority_burned: bool = True
     delegate_target_reachable: bool = False
 
-    @property
-    def config_hash(self) -> str:
-        return ("bridge-topology:" + repr((
-            self.topology, self.account_runtime_hash,
-            self.implementation_runtime_hash)))
-
-    @property
-    def identity(self) -> tuple[str, ...]:
+    def identity(self, manifest: ReleaseManifestV2) -> tuple[str, ...]:
         return (self.topology, self.address, self.account_runtime_hash,
                 self.implementation_address,
-                self.implementation_runtime_hash, self.config_hash)
+                self.implementation_runtime_hash,
+                manifest.components[8].config_hash)
 
     def authenticates(
             self, manifest: ReleaseManifestV2, *,
             known_identity: tuple[str, ...] | None = None) -> bool:
         bridge_row = manifest.components[8]
         descriptor = manifest.destination_bridge_descriptor
+        topology_byte = {
+            "IMMUTABLE_NONPROXY": 0,
+            "GENESIS_LEGACY_PROXY": 1,
+        }.get(self.topology)
+        if topology_byte is None:
+            return False
+        expected_config_hash = "component-config:9:177:" + repr((
+            topology_byte, self.account_runtime_hash,
+            descriptor.facade_runtime_hash,
+            descriptor.inbox_credit_store,
+            descriptor.terminal_accumulator,
+            descriptor.activation_gate,
+            descriptor.terminal_domain_registrar,
+            descriptor.storage_layout_hash))
         common = (self.address == manifest.destination_bridge
                   and self.account_runtime_hash == bridge_row.runtime_hash
-                  and self.config_hash == bridge_row.config_hash
+                  and expected_config_hash == bridge_row.config_hash
                   and self.upgrade_authority_burned)
         if self.topology == "IMMUTABLE_NONPROXY":
             return (common and not self.delegate_target_reachable
@@ -2416,7 +2511,7 @@ class BridgeDeploymentStateV2:
                         == descriptor.facade_runtime_hash)
         if self.topology == "GENESIS_LEGACY_PROXY":
             return (common
-                    and ((known_identity == self.identity)
+                    and ((known_identity == self.identity(manifest))
                          or (known_identity is None
                              and manifest.protocol_version == 1
                              and self.direct_prestate_slot_constraint))
@@ -2523,7 +2618,8 @@ class TerminalDomainRegistrarV2:
             self.accumulator.domains = prior_domains
             endpoint_state.__dict__.update(endpoint_snapshot.__dict__)
             return False
-        self.bridge_identities.setdefault(bridge, bridge_deployment.identity)
+        self.bridge_identities.setdefault(
+            bridge, bridge_deployment.identity(manifest))
         self.registrations[protocol_version] = manifest.registration_commitment
         return True
 
@@ -2538,10 +2634,8 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
                 else "IMMUTABLE_NONPROXY")
     bridge_runtime_hash = (f"proxy-code:{bridge}" if legacy_proxy
                            else facade_runtime_hash)
-    topology_impl_hash = facade_runtime_hash if legacy_proxy else ""
-    topology_config_hash = "bridge-topology:" + repr((
-        topology, bridge_runtime_hash, topology_impl_hash))
-    components = (
+    topology_byte = 1 if legacy_proxy else 0
+    base_components = (
         ReleaseComponentV2("bridge-inbox-adapter", "code:adapter", "cfg:adapter"),
         ReleaseComponentV2("active-settlement-router", "code:router", "cfg:router"),
         ReleaseComponentV2("terminal-verifier", "code:verifier", "cfg:verifier"),
@@ -2551,13 +2645,20 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
         ReleaseComponentV2("release-authority", "code:authority", "cfg:authority"),
         ReleaseComponentV2("terminal-domain-registrar", "code:registrar", "cfg:registrar"),
         ReleaseComponentV2("terminal-accumulator", "code:accumulator", "cfg:accumulator"),
-        ReleaseComponentV2(
-            bridge, bridge_runtime_hash, topology_config_hash),
     )
     bridge_descriptor = DestinationBridgeDescriptorV2(
         bridge, facade_runtime_hash, f"storage-layout:{bridge}",
         f"kernel-profile:{bridge}", store.address, "terminal-accumulator",
         "activation-gate", "terminal-domain-registrar")
+    topology_config_hash = "component-config:9:177:" + repr((
+        topology_byte, bridge_runtime_hash, facade_runtime_hash,
+        bridge_descriptor.inbox_credit_store,
+        bridge_descriptor.terminal_accumulator,
+        bridge_descriptor.activation_gate,
+        bridge_descriptor.terminal_domain_registrar,
+        bridge_descriptor.storage_layout_hash))
+    components = (*base_components, ReleaseComponentV2(
+        bridge, bridge_runtime_hash, topology_config_hash))
     return ReleaseManifestV2(
         protocol_version, 1, 167_000, "genesis:destination",
         f"profile:{protocol_version}", "manifest:v2", "domain-namespace:v2",
@@ -2754,7 +2855,7 @@ def message(enqueued_l2: int, ident: str, gas: int = 100_000, size: int = 100,
 
 def make_history(messages: list[Message] | None = None) -> dict[int, L1Header]:
     queue = list(messages or [])
-    root = f"merkle:{len(queue)}:" + ":".join(m.payload_hash for m in queue)
+    root = model_force_root(queue)
     return {n: L1Header(f"{n:064x}", GENESIS_TIMESTAMP + n,
                         f"state-{n}", root, len(queue)) for n in range(1, 20_000)}
 
@@ -2762,15 +2863,16 @@ def make_history(messages: list[Message] | None = None) -> dict[int, L1Header]:
 def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              mode: Mode = Mode.NORMAL, messages: list[Message] | None = None,
              forced_queue: QueueContinuity | None = None,
-             inbox_apply_router: InboxApplyRouterV2 | None = None) -> Protocol:
+             inbox_apply_router: InboxApplyRouterV2 | None = None,
+             settlement_address: str = "model-settlement") -> Protocol:
     msgs = list(messages or [])
     if forced_queue is None:
-        root = f"queue-root:{len(msgs)}:" + ":".join(
-            row.payload_hash for row in msgs)
+        root = model_force_root(msgs)
         forced_queue = QueueContinuity(
             "model-forced-queue", root, len(msgs), cursor,
             sum(row.prepaid for row in msgs),
-            max((row.due_at for row in msgs), default=0), msgs)
+            max((row.due_at for row in msgs), default=0), msgs,
+            active_settlement_address=settlement_address)
     else:
         assert not messages or forced_queue.descriptors == msgs
         msgs = forced_queue.descriptors
@@ -2780,7 +2882,8 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
     active = Seat("aggregator", 100) if seat else None
     return Protocol(
         canonical, make_history(msgs), forced_queue, inbox_apply_router,
-        mode=mode, active_seat=active, standby=[Seat("standby", 70)])
+        settlement_address=settlement_address, mode=mode,
+        active_seat=active, standby=[Seat("standby", 70)])
 
 
 def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
@@ -2818,6 +2921,7 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
                  header.timestamp, force_root, cutoff,
                  context,
                  version, root,
+                 inbox_pre_cursor=start, inbox_post_cursor=end,
                  force_gas_budget=force_gas_budget,
                  release_activation=release_activation,
                  dispositions_ok=dispositions_ok, discretionary_body=discretionary)
@@ -3081,6 +3185,7 @@ def test_force_merkle_bounds_and_auth() -> None:
         evm_timestamp=activation_first.evm_timestamp + 1,
         block_hash="activation-second", parent_hash=activation_first.block_hash,
         message_start=activation_first.message_end, message_end=4,
+        inbox_pre_cursor=activation_first.message_end, inbox_post_cursor=4,
         force_gas_budget=FORCE_GAS_BUDGET, release_activation=False)
     activation_candidate = replace(
         activation_candidate,
@@ -3089,7 +3194,7 @@ def test_force_merkle_bounds_and_auth() -> None:
         next_due_at=activation_backlog.next_due_at(4, 4))
     activation_end = activation_first.message_end
     invalid_20m_block = replace(
-        activation_first, message_end=4,
+        activation_first, message_end=4, inbox_post_cursor=4,
         force_gas_budget=FORCE_GAS_BUDGET)
     invalid_20m_candidate = replace(
         activation_candidate, blocks=(invalid_20m_block,),
@@ -3320,7 +3425,7 @@ def test_registry_liability_and_release_units() -> None:
           MAX_LIVE_RESERVATIONS == 1_088
           and len(reservation_churn.open_reservations)
               == MAX_LIVE_RESERVATIONS
-          and len(reservation_churn.liable_reservations) == 1_156
+          and len(reservation_churn.liable_reservations) == 2_180
           and churn_gate.unsettled_builder_reservations
               == MAX_LIVE_RESERVATIONS
           and MAX_MIGRATION_RESERVATION_CLEANUP_CALLS == 136)
@@ -3428,7 +3533,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50h a later permanent-endpoint epoch queues independently",
           adapter.enqueue(
               bridge_protocol, transition_clock, source, src_epoch=9,
-              src_bridge="bridge:A", **common) == "QUEUED:2")
+              src_bridge="bridge:A", **common) == "QUEUED:2"
+          and bridge_protocol.forced_queue.escrow_balance == 15)
     check("P50af pooled payouts cannot consume reserved V2 value",
           not source.ordinary_payout(7)
           and source.ordinary_payout(6)
@@ -3467,7 +3573,9 @@ def test_data_gc_reorg_and_geometry() -> None:
               source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
               destination_domain_id="domain:D1", msg_hash="invalid",
               enqueue_by=invalid_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-              envelope=replace(bridge_envelope, prepaid=0), caller="relayer",
+              envelope=replace(
+                  bridge_envelope, accounted_gas=MAX_FORCE_MESSAGE_GAS + 1),
+              caller="relayer",
               deposit=1) == "REJECTED"
           and not invalid_protocol.messages and not invalid_adapter.records)
 
@@ -3475,7 +3583,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         100, "block:registration", 100, "state:registration", 0,
         terminal_root="terminal:registration", terminal_count=0)
     shared_queue = QueueContinuity(
-        "forced-queue", "queue:root", 0, 0, 0, UINT64_MAX)
+        "forced-queue", model_force_root([]), 0, 0, 0, UINT64_MAX)
     support_inbox_apply = InboxApplyRouterV2(next_queue_index=0)
     support_settlement = VersionedSettlementHistory(
         "settlement:2", "runtime:2", 2, "profile:2",
@@ -4202,7 +4310,8 @@ def test_data_gc_reorg_and_geometry() -> None:
         replace(message(0, f"preserved-{index}"), due_at=1_001_500)
         for index in range(17)]
     terminal_queue = QueueContinuity(
-        "forced-queue", "queue:root", 17, 12, 9_000, 1_001_500,
+        "forced-queue", model_force_root(initial_queue_descriptors),
+        17, 12, 9_000, 1_001_500,
         initial_queue_descriptors)
     migration_inbox_apply = InboxApplyRouterV2(next_queue_index=12)
     shared_migration_gate = MigrationGate()
@@ -4215,12 +4324,23 @@ def test_data_gc_reorg_and_geometry() -> None:
         "version-manager", terminal_queue, migration_inbox_apply)
     assert active_router.bootstrap(
         settlement_1, sequence=0, activation_block=49)
+    migration_protocol = protocol(
+        tip_slot=canonical_core_499.tip_slot,
+        cursor=canonical_core_499.message_cursor,
+        forced_queue=terminal_queue,
+        inbox_apply_router=migration_inbox_apply,
+        settlement_address="settlement:1")
+    migration_protocol.canonical = Canonical(
+        copy.deepcopy(canonical_core_499), 49)
+    migration_protocol.migration_gate = shared_migration_gate
+    migration_protocol.versioned_history = settlement_1
+    settlement_1.live_protocol = migration_protocol
     assert active_router.sync_and_append(
         message(1, "old-adapter-row", kind=ForceKind.BRIDGE_CREDIT),
+        clock=Clock(49, GENESIS_TIMESTAMP + 1),
         bound_router=active_router.address,
         queue_address=terminal_queue.address,
-        active_settlement_sync_changed=False, deposit=7,
-        due_at=1_001_501) == "QUEUED:17"
+        deposit=7) == "QUEUED:17"
     canonical_core_500 = replace(
         canonical_core_499, l2_block_number=500, tip_hash="block:500",
         state_root="state:500")
@@ -4245,16 +4365,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50av sparse L2-height jumps cannot choose a history cell",
           active_router.canonical_at(1, sequence_1) == canonical_500
           and active_router.canonical_at(1, sequence_2) == canonical_756)
-    migration_protocol = protocol(
-        tip_slot=canonical_core_756.tip_slot,
-        cursor=canonical_core_756.message_cursor,
-        forced_queue=terminal_queue,
-        inbox_apply_router=migration_inbox_apply)
     migration_protocol.canonical = Canonical(
         copy.deepcopy(canonical_core_756), 51)
-    migration_protocol.migration_gate = shared_migration_gate
-    migration_protocol.versioned_history = settlement_1
-    settlement_1.live_protocol = migration_protocol
     migration_registry = RegistryLifecycle(
         [Generation("migration-builder", 10, 0, 0)],
         migration_gate=shared_migration_gate)
@@ -4267,8 +4379,58 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50cq router ingress is immediately visible to forced liveness",
           migration_protocol.forced_queue is terminal_queue
           and terminal_queue.count == len(migration_protocol.messages) == 18
+          and terminal_queue.root
+              == migration_protocol.force_root(terminal_queue.count)
           and migration_protocol.next_due_at(12) == 1_001_500
           and migration_protocol.force_due(migration_outage_clock))
+    forged_root_protocol = protocol(messages=[message(0, "root-bound")])
+    forged_root_protocol.forced_queue.root = "attacker-root"
+    forged_root_rejected = False
+    try:
+        forged_root_protocol.force_root(1)
+    except AssertionError:
+        forged_root_rejected = True
+    unauthorized_queue = QueueContinuity(
+        "auth-queue", model_force_root([]), 0, 0, 0, 0)
+    check("P50cr stored and snapshotted forced roots cannot diverge",
+          forged_root_rejected
+          and unauthorized_queue.append(
+              message(0, "unauthorized-append"), deposit=1,
+              due_at=GENESIS_TIMESTAMP + FORCE_DELAY,
+              caller="attacker") is None
+          and unauthorized_queue.count == 0
+          and unauthorized_queue.root == model_force_root([]))
+
+    atomic_protocol = protocol(messages=[message(0, "atomic-row")])
+    atomic_history = VersionedSettlementHistory(
+        "model-settlement", "runtime:atomic", 1, "profile:atomic",
+        copy.deepcopy(atomic_protocol.core), 99,
+        atomic_protocol.forced_queue, mode="ACTIVE", current_sequence=0,
+        last_canonical_l1_block=100,
+        inbox_apply_router=atomic_protocol.inbox_apply_router)
+    atomic_protocol.versioned_history = atomic_history
+    atomic_clock = clock(100, 1_100)
+    atomic_candidate = candidate(atomic_protocol, atomic_clock, "atomic")
+    atomic_before = (
+        copy.deepcopy(atomic_protocol.canonical),
+        atomic_protocol.forced_queue.cursor,
+        atomic_protocol.inbox_apply_router.next_queue_index,
+        atomic_protocol.release_activation_pending,
+        copy.deepcopy(atomic_history),
+    )
+    atomic_rejected = False
+    try:
+        atomic_protocol._commit(atomic_candidate, atomic_clock)
+    except AssertionError:
+        atomic_rejected = True
+    check("P50cs late history rejection rolls every canonical stage back",
+          atomic_rejected
+          and atomic_protocol.canonical == atomic_before[0]
+          and atomic_protocol.forced_queue.cursor == atomic_before[1]
+          and atomic_protocol.inbox_apply_router.next_queue_index
+              == atomic_before[2]
+          and atomic_protocol.release_activation_pending == atomic_before[3]
+          and atomic_history == atomic_before[4])
     assert migration_protocol.sync(migration_outage_clock)
     assert migration_protocol.mode is Mode.RECOVERY
     migration_revision = migration_protocol.recovery.revision
@@ -4290,6 +4452,13 @@ def test_data_gc_reorg_and_geometry() -> None:
           and migration_protocol.admit_message(
               migration_outage_clock, message(4_000, "veto-ingress"))
               == "SYNCED"
+          and active_router.sync_and_append(
+              message(4_000, "veto-router-ingress",
+                      kind=ForceKind.BRIDGE_CREDIT),
+              clock=migration_outage_clock,
+              bound_router=active_router.address,
+              queue_address=terminal_queue.address,
+              deposit=3) == "SYNCED"
           and len(migration_protocol.messages) == 18)
     recovery_expiry_slot = (
         migration_protocol.recovery.expires_at - GENESIS_TIMESTAMP)
@@ -4316,9 +4485,10 @@ def test_data_gc_reorg_and_geometry() -> None:
               after_expiry) == "MIGRATION_ARMED"
           and active_router.sync_and_append(
               message(2, "ready-row", kind=ForceKind.BRIDGE_CREDIT),
+              clock=after_expiry,
               bound_router=active_router.address,
               queue_address=terminal_queue.address,
-              active_settlement_sync_changed=False) == "SYNCED")
+              deposit=1) == "SYNCED")
 
     fake_settlement = VersionedSettlementHistory(
         "settlement:fake", "runtime:2", 2, "profile:2",
@@ -4410,18 +4580,25 @@ def test_data_gc_reorg_and_geometry() -> None:
           and active_router.sync_and_append(
               message(2, "same-old-adapter-after-v2",
                       kind=ForceKind.BRIDGE_CREDIT),
+              clock=Clock(52, GENESIS_TIMESTAMP + 2),
               bound_router=active_router.address,
               queue_address=terminal_queue.address,
-              active_settlement_sync_changed=False, deposit=5,
-              due_at=1_001_502) == "QUEUED:18"
+              deposit=5) == "QUEUED:18"
           and shared_migration_gate.mode == "ACTIVE"
           and shared_migration_gate.active_protocol_version == 2
           and shared_migration_gate.target_protocol_version == 0
+          and terminal_queue.active_settlement_address == "settlement:2"
+          and not terminal_queue.advance_cursor(
+              12, 12, caller="settlement:1")
+          and not terminal_queue.advance_cursor(
+              12, 13, caller="attacker")
           and terminal_queue.count == 19
           and terminal_queue.escrow_balance == 9_012
           and [row.payload_hash for row in terminal_queue.descriptors[-2:]]
               == ["old-adapter-row", "same-old-adapter-after-v2"]
           and migration_protocol.messages is terminal_queue.descriptors
+          and (0, 1) in migration_registry.liable_reservations
+          and not migration_registry.reserve("migration-builder", 1, 0)
           and migration_registry.reserve("migration-builder", 2, 0))
     check("P50bn the same gate can authorize a second bounded migration",
           shared_migration_gate.arm(

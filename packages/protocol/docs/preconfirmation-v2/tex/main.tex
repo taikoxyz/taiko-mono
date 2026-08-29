@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.22}
+\large\mdseries Audited Design Candidate --- v2.23}
 \author{}
 \date{August 2026}
 \maketitle
@@ -1275,8 +1275,11 @@ that transition, creates no admission record and makes the entire supplied
 deposit immediately withdrawable by the original caller.  Otherwise it computes
 \code{enqueuedAt=block.timestamp} and
 \code{dueAt=max(enqueuedAt+FORCE_DELAY,lastDueAt,recoveryExpiry+1)} (the last
-term is zero outside recovery), and appends atomically.  \code{ForcedQueue} stores one
-authoritative \code{QueueDescriptor} per index.  It is the complete fixed-width
+term is zero outside recovery), and appends atomically.  Neither a sync-result Boolean, enqueue timestamp
+nor due time is accepted in router calldata; the router rechecks the shared gate
+is ACTIVE after \code{sync()} and before any retained deposit or external queue
+write.  \code{ForcedQueue} stores one authoritative \code{QueueDescriptor} per
+index.  It is the complete fixed-width
 kind-0 or kind-1 leaf preimage in Appendix~\ref{sec:encodings}, excluding only
 kind-0 \code{rawTx} bytes themselves but including their hash.  Thus sender,
 nonce, chain IDs, byte/gas fields, fee, validity, refund address, enqueue/due
@@ -1290,6 +1293,15 @@ root, count, cursor or due-time cache.  Settlement reads the queue's
 a stored best's live boundary; there is no callback, cached deadline or
 duplicated scalar.  Missing indices return \code{UINT64_MAX}.  Thus \code{dueAt}
 is nondecreasing and force-due/coverage checks are one authoritative O(1) read.
+The queue exposes exactly two cursor-authority transitions:
+\begin{verbatim}
+advanceCursor(uint32 expectedStart, uint32 end)       // active Settlement only
+setActiveSettlement(address expectedOld, address new) // router only
+\end{verbatim}
+\code{advanceCursor} requires \code{cursor=expectedStart<=end<=count} and
+writes only \code{cursor}.  \code{setActiveSettlement} requires the stored old
+address and is called only inside bootstrap or an atomic version switch.  The
+ingress router never advances consumption, and a frozen Settlement cannot do so.
 
 The queue is a depth-32 append-only Merkle vector with fixed capacity
 \code{UINT32_MAX} items,
@@ -1811,13 +1823,19 @@ its exact post-state root/count slots.  These fields are part of
 use the same public-output constraint.  A caller cannot supply an unconstrained
 root; no checkpoint publisher exists in this revision.
 The same proof authenticates the protocol-lifetime InboxApplyRouterV2 account
-and requires its post-state \code{nextQueueIndex} to equal
-\code{CanonicalCore.messageCursor}, and authenticates the ForcedQueue account
-whose \code{cursor} must equal both.  Settlement checks this three-way equality
-before every canonical-history write; mismatch reverts the entire candidate
-commit.  Bootstrap and every migration generation check the same three object
-identities and cursor values before importing state.  No activation transaction
-may repair, overwrite or select among divergent cursors.
+and, for each block, requires its pre-state \code{nextQueueIndex} to equal that
+block's \code{messageStart} and its post-state value to equal
+\code{messageEnd}.  Before proof acceptance, the L1 base invariant is
+\code{baseCanonical.messageCursor=ForcedQueue.cursor}, while the proof's first
+L2 pre-state cursor equals the same start.  The final proved L2 post-state cursor
+and new \code{CanonicalCore.messageCursor} both equal the candidate end.  After
+proof verification and before its history write, the active Settlement calls
+\code{ForcedQueue.advanceCursor(start,end)}.  A failed call reverts the entire
+canonical commit.  L1 never writes the L2 router; the end value is authenticated
+L2 poststate adopted by the proof.  Bootstrap and every migration generation
+instead occur at a canonical boundary and require the current three base values
+equal before importing state.  No activation transaction may repair, overwrite
+or select among divergent cursors.
 
 The vector root is
 \begin{verbatim}
@@ -1859,7 +1877,8 @@ The router's stable \code{syncAndAppend} forced-ingress facade remains available
 to every old immutable BridgeInboxAdapter.  It resolves the active version,
 calls that Settlement's bounded \code{sync()}, preserves a SYNCED transition
 without appending, and otherwise appends only to the singleton ForcedQueue.  No
-Settlement calls the router while committing canonical state.  Router
+Settlement calls the ingress/version router while committing canonical state;
+it calls only the queue's non-callback \code{advanceCursor}.  Router
 \code{canonicalAt(protocolVersion,canonicalSequence)} performs a bounded
 fixed-selector \code{STATICCALL} to the permanently registered Settlement,
 requires the exact return length, code hash, version/profile and cell tag, and
@@ -1986,7 +2005,8 @@ The type's state transition is fully separate from EIP-1559 signing.  Decoding
 requires \code{chainId=block.chainid=destinationChainId<=UINT64_MAX}; a foreign,
 zero or nonminimal chain ID rejects before execution.  The profile maps each
 kind to exactly one reserved sender and target.  Both \code{CALLER} and
-\code{ORIGIN} are that reserved sender, and sender and target start warm.  No
+\code{ORIGIN} are that reserved sender.  Sender and target start warm in
+addition to the fork's ordinary precompile warm set.  No
 sender account nonce is read, compared or incremented; no sender balance is
 read, debited or credited; \code{GASPRICE} returns zero while \code{BASEFEE}
 retains the block's ordinary value.  There is no access list, creation target,
@@ -2542,19 +2562,23 @@ cancels it.  A current recovery proof may commit until that round's existing
 \code{expiresAt}; after expiry \code{sync()} cancels the round and is forbidden
 to increment its revision or open another episode.  If neither is open, arm
 clears a merely armed normal context immediately.  At and after that boundary,
-two authenticated cursors each refund/delete at most eight live data sessions
-and builder reservations per call, decrementing stored counters only with the
-corresponding ledger write.  During ordinary operation every reservation leaves
-the live ledger and decrements the gate counter on its RESERVED-to-terminal
-transition; the window transition clears all expired slots before admitting a
-new reservation.  The permanent \code{reservationsClosed} bit is used only for
+two authenticated cursors handle at most eight rows each per call.  The session
+cursor refunds/deletes live data sessions.  The builder cursor never refunds or
+deletes slash backing: it converts each gate-counted \code{RESERVED} tranche to
+claim-only \code{LIABLE}, preserving its generation/window key, bond and evidence
+deadline, then decrements the gate counter.  During ordinary operation an expired
+\code{RESERVED} row performs the same conversion before leaving the gate counter;
+it is released only by the ordinary evidence-safe transition.  The window
+transition processes all expired rows before admitting a new reservation, and a
+generation cannot reserve a window whose old tranche is still LIABLE.  The
+permanent \code{reservationsClosed} bit is used only for
 exit/replacement, never for the reversible migration veto.  Thus at arm the
 counter contains only the 17 current/future windows of the 64 active seats.  On
 replacement or effective exit, every still-live RESERVED row is atomically
 converted to a claim-only LIABLE tranche under the displaced generation's
 retained root, removed from the refundable-reservation ledger, and decremented
 from the gate counter.  It remains slashable/releasable by the ordinary evidence
-deadline but cannot veto migration.  Thus the exact refundable maximum remains
+deadline but cannot veto migration.  Thus the exact gate-counted live maximum is
 $64\times17=1,088$ reservations.  With at most 1,024 sessions, the two
 eight-item cursors reach zero after at most 136 permissionless cleanup calls.
 READY is derived solely from zero counters,
@@ -2578,7 +2602,11 @@ imports the exact post-boundary Canonical only after requiring
 InboxApplyRouterV2.nextQueueIndex}; it imports no independently selectable cursor
 without narrowing into an empty PREACTIVE immutable Settlement, writes the
 imported version-namespaced history cell, registers its code/profile, and makes
-it ACTIVE.  It then updates \code{activeProtocolVersion}, and as its final
+it ACTIVE.  In the same revert domain the router calls
+\code{ForcedQueue.setActiveSettlement(old,new)}; the queue requires its stored
+authority to be exactly old, so the frozen Settlement loses cursor authority and
+the new one gains it without a public setter race.  It then updates
+\code{activeProtocolVersion}, and as its final
 trusted internal write performs READY-to-ACTIVE for the same generation, clears
 the target fields and makes no caller-controlled external call afterward.  Any
 failure reverts the freeze, import, router switch and gate transition.  The new Settlement's
@@ -2985,11 +3013,10 @@ address20(inboxCreditStoreV2) || address20(terminalAccumulatorV2) ||
 address20(activationGate) || address20(terminalDomainRegistrarV2)
 \end{verbatim}
 Every field is nonzero and \code{bridge=destinationBridge}.  It commits the
-facade behavior but not an ambiguous proxy claim.  Component 9's
-\code{configHash} is exactly
+facade behavior but not an ambiguous proxy claim.  Component 9's topology
+subdescriptor is exactly 65 bytes:
 \begin{verbatim}
-H("slot-chain-destination-bridge-topology-v1" || u8(topology) ||
-  bytes32(accountRuntimeHash) || bytes32(facadeRuntimeHash))
+u8(topology) || bytes32(accountRuntimeHash) || bytes32(facadeRuntimeHash)
 \end{verbatim}
 The only valid values are:
 \begin{verbatim}
@@ -3026,12 +3053,21 @@ so the descriptor is exactly 756 bytes.  For kind $k=1,\ldots,9$ in that order,
 configHash = H("slot-chain-component-config-v1" || u8(k) ||
                u16(byteLength) || configBytes)
 \end{verbatim}
-Every component implements
-\code{componentConfigHashV2() view returns(bytes32)}; a checking side requires
+Kinds 1--8 and a topology-0 kind 9 expose the fixed getter
+\begin{verbatim}
+componentConfigHashV2() view returns (bytes32)
+\end{verbatim}
+A checking side requires
 exactly 32 bytes equal to this value under the manifest-pinned runtime hash.
 Empty, short, trailing or malformed returndata rejects.  L1 checks rows 1--3
 directly and L2 checks rows 4--9 directly; neither substitutes a Boolean result
-for the fixed call and hash comparison.  \code{configBytes} is exactly:
+for the fixed call and hash comparison.  The launch-only topology-1 row 9 is
+instead authenticated by the circuit-constrained account runtime, exact direct
+implementation/beacon/fork-selector slots, frozen facade runtime and storage
+layout under the imported canonical state root.  Any delegated getter is only a
+redundant consistency check and is never an authority for that row's hash.
+The nine \code{configBytes} lengths are exactly
+80, 72, 21, 73, 80, 52, 60, 21 and 177 bytes, respectively, and their contents are:
 \begin{enumerate}
 \item\begin{verbatim}
 address20(bridgeCreditRegistry) || address20(sourceBridge) ||
@@ -3063,6 +3099,7 @@ address20(terminalAccumulatorV2)
 address20(terminalDomainRegistrarV2) || u8(64)
 \end{verbatim}
 \item\begin{verbatim}
+u8(topology) || bytes32(accountRuntimeHash) || bytes32(facadeRuntimeHash) ||
 address20(inboxCreditStoreV2) || address20(terminalAccumulatorV2) ||
 address20(activationGate) || address20(terminalDomainRegistrarV2) ||
 bytes32(storageLayoutHash)
@@ -3209,29 +3246,29 @@ admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot    ab03f105ee7d619fb2c81d31b38760720dff2cb35471bc28fdc063c31f71bd67
 sourceDomain  9f207cb5f32747635be6496e957827270c0b62aa5a7d0bd39657e28c0fedf7b1
-destDomain    78cd6a4469c1e6ba8e7e3719955e330e68a66c48b70d9fc02600fa9244bb0eba
+destDomain    7051b0bcdb16e6d5c6ddc9ac020f69d25ef27775faa0edea44db1f75ec50bf8d
 bridgeKernel  371700b6908037409059b484e1eff1a1511464447af6c67ea98cc96d35443cc6
 bridgeExec    1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2
 destBrExec    66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d
-destInfra     d0933ad1f03a0ebe485c8372d9d4efa6d8ec3a1655353830bf27d5ba82a857ca
-relManifest   346912cc16cd80334d4594c8bb90d38665f867ae0b6284f30cb15dc15c2fce1c
-destReg       94220d3e6d03bd74d34b636b9cc9a30ba74e67778348c6ad80165a69214ab147
+destInfra     4c6f4196c3819423a8cfc8058101a1091361511fb776c83b06a2b9ff608aaef7
+relManifest   608210697d315431f6a2ad7792247925bd880886a0e31f0cc390cb4f5928583c
+destReg       97476c5cf0ebe4cb5976429dd00f421c16e9913043f2992cbab7a38428aba274
 regBase       20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
 regSlot       dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
 regTrie       200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
 relBase       a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
 relSlot       719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
 relTrie       dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
-routeConfig   faa8da419cafcc9ef8eb8a4d1f6c49c1626a72d8e8cab4826ba7cc887c2df526
-bridgeLeaf    6d0fc74112a9208b01c1cf652d2aae15fda421e71efc7d5f0333b8028908366d
-creditId      80f6872de8b64760514c16f68f4dd62828bf2f715cf7ceaecb4e28db077a0c85
-escrowId      dda628a9c5230f1493589515a189c645e422f5ef104ac83af5200c3a05da1617
-inboxSlot     bd52439306c8d3a956854adb849c42bb9c2b3810e736c6a16b65b810ce876452
-terminalDone  308c81b638c0d7027182f6e75dde3fa7b982b2b33f37ae5e7e25f0337cc51bb4
-terminalFail  405fc99d08d18751652bf01196c948d5c713e65d9154a8fc9af592b11b14fd81
-terminalRoot2 430278faec9d7c7610c7a659b12bdc7bf3c8f16c5f6e01030e86900b59d5cdae
+routeConfig   cc0abc6afb89cbb61c91f35ff69039a3ab872ac3b497925a969629699387f484
+bridgeLeaf    595ddfeb7dc3508201aaff8ed61c0257c15a9fbf010fe6497c3d354c1a9f7c08
+creditId      c3dad3057283d897e3c5d5ebd7a9d44a17452d48a8057fafe013694c2fa85e9d
+escrowId      9b18a64e9b2288fae90dd2b3aec4540b427f437ac5e3a13f23e10e9599057c38
+inboxSlot     92506eceb5d583eb0d2c8d81819806114bc6bb203c246a128138924f8d473a17
+terminalDone  a775c7a258052075774451b51ca10c7553c1b2ff1028fa888450ea385a0cd37c
+terminalFail  bcbbd7b7d9e3ca7b935aaebd2341f7d10bc0802624e3d2019a1eb030d46fd9f7
+terminalRoot2 33d3534926e82fb7baf4aa3bffd5d39f8823f2b41ecf7d64b5f8688c14a2d6f6
 emptyTermRoot 0a0a8606a440497456ab8cac6894ff589cd7a6464809113ea62b7affe1429cc2
-bridgeResult  ca4e2ae3710db4146239a2ca871eff81822b03a493ecb984872bd4e097ae98d2
+bridgeResult  6ce29a650e1e109ca3f4239fd6baf0f428e7172d8d0c69e0b3416978a56b4f77
 manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 normalContext bdec611a765250c0e964b4e3c95c648fec0c126a0f2c8f8fc3c13f691ede455b
 migrationData a3588b50c1f4e768cb2c35a622452527ab3cb953520ef018af3ff2d2362b86a5
@@ -3397,7 +3434,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 175 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 177 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -3413,7 +3450,7 @@ gating, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 158 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 160 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors, vector/range proofs, session MMR and
 per-block manifests.  It also covers source/destination domains, acyclic
