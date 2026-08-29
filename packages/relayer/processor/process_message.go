@@ -31,6 +31,12 @@ import (
 var (
 	errUnprocessable     = errors.New("message is unprocessable")
 	errAlreadyProcessing = errors.New("already processing txHash")
+	// errPrivateTxMgrSend marks a send that failed at a private endpoint. Failing over to the
+	// endpoint behind it only works if the message comes back, and the queue drops a message whose
+	// error is not recognised as transient, so the wrap says so explicitly instead of relying on
+	// the error text: a deadline or a rate limit matches none of the strings that classifier looks
+	// for.
+	errPrivateTxMgrSend = errors.New("private tx manager send failed")
 )
 
 const gasRefundPerCacheOperation uint64 = 20_000
@@ -443,12 +449,14 @@ func (p *Processor) sendProcessMessageCall(
 
 	receipt, err := txMgr.Send(ctx, candidate)
 	if err != nil {
-		// Take a failing private endpoint out of rotation so the next message falls through to the
-		// one behind it. The caller requeues this message, so it is retried rather than lost.
+		// Count the failure against the endpoint. Enough of them in a row takes it out of rotation
+		// so the next message falls through to the endpoint behind it.
 		p.txmgrSelector.RecordFailure(txMgrIndex)
 
 		if txMgrIndex != utils.PublicTxMgrIndex {
 			relayer.PrivateTxMgrFailures.Inc()
+
+			err = fmt.Errorf("%w: %w", errPrivateTxMgrSend, err)
 		}
 
 		slog.Warn("Failed to send ProcessMessage transaction",
@@ -458,6 +466,10 @@ func (p *Processor) sendProcessMessageCall(
 
 		return nil, err
 	}
+
+	// The endpoint landed the transaction, so it is healthy regardless of what the receipt says.
+	// Clearing the count keeps a single message it could not land from costing it its turn.
+	p.txmgrSelector.RecordSuccess(txMgrIndex)
 
 	slog.Info("Mined tx",
 		"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),

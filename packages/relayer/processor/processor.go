@@ -559,6 +559,7 @@ func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Messa
 
 func isTransientProcessMessageError(err error) bool {
 	return errors.Is(err, context.Canceled) ||
+		errors.Is(err, errPrivateTxMgrSend) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||

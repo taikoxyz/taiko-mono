@@ -93,10 +93,15 @@ to submit the same call, take the fee, and leave this relayer paying gas for a c
 reverts.
 
 Set `DEST_PRIVATE_RPC_URLS` to one or more endpoints that pass transactions to block builders
-without gossiping them. They are tried in the order given; one whose send fails is taken out of
-rotation for `PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default) so the next message falls through
-to the endpoint behind it, and finally to `DEST_RPC_URL`. A message whose send failed is requeued,
-so a failover costs a retry rather than the message.
+without gossiping them. They are tried in the order given; one that fails several sends in a row is
+taken out of rotation for `PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default) so the next message
+falls through to the endpoint behind it, and finally to `DEST_RPC_URL`. A message whose send failed
+is requeued, so a failover costs a retry rather than the message.
+
+Only consecutive failures count, and a landed transaction clears the tally. A relay that will not
+take one particular claim — one that would revert because a competitor already processed the
+message, say — is still healthy for everything else, and one such claim should not push unrelated
+ones into the public mempool.
 
 ```sh
 DEST_PRIVATE_RPC_URLS=https://rpc.flashbots.net?hint=hash,https://rpc.mevblocker.io/fullprivacy

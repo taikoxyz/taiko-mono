@@ -41,6 +41,13 @@ func newTestSelector(t *testing.T, retryInterval *time.Duration) (
 	return s, public, first, second, clock
 }
 
+// trip records enough consecutive failures to take a private endpoint out of rotation.
+func trip(s *TxMgrSelector, index int) {
+	for i := 0; i < DefaultPrivateTxMgrFailureThreshold; i++ {
+		s.RecordFailure(index)
+	}
+}
+
 func TestTxMgrSelector_SelectsPublicWhenNoPrivateConfigured(t *testing.T) {
 	public := &stubTxMgr{name: "public"}
 	s := NewTxMgrSelector(public, nil, nil)
@@ -66,7 +73,7 @@ func TestTxMgrSelector_FallsBackToTheNextPrivateEndpoint(t *testing.T) {
 	s, _, _, second, _ := newTestSelector(t, nil)
 
 	_, index := s.Select()
-	s.RecordFailure(index)
+	trip(s, index)
 
 	mgr, index := s.Select()
 
@@ -77,8 +84,8 @@ func TestTxMgrSelector_FallsBackToTheNextPrivateEndpoint(t *testing.T) {
 func TestTxMgrSelector_FallsBackToPublicOnceEveryPrivateEndpointHasFailed(t *testing.T) {
 	s, public, _, _, _ := newTestSelector(t, nil)
 
-	s.RecordFailure(0)
-	s.RecordFailure(1)
+	trip(s, 0)
+	trip(s, 1)
 
 	mgr, index := s.Select()
 
@@ -89,10 +96,10 @@ func TestTxMgrSelector_FallsBackToPublicOnceEveryPrivateEndpointHasFailed(t *tes
 func TestTxMgrSelector_ReturnsAPrivateEndpointToRotationAfterTheRetryInterval(t *testing.T) {
 	s, _, first, second, clock := newTestSelector(t, nil)
 
-	s.RecordFailure(0)
+	trip(s, 0)
 
 	mgr, _ := s.Select()
-	require.Same(t, second, mgr, "the failed endpoint should be skipped straight away")
+	require.Same(t, second, mgr, "a tripped endpoint should be skipped straight away")
 
 	// Just short of the interval it is still out of rotation.
 	*clock = clock.Add(DefaultPrivateTxMgrRetryInterval - time.Nanosecond)
@@ -109,17 +116,17 @@ func TestTxMgrSelector_ReturnsAPrivateEndpointToRotationAfterTheRetryInterval(t 
 func TestTxMgrSelector_TripsAnEndpointAgainWhenItFailsOnItsSecondChance(t *testing.T) {
 	s, _, first, second, clock := newTestSelector(t, nil)
 
-	s.RecordFailure(0)
+	trip(s, 0)
 
 	*clock = clock.Add(DefaultPrivateTxMgrRetryInterval)
 
 	mgr, index := s.Select()
 	require.Same(t, first, mgr)
 
-	s.RecordFailure(index)
+	trip(s, index)
 
 	mgr, _ = s.Select()
-	assert.Same(t, second, mgr, "a repeat failure should take it out of rotation again")
+	assert.Same(t, second, mgr, "repeat failures should take it out of rotation again")
 }
 
 func TestTxMgrSelector_RecordFailureIgnoresThePublicIndex(t *testing.T) {
@@ -127,7 +134,9 @@ func TestTxMgrSelector_RecordFailureIgnoresThePublicIndex(t *testing.T) {
 
 	// Nothing sits behind the public endpoint, so reporting it must not move anything out of
 	// rotation and leave the relayer sending publicly from then on.
-	s.RecordFailure(PublicTxMgrIndex)
+	for i := 0; i < DefaultPrivateTxMgrFailureThreshold; i++ {
+		s.RecordFailure(PublicTxMgrIndex)
+	}
 
 	mgr, index := s.Select()
 
@@ -139,8 +148,10 @@ func TestTxMgrSelector_RecordFailureIgnoresAnOutOfRangeIndex(t *testing.T) {
 	s, _, first, _, _ := newTestSelector(t, nil)
 
 	assert.NotPanics(t, func() {
-		s.RecordFailure(2)
-		s.RecordFailure(-99)
+		trip(s, 2)
+		trip(s, -99)
+		s.RecordSuccess(2)
+		s.RecordSuccess(-99)
 	})
 
 	mgr, _ := s.Select()
@@ -168,8 +179,8 @@ func TestTxMgrSelector_HonoursACustomRetryInterval(t *testing.T) {
 	retryInterval := time.Minute
 	s, public, first, _, clock := newTestSelector(t, &retryInterval)
 
-	s.RecordFailure(0)
-	s.RecordFailure(1)
+	trip(s, 0)
+	trip(s, 1)
 
 	mgr, _ := s.Select()
 	require.Same(t, public, mgr)
@@ -203,4 +214,69 @@ func TestTxMgrSelector_IsSafeUnderConcurrentUse(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestTxMgrSelector_KeepsAnEndpointAfterASingleFailure(t *testing.T) {
+	s, _, first, _, _ := newTestSelector(t, nil)
+
+	// A relay that drops one transaction — one that would revert, say, because a competitor already
+	// claimed the message — is still healthy for every other message. Tripping on that would route
+	// unrelated claims through the public mempool, which is the thing this is meant to avoid.
+	s.RecordFailure(0)
+
+	mgr, index := s.Select()
+
+	assert.Same(t, first, mgr)
+	assert.Equal(t, 0, index)
+}
+
+func TestTxMgrSelector_TripsOnlyAtTheFailureThreshold(t *testing.T) {
+	s, _, first, second, _ := newTestSelector(t, nil)
+
+	for i := 1; i < DefaultPrivateTxMgrFailureThreshold; i++ {
+		s.RecordFailure(0)
+
+		mgr, _ := s.Select()
+		require.Same(t, first, mgr, "should still be in rotation after %d failures", i)
+	}
+
+	s.RecordFailure(0)
+
+	mgr, _ := s.Select()
+	assert.Same(t, second, mgr)
+}
+
+func TestTxMgrSelector_RecordSuccessClearsTheFailureCount(t *testing.T) {
+	s, _, first, _, _ := newTestSelector(t, nil)
+
+	for i := 0; i < DefaultPrivateTxMgrFailureThreshold-1; i++ {
+		s.RecordFailure(0)
+	}
+
+	// Only consecutive failures count, so a message the endpoint did land resets its budget.
+	s.RecordSuccess(0)
+
+	for i := 0; i < DefaultPrivateTxMgrFailureThreshold-1; i++ {
+		s.RecordFailure(0)
+	}
+
+	mgr, _ := s.Select()
+	assert.Same(t, first, mgr)
+}
+
+func TestTxMgrSelector_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
+	s, _, first, _, clock := newTestSelector(t, nil)
+
+	trip(s, 0)
+
+	*clock = clock.Add(DefaultPrivateTxMgrRetryInterval)
+
+	mgr, _ := s.Select()
+	require.Same(t, first, mgr)
+
+	// The spent count must not carry over, or the first failure after recovery would trip it again.
+	s.RecordFailure(0)
+
+	mgr, _ = s.Select()
+	assert.Same(t, first, mgr)
 }

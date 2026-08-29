@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -598,21 +599,24 @@ func Test_sendProcessMessageCall_failsOverToTheNextPrivateEndpoint(t *testing.T)
 	event := newProcessMessageEvent(100)
 	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures)
 
-	// The message whose send fails is requeued by the caller rather than lost, so the failover
-	// costs a retry. That retry is the send below.
-	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
-	require.Error(t, err)
+	// Each failed send is requeued by the caller rather than lost, so the retries are the sends
+	// below. It takes a run of them to conclude the endpoint itself is down.
+	for i := 0; i < utils.DefaultPrivateTxMgrFailureThreshold; i++ {
+		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+		require.Error(t, err)
+	}
 
 	assert.Equal(t,
-		float64(1),
+		float64(utils.DefaultPrivateTxMgrFailureThreshold),
 		testutil.ToFloat64(relayer.PrivateTxMgrFailures)-failuresBefore,
-		"a private endpoint failing should be visible in metrics",
+		"private endpoint failures should be visible in metrics",
 	)
 
-	_, err = p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, first.calls, "the failed endpoint should be out of rotation")
+	assert.Equal(t, utils.DefaultPrivateTxMgrFailureThreshold, first.calls,
+		"the tripped endpoint should be out of rotation")
 	assert.Equal(t, 1, second.calls)
 	assert.Equal(t, 0, public.calls)
 }
@@ -628,7 +632,7 @@ func Test_sendProcessMessageCall_failsOverToPublicOnceEveryPrivateEndpointIsDown
 
 	event := newProcessMessageEvent(100)
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 2*utils.DefaultPrivateTxMgrFailureThreshold; i++ {
 		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
 		require.Error(t, err)
 	}
@@ -637,6 +641,88 @@ func Test_sendProcessMessageCall_failsOverToPublicOnceEveryPrivateEndpointIsDown
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, public.calls, "messages must still be processed when no private endpoint is up")
+}
+
+func Test_sendProcessMessageCall_keepsAPrivateEndpointThatDropsOneMessage(t *testing.T) {
+	p := newTestProcessor(false)
+
+	public := &countingTxManager{receipt: successfulReceipt()}
+	// A relay that will not land one particular claim — one that would revert because a competitor
+	// already processed the message — is still healthy for everything else.
+	private := &countingTxManager{err: errors.New("failed to get tx into the mempool")}
+	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{private}, nil)
+
+	event := newProcessMessageEvent(100)
+
+	for i := 0; i < utils.DefaultPrivateTxMgrFailureThreshold-1; i++ {
+		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+		require.Error(t, err)
+	}
+
+	// A message it does land clears the count, so those drops cost it nothing.
+	private.err = nil
+	private.receipt = successfulReceipt()
+
+	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	require.NoError(t, err)
+
+	private.err = errors.New("failed to get tx into the mempool")
+
+	for i := 0; i < utils.DefaultPrivateTxMgrFailureThreshold-1; i++ {
+		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+		require.Error(t, err)
+	}
+
+	private.err = nil
+
+	_, err = p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, public.calls, "unrelated claims must not be pushed into the public mempool")
+}
+
+func Test_sendProcessMessageCall_marksPrivateSendFailuresRetryable(t *testing.T) {
+	p := newTestProcessor(false)
+
+	// "context deadline exceeded" and rate-limit responses match none of the strings the transient
+	// classifier looks for, so without the explicit marking the queue would drop the claim rather
+	// than let it retry through the endpoint behind this one.
+	for _, sendErr := range []error{context.DeadlineExceeded, errors.New("429 Too Many Requests")} {
+		private := &countingTxManager{err: sendErr}
+		p.txmgrSelector = utils.NewTxMgrSelector(
+			&countingTxManager{receipt: successfulReceipt()},
+			[]txmgr.TxManager{private},
+			nil,
+		)
+
+		_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errPrivateTxMgrSend)
+		assert.ErrorIs(t, err, sendErr)
+		assert.True(t, isTransientProcessMessageError(err),
+			"a failover must requeue the message, not drop it")
+	}
+}
+
+func Test_handleProcessMessageResult_requeuesPrivateSendFailures(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	// shouldRequeue is false on this path, so the requeue depends entirely on the error being
+	// recognised as transient.
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		false,
+		0,
+		fmt.Errorf("%w: %w", errPrivateTxMgrSend, context.DeadlineExceeded),
+	)
+
+	assert.Equal(t, 0, q.acked)
+	assert.Equal(t, 1, q.nacked)
+	assert.True(t, q.requeued, "a claim must survive a private endpoint failing")
 }
 
 func Test_sendProcessMessageCall_keepsUsingThePublicEndpointAfterItFails(t *testing.T) {
