@@ -50,10 +50,10 @@ type TxSender interface {
 //
 // Private endpoints are tried in the order they were configured, within one send: it is the same
 // signed transaction each time, so offering it to a second relay after the first errored is
-// idempotent — at most one of them can land it. An endpoint that fails the failure threshold times
-// in a row drops out of rotation for the retry interval, and a landed transaction clears its tally
-// and re-admits it. Only when no private endpoint is left in rotation does a transaction go out
-// through the public endpoint.
+// idempotent — at most one of them can land it. An endpoint that refuses the failure threshold of
+// distinct transactions in a row drops out of rotation for the retry interval, and a landed
+// transaction clears its tally and re-admits it. Only when no private endpoint is left in rotation
+// does a transaction go out through the public endpoint.
 type SendingBackend struct {
 	// ETHBackend serves every read, and sends when no private endpoint is in rotation.
 	txmgr.ETHBackend
@@ -124,6 +124,17 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	var err error
 
 	for attempt, i := range inRotation {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			// Our own budget is gone before this endpoint was reached, so it never got a send.
+			// Charging it, or handing it a context it cannot use, would trip relays that were
+			// never tried. The endpoints already tried keep the failures they earned.
+			if err == nil {
+				err = ctxErr
+			}
+
+			return err
+		}
+
 		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
 		err = b.private[i].SendTransaction(attemptCtx, tx)
 
@@ -135,13 +146,12 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			return nil
 		}
 
-		if ctx.Err() != nil {
-			// Our own deadline ran out, not this endpoint's. Counting it, or offering the
-			// transaction to the endpoints behind it on a context they cannot use, would trip
-			// relays that were never given a send.
-			return err
-		}
-
+		// The endpoint had a usable context and still did not take the transaction. That counts
+		// against it whether it refused outright or spent its whole share without answering:
+		// hanging is the outage mode this is most meant to survive, so an endpoint that hangs has
+		// to be able to trip. Checking the deadline before the send rather than after is what
+		// keeps that true for the last endpoint in rotation, whose share is the rest of the
+		// budget and which therefore always finds ctx expired once it has hung.
 		b.recordFailure(i, tx.Hash())
 		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(i)).Inc()
 
@@ -225,12 +235,17 @@ func (b *SendingBackend) inRotation() []int {
 // recordFailure counts a refused transaction against the endpoint at index, taking it out of
 // rotation once it has refused failureThreshold distinct transactions in a row.
 //
-// Refusing the same transaction again is not counted. A relay that will not take one particular
-// claim — one that would revert because a competitor already processed the message — looks exactly
-// like a relay that is down if you only count errors, and the transaction manager resubmits the
-// same transaction repeatedly, so one such claim could spend the whole budget on its own. Requiring
-// distinct transactions separates the two without having to classify error strings: an endpoint
-// that is genuinely down refuses whatever it is handed, so it still trips.
+// Refusing the same transaction as the previous charge is not counted again. A relay that will not
+// take one particular claim — one that would revert because a competitor already processed the
+// message — looks exactly like a relay that is down if you only count errors, and the transaction
+// manager resubmits the same transaction repeatedly, so one such claim could spend the whole budget
+// on its own. Comparing against the last charge separates the two without having to classify error
+// strings: an endpoint that is genuinely down refuses whatever it is handed, so it still trips.
+//
+// Only the immediately preceding charge is compared, not every transaction seen, so two bad claims
+// arriving alternately can still trip an endpoint. That is the intended trade: remembering every
+// transaction would grow without bound, and repeated refusals of more than one claim are weaker
+// evidence of health than of trouble.
 func (b *SendingBackend) recordFailure(index int, txHash common.Hash) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -274,20 +274,35 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	// behind the single transaction manager below: separate managers over the same key would each
 	// resolve the nonce against their own endpoint, and a private endpoint does not gossip, so two
 	// concurrent claims could be signed with the same nonce.
-	privateSenders := make([]utils.TxSender, 0, len(cfg.DestPrivateRPCUrls))
+	privateSenders := make([]*ethclient.Client, 0, len(cfg.DestPrivateRPCUrls))
+
+	// Nothing owns these until the backend below does, so a failure part-way through has to hand
+	// back the ones already dialled rather than leak them.
+	closePrivateSenders := func() {
+		for _, client := range privateSenders {
+			client.Close()
+		}
+	}
 
 	for _, url := range cfg.DestPrivateRPCUrls {
 		client, err := ethclient.DialContext(ctx, url)
 		if err != nil {
+			closePrivateSenders()
+
 			return err
 		}
 
 		privateSenders = append(privateSenders, client)
 	}
 
+	senders := make([]utils.TxSender, 0, len(privateSenders))
+	for _, client := range privateSenders {
+		senders = append(senders, client)
+	}
+
 	sendingBackend := utils.NewSendingBackend(
 		txmgrConfig.Backend,
-		privateSenders,
+		senders,
 		&cfg.PrivateRPCRetryInterval,
 	)
 	txmgrConfig.Backend = sendingBackend
@@ -298,6 +313,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		new(txmgrMetrics.NoopTxMetrics),
 		txmgrConfig,
 	); err != nil {
+		sendingBackend.Close()
+
 		return err
 	}
 

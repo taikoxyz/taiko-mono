@@ -538,3 +538,37 @@ func TestSendingBackend_CloseIsIdempotent(t *testing.T) {
 	assert.True(t, second.closed)
 	assert.Equal(t, 1, public.closeCalls, "the underlying client must not be closed twice")
 }
+
+func TestSendingBackend_AnEndpointThatOnlyHangsStillTrips(t *testing.T) {
+	public := &fakeBackend{}
+	hanging := &hangingSender{}
+
+	b := NewSendingBackend(public, []TxSender{hanging}, nil)
+
+	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
+
+	// A sole private endpoint gets the whole budget, so spending it is also what exhausts the
+	// caller's context. Checking the deadline after the send would read that as "our timeout, not
+	// the relay's" and never charge it: the endpoint would hang forever, never trip, and claims
+	// would keep timing out with no fallback and nothing to alert on.
+	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+
+		require.Error(t, b.SendTransaction(ctx, txWithNonce(uint64(i))))
+
+		cancel()
+	}
+
+	require.Equal(t, DefaultPrivateRPCFailureThreshold, hanging.calls())
+	assert.Empty(t, b.inRotation(), "an endpoint that only ever hangs has to leave rotation")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	require.NoError(t, b.SendTransaction(ctx, txWithNonce(99)))
+
+	assert.Len(t, public.sent, 1, "claims must still go out once the endpoint is tripped")
+	assert.Equal(t, float64(1),
+		testutil.ToFloat64(relayer.PrivateRPCUnavailable)-unavailableBefore,
+		"running exposed has to be visible")
+}
