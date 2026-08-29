@@ -2,8 +2,14 @@
 
 **Status:** Approved implementation architecture
 
-**Normative protocol source:**
-`packages/protocol/docs/preconfirmation-v2/tex/main.tex` (v2.25)
+**Normative protocol sources:**
+
+- `packages/protocol/docs/preconfirmation-v2/tex/main.tex` (v2.25 baseline); and
+- `docs/superpowers/specs/2026-08-29-perpetual-aggregator-seat-market.md` (normative amendment with
+  precedence for aggregator-seat, recovery/failover/slash, premium, and bond-release behavior).
+
+Solidity implementation is blocked until the LaTeX, Appendix, executable models, vectors, and PDF
+are regenerated so the amendment no longer conflicts with the baseline.
 
 ## 1. Objective
 
@@ -107,6 +113,12 @@ must not reinterpret existing V1 mappings.
   atomically appending it.
 - `TerminalSignalVerifier`: immutable verification of a depth-64 terminal leaf against exact
   versioned canonical history.
+- `AggregatorSeatMarket`: protocol-lifetime, non-proxy continuous reverse-ask market with one active
+  and three standby service ranks, four pending offers, native-ETH bond tranches, pre-funded premium
+  runway for every installed rank, exact-target quotes, single-duty tranche consumption, delayed
+  event-driven handover, pull credits, Settlement-authenticated premium vesting, delayed bond
+  release, and asynchronous breach enforcement as specified in
+  `docs/superpowers/specs/2026-08-29-perpetual-aggregator-seat-market.md`.
 
 These components are non-proxy contracts. Cross-component mutators authenticate exact immutable
 callers. Any authority that exists only for bootstrap is one-shot and irreversibly burned.
@@ -115,7 +127,11 @@ callers. Any authority that exists only for bootstrap is one-shot and irreversib
 
 - `Settlement`: `PREACTIVE`, `ACTIVE`, `MIGRATION_ARMED`, `MIGRATION_READY`, and `FROZEN` phases;
   canonical core; normal best candidate; recovery episode/round; 256-cell full-core history;
-  256-cell reward-receipt ring; proof verification; and bounded canonical commits.
+  256-cell reward-receipt ring; proof verification; bounded canonical commits; a locally installed
+  versioned primary/standby lineup of immutable seat terms; one expiring staged handover; bounded
+  single-duty ranks; satisfaction/failover latches; noncanonical duty-cell reclamation; fail-open
+  duty-ring exhaustion; objective premium caps; and immutable breach receipts retained through
+  tranche termination. Proof/candidate validity never depends on a seat.
 - `ActiveSettlementRouter`: append-only version registry, stable stamped ingress facade,
   version/sequence history routing, router-owned migration gate, and atomic proof-first activation.
 - `ProtocolVersionManager`: delayed manifest and cancellation authorization, exact runtime/config
@@ -133,8 +149,9 @@ callers. Any authority that exists only for bootstrap is one-shot and irreversib
 
 Settlement delegates pure calculations to libraries but retains state transition authority. The
 verifier address, runtime hash, profile hash, queue, registry, schedule, data session, and router are
-immutable constructor commitments. No governance path can substitute candidate state or a verifier
-after deployment.
+immutable constructor commitments. The seat market is also immutable, but all market/premium/bond
+calls are confined to noncanonical maintenance and claim paths. No governance path can substitute
+candidate state or a verifier after deployment.
 
 ### 4.4 L2 receipt and terminal plane
 
@@ -173,6 +190,7 @@ one-shot seals below. No general post-deployment dependency setter is allowed.
 | `ActiveSettlementRouter` <-> `ForcedQueue` | Both constructor immutables use precomputed addresses. | No setter. Queue starts with the router and launch Settlement identities fixed. | Runtime/config hashes and empty queue commitments are manifest/proof checked. Launch cancellation leaves the original authority; activation transfers only through the router's atomic path. |
 | router <-> `ProtocolVersionManager` | Constructor immutables use precomputed addresses. | No setter. | Only the manager may arm/activate an exact delayed manifest; only the router may expose/consume its exact migration generation. Cancellation restores the unchanged old authority. |
 | `Settlement` -> router/queue/registry/schedule/session/verifier/profile | Constructor immutables use precomputed addresses. | Settlement starts `PREACTIVE`; no dependency setter. | Router registration checks runtime, configuration, and profile. A failed or cancelled activation leaves it permanently inert; a successful version can later only become `FROZEN`. |
+| Settlement <-> `AggregatorSeatMarket` | Settlement constructor fixes the market; the delayed release manager append-only authorizes exact Settlement version/address/code/config hashes in the market. Every operator quote independently accepts that exact tuple plus the current monotone seat generation. | No generic setter. Offers/ETH remain market-owned; Settlement begins economically vacant. | Each rank installs one immutable single-duty seat term. Roster revisions retain untouched standby term IDs. Installation is delayed, noncanonical, exact-commitment checked, and pre-funds every rank. Canonical paths only write local duties/receipts. Old Settlements remain the sole premium-cap/breach source for their terms; migration arm increments the seat generation, invalidates old quotes, excuses unresolved non-breached duties, and leaves both abort and target economically vacant. |
 | L2 registrar <-> inbox router/accumulator | Constructor immutables use precomputed addresses. | Registrar is their sole route/writer-registration caller. | Each version/domain/writer entry is append-only. Revert/cancel leaves every entry absent; success permanently records the exact manifest entry. |
 | endpoint store <-> registrar/Bridge/gate/inbox router | Constructor immutables use precomputed addresses; only `destinationDomainId` is sealed. | Domain starts zero; registrar is sole one-shot writer during atomic activation. | Store runtime/config and every constructor binding are checked first. Failure reverts to zero; success writes the exact manifest domain and burns the seal authority. |
 | activation gate -> AnchorV4 release path | Gate fixes the release authority/registrar activation path; Anchor identity comes from the per-version manifest. | `active=false`; only the authenticated activation transaction may set it. | Exact origin, Anchor runtime, manifest, release, and registrar effects are checked atomically. Cancellation before activation leaves it false; activation makes it permanently true. |
@@ -197,9 +215,11 @@ the final cursor/root write.
 | Forced ingress | Synchronize and require `ACTIVE` before custody; validate/fund the complete descriptor; router stamps the generation; queue appends and accounts funds; a Bridge credit append then calls the fixed source Bridge to mark that exact record `QUEUED`. Any failure reverts queue and adapter effects together. |
 | L2 inbox application | Validate the entire interval, descriptors, result hashes, routes, code/config hashes, and contiguous runs before the first call; call each fixed endpoint store; require exact success magic; advance `nextQueueIndex` only after every store call succeeds. Each store validates its complete run before writing permanent idempotent pins and makes no external call. |
 | Settlement commit | Synchronize and validate candidate/context/history/queue inputs; call the immutable verifier before canonical writes; call `ForcedQueue.advanceCursor` for the exact proved interval in the specified atomic commit sequence; then write canonical core/history and best-effort reward receipt. Any queue or history failure reverts the whole commit. No reward, burn, Bridge callback, or caller-selected call occurs. |
+| Seat duty and failover | Early lag opens recovery without penalty and stores one local duty against a single-use tranche. Every canonical commit scans at most the fixed seat count for satisfaction latches. At failover Settlement selects only the next pre-funded standby. A cure before the next revision starts it as normal service; an outage that remains open starts its duty only when the next usable revision opens. At the later reorg-stable slash threshold Settlement records a retained immutable breach receipt. Ring exhaustion closes economics to vacant rather than reverting canonical progress. None of these writes calls the market or transfers ETH. |
+| Seat market maintenance | Offer insertion, atomic expiring stage reservation, handover/exit finalization, migration-tombstone stage cancellation, premium extension/accrual, duty-cell reclamation, release, slash enforcement, and claims are separate noncanonical transactions. Installed exit removes the local roster term and updates market custody in one revert domain; funds remain locked until then. A leading sync and health-headroom check precede responsibility handover. Premium claims and releases authenticate the exact Settlement's objective disposition. Market/funding failure reverts only maintenance and cannot block proof submission or recovery. |
 | Destination Bridge terminalization | Authenticate the permanent pin and lifecycle; execute the bounded recipient operation while protected against reentrancy; decide DONE/FAILED; write the terminal sentinel; call the fixed accumulator; replace the sentinel with the returned index; then expose pull-credit effects. Any failure reverts the whole terminal transition. |
 | Source Bridge finalization/recall/cancel | Verify the fixed terminal proof or deadline first; write the terminal lifecycle and reduce the exact liability; credit the owner's pull balance; transfer only in a later withdrawal call. |
-| Launch and V2 migration | Authenticate all manifests, code/configuration, old state, queue state, target proof, and output before an irreversible write. Then perform the specification's bounded freeze, authority transfer, queue advancement, target initialization/history write, and router activation in one revert domain. No caller-controlled external call occurs after authority transfer. Cancellation runs while old authority is unchanged. |
+| Launch and V2 migration | Before arming, leading sync materializes any already-slashable seat duty; arming locally closes terms, excuses other unresolved duties, invalidates the stage, and leaves the old Settlement economically vacant without a market call. Then authenticate all manifests, code/configuration, old state, queue state, target proof, and output before an irreversible write. Perform the bounded freeze, authority transfer, queue advancement, target initialization/history write, and router activation in one revert domain. Cancellation runs while old canonical authority is unchanged but does not resurrect consumed seat terms. |
 | Pull claims and vault restoration | Authenticate the exact credit/capsule, set claimed/consumed state and reduce only the matching reserve, then perform the asset transfer/restoration. A failed transfer reverts that claim but cannot block canonical progress or other claimants. |
 
 All paths still validate widths, domains, sequence tags, deadlines, code hashes, configuration hashes,
@@ -238,6 +258,12 @@ Required test classes are:
   transitions, no status resurrection, and conservation of deposits/claims;
 - stateful handler tests spanning registry, schedule, queue, settlement, Bridge, vault, and
   migration operations;
+- perpetual-seat tests for standing-book ordering, ask maturity, minimum improvement/tenure,
+  event-driven handover/stage expiry/migration cancellation, atomic installed exits, standby
+  immutability/pre-funding/promotion, late-cure successor activation, premium solvency/
+  authenticated vesting/funding expiry, single-duty tranche rotation, early recovery, delayed
+  failover, reorg-stable slashing, force-recovery evasion, duty satisfaction/ring exhaustion,
+  asynchronous enforcement, release challenges, exact-target re-quote, and migration isolation;
 - cross-contract integration tests for normal settlement, recovery, forced expiry, credit
   DONE/FAILED, migration activation, cancellation, and retry after cutover;
 - storage-layout compatibility tests for the final legacy Bridge/vault facade;
