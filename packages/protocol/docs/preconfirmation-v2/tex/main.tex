@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.19}
+\large\mdseries Audited Design Candidate --- v2.20}
 \author{}
 \date{August 2026}
 \maketitle
@@ -1157,8 +1157,27 @@ has at most 66 nodes, each node at most 600 bytes, the whole proof at most
 80,000 bytes, and any noncanonical RLP, wrong inline/hash reference, surplus
 node/byte or gas use above 8,000,000 rejects.  The account proof fixes the
 registrar address and code hash; the storage proof fixes
-\code{registration[protocolVersion]}.  The decoded record must match the
-manifest's domain, Bridge, infrastructure hash and execution-profile hash.  The
+one nonzero \code{registrationCommitment[protocolVersion]} word.  No Solidity
+struct or adjacent slot is inferred from that one path.  The registrar exposes
+\code{registrationCommitmentV2(uint64) view returns(bytes32)} with exact
+32-byte returndata, and stores only:
+\begin{verbatim}
+registrationCommitment =
+  H("slot-chain-destination-registration-v1" ||
+    u64(protocolVersion) || releaseManifestHash ||
+    u256(destinationChainId) || manifestNamespace ||
+    destinationDomainId || address20(destinationBridge) ||
+    destinationInfrastructureHash || executionProfileHash)
+
+baseSlot = H("slot-chain-terminal-domain-registrar.registrationCommitment.v1")
+elementSlot = H(bytes32(uint256(protocolVersion)) || baseSlot)
+storageTrieKey = H(elementSlot)
+\end{verbatim}
+The storage-trie leaf value is canonical RLP of the minimal big-endian unsigned
+integer represented by the nonzero 32-byte commitment (and therefore preserves
+leading-zero semantics through the expected value).  L1 recomputes the full
+commitment from its staged release manifest and accepts only exact equality;
+substitution of any field, mapping key, code hash, account or root rejects.  The
 confirmation block, not manifest staging, starts the 214-block support delay.
 Each release adds at most 64 entries; there
 is no global cap, deletion, redirect or reinterpretation.  A conflicting
@@ -1382,6 +1401,8 @@ struct InboxRowV2 {
 }
 InboxApplyRouterV2.apply(uint64 forceStart, InboxRowV2[] calldata rows)
 markReceivedFromInboxBatch(InboxCreditV2[] calldata rows)
+    returns (bytes4 magic)
+routeConfigHashV2() view returns (bytes32)
 verifyInboxCredit(uint64 srcChainId, bytes32 sourceDomainId,
                   uint64 srcEpoch, address srcBridge,
                   bytes32 destinationDomainId, bytes32 msgHash)
@@ -1407,6 +1428,23 @@ requires the exact success magic.  It advances \code{nextQueueIndex} only after
 all calls succeed.  A missing route, conflict or later call failure reverts the
 cursor and every earlier store write.  There is no sorting and no loop over
 historical routes.
+The batch selector is the canonical Solidity selector for the signature above.
+Success returndata is exactly one 32-byte ABI word equal to
+\code{0x49425632} (ASCII ``IBV2'') followed by 28 zero bytes; empty, short,
+long, malformed or different returndata rejects even if the call itself
+succeeds.  The getter likewise must return exactly 32 bytes, and its value is
+\begin{verbatim}
+H("slot-chain-inbox-route-config-v1" ||
+  address20(inboxApplyRouterV2) || address20(destinationBridge) ||
+  address20(activationGate) || address20(terminalDomainRegistrarV2) ||
+  destinationDomainId)
+\end{verbatim}
+The router pins that hash and the store runtime hash at registration and
+rechecks both by bounded \code{STATICCALL}/\code{EXTCODEHASH} before any batch
+call.  Runtime hash, not a caller assertion, pins the getter semantics.  A
+successful no-op implementation cannot advance the cursor because the same
+transaction's post-state circuit must find every fresh pin at the
+Appendix-defined slot; the conformance corpus includes a magic-returning no-op.
 The canonical empty vector requires \code{forceStart=nextQueueIndex}, makes no
 store call and leaves the cursor unchanged, but still records the exact L2 block
 number; a second apply in that block rejects.
@@ -1557,7 +1595,28 @@ terminal status is installed.  The Bridge then writes DONE or FAILED and
 \code{terminalIndex=UINT64_MAX}, calls only
 \code{appendTerminalV2(creditId)}, and replaces the sentinel with the returned
 index before returning.  The accumulator accepts no terminal or domain argument.
-With a fixed gas stipend and exact return length it \code{STATICCALL}s the
+The permanent ABI is:
+\begin{verbatim}
+TerminalAccumulatorV2.appendTerminalV2(bytes32 creditId)
+    returns (uint64 terminalIndex)
+DestinationBridge.terminalCommitmentV2(bytes32 creditId)
+    view returns (bytes32 destinationDomainId, address destBridge,
+                  uint8 terminal, uint64 terminalIndex)
+TerminalAccumulatorV2.getNodeAt(uint64 count, uint8 height,
+                                uint64 nodeIndex) view returns (bytes32)
+TerminalAccumulatorV2.getProofAt(uint64 count, uint64 index)
+    view returns (bytes32[64])
+\end{verbatim}
+All selectors are canonical Solidity selectors of those signatures.  Append
+returndata is exactly 32 bytes with a zero-padded \code{uint64}; commitment
+returndata is exactly four ABI words (128 bytes), with canonical high padding,
+\code{terminal=1} for DONE or 2 for FAILED and
+\code{terminalIndex=UINT64_MAX}.  Node and proof returndata are exactly 32 and
+2,048 bytes respectively.  Short, trailing, noncanonical, overflow, revert or
+out-of-gas returndata rejects atomically.  The accumulator uses exactly 50,000
+gas for the commitment \code{STATICCALL}; the release gas benchmark must show
+30\% margin or revise this normative constant and the profile before launch.
+With that fixed gas stipend and exact return length it \code{STATICCALL}s the
 registered caller's \code{terminalCommitmentV2(creditId)}, requires the sealed
 domain, caller address, DONE/FAILED status and sentinel, then appends:
 \begin{verbatim}
@@ -1593,26 +1652,92 @@ TerminalDomainRegistrarV2
 \end{verbatim}
 Only the registrar may register an accumulator writer.  Release authority is
 bound to the fork-reserved system sender and manifest namespace, not a particular
-Anchor version or endpoint.  Its one-shot \code{activateRelease} verifies the
-profile-defined finalized-L1 manifest proof carried by the custom system
-transaction, derives that manifest's exact Anchor address and runtime hash,
-requires \code{msg.sender} to be that Anchor and \code{tx.origin} to be the
-fork-reserved Anchor-system sender, and permanently records
-\code{(protocolVersion,manifestHash)}.  A direct call by that reserved sender,
-an EOA, Bridge or an Anchor from another manifest rejects: EVM \code{CALL} does
-not preserve the transaction sender as \code{msg.sender}.
+Anchor version or endpoint.  Activation passes the value, never merely its hash:
+\begin{verbatim}
+struct ComponentDescriptorV2 {
+  address component; bytes32 runtimeHash; bytes32 configHash;
+}
+struct ReleaseManifestV2 {
+  uint64 protocolVersion;
+  uint256 settlementChainId; uint256 destinationChainId;
+  bytes32 destinationGenesisHash; bytes32 executionProfileHash;
+  bytes32 manifestNamespace;
+  address anchorV4; bytes32 anchorRuntimeHash;
+  address activationGate; bytes32 activationGateRuntimeHash;
+  bytes32 destinationDomainId; address destinationBridge;
+  bytes32 destinationBridgeExecutionHash;
+  bytes32 destinationInfrastructureHash;
+  ComponentDescriptorV2[9] components;
+}
+AnchorV4.activateReleaseV2(ReleaseManifestV2 calldata manifest,
+                           bytes calldata mptProofV1)
+ProtocolReleaseAuthorityV2.activateRelease(
+    ReleaseManifestV2 calldata manifest)
+TerminalDomainRegistrarV2.activateDomain(
+    ReleaseManifestV2 calldata manifest)
+\end{verbatim}
+The manifest tuple's static ABI body is exactly 41 words/1,312 bytes with canonical
+address and integer padding and no offsets.  Its canonical commitment encoding
+is the 1,144-byte packed concatenation of the fields above, in order, using
+\code{u64}, \code{u256}, \code{address20} and \code{bytes32}, followed by each
+component's address/runtime/config tuple.  It is
+\begin{verbatim}
+releaseManifestHash = H("slot-chain-release-manifest-v1" || u32(1144) ||
+                        canonicalReleaseManifestV2)
+\end{verbatim}
+Zero values, duplicate component addresses, a Bridge different from component
+9, a component count/order mismatch, or any named/hash field inconsistent with
+the Appendix grammars rejects.
+
+The AnchorV4 custom system transaction invokes that exact selector with the
+complete manifest plus one \code{MptProofV1}, under the same 132-node,
+80,000-byte and 8,000,000-gas limits above.  The circuit authenticates the transaction's exact
+\code{l1OriginStateRoot} as the finalized L1 origin for this L2 block.  Anchor
+verifies under that root the profile-pinned L1 ProtocolVersionManager account,
+runtime code hash and the exact
+\code{releaseManifestHash[protocolVersion]} storage word; it recomputes the
+hash from calldata and never accepts a proof-valid Boolean.  That L1 mapping's
+base, element slot and storage-trie key are:
+\begin{verbatim}
+base = H("slot-chain-protocol-version-manager.releaseManifestHash.v1")
+elementSlot = H(bytes32(uint256(protocolVersion)) || base)
+storageTrieKey = H(elementSlot)
+\end{verbatim}
+Its nonzero value uses canonical minimal-unsigned RLP.  Anchor then stores
+and exposes \code{activeReleaseManifestHashV2() view returns(bytes32)} with
+exact 32-byte returndata, and in the same non-reentrant transaction calls the
+authority and registrar with the identical fixed manifest.  Partial completion
+reverts the active hash and both callees.
+
+The authority recomputes the commitment, requires \code{msg.sender} and its
+\code{EXTCODEHASH} to equal \code{anchorV4}/\code{anchorRuntimeHash}, requires
+\code{tx.origin} to be the fork-reserved Anchor-system sender, and makes a
+50,000-gas \code{STATICCALL} requiring Anchor's exact active-manifest getter to
+return the same hash.  It then permanently records
+\code{releaseManifestHash[protocolVersion]} and exposes
+\code{releaseManifestHashV2(uint64) view returns(bytes32)} with exact 32-byte
+returndata.  A direct call by that reserved
+sender, an EOA, Bridge or an Anchor from another manifest rejects: EVM
+\code{CALL} does not preserve the transaction sender as \code{msg.sender}.
 The registrar constructor fixes only that authority, the global
 InboxApplyRouterV2 and the accumulator.  Its
-non-reentrant \code{activateDomain(protocolVersion,manifestHash)} derives every
-endpoint target from the recorded manifest, recomputes all nine runtime/config
+non-reentrant \code{activateDomain(manifest)} recomputes the same hash, requires
+the authority's exact stored word, extracts every endpoint target from those
+bytes, and recomputes all nine runtime/config
 descriptors, the separately derived destination Bridge execution hash,
-infrastructure hash and destination domain, and checks each target's exact
-\code{EXTCODEHASH}, constructor config and zero prestate.  It then makes only the
+infrastructure hash and destination domain.  Components 1--3 are L1 contracts:
+the ProtocolVersionManager validated their exact addresses, runtime/config
+hashes before storing the proved manifest hash; the L2 registrar never pretends
+to execute \code{EXTCODEHASH} across a
+chain boundary.  Components 4--9 are L2 contracts, so the registrar directly
+checks each local target's exact \code{EXTCODEHASH}, exact 32-byte
+\code{componentConfigHashV2()} return, constructor config and zero
+prestate.  It then makes only the
 profile-listed fixed-selector, zero-value, gas-bounded seal calls to the target
 InboxCreditStoreV2, activation gate and frozen destination Bridge, atomically
 adds the one-to-one inbox route, registers the domain/Bridge writer in the
-accumulator, burns every endpoint sealer and only then records
-\code{(protocolVersion,domain,Bridge,infrastructureHash,executionProfileHash)}.
+accumulator, burns every endpoint sealer and only then stores the single
+Appendix-defined \code{registrationCommitment[protocolVersion]} word.
 The version, domain and Bridge are each one-shot; a conflict, out-of-order call,
 unapproved descriptor, reentrancy or partial seal reverts the transaction.  The same path is
 used for launch and later endpoints.  A domain or Bridge can therefore be
@@ -2171,9 +2296,13 @@ BridgeCreditRegistry, TerminalSignalVerifier,
 BridgeInboxAdapter and every
 official token vault's final capsule/reservation/claim facade before V2 send is
 enabled; every bridged-token admitted to V2 burn/mint mode has already installed
-and frozen \code{IRefundRestorableV2}.  ProtocolVersionManager computes the
-acyclic infrastructure/domain descriptor, seals the L1 adapter's domain once
-and burns that setter.  Every legacy Bridge/vault proxy upgrade selector is no longer
+and frozen \code{IRefundRestorableV2}.  ProtocolVersionManager directly checks
+the deployed L1 components 1--3 and their constructor configuration, records
+those exact descriptor rows in the finalized manifest, computes the acyclic
+combined infrastructure/domain descriptor, seals the L1 adapter's domain once
+and burns that setter.  The L2 release proof carries those same rows; its
+registrar directly checks local components 4--9 and recomputes the identical
+combined hash.  Every legacy Bridge/vault proxy upgrade selector is no longer
 reachable and none of those facades delegatecalls another implementation.  One
 non-proxy \code{InboxV2ActivationGate} is initialized false.  InboxApplyRouterV2,
 the immutable-store batch and every L2 inbound-V2 process/retry/fail/expire path independently
@@ -2266,10 +2395,27 @@ or merely proposed L2 endpoint.
 
 Every later Settlement/profile migration uses a protocol-generated two-phase
 cutover.  The delayed manifest arms a specific cutover generation and changes
-ACTIVE to MIGRATION\_ARMED.  The old Settlement finishes the already-open best
-or current recovery transition but never opens another normal window or
-recovery round.  At that boundary it settles/cancels the best, refunds live data
-sessions and builder reservations by their exact ledgers, preserves
+ACTIVE to MIGRATION\_ARMED.  This is one protocol-lifetime
+\code{MigrationGateV2}, not a caller-supplied quiescence Boolean.  Settlement,
+registry, data-session, reward/preparation and both forced-ingress adapters all
+read the same \code{(generation,state)} word.  Arming atomically closes new
+normal contexts/candidates, sessions, data posts, builder reservations and
+reward work; ingress returns SYNCED before retaining a deposit or queue write.
+Already-mature claim-only withdrawals remain callable.
+
+The old Settlement finishes only the already-open boundary.  An open normal
+window may commit its already-recorded best at its deadline; a newly due head
+cancels it.  A current recovery proof may commit until that round's existing
+\code{expiresAt}; after expiry \code{sync()} cancels the round and is forbidden
+to increment its revision or open another episode.  If neither is open, arm
+clears a merely armed normal context immediately.  At and after that boundary,
+two authenticated cursors each refund/delete at most eight live data sessions
+and builder reservations per call, decrementing stored counters only with the
+corresponding ledger write.  With at most 1,024 sessions and
+$64\times17=1,088$ reservations, at most 136 permissionless cleanup calls are
+needed after the existing boundary.  READY is derived solely from zero counters,
+no normal boundary and no recovery; no calldata supplies those facts.
+The process preserves
 slash/evidence tranches in the protocol-lifetime registry, and leaves matured
 reward/capsule/refund claims callable on permanent claim-only surfaces.  It then
 enters MIGRATION\_READY before another \code{sync()} decision.  A due queue head
@@ -2388,7 +2534,9 @@ execution result:
   L1/L2 legacy SignalService, official refund
   vaults, frozen bridged-token restoration templates and both permanent Bridge
   facades, including proof that no
-  upgrade selector or second delegate target is reachable;
+  upgrade selector or second delegate target is reachable, plus the exact
+  chain placement and L1-direct/L2-direct/finalized-manifest validation trace
+  for every infrastructure row;
 \item exact nonzero source/destination domain namespaces and vectors,
   append-only BridgeDomainRegistry authorization, BridgeCreditRegistry direct
   ABI/runtime/record layout, frozen source generations, Bridge aggregate and
@@ -2697,7 +2845,12 @@ so the descriptor is exactly 756 bytes.  For kind $k=1,\ldots,9$ in that order,
 configHash = H("slot-chain-component-config-v1" || u8(k) ||
                u16(byteLength) || configBytes)
 \end{verbatim}
-and \code{configBytes} is exactly:
+Every component implements
+\code{componentConfigHashV2() view returns(bytes32)}; a checking side requires
+exactly 32 bytes equal to this value under the manifest-pinned runtime hash.
+Empty, short, trailing or malformed returndata rejects.  L1 checks rows 1--3
+directly and L2 checks rows 4--9 directly; neither substitutes a Boolean result
+for the fixed call and hash comparison.  \code{configBytes} is exactly:
 \begin{enumerate}
 \item\begin{verbatim}
 address20(bridgeCreditRegistry) || address20(sourceBridge) ||
@@ -2747,6 +2900,13 @@ destinationInfrastructureHash =
   H("slot-chain-destination-infrastructure-v2" || u32(756) ||
     canonicalDestinationInfrastructureDescriptor)
 \end{verbatim}
+Rows 1--3 name L1 contracts and rows 4--9 name L2 contracts.  At manifest
+activation, L1 ProtocolVersionManager directly checks rows 1--3 against L1
+code/configuration and commits all nine rows.  The finalized manifest proof
+authenticates those L1 rows to ProtocolReleaseAuthorityV2; TerminalDomainRegistrarV2
+directly checks only rows 4--9 against L2 code/configuration.  Both sides
+recompute the same 756-byte descriptor and hash.  No contract is required or
+permitted to treat a cross-chain address as locally inspectable code.
 
 The depth-32 vector empty leaf is \code{H("slot-chain-force-empty-v2")}.
 A parent at height $h=0,\ldots,31$ is
@@ -2867,6 +3027,15 @@ bridgeKernel  371700b6908037409059b484e1eff1a1511464447af6c67ea98cc96d35443cc6
 bridgeExec    1d3ceea2019b62ab462d82680915fe06633fa0f171caf5ddc55d706e458b0ba2
 destBrExec    66c6a4a377d3719f2ca03e47fdb2e6bc5a2744ad2bc79baf5e41fbcc67c1d72d
 destInfra     d0933ad1f03a0ebe485c8372d9d4efa6d8ec3a1655353830bf27d5ba82a857ca
+relManifest   c471ab85901ae32270ad08f89ce49285ca8077b373d9f1adc66c5a42cd4f06d6
+destReg       74c48390918a5cb1c131f5a821f035aee1af7fbd37259606282701b3e52c9693
+regBase       20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
+regSlot       dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
+regTrie       200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
+relBase       a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
+relSlot       719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
+relTrie       dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
+routeConfig   faa8da419cafcc9ef8eb8a4d1f6c49c1626a72d8e8cab4826ba7cc887c2df526
 bridgeLeaf    6d0fc74112a9208b01c1cf652d2aae15fda421e71efc7d5f0333b8028908366d
 creditId      80f6872de8b64760514c16f68f4dd62828bf2f715cf7ceaecb4e28db077a0c85
 escrowId      dda628a9c5230f1493589515a189c645e422f5ef104ac83af5200c3a05da1617
@@ -2927,6 +3096,25 @@ function submit(input) returns (Status) {
 }
 
 function sync() returns (bool changed) {
+    if (migrationGate.state == MIGRATION_ARMED) {
+        if (mode == RECOVERY && now > round.expiresAt) {
+            cancelCurrentRecoveryWithoutRolling();
+            changed = true;
+        } else if (isNormalMode(mode) && forcedHeadDue &&
+                   normal boundary open) {
+            cancel normal window;
+            changed = true;
+        } else if (normal deadline matured) {
+            settleOrCancelAlreadyRecordedBest();
+            changed = true;
+        }
+        refundAtMost8DataSessions();
+        refundAtMost8BuilderReservations();
+        if (authenticated counters are zero && no boundary/recovery)
+            migrationGate.state = MIGRATION_READY;
+        return changed; // no context opens or rolls while armed
+    }
+    if (migrationGate.state == MIGRATION_READY) return false;
     if (mode == RECOVERY && now > round.expiresAt) {
         rollRound();               // same episode/base/burn; new target
         return true;
@@ -3016,7 +3204,7 @@ partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and f
 absolute clock conversion, execution-block finality depth, fixed seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 161 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 166 assertions over PREACTIVE/migration,
 early-return semantics, force-due precedence, renewable recovery, no-seat
 escape, exact slot/header time, durable-descriptor prefix predicates, immutable anchor chronology, O(1) due
 boundaries, late close, sealed data sessions, frozen admission pairs, bounded
@@ -3032,7 +3220,7 @@ gating, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 109 vectors/properties for exact EIP-712
+\code{commitment-model.py} reports 150 vectors/properties for exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
 tranche commitments, forced descriptors, vector/range proofs, session MMR and
 per-block manifests.  It also covers source/destination domains, acyclic
@@ -3078,13 +3266,15 @@ count/bytes/gas, history and storage-retention work is bounded by consensus
 constants and safe eviction.
 \item L1 reorg replay removes canonical state, penalties and credits from
 orphaned transactions together.
-\item After ordinary quiescence, migration freezes old ingress, imports
-canonical/bridge cursors into PREACTIVE settlement and switches the one active
-queue router through its sole manifest-authenticated transition.  V2 L2 entry
-points remain disabled under legacy rules; the first custom post-cutover Anchor
-transaction atomically registers/seals the destination and activates their
-shared gate.  Source V2 waits for a finalized proof of that record plus 214 L1
-blocks.
+\item An armed later migration shares one generation gate across ingress,
+Settlement and transient ledgers, opens no new context, ends the current boundary
+without recovery renewal and reaches READY after at most 136 bounded cleanup
+calls.  Cutover freezes the old Settlement, imports canonical/bridge cursors into
+the inactive target and switches the one active queue router through its sole
+manifest-authenticated transition.  At launch, V2 L2 entry points remain
+disabled under legacy rules; the first custom post-cutover Anchor transaction
+atomically registers/seals the destination and activates their shared gate.
+Source V2 waits for a finalized proof of that record plus 214 L1 blocks.
 \item A kind-1 credit is enqueued only by direct same-L1 comparison with an
 append-only CreditRecord, frozen source generation, source-approved destination
 domain and live liability at the permanent source Bridge facade.

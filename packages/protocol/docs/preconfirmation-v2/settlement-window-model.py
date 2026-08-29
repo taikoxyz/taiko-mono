@@ -72,6 +72,8 @@ CANONICAL_HISTORY_CAPACITY = 256
 MAX_REGISTRATION_PROOF_NODES = 132
 MAX_REGISTRATION_PROOF_BYTES = 80_000
 APPENDING_SENTINEL = UINT64_MAX
+INBOX_BATCH_OK_V2_WORD = bytes.fromhex("49425632" + "00" * 28)
+TERMINAL_COMMITMENT_ABI_BYTES = 4 * 32
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -316,18 +318,49 @@ class Generation:
 
 
 @dataclass
+class MigrationGate:
+    """Shared generation gate; READY follows only authenticated live counters."""
+
+    mode: str = "ACTIVE"
+    generation: int = 0
+    live_data_sessions: int = 0
+    unsettled_builder_reservations: int = 0
+
+    def arm(self, generation: int) -> bool:
+        if generation <= self.generation:
+            return self.mode == "ARMED" and generation == self.generation
+        if self.mode != "ACTIVE":
+            return False
+        self.generation = generation
+        self.mode = "ARMED"
+        return True
+
+    def try_ready(self, *, normal_open: bool, recovery_active: bool) -> bool:
+        if (self.mode != "ARMED" or normal_open or recovery_active
+                or self.live_data_sessions != 0
+                or self.unsettled_builder_reservations != 0):
+            return False
+        self.mode = "READY"
+        return True
+
+
+@dataclass
 class RegistryLifecycle:
     active: list[Generation]
     liability_ring: list[tuple[Generation, int] | None] = field(
         default_factory=lambda: [None] * MAX_LIABILITY_GENERATIONS)
     replacements: dict[int, int] = field(default_factory=dict)
     movement_sequence: int = 0
+    migration_gate: MigrationGate = field(default_factory=MigrationGate)
+    open_reservations: set[tuple[str, int]] = field(default_factory=set)
 
     @property
     def liabilities(self) -> list[Generation]:
         return [item[0] for item in self.liability_ring if item is not None]
 
     def reserve(self, address: str, window: int, current_window: int) -> bool:
+        if self.migration_gate.mode != "ACTIVE":
+            return False
         for index, generation in enumerate(self.active):
             if generation.address != address:
                 continue
@@ -337,8 +370,26 @@ class RegistryLifecycle:
                 return False
             self.active[index] = replace(
                 generation, max_reserved_window=max(generation.max_reserved_window, window))
+            reservation = (address, window)
+            if reservation not in self.open_reservations:
+                self.open_reservations.add(reservation)
+                self.migration_gate.unsettled_builder_reservations += 1
             return True
         return False
+
+    def arm_migration(self) -> None:
+        self.active = [replace(row, reservations_closed=True)
+                       for row in self.active]
+
+    def cleanup_migration_reservations(self, limit: int = MAX_GC_STEPS) -> int:
+        if self.migration_gate.mode != "ARMED":
+            return 0
+        removed = 0
+        for reservation in sorted(self.open_reservations)[:limit]:
+            self.open_reservations.remove(reservation)
+            self.migration_gate.unsettled_builder_reservations -= 1
+            removed += 1
+        return removed
 
     def release_liability(self, ring_index: int, current_window: int) -> bool:
         occupant = self.liability_ring[ring_index]
@@ -422,6 +473,7 @@ class Protocol:
     boundary_queries: int = 0
     canonical_state_witness_available: bool = True
     canonical_code_preimages_available: bool = True
+    migration_gate: MigrationGate = field(default_factory=MigrationGate)
 
     @property
     def core(self) -> CanonicalCore:
@@ -481,6 +533,8 @@ class Protocol:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
+        if self.migration_gate.mode != "ACTIVE":
+            return "MIGRATION_ARMED"
         if self.mode is not Mode.NORMAL:
             return "IGNORED"
         if self.normal_arm_block_number is not None:
@@ -498,6 +552,8 @@ class Protocol:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
+        if self.migration_gate.mode != "ACTIVE":
+            return "MIGRATION_ARMED"
         armed = self.normal_arm_block_number
         if (self.mode is not Mode.NORMAL or armed is None
                 or not armed < clock.block_number <= armed + MAX_ARM_AGE_BLOCKS):
@@ -563,8 +619,64 @@ class Protocol:
         self.events.append(f"RECOVERY_ROLLED:{self.recovery.revision}")
         return True
 
+    def arm_migration(self, generation: int) -> bool:
+        if self.mode is Mode.PREACTIVE or not self.migration_gate.arm(generation):
+            return False
+        if self.mode is Mode.NORMAL and self.normal_deadline is None:
+            self._clear_normal()
+        self.events.append(f"MIGRATION_ARMED:{generation}")
+        return True
+
+    def _cleanup_migration_sessions(self) -> int:
+        removed = 0
+        for key in sorted(tuple(self.sessions))[:MAX_GC_STEPS]:
+            del self.sessions[key]
+            self.migration_gate.live_data_sessions -= 1
+            removed += 1
+        if removed:
+            self.events.append(f"MIGRATION_SESSION_REFUNDS:{removed}")
+        return removed
+
+    def _sync_migration(self, clock: Clock) -> bool:
+        changed = False
+        if self.mode is Mode.RECOVERY:
+            assert self.recovery is not None
+            if clock.timestamp > self.recovery.expires_at:
+                self.recovery = None
+                self.mode = Mode.NORMAL
+                self.events.append("MIGRATION_RECOVERY_CANCELED")
+                changed = True
+        else:
+            due = self.force_due(clock)
+            if self.normal_deadline is not None:
+                if due and clock.timestamp < self.normal_deadline:
+                    self._clear_normal()
+                    self.events.append("MIGRATION_NORMAL_CANCELED_FORCE_DUE")
+                    changed = True
+                elif clock.timestamp >= self.normal_deadline:
+                    changed |= self._close_mature_normal(clock)
+            elif self.normal_arm_block_number is not None:
+                self._clear_normal()
+                changed = True
+        boundary_open = (self.mode is Mode.RECOVERY
+                         or self.normal_deadline is not None
+                         or self.normal_best is not None
+                         or self.normal_arm_block_number is not None)
+        if not boundary_open:
+            changed |= self._cleanup_migration_sessions() > 0
+        if self.migration_gate.try_ready(
+                normal_open=boundary_open and self.mode is Mode.NORMAL,
+                recovery_active=self.mode is Mode.RECOVERY):
+            self.events.append("MIGRATION_READY")
+            changed = True
+        return changed
+
     def sync(self, clock: Clock) -> bool:
         if self.mode is Mode.PREACTIVE:
+            return False
+        if self.migration_gate.mode == "ARMED":
+            return self._sync_migration(clock)
+        if self.migration_gate.mode == "READY":
             return False
         if self.mode is Mode.RECOVERY:
             return self._roll_recovery(clock)
@@ -637,6 +749,8 @@ class Protocol:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
+        if self.migration_gate.mode != "ACTIVE":
+            return "SYNCED"
         if (message.kind is not ForceKind.USER_TX
                 or len(self.messages) >= self.queue_capacity):
             return "REJECTED"
@@ -659,6 +773,8 @@ class Protocol:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
+        if self.migration_gate.mode != "ACTIVE":
+            return "SYNCED"
         if (len(self.messages) >= self.queue_capacity
                 or not self._valid_bridge_static(message)):
             return "REJECTED"
@@ -668,6 +784,8 @@ class Protocol:
     def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
         if self.sync(clock):
             return "SYNCED"
+        if self.migration_gate.mode != "ACTIVE":
+            return "MIGRATION_ARMED"
         self.gc_sessions(clock)
         if (not owner or session_id in self.sessions
                 or expiry < clock.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
@@ -676,12 +794,15 @@ class Protocol:
                 or sum(s.owner == owner for s in self.sessions.values()) >= MAX_DATA_SESSIONS_PER_OWNER):
             return "REJECTED"
         self.sessions[session_id] = DataSession(session_id, owner, expiry)
+        self.migration_gate.live_data_sessions += 1
         return "OPENED"
 
     def post_data(self, clock: Clock, session_id: str, caller: str, *,
                   body_root: str, same_tx_blobhash: bool, kzg_opening_ok: bool) -> str:
         if self.sync(clock):
             return "SYNCED"
+        if self.migration_gate.mode != "ACTIVE":
+            return "MIGRATION_ARMED"
         session = self.sessions.get(session_id)
         if (session is None or session.owner != caller or session.sealed
                 or session.expiry <= clock.timestamp or not same_tx_blobhash
@@ -697,6 +818,8 @@ class Protocol:
     def seal_session(self, clock: Clock, session_id: str, caller: str) -> bool:
         if self.sync(clock):
             return False
+        if self.migration_gate.mode != "ACTIVE":
+            return False
         session = self.sessions.get(session_id)
         if session is None or session.owner != caller or session.sealed or not session.records:
             return False
@@ -710,6 +833,7 @@ class Protocol:
         for key in sorted(tuple(self.sessions))[:MAX_GC_STEPS]:
             if self.sessions[key].expiry < clock.timestamp and key not in retained:
                 del self.sessions[key]
+                self.migration_gate.live_data_sessions -= 1
                 removed += 1
         self.gc_cursor = (self.gc_cursor + MAX_GC_STEPS) % MAX_LIVE_DATA_SESSIONS
         return removed
@@ -858,6 +982,9 @@ class Protocol:
             return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
+        if (self.migration_gate.mode != "ACTIVE"
+                and self.mode is not Mode.RECOVERY):
+            return "MIGRATION_ARMED"
         if self.mode is Mode.NORMAL:
             if not self._valid_normal(candidate, clock):
                 return "REJECTED"
@@ -941,7 +1068,9 @@ class BridgeDomainRegistry:
                 destination_domain_id: str, confirmed_at_block: int, *,
                 protocol_version: int, canonical_sequence: int,
                 router: ActiveSettlementRouter, proof_state_root: str,
-                mpt_proof_valid: bool, registration_matches_manifest: bool,
+                mpt_proof_valid: bool,
+                proved_registration_commitment: str,
+                expected_registration_commitment: str,
                 proof_node_count: int, proof_byte_length: int) -> bool:
         entry = self.entries.get(
             (source_domain_id, execution_hash, destination_domain_id))
@@ -953,7 +1082,9 @@ class BridgeDomainRegistry:
                 or confirmed_at_block
                     < canonical.canonicalized_at_block + F_L1
                 or not mpt_proof_valid
-                or not registration_matches_manifest
+                or not proved_registration_commitment
+                or proved_registration_commitment
+                    != expected_registration_commitment
                 or not 0 < proof_node_count <= MAX_REGISTRATION_PROOF_NODES
                 or not 0 < proof_byte_length <= MAX_REGISTRATION_PROOF_BYTES
                 or confirmed_at_block < entry.staged_at_block):
@@ -1056,6 +1187,7 @@ class VersionedSettlementHistory:
     last_canonical_l1_block: int = 0
     history: dict[int, tuple[int, CanonicalTerminalCommitment]] = field(
         default_factory=dict)
+    migration_gate: MigrationGate = field(default_factory=MigrationGate)
 
     def _entry(self, sequence: int, core: CanonicalCore,
                canonicalized_at_block: int) -> CanonicalTerminalCommitment:
@@ -1097,16 +1229,18 @@ class VersionedSettlementHistory:
         return sequence
 
     def arm_migration(self, *, caller_is_version_manager: bool,
-                      delayed_manifest_active: bool) -> bool:
+                      delayed_manifest_active: bool,
+                      generation: int = 1) -> bool:
         if (self.mode != "ACTIVE" or not caller_is_version_manager
-                or not delayed_manifest_active):
+                or not delayed_manifest_active
+                or not self.migration_gate.arm(generation)):
             return False
         self.mode = "MIGRATION_ARMED"
         return True
 
-    def enter_migration_ready(self,
-                              transient_state: MigrationTransientState) -> bool:
-        if self.mode != "MIGRATION_ARMED" or not transient_state.settled:
+    def enter_migration_ready(self) -> bool:
+        if (self.mode != "MIGRATION_ARMED"
+                or self.migration_gate.mode != "READY"):
             return False
         self.mode = "MIGRATION_READY"
         return True
@@ -1155,8 +1289,7 @@ class ActiveSettlementRouter:
             self, *, settlement: VersionedSettlementHistory, l1_block: int,
             caller_is_version_manager: bool, manifest_active: bool,
             target_runtime_approved: bool, target_profile_matches: bool,
-            full_core_import_exact: bool, queue_import_exact: bool,
-            transient_state: MigrationTransientState) -> bool:
+            full_core_import_exact: bool, queue_import_exact: bool) -> bool:
         old_registration = self.registrations.get(self.active_version)
         if old_registration is None:
             return False
@@ -1164,7 +1297,6 @@ class ActiveSettlementRouter:
         if (not caller_is_version_manager or not manifest_active
                 or not target_runtime_approved or not target_profile_matches
                 or not full_core_import_exact or not queue_import_exact
-                or not transient_state.settled
                 or settlement.protocol_version <= self.active_version
                 or settlement.protocol_version in self.registrations
                 or not settlement.execution_profile_hash
@@ -1172,6 +1304,7 @@ class ActiveSettlementRouter:
                 or not settlement.nonproxy or not settlement.selfdestruct_disabled
                 or settlement.mode != "PREACTIVE" or settlement.history
                 or old.mode != "MIGRATION_READY"
+                or old.migration_gate.mode != "READY"
                 or settlement.core != old.core
                 or settlement.canonicalized_at_block
                     != old.canonicalized_at_block
@@ -1574,11 +1707,18 @@ class InboxCreditStoreV2:
     authorized_inbox_apply: str
     destination_bridge: str
     destination_domain_id: str
+    address: str = ""
+    activation_gate: str = "activation-gate"
+    terminal_registrar: str = "terminal-domain-registrar"
     pins: dict[str, InboxPin] = field(default_factory=dict)
     runtime_codehash: str = ""
-    returns_success_magic: bool = True
+    batch_return_data: bytes = INBOX_BATCH_OK_V2_WORD
+    batch_writes_enabled: bool = True
 
     def __post_init__(self) -> None:
+        if not self.address:
+            suffix = self.destination_domain_id.split(":")[-1]
+            self.address = f"inbox-store:{suffix}"
         if not self.runtime_codehash:
             suffix = self.destination_domain_id.split(":")[-1]
             self.runtime_codehash = f"codehash:store:{suffix}"
@@ -1586,7 +1726,14 @@ class InboxCreditStoreV2:
     @property
     def route_config_hash(self) -> str:
         return (f"config:{self.authorized_inbox_apply}:"
-                f"{self.destination_bridge}:{self.destination_domain_id}")
+                f"{self.destination_bridge}:{self.activation_gate}:"
+                f"{self.terminal_registrar}:{self.destination_domain_id}")
+
+    @property
+    def component_config_hash(self) -> str:
+        return (f"component-config:{self.authorized_inbox_apply}:"
+                f"{self.destination_bridge}:{self.activation_gate}:"
+                f"{self.terminal_registrar}")
 
     def pin(self, credit_id: str, result_hash: str, *, now: int,
             caller: str) -> bool:
@@ -1608,20 +1755,21 @@ class InboxCreditStoreV2:
         return self.pins.get(credit_id)
 
     def pin_batch(self, rows: tuple[tuple[str, str], ...], *, now: int,
-                  caller: str) -> bool:
-        if caller != self.authorized_inbox_apply or not self.returns_success_magic:
-            return False
+                  caller: str) -> bytes | None:
+        if caller != self.authorized_inbox_apply:
+            return None
         for credit_id, result_hash in rows:
             existing = self.pins.get(credit_id)
             if (not credit_id or not result_hash
                     or (existing is not None
                         and existing.result_hash != result_hash)):
-                return False
-        for credit_id, result_hash in rows:
-            if credit_id not in self.pins:
-                self.pins[credit_id] = InboxPin(
-                    result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
-        return True
+                return None
+        if self.batch_writes_enabled:
+            for credit_id, result_hash in rows:
+                if credit_id not in self.pins:
+                    self.pins[credit_id] = InboxPin(
+                        result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
+        return self.batch_return_data
 
 
 @dataclass(frozen=True)
@@ -1755,7 +1903,14 @@ class InboxApplyRouterV2:
                 continue
             for credit_id, _ in run:
                 journal.append((store, credit_id, store.pins.get(credit_id)))
-            if not store.pin_batch(tuple(run), now=now, caller=self.address):
+            returned = store.pin_batch(
+                tuple(run), now=now, caller=self.address)
+            writes_match = all(
+                store.pins.get(credit_id)
+                    == InboxPin(result_hash,
+                                now + BRIDGE_PROCESS_TTL_SECONDS)
+                for credit_id, result_hash in run)
+            if returned != INBOX_BATCH_OK_V2_WORD or not writes_match:
                 for touched_store, credit_id, prior in reversed(journal):
                     if prior is None:
                         touched_store.pins.pop(credit_id, None)
@@ -1774,6 +1929,8 @@ class TerminalAccumulatorV2:
     domains: dict[str, str]
     registrar: str = "terminal-domain-registrar"
     leaves: list[str] = field(default_factory=list)
+    append_return_length: int = 32
+    append_return_padding_ok: bool = True
 
     @property
     def count(self) -> int:
@@ -1799,6 +1956,10 @@ class TerminalAccumulatorV2:
 
     def append_terminal(self, *, caller: DestinationBridgeLedger,
                         credit_id: str) -> int | None:
+        if (not caller.terminal_commitment_gas_ok
+                or caller.terminal_commitment_return_length
+                    != TERMINAL_COMMITMENT_ABI_BYTES):
+            return None
         commitment = caller.terminal_commitment_v2(credit_id)
         if commitment is None:
             return None
@@ -1813,25 +1974,113 @@ class TerminalAccumulatorV2:
         return index
 
 
+@dataclass(frozen=True)
+class ReleaseComponentV2:
+    address: str
+    runtime_hash: str
+    config_hash: str
+
+
+@dataclass(frozen=True)
+class ReleaseManifestV2:
+    protocol_version: int
+    settlement_chain_id: int
+    destination_chain_id: int
+    destination_genesis_hash: str
+    execution_profile_hash: str
+    manifest_namespace: str
+    anchor: str
+    anchor_runtime_hash: str
+    activation_gate: str
+    activation_gate_runtime_hash: str
+    destination_domain_id: str
+    destination_bridge: str
+    destination_bridge_execution_hash: str
+    destination_infrastructure_hash: str
+    components: tuple[ReleaseComponentV2, ...]
+
+    @property
+    def commitment(self) -> str:
+        """Behavioral proxy for the byte-exact 1,144-byte commitment model."""
+        values = (
+            self.protocol_version, self.settlement_chain_id,
+            self.destination_chain_id, self.destination_genesis_hash,
+            self.execution_profile_hash, self.manifest_namespace, self.anchor,
+            self.anchor_runtime_hash, self.activation_gate,
+            self.activation_gate_runtime_hash, self.destination_domain_id,
+            self.destination_bridge, self.destination_bridge_execution_hash,
+            self.destination_infrastructure_hash,
+            *((row.address, row.runtime_hash, row.config_hash)
+              for row in self.components),
+        )
+        return "release-manifest:" + repr(values)
+
+    @property
+    def registration_commitment(self) -> str:
+        values = (
+            self.protocol_version, self.commitment,
+            self.destination_chain_id, self.manifest_namespace,
+            self.destination_domain_id, self.destination_bridge,
+            self.destination_infrastructure_hash, self.execution_profile_hash)
+        return "destination-registration:" + repr(values)
+
+    def structurally_valid(self) -> bool:
+        addresses = tuple(row.address for row in self.components)
+        return (self.protocol_version > 0
+                and self.settlement_chain_id > 0
+                and self.destination_chain_id > 0
+                and all((self.destination_genesis_hash,
+                         self.execution_profile_hash,
+                         self.manifest_namespace, self.anchor,
+                         self.anchor_runtime_hash, self.activation_gate,
+                         self.activation_gate_runtime_hash,
+                         self.destination_domain_id, self.destination_bridge,
+                         self.destination_bridge_execution_hash,
+                         self.destination_infrastructure_hash))
+                and len(self.components) == 9
+                and all(row.address and row.runtime_hash and row.config_hash
+                        for row in self.components)
+                and len(set(addresses)) == 9
+                and self.components[8].address == self.destination_bridge)
+
+
+@dataclass
+class AnchorV4Model:
+    address: str
+    runtime_hash: str
+    finalized_l1_manifest_hash: str
+    active_release_manifest_hash: str = ""
+
+    def authenticate(self, manifest: ReleaseManifestV2) -> bool:
+        if (not manifest.structurally_valid()
+                or manifest.anchor != self.address
+                or manifest.anchor_runtime_hash != self.runtime_hash
+                or manifest.commitment != self.finalized_l1_manifest_hash):
+            return False
+        self.active_release_manifest_hash = manifest.commitment
+        return True
+
+
 @dataclass
 class ProtocolReleaseAuthorityV2:
     """Lifetime authority reached by the manifest Anchor in a system tx."""
 
     system_sender: str = "system:anchor"
-    manifest_namespace: str = "manifest:v2"
     releases: dict[int, str] = field(default_factory=dict)
 
-    def activate(self, protocol_version: int, manifest_hash: str, *,
-                 caller: str, manifest_anchor: str, tx_origin: str,
-                 finalized_l1_manifest_proof_valid: bool) -> bool:
-        if (caller != manifest_anchor or tx_origin != self.system_sender
-                or not finalized_l1_manifest_proof_valid
-                or protocol_version <= 0 or not manifest_hash):
+    def activate(self, manifest: ReleaseManifestV2, *, caller: AnchorV4Model,
+                 tx_origin: str) -> bool:
+        manifest_hash = manifest.commitment
+        if (not manifest.structurally_valid()
+                or caller.address != manifest.anchor
+                or caller.runtime_hash != manifest.anchor_runtime_hash
+                or tx_origin != self.system_sender
+                or caller.active_release_manifest_hash != manifest_hash):
             return False
-        existing = self.releases.get(protocol_version)
+        existing = self.releases.get(manifest.protocol_version)
         if existing is not None:
             return existing == manifest_hash
-        self.releases[protocol_version] = manifest_hash
+        self.releases[manifest.protocol_version] = manifest_hash
         return True
 
 
@@ -1843,23 +2092,33 @@ class TerminalDomainRegistrarV2:
     accumulator: TerminalAccumulatorV2
     inbox_router: InboxApplyRouterV2
     address: str = "terminal-domain-registrar"
-    registrations: dict[int, tuple[str, str, str]] = field(default_factory=dict)
+    registrations: dict[int, str] = field(default_factory=dict)
 
-    def activate_domain(self, protocol_version: int, manifest_hash: str,
-                        domain_id: str, bridge: str,
-                        store: InboxCreditStoreV2, store_codehash: str, *,
-                        endpoint_codehashes_match: bool,
-                        endpoint_configs_match: bool,
+    def activate_domain(self, manifest: ReleaseManifestV2,
+                        store: InboxCreditStoreV2, *,
+                        observed_l2_components:
+                            tuple[ReleaseComponentV2, ...],
                         endpoint_zero_prestate: bool,
                         fixed_selector_calls_succeed: bool) -> bool:
-        if (self.authority.releases.get(protocol_version) != manifest_hash
+        protocol_version = manifest.protocol_version
+        manifest_hash = manifest.commitment
+        domain_id = manifest.destination_domain_id
+        bridge = manifest.destination_bridge
+        store_row = manifest.components[4] if len(manifest.components) == 9 \
+            else ReleaseComponentV2("", "", "")
+        if (not manifest.structurally_valid()
+                or self.authority.releases.get(protocol_version) != manifest_hash
                 or protocol_version in self.registrations
-                or not endpoint_codehashes_match or not endpoint_configs_match
+                or observed_l2_components != manifest.components[3:]
+                or store_row.address != store.address
+                or store_row.runtime_hash != store.runtime_codehash
+                or store_row.config_hash != store.component_config_hash
                 or not endpoint_zero_prestate or not fixed_selector_calls_succeed):
             return False
         prior_routes = dict(self.inbox_router.routes)
         if (not self.inbox_router.register_route(
-                domain_id, store, bridge, store_codehash, caller=self.address,
+                domain_id, store, bridge, store_row.runtime_hash,
+                caller=self.address,
                 manifest_exact=True)
                 or not self.accumulator.register_domain(
                     domain_id, bridge, caller=self.address,
@@ -1867,19 +2126,40 @@ class TerminalDomainRegistrarV2:
                     activation_order_valid=True)):
             self.inbox_router.routes = prior_routes
             return False
-        self.registrations[protocol_version] = (
-            domain_id, bridge, manifest_hash)
+        self.registrations[protocol_version] = manifest.registration_commitment
         return True
+
+
+def release_manifest_fixture(protocol_version: int, domain_id: str,
+                             bridge: str, store: InboxCreditStoreV2,
+                             anchor: str | None = None) -> ReleaseManifestV2:
+    anchor_address = anchor or f"anchor:v{protocol_version}"
+    components = (
+        ReleaseComponentV2("bridge-inbox-adapter", "code:adapter", "cfg:adapter"),
+        ReleaseComponentV2("active-settlement-router", "code:router", "cfg:router"),
+        ReleaseComponentV2("terminal-verifier", "code:verifier", "cfg:verifier"),
+        ReleaseComponentV2("inbox-apply", "code:inbox-apply", "cfg:inbox-apply"),
+        ReleaseComponentV2(store.address, store.runtime_codehash,
+                           store.component_config_hash),
+        ReleaseComponentV2("release-authority", "code:authority", "cfg:authority"),
+        ReleaseComponentV2("terminal-domain-registrar", "code:registrar", "cfg:registrar"),
+        ReleaseComponentV2("terminal-accumulator", "code:accumulator", "cfg:accumulator"),
+        ReleaseComponentV2(bridge, f"code:{bridge}", f"cfg:{bridge}"),
+    )
+    return ReleaseManifestV2(
+        protocol_version, 1, 167_000, "genesis:destination",
+        f"profile:{protocol_version}", "manifest:v2", anchor_address,
+        f"code:{anchor_address}", "activation-gate", "code:activation-gate",
+        domain_id, bridge, f"execution:{bridge}",
+        "infrastructure:" + repr(components), components)
 
 
 def activate_release_transaction(
         authority: ProtocolReleaseAuthorityV2,
-        registrar: TerminalDomainRegistrarV2, *, protocol_version: int,
-        manifest_hash: str, transaction_sender: str, anchor: str,
-        manifest_anchor: str, finalized_l1_manifest_proof_valid: bool,
-        domain_id: str, bridge: str, store: InboxCreditStoreV2,
-        store_codehash: str, endpoint_codehashes_match: bool = True,
-        endpoint_configs_match: bool = True,
+        registrar: TerminalDomainRegistrarV2, *,
+        manifest: ReleaseManifestV2, transaction_sender: str,
+        anchor: AnchorV4Model, store: InboxCreditStoreV2,
+        observed_l2_components: tuple[ReleaseComponentV2, ...] | None = None,
         endpoint_zero_prestate: bool = True,
         fixed_selector_calls_succeed: bool = True) -> bool:
     """Model the single system transaction and its all-or-revert EVM calls."""
@@ -1887,24 +2167,23 @@ def activate_release_transaction(
     registrations = dict(registrar.registrations)
     routes = dict(registrar.inbox_router.routes)
     domains = dict(registrar.accumulator.domains)
+    active_manifest = anchor.active_release_manifest_hash
     if (transaction_sender != authority.system_sender
+            or not anchor.authenticate(manifest)
             or not authority.activate(
-                protocol_version, manifest_hash, caller=anchor,
-                manifest_anchor=manifest_anchor,
-                tx_origin=transaction_sender,
-                finalized_l1_manifest_proof_valid=
-                    finalized_l1_manifest_proof_valid)
+                manifest, caller=anchor, tx_origin=transaction_sender)
             or not registrar.activate_domain(
-                protocol_version, manifest_hash, domain_id, bridge,
-                store, store_codehash,
-                endpoint_codehashes_match=endpoint_codehashes_match,
-                endpoint_configs_match=endpoint_configs_match,
+                manifest, store,
+                observed_l2_components=(
+                    manifest.components[3:] if observed_l2_components is None
+                    else observed_l2_components),
                 endpoint_zero_prestate=endpoint_zero_prestate,
                 fixed_selector_calls_succeed=fixed_selector_calls_succeed)):
         authority.releases = releases
         registrar.registrations = registrations
         registrar.inbox_router.routes = routes
         registrar.accumulator.domains = domains
+        anchor.active_release_manifest_hash = active_manifest
         return False
     return True
 
@@ -1920,6 +2199,8 @@ class DestinationBridgeLedger:
         TerminalAccumulatorV2({"domain:D1": "bridge:A"}))
     status: dict[str, str] = field(default_factory=dict)
     terminal_index: dict[str, int] = field(default_factory=dict)
+    terminal_commitment_return_length: int = TERMINAL_COMMITMENT_ABI_BYTES
+    terminal_commitment_gas_ok: bool = True
 
     def pin(self, credit_id: str, result_hash: str, *, now: int,
             caller_is_inbox_apply: bool) -> bool:
@@ -1943,7 +2224,13 @@ class DestinationBridgeLedger:
         self.terminal_index[credit_id] = APPENDING_SENTINEL
         index = self.terminal_accumulator.append_terminal(
             caller=self, credit_id=credit_id)
-        if index is None:
+        if (index is None
+                or self.terminal_accumulator.append_return_length != 32
+                or not self.terminal_accumulator.append_return_padding_ok
+                or not 0 <= index < UINT64_MAX):
+            if index is not None:
+                self.terminal_accumulator.leaves = \
+                    self.terminal_accumulator.leaves[:index]
             self.status[credit_id] = prior_status if prior_status is not None else "NEW"
             self.terminal_index.pop(credit_id, None)
             return False
@@ -2607,7 +2894,9 @@ def test_data_gc_reorg_and_geometry() -> None:
     support_proof = dict(
         protocol_version=2, canonical_sequence=7, router=support_router,
         proof_state_root="state:registration", mpt_proof_valid=True,
-        registration_matches_manifest=True, proof_node_count=4,
+        proved_registration_commitment="registration:manifest:2:D1",
+        expected_registration_commitment="registration:manifest:2:D1",
+        proof_node_count=4,
         proof_byte_length=2_048)
     support = BridgeDomainRegistry()
     assert not support.stage(
@@ -2631,7 +2920,12 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not support.confirm(
               "domain:R1", "execution:B", "domain:D1", 110,
               **{**support_proof,
-                 "proof_node_count": MAX_REGISTRATION_PROOF_NODES + 1}))
+                 "proof_node_count": MAX_REGISTRATION_PROOF_NODES + 1})
+          and not support.confirm(
+              "domain:R1", "execution:B", "domain:D1", 110,
+              **{**support_proof,
+                 "proved_registration_commitment":
+                     "registration:manifest:2:substituted"}))
     assert support.confirm(
         "domain:R1", "execution:B", "domain:D1", 110,
         **support_proof)
@@ -2877,37 +3171,73 @@ def test_data_gc_reorg_and_geometry() -> None:
     release_authority = ProtocolReleaseAuthorityV2()
     registrar = TerminalDomainRegistrarV2(
         release_authority, accumulator, inbox_apply_router)
+    manifest_v1 = release_manifest_fixture(
+        1, "domain:D1", "bridge:A", inbox_store)
+    anchor_v1 = AnchorV4Model(
+        manifest_v1.anchor, manifest_v1.anchor_runtime_hash,
+        manifest_v1.commitment)
     check("P50ca direct reserved-sender and Bridge release calls are rejected",
           not release_authority.activate(
-              1, "manifest:1", caller="system:anchor",
-              manifest_anchor="anchor:v1", tx_origin="system:anchor",
-              finalized_l1_manifest_proof_valid=True)
+              manifest_v1,
+              caller=AnchorV4Model(
+                  "system:anchor", "code:system:anchor",
+                  manifest_v1.commitment, manifest_v1.commitment),
+              tx_origin="system:anchor")
           and not release_authority.activate(
-              1, "manifest:1", caller="bridge:A",
-              manifest_anchor="anchor:v1", tx_origin="system:anchor",
-              finalized_l1_manifest_proof_valid=True))
+              manifest_v1,
+              caller=AnchorV4Model(
+                  "bridge:A", "code:bridge:A", manifest_v1.commitment,
+                  manifest_v1.commitment),
+              tx_origin="system:anchor"))
     check("P50cc Anchor release and registrar seal are one atomic system trace",
           activate_release_transaction(
-              release_authority, registrar, protocol_version=1,
-              manifest_hash="manifest:1", transaction_sender="system:anchor",
-              anchor="anchor:v1", manifest_anchor="anchor:v1",
-              finalized_l1_manifest_proof_valid=True,
-              domain_id="domain:D1", bridge="bridge:A", store=inbox_store,
-              store_codehash="codehash:store:D1"))
+              release_authority, registrar, manifest=manifest_v1,
+              transaction_sender="system:anchor", anchor=anchor_v1,
+              store=inbox_store))
     failed_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:C", "domain:D3")
+    manifest_v3 = release_manifest_fixture(
+        3, "domain:D3", "bridge:C", failed_store)
+    anchor_v3 = AnchorV4Model(
+        manifest_v3.anchor, manifest_v3.anchor_runtime_hash,
+        manifest_v3.commitment)
     check("P50cd a failed registrar seal rolls release authority back",
           not activate_release_transaction(
-              release_authority, registrar, protocol_version=3,
-              manifest_hash="manifest:3", transaction_sender="system:anchor",
-              anchor="anchor:v3", manifest_anchor="anchor:v3",
-              finalized_l1_manifest_proof_valid=True,
-              domain_id="domain:D3", bridge="bridge:C", store=failed_store,
-              store_codehash="codehash:store:D3",
+              release_authority, registrar, manifest=manifest_v3,
+              transaction_sender="system:anchor", anchor=anchor_v3,
+              store=failed_store,
               fixed_selector_calls_succeed=False)
           and 3 not in release_authority.releases
           and 3 not in registrar.registrations
           and "domain:D3" not in inbox_apply_router.routes)
+    cross_chain_store = InboxCreditStoreV2(
+        "inbox-apply", "bridge:D", "domain:D4")
+    local_code_store = InboxCreditStoreV2(
+        "inbox-apply", "bridge:E", "domain:D5")
+    manifest_v4 = release_manifest_fixture(
+        4, "domain:D4", "bridge:D", cross_chain_store)
+    manifest_v5 = release_manifest_fixture(
+        5, "domain:D5", "bridge:E", local_code_store)
+    bad_l1_anchor = AnchorV4Model(
+        manifest_v4.anchor, manifest_v4.anchor_runtime_hash,
+        "manifest:foreign")
+    anchor_v5 = AnchorV4Model(
+        manifest_v5.anchor, manifest_v5.anchor_runtime_hash,
+        manifest_v5.commitment)
+    mismatched_l2 = list(manifest_v5.components[3:])
+    mismatched_l2[1] = replace(mismatched_l2[1], runtime_hash="code:mutated")
+    check("P50ci registrar requires proved L1 bindings and direct L2 code checks",
+          not activate_release_transaction(
+              release_authority, registrar, manifest=manifest_v4,
+              transaction_sender="system:anchor", anchor=bad_l1_anchor,
+              store=cross_chain_store)
+          and not activate_release_transaction(
+              release_authority, registrar, manifest=manifest_v5,
+              transaction_sender="system:anchor", anchor=anchor_v5,
+              store=local_code_store,
+              observed_l2_components=tuple(mismatched_l2))
+          and 4 not in release_authority.releases
+          and 5 not in release_authority.releases)
     destination = DestinationBridgeLedger(
         inbox_store=inbox_store, terminal_accumulator=accumulator)
     pin_now = prepared_clock.timestamp
@@ -2968,21 +3298,62 @@ def test_data_gc_reorg_and_geometry() -> None:
           and TerminalSignalVerifier.terminal_leaf(
               0, "domain:D1", "bridge:A", credit_b, "DONE")
               != TerminalSignalVerifier.terminal_leaf(
-                  0, "domain:D1", "bridge:A", credit_b, "FAILED"))
+              0, "domain:D1", "bridge:A", credit_b, "FAILED"))
+    malformed_terminal = DestinationBridgeLedger(
+        inbox_store=InboxCreditStoreV2(
+            "inbox-apply", "bridge:A", "domain:D1"),
+        terminal_accumulator=accumulator)
+    malformed_credit = "credit:malformed-terminal-return"
+    assert malformed_terminal.pin(
+        malformed_credit, "result:malformed", now=pin_now,
+        caller_is_inbox_apply=True)
+    count_before_malformed = accumulator.count
+    malformed_terminal.terminal_commitment_return_length = 96
+    short_terminal_rejected = malformed_terminal.process(
+        malformed_credit, now=pin_now + 1, message_available=True,
+        result_hash_matches=True, callback_ok=True) == "REJECTED"
+    malformed_terminal.terminal_commitment_return_length = 160
+    long_terminal_rejected = malformed_terminal.process(
+        malformed_credit, now=pin_now + 1, message_available=True,
+        result_hash_matches=True, callback_ok=True) == "REJECTED"
+    malformed_terminal.terminal_commitment_return_length = 128
+    malformed_terminal.terminal_commitment_gas_ok = False
+    oog_terminal_rejected = malformed_terminal.process(
+        malformed_credit, now=pin_now + 1, message_available=True,
+        result_hash_matches=True, callback_ok=True) == "REJECTED"
+    malformed_terminal.terminal_commitment_gas_ok = True
+    accumulator.append_return_length = 31
+    short_append_rejected = malformed_terminal.process(
+        malformed_credit, now=pin_now + 1, message_available=True,
+        result_hash_matches=True, callback_ok=True) == "REJECTED"
+    accumulator.append_return_length = 33
+    long_append_rejected = malformed_terminal.process(
+        malformed_credit, now=pin_now + 1, message_available=True,
+        result_hash_matches=True, callback_ok=True) == "REJECTED"
+    accumulator.append_return_length = 32
+    check("P50ck malformed or OOG terminal commitment returndata is atomic",
+          short_terminal_rejected and long_terminal_rejected
+          and oog_terminal_rejected
+          and short_append_rejected and long_append_rejected
+          and malformed_terminal.status[malformed_credit] == "NEW"
+          and malformed_credit not in malformed_terminal.terminal_index
+          and accumulator.count == count_before_malformed)
     inbox_store_d2 = InboxCreditStoreV2(
         "inbox-apply", "bridge:B", "domain:D2")
+    manifest_v2 = release_manifest_fixture(
+        2, "domain:D2", "bridge:B", inbox_store_d2)
+    anchor_v2 = AnchorV4Model(
+        manifest_v2.anchor, manifest_v2.anchor_runtime_hash,
+        manifest_v2.commitment)
     check("P50ax new terminal domains cannot redirect an old domain writer",
           not accumulator.register_domain(
               "domain:squat", "bridge:squat", caller="attacker",
               release_active=True, descriptor_valid=True,
               activation_order_valid=True)
           and activate_release_transaction(
-              release_authority, registrar, protocol_version=2,
-              manifest_hash="manifest:2", transaction_sender="system:anchor",
-              anchor="anchor:v2", manifest_anchor="anchor:v2",
-              finalized_l1_manifest_proof_valid=True,
-              domain_id="domain:D2", bridge="bridge:B", store=inbox_store_d2,
-              store_codehash="codehash:store:D2")
+              release_authority, registrar, manifest=manifest_v2,
+              transaction_sender="system:anchor", anchor=anchor_v2,
+              store=inbox_store_d2)
           and accumulator.register_domain(
               "domain:D1", "bridge:A", caller="terminal-domain-registrar",
               release_active=True, descriptor_valid=True,
@@ -3062,7 +3433,7 @@ def test_data_gc_reorg_and_geometry() -> None:
           and "credit:config-mismatch" not in inbox_store.pins
           and inbox_apply_router.next_queue_index == 73)
     inbox_store.destination_bridge = original_d1_bridge
-    inbox_store_d2.returns_success_magic = False
+    inbox_store_d2.batch_return_data = b""
     check("P50cf a later contiguous-run failure rolls earlier pins back",
           not inbox_apply_router.apply(
               73,
@@ -3073,7 +3444,34 @@ def test_data_gc_reorg_and_geometry() -> None:
           and "credit:rolled-back" not in inbox_store.pins
           and "credit:failing-run" not in inbox_store_d2.pins
           and inbox_apply_router.next_queue_index == 73)
-    inbox_store_d2.returns_success_magic = True
+    inbox_store_d2.batch_return_data = INBOX_BATCH_OK_V2_WORD
+    inbox_store.batch_return_data = INBOX_BATCH_OK_V2_WORD[:-1]
+    short_return_rejected = not inbox_apply_router.apply(
+        73, (bridge_inbox_row(
+            73, "domain:D1", "credit:short-return"),),
+        now=pin_now, l2_block_number=2, caller_is_system_sender=True)
+    inbox_store.batch_return_data = INBOX_BATCH_OK_V2_WORD + b"\x00"
+    check("P50cj short and trailing inbox returndata fail closed",
+          short_return_rejected
+          and not inbox_apply_router.apply(
+              73, (bridge_inbox_row(
+                  73, "domain:D1", "credit:long-return"),),
+              now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True)
+          and "credit:short-return" not in inbox_store.pins
+          and "credit:long-return" not in inbox_store.pins
+          and inbox_apply_router.next_queue_index == 73)
+    inbox_store.batch_return_data = INBOX_BATCH_OK_V2_WORD
+    inbox_store.batch_writes_enabled = False
+    check("P50cl magic-returning no-op store cannot advance the inbox cursor",
+          not inbox_apply_router.apply(
+              73, (bridge_inbox_row(
+                  73, "domain:D1", "credit:no-op-store"),),
+              now=pin_now, l2_block_number=2,
+              caller_is_system_sender=True)
+          and "credit:no-op-store" not in inbox_store.pins
+          and inbox_apply_router.next_queue_index == 73)
+    inbox_store.batch_writes_enabled = True
     check("P50bh empty InboxApply is canonical and once per L2 block",
           inbox_apply_router.apply(
               73, (), now=pin_now, l2_block_number=2,
@@ -3113,9 +3511,11 @@ def test_data_gc_reorg_and_geometry() -> None:
         terminal_count=accumulator.count)
     terminal_queue = QueueContinuity(
         "forced-queue", "queue:root", 17, 12, 9_000, 1_000_000)
+    shared_migration_gate = MigrationGate()
     settlement_1 = VersionedSettlementHistory(
         "settlement:1", "runtime:1", 1, "profile:1",
-        copy.deepcopy(canonical_core_499), 49, terminal_queue)
+        copy.deepcopy(canonical_core_499), 49, terminal_queue,
+        migration_gate=shared_migration_gate)
     active_router = ActiveSettlementRouter(
         "version-manager", terminal_queue.address)
     assert active_router.bootstrap(
@@ -3148,11 +3548,52 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50av sparse L2-height jumps cannot choose a history cell",
           active_router.canonical_at(1, sequence_1) == canonical_500
           and active_router.canonical_at(1, sequence_2) == canonical_756)
-    settled_transient = MigrationTransientState(False, False, 0, 0, True)
+    migration_protocol = protocol(
+        tip_slot=100, messages=[message(0, "preserved-due-head")])
+    migration_protocol.migration_gate = shared_migration_gate
+    migration_registry = RegistryLifecycle(
+        [Generation("migration-builder", 10, 0, 0)],
+        migration_gate=shared_migration_gate)
+    migration_open_clock = clock(180, 100)
+    assert migration_protocol.open_session(
+        migration_open_clock, "migration-session", "alice",
+        migration_open_clock.timestamp + DATA_TTL_SECONDS) == "OPENED"
+    assert migration_registry.reserve("migration-builder", 1, 0)
+    migration_outage_clock = clock(181, 4_000)
+    assert migration_protocol.sync(migration_outage_clock)
+    assert migration_protocol.mode is Mode.RECOVERY
+    migration_revision = migration_protocol.recovery.revision
+    assert migration_protocol.arm_migration(1)
+    migration_registry.arm_migration()
+    assert settlement_1.arm_migration(
+        caller_is_version_manager=True, delayed_manifest_active=True,
+        generation=1)
+    check("P50bm migration arm closes new transient and ingress work",
+          migration_protocol.open_session(
+              migration_outage_clock, "veto-session", "attacker",
+              migration_outage_clock.timestamp + DATA_TTL_SECONDS)
+              in {"SYNCED", "MIGRATION_ARMED"}
+          and not migration_registry.reserve("migration-builder", 2, 0)
+          and migration_protocol.admit_message(
+              migration_outage_clock, message(4_000, "veto-ingress"))
+              == "SYNCED"
+          and len(migration_protocol.messages) == 1)
+    recovery_expiry_slot = (
+        migration_protocol.recovery.expires_at - GENESIS_TIMESTAMP)
+    before_expiry = clock(182, recovery_expiry_slot)
+    assert not migration_protocol.sync(before_expiry)
+    after_expiry = clock(183, recovery_expiry_slot + 1)
+    assert migration_protocol.sync(after_expiry)
+    assert migration_registry.cleanup_migration_reservations() == 1
+    assert migration_protocol.sync(after_expiry)
     check("P50bg delayed cutover reaches migration-ready without reopening",
-          settlement_1.arm_migration(
-              caller_is_version_manager=True, delayed_manifest_active=True)
-          and settlement_1.enter_migration_ready(settled_transient)
+          migration_protocol.recovery is None
+          and migration_revision == 1
+          and shared_migration_gate.mode == "READY"
+          and shared_migration_gate.live_data_sessions == 0
+          and shared_migration_gate.unsettled_builder_reservations == 0
+          and len(migration_protocol.messages) == 1
+          and settlement_1.enter_migration_ready()
           and active_router.sync_and_append(
               "ready-row", bound_router=active_router.address,
               queue_address=terminal_queue.address,
@@ -3174,39 +3615,27 @@ def test_data_gc_reorg_and_geometry() -> None:
               settlement=fake_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
               target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True,
-              transient_state=settled_transient)
+              full_core_import_exact=True, queue_import_exact=True)
           and not active_router.activate_version(
               settlement=exact_settlement, l1_block=51,
               caller_is_version_manager=False, manifest_active=True,
               target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True,
-              transient_state=settled_transient)
+              full_core_import_exact=True, queue_import_exact=True)
           and not active_router.activate_version(
               settlement=exact_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
               target_runtime_approved=False, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True,
-              transient_state=settled_transient)
+              full_core_import_exact=True, queue_import_exact=True)
           and not active_router.activate_version(
               settlement=wrong_queue_settlement, l1_block=51,
               caller_is_version_manager=True, manifest_active=True,
               target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True,
-              transient_state=settled_transient)
-          and not active_router.activate_version(
-              settlement=exact_settlement, l1_block=51,
-              caller_is_version_manager=True, manifest_active=True,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True,
-              transient_state=MigrationTransientState(
-                  True, False, 0, 0, True)))
+              full_core_import_exact=True, queue_import_exact=True))
     assert active_router.activate_version(
         settlement=exact_settlement, l1_block=51,
         caller_is_version_manager=True, manifest_active=True,
         target_runtime_approved=True, target_profile_matches=True,
-        full_core_import_exact=True, queue_import_exact=True,
-        transient_state=settled_transient)
+        full_core_import_exact=True, queue_import_exact=True)
     check("P50bc migration freezes old history and imports the complete core",
           settlement_1.mode == "FROZEN"
           and active_router.canonical_at(1, sequence_2) == canonical_756
