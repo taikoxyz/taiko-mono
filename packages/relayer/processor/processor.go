@@ -111,7 +111,7 @@ type Processor struct {
 
 	cfg *Config
 
-	txmgr txmgr.TxManager
+	txmgrSelector *utils.TxMgrSelector
 
 	maxMessageRetries uint64
 
@@ -265,14 +265,37 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 	}
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
+	publicTxMgr, err := txmgr.NewSimpleTxManager(
 		"processor",
 		log.Root(),
 		new(txmgrMetrics.NoopTxMetrics),
 		*cfg.TxmgrConfigs,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
+
+	// Private endpoints keep a processMessage call out of the public mempool, where its message and
+	// proof would be free for a competitor to copy and use to take the processing fee.
+	privateTxMgrs := make([]txmgr.TxManager, 0, len(cfg.PrivateTxmgrConfigs))
+
+	for i, privateTxmgrConfig := range cfg.PrivateTxmgrConfigs {
+		privateTxMgr, err := txmgr.NewSimpleTxManager(
+			fmt.Sprintf("processor_private_%d", i),
+			log.Root(),
+			new(txmgrMetrics.NoopTxMetrics),
+			*privateTxmgrConfig,
+		)
+		if err != nil {
+			return err
+		}
+
+		privateTxMgrs = append(privateTxMgrs, privateTxMgr)
+	}
+
+	p.txmgrSelector = utils.NewTxMgrSelector(publicTxMgr, privateTxMgrs, &cfg.PrivateRPCRetryInterval)
+
+	slog.Info("Processor tx managers initialized", "privateEndpoints", len(privateTxMgrs))
 
 	// Mirror the tx manager's minimum tip cap so the profitability estimate can
 	// floor the suggested tip at the same value the tx manager will pay.

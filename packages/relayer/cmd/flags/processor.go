@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -121,6 +123,24 @@ var (
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_PROCESS"},
 	}
+	DestPrivateRPCUrls = &cli.StringSliceFlag{
+		Name: "destPrivateRpcUrls",
+		Usage: "RPC endpoints for the destination chain that hand transactions to block builders " +
+			"without broadcasting them to the public mempool, in priority order. processMessage " +
+			"transactions are sent through the first endpoint still in rotation, falling back to " +
+			"the next and finally to destRpcUrl",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"DEST_PRIVATE_RPC_URLS"},
+	}
+	PrivateRPCRetryInterval = &cli.DurationFlag{
+		Name:     "privateRpcRetryInterval",
+		Usage:    "How long a private RPC endpoint is taken out of rotation after a send through it fails",
+		Category: processorCategory,
+		Required: false,
+		Value:    5 * time.Minute,
+		EnvVars:  []string{"PRIVATE_RPC_RETRY_INTERVAL"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
@@ -142,4 +162,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	MaxMessageRetries,
 	MinFeeToProcess,
 	DestQuotaManagerAddress,
+	DestPrivateRPCUrls,
+	PrivateRPCRetryInterval,
 })

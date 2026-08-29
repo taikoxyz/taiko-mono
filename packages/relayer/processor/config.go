@@ -3,6 +3,8 @@ package processor
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -71,6 +73,14 @@ type Config struct {
 
 	TxmgrConfigs *txmgr.CLIConfig
 
+	// PrivateTxmgrConfigs are tx manager configs for destination chain endpoints that do not
+	// broadcast to the public mempool, in priority order. Empty when none are configured, in
+	// which case every processMessage call goes through TxmgrConfigs.
+	PrivateTxmgrConfigs []*txmgr.CLIConfig
+	// PrivateRPCRetryInterval is how long a private endpoint is taken out of rotation after a
+	// send through it fails.
+	PrivateRPCRetryInterval time.Duration
+
 	MaxMessageRetries uint64
 	MinFeeToProcess   uint64
 }
@@ -101,6 +111,23 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	var destQuotaManagerAddress common.Address
 	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
 		destQuotaManagerAddress = common.HexToAddress(c.String(flags.DestQuotaManagerAddress.Name))
+	}
+
+	// One tx manager per private endpoint, identical to the public one except for where it sends.
+	// Order is preserved: the processor tries them in the order they were given.
+	privateRPCUrls := c.StringSlice(flags.DestPrivateRPCUrls.Name)
+	privateTxmgrConfigs := make([]*txmgr.CLIConfig, 0, len(privateRPCUrls))
+
+	for _, url := range privateRPCUrls {
+		url = strings.TrimSpace(url)
+		if url == "" {
+			continue
+		}
+
+		privateTxmgrConfigs = append(
+			privateTxmgrConfigs,
+			pkgFlags.InitTxmgrConfigsFromCli(url, processorPrivateKey, c),
+		)
 	}
 
 	return &Config{
@@ -141,8 +168,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			processorPrivateKey,
 			c,
 		),
-		MaxMessageRetries: c.Uint64(flags.MaxMessageRetries.Name),
-		MinFeeToProcess:   c.Uint64(flags.MinFeeToProcess.Name),
+		PrivateTxmgrConfigs:     privateTxmgrConfigs,
+		PrivateRPCRetryInterval: c.Duration(flags.PrivateRPCRetryInterval.Name),
+		MaxMessageRetries:       c.Uint64(flags.MaxMessageRetries.Name),
+		MinFeeToProcess:         c.Uint64(flags.MinFeeToProcess.Name),
 		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),

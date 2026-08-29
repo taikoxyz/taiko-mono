@@ -15,6 +15,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 var dummyEcdsaKey = "8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
@@ -46,7 +47,7 @@ func newTestProcessor(profitableOnly bool) *Processor {
 		ethClientTimeout:          10 * time.Second,
 		srcChainId:                mock.MockChainID,
 		destChainId:               mock.MockChainID,
-		txmgr:                     &mock.TxManager{},
+		txmgrSelector:             utils.NewTxMgrSelector(&mock.TxManager{}, nil, nil),
 		cfg: &Config{
 			DestBridgeAddress: common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
 		},

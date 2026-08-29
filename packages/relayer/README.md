@@ -85,6 +85,36 @@ Environment variables are crucial for the configuration of the Relayer’s proce
    ./relayer indexer
    ```
 
+### Keeping claims out of the public mempool
+
+`processMessage` is permissionless and pays the processing fee to whoever lands it first. A claim
+broadcast to the public mempool therefore hands competitors the message and merkle proof they need
+to submit the same call, take the fee, and leave this relayer paying gas for a call that then
+reverts.
+
+Set `DEST_PRIVATE_RPC_URLS` to one or more endpoints that pass transactions to block builders
+without gossiping them. They are tried in the order given; one whose send fails is taken out of
+rotation for `PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default) so the next message falls through
+to the endpoint behind it, and finally to `DEST_RPC_URL`. A message whose send failed is requeued,
+so a failover costs a retry rather than the message.
+
+```sh
+DEST_PRIVATE_RPC_URLS=https://rpc.flashbots.net?hint=hash,https://rpc.mevblocker.io/fullprivacy
+```
+
+Both endpoints above are free and take no service fee. Use their maximum-privacy settings, as shown:
+the default on either shares transaction data with searchers, which is the opposite of what is
+wanted here.
+
+The processor's own reads — message status, gas estimation, base fee — keep going through
+`DEST_RPC_URL`. A private endpoint only serves the tx manager sending through it, which still means
+nonce lookups, gas price suggestions and receipt polling, so it has to answer ordinary JSON-RPC
+calls; both of the endpoints above do. If one starts rejecting those, for instance by rate limiting,
+its sends fail and it drops out of rotation until the retry interval elapses.
+
+Leave this unset when the destination chain is Taiko: private relays exist for Ethereum only, so
+L1 to L2 claims keep using `DEST_RPC_URL`.
+
 ## Usage
 
 To review all available sub-commands, use:

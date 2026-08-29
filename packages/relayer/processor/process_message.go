@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 var (
@@ -438,9 +439,23 @@ func (p *Processor) sendProcessMessageCall(
 		GasLimit: gasLimit,
 	}
 
-	receipt, err := p.txmgr.Send(ctx, candidate)
+	txMgr, txMgrIndex := p.txmgrSelector.Select()
+
+	receipt, err := txMgr.Send(ctx, candidate)
 	if err != nil {
-		slog.Warn("Failed to send ProcessMessage transaction", "error", err.Error())
+		// Take a failing private endpoint out of rotation so the next message falls through to the
+		// one behind it. The caller requeues this message, so it is retried rather than lost.
+		p.txmgrSelector.RecordFailure(txMgrIndex)
+
+		if txMgrIndex != utils.PublicTxMgrIndex {
+			relayer.PrivateTxMgrFailures.Inc()
+		}
+
+		slog.Warn("Failed to send ProcessMessage transaction",
+			"error", err.Error(),
+			"privateTxMgrIndex", txMgrIndex,
+		)
+
 		return nil, err
 	}
 

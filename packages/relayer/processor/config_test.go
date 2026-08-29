@@ -2,9 +2,11 @@ package processor
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
@@ -146,4 +148,127 @@ func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
 		"--" + flags.ProcessorPrivateKey.Name, "invalid-priv-key",
 		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
 	}), "invalid processorPrivateKey")
+}
+
+// baseProcessorArgs returns the arguments every processor config needs, so a test can append the
+// flags it actually cares about.
+func baseProcessorArgs(name string) []string {
+	return []string{
+		name,
+		"--" + flags.DatabaseUsername.Name, "dbuser",
+		"--" + flags.DatabasePassword.Name, "dbpass",
+		"--" + flags.DatabaseHost.Name, "dbhost",
+		"--" + flags.DatabaseName.Name, "dbname",
+		"--" + flags.QueueUsername.Name, "queuename",
+		"--" + flags.QueuePassword.Name, "queuepassword",
+		"--" + flags.QueueHost.Name, "queuehost",
+		"--" + flags.QueuePort.Name, "5555",
+		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
+		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"--" + flags.SrcSignalServiceAddress.Name, srcSignalServiceAddr,
+		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
+		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
+		"--" + flags.ProcessorPrivateKey.Name, dummyEcdsaKey,
+	}
+}
+
+func TestNewConfigFromCliContext_NoPrivateRPCUrls(t *testing.T) {
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+		assert.Empty(t, c.PrivateTxmgrConfigs, "every send should go through destRpcUrl by default")
+		assert.Equal(t, 5*time.Minute, c.PrivateRPCRetryInterval)
+
+		return nil
+	}
+
+	assert.Nil(t, app.Run(baseProcessorArgs("TestNewConfigFromCliContext_NoPrivateRPCUrls")))
+}
+
+func TestNewConfigFromCliContext_PrivateRPCUrls(t *testing.T) {
+	flashbots := "https://rpc.flashbots.net?hint=hash"
+	mevBlocker := "https://rpc.mevblocker.io/fullprivacy"
+
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+
+		require.Len(t, c.PrivateTxmgrConfigs, 2)
+		// Order is the failover order, so it has to survive parsing.
+		assert.Equal(t, flashbots, c.PrivateTxmgrConfigs[0].L1RPCURL)
+		assert.Equal(t, mevBlocker, c.PrivateTxmgrConfigs[1].L1RPCURL)
+
+		// A private endpoint differs from the public one only in where it sends: it signs with the
+		// same key and inherits the same gas and timeout settings.
+		for _, privateCfg := range c.PrivateTxmgrConfigs {
+			assert.Equal(t, c.TxmgrConfigs.PrivateKey, privateCfg.PrivateKey)
+			assert.Equal(t, c.TxmgrConfigs.MinTipCapGwei, privateCfg.MinTipCapGwei)
+			assert.Equal(t, c.TxmgrConfigs.NumConfirmations, privateCfg.NumConfirmations)
+			assert.Equal(t, c.TxmgrConfigs.TxSendTimeout, privateCfg.TxSendTimeout)
+		}
+
+		assert.Equal(t, 30*time.Second, c.PrivateRPCRetryInterval)
+
+		return nil
+	}
+
+	assert.Nil(t, app.Run(append(
+		baseProcessorArgs("TestNewConfigFromCliContext_PrivateRPCUrls"),
+		"--"+flags.DestPrivateRPCUrls.Name, flashbots,
+		"--"+flags.DestPrivateRPCUrls.Name, mevBlocker,
+		"--"+flags.PrivateRPCRetryInterval.Name, "30s",
+	)))
+}
+
+func TestNewConfigFromCliContext_PrivateRPCUrlsSkipsBlankEntries(t *testing.T) {
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+
+		// A trailing separator or padded entry is easy to leave in a deployment env var, and would
+		// otherwise become a tx manager pointed at nothing.
+		require.Len(t, c.PrivateTxmgrConfigs, 1)
+		assert.Equal(t, "https://rpc.flashbots.net?hint=hash", c.PrivateTxmgrConfigs[0].L1RPCURL)
+
+		return nil
+	}
+
+	assert.Nil(t, app.Run(append(
+		baseProcessorArgs("TestNewConfigFromCliContext_PrivateRPCUrlsSkipsBlankEntries"),
+		"--"+flags.DestPrivateRPCUrls.Name, "  https://rpc.flashbots.net?hint=hash  ",
+		"--"+flags.DestPrivateRPCUrls.Name, "   ",
+		"--"+flags.DestPrivateRPCUrls.Name, "",
+	)))
+}
+
+func TestNewConfigFromCliContext_PrivateRPCUrlsAsOneCommaSeparatedValue(t *testing.T) {
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+
+		// Deployments set this through the DEST_PRIVATE_RPC_URLS env var, which arrives as one
+		// comma-separated string rather than a repeated flag.
+		require.Len(t, c.PrivateTxmgrConfigs, 2)
+		assert.Equal(t, "https://rpc.flashbots.net?hint=hash", c.PrivateTxmgrConfigs[0].L1RPCURL)
+		assert.Equal(t, "https://rpc.mevblocker.io/fullprivacy", c.PrivateTxmgrConfigs[1].L1RPCURL)
+
+		return nil
+	}
+
+	assert.Nil(t, app.Run(append(
+		baseProcessorArgs("TestNewConfigFromCliContext_PrivateRPCUrlsAsOneCommaSeparatedValue"),
+		"--"+flags.DestPrivateRPCUrls.Name,
+		"https://rpc.flashbots.net?hint=hash, https://rpc.mevblocker.io/fullprivacy",
+	)))
 }

@@ -10,6 +10,10 @@ var (
 		Name: "blocks_scanned_ops_total",
 		Help: "The total number of blocks scanned",
 	})
+	PrivateTxMgrFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_tx_mgr_failures_ops_total",
+		Help: "The total number of times sending through a private RPC endpoint failed",
+	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
 		Help: "The total number of acknowledged queue events",

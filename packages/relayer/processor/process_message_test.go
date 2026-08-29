@@ -20,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
 func Test_sendProcessMessageCall(t *testing.T) {
@@ -197,7 +198,7 @@ func Test_sendProcessMessageCall_afterTransactingProfitability(t *testing.T) {
 					big.NewInt(tt.receiptBlockBaseFee),
 				),
 			}
-			p.txmgr = &receiptTxManager{receipt: receipt}
+			p.txmgrSelector = utils.NewTxMgrSelector(&receiptTxManager{receipt: receipt}, nil, nil)
 
 			profBefore := testutil.ToFloat64(relayer.ProfitableMessageAfterTransacting)
 			unprofBefore := testutil.ToFloat64(relayer.UnprofitableMessageAfterTransacting)
@@ -236,11 +237,11 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilityEvaluationErrors(t
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newTestProcessor(true)
-			p.txmgr = &receiptTxManager{receipt: &types.Receipt{
+			p.txmgrSelector = utils.NewTxMgrSelector(&receiptTxManager{receipt: &types.Receipt{
 				Status:            types.ReceiptStatusSuccessful,
 				GasUsed:           1,
 				EffectiveGasPrice: tt.effectiveGasPrice,
-			}}
+			}}, nil, nil)
 
 			before := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
 
@@ -260,12 +261,12 @@ func Test_sendProcessMessageCall_afterTransactingProfitabilityEvaluationErrors(t
 
 func Test_sendProcessMessageCall_afterTransactingProfitabilitySkipsNilReceiptLogs(t *testing.T) {
 	p := newTestProcessor(true)
-	p.txmgr = &receiptTxManager{receipt: &types.Receipt{
+	p.txmgrSelector = utils.NewTxMgrSelector(&receiptTxManager{receipt: &types.Receipt{
 		Status:            types.ReceiptStatusSuccessful,
 		GasUsed:           1,
 		EffectiveGasPrice: big.NewInt(1),
 		Logs:              []*types.Log{nil},
-	}}
+	}}, nil, nil)
 
 	before := testutil.ToFloat64(relayer.AfterTransactingProfitabilityEvaluationErrors)
 
@@ -547,4 +548,112 @@ func processorHeaderWithBaseFee(baseFee *big.Int) *types.Header {
 	header.BaseFee = baseFee
 
 	return &header
+}
+
+// countingTxManager records the sends it received and can be made to fail, standing in for an
+// endpoint that is down.
+type countingTxManager struct {
+	mock.TxManager
+	receipt *types.Receipt
+	err     error
+	calls   int
+}
+
+func (t *countingTxManager) Send(ctx context.Context, candidate txmgr.TxCandidate) (*types.Receipt, error) {
+	t.calls++
+
+	if t.err != nil {
+		return nil, t.err
+	}
+
+	return t.receipt, nil
+}
+
+func successfulReceipt() *types.Receipt {
+	return &types.Receipt{Status: types.ReceiptStatusSuccessful}
+}
+
+func Test_sendProcessMessageCall_sendsThroughThePrivateEndpoint(t *testing.T) {
+	p := newTestProcessor(false)
+
+	public := &countingTxManager{receipt: successfulReceipt()}
+	private := &countingTxManager{receipt: successfulReceipt()}
+	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{private}, nil)
+
+	_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, private.calls, "the claim should not reach the public mempool")
+	assert.Equal(t, 0, public.calls)
+}
+
+func Test_sendProcessMessageCall_failsOverToTheNextPrivateEndpoint(t *testing.T) {
+	p := newTestProcessor(false)
+
+	public := &countingTxManager{receipt: successfulReceipt()}
+	first := &countingTxManager{err: errors.New("dial tcp: connect: connection refused")}
+	second := &countingTxManager{receipt: successfulReceipt()}
+	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
+
+	event := newProcessMessageEvent(100)
+	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures)
+
+	// The message whose send fails is requeued by the caller rather than lost, so the failover
+	// costs a retry. That retry is the send below.
+	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	require.Error(t, err)
+
+	assert.Equal(t,
+		float64(1),
+		testutil.ToFloat64(relayer.PrivateTxMgrFailures)-failuresBefore,
+		"a private endpoint failing should be visible in metrics",
+	)
+
+	_, err = p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, first.calls, "the failed endpoint should be out of rotation")
+	assert.Equal(t, 1, second.calls)
+	assert.Equal(t, 0, public.calls)
+}
+
+func Test_sendProcessMessageCall_failsOverToPublicOnceEveryPrivateEndpointIsDown(t *testing.T) {
+	p := newTestProcessor(false)
+
+	connectionRefused := errors.New("dial tcp: connect: connection refused")
+	public := &countingTxManager{receipt: successfulReceipt()}
+	first := &countingTxManager{err: connectionRefused}
+	second := &countingTxManager{err: connectionRefused}
+	p.txmgrSelector = utils.NewTxMgrSelector(public, []txmgr.TxManager{first, second}, nil)
+
+	event := newProcessMessageEvent(100)
+
+	for i := 0; i < 2; i++ {
+		_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+		require.Error(t, err)
+	}
+
+	_, err := p.sendProcessMessageCall(context.Background(), 1, event, []byte{})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, public.calls, "messages must still be processed when no private endpoint is up")
+}
+
+func Test_sendProcessMessageCall_keepsUsingThePublicEndpointAfterItFails(t *testing.T) {
+	p := newTestProcessor(false)
+
+	public := &countingTxManager{err: errors.New("dial tcp: connect: connection refused")}
+	p.txmgrSelector = utils.NewTxMgrSelector(public, nil, nil)
+
+	failuresBefore := testutil.ToFloat64(relayer.PrivateTxMgrFailures)
+
+	// Nothing sits behind the public endpoint, so its failure is neither counted as a private
+	// endpoint failure nor allowed to take it out of rotation.
+	for i := 0; i < 2; i++ {
+		_, err := p.sendProcessMessageCall(context.Background(), 1, newProcessMessageEvent(100), []byte{})
+		require.Error(t, err)
+	}
+
+	assert.Equal(t, 2, public.calls)
+	assert.Equal(t, float64(0), testutil.ToFloat64(relayer.PrivateTxMgrFailures)-failuresBefore)
 }
