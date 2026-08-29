@@ -813,3 +813,89 @@ func TestSendingBackend_TheAcceptedMarkOnlyMovesForward(t *testing.T) {
 	assert.Equal(t, uint64(9), b.highestAccepted[0])
 	assert.Len(t, first.sent, 1, "the lower nonce is at or below the mark, so it goes elsewhere")
 }
+
+func TestSendingBackend_AnEndpointRefusingEverythingStepsAside(t *testing.T) {
+	public := &fakeBackend{}
+	// A relay answering every attempt with a JSON-RPC error — an internal error, a missing method
+	// — is broken endpoint-wide, but to the per-transaction deduplication it looks exactly like a
+	// relay declining one claim. The transaction manager resends the same hash every
+	// RESUBMISSION_TIMEOUT, so without a ceiling this endpoint would hold its place indefinitely.
+	broken := &fakeSender{err: rpcRejection{"internal error"}}
+
+	b := NewSendingBackend(public, []TxSender{broken}, nil)
+
+	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
+
+	tx := txWithNonce(7)
+
+	for i := 0; i < DefaultPrivateRPCConsecutiveFailureCeiling; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Empty(t, b.inRotation(), "refusing everything in a row has to cost the endpoint its place")
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+
+	assert.Len(t, public.sent, 1)
+	assert.Equal(t, float64(1),
+		testutil.ToFloat64(relayer.PrivateRPCUnavailable)-unavailableBefore)
+}
+
+func TestSendingBackend_ASuccessResetsTheConsecutiveCount(t *testing.T) {
+	b, _, first, _, _ := newTestBackend(t, nil)
+	first.err = rpcRejection{"failed to get tx into the mempool"}
+
+	tx := testTx()
+
+	// Just short of the ceiling, then one the endpoint takes.
+	for i := 0; i < DefaultPrivateRPCConsecutiveFailureCeiling-1; i++ {
+		require.NoError(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	first.err = nil
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(99)))
+
+	first.err = rpcRejection{"failed to get tx into the mempool"}
+
+	// The run is broken, so the count starts again rather than tripping on the next refusal.
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, 1, b.consecutive[0])
+}
+
+func TestSendingBackend_DoesNotChargeAnEndpointForOurExpiredBudget(t *testing.T) {
+	b, public, first, second, _ := newTestBackend(t, nil)
+	first.err = errors.New("should never be reached")
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	// The budget is gone before any endpoint gets a usable context. Checking the attempt's own
+	// context rather than the parent's also covers the parent expiring between the two, which is
+	// how a healthy endpoint could otherwise be charged for our timeout.
+	require.Error(t, b.SendTransaction(ctx, testTx()))
+
+	assert.Empty(t, first.sent)
+	assert.Empty(t, second.sent)
+	assert.Empty(t, public.sent)
+	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, 0, b.failures[0])
+	assert.Equal(t, 0, b.consecutive[0])
+}
+
+func TestSendingBackend_DoesNotCountAPublicBroadcastThatFailed(t *testing.T) {
+	public := &errBackend{err: errors.New("dial tcp: connect: connection refused")}
+	b := NewSendingBackend(public, []TxSender{&fakeSender{}}, nil)
+
+	trip(b, 0)
+	require.Empty(t, b.inRotation())
+
+	before := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
+
+	require.Error(t, b.SendTransaction(context.Background(), testTx()))
+
+	// A send that failed against our own node never reached the mempool, so counting it would
+	// overstate the exposure this metric exists to alert on.
+	assert.Equal(t, before, testutil.ToFloat64(relayer.PrivateRPCUnavailable))
+}

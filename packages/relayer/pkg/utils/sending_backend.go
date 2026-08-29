@@ -33,6 +33,16 @@ const DefaultPrivateRPCRetryInterval = 5 * time.Minute
 // The transactions also have to be distinct; see recordFailure.
 const DefaultPrivateRPCFailureThreshold = 3
 
+// DefaultPrivateRPCConsecutiveFailureCeiling is how many sends an endpoint may refuse in a row
+// before it leaves rotation regardless of what its errors say.
+//
+// This bounds the per-transaction deduplication below. An endpoint that answers every attempt with
+// a JSON-RPC error — an internal error, a missing method — looks like a per-claim refusal to that
+// deduplication, and the transaction manager resends the same hash every RESUBMISSION_TIMEOUT (48s
+// by default), so without a ceiling such an endpoint would hold its place for as long as one claim
+// lives. At this ceiling it steps aside after roughly eight minutes of refusing everything.
+const DefaultPrivateRPCConsecutiveFailureCeiling = 10
+
 // DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
 //
 // The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
@@ -72,9 +82,11 @@ type SendingBackend struct {
 	failures         []int
 	failedAt         []time.Time
 	lastCharged      []common.Hash
+	consecutive      []int
 	highestAccepted  []uint64
 	hasAccepted      []bool
 	failureThreshold int
+	failureCeiling   int
 	retryInterval    time.Duration
 	now              func() time.Time
 	mu               sync.Mutex
@@ -100,9 +112,11 @@ func NewSendingBackend(
 		failures:         make([]int, len(private)),
 		failedAt:         make([]time.Time, len(private)),
 		lastCharged:      make([]common.Hash, len(private)),
+		consecutive:      make([]int, len(private)),
 		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
+		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
 		retryInterval:    interval,
 		now:              time.Now,
 	}
@@ -121,19 +135,24 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	inRotation := b.inRotation()
 
 	if len(inRotation) == 0 {
-		if len(b.private) != 0 {
-			// Private endpoints are configured but none is usable, so this claim and its proof are
-			// about to reach the public mempool. That is the exposure this is meant to remove, so
-			// it is worth alerting on rather than degrading quietly.
-			relayer.PrivateRPCUnavailable.Inc()
-
+		exposed := len(b.private) != 0
+		if exposed {
 			slog.Warn("No private endpoint in rotation, broadcasting publicly",
 				"txHash", tx.Hash().Hex(),
 			)
 		}
 
 		// DEST_RPC_URL can carry an API key too, so the public path is redacted the same way.
-		return redacted(b.ETHBackend.SendTransaction(ctx, tx))
+		err := b.ETHBackend.SendTransaction(ctx, tx)
+
+		// Counted only once the broadcast actually went out. A send that failed against our own
+		// node never reached the mempool, so counting it would overstate the exposure this metric
+		// exists to alert on.
+		if err == nil && exposed {
+			relayer.PrivateRPCUnavailable.Inc()
+		}
+
+		return redacted(err)
 	}
 
 	inRotation = b.deprioritiseAlreadyAccepted(inRotation, tx.Nonce())
@@ -141,18 +160,24 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	var err error
 
 	for attempt, i := range inRotation {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			// Our own budget is gone before this endpoint was reached, so it never got a send.
-			// Charging it, or handing it a context it cannot use, would trip relays that were
-			// never tried. The endpoints already tried keep the failures they earned.
+		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
+
+		// Checking the attempt's own context rather than the parent's covers both a budget that
+		// was already gone and one that ran out between the two, which a check before creating the
+		// child would miss. Either way this endpoint never got a usable context, so it never got a
+		// send: charging it would trip relays that were never tried. The endpoints already tried
+		// keep the failures they earned. This is deliberately read before the send, so an endpoint
+		// that spends its whole share in silence still counts.
+		if attemptErr := attemptCtx.Err(); attemptErr != nil {
+			cancel()
+
 			if err == nil {
-				err = ctxErr
+				err = attemptErr
 			}
 
 			return redacted(err)
 		}
 
-		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
 		err = b.private[i].SendTransaction(attemptCtx, tx)
 
 		cancel()
@@ -270,6 +295,7 @@ func (b *SendingBackend) inRotation() []int {
 			b.failedAt[i] = time.Time{}
 			b.failures[i] = 0
 			b.lastCharged[i] = common.Hash{}
+			b.consecutive[i] = 0
 		}
 
 		indices = append(indices, i)
@@ -301,6 +327,16 @@ func (b *SendingBackend) recordFailure(index int, txHash common.Hash, rejection 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.consecutive[index]++
+
+	// An endpoint refusing this many sends in a row is not being fussy about one claim, whatever
+	// its errors say, so it steps aside without consulting the deduplication below.
+	if b.consecutive[index] >= b.failureCeiling {
+		b.failedAt[index] = b.now()
+
+		return
+	}
+
 	if rejection && b.failures[index] > 0 && b.lastCharged[index] == txHash {
 		return
 	}
@@ -323,6 +359,7 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	b.failures[index] = 0
 	b.failedAt[index] = time.Time{}
 	b.lastCharged[index] = common.Hash{}
+	b.consecutive[index] = 0
 
 	if !b.hasAccepted[index] || nonce > b.highestAccepted[index] {
 		b.highestAccepted[index] = nonce

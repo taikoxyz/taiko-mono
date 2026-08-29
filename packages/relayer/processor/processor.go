@@ -305,7 +305,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		"privateEndpoints", sendingBackend.NumPrivateEndpoints(),
 	)
 
-	if sendingBackend.NumPrivateEndpoints() != 0 && cfg.TxmgrConfigs.TxSendTimeout == 0 {
+	if sendingBackend.NumPrivateEndpoints() != 0 && txmgrConfig.TxSendTimeout == 0 {
 		// A private relay accepting a transaction only means it received it, never that a builder
 		// included it. With no send timeout the transaction manager waits for a receipt for as
 		// long as it takes, so a relay that accepts and never includes stalls that claim instead
