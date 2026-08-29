@@ -378,6 +378,12 @@ func (p *Processor) Close(ctx context.Context) {
 
 	p.wg.Wait()
 
+	// Closing the tx manager closes the backend under it, which is what holds the connections to
+	// the private endpoints. Without this they are left open for the life of the process.
+	if p.txmgr != nil && !p.txmgr.IsClosed() {
+		p.txmgr.Close()
+	}
+
 	// Close db connection.
 	if err := p.eventRepo.Close(); err != nil {
 		slog.Error("Failed to close db connection", "err", err)

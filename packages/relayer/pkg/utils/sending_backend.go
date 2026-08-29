@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"log/slog"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -25,6 +26,9 @@ const DefaultPrivateRPCRetryInterval = 5 * time.Minute
 // healthy for every other message. Tripping on it would route unrelated claims through the public
 // mempool, which is the thing this is meant to avoid.
 const DefaultPrivateRPCFailureThreshold = 3
+
+// urlInErrorText matches a URL inside an error message, so it can be kept out of the logs.
+var urlInErrorText = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s"]*`)
 
 // TxSender hands a signed transaction to one endpoint. *ethclient.Client satisfies it.
 type TxSender interface {
@@ -58,6 +62,7 @@ type SendingBackend struct {
 	retryInterval    time.Duration
 	now              func() time.Time
 	mu               sync.Mutex
+	closeOnce        sync.Once
 }
 
 // NewSendingBackend wraps public so that sends are routed through private, in priority order.
@@ -87,6 +92,12 @@ func NewSendingBackend(
 // SendTransaction offers tx to each private endpoint still in rotation, in order, and falls back to
 // the public endpoint only once none is left. It reports the last error when every endpoint in
 // rotation refused it, leaving the transaction manager above to bump and retry.
+//
+// Each endpoint is given its own share of the time left on ctx. The transaction manager calls this
+// under its network timeout, so without that an endpoint which accepts the connection and then
+// never answers would spend the whole budget: every endpoint behind it would be handed an expired
+// context, fail instantly, and be counted as failing, which is how the failover for the outage
+// mode it matters most for would take the healthy relays down with it.
 func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	inRotation := b.inRotation()
 
@@ -107,11 +118,23 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 	var err error
 
-	for _, i := range inRotation {
-		if err = b.private[i].SendTransaction(ctx, tx); err == nil {
+	for attempt, i := range inRotation {
+		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
+		err = b.private[i].SendTransaction(attemptCtx, tx)
+
+		cancel()
+
+		if err == nil {
 			b.recordSuccess(i)
 
 			return nil
+		}
+
+		if ctx.Err() != nil {
+			// Our own deadline ran out, not this endpoint's. Counting it, or offering the
+			// transaction to the endpoints behind it on a context they cannot use, would trip
+			// relays that were never given a send.
+			return err
 		}
 
 		b.recordFailure(i)
@@ -120,22 +143,45 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		slog.Warn("Private endpoint refused a transaction",
 			"endpoint", i,
 			"txHash", tx.Hash().Hex(),
-			"error", err.Error(),
+			"error", redactURLs(err),
 		)
 	}
 
 	return err
 }
 
-// Close closes the public backend and every private endpoint.
-func (b *SendingBackend) Close() {
-	b.ETHBackend.Close()
-
-	for _, sender := range b.private {
-		if closer, ok := sender.(interface{ Close() }); ok {
-			closer.Close()
-		}
+// attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
+// cannot spend the budget the remaining endpoints need. The share is computed per attempt rather
+// than once up front, so an endpoint that fails fast leaves the rest of its share to the next one,
+// and the last endpoint gets everything that is left. A ctx with no deadline is passed through.
+func attemptContext(ctx context.Context, remaining int) (context.Context, context.CancelFunc) {
+	deadline, ok := ctx.Deadline()
+	if !ok || remaining <= 1 {
+		return context.WithCancel(ctx)
 	}
+
+	return context.WithTimeout(ctx, time.Until(deadline)/time.Duration(remaining))
+}
+
+// redactURLs removes endpoints from an error's text. Transport errors quote the URL they were
+// dialling, which can carry an API key in its path or query; the endpoint's position is logged
+// alongside, and that is what identifies the relay without publishing a credential.
+func redactURLs(err error) string {
+	return urlInErrorText.ReplaceAllString(err.Error(), "[redacted]")
+}
+
+// Close closes the public backend and every private endpoint. The transaction manager closes its
+// backend on shutdown and the processor closes it too, so this has to be safe to call twice.
+func (b *SendingBackend) Close() {
+	b.closeOnce.Do(func() {
+		b.ETHBackend.Close()
+
+		for _, sender := range b.private {
+			if closer, ok := sender.(interface{ Close() }); ok {
+				closer.Close()
+			}
+		}
+	})
 }
 
 // NumPrivateEndpoints returns how many private endpoints the backend was configured with.

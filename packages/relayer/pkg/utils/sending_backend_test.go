@@ -26,6 +26,7 @@ type fakeBackend struct {
 	pendingNonceCalls int
 	sent              []*types.Transaction
 	closed            bool
+	closeCalls        int
 }
 
 func (f *fakeBackend) PendingNonceAt(_ context.Context, _ common.Address) (uint64, error) {
@@ -46,7 +47,10 @@ func (f *fakeBackend) SendTransaction(_ context.Context, tx *types.Transaction) 
 	return nil
 }
 
-func (f *fakeBackend) Close() { f.closed = true }
+func (f *fakeBackend) Close() {
+	f.closed = true
+	f.closeCalls++
+}
 
 // fakeSender stands in for a private endpoint.
 type fakeSender struct {
@@ -330,4 +334,161 @@ func TestSendingBackend_IsSafeUnderConcurrentUse(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+// hangingSender accepts the call and then never answers, which is the outage mode an immediate
+// connection error does not model: it holds the context until the deadline runs out.
+type hangingSender struct {
+	mu       sync.Mutex
+	attempts int
+}
+
+func (s *hangingSender) SendTransaction(ctx context.Context, _ *types.Transaction) error {
+	s.mu.Lock()
+	s.attempts++
+	s.mu.Unlock()
+
+	<-ctx.Done()
+
+	return ctx.Err()
+}
+
+func (s *hangingSender) calls() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.attempts
+}
+
+// deadlineRecordingSender refuses a context that is already spent, and records how much time it
+// was actually given.
+type deadlineRecordingSender struct {
+	mu        sync.Mutex
+	gotLive   bool
+	remaining time.Duration
+	sent      []*types.Transaction
+}
+
+func (s *deadlineRecordingSender) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	if deadline, ok := ctx.Deadline(); ok {
+		s.remaining = time.Until(deadline)
+	}
+
+	s.gotLive = true
+	s.sent = append(s.sent, tx)
+
+	return nil
+}
+
+func (s *deadlineRecordingSender) state() (bool, time.Duration, int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.gotLive, s.remaining, len(s.sent)
+}
+
+func TestSendingBackend_AHangingEndpointDoesNotStarveTheNextOne(t *testing.T) {
+	public := &fakeBackend{}
+	first := &hangingSender{}
+	second := &deadlineRecordingSender{}
+
+	b := NewSendingBackend(public, []TxSender{first, second}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+
+	require.NoError(t, b.SendTransaction(ctx, testTx()))
+
+	gotLive, remaining, sent := second.state()
+
+	// The first endpoint gets its share of the budget and no more, so the second still receives a
+	// context it can use. Sharing one context would have handed it an expired one.
+	assert.Equal(t, 1, first.calls())
+	assert.True(t, gotLive, "the second endpoint must get a context with time left on it")
+	assert.Positive(t, remaining)
+	assert.Equal(t, 1, sent)
+	assert.Empty(t, public.sent, "an endpoint that hangs must not push the claim into the mempool")
+
+	// The endpoint that spent its whole share without answering is the one that failed; the one
+	// that took the transaction is untouched.
+	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, 1, b.failures[0])
+	assert.Equal(t, 0, b.failures[1])
+}
+
+func TestSendingBackend_DoesNotCountEndpointsAgainstOurOwnDeadline(t *testing.T) {
+	b, public, first, second, _ := newTestBackend(t, nil)
+	first.err = errors.New("first is down")
+	second.err = errors.New("second is down")
+
+	failuresBefore := testutil.ToFloat64(relayer.PrivateRPCFailures.WithLabelValues("1"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+	defer cancel()
+
+	<-ctx.Done()
+
+	require.Error(t, b.SendTransaction(ctx, testTx()))
+
+	// The budget was gone before any endpoint was reached. Counting that against them would trip
+	// healthy relays whenever the transaction manager's own timeout ran out.
+	assert.Equal(t, []int{0, 1}, b.inRotation())
+	assert.Equal(t, 0, b.failures[0])
+	assert.Equal(t, 0, b.failures[1])
+	assert.Equal(t, float64(0),
+		testutil.ToFloat64(relayer.PrivateRPCFailures.WithLabelValues("1"))-failuresBefore)
+	assert.Empty(t, public.sent)
+}
+
+func TestSendingBackend_GivesTheLastEndpointWhatIsLeft(t *testing.T) {
+	public := &fakeBackend{}
+	only := &deadlineRecordingSender{}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	require.NoError(t, b.SendTransaction(ctx, testTx()))
+
+	_, remaining, _ := only.state()
+
+	// A single endpoint has nothing behind it, so carving the budget up would only shorten the
+	// send for no reason.
+	assert.Greater(t, remaining, 900*time.Millisecond)
+}
+
+func TestSendingBackend_KeepsCredentialsOutOfTheLog(t *testing.T) {
+	// go-ethereum quotes the endpoint it was dialling, and these URLs carry API keys. The metrics
+	// label by position for exactly this reason; the log must not undo that.
+	redacted := redactURLs(errors.New(
+		`Post "https://relay.example.com/v1/SUPERSECRETKEY?auth=alsosecret": dial tcp: i/o timeout`,
+	))
+
+	assert.NotContains(t, redacted, "SUPERSECRETKEY")
+	assert.NotContains(t, redacted, "alsosecret")
+	assert.NotContains(t, redacted, "relay.example.com")
+
+	// The part that says what went wrong has to survive, or the log entry is worthless.
+	assert.Contains(t, redacted, "i/o timeout")
+}
+
+func TestSendingBackend_CloseIsIdempotent(t *testing.T) {
+	b, public, first, second, _ := newTestBackend(t, nil)
+
+	// The transaction manager closes its backend on shutdown, and the processor closes it too.
+	b.Close()
+	b.Close()
+
+	assert.True(t, public.closed)
+	assert.True(t, first.closed)
+	assert.True(t, second.closed)
+	assert.Equal(t, 1, public.closeCalls, "the underlying client must not be closed twice")
 }

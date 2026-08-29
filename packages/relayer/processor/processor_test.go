@@ -207,7 +207,7 @@ func TestHandleProcessMessageResultAcksUnprocessableMessages(t *testing.T) {
 	p := newTestProcessor(false)
 	p.queue = q
 
-	// An unprocessable message will never succeed, so requeueing it would spin forever. It is
+	// An unprocessable message will never succeed, so requeuing it would spin forever. It is
 	// acked away deliberately.
 	p.handleProcessMessageResult(
 		context.Background(),
@@ -275,7 +275,7 @@ func TestHandleUnprofitableMessageNacksUndecodableBodies(t *testing.T) {
 	p.queue = q
 
 	// A body that will not decode cannot be republished with an incremented retry count, and
-	// requeueing it unchanged would loop on the same decode failure.
+	// requeuing it unchanged would loop on the same decode failure.
 	p.handleUnprofitableMessage(context.Background(), queue.Message{Body: []byte(`not json`)}, 0)
 
 	assert.Equal(t, 0, q.acked)
