@@ -13,8 +13,8 @@ from chain-neutral encodings upward. Each round closes one dependency layer, pin
 and invariants, passes the owning Foundry profile, and lands as exactly one commit. Cross-chain
 composition uses separately compiled artifacts and two chain-specific Anvil instances.
 
-**Tech stack:** Solidity 0.8.30, Foundry, forge-std/CommonTest, TypeScript/ethers v5, Python reference
-models, Anvil, pnpm.
+**Tech stack:** Solidity 0.8.30, Foundry v1.4.2, forge-std/CommonTest, TypeScript/ethers v5, Python
+reference models, Anvil, pnpm 9.15.9.
 
 **Normative sources:**
 
@@ -52,6 +52,8 @@ models, Anvil, pnpm.
    exact ABI, storage slots/packing, constructor and seal matrix, named tests and expected red state,
    focused commands, gas/code-size thresholds, and commit file set. Include the reviewed micro-plan
    in the round's single implementation commit.
+9. Every `pnpm` command in this plan means pnpm 9.15.9, matching CI. On a host without that exact
+   executable, run it as `npx --yes pnpm@9.15.9`; pnpm 11 cannot parse the current frozen lockfile.
 
 ## Preflight (No Commit)
 
@@ -63,12 +65,12 @@ cd packages/protocol
 python3 docs/preconfirmation-v2/commitment-model.py
 python3 docs/preconfirmation-v2/lookahead-model.py
 python3 docs/preconfirmation-v2/settlement-window-model.py
-pnpm compile:shared
-pnpm compile:l1
-pnpm compile:l2
-pnpm test:shared
-pnpm test:l1
-pnpm test:l2
+npx --yes pnpm@9.15.9 compile:shared
+npx --yes pnpm@9.15.9 compile:l1
+npx --yes pnpm@9.15.9 compile:l2
+npx --yes pnpm@9.15.9 test:shared
+npx --yes pnpm@9.15.9 test:l1
+npx --yes pnpm@9.15.9 test:l2
 ```
 
 Record baseline test counts, runtime bytecode sizes, and gas snapshots. Do not proceed if a change
@@ -85,7 +87,7 @@ paths are preserved and excluded from every round commit.
 - Modify: `packages/protocol/docs/preconfirmation-v2/settlement-window-model.py`
 - Modify: `packages/protocol/docs/preconfirmation-v2/commitment-model.py`
 - Modify: `packages/protocol/docs/preconfirmation-v2/README.md`
-- Regenerate: `packages/protocol/docs/preconfirmation-v2/tex/main.pdf`
+- Build ephemerally: `packages/protocol/docs/preconfirmation-v2/tex/main.pdf` (ignored, never staged)
 - Regenerate: `packages/protocol/docs/preconfirmation-v2/slot-chain-spec.pdf`
 - Create: `packages/protocol/docs/preconfirmation-v2/seat-market-model.py`
 - Create: `packages/protocol/docs/preconfirmation-v2/economic-profile.example.json`
@@ -100,7 +102,10 @@ paths are preserved and excluded from every round commit.
    perpetual reverse-ask mechanism. Pin one primary, three ordered standbys, four pending offers,
    native-ETH bond tranches, ask maturity, minimum improvement/tenure, event-driven handover,
    pre-funded primary and promotion runway, non-fault funding expiry, delayed release, and exact
-   migration treatment. State explicitly that the seat is never proof or consensus authority.
+   migration treatment. Add a permissionless exact-target monotone generation cache so refundable
+   stale quotes cannot enter or displace the current pending book. Freeze one globally current
+   installation authorization and atomic post-cutover rotation so a historical target cannot refill
+   the four-cell book. State explicitly that the seat is never proof or consensus authority.
 2. Replace the single final-lag penalty with the three-threshold recovery/failover/slash state
    machine. Force-only recovery must not pause or reset the lag duty. Promotion must create a fresh
    duty with a full usable recovery runway, while the old duty and tranche remain independently
@@ -113,8 +118,9 @@ paths are preserved and excluded from every round commit.
    standby promotion funding, responsibility intervals, force-recovery attachment, failover cure,
    final slash, delayed release, and migration-isolation assertions. Include adversarial traces for
    the critical cases in the seat-market specification.
-5. Add `slotchain:docs:check` to run every model/unit test, rebuild `tex/main.pdf`, compare it
-   byte-for-byte with `slot-chain-spec.pdf` under a pinned `SOURCE_DATE_EPOCH`, and check LaTeX
+5. Add `slotchain:docs:check` to run every model/unit test, build `tex/main.pdf` twice in independent
+   temporary directories, compare those outputs and the tracked `slot-chain-spec.pdf` byte-for-byte
+   under a pinned `SOURCE_DATE_EPOCH`, and check LaTeX
    references plus repository links.
    Regenerate and visually inspect the PDF, then obtain an independent protocol/economic review. Do
    not start Solidity while either model or the economic schema is ambiguous.
@@ -304,8 +310,16 @@ paths are preserved and excluded from every round commit.
 1. Pin the geometry as exactly four installed cells plus exactly four pending cells (`BOOK_SIZE=8`
    total). Add failing tests for ascending pending-ask ranking, deterministic ties,
    one full bond tranche per offer, quote/payout change resetting both timestamp and block maturity,
-   strict minimum improvement, maximum ask, exact Settlement version/address/runtime/config opt-in,
-   stale-target purge, pull refunds, and Sybil-filled capacity.
+   strict minimum improvement, maximum ask, exact Settlement chain/version/address/runtime/config
+   static authorization plus a separately cached seat generation, wrong-chain static target
+   rejection, uninitialized/decreasing generation-sync rejection, stale-target purge, pull refunds,
+   and Sybil-filled capacity. A permissionless exact-target sync initializes or monotonically
+   advances the cache and atomically removes at most four old pending offers to pull refunds.
+   Offer insertion performs no Settlement read but must equal the initialized cache; a stale offer
+   cannot enter ranking or displace/reset a mature current offer. Sync requires the exact target to
+   report installation-open `ACTIVE`, so arm-generation quotes cannot mature through abort. Only the
+   sole current installation authorization may insert; preauthorized future and disabled historical
+   targets cannot consume a book cell.
 2. Add the exact capacity test: with four pending offers, a fifth must either strictly displace the
    worst pending quote or revert; it must never allocate a ninth live cell. Installed terms are not
    part of pending sorting and cannot be displaced by offer insertion.
@@ -329,15 +343,21 @@ paths are preserved and excluded from every round commit.
 
 **Steps:**
 
-1. Add primary activation and segregated per-standby promotion reserves. Pin all runway/tail
-   inequalities, checked multiplication, zero-ask behavior, funding expiry, and monotone atomic
-   extension.
+1. Add per-stage/per-term segregated reserves for direct primary activation and each standby
+   promotion. Pin the exact debit/rekey/accrual/reconciliation/free delta for stage apply/expiry,
+   handover, exit, lazy post-canonical promotion reconciliation, duty close, migration, and delayed
+   claims; the aggregate target is an admission debit and is never charged twice. Pin all
+   runway/tail inequalities, checked multiplication,
+   zero-ask behavior, funding expiry, and monotone atomic extension.
 2. Add delayed premium vesting tests that authenticate exact `previewPremiumCap`; malformed/revert/
-   wrong-code responses reject the claim. No wall-clock-only accrual or IOU is permitted.
-3. Implement free/reserved premium, claims, funder refunds, penalty credits, surplus, and exact
-   `balance >= accounted` transitions without ETH pushes.
-4. Run stateful solvency invariants over arbitrary funding/accrual/claim/refund sequences and the
-   artifact-owner check.
+   wrong-code responses reject the claim. Without a live duty, unsynchronized funding expiry caps at
+   `serviceEligibleUntil`; with a live duty, its satisfaction/failover cap controls the funded tail.
+   No wall-clock-only accrual or IOU is permitted.
+3. Implement free/reserved premium, operator claims, bond refunds, penalty credits, surplus, and
+   exact `balance >= accounted` transitions without ETH pushes. Premium funding is irrevocable
+   protocol sponsorship; there are no funder shares/refunds.
+4. Run stateful solvency invariants over arbitrary repeated staging/handover/promotion/expiry and
+   funding/accrual/claim/refund sequences plus the artifact-owner check.
 5. Commit: `feat(protocol): implement seat premium accounting`
 
 ## Round 10: Builder Registry and Liability Generations
@@ -583,14 +603,26 @@ paths are preserved and excluded from every round commit.
 
 1. Add failing handover tests for leading sync, unchanged canonical/recovery state, maturity,
    minimum tenure/improvement, health headroom, exact staged offer/roster revision, immutable term
-   IDs for untouched standbys, funded-runway proof, and atomic installation. Market failure must
+   IDs for untouched standbys, deterministic selected rank, every vacancy/insertion position,
+   infeasible-best skipping, full-lineup qualifying primary replacement with all standbys preserved,
+   full-lineup nonreplacing insertion rejection, exact current-generation validation,
+   funded-runway proof, and atomic
+   installation. Market failure must
    leave the old local lineup untouched.
-2. Add exact tests for one tranche creating at most one immutable term, sorted primary/standby
+2. Add exact tests for one tranche creating at most one immutable term, sorted contiguous
+   primary/standby
    roster, monotone roster revisions, pending-only competition, upward active repricing rejection,
    payout/quote maturity reset, stage expiry, and reorg rollback of handover.
 3. Add two-phase active/standby exit tests: funds remain locked and the term promotable until one
-   noncanonical transaction removes the local term and updates market custody atomically.
-4. Implement term installation, roster, staging, handover, and exit only; no duty or slash state.
+   noncanonical transaction removes the local term and updates market custody atomically. Rank
+   tampering, lineup changes, and selected-successor exit/removal must fail. Exit-requested pending
+   offers cannot stage; standby, direct-primary, and promoted-primary tenure formulas are tested at
+   before/equality/after boundaries.
+4. Prove every local roster revision marks an outstanding stage `INVALIDATED_LINEUP` while retaining
+   its tombstone. Permissionless noncanonical cancellation must authenticate that tombstone, release
+   the exact stage reserve, return the offer to pending, and clear it exactly once; ordinary expiry
+   remains an alternative after the stage deadline. Implement term installation, roster, staging,
+   handover, and exit only; no duty or slash state.
 5. Run focused/stateful roster tests, full Layer 1 tests, and artifact-owner check.
 6. Commit: `feat(protocol): implement aggregator seat terms`
 
@@ -614,8 +646,9 @@ paths are preserved and excluded from every round commit.
    no more than `SEAT_COUNT` duties and latches the first satisfying timestamp.
 3. Prove force-only recovery attaches one SLA duty exactly when lag crosses recovery, and never
    pauses, resets, duplicates, or shifts a threshold. One tranche creates at most one duty.
-4. Implement local duty/ring state and ring-full fail-open to objective vacancy. No canonical path
-   calls the market or transfers ETH.
+4. Implement local duty/ring state and ring-full fail-open through the bounded full-lineup vacancy
+   helper, recording all term removals while leaving Market unchanged. No canonical path calls the
+   market or transfers ETH.
 5. Differentially replay the duty traces from `seat-market-model.py`; run focused/invariant tests.
 6. Commit: `feat(protocol): implement local seat duties`
 
@@ -632,14 +665,18 @@ paths are preserved and excluded from every round commit.
 
 **Steps:**
 
-1. Prove operational failover terminates without burn, selects only preinstalled standby order, and
-   cannot frame an absent, exited, late, or underfunded standby.
+1. Prove operational failover terminates without burn, selects only preinstalled standby order,
+   writes one retained selected-successor record keyed by predecessor duty plus a clearable current
+   pointer, and cannot frame or remove an absent, exited, selected, late, or underfunded standby.
 2. Pin successor start: a cure before the next revision starts normal promoted service at the commit;
    an open outage starts responsibility only at the next usable round's `roundStartSlot`, targets
    its `escapeSlot`, and has the full deterministic tier-3 runway. Late revision/funding leaves
-   vacancy. Test primary cure before and after failover so no successor remains in limbo.
-3. Prove cure-through-slash equality, reorg-stability interval, immutable unique breach receipt,
-   idempotence, and reorg rollback of satisfaction/failover/breach.
+   vacancy. An unusable successor closes/removes the entire remaining lineup locally and permits
+   later delayed reinstallation. Test three sequential failovers, primary cure before/after
+   failover, and prove every canonical start leaves Market bytes/accounting unchanged.
+3. Prove cure-through-slash equality, nominal-recovery reorg interval, provisional late-cure
+   retention, immutable unique breach receipt, idempotence, and full reorg rollback through
+   satisfaction/failover/breach/enforcement/release.
 4. Implement fixed local transitions and `previewPremiumCap`, including unsynchronized failover and
    ring-full objective vacancy.
 5. Run all force/SLA interleavings against both models and the full Layer 1 invariant suite.
@@ -659,13 +696,26 @@ paths are preserved and excluded from every round commit.
 
 **Steps:**
 
-1. Add exact old-Settlement/version/code/config/term/duty/tranche receipt authentication,
-   idempotent slash, current-router forgery rejection, and penalty accounting tests.
-2. Add release request/challenge/finalize races, direct retained-duty disposition reads, unmaterialized
-   objective breach rejection, finite horizon, and withdrawal-front-running tests.
+1. Add exact old-chain/Settlement/version/code/config/term/duty/tranche receipt authentication,
+   wrong-chain premium-cap/breach/release rejection, idempotent slash, current-router forgery
+   rejection, and penalty accounting tests.
+2. Add release request/challenge/finalize races, exact `dispositionStableAt`, `evidenceSafeAt`, and
+   `finalizeReleaseAt` boundary tests, direct retained-duty disposition reads, unmaterialized
+   objective breach rejection, never-served-term handling, an explicit never-duty/SATISFIED/EXCUSED
+   refund whitelist, breached-tranche non-refund, finite horizon, and withdrawal-front-running
+   tests. Request and finalize are permissionless and one-shot, always credit the immutable operator,
+   and let a keeper release then reclaim despite an uncooperative operator.
 3. Add noncanonical `reclaimDutyCell` tests: authenticate terminal market state, cache local reuse,
-   and prove omission only disables optional economics. Market/release/claim failure never affects
-   canonical proof or recovery.
+   and prove omission only disables optional economics. Before release makes any installed tranche
+   terminal, atomically reconcile/delete its exact stage/term/tail reserve; a never-started standby
+   returns the full reserve. Slash does the same for a duty-bound tranche. Reclamation
+   additionally authenticates Market's derived exact-binding/no-live-reserve `historySafe` view;
+   terminal tranche status alone is insufficient. Test both release-before-reconcile and
+   slash-before-reconcile through later pull claims and cell reuse. If a live reserve exists, both
+   terminal paths wait until exact `settlementCap + PREMIUM_CLAIM_DELAY_SECONDS`; test before,
+   equality, and after so ordinary accrual credits the full cap before reserve deletion.
+   Also cover never-served standby and served-no-duty canonical close. Market/release/claim failure
+   never affects canonical proof or recovery.
 4. Run market/Settlement stateful invariants and full Layer 1 tests.
 5. Commit: `feat(protocol): complete seat enforcement and release`
 
@@ -684,8 +734,11 @@ paths are preserved and excluded from every round commit.
 1. Prove leading sync materializes already-slashable duties; arm closes terms, increments seat
    generation, invalidates old quotes, excuses remaining duties, and leaves economics vacant without
    a market/ETH call.
-2. Prove the retained invalid-stage tombstone enables permissionless atomic market unstage/refund
-   exactly once. Abort cannot resurrect terms, stage, quotes, generation, or duty liability.
+2. Prove migration marks a retained stage `INVALIDATED_MIGRATION`, makes its old-generation offer
+   purgeable/refundable, and enables permissionless atomic market unstage/refund exactly once. Keep
+   this path distinct from Round 18's `INVALIDATED_LINEUP` cancellation. Abort cannot resurrect
+   terms, stage, quotes, generation, or duty liability, leaves the old authorization current, and
+   forbids generation sync/quote maturity until Settlement returns to installation-open `ACTIVE`.
 3. Prove old duties/premium caps/releases remain sourced only from the permanent old Settlement,
    while a target requires fresh exact-target/generation operator consent.
 4. Run model differential, migration fault injection, full Layer 1, and artifact-owner checks.
@@ -711,14 +764,18 @@ paths are preserved and excluded from every round commit.
 
 **Steps:**
 
-1. Add failing tests for delayed manifest/cancel authorization, increasing versions/generations,
+1. Add failing tests for delayed manifest/cancel authorization, increasing protocol versions,
    exact runtime/config/profile checks, stable ingress stamps, append-only version registration,
    historical routing, and canceled-manifest replay rejection.
-2. Add the real manager-only append path for exact
-   `(version, settlement, runtimeHash, configHash, market, seatGeneration)` authorization. Reject
-   canceled/replayed manifests and mismatched markets. Support append-only installation disablement
-   of an old market while leaving its premium claims, historical enforcement, reclamation, and
-   releases callable forever.
+2. Add the real manager-only append path for the static exact
+   `(settlementChainId, protocolVersion, settlement, settlementRuntimeHash,
+settlementConfigHash, market)` authorization. Seat
+   generation is Settlement-local mutable state and is never manager-authorized. Reject
+   wrong-chain/canceled/replayed manifests and mismatched markets; prove a post-abort fresh-generation
+   quote needs no new governance authorization. Freeze exactly one current installation
+   authorization for the global four-cell book. Later append-only authorizations remain disabled
+   until an exact manager rotation; disabled historical targets leave premium claims, enforcement,
+   reclamation, and releases callable forever.
 3. Implement manager delay/cancel records and router registry/history reads using precomputed
    constructor addresses. Expose no activation shortcut or generic target setter in this round.
 4. Run manager/router/market focused and stateful registry tests plus the artifact-owner check.
@@ -744,10 +801,18 @@ paths are preserved and excluded from every round commit.
 3. Using the real Market and both real Settlements, prove no seat ETH, term, duty, or confiscation
    authority moves; old duties/releases/enforcement remain readable only from old Settlement; old
    generation quotes cannot install after arm, abort, or cutover; stage-tombstone cancellation is
-   exact-once; and both abort and target remain vacant pending fresh operator consent.
-4. After cutover, exercise the separate noncanonical manager call that authorizes the exact active
-   Settlement tuple in its Market; it may not run for a canceled, inactive, mismatched, or replayed
-   manifest. Canonical cutover never calls the Market.
+   exact-once; old-target quotes cannot refill/displace the global book after rotation; and both
+   abort and target remain vacant pending fresh operator consent.
+4. After cutover, exercise the separate noncanonical manager call that atomically rotates the real
+   Market from the exact old authorization to the already-authorized active Settlement tuple. It
+   first verifies exact manager/router return magic proving the active routed manifest/generation,
+   matching old/new authorization commitments, new `ACTIVE`, and old `FROZEN`; manager identity
+   alone is insufficient. Premature, canceled, and cutover-reorged calls leave Market unchanged. It
+   then executes the exact migration-stage cancellation and reserve/bond deltas when needed, purges
+   old pending offers, disables old insertion, and enables the target with an uninitialized
+   generation cache. It may not run for a canceled, inactive, mismatched, or replayed manifest; any
+   target-read, accounting, or acknowledgement failure leaves every Market byte and ETH bucket
+   unchanged. Canonical cutover never calls the Market; abort never rotates it.
 5. Implement cutover/abort without resurrecting consumed terms or seat generation. Run at least 20
    migration/abort generations, full Layer 1 tests, and artifact-owner check.
 6. Commit: `feat(protocol): implement reversible slot chain cutover`
