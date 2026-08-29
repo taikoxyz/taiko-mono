@@ -1,0 +1,185 @@
+{
+  "schema": "taiko.slot-chain.economic-profile.v2",
+  "status": "UNCALIBRATED",
+  "profileId": null,
+  "measurementCommit": null,
+  "units": {
+    "nativeAmount": "wei",
+    "nativeRate": "wei/second",
+    "builderAmount": "atomic",
+    "time": "seconds",
+    "gas": "gas",
+    "size": "bytes",
+    "ratio": "basis-points"
+  },
+  "geometry": {
+    "slotSeconds": 1,
+    "windowSlots": 384,
+    "l1SlotSeconds": 12,
+    "l1EpochSlots": 32,
+    "maximumBuilders": 64,
+    "maximumAssignedSlots": 76,
+    "entryDelayWindows": 8,
+    "maximumLiveWindows": 268,
+    "maximumTrancheAheadWindows": 16,
+    "maximumGenerationMovesPerWindow": 4,
+    "maximumLiabilityGenerations": 1072,
+    "snapshotEpochs": 8,
+    "finalityEpochs": 2,
+    "carrierScanSlots": 64,
+    "sealMarginSlots": 32,
+    "lookaheadSlots": 768,
+    "maximumParentGapSlots": 3600,
+    "maximumCandidateBlocks": 4096,
+    "maximumCandidateWindows": 12,
+    "maximumCandidateAnchors": 1,
+    "maximumCandidateSessions": 16,
+    "maximumCandidateRecords": 2100,
+    "maximumCandidateForcedItems": 256,
+    "maximumCandidateForcedBytes": 4194304,
+    "maximumCandidateForcedGas": 80000000,
+    "maximumEarlySealWindows": 8,
+    "canonicalHistoryCells": 256,
+    "eip2935HistoryBlocks": 8191,
+    "maximumArmAgeBlocks": 255,
+    "seatCount": 4,
+    "standbyCount": 3,
+    "pendingCount": 4,
+    "bookSize": 8,
+    "maximumRewardClasses": 16
+  },
+  "assets": {
+    "builderLease": {
+      "kind": "ERC20_NO_HOOK",
+      "chainId": null,
+      "address": null,
+      "runtimeHash": null,
+      "decimals": null
+    },
+    "nativeCustody": {
+      "kind": "NATIVE_ETH",
+      "chainId": null
+    }
+  },
+  "builder": {
+    "leasePerWindowAtomic": null,
+    "maximumBondAtomic": null,
+    "reporterRewardCapAtomic": null,
+    "evidenceDelaySeconds": 86400,
+    "reorgMarginSeconds": 1800
+  },
+  "recovery": {
+    "settlementWindowSeconds": 1200,
+    "tipLagSeconds": 1200,
+    "finalLagSeconds": 3600,
+    "l1FinalityBlocks": 64,
+    "depthTimeMaxSeconds": 900,
+    "proofTimeMaxSeconds": 900,
+    "proofMarginSeconds": 100,
+    "activationInclusionSeconds": 120,
+    "submissionInclusionSeconds": 120,
+    "clockSkewSeconds": 24,
+    "escapeOffsetSeconds": 1900,
+    "forceDelaySeconds": 1500
+  },
+  "gasProfile": {
+    "l2BlockGas": 30000000,
+    "steadyAnchorGas": 1000000,
+    "steadyForcedGas": 20000000,
+    "activationAnchorGas": 12000000,
+    "activationForcedGas": 13000000,
+    "systemMarginGas": 5000000,
+    "minimumForceAccountedGas": 21000
+  },
+  "dataSession": {
+    "ttlSeconds": 86400,
+    "maximumLiveSessions": 1024,
+    "maximumLiveSessionsPerOwner": 2,
+    "maximumRecordsPerSession": 2100,
+    "maximumGcSteps": 8,
+    "refundableBondWei": null,
+    "baseRentWei": null,
+    "rentPerPublishedByteWei": null,
+    "blobBaseFeeMultiplierBps": null
+  },
+  "forcedEnvelope": {
+    "fixedIngressWei": null,
+    "executionWeiPerAccountedGas": null,
+    "proofWeiPerAccountedGas": null,
+    "permanentWeiPerByte": null,
+    "maximumAcceptedFeeWei": null,
+    "claimWindowSeconds": 86400,
+    "maximumValiditySeconds": 604800,
+    "maximumItemBytes": 131072,
+    "maximumItemAccountedGas": 5000000,
+    "maximumPrefixItems": 64,
+    "maximumPrefixBytes": 1048576,
+    "maximumPrefixAccountedGas": 20000000,
+    "queueDepth": 64,
+    "maximumQueueCount": "18446744073709551614",
+    "maximumRangeProofHashes": 257
+  },
+  "bridge": {
+    "maximumEnqueueDelaySeconds": 604800,
+    "processTtlSeconds": 2592000,
+    "supportFinalityBlocks": 214,
+    "maximumDomainEntriesPerRelease": 64,
+    "refundCapsuleWords": 256,
+    "refundErc721Ids": 256,
+    "refundErc1155Pairs": 128,
+    "terminalAccumulatorDepth": 64,
+    "maximumTerminalCount": "18446744073709551614",
+    "registrationProofMaximumNodesPerPath": 66,
+    "registrationProofPathCount": 2,
+    "registrationProofMaximumTotalNodes": 132,
+    "registrationProofMaximumNodeBytes": 600,
+    "registrationProofMaximumBytes": 80000,
+    "registrationProofMaximumGas": 8000000
+  },
+  "seat": {
+    "slaBondWei": null,
+    "maximumAskWeiPerSecond": null,
+    "minimumAskImprovementWeiPerSecond": null,
+    "minimumAskImprovementBps": null,
+    "quoteMaturitySeconds": null,
+    "quoteMaturityBlocks": null,
+    "minimumPrimaryTenureSeconds": null,
+    "minimumStandbyTenureSeconds": null,
+    "handoverDelaySeconds": null,
+    "stageGraceSeconds": null,
+    "maximumInclusionSeconds": 120,
+    "handoverExecutionBufferSeconds": null,
+    "exitDelaySeconds": null,
+    "releaseChallengeSeconds": null,
+    "evidenceDelaySeconds": null,
+    "premiumClaimDelaySeconds": null,
+    "reorgStabilitySeconds": 1800,
+    "recoveryLagSeconds": 1200,
+    "slashLagSeconds": 5164,
+    "seatRunwaySeconds": null,
+    "maximumAvoidedServiceCostWei": null,
+    "collusionSafetyMarginWei": null
+  },
+  "rewards": {
+    "claimWindowSeconds": 86400,
+    "classes": []
+  },
+  "sinks": {
+    "builderPenalty": {
+      "asset": "BUILDER_LEASE",
+      "address": null
+    },
+    "dataRent": {
+      "asset": "NATIVE_ETH",
+      "address": null
+    },
+    "seatPenalty": {
+      "asset": "NATIVE_ETH",
+      "address": null
+    },
+    "forcedExpiry": {
+      "asset": "NATIVE_ETH",
+      "address": null
+    }
+  }
+}
