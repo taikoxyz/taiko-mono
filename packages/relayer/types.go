@@ -57,7 +57,9 @@ var (
 )
 
 // WaitConfirmations won't return before N blocks confirmations have been seen
-// on destination chain, or context is cancelled.
+// on destination chain, or context is cancelled. A transaction that already has
+// them reports success even when the context is already cancelled: the
+// confirmations the caller asked about are present either way.
 func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations uint64, txHash common.Hash) error {
 	checkConfs := func() error {
 		receipt, err := confirmer.TransactionReceipt(ctx, txHash)
