@@ -779,3 +779,37 @@ func TestSendingBackend_CapsAnAttemptWhenTheCallerGivesNoDeadline(t *testing.T) 
 	require.True(t, ok, "an attempt must always be bounded")
 	assert.InDelta(t, DefaultPrivateRPCAttemptTimeout, time.Until(deadline), float64(time.Second))
 }
+
+func TestSendingBackend_KeepsTheResendRecordAcrossConcurrentNonces(t *testing.T) {
+	b, _, first, second, _ := newTestBackend(t, nil)
+
+	// The processor handles claims concurrently, so several nonces are in flight at once. A single
+	// slot per endpoint would be overwritten by whichever was accepted most recently, and the
+	// resend of the earlier one would go straight back to the endpoint that already had it.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
+	require.Len(t, first.sent, 2)
+	require.Empty(t, second.sent)
+
+	// Nonce 5 is fee-bumped and resent. Endpoint 0 had it and did not get it included.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
+
+	assert.Len(t, first.sent, 2, "the resend must not go back to the endpoint that already had it")
+	assert.Len(t, second.sent, 1)
+
+	// A claim newer than anything either endpoint has accepted goes back to the configured order.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(7)))
+	assert.Len(t, first.sent, 3)
+}
+
+func TestSendingBackend_TheAcceptedMarkOnlyMovesForward(t *testing.T) {
+	b, _, first, _, _ := newTestBackend(t, nil)
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(9)))
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(4)))
+
+	// Accepting an out-of-order lower nonce must not lower the mark, or every resend at or below
+	// the earlier high would silently become eligible for this endpoint again.
+	assert.Equal(t, uint64(9), b.highestAccepted[0])
+	assert.Len(t, first.sent, 1, "the lower nonce is at or below the mark, so it goes elsewhere")
+}

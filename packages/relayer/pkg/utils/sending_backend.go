@@ -72,7 +72,7 @@ type SendingBackend struct {
 	failures         []int
 	failedAt         []time.Time
 	lastCharged      []common.Hash
-	acceptedNonce    []uint64
+	highestAccepted  []uint64
 	hasAccepted      []bool
 	failureThreshold int
 	retryInterval    time.Duration
@@ -100,7 +100,7 @@ func NewSendingBackend(
 		failures:         make([]int, len(private)),
 		failedAt:         make([]time.Time, len(private)),
 		lastCharged:      make([]common.Hash, len(private)),
-		acceptedNonce:    make([]uint64, len(private)),
+		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		retryInterval:    interval,
@@ -323,7 +323,11 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	b.failures[index] = 0
 	b.failedAt[index] = time.Time{}
 	b.lastCharged[index] = common.Hash{}
-	b.acceptedNonce[index] = nonce
+
+	if !b.hasAccepted[index] || nonce > b.highestAccepted[index] {
+		b.highestAccepted[index] = nonce
+	}
+
 	b.hasAccepted[index] = true
 }
 
@@ -337,6 +341,14 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 // only signal available here — receipts are polled through the public endpoint, which the backend
 // does not see.
 //
+// The comparison is against the highest nonce the endpoint has accepted, not the last one, because
+// the processor handles claims concurrently: several nonces are in flight at once, and a single
+// slot per endpoint would be overwritten by whichever landed most recently, losing the record for
+// every other pending claim. A resend carries a nonce the manager has not seen confirmed, so
+// "at or below the highest this endpoint took" is the durable form of "it has already had this
+// one". A first send that arrives out of order behind a higher nonce is deprioritised too; that
+// only reorders private endpoints against each other and costs nothing.
+//
 // Nothing is charged for this. Non-inclusion is usually a fee that was too low or a race already
 // lost, not an unhealthy relay, and tripping an endpoint for it would push claims into the public
 // mempool for reasons that have nothing to do with the endpoint — the exposure this exists to
@@ -349,7 +361,7 @@ func (b *SendingBackend) deprioritiseAlreadyAccepted(indices []int, nonce uint64
 	alreadyTried := make([]int, 0, len(indices))
 
 	for _, i := range indices {
-		if b.hasAccepted[i] && b.acceptedNonce[i] == nonce {
+		if b.hasAccepted[i] && nonce <= b.highestAccepted[i] {
 			alreadyTried = append(alreadyTried, i)
 
 			continue
