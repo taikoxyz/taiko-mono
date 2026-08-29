@@ -29,9 +29,12 @@ The implementation is a dependency-layered, isolated V2 suite. This was selected
 
 The isolated suite uses exact immutable dependencies and one-shot seals. It introduces no generic
 resolver, delegate target, arbitrary storage setter, arbitrary root setter, or pause mechanism on a
-canonical or claim-only path. The only legacy proxy relationship supported by the design is the
-one-time installation and proof of the final frozen Bridge/vault facade; the implementation itself
-contains no upgrade selector and never delegates again.
+canonical or claim-only path. Legacy proxy topology is limited to two profile-authenticated classes:
+the one-time installation and proof of final frozen Bridge/vault facades, whose implementations
+contain no upgrade selector and never delegate again; and AnchorV4 installed through the exact
+legacy Anchor/proxy/fork topology permitted by the executable profile. The latter is accepted only
+when its implementation, beacon, fork-selector, runtime, and burned/mutable authority slots match
+the manifest and the authenticated L2 state.
 
 ## 3. Source Layout
 
@@ -238,6 +241,8 @@ Required test classes are:
 - cross-contract integration tests for normal settlement, recovery, forced expiry, credit
   DONE/FAILED, migration activation, cancellation, and retry after cutover;
 - storage-layout compatibility tests for the final legacy Bridge/vault facade;
+- Anchor topology tests covering legacy storage compatibility, implementation/beacon/fork-selector
+  slots, exact runtime selection, and rejection of unlisted or mutable routing paths;
 - selector-collision and arbitrary-calldata fuzz tests proving frozen facades cannot upgrade,
   delegate, or mutate protected slots;
 - bounded-gas tests at every normative maximum, retaining the specified 30% margin; and
