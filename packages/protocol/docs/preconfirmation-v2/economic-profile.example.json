@@ -93,10 +93,12 @@
   },
   "dataSession": {
     "ttlSeconds": 86400,
+    "refundClaimWindowSeconds": 86400,
     "maximumLiveSessions": 1024,
     "maximumLiveSessionsPerOwner": 2,
     "maximumRecordsPerSession": 2100,
     "maximumGcSteps": 8,
+    "maximumBlobsPerPost": 6,
     "refundableBondWei": null,
     "baseRentWei": null,
     "rentPerPublishedByteWei": null,
@@ -116,7 +118,7 @@
     "maximumPrefixBytes": 1048576,
     "maximumPrefixAccountedGas": 20000000,
     "queueDepth": 64,
-    "maximumQueueCount": "18446744073709551614",
+    "maximumQueueCount": "18446744073709551615",
     "maximumRangeProofHashes": 257
   },
   "bridge": {
@@ -128,7 +130,7 @@
     "refundErc721Ids": 256,
     "refundErc1155Pairs": 128,
     "terminalAccumulatorDepth": 64,
-    "maximumTerminalCount": "18446744073709551614",
+    "maximumTerminalCount": "18446744073709551615",
     "registrationProofMaximumNodesPerPath": 66,
     "registrationProofPathCount": 2,
     "registrationProofMaximumTotalNodes": 132,

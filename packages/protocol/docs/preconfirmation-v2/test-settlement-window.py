@@ -30,6 +30,10 @@ def load_module(name: str, path: Path):
 
 settlement = load_module("settlement_window_model_task4", SETTLEMENT_PATH)
 market = load_module("seat_market_model_task4", ROOT / "seat-market-model.py")
+commitment = load_module(
+    "commitment_model_bounded_frontier",
+    ROOT / "commitment-model.py",
+)
 
 
 def addr(label: str) -> str:
@@ -7023,7 +7027,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         terminalized_before = dict(
             accumulator.terminalized_pinned_count
         )
-        guard_before = set(accumulator._terminalized_credits)
+        accumulator_before = accumulator._transaction_snapshot()
         accumulator.append_return_length = 31
         self.assertEqual(bridge.process(
             *append_fault, caller=addr("observer")
@@ -7035,7 +7039,9 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(
             accumulator.terminalized_pinned_count, terminalized_before
         )
-        self.assertEqual(accumulator._terminalized_credits, guard_before)
+        self.assertEqual(
+            accumulator._transaction_snapshot(), accumulator_before
+        )
         accumulator.append_return_length = 32
         self.assertEqual(bridge.process(
             *append_fault, caller=addr("observer")
@@ -7043,10 +7049,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(receiver.native_balance, 12)
         self.assertEqual(bridge.total_pull_liability, 3)
         self.assertEqual(sum(bridge.pull_credits.values()), 3)
-        self.assertIn(
-            (bridge.local_domain_id, append_credit),
-            accumulator._terminalized_credits,
-        )
+        self.assertFalse(hasattr(accumulator, "_terminalized_credits"))
         self.assertEqual(
             accumulator.terminalized_pinned_count[bridge.local_domain_id],
             terminalized_before[bridge.local_domain_id] + 1,
@@ -7687,10 +7690,13 @@ class ForcedIngressRouterTests(unittest.TestCase):
 
     def test_armed_sync_progresses_cleanup_and_refunds_without_append(self):
         execute_manager_arm(self.manager, self.clock)
-        self.protocol.sessions["cleanup"] = settlement.DataSession(
-            "cleanup", "alice", self.clock.timestamp - 1
+        self.protocol._install_data_session_for_test(
+            settlement.DataSession(
+                "cleanup", "alice", self.clock.timestamp - 1,
+                refundable_bond=1,
+            ),
+            0,
         )
-        self.router.migration_gate.live_data_sessions = 1
         queue_before = copy.deepcopy(self.router.forced_queue)
         descriptor = settlement.message(self.clock.l2_slot, "cleanup")
         self.assertEqual(
@@ -8418,10 +8424,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             manifest.target_manifest_hash,
             caller=gate.coordinator,
         ))
-        self.assertTrue(gate._try_ready_from_protocol(
-            normal_open=False,
-            recovery_active=False,
-        ))
+        self.assertEqual(gate.mode, "ARMED")
         self.assertFalse(router._valid_migration_activation_proof(
             output,
             settlement=target,
@@ -9038,17 +9041,13 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         self.assertEqual(old_protocol.seat_lineup, [])
         self.assertEqual(new_protocol.seat_lineup, [])
         self.assertTrue(all(cell.reusable for cell in new_protocol.duty_ring))
-        gate_sessions = new_protocol.migration_gate.live_data_sessions
-        self.assertEqual(
+        with self.assertRaises(settlement.DataSessionRevert):
             old_protocol.open_session(
                 settlement.Clock(2_000, settlement.GENESIS_TIMESTAMP + 2_000),
-                "frozen-grief",
                 addr("attacker"),
+                0,
                 settlement.GENESIS_TIMESTAMP + 9_000,
-            ),
-            "REJECTED_HISTORICAL",
-        )
-        self.assertEqual(new_protocol.migration_gate.live_data_sessions, gate_sessions)
+            )
         result = release_manager.execute_rotation(
             seat_market,
             receipt.key,
@@ -9250,7 +9249,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             ("seat_fault_point", "dirty"),
             ("canonical_state_witness_available", False),
             ("canonical_code_preimages_available", False),
-            ("sessions", {"dirty": "dirty"}),
+            ("session_cell_by_id", {"dirty": 1}),
         )
         for field_name, value in dirty_rows:
             rows = production_migration_fixture()
@@ -10229,6 +10228,1814 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             protocol.seat_migration_abort.canceled_arm,
             protocol.seat_migration_arm.router_word,
         )
+
+class BoundedFrontierAndDataSessionTests(unittest.TestCase):
+    def test_forced_frontier_carries_and_matches_independent_full_tree(self):
+        domain = b"slot-chain-force-node-v2"
+        empty = [bytes(32) for _ in range(settlement.FORCE_TREE_DEPTH)]
+        leaf = hashlib.sha256(b"leaf").digest()
+        at_zero = settlement._append_frontier_leaf(
+            empty, 0, leaf, node_domain=domain
+        )
+        self.assertEqual(at_zero[0], leaf)
+        first = hashlib.sha256(b"first").digest()
+        one = list(empty)
+        one[0] = first
+        at_one = settlement._append_frontier_leaf(
+            one, 1, leaf, node_domain=domain
+        )
+        self.assertEqual(
+            at_one[1],
+            settlement.keccak256(domain + b"\x00" + first + leaf),
+        )
+
+        synthetic = [hashlib.sha256(f"f{height}".encode()).digest()
+                     for height in range(settlement.FORCE_TREE_DEPTH)]
+        expected = leaf
+        for height in range(63):
+            expected = settlement.keccak256(
+                domain + bytes((height,)) + synthetic[height] + expected
+            )
+        carry_63 = settlement._append_frontier_leaf(
+            synthetic, (1 << 63) - 1, leaf, node_domain=domain
+        )
+        self.assertEqual(carry_63[63], expected)
+        max_minus_one = settlement._append_frontier_leaf(
+            synthetic,
+            settlement.UINT64_MAX - 1,
+            leaf,
+            node_domain=domain,
+        )
+        self.assertEqual(max_minus_one[0], leaf)
+        self.assertEqual(
+            len(settlement.force_wrapped_root(
+                max_minus_one, settlement.UINT64_MAX
+            )),
+            64,
+        )
+        count_five = list(synthetic)
+        baseline = settlement.force_wrapped_root(count_five, 5)
+        stale = list(count_five)
+        stale[1] = hashlib.sha256(b"ignored-zero-bit").digest()
+        self.assertEqual(settlement.force_wrapped_root(stale, 5), baseline)
+        used = list(count_five)
+        used[2] = hashlib.sha256(b"used-bit").digest()
+        self.assertNotEqual(settlement.force_wrapped_root(used, 5), baseline)
+        with self.assertRaises(ValueError):
+            settlement._append_frontier_leaf(
+                synthetic,
+                settlement.UINT64_MAX,
+                leaf,
+                node_domain=domain,
+            )
+
+        descriptors = [
+            settlement.message(index, f"frontier-{index}")
+            for index in range(65)
+        ]
+        original = settlement.force_frontier_from_descriptors
+        try:
+            settlement.force_frontier_from_descriptors = lambda _rows: (
+                (_ for _ in ()).throw(AssertionError("frontier oracle alias"))
+            )
+            full_roots = {
+                count: settlement.model_force_root(descriptors[:count])
+                for count in (0, 1, 2, 3, 7, 8, 63, 64, 65)
+            }
+        finally:
+            settlement.force_frontier_from_descriptors = original
+        for count, root in full_roots.items():
+            frontier = original(descriptors[:count])
+            self.assertEqual(
+                settlement.force_wrapped_root(frontier, count), root
+            )
+
+    def test_terminal_frontier_is_bounded_wrapped_and_event_oracle_only(self):
+        leaves = [hashlib.sha256(f"terminal-{index}".encode()).hexdigest()
+                  for index in range(65)]
+        for count in (0, 1, 2, 3, 7, 8, 63, 64, 65):
+            frontier = settlement.terminal_frontier_from_leaves(
+                leaves[:count]
+            )
+            tree = settlement.terminal_merkle_root(leaves[:count])
+            self.assertEqual(
+                settlement.terminal_frontier_root(frontier, count),
+                settlement.terminal_wrapped_root(count, tree),
+            )
+        accumulator = settlement.TerminalAccumulatorV2({"domain": "bridge"})
+        self.assertEqual(len(accumulator.frontier), 64)
+        self.assertFalse(hasattr(accumulator, "leaves"))
+        self.assertFalse(hasattr(accumulator, "_terminalized_credits"))
+        self.assertEqual(accumulator.leaf_events, [])
+        synthetic = [hashlib.sha256(f"t{height}".encode()).digest()
+                     for height in range(settlement.TERMINAL_TREE_DEPTH)]
+        leaf = hashlib.sha256(b"terminal-max").digest()
+        max_minus_one = settlement._append_frontier_leaf(
+            synthetic,
+            settlement.UINT64_MAX - 1,
+            leaf,
+            node_domain=b"slot-chain-terminal-node-v2",
+        )
+        self.assertEqual(max_minus_one[0], leaf)
+        self.assertEqual(len(settlement.terminal_frontier_root(
+            max_minus_one, settlement.UINT64_MAX
+        )), 64)
+        baseline = settlement.terminal_frontier_root(synthetic, 5)
+        stale = list(synthetic)
+        stale[1] = hashlib.sha256(b"ignored-terminal-zero-bit").digest()
+        self.assertEqual(
+            settlement.terminal_frontier_root(stale, 5), baseline
+        )
+        used = list(synthetic)
+        used[2] = hashlib.sha256(b"used-terminal-bit").digest()
+        self.assertNotEqual(
+            settlement.terminal_frontier_root(used, 5), baseline
+        )
+
+    def test_data_mmr_boundaries_and_inclusion_proof_are_exact(self):
+        exact_session = commitment.session_id(1, 0xABCD, 0xCAFE, 2)
+        exact_body = commitment.body_root((
+            bytes.fromhex("0102"), bytes.fromhex("030405")
+        ))
+        exact_leaf_0 = commitment.data_leaf(
+            exact_session, 0, bytes.fromhex("33" * 32), exact_body,
+            0, 0, 2, b"alpha", 0xCAFE, 9_999, 5, 6,
+        )
+        exact_leaf_1 = commitment.data_leaf(
+            exact_session, 1, bytes.fromhex("55" * 32), exact_body,
+            0, 1, 2, b"beta", 0xCAFE, 9_999, 7, 8,
+        )
+        exact_frontier = [bytes(32)
+                          for _ in range(settlement.DATA_MMR_FRONTIER_DEPTH)]
+        exact_frontier, exact_count, _ = settlement.append_data_mmr(
+            exact_frontier, 0, exact_leaf_0
+        )
+        exact_frontier, exact_count, exact_root = settlement.append_data_mmr(
+            exact_frontier, exact_count, exact_leaf_1
+        )
+        self.assertEqual(exact_count, 2)
+        self.assertEqual(
+            exact_root,
+            "d20459aeb2fe916a18dd584d39b2ae25075c6b6c14104d9d64a8b1d7882eb4df",
+        )
+        self.assertEqual(
+            exact_root, commitment.mmr_root(
+                (exact_leaf_0, exact_leaf_1)
+            ).hex()
+        )
+
+        canonical_leaves = [
+            hashlib.sha256(f"appendix-leaf-{index}".encode()).digest()
+            for index in range(2_100)
+        ]
+        frontier = [bytes(32)
+                    for _ in range(settlement.DATA_MMR_FRONTIER_DEPTH)]
+        root = settlement.data_mmr_root(frontier, 0)
+        checkpoints = {0, 1, 2, 3, 4, 7, 8, 2_047, 2_048, 2_099, 2_100}
+        self.assertEqual(
+            root,
+            settlement.model_data_mmr_root(canonical_leaves[:0]),
+        )
+        for index, canonical_leaf in enumerate(canonical_leaves):
+            frontier, count, root = settlement.append_data_mmr(
+                frontier, index, canonical_leaf
+            )
+            self.assertEqual(count, index + 1)
+            if count in checkpoints:
+                self.assertEqual(
+                    root,
+                    settlement.model_data_mmr_root(canonical_leaves[:count]),
+                )
+        with self.assertRaises(ValueError):
+            settlement.append_data_mmr(
+                frontier,
+                settlement.MAX_DATA_RECORDS_PER_SESSION,
+                hashlib.sha256(b"overflow").digest(),
+            )
+
+        proof_leaves = canonical_leaves[:7]
+        leaf, proof = settlement.model_data_mmr_proof(
+            proof_leaves, 4
+        )
+        proof_root = settlement.model_data_mmr_root(proof_leaves)
+        self.assertTrue(
+            settlement.verify_data_mmr_proof(leaf, proof, proof_root)
+        )
+        self.assertEqual(tuple(row[0] for row in proof.other_peaks), (0, 2))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf, replace(proof, index=proof.count), proof_root
+        ))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf,
+            replace(proof, siblings=proof.siblings + proof.siblings[:1]),
+            proof_root,
+        ))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf, replace(proof, siblings=()), proof_root
+        ))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf,
+            replace(proof, siblings=("00" * 32,) + proof.siblings[1:]),
+            proof_root,
+        ))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf, replace(proof, other_peaks=tuple(reversed(proof.other_peaks))),
+            proof_root,
+        ))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf, replace(proof, other_peaks=proof.other_peaks[:-1]), proof_root
+        ))
+        self.assertFalse(settlement.verify_data_mmr_proof(
+            leaf,
+            replace(proof, other_peaks=proof.other_peaks + proof.other_peaks[:1]),
+            proof_root,
+        ))
+
+    @staticmethod
+    def _post_terms(*, length=1, blob_base_fee=0, payment=0, salt=b"blob"):
+        post = settlement.data_post_for_test(
+            chunk_byte_length=length, salt=salt
+        )
+        versioned_hash = settlement.kzg_commitment_to_versioned_hash(
+            post.commitment
+        )
+        return dict(
+            posts=(post,),
+            tx_blob_hashes=(versioned_hash,),
+            blob_base_fee=blob_base_fee,
+            payment=payment,
+        )
+
+    def test_open_is_exact_cell_atomic_and_checked_sequence(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        p = settlement.protocol(seat=False)
+        owner = addr("atomic-open")
+        expected = p.next_data_session_id(owner)
+        self.assertEqual(p.open_session(
+            now, owner, 7, expiry, payment=10
+        ), expected)
+        self.assertEqual(p.session_cell_by_id[expected], 8)
+        self.assertIs(
+            p.session_cells[7].tag, settlement.DataSessionCellTag.LIVE
+        )
+        self.assertEqual(
+            (p.session_live_count, p.session_refund_count,
+             p.session_occupied_count,
+             p.data_session_balance, p.data_session_live_bond_liability),
+            (1, 0, 1, 10, 10),
+        )
+        self.assertEqual(p.data_session_events, [
+            settlement.SessionOpenedEvent(
+                expected, owner, 7, 0, expiry, 10, 0
+            )
+        ])
+
+        failures = (
+            (addr("front-run"), 7, 10),
+            (addr("underpay"), 8, 9),
+            (addr("overpay"), 8, 11),
+            (addr("bad-cell"), 1_024, 10),
+        )
+        for candidate_owner, cell, payment in failures:
+            before = p.snapshot()
+            with self.assertRaises(settlement.DataSessionRevert):
+                p.open_session(
+                    now, candidate_owner, cell, expiry, payment=payment
+                )
+            self.assertTrue(p.identical(before))
+
+        capped = settlement.protocol(seat=False)
+        first_id = capped.next_data_session_id(owner)
+        self.assertEqual(capped.open_session(
+            now, owner, 0, expiry, payment=10
+        ), first_id)
+        second_id = capped.next_data_session_id(owner)
+        self.assertEqual(capped.open_session(
+            now, owner, 1, expiry, payment=10
+        ), second_id)
+        before = capped.snapshot()
+        with self.assertRaises(settlement.DataSessionRevert):
+            capped.open_session(now, owner, 2, expiry, payment=10)
+        self.assertTrue(capped.identical(before))
+
+        last = settlement.protocol(seat=False)
+        last.next_session_sequence = settlement.UINT64_MAX - 1
+        last_id = last.next_data_session_id(owner)
+        self.assertEqual(last.open_session(
+            now, owner, 0, expiry, payment=10
+        ), last_id)
+        self.assertEqual(last.next_session_sequence, settlement.UINT64_MAX)
+        self.assertEqual(last.sessions[last_id].sequence,
+                         settlement.UINT64_MAX - 1)
+        before = last.snapshot()
+        with self.assertRaises(settlement.DataSessionRevert):
+            last.open_session(
+                now, addr("after-max"), 1, expiry, payment=10
+            )
+        self.assertTrue(last.identical(before))
+
+        armed = settlement.protocol(seat=False)
+        armed.migration_gate.mode = "ARMED"
+        before = armed.snapshot()
+        with self.assertRaises(settlement.DataSessionRevert):
+            armed.open_session(now, owner, 0, expiry, payment=10)
+        self.assertTrue(armed.identical(before))
+
+    def test_active_settlement_state_abi_is_exact(self):
+        self.assertEqual(
+            tuple(phase.value for phase in settlement.RouterPhase),
+            (0, 1, 2),
+        )
+        state = settlement.ActiveSettlementStateV1(
+            settlement._model_address20("model-settlement"),
+            7,
+            25,
+            0,
+            bytes(32),
+            settlement.RouterPhase.ACTIVE,
+        )
+        raw = settlement.encode_active_settlement_state_v1(state)
+        self.assertEqual(len(raw), 224)
+        self.assertEqual(
+            settlement.decode_active_settlement_state_v1(raw), state
+        )
+        self.assertTrue(settlement.verify_active_settlement_state_v1(
+            raw,
+            gas=50_000,
+            expected_settlement="model-settlement",
+            expected_protocol_version=25,
+        ))
+        bad_rows = []
+        for offset in (4, 32, 64, 96, 128, 192):
+            mutated = bytearray(raw)
+            mutated[offset] ^= 1
+            bad_rows.append(bytes(mutated))
+        wrong_phase = bytearray(raw)
+        wrong_phase[-1] = 3
+        bad_rows.extend((bytes(wrong_phase), raw[:-1], raw + b"\x00"))
+        for bad in bad_rows:
+            self.assertFalse(settlement.verify_active_settlement_state_v1(
+                bad,
+                gas=50_000,
+                expected_settlement="model-settlement",
+                expected_protocol_version=25,
+            ))
+        self.assertFalse(settlement.verify_active_settlement_state_v1(
+            raw,
+            gas=49_999,
+            expected_settlement="model-settlement",
+            expected_protocol_version=25,
+        ))
+        self.assertFalse(settlement.verify_active_settlement_state_v1(
+            raw,
+            gas=50_000,
+            expected_settlement="other-settlement",
+            expected_protocol_version=25,
+        ))
+        self.assertFalse(settlement.verify_active_settlement_state_v1(
+            raw,
+            gas=50_000,
+            expected_settlement="model-settlement",
+            expected_protocol_version=26,
+        ))
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        protocol = settlement.protocol(seat=False)
+        owner = addr("active-state-sidecar")
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        session_id = protocol.next_data_session_id(owner)
+        self.assertEqual(protocol.open_session(
+            now, owner, 0, expiry, payment=10
+        ), session_id)
+        protocol.post_data(
+            now, session_id, owner, **self._post_terms(salt=b"active-sidecar")
+        )
+        protocol.active_settlement_state_return_override = (
+            protocol.active_settlement_state_v1()[:-1]
+        )
+        before = protocol.snapshot()
+        before_events = copy.deepcopy(protocol.data_session_events)
+        for call in (
+            lambda: protocol.open_session(
+                now, addr("second-owner"), 1, expiry, payment=10
+            ),
+            lambda: protocol.post_data(
+                now, session_id, owner,
+                **self._post_terms(salt=b"blocked-post"),
+            ),
+            lambda: protocol.seal_session(now, session_id, owner),
+        ):
+            with self.assertRaises(settlement.DataSessionRevert):
+                call()
+            self.assertTrue(protocol.identical(before))
+            self.assertEqual(protocol.data_session_events, before_events)
+
+    def test_readiness_and_accounting_abis_gate_ready_exactly(self):
+        config_hash = hashlib.sha256(b"registered-session-config").digest()
+        gate = settlement.MigrationGate()
+        self.assertTrue(gate._bootstrap_from_router(
+            25,
+            "version-manager",
+            active_settlement_address="source-settlement",
+            active_data_session_config_hash=config_hash,
+        ))
+        self.assertTrue(gate._arm_from_manager(
+            1, 25, 26, b"m" * 32, caller="version-manager"
+        ))
+        readiness = settlement.MigrationReadinessV1(
+            1, 25, 26, b"m" * 32,
+            settlement.MigrationBoundaryState.NONE, True,
+        )
+        accounting = settlement.DataSessionAccountingV1(
+            0, 3, 3, 511, 99, 0, 30, 1, 999, False, config_hash
+        )
+        readiness_raw = settlement.encode_migration_readiness_v1(readiness)
+        accounting_raw = settlement.encode_data_session_accounting_v1(accounting)
+        self.assertEqual(len(readiness_raw), 224)
+        self.assertEqual(len(accounting_raw), 384)
+        self.assertEqual(
+            settlement.decode_migration_readiness_v1(readiness_raw), readiness
+        )
+        self.assertEqual(
+            settlement.decode_data_session_accounting_v1(accounting_raw),
+            accounting,
+        )
+
+        class ReadyCaller:
+            settlement_address = "source-settlement"
+            migration_gate = gate
+            data_session_balance = 30
+
+            def __init__(self, ready, accounted):
+                self.ready = ready
+                self.accounted = accounted
+
+            @staticmethod
+            def _is_current_settlement_target():
+                return True
+
+            def migration_readiness_v1(self):
+                return self.ready
+
+            def data_session_accounting_v1(self):
+                return self.accounted
+
+        bad_readiness = []
+        for offset in (4, 32, 64, 96, 160, 192):
+            mutated = bytearray(readiness_raw)
+            mutated[offset] ^= 1
+            bad_readiness.append(bytes(mutated))
+        bad_readiness.extend((readiness_raw[:-1], readiness_raw + b"\x00"))
+        for raw in bad_readiness:
+            with self.assertRaises(ValueError):
+                gate._mark_ready_from_protocol(
+                    protocol=ReadyCaller(raw, accounting_raw),
+                    caller="source-settlement", generation=1,
+                )
+            self.assertEqual(gate.mode, "ARMED")
+        bad_accounting = []
+        for offset in (4, 32, 64, 96, 128, 160, 320):
+            mutated = bytearray(accounting_raw)
+            mutated[offset] ^= 1
+            bad_accounting.append(bytes(mutated))
+        bad_accounting.extend((accounting_raw[:-1], accounting_raw + b"\x00"))
+        for raw in bad_accounting:
+            with self.assertRaises(ValueError):
+                gate._mark_ready_from_protocol(
+                    protocol=ReadyCaller(readiness_raw, raw),
+                    caller="source-settlement", generation=1,
+                )
+            self.assertEqual(gate.mode, "ARMED")
+        wrong_ready_rows = (
+            replace(readiness, generation=2),
+            replace(readiness, target_manifest_hash=b"x" * 32),
+            replace(
+                readiness,
+                boundary_state=settlement.MigrationBoundaryState.NORMAL,
+            ),
+            replace(readiness, local_arm_complete=False),
+        )
+        for row in wrong_ready_rows:
+            with self.assertRaises(ValueError):
+                gate._mark_ready_from_protocol(
+                    protocol=ReadyCaller(
+                        settlement.encode_migration_readiness_v1(row),
+                        accounting_raw,
+                    ),
+                    caller="source-settlement", generation=1,
+                )
+            self.assertEqual(gate.mode, "ARMED")
+        wrong_accounting_rows = (
+            replace(accounting, live_count=1, occupied_count=4),
+            replace(accounting, occupied_count=2),
+            replace(accounting, guard_entered=True),
+            replace(accounting, data_session_config_hash=b"x" * 32),
+            replace(
+                accounting,
+                live_bond_liability=settlement.SEAT_UINT256_MAX,
+                refund_bond_liability=1,
+            ),
+        )
+        for row in wrong_accounting_rows:
+            with self.assertRaises(ValueError):
+                gate._mark_ready_from_protocol(
+                    protocol=ReadyCaller(
+                        readiness_raw,
+                        settlement.encode_data_session_accounting_v1(row),
+                    ),
+                    caller="source-settlement", generation=1,
+                )
+            self.assertEqual(gate.mode, "ARMED")
+        with self.assertRaises(ValueError):
+            gate._mark_ready_from_protocol(
+                protocol=ReadyCaller(readiness_raw, accounting_raw),
+                caller="attacker", generation=1,
+            )
+        insolvent = ReadyCaller(readiness_raw, accounting_raw)
+        insolvent.data_session_balance = 29
+        with self.assertRaises(ValueError):
+            gate._mark_ready_from_protocol(
+                protocol=insolvent,
+                caller="source-settlement", generation=1,
+            )
+        self.assertEqual(gate._mark_ready_from_protocol(
+            protocol=ReadyCaller(readiness_raw, accounting_raw),
+            caller="source-settlement", generation=1,
+        ), settlement.MARK_MIGRATION_READY_RETURN)
+        self.assertEqual(gate.mode, "READY")
+
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        integrated = settlement.protocol(seat=False)
+        self.assertTrue(integrated.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(integrated.migration_gate._arm_from_manager(
+            1, 1, 2, b"i" * 32, caller="version-manager"
+        ))
+        self.assertTrue(integrated._arm_migration_for_test(1, now))
+        self.assertEqual(integrated.migration_gate.mode, "ARMED")
+        before_mark = settlement.decode_migration_readiness_v1(
+            integrated.migration_readiness_v1()
+        )
+        self.assertTrue(before_mark.local_arm_complete)
+        integrated.migration_gate.mark_ready_return_override = (
+            b"FAIL" + bytes(28)
+        )
+        before = integrated.snapshot()
+        before_events = copy.deepcopy(integrated.events)
+        with self.assertRaises(ValueError):
+            integrated.sync(now)
+        self.assertTrue(integrated.identical(before))
+        self.assertEqual(integrated.events, before_events)
+        self.assertEqual(integrated.migration_gate.mode, "ARMED")
+        integrated.migration_gate.mark_ready_return_override = None
+        self.assertTrue(integrated.sync(now))
+        self.assertEqual(integrated.migration_gate.mode, "READY")
+        after_mark = settlement.decode_migration_readiness_v1(
+            integrated.migration_readiness_v1()
+        )
+        self.assertTrue(after_mark.local_arm_complete)
+        self.assertTrue(
+            integrated.migration_gate._ready_views_valid_for_activation(
+                integrated
+            )
+        )
+        integrated._install_data_session_for_test(
+            settlement.DataSession(
+                "activation-refund", "activation-owner", now.timestamp,
+                refundable_bond=1,
+            ),
+            0,
+            tag=settlement.DataSessionCellTag.REFUND,
+            refund_claim_deadline=now.timestamp + 1,
+        )
+        self.assertTrue(
+            integrated.migration_gate._ready_views_valid_for_activation(
+                integrated
+            )
+        )
+        integrated.data_session_balance -= 1
+        self.assertFalse(
+            integrated.migration_gate._ready_views_valid_for_activation(
+                integrated
+            )
+        )
+
+    def test_boundary_state_derivation_rejects_orphan_and_conflicts(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+
+        def armed_protocol():
+            protocol = settlement.protocol(seat=False)
+            self.assertTrue(protocol.migration_gate._bootstrap_from_router(1))
+            self.assertTrue(protocol.migration_gate._arm_from_manager(
+                1, 1, 2, b"b" * 32, caller="version-manager"
+            ))
+            self.assertTrue(protocol._arm_migration_for_test(1, now))
+            return protocol
+
+        self.assertIs(
+            settlement.decode_migration_readiness_v1(
+                armed_protocol().migration_readiness_v1()
+            ).boundary_state,
+            settlement.MigrationBoundaryState.NONE,
+        )
+        marker_protocols = []
+        arm_marker = armed_protocol()
+        arm_marker.normal_arm_block_number = now.block_number
+        marker_protocols.append(arm_marker)
+        deadline_marker = armed_protocol()
+        deadline_marker.normal_deadline = now.timestamp + 1
+        marker_protocols.append(deadline_marker)
+        best_marker = armed_protocol()
+        best_marker.normal_best = settlement.candidate(
+            best_marker, now, "readiness-best"
+        )
+        marker_protocols.append(best_marker)
+        for protocol in marker_protocols:
+            row = settlement.decode_migration_readiness_v1(
+                protocol.migration_readiness_v1()
+            )
+            self.assertIs(
+                row.boundary_state, settlement.MigrationBoundaryState.NORMAL
+            )
+            self.assertFalse(row.local_arm_complete)
+        orphan = armed_protocol()
+        orphan.normal_context_id = "orphan"
+        with self.assertRaises(ValueError):
+            orphan.migration_readiness_v1()
+        # Construct the exact current recovery before arming the component.
+        recovering = settlement.protocol(seat=False)
+        recovering.sync(settlement.Clock(
+            now.block_number + 1,
+            settlement.GENESIS_TIMESTAMP + recovering.core.tip_slot
+            + settlement.DELTA_FINAL_LAG + 1,
+        ))
+        self.assertIs(recovering.mode, settlement.Mode.RECOVERY)
+        self.assertTrue(recovering.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(recovering.migration_gate._arm_from_manager(
+            1, 1, 2, b"r" * 32, caller="version-manager"
+        ))
+        self.assertTrue(recovering._arm_migration_for_test(1, now))
+        row = settlement.decode_migration_readiness_v1(
+            recovering.migration_readiness_v1()
+        )
+        self.assertIs(
+            row.boundary_state, settlement.MigrationBoundaryState.RECOVERY
+        )
+        recovering.normal_deadline = now.timestamp + 1
+        with self.assertRaises(ValueError):
+            recovering.migration_readiness_v1()
+
+    def test_post_fee_blob_geometry_and_atomic_failures(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        p = settlement.protocol(
+            seat=False,
+            data_session_required_bond=7,
+            data_session_base_rent_wei=3,
+            data_session_rent_per_published_byte_wei=2,
+            data_session_blob_base_fee_multiplier_bps=7_500,
+            data_session_max_blobs_per_post=2,
+        )
+        owner = addr("fee-owner")
+        session_id = p.next_data_session_id(owner)
+        self.assertEqual(p.open_session(
+            now, owner, 0, expiry, payment=10
+        ), session_id)
+        self.assertEqual(p.data_session_balance, 10)
+        self.assertEqual(p.data_session_live_bond_liability, 7)
+        lengths = (0, 126_972)
+        expected_fee = 843_768
+        self.assertEqual(
+            p.data_session_post_fee(lengths, 2, 3), expected_fee
+        )
+        leaves = (
+            hashlib.sha256(b"exact-post-leaf-0").digest(),
+            hashlib.sha256(b"exact-post-leaf-1").digest(),
+        )
+        posts = tuple(
+            settlement.data_post_for_test(
+                chunk_byte_length=length,
+                salt=f"fee-{index}".encode(),
+            )
+            for index, (leaf, length) in enumerate(zip(leaves, lengths))
+        )
+        hashes = tuple(
+            settlement.kzg_commitment_to_versioned_hash(post.commitment)
+            for post in posts
+        )
+        derived_leaves = tuple(
+            p.derive_data_post(p.sessions[session_id], index, post, blob_hash)[0]
+            for index, (post, blob_hash) in enumerate(zip(posts, hashes))
+        )
+        posted = p.post_data(
+            now,
+            session_id,
+            owner,
+            posts=posts,
+            tx_blob_hashes=hashes,
+            blob_base_fee=3,
+            payment=expected_fee,
+        )
+        self.assertEqual(posted, (
+            0, 2, settlement.model_data_mmr_root(derived_leaves)
+        ))
+        self.assertEqual(p.sessions[session_id].count, 2)
+        self.assertEqual(
+            tuple((event.index, event.canonical_leaf)
+                  for event in p.data_record_events),
+            ((0, derived_leaves[0]), (1, derived_leaves[1])),
+        )
+        self.assertEqual(
+            p.data_session_events[1:],
+            [
+                settlement.DataRecord(
+                    session_id, index, hashes[index], derived_leaves[index]
+                )
+                for index in range(2)
+            ],
+        )
+        self.assertEqual(p.data_session_balance, 10 + expected_fee)
+        self.assertEqual(p.data_session_accounted_liabilities, 7)
+
+        rejected = [
+            dict(posts=posts,
+                 tx_blob_hashes=hashes
+                    + (hashlib.sha256(b"extra").digest(),),
+                 blob_base_fee=3, payment=expected_fee),
+            dict(posts=posts, tx_blob_hashes=hashes,
+                 blob_base_fee=3, payment=expected_fee - 1),
+            dict(posts=posts, tx_blob_hashes=hashes,
+                 blob_base_fee=3, payment=expected_fee + 1),
+            dict(posts=(replace(posts[0], chunk_byte_length=126_973),
+                        posts[1]),
+                 tx_blob_hashes=hashes,
+                 blob_base_fee=3, payment=expected_fee),
+        ]
+        for terms in rejected:
+            before = p.snapshot()
+            before_events = copy.deepcopy(p.data_session_events)
+            with self.assertRaises(settlement.DataSessionRevert):
+                p.post_data(now, session_id, owner, **terms)
+            self.assertTrue(p.identical(before))
+            self.assertEqual(p.data_session_events, before_events)
+
+        overflow = settlement.protocol(
+            seat=False,
+            data_session_rent_per_published_byte_wei=(
+                settlement.SEAT_UINT256_MAX
+            ),
+        )
+        overflow_id = overflow.next_data_session_id(owner)
+        self.assertEqual(overflow.open_session(
+            now, owner, 0, expiry, payment=10
+        ), overflow_id)
+        for length, base_fee in ((2, 0), (0, settlement.SEAT_UINT256_MAX)):
+            before = overflow.snapshot()
+            with self.assertRaises(settlement.DataSessionRevert):
+                overflow.post_data(
+                    now,
+                    overflow_id,
+                    owner,
+                    **self._post_terms(
+                        length=length, blob_base_fee=base_fee, payment=0,
+                    ),
+                )
+            self.assertTrue(overflow.identical(before))
+
+        full_precision = settlement.protocol(
+            seat=False,
+            data_session_blob_base_fee_multiplier_bps=1,
+        )
+        large_base_fee = settlement.SEAT_UINT256_MAX // 20
+        exact = full_precision.data_session_post_fee(
+            (0,), 1, large_base_fee
+        )
+        self.assertLessEqual(exact, settlement.SEAT_UINT256_MAX)
+        self.assertEqual(
+            exact,
+            (131_072 * large_base_fee + 9_999) // 10_000,
+        )
+        structural = settlement.data_post_for_test()
+        self.assertFalse(replace(structural, chunk_count=0).structurally_valid())
+        self.assertTrue(structural.structurally_valid())
+        self.assertTrue(replace(
+            structural, chunk_index=8, chunk_count=9
+        ).structurally_valid())
+        self.assertFalse(replace(
+            structural, chunk_count=10
+        ).structurally_valid())
+
+    def test_ordinary_scan_wrap_and_direct_live_claim_deltas(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        p = settlement.protocol(seat=False, refund_claim_window_seconds=100)
+        for cell in range(8):
+            p._install_data_session_for_test(
+                settlement.DataSession(
+                    f"live-{cell}", f"owner-{cell}",
+                    now.timestamp + 1_000, refundable_bond=1,
+                ),
+                cell,
+            )
+        p._install_data_session_for_test(
+            settlement.DataSession(
+                "later-expired", "later-owner", now.timestamp,
+                refundable_bond=9,
+            ),
+            8,
+        )
+        self.assertEqual(
+            p.gc_sessions(now),
+            (settlement.SESSION_MAINTENANCE_SCANNED, 8, 0, 8),
+        )
+        self.assertEqual(p.gc_cursor, 8)
+        self.assertEqual(
+            p.gc_sessions(now),
+            (settlement.SESSION_MAINTENANCE_SCANNED, 8, 1, 16),
+        )
+        self.assertEqual(p.gc_cursor, 16)
+        self.assertIs(
+            p.session_cells[8].tag, settlement.DataSessionCellTag.REFUND
+        )
+        self.assertEqual(p.session_cells[8].refund_claim_deadline,
+                         now.timestamp + 100)
+        self.assertEqual(p.data_session_events[-2:], [
+            settlement.SessionLiveToRefundEvent(
+                "later-expired", "later-owner", 8,
+                now.timestamp + 100, 0,
+            ),
+            settlement.DataSessionsMaintainedEvent(1, 8, 16, 8, 1),
+        ])
+        refund_view = p.data_session_view("later-expired")
+        self.assertEqual(
+            (refund_view.tag, refund_view.session_id, refund_view.owner,
+             refund_view.refundable_bond, refund_view.refund_claim_deadline),
+            (2, "later-expired", "later-owner", 9, now.timestamp + 100),
+        )
+        self.assertEqual(
+            (refund_view.sequence, refund_view.expiry, refund_view.count,
+             refund_view.sealed, refund_view.root,
+             refund_view.frontier),
+            (0, 0, 0, False, "",
+             tuple(bytes(32) for _ in range(
+                 settlement.DATA_MMR_FRONTIER_DEPTH))),
+        )
+
+        wrapped = settlement.protocol(
+            seat=False, refund_claim_window_seconds=100
+        )
+        wrapped.gc_cursor = 1_020
+        for cell in (1_020, 1_021, 1_022, 1_023, 0, 1, 2, 3):
+            wrapped._install_data_session_for_test(
+                settlement.DataSession(
+                    f"wrap-{cell}", f"wrap-owner-{cell}", now.timestamp,
+                    refundable_bond=1,
+                ),
+                cell,
+            )
+        self.assertEqual(
+            wrapped.gc_sessions(now),
+            (settlement.SESSION_MAINTENANCE_SCANNED, 8, 8, 4),
+        )
+        self.assertEqual(wrapped.gc_cursor, 4)
+        self.assertEqual(
+            (wrapped.session_live_count, wrapped.session_refund_count,
+             wrapped.session_occupied_count),
+            (0, 8, 8),
+        )
+
+        direct = settlement.protocol(
+            seat=False, refund_claim_window_seconds=100
+        )
+        owner = addr("direct-live-owner")
+        session = direct._install_data_session_for_test(
+            settlement.DataSession(
+                "direct-live", owner, now.timestamp, refundable_bond=10
+            ),
+            5,
+        )
+        receiver = settlement.DataSessionBondReceiver(addr("recipient"))
+        self.assertEqual(direct.claim_data_session_refund(
+            settlement.Clock(now.block_number, now.timestamp + 100),
+            session.session_id,
+            owner,
+            receiver,
+        ), 10)
+        self.assertEqual(receiver.balance, 10)
+        self.assertEqual(direct.data_session_events, [
+            settlement.SessionBondClaimedEvent(
+                session.session_id, owner, receiver.address, 10
+            )
+        ])
+        self.assertEqual(
+            (direct.session_live_count, direct.session_refund_count,
+             direct.session_occupied_count,
+             direct.data_session_live_bond_liability,
+             direct.data_session_refund_bond_liability,
+             direct.data_session_balance),
+            (0, 0, 0, 0, 0, 0),
+        )
+        self.assertNotIn(session.session_id, direct.session_cell_by_id)
+        self.assertNotIn(owner, direct.session_owner_live_count)
+
+    def test_point_evaluation_adapter_and_derived_leaf_are_exact(self):
+        self.assertEqual(
+            tuple(tag.value for tag in settlement.DataSessionCellTag),
+            (0, 1, 2),
+        )
+        self.assertEqual(
+            tuple(mode.value for mode in settlement.DataSessionMaintenanceMode),
+            (1, 2, 3),
+        )
+        owner = "0x" + "00" * 18 + "cafe"
+        settlement_address = "0x" + "00" * 18 + "abcd"
+        p = settlement.protocol(
+            seat=False,
+            settlement_address=settlement_address,
+            data_session_protocol_version=1,
+        )
+        p.next_session_sequence = 2
+        session_id = p.next_data_session_id(owner)
+        self.assertEqual(
+            session_id,
+            commitment.session_id(1, 0xABCD, 0xCAFE, 2).hex(),
+        )
+        session = p._install_data_session_for_test(
+            settlement.DataSession(
+                session_id, owner, 9_999, refundable_bond=10, sequence=2
+            ),
+            0,
+        )
+        body = commitment.body_root((b"\x01\x02", b"\x03\x04\x05"))
+        chunk = b"alpha"
+        croot = commitment.chunk_root(body, 0, 0, 2, chunk)
+        post = settlement.DataPost(
+            body, 0, 0, 2, len(chunk), croot, 6,
+            b"c" * 32, b"c" * 16, b"p" * 32, b"p" * 16,
+        )
+        versioned_hash = settlement.kzg_commitment_to_versioned_hash(
+            post.commitment
+        )
+        leaf, z, point_input = p.derive_data_post(
+            session, 0, post, versioned_hash
+        )
+        self.assertEqual(z, commitment.fs_challenge(
+            1, 1, bytes.fromhex(session_id), versioned_hash, body,
+            0, 0, 2, len(chunk), croot, 0xCAFE, 9_999,
+        ))
+        self.assertEqual(leaf, commitment.data_leaf(
+            bytes.fromhex(session_id), 0, versioned_hash, body,
+            0, 0, 2, chunk, 0xCAFE, 9_999, z, 6,
+        ))
+        self.assertEqual(len(point_input), 192)
+        self.assertEqual(point_input[:32], versioned_hash)
+        now = settlement.Clock(1_000, 9_000)
+        self.assertEqual(p.post_data(
+            now, session_id, owner,
+            posts=(post,),
+            tx_blob_hashes=(versioned_hash,),
+            blob_base_fee=0,
+            payment=0,
+        ), (0, 1, commitment.mmr_root((leaf,)).hex()))
+        self.assertEqual(p.sessions[session_id].root,
+                         commitment.mmr_root((leaf,)).hex())
+
+        faults = (
+            settlement.PointEvaluationAdapter(success=False),
+            settlement.PointEvaluationAdapter(return_data=b"s" * 63),
+            settlement.PointEvaluationAdapter(return_data=b"l" * 65),
+            settlement.PointEvaluationAdapter(return_data=b"w" * 64),
+        )
+        for index, adapter in enumerate(faults):
+            broken = settlement.protocol(
+                seat=False, point_evaluation_adapter=adapter
+            )
+            broken_owner = addr(f"point-fault-{index}")
+            expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+            broken_id = broken.next_data_session_id(broken_owner)
+            self.assertEqual(broken.open_session(
+                now, broken_owner, 0, expiry, payment=10
+            ), broken_id)
+            before = broken.snapshot()
+            with self.assertRaises(settlement.DataSessionRevert):
+                broken.post_data(
+                    now, broken_id, broken_owner,
+                    **self._post_terms(),
+                )
+            self.assertTrue(broken.identical(before))
+
+        for forged_post, forged_hash in (
+            (post, bytes((versioned_hash[0] ^ 1,)) + versioned_hash[1:]),
+            (replace(post, commitment_lo=b"d" * 16), versioned_hash),
+        ):
+            before = p.snapshot()
+            before_events = copy.deepcopy(p.data_session_events)
+            with self.assertRaises(settlement.DataSessionRevert):
+                p.post_data(
+                    now, session_id, owner,
+                    posts=(forged_post,),
+                    tx_blob_hashes=(forged_hash,),
+                    blob_base_fee=0,
+                    payment=0,
+                )
+            self.assertTrue(p.identical(before))
+            self.assertEqual(p.data_session_events, before_events)
+
+        bounded = settlement.protocol(seat=False)
+        bounded_owner = addr("bounded-post")
+        bounded_id = bounded.next_data_session_id(bounded_owner)
+        frontier = [bytes(32)
+                    for _ in range(settlement.DATA_MMR_FRONTIER_DEPTH)]
+        root = settlement.data_mmr_root(frontier, 0)
+        for index in range(2_099):
+            frontier, count, root = settlement.append_data_mmr(
+                frontier, index,
+                hashlib.sha256(f"existing-{index}".encode()).digest(),
+            )
+        bounded._install_data_session_for_test(
+            settlement.DataSession(
+                bounded_id, bounded_owner,
+                now.timestamp + settlement.DATA_TTL_SECONDS,
+                refundable_bond=10,
+                count=2_099,
+                frontier=frontier,
+                root=root,
+            ),
+            0,
+        )
+        first = settlement.data_post_for_test(salt=b"cap-0")
+        second = settlement.data_post_for_test(salt=b"cap-1")
+        before = bounded.snapshot()
+        with self.assertRaises(settlement.DataSessionRevert):
+            bounded.post_data(
+                now, bounded_id, bounded_owner,
+                posts=(first, second),
+                tx_blob_hashes=(
+                    settlement.kzg_commitment_to_versioned_hash(first.commitment),
+                    settlement.kzg_commitment_to_versioned_hash(second.commitment),
+                ),
+                blob_base_fee=0,
+                payment=0,
+            )
+        self.assertTrue(bounded.identical(before))
+
+    def test_refund_claim_equality_forfeit_stale_id_and_reentry(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        owner = addr("refund-owner")
+        p = settlement.protocol(seat=False)
+        p._install_data_session_for_test(
+            settlement.DataSession(
+                "refund-at-equality", owner, now.timestamp,
+                refundable_bond=10,
+            ),
+            0,
+            tag=settlement.DataSessionCellTag.REFUND,
+            refund_claim_deadline=now.timestamp + 10,
+        )
+        nested_results = []
+        receiver = settlement.DataSessionBondReceiver(addr("nested-recipient"))
+        def catch_nested_claim(protocol, sid):
+            try:
+                protocol.claim_data_session_refund(
+                    settlement.Clock(now.block_number, now.timestamp + 10),
+                    sid, owner, receiver
+                )
+            except settlement.DataSessionRevert:
+                nested_results.append("REVERT")
+        receiver.callback = catch_nested_claim
+        self.assertEqual(p.claim_data_session_refund(
+            settlement.Clock(now.block_number, now.timestamp + 10),
+            "refund-at-equality", owner, receiver
+        ), 10)
+        self.assertEqual(nested_results, ["REVERT"])
+        self.assertEqual(receiver.balance, 10)
+
+        stale = "refund-after-deadline"
+        q = settlement.protocol(seat=False)
+        q._install_data_session_for_test(
+            settlement.DataSession(
+                stale, owner, now.timestamp, refundable_bond=10
+            ),
+            0,
+            tag=settlement.DataSessionCellTag.REFUND,
+            refund_claim_deadline=now.timestamp + 10,
+        )
+        after = settlement.Clock(now.block_number, now.timestamp + 11)
+        with self.assertRaises(settlement.DataSessionRevert):
+            q.claim_data_session_refund(
+                after, stale, owner,
+                settlement.DataSessionBondReceiver(addr("late")),
+            )
+        self.assertEqual(
+            q.gc_sessions(after),
+            (settlement.SESSION_MAINTENANCE_SCANNED, 8, 1, 8),
+        )
+        self.assertEqual(q.data_session_events[-2:], [
+            settlement.SessionRefundForfeitedEvent(
+                stale, owner, 0, 10
+            ),
+            settlement.DataSessionsMaintainedEvent(1, 0, 8, 8, 1),
+        ])
+        self.assertIs(q.session_cells[0].tag,
+                      settlement.DataSessionCellTag.FREE)
+        self.assertNotIn(stale, q.session_cell_by_id)
+        stale_frontier, stale_count, stale_root = settlement.append_data_mmr(
+            [bytes(32) for _ in range(settlement.DATA_MMR_FRONTIER_DEPTH)],
+            0,
+            hashlib.sha256(b"stale-physical-leaf").digest(),
+        )
+        q.session_cells[0] = settlement.DataSessionCell(
+            settlement.DataSessionCellTag.FREE,
+            settlement.DataSession(
+                "stale-physical", owner, now.timestamp,
+                cell_index=0,
+                count=stale_count,
+                frontier=stale_frontier,
+                root=stale_root,
+                sealed=True,
+            ),
+            0,
+        )
+        q._assert_data_session_state()
+        next_id = q.next_data_session_id(owner)
+        fresh = settlement.protocol(seat=False)
+        fresh.next_session_sequence = q.next_session_sequence
+        self.assertEqual(fresh.next_data_session_id(owner), next_id)
+        self.assertEqual(q.open_session(
+            after, owner, 0, after.timestamp + settlement.DATA_TTL_SECONDS,
+            payment=10,
+        ), next_id)
+        self.assertEqual(fresh.open_session(
+            after, owner, 0, after.timestamp + settlement.DATA_TTL_SECONDS,
+            payment=10,
+        ), next_id)
+        reused = q.sessions[next_id]
+        self.assertEqual(
+            (reused.count, reused.sealed, reused.root, reused.frontier),
+            (0, False,
+             settlement.data_mmr_root(
+                 [bytes(32)
+                  for _ in range(settlement.DATA_MMR_FRONTIER_DEPTH)], 0
+             ),
+             [bytes(32)
+              for _ in range(settlement.DATA_MMR_FRONTIER_DEPTH)]),
+        )
+        terms = self._post_terms(salt=b"reuse")
+        self.assertEqual(
+            q.post_data(after, next_id, owner, **terms),
+            fresh.post_data(after, next_id, owner, **terms),
+        )
+        self.assertEqual(q.sessions[next_id].root,
+                         fresh.sessions[next_id].root)
+        self.assertNotEqual(next_id, stale)
+        with self.assertRaises(settlement.DataSessionRevert):
+            q.post_data(
+                after, stale, owner,
+                **self._post_terms(salt=b"stale"),
+            )
+
+        rollback = settlement.protocol(seat=False)
+        rollback._install_data_session_for_test(
+            settlement.DataSession(
+                "refund-rollback", owner, now.timestamp,
+                refundable_bond=10,
+            ),
+            0,
+            tag=settlement.DataSessionCellTag.REFUND,
+            refund_claim_deadline=now.timestamp + 10,
+        )
+        rejecting = settlement.DataSessionBondReceiver(addr("rejecting"))
+        def mutate_then_revert(protocol, _sid):
+            rejecting.address = addr("mutated-receiver")
+            rejecting.rejects = True
+            protocol.force_data_session_eth(99)
+            protocol.tombstone()
+            raise RuntimeError("receiver revert")
+        rejecting.callback = mutate_then_revert
+        before = rollback.snapshot()
+        before_events = copy.deepcopy(rollback.data_session_events)
+        with self.assertRaises(settlement.DataSessionRevert):
+            rollback.claim_data_session_refund(
+                now, "refund-rollback", owner, rejecting
+            )
+        self.assertTrue(rollback.identical(before))
+        self.assertEqual(rollback.data_session_events, before_events)
+        self.assertEqual(rejecting.balance, 0)
+        self.assertEqual(rejecting.address, addr("rejecting"))
+        self.assertFalse(rejecting.rejects)
+
+    def test_maintenance_status_and_seal_have_exact_sync_boundary(self):
+        lagged = settlement.protocol(seat=False)
+        lagged_clock = settlement.Clock(
+            1_001,
+            settlement.GENESIS_TIMESTAMP + lagged.core.tip_slot
+            + settlement.DELTA_FINAL_LAG + 1,
+        )
+        cursor = lagged.gc_cursor
+        self.assertEqual(
+            lagged.maintain_data_sessions(lagged_clock),
+            (settlement.SESSION_MAINTENANCE_SYNCED, 0, 0, cursor),
+        )
+        self.assertEqual(lagged.gc_cursor, cursor)
+        self.assertIs(lagged.mode, settlement.Mode.RECOVERY)
+
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        armed = settlement.protocol(seat=False)
+        armed._install_data_session_for_test(
+            settlement.DataSession(
+                "armed-live", "armed-owner", now.timestamp + 1_000,
+                refundable_bond=1,
+            ),
+            0,
+        )
+        self.assertTrue(armed.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(armed.migration_gate._arm_from_manager(
+            1, 1, 2, b"a" * 32, caller="version-manager"
+        ))
+        self.assertTrue(armed._arm_migration_for_test(1, now))
+        self.assertEqual(
+            armed.maintain_data_sessions(now),
+            (settlement.SESSION_MAINTENANCE_SYNCED, 0, 0, 8),
+        )
+        self.assertEqual(armed.gc_cursor, 8)
+        self.assertIs(armed.session_cells[0].tag,
+                      settlement.DataSessionCellTag.REFUND)
+
+        sealed = settlement.protocol(seat=False)
+        owner = addr("seal-owner")
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        session_id = sealed.next_data_session_id(owner)
+        self.assertEqual(sealed.open_session(
+            now, owner, 0, expiry, payment=10
+        ), session_id)
+        post_result = sealed.post_data(
+            now, session_id, owner, **self._post_terms()
+        )
+        self.assertEqual(post_result[:2], (0, 1))
+        cursor = sealed.gc_cursor
+        self.assertEqual(
+            sealed.seal_session(lagged_clock, session_id, owner),
+            (1, post_result[2], expiry),
+        )
+        self.assertIsInstance(
+            sealed.data_session_events[-1], settlement.SessionSealedEvent
+        )
+        self.assertEqual(sealed.gc_cursor, cursor)
+        self.assertIs(sealed.mode, settlement.Mode.NORMAL)
+
+    def test_post_and_seal_expiry_boundary_is_strict(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        owner = addr("expiry-owner")
+        for offset in (-1, 0, 1):
+            p = settlement.protocol(seat=False)
+            session_id = p.next_data_session_id(owner)
+            self.assertEqual(p.open_session(
+                now, owner, 0, expiry, payment=10
+            ), session_id)
+            boundary = settlement.Clock(
+                now.block_number + 1, expiry + offset
+            )
+            if offset < 0:
+                post_result = p.post_data(
+                    boundary, session_id, owner, **self._post_terms()
+                )
+                self.assertEqual(post_result[:2], (0, 1))
+            else:
+                with self.assertRaises(settlement.DataSessionRevert):
+                    p.post_data(
+                        boundary, session_id, owner, **self._post_terms()
+                    )
+                # Give SEAL a nonempty live sidecar without changing expiry.
+                session = p.sessions[session_id]
+                leaf = hashlib.sha256(b"fixture-seal-leaf").digest()
+                session.frontier, session.count, session.root = (
+                    settlement.append_data_mmr(
+                        session.frontier, session.count, leaf
+                    )
+                )
+            if offset < 0:
+                self.assertEqual(
+                    p.seal_session(boundary, session_id, owner),
+                    (1, post_result[2], expiry),
+                )
+            else:
+                with self.assertRaises(settlement.DataSessionRevert):
+                    p.seal_session(boundary, session_id, owner)
+
+    def test_migration_1024_live_to_refund_in_exactly_128_calls(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        p = settlement.protocol(
+            seat=False, refund_claim_window_seconds=100
+        )
+        p.gc_cursor = 73
+        for cell in range(settlement.MAX_LIVE_DATA_SESSIONS):
+            p._install_data_session_for_test(
+                settlement.DataSession(
+                    f"migration-{cell}", f"sybil-{cell}",
+                    now.timestamp + 10_000, refundable_bond=1,
+                ),
+                cell,
+            )
+        self.assertEqual(p.session_live_count, 1_024)
+        self.assertEqual(p.session_occupied_count, 1_024)
+        self.assertTrue(p.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(p.migration_gate._arm_from_manager(
+            1, 1, 2, b"m" * 32, caller="version-manager"
+        ))
+        self.assertTrue(p._arm_migration_for_test(1, now))
+        deadline = p.migration_refund_claim_deadline
+        for call in range(128):
+            self.assertNotEqual(p.migration_gate.mode, "READY")
+            self.assertTrue(p._sync_migration(settlement.Clock(
+                now.block_number + call, now.timestamp
+            )))
+        self.assertEqual(p.migration_gate.mode, "READY")
+        self.assertEqual(p.gc_cursor, 73)
+        self.assertEqual(
+            (p.session_live_count, p.session_refund_count,
+             p.session_occupied_count,
+             p.data_session_live_bond_liability,
+             p.data_session_refund_bond_liability),
+            (0, 1_024, 1_024, 0, 1_024),
+        )
+        migration_events = [
+            event for event in p.data_session_events
+            if isinstance(event, settlement.SessionLiveToRefundEvent)
+        ]
+        maintenance_events = [
+            event for event in p.data_session_events
+            if isinstance(event, settlement.DataSessionsMaintainedEvent)
+        ]
+        self.assertEqual(len(migration_events), 1_024)
+        self.assertEqual(len(maintenance_events), 128)
+        self.assertTrue(all(
+            event.migration_generation == 1
+            for event in migration_events
+        ))
+        self.assertTrue(all(
+            event.mode == settlement.DataSessionMaintenanceMode.MIGRATION.value
+            and event.inspected == 8
+            for event in maintenance_events
+        ))
+        self.assertEqual(len(p.session_cell_by_id), 1_024)
+        self.assertFalse(p.session_owner_live_count)
+        self.assertTrue(all(
+            cell.tag is settlement.DataSessionCellTag.REFUND
+            and cell.refund_claim_deadline == deadline
+            for cell in p.session_cells
+        ))
+        self.assertEqual(p.gc_sessions(settlement.Clock(
+            now.block_number + 200, deadline + 1
+        )), (settlement.SESSION_MAINTENANCE_SCANNED, 8, 8, 81))
+        self.assertEqual(p.session_refund_count, 1_016)
+
+    def test_production_arm_freezes_deadline_before_live_cleanup_and_rolls_back(self):
+        arm_clock = settlement.Clock(
+            1_000, settlement.GENESIS_TIMESTAMP + 2_000
+        )
+        rows = production_migration_fixture()
+        old_protocol, manager = rows[0], rows[4]
+        old_protocol._install_data_session_for_test(
+            settlement.DataSession(
+                "arm-live", "arm-owner", arm_clock.timestamp + 1_000,
+                refundable_bond=1,
+            ),
+            0,
+        )
+        execute_manager_arm(manager, arm_clock)
+        self.assertEqual(old_protocol.migration_refund_generation, 1)
+        self.assertGreater(old_protocol.migration_refund_claim_deadline,
+                           arm_clock.timestamp)
+        self.assertIs(old_protocol.session_cells[0].tag,
+                      settlement.DataSessionCellTag.REFUND)
+        self.assertEqual(old_protocol.migration_gate.mode, "ARMED")
+        self.assertTrue(old_protocol._local_migration_arm_complete(False))
+        self.assertTrue(old_protocol.sync(arm_clock))
+        self.assertEqual(old_protocol.migration_gate.mode, "READY")
+        self.assertTrue(
+            old_protocol.migration_gate._ready_views_valid_for_activation(
+                old_protocol
+            )
+        )
+
+        failed_rows = production_migration_fixture()
+        failed, failed_manager = failed_rows[0], failed_rows[4]
+        failed._install_data_session_for_test(
+            settlement.DataSession(
+                "fault-live", "fault-owner", arm_clock.timestamp + 1_000,
+                refundable_bond=1,
+            ),
+            0,
+        )
+        failed.seat_fault_point = "after_local_migration_arm"
+        before = failed.snapshot()
+        with self.assertRaises(RuntimeError):
+            execute_manager_arm(failed_manager, arm_clock)
+        self.assertTrue(failed.identical(before))
+        self.assertEqual(failed.migration_refund_generation, 0)
+        self.assertEqual(failed.migration_refund_claim_deadline, 0)
+        self.assertIs(failed.session_cells[0].tag,
+                      settlement.DataSessionCellTag.LIVE)
+
+    def test_migration_deadline_boundary_abort_and_live_claim(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        p = settlement.protocol(
+            seat=False, refund_claim_window_seconds=100
+        )
+        owner = addr("boundary-owner")
+        p._install_data_session_for_test(
+            settlement.DataSession(
+                "boundary-live", owner, now.timestamp - 1,
+                refundable_bond=10,
+            ),
+            0,
+        )
+        p.normal_deadline = now.timestamp + 500
+        p.normal_arm_block_number = now.block_number
+        self.assertTrue(p.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(p.migration_gate._arm_from_manager(
+            1, 1, 2, b"m" * 32, caller="version-manager"
+        ))
+        self.assertTrue(p._arm_migration_for_test(1, now))
+        self.assertEqual(
+            p.migration_refund_claim_deadline, now.timestamp + 600
+        )
+        receiver = settlement.DataSessionBondReceiver(addr("boundary-recipient"))
+        with self.assertRaises(settlement.DataSessionRevert):
+            p.claim_data_session_refund(
+                now, "boundary-live", owner, receiver
+            )
+        self.assertEqual(p.session_live_count, 1)
+        p._clear_normal()
+        equality = settlement.Clock(
+            now.block_number + 1, p.migration_refund_claim_deadline
+        )
+        self.assertEqual(p.claim_data_session_refund(
+            equality, "boundary-live", owner, receiver
+        ), 10)
+        self.assertEqual(p.session_live_count, 0)
+        self.assertEqual(p.session_refund_count, 0)
+
+        saturated = settlement.protocol(seat=False)
+        saturated.normal_deadline = settlement.UINT64_MAX
+        saturated.normal_arm_block_number = now.block_number
+        self.assertTrue(saturated.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(saturated.migration_gate._arm_from_manager(
+            1, 1, 2, b"s" * 32, caller="version-manager"
+        ))
+        self.assertTrue(saturated._arm_migration_for_test(1, now))
+        self.assertEqual(
+            saturated.migration_refund_claim_deadline,
+            settlement.UINT64_MAX,
+        )
+
+        partial = settlement.protocol(seat=False)
+        partial.gc_cursor = 100
+        for cell in range(100, 116):
+            partial._install_data_session_for_test(
+                settlement.DataSession(
+                    f"partial-{cell}", f"partial-owner-{cell}",
+                    now.timestamp + 1_000, refundable_bond=1,
+                ),
+                cell,
+            )
+        self.assertTrue(partial.migration_gate._bootstrap_from_router(1))
+        self.assertTrue(partial.migration_gate._arm_from_manager(
+            1, 1, 2, b"p" * 32, caller="version-manager"
+        ))
+        self.assertTrue(partial._arm_migration_for_test(1, now))
+        self.assertTrue(partial._sync_migration(now))
+        retained_deadline = partial.migration_refund_claim_deadline
+        self.assertEqual(
+            (partial.session_live_count, partial.session_refund_count),
+            (8, 8),
+        )
+        self.assertTrue(partial.migration_gate._abort_from_manager(
+            1, 1, 2, b"p" * 32,
+            cancel_manifest_active=True,
+            caller="version-manager",
+        ))
+        self.assertEqual(
+            (partial.session_live_count, partial.session_refund_count),
+            (8, 8),
+        )
+        self.assertTrue(all(
+            partial.session_cells[cell].refund_claim_deadline
+                == retained_deadline
+            for cell in range(100, 108)
+        ))
+        self.assertTrue(all(
+            partial.session_cells[cell].tag
+                is settlement.DataSessionCellTag.LIVE
+            for cell in range(108, 116)
+        ))
+
+    def test_bounded_sybil_cycles_surplus_and_sink_rollback(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        p = settlement.protocol(
+            seat=False, refund_claim_window_seconds=1
+        )
+        for cycle in range(2):
+            expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+            for cell in range(settlement.MAX_LIVE_DATA_SESSIONS):
+                owner = f"cycle-{cycle}-owner-{cell}"
+                self.assertNotEqual(p.open_session(
+                    now, owner, cell, expiry, payment=10
+                ), "REJECTED")
+            self.assertLessEqual(len(p.session_cell_by_id), 1_024)
+            self.assertFalse(hasattr(p, "data_session_claimable"))
+            conversion = settlement.Clock(
+                now.block_number + 1, expiry
+            )
+            for _ in range(129):
+                p.gc_sessions(conversion)
+                if p.session_live_count == 0:
+                    break
+            self.assertFalse(p.session_owner_live_count)
+            forfeiture = settlement.Clock(
+                now.block_number + 2, expiry + 2
+            )
+            for _ in range(129):
+                p.gc_sessions(forfeiture)
+                if p.session_occupied_count == 0:
+                    break
+            self.assertEqual(p.session_occupied_count, 0)
+            self.assertFalse(p.session_cell_by_id)
+            self.assertEqual(p.data_session_accounted_liabilities, 0)
+        self.assertEqual(p.data_session_balance, 20_480)
+        self.assertTrue(p.force_data_session_eth(5))
+
+        nested = []
+        def catch_nested_sweep(protocol):
+            try:
+                protocol.sweep_session_surplus()
+            except settlement.DataSessionRevert:
+                nested.append("REVERT")
+        p.data_rent_sink.callback = catch_nested_sweep
+        self.assertEqual(p.sweep_session_surplus(), 20_485)
+        self.assertEqual(nested, ["REVERT"])
+        self.assertEqual(p.data_rent_sink.balance, 20_485)
+        self.assertEqual(
+            p.data_session_events[-1],
+            settlement.SessionSurplusSweptEvent(
+                p.data_rent_sink.address, 20_485
+            ),
+        )
+
+        failing_sink = settlement.DataRentSink("failing-sink")
+        q = settlement.protocol(seat=False, data_rent_sink=failing_sink)
+        q.force_data_session_eth(100)
+        def mutate_sink_then_revert(protocol):
+            failing_sink.address = "mutated-sink"
+            failing_sink.rejects = True
+            protocol.force_data_session_eth(7)
+            protocol.tombstone()
+            raise RuntimeError("sink revert")
+        failing_sink.callback = mutate_sink_then_revert
+        before = q.snapshot()
+        before_events = copy.deepcopy(q.data_session_events)
+        with self.assertRaises(settlement.DataSessionRevert):
+            q.sweep_session_surplus()
+        self.assertTrue(q.identical(before))
+        self.assertEqual(q.data_session_events, before_events)
+        self.assertEqual(failing_sink.balance, 0)
+        self.assertEqual(failing_sink.address, "failing-sink")
+        self.assertFalse(failing_sink.rejects)
+
+        equal = settlement.protocol(seat=False)
+        owner = addr("equal-solvency")
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        self.assertNotEqual(equal.open_session(
+            now, owner, 0, expiry, payment=10
+        ), "REJECTED")
+        self.assertEqual(equal.sweep_session_surplus(), 0)
+        equal.data_session_balance -= 1
+        with self.assertRaises(settlement.DataSessionRevert):
+            equal.sweep_session_surplus()
+        with self.assertRaises(settlement.DataSessionRevert):
+            equal.claim_data_session_refund(
+                now, "missing", owner,
+                settlement.DataSessionBondReceiver(addr("insolvent")),
+            )
+
+    def test_preactive_target_is_exactly_empty_and_public_mutators_do_nothing(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        shared = settlement.MigrationGate()
+        base = settlement.protocol(seat=False)
+        target = settlement.Protocol(
+            base.canonical,
+            base.header_oracle,
+            base.forced_queue,
+            base.inbox_apply_router,
+            settlement_address="preactive-target",
+            mode=settlement.Mode.PREACTIVE,
+            migration_gate=shared,
+            data_session_balance=77,
+        )
+        before = target.snapshot()
+        with self.assertRaises(settlement.DataSessionRevert):
+            target.open_session(
+                now, addr("preactive"), 0,
+                now.timestamp + settlement.DATA_TTL_SECONDS,
+                payment=10,
+            )
+        with self.assertRaises(settlement.DataSessionRevert):
+            target.post_data(
+                now, "00" * 32, addr("preactive"),
+                **self._post_terms(salt=b"preactive"),
+            )
+        with self.assertRaises(settlement.DataSessionRevert):
+            target.seal_session(now, "00" * 32, addr("preactive"))
+        self.assertEqual(target.gc_sessions(now), (0, 0, 0, 0))
+        with self.assertRaises(settlement.DataSessionRevert):
+            target.claim_data_session_refund(
+                now, "00" * 32, addr("preactive"),
+                settlement.DataSessionBondReceiver(addr("recipient")),
+            )
+        with self.assertRaises(settlement.DataSessionRevert):
+            target.sweep_session_surplus()
+        self.assertEqual(target.data_rent_sink.balance, 0)
+        self.assertTrue(target.identical(before))
+        self.assertEqual(target.data_session_balance, 77)
+
+        dirty = settlement.protocol(seat=False)
+        dirty.session_cells[0] = settlement.DataSessionCell(
+            settlement.DataSessionCellTag.LIVE,
+            settlement.DataSession(
+                "dirty", "dirty-owner", now.timestamp,
+                cell_index=0,
+            ),
+        )
+        with self.assertRaises(ValueError):
+            dirty.__post_init__()
+
+    def test_exact_session_view_abis_mask_union_words(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        p = settlement.protocol(seat=False)
+        free_raw = p.data_session_cell_v1(0)
+        miss_raw = p.data_session_by_id_v1("00" * 32)
+        self.assertEqual(len(free_raw), 704)
+        self.assertEqual(len(miss_raw), 320)
+        self.assertEqual(
+            settlement.decode_data_session_cell_v1(free_raw),
+            settlement.DataSessionCellAbiV1(),
+        )
+        self.assertEqual(
+            settlement.decode_data_session_by_id_v1(miss_raw),
+            settlement.DataSessionByIdAbiV1(),
+        )
+
+        owner = "0x" + "12" * 20
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        session_id = p.next_data_session_id(owner)
+        self.assertEqual(
+            p.open_session(now, owner, 0, expiry, payment=10), session_id
+        )
+        post_result = p.post_data(
+            now, session_id, owner, **self._post_terms(salt=b"view-live")
+        )
+        live_cell = settlement.decode_data_session_cell_v1(
+            p.data_session_cell_v1(0)
+        )
+        live_by_id = settlement.decode_data_session_by_id_v1(
+            p.data_session_by_id_v1(session_id)
+        )
+        self.assertEqual(
+            (live_cell.tag, live_cell.session_id, live_cell.owner,
+             live_cell.count, live_cell.root, live_cell.claim_deadline),
+            (1, bytes.fromhex(session_id), bytes.fromhex("12" * 20),
+             1, bytes.fromhex(post_result[2]), 0),
+        )
+        self.assertEqual(
+            (live_by_id.cell_plus_one, live_by_id.tag, live_by_id.count,
+             live_by_id.root),
+            (1, 1, 1, bytes.fromhex(post_result[2])),
+        )
+
+        p._live_to_refund(0, expiry + 100)
+        refund_cell = settlement.decode_data_session_cell_v1(
+            p.data_session_cell_v1(0)
+        )
+        refund_by_id = settlement.decode_data_session_by_id_v1(
+            p.data_session_by_id_v1(session_id)
+        )
+        self.assertEqual(
+            (refund_cell.tag, refund_cell.session_id, refund_cell.owner,
+             refund_cell.sequence, refund_cell.expiry, refund_cell.count,
+             refund_cell.sealed, refund_cell.root, refund_cell.peaks,
+             refund_cell.bond_wei, refund_cell.claim_deadline),
+            (2, bytes.fromhex(session_id), bytes.fromhex("12" * 20),
+             0, 0, 0, False, bytes(32),
+             tuple(bytes(32) for _ in range(12)), 10, expiry + 100),
+        )
+        self.assertEqual(
+            (refund_by_id.cell_plus_one, refund_by_id.tag,
+             refund_by_id.sequence, refund_by_id.expiry,
+             refund_by_id.count, refund_by_id.sealed, refund_by_id.root,
+             refund_by_id.bond_wei, refund_by_id.claim_deadline),
+            (1, 2, 0, 0, 0, False, bytes(32), 10, expiry + 100),
+        )
+        accounting_raw = p.data_session_accounting_v1()
+        accounting = settlement.decode_data_session_accounting_v1(
+            accounting_raw
+        )
+        self.assertEqual(len(accounting_raw), 384)
+        self.assertEqual(
+            (accounting.live_count, accounting.refund_count,
+             accounting.occupied_count, accounting.live_bond_liability,
+             accounting.refund_bond_liability),
+            (0, 1, 1, 0, 10),
+        )
+        self.assertEqual(
+            accounting.data_session_config_hash,
+            p.data_session_config_hash_v1(),
+        )
+        for raw, decoder, padding_offset in (
+            (free_raw, settlement.decode_data_session_cell_v1, 0),
+            (miss_raw, settlement.decode_data_session_by_id_v1, 0),
+            (accounting_raw, settlement.decode_data_session_accounting_v1, 4),
+        ):
+            for malformed in (raw[:-1], raw + b"\x00"):
+                with self.assertRaises(ValueError):
+                    decoder(malformed)
+            mutated = bytearray(raw)
+            mutated[padding_offset] ^= 1
+            with self.assertRaises(ValueError):
+                decoder(bytes(mutated))
+
+    def test_historical_and_ready_refund_only_maintenance(self):
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        ready = settlement.protocol(seat=False)
+        ready.migration_gate.mode = "READY"
+        ready._install_data_session_for_test(
+            settlement.DataSession(
+                "ready-refund", "ready-owner", now.timestamp,
+                refundable_bond=1,
+            ),
+            0,
+            tag=settlement.DataSessionCellTag.REFUND,
+            refund_claim_deadline=now.timestamp,
+        )
+        self.assertEqual(ready.gc_sessions(settlement.Clock(
+            now.block_number + 1, now.timestamp + 1
+        )), (settlement.SESSION_MAINTENANCE_SCANNED, 8, 1, 8))
+
+        rows = production_migration_fixture()
+        old_protocol = rows[0]
+        activate_production_fixture(rows)
+        self.assertEqual(rows[1].mode, "FROZEN")
+        old_protocol._install_data_session_for_test(
+            settlement.DataSession(
+                "historical-refund", "historical-owner", now.timestamp,
+                refundable_bond=1,
+            ),
+            0,
+            tag=settlement.DataSessionCellTag.REFUND,
+            refund_claim_deadline=now.timestamp,
+        )
+        self.assertEqual(old_protocol.gc_sessions(settlement.Clock(
+            now.block_number + 1, now.timestamp + 1
+        )), (settlement.SESSION_MAINTENANCE_SCANNED, 8, 1, 8))
+        self.assertEqual(old_protocol.session_occupied_count, 0)
+
+    def test_session_refs_are_strictly_sorted_and_unique(self):
+        p = settlement.protocol(seat=False)
+        now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        expiry = now.timestamp + settlement.DATA_TTL_SECONDS
+        session_ids = []
+        for owner in (addr("ref-a"), addr("ref-b")):
+            session_id = p.next_data_session_id(owner)
+            self.assertEqual(p.open_session(
+                now, owner, len(session_ids), expiry, payment=10
+            ), session_id)
+            post_result = p.post_data(
+                now,
+                session_id,
+                owner,
+                **self._post_terms(salt=f"body-{owner}".encode()),
+            )
+            self.assertEqual(post_result[:2], (0, 1))
+            self.assertEqual(
+                p.seal_session(now, session_id, owner),
+                (1, post_result[2], expiry),
+            )
+            session_ids.append(session_id)
+        refs = tuple(sorted((
+            settlement.SessionRef(
+                session_id,
+                p.sessions[session_id].count,
+                p.sessions[session_id].root,
+            ) for session_id in session_ids
+        ), key=lambda row: row.session_id))
+        candidate = settlement.candidate(p, now, "sorted-refs")
+        self.assertTrue(p._sessions_ok(
+            replace(candidate, session_refs=refs), now
+        ))
+        self.assertFalse(p._sessions_ok(
+            replace(candidate, session_refs=tuple(reversed(refs))), now
+        ))
+        self.assertFalse(p._sessions_ok(
+            replace(candidate, session_refs=(refs[0], refs[0])), now
+        ))
 
 
 if __name__ == "__main__":

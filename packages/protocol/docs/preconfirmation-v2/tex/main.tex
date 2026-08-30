@@ -228,8 +228,10 @@ recovery but does not weaken proof soundness or permissionless submission.
 
 \section{Clock domains and canonical state}\label{sec:state}
 
-Before activation, Settlement is in \code{PREACTIVE}; candidate submission is
-disabled and slot arithmetic saturates.  L2 slot zero is fixed by
+Before activation, Settlement is in \code{PREACTIVE}; candidate submission,
+session open/post/seal and every other target-local state mutation are disabled,
+and slot arithmetic saturates.  Off-chain data preparation may proceed but
+cannot create a target session.  L2 slot zero is fixed by
 \code{GENESIS_TIMESTAMP}, with
 \begin{center}
 \code{currentL2Slot = max(0, block.timestamp - GENESIS_TIMESTAMP)}.
@@ -298,8 +300,11 @@ the stored canonical state and anchor back together.  Initial values and bridge
 cursors are migration inputs in
 \S\ref{sec:implementation}.
 
-Every state-mutating external entry point begins with \code{sync()}.  If
-\code{sync()} changes mode or commits a mature normal candidate, the wrapper
+Every canonical or ordinary new-work state-mutating entry point begins with
+\code{sync()}, except the exact DataSession open/post/seal sidecars, claims,
+surplus sweep and mode-specific maintenance frozen in \S\ref{sec:data}.  If
+\code{sync()} changes mode or commits a mature normal candidate, a wrapper that
+uses this rule
 \must return \code{SYNCED} successfully before parsing or validating the
 caller's candidate.  The caller resubmits against the new version.  This rule is
 necessary because a later Solidity revert would otherwise roll back the sync
@@ -750,17 +755,317 @@ promise and returns omitted transactions to the mempool.
 Data is posted into publisher-owned, bonded sessions.  A session ID is
 \begin{verbatim}
 H("slot-chain-session-v1" || u256(settlementChainId) || address20(contract) ||
-  address20(owner) || u64(ownerNonce))
+  address20(owner) || u64(sessionSequence))
 \end{verbatim}
-At most two sessions per owner and 1,024
-globally may be live; each contains at most 2,100 records.  Opening uses the
-first free ring cell after at most \code{MAX_GC_STEPS=8} deterministic expiry
-checks from a persistent cursor; callers may run bounded maintenance repeatedly.
-No call scans or clears all 1,024 cells.  A full live ring rejects discretionary
-publication but cannot block the forced/escape lane.  Dynamic rent, charged for
-the entire TTL and burned into local accounting, prices global occupancy.  A
-Sybil willing to rent every cell can censor this optional DA market for one TTL;
-this is an explicit residual, not a protocol-liveness claim.
+The contract stores one checked \code{uint64 nextSessionSequence}, initially
+zero.  A successful open uses \code{s=nextSessionSequence}, requires
+\code{s<UINT64_MAX}, derives and returns the ID above, then stores \code{s+1}.
+The caller supplies neither ID nor sequence, and a rejected or no-cell open
+does not consume one.  Sequence \code{UINT64_MAX} is the explicit exhaustion
+sentinel.  The sequence is global rather than per owner: a Sybil cannot create
+permanent nonce keys, while the owner and Settlement address in the preimage
+prevent cross-owner and cross-release aliases.  A fresh migration target starts
+at zero; the retired source retains its historical sequence.
+
+DataSession is a bounded storage region of the immutable Settlement, and the
+contract address in the ID above is that Settlement.  Settlement accepts native
+ETH only through the session open/post surfaces and has no Queue, reward,
+Market, Bridge or other native liability; each of those custodians is a separate
+account.  Its configuration binds the shared migration gate and immutable
+top-level \code{dataRent} sink.  Every other payable selector, fallback and
+receive path rejects, and conformance tests exercise \code{msg.value>0} against
+every such selector.  This exclusive custody makes the balance invariant and
+surplus calculation complete without a cross-contract caller-supplied
+``pinned'' or ``boundary closed'' flag.
+
+The profile/runtime geometry is exact: 1,024 physical cells, at most two LIVE
+cells per owner, 2,100 records per LIVE cell, at most six blobs per post, eight
+maintenance inspections and an 86,400-second maximum TTL.  Each cell has one
+exact semantic tag \code{FREE=0}, \code{LIVE=1} or \code{REFUND=2}.  Storage is exactly
+\code{cells[1024]}, an ID-to-cell-plus-one mapping with at most one key per
+non-FREE cell, a live-owner-count mapping containing only owners with at least
+one LIVE cell, checked \code{liveCount}, \code{refundCount},
+\code{occupiedCount=liveCount+refundCount<=1024}, and \code{gcCursor}.  A
+REFUND cell stores only \code{(sessionId,owner,bondWei,claimDeadline)}; its old
+MMR words are stale and ignored.  Clearing a cell deletes its ID key, and
+removing an owner's last LIVE cell deletes its owner key.  No refund or
+historical-owner mapping exists.
+The three counters and cursor are \code{uint16}; owner LIVE counts are also
+\code{uint16} and never exceed two.  PREACTIVE and historical Settlements have
+zero local LIVE count.  OPEN increments local LIVE and occupied by one;
+LIVE-to-REFUND decrements local LIVE and increments refund without
+changing occupied; REFUND-to-FREE decrements refund and occupied.  No other
+transition changes those fields.  An eligible owner claim directly from LIVE
+executes those two logical transitions atomically: its net effect decrements
+local LIVE and occupied, deletes the owner/ID entries, and reduces LIVE
+liability and balance by the same bond; refund count and liability have net zero
+change.
+
+There is deliberately no Router/global LIVE counter and therefore no
+cross-contract write on OPEN, claim or maintenance.  The Router authenticates
+exactly one current Settlement.  Inductively, a PREACTIVE target begins with
+zero LIVE cells; only the current ACTIVE Settlement may open one; READY requires
+that source's local LIVE count zero; and cutover freezes that zero-LIVE source
+before making the zero-LIVE target current.  Abort leaves the same source
+current and never activates the target.  The generation-authenticated READY
+handshake and activation-time static reads below close this induction.
+
+The direct sidecars authenticate that premise through one exact bounded Router
+read, never through a caller-supplied flag:
+\begin{verbatim}
+activeSettlementStateV1() returns
+  (bytes4 magic,address activeSettlement,uint64 generation,
+   uint64 activeProtocolVersion,uint64 targetProtocolVersion,
+   bytes32 targetManifestHash,uint8 phase)
+\end{verbatim}
+The magic is \code{0x41535231} (ASCII \code{ASR1}), phases are exactly
+ACTIVE=0, ARMED=1 and READY=2, and returndata is exactly 224 bytes with
+canonical ABI padding.  OPEN, POST and SEAL read the immutable Router with an
+exact 50,000-gas static call.  They reject revert/OOG/short/trailing or
+noncanonical data, and require the returned active address to equal this
+Settlement, the returned active version to equal its immutable protocol version
+and phase ACTIVE.  ACTIVE requires the returned target version and manifest to be
+canonical zero; ARMED and READY require both nonzero.  This check and the
+session mutation share one EVM revert domain.
+
+Payable \code{openSession(uint16 expectedEmptyCell,uint64 expiry)} neither calls
+\code{sync} nor performs GC.  It requires the current non-PREACTIVE component,
+the shared gate ACTIVE, \code{expectedEmptyCell<1024}, that exact tag FREE,
+owner/live/sequence capacity and the exact profile-priced value.  It derives and
+returns the session ID and increments the global sequence only on success.
+Every failure reverts, returning value and preserving sequence, cursor, cells
+and liabilities.  A cell-hint race therefore costs the winner the full rent and
+bond but gives no identity authority.  Payable \code{postData} follows the same
+sidecar rule: it checks current target and ACTIVE directly and reverts on every
+failure; it does not run a canonical transition while holding caller value.
+
+The native-value split is exact.  The symbols below name these exact profile
+fields:
+\begin{verbatim}
+BOND     = refundableBondWei
+BASE     = baseRentWei
+BYTE     = rentPerPublishedByteWei
+BLOB_BPS = blobBaseFeeMultiplierBps
+\end{verbatim}
+The profile requires
+\code{BLOB\_BPS<=10000}.  Opening requires checked
+\code{msg.value=BOND+BASE}; only \code{BOND} increments the LIVE liability and
+\code{BASE} is immediately surplus.  A post with $n$ manifests requires
+$1\le n\le\min(6,2100-count)$, nonzero \code{BLOBHASH(i)} for every $i<n$ and
+\code{BLOBHASH(n)=0}, so the manifest array is in one-to-one order-preserving
+correspondence with every blob in that transaction.  Define
+\begin{verbatim}
+publishedBytes = sum(manifest[i].chunkByteLength)
+blobGasUsed    = 131072 * n
+blobWeight     = blobGasUsed * BLOB_BPS
+blobSurcharge =
+  mulDivUp(blobWeight, block.blobbasefee, 10000)
+postRent       = publishedBytes * BYTE + blobSurcharge
+\end{verbatim}
+over mathematical nonnegative integers; \code{mulDivUp(a,b,d)} is exactly
+$\lceil ab/d\rceil$ using a full 512-bit product and reverts if the result does
+not fit \code{uint256}.  L1 checks the declared
+\code{chunkByteLength<=126972}, but cannot read or decode blob contents.  The
+validity circuit later checks the blob's length prefix, zero padding, decoded
+bytes and computed chunk root against that declaration.  The implementation
+must produce the exact ceiling
+without an intermediate-width approximation and then require every result and
+\code{postRent} to fit \code{uint256}; otherwise it reverts.  The post requires
+\code{msg.value==postRent}; underpayment and overpayment both revert.  All post
+value is immediately surplus and never enters either bond liability.  Zero-byte
+padding still consumes a whole blob and therefore its whole blob-gas surcharge.
+Any blob/KZG/MMR/value/arithmetic failure rolls back the complete call, including
+the value, record count, peaks and emitted events.
+
+The externally callable surface is frozen below.  \code{DataPostV1} is the
+static tuple
+\begin{verbatim}
+(bytes32 fullBodyRoot, uint16 blockOrdinal, uint16 chunkIndex,
+ uint16 chunkCount, uint32 chunkByteLength, bytes32 chunkRoot, bytes32 y,
+ bytes32 commitmentHi, bytes16 commitmentLo,
+ bytes32 proofHi, bytes16 proofLo)
+\end{verbatim}
+where concatenating each high/low pair yields exactly 48 bytes; \code{bytes16}
+ABI right-padding must be zero.  The expanded selectors and returns are:
+\begin{verbatim}
+openSession(uint16,uint64) payable returns (bytes32 sessionId)
+postData(bytes32,(bytes32,uint16,uint16,uint16,uint32,bytes32,bytes32,
+  bytes32,bytes16,bytes32,bytes16)[]) payable
+  returns (uint16 firstRecordIndex,uint16 newCount,bytes32 newRoot)
+sealSession(bytes32) returns (uint16 count,bytes32 root,uint64 expiry)
+maintainDataSessions() returns
+  (uint8 status,uint8 inspected,uint8 changed,uint16 nextCursor)
+claimSessionBond(bytes32,address) returns (uint256 amount)
+sweepSessionSurplus() returns (uint256 amount)
+\end{verbatim}
+Open, post and seal are direct session sidecars: none calls \code{sync} or moves
+the maintenance cursor, all recheck current Settlement and ACTIVE, and every
+invalid input or state reverts.  POST and SEAL additionally require
+\code{block.timestamp<expiry}; equality is already expired and is eligible for
+ordinary conversion or a direct claim.  Seal also requires a nonempty unsealed
+LIVE session owned by the caller.  Maintenance status is exact: NOOP=0,
+SYNCED=1 and SCANNED=2.  Current ACTIVE first invokes \code{sync}; if it changes
+state the call returns SYNCED without a separate scan, otherwise it performs an
+ordinary exact scan and returns SCANNED.  Current ARMED returns the result of
+its sync-owned migration work as SYNCED, or NOOP while a boundary remains open.
+READY/FROZEN and historical components perform only the overdue-REFUND scan;
+PREACTIVE returns NOOP.  SCANNED reports eight inspections, while the other
+statuses report zero explicit maintenance inspections even if ARMED \code{sync}
+performed its separately accounted migration scan.  An invalid claim reverts;
+a zero-surplus sweep returns zero, while sink failure reverts only that sweep.
+PREACTIVE claim and sweep revert without a CALL, event or write, and PREACTIVE
+maintenance is the stated NOOP; forced ETH is the only way its balance can
+change before activation.
+
+For manifest $i$, the contract derives \code{recordIndex=oldCount+i},
+\code{versionedHash=BLOBHASH(i)}, \code{publisher=msg.sender} and
+\code{validUntil=session.expiry}; none is caller supplied.  It checks
+\code{1<=chunkCount<=9}, \code{chunkIndex<chunkCount}, the declared length
+bound, field-canonical \code{y}, the versioned hash/commitment relation and the
+point-evaluation proof.  It derives $z$ and the Appendix leaf separately for
+each tuple, appends exactly $n$ leaves in array/blob order, and emits exactly
+$n$ leaf events.  One failure at any position reverts all earlier appends,
+events and value.
+
+The canonical events, with no more than three indexed arguments, are:
+\begin{verbatim}
+SessionOpened(bytes32 indexed sessionId,address indexed owner,
+  uint16 cell,
+  uint64 sequence,uint64 expiry,uint256 bondWei,uint256 baseRentWei)
+DataRecordAppended(bytes32 indexed sessionId,uint16 indexed recordIndex,
+  bytes32 indexed versionedHash,bytes32 leaf)
+SessionSealed(bytes32 indexed sessionId,
+  uint16 count,bytes32 root,uint64 expiry)
+SessionLiveToRefund(bytes32 indexed sessionId,address indexed owner,
+  uint16 cell,
+  uint64 claimDeadline,uint64 migrationGeneration)
+SessionBondClaimed(bytes32 indexed sessionId,address indexed owner,
+  address indexed recipient,uint256 amount)
+SessionRefundForfeited(bytes32 indexed sessionId,
+  address indexed owner,
+  uint16 cell,uint256 amount)
+SessionSurplusSwept(address indexed sink,uint256 amount)
+DataSessionsMaintained(uint8 mode,
+  uint16 startCursor,uint16 nextCursor,
+  uint8 inspected,uint8 changed)
+\end{verbatim}
+An ordinary conversion emits generation zero; a migration conversion emits the
+armed generation.  A direct LIVE claim emits only \code{SessionBondClaimed};
+\code{SessionLiveToRefund} means the cell persistently ended the call as REFUND.
+Maintenance event mode is ORDINARY=1, MIGRATION=2 or REFUND\_ONLY=3.  Events are
+the permanent leaf/discovery oracle, not contract storage.
+
+The exact views are
+\begin{verbatim}
+dataSessionCellV1(uint16 cell) returns
+  (uint8 tag,bytes32 sessionId,address owner,uint64 sequence,uint64 expiry,
+   uint16 count,bool sealed,bytes32 root,bytes32[12] peaks,uint256 bondWei,
+   uint64 claimDeadline)
+dataSessionByIdV1(bytes32 sessionId) returns
+  (uint16 cellPlusOne,uint8 tag,address owner,uint64 sequence,uint64 expiry,
+   uint16 count,bool sealed,bytes32 root,uint256 bondWei,uint64 claimDeadline)
+dataSessionAccountingV1() returns
+  (bytes4 magic,uint16 liveCount,uint16 refundCount,uint16 occupiedCount,
+   uint16 gcCursor,uint64 nextSessionSequence,uint256 liveBondLiability,
+   uint256 refundBondLiability,uint64 migrationRefundGeneration,
+   uint64 migrationRefundClaimDeadline,bool guardEntered,
+   bytes32 dataSessionConfigHash)
+\end{verbatim}
+The accounting magic is \code{0x44535631} (ASCII \code{DSV1}); narrow words,
+booleans, addresses and the fixed array are canonically encoded, and returndata
+lengths are exactly 704, 320 and 384 bytes respectively.  FREE cell/by-ID misses
+return canonical zero for every output.  A REFUND view returns only
+\code{sessionId}, owner, bond and deadline nonzero; it masks sequence, expiry,
+count, sealed, root and peaks to canonical zero without clearing their stale
+physical words.  Runtime code hash binds selector,
+event, tuple and fee-algorithm semantics.  The returned configuration hash is
+the exact immutable-value commitment
+\begin{verbatim}
+H("slot-chain-data-session-config-v1" || u32(340) ||
+  u256(settlementChainId) || u64(protocolVersion) || address20(settlement) ||
+  address20(activeSettlementRouter) || address20(protocolVersionManager) ||
+  address20(dataRent) || executionProfileHash ||
+  u256(BOND) || u256(BASE) || u256(BYTE) || u16(BLOB_BPS) ||
+  u64(86400) || u64(86400) || u16(1024) || u16(2) || u16(2100) ||
+  u8(8) || u8(6) || address20(0x0a) || u32(50000) || u256(BLS_MODULUS) ||
+  u32(131072) || u32(126972) || u16(9))
+\end{verbatim}
+Every address/hash is nonzero except that the point-evaluation address is the
+canonical numeric \code{0x0a}; the BPS/rate fields may be zero.  The delayed
+target registration must carry this exact value, the target Settlement's wider
+configuration commitment must include it as a named field, and the Router must
+compare the accounting return against that registered value.  The current
+target-registration/control-plane codec has not yet been extended to do so and
+remains the explicit release blocker below; this section does not falsely equate
+the DataSession sub-configuration hash with the wider
+\code{targetConfigurationHash}.
+
+The union-cell transition writes are normative.  FREE-to-LIVE writes the new
+ID, owner, sequence, expiry and bond and explicitly writes \code{count=0},
+\code{sealed=false} and the wrapped empty-MMR root.  It may leave physical peak
+words stale, because a peak is read only when its bit in the newly written count
+is one; the first append at count zero therefore overwrites height zero before
+using it.  LIVE-to-REFUND writes the REFUND tag and claim deadline and preserves
+only ID, owner and bond semantically.  REFUND-to-FREE deletes the ID key and
+writes the FREE tag while its union words may remain physically stale.  FREE
+and REFUND getters apply the masks above, and no append/root operation may read
+a stale word hidden by the tag or count.  Consequently reuse of a formerly
+sealed, nonempty cell has exactly the same first-append root as a fresh cell.
+
+Nonpayable maintenance alone owns \code{gcCursor}.  An eligible call includes
+FREE and unmodified cells in this exact scan and update:
+\begin{verbatim}
+cell[j] = (oldCursor + j) mod 1024, for j = 0..7
+gcCursor = (oldCursor + 8) mod 1024
+\end{verbatim}
+In ACTIVE,
+an ordinary LIVE cell becomes REFUND iff
+\code{expiry<=block.timestamp} and its ID is not referenced by the stored normal
+best; its deadline is fixed as saturating \code{uint64} addition of the claim
+window to the stored expiry, never to the keeper's scan time.  A pre-existing
+REFUND becomes FREE only when
+\code{block.timestamp>claimDeadline}.  One scan never both creates and forfeits
+the same REFUND.  Migration and historical modes use the stricter rules below.
+No call scans all 1,024 cells.
+
+The refundable bond is a LIVE liability and then a REFUND liability; conversion
+moves the same amount between the two checked scalars without transferring ETH.
+The owner calls
+\code{claimSessionBond(bytes32 sessionId,address recipient)} through the bounded
+ID-to-cell lookup.  It accepts either that exact REFUND before its deadline, or
+in current ACTIVE mode an expired LIVE cell not referenced by the normal best
+before \code{satAdd64(expiry,claimWindow)}.  ARMED LIVE claims are suppressed
+until its normal/recovery boundary closes, then use that generation's frozen
+migration deadline.  It always requires the exact owner,
+nonzero recipient and \code{block.timestamp<=claimDeadline};
+checks-effects-interactions clears
+the mapping/cell/counters/liability before transfer.  A failed recipient transfer
+reverts the whole claim.  A shared nonreentrancy guard rejects every nested
+session or surplus-sweep call without changing state; a recipient may catch that
+nested rejection and return normally, in which case the outer claim succeeds
+exactly once.  Claims remain unpausable on ACTIVE, ARMED,
+READY, FROZEN and historical components.  After the deadline, maintenance
+clears the REFUND and its ETH becomes surplus; no owner or sink is called.
+
+The Settlement account enforces
+\code{balance>=liveBondLiability+refundBondLiability}.  Nonrefundable rent,
+forfeited bonds and forced ETH are surplus and never inflate a refund.  A
+separate permissionless, non-gating \code{sweepSessionSurplus()} sends exactly
+the balance above both liabilities to the immutable \code{dataRent} sink under
+one reentrancy guard.  Sink failure reverts only that sweep and cannot block GC,
+claims, READY, cutover or the forced lane.  The calibrated rent/bond combination
+prices the full possible occupancy through TTL and the 86,400-second refund
+window.  A Sybil can still buy all optional DA cells for that bounded period;
+the forced/escape lane is independent and this is not a protocol-liveness claim.
+
+Each occupied cell owns a fixed \code{bytes32 peaks[12]} and
+\code{uint16 count<=2100}; it stores no record array.  A peak word at height
+$h$ is meaningful exactly when bit $h$ of count is one; zero-bit words may be
+stale.  Append uses the old count as the leaf index, combines the stored peak on
+the left while successive count bits are one, writes the carry at the first
+zero bit and increments count.  The wrapped MMR root is recomputed from at most
+12 meaningful peaks.  The exact bag order and proof grammar are frozen in
+Appendix~\ref{sec:encodings}.
 
 Only the owner may append, and a candidate may reference only a session made
 immutable by \code{sealSession}.  Sealing fixes \code{(root,count,expiry)};
@@ -775,11 +1080,20 @@ expiry &\ge now+P\_PROVE\_MAX+W\_SETTLE\_SECONDS\\
        &\quad+REORG\_MARGIN\_SECONDS,\\
 expiry &\le now+DATA\_TTL.
 \end{align*}
+Here \code{P\_PROVE\_MAX=recovery.proofTimeMaxSeconds=900} and
+\code{W\_SETTLE\_SECONDS=recovery.settlementWindowSeconds=1200} in the exact
+execution profile; they are not independent implementation constants.  Profile
+validation separately enforces
+\code{DATA\_TTL>=P\_PROVE\_MAX+W\_SETTLE\_SECONDS+REORG\_MARGIN\_SECONDS}.
 
 For every blob attached to \code{postData(session, manifests[])}, the contract:
 
 \begin{enumerate}
-\item obtains \code{versionedHash=BLOBHASH(i)} from the same transaction;
+\item obtains \code{versionedHash=BLOBHASH(i)} from the same transaction.  The
+exact KZG relation is
+\code{versionedHash = bytes1(0x01) || SHA256(commitment48)[1:32]}; the
+point-evaluation precompile below checks this equality as part of acceptance,
+so no alternate version byte, digest function or truncation is legal;
 \item computes legacy Keccak over this packed fixed-width sequence:
 \begin{verbatim}
 "slot-chain-data-fs-v2" || u256(settlementChainId) ||
@@ -790,8 +1104,16 @@ chunkRoot || address20(publisher) || u64(validUntil)
 \end{verbatim}
 It interprets the digest big-endian and reduces it
 modulo the BLS scalar-field modulus to obtain $z$;
-\item calls the EIP-4844 point-evaluation precompile with exactly
-\code{versionedHash32 || z32 || y32 || commitment48 || proof48}; and
+\item makes a 50,000-gas \code{STATICCALL} to the EIP-4844 point-evaluation
+precompile at address \code{0x0a} with the exact 192 bytes
+\code{versionedHash32 || z32 || y32 || commitment48 || proof48}.  It requires
+call success and exactly 64 return bytes equal to
+\code{u256(4096)||BLS\_MODULUS}, where the exact modulus is
+\begin{verbatim}
+hex32("73eda753299d7d483339d80809a1d805" ||
+      "53bda402fffe5bfeffffffff00000001")
+\end{verbatim}
+short, long, reverting or wrong-constant returns reject; and
 \item appends the exact leaf from \S\ref{sec:encodings} to the session MMR.
 \end{enumerate}
 
@@ -2424,6 +2746,13 @@ targeting the accumulator cannot forge a leaf even though \code{msg.sender} is
 the Bridge.  V2 additionally rejects the complete manifest denyset, including
 the accumulator, before any CALL.
 
+The accumulator stores no per-credit ``already appended'' set.  The exact
+immutable registered Bridge is the sole writer for its domain, and its permanent
+terminal status/index plus non-reentrant APPENDING sentinel make a second or
+concurrent append for one credit unreachable.  The append and Bridge transition
+share one EVM revert domain, so a failed suffix restores frontier/count/root and
+the Bridge sentinel/status/index together.
+
 The accumulator stores exactly a checked \code{uint64 count}, wrapped root and
 64-word frontier.  At old index $i$ it starts with the new leaf, combines
 \code{frontier[h]} on the left while bit $h$ of $i$ is one, writes the carry only
@@ -2808,6 +3137,59 @@ schedule and gate objects.  The target proof executes the release Anchor and
 directly validates L2 component rows 4--10.  A missing component, route
 collision, bad verifier or proving outage therefore leaves the old Settlement
 and queue authority unchanged.
+
+``Empty PREACTIVE target'' is an exact predicate, not a claimed constructor
+default.  The target Settlement's internal DataSession region requires all
+1,024 cell tags FREE; empty ID-to-cell and live-owner maps;
+\code{liveCount=refundCount=occupiedCount=0};
+\code{nextSessionSequence=0}, \code{gcCursor=0};
+\code{migrationRefundGeneration=0},
+\code{migrationRefundClaimDeadline=0}, the shared session/sweep guard in its
+canonical NOT\_ENTERED state; and zero live- and
+refund-bond liability.  The actual target Settlement ETH balance is deliberately not
+required to be zero: CREATE2 prefunding or forced ETH is surplus and cannot
+veto activation.  Deployment may occur while the source has live sessions,
+because the protocol-lifetime gate is shared; cutover separately requires that
+gate to be READY after authenticating the source-local live-session count zero.
+Exact fresh creation
+code plus the absence of every PREACTIVE mutation surface proves the fixed cells
+and hidden maps empty.  Logs are not storage and are not part of this predicate.
+Before cutover the Router uses the exact \code{dataSessionAccountingV1()} ABI to
+recheck every observable scalar, guard word and configuration hash; it does not
+pretend to enumerate a mapping.  It also repeats the source-readiness handshake
+defined below.  Both reads must report the same generation/version/manifest,
+closed boundary, zero LIVE count, NOT\_ENTERED guard and registered DataSession
+configuration immediately before any authority, queue or canonical write.
+
+Settlement constructor provenance is authenticated by the delayed registration's exact
+232-byte \code{SettlementDeploymentDescriptorV1}:
+\begin{verbatim}
+(address20(factory), bytes32(factoryRuntimeHash),
+ bytes32(factoryConfigurationHash), bytes32(salt), bytes32(initCodeHash),
+ address20(targetSettlement), bytes32(targetRuntimeHash),
+ bytes32(targetConfigurationHash))
+\end{verbatim}
+Its hash is
+\code{H("slot-chain-settlement-deployment-v1"||u32(232)||packedDescriptor)}.
+Every field is nonzero and
+\code{targetSettlement=low20(keccak256(0xff||address20(factory)||salt||
+initCodeHash))}.  Registration must publish the complete init-code artifact and
+immutably bind this descriptor inside \code{targetRegistrationHash}; arm,
+activation, cancellation and the activation receipt must bind that same hash.  The
+Router checks factory/target \code{EXTCODEHASH}, the exact four-byte
+\code{componentConfigHashV2()} call with 50,000 gas and exactly 32 return bytes,
+and the derivation at arm and activation.  Hidden mapping emptiness follows only
+from that authenticated constructor and the lack of PREACTIVE mutation entry
+points; it is never inferred from runtime/config getters alone.  The same
+authenticated Settlement init code and its target configuration commitment bind the
+internal DataSession storage layout, shared gate, \code{dataRent} sink and the
+rule that every non-session payable selector, fallback and receive path rejects;
+there is no second custody contract or cross-contract session authority.  The
+current authorization/receipt codecs do not yet carry the new
+\code{targetRegistrationHash}.  Their
+exact extension, golden vectors and cross-language tests are therefore an
+explicit release blocker in \S\ref{sec:gates}; target emptiness is not claimed
+closed until that control-plane round lands.
 
 Only after every proof and configuration check succeeds does the same revert
 domain freeze the old Settlement, transfer queue authority, advance the proved
@@ -3451,7 +3833,8 @@ beneficiary cannot pin history.
 ProtocolVersionManager alone consumes delayed arm/cancel manifests.  In one
 revert domain it writes Router ACTIVE-to-ARMED, then calls the old Settlement's
 manager-only completion callback.  The callback rereads the complete router
-tuple, runs leading sync internally without a generic SYNCED early return,
+tuple, runs leading sync internally without a generic SYNCED early return and
+with READY transition explicitly disabled,
 recomputes its inputs, increments \code{seatGeneration}, closes services
 non-fault, excuses unresolved duties and selected successors, tombstones the
 stage and returns exact fixed-length \code{SEAT_ARMED_MAGIC} binding generation,
@@ -3540,6 +3923,13 @@ and no unknown key, and make every required identity/measurement nonnull.  It
 rejects wrong unit strings, malformed decimal strings, asset-chain mismatch,
 zero identity, unchecked arithmetic or any failed relation, including:
 \begin{verbatim}
+dataSession geometry = (86400,86400,1024,2,2100,8,6)
+1024 * refundableBondWei <= UINT256_MAX
+refundableBondWei + baseRentWei <= UINT256_MAX
+2100 * 126972 * rentPerPublishedByteWei <= UINT256_MAX
+DATA_TTL >= P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
+refundClaimWindowSeconds >= T_INCLUDE_MAX_SECONDS + REORG_MARGIN_SECONDS
+
 PREMIUM_CLAIM_DELAY_SECONDS >= REORG_STABILITY_SECONDS
 
 SEAT_RUNWAY_SECONDS >= MIN_PRIMARY_TENURE_SECONDS
@@ -3632,7 +4022,7 @@ No seat or no standby & State remains valid; escape has no seat dependency. & Sa
 All builders collude/absent & Unsigned escape advances anchor and forced queue. & Meaningful discretionary throughput falls to forced envelopes; no builder censorship veto. \\
 Builder equivocation & Competing signed branches; one may win normal order. & Direct per-window slash; pre-close promises remain revocable. \\
 Builder skips/withholds body & Honest tail may be unprovable or omitted. & Not objectively slashable; eventual escape restores state progress but may revoke promises. \\
-Data-session spam & Sessions are publisher-owned and bonded. & Attacker fills only its session; escape uses no blob session. \\
+Data-session spam & Exact rent/bond buys at most 1,024 bounded LIVE/REFUND cells. & A funded Sybil may censor the optional session market through TTL plus refund grace; escape uses no blob session. \\
 Missing/pruned kind-0 bytes & Unexpired head waits; after validity it is consumed as EXPIRED\_NO\_TX from its durable descriptor. & Adds at most seven days; a kind-1 descriptor is durable, while successful destination invocation still needs Message bytes. \\
 V1 or V2 endpoint upgrade exploit & V1 remains untouched; every V2 source/destination Bridge is a fresh immutable non-proxy account. & A new endpoint/domain cannot redirect an old writer; every old endpoint retains its terminal/refund path. \\
 Unauthorized source-support fill & Version manager rejects entries absent from the active delayed manifest. & At most 64 audited additions per release; no attacker-consumable lifetime cap. \\
@@ -3678,10 +4068,18 @@ ceil((W_SETTLE_SECONDS + DELTA_FINAL_LAG + DELTA_TIP +
 \end{verbatim}
 An entry is overwritten only after it is \code{EXPIRED}; the same transaction
 checks the release predicate and no stored normal best/round reference.
-\item \code{DataSession}: a 1,024-cell global ring, at most two live cells per
-owner, each with owner/nonce ID, 2,100-leaf MMR frontier, sealed root/count and
-expiry; no on-chain leaf array.  Expired eviction advances at most eight cells
-per call.
+\item Settlement's internal DataSession region: exclusive session ETH custody
+inside the immutable Settlement and a 1,024-cell FREE/LIVE/REFUND ring, at most
+two LIVE cells per owner, one global checked
+session sequence, exact live/refund/occupied counters and a live-owner-only
+mapping.  Each LIVE cell has a derived owner/sequence ID,
+\code{bytes32 peaks[12]}, checked count at most 2,100, sealed root/count, expiry
+and bond; REFUND reuses that cell for one bounded owner/bond/deadline claim.
+There is no on-chain leaf array, permanent per-owner nonce or claim mapping.
+Only nonpayable ordinary/migration/refund maintenance advances the cursor by
+exactly eight cells; payable open selects one caller-hinted FREE cell and never
+runs maintenance.  Expiry and migration perform no callback, and surplus-sweep
+failure cannot gate any protocol transition.
 \item \code{ForcedQueue}: protocol-lifetime immutable non-proxy depth-64
 append-only Merkle root/count/frontier, last due time, complete fixed-width
 per-index descriptors, deposit prefix, unconsumed escrow and pull claims.  An
@@ -4092,9 +4490,10 @@ Withdrawal/bridge execution waits for the configured L1 finality policy.
 
 Deployment occurs at least \code{D_SNAP + F_FINAL + sealMargin} before
 activation, so first live sources are post-deployment and sealable.  New
-Settlement begins \code{PREACTIVE}; registry, scheduling and data preparation
-may run, but every candidate and every kind-0/kind-1 forced-ingress or bridge
-enqueue call rejects before creating a deposit, adapter record or queue leaf.
+Settlement begins \code{PREACTIVE}; registry and scheduling preparation plus
+off-chain data preparation may run, but target session open/post/seal, every
+candidate and every kind-0/kind-1 forced-ingress or bridge enqueue call rejects
+before creating target-local state, a deposit, adapter record or queue leaf.
 
 The legacy Inbox does not share this design's queue or expose
 \code{freezeAndExport}.  Migration therefore never pretends to adopt its
@@ -4265,7 +4664,10 @@ caller-supplied quiescence Boolean or replaceable contract.  Its exact state is
  uint64 targetProtocolVersion, bytes32 targetManifestHash, uint8 phase)
 \end{verbatim}
 where phase is
-ACTIVE, ARMED or READY.  Only ProtocolVersionManager may arm
+ACTIVE, ARMED or READY.  The \code{activeSettlementStateV1()} getter above
+derives \code{activeSettlement} from the append-only registration for
+\code{activeProtocolVersion}; no second mutable current-address slot exists.
+Only ProtocolVersionManager may arm
 \code{generation=current+1} for the exact current version, greater target
 version and active delayed manifest.  Before arm, the manager checks every
 target address, runtime/configuration hash, object identity and L1 component
@@ -4275,8 +4677,11 @@ registry, data-session, reward/preparation and both forced-ingress adapters all
 read that same router-owned word.  Arming atomically closes new
 normal contexts/candidates, sessions, data posts, builder reservations and
 reward work; ingress returns SYNCED before retaining a deposit or queue write.
-Every new-work entrypoint rechecks phase ACTIVE after \code{sync()}; every ARMED
-cleanup and READY write returns a non-continuation status.  Reaching READY sets
+Every canonical new-work entrypoint rechecks phase ACTIVE after \code{sync()}.
+The session open/post/seal sidecars are the sole exceptions: none calls sync,
+each checks current target and ACTIVE atomically, and the payable open/post
+calls revert with value on failure.  Every ARMED cleanup and READY write returns a
+non-continuation status.  Reaching READY sets
 \code{changed=true}, so no call can fall through and reopen normal work.
 Already-mature claim-only withdrawals remain callable.
 
@@ -4300,9 +4705,38 @@ cancels it.  A current recovery proof may commit until that round's existing
 \code{expiresAt}; after expiry \code{sync()} cancels the round and is forbidden
 to increment its revision or open another episode.  If neither is open, arm
 clears a merely armed normal context immediately.  At and after that boundary,
-one authenticated cursor refunds/deletes at most eight live data sessions per
-call, so the 1,024-cell ring reaches zero after at most 128 permissionless
-cleanup calls.  BuilderRegistry, ScheduleOracle, generation records, tranche
+admissions remain closed and every cleanup call scans exactly eight consecutive
+physical cells from the authenticated cursor.  Empty and occupied cells both
+consume a step; every scanned LIVE cell becomes REFUND regardless of expiry,
+and no owner or sink is called.  At arm, the generation freezes one objective
+refund deadline as saturating \code{uint64} addition of the 86,400-second claim
+window to the later of \code{armedAt} and the already-open normal deadline or
+recovery \code{expiresAt}.  Every cell converted by that generation uses this
+same deadline; a keeper cannot extend it by delaying one scan.  While any normal
+or recovery boundary remains open, no ARMED LIVE cell may be converted or
+claimed.  A scan never converts and forfeits the same cell.
+
+The manager's arm transaction writes the current Settlement's exact generation
+and this objective refund deadline before invoking any internal \code{sync()}
+that can observe the router's new ARMED phase.  That write, the router phase
+change and the leading sync share one EVM revert domain.  Thus an arm with LIVE
+cells and no open boundary can immediately perform its first migration scan,
+while any injected failure restores the pre-arm gate, deadline, cursor, cells
+and counters together; an ARMED scan can never observe an unset generation
+deadline.
+
+The cursor advances by eight and makes \code{changed=true} even if the scan
+found no LIVE cell.  Thus 128 uninterrupted migration scans cover every cell
+from any starting cursor; public refund maintenance cannot interleave and steer
+the cursor while ARMED.  READY requires the source-local \code{liveCount} zero,
+not \code{refundCount} or \code{occupiedCount} zero.
+Claims may clear REFUND cells concurrently without changing the cursor.  Once
+READY or FROZEN, the historical source's permissionless maintenance scans only
+overdue REFUND cells, and the unpausable claim/surplus surfaces remain live.
+Abort never restores a converted REFUND, claimed cell or forfeiture; unscanned
+LIVE cells remain live when ACTIVE returns, and a later generation cannot
+double-refund an old cell.
+BuilderRegistry, ScheduleOracle, generation records, tranche
 rings and reservations are protocol-lifetime objects shared by identity across
 every Settlement.  Existing \code{RESERVED} tranches remain byte-for-byte
 \code{RESERVED}; migration never counts, scans, refunds, converts or releases
@@ -4320,11 +4754,65 @@ enters MIGRATION\_READY before another \code{sync()} decision.  A due queue head
 is not drained or discarded; old adapters receive SYNCED while their caller fee
 remains in the adapter pull-claim ledger and retry after activation.
 
+READY is written only by the exact cross-contract handshake below:
+\begin{verbatim}
+migrationReadinessV1() returns
+  (bytes4 magic,uint64 generation,uint64 activeProtocolVersion,
+   uint64 targetProtocolVersion,bytes32 targetManifestHash,
+   uint8 boundaryState,bool localArmComplete)
+markMigrationReadyV1(uint64 generation) returns (bytes4 magic)
+\end{verbatim}
+The readiness magic is \code{0x4d525331} (ASCII \code{MRS1}); boundary states
+are exactly NONE=0, NORMAL=1 and RECOVERY=2; and its returndata is exactly 224
+bytes with canonical padding.  RECOVERY is derived exactly when canonical mode
+is RECOVERY and its exact current round exists, with no normal marker.  NORMAL
+is derived when there is no recovery and any canonical normal boundary marker
+is live, including \code{normalArmBlockNumber}, \code{normalDeadline} or
+\code{normalBest}.  NONE is derived only when no recovery record and none of
+those normal markers exists.  A conflicting mode/record/marker combination
+makes the view revert; it can never be reported as NONE.  The view derives,
+rather than stores,
+\code{localArmComplete=true} exactly when the shared gate is ARMED or READY for
+the returned tuple, \code{boundaryState=NONE}, the same Settlement's local LIVE
+count is zero, \code{seatMigrationLocalGeneration=generation}, the stored exact
+seat-arm tuple/receipt is present and matches every returned field,
+\code{migrationRefundGeneration=generation}, the frozen migration refund
+deadline is nonzero, and seat closure has completed.  The arm callback's
+stored receipt phase remains ARMED permanently; the current shared gate may
+instead be ARMED or READY, so receipt validation compares generation, active
+and target versions, and target manifest hash but never compares phase.  The
+arm callback's leading sync always uses \code{allowReady=false}; it writes the refund tuple
+before that sync and writes the seat-arm receipt/local generation only after
+all local closure succeeds.  Consequently even an empty source remains ARMED
+after the arm callback and can become READY only on a later permissionless
+sync.  The mark success magic is \code{0x4d524459} (ASCII
+\code{MRDY}) encoded as one exact 32-byte ABI word; the other 28 bytes are zero.
+
+Only the exact currently active Settlement may call \code{markMigrationReadyV1}
+and only while the Router is ARMED for that supplied generation.  Before its
+single READY write, the Router makes separate 100,000-gas \code{STATICCALL}s to
+the caller's \code{migrationReadinessV1()} and
+\code{dataSessionAccountingV1()} views.  Revert, OOG, wrong magic, wrong exact
+length, noncanonical padding or any tuple mismatch reverts.  The readiness view
+must match the Router's generation, active/target versions and target manifest,
+report NONE and true; the accounting view must report LIVE count zero,
+NOT\_ENTERED guard and the registration's exact DataSession configuration hash.
+The Router checked-adds the returned live and refund liabilities and requires
+\code{BALANCE(sourceSettlement)} at least that total.  Only then does the Router
+write READY and return MRDY.  Settlement treats any
+failed call or wrong return as a revert; a successful sync returns a
+non-continuation changed status.  Activation repeats both exact reads from that
+same source while READY, before any proof adoption or authority write, and
+requires the identical closed/zero tuple and balance/liability lower bound.
+Abort writes no READY state and
+leaves the source as the unique current Settlement.  Thus no per-session global
+counter or caller assertion is part of the safety argument.
+
 While READY, any prover constructs an immutable fork-local first-V2 candidate
 from the frozen old Canonical and live queue snapshot.  It carries the exact
 target release/profile, complete bounded Inbox rows and raw proof bytes.  The
-proof executes tx0 \code{activateRelease(manifest,retirementQueueCount)} before
-tx1 InboxApply, authenticates the fresh Store/Quota/Bridge and lifetime rows,
+proof executes the exact release-activation call as tx0 before tx1 InboxApply,
+authenticates the fresh Store/Quota/Bridge and lifetime rows,
 and binds both raw EIP-2718 transaction hashes.  The statement binds old full
 core/sequence, migration generation, Queue root/count/cursor/range/descriptor
 commitment, candidate and beneficiary, target profile/manifest, full output
@@ -4349,9 +4837,7 @@ L1 raw preimage is unavailable to the prover, migration cannot land and the
 delayed cancellation path restores the old protocol instead of adopting an
 unreplayable state.
 
-The L1 call is exactly the five-argument
-\code{activateVersionWithMigration(MigrationActivationFixedV2,
-ReleaseManifestV2,InboxRowV2[],bytes,bytes)} ABI frozen above.  Calldata supplies
+The L1 call uses the exact five-argument activation ABI frozen above.  Calldata supplies
 only transition kind/generation/source and target versions/source sequence,
 candidate digest, output core, beneficiary, anchor pair, force cutoff,
 pre-Inbox plus-one value, the complete registered manifest, canonical Inbox
@@ -4362,7 +4848,7 @@ tx0/tx1 preimages and hashes, target Settlement, domains/Bridges, registration
 identities and activation receipt from current storage plus those exact bytes.
 None is a second caller field.  The call contains no Router, verifier or L2
 object, capability, seal, authority handle or validity Boolean.  Future landing
-block and timestamp are absent.  Router rereads the exact MIGRATION\_READY tuple and
+block and timestamp are absent.  Router rereads the exact READY tuple and
 all live L1 identities, reconstructs the statement and raw tx0/tx1 preimages,
 and invokes only the execution-profile-pinned immutable verifier by bounded
 STATICCALL before any write.  Success requires exact descriptor/code/config/key/
@@ -4405,6 +4891,7 @@ Entry/exit/reservation ahead; moves & 8 / 268 / 16 windows; 4 per window & Liabi
 \code{DELTA_TIP} & 1,200 s & At least submit inclusion + skew = 144 s after the frozen escape slot. \\
 \code{DELTA_FINAL_LAG} & 3,600 s & At least activation + escape offset + submit + skew = 2,164 s. \\
 \code{F_L1}; \code{T_DEPTH_MAX} & 64 L1 blocks; 900 s & Stored recovery-anchor depth and assumed maximum time to reach it. \\
+\code{P_PROVE_MAX} & 900 s & Exact alias of \code{recovery.proofTimeMaxSeconds}; used by session OPEN and recovery. \\
 \code{ESCAPE_OFFSET} & 1,900 s & At least depth-time bound + proof bound + margin. \\
 \code{FORCE_DELAY} & 1,500 s & At least settlement window plus \code{T_INCLUDE_MAX_SECONDS=120}. \\
 Aggregator seat geometry & 1 primary + 3 standbys; 4 waiting cells; 1 stage &
@@ -4460,6 +4947,7 @@ $\lceil1.30\,(G_{intrinsic}+worstCaseActivationAdoptionGas)\rceil
 verifier that consumes the full configured limit. \\
 Body chunks & 9 / 1,142,748 B & Per-body chunks / maximum discretionary bytes. \\
 \code{DATA_TTL} & 86,400 s & Greater than candidate, settlement, proof and reorg path. \\
+Data refund claim window & 86,400 s & Same-cell REFUND grace; at least inclusion plus reorg margin. \\
 \code{REORG_MARGIN}, \code{EVIDENCE_DELAY} & 1,800 / 86,400 s & Data resubmission and finite liability retention. \\
 \code{SUPPORT_FINALITY_BLOCKS} & 214 L1 blocks &
 Begins only after the domain's finalized canonical L2 registrar record is proven
@@ -4491,6 +4979,16 @@ execution result:
 \item exact predeploy and immutable topology, including both fresh V2 Bridge
   bundles, CREATE2 factory/salt/init-code derivation, Bridge-unique Registry and
   QuotaManager accounts and the non-proxy/no-owner/no-upgrade rule for every V2 endpoint;
+  the 232-byte Settlement deployment descriptor, published target init-code
+  artifact and CREATE2 derivation, internal DataSession
+  custody/configuration and rejection of every other payable Settlement path,
+  \code{targetRegistrationHash} inclusion in delayed
+  arm/cancel/activation/receipt records, exact configuration-read ABI and
+  fresh-PREACTIVE rejection corpus; one exact Router-only target-canonical
+  adoption selector, calldata/return commitment, gas stipend and negative
+  corpus, plus a Router-wide activation lifecycle guard.  Router cannot write a
+  separate target Settlement account's storage directly; until this callback
+  and ordering are frozen, the current activation prose is not implementable;
   BuilderRegistry and ScheduleOracle runtime/configuration hashes and retained
   object identities; terminal runtime code hashes,
   constructor immutables and relevant storage selectors for AnchorV4,
@@ -4626,13 +5124,15 @@ single consensus path, binds bridge credits to their source application, and
 defines bytecode-complete recovery packages.  Its bridge integration now uses
 fresh immutable non-proxy V2 bundles, keeps legacy callback applications on V1, binds
 the local destination, and makes V2 terminal proof/refund paths transitively
-pause- and quota-independent.  No additional critical/high
-architecture defect is known under the stated L1/source-chain, proof, funding,
-canonical-prestate and source-state-witness availability assumptions.
-Nevertheless the design is \emph{not
-implementation-ready}: the initial executable profile bundle above does not
-exist.  This audit therefore stops at the document-only impossibility boundary,
-instead of falsely promoting test fixture hashes into production consensus.
+pause- and quota-independent.  The remaining known critical control-plane
+defect is explicit: Router cannot directly install canonical state in a
+separate target Settlement account, while the exact target-adoption callback,
+activation guard and rollback ordering have not yet been frozen.  The design is
+therefore \emph{not implementation-ready} even before the absent executable
+profile bundle is considered.  The next design-only round must close that
+surface and the target-registration codecs; only then may the artifact return
+to the document-only implementation boundary instead of falsely promoting test
+fixture hashes into production consensus.
 \end{designnote}
 
 \clearpage
@@ -5056,9 +5556,21 @@ leaf, or a reconstructed root/count mismatch.
 Append at old index $i$ starts with the new leaf at height zero, repeatedly
 hashes \code{frontier[h]} on the left while bit $h$ of $i$ is one, stores the
 carry in the first zero-bit frontier position, increments count, and reconstructs
-all higher right subtrees from \code{FORCE_EMPTY[h]}.  This is the same root as
-the full vector and uses exactly 64 frontier words.  Every leaf and descriptor
-list uses \code{u64(index)}; no queue index is narrowed to 32 bits.
+all higher right subtrees from \code{FORCE_EMPTY[h]}.  Genesis frontier words
+are exactly zero.  After increment, the fold is
+\begin{verbatim}
+node = FORCE_EMPTY[0]
+for h = 0..63:
+  node = bit(count,h)
+    ? H(D_NODE || u8(h) || frontier[h] || node)
+    : H(D_NODE || u8(h) || node || FORCE_EMPTY[h])
+\end{verbatim}
+Only set-bit frontier words are meaningful; stale zero-bit words are ignored.
+At old count \code{UINT64_MAX-1}, append writes height zero and produces final
+count \code{UINT64_MAX}; old count \code{UINT64_MAX} rejects, so leaf index
+\code{UINT64_MAX} is unused and no height-64 frontier exists.  This is the same
+root as the full vector and uses exactly 64 frontier words.  Every leaf and
+descriptor list uses \code{u64(index)}; no queue index is narrowed to 32 bits.
 
 The terminal vector uses depth 64.  Its empty leaf is
 \code{H("slot-chain-terminal-empty-v2")}; a parent at height
@@ -5106,16 +5618,28 @@ H("slot-chain-data-leaf-v1" || bytes32(sessionId) || u16(index) ||
   bytes32(chunkRoot) || address20(publisher) ||
   u64(validUntil) || u256(z) || u256(y))
 \end{verbatim}
-MMR append merges equal-height peaks as
-\code{H("slot-chain-data-node-v1"||u8(height)||left||right)}.  Peaks are stored
-left-to-right in strictly decreasing height.  The root bags them
-rightmost-to-leftmost as
-\code{H("slot-chain-data-bag-v1"||u16(count)||u8(peakCount)||
-(u8(height)||peak)*)}.  An inclusion proof provides the leaf index, merge
-siblings bottom-up with a left/right bit at each height, then every other peak
-in this bag order; duplicate heights, a count inconsistent with peak heights,
-or unused proof elements reject.  The empty MMR is the bag hash with zero count
-and zero peaks.
+Each cell stores fixed \code{bytes32 peaks[12]} and \code{uint16 count<=2100}.
+Slot $h$ is meaningful exactly when bit $h$ of count is one; zero-bit slots may
+be stale.  Append at old count $n$ uses leaf index $n$ and carry=leaf.  While bit
+$h$ of $n$ is one it sets
+\code{carry=H("slot-chain-data-node-v1"||u8(h)||peaks[h]||carry)}; it stores the
+carry at the first zero height, then increments count.  Old count 2,100 rejects.
+
+Logical peaks left-to-right have strictly decreasing height.  The single root
+preimage bags them rightmost-to-leftmost, which means the repeated tuples are
+encoded at set heights in strictly \emph{ascending} order:
+\begin{verbatim}
+H("slot-chain-data-bag-v1" || u16(count) || u8(popcount(count)) ||
+  (u8(h) || peaks[h]) for h=0..11 ascending where bit(count,h)=1)
+\end{verbatim}
+The empty MMR uses the same preimage with zero count and zero peaks.  An
+inclusion proof requires \code{index<count}, derives the unique target mountain
+and base from count's descending set bits, and accepts exactly target-height
+siblings bottom-up.  Sibling orientation is derived from the local leaf index,
+never supplied as a caller bit.  It then accepts exactly
+\code{popcount(count)-1} other peaks in the ascending bag order above.  A wrong
+height, duplicate, missing or extra sibling/peak, inconsistent count or unused
+proof element rejects.
 
 A manifest leaf is:
 \begin{verbatim}
@@ -5271,6 +5795,30 @@ relSlot       719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
 relTrie       dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
 routeConfig   2256dd6e98891531a80b2ee16b67a7f1d77db7e17d8523f9b5ab3fa540e9c4a3
 queueConfig   72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
+dataSessCfg   83e7e252277ea66b70b59a490421d21454032a3fe64107c7390131f83a487b76
+dsOpenSel     7bda4d11
+dsPostSel     a1cc526a
+dsSealSel     340e11fb
+dsMaintSel    1e7a916a
+dsClaimSel    fdd2b0db
+dsSweepSel    9d083a2b
+dsCellSel     011efada
+dsByIdSel     eeaad0bb
+dsAcctSel     e2a62969
+activeSetSel  4a95c306
+migReadySel   b36c83ce
+markReadySel  e0c25827
+activeSetMagic 41535231
+migReadyMagic 4d525331
+markReadyMagic 4d524459
+dsOpenTopic   a81132592bd8a549a0bfc83415ab47fbca586f0b48fff5f6cb5bfae0a9fd1f68
+dsRecordTopic 30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c
+dsSealTopic   f6d45ab0ecc3348b36ac48bc769f7391962fc2fa240c1c6bb43269ed3780078e
+dsRefundTopic 086de7ad4d27cf66f63e9dc6ecb09c0c3122146dd43e7f480f3a875070eb984e
+dsClaimTopic  69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb
+dsForfeitTopic f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957
+dsSweepTopic  3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86
+dsMaintTopic  920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89
 bridgeLeaf    956ac8402556d0a89ca016866d374e6f69fa3fd205435aef24135287c44b9b76
 feeLeafAlt    24b35a966effbd11f3ac01e523adcc1bd534144f65ec2a51e0d0082ba782394f
 creditId      44c7f6349cfc851f3d08f76268d0bf63986b3c2d66ad1de8aa22c3a684e922cb
@@ -5351,10 +5899,19 @@ function sync() returns (bool changed) {
             settleOrCancelAlreadyRecordedBest();
             changed = true;
         }
-        if (refundAtMost8DataSessions() != 0) changed = true;
+        if (no boundary/recovery) {
+            inspectExactly8AndConvertLiveToSameCellRefund();
+            changed = true; // cursor progress counts even when all are empty
+        }
         // Existing protocol-lifetime reservations are never migration work.
-        if (liveSessionCount == 0 && no boundary/recovery) {
-            migrationGate.phase = READY;
+        if (allowReady && localLiveCount == 0 && no boundary/recovery &&
+            seatMigrationLocalGeneration == migrationGate.generation &&
+            exactSeatArmReceiptMatchesGate &&
+            migrationRefundGeneration == migrationGate.generation &&
+            migrationRefundClaimDeadline > 0 && seatClosureComplete) {
+            magic = ActiveSettlementRouter.markMigrationReadyV1(
+                migrationGate.generation);
+            require(magic == MRDY); // Router re-STATICCALLs readiness/accounting
             changed = true;
         }
         return changed; // no context opens or rolls while armed
@@ -5469,7 +6026,7 @@ escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
 
-\code{commitment-model.py} reports 210 golden vectors and 423 executable
+\code{commitment-model.py} reports 234 golden vectors and 441 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/

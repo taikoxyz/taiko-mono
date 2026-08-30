@@ -71,9 +71,13 @@ MAX_WINDOWS_PER_CANDIDATE = 12
 MAX_DATA_SESSIONS_PER_CANDIDATE = 16
 MAX_DATA_RECORDS_PER_CANDIDATE = 2_100
 MAX_DATA_RECORDS_PER_SESSION = 2_100
+DATA_MMR_FRONTIER_DEPTH = 12
 MAX_LIVE_DATA_SESSIONS = 1_024
 MAX_DATA_SESSIONS_PER_OWNER = 2
 MAX_GC_STEPS = 8
+SESSION_MAINTENANCE_NOOP = 0
+SESSION_MAINTENANCE_SYNCED = 1
+SESSION_MAINTENANCE_SCANNED = 2
 MAX_LIVE_WINDOWS = 268
 ENTRY_DELAY_WINDOWS = 8
 MAX_TRANCHE_AHEAD_WINDOWS = 16
@@ -83,6 +87,16 @@ MAX_LIABILITY_GENERATIONS = MAX_REPLACEMENTS_PER_WINDOW * MAX_LIVE_WINDOWS
 MAX_LIVE_RESERVATIONS = 64 * (MAX_TRANCHE_AHEAD_WINDOWS + 1)
 DATA_TTL_SECONDS = 86_400
 REORG_MARGIN_SECONDS = 1_800
+POINT_EVALUATION_PRECOMPILE = "0x000000000000000000000000000000000000000a"
+POINT_EVALUATION_GAS = 50_000
+FIELD_ELEMENTS_PER_BLOB = 4_096
+BLS_MODULUS = (
+    52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513
+)
+POINT_EVALUATION_OK = (
+    FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
+    + BLS_MODULUS.to_bytes(32, "big")
+)
 UINT64_MAX = (1 << 64) - 1
 SEAT_UINT256_MAX = (1 << 256) - 1
 G_MAX = DELTA_FINAL_LAG
@@ -1354,20 +1368,597 @@ def durable_queue_leaf_hash(row: Message, index: int = 0) -> str:
     ).hex()
 
 
-def model_force_root(descriptors: list[Message]) -> str:
-    """Commit every durable typed leaf field; Task7 pins the byte codec."""
+def _force_hash(namespace: bytes, *parts: bytes) -> bytes:
+    """Domain-separated hash primitive for the fixed-depth forced vector."""
 
-    leaves: list[str] = []
+    if (type(namespace) is not bytes
+            or any(type(part) is not bytes for part in parts)):
+        raise ValueError("forced vector hash preimage is not canonical")
+    return keccak256(namespace + b"".join(parts))
+
+
+def force_zero_hashes() -> tuple[bytes, ...]:
+    """Canonical empty subtrees for heights zero through 64."""
+
+    rows = [_force_hash(b"slot-chain-force-empty-v2")]
+    for height in range(FORCE_TREE_DEPTH):
+        rows.append(_force_hash(
+            b"slot-chain-force-node-v2",
+            height.to_bytes(1, "big"), rows[-1], rows[-1],
+        ))
+    return tuple(rows)
+
+
+FORCE_ZERO_HASHES = force_zero_hashes()
+
+
+def _frontier_tree_root(
+    *,
+    frontier: list[bytes],
+    count: int,
+    zero_hashes: tuple[bytes, ...],
+    node_domain: bytes,
+) -> bytes:
+    """Fold one exact depth-64 append frontier without reading old leaves."""
+
+    if (type(frontier) is not list or len(frontier) != FORCE_TREE_DEPTH
+            or any(type(row) is not bytes or len(row) != 32
+                   for row in frontier)
+            or type(count) is not int or not 0 <= count <= UINT64_MAX
+            or len(zero_hashes) != FORCE_TREE_DEPTH + 1):
+        raise ValueError("fixed-depth frontier state is malformed")
+    node = zero_hashes[0]
+    for height in range(FORCE_TREE_DEPTH):
+        node = keccak256(b"".join((
+            node_domain,
+            height.to_bytes(1, "big"),
+            frontier[height] if (count >> height) & 1 else node,
+            node if (count >> height) & 1 else zero_hashes[height],
+        )))
+    return node
+
+
+def _append_frontier_leaf(
+    frontier: list[bytes],
+    count: int,
+    leaf: bytes,
+    *,
+    node_domain: bytes,
+) -> list[bytes]:
+    """Return the post-append 64-word frontier using trailing-one carry."""
+
+    if (type(frontier) is not list or len(frontier) != FORCE_TREE_DEPTH
+            or any(type(row) is not bytes or len(row) != 32
+                   for row in frontier)
+            or type(count) is not int or not 0 <= count < UINT64_MAX
+            or type(leaf) is not bytes or len(leaf) != 32):
+        raise ValueError("fixed-depth frontier append is malformed")
+    updated = list(frontier)
+    carry = leaf
+    height = 0
+    cursor = count
+    while cursor & 1:
+        carry = keccak256(b"".join((
+            node_domain,
+            height.to_bytes(1, "big"),
+            updated[height],
+            carry,
+        )))
+        cursor >>= 1
+        height += 1
+    updated[height] = carry
+    return updated
+
+
+def force_wrapped_root(frontier: list[bytes], count: int) -> str:
+    tree_root = _frontier_tree_root(
+        frontier=frontier,
+        count=count,
+        zero_hashes=FORCE_ZERO_HASHES,
+        node_domain=b"slot-chain-force-node-v2",
+    )
+    return _force_hash(
+        b"slot-chain-force-root-v2",
+        _model_uint(count, 8, "forced queue count"),
+        tree_root,
+    ).hex()
+
+
+def force_frontier_from_descriptors(
+    descriptors: tuple[Message, ...] | list[Message],
+) -> list[bytes]:
+    """Off-chain independent oracle; production append never calls this."""
+
+    if type(descriptors) not in {tuple, list} or len(descriptors) > UINT64_MAX:
+        raise ValueError("forced descriptor oracle is malformed")
+    frontier = [bytes(32) for _ in range(FORCE_TREE_DEPTH)]
     for index, row in enumerate(descriptors):
-        leaves.append(durable_queue_leaf_hash(row, index))
-    return f"merkle:{len(descriptors)}:" + ":".join(leaves)
+        frontier = _append_frontier_leaf(
+            frontier,
+            index,
+            bytes.fromhex(durable_queue_leaf_hash(row, index)),
+            node_domain=b"slot-chain-force-node-v2",
+        )
+    return frontier
+
+
+def model_force_root(descriptors: list[Message]) -> str:
+    """Off-chain full-history oracle for frontier/full-tree equivalence."""
+
+    if type(descriptors) is not list or len(descriptors) > UINT64_MAX:
+        raise ValueError("forced descriptor oracle is malformed")
+    nodes = {
+        index: bytes.fromhex(durable_queue_leaf_hash(row, index))
+        for index, row in enumerate(descriptors)
+    }
+    for height in range(FORCE_TREE_DEPTH):
+        parents: dict[int, bytes] = {}
+        for parent in {index >> 1 for index in nodes}:
+            left = nodes.get(parent << 1, FORCE_ZERO_HASHES[height])
+            right = nodes.get((parent << 1) | 1,
+                              FORCE_ZERO_HASHES[height])
+            parents[parent] = _force_hash(
+                b"slot-chain-force-node-v2",
+                height.to_bytes(1, "big"), left, right,
+            )
+        nodes = parents
+    tree_root = nodes.get(0, FORCE_ZERO_HASHES[FORCE_TREE_DEPTH])
+    return _force_hash(
+        b"slot-chain-force-root-v2",
+        _model_uint(len(descriptors), 8, "forced queue count"),
+        tree_root,
+    ).hex()
+
+
+def data_session_id(
+    settlement_chain_id: int,
+    settlement_address: str,
+    owner: str,
+    session_sequence: int,
+) -> str:
+    """Derive the protocol session ID; no caller-selected alias is accepted."""
+
+    if (type(settlement_chain_id) is not int
+            or not 0 < settlement_chain_id <= SEAT_UINT256_MAX
+            or not settlement_address or not owner
+            or type(session_sequence) is not int
+            or not 0 <= session_sequence < UINT64_MAX):
+        raise ValueError("data session identity tuple is malformed")
+    return keccak256(b"".join((
+        b"slot-chain-session-v1",
+        _model_uint(settlement_chain_id, 32, "settlement chain id"),
+        _model_address20(settlement_address),
+        _model_address20(owner),
+        _model_uint(session_sequence, 8, "data-session sequence"),
+    ))).hex()
+
+
+def data_mmr_root(frontier: list[bytes], count: int) -> str:
+    """Bag fixed peaks rightmost-first (ascending height)."""
+
+    if (type(frontier) is not list
+            or len(frontier) != DATA_MMR_FRONTIER_DEPTH
+            or any(type(row) is not bytes or len(row) != 32
+                   for row in frontier)
+            or type(count) is not int
+            or not 0 <= count <= MAX_DATA_RECORDS_PER_SESSION):
+        raise ValueError("data MMR frontier is malformed")
+    # Frontier peaks are stored left-to-right in decreasing height. Bagging is
+    # rightmost-to-leftmost, hence ascending height here.
+    heights = [height for height in range(DATA_MMR_FRONTIER_DEPTH)
+               if (count >> height) & 1]
+    return data_mmr_bagged_root({
+        height: frontier[height] for height in heights
+    }, count)
+
+
+def data_mmr_bagged_root(peaks: dict[int, bytes], count: int) -> str:
+    """Hash the exact rightmost-first peak set for one public count."""
+
+    expected_heights = [
+        height for height in range(DATA_MMR_FRONTIER_DEPTH)
+        if (count >> height) & 1
+    ]
+    if (type(peaks) is not dict
+            or type(count) is not int
+            or not 0 <= count <= MAX_DATA_RECORDS_PER_SESSION
+            or sorted(peaks) != expected_heights
+            or any(type(peak) is not bytes or len(peak) != 32
+                   for peak in peaks.values())):
+        raise ValueError("data MMR peak set does not bind count")
+    return keccak256(b"".join((
+        b"slot-chain-data-bag-v1",
+        _model_uint(count, 2, "data MMR count"),
+        _model_uint(len(expected_heights), 1, "data MMR peak count"),
+        *(height.to_bytes(1, "big") + peaks[height]
+          for height in expected_heights),
+    ))).hex()
+
+
+def append_data_mmr(
+    frontier: list[bytes], count: int, canonical_leaf: bytes,
+) -> tuple[list[bytes], int, str]:
+    """Append one already byte-exact Appendix leaf through 12 words."""
+
+    if (type(frontier) is not list
+            or len(frontier) != DATA_MMR_FRONTIER_DEPTH
+            or any(type(row) is not bytes or len(row) != 32
+                   for row in frontier)
+            or type(count) is not int
+            or not 0 <= count < MAX_DATA_RECORDS_PER_SESSION
+            or type(canonical_leaf) is not bytes
+            or len(canonical_leaf) != 32):
+        raise ValueError("data MMR append is malformed")
+    carry = canonical_leaf
+    updated = list(frontier)
+    cursor = count
+    height = 0
+    while cursor & 1:
+        carry = keccak256(b"".join((
+            b"slot-chain-data-node-v1",
+            height.to_bytes(1, "big"),
+            updated[height],
+            carry,
+        )))
+        cursor >>= 1
+        height += 1
+    if height >= DATA_MMR_FRONTIER_DEPTH:
+        raise ValueError("data MMR frontier capacity is exhausted")
+    updated[height] = carry
+    next_count = count + 1
+    return updated, next_count, data_mmr_root(updated, next_count)
+
+
+def model_data_mmr_root(
+    canonical_leaves: tuple[bytes, ...] | list[bytes],
+) -> str:
+    """Independent full-leaf oracle; it never invokes frontier append."""
+
+    if (type(canonical_leaves) not in {tuple, list}
+            or len(canonical_leaves) > MAX_DATA_RECORDS_PER_SESSION
+            or any(type(leaf) is not bytes or len(leaf) != 32
+                   for leaf in canonical_leaves)):
+        raise ValueError("data record oracle is malformed")
+    leaves = list(canonical_leaves)
+    peaks: dict[int, bytes] = {}
+    offset = 0
+    for height in reversed(range(DATA_MMR_FRONTIER_DEPTH)):
+        if not (len(leaves) >> height) & 1:
+            continue
+        width = 1 << height
+        nodes = leaves[offset:offset + width]
+        for child_height in range(height):
+            nodes = [keccak256(b"".join((
+                b"slot-chain-data-node-v1",
+                child_height.to_bytes(1, "big"),
+                nodes[index],
+                nodes[index + 1],
+            ))) for index in range(0, len(nodes), 2)]
+        if len(nodes) != 1:
+            raise AssertionError("independent data MMR peak did not collapse")
+        peaks[height] = nodes[0]
+        offset += width
+    if offset != len(leaves):
+        raise AssertionError("independent data MMR did not cover all leaves")
+    return data_mmr_bagged_root(peaks, len(leaves))
+
+
+@dataclass(frozen=True)
+class DataMmrProof:
+    count: int
+    index: int
+    siblings: tuple[str, ...]
+    other_peaks: tuple[tuple[int, str], ...]
+
+
+def _data_mmr_mountains(count: int) -> tuple[tuple[int, int, int], ...]:
+    """Return left-to-right (start,end,height) mountains derived from count."""
+
+    if (type(count) is not int
+            or not 0 <= count <= MAX_DATA_RECORDS_PER_SESSION):
+        raise ValueError("data MMR count is outside the session bound")
+    offset = 0
+    rows: list[tuple[int, int, int]] = []
+    for height in reversed(range(DATA_MMR_FRONTIER_DEPTH)):
+        if (count >> height) & 1:
+            end = offset + (1 << height)
+            rows.append((offset, end, height))
+            offset = end
+    if offset != count:
+        raise AssertionError("data MMR mountain geometry drifted")
+    return tuple(rows)
+
+
+def verify_data_mmr_proof(
+    canonical_leaf: bytes, proof: DataMmrProof, expected_root: str,
+) -> bool:
+    """Verify an exact proof with count-derived mountain and directions."""
+
+    if (type(proof) is not DataMmrProof
+            or type(canonical_leaf) is not bytes or len(canonical_leaf) != 32
+            or type(expected_root) is not str or len(expected_root) != 64
+            or not 0 <= proof.index < proof.count
+            or proof.count > MAX_DATA_RECORDS_PER_SESSION):
+        return False
+    target = next((row for row in _data_mmr_mountains(proof.count)
+                   if row[0] <= proof.index < row[1]), None)
+    if target is None:
+        return False
+    start, _, target_height = target
+    expected_other_heights = tuple(
+        height for height in range(DATA_MMR_FRONTIER_DEPTH)
+        if (proof.count >> height) & 1 and height != target_height
+    )
+    if (type(proof.siblings) is not tuple
+            or len(proof.siblings) != target_height
+            or type(proof.other_peaks) is not tuple
+            or tuple(row[0] for row in proof.other_peaks)
+                != expected_other_heights
+            or any(type(row) is not tuple or len(row) != 2
+                   or type(row[0]) is not int
+                   or type(row[1]) is not str or len(row[1]) != 64
+                   for row in proof.other_peaks)):
+        return False
+    try:
+        node = canonical_leaf
+        sibling_bytes = tuple(bytes.fromhex(row) for row in proof.siblings)
+        peaks = {height: bytes.fromhex(peak)
+                 for height, peak in proof.other_peaks}
+    except ValueError:
+        return False
+    local_index = proof.index - start
+    for child_height, sibling in enumerate(sibling_bytes):
+        left, right = (
+            (node, sibling) if ((local_index >> child_height) & 1) == 0
+            else (sibling, node)
+        )
+        node = keccak256(b"".join((
+            b"slot-chain-data-node-v1",
+            child_height.to_bytes(1, "big"),
+            left,
+            right,
+        )))
+    peaks[target_height] = node
+    try:
+        return data_mmr_bagged_root(peaks, proof.count) == expected_root
+    except ValueError:
+        return False
+
+
+def model_data_mmr_proof(
+    canonical_leaves: tuple[bytes, ...] | list[bytes],
+    index: int,
+) -> tuple[bytes, DataMmrProof]:
+    """Off-chain proof oracle independent of the canonical frontier."""
+
+    if (type(canonical_leaves) not in {tuple, list}
+            or not 0 <= index < len(canonical_leaves)
+            or len(canonical_leaves) > MAX_DATA_RECORDS_PER_SESSION
+            or any(type(leaf) is not bytes or len(leaf) != 32
+                   for leaf in canonical_leaves)):
+        raise ValueError("data MMR proof request is malformed")
+    leaves = list(canonical_leaves)
+    peaks: dict[int, bytes] = {}
+    target_siblings: tuple[str, ...] | None = None
+    target_height: int | None = None
+    for start, end, height in _data_mmr_mountains(len(leaves)):
+        nodes = leaves[start:end]
+        cursor = index - start if start <= index < end else None
+        siblings: list[str] = []
+        for child_height in range(height):
+            if cursor is not None:
+                siblings.append(nodes[cursor ^ 1].hex())
+                cursor >>= 1
+            nodes = [keccak256(b"".join((
+                b"slot-chain-data-node-v1",
+                child_height.to_bytes(1, "big"),
+                nodes[offset],
+                nodes[offset + 1],
+            ))) for offset in range(0, len(nodes), 2)]
+        peaks[height] = nodes[0]
+        if start <= index < end:
+            target_siblings = tuple(siblings)
+            target_height = height
+    if target_siblings is None or target_height is None:
+        raise AssertionError("data MMR proof target mountain is missing")
+    proof = DataMmrProof(
+        len(leaves),
+        index,
+        target_siblings,
+        tuple((height, peaks[height].hex())
+              for height in sorted(peaks) if height != target_height),
+    )
+    return leaves[index], proof
 
 
 @dataclass(frozen=True)
 class DataRecord:
+    session_id: str
     index: int
-    body_root: str
-    valid_until: int
+    versioned_hash: bytes
+    canonical_leaf: bytes
+
+
+@dataclass(frozen=True)
+class SessionOpenedEvent:
+    session_id: str
+    owner: str
+    cell: int
+    sequence: int
+    expiry: int
+    bond_wei: int
+    base_rent_wei: int
+
+
+@dataclass(frozen=True)
+class SessionSealedEvent:
+    session_id: str
+    count: int
+    root: str
+    expiry: int
+
+
+@dataclass(frozen=True)
+class SessionLiveToRefundEvent:
+    session_id: str
+    owner: str
+    cell: int
+    claim_deadline: int
+    migration_generation: int
+
+
+@dataclass(frozen=True)
+class SessionBondClaimedEvent:
+    session_id: str
+    owner: str
+    recipient: str
+    amount: int
+
+
+@dataclass(frozen=True)
+class SessionRefundForfeitedEvent:
+    session_id: str
+    owner: str
+    cell: int
+    amount: int
+
+
+@dataclass(frozen=True)
+class SessionSurplusSweptEvent:
+    sink: str
+    amount: int
+
+
+@dataclass(frozen=True)
+class DataSessionsMaintainedEvent:
+    mode: int
+    start_cursor: int
+    next_cursor: int
+    inspected: int
+    changed: int
+
+
+@dataclass(frozen=True)
+class DataPost:
+    """Caller-supplied static tuple; consensus fields are derived internally."""
+
+    full_body_root: bytes
+    block_ordinal: int
+    chunk_index: int
+    chunk_count: int
+    chunk_byte_length: int
+    chunk_root: bytes
+    y: int
+    commitment_hi: bytes
+    commitment_lo: bytes
+    proof_hi: bytes
+    proof_lo: bytes
+
+    def structurally_valid(self) -> bool:
+        return (type(self.full_body_root) is bytes
+                and len(self.full_body_root) == 32
+                and type(self.block_ordinal) is int
+                and 0 <= self.block_ordinal <= 65_535
+                and type(self.chunk_index) is int
+                and type(self.chunk_count) is int
+                and 0 <= self.chunk_index < self.chunk_count <= 9
+                and type(self.chunk_byte_length) is int
+                and 0 <= self.chunk_byte_length <= 126_972
+                and type(self.chunk_root) is bytes
+                and len(self.chunk_root) == 32
+                and type(self.y) is int and 0 <= self.y < BLS_MODULUS
+                and type(self.commitment_hi) is bytes
+                and len(self.commitment_hi) == 32
+                and type(self.commitment_lo) is bytes
+                and len(self.commitment_lo) == 16
+                and type(self.proof_hi) is bytes
+                and len(self.proof_hi) == 32
+                and type(self.proof_lo) is bytes
+                and len(self.proof_lo) == 16)
+
+    @property
+    def commitment(self) -> bytes:
+        if not self.structurally_valid():
+            raise ValueError("data POST tuple is malformed")
+        return self.commitment_hi + self.commitment_lo
+
+    @property
+    def proof(self) -> bytes:
+        if not self.structurally_valid():
+            raise ValueError("data POST tuple is malformed")
+        return self.proof_hi + self.proof_lo
+
+
+@dataclass(frozen=True)
+class PointEvaluationAdapter:
+    """Exact STATICCALL environment model for EIP-4844 address 0x0A."""
+
+    address: str = POINT_EVALUATION_PRECOMPILE
+    gas: int = POINT_EVALUATION_GAS
+    success: bool = True
+    return_data: bytes = POINT_EVALUATION_OK
+
+    def structurally_valid(self) -> bool:
+        return (self.address == POINT_EVALUATION_PRECOMPILE
+                and self.gas == POINT_EVALUATION_GAS
+                and type(self.success) is bool
+                and type(self.return_data) is bytes)
+
+    def staticcall(
+        self, *, address: str, gas: int, input_data: bytes
+    ) -> tuple[bool, bytes]:
+        if (not self.structurally_valid()
+                or address != POINT_EVALUATION_PRECOMPILE
+                or gas != POINT_EVALUATION_GAS
+                or type(input_data) is not bytes
+                or len(input_data) != 192
+                or input_data[:32]
+                    != kzg_commitment_to_versioned_hash(input_data[96:144])):
+            return False, b""
+        return self.success, self.return_data
+
+
+def kzg_commitment_to_versioned_hash(commitment: bytes) -> bytes:
+    """Return the exact EIP-4844 KZG versioned hash for one commitment."""
+
+    if type(commitment) is not bytes or len(commitment) != 48:
+        raise ValueError("KZG commitment must be exactly 48 bytes")
+    digest = hashlib.sha256(commitment).digest()
+    return b"\x01" + digest[1:]
+
+
+def data_post_for_test(
+    *,
+    chunk_byte_length: int = 1,
+    salt: bytes = b"blob",
+    block_ordinal: int = 0,
+    chunk_index: int = 0,
+    chunk_count: int = 1,
+    y: int = 0,
+) -> DataPost:
+    """Build one structurally exact tuple for behavioral model fixtures."""
+
+    if type(salt) is not bytes or not salt:
+        raise ValueError("data POST fixture salt is malformed")
+    commitment = keccak256(b"commitment:" + salt) + keccak256(
+        b"commitment-tail:" + salt
+    )[:16]
+    proof = keccak256(b"proof:" + salt) + keccak256(
+        b"proof-tail:" + salt
+    )[:16]
+    return DataPost(
+        keccak256(b"body:" + salt),
+        block_ordinal,
+        chunk_index,
+        chunk_count,
+        chunk_byte_length,
+        keccak256(b"chunk:" + salt),
+        y,
+        commitment[:32],
+        commitment[32:],
+        proof[:32],
+        proof[32:],
+    )
 
 
 @dataclass
@@ -1375,9 +1966,314 @@ class DataSession:
     session_id: str
     owner: str
     expiry: int
-    records: list[DataRecord] = field(default_factory=list)
-    root: str = "empty"
+    refundable_bond: int = 0
+    cell_index: int = -1
+    sequence: int = 0
+    count: int = 0
+    frontier: list[bytes] = field(
+        default_factory=lambda: [bytes(32)
+                                 for _ in range(DATA_MMR_FRONTIER_DEPTH)]
+    )
+    root: str = ""
     sealed: bool = False
+
+    def __post_init__(self) -> None:
+        if (not self.session_id or not self.owner
+                or type(self.expiry) is not int
+                or type(self.refundable_bond) is not int
+                or not 0 <= self.refundable_bond <= SEAT_UINT256_MAX
+                or type(self.cell_index) is not int
+                or not -1 <= self.cell_index < MAX_LIVE_DATA_SESSIONS
+                or type(self.sequence) is not int
+                or not 0 <= self.sequence < UINT64_MAX
+                or type(self.count) is not int
+                or not 0 <= self.count <= MAX_DATA_RECORDS_PER_SESSION
+                or type(self.frontier) is not list
+                or len(self.frontier) != DATA_MMR_FRONTIER_DEPTH
+                or any(type(row) is not bytes or len(row) != 32
+                       for row in self.frontier)):
+            raise ValueError("data session state is malformed")
+        expected = data_mmr_root(self.frontier, self.count)
+        if self.root not in {"", expected}:
+            raise ValueError("data session root does not match its frontier")
+        self.root = expected
+
+
+class DataSessionCellTag(Enum):
+    FREE = 0
+    LIVE = 1
+    REFUND = 2
+
+
+class DataSessionMaintenanceMode(Enum):
+    ORDINARY = 1
+    MIGRATION = 2
+    REFUND_ONLY = 3
+
+
+class DataSessionRevert(RuntimeError):
+    """Exact transaction-revert signal for session custody selectors."""
+
+
+@dataclass
+class DataSessionCell:
+    tag: DataSessionCellTag = DataSessionCellTag.FREE
+    session: DataSession | None = None
+    refund_claim_deadline: int = 0
+
+    def structurally_valid(self, index: int) -> bool:
+        if (type(index) is not int
+                or not 0 <= index < MAX_LIVE_DATA_SESSIONS
+                or type(self.tag) is not DataSessionCellTag
+                or type(self.refund_claim_deadline) is not int
+                or not 0 <= self.refund_claim_deadline <= UINT64_MAX):
+            return False
+        if self.tag is DataSessionCellTag.FREE:
+            return (self.refund_claim_deadline == 0
+                    and (self.session is None
+                         or type(self.session) is DataSession
+                         and self.session.cell_index == index))
+        if (type(self.session) is not DataSession
+                or self.session.cell_index != index):
+            return False
+        if self.tag is DataSessionCellTag.LIVE:
+            return self.refund_claim_deadline == 0
+        return self.refund_claim_deadline > 0
+
+
+@dataclass(frozen=True)
+class DataSessionCellView:
+    tag: int = 0
+    session_id: str = ""
+    owner: str = ""
+    refundable_bond: int = 0
+    refund_claim_deadline: int = 0
+    sequence: int = 0
+    expiry: int = 0
+    count: int = 0
+    sealed: bool = False
+    root: str = ""
+    frontier: tuple[bytes, ...] = field(
+        default_factory=lambda: tuple(
+            bytes(32) for _ in range(DATA_MMR_FRONTIER_DEPTH)
+        )
+    )
+
+
+@dataclass(frozen=True)
+class DataSessionCellAbiV1:
+    tag: int = 0
+    session_id: bytes = bytes(32)
+    owner: bytes = bytes(20)
+    sequence: int = 0
+    expiry: int = 0
+    count: int = 0
+    sealed: bool = False
+    root: bytes = bytes(32)
+    peaks: tuple[bytes, ...] = field(
+        default_factory=lambda: tuple(
+            bytes(32) for _ in range(DATA_MMR_FRONTIER_DEPTH)
+        )
+    )
+    bond_wei: int = 0
+    claim_deadline: int = 0
+
+
+@dataclass(frozen=True)
+class DataSessionByIdAbiV1:
+    cell_plus_one: int = 0
+    tag: int = 0
+    owner: bytes = bytes(20)
+    sequence: int = 0
+    expiry: int = 0
+    count: int = 0
+    sealed: bool = False
+    root: bytes = bytes(32)
+    bond_wei: int = 0
+    claim_deadline: int = 0
+
+
+def _abi_bool_word(value: bool) -> bytes:
+    if type(value) is not bool:
+        raise ValueError("ABI Boolean is malformed")
+    return bytes(31) + bytes((int(value),))
+
+
+def _validate_data_session_cell_abi(row: DataSessionCellAbiV1) -> None:
+    if (type(row) is not DataSessionCellAbiV1
+            or row.tag not in (0, 1, 2)
+            or type(row.session_id) is not bytes or len(row.session_id) != 32
+            or type(row.owner) is not bytes or len(row.owner) != 20
+            or type(row.root) is not bytes or len(row.root) != 32
+            or type(row.peaks) is not tuple
+            or len(row.peaks) != DATA_MMR_FRONTIER_DEPTH
+            or any(type(peak) is not bytes or len(peak) != 32
+                   for peak in row.peaks)
+            or type(row.sealed) is not bool):
+        raise ValueError("data-session cell view is malformed")
+    _model_uint(row.sequence, 8, "session sequence")
+    _model_uint(row.expiry, 8, "session expiry")
+    _model_uint(row.count, 2, "record count")
+    _model_uint(row.bond_wei, 32, "session bond")
+    _model_uint(row.claim_deadline, 8, "claim deadline")
+    zero_peaks = tuple(bytes(32) for _ in range(DATA_MMR_FRONTIER_DEPTH))
+    if row.tag == 0 and row != DataSessionCellAbiV1():
+        raise ValueError("FREE session cell is not canonically masked")
+    if (row.tag == 1
+            and (row.session_id == bytes(32) or row.owner == bytes(20)
+                 or row.claim_deadline != 0)):
+        raise ValueError("LIVE session cell is malformed")
+    if (row.tag == 2
+            and (row.session_id == bytes(32) or row.owner == bytes(20)
+                 or row.bond_wei == 0 or row.claim_deadline == 0
+                 or row.sequence != 0 or row.expiry != 0 or row.count != 0
+                 or row.sealed or row.root != bytes(32)
+                 or row.peaks != zero_peaks)):
+        raise ValueError("REFUND session cell is not canonically masked")
+
+
+def encode_data_session_cell_v1(row: DataSessionCellAbiV1) -> bytes:
+    _validate_data_session_cell_abi(row)
+    return b"".join((
+        bytes(31) + bytes((row.tag,)),
+        row.session_id,
+        bytes(12) + row.owner,
+        bytes(24) + _model_uint(row.sequence, 8, "session sequence"),
+        bytes(24) + _model_uint(row.expiry, 8, "session expiry"),
+        bytes(30) + _model_uint(row.count, 2, "record count"),
+        _abi_bool_word(row.sealed),
+        row.root,
+        *row.peaks,
+        _model_uint(row.bond_wei, 32, "session bond"),
+        bytes(24) + _model_uint(row.claim_deadline, 8, "claim deadline"),
+    ))
+
+
+def decode_data_session_cell_v1(raw: bytes) -> DataSessionCellAbiV1:
+    if type(raw) is not bytes or len(raw) != 704:
+        raise ValueError("data-session cell returndata length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, 704, 32))
+    if (words[0][:31] != bytes(31) or words[0][-1] not in (0, 1, 2)
+            or words[2][:12] != bytes(12)
+            or words[3][:24] != bytes(24)
+            or words[4][:24] != bytes(24)
+            or words[5][:30] != bytes(30)
+            or words[6][:31] != bytes(31) or words[6][-1] not in (0, 1)
+            or words[21][:24] != bytes(24)):
+        raise ValueError("data-session cell returndata is noncanonical")
+    row = DataSessionCellAbiV1(
+        words[0][-1], words[1], words[2][12:],
+        int.from_bytes(words[3][24:], "big"),
+        int.from_bytes(words[4][24:], "big"),
+        int.from_bytes(words[5][30:], "big"), bool(words[6][-1]), words[7],
+        tuple(words[8:20]), int.from_bytes(words[20], "big"),
+        int.from_bytes(words[21][24:], "big"),
+    )
+    _validate_data_session_cell_abi(row)
+    return row
+
+
+def encode_data_session_by_id_v1(row: DataSessionByIdAbiV1) -> bytes:
+    if (type(row) is not DataSessionByIdAbiV1
+            or not 0 <= row.cell_plus_one <= MAX_LIVE_DATA_SESSIONS
+            or row.tag not in (0, 1, 2)
+            or type(row.owner) is not bytes or len(row.owner) != 20
+            or type(row.sealed) is not bool
+            or type(row.root) is not bytes or len(row.root) != 32):
+        raise ValueError("data-session by-ID view is malformed")
+    _model_uint(row.sequence, 8, "session sequence")
+    _model_uint(row.expiry, 8, "session expiry")
+    _model_uint(row.count, 2, "record count")
+    _model_uint(row.bond_wei, 32, "session bond")
+    _model_uint(row.claim_deadline, 8, "claim deadline")
+    if row.tag == 0 and row != DataSessionByIdAbiV1():
+        raise ValueError("missing by-ID view is not canonical zero")
+    if row.tag != 0 and row.cell_plus_one == 0:
+        raise ValueError("present by-ID view has zero cell index")
+    if (row.tag == 2
+            and (row.owner == bytes(20) or row.bond_wei == 0
+                 or row.claim_deadline == 0 or row.sequence != 0
+                 or row.expiry != 0 or row.count != 0 or row.sealed
+                 or row.root != bytes(32))):
+        raise ValueError("REFUND by-ID view is not canonically masked")
+    return b"".join((
+        bytes(30) + _model_uint(row.cell_plus_one, 2, "cell plus one"),
+        bytes(31) + bytes((row.tag,)), bytes(12) + row.owner,
+        bytes(24) + _model_uint(row.sequence, 8, "session sequence"),
+        bytes(24) + _model_uint(row.expiry, 8, "session expiry"),
+        bytes(30) + _model_uint(row.count, 2, "record count"),
+        _abi_bool_word(row.sealed), row.root,
+        _model_uint(row.bond_wei, 32, "session bond"),
+        bytes(24) + _model_uint(row.claim_deadline, 8, "claim deadline"),
+    ))
+
+
+def decode_data_session_by_id_v1(raw: bytes) -> DataSessionByIdAbiV1:
+    if type(raw) is not bytes or len(raw) != 320:
+        raise ValueError("data-session by-ID returndata length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, 320, 32))
+    if (words[0][:30] != bytes(30)
+            or words[1][:31] != bytes(31) or words[1][-1] not in (0, 1, 2)
+            or words[2][:12] != bytes(12)
+            or words[3][:24] != bytes(24)
+            or words[4][:24] != bytes(24)
+            or words[5][:30] != bytes(30)
+            or words[6][:31] != bytes(31) or words[6][-1] not in (0, 1)
+            or words[9][:24] != bytes(24)):
+        raise ValueError("data-session by-ID returndata is noncanonical")
+    row = DataSessionByIdAbiV1(
+        int.from_bytes(words[0][30:], "big"), words[1][-1], words[2][12:],
+        int.from_bytes(words[3][24:], "big"),
+        int.from_bytes(words[4][24:], "big"),
+        int.from_bytes(words[5][30:], "big"), bool(words[6][-1]), words[7],
+        int.from_bytes(words[8], "big"),
+        int.from_bytes(words[9][24:], "big"),
+    )
+    if encode_data_session_by_id_v1(row) != raw:
+        raise ValueError("data-session by-ID returndata is invalid")
+    return row
+
+
+@dataclass
+class DataSessionBondReceiver:
+    address: str
+    rejects: bool = False
+    balance: int = 0
+    callback: Callable[["Protocol", str], None] | None = field(
+        default=None, compare=False, repr=False
+    )
+
+    def receive(
+        self, protocol: "Protocol", session_id: str, amount: int
+    ) -> bool:
+        if self.rejects or not self.address or amount <= 0:
+            return False
+        self.balance = seat_checked_add(
+            self.balance, amount, "data-session receiver balance"
+        )
+        if self.callback is not None:
+            self.callback(protocol, session_id)
+        return True
+
+
+@dataclass
+class DataRentSink:
+    address: str = "data-rent-sink"
+    rejects: bool = False
+    balance: int = 0
+    callback: Callable[["Protocol"], None] | None = field(
+        default=None, compare=False, repr=False
+    )
+
+    def receive(self, protocol: "Protocol", amount: int) -> bool:
+        if self.rejects or not self.address or amount <= 0:
+            return False
+        self.balance = seat_checked_add(
+            self.balance, amount, "data-rent sink balance"
+        )
+        if self.callback is not None:
+            self.callback(protocol)
+        return True
 
 
 @dataclass(frozen=True)
@@ -1647,9 +2543,15 @@ class StageTombstone:
 
 
 class RouterPhase(Enum):
-    ACTIVE = 1
-    ARMED = 2
-    READY = 3
+    ACTIVE = 0
+    ARMED = 1
+    READY = 2
+
+
+class MigrationBoundaryState(Enum):
+    NONE = 0
+    NORMAL = 1
+    RECOVERY = 2
 
 
 @dataclass(frozen=True)
@@ -1659,6 +2561,252 @@ class RouterWord:
     target_version: int
     target_manifest_hash: bytes
     phase: RouterPhase
+
+
+ACTIVE_SETTLEMENT_STATE_MAGIC = b"ASR1"
+ACTIVE_SETTLEMENT_STATE_LENGTH = 224
+ACTIVE_SETTLEMENT_STATE_GAS = 50_000
+MIGRATION_READINESS_MAGIC = b"MRS1"
+MIGRATION_READINESS_LENGTH = 224
+MIGRATION_READINESS_GAS = 100_000
+DATA_SESSION_ACCOUNTING_MAGIC = b"DSV1"
+DATA_SESSION_ACCOUNTING_LENGTH = 384
+DATA_SESSION_ACCOUNTING_GAS = 100_000
+MARK_MIGRATION_READY_MAGIC = b"MRDY"
+MARK_MIGRATION_READY_RETURN = MARK_MIGRATION_READY_MAGIC + bytes(28)
+
+
+@dataclass(frozen=True)
+class ActiveSettlementStateV1:
+    active_settlement: bytes
+    generation: int
+    active_protocol_version: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    phase: RouterPhase
+
+
+@dataclass(frozen=True)
+class MigrationReadinessV1:
+    generation: int
+    active_protocol_version: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    boundary_state: MigrationBoundaryState
+    local_arm_complete: bool
+
+
+@dataclass(frozen=True)
+class DataSessionAccountingV1:
+    live_count: int
+    refund_count: int
+    occupied_count: int
+    gc_cursor: int
+    next_session_sequence: int
+    live_bond_liability: int
+    refund_bond_liability: int
+    migration_refund_generation: int
+    migration_refund_claim_deadline: int
+    guard_entered: bool
+    data_session_config_hash: bytes
+
+
+def encode_active_settlement_state_v1(
+    state: ActiveSettlementStateV1,
+) -> bytes:
+    if (type(state) is not ActiveSettlementStateV1
+            or type(state.active_settlement) is not bytes
+            or len(state.active_settlement) != 20
+            or state.active_settlement == bytes(20)
+            or type(state.phase) is not RouterPhase
+            or type(state.target_manifest_hash) is not bytes
+            or len(state.target_manifest_hash) != 32):
+        raise ValueError("active Settlement state is malformed")
+    generation = _model_uint(state.generation, 8, "router generation")
+    active_version = _model_uint(
+        state.active_protocol_version, 8, "active protocol version"
+    )
+    target_version = _model_uint(
+        state.target_protocol_version, 8, "target protocol version"
+    )
+    if (state.active_protocol_version == 0
+            or (state.phase is RouterPhase.ACTIVE
+                and (state.target_protocol_version != 0
+                     or state.target_manifest_hash != bytes(32)))
+            or (state.phase is not RouterPhase.ACTIVE
+                and (state.target_protocol_version == 0
+                     or state.target_manifest_hash == bytes(32)))):
+        raise ValueError("active Settlement state phase tuple is invalid")
+    return b"".join((
+        ACTIVE_SETTLEMENT_STATE_MAGIC + bytes(28),
+        bytes(12) + state.active_settlement,
+        bytes(24) + generation,
+        bytes(24) + active_version,
+        bytes(24) + target_version,
+        state.target_manifest_hash,
+        bytes(31) + bytes((state.phase.value,)),
+    ))
+
+
+def decode_active_settlement_state_v1(raw: bytes) -> ActiveSettlementStateV1:
+    if type(raw) is not bytes or len(raw) != ACTIVE_SETTLEMENT_STATE_LENGTH:
+        raise ValueError("active Settlement returndata length is invalid")
+    words = tuple(raw[index:index + 32]
+                  for index in range(0, len(raw), 32))
+    if (words[0][:4] != ACTIVE_SETTLEMENT_STATE_MAGIC
+            or words[0][4:] != bytes(28)
+            or words[1][:12] != bytes(12)
+            or words[2][:24] != bytes(24)
+            or words[3][:24] != bytes(24)
+            or words[4][:24] != bytes(24)
+            or words[6][:31] != bytes(31)):
+        raise ValueError("active Settlement returndata padding is noncanonical")
+    try:
+        phase = RouterPhase(words[6][-1])
+        state = ActiveSettlementStateV1(
+            words[1][12:],
+            int.from_bytes(words[2][24:], "big"),
+            int.from_bytes(words[3][24:], "big"),
+            int.from_bytes(words[4][24:], "big"),
+            words[5],
+            phase,
+        )
+        # Re-encoding simultaneously validates the phase-dependent zero rules.
+        if encode_active_settlement_state_v1(state) != raw:
+            raise ValueError
+        return state
+    except (ValueError, OverflowError) as exc:
+        raise ValueError("active Settlement returndata is invalid") from exc
+
+
+def verify_active_settlement_state_v1(
+    raw: bytes,
+    *,
+    gas: int,
+    expected_settlement: str,
+    expected_protocol_version: int,
+) -> bool:
+    if gas != ACTIVE_SETTLEMENT_STATE_GAS:
+        return False
+    try:
+        state = decode_active_settlement_state_v1(raw)
+    except ValueError:
+        return False
+    return (state.active_settlement == _model_address20(expected_settlement)
+            and state.active_protocol_version == expected_protocol_version
+            and state.phase is RouterPhase.ACTIVE
+            and state.target_protocol_version == 0
+            and state.target_manifest_hash == bytes(32))
+
+
+def encode_migration_readiness_v1(state: MigrationReadinessV1) -> bytes:
+    if (type(state) is not MigrationReadinessV1
+            or type(state.target_manifest_hash) is not bytes
+            or len(state.target_manifest_hash) != 32
+            or state.target_manifest_hash == bytes(32)
+            or type(state.boundary_state) is not MigrationBoundaryState
+            or type(state.local_arm_complete) is not bool):
+        raise ValueError("migration readiness is malformed")
+    return b"".join((
+        MIGRATION_READINESS_MAGIC + bytes(28),
+        bytes(24) + _model_uint(state.generation, 8, "router generation"),
+        bytes(24) + _model_uint(
+            state.active_protocol_version, 8, "active protocol version"
+        ),
+        bytes(24) + _model_uint(
+            state.target_protocol_version, 8, "target protocol version"
+        ),
+        state.target_manifest_hash,
+        bytes(31) + bytes((state.boundary_state.value,)),
+        bytes(31) + bytes((int(state.local_arm_complete),)),
+    ))
+
+
+def decode_migration_readiness_v1(raw: bytes) -> MigrationReadinessV1:
+    if type(raw) is not bytes or len(raw) != MIGRATION_READINESS_LENGTH:
+        raise ValueError("migration readiness returndata length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
+    if (words[0] != MIGRATION_READINESS_MAGIC + bytes(28)
+            or any(words[index][:24] != bytes(24) for index in (1, 2, 3))
+            or words[5][:31] != bytes(31)
+            or words[6][:31] != bytes(31)
+            or words[6][-1] not in (0, 1)):
+        raise ValueError("migration readiness returndata is noncanonical")
+    try:
+        state = MigrationReadinessV1(
+            int.from_bytes(words[1][24:], "big"),
+            int.from_bytes(words[2][24:], "big"),
+            int.from_bytes(words[3][24:], "big"),
+            words[4],
+            MigrationBoundaryState(words[5][-1]),
+            bool(words[6][-1]),
+        )
+        if encode_migration_readiness_v1(state) != raw:
+            raise ValueError
+        return state
+    except (ValueError, OverflowError) as exc:
+        raise ValueError("migration readiness returndata is invalid") from exc
+
+
+def encode_data_session_accounting_v1(
+    state: DataSessionAccountingV1,
+) -> bytes:
+    if (type(state) is not DataSessionAccountingV1
+            or type(state.guard_entered) is not bool
+            or type(state.data_session_config_hash) is not bytes
+            or len(state.data_session_config_hash) != 32
+            or state.data_session_config_hash == bytes(32)):
+        raise ValueError("data-session accounting is malformed")
+    return b"".join((
+        DATA_SESSION_ACCOUNTING_MAGIC + bytes(28),
+        bytes(30) + _model_uint(state.live_count, 2, "live count"),
+        bytes(30) + _model_uint(state.refund_count, 2, "refund count"),
+        bytes(30) + _model_uint(state.occupied_count, 2, "occupied count"),
+        bytes(30) + _model_uint(state.gc_cursor, 2, "GC cursor"),
+        bytes(24) + _model_uint(
+            state.next_session_sequence, 8, "next session sequence"
+        ),
+        _model_uint(state.live_bond_liability, 32, "live bond liability"),
+        _model_uint(state.refund_bond_liability, 32, "refund bond liability"),
+        bytes(24) + _model_uint(
+            state.migration_refund_generation, 8,
+            "migration refund generation",
+        ),
+        bytes(24) + _model_uint(
+            state.migration_refund_claim_deadline, 8,
+            "migration refund deadline",
+        ),
+        bytes(31) + bytes((int(state.guard_entered),)),
+        state.data_session_config_hash,
+    ))
+
+
+def decode_data_session_accounting_v1(raw: bytes) -> DataSessionAccountingV1:
+    if type(raw) is not bytes or len(raw) != DATA_SESSION_ACCOUNTING_LENGTH:
+        raise ValueError("data-session accounting returndata length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
+    if (words[0] != DATA_SESSION_ACCOUNTING_MAGIC + bytes(28)
+            or any(words[index][:30] != bytes(30) for index in (1, 2, 3, 4))
+            or any(words[index][:24] != bytes(24) for index in (5, 8, 9))
+            or words[10][:31] != bytes(31)
+            or words[10][-1] not in (0, 1)):
+        raise ValueError("data-session accounting returndata is noncanonical")
+    state = DataSessionAccountingV1(
+        int.from_bytes(words[1][30:], "big"),
+        int.from_bytes(words[2][30:], "big"),
+        int.from_bytes(words[3][30:], "big"),
+        int.from_bytes(words[4][30:], "big"),
+        int.from_bytes(words[5][24:], "big"),
+        int.from_bytes(words[6], "big"),
+        int.from_bytes(words[7], "big"),
+        int.from_bytes(words[8][24:], "big"),
+        int.from_bytes(words[9][24:], "big"),
+        bool(words[10][-1]),
+        words[11],
+    )
+    if encode_data_session_accounting_v1(state) != raw:
+        raise ValueError("data-session accounting returndata is invalid")
+    return state
 
 
 @dataclass(frozen=True)
@@ -1779,17 +2927,21 @@ class Generation:
 
 @dataclass
 class MigrationGate:
-    """Shared generation gate; READY follows only authenticated live counters."""
+    """Shared generation gate; session counts remain Settlement-local."""
 
     mode: str = "ACTIVE"
     generation: int = 0
     active_protocol_version: int = 0
     target_protocol_version: int = 0
     target_manifest_hash: str | bytes = ""
+    active_settlement_address: str = ""
+    active_data_session_config_hash: bytes = b""
     coordinator: str = ""
-    live_data_sessions: int = 0
     canceled_generations: set[int] = field(default_factory=set)
     canceled_words: dict[int, RouterWord] = field(default_factory=dict)
+    mark_ready_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
 
     def __setattr__(self, name: str, value: object) -> None:
         if name == "coordinator" and name in self.__dict__:
@@ -1822,14 +2974,38 @@ class MigrationGate:
         )
 
     def _bootstrap_from_router(
-        self, protocol_version: int, coordinator: str = "version-manager"
+        self,
+        protocol_version: int,
+        coordinator: str = "version-manager",
+        *,
+        active_settlement_address: str = "",
+        active_data_session_config_hash: bytes = b"",
     ) -> bool:
         if (self.active_protocol_version != 0 or protocol_version <= 0
                 or self.mode != "ACTIVE" or self.coordinator != ""
-                or not coordinator):
+                or not coordinator
+                or (active_settlement_address
+                    and (type(active_data_session_config_hash) is not bytes
+                         or len(active_data_session_config_hash) != 32
+                         or active_data_session_config_hash == bytes(32)))):
             return False
         self.active_protocol_version = protocol_version
+        self.active_settlement_address = active_settlement_address
+        self.active_data_session_config_hash = active_data_session_config_hash
         object.__setattr__(self, "coordinator", coordinator)
+        return True
+
+    def _bind_active_data_session_from_router(
+        self, settlement_address: str, config_hash: bytes
+    ) -> bool:
+        if (not settlement_address
+                or type(config_hash) is not bytes or len(config_hash) != 32
+                or config_hash == bytes(32)
+                or self.active_settlement_address
+                or self.active_data_session_config_hash):
+            return False
+        self.active_settlement_address = settlement_address
+        self.active_data_session_config_hash = config_hash
         return True
 
     def _arm_from_manager(self, generation: int, active_protocol_version: int,
@@ -1851,26 +3027,122 @@ class MigrationGate:
         self.mode = "ARMED"
         return True
 
-    def _try_ready_from_protocol(
+    def _mark_ready_from_protocol(
         self,
         *,
-        normal_open: bool,
-        recovery_active: bool,
-        local_arm_complete: bool = True,
-    ) -> bool:
-        if (self.mode != "ARMED" or normal_open or recovery_active
-                or self.live_data_sessions != 0 or not local_arm_complete):
-            return False
+        protocol: object,
+        caller: str,
+        generation: int,
+        readiness_gas: int = MIGRATION_READINESS_GAS,
+        accounting_gas: int = DATA_SESSION_ACCOUNTING_GAS,
+    ) -> bytes:
+        if (self.mode != "ARMED"
+                or generation != self.generation
+                or caller != self.active_settlement_address
+                or readiness_gas != MIGRATION_READINESS_GAS
+                or accounting_gas != DATA_SESSION_ACCOUNTING_GAS
+                or not self.active_data_session_config_hash
+                or getattr(protocol, "settlement_address", None) != caller
+                or getattr(protocol, "migration_gate", None) is not self
+                or not protocol._is_current_settlement_target()):
+            raise ValueError("migration READY caller/gate tuple rejected")
+        readiness = decode_migration_readiness_v1(
+            protocol.migration_readiness_v1()
+        )
+        accounting = decode_data_session_accounting_v1(
+            protocol.data_session_accounting_v1()
+        )
+        manifest = _model_fixed_bytes32(self.target_manifest_hash)
+        if (readiness.generation != self.generation
+                or readiness.active_protocol_version
+                    != self.active_protocol_version
+                or readiness.target_protocol_version
+                    != self.target_protocol_version
+                or readiness.target_manifest_hash != manifest
+                or readiness.boundary_state is not MigrationBoundaryState.NONE
+                or not readiness.local_arm_complete
+                or accounting.live_count != 0
+                or accounting.occupied_count
+                    != accounting.live_count + accounting.refund_count
+                or accounting.guard_entered
+                or accounting.data_session_config_hash
+                    != self.active_data_session_config_hash):
+            raise ValueError("migration READY authenticated views rejected")
+        liabilities = seat_checked_add(
+            accounting.live_bond_liability,
+            accounting.refund_bond_liability,
+            "migration READY session liabilities",
+        )
+        if protocol.data_session_balance < liabilities:
+            raise ValueError("migration READY source custody is insolvent")
         self.mode = "READY"
-        return True
+        return (
+            MARK_MIGRATION_READY_RETURN
+            if self.mark_ready_return_override is None
+            else self.mark_ready_return_override
+        )
 
-    def _activate_from_router(self, generation: int, old_protocol_version: int,
-                        new_protocol_version: int) -> bool:
+    def _ready_views_valid_for_activation(self, protocol: object) -> bool:
+        """Repeat the two exact source reads immediately before cutover."""
+
+        if (self.mode != "READY"
+                or getattr(protocol, "settlement_address", None)
+                    != self.active_settlement_address
+                or getattr(protocol, "migration_gate", None) is not self):
+            return False
+        try:
+            readiness = decode_migration_readiness_v1(
+                protocol.migration_readiness_v1()
+            )
+            accounting = decode_data_session_accounting_v1(
+                protocol.data_session_accounting_v1()
+            )
+            liabilities = seat_checked_add(
+                accounting.live_bond_liability,
+                accounting.refund_bond_liability,
+                "activation session liabilities",
+            )
+        except (ValueError, AttributeError, AssertionError):
+            return False
+        return (
+            readiness.generation == self.generation
+            and readiness.active_protocol_version
+                == self.active_protocol_version
+            and readiness.target_protocol_version
+                == self.target_protocol_version
+            and readiness.target_manifest_hash
+                == _model_fixed_bytes32(self.target_manifest_hash)
+            and readiness.boundary_state is MigrationBoundaryState.NONE
+            and readiness.local_arm_complete
+            and accounting.live_count == 0
+            and accounting.occupied_count
+                == accounting.live_count + accounting.refund_count
+            and not accounting.guard_entered
+            and accounting.data_session_config_hash
+                == self.active_data_session_config_hash
+            and protocol.data_session_balance >= liabilities
+        )
+
+    def _activate_from_router(
+        self,
+        generation: int,
+        old_protocol_version: int,
+        new_protocol_version: int,
+        *,
+        new_settlement_address: str,
+        new_data_session_config_hash: bytes,
+    ) -> bool:
         if (self.mode != "READY" or generation != self.generation
                 or old_protocol_version != self.active_protocol_version
-                or new_protocol_version != self.target_protocol_version):
+                or new_protocol_version != self.target_protocol_version
+                or not new_settlement_address
+                or type(new_data_session_config_hash) is not bytes
+                or len(new_data_session_config_hash) != 32
+                or new_data_session_config_hash == bytes(32)):
             return False
         self.active_protocol_version = new_protocol_version
+        self.active_settlement_address = new_settlement_address
+        self.active_data_session_config_hash = new_data_session_config_hash
         self.target_protocol_version = 0
         self.target_manifest_hash = ""
         self.mode = "ACTIVE"
@@ -2078,7 +3350,51 @@ class Protocol:
     seat_migration_arm: SeatMigrationArm | None = None
     seat_migration_abort: SeatMigrationAbort | None = None
     seat_migration_local_generation: int | None = None
-    sessions: dict[str, DataSession] = field(default_factory=dict)
+    session_cells: list[DataSessionCell] = field(
+        default_factory=lambda: [
+            DataSessionCell() for _ in range(MAX_LIVE_DATA_SESSIONS)
+        ]
+    )
+    # Values are physical cell indices plus one, matching a Solidity mapping
+    # whose zero value means "absent".  It is bounded by occupied cells because
+    # both LIVE and REFUND cells retain exactly one entry.
+    session_cell_by_id: dict[str, int] = field(default_factory=dict)
+    # One global checked allocator avoids both identifier reuse and permanent
+    # per-Sybil-owner nonce state.  UINT64_MAX is the unused exhaustion value.
+    next_session_sequence: int = 0
+    # This map contains only owners of LIVE cells and is deleted at zero.
+    session_owner_live_count: dict[str, int] = field(default_factory=dict)
+    session_live_count: int = 0
+    session_refund_count: int = 0
+    session_occupied_count: int = 0
+    data_session_balance: int = 0
+    data_session_live_bond_liability: int = 0
+    data_session_refund_bond_liability: int = 0
+    data_session_required_bond: int = 10
+    data_session_base_rent_wei: int = 0
+    data_session_rent_per_published_byte_wei: int = 0
+    data_session_blob_base_fee_multiplier_bps: int = 10_000
+    data_session_max_blobs_per_post: int = 6
+    data_session_protocol_version: int = 1
+    point_evaluation_adapter: PointEvaluationAdapter = field(
+        default_factory=PointEvaluationAdapter
+    )
+    refund_claim_window_seconds: int = DATA_TTL_SECONDS
+    migration_refund_generation: int = 0
+    migration_refund_claim_deadline: int = 0
+    data_rent_sink: DataRentSink = field(default_factory=DataRentSink)
+    data_session_callback_entered: bool = field(
+        default=False, compare=False, repr=False
+    )
+    active_settlement_state_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    data_record_events: list[DataRecord] = field(
+        default_factory=list, compare=False
+    )
+    data_session_events: list[object] = field(
+        default_factory=list, compare=False
+    )
     gc_cursor: int = 0
     events: list[str] = field(default_factory=list)
     boundary_queries: int = 0
@@ -2103,6 +3419,56 @@ class Protocol:
     )
 
     def __post_init__(self) -> None:
+        if (type(self.session_cells) is not list
+                or len(self.session_cells) != MAX_LIVE_DATA_SESSIONS
+                or any(type(cell) is not DataSessionCell
+                       or not cell.structurally_valid(index)
+                       or cell.tag is not DataSessionCellTag.FREE
+                       or cell.session is not None
+                       for index, cell in enumerate(self.session_cells))
+                or type(self.gc_cursor) is not int
+                or self.gc_cursor != 0
+                or self.session_cell_by_id
+                or self.session_owner_live_count
+                or type(self.next_session_sequence) is not int
+                or self.next_session_sequence != 0
+                or self.session_live_count != 0
+                or self.session_refund_count != 0
+                or self.session_occupied_count != 0
+                or type(self.data_session_balance) is not int
+                or self.data_session_balance < 0
+                or self.data_session_live_bond_liability != 0
+                or self.data_session_refund_bond_liability != 0
+                or type(self.data_session_required_bond) is not int
+                or not 0 < self.data_session_required_bond <= SEAT_UINT256_MAX
+                or type(self.data_session_base_rent_wei) is not int
+                or not 0 <= self.data_session_base_rent_wei <= SEAT_UINT256_MAX
+                or type(self.data_session_rent_per_published_byte_wei) is not int
+                or not 0 <= self.data_session_rent_per_published_byte_wei
+                    <= SEAT_UINT256_MAX
+                or type(self.data_session_blob_base_fee_multiplier_bps) is not int
+                or not 0 <= self.data_session_blob_base_fee_multiplier_bps
+                    <= 10_000
+                or type(self.data_session_max_blobs_per_post) is not int
+                or not 0 < self.data_session_max_blobs_per_post <= 6
+                or type(self.data_session_protocol_version) is not int
+                or not 0 < self.data_session_protocol_version
+                    <= SEAT_UINT256_MAX
+                or type(self.point_evaluation_adapter)
+                    is not PointEvaluationAdapter
+                or not self.point_evaluation_adapter.structurally_valid()
+                or type(self.refund_claim_window_seconds) is not int
+                or not 0 < self.refund_claim_window_seconds <= UINT64_MAX
+                or self.migration_refund_generation != 0
+                or self.migration_refund_claim_deadline != 0
+                or type(self.data_rent_sink) is not DataRentSink
+                or not self.data_rent_sink.address
+                or self.data_session_callback_entered
+                or self.data_record_events
+                or self.data_session_events):
+            # Protocol construction starts with an empty bounded ring. Tests
+            # that need occupied cells use the explicit fixture installer.
+            raise ValueError("initial data-session ring is malformed")
         object.__setattr__(
             self,
             "inbox_apply_descriptor",
@@ -2128,6 +3494,14 @@ class Protocol:
         if name in {
             "header_oracle", "forced_queue", "inbox_apply_router",
             "migration_gate", "settlement_address",
+            "data_session_required_bond", "refund_claim_window_seconds",
+            "data_session_base_rent_wei",
+            "data_session_rent_per_published_byte_wei",
+            "data_session_blob_base_fee_multiplier_bps",
+            "data_session_max_blobs_per_post",
+            "data_session_protocol_version",
+            "point_evaluation_adapter",
+            "data_rent_sink",
             "_inbox_execution_authority", "inbox_apply_descriptor",
         } and name in self.__dict__:
             raise AttributeError(f"Protocol {name} is immutable")
@@ -2157,6 +3531,59 @@ class Protocol:
             and self.forced_queue.active_settlement_address
                 == self.settlement_address
         )
+
+    def active_settlement_state_v1(self) -> bytes:
+        """Model the immutable Router's exact bounded sidecar read."""
+
+        if self.active_settlement_state_return_override is not None:
+            return self.active_settlement_state_return_override
+        gate = self.migration_gate
+        phases = {
+            "ACTIVE": RouterPhase.ACTIVE,
+            "ARMED": RouterPhase.ARMED,
+            "READY": RouterPhase.READY,
+        }
+        phase = phases.get(gate.mode)
+        if phase is None:
+            raise ValueError("active Settlement phase is malformed")
+        active_version = (
+            gate.active_protocol_version
+            if gate.active_protocol_version > 0
+            else self._active_data_session_protocol_version()
+        )
+        target_version = (
+            0 if phase is RouterPhase.ACTIVE else gate.target_protocol_version
+        )
+        target_manifest = (
+            bytes(32)
+            if phase is RouterPhase.ACTIVE
+            else _model_fixed_bytes32(gate.target_manifest_hash)
+        )
+        active_address = gate.active_settlement_address or self.settlement_address
+        return encode_active_settlement_state_v1(ActiveSettlementStateV1(
+            _model_address20(active_address),
+            gate.generation,
+            active_version,
+            target_version,
+            target_manifest,
+            phase,
+        ))
+
+    def _active_data_session_sidecar_ok(self) -> bool:
+        if self.mode is Mode.PREACTIVE:
+            return False
+        try:
+            return (self._is_current_settlement_target()
+                    and verify_active_settlement_state_v1(
+                        self.active_settlement_state_v1(),
+                        gas=ACTIVE_SETTLEMENT_STATE_GAS,
+                        expected_settlement=self.settlement_address,
+                        expected_protocol_version=(
+                            self._active_data_session_protocol_version()
+                        ),
+                    ))
+        except ValueError:
+            return False
 
     def snapshot(self) -> "Protocol":
         return copy.deepcopy(self)
@@ -3308,6 +4735,7 @@ class Protocol:
         _ = execution_output
         history = self.versioned_history
         authority = self._inbox_execution_authority
+        data_rent_sink = self.data_rent_sink
         if type(authority) is not InboxValidityExecutionAuthority:
             raise AssertionError("Inbox execution authority is missing")
         history_refs = (
@@ -3327,7 +4755,7 @@ class Protocol:
                     "versioned_history", "_inbox_execution_authority",
                     "normal_best", "header_oracle", "forced_queue",
                     "inbox_apply_router", "inbox_apply_descriptor",
-                    "migration_gate",
+                    "migration_gate", "data_rent_sink",
                 }
             }),
             "normal_best": self.normal_best,
@@ -3339,6 +4767,8 @@ class Protocol:
             "inbox_execution_authority": authority,
             "migration_gate": self.migration_gate,
             "migration_gate_state": copy.deepcopy(self.migration_gate.__dict__),
+            "data_rent_sink": data_rent_sink,
+            "data_rent_sink_state": copy.deepcopy(data_rent_sink.__dict__),
             "history": history,
             "history_refs": history_refs,
             "history_state": (
@@ -3384,18 +4814,23 @@ class Protocol:
         queue = snapshot["forced_queue"]
         inbox = snapshot["inbox_apply_router"]
         gate = snapshot["migration_gate"]
+        data_rent_sink = snapshot["data_rent_sink"]
         history = snapshot["history"]
         authority = snapshot["inbox_execution_authority"]
         self._restore_object(self, snapshot["protocol"])
         object.__setattr__(self, "header_oracle", snapshot["header_oracle"])
         queue._restore_transaction_snapshot(snapshot["forced_queue_state"])
         self._restore_object(gate, snapshot["migration_gate_state"])
+        self._restore_object(
+            data_rent_sink, snapshot["data_rent_sink_state"]
+        )
         object.__setattr__(self, "forced_queue", queue)
         object.__setattr__(self, "inbox_apply_router", inbox)
         object.__setattr__(
             self, "inbox_apply_descriptor", snapshot["inbox_apply_descriptor"]
         )
         object.__setattr__(self, "migration_gate", gate)
+        object.__setattr__(self, "data_rent_sink", data_rent_sink)
         object.__setattr__(self, "_inbox_execution_authority", authority)
         self.normal_best = snapshot["normal_best"]
         object.__setattr__(authority, "protocol", self)
@@ -4465,6 +5900,156 @@ class Protocol:
             return encode_seat_migration_response(forged)
         return raw
 
+    def _migration_boundary_open(self) -> bool:
+        return (self.mode is Mode.RECOVERY
+                or self.normal_deadline is not None
+                or self.normal_best is not None
+                or self.normal_arm_block_number is not None)
+
+    def _migration_boundary_state(self) -> MigrationBoundaryState:
+        """Derive the exact readiness boundary state; malformed mixes revert."""
+
+        primary_normal_markers = (
+            self.normal_arm_block_number,
+            self.normal_deadline,
+            self.normal_best,
+        )
+        auxiliary_normal_markers = (
+            self.normal_required_through,
+            self.normal_min_admissible,
+            self.normal_admission_version,
+            self.normal_admission_root,
+            self.normal_anchor_number,
+            self.normal_anchor_hash,
+            self.normal_context_id,
+        )
+        normal = any(marker is not None for marker in primary_normal_markers)
+        auxiliary = any(
+            marker is not None for marker in auxiliary_normal_markers
+        )
+        if self.mode is Mode.PREACTIVE:
+            raise ValueError("PREACTIVE Settlement has no readiness view")
+        if self.mode is Mode.RECOVERY:
+            if self.recovery is None or normal or auxiliary:
+                raise ValueError("recovery boundary state is conflicting")
+            return MigrationBoundaryState.RECOVERY
+        if self.mode is not Mode.NORMAL or self.recovery is not None:
+            raise ValueError("normal boundary state is conflicting")
+        if auxiliary and not normal:
+            raise ValueError("orphan normal context cannot report NONE")
+        return (
+            MigrationBoundaryState.NORMAL
+            if normal else MigrationBoundaryState.NONE
+        )
+
+    def data_session_config_hash_v1(self) -> bytes:
+        """Commit every frozen immutable DataSession geometry/value input."""
+
+        history = self.versioned_history
+        router = (
+            history._router_authority
+            if isinstance(history, VersionedSettlementHistory) else None
+        )
+        protocol_version = self._active_data_session_protocol_version()
+        execution_profile_hash = (
+            history.execution_profile_hash
+            if isinstance(history, VersionedSettlementHistory)
+            else "model-execution-profile"
+        )
+        descriptor = b"".join((
+            _model_uint(
+                MODEL_SETTLEMENT_CHAIN_CONTEXT_ID, 32,
+                "settlement chain id",
+            ),
+            _model_uint(protocol_version, 8, "protocol version"),
+            _model_address20(self.settlement_address),
+            _model_address20(
+                router.address
+                if isinstance(router, ActiveSettlementRouter)
+                else "active-settlement-router"
+            ),
+            _model_address20(self.migration_gate.coordinator or "version-manager"),
+            _model_address20(self.data_rent_sink.address),
+            _model_fixed_bytes32(execution_profile_hash),
+            _model_uint(self.data_session_required_bond, 32, "session bond"),
+            _model_uint(self.data_session_base_rent_wei, 32, "base rent"),
+            _model_uint(
+                self.data_session_rent_per_published_byte_wei, 32,
+                "byte rent",
+            ),
+            _model_uint(
+                self.data_session_blob_base_fee_multiplier_bps, 2,
+                "blob multiplier BPS",
+            ),
+            _model_uint(DATA_TTL_SECONDS, 8, "maximum TTL"),
+            _model_uint(
+                self.refund_claim_window_seconds, 8, "refund claim window"
+            ),
+            _model_uint(MAX_LIVE_DATA_SESSIONS, 2, "session cells"),
+            _model_uint(MAX_DATA_SESSIONS_PER_OWNER, 2, "owner cap"),
+            _model_uint(MAX_DATA_RECORDS_PER_SESSION, 2, "record cap"),
+            _model_uint(MAX_GC_STEPS, 1, "maintenance steps"),
+            _model_uint(self.data_session_max_blobs_per_post, 1, "blob cap"),
+            _model_address20(POINT_EVALUATION_PRECOMPILE),
+            _model_uint(POINT_EVALUATION_GAS, 4, "point evaluation gas"),
+            _model_uint(BLS_MODULUS, 32, "BLS modulus"),
+            _model_uint(131_072, 4, "blob gas used"),
+            _model_uint(126_972, 4, "maximum blob payload"),
+            _model_uint(9, 2, "chunk count cap"),
+        ))
+        if len(descriptor) != 340:
+            raise AssertionError("DataSession config descriptor width drifted")
+        return keccak256(
+            b"slot-chain-data-session-config-v1"
+            + _model_uint(len(descriptor), 4, "config descriptor length")
+            + descriptor
+        )
+
+    def migration_readiness_v1(self) -> bytes:
+        boundary = self._migration_boundary_state()
+        gate = self.migration_gate
+        if gate.mode not in {"ARMED", "READY"}:
+            raise ValueError("migration readiness gate is inactive")
+        local_complete = self._local_migration_arm_complete(
+            boundary is not MigrationBoundaryState.NONE
+        )
+        return encode_migration_readiness_v1(MigrationReadinessV1(
+            gate.generation,
+            gate.active_protocol_version,
+            gate.target_protocol_version,
+            _model_fixed_bytes32(gate.target_manifest_hash),
+            boundary,
+            local_complete,
+        ))
+
+    def data_session_accounting_v1(self) -> bytes:
+        self._assert_data_session_state(require_solvency=False)
+        return encode_data_session_accounting_v1(DataSessionAccountingV1(
+            self.session_live_count,
+            self.session_refund_count,
+            self.session_occupied_count,
+            self.gc_cursor,
+            self.next_session_sequence,
+            self.data_session_live_bond_liability,
+            self.data_session_refund_bond_liability,
+            self.migration_refund_generation,
+            self.migration_refund_claim_deadline,
+            self.data_session_callback_entered,
+            self.data_session_config_hash_v1(),
+        ))
+
+    def _migration_refund_deadline_at_arm(self, clock: Clock) -> int:
+        """Freeze one objective deadline for the entire armed generation."""
+
+        if type(clock) is not Clock:
+            raise ValueError("migration refund clock is malformed")
+        base = clock.timestamp
+        if self.normal_deadline is not None:
+            base = max(base, self.normal_deadline)
+        if self.recovery is not None:
+            base = max(base, self.recovery.expires_at)
+        return self._sat_add64(base, self.refund_claim_window_seconds)
+
     def complete_seat_migration_arm(
         self,
         *,
@@ -4492,7 +6077,14 @@ class Protocol:
             raise ValueError("seat migration arm history binding is invalid")
 
         snapshot = self._canonical_transaction_snapshot()
+        migration_refund_deadline = self._migration_refund_deadline_at_arm(
+            clock
+        )
         try:
+            # Freeze before leading sync: if no boundary is open that sync may
+            # perform the generation's first bounded cleanup scan.
+            self.migration_refund_generation = router_word.generation
+            self.migration_refund_claim_deadline = migration_refund_deadline
             stage = self.settlement_seat_stage
             stage_id = (
                 stage.stage_id
@@ -4534,6 +6126,8 @@ class Protocol:
                     raise AssertionError("migration lost the exact stage tombstone")
                 tombstone.migration_terminal = True
             self.seat_migration_local_generation = router_word.generation
+            self.migration_refund_generation = router_word.generation
+            self.migration_refund_claim_deadline = migration_refund_deadline
             self.seat_migration_arm = SeatMigrationArm(
                 router_word,
                 self.seat_generation,
@@ -4609,7 +6203,9 @@ class Protocol:
             self._restore_canonical_transaction(snapshot)
             raise
 
-    def _arm_migration_for_test(self, generation: int) -> bool:
+    def _arm_migration_for_test(
+        self, generation: int, clock: Clock | None = None
+    ) -> bool:
         """Legacy model fixture only; production uses ProtocolVersionManager."""
 
         if (self.mode is Mode.PREACTIVE
@@ -4617,21 +6213,88 @@ class Protocol:
                 or self.migration_gate.mode != "ARMED"
                 or self.migration_gate.generation != generation):
             return False
+        if not self.migration_gate.active_settlement_address:
+            if not self.migration_gate._bind_active_data_session_from_router(
+                self.settlement_address, self.data_session_config_hash_v1()
+            ):
+                return False
+        elif (self.migration_gate.active_settlement_address
+                    != self.settlement_address
+                or self.migration_gate.active_data_session_config_hash
+                    != self.data_session_config_hash_v1()):
+            return False
         if self.mode is Mode.NORMAL and self.normal_deadline is None:
             self._clear_normal()
+        if clock is None:
+            objective_tail = max(
+                GENESIS_TIMESTAMP + self.core.tip_slot,
+                self.normal_deadline or 0,
+                self.recovery.expires_at if self.recovery is not None else 0,
+            )
+            clock = Clock(
+                self.canonical.canonicalized_at_block, objective_tail
+            )
         self.seat_migration_local_generation = generation
+        self.migration_refund_generation = generation
+        self.migration_refund_claim_deadline = (
+            self._migration_refund_deadline_at_arm(clock)
+        )
+        self._close_seats_for_migration(clock.timestamp)
+        self.seat_migration_arm = SeatMigrationArm(
+            self.migration_gate.router_word,
+            self.seat_generation,
+            clock.timestamp,
+        )
         self.events.append(f"MIGRATION_ARMED:{generation}")
         return True
 
-    def _cleanup_migration_sessions(self) -> int:
-        removed = 0
-        for key in sorted(tuple(self.sessions))[:MAX_GC_STEPS]:
-            del self.sessions[key]
-            self.migration_gate.live_data_sessions -= 1
-            removed += 1
-        if removed:
-            self.events.append(f"MIGRATION_SESSION_REFUNDS:{removed}")
-        return removed
+    def _cleanup_migration_sessions(self, clock: Clock) -> int:
+        if (self.migration_refund_generation
+                != self.migration_gate.generation
+                or self.migration_refund_claim_deadline <= 0):
+            raise AssertionError("migration refund deadline was not frozen")
+        changed, inspected = self._scan_data_session_ring(
+            clock,
+            action=DataSessionMaintenanceMode.MIGRATION,
+            migration_claim_deadline=self.migration_refund_claim_deadline,
+        )
+        if changed:
+            self.events.append(f"MIGRATION_SESSION_REFUNDS:{changed}")
+        return inspected
+
+    def _local_migration_arm_complete(self, boundary_open: bool) -> bool:
+        arm = self.seat_migration_arm
+        try:
+            accounted = seat_checked_add(
+                self.data_session_live_bond_liability,
+                self.data_session_refund_bond_liability,
+                "migration session liabilities",
+            )
+        except ValueError:
+            return False
+        return (not boundary_open
+                and self.session_live_count == 0
+                and self.data_session_balance >= accounted
+                and self.seat_migration_local_generation
+                    == self.migration_gate.generation
+                and self.migration_refund_generation
+                    == self.migration_gate.generation
+                and self.migration_refund_claim_deadline > 0
+                and arm is not None
+                and arm.router_word.generation
+                    == self.migration_gate.generation
+                and arm.router_word.active_version
+                    == self.migration_gate.active_protocol_version
+                and arm.router_word.target_version
+                    == self.migration_gate.target_protocol_version
+                and arm.router_word.target_manifest_hash
+                    == _model_fixed_bytes32(
+                        self.migration_gate.target_manifest_hash
+                    )
+                and arm.router_word.phase is RouterPhase.ARMED
+                and arm.seat_generation == self.seat_generation
+                and not self.seat_lineup
+                and self.settlement_seat_stage is None)
 
     def _sync_migration(
         self, clock: Clock, *, allow_ready: bool = True
@@ -4657,20 +6320,18 @@ class Protocol:
             elif self.normal_arm_block_number is not None:
                 self._clear_normal()
                 changed = True
-        boundary_open = (self.mode is Mode.RECOVERY
-                         or self.normal_deadline is not None
-                         or self.normal_best is not None
-                         or self.normal_arm_block_number is not None)
-        if not boundary_open:
-            changed |= self._cleanup_migration_sessions() > 0
-        if self.migration_gate._try_ready_from_protocol(
-                normal_open=boundary_open and self.mode is Mode.NORMAL,
-                recovery_active=self.mode is Mode.RECOVERY,
-                local_arm_complete=(
-                    allow_ready
-                    and self.seat_migration_local_generation
-                    == self.migration_gate.generation
-                )):
+        boundary_open = self._migration_boundary_open()
+        if not boundary_open and self.session_live_count:
+            changed |= self._cleanup_migration_sessions(clock) > 0
+        if (allow_ready
+                and self._local_migration_arm_complete(boundary_open)):
+            ready = self.migration_gate._mark_ready_from_protocol(
+                protocol=self,
+                caller=self.settlement_address,
+                generation=self.migration_gate.generation,
+            )
+            if ready != MARK_MIGRATION_READY_RETURN:
+                raise ValueError("migration READY returned the wrong magic")
             if (
                 self.versioned_history is not None
                 and self.versioned_history.mode == "MIGRATION_ARMED"
@@ -4762,72 +6423,921 @@ class Protocol:
         self.admission_version += 1
         self.admission_root = f"admission:{self.admission_version}"
 
-    def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL"
-        if self.sync(clock):
-            return "SYNCED"
-        if self.migration_gate.mode != "ACTIVE":
-            return "MIGRATION_ARMED"
-        self.gc_sessions(clock)
-        if (not owner or session_id in self.sessions
-                or expiry < clock.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
+    def next_data_session_id(self, owner: str) -> str:
+        return data_session_id(
+            MODEL_SETTLEMENT_CHAIN_CONTEXT_ID,
+            self.settlement_address,
+            owner,
+            self.next_session_sequence,
+        )
+
+    @property
+    def sessions(self) -> dict[str, DataSession]:
+        """Compatibility view of LIVE cells; never canonical stored state."""
+
+        return {
+            cell.session.session_id: cell.session
+            for cell in self.session_cells
+            if cell.tag is DataSessionCellTag.LIVE and cell.session is not None
+        }
+
+    @staticmethod
+    def _sat_add64(left: int, right: int) -> int:
+        if (type(left) is not int or type(right) is not int
+                or not 0 <= left <= UINT64_MAX
+                or not 0 <= right <= UINT64_MAX):
+            raise ValueError("uint64 saturating-add input is malformed")
+        return min(UINT64_MAX, left + right)
+
+    def _data_session_cell(
+        self, session_id: str
+    ) -> tuple[int, DataSessionCell] | None:
+        cell_plus_one = self.session_cell_by_id.get(session_id, 0)
+        if not cell_plus_one:
+            return None
+        index = cell_plus_one - 1
+        if not 0 <= index < MAX_LIVE_DATA_SESSIONS:
+            raise AssertionError("data-session id index is out of range")
+        cell = self.session_cells[index]
+        if (not cell.structurally_valid(index)
+                or cell.tag is DataSessionCellTag.FREE
+                or cell.session is None
+                or cell.session.session_id != session_id):
+            raise AssertionError("data-session ring/index state diverged")
+        return index, cell
+
+    def _live_data_session(self, session_id: str) -> DataSession | None:
+        located = self._data_session_cell(session_id)
+        if located is None or located[1].tag is not DataSessionCellTag.LIVE:
+            return None
+        return located[1].session
+
+    def data_session_cell_view(self, index: int) -> DataSessionCellView:
+        """Mask stale union words into one canonical external view."""
+
+        if type(index) is not int or not 0 <= index < MAX_LIVE_DATA_SESSIONS:
+            return DataSessionCellView()
+        cell = self.session_cells[index]
+        if cell.tag is DataSessionCellTag.FREE or cell.session is None:
+            return DataSessionCellView()
+        session = cell.session
+        if cell.tag is DataSessionCellTag.REFUND:
+            return DataSessionCellView(
+                DataSessionCellTag.REFUND.value,
+                session.session_id,
+                session.owner,
+                session.refundable_bond,
+                cell.refund_claim_deadline,
+            )
+        return DataSessionCellView(
+            DataSessionCellTag.LIVE.value,
+            session.session_id,
+            session.owner,
+            session.refundable_bond,
+            0,
+            session.sequence,
+            session.expiry,
+            session.count,
+            session.sealed,
+            session.root,
+            tuple(session.frontier),
+        )
+
+    def data_session_view(self, session_id: str) -> DataSessionCellView:
+        cell_plus_one = self.session_cell_by_id.get(session_id, 0)
+        return self.data_session_cell_view(cell_plus_one - 1)
+
+    @staticmethod
+    def _exact_session_bytes32(value: str, name: str) -> bytes:
+        if type(value) is not str or len(value) != 64:
+            raise ValueError(f"{name} is not exact bytes32")
+        try:
+            return bytes.fromhex(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} is not exact bytes32") from exc
+
+    def data_session_cell_v1(self, index: int) -> bytes:
+        view = self.data_session_cell_view(index)
+        if view.tag == 0:
+            row = DataSessionCellAbiV1()
+        else:
+            row = DataSessionCellAbiV1(
+                view.tag,
+                self._exact_session_bytes32(view.session_id, "session id"),
+                _model_address20(view.owner),
+                view.sequence,
+                view.expiry,
+                view.count,
+                view.sealed,
+                (bytes(32) if not view.root
+                 else self._exact_session_bytes32(view.root, "session root")),
+                view.frontier,
+                view.refundable_bond,
+                view.refund_claim_deadline,
+            )
+        return encode_data_session_cell_v1(row)
+
+    def data_session_by_id_v1(self, session_id: str) -> bytes:
+        cell_plus_one = self.session_cell_by_id.get(session_id, 0)
+        if cell_plus_one == 0:
+            row = DataSessionByIdAbiV1()
+        else:
+            view = self.data_session_cell_view(cell_plus_one - 1)
+            row = DataSessionByIdAbiV1(
+                cell_plus_one,
+                view.tag,
+                _model_address20(view.owner),
+                view.sequence,
+                view.expiry,
+                view.count,
+                view.sealed,
+                (bytes(32) if not view.root
+                 else self._exact_session_bytes32(view.root, "session root")),
+                view.refundable_bond,
+                view.refund_claim_deadline,
+            )
+        return encode_data_session_by_id_v1(row)
+
+    def _assert_data_session_state(self, *, require_solvency: bool = True) -> None:
+        live = refund = occupied = 0
+        owner_counts: dict[str, int] = {}
+        live_liability = refund_liability = 0
+        seen: dict[str, int] = {}
+        for index, cell in enumerate(self.session_cells):
+            if not cell.structurally_valid(index):
+                raise AssertionError("data-session cell is malformed")
+            if cell.tag is DataSessionCellTag.FREE:
+                continue
+            assert cell.session is not None
+            session = cell.session
+            if session.session_id in seen:
+                raise AssertionError("data-session id is duplicated")
+            seen[session.session_id] = index + 1
+            occupied += 1
+            if cell.tag is DataSessionCellTag.LIVE:
+                live += 1
+                owner_counts[session.owner] = owner_counts.get(session.owner, 0) + 1
+                live_liability += session.refundable_bond
+            else:
+                refund += 1
+                refund_liability += session.refundable_bond
+        if (seen != self.session_cell_by_id
+                or owner_counts != self.session_owner_live_count
+                or any(count <= 0 or count > MAX_DATA_SESSIONS_PER_OWNER
+                       for count in owner_counts.values())
+                or type(self.session_live_count) is not int
+                or not 0 <= self.session_live_count <= MAX_LIVE_DATA_SESSIONS
+                or type(self.session_refund_count) is not int
+                or not 0 <= self.session_refund_count <= MAX_LIVE_DATA_SESSIONS
+                or type(self.session_occupied_count) is not int
+                or not 0 <= self.session_occupied_count
+                    <= MAX_LIVE_DATA_SESSIONS
+                or live != self.session_live_count
+                or refund != self.session_refund_count
+                or occupied != self.session_occupied_count
+                or occupied != live + refund
+                or live_liability != self.data_session_live_bond_liability
+                or refund_liability
+                    != self.data_session_refund_bond_liability
+                or type(self.gc_cursor) is not int
+                or not 0 <= self.gc_cursor < MAX_LIVE_DATA_SESSIONS
+                or (require_solvency
+                    and self.data_session_balance
+                        < self.data_session_accounted_liabilities)):
+            raise AssertionError("data-session bounded accounting diverged")
+        current = self._is_current_settlement_target()
+        if ((self.mode is Mode.PREACTIVE or not current) and live != 0):
+            raise AssertionError("inactive Settlement retains a LIVE session")
+
+    def _install_data_session_for_test(
+        self,
+        session: DataSession,
+        cell: int,
+        *,
+        tag: DataSessionCellTag = DataSessionCellTag.LIVE,
+        refund_claim_deadline: int = 0,
+    ) -> DataSession:
+        """Seed one exact physical cell without weakening production OPEN."""
+
+        if (type(session) is not DataSession
+                or type(cell) is not int
+                or not 0 <= cell < MAX_LIVE_DATA_SESSIONS
+                or self.session_cells[cell].tag is not DataSessionCellTag.FREE
+                or session.session_id in self.session_cell_by_id
+                or tag not in {
+                    DataSessionCellTag.LIVE, DataSessionCellTag.REFUND
+                }
+                or (tag is DataSessionCellTag.LIVE
+                    and self.session_owner_live_count.get(session.owner, 0)
+                        >= MAX_DATA_SESSIONS_PER_OWNER)
+                or (tag is DataSessionCellTag.LIVE
+                    and refund_claim_deadline != 0)
+                or (tag is DataSessionCellTag.REFUND
+                    and not 0 < refund_claim_deadline <= UINT64_MAX)):
+            raise ValueError("data-session fixture cell is unavailable")
+        installed = replace(session, cell_index=cell)
+        self.session_cells[cell] = DataSessionCell(
+            tag, installed, refund_claim_deadline
+        )
+        self.session_cell_by_id[installed.session_id] = cell + 1
+        self.next_session_sequence = max(
+            self.next_session_sequence, installed.sequence + 1
+        )
+        self.session_occupied_count += 1
+        self.data_session_balance += installed.refundable_bond
+        if tag is DataSessionCellTag.LIVE:
+            self.session_live_count += 1
+            self.session_owner_live_count[installed.owner] = (
+                self.session_owner_live_count.get(installed.owner, 0) + 1
+            )
+            self.data_session_live_bond_liability += installed.refundable_bond
+        else:
+            self.session_refund_count += 1
+            self.data_session_refund_bond_liability += installed.refundable_bond
+        self._assert_data_session_state()
+        return installed
+
+    def _live_to_refund(
+        self,
+        index: int,
+        claim_deadline: int,
+        *,
+        emit_event: bool = True,
+        migration_generation: int = 0,
+    ) -> DataSession:
+        cell = self.session_cells[index]
+        session = cell.session
+        if (cell.tag is not DataSessionCellTag.LIVE
+                or session is None
+                or not 0 < claim_deadline <= UINT64_MAX
+                or self.session_owner_live_count.get(session.owner, 0) <= 0
+                or self.session_live_count <= 0
+                or session.refundable_bond
+                    > self.data_session_live_bond_liability):
+            raise AssertionError("data-session ring/index state diverged")
+        self.session_live_count -= 1
+        self.session_refund_count += 1
+        next_owner_count = self.session_owner_live_count[session.owner] - 1
+        if next_owner_count:
+            self.session_owner_live_count[session.owner] = next_owner_count
+        else:
+            del self.session_owner_live_count[session.owner]
+        self.data_session_live_bond_liability -= session.refundable_bond
+        self.data_session_refund_bond_liability = seat_checked_add(
+            self.data_session_refund_bond_liability,
+            session.refundable_bond,
+            "data-session refund bond liability",
+        )
+        self.session_cells[index] = DataSessionCell(
+            DataSessionCellTag.REFUND, session, claim_deadline
+        )
+        if emit_event:
+            self.data_session_events.append(SessionLiveToRefundEvent(
+                session.session_id,
+                session.owner,
+                index,
+                claim_deadline,
+                migration_generation,
+            ))
+        self._assert_data_session_state()
+        return session
+
+    def _clear_refund_cell(
+        self, index: int, *, emit_forfeit: bool = False
+    ) -> DataSession:
+        cell = self.session_cells[index]
+        session = cell.session
+        if (cell.tag is not DataSessionCellTag.REFUND
+                or session is None
+                or self.session_refund_count <= 0
+                or self.session_occupied_count <= 0
+                or self.session_cell_by_id.get(session.session_id) != index + 1
+                or session.refundable_bond
+                    > self.data_session_refund_bond_liability):
+            raise AssertionError("data-session refund state diverged")
+        del self.session_cell_by_id[session.session_id]
+        self.session_cells[index] = DataSessionCell()
+        self.session_refund_count -= 1
+        self.session_occupied_count -= 1
+        self.data_session_refund_bond_liability -= session.refundable_bond
+        if emit_forfeit:
+            self.data_session_events.append(SessionRefundForfeitedEvent(
+                session.session_id,
+                session.owner,
+                index,
+                session.refundable_bond,
+            ))
+        return session
+
+    @property
+    def data_session_accounted_liabilities(self) -> int:
+        return seat_checked_add(
+            self.data_session_live_bond_liability,
+            self.data_session_refund_bond_liability,
+            "data-session accounted liabilities",
+        )
+
+    def _migration_activation_accounting_ok(self) -> bool:
+        """Authenticate the bounded source custody state at READY/activation."""
+
+        try:
+            accounted = self.data_session_accounted_liabilities
+        except ValueError:
+            return False
+        return self.session_live_count == 0 and self.data_session_balance >= accounted
+
+    def force_data_session_eth(self, amount: int) -> bool:
+        """Forced ETH is surplus and never becomes a refundable liability."""
+
+        if type(amount) is not int or amount <= 0:
+            return False
+        self.data_session_balance = seat_checked_add(
+            self.data_session_balance, amount, "data-session forced balance"
+        )
+        return (self.data_session_balance
+                >= self.data_session_accounted_liabilities)
+
+    def _scan_data_session_ring(
+        self,
+        clock: Clock,
+        *,
+        action: DataSessionMaintenanceMode,
+        migration_claim_deadline: int = 0,
+    ) -> tuple[int, int]:
+        """Inspect exactly eight consecutive cells; callbacks are impossible."""
+
+        if (type(clock) is not Clock
+                or type(action) is not DataSessionMaintenanceMode
+                or (action is DataSessionMaintenanceMode.MIGRATION
+                    and not 0 < migration_claim_deadline <= UINT64_MAX)):
+            raise ValueError("data-session GC clock is malformed")
+        retained = (
+            {ref.session_id for ref in self.normal_best.session_refs}
+            if action is DataSessionMaintenanceMode.ORDINARY
+            and self.normal_best is not None else set()
+        )
+        start = self.gc_cursor
+        changed = 0
+        for inspected in range(MAX_GC_STEPS):
+            index = (start + inspected) % MAX_LIVE_DATA_SESSIONS
+            cell = self.session_cells[index]
+            if cell.tag is DataSessionCellTag.FREE:
+                continue
+            session = cell.session
+            if (session is None
+                    or self.session_cell_by_id.get(session.session_id)
+                        != index + 1):
+                raise AssertionError("data-session physical cell is stale")
+            # A cell converted in this call cannot also be forfeited in it.
+            if cell.tag is DataSessionCellTag.LIVE:
+                if action is DataSessionMaintenanceMode.MIGRATION:
+                    self._live_to_refund(
+                        index,
+                        migration_claim_deadline,
+                        migration_generation=self.migration_gate.generation,
+                    )
+                    changed += 1
+                elif (action is DataSessionMaintenanceMode.ORDINARY
+                      and session.expiry <= clock.timestamp
+                      and session.session_id not in retained):
+                    self._live_to_refund(
+                        index,
+                        self._sat_add64(
+                            session.expiry, self.refund_claim_window_seconds
+                        ),
+                    )
+                    changed += 1
+            elif (action is not DataSessionMaintenanceMode.MIGRATION
+                  and clock.timestamp > cell.refund_claim_deadline):
+                # Forfeiture leaves ETH as sweepable rent/surplus.
+                self._clear_refund_cell(index, emit_forfeit=True)
+                changed += 1
+        self.gc_cursor = (start + MAX_GC_STEPS) % MAX_LIVE_DATA_SESSIONS
+        self.data_session_events.append(DataSessionsMaintainedEvent(
+            action.value,
+            start,
+            self.gc_cursor,
+            MAX_GC_STEPS,
+            changed,
+        ))
+        self._assert_data_session_state()
+        return changed, MAX_GC_STEPS
+
+    def open_session(
+        self,
+        clock: Clock,
+        owner: str,
+        expected_empty_cell: int,
+        expiry: int,
+        *,
+        payment: int = 0,
+    ) -> str:
+        """Atomically allocate one caller-selected FREE cell; never scans."""
+
+        if (self.data_session_callback_entered
+                or not self._active_data_session_sidecar_ok()):
+            raise DataSessionRevert("data-session OPEN authority rejected")
+        session_sequence = self.next_session_sequence
+        if (type(clock) is not Clock
+                or not owner
+                or self.migration_gate.mode != "ACTIVE"
+                or type(expected_empty_cell) is not int
+                or not 0 <= expected_empty_cell < MAX_LIVE_DATA_SESSIONS
+                or self.session_cells[expected_empty_cell].tag
+                    is not DataSessionCellTag.FREE
+                or type(payment) is not int
+                or type(expiry) is not int
+                or not 0 <= expiry <= UINT64_MAX
+                or expiry < clock.timestamp + P_PROVE_MAX
+                    + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
                 or expiry > clock.timestamp + DATA_TTL_SECONDS
-                or len(self.sessions) >= MAX_LIVE_DATA_SESSIONS
-                or sum(s.owner == owner for s in self.sessions.values()) >= MAX_DATA_SESSIONS_PER_OWNER):
-            return "REJECTED"
-        self.sessions[session_id] = DataSession(session_id, owner, expiry)
-        self.migration_gate.live_data_sessions += 1
-        return "OPENED"
+                or session_sequence >= UINT64_MAX
+                or self.session_owner_live_count.get(owner, 0)
+                    >= MAX_DATA_SESSIONS_PER_OWNER
+                or self.session_occupied_count >= MAX_LIVE_DATA_SESSIONS):
+            raise DataSessionRevert("data-session OPEN preflight rejected")
+        try:
+            expected_payment = seat_checked_add(
+                self.data_session_required_bond,
+                self.data_session_base_rent_wei,
+                "data-session OPEN payment",
+            )
+        except ValueError:
+            raise DataSessionRevert("data-session OPEN fee overflow")
+        if payment != expected_payment:
+            raise DataSessionRevert("data-session OPEN payment is not exact")
+        session_id = data_session_id(
+            MODEL_SETTLEMENT_CHAIN_CONTEXT_ID,
+            self.settlement_address,
+            owner,
+            session_sequence,
+        )
+        if session_id in self.session_cell_by_id:
+            raise DataSessionRevert("data-session OPEN id collision")
+        try:
+            next_balance = seat_checked_add(
+                self.data_session_balance,
+                payment,
+                "data-session open balance",
+            )
+            next_live_liability = seat_checked_add(
+                self.data_session_live_bond_liability,
+                self.data_session_required_bond,
+                "data-session live bond liability",
+            )
+        except ValueError:
+            raise DataSessionRevert("data-session OPEN accounting overflow")
+        session = DataSession(
+            session_id,
+            owner,
+            expiry,
+            refundable_bond=self.data_session_required_bond,
+            cell_index=expected_empty_cell,
+            sequence=session_sequence,
+        )
+        self.session_cells[expected_empty_cell] = DataSessionCell(
+            DataSessionCellTag.LIVE, session, 0
+        )
+        self.session_cell_by_id[session_id] = expected_empty_cell + 1
+        self.next_session_sequence = session_sequence + 1
+        self.session_owner_live_count[owner] = (
+            self.session_owner_live_count.get(owner, 0) + 1
+        )
+        self.session_live_count += 1
+        self.session_occupied_count += 1
+        self.data_session_balance = next_balance
+        self.data_session_live_bond_liability = next_live_liability
+        self._assert_data_session_state()
+        self.data_session_events.append(SessionOpenedEvent(
+            session_id,
+            owner,
+            expected_empty_cell,
+            session_sequence,
+            expiry,
+            self.data_session_required_bond,
+            self.data_session_base_rent_wei,
+        ))
+        return session_id
 
-    def post_data(self, clock: Clock, session_id: str, caller: str, *,
-                  body_root: str, same_tx_blobhash: bool, kzg_opening_ok: bool) -> str:
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL"
-        if self.sync(clock):
-            return "SYNCED"
-        if self.migration_gate.mode != "ACTIVE":
-            return "MIGRATION_ARMED"
-        session = self.sessions.get(session_id)
-        if (session is None or session.owner != caller or session.sealed
-                or session.expiry <= clock.timestamp or not same_tx_blobhash
-                or not kzg_opening_ok
-                or len(session.records) >= MAX_DATA_RECORDS_PER_SESSION):
-            return "REJECTED"
-        index = len(session.records)
-        session.records.append(DataRecord(index, body_root, session.expiry))
-        session.root = f"mmr:{session.session_id}:{index + 1}:" + ":".join(
-            record.body_root for record in session.records)
-        return "POSTED"
+    def _active_data_session_protocol_version(self) -> int:
+        history = self.versioned_history
+        if isinstance(history, VersionedSettlementHistory):
+            return history.protocol_version
+        return self.data_session_protocol_version
 
-    def seal_session(self, clock: Clock, session_id: str, caller: str) -> bool:
-        if not self._is_current_settlement_target():
-            return False
-        if self.sync(clock):
-            return False
+    def derive_data_post(
+        self,
+        session: DataSession,
+        record_index: int,
+        post: DataPost,
+        versioned_hash: bytes,
+    ) -> tuple[bytes, int, bytes]:
+        """Derive FS challenge, Appendix leaf, and exact precompile input."""
+
+        if (type(session) is not DataSession
+                or len(session.session_id) != 64
+                or type(record_index) is not int
+                or not 0 <= record_index < MAX_DATA_RECORDS_PER_SESSION
+                or type(post) is not DataPost
+                or not post.structurally_valid()
+                or type(versioned_hash) is not bytes
+                or len(versioned_hash) != 32
+                or versioned_hash == bytes(32)
+                or versioned_hash
+                    != kzg_commitment_to_versioned_hash(post.commitment)):
+            raise ValueError("derived data POST tuple is malformed")
+        session_bytes = bytes.fromhex(session.session_id)
+        publisher = _model_address20(session.owner)
+        exact = b"".join((
+            _model_uint(
+                MODEL_SETTLEMENT_CHAIN_CONTEXT_ID, 32,
+                "settlement chain id",
+            ),
+            _model_uint(
+                self._active_data_session_protocol_version(), 32,
+                "protocol version",
+            ),
+            session_bytes,
+            versioned_hash,
+            post.full_body_root,
+            _model_uint(post.block_ordinal, 2, "block ordinal"),
+            _model_uint(post.chunk_index, 2, "chunk index"),
+            _model_uint(post.chunk_count, 2, "chunk count"),
+            _model_uint(post.chunk_byte_length, 4, "chunk byte length"),
+            post.chunk_root,
+            publisher,
+            _model_uint(session.expiry, 8, "session expiry"),
+        ))
+        z = int.from_bytes(
+            keccak256(b"slot-chain-data-fs-v2" + exact), "big"
+        ) % BLS_MODULUS
+        leaf = keccak256(b"".join((
+            b"slot-chain-data-leaf-v1",
+            session_bytes,
+            _model_uint(record_index, 2, "data record index"),
+            versioned_hash,
+            post.full_body_root,
+            _model_uint(post.block_ordinal, 2, "block ordinal"),
+            _model_uint(post.chunk_index, 2, "chunk index"),
+            _model_uint(post.chunk_count, 2, "chunk count"),
+            _model_uint(post.chunk_byte_length, 4, "chunk byte length"),
+            post.chunk_root,
+            publisher,
+            _model_uint(session.expiry, 8, "session expiry"),
+            _model_uint(z, 32, "FS challenge"),
+            _model_uint(post.y, 32, "point evaluation y"),
+        )))
+        point_input = b"".join((
+            versioned_hash,
+            _model_uint(z, 32, "point evaluation z"),
+            _model_uint(post.y, 32, "point evaluation y"),
+            post.commitment,
+            post.proof,
+        ))
+        if len(point_input) != 192:
+            raise AssertionError("point-evaluation input length drifted")
+        return leaf, z, point_input
+
+    def data_session_post_fee(
+        self,
+        chunk_byte_lengths: tuple[int, ...],
+        blob_count: int,
+        blob_base_fee: int,
+    ) -> int:
+        """Exact checked fee order used by the payable POST selector."""
+
+        if (type(chunk_byte_lengths) is not tuple
+                or type(blob_count) is not int
+                or not 0 < blob_count <= self.data_session_max_blobs_per_post
+                or len(chunk_byte_lengths) != blob_count
+                or any(type(length) is not int
+                       or not 0 <= length <= 126_972
+                       for length in chunk_byte_lengths)):
+            raise ValueError("data-session POST geometry is malformed")
+        total_bytes = 0
+        for length in chunk_byte_lengths:
+            total_bytes = seat_checked_add(
+                total_bytes, length, "data-session published bytes"
+            )
+        byte_rent = checked_u256_mul(
+            total_bytes,
+            self.data_session_rent_per_published_byte_wei,
+            "data-session byte rent",
+        )
+        blob_bytes = checked_u256_mul(
+            131_072, blob_count, "data-session blob bytes"
+        )
+        blob_weight = checked_u256_mul(
+            blob_bytes,
+            self.data_session_blob_base_fee_multiplier_bps,
+            "data-session blob weight",
+        )
+        blob_base_fee = seat_u256(blob_base_fee, "data-session blob base fee")
+        # Solidity must use full-precision mulDivUp.  Python's unbounded
+        # intermediate is the independent exact oracle; only the quotient is
+        # required to fit one uint256 word.
+        rounded_blob_cost = (
+            blob_weight * blob_base_fee + 9_999
+        ) // 10_000
+        seat_u256(rounded_blob_cost, "data-session blob surcharge")
+        return seat_checked_add(
+            byte_rent, rounded_blob_cost, "data-session POST payment"
+        )
+
+    def post_data(
+        self,
+        clock: Clock,
+        session_id: str,
+        caller: str,
+        *,
+        posts: tuple[DataPost, ...],
+        tx_blob_hashes: tuple[bytes, ...],
+        blob_base_fee: int,
+        payment: int,
+    ) -> tuple[int, int, str]:
+        if (self.data_session_callback_entered
+                or not self._active_data_session_sidecar_ok()):
+            raise DataSessionRevert("data-session POST authority rejected")
         if self.migration_gate.mode != "ACTIVE":
-            return False
-        session = self.sessions.get(session_id)
-        if session is None or session.owner != caller or session.sealed or not session.records:
-            return False
+            raise DataSessionRevert("data-session POST migration gate rejected")
+        session = self._live_data_session(session_id)
+        if (type(clock) is not Clock
+                or session is None or session.owner != caller or session.sealed
+                or session.expiry <= clock.timestamp
+                or type(posts) is not tuple
+                or type(tx_blob_hashes) is not tuple
+                or not posts
+                or any(type(post) is not DataPost
+                       or not post.structurally_valid() for post in posts)
+                or len(posts) != len(tx_blob_hashes)
+                or any(type(versioned_hash) is not bytes
+                       or len(versioned_hash) != 32
+                       or versioned_hash == bytes(32)
+                       for versioned_hash in tx_blob_hashes)
+                or len(posts)
+                    > self.data_session_max_blobs_per_post
+                or type(payment) is not int
+                or session.count + len(posts)
+                    > MAX_DATA_RECORDS_PER_SESSION):
+            raise DataSessionRevert("data-session POST preflight rejected")
+        first_record_index = session.count
+        derived_leaves: list[bytes] = []
+        for offset, (post, versioned_hash) in enumerate(
+            zip(posts, tx_blob_hashes)
+        ):
+            try:
+                leaf, _, point_input = self.derive_data_post(
+                    session, session.count + offset, post, versioned_hash
+                )
+            except ValueError:
+                raise DataSessionRevert("data-session POST derivation rejected")
+            success, return_data = self.point_evaluation_adapter.staticcall(
+                address=POINT_EVALUATION_PRECOMPILE,
+                gas=POINT_EVALUATION_GAS,
+                input_data=point_input,
+            )
+            if (not success
+                    or len(return_data) != 64
+                    or return_data != POINT_EVALUATION_OK):
+                raise DataSessionRevert("data-session POST point evaluation rejected")
+            derived_leaves.append(leaf)
+        try:
+            expected_payment = self.data_session_post_fee(
+                tuple(post.chunk_byte_length for post in posts),
+                len(posts),
+                blob_base_fee,
+            )
+        except ValueError:
+            raise DataSessionRevert("data-session POST fee rejected")
+        if payment != expected_payment:
+            raise DataSessionRevert("data-session POST payment is not exact")
+        try:
+            next_balance = seat_checked_add(
+                self.data_session_balance,
+                payment,
+                "data-session POST balance",
+            )
+        except ValueError:
+            raise DataSessionRevert("data-session POST balance overflow")
+        next_frontier = list(session.frontier)
+        next_count = session.count
+        next_root = session.root
+        pending_events: list[DataRecord] = []
+        try:
+            for canonical_leaf, versioned_hash in zip(
+                derived_leaves, tx_blob_hashes
+            ):
+                index = next_count
+                next_frontier, next_count, next_root = append_data_mmr(
+                    next_frontier, next_count, canonical_leaf
+                )
+                pending_events.append(DataRecord(
+                    session.session_id, index, versioned_hash, canonical_leaf
+                ))
+        except ValueError:
+            raise DataSessionRevert("data-session POST MMR append rejected")
+        session.frontier = next_frontier
+        session.count = next_count
+        session.root = next_root
+        self.data_session_balance = next_balance
+        self.data_record_events.extend(pending_events)
+        self.data_session_events.extend(pending_events)
+        self._assert_data_session_state()
+        return first_record_index, next_count, next_root
+
+    def seal_session(
+        self, clock: Clock, session_id: str, caller: str
+    ) -> tuple[int, str, int]:
+        if (self.data_session_callback_entered
+                or not self._active_data_session_sidecar_ok()):
+            raise DataSessionRevert("data-session SEAL authority rejected")
+        if self.migration_gate.mode != "ACTIVE":
+            raise DataSessionRevert("data-session SEAL migration gate rejected")
+        session = self._live_data_session(session_id)
+        if (type(clock) is not Clock
+                or session is None or session.owner != caller
+                or clock.timestamp >= session.expiry
+                or session.sealed or session.count == 0):
+            raise DataSessionRevert("data-session SEAL preflight rejected")
         session.sealed = True
-        return True
+        self.data_session_events.append(SessionSealedEvent(
+            session.session_id, session.count, session.root, session.expiry
+        ))
+        return session.count, session.root, session.expiry
 
-    def gc_sessions(self, clock: Clock) -> int:
-        removed = 0
-        retained = ({ref.session_id for ref in self.normal_best.session_refs}
-                    if self.normal_best is not None else set())
-        for key in sorted(tuple(self.sessions))[:MAX_GC_STEPS]:
-            if self.sessions[key].expiry < clock.timestamp and key not in retained:
-                del self.sessions[key]
-                self.migration_gate.live_data_sessions -= 1
-                removed += 1
-        self.gc_cursor = (self.gc_cursor + MAX_GC_STEPS) % MAX_LIVE_DATA_SESSIONS
-        return removed
+    def claim_data_session_refund(
+        self,
+        clock: Clock,
+        session_id: str,
+        caller: str,
+        recipient: DataSessionBondReceiver,
+    ) -> int:
+        """Owner-only O(1) CEI claim; transfer failure restores exact state."""
+
+        if self.data_session_callback_entered:
+            raise DataSessionRevert("reentrant data-session claim")
+        try:
+            liabilities = self.data_session_accounted_liabilities
+        except ValueError as exc:
+            raise DataSessionRevert(
+                "data-session custody liabilities overflowed"
+            ) from exc
+        if self.data_session_balance < liabilities:
+            raise DataSessionRevert("data-session custody is insolvent")
+        if (self.mode is Mode.PREACTIVE
+                or type(clock) is not Clock
+                or not session_id or not caller
+                or type(recipient) is not DataSessionBondReceiver
+                or not recipient.address):
+            raise DataSessionRevert("data-session claim preflight failed")
+        located = self._data_session_cell(session_id)
+        if located is None:
+            raise DataSessionRevert("data-session refund id is absent")
+        index, cell = located
+        session = cell.session
+        if session is None or session.owner != caller:
+            raise DataSessionRevert("data-session refund owner is invalid")
+        claim_deadline = cell.refund_claim_deadline
+        if cell.tag is DataSessionCellTag.LIVE:
+            current = self._is_current_settlement_target()
+            retained = (
+                {ref.session_id for ref in self.normal_best.session_refs}
+                if self.normal_best is not None else set()
+            )
+            if (current
+                    and self.migration_gate.mode == "ACTIVE"
+                    and session.expiry <= clock.timestamp
+                    and session_id not in retained):
+                claim_deadline = self._sat_add64(
+                    session.expiry, self.refund_claim_window_seconds
+                )
+            elif (current
+                  and self.migration_gate.mode == "ARMED"
+                  and not self._migration_boundary_open()
+                  and self.migration_refund_generation
+                    == self.migration_gate.generation):
+                claim_deadline = self.migration_refund_claim_deadline
+            else:
+                raise DataSessionRevert("LIVE data-session refund is ineligible")
+        elif cell.tag is not DataSessionCellTag.REFUND:
+            raise DataSessionRevert("data-session refund tag is invalid")
+        if not 0 < claim_deadline or clock.timestamp > claim_deadline:
+            raise DataSessionRevert("data-session refund deadline elapsed")
+        amount = session.refundable_bond
+        if amount <= 0:
+            raise DataSessionRevert("data-session refund bond is zero")
+        snapshot = self._canonical_transaction_snapshot()
+        before_receiver_state = copy.deepcopy(recipient.__dict__)
+        self.data_session_callback_entered = True
+        try:
+            if cell.tag is DataSessionCellTag.LIVE:
+                self._live_to_refund(
+                    index, claim_deadline, emit_event=False
+                )
+            self._clear_refund_cell(index)
+            self.data_session_balance -= amount
+            if not recipient.receive(self, session_id, amount):
+                raise RuntimeError("data-session refund receiver rejected")
+            self.data_session_events.append(SessionBondClaimedEvent(
+                session_id, caller, recipient.address, amount
+            ))
+            self._assert_data_session_state()
+            return amount
+        except BaseException as exc:
+            self._restore_canonical_transaction(snapshot)
+            self._restore_object(recipient, before_receiver_state)
+            self._assert_data_session_state()
+            raise DataSessionRevert(
+                "data-session refund transfer reverted"
+            ) from exc
+        finally:
+            self.data_session_callback_entered = False
+
+    def sweep_session_surplus(self) -> int:
+        """Permissionless non-gating sweep to the immutable data-rent sink."""
+
+        if self.mode is Mode.PREACTIVE:
+            raise DataSessionRevert("PREACTIVE Settlement cannot sweep")
+        if self.data_session_callback_entered:
+            raise DataSessionRevert("reentrant data-session surplus sweep")
+        try:
+            liabilities = self.data_session_accounted_liabilities
+        except ValueError as exc:
+            raise DataSessionRevert(
+                "data-session custody liabilities overflowed"
+            ) from exc
+        if self.data_session_balance < liabilities:
+            raise DataSessionRevert("data-session custody is insolvent")
+        amount = self.data_session_balance - liabilities
+        if amount == 0:
+            return 0
+        snapshot = self._canonical_transaction_snapshot()
+        self.data_session_callback_entered = True
+        try:
+            self.data_session_balance -= amount
+            if not self.data_rent_sink.receive(self, amount):
+                raise RuntimeError("data-rent sink rejected")
+            self.data_session_events.append(SessionSurplusSweptEvent(
+                self.data_rent_sink.address, amount
+            ))
+            self._assert_data_session_state()
+            return amount
+        except BaseException as exc:
+            self._restore_canonical_transaction(snapshot)
+            self._assert_data_session_state()
+            raise DataSessionRevert(
+                "data-rent sink transfer reverted"
+            ) from exc
+        finally:
+            self.data_session_callback_entered = False
+
+    def maintain_data_sessions(
+        self, clock: Clock
+    ) -> tuple[int, int, int, int]:
+        """Return exact status, explicit inspections, transitions and cursor."""
+
+        if (self.data_session_callback_entered
+                or self.mode is Mode.PREACTIVE
+                or type(clock) is not Clock):
+            return SESSION_MAINTENANCE_NOOP, 0, 0, self.gc_cursor
+        current = self._is_current_settlement_target()
+        if current and self.migration_gate.mode in {"ACTIVE", "ARMED"}:
+            # ARMED cursor movement can occur only inside this leading sync;
+            # ACTIVE never performs an ordinary scan after a changed sync.
+            if self.sync(clock):
+                return SESSION_MAINTENANCE_SYNCED, 0, 0, self.gc_cursor
+            if self.migration_gate.mode == "ARMED":
+                return SESSION_MAINTENANCE_NOOP, 0, 0, self.gc_cursor
+        action = (
+            DataSessionMaintenanceMode.ORDINARY
+            if current and self.migration_gate.mode == "ACTIVE"
+            else DataSessionMaintenanceMode.REFUND_ONLY
+        )
+        changed, inspected = self._scan_data_session_ring(clock, action=action)
+        return (
+            SESSION_MAINTENANCE_SCANNED,
+            inspected,
+            changed,
+            self.gc_cursor,
+        )
+
+    def gc_sessions(self, clock: Clock) -> tuple[int, int, int, int]:
+        """Compatibility alias for fixed-work session maintenance."""
+
+        return self.maintain_data_sessions(clock)
 
     def _sessions_ok(self, candidate: Candidate, clock: Clock) -> bool:
+        session_ids = tuple(ref.session_id for ref in candidate.session_refs)
         if (len(candidate.session_refs) > MAX_DATA_SESSIONS_PER_CANDIDATE
-                or len({r.session_id for r in candidate.session_refs}) != len(candidate.session_refs)):
+                or session_ids != tuple(sorted(session_ids))
+                or len(set(session_ids)) != len(session_ids)
+                or any(type(ref.session_id) is not str
+                       or len(ref.session_id) != 64
+                       or type(ref.count) is not int
+                       or not 0 < ref.count <= MAX_DATA_RECORDS_PER_SESSION
+                       or type(ref.root) is not str
+                       or len(ref.root) != 64
+                       for ref in candidate.session_refs)):
             return False
         used = [r for b in candidate.blocks for r in b.data_records]
         if len(used) > MAX_DATA_RECORDS_PER_CANDIDATE or len(used) != len(set(used)):
@@ -4837,7 +7347,7 @@ class Protocol:
             session = self.sessions.get(ref.session_id)
             if (session is None or not session.sealed
                     or session.expiry < clock.timestamp + REORG_MARGIN_SECONDS
-                    or ref.count != len(session.records) or ref.root != session.root):
+                    or ref.count != session.count or ref.root != session.root):
                 return False
         return candidate.manifest_exact and all(
             sid in declared and 0 <= index < declared[sid].count for sid, index in used)
@@ -6130,6 +8640,7 @@ class QueueContinuity:
     escrow_balance: int
     last_due_at: int
     descriptors: list[Message] = field(default_factory=list)
+    frontier: list[bytes] = field(default_factory=list)
     active_settlement_address: str = ""
     router_address: str = "active-settlement-router"
     claimable: dict[str, int] = field(default_factory=dict)
@@ -6157,6 +8668,23 @@ class QueueContinuity:
         object.__setattr__(self, name, value)
 
     def __post_init__(self) -> None:
+        if (type(self.count) is not int
+                or not 0 <= self.count <= MAX_FORCE_QUEUE_ITEMS
+                or len(self.descriptors) != self.count):
+            raise ValueError("forced queue count does not bind descriptors")
+        # Constructor reconstruction is a deployment/migration-fixture oracle.
+        # Production append below touches only one descriptor and 64 frontier
+        # words; it never recomputes over descriptor history.
+        expected_frontier = force_frontier_from_descriptors(self.descriptors)
+        if not self.frontier:
+            self.frontier = expected_frontier
+        if (type(self.frontier) is not list
+                or len(self.frontier) != FORCE_TREE_DEPTH
+                or any(type(row) is not bytes or len(row) != 32
+                       for row in self.frontier)
+                or self.frontier != expected_frontier
+                or self.root != force_wrapped_root(self.frontier, self.count)):
+            raise ValueError("forced queue frontier/root is inconsistent")
         if not self.deposit_prefix:
             self.deposit_prefix = [0]
             for row in self.descriptors:
@@ -6242,16 +8770,26 @@ class QueueContinuity:
             return None
         index = self.count
         stored = replace(descriptor, due_at=due_at)
+        leaf = bytes.fromhex(durable_queue_leaf_hash(stored, index))
+        next_frontier = _append_frontier_leaf(
+            self.frontier,
+            index,
+            leaf,
+            node_domain=b"slot-chain-force-node-v2",
+        )
+        next_count = index + 1
+        next_root = force_wrapped_root(next_frontier, next_count)
         self.descriptors.append(stored)
         if self.append_fault_point == "after_descriptor":
             raise RuntimeError("injected queue append fault: after_descriptor")
-        self.count += 1
+        self.frontier = next_frontier
+        self.count = next_count
         self.escrow_balance += deposit
         assert self.unconsumed_escrow is not None
         self.unconsumed_escrow += deposit
         self.deposit_prefix.append(self.deposit_prefix[-1] + deposit)
         self.last_due_at = due_at
-        self.root = model_force_root(self.descriptors)
+        self.root = next_root
         return index
 
     def _bootstrap_active_settlement_from_router(
@@ -6376,14 +8914,12 @@ class QueueContinuity:
 class MigrationTransientState:
     normal_best_present: bool
     recovery_active: bool
-    live_data_sessions: int
     unsettled_reward_preparation: int
     claim_only_surfaces_preserved: bool
 
     @property
     def settled(self) -> bool:
         return (not self.normal_best_present and not self.recovery_active
-                and self.live_data_sessions == 0
                 and self.unsettled_reward_preparation == 0
                 and self.claim_only_surfaces_preserved)
 
@@ -9912,6 +12448,12 @@ class ActiveSettlementRouter:
             if not queue_bootstrapped:
                 raise ValueError("router bootstrap transition rejected")
             settlement.mode = "ACTIVE"
+            if (settlement.live_protocol is not None
+                    and not gate._bind_active_data_session_from_router(
+                        settlement.address,
+                        settlement.live_protocol.data_session_config_hash_v1(),
+                    )):
+                raise ValueError("router DataSession binding rejected")
             self.registrations[settlement.protocol_version] = (
                 settlement_registration(
                     self,
@@ -10002,6 +12544,11 @@ class ActiveSettlementRouter:
                     != settlement.protocol_version
                 or old.migration_gate.target_manifest_hash
                     != target_manifest_hash
+                or old.live_protocol is None
+                or not old.live_protocol._migration_activation_accounting_ok()
+                or not old.migration_gate._ready_views_valid_for_activation(
+                    old.live_protocol
+                )
                 or activation_proof.target_protocol_version
                     != settlement.protocol_version
                 or activation_proof.target_manifest_hash
@@ -10094,7 +12641,12 @@ class ActiveSettlementRouter:
         active_gate = old.migration_gate
         activated = active_gate._activate_from_router(
             active_gate.generation, old_version,
-            settlement.protocol_version)
+            settlement.protocol_version,
+            new_settlement_address=settlement.address,
+            new_data_session_config_hash=(
+                settlement.live_protocol.data_session_config_hash_v1()
+            ),
+        )
         assert activated
         return True
 
@@ -11002,7 +13554,7 @@ def liquidity_settlement_hash_v1(
 
 
 def terminal_merkle_root(leaves: tuple[str, ...] | list[str]) -> str:
-    """Compute the fixed-depth sparse root for canonical bytes32 leaves."""
+    """Off-chain full-event oracle for the depth-64 terminal tree root."""
 
     if (type(leaves) not in {tuple, list}
             or len(leaves) > UINT64_MAX
@@ -11025,6 +13577,55 @@ def terminal_merkle_root(leaves: tuple[str, ...] | list[str]) -> str:
             )
         nodes = parents
     return nodes.get(0, TERMINAL_ZERO_HASHES[TERMINAL_TREE_DEPTH]).hex()
+
+
+def terminal_wrapped_root(count: int, tree_root: str) -> str:
+    if (type(count) is not int or not 0 <= count <= UINT64_MAX
+            or type(tree_root) is not str or len(tree_root) != 64):
+        raise ValueError("terminal wrapped-root input is malformed")
+    try:
+        tree_root_bytes = bytes.fromhex(tree_root)
+    except ValueError as exc:
+        raise ValueError("terminal tree root is not hexadecimal") from exc
+    return _terminal_hash(
+        b"slot-chain-terminal-root-v2",
+        _model_uint(count, 8, "terminal count"),
+        tree_root_bytes,
+    ).hex()
+
+
+def terminal_frontier_root(frontier: list[bytes], count: int) -> str:
+    tree_root = _frontier_tree_root(
+        frontier=frontier,
+        count=count,
+        zero_hashes=TERMINAL_ZERO_HASHES,
+        node_domain=b"slot-chain-terminal-node-v2",
+    ).hex()
+    return terminal_wrapped_root(count, tree_root)
+
+
+def terminal_frontier_from_leaves(
+    leaves: tuple[str, ...] | list[str],
+) -> list[bytes]:
+    """Off-chain event oracle; canonical append never traverses this list."""
+
+    if type(leaves) not in {tuple, list} or len(leaves) > UINT64_MAX:
+        raise ValueError("terminal leaf oracle is malformed")
+    frontier = [bytes(32) for _ in range(TERMINAL_TREE_DEPTH)]
+    for index, leaf in enumerate(leaves):
+        if type(leaf) is not str or len(leaf) != 64:
+            raise ValueError("terminal event leaf is malformed")
+        try:
+            leaf_bytes = bytes.fromhex(leaf)
+        except ValueError as exc:
+            raise ValueError("terminal event leaf is not hexadecimal") from exc
+        frontier = _append_frontier_leaf(
+            frontier,
+            index,
+            leaf_bytes,
+            node_domain=b"slot-chain-terminal-node-v2",
+        )
+    return frontier
 
 
 def terminal_merkle_branch(
@@ -11181,7 +13782,9 @@ class TerminalSignalVerifier:
                 and canonical.protocol_version == proof.protocol_version
                 and canonical.canonical_sequence
                     == proof.canonical_sequence
-                and folded_root == canonical.terminal_root
+                and terminal_wrapped_root(
+                    canonical.terminal_count, folded_root
+                ) == canonical.terminal_root
                 and 0 <= proof.leaf_index < canonical.terminal_count)
 
 
@@ -11300,14 +13903,8 @@ def restore_destination_bridge_snapshot_for_test(
     bridge._terminal_index = dict(snapshot["terminal_index"])
     bridge._terminal_settlements = dict(snapshot["terminal_settlements"])
     bridge.liquidity_pool._restore(snapshot["liquidity_pool"])
-    bridge.terminal_accumulator.leaves[:] = snapshot["terminal_leaves"]
-    bridge.terminal_accumulator.terminalized_pinned_count.clear()
-    bridge.terminal_accumulator.terminalized_pinned_count.update(
-        snapshot["terminalized_pinned_count"]
-    )
-    bridge.terminal_accumulator._terminalized_credits.clear()
-    bridge.terminal_accumulator._terminalized_credits.update(
-        snapshot["terminalized_credits"]
+    bridge.terminal_accumulator._restore_transaction_snapshot(
+        snapshot["terminal_accumulator"]
     )
 
 
@@ -16326,7 +18923,9 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
         tuple(sorted(
             registrar.accumulator.terminalized_pinned_count.items()
         )),
-        tuple(sorted(registrar.accumulator._terminalized_credits)),
+        registrar.accumulator.count,
+        registrar.accumulator.root,
+        tuple(registrar.accumulator.frontier),
         observations,
     )
     return hashlib.sha256(
@@ -17230,7 +19829,15 @@ class TerminalAccumulatorV2:
     address: str = "terminal-accumulator"
     runtime_hash: str = "code:accumulator"
     configuration_hash: str = "cfg:accumulator"
-    leaves: list[str] = field(default_factory=list)
+    frontier: list[bytes] = field(
+        default_factory=lambda: [bytes(32)
+                                 for _ in range(TERMINAL_TREE_DEPTH)]
+    )
+    _count: int = 0
+    _root: str = ""
+    # Canonical receipts/logs are the unbounded proof-generation oracle. They
+    # are deliberately not consulted by append, count or root computation.
+    leaf_events: list[str] = field(default_factory=list, compare=False)
     terminalized_pinned_count: dict[str, int] = field(default_factory=dict)
     append_return_length: int = 32
     append_return_padding_ok: bool = True
@@ -17240,15 +19847,26 @@ class TerminalAccumulatorV2:
     _destination_bridge_authorities: dict[str, object] = field(
         default_factory=dict, init=False, compare=False, repr=False
     )
-    _terminalized_credits: set[tuple[str, str]] = field(
-        default_factory=set, init=False, compare=False, repr=False
-    )
 
     def __post_init__(self) -> None:
         if (not self.registrar or not self.address
                 or self.runtime_hash != "code:accumulator"
                 or self.configuration_hash != "cfg:accumulator"):
             raise ValueError("terminal accumulator deployment is invalid")
+        if (type(self.frontier) is not list
+                or len(self.frontier) != TERMINAL_TREE_DEPTH
+                or any(type(row) is not bytes or len(row) != 32
+                       for row in self.frontier)
+                or type(self._count) is not int
+                or not 0 <= self._count <= UINT64_MAX
+                or len(self.leaf_events) != self._count):
+            raise ValueError("terminal accumulator frontier is invalid")
+        expected_frontier = terminal_frontier_from_leaves(self.leaf_events)
+        expected_root = terminal_frontier_root(self.frontier, self._count)
+        if (self.frontier != expected_frontier
+                or self._root not in {"", expected_root}):
+            raise ValueError("terminal accumulator root is inconsistent")
+        self._root = expected_root
         if (any(domain_id not in self.domains
                 or type(count) is not int
                 or not 0 <= count <= UINT64_MAX
@@ -17267,11 +19885,34 @@ class TerminalAccumulatorV2:
 
     @property
     def count(self) -> int:
-        return len(self.leaves)
+        return self._count
 
     @property
     def root(self) -> str:
-        return terminal_merkle_root(self.leaves)
+        return self._root
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return {
+            "frontier": list(self.frontier),
+            "count": self._count,
+            "root": self._root,
+            "leaf_events": list(self.leaf_events),
+            "terminalized_pinned_count": dict(
+                self.terminalized_pinned_count
+            ),
+        }
+
+    def _restore_transaction_snapshot(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        self.frontier[:] = snapshot["frontier"]
+        self._count = snapshot["count"]
+        self._root = snapshot["root"]
+        self.leaf_events[:] = snapshot["leaf_events"]
+        self.terminalized_pinned_count.clear()
+        self.terminalized_pinned_count.update(
+            snapshot["terminalized_pinned_count"]
+        )
 
     def _bind_terminal_registrar(
         self, registrar: "TerminalDomainRegistrarV2"
@@ -17339,7 +19980,6 @@ class TerminalAccumulatorV2:
             route.store.pins.get(credit_id)
             if route is not None else None
         )
-        key = (caller.local_domain_id, credit_id)
         if (self._destination_bridge_authorities.get(
                 caller.local_domain_id
             ) is not caller
@@ -17347,7 +19987,6 @@ class TerminalAccumulatorV2:
                 or route.destination_bridge != caller.address
                 or route.store is not caller.inbox_store
                 or type(pin) is not InboxPin
-                or key in self._terminalized_credits
                 or self.count >= UINT64_MAX
                 or not caller.terminal_commitment_gas_ok
                 or caller.terminal_commitment_return_length
@@ -17369,16 +20008,28 @@ class TerminalAccumulatorV2:
                     and liquidity_settlement_hash != "00" * 32)):
             return None
         index = self.count
-        self.leaves.append(_terminal_leaf_bytes(
+        leaf = _terminal_leaf_bytes(
             index, domain_id, bridge, credit_id, terminal,
             liquidity_settlement_hash,
-        ).hex())
-        self._terminalized_credits.add(key)
-        self.terminalized_pinned_count[domain_id] = checked_u64_add(
+        )
+        next_frontier = _append_frontier_leaf(
+            self.frontier,
+            index,
+            leaf,
+            node_domain=b"slot-chain-terminal-node-v2",
+        )
+        next_count = index + 1
+        next_root = terminal_frontier_root(next_frontier, next_count)
+        next_terminalized_count = checked_u64_add(
             self.terminalized_pinned_count.get(domain_id, 0),
             1,
             "terminalized pinned count",
         )
+        self.frontier = next_frontier
+        self._count = next_count
+        self._root = next_root
+        self.leaf_events.append(leaf.hex())
+        self.terminalized_pinned_count[domain_id] = next_terminalized_count
         return index
 
 
@@ -20417,12 +23068,8 @@ class DestinationBridgeLedger:
             "terminal_index": dict(self.terminal_index),
             "terminal_settlements": dict(self._terminal_settlements),
             "liquidity_pool": self.liquidity_pool._snapshot(),
-            "terminal_leaves": list(self.terminal_accumulator.leaves),
-            "terminalized_pinned_count": dict(
-                self.terminal_accumulator.terminalized_pinned_count
-            ),
-            "terminalized_credits": set(
-                self.terminal_accumulator._terminalized_credits
+            "terminal_accumulator": (
+                self.terminal_accumulator._transaction_snapshot()
             ),
         }
 
@@ -20449,14 +23096,8 @@ class DestinationBridgeLedger:
         self._terminal_settlements.clear()
         self._terminal_settlements.update(snapshot["terminal_settlements"])
         self.liquidity_pool._restore(snapshot["liquidity_pool"])
-        self.terminal_accumulator.leaves[:] = snapshot["terminal_leaves"]
-        self.terminal_accumulator.terminalized_pinned_count.clear()
-        self.terminal_accumulator.terminalized_pinned_count.update(
-            snapshot["terminalized_pinned_count"]
-        )
-        self.terminal_accumulator._terminalized_credits.clear()
-        self.terminal_accumulator._terminalized_credits.update(
-            snapshot["terminalized_credits"]
+        self.terminal_accumulator._restore_transaction_snapshot(
+            snapshot["terminal_accumulator"]
         )
 
     @property
@@ -20690,16 +23331,8 @@ class DestinationBridgeLedger:
             return False
         status_existed = credit_id in self.status
         prior_status = self.status.get(credit_id)
-        prior_leaf_count = self.terminal_accumulator.count
-        prior_terminalized_count = (
-            self.terminal_accumulator.terminalized_pinned_count.get(
-                self.local_domain_id, 0
-            )
-        )
-        terminalized_key = (self.local_domain_id, credit_id)
-        prior_terminalized = (
-            terminalized_key
-            in self.terminal_accumulator._terminalized_credits
+        accumulator_snapshot = (
+            self.terminal_accumulator._transaction_snapshot()
         )
         self._status[credit_id] = terminal
         self._terminal_index[credit_id] = APPENDING_SENTINEL
@@ -20712,20 +23345,9 @@ class DestinationBridgeLedger:
                 or self.terminal_accumulator.append_return_length != 32
                 or not self.terminal_accumulator.append_return_padding_ok
                 or not 0 <= index < UINT64_MAX):
-            self.terminal_accumulator.leaves = (
-                self.terminal_accumulator.leaves[:prior_leaf_count]
+            self.terminal_accumulator._restore_transaction_snapshot(
+                accumulator_snapshot
             )
-            self.terminal_accumulator.terminalized_pinned_count[
-                self.local_domain_id
-            ] = prior_terminalized_count
-            if prior_terminalized:
-                self.terminal_accumulator._terminalized_credits.add(
-                    terminalized_key
-                )
-            else:
-                self.terminal_accumulator._terminalized_credits.discard(
-                    terminalized_key
-                )
             if status_existed:
                 assert prior_status is not None
                 self._status[credit_id] = prior_status
@@ -21449,7 +24071,16 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              inbox_apply_router: InboxApplyRouterV2 | None = None,
              header_oracle: L1HeaderOracle | None = None,
              migration_gate: MigrationGate | None = None,
-             settlement_address: str = "model-settlement") -> Protocol:
+             settlement_address: str = "model-settlement",
+             data_session_required_bond: int = 10,
+             data_session_base_rent_wei: int = 0,
+             data_session_rent_per_published_byte_wei: int = 0,
+             data_session_blob_base_fee_multiplier_bps: int = 10_000,
+             data_session_max_blobs_per_post: int = 6,
+             data_session_protocol_version: int = 1,
+             point_evaluation_adapter: PointEvaluationAdapter | None = None,
+             refund_claim_window_seconds: int = DATA_TTL_SECONDS,
+             data_rent_sink: DataRentSink | None = None) -> Protocol:
     msgs = list(messages or [])
     if forced_queue is None:
         root = model_force_root(msgs)
@@ -21472,6 +24103,23 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
         canonical, header_oracle, forced_queue, inbox_apply_router,
         settlement_address=settlement_address, mode=mode,
         migration_gate=migration_gate,
+        data_session_required_bond=data_session_required_bond,
+        data_session_base_rent_wei=data_session_base_rent_wei,
+        data_session_rent_per_published_byte_wei=(
+            data_session_rent_per_published_byte_wei
+        ),
+        data_session_blob_base_fee_multiplier_bps=(
+            data_session_blob_base_fee_multiplier_bps
+        ),
+        data_session_max_blobs_per_post=data_session_max_blobs_per_post,
+        data_session_protocol_version=data_session_protocol_version,
+        point_evaluation_adapter=(
+            PointEvaluationAdapter()
+            if point_evaluation_adapter is None else point_evaluation_adapter
+        ),
+        refund_claim_window_seconds=refund_claim_window_seconds,
+        data_rent_sink=(DataRentSink()
+                        if data_rent_sink is None else data_rent_sink),
     )
     if seat:
         installed_at = GENESIS_TIMESTAMP + tip_slot
@@ -22696,13 +25344,42 @@ def test_data_gc_reorg_and_geometry() -> None:
     p = protocol()
     c = clock(1_100, 1_100)
     expiry = c.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
-    check("P42 session opens", p.open_session(c, "alice", "alice", expiry) == "OPENED")
-    check("P43 wrong owner cannot post", p.post_data(c, "alice", "mallory", body_root="x", same_tx_blobhash=True, kzg_opening_ok=True) == "REJECTED")
-    check("P44 authenticated chunk posts", p.post_data(c, "alice", "alice", body_root="x", same_tx_blobhash=True, kzg_opening_ok=True) == "POSTED")
-    check("P45 immutable seal", p.seal_session(c, "alice", "alice") and p.post_data(c, "alice", "alice", body_root="y", same_tx_blobhash=True, kzg_opening_ok=True) == "REJECTED")
+    alice_session = p.next_data_session_id("alice")
+    check("P42 session opens", p.open_session(
+        c, "alice", 0, expiry, payment=10
+    ) == alice_session)
+    def post_terms(salt: bytes) -> dict[str, object]:
+        post = data_post_for_test()
+        return dict(
+            posts=(post,),
+            tx_blob_hashes=(
+                kzg_commitment_to_versioned_hash(post.commitment),
+            ),
+            blob_base_fee=0,
+            payment=0,
+        )
+    check("P43 wrong owner cannot post", payable_reverted(lambda: p.post_data(
+        c, alice_session, "mallory", **post_terms(b"x"))))
+    post_result = p.post_data(
+        c, alice_session, "alice", **post_terms(b"x")
+    )
+    check("P44 authenticated chunk posts", post_result[:2] == (0, 1))
+    seal_result = p.seal_session(c, alice_session, "alice")
+    check("P45 immutable seal", seal_result[:2] == (1, post_result[2])
+          and payable_reverted(lambda: p.post_data(
+              c, alice_session, "alice", **post_terms(b"y"))))
     for i in range(20):
-        p.sessions[f"expired-{i:02}"] = DataSession(f"expired-{i:02}", str(i), c.timestamp - 1)
-    check("P46 one GC call is bounded", p.gc_sessions(c) <= MAX_GC_STEPS)
+        p._install_data_session_for_test(
+            DataSession(
+                f"expired-{i:02}", str(i), c.timestamp - 1,
+                refundable_bond=1,
+            ),
+            i + 8,
+        )
+    gc_result = p.gc_sessions(c)
+    check("P46 one GC call is bounded",
+          gc_result[0] == SESSION_MAINTENANCE_SCANNED
+          and gc_result[1] == MAX_GC_STEPS)
     pre = protocol().snapshot()
     post = pre.snapshot()
     activate_normal(post, c)
@@ -22718,17 +25395,24 @@ def test_data_gc_reorg_and_geometry() -> None:
     delayed = protocol()
     opened = clock(1_100, 1_100)
     data_expiry = opened.timestamp + P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
-    assert delayed.open_session(opened, "late-data", "alice", data_expiry) == "OPENED"
-    assert delayed.post_data(opened, "late-data", "alice", body_root="body",
-                             same_tx_blobhash=True, kzg_opening_ok=True) == "POSTED"
-    assert delayed.seal_session(opened, "late-data", "alice")
+    late_data = delayed.next_data_session_id("alice")
+    assert delayed.open_session(
+        opened, "alice", 0, data_expiry, payment=10
+    ) == late_data
+    delayed_post = delayed.post_data(
+        opened, late_data, "alice", **post_terms(b"body")
+    )
+    assert delayed_post[:2] == (0, 1)
+    assert delayed.seal_session(opened, late_data, "alice") == (
+        1, delayed_post[2], data_expiry
+    )
     activate_normal(delayed, opened)
     base = candidate(delayed, opened, "data-best")
-    data_block = replace(base.tip, data_records=(("late-data", 0),))
+    data_block = replace(base.tip, data_records=((late_data, 0),))
     with_data = replace(
         base,
         blocks=(data_block,),
-        session_refs=(SessionRef("late-data", 1, delayed.sessions["late-data"].root),),
+        session_refs=(SessionRef(late_data, 1, delayed.sessions[late_data].root),),
     )
     assert delayed.submit(with_data, opened) == "ACCEPTED"
     after_expiry = Clock(2_000, data_expiry + 1)
@@ -22736,8 +25420,10 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50a delayed close cannot commit expired data",
           delayed.sync(after_expiry) and delayed.core.tip_hash == old_tip)
     delayed.gc_sessions(after_expiry)
+    while late_data in delayed.sessions:
+        delayed.gc_sessions(after_expiry)
     check("P50b GC retained the best until sync cleared it",
-          "late-data" not in delayed.sessions)
+          late_data not in delayed.sessions)
 
     bridge_protocol = protocol()
     prepared_clock = clock(1_099, 4_600)
@@ -24307,9 +26993,12 @@ def test_data_gc_reorg_and_geometry() -> None:
          for index in range(64)],
         migration_gate=shared_migration_gate)
     migration_open_clock = clock(180, 100)
+    migration_session = migration_protocol.next_data_session_id("alice")
     assert migration_protocol.open_session(
-        migration_open_clock, "migration-session", "alice",
-        migration_open_clock.timestamp + DATA_TTL_SECONDS) == "OPENED"
+        migration_open_clock, "alice", 0,
+        migration_open_clock.timestamp + DATA_TTL_SECONDS,
+        payment=10,
+    ) == migration_session
     for generation in migration_registry.active:
         for window in range(MAX_TRANCHE_AHEAD_WINDOWS + 1):
             assert migration_registry.reserve(
@@ -24447,7 +27136,9 @@ def test_data_gc_reorg_and_geometry() -> None:
         1, 1, 2, legacy_manifest_2, caller="attacker")
     assert shared_migration_gate._arm_from_manager(
         1, 1, 2, legacy_manifest_2, caller="version-manager")
-    assert migration_protocol._arm_migration_for_test(1)
+    assert migration_protocol._arm_migration_for_test(
+        1, migration_outage_clock
+    )
     migration_registry.arm_migration()
     assert settlement_1._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
@@ -24468,10 +27159,11 @@ def test_data_gc_reorg_and_geometry() -> None:
         caller_adapter=object(),
     )
     check("P50bm migration arm closes new transient and ingress work",
-          migration_protocol.open_session(
-              migration_outage_clock, "veto-session", "attacker",
-              migration_outage_clock.timestamp + DATA_TTL_SECONDS)
-              in {"SYNCED", "MIGRATION_ARMED"}
+          payable_reverted(lambda: migration_protocol.open_session(
+              migration_outage_clock, "attacker", 1,
+              migration_outage_clock.timestamp + DATA_TTL_SECONDS,
+              payment=10,
+          ))
           and not migration_registry.reserve("migration-builder", 2, 0)
           and veto_user_result == "SYNCED_REFUNDED"
           and veto_router_status == "SYNCED" and veto_router_stamp is None
@@ -24484,14 +27176,23 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert not migration_protocol.sync(before_expiry)
     after_expiry = clock(183, recovery_expiry_slot + 1)
     assert migration_protocol.sync(after_expiry)
+    cleanup_calls = 1
+    while (migration_protocol.session_live_count
+           and cleanup_calls < MAX_LIVE_DATA_SESSIONS // MAX_GC_STEPS + 1):
+        cleanup_calls += 1
+        assert migration_protocol.sync(Clock(
+            after_expiry.block_number + cleanup_calls,
+            after_expiry.timestamp,
+        ))
     ready_status, ready_stamp = active_router.sync_ingress(
         clock=after_expiry, caller_adapter=active_bridge_adapter
     )
     check("P50bg delayed cutover reaches migration-ready without reopening",
           migration_protocol.recovery is None
+          and cleanup_calls == 1
           and migration_revision == 1
           and shared_migration_gate.mode == "READY"
-          and shared_migration_gate.live_data_sessions == 0
+          and migration_protocol.session_live_count == 0
           and len(migration_protocol.messages) == 18
           and migration_registry.open_reservations
               == migration_reservations_before
@@ -24818,7 +27519,9 @@ def test_data_gc_reorg_and_geometry() -> None:
               >= terminal_queue.accounted_liabilities)
     assert shared_migration_gate._arm_from_manager(
         2, 2, 3, legacy_manifest_3_bad, caller="version-manager")
-    assert migration_protocol._arm_migration_for_test(2)
+    assert migration_protocol._arm_migration_for_test(
+        2, migration_activation_clock
+    )
     migration_registry.arm_migration()
     assert exact_settlement._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
@@ -24869,7 +27572,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     ).release_manifest_hash
     assert shared_migration_gate._arm_from_manager(
         3, 2, 3, legacy_manifest_3, caller="version-manager")
-    assert migration_protocol._arm_migration_for_test(3)
+    assert migration_protocol._arm_migration_for_test(3, abort_ready_clock)
     migration_registry.arm_migration()
     assert exact_settlement._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
@@ -24972,13 +27675,13 @@ def test_data_gc_reorg_and_geometry() -> None:
     done_index = destination.terminal_index[credit_b]
     failed_proof = TerminalProof(
         1, sequence_2, failed_index,
-        terminal_merkle_branch(accumulator.leaves, failed_index))
+        terminal_merkle_branch(accumulator.leaf_events, failed_index))
     done_settlement = destination.terminal_commitment_v2(credit_b)
     assert done_settlement is not None
     done_tuple = destination._terminal_settlements[credit_b]
     done_proof = TerminalProof(
         1, sequence_2, done_index,
-        terminal_merkle_branch(accumulator.leaves, done_index),
+        terminal_merkle_branch(accumulator.leaf_events, done_index),
         done_tuple.ticket_id, done_tuple.l1_recipient,
         done_tuple.settlement_amount)
     done_d2_index = destination_d2.terminal_index[credit_d2]
@@ -24987,7 +27690,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     done_d2_tuple = destination_d2._terminal_settlements[credit_d2]
     d2_proof = TerminalProof(
         1, sequence_2, done_d2_index,
-        terminal_merkle_branch(accumulator.leaves, done_d2_index),
+        terminal_merkle_branch(accumulator.leaf_events, done_d2_index),
         done_d2_tuple.ticket_id, done_d2_tuple.l1_recipient,
         done_d2_tuple.settlement_amount)
     terminal_source = active_router._source_bridge_authority

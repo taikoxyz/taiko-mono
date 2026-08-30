@@ -12,6 +12,7 @@ ROOT = pathlib.Path(__file__).resolve().parent
 MAIN_TEX = ROOT / "tex" / "main.tex"
 UINT64_MAX = (1 << 64) - 1
 UINT256_MAX = (1 << 256) - 1
+DATA_BYTES_PER_BLOB = 4_096 * 31 - 4
 
 
 def exact_rule(value):
@@ -28,6 +29,7 @@ RULE_NULLABLE_UINT64 = ("uint", True, 0, UINT64_MAX)
 RULE_DECIMAL = ("decimal", False, 0, UINT256_MAX)
 RULE_POSITIVE_DECIMAL = ("decimal", False, 1, UINT256_MAX)
 RULE_NULLABLE_DECIMAL = ("decimal", True, 0, UINT256_MAX)
+RULE_NULLABLE_BPS_DECIMAL = ("decimal", True, 0, 10_000)
 RULE_NULLABLE_POSITIVE_DECIMAL = ("decimal", True, 1, UINT256_MAX)
 RULE_NULLABLE_HASH = ("hash", True)
 RULE_NULLABLE_ADDRESS = ("address", True)
@@ -115,15 +117,17 @@ EXPECTED_SCHEMA_RULES = {
     "gasProfile.activationForcedGas": exact_rule(13_000_000),
     "gasProfile.systemMarginGas": exact_rule(5_000_000),
     "gasProfile.minimumForceAccountedGas": exact_rule(21_000),
-    "dataSession.ttlSeconds": RULE_POSITIVE_UINT,
-    "dataSession.maximumLiveSessions": RULE_POSITIVE_UINT,
-    "dataSession.maximumLiveSessionsPerOwner": RULE_POSITIVE_UINT,
-    "dataSession.maximumRecordsPerSession": RULE_POSITIVE_UINT,
-    "dataSession.maximumGcSteps": RULE_POSITIVE_UINT,
+    "dataSession.ttlSeconds": exact_rule(86_400),
+    "dataSession.refundClaimWindowSeconds": exact_rule(86_400),
+    "dataSession.maximumLiveSessions": exact_rule(1_024),
+    "dataSession.maximumLiveSessionsPerOwner": exact_rule(2),
+    "dataSession.maximumRecordsPerSession": exact_rule(2_100),
+    "dataSession.maximumGcSteps": exact_rule(8),
+    "dataSession.maximumBlobsPerPost": exact_rule(6),
     "dataSession.refundableBondWei": RULE_NULLABLE_POSITIVE_DECIMAL,
-    "dataSession.baseRentWei": RULE_NULLABLE_DECIMAL,
+    "dataSession.baseRentWei": RULE_NULLABLE_POSITIVE_DECIMAL,
     "dataSession.rentPerPublishedByteWei": RULE_NULLABLE_DECIMAL,
-    "dataSession.blobBaseFeeMultiplierBps": RULE_NULLABLE_DECIMAL,
+    "dataSession.blobBaseFeeMultiplierBps": RULE_NULLABLE_BPS_DECIMAL,
     "forcedEnvelope.fixedIngressWei": RULE_NULLABLE_POSITIVE_DECIMAL,
     "forcedEnvelope.executionWeiPerAccountedGas": RULE_NULLABLE_POSITIVE_DECIMAL,
     "forcedEnvelope.proofWeiPerAccountedGas": RULE_NULLABLE_POSITIVE_DECIMAL,
@@ -606,18 +610,30 @@ EXPECTED_RELATION_SPECS = (
     relation_spec(
         "forced-queue-count-u64",
         ("forcedEnvelope.maximumQueueCount",),
-        "<",
+        "==",
         "forcedEnvelope.maximumQueueCount",
         lambda _p: UINT64_MAX,
-        (True, False, False),
+        (False, True, False),
+    ),
+    relation_spec(
+        "forced-queue-prefix-u256",
+        (
+            "forcedEnvelope.maximumQueueCount",
+            "forcedEnvelope.maximumAcceptedFeeWei",
+        ),
+        "<=",
+        "forcedEnvelope.maximumAcceptedFeeWei",
+        lambda p: UINT256_MAX
+        // oracle_get(p, "forcedEnvelope.maximumQueueCount"),
+        (True, True, False),
     ),
     relation_spec(
         "terminal-count-u64",
         ("bridge.maximumTerminalCount",),
-        "<",
+        "==",
         "bridge.maximumTerminalCount",
         lambda _p: UINT64_MAX,
-        (True, False, False),
+        (False, True, False),
     ),
     relation_spec(
         "refund-erc721-word-cap",
@@ -711,6 +727,34 @@ EXPECTED_RELATION_SPECS = (
         (False, True, True),
     ),
     relation_spec(
+        "data-session-open-expiry-horizon",
+        (
+            "dataSession.ttlSeconds",
+            "recovery.proofTimeMaxSeconds",
+            "recovery.settlementWindowSeconds",
+            "builder.reorgMarginSeconds",
+        ),
+        ">=",
+        "dataSession.ttlSeconds",
+        lambda p: oracle_get(p, "recovery.proofTimeMaxSeconds")
+        + oracle_get(p, "recovery.settlementWindowSeconds")
+        + oracle_get(p, "builder.reorgMarginSeconds"),
+        (False, True, True),
+    ),
+    relation_spec(
+        "data-refund-claim-horizon",
+        (
+            "dataSession.refundClaimWindowSeconds",
+            "seat.maximumInclusionSeconds",
+            "builder.reorgMarginSeconds",
+        ),
+        ">=",
+        "dataSession.refundClaimWindowSeconds",
+        lambda p: oracle_get(p, "seat.maximumInclusionSeconds")
+        + oracle_get(p, "builder.reorgMarginSeconds"),
+        (False, True, True),
+    ),
+    relation_spec(
         "canonical-history-reorg-capacity",
         (
             "geometry.canonicalHistoryCells",
@@ -794,6 +838,45 @@ EXPECTED_RELATION_SPECS = (
         "dataSession.maximumLiveSessions",
         lambda p: oracle_get(p, "dataSession.maximumGcSteps"),
         (False, True, True),
+    ),
+    relation_spec(
+        "session-bond-liability-u256",
+        (
+            "dataSession.maximumLiveSessions",
+            "dataSession.refundableBondWei",
+        ),
+        "<=",
+        "dataSession.refundableBondWei",
+        lambda p: UINT256_MAX
+        // oracle_get(p, "dataSession.maximumLiveSessions"),
+        (True, True, False),
+    ),
+    relation_spec(
+        "session-open-value-u256",
+        (
+            "dataSession.refundableBondWei",
+            "dataSession.baseRentWei",
+        ),
+        "<=",
+        "dataSession.baseRentWei",
+        lambda p: UINT256_MAX
+        - oracle_get(p, "dataSession.refundableBondWei"),
+        (True, True, False),
+    ),
+    relation_spec(
+        "session-byte-rent-u256",
+        (
+            "dataSession.maximumRecordsPerSession",
+            "dataSession.rentPerPublishedByteWei",
+        ),
+        "<=",
+        "dataSession.rentPerPublishedByteWei",
+        lambda p: UINT256_MAX
+        // (
+            oracle_get(p, "dataSession.maximumRecordsPerSession")
+            * DATA_BYTES_PER_BLOB
+        ),
+        (True, True, False),
     ),
     relation_spec(
         "seat-book-capacity",
@@ -1194,6 +1277,13 @@ class EconomicProfileTests(unittest.TestCase):
             "gasProfile.activationForcedGas": 13000000,
             "gasProfile.systemMarginGas": 5000000,
             "gasProfile.minimumForceAccountedGas": 21000,
+            "dataSession.ttlSeconds": 86400,
+            "dataSession.refundClaimWindowSeconds": 86400,
+            "dataSession.maximumLiveSessions": 1024,
+            "dataSession.maximumLiveSessionsPerOwner": 2,
+            "dataSession.maximumRecordsPerSession": 2100,
+            "dataSession.maximumGcSteps": 8,
+            "dataSession.maximumBlobsPerPost": 6,
             "bridge.registrationProofMaximumNodesPerPath": 66,
             "bridge.registrationProofPathCount": 2,
             "bridge.registrationProofMaximumTotalNodes": 132,
@@ -1217,7 +1307,7 @@ class EconomicProfileTests(unittest.TestCase):
             for path, descriptor in EXPECTED_SCHEMA_RULES.items()
             if descriptor[0] == "exact" and descriptor[1] == "int"
         }
-        self.assertEqual(len(numeric_exact), 19)
+        self.assertEqual(len(numeric_exact), 26)
         for path, exact in numeric_exact.items():
             for replacement in (float(exact), True, False):
                 profile = copy.deepcopy(self.example)
@@ -1255,9 +1345,6 @@ class EconomicProfileTests(unittest.TestCase):
             "geometry.maximumCandidateForcedItems",
             "geometry.maximumCandidateForcedBytes",
             "geometry.maximumCandidateForcedGas",
-            "dataSession.maximumLiveSessions",
-            "dataSession.maximumRecordsPerSession",
-            "dataSession.maximumGcSteps",
             "forcedEnvelope.maximumItemBytes",
             "forcedEnvelope.maximumItemAccountedGas",
             "forcedEnvelope.maximumPrefixItems",
@@ -1308,6 +1395,7 @@ class EconomicProfileTests(unittest.TestCase):
             "builder.leasePerWindowAtomic",
             "builder.maximumBondAtomic",
             "dataSession.refundableBondWei",
+            "dataSession.baseRentWei",
             "forcedEnvelope.fixedIngressWei",
             "forcedEnvelope.executionWeiPerAccountedGas",
             "forcedEnvelope.proofWeiPerAccountedGas",
@@ -1714,7 +1802,7 @@ class EconomicProfileTests(unittest.TestCase):
         actual = {
             relation.name: relation for relation in self.model.PROFILE_RELATIONS
         }
-        self.assertEqual(len(expected), 51)
+        self.assertEqual(len(expected), 57)
         self.assertEqual(set(actual), set(expected))
         tex = MAIN_TEX.read_text()
         profile = self.calibrated_profile()

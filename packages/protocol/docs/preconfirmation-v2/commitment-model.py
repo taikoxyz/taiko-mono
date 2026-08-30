@@ -64,6 +64,7 @@ D_FORCE_NODE = b"slot-chain-force-node-v2"
 D_FORCE_ROOT = b"slot-chain-force-root-v2"
 D_FORCED_DESCRIPTOR_SCHEMA = b"slot-chain-force-descriptor-schema-v11"
 D_FORCED_QUEUE_CONFIG = b"slot-chain-forced-queue-config-v1"
+D_DATA_SESSION_CONFIG = b"slot-chain-data-session-config-v1"
 D_MMR_LEAF = b"slot-chain-data-leaf-v1"
 D_MMR_NODE = b"slot-chain-data-node-v1"
 D_MMR_BAG = b"slot-chain-data-bag-v1"
@@ -89,6 +90,52 @@ D_BRIDGE_EXECUTION = b"slot-chain-source-bridge-execution-v4"
 D_DESTINATION_BRIDGE_EXECUTION = b"slot-chain-destination-bridge-execution-v3"
 D_BRIDGE_KERNEL = b"slot-chain-bridge-kernel-profile-v2"
 D_COMPONENT_CONFIG = b"slot-chain-component-config-v1"
+DATA_SESSION_FUNCTION_SIGNATURES = {
+    "session_open_selector": b"openSession(uint16,uint64)",
+    "session_post_selector": (
+        b"postData(bytes32,(bytes32,uint16,uint16,uint16,uint32,bytes32,"
+        b"bytes32,bytes32,bytes16,bytes32,bytes16)[])"
+    ),
+    "session_seal_selector": b"sealSession(bytes32)",
+    "session_maintain_selector": b"maintainDataSessions()",
+    "session_claim_selector": b"claimSessionBond(bytes32,address)",
+    "session_sweep_selector": b"sweepSessionSurplus()",
+    "session_cell_selector": b"dataSessionCellV1(uint16)",
+    "session_by_id_selector": b"dataSessionByIdV1(bytes32)",
+    "session_accounting_selector": b"dataSessionAccountingV1()",
+}
+ROUTER_SESSION_GATE_FUNCTION_SIGNATURES = {
+    "active_settlement_state_selector": b"activeSettlementStateV1()",
+    "migration_readiness_selector": b"migrationReadinessV1()",
+    "mark_migration_ready_selector": b"markMigrationReadyV1(uint64)",
+}
+ROUTER_SESSION_GATE_MAGICS = {
+    "active_settlement_state_magic": b"ASR1",
+    "migration_readiness_magic": b"MRS1",
+    "mark_migration_ready_magic": b"MRDY",
+}
+DATA_SESSION_EVENT_SIGNATURES = {
+    "session_opened_topic": (
+        b"SessionOpened(bytes32,address,uint16,uint64,uint64,uint256,uint256)"
+    ),
+    "data_record_appended_topic": (
+        b"DataRecordAppended(bytes32,uint16,bytes32,bytes32)"
+    ),
+    "session_sealed_topic": b"SessionSealed(bytes32,uint16,bytes32,uint64)",
+    "session_live_to_refund_topic": (
+        b"SessionLiveToRefund(bytes32,address,uint16,uint64,uint64)"
+    ),
+    "session_bond_claimed_topic": (
+        b"SessionBondClaimed(bytes32,address,address,uint256)"
+    ),
+    "session_refund_forfeited_topic": (
+        b"SessionRefundForfeited(bytes32,address,uint16,uint256)"
+    ),
+    "session_surplus_swept_topic": b"SessionSurplusSwept(address,uint256)",
+    "data_sessions_maintained_topic": (
+        b"DataSessionsMaintained(uint8,uint16,uint16,uint8,uint8)"
+    ),
+}
 COMPONENT_CONFIG_GETTER_SELECTOR = keccak256(
     b"componentConfigHashV2()")[:4]
 D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v3"
@@ -1318,6 +1365,52 @@ def forced_queue_config_hash(active_settlement_router: int) -> bytes:
                + b32(keccak256(D_FORCED_DESCRIPTOR_SCHEMA)))
     assert len(encoded) == 93
     return keccak256(D_FORCED_QUEUE_CONFIG + u16(len(encoded)) + encoded)
+
+
+@dataclass(frozen=True)
+class DataSessionConfigV1:
+    settlement_chain_id: int
+    protocol_version: int
+    settlement: int
+    active_settlement_router: int
+    protocol_version_manager: int
+    data_rent: int
+    execution_profile_hash: bytes
+    bond: int
+    base: int
+    byte_rent: int
+    blob_bps: int
+
+
+def data_session_config_hash(config: DataSessionConfigV1) -> bytes:
+    assert (
+        config.settlement_chain_id > 0
+        and 0 < config.protocol_version <= UINT64_MAX
+        and config.settlement != 0
+        and config.active_settlement_router != 0
+        and config.protocol_version_manager != 0
+        and config.data_rent != 0
+        and b32(config.execution_profile_hash) != bytes(32)
+        and config.bond > 0
+        and config.base > 0
+        and config.byte_rent >= 0
+        and 0 <= config.blob_bps <= 10_000
+    )
+    encoded = (
+        u256(config.settlement_chain_id) + u64(config.protocol_version)
+        + address20(config.settlement)
+        + address20(config.active_settlement_router)
+        + address20(config.protocol_version_manager)
+        + address20(config.data_rent)
+        + b32(config.execution_profile_hash) + u256(config.bond)
+        + u256(config.base) + u256(config.byte_rent) + u16(config.blob_bps)
+        + u64(86_400) + u64(86_400)
+        + u16(1_024) + u16(2) + u16(2_100) + u8(8) + u8(6)
+        + address20(0x0A) + u32(50_000) + u256(BLS_MODULUS)
+        + u32(131_072) + u32(126_972) + u16(9)
+    )
+    assert len(encoded) == 340
+    return keccak256(D_DATA_SESSION_CONFIG + u32(len(encoded)) + encoded)
 
 
 def destination_bridge_component_config(
@@ -3027,6 +3120,46 @@ for _height in range(FORCE_DEPTH):
                                  + FORCE_EMPTY[-1] + FORCE_EMPTY[-1]))
 
 
+def append_fixed_frontier(frontier: tuple[bytes, ...], count: int,
+                          leaf: bytes, node_domain: bytes,
+                          depth: int = FORCE_DEPTH) -> tuple[bytes, ...]:
+    """Append one leaf to a fixed-width frontier without historical leaves."""
+
+    assert len(frontier) == depth and 0 <= count < (1 << depth) - 1
+    updated = [b32(node) for node in frontier]
+    carry, height = b32(leaf), 0
+    while (count >> height) & 1:
+        carry = keccak256(node_domain + u8(height)
+                          + updated[height] + carry)
+        height += 1
+    updated[height] = carry
+    return tuple(updated)
+
+
+def fixed_frontier_tree_root(frontier: tuple[bytes, ...], count: int,
+                             zero_hashes: list[bytes], node_domain: bytes,
+                             depth: int = FORCE_DEPTH) -> bytes:
+    """Fold a fixed-width frontier and canonical empty right subtrees."""
+
+    assert (len(frontier) == depth and len(zero_hashes) == depth + 1
+            and 0 <= count < 1 << depth)
+    node = zero_hashes[0]
+    for height in range(depth):
+        if (count >> height) & 1:
+            node = keccak256(node_domain + u8(height)
+                             + b32(frontier[height]) + node)
+        else:
+            node = keccak256(node_domain + u8(height)
+                             + node + zero_hashes[height])
+    return node
+
+
+def force_frontier_root(frontier: tuple[bytes, ...], count: int) -> bytes:
+    return keccak256(D_FORCE_ROOT + u64(count)
+                     + fixed_frontier_tree_root(
+                         frontier, count, FORCE_EMPTY, D_FORCE_NODE))
+
+
 class ForceVector:
     def __init__(self, leaves: tuple[bytes, ...]):
         assert len(leaves) < 1 << FORCE_DEPTH
@@ -3141,6 +3274,31 @@ def mmr_root(leaves: tuple[bytes, ...]) -> bytes:
     return keccak256(D_MMR_BAG + u16(len(leaves)) + u8(len(peaks)) + encoded)
 
 
+def append_mmr_frontier(frontier: tuple[bytes, ...], count: int,
+                        leaf: bytes) -> tuple[bytes, ...]:
+    """Append one exact Appendix data leaf to the 12-word session frontier."""
+
+    assert len(frontier) == 12 and 0 <= count < 2_100
+    updated = [b32(node) for node in frontier]
+    carry, height = b32(leaf), 0
+    while (count >> height) & 1:
+        carry = keccak256(D_MMR_NODE + u8(height)
+                          + updated[height] + carry)
+        height += 1
+    updated[height] = carry
+    return tuple(updated)
+
+
+def mmr_frontier_root(frontier: tuple[bytes, ...], count: int) -> bytes:
+    """Bag set-bit peaks rightmost-to-leftmost: ascending stored height."""
+
+    assert len(frontier) == 12 and 0 <= count <= 2_100
+    heights = tuple(height for height in range(12) if (count >> height) & 1)
+    encoded = b"".join(u8(height) + b32(frontier[height])
+                       for height in heights)
+    return keccak256(D_MMR_BAG + u16(count) + u8(len(heights)) + encoded)
+
+
 @dataclass(frozen=True)
 class ManifestEntry:
     block_ordinal: int
@@ -3248,7 +3406,7 @@ for _height in range(TERMINAL_DEPTH):
 
 class TerminalVector:
     def __init__(self, leaves: tuple[bytes, ...]):
-        assert len(leaves) < UINT64_MAX
+        assert len(leaves) <= UINT64_MAX
         self.leaves = tuple(b32(leaf) for leaf in leaves)
 
     @lru_cache(maxsize=None)
@@ -3273,12 +3431,21 @@ class TerminalVector:
                      for height in range(TERMINAL_DEPTH))
 
 
+def terminal_frontier_root(frontier: tuple[bytes, ...], count: int) -> bytes:
+    return keccak256(D_TERMINAL_ROOT + u64(count)
+                     + fixed_frontier_tree_root(
+                         frontier, count, TERMINAL_EMPTY, D_TERMINAL_NODE,
+                         TERMINAL_DEPTH))
+
+
 class PersistentTerminalTree:
-    """Immutable complete-subtree store used by TerminalAccumulatorV2.
+    """Off-chain immutable proof oracle reconstructed from canonical events.
 
     A node is written only when its fixed interval becomes completely occupied.
     Thus no historical proof dependency is overwritten.  A node for any prefix
     count is reconstructed from completed subtrees and canonical empty nodes.
+    TerminalAccumulatorV2 never stores this map: its entire canonical Merkle
+    state is the 64-word append frontier, checked count and wrapped root.
     """
 
     def __init__(self) -> None:
@@ -3495,7 +3662,58 @@ def vectors() -> dict[str, str]:
     force_leaves = tuple(forced_leaf(i, env) for i, env in enumerate(envs))
     force = ForceVector(force_leaves)
     proof = force.range_proof(2, 66)
+    force_frontier = tuple(bytes(32) for _ in range(FORCE_DEPTH))
+    for count, force_leaf in enumerate(force_leaves):
+        assert force_frontier_root(force_frontier, count) \
+            == ForceVector(force_leaves[:count]).root
+        force_frontier = append_fixed_frontier(
+            force_frontier, count, force_leaf, D_FORCE_NODE)
+    assert force_frontier_root(force_frontier, len(force_leaves)) == force.root
+    stale_force_frontier = list(force_frontier)
+    stale_force_frontier[0] = bytes.fromhex("ab" * 32)  # bit 0 of 70 is zero
+    assert force_frontier_root(tuple(stale_force_frontier), 70) == force.root
+    used_force_frontier = list(force_frontier)
+    used_force_frontier[1] = bytes.fromhex("cd" * 32)  # bit 1 of 70 is one
+    assert force_frontier_root(tuple(used_force_frontier), 70) != force.root
     sid = session_id(settlement_chain_id, contract, 0xCAFE, 2)
+    session_config = DataSessionConfigV1(
+        settlement_chain_id=settlement_chain_id,
+        protocol_version=2,
+        settlement=contract,
+        active_settlement_router=0xAD01,
+        protocol_version_manager=0xAD02,
+        data_rent=0xAD03,
+        execution_profile_hash=bytes.fromhex("fe" * 32),
+        bond=10,
+        base=1,
+        byte_rent=2,
+        blob_bps=10_000,
+    )
+    session_config_hash = data_session_config_hash(session_config)
+    assert_all_fields_bound(session_config, data_session_config_hash)
+    session_function_selectors = {
+        key: keccak256(signature)[:4]
+        for key, signature in DATA_SESSION_FUNCTION_SIGNATURES.items()
+    }
+    router_session_gate_selectors = {
+        key: keccak256(signature)[:4]
+        for key, signature in ROUTER_SESSION_GATE_FUNCTION_SIGNATURES.items()
+    }
+    session_event_topics = {
+        key: keccak256(signature)
+        for key, signature in DATA_SESSION_EVENT_SIGNATURES.items()
+    }
+    assert len(set(session_function_selectors.values())) == len(
+        session_function_selectors
+    )
+    assert len(set(router_session_gate_selectors.values())) == len(
+        router_session_gate_selectors
+    )
+    assert not (
+        set(session_function_selectors.values())
+        & set(router_session_gate_selectors.values())
+    )
+    assert len(set(session_event_topics.values())) == len(session_event_topics)
     body = body_root((bytes.fromhex("0102"), bytes.fromhex("030405")))
     chunk0, chunk1 = b"alpha", b"beta"
     c0, c1 = chunk_root(body, 0, 0, 2, chunk0), chunk_root(body, 0, 1, 2, chunk1)
@@ -3503,6 +3721,10 @@ def vectors() -> dict[str, str]:
                       chunk0, 0xCAFE, 9_999, 5, 6)
     leaf1 = data_leaf(sid, 1, bytes.fromhex("55" * 32), body, 0, 1, 2,
                       chunk1, 0xCAFE, 9_999, 7, 8)
+    mmr_frontier = tuple(bytes(32) for _ in range(12))
+    mmr_frontier = append_mmr_frontier(mmr_frontier, 0, leaf0)
+    mmr_frontier = append_mmr_frontier(mmr_frontier, 1, leaf1)
+    assert mmr_frontier_root(mmr_frontier, 2) == mmr_root((leaf0, leaf1))
     manifest = manifest_root((
         ManifestEntry(0, sid, 0, 0, 2, len(chunk0), body, c0),
         ManifestEntry(0, sid, 1, 1, 2, len(chunk1), body, c1),
@@ -4977,6 +5199,20 @@ def vectors() -> dict[str, str]:
         "inbox_route_config_hash": inbox_route_config_hash(
             0x5100, 0xB200, 0x5103, destination_domain).hex(),
         "forced_queue_config_hash": forced_queue_config_hash(0xAD01).hex(),
+        "data_session_config_hash": session_config_hash.hex(),
+        **{
+            key: value.hex()
+            for key, value in session_function_selectors.items()
+        },
+        **{
+            key: value.hex()
+            for key, value in router_session_gate_selectors.items()
+        },
+        **{
+            key: value.hex()
+            for key, value in ROUTER_SESSION_GATE_MAGICS.items()
+        },
+        **{key: value.hex() for key, value in session_event_topics.items()},
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
@@ -5070,6 +5306,30 @@ EXPECTED = {
     "release_manifest_trie_key": "dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2",
     "inbox_route_config_hash": "2256dd6e98891531a80b2ee16b67a7f1d77db7e17d8523f9b5ab3fa540e9c4a3",
     "forced_queue_config_hash": "72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e",
+    "data_session_config_hash": "83e7e252277ea66b70b59a490421d21454032a3fe64107c7390131f83a487b76",
+    "session_open_selector": "7bda4d11",
+    "session_post_selector": "a1cc526a",
+    "session_seal_selector": "340e11fb",
+    "session_maintain_selector": "1e7a916a",
+    "session_claim_selector": "fdd2b0db",
+    "session_sweep_selector": "9d083a2b",
+    "session_cell_selector": "011efada",
+    "session_by_id_selector": "eeaad0bb",
+    "session_accounting_selector": "e2a62969",
+    "active_settlement_state_selector": "4a95c306",
+    "migration_readiness_selector": "b36c83ce",
+    "mark_migration_ready_selector": "e0c25827",
+    "active_settlement_state_magic": "41535231",
+    "migration_readiness_magic": "4d525331",
+    "mark_migration_ready_magic": "4d524459",
+    "session_opened_topic": "a81132592bd8a549a0bfc83415ab47fbca586f0b48fff5f6cb5bfae0a9fd1f68",
+    "data_record_appended_topic": "30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c",
+    "session_sealed_topic": "f6d45ab0ecc3348b36ac48bc769f7391962fc2fa240c1c6bb43269ed3780078e",
+    "session_live_to_refund_topic": "086de7ad4d27cf66f63e9dc6ecb09c0c3122146dd43e7f480f3a875070eb984e",
+    "session_bond_claimed_topic": "69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb",
+    "session_refund_forfeited_topic": "f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957",
+    "session_surplus_swept_topic": "3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86",
+    "data_sessions_maintained_topic": "920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89",
     "forced_root": "a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57",
     "empty_forced_root": "4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592",
     "force_range_digest": "75c75611d9eaa6c05e56a1fb646cea4c9d796adfd205df5c5ff1b0b52cc93dd2",
@@ -5428,6 +5688,20 @@ if __name__ == "__main__":
     done_leaf = bytes.fromhex(actual["terminal_done_leaf"])
     failed_leaf = bytes.fromhex(actual["terminal_failed_leaf"])
     terminal_vector = TerminalVector((done_leaf, failed_leaf))
+    terminal_frontier = tuple(bytes(32) for _ in range(TERMINAL_DEPTH))
+    terminal_frontier = append_fixed_frontier(
+        terminal_frontier, 0, done_leaf, D_TERMINAL_NODE)
+    terminal_frontier = append_fixed_frontier(
+        terminal_frontier, 1, failed_leaf, D_TERMINAL_NODE)
+    assert terminal_frontier_root(terminal_frontier, 2) == terminal_vector.root
+    stale_terminal_frontier = list(terminal_frontier)
+    stale_terminal_frontier[0] = bytes.fromhex("ef" * 32)
+    assert terminal_frontier_root(tuple(stale_terminal_frontier), 2) \
+        == terminal_vector.root
+    used_terminal_frontier = list(terminal_frontier)
+    used_terminal_frontier[1] = bytes.fromhex("fe" * 32)
+    assert terminal_frontier_root(tuple(used_terminal_frontier), 2) \
+        != terminal_vector.root
     done_proof = terminal_vector.proof(0)
     assert terminal_vector.root.hex() == actual["terminal_root_2"]
     settlement_hash = liquidity_settlement_hash(
@@ -5833,6 +6107,30 @@ if __name__ == "__main__":
         "relTrie": "release_manifest_trie_key",
         "routeConfig": "inbox_route_config_hash",
         "queueConfig": "forced_queue_config_hash",
+        "dataSessCfg": "data_session_config_hash",
+        "dsOpenSel": "session_open_selector",
+        "dsPostSel": "session_post_selector",
+        "dsSealSel": "session_seal_selector",
+        "dsMaintSel": "session_maintain_selector",
+        "dsClaimSel": "session_claim_selector",
+        "dsSweepSel": "session_sweep_selector",
+        "dsCellSel": "session_cell_selector",
+        "dsByIdSel": "session_by_id_selector",
+        "dsAcctSel": "session_accounting_selector",
+        "activeSetSel": "active_settlement_state_selector",
+        "migReadySel": "migration_readiness_selector",
+        "markReadySel": "mark_migration_ready_selector",
+        "activeSetMagic": "active_settlement_state_magic",
+        "migReadyMagic": "migration_readiness_magic",
+        "markReadyMagic": "mark_migration_ready_magic",
+        "dsOpenTopic": "session_opened_topic",
+        "dsRecordTopic": "data_record_appended_topic",
+        "dsSealTopic": "session_sealed_topic",
+        "dsRefundTopic": "session_live_to_refund_topic",
+        "dsClaimTopic": "session_bond_claimed_topic",
+        "dsForfeitTopic": "session_refund_forfeited_topic",
+        "dsSweepTopic": "session_surplus_swept_topic",
+        "dsMaintTopic": "data_sessions_maintained_topic",
         "bridgeLeaf": "bridge_leaf",
         "feeLeafAlt": "liquidity_fee_substitution_bridge_leaf",
         "creditId": "bridge_credit_id",

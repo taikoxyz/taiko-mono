@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 UINT64_MAX = (1 << 64) - 1
 UINT256_MAX = (1 << 256) - 1
+DATA_BYTES_PER_BLOB = 4_096 * 31 - 4
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ UINT64 = FieldRule("uint", maximum=UINT64_MAX)
 NULLABLE_UINT64 = FieldRule("uint", nullable=True, maximum=UINT64_MAX)
 DECIMAL = FieldRule("decimal")
 NULLABLE_DECIMAL = FieldRule("decimal", nullable=True)
+NULLABLE_BPS_DECIMAL = FieldRule("decimal", nullable=True, maximum=10_000)
 POSITIVE_DECIMAL = FieldRule("decimal", minimum=1)
 NULLABLE_POSITIVE_DECIMAL = FieldRule("decimal", nullable=True, minimum=1)
 HASH = FieldRule("hash")
@@ -151,15 +153,17 @@ EXPECTED_SCHEMA = {
         "minimumForceAccountedGas": EXACT(21_000),
     },
     "dataSession": {
-        "ttlSeconds": POSITIVE_UINT,
-        "maximumLiveSessions": POSITIVE_UINT,
-        "maximumLiveSessionsPerOwner": POSITIVE_UINT,
-        "maximumRecordsPerSession": POSITIVE_UINT,
-        "maximumGcSteps": POSITIVE_UINT,
+        "ttlSeconds": EXACT(86_400),
+        "refundClaimWindowSeconds": EXACT(86_400),
+        "maximumLiveSessions": EXACT(1_024),
+        "maximumLiveSessionsPerOwner": EXACT(2),
+        "maximumRecordsPerSession": EXACT(2_100),
+        "maximumGcSteps": EXACT(8),
+        "maximumBlobsPerPost": EXACT(6),
         "refundableBondWei": NULLABLE_POSITIVE_DECIMAL,
-        "baseRentWei": NULLABLE_DECIMAL,
+        "baseRentWei": NULLABLE_POSITIVE_DECIMAL,
         "rentPerPublishedByteWei": NULLABLE_DECIMAL,
-        "blobBaseFeeMultiplierBps": NULLABLE_DECIMAL,
+        "blobBaseFeeMultiplierBps": NULLABLE_BPS_DECIMAL,
     },
     "forcedEnvelope": {
         "fixedIngressWei": NULLABLE_POSITIVE_DECIMAL,
@@ -996,20 +1000,33 @@ PROFILE_RELATIONS = (
     _relation(
         "forced-queue-count-u64",
         ("forcedEnvelope.maximumQueueCount",),
-        "<",
-        lambda p: _at(p, "forcedEnvelope.maximumQueueCount") < UINT64_MAX,
+        "==",
+        lambda p: _at(p, "forcedEnvelope.maximumQueueCount") == UINT64_MAX,
         "forcedEnvelope.maximumQueueCount",
         lambda _p: UINT64_MAX,
-        (True, False, False),
+        (False, True, False),
+    ),
+    _relation(
+        "forced-queue-prefix-u256",
+        (
+            "forcedEnvelope.maximumQueueCount",
+            "forcedEnvelope.maximumAcceptedFeeWei",
+        ),
+        "<=",
+        lambda p: _at(p, "forcedEnvelope.maximumAcceptedFeeWei")
+        <= UINT256_MAX // _at(p, "forcedEnvelope.maximumQueueCount"),
+        "forcedEnvelope.maximumAcceptedFeeWei",
+        lambda p: UINT256_MAX // _at(p, "forcedEnvelope.maximumQueueCount"),
+        (True, True, False),
     ),
     _relation(
         "terminal-count-u64",
         ("bridge.maximumTerminalCount",),
-        "<",
-        lambda p: _at(p, "bridge.maximumTerminalCount") < UINT64_MAX,
+        "==",
+        lambda p: _at(p, "bridge.maximumTerminalCount") == UINT64_MAX,
         "bridge.maximumTerminalCount",
         lambda _p: UINT64_MAX,
-        (True, False, False),
+        (False, True, False),
     ),
     _relation(
         "refund-erc721-word-cap",
@@ -1138,6 +1155,49 @@ PROFILE_RELATIONS = (
         (False, True, True),
     ),
     _relation(
+        "data-session-open-expiry-horizon",
+        (
+            "dataSession.ttlSeconds",
+            "recovery.proofTimeMaxSeconds",
+            "recovery.settlementWindowSeconds",
+            "builder.reorgMarginSeconds",
+        ),
+        ">=",
+        lambda p: _at(p, "dataSession.ttlSeconds")
+        >= _sum_u256(
+            _at(p, "recovery.proofTimeMaxSeconds"),
+            _at(p, "recovery.settlementWindowSeconds"),
+            _at(p, "builder.reorgMarginSeconds"),
+        ),
+        "dataSession.ttlSeconds",
+        lambda p: _sum_u256(
+            _at(p, "recovery.proofTimeMaxSeconds"),
+            _at(p, "recovery.settlementWindowSeconds"),
+            _at(p, "builder.reorgMarginSeconds"),
+        ),
+        (False, True, True),
+    ),
+    _relation(
+        "data-refund-claim-horizon",
+        (
+            "dataSession.refundClaimWindowSeconds",
+            "seat.maximumInclusionSeconds",
+            "builder.reorgMarginSeconds",
+        ),
+        ">=",
+        lambda p: _at(p, "dataSession.refundClaimWindowSeconds")
+        >= _sum_u256(
+            _at(p, "seat.maximumInclusionSeconds"),
+            _at(p, "builder.reorgMarginSeconds"),
+        ),
+        "dataSession.refundClaimWindowSeconds",
+        lambda p: _sum_u256(
+            _at(p, "seat.maximumInclusionSeconds"),
+            _at(p, "builder.reorgMarginSeconds"),
+        ),
+        (False, True, True),
+    ),
+    _relation(
         "canonical-history-reorg-capacity",
         (
             "geometry.canonicalHistoryCells",
@@ -1246,6 +1306,53 @@ PROFILE_RELATIONS = (
         "dataSession.maximumLiveSessions",
         lambda p: _at(p, "dataSession.maximumGcSteps"),
         (False, True, True),
+    ),
+    _relation(
+        "session-bond-liability-u256",
+        (
+            "dataSession.maximumLiveSessions",
+            "dataSession.refundableBondWei",
+        ),
+        "<=",
+        lambda p: _at(p, "dataSession.refundableBondWei")
+        <= UINT256_MAX // _at(p, "dataSession.maximumLiveSessions"),
+        "dataSession.refundableBondWei",
+        lambda p: UINT256_MAX // _at(p, "dataSession.maximumLiveSessions"),
+        (True, True, False),
+    ),
+    _relation(
+        "session-open-value-u256",
+        (
+            "dataSession.refundableBondWei",
+            "dataSession.baseRentWei",
+        ),
+        "<=",
+        lambda p: _at(p, "dataSession.baseRentWei")
+        <= UINT256_MAX - _at(p, "dataSession.refundableBondWei"),
+        "dataSession.baseRentWei",
+        lambda p: UINT256_MAX - _at(p, "dataSession.refundableBondWei"),
+        (True, True, False),
+    ),
+    _relation(
+        "session-byte-rent-u256",
+        (
+            "dataSession.maximumRecordsPerSession",
+            "dataSession.rentPerPublishedByteWei",
+        ),
+        "<=",
+        lambda p: _at(p, "dataSession.rentPerPublishedByteWei")
+        <= UINT256_MAX
+        // checked_mul_u256(
+            _at(p, "dataSession.maximumRecordsPerSession"),
+            DATA_BYTES_PER_BLOB,
+        ),
+        "dataSession.rentPerPublishedByteWei",
+        lambda p: UINT256_MAX
+        // checked_mul_u256(
+            _at(p, "dataSession.maximumRecordsPerSession"),
+            DATA_BYTES_PER_BLOB,
+        ),
+        (True, True, False),
     ),
     _relation(
         "seat-book-capacity",
