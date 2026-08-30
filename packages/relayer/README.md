@@ -140,7 +140,11 @@ failover order, so it says which relay is unhealthy. `private_rpc_trips_ops_tota
 same way, counts an endpoint actually leaving the rotation rather than each refusal on the way
 there — one fewer place to send privately. `private_rpc_unavailable_ops_total` counts transactions
 that went out through `DEST_RPC_URL` while private endpoints were configured — that is the relayer
-running exposed, and matters more than any individual refusal. Both transitions are logged as well,
+running exposed, and matters more than any individual refusal. Alongside them,
+`private_rpc_sends_ops_total`, labelled the same way, counts the transactions each endpoint
+accepted. It is not an alert on its own; it is what turns the refusals into a rate, which is what
+separates a busy relay turning down a few claims from one that has started turning down most of
+them. Both transitions are logged as well,
 `Private endpoint taken out of rotation` and `Private endpoint back in rotation`, each carrying the
 endpoint's position.
 

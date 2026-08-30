@@ -326,6 +326,21 @@ func TestSendingBackend_AttributesFailuresToTheEndpointThatRefused(t *testing.T)
 	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateRPCFailures.WithLabelValues("1"))-secondBefore)
 }
 
+func TestSendingBackend_CountsAcceptedTransactionsAgainstTheEndpointThatTookThem(t *testing.T) {
+	b, _, first, _, _ := newTestBackend(t, nil)
+	first.err = errors.New("first is down")
+
+	firstBefore := testutil.ToFloat64(relayer.PrivateRPCSends.WithLabelValues("0"))
+	secondBefore := testutil.ToFloat64(relayer.PrivateRPCSends.WithLabelValues("1"))
+
+	require.NoError(t, b.SendTransaction(context.Background(), testTx()))
+
+	assert.Equal(t, firstBefore, testutil.ToFloat64(relayer.PrivateRPCSends.WithLabelValues("0")),
+		"an endpoint that refused the transaction did not accept it")
+	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateRPCSends.WithLabelValues("1"))-secondBefore,
+		"the refusals are only readable as a rate against the sends the endpoint took")
+}
+
 func TestSendingBackend_ASuccessfulSendReadmitsATrippedEndpoint(t *testing.T) {
 	b, _, _, _, _ := newTestBackend(t, nil)
 

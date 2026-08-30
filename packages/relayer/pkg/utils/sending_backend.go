@@ -209,6 +209,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		if err == nil {
 			b.recordSuccess(endpoint.index, tx.Nonce())
+			relayer.PrivateRPCSends.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 			return nil
 		}
