@@ -3865,6 +3865,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
         gas_limit=settlement.MAX_FORCE_MESSAGE_GAS,
         data=None,
         install_pin=True,
+        liquidity_fee=1,
+        fund_liquidity=True,
     ):
         self._destination_queue_index += 1
         message = settlement.IBridgeMessageV1(
@@ -3885,6 +3887,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.destination_bridge,
             message,
             queue_index=self._destination_queue_index,
+            liquidity_fee=liquidity_fee,
         )
         if install_pin:
             self.assertTrue(settlement.install_destination_pin_for_test(
@@ -3893,7 +3896,21 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 source,
                 route,
                 now=self.clock.timestamp,
+                liquidity_fee=liquidity_fee,
             ))
+            if fund_liquidity and value + fee > 0:
+                ticket_id = (
+                    settlement.reserve_destination_liquidity_for_test(
+                        self.destination_bridge,
+                        message,
+                        source,
+                        route,
+                        now=self.clock.timestamp,
+                        owner=addr("lp"),
+                        l1_recipient=addr("lp-l1"),
+                    )
+                )
+                self.assertTrue(ticket_id)
         return message, source, route
 
     def test_protocol_exposes_no_forced_ingress_append_bypass(self):
@@ -4227,7 +4244,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     clock=source_clock,
                     enqueue_by=enqueue_by,
                     caller=descriptor.sender,
-                    msg_value=descriptor.bridge_value + descriptor.bridge_fee,
+                    msg_value=(descriptor.bridge_value + descriptor.bridge_fee
+                               + descriptor.bridge_liquidity_fee),
                 ).credit_id
                 queue_before = copy.deepcopy(manager.router.forced_queue)
                 source_before = copy.deepcopy(source)
@@ -4290,7 +4308,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
                         ),
                         enqueue_by=enqueue_by,
                         caller=envelope.sender,
-                        msg_value=envelope.bridge_value + envelope.bridge_fee,
+                        msg_value=(envelope.bridge_value + envelope.bridge_fee
+                                   + envelope.bridge_liquidity_fee),
                     )
                 self.assertEqual(
                     self.source_bridge._transaction_snapshot(), source_before
@@ -4304,7 +4323,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
             clock=source_clock,
             enqueue_by=enqueue_by,
             caller=envelope.sender,
-            msg_value=envelope.bridge_value + envelope.bridge_fee,
+            msg_value=(envelope.bridge_value + envelope.bridge_fee
+                       + envelope.bridge_liquidity_fee),
         ).credit_id, credit_id)
         for emitted_at_block in (0, settlement.UINT64_MAX + 1):
             with self.subTest(emitted_at_block=emitted_at_block):
@@ -4401,7 +4421,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         )
         self.assertFalse(hasattr(registry, "open"))
         self.assertFalse(hasattr(bridge, "open"))
-        for funding in (0, 11, 13):
+        for funding in (0, 11, 12):
             with self.subTest(funding=funding):
                 registry_before = dict(registry.authorizations)
                 bridge_before = bridge._transaction_snapshot()
@@ -4418,35 +4438,342 @@ class ForcedIngressRouterTests(unittest.TestCase):
         credit_id = bridge.send_message(
             envelope,
             caller=envelope.sender,
-            msg_value=12,
+            msg_value=13,
             clock=clock,
             enqueue_by=enqueue_by,
         ).credit_id
         self.assertIn(credit_id, registry.authorizations)
         self.assertIn(credit_id, bridge.credits)
-        self.assertEqual(bridge.balance, 12)
-        self.assertEqual(bridge.total_live_liability, 12)
+        self.assertEqual(bridge.balance, 13)
+        self.assertEqual(bridge.total_live_liability, 13)
         self.assertFalse(hasattr(registry, "balance"))
         self.assertFalse(hasattr(registry, "credits"))
         self.assertIs(registry.source_bridge, bridge)
         second = bridge.send_message(
             envelope,
             caller=envelope.sender,
-            msg_value=12,
+            msg_value=13,
             clock=clock,
             enqueue_by=enqueue_by,
         )
         self.assertNotEqual(second.credit_id, credit_id)
         self.assertEqual(second.envelope.message.message_id, 1)
         self.assertEqual(len(registry.authorizations), 2)
-        self.assertEqual(bridge.balance, 24)
-        self.assertEqual(bridge.total_live_liability, 24)
+        self.assertEqual(bridge.balance, 26)
+        self.assertEqual(bridge.total_live_liability, 26)
         with self.assertRaises(ValueError):
             settlement.SourceBridgeV2(
                 registry,
                 source_descriptor=bridge.source_descriptor,
                 address=bridge.address,
             )
+
+    def test_source_read_abis_are_exact_and_fail_before_enqueue(self):
+        bridge = self.source_bridge
+        registry = bridge.credit_registry
+        clock = bridge.support_final_clock(self.clock.timestamp)
+        envelope = settlement.bridge_message(
+            self.clock.l2_slot,
+            "exact-source-reads",
+            value=4,
+            fee=2,
+            liquidity_fee=3,
+        )
+        receipt = bridge.send_message(
+            envelope,
+            caller=envelope.sender,
+            msg_value=9,
+            clock=clock,
+            enqueue_by=(
+                self.clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+            ),
+        )
+        credit_word = settlement._model_fixed_bytes32(receipt.credit_id)
+        authorization_call = (
+            settlement.CREDIT_AUTHORIZATION_SELECTOR + credit_word
+        )
+        liability_call = settlement.CREDIT_LIABILITY_SELECTOR + credit_word
+        authorization_return = registry.credit_authorization_v2(
+            authorization_call, gas=settlement.SOURCE_READ_GAS
+        )
+        liability_return = bridge.credit_liability_v2(
+            liability_call, gas=settlement.SOURCE_READ_GAS
+        )
+        self.assertEqual(
+            (
+                settlement.CREDIT_AUTHORIZATION_SELECTOR.hex(),
+                settlement.CREDIT_LIABILITY_SELECTOR.hex(),
+                len(authorization_call),
+                len(liability_call),
+                len(authorization_return),
+                len(liability_return),
+            ),
+            ("05ecb6c2", "c978978a", 36, 36, 576, 288),
+        )
+        self.assertIsNone(registry.credit_authorization_v2(
+            b"\x00" * 36, gas=settlement.SOURCE_READ_GAS
+        ))
+        self.assertIsNone(bridge.credit_liability_v2(
+            liability_call + b"\x00", gas=settlement.SOURCE_READ_GAS
+        ))
+
+        def assert_rejected_before_mutation():
+            before = (
+                copy.deepcopy(self.router.forced_queue),
+                copy.deepcopy(dict(bridge.credits)),
+                copy.deepcopy(self.bridge_adapter.records),
+            )
+            with self.assertRaises(ValueError):
+                self.bridge_adapter.enqueue(
+                    clock,
+                    envelope=receipt.envelope,
+                    caller=addr("source-read-relayer"),
+                    deposit=receipt.envelope.prepaid,
+                )
+            self.assertEqual(self.router.forced_queue, before[0])
+            self.assertEqual(bridge.credits, before[1])
+            self.assertEqual(self.bridge_adapter.records, before[2])
+
+        for target, attribute, malformed in (
+            (registry, "credit_authorization_return_override",
+             authorization_return[:-1]),
+            (registry, "credit_authorization_return_override",
+             authorization_return + b"\x00"),
+            (registry, "credit_authorization_return_override",
+             bytes([authorization_return[0] ^ 1])
+             + authorization_return[1:]),
+            (bridge, "credit_liability_return_override",
+             liability_return[:-1]),
+            (bridge, "credit_liability_return_override",
+             liability_return + b"\x00"),
+            (bridge, "credit_liability_return_override",
+             liability_return[:96] + b"\x01"
+             + liability_return[97:]),
+            (registry, "component_config_return_override", b"x" * 31),
+            (bridge, "component_config_return_override", b"x" * 33),
+        ):
+            with self.subTest(target=type(target).__name__, size=len(malformed)):
+                setattr(target, attribute, malformed)
+                assert_rejected_before_mutation()
+                setattr(target, attribute, None)
+
+        balance = bridge.balance
+        bridge.balance = bridge.total_live_liability - 1
+        assert_rejected_before_mutation()
+        bridge.balance = balance
+        liability = bridge._total_live_liability
+        bridge._total_live_liability = 1
+        assert_rejected_before_mutation()
+        bridge._total_live_liability = liability
+        self.assertEqual(self.bridge_adapter.enqueue(
+            clock,
+            envelope=receipt.envelope,
+            caller=addr("source-read-relayer"),
+            deposit=receipt.envelope.prepaid,
+        ), "QUEUED:0")
+
+    def test_message_gas_reserve_and_zero_settlement_boundaries(self):
+        with self.assertRaises(ValueError):
+            settlement.bridge_message(
+                self.clock.l2_slot,
+                "at-reserve",
+                value=1,
+                fee=1,
+                gas_limit=settlement.V2_POST_CALL_GAS_RESERVE,
+            )
+        above = settlement.bridge_message(
+            self.clock.l2_slot,
+            "above-reserve",
+            value=1,
+            fee=1,
+            gas_limit=settlement.V2_POST_CALL_GAS_RESERVE + 1,
+        )
+        self.assertEqual(
+            above.bridge_gas_limit,
+            settlement.V2_POST_CALL_GAS_RESERVE + 1,
+        )
+        with self.assertRaises(ValueError):
+            settlement.bridge_message(
+                self.clock.l2_slot,
+                "zero-gas-with-fee",
+                value=1,
+                fee=1,
+                gas_limit=0,
+            )
+        self.assertEqual(settlement.bridge_message(
+            self.clock.l2_slot,
+            "zero-gas-value",
+            value=1,
+            fee=0,
+            gas_limit=0,
+        ).bridge_value, 1)
+        with self.assertRaises(ValueError):
+            settlement.bridge_message(
+                self.clock.l2_slot,
+                "zero-settlement",
+                value=0,
+                fee=0,
+                gas_limit=0,
+            )
+
+    def test_registration_commitment_and_mpt_abi_are_exact(self):
+        manifest = self.destination_manifest
+        registration_preimage = b"".join((
+            manifest.protocol_version.to_bytes(8, "big"),
+            manifest.commitment,
+            manifest.destination_chain_id.to_bytes(32, "big"),
+            settlement._model_fixed_bytes32(
+                manifest.destination_namespace
+            ),
+            settlement._model_fixed_bytes32(
+                manifest.destination_domain_id
+            ),
+            settlement._model_address20(manifest.destination_bridge),
+            settlement._model_fixed_bytes32(
+                manifest.destination_infrastructure_hash
+            ),
+            settlement._model_fixed_bytes32(
+                manifest.execution_profile_hash
+            ),
+        ))
+        self.assertEqual(len(registration_preimage), 220)
+        self.assertEqual(
+            manifest.registration_commitment,
+            settlement.keccak256(
+                settlement.D_DESTINATION_REGISTRATION
+                + registration_preimage
+            ),
+        )
+        for index in range(8):
+            words = list((
+                manifest.protocol_version,
+                manifest.commitment,
+                manifest.destination_chain_id,
+                manifest.destination_namespace,
+                manifest.destination_domain_id,
+                manifest.destination_bridge,
+                manifest.destination_infrastructure_hash,
+                manifest.execution_profile_hash,
+            ))
+            words[index] = (
+                words[index] + 1 if type(words[index]) is int
+                else b"x" * 32 if type(words[index]) is bytes
+                else str(words[index]) + ":substituted"
+            )
+            encoded = b"".join((
+                int(words[0]).to_bytes(8, "big"),
+                settlement._model_fixed_bytes32(words[1]),
+                int(words[2]).to_bytes(32, "big"),
+                settlement._model_fixed_bytes32(words[3]),
+                settlement._model_fixed_bytes32(words[4]),
+                settlement._model_address20(words[5]),
+                settlement._model_fixed_bytes32(words[6]),
+                settlement._model_fixed_bytes32(words[7]),
+            ))
+            self.assertNotEqual(
+                settlement.keccak256(
+                    settlement.D_DESTINATION_REGISTRATION + encoded
+                ),
+                manifest.registration_commitment,
+            )
+
+        statement = settlement.RegistrationStorageStatement(
+            1,
+            self.router.address,
+            self.credit_registry.domain_registry.address,
+            settlement.registration_route_key(
+                self.source_bridge.source_domain_id,
+                self.source_bridge.frozen_bridge_execution_hash,
+                manifest.destination_domain_id,
+            ),
+            manifest.destination_chain_id,
+            manifest.protocol_version,
+            0,
+            "state-root:test",
+            "terminal-domain-registrar",
+            "code:registrar",
+            settlement.terminal_registration_storage_trie_key(
+                manifest.protocol_version
+            ),
+            manifest.registration_commitment,
+        )
+        verifier = (
+            self.credit_registry.domain_registry.registration_mpt_verifier
+        )
+        proof = settlement.issue_registration_mpt_proof_for_test(
+            verifier,
+            statement,
+            account_nodes=(b"a" * 600,),
+            storage_nodes=(b"b" * 600,),
+        )
+        calldata = settlement.registration_verifier_calldata(
+            statement, proof
+        )
+        self.assertEqual(calldata[:4], bytes.fromhex("33639818"))
+        self.assertEqual(int.from_bytes(
+            calldata[4 + 12 * 32:4 + 13 * 32], "big"
+        ), 0x1A0)
+        self.assertEqual(
+            len(verifier.verify_membership(statement, proof).returndata), 32
+        )
+        with self.assertRaises(ValueError):
+            settlement.issue_registration_mpt_proof_for_test(
+                verifier,
+                statement,
+                account_nodes=(b"a" * 601,),
+                storage_nodes=(b"b",),
+            )
+        verifier.verification_gas_limit = 8_000_001
+        with self.assertRaises(ValueError):
+            verifier.verify_membership(statement, proof)
+        verifier.verification_gas_limit = 8_000_000
+        verifier.calldata_override = bytes(4) + calldata[4:]
+        with self.assertRaises(ValueError):
+            verifier.verify_membership(statement, proof)
+        verifier.calldata_override = None
+
+    def test_liquidity_fee_is_outside_legacy_message_hash_but_inside_credit(self):
+        bridge = self.source_bridge
+        clock = bridge.support_final_clock(self.clock.timestamp)
+        envelope = settlement.bridge_message(
+            self.clock.l2_slot,
+            "fee-separation",
+            value=4,
+            fee=2,
+            liquidity_fee=3,
+        )
+        higher_fee = replace(envelope, liquidity_fee=4)
+        self.assertEqual(
+            settlement.bridge_message_hash(envelope),
+            settlement.bridge_message_hash(higher_fee),
+        )
+        self.assertNotEqual(
+            bridge.credit_id_for(envelope, clock),
+            bridge.credit_id_for(higher_fee, clock),
+        )
+        receipt = bridge.send_message(
+            envelope,
+            caller=envelope.sender,
+            msg_value=9,
+            clock=clock,
+            enqueue_by=self.clock.timestamp
+            + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
+        )
+        self.assertEqual(
+            bridge.credit_registry.authorizations[
+                receipt.credit_id
+            ].liquidity_fee,
+            3,
+        )
+        self.assertEqual(self.bridge_adapter.enqueue(
+            clock,
+            envelope=receipt.envelope,
+            caller=addr("relayer"),
+            deposit=receipt.envelope.prepaid,
+        ), "QUEUED:0")
+        descriptor = self.router.forced_queue.descriptors[0]
+        self.assertIsInstance(descriptor, settlement.BridgeQueueDescriptorV11)
+        self.assertEqual(descriptor.bridge_liquidity_fee, 3)
 
     def test_source_send_late_registry_and_bridge_faults_are_atomic(self):
         for fault_owner, fault_point in (
@@ -4481,7 +4808,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     bridge.send_message(
                         envelope,
                         caller=envelope.sender,
-                        msg_value=4,
+                        msg_value=5,
                         clock=clock,
                         enqueue_by=enqueue_by,
                     )
@@ -4492,7 +4819,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 credit_id = bridge.send_message(
                     envelope,
                     caller=envelope.sender,
-                    msg_value=4,
+                    msg_value=5,
                     clock=clock,
                     enqueue_by=enqueue_by,
                 ).credit_id
@@ -4512,7 +4839,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         credit_id = bridge.send_message(
             envelope,
             caller=envelope.sender,
-            msg_value=2,
+            msg_value=3,
             clock=clock,
             enqueue_by=self.clock.timestamp
             + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
@@ -4550,7 +4877,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         receipt = bridge.send_message(
             raw,
             caller=external_caller,
-            msg_value=4,
+            msg_value=5,
             clock=clock,
             enqueue_by=enqueue_by,
         )
@@ -4568,7 +4895,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         followup = bridge.send_message(
             raw,
             caller=addr("second-v2-user"),
-            msg_value=4,
+            msg_value=5,
             clock=clock,
             enqueue_by=enqueue_by,
         )
@@ -4579,7 +4906,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge.send_message(
                 raw,
                 caller=settlement.V1_OFFICIAL_VAULT_ADDRESSES[0],
-                msg_value=4,
+                msg_value=5,
                 clock=clock,
                 enqueue_by=enqueue_by,
             )
@@ -4637,7 +4964,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     to=target,
                     fee=0,
                     gas_limit=0,
-                    value=0,
+                    value=1,
                     data=b"forged-privileged-call",
                 )
                 bridge_before = bridge._transaction_snapshot()
@@ -4648,7 +4975,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     bridge.send_message(
                         envelope,
                         caller=addr("ordinary-user"),
-                        msg_value=0,
+                        msg_value=2,
                         clock=clock,
                         enqueue_by=(
                             self.clock.timestamp
@@ -4685,6 +5012,14 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     fee=2,
                     data=settlement.ON_MESSAGE_INVOCATION_SELECTOR + b"x",
                 )
+                credit_id = settlement.destination_credit_id_v2(*delivery)
+                pool = self.destination_bridge.liquidity_pool
+                reservation = pool.reservations[credit_id]
+                ticket_id = reservation.ticket_id
+                reserved_before = pool.reserved_count(
+                    self.destination_bridge.local_domain_id
+                )
+                pool_balance_before = pool.balance
                 before = (
                     self.destination_bridge.balance,
                     self.destination_bridge.ether_quota,
@@ -4701,6 +5036,13 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 self.assertEqual(self.destination_bridge.process(
                     *delivery, caller=addr("relayer")
                 ), "FAILED")
+                self.assertNotIn(credit_id, pool.reservations)
+                self.assertEqual(pool.tickets[ticket_id].state, "AVAILABLE")
+                self.assertEqual(
+                    pool.reserved_count(self.destination_bridge.local_domain_id),
+                    reserved_before - 1,
+                )
+                self.assertEqual(pool.balance, pool_balance_before)
                 self.assertEqual(
                     (
                         self.destination_bridge.balance,
@@ -4739,11 +5081,11 @@ class ForcedIngressRouterTests(unittest.TestCase):
         )
         self.assertEqual(
             self.destination_bridge.balance,
-            2 * settlement.DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+            2 * settlement.DESTINATION_NATIVE_LIQUIDITY_FLOOR + 9,
         )
         retry_delivery = self.destination_delivery(
             "wrong-selector-retry-last",
-            value=0,
+            value=1,
             fee=0,
             gas_limit=0,
             data=b"\xca\xfe\xba\xbepayload",
@@ -4803,7 +5145,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 f"short-{length}",
                 to=receiver.address,
                 value=0,
-                fee=0,
+                fee=1,
                 data=b"x" * length,
             )
             self.assertEqual(self.destination_bridge.process(
@@ -4813,7 +5155,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
 
     def test_insolvent_destination_never_calls_target(self):
         delivery = self.destination_delivery(
-            "pre-call-solvency", value=8, fee=3
+            "pre-call-solvency", value=8, fee=3,
+            fund_liquidity=False,
         )
         receiver_before = self.destination_receiver._transaction_snapshot()
         bridge_before = self.destination_bridge._transaction_snapshot()
@@ -4829,7 +5172,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         capacity_before = self.destination_bridge._transaction_snapshot()
         self.assertEqual(self.destination_bridge.process(
             *delivery, caller=addr("relayer")
-        ), "REJECTED")
+        ), "UNFUNDED")
         self.assertEqual(
             self.destination_receiver._transaction_snapshot(), receiver_before
         )
@@ -4861,13 +5204,14 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(self.destination_bridge.process(
             *delivery, caller=addr("relayer")
         ), "DONE")
-        self.assertEqual(observed_during_call, [5 + 3])
-        self.assertEqual(self.destination_bridge.balance, 5 + 3)
+        self.assertEqual(observed_during_call, [19])
+        self.assertEqual(self.destination_bridge.balance, 19)
         self.assertEqual(self.destination_bridge.total_pull_liability, 5 + 3)
         self.assertEqual(self.destination_bridge.ether_quota, 0)
 
         one_short = self.destination_delivery(
-            "one-short-v-plus-f", value=8, fee=3
+            "one-short-v-plus-f", value=8, fee=3,
+            fund_liquidity=False,
         )
         receiver_before = self.destination_receiver._transaction_snapshot()
         self.destination_bridge.balance = (
@@ -4879,7 +5223,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         bridge_before = self.destination_bridge._transaction_snapshot()
         self.assertEqual(self.destination_bridge.process(
             *one_short, caller=addr("relayer")
-        ), "REJECTED")
+        ), "UNFUNDED")
         self.assertEqual(
             self.destination_receiver._transaction_snapshot(), receiver_before
         )
@@ -4935,7 +5279,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
     def test_future_bridge_trusting_endpoint_rejects_historical_context(self):
         future_address = addr("future-app")
         old_delivery = self.destination_delivery(
-            "predeploy-future-credit", to=future_address, value=0, fee=0
+            "predeploy-future-credit", to=future_address, value=0, fee=1
         )
         future_policy = settlement.BridgeInvocationPolicyV2(
             self.destination_manifest.protocol_version + 1,
@@ -4971,12 +5315,31 @@ class ForcedIngressRouterTests(unittest.TestCase):
             new_manifest.destination_domain_id:
                 new_manifest.destination_bridge,
         })
+        new_message = replace(
+            old_delivery[0],
+            message_id=9_301,
+            destination_chain_id=new_manifest.destination_chain_id,
+            to=future_address,
+        )
+        new_route = settlement.DestinationContextV2(
+            new_manifest.destination_chain_id,
+            new_manifest.destination_domain_id,
+            new_manifest.destination_bridge,
+            new_manifest.commitment,
+            new_manifest.execution_profile_hash,
+            9_301,
+        )
         new_source_template = settlement.SourceContextV2(
+            new_manifest.protocol_version,
+            settlement.ForceKind.BRIDGE_CREDIT.value,
+            "",
+            settlement.bridge_message_hash(new_message),
             old_delivery[1].source_domain_id,
             old_delivery[1].source_registration_epoch + 1,
             old_delivery[1].source_bridge,
             old_delivery[1].bridge_execution_hash,
             old_delivery[1].emitted_at_block + 1,
+            new_route.queue_index,
             old_delivery[1].enqueue_by,
             "DIRECT",
             "",
@@ -5008,25 +5371,23 @@ class ForcedIngressRouterTests(unittest.TestCase):
             quota=2 * settlement.DESTINATION_NATIVE_LIQUIDITY_FLOOR,
             timestamp=self.clock.timestamp + 1,
         )
-        new_message = replace(
-            old_delivery[0],
-            message_id=9_301,
-            destination_chain_id=new_manifest.destination_chain_id,
-            to=future_address,
-        )
-        new_route = settlement.DestinationContextV2(
-            new_manifest.destination_domain_id,
-            new_manifest.destination_bridge,
-            9_301,
-        )
         new_credit = settlement.destination_credit_id_v2(
-            new_message, new_source_template, new_route
+            new_message, replace(new_source_template, credit_id=""), new_route,
+            liquidity_fee=1,
         )
         new_source = replace(
             new_source_template,
             escrow_id=settlement.bridge_escrow_id(new_credit),
+            credit_id=new_credit,
         )
         self.assertTrue(settlement.install_destination_pin_for_test(
+            new_bridge,
+            new_message,
+            new_source,
+            new_route,
+            now=self.clock.timestamp,
+        ))
+        self.assertTrue(settlement.reserve_destination_liquidity_for_test(
             new_bridge,
             new_message,
             new_source,
@@ -5132,7 +5493,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             delivery[0].destination_owner,
             self.destination_bridge.pull_credits,
         )
-        self.assertEqual(self.destination_bridge.balance, balance - 5)
+        self.assertEqual(self.destination_bridge.balance, balance + 9)
         self.assertEqual(self.destination_bridge.ether_quota, quota - 14)
 
         owner_delivery = self.destination_delivery(
@@ -5190,18 +5551,18 @@ class ForcedIngressRouterTests(unittest.TestCase):
         receipt = bridge.send_message(
             envelope,
             caller=envelope.sender,
-            msg_value=12,
+            msg_value=13,
             clock=clock,
             enqueue_by=self.clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
         )
-        self.assertEqual(bridge.total_live_liability, 12)
+        self.assertEqual(bridge.total_live_liability, 13)
         self.assertEqual(self.bridge_adapter.enqueue(
             clock,
             envelope=receipt.envelope,
             caller=addr("relayer"),
             deposit=receipt.envelope.prepaid,
         ), "QUEUED:0")
-        self.assertEqual(bridge.total_live_liability, 12)
+        self.assertEqual(bridge.total_live_liability, 13)
         self.assertFalse(hasattr(bridge, "ordinary_payout"))
 
     def test_source_refund_recipient_failure_retries_unpaused_and_cei(self):
@@ -5217,7 +5578,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         receipt = bridge.send_message(
             envelope,
             caller=addr("refund-owner"),
-            msg_value=10,
+            msg_value=11,
             clock=clock,
             enqueue_by=self.clock.timestamp
             + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
@@ -5255,9 +5616,9 @@ class ForcedIngressRouterTests(unittest.TestCase):
         )
         self.assertEqual(bridge.withdraw_refund(
             addr("refund-owner"), receiver.address
-        ), 10)
+        ), 11)
         self.assertEqual(nested, [0])
-        self.assertEqual(receiver.balance, 10)
+        self.assertEqual(receiver.balance, 11)
         self.assertEqual(bridge.total_live_liability, 0)
         self.assertEqual(bridge.balance, 0)
 
@@ -5298,7 +5659,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             receipt = source.send_message(
                 envelope,
                 caller=envelope.sender,
-                msg_value=2,
+                msg_value=3,
                 clock=clock,
                 enqueue_by=self.clock.timestamp
                 + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
@@ -5309,7 +5670,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(
             (destination.balance, destination.total_pull_liability),
             (
-                destination_before[0] - delivery[0].value,
+                destination_before[0] + delivery[0].fee,
                 destination_before[1] + delivery[0].fee,
             ),
         )
@@ -5366,16 +5727,42 @@ class ForcedIngressRouterTests(unittest.TestCase):
         descriptor = bridge.source_descriptor
         first = bridge.deployment_receipt
         self.assertTrue(first.created_now)
+        self.assertEqual(len(descriptor.canonical_bytes), 752)
+        self.assertEqual(
+            descriptor.bridge_execution_hash,
+            settlement.keccak256(
+                b"slot-chain-source-bridge-execution-v4"
+                + (752).to_bytes(4, "big")
+                + descriptor.canonical_bytes
+            ).hex(),
+        )
+        self.assertEqual(
+            len({
+                descriptor.deployment_factory,
+                descriptor.bundle_deployer,
+                descriptor.legacy_v1_bridge,
+                descriptor.source_bridge,
+                descriptor.bridge_credit_registry,
+                descriptor.native_quota_manager,
+            }),
+            6,
+        )
         self.assertTrue(factory.valid_source_receipt(
             first, descriptor, self.credit_registry, bridge.quota_manager,
             bridge.terminal_verifier,
         ))
         self.assertEqual(
-            first.bridge,
+            descriptor.bundle_deployer,
             settlement.source_bridge_create2_address(
                 descriptor.deployment_factory,
                 descriptor.deployment_salt,
                 descriptor.deployment_initcode_hash,
+            ),
+        )
+        self.assertEqual(
+            first.bridge,
+            settlement.source_bundle_child_address(
+                descriptor.bundle_deployer, 1
             ),
         )
         self.assertNotEqual(first.bridge, descriptor.legacy_v1_bridge)
@@ -5386,6 +5773,55 @@ class ForcedIngressRouterTests(unittest.TestCase):
             descriptor.deployment_descriptor.account_configuration_hash,
         )
         self.assertEqual(first.configuration_hash, bridge.configuration_hash)
+        self.assertTrue(factory.source_bundle_exact(
+            descriptor,
+            self.credit_registry,
+            bridge.quota_manager,
+            bridge.terminal_verifier,
+            bridge,
+            require_live_bundle=True,
+        ))
+        # Receipt bytes are only a test observation.  Current-code/config
+        # checks neither consume nor trust their seal.
+        self.assertFalse(factory.valid_source_receipt(
+            replace(first, seal="forged"),
+            descriptor,
+            self.credit_registry,
+            bridge.quota_manager,
+            bridge.terminal_verifier,
+        ))
+        self.assertTrue(factory.source_bundle_exact(
+            descriptor,
+            self.credit_registry,
+            bridge.quota_manager,
+            bridge.terminal_verifier,
+            bridge,
+            require_live_bundle=True,
+        ))
+        for component in (
+            factory,
+            bridge,
+            self.credit_registry,
+            bridge.quota_manager,
+            self.credit_registry.domain_registry,
+            bridge.terminal_verifier,
+        ):
+            # Test-only STATICCALL returndata fault injection must also cover
+            # frozen immutable components such as TerminalSignalVerifier.
+            object.__setattr__(
+                component, "component_config_return_override", b"x" * 31
+            )
+            self.assertFalse(factory.source_bundle_exact(
+                descriptor,
+                self.credit_registry,
+                bridge.quota_manager,
+                bridge.terminal_verifier,
+                bridge,
+                require_live_bundle=True,
+            ))
+            object.__setattr__(
+                component, "component_config_return_override", None
+            )
 
         poisoned_descriptor = replace(
             descriptor,
@@ -5394,6 +5830,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge_credit_registry="",
             native_quota_manager="",
             deployment_initcode_hash="",
+            bundle_deployer="",
             deployment_descriptor=None,
         )
         self.assertNotEqual(
@@ -5614,9 +6051,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     successor,
                     components=components,
                     destination_infrastructure_hash=(
-                        "infrastructure:" + hashlib.sha256(
-                            repr(components).encode()
-                        ).hexdigest()
+                        settlement.destination_infrastructure_hash(components)
                     ),
                 )
                 split = replace(
@@ -5651,9 +6086,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             exact,
             components=components,
             destination_infrastructure_hash=(
-                "infrastructure:" + hashlib.sha256(
-                    repr(components).encode()
-                ).hexdigest()
+                settlement.destination_infrastructure_hash(components)
             ),
         )
         split = replace(
@@ -5682,13 +6115,17 @@ class ForcedIngressRouterTests(unittest.TestCase):
             ),
         ))
 
-    def test_destination_treasury_underfunded_activation_is_atomic(self):
+    def test_native_liquidity_pool_rejects_prelaunch_deposit_and_does_not_fund_tx0(self):
         protocol, manager = migration_manager_fixture(seat=False)
         registrar = protocol.inbox_apply_router._terminal_registrar_authority
         authority = registrar.authority
-        treasury = registrar.liquidity_treasury
-        amount = settlement.DESTINATION_NATIVE_LIQUIDITY_AMOUNT
-        treasury.balance = amount - 1
+        pool = registrar.liquidity_pool
+        self.assertIsNone(pool.deposit(
+            owner=addr("lp"), l1_recipient=addr("lp-l1"), amount=7
+        ))
+        self.assertEqual((pool.balance, pool.ticket_liability), (0, 0))
+        # Forced ETH is unowned surplus and cannot manufacture an LP ticket.
+        pool.balance = 17
         store = settlement.InboxCreditStoreV2(
             "inbox-apply", "bridge:underfunded", ""
         )
@@ -5700,25 +6137,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         anchor = settlement.AnchorV4Model(
             manifest.anchor, manifest.anchor_runtime_hash, manifest.commitment
         )
-        before = (
-            dict(authority.releases),
-            dict(authority.release_manifests),
-            dict(registrar.registrations),
-            dict(registrar.bridge_identities),
-            dict(registrar.bridge_activation_receipts),
-            registrar.active_destination_bridge,
-            dict(registrar.retirement_queue_watermarks),
-            dict(registrar.inbox_router.routes),
-            dict(registrar.accumulator.domains),
-            treasury.balance,
-            treasury.funded_total,
-            treasury.reclaimed_total,
-            copy.deepcopy(deployment.__dict__),
-            copy.deepcopy(endpoint.__dict__),
-            anchor.active_release_manifest_hash,
-            store._inbox_apply_authority,
-        )
-        self.assertFalse(settlement.execute_release_activation_for_test(
+        self.assertTrue(settlement.execute_release_activation_for_test(
             protocol._inbox_execution_authority,
             authority,
             registrar,
@@ -5729,36 +6148,26 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge_deployment=deployment,
             retirement_queue_watermark=0,
         ))
-        after = (
-            dict(authority.releases),
-            dict(authority.release_manifests),
-            dict(registrar.registrations),
-            dict(registrar.bridge_identities),
-            dict(registrar.bridge_activation_receipts),
-            registrar.active_destination_bridge,
-            dict(registrar.retirement_queue_watermarks),
-            dict(registrar.inbox_router.routes),
-            dict(registrar.accumulator.domains),
-            treasury.balance,
-            treasury.funded_total,
-            treasury.reclaimed_total,
-            copy.deepcopy(deployment.__dict__),
-            copy.deepcopy(endpoint.__dict__),
-            anchor.active_release_manifest_hash,
-            store._inbox_apply_authority,
+        receipt = registrar.bridge_activation_receipts[manifest.destination_bridge]
+        self.assertTrue(pool.active)
+        self.assertEqual((pool.balance, pool.ticket_liability), (17, 0))
+        self.assertEqual((deployment.balance, receipt.bridge_postbalance), (0, 0))
+        ticket_id = pool.deposit(
+            owner=addr("lp"), l1_recipient=addr("lp-l1"), amount=7
         )
-        self.assertEqual(after, before)
+        self.assertIsNotNone(ticket_id)
+        self.assertEqual((pool.balance, pool.ticket_liability), (24, 7))
 
     def test_destination_forced_prefunding_is_surplus_not_activation_dos(self):
-        amount = settlement.DESTINATION_NATIVE_LIQUIDITY_AMOUNT
+        amount = settlement.DESTINATION_NATIVE_LIQUIDITY_FLOOR
         for surplus in (1, amount - 1, amount, 9 * amount):
             with self.subTest(surplus=surplus):
                 protocol, manager = migration_manager_fixture(seat=False)
                 registrar = (
                     protocol.inbox_apply_router._terminal_registrar_authority
                 )
-                treasury = registrar.liquidity_treasury
-                pre_treasury = treasury.balance
+                pool = registrar.liquidity_pool
+                pre_pool = pool.balance
                 store = settlement.InboxCreditStoreV2(
                     "inbox-apply", f"bridge:dust:{surplus}", ""
                 )
@@ -5788,23 +6197,17 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 receipt = registrar.bridge_activation_receipts[
                     manifest.destination_bridge
                 ]
-                self.assertEqual(deployment.balance, surplus + amount)
+                self.assertEqual(deployment.balance, surplus)
                 self.assertEqual(deployment.activation_surplus, surplus)
-                self.assertEqual(treasury.balance, pre_treasury - amount)
+                self.assertEqual(pool.balance, pre_pool)
                 self.assertEqual(
                     (
                         receipt.activation_surplus,
-                        receipt.native_liquidity_amount,
-                        receipt.treasury_prebalance,
-                        receipt.treasury_postbalance,
                         receipt.bridge_postbalance,
                     ),
                     (
                         surplus,
-                        amount,
-                        pre_treasury,
-                        pre_treasury - amount,
-                        surplus + amount,
+                        surplus,
                     ),
                 )
                 self.assertTrue(receipt.valid_for(manifest, deployment))
@@ -5865,14 +6268,12 @@ class ForcedIngressRouterTests(unittest.TestCase):
         ]
         self.assertEqual(receipt.retirement_queue_count, 9)
 
-    def test_destination_treasury_funding_and_retired_reclaim_conserve_supply(self):
+    def test_old_domain_reservations_block_reclaim_until_terminal_release(self):
         protocol, manager = migration_manager_fixture(seat=False)
         registrar = protocol.inbox_apply_router._terminal_registrar_authority
         authority = registrar.authority
-        treasury = registrar.liquidity_treasury
-        amount = settlement.DESTINATION_NATIVE_LIQUIDITY_AMOUNT
-        treasury.balance = 3 * amount
-        initial_supply = treasury.balance
+        pool = registrar.liquidity_pool
+        forced_surplus = 13
 
         first_store = settlement.InboxCreditStoreV2(
             "inbox-apply", "bridge:funding-a", ""
@@ -5895,18 +6296,16 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge_deployment=first_deployment,
             retirement_queue_watermark=0,
         ))
-        self.assertEqual((treasury.balance, first_deployment.balance), (
-            initial_supply - amount, amount
-        ))
+        self.assertEqual((pool.balance, first_deployment.balance), (0, 0))
         first_bridge = settlement.destination_bridge_for_test(
             first,
             first_store,
             registrar.accumulator,
-            balance=amount,
+            balance=forced_surplus,
         )
         self.assertEqual(first_bridge.reclaim_surplus(
             registrar, caller=addr("observer")
-        ), 0)
+        ), (settlement.ReclaimResult.REJECTED, 0))
 
         registrar.inbox_router.next_queue_index = 5
         protocol.forced_queue.count = 7
@@ -5934,59 +6333,56 @@ class ForcedIngressRouterTests(unittest.TestCase):
             registrar.retirement_queue_watermarks[first.destination_bridge],
             7,
         )
-        self.assertEqual(treasury.balance, initial_supply - 2 * amount)
+        self.assertEqual((pool.balance, second_deployment.balance), (0, 0))
         self.assertEqual(first_bridge.reclaim_surplus(
             registrar, caller=addr("observer")
-        ), 0)
+        ), (settlement.ReclaimResult.REJECTED, 0))
 
-        credit_id = "credit:retired-pending"
-        first_store.pins[credit_id] = settlement.InboxPin("result", 999)
-        first_store.pinned_count = 1
-        settlement.set_destination_v2_accounting_for_test(
-            first_bridge,
-            status={credit_id: "RETRIABLE"},
-            terminal_index={},
+        message = settlement.IBridgeMessageV1(
+            1, 2, settlement.MAX_FORCE_MESSAGE_GAS,
+            addr("remote-lp"), 1, addr("source-owner"),
+            first_bridge.destination_chain_id, addr("dest-owner"),
+            addr("recipient"), 5,
+            settlement.ON_MESSAGE_INVOCATION_SELECTOR + b"old-domain",
         )
+        source, route = settlement.destination_delivery_context_for_test(
+            first_bridge, message, queue_index=0
+        )
+        self.assertTrue(settlement.install_destination_pin_for_test(
+            first_bridge, message, source, route, now=self.clock.timestamp
+        ))
+        ticket_id = settlement.reserve_destination_liquidity_for_test(
+            first_bridge, message, source, route, now=self.clock.timestamp
+        )
+        self.assertTrue(ticket_id)
+        credit_id = settlement.destination_credit_id_v2(message, source, route)
+        self.assertEqual(pool.reserved_count(first.destination_domain_id), 1)
         registrar.inbox_router.next_queue_index = 7
         self.assertEqual(first_bridge.reclaim_surplus(
             registrar, caller=addr("observer")
-        ), 0)
-
-        terminal_index = registrar.accumulator.count
-        registrar.accumulator.leaves.append(
-            settlement.TerminalSignalVerifier.terminal_leaf(
-                terminal_index,
-                first.destination_domain_id,
-                first.destination_bridge,
-                credit_id,
-                "DONE",
-            )
-        )
-        registrar.accumulator._terminalized_credits.add(
-            (first.destination_domain_id, credit_id)
-        )
-        registrar.accumulator.terminalized_pinned_count[
-            first.destination_domain_id
-        ] = 1
-        settlement.set_destination_v2_accounting_for_test(
-            first_bridge,
-            pull_credits={},
-            total_liability=0,
-            status={credit_id: "DONE"},
-            terminal_index={credit_id: terminal_index},
-        )
+        ), (settlement.ReclaimResult.REJECTED, 0))
+        process_by = first_store.pins[credit_id].process_by
+        first_bridge.execution_environment.block_timestamp = process_by + 1
+        self.assertTrue(first_bridge.expire_v2(credit_id))
+        self.assertEqual(pool.reserved_count(first.destination_domain_id), 0)
+        self.assertEqual(pool.tickets[ticket_id].state, "AVAILABLE")
         self.assertEqual(first_bridge.reclaim_surplus(
             registrar, caller=addr("public-reclaimer")
-        ), amount)
+        ), (settlement.ReclaimResult.RECLAIMED_VALUE, forced_surplus))
         self.assertTrue(first_bridge.retired)
+        self.assertEqual((pool.balance, pool.ticket_liability), (7, 7))
         self.assertEqual(
-            treasury.balance + first_bridge.balance
-                + second_deployment.balance,
-            initial_supply,
+            first.execution_profile.bridge_surplus_sink.balance,
+            forced_surplus,
         )
+        self.assertEqual(pool.withdraw_ticket(
+            ticket_id, caller="test-liquidity-provider", recipient=addr("lp")
+        ), 7)
+        self.assertEqual((pool.balance, pool.ticket_liability), (0, 0))
+        self.assertEqual(pool.balance + pool.withdrawn_total, 7)
         self.assertEqual(first_bridge.reclaim_surplus(
             registrar, caller=addr("observer")
-        ), 0)
+        ), (settlement.ReclaimResult.REJECTED, 0))
 
 
     def test_v2_last_retry_success_tail_fault_restores_retriable(self):
@@ -5995,38 +6391,155 @@ class ForcedIngressRouterTests(unittest.TestCase):
         )
         owner = delivery[0].destination_owner
         credit_id = settlement.destination_credit_id_v2(*delivery)
+        pool = self.destination_bridge.liquidity_pool
+        reserved_before = pool.reserved_count(
+            self.destination_bridge.local_domain_id
+        )
+        pool_before = pool._snapshot()
         self.destination_receiver.fault_point = "revert"
         self.assertEqual(
             self.destination_bridge.process(*delivery, caller=owner),
             "RETRIABLE",
         )
+        self.assertEqual(pool._snapshot(), pool_before)
+        self.assertEqual(
+            pool.reserved_count(self.destination_bridge.local_domain_id),
+            reserved_before,
+        )
 
-        # Raw balance can fund the CALL, but the success tail cannot create
-        # the fee pull without invading an existing V2 pull liability.
+        reservation = pool.reservations[credit_id]
+        ticket_id = reservation.ticket_id
+        pool_balance = pool.balance
+        # A reverted invocation keeps the exact reservation live; the retry
+        # consumes it only in the same journal as DONE.
         self.destination_receiver.fault_point = ""
-        settlement.set_destination_v2_accounting_for_test(
-            self.destination_bridge,
-            pull_credits={addr("existing-v2-tail"): 10},
-            total_liability=10,
-        )
-        self.destination_bridge.balance = 15
-        bridge_before = self.destination_bridge._transaction_snapshot()
-        environment_before = (
-            self.destination_environment._transaction_snapshot()
-        )
         self.assertEqual(self.destination_bridge.retry(
             *delivery, caller=owner, is_last_attempt=True
-        ), "REJECTED")
-        self.assertEqual(
-            self.destination_bridge._transaction_snapshot(), bridge_before
+        ), "DONE")
+        self.assertNotIn(
+            credit_id, pool.reservations
         )
         self.assertEqual(
-            self.destination_environment._transaction_snapshot(),
-            environment_before,
+            pool.tickets[ticket_id].state,
+            "CONSUMED",
         )
         self.assertEqual(
-            self.destination_bridge.status[credit_id], "RETRIABLE"
+            pool.balance,
+            pool_balance - 6,
         )
+        self.assertEqual(
+            pool.reserved_count(self.destination_bridge.local_domain_id),
+            reserved_before - 1,
+        )
+        self.assertEqual(self.destination_bridge.status[credit_id], "DONE")
+
+    def test_native_liquidity_reservation_is_exact_and_terminal_ordered(self):
+        delivery = self.destination_delivery(
+            "exact-ticket", value=4, fee=2, liquidity_fee=7,
+            fund_liquidity=False,
+        )
+        message, source, route = delivery
+        credit_id = settlement.destination_credit_id_v2(*delivery)
+        pool = self.destination_bridge.liquidity_pool
+        domain_id = self.destination_bridge.local_domain_id
+        self.assertEqual(
+            self.destination_store.pins[credit_id].liquidity_fee, 7
+        )
+        wrong_ticket = pool.deposit(
+            owner=addr("lp"), l1_recipient=addr("lp-l1"), amount=5
+        )
+        self.assertTrue(wrong_ticket)
+        self.assertFalse(pool.reserve(
+            wrong_ticket,
+            self.destination_bridge,
+            message,
+            source,
+            route,
+            caller=addr("lp"),
+            now=self.clock.timestamp,
+        ))
+        self.assertEqual(pool.withdraw_ticket(
+            wrong_ticket, caller=addr("lp"), recipient=addr("lp")
+        ), 5)
+        ticket_id = pool.deposit(
+            owner=addr("lp"), l1_recipient=addr("lp-l1"), amount=6
+        )
+        self.assertTrue(ticket_id)
+        self.assertFalse(pool.reserve(
+            ticket_id,
+            self.destination_bridge,
+            message,
+            source,
+            route,
+            caller=addr("attacker"),
+            now=self.clock.timestamp,
+        ))
+        reserved_before = pool.reserved_count(domain_id)
+        self.assertTrue(pool.reserve(
+            ticket_id,
+            self.destination_bridge,
+            message,
+            source,
+            route,
+            caller=addr("lp"),
+            now=self.clock.timestamp,
+        ))
+        self.assertEqual(pool.reserved_count(domain_id), reserved_before + 1)
+        self.assertEqual(self.destination_bridge.process(
+            *delivery, caller=addr("relayer")
+        ), "DONE")
+        self.assertEqual(pool.tickets[ticket_id].state, "CONSUMED")
+        self.assertEqual(pool.reserved_count(domain_id), reserved_before)
+
+        late_ticket = pool.deposit(
+            owner=addr("lp"), l1_recipient=addr("lp-l1"), amount=6
+        )
+        self.assertTrue(late_ticket)
+        self.assertFalse(pool.reserve(
+            late_ticket,
+            self.destination_bridge,
+            message,
+            source,
+            route,
+            caller=addr("lp"),
+            now=self.clock.timestamp,
+        ))
+        self.assertEqual(pool.withdraw_ticket(
+            late_ticket, caller=addr("lp"), recipient=addr("lp")
+        ), 6)
+
+    def test_unfunded_credit_expires_and_cannot_be_reserved_after_terminal(self):
+        delivery = self.destination_delivery(
+            "unfunded-expiry", value=8, fee=3,
+            fund_liquidity=False,
+        )
+        message, source, route = delivery
+        credit_id = settlement.destination_credit_id_v2(*delivery)
+        pool = self.destination_bridge.liquidity_pool
+        self.assertEqual(self.destination_bridge.process(
+            *delivery, caller=addr("relayer")
+        ), "UNFUNDED")
+        self.assertNotIn(credit_id, self.destination_bridge.status)
+        process_by = self.destination_store.pins[credit_id].process_by
+        self.destination_environment.block_timestamp = process_by + 1
+        self.assertTrue(self.destination_bridge.expire_v2(credit_id))
+        self.assertEqual(self.destination_bridge.status[credit_id], "FAILED")
+        ticket_id = pool.deposit(
+            owner=addr("lp"), l1_recipient=addr("lp-l1"), amount=11
+        )
+        self.assertTrue(ticket_id)
+        self.assertFalse(pool.reserve(
+            ticket_id,
+            self.destination_bridge,
+            message,
+            source,
+            route,
+            caller=addr("lp"),
+            now=process_by,
+        ))
+        self.assertEqual(pool.withdraw_ticket(
+            ticket_id, caller=addr("lp"), recipient=addr("lp")
+        ), 11)
 
     def test_v2_roles_are_immutable_and_strictly_one_way(self):
         source = self.source_bridge
@@ -6069,7 +6582,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         receipt = bridge.send_message(
             envelope,
             caller=addr("v2"),
-            msg_value=1,
+            msg_value=2,
             clock=clock,
             enqueue_by=self.clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
         )
@@ -6080,7 +6593,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge.send_message(
                 envelope,
                 caller=addr("late-fault"),
-                msg_value=1,
+                msg_value=2,
                 clock=clock,
                 enqueue_by=(
                     self.clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
@@ -6094,7 +6607,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge.send_message(
                 envelope,
                 caller=addr("overflow"),
-                msg_value=1,
+                msg_value=2,
                 clock=clock,
                 enqueue_by=(
                     self.clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
@@ -6215,7 +6728,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         receipt = bridge.send_message(
             raw,
             caller=addr("registry-user"),
-            msg_value=2,
+            msg_value=3,
             clock=clock,
             enqueue_by=self.clock.timestamp
             + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
@@ -6252,6 +6765,10 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.destination_bridge, message, queue_index=1
         )
         self.assertTrue(settlement.install_destination_pin_for_test(
+            self.destination_bridge, message, source, route,
+            now=self.clock.timestamp,
+        ))
+        self.assertTrue(settlement.reserve_destination_liquidity_for_test(
             self.destination_bridge, message, source, route,
             now=self.clock.timestamp,
         ))
@@ -6305,6 +6822,13 @@ class ForcedIngressRouterTests(unittest.TestCase):
             dynamic_route,
             now=self.clock.timestamp,
         ))
+        self.assertTrue(settlement.reserve_destination_liquidity_for_test(
+            self.destination_bridge,
+            dynamic_message,
+            dynamic_source,
+            dynamic_route,
+            now=self.clock.timestamp,
+        ))
         self.assertEqual(self.destination_bridge.process(
             dynamic_message, dynamic_source, dynamic_route,
             caller=addr("relayer"),
@@ -6335,6 +6859,10 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.destination_bridge, message, queue_index=40
         )
         self.assertTrue(settlement.install_destination_pin_for_test(
+            self.destination_bridge, message, source, route,
+            now=self.clock.timestamp,
+        ))
+        self.assertTrue(settlement.reserve_destination_liquidity_for_test(
             self.destination_bridge, message, source, route,
             now=self.clock.timestamp,
         ))
@@ -6405,7 +6933,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             store,
             accumulator,
             applications=(receiver,),
-            balance=settlement.DESTINATION_NATIVE_LIQUIDITY_AMOUNT,
+            balance=0,
             quota=settlement.DESTINATION_NATIVE_LIQUIDITY_FLOOR,
             timestamp=self.clock.timestamp + 1,
         )
@@ -6439,6 +6967,16 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.assertTrue(settlement.install_destination_pin_for_test(
                 bridge, message, source, route, now=self.clock.timestamp
             ))
+            if value + fee:
+                self.assertTrue(
+                    settlement.reserve_destination_liquidity_for_test(
+                        bridge,
+                        message,
+                        source,
+                        route,
+                        now=self.clock.timestamp,
+                    )
+                )
             return message, source, route
 
         positive = delivery("positive", 7)
@@ -6447,24 +6985,23 @@ class ForcedIngressRouterTests(unittest.TestCase):
         settlement.set_bridge_eth_quota_available_for_test(bridge, 0)
         self.assertEqual(bridge.process(
             *positive, caller=addr("observer")
-        ), "NEW")
+        ), "REJECTED")
         self.assertNotIn(positive_credit, bridge.status)
         self.assertEqual((bridge.balance, bridge.ether_quota), (0, 0))
         self.assertEqual(receiver.native_balance, 0)
 
-        bridge.balance = 7
         settlement.set_bridge_eth_quota_available_for_test(bridge, 0)
         self.assertEqual(bridge.process(
             *positive, caller=addr("observer")
         ), "REJECTED")
-        self.assertEqual((bridge.balance, bridge.ether_quota), (7, 0))
+        self.assertEqual((bridge.balance, bridge.ether_quota), (0, 0))
 
         settlement.set_bridge_eth_quota_available_for_test(bridge, 7)
         receiver.fault_point = "revert"
         self.assertEqual(bridge.process(
             *positive, caller=addr("observer")
         ), "NEW")
-        self.assertEqual((bridge.balance, bridge.ether_quota), (7, 7))
+        self.assertEqual((bridge.balance, bridge.ether_quota), (0, 7))
         self.assertEqual(receiver.native_balance, 0)
         self.assertEqual(receiver.received, [])
 
@@ -6480,7 +7017,6 @@ class ForcedIngressRouterTests(unittest.TestCase):
         ), "REJECTED")
         self.assertEqual(receiver.native_balance, 7)
 
-        bridge.balance = 8
         settlement.set_bridge_eth_quota_available_for_test(bridge, 8)
         append_fault = delivery("append-fault", 5, fee=3)
         append_credit = settlement.destination_credit_id_v2(*append_fault)
@@ -6492,7 +7028,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(bridge.process(
             *append_fault, caller=addr("observer")
         ), "REJECTED")
-        self.assertEqual((bridge.balance, bridge.ether_quota), (8, 8))
+        self.assertEqual((bridge.balance, bridge.ether_quota), (0, 8))
         self.assertEqual(receiver.native_balance, 7)
         self.assertNotIn(append_credit, bridge.status)
         self.assertNotIn(append_credit, bridge.terminal_index)
@@ -6516,10 +7052,36 @@ class ForcedIngressRouterTests(unittest.TestCase):
             terminalized_before[bridge.local_domain_id] + 1,
         )
 
-        zero = delivery("zero", 0)
-        self.assertEqual(bridge.process(
-            *zero, caller=addr("observer")
-        ), "DONE")
+        zero_message = settlement.IBridgeMessageV1(
+            next_index + 1,
+            0,
+            3_000_000,
+            addr("ns-zero"),
+            1,
+            addr("no-zero"),
+            bridge.destination_chain_id,
+            addr("nd-zero"),
+            receiver.address,
+            0,
+            settlement.ON_MESSAGE_INVOCATION_SELECTOR + b"zero",
+        )
+        zero_source, zero_route = (
+            settlement.destination_delivery_context_for_test(
+                bridge,
+                zero_message,
+                queue_index=next_index + 1,
+                source_domain_id="domain:source:zero",
+                source_bridge=addr("sb-zero"),
+                bridge_execution_hash="execution:source:zero",
+            )
+        )
+        self.assertFalse(settlement.install_destination_pin_for_test(
+            bridge,
+            zero_message,
+            zero_source,
+            zero_route,
+            now=self.clock.timestamp,
+        ))
         self.assertEqual(receiver.native_balance, 12)
 
         expiring = delivery("expire", 9)
@@ -6563,7 +7125,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
 
         def apply_real_pin(delivery):
             message, source, route = delivery
-            descriptor = settlement.BridgeQueueDescriptorV10(
+            descriptor = settlement.BridgeQueueDescriptorV11(
                 self.clock.timestamp,
                 settlement.MAX_FORCE_MESSAGE_GAS,
                 message.data_length,
@@ -6589,12 +7151,13 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 source.refund_vault,
                 source.refund_capsule_hash,
                 source.escrow_id,
+                bridge_liquidity_fee=1,
             )
             self.assertEqual(descriptor.credit_id,
                              settlement.destination_credit_id_v2(*delivery))
             self.assertEqual(
                 settlement.inbox_kind1_result(route.queue_index, descriptor),
-                settlement.destination_result_hash_v9(*delivery),
+                settlement.destination_result_hash_v11(*delivery),
             )
             authority._execution_frame = (id(delivery), 0)
             try:
@@ -6619,6 +7182,15 @@ class ForcedIngressRouterTests(unittest.TestCase):
             credit_id = descriptor.credit_id
             self.assertIn(credit_id, self.destination_store.pins)
             self.assertNotIn(credit_id, self.destination_bridge.status)
+            self.assertTrue(
+                settlement.reserve_destination_liquidity_for_test(
+                    self.destination_bridge,
+                    message,
+                    source,
+                    route,
+                    now=self.clock.timestamp,
+                )
+            )
             return credit_id
 
         def direct_delivery(index, label):
@@ -6726,7 +7298,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             bridge.send_message(
                 direct,
                 caller=owner,
-                msg_value=2,
+                msg_value=3,
                 clock=clock,
                 enqueue_by=enqueue_by,
             )
@@ -6740,7 +7312,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         receipt = bridge.send_message(
             direct,
             caller=owner,
-            msg_value=2,
+            msg_value=3,
             clock=clock,
             enqueue_by=enqueue_by,
         )
@@ -6750,7 +7322,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             chain_id=bridge.source_chain_id,
         ))
         self.assertTrue(bridge.cancel(receipt.credit_id, now=enqueue_by + 1))
-        self.assertEqual(bridge.withdraw_refund(owner), 2)
+        self.assertEqual(bridge.withdraw_refund(owner), 3)
         self.assertEqual(bridge.total_live_liability, 0)
 
     def test_bridge_message_field_substitution_cannot_reuse_authorization(self):
@@ -6768,7 +7340,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         credit_id = bridge.send_message(
             envelope,
             caller=envelope.sender,
-            msg_value=11,
+            msg_value=12,
             clock=clock,
             enqueue_by=enqueue_by,
         ).credit_id
@@ -6822,7 +7394,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
         credit_id = bridge.send_message(
             envelope,
             caller=envelope.sender,
-            msg_value=5,
+            msg_value=6,
             clock=clock,
             enqueue_by=self.clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY,
         ).credit_id
@@ -6963,7 +7535,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 + settlement.MAX_BRIDGE_ENQUEUE_DELAY
             ),
             caller=pre_cutover_message.sender,
-            msg_value=3,
+            msg_value=4,
         )
         activate_production_fixture(rows)
         third_history, third_id = register_production_successor(
@@ -7023,6 +7595,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 msg_value=(
                     bridge_descriptor.bridge_value
                     + bridge_descriptor.bridge_fee
+                    + bridge_descriptor.bridge_liquidity_fee
                 ),
             )
         self.assertEqual(manager.router.active_version, 27)
@@ -7367,21 +7940,23 @@ class L1L2ExecutionBoundaryTests(unittest.TestCase):
         ):
             self.assertFalse(substitution.authenticates(release))
         forced_surplus = replace(
-            deployment, balance=descriptor.native_liquidity_floor - 1
+            deployment, balance=settlement.DESTINATION_NATIVE_LIQUIDITY_FLOOR - 1
         )
         self.assertTrue(forced_surplus.authenticates(release))
-        self.assertNotEqual(
-            release.commitment,
-            replace(
-                release,
-                destination_bridge_descriptor=replace(
-                    release.destination_bridge_descriptor,
-                    deployment_descriptor=replace(
-                        immutable, pauser="pauser:attacker"
-                    ),
+        substituted_release = replace(
+            release,
+            destination_bridge_descriptor=replace(
+                release.destination_bridge_descriptor,
+                deployment_descriptor=replace(
+                    immutable, pauser="pauser:attacker"
                 ),
-            ).commitment,
+            ),
         )
+        # The exact 248-byte public descriptor has no hidden Python-object
+        # fields.  A substituted deployment witness is rejected by the live
+        # account checks, even though it cannot create a second manifest hash.
+        self.assertEqual(release.commitment, substituted_release.commitment)
+        self.assertFalse(substituted_release.structurally_valid())
 
 
 class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
@@ -7493,17 +8068,11 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             witness=witness,
         )
         self.assertEqual(
-            public_inputs.observed_deployment_commitment,
-            settlement.release_deployment_observation_commitment(
-                manifest_commitment=witness.manifest_commitment,
-                prestate_root=witness.prestate_root,
-                observed_components=witness.observed_components,
-                observed_bridge_descriptor=(
-                    witness.observed_bridge_descriptor
-                ),
-                endpoint_prestate=witness.endpoint_prestate,
-                bridge_deployment=witness.bridge_deployment,
-                treasury_observation=witness.treasury_observation,
+            public_inputs.deployment_commitment,
+            settlement.release_deployment_commitment(
+                registration.release_manifest,
+                transition_kind=public_inputs.transition_kind,
+                retirement_queue_count=public_inputs.queue_count,
             ),
         )
         self.assertEqual(
@@ -7555,8 +8124,11 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             verifier.verify_transition(oversized)
+        self.assertNotEqual(
+            replace(descriptor, runtime_hash="wrong-codehash").commitment,
+            descriptor.commitment,
+        )
         for invalid_descriptor in (
-            replace(descriptor, runtime_hash="wrong-codehash"),
             replace(descriptor, configuration_hash="wrong-config"),
             replace(descriptor, selector="verify(bytes)"),
             replace(descriptor, public_input_schema_hash="wrong-schema"),
@@ -7588,8 +8160,6 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             verifying_key_hash=wrong_key,
             configuration_hash=(
                 settlement.migration_transition_verifier_configuration_hash(
-                    descriptor.address,
-                    descriptor.runtime_hash,
                     wrong_key,
                     descriptor.proof_system_id,
                     descriptor.public_input_schema_hash,
@@ -7644,15 +8214,11 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             ),
             replace(
                 public_inputs,
-                expected_deployment_commitment=(
-                    "expected-deployment:substituted"
-                ),
+                deployment_commitment="deployment:substituted",
             ),
             replace(
                 public_inputs,
-                observed_deployment_commitment=(
-                    "observed-deployment:substituted"
-                ),
+                transition_kind=1,
             ),
             replace(public_inputs, queue_count=public_inputs.queue_count + 1),
         )
@@ -7706,11 +8272,11 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             ),
             replace(
                 witness,
-                treasury_observation=(
-                    witness.treasury_observation[0],
-                    witness.treasury_observation[1],
-                    witness.treasury_observation[2],
-                    witness.treasury_observation[3] + 1,
+                pool_observation=(
+                    witness.pool_observation[0],
+                    witness.pool_observation[1],
+                    witness.pool_observation[2],
+                    witness.pool_observation[3] + 1,
                 ),
             ),
         )):
@@ -7754,7 +8320,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         self.assertNotEqual(forged_observation.digest, observed.digest)
         forged_inputs = replace(
             output.transition_proof.public_inputs,
-            observed_deployment_commitment=forged_observation.digest,
+            deployment_commitment=forged_observation.digest,
         )
         forged_transition_proof = (
             settlement.issue_migration_transition_proof_for_test(

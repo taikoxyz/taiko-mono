@@ -180,6 +180,10 @@
     "forcedExpiry": {
       "asset": "NATIVE_ETH",
       "address": null
+    },
+    "bridgeSurplus": {
+      "asset": "NATIVE_ETH",
+      "address": null
     }
   }
 }

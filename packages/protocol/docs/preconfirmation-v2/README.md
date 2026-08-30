@@ -5,13 +5,13 @@ with the executable models that verify its consensus-critical arithmetic.
 
 ## Contents
 
-| File | What it is |
-| --- | --- |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **The specification.** A4, single column. This is the artifact to read and circulate. |
-| [`tex/main.tex`](tex/main.tex) | **The source.** Hand-maintained LaTeX; edit this to change the document. |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified mode machine: two-phase fork-bound normal contexts, stale-arm replacement, canonical EVM height/context plus terminal root/count, exact slot time, EIP-2935/G_MAX boundaries, explicit state-witness and bytecode availability, durable depth-64 queue descriptors and surplus-tolerant conserved fee custody, renewable recovery, bounded payload loss, fixed liability ring, same-L1 stamped bridge enqueue, immutable authorization versus mutable liability, frozen Bridge/vault facades, aggregate ETH/token solvency, quota-independent refunds, selector-explicit refund modes/capsules, single-word finalized destination registration, complete value-carrying release manifests, fresh/exact-reuse endpoint activation, fork-proof legacy proxy attestation and immutable fresh facades, immutable destination pins, exact inbox/terminal ABIs, global mixed-domain inbox application, per-Settlement canonical history, historical accumulator proofs, one live ForcedQueue and cursor, authenticated abortable migration generations, reservation-preserving protocol-lifetime schedules, proof-first manifest/Anchor activation on every release, bridged-token restoration, capacity and enqueue/cancel races, persistent SYNCED refund/retry, PREACTIVE ingress, L2 activation gating, repeated migrations and reorg replay. 181 assertions. |
-| [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 36 assertions. |
-| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for split chain domains, EIP-712, release-bound statements, canonical/statement/single- and multi-block candidates/winning/migration data, complete kind-0/kind-1 durable descriptors and dispositions, a depth-64 forced vector and queue configuration hash, same-L1 source and permanent destination domains, acyclic Bridge-kernel/frozen source facade/complete destination facade/nine-component infrastructure descriptors with explicit Bridge topology, bounded-chain-ID release manifests, profile dependency rejection and single-word destination-registration commitments/slots plus inbox-route configuration, generation/Bridge/destination-bound credits, escrow, immutable inbox slots, DONE/FAILED terminal leaves, immutable completed-subtree nodes and historical depth-64 vector proofs, published-vector consistency, empty escape values, stable admission identity, registry/entry/tranche, per-block manifests, sessions and blobs. 161 vectors/properties. |
+| File                                                       | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf)               | **The specification.** A4, single column. This is the artifact to read and circulate.                                                                                                                                                                                                                                                                                                                                                                                               |
+| [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for proof-first launch and migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP tickets/reservations, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                    |
+| [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 36 assertions.                                                                                                                                                                                                           |
+| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; release manifests and receipts; LP settlement-bound terminal leaves; sessions and blobs. 210 golden vectors / 423 assertion sites. |
 
 ## Building the PDF
 
@@ -33,9 +33,9 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 181 assertions
+python3 settlement-window-model.py   # 186 assertions
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 161 vectors/properties
+python3 commitment-model.py          # 210 golden vectors / 423 assertion sites
 ```
 
 All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
@@ -67,20 +67,18 @@ economics, operations and external review. Five properties are worth knowing bef
 - **A builder's signature does not attest that the block executes.** It attests authorship and the
   choice of parent. Executability is established only by the validity proof at landing, so a
   preconfirmation is a commitment to include and to order (§9).
-- **Bridge ingress has a separate availability boundary.** Launch supports only L1-to-L2 messages
-  whose source registry and queue adapter share settlement Ethereum. Anyone can direct-read the
-  permanent source record and atomically enqueue with a caller-funded deposit; a maintenance sync
-  commits while the full deposit becomes withdrawable, then the caller retries. Missing Message
-  bytes lead to permissionless source cancellation after `enqueueBy`, or destination `FAILED`
-  after the immutable pin store's `processBy`. Direct and vault V2 sends use distinct additive
-  selectors; the old send selector remains exact V1. V2 custody/recovery facades and stores are
-  frozen and never delegatecall mutable executors. Terminal outcomes enter a protocol-lifetime
-  vector whose immutable leaves and completed subtrees reconstruct historical-prefix proofs against
-  each Settlement's internally written version/sequence history; reserved refunds remain usable
-  through guardian pauses and zero ordinary quotas.
-  Destination processing is local-domain-bound and source enablement waits for finalized one-shot L2
-  registrar proof plus finality. A post-cutover L2 activation gate excludes legacy calls from V2.
-  Cross-L1 kind-1 ingress is not part of this version.
+- **Bridge ingress has separate data and liquidity boundaries.** Launch supports DIRECT ETH only
+  from the settlement L1 to the slot chain; V1 selectors and Vault flows are untouched. A fresh
+  immutable SourceBridge escrows `value + executionFee + liquidityFee`, and the durable V11 Queue
+  descriptor pins the complete source/destination context. Any LP may fund a non-transferable L2
+  Pool ticket and reserve `value + executionFee` for a pinned credit. DONE consumes that reservation
+  and authenticates the LP's L1 pull in the terminal leaf; FAILED/cancellation releases the ticket
+  and refunds the user. Without a willing LP, processing is UNFUNDED and later expires—bounded
+  economic delivery is not claimed. Missing Message bytes likewise lead to source cancellation
+  after `enqueueBy` or destination FAILED after `processBy`. Terminal outcomes use a 64-word
+  frontier/root plus canonical events and historical 64-sibling proofs. Destination processing is
+  local-domain-bound; source enablement waits for the finalized one-shot L2 registrar proof and 214
+  L1 blocks. Cross-L1 kind-1 ingress is not part of this version.
 
 Final acceptance requires a human safety review. The models and the specification are a gate, not
 a signature.

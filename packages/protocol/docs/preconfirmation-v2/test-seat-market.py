@@ -3870,7 +3870,7 @@ class ExactTargetReader:
         if self.fault == "long":
             return raw + b"\x00"
         if self.fault == "wrong_magic":
-            return raw[:-13] + b"FAIL" + raw[-9:]
+            return raw[:160] + b"FAIL" + raw[164:]
         return raw
 
 
@@ -4005,6 +4005,15 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
             self.assert_rejects_unchanged(
                 market, market.sync_seat_generation
             )
+
+    def test_target_view_rejects_noncanonical_abi_padding(self):
+        for offset in (0, 64, 164, 192, 224):
+            market = make_market()
+            raw = bytearray(model.encode_exact_target_view(target_view(8)))
+            raw[offset] = 1
+            runtime = market.target_runtimes[market.current_authorization_id]
+            runtime.response_override = bytes(raw)
+            self.assert_rejects_unchanged(market, market.sync_seat_generation)
 
     def test_rotation_is_receipt_bound_append_only_and_fault_atomic(self):
         def fixture():

@@ -240,6 +240,10 @@ EXPECTED_SCHEMA = {
             "asset": EXACT("NATIVE_ETH"),
             "address": NULLABLE_ADDRESS,
         },
+        "bridgeSurplus": {
+            "asset": EXACT("NATIVE_ETH"),
+            "address": NULLABLE_ADDRESS,
+        },
     },
 }
 
@@ -1483,16 +1487,17 @@ PROFILE_RELATIONS = (
 )
 
 
+_SINK_ADDRESS_PATHS = tuple(
+    f"sinks.{sink_name}.address" for sink_name in EXPECTED_SCHEMA["sinks"]
+)
+
+
 _IDENTITY_PATHS = (
     "profileId",
     "measurementCommit",
     "assets.builderLease.address",
     "assets.builderLease.runtimeHash",
-    "sinks.builderPenalty.address",
-    "sinks.dataRent.address",
-    "sinks.seatPenalty.address",
-    "sinks.forcedExpiry.address",
-)
+) + _SINK_ADDRESS_PATHS
 
 
 def _walk_nullable(
@@ -1557,6 +1562,16 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
             and builder_chain != native_chain
         ):
             blockers.add("asset chain IDs must equal")
+    except (KeyError, TypeError):
+        pass
+
+    try:
+        sink_addresses = [get_path(profile, path) for path in _SINK_ADDRESS_PATHS]
+        populated_sink_addresses = [
+            address for address in sink_addresses if address is not None
+        ]
+        if len(populated_sink_addresses) != len(set(populated_sink_addresses)):
+            blockers.add("sink addresses must be unique")
     except (KeyError, TypeError):
         pass
 

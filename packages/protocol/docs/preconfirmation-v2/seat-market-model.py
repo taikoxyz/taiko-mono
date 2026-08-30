@@ -36,7 +36,7 @@ D_OFFER = b"TAIKO_SEAT_OFFER_V1"
 D_CREDIT = b"TAIKO_SEAT_BOND_CREDIT_V1"
 D_PREMIUM_CREDIT = b"TAIKO_SEAT_PREMIUM_CREDIT_V1"
 D_STAGE = b"TAIKO_SEAT_STAGE_V1"
-TARGET_VIEW_RESPONSE_LENGTH = 20 + 32 + 8 + 32 + 32 + 4 + 1 + 8
+TARGET_VIEW_RESPONSE_LENGTH = 8 * 32
 
 
 class TransitionRejected(Exception):
@@ -499,7 +499,7 @@ class TargetRuntime:
         if self.fault == "long":
             return raw + b"\x00"
         if self.fault == "wrong_magic":
-            return raw[:124] + b"FAIL" + raw[128:]
+            return raw[:160] + b"FAIL" + raw[164:]
         return raw
 
 
@@ -652,14 +652,14 @@ def encode_exact_target_view(view: ExactTargetView) -> bytes:
     if type(view.phase) is not str or view.phase not in phases:
         raise TransitionRejected("view phase is invalid")
     return b"".join((
-        address20(view.target, "view target"),
+        b"\x00" * 12 + address20(view.target, "view target"),
         u256(view.settlement_chain_id),
-        protocol_version,
+        b"\x00" * 24 + protocol_version,
         runtime_hash,
         config_hash,
-        magic,
-        bytes((phases[view.phase],)),
-        u64(view.generation),
+        magic + b"\x00" * 28,
+        b"\x00" * 31 + bytes((phases[view.phase],)),
+        b"\x00" * 24 + u64(view.generation),
     ))
 
 
@@ -667,18 +667,26 @@ def decode_exact_target_view(raw: bytes) -> ExactTargetView:
     if type(raw) is not bytes or len(raw) != TARGET_VIEW_RESPONSE_LENGTH:
         raise TransitionRejected("target view has noncanonical length")
     phases = {1: "ACTIVE", 2: "ARMED", 3: "READY", 4: "FROZEN"}
-    phase = phases.get(raw[128])
+    if (
+        raw[:12] != b"\x00" * 12
+        or raw[64:88] != b"\x00" * 24
+        or raw[164:192] != b"\x00" * 28
+        or raw[192:223] != b"\x00" * 31
+        or raw[224:248] != b"\x00" * 24
+    ):
+        raise TransitionRejected("target view has noncanonical ABI padding")
+    phase = phases.get(raw[223])
     if phase is None:
         raise TransitionRejected("target view phase is invalid")
     return ExactTargetView(
-        target="0x" + raw[:20].hex(),
-        settlement_chain_id=int.from_bytes(raw[20:52], "big"),
-        protocol_version=int.from_bytes(raw[52:60], "big"),
-        runtime_hash=raw[60:92],
-        configuration_hash=raw[92:124],
-        magic=raw[124:128],
+        target="0x" + raw[12:32].hex(),
+        settlement_chain_id=int.from_bytes(raw[32:64], "big"),
+        protocol_version=int.from_bytes(raw[88:96], "big"),
+        runtime_hash=raw[96:128],
+        configuration_hash=raw[128:160],
+        magic=raw[160:164],
         phase=phase,
-        generation=int.from_bytes(raw[129:137], "big"),
+        generation=int.from_bytes(raw[248:256], "big"),
     )
 
 

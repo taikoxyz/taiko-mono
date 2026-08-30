@@ -187,7 +187,8 @@ The JSON must contain at least these exact renamed sections and keys:
     "builderPenalty": { "asset": "BUILDER_LEASE", "address": null },
     "dataRent": { "asset": "NATIVE_ETH", "address": null },
     "seatPenalty": { "asset": "NATIVE_ETH", "address": null },
-    "forcedExpiry": { "asset": "NATIVE_ETH", "address": null }
+    "forcedExpiry": { "asset": "NATIVE_ETH", "address": null },
+    "bridgeSurplus": { "asset": "NATIVE_ETH", "address": null }
   }
 }
 ```
@@ -225,7 +226,7 @@ EIP-2935 history > arm/evidence/reorg replay horizon
 session/live-window/ring capacities >= their bounded residence/GC requirements
 ```
 
-Add the five new seat inequalities, identity/unit/sink/null checks, reporter reward split, malformed
+Add the five new seat inequalities, identity/unit/sink/null/uniqueness checks, reporter reward split, malformed
 decimal cases, booleans-as-integers, checked overflow at every multiplication/addition, and an
 assertion that the table's source anchors still exist in normative LaTeX. Run the tests now and
 demonstrate failure because `validate_schema`, `production_blockers`, checked helpers, and the real
@@ -262,7 +263,10 @@ def production_blockers(profile: dict) -> tuple[str, ...]:
 ```
 
 `validate_schema` must reject unknown/missing keys, booleans where integers are required, negative
-values, malformed decimal strings, duplicate/nested sink sources, and wrong asset/unit bindings.
+values, malformed decimal strings, duplicate/nested sink sources, pairwise-equal sink addresses, and
+wrong asset/unit bindings. The independent schema oracle must enumerate the exact top-level
+`bridgeSurplus` pair as `{asset: NATIVE_ETH, address}` and must not derive that entry from the model
+schema or JSON fixture.
 `production_blockers` must evaluate every frozen `PROFILE_RELATIONS` row, not a hand-selected subset.
 The new seat relations include:
 
@@ -1076,26 +1080,39 @@ mock implements the same interface, while proof generation lives outside the pro
 must be no global/default verifier in a production constructor. The byte-exact execution-profile hash
 commits the descriptor, the release commits the profile and descriptor, and append-only historical
 registrations retain the exact old verifier while later releases may rotate address/code/key/schema.
-The
-statement binds chain/Router/Queue/source generation, canonical sequence, candidate/beneficiary,
-full base/end core, target version/profile/manifest, Queue root/count/range/descriptor commitment,
-historical Anchor and force boundary, tx0/tx1 calldata hashes, and a manifest-derived expected
+Freeze two acyclic verifier hash layers before the statement codec:
+`configurationHash = keccak256(abi.encode(CONFIG_TYPEHASH, key, proofSystem, schema, selector,
+maximumProofBytes, verificationGasLimit))`, excluding address/runtime/self, followed by
+`migrationVerifierDescriptorHash = keccak256(abi.encode(DESCRIPTOR_TYPEHASH, verifier,
+runtimeHash, configurationHash, key, proofSystem, schema, selector, maximumProofBytes,
+verificationGasLimit))`. Profile decode, PVM manifest validation and Router dispatch independently
+recompute both layers with canonical ABI padding. Pin
+`migrationVerifierConfigHashV2()` to an exact four-byte zero-value STATICCALL after runtime-hash
+verification, a fixed 50,000-gas stipend and exact 32-byte configuration-hash return in both PVM
+and Router. Add per-field substitution,
+zero, short/long return, caller-substituted configuration and former self-fixed-point rejects.
+The statement binds chain/Router/Queue/source generation, canonical sequence,
+candidate/beneficiary, full base/end core, target version/profile/manifest, Queue
+root/count/range/descriptor commitment, historical Anchor and force boundary, tx0/tx1 calldata
+hashes, transition kind, launch-only imported header/state/checkpoint, and one manifest-derived
 deployment commitment. Define tx0 exactly as `activateRelease(manifest, uint64
 retirementQueueCount)`, hash the raw calldata including that ABI word, and constrain the decoded
 count equal to the Queue-count public input; prohibit optional/default or Inbox-cursor watermarks.
-Add a distinct actual-observation public input derived in-circuit from exact account/code/storage
-proofs under `baseRoot`. It must prove the release-owned Store, QuotaManager and immutable non-proxy
-destination Bridge exact, then bind code/configuration, zero nonce, empty Bridge-local
-nonce/status/pull/terminal mappings, zero aggregate liability, full initial V2 quota, inactive state,
-and arbitrary authenticated prebalance `s`. Bind the lifetime LiquidityTreasury code/configuration
-and prebalance `t`; tx0 transfers exact amount `A` and requires Bridge `s+A` plus Treasury `t-A`
-before Store/Bridge one-shot sealing. Bind all three values, both postbalances,
-predecessor/successor and retirement count in the activation receipt. Do not deploy a separate
-activation gate.
+The circuit proves every account/code/storage relation directly under the base/output roots; do not
+add a second expected/observed commitment. Genesis import proves fresh Store/Quota/Bridge and the
+lifetime NativeLiquidityPool exact, including empty Bridge state/liability, full quota, inactive
+state, and zero Pool domain/ticket/reservation/accounted counters. Arbitrary forced ETH is surplus.
+Tx0 moves no ETH, creates no ticket/reservation, mints nothing and seals the route/Store/Bridge.
+Later migration proves exact preservation of all lifetime Pool state and requires all launch import
+fields zero. Bind the one deployment commitment, predecessor/successor and retirement count in the
+activation receipt. Do not deploy a separate activation gate.
 Every incompatible successor must use a fresh domain and Bridge; there is no exact-existing or proxy-
-upgrade branch. L1 never reconstructs these facts from live L2 objects. The raw activation call
-supplies only bounded scalar public inputs and proof bytes; the Router derives the actual-observation
-commitment from the exact manifest plus `s`/`t`, directly calls the profile-pinned verifier, and
+upgrade branch. L1 never reconstructs these facts from live L2 objects. The raw activation call is
+object/capability-free but supplies the bounded scalar public inputs, proof bytes, and the complete
+bounded canonical `InboxRowV2[]` that is already part of the migration statement. Those L1 calldata
+bytes are the availability source from which Router reconstructs the raw tx1 system-call preimage;
+omitting the rows is invalid. Router derives the one deployment commitment from the exact manifest
+and bounded transition fields, directly calls the profile-pinned verifier, and
 accepts only an authenticated exact 32-byte statement return. Expected-descriptor self-proof,
 deployment booleans, substituted witnesses/proofs, and nonempty initial state must fail. Carry
 the complete statement digest, exact migration generation, and source canonical sequence through the
@@ -1104,21 +1121,31 @@ must contain no Router/verifier/L2 object reference, capability, seal, or validi
 generation or changed source sequence rejects; an otherwise unchanged proof may land later. Do not
 bind the future landing block/time. Only a successful exact verifier return may authorize adoption.
 L1 adopts only those commitments and advances Canonical/History/Queue; it must not read or mutate any
-target Protocol, InboxApply, Registrar, Store, Treasury, or prover-local observation map. A separate
+target Protocol, InboxApply, Registrar, Store, Pool, or prover-local observation map. A separate
 execution-node helper produces an immutable fork-local L2 poststate and selects it only after
 observing the exact successful L1 transition. Add named regressions proving loser and abandoned
 forks, pre-cutover migration replay, and injected L1 commit faults leave L2 unchanged; clearing the
 fault must allow the same sealed poststate/proof to commit and select, and the selected state must
 support the next L2 block. Local replay failure must not revert or mutate the valid L1 transition.
 Add proof bytes, verifier address/code/config/key/schema/selector, end root, tx ordering, beneficiary,
-Anchor, Queue range, expected and actual deployment commitments, Bridge balance/message-counter/V2-
-empty-state substitutions, fresh-account aliasing, Treasury underfunding/debit rollback, observed
+Anchor, Queue range, deployment commitment, Bridge/Pool forced-surplus and message-counter/V2-
+empty-state substitutions, fresh-account aliasing, Pool state preservation, observed
 code/storage and forbidden proxy/delegate slot substitutions, exact returndata/size
 bounds, canceled-generation/source-sequence replay, per-version verifier rotation/retention, and a
-same-proof later-landing regression. **Open High / mandatory Task 7:** replace the behavioral typed
-encoder/mock-call model with the exact static ABI/Keccak statement codec, bounded proof calldata and
-gas, real `STATICCALL` return checks, raw EIP-2718 tx0/tx1 hashes, and golden vectors before claiming
-implementation readiness.
+same-proof later-landing regression. The design-freeze model must then pin the exact static
+42-word statement and nine-word deployment commitment ABI/Keccak codecs, bounded proof calldata and
+gas, acyclic configuration/descriptor hashes, exact `STATICCALL` return checks, raw tx0/tx1 calldata
+hashes and golden/per-field reject vectors. Passing those vectors closes the design-codec task, but
+does not permit an implementation-ready claim until compiled Solidity/circuit and cross-language
+parity plus measured gas are also green.
+
+Make the migration candidate exactly one deterministic activation block: tx0 activation, tx1
+InboxApply, then only the uniquely classified maximum valid kind-0 FIFO prefix, with the list ending
+there and zero discretionary body/blob/coinbase choice. Recover every included kind-0 raw preimage
+from canonical L1 admission calldata and authenticate its leaf hash/index. Bind full
+transaction/receipt roots, header/block hash and execution outputs through candidate digest/output
+core. A missing canonical raw preimage must block landing and leave delayed cancellation available;
+it must never authorize an unreplayable output root.
 
 ```bash
 python3 test-seat-market.py
@@ -1225,6 +1252,39 @@ git commit -m "docs(protocol): freeze seat market commitment vectors"
 
 ## Task 7: Integrate the repair into the full LaTeX specification
 
+Task 7 is a four-commit freeze sequence. A later subround may start only after the preceding
+subround passes its focused checks and an independent whole-diff review. No subround may promote the
+document to implementation-ready merely because its behavioral Python model passes.
+
+1. **Task 7A -- normative convergence.** Remove every old aggregator-seat and V2-asset rule that
+   conflicts with the approved repair. Integrate the perpetual four-seat reverse auction, orthogonal
+   bond/reserve lifecycle, fail-open duties, authenticated migration callbacks, fresh DIRECT-only
+   Bridge bundles, release/reclamation lifecycle, and the exact accepted proof boundaries. Rebuild
+   and visually inspect the PDF. Commit as
+   `docs(protocol): integrate seat market freeze specification`.
+2. **Task 7B -- byte-exact codecs.** Add one normative codec table with an exact Solidity type for
+   every field, the complete `abi.encode` head/tail layout for dynamic Message bytes, exact Keccak
+   domain preimages, strict RLP and hex-prefix canonicality, the raw EIP-2718 tx0/tx1 envelope, and
+   fixed verifier calldata/returndata. Extend `commitment-model.py` and a committed JSON corpus with
+   positive vectors plus one-field, offset, length, padding, RLP and trie-path rejection vectors.
+   Require an independent Solidity reproduction before acceptance. Commit as
+   `docs(protocol): freeze slot chain production codecs`.
+3. **Task 7C -- executable gas calibration.** The dedicated Solidity test worker writes the smallest
+   repository-conforming reference accumulator/verifier harness and Foundry tests. Measure terminal
+   carry depths 0--63 and the complete cold/first-write post-call suffix: context clear, quota,
+   status, pull liability, terminal frontier/root/count and event. Pin the measured fork/compiler/
+   optimizer configuration, use the worst measurement plus at least 30 percent checked margin, and
+   reject any profile below that value. Benchmark bounded MPT verifier success, malformed proof,
+   revert and capped-OOG paths separately. Commit as
+   `test(protocol): calibrate slot chain terminal gas reserve`.
+4. **Task 7D -- release-candidate audit.** Run every Python/model/Foundry/cross-artifact check twice,
+   compile with the locked PDF toolchain, inspect every changed and required high-risk page, and ask
+   independent reviewers to attack protocol soundness, implementation feasibility, security,
+   liveness, permissionlessness, migration and accounting. Any Critical/High finding reopens the
+   owning subround and requires another commit. Only a zero-Critical/High audit may remove the
+   document-only freeze blocker; empirical deployment gates remain explicit. Commit as
+   `docs(protocol): freeze slot chain implementation candidate`.
+
 **Files:**
 
 - Modify: `packages/protocol/docs/preconfirmation-v2/tex/main.tex`
@@ -1295,11 +1355,13 @@ rollback under injected late faults.
 Model kind-1 admission with a raw `BridgeAdmissionEnvelope` around the complete eleven-field
 `IBridgeMessageV1`, including actual `bytes data`. Derive data length, data commitment, and the full
 message commitment internally; delete caller-provided hash/length fields and retain only the exact
-durable V10 projection in the Queue. Split the source graph into an immutable append-only
+durable 541-byte V11 projection in the Queue, including exact `uint64 liquidityFee` and source
+context. Split the source graph into an immutable append-only
 `BridgeCreditRegistryV2` authorization store and an exact `SourceBridgeV2` payable custody/liability
 contract. Source send overwrites calldata id/from/source-chain with next-id/actual-caller/chain-context
 before hashing, returns only the normalized Message receipt, and requires
-`msg.value == value + fee`, and creates Registry authorization plus Bridge custody/liability in one
+`msg.value == value + fee + liquidityFee` plus checked `value + fee > 0`, and creates Registry authorization plus Bridge
+custody/liability in one
 non-reentrant rollback domain. Bridge ingress must join both exact objects and roll Registry,
 SourceBridge, Queue, and adapter state back after any late failure. Add named tests for dynamic data
 lengths 0/31/32/33/MAX, every Message field and raw-data substitution, same-address Bridge clones,
@@ -1307,6 +1369,23 @@ read-only fixed-size Registry exposure, zero/under/over funding, duplicate/retry
 Registry/Bridge/Queue fault injection. Source send must resolve the current destination Bridge and
 reject that address as the normalized `from`, including when source and destination Bridge addresses
 differ.
+Freeze the source read boundary as two exact 36-byte calls after runtime/configuration checks:
+`creditAuthorizationV2(bytes32)` with an 18-word/576-byte return and
+`creditLiabilityV2(bytes32)` with a nine-word/288-byte return, each capped at 200,000 gas. Join every
+duplicate identity/amount, require NEW/unpulled/unindexed liability, require the returned aggregate
+liability to cover this credit's `value + fee + liquidityFee`, and require actual Bridge balance at
+least the returned aggregate liability. Reject short/trailing/malformed/substituted
+returns before mutation.
+Use one terminal-verifier identity across the source descriptor and infrastructure component row 3:
+the same address/runtime/configuration hash, with configuration bytes exactly
+`address20(activeSettlementRouter) || u8(64)`. Do not fold Registry or live support objects into a
+second verifier configuration hash; SourceBridge and BridgeDomainRegistry authenticate those
+separately. Pin the exact 32-byte component getter and equality in the model/corpus.
+Before every write require nonzero `srcOwner`, `destOwner`, and `to`, a selected destination
+chain/domain distinct from the source chain, checked `value + fee > 0`,
+`gasLimit == 0 => fee == 0`, and otherwise a nonzero
+invocation budget after the V2 post-call reserve. Registry, adapter, V11 decoder and circuit repeat
+the predicates. Add three single-zero rollback vectors and gas/fee reserve boundaries.
 
 Freeze the launch to **V2 DIRECT-only**. Do not add a V2 Vault selector, capsule, restorable token,
 asset registry, get-or-deploy path, or Vault outflow authorization. ERC20/ERC721/ERC1155 and all
@@ -1318,9 +1397,10 @@ delivered-backing accounting, immutable `AssetPolicyId`, exact canonical/deploym
 mapping-rotation history, destination RELEASE-versus-MINT conservation, and unpausable exit. A future
 asset protocol needs a new kind/tag, release/profile and codec; it cannot reinterpret DIRECT.
 
-Keep source `value + fee` as live liability through QUEUED. DONE releases both; CANCELLED/RECALLED
-creates a full pull refund. Implement unpausable CEI withdrawal from an exact transaction-caller
-frame to a caller-selected nonzero recipient; failed or reentrant recipients restore the claim.
+Keep source `value + fee + liquidityFee` as live liability through QUEUED. Proved DONE reclassifies
+the full amount to the terminal-authenticated LP recipient; CANCELLED/RECALLED reclassifies it to
+the source owner. Implement separate unpausable CEI withdrawals to claimant-selected nonzero
+recipients; failed or reentrant recipients restore the claim.
 
 Leave the existing V1 Bridge proxy, Resolver bindings, balance, nonce, status, pause/lock, quota and
 Vault flows unchanged. Implement V2 at fresh immutable non-proxy SourceBridge and DestinationBridge
@@ -1328,24 +1408,31 @@ addresses. V2-aware applications must explicitly accept the new Bridge/ContextV2
 `B_BRIDGE` or claim compatibility for applications that hard-code the V1 caller. Every incompatible
 successor uses a fresh domain, adapter, Bridge and private accounting namespace.
 
-Add a manifest-pinned permissionless CREATE2 factory for the SourceBridge bundle. Pin factory
-address/runtime/config, immutable non-proxy/non-destructible factory semantics, salt, configured
-bundle init-code hash,
-the legacy V1 Bridge address that must not be reused, the exact CREATE2-derived resulting Bridge
-address/runtime/config/layout, Registry, exact support Registry and epoch/registrar, immutable
-Router-bound terminal verifier, V2-only QuotaManager, pauser and SignalService. Require the production address to equal the final 20 bytes of
-`keccak256(0xff || factory || salt || keccak256(init_code))`; pin Ethereum/Keccak vectors rather than
-accepting a caller-selected address. Derive the actual init-code hash from every acyclic initializer
-primitive, including quota, kernel, support, verifier, epoch, factory and salt; exclude only values
-derived from that hash. A differing valid configuration must therefore land at a different address,
-not occupy the authorized slot. The init code deploys one inactive Bridge; after
-deriving its address, derive fresh Bridge-unique Registry and QuotaManager addresses and perform the
-factory-only one-shot configuration of the complete bundle. Keep the Bridge-account configuration
-root acyclic by excluding the CREATE2 tuple, derived account address, runtime/layout hashes, and
-outer descriptor. Bind those fields in the outer descriptor and bind Registry configuration to the
-exact support registry and Bridge. The factory receipt must cover current Bridge, Registry,
-QuotaManager, support Registry and terminal-verifier code/configuration. Accept an idempotent front-run only when the complete current bundle
-matches. Activate once only after validating the full-bundle factory receipt, zero nonce, empty
+Add a manifest-pinned permissionless CREATE2 factory for the SourceBridge bundle. Pin one exact
+752-byte source descriptor containing factory address/runtime/configuration, bundle salt/init-code
+hash, bundle-deployer address/runtime hash, the legacy V1 Bridge address that must not be reused,
+the three child addresses with exact runtime/configuration hashes, SourceBridge layout, exact
+support Registry and epoch/registrar, immutable Router-bound terminal verifier, V2-only
+QuotaManager, pauser, SignalService and kernel profile.
+
+Require the bundle-deployer address to equal the final 20 bytes of
+`keccak256(0xff || factory || bundleSalt || bundleInitCodeHash)`. Its constructor must compute and
+CREATE-deploy SourceBridge, CreditRegistry and QuotaManager at nonces 1, 2 and 3, with each child
+equal to the low 20 bytes of
+`keccak256(0xd6 || 0x94 || address20(bundleDeployer) || u8(nonce))`. Pin Ethereum/Keccak CREATE2
+and canonical RLP CREATE vectors rather than accepting caller-selected addresses. The bundle init
+code commits generic constructor logic plus every child creation-code/configuration primitive, but
+does not embed any derived child address. Any child failure reverts the whole transaction; after
+checking the returned children/configurations, the constructor installs a pinned inert immutable
+non-proxy bundle-deployer runtime. A differing valid configuration therefore changes the bundle
+init hash and the entire address set without a hash fixed point, post-deployment configuration
+race, or independently occupiable authorized child slot. Require factory, bundle deployer, legacy
+Bridge and all three children pairwise distinct.
+
+Check every runtime directly and every configuration through the exact four-byte
+`componentConfigHashV2()` selector with 50,000 gas and exact 32-byte return; no opaque factory
+receipt is authority. Accept an idempotent front-run only when the complete current bundle
+matches. Activate once only after validating the complete derived bundle, zero nonce, empty
 Bridge-local credit/refund state, zero liability, full quota, arbitrary forced-ETH surplus and
 inactive state. Remove verifier parameters from finalize/recall; the Bridge calls only its immutable
 descriptor-pinned verifier. Do not add a proxy upgrade, owner, reinitializer, historical-header verifier, or
@@ -1368,17 +1455,19 @@ Exercise copy-only views, late-fault rollback, quota refill, zero-cap rejection,
 solvency.
 
 In the destination migration proof, authenticate base-root account identity and exact poststate for
-the fresh Store, QuotaManager and immutable Bridge. Bind exact code/configuration, arbitrary
-pre-activation surplus, zero nonce, empty private status/pull/terminal mappings, zero liability,
-initial quota, and the exact inactive-to-active tx0 Treasury transfer/seal. Manifest-pin the
-LiquidityTreasury address/runtime/configuration, exact transfer amount and non-minting policy.
+the fresh Store, QuotaManager and immutable Bridge plus protocol-lifetime NativeLiquidityPool. Bind
+exact code/configuration, arbitrary forced-ETH surplus, zero Bridge nonce/private
+status/pull/terminal mappings/liability, initial quota, inactive-to-active seal, and either genesis
+zero Pool accounting or later exact Pool-state preservation. Manifest-pin the Pool
+address/runtime/configuration and ten-component graph. Tx0 transfers no ETH, creates no ticket or
+reservation, and mints nothing.
 Reject domain or Bridge reuse even with identical code. Add
 substitution tests for runtime, configuration, layout, pauser, SignalService, endpoints, quota
-configuration/dynamics, forced-prefunding delta/receipt tampering, wrong Treasury/amount, every nonempty mapping,
+configuration/dynamics, forced-surplus/accounting tampering, wrong Pool, every nonempty mapping,
 liability, nonce and active flag.
 
 Keep InboxApply, ProtocolReleaseAuthority, TerminalDomainRegistrar, TerminalAccumulator, and
-LiquidityTreasury as exact protocol-lifetime accounts. Every successor manifest repeats their exact
+NativeLiquidityPoolV2 as exact protocol-lifetime accounts. Every successor manifest repeats their exact
 address/runtime/configuration rows, and tx0 compares those rows to the actual object graph. Add
 structurally valid substitution tests for every lifetime row and reject any split before state
 mutation.
@@ -1401,10 +1490,13 @@ fail closed.
 
 Manifest-pin the complete denyset discovered from the Bridge authority callgraph: Bridge,
 SignalService, native QuotaManager, the exact manifest-pinned pauser address, three V1 Vaults,
-DelegateController, InboxApply/Store, Registrar, ReleaseAuthority, LiquidityTreasury, accumulator/
+DelegateController, InboxApply/Store, Registrar, ReleaseAuthority, NativeLiquidityPoolV2, accumulator/
 verifier, contexts, and all other system or
 Bridge-trusting endpoints. Source rejects before writes; destination defense appends FAILED with no
-value, fee, quota, or endpoint side effect. Historical denysets are immutable.
+value consumption, fee, quota, or endpoint side effect. If an exact reservation already exists,
+destination defense RELEASES it in the same FAILED/terminal journal, restores the ticket and
+decrements `reservedCount(domain)`; a release fault rolls back everything. Historical denysets are
+immutable.
 
 Replace lifecycle booleans with the environment-issued caller/gas/timestamp frame. `process` is
 NEW-only; relayer failure stays NEW and only owner failure creates RETRIABLE. `retry` is
@@ -1414,6 +1506,21 @@ effect free, and owner last invocation failure is FAILED. Manual fail is owner-o
 `expireV2(creditId)` is raw-preimage-free,
 permissionless, unpausable and strict after processBy. All entries and pull withdrawal share one
 non-reentrant frame.
+
+Implement the target/Pool rollback boundary as an exact zero-value external self-call
+`executeAttemptV2(MessageV1,SourceContextV2,DestinationContextV2,address,uint8,bool)` under the
+public process/retry wrapper's already-held guard. Both this entry and
+`finalizeFailedAttemptV2(bytes32)` require `msg.sender == SELF && address(this) == SELF` and take no
+second guard. The first owns consume-target-quota-pull-terminal. On low-level target failure it
+discards target returndata and reverts its whole journal with the exact Bridge-generated
+`TargetCallFailedV2(attemptDigest)` custom error. Outer accepts only the exact selector/length and a
+locally recomputed digest; otherwise it maps to unchanged entry status plus
+`ATTEMPT_ROLLED_BACK`. Authenticated failure keeps NEW/RETRIABLE unchanged, writes RETRIABLE for an
+owner initial failure, or self-calls the second entry for owner-last release-FAILED-terminal.
+Second-entry failure reverts outer and preserves entry state. Freeze both selectors, tuple/return
+grammar, digest domain, valid status matrix, gas caps and outer catch reserve. Test direct/delegate
+entry, callback/nested attempts, target-crafted errors, failure with reservation then retry,
+owner-last release/leaf, malformed returns and post-target tail rollback.
 
 Use the V2 success-only bounty: no failed path pays fee. On any DONE, a non-owner with positive
 gasLimit receives all fee; owner self-processing receives all fee. For a real CALL, do not use a
@@ -1425,25 +1532,35 @@ success. Deterministic no-CALL DONE paths may precheck their exact required capa
 Invocation-prohibited DONE creates owner value pull plus the success bounty without CALL. V2
 aggregate liability is the hard spending floor: require `balance >= aggregateV2Liability` after
 every transition. V1 funds and outflows never enter this account. Withdrawal is unpausable, CEI-safe
-and retryable; there is no generic sweep surface. Document that L1 escrow and the L2
-LiquidityTreasury are distinct accounts. There is no premint: use an explicit, supply-conserving tx0
-transfer from the genesis-funded LiquidityTreasury; activation must fail atomically when it is
-underfunded.
+and retryable; there is no generic sweep surface. Implement a protocol-lifetime
+`NativeLiquidityPoolV2`: any LP deposits existing L2 ETH into a non-transferable ticket with exact
+depositor and nonzero L1 recipient, then the depositor may reserve exactly `value + fee` for an
+authenticated pinned NEW/RETRIABLE credit. The Pool alone owns checked
+`uint64 reservedCount(domain)`: successful ABSENT-to-RESERVED increments exactly once as the final
+write, and CONSUMED/RELEASED decrements exactly once in the same funds/aggregate/terminal journal;
+all failures and foreign calls leave it unchanged. DONE consumes and returns the actual
+nonzero `(ticketId,l1Recipient,value+fee)` used for the terminal settlement hash; only its proof makes the
+full `value + fee + liquidityFee` source escrow an LP pull. FAILED/cancel/expiry releases the
+reservation and refunds the user. Without a willing LP the credit is UNFUNDED until strict expiry;
+do not claim bounded economic delivery.
 
 At cutover, record the migration statement's exact L1 Queue `count` as the retired predecessor
 Bridge watermark. Require Bridge enqueue to match the exact active-version authorization and
 deployment object, so a historical adapter cannot append a pre-cutover NEW credit after that
 watermark; such a credit remains cancelable/refundable after its strict `enqueueBy`. Permit anyone
-to reclaim the retired Bridge surplus to the same Treasury only when
+to reclaim the retired Bridge's unaccounted surplus to the manifest-pinned, economic-profile-typed
+`bridgeSurplus` sink only when
 the old manifest still authenticates the complete lifetime graph, the Registrar has a distinct
 successor with a sealed activation receipt, InboxApply has consumed through that watermark, the
 Accumulator's checked unique-terminal counter for the old domain equals the Store's checked
-absent-to-present pin counter, and aggregate pull liability is zero. Restrict counter increment to
+absent-to-present pin counter, aggregate pull liability is zero, and Pool
+`reservedCount(oldDomain) == 0`. Authenticate the successor through the Registrar's L2-local sealed
+receipt, never an L1 Router call. Restrict counter increment to
 the Registrar-bound Bridge, exact route/Store, an existing pin, DONE/FAILED, and a fresh
 `(domain, credit)` guard. Journal pins, leaves, counters and guards atomically. Reclamation must be
-O(1), with no mapping enumeration or unbounded scan. Give Treasury rejection a result distinct from a valid zero-balance reclaim.
+O(1), with no mapping enumeration, ticket sweep or unbounded scan. Give sink rejection a result distinct from a valid zero-balance reclaim.
 Reclamation is one-shot and permanently disables that Bridge. Test early-watermark, pending-pin,
-live-liability, active-Bridge, underfunded activation rollback, Treasury rejection, double-reclaim,
+live-liability, active-Bridge, live Pool reservation, sink rejection, double-reclaim,
 and repeated-release total-supply conservation failures.
 
 Test real Queue→InboxApply→independent Bridge flows for EOA, short fallback, dynamically deployed
@@ -1457,10 +1574,23 @@ Task 7 must Foundry-benchmark accumulator carry depths 0--63, cold/first-write p
 status, quota and pull writes, and publish worst case plus 30%. Use a 64-slot frontier + root +
 uint64 count + canonical leaf event and at least one replaceable canonical log archive. Do not claim
 implementation readiness before the benchmark.
+For InboxApply, benchmark the exact reachable boundary set rather than an impossible 64-kind-1
+trace: four all-cold kind-1 rows in a steady block (sixteen fresh writes), 61 minimum-gas kind-0 plus
+three kind-1 rows in a 64-row steady block, and 62 minimum-gas kind-0 plus two kind-1 rows in a
+64-row activation block. Pin maximal-prefix rejection of the next non-fitting FIFO leaf.
+For L1 migration activation, define `worstCaseActivationAdoptionGas` as the complete measured
+post-intrinsic Router path: ABI decode/re-encode, cold Router/Queue/history/profile/manifest reads,
+hashing, `EXTCODEHASH`, the configuration getter, verifier consuming its full cap with both call and
+EIP-150/memory overhead, and the entire adoption suffix. The block-gas inequality is
+`ceil(1.30 * (intrinsicGas + worstCaseActivationAdoptionGas)) <= supportedL1BlockGasLimit`; do not
+double-count the verifier or omit the prefix. Benchmark both the maximum reachable 64-kind-0 genesis
+call with 2,048-byte header and the 62-kind-0/two-kind-1 version-migration cold path with empty header.
 
-**Open High / mandatory Task 7 codec:** replace behavioral Message/system-call encodings with exact
-Solidity ABI/Keccak, offsets, lengths, padding, raw transaction bytes, and golden/reject vectors. V2
-Vault calldata and asset codecs are excluded from launch scope.
+**Mandatory implementation codec gate:** the design-freeze corpus pins exact Solidity ABI/Keccak
+Message/system-call encodings, offsets, lengths, padding, raw transaction bytes, selectors, returns,
+errors and golden/reject vectors. Reproduce that corpus independently in compiled Solidity, Go,
+Rust and the circuit before claiming implementation readiness. V2 Vault calldata and asset codecs
+are excluded from launch scope.
 
 **Closed behavioral proof boundary:** destination support confirmation now accepts only canonical
 sequence plus bounded raw ordered account/storage nodes. It derives root/account/code/schema/slot/key/
@@ -1470,9 +1600,10 @@ descriptor fixes code/configuration, selector, gas, node count, per-node bytes, 
 siblings, derives the full terminal leaf, folds ordered little-endian index bits, and compares the
 root/count to canonical history. Add reject vectors for every field, 63/65 siblings, sibling order and
 direction, malformed/oversize nodes, verifier substitution, short/long return, revert/OOG, and
-rollback. Task 7 must replace the behavioral SHA-256/mock RLP-HP parser with the final Solidity
-Keccak/RLP/hex-prefix implementation and cross-language golden vectors; the removed validity booleans
-must never reappear.
+rollback. The design-freeze corpus must use the final Ethereum Keccak, canonical RLP and hex-prefix
+proof grammar rather than a behavioral SHA-256/mock parser, with exact statement/slot/trie-key,
+packed-proof and authenticated-return vectors. Compiled differential trie fixtures and
+cross-language reproduction remain release gates; the removed validity booleans must never reappear.
 
 This freeze-repair round is accepted only when focused regressions also cover each dominant `dueAt`
 term, checked `uint64` overflow with an unchanged queue, same-address clone and

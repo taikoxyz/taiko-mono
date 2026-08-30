@@ -186,6 +186,8 @@ EXPECTED_SCHEMA_RULES = {
     "sinks.seatPenalty.address": RULE_NULLABLE_ADDRESS,
     "sinks.forcedExpiry.asset": exact_rule("NATIVE_ETH"),
     "sinks.forcedExpiry.address": RULE_NULLABLE_ADDRESS,
+    "sinks.bridgeSurplus.asset": exact_rule("NATIVE_ETH"),
+    "sinks.bridgeSurplus.address": RULE_NULLABLE_ADDRESS,
     "rewards.classes[].classId": RULE_UINT8,
     "rewards.classes[].name": RULE_STRING,
     "rewards.classes[].fixedWei": RULE_DECIMAL,
@@ -1452,12 +1454,14 @@ class EconomicProfileTests(unittest.TestCase):
         profile["units"]["nativeRate"] = "gwei/second"
         profile["sinks"]["builderPenalty"]["asset"] = "NATIVE_ETH"
         profile["sinks"]["seatPenalty"]["asset"] = "BUILDER_LEASE"
+        profile["sinks"]["bridgeSurplus"]["asset"] = "BUILDER_LEASE"
         errors = self.model.validate_schema(profile)
         self.assertIn("units.nativeRate must equal wei/second", errors)
         self.assertIn(
             "sinks.builderPenalty.asset must equal BUILDER_LEASE", errors
         )
         self.assertIn("sinks.seatPenalty.asset must equal NATIVE_ETH", errors)
+        self.assertIn("sinks.bridgeSurplus.asset must equal NATIVE_ETH", errors)
 
     def test_nested_or_duplicate_sink_sources_are_rejected(self):
         nested = copy.deepcopy(self.example)
@@ -1465,6 +1469,22 @@ class EconomicProfileTests(unittest.TestCase):
         self.assertIn(
             "dataSession: unknown key rentSink",
             self.model.validate_schema(nested),
+        )
+
+        bridge_local = copy.deepcopy(self.example)
+        bridge_local["bridge"]["surplusSink"] = "0x" + "88" * 20
+        self.assertIn(
+            "bridge: unknown key surplusSink",
+            self.model.validate_schema(bridge_local),
+        )
+
+        malformed_sink = copy.deepcopy(self.example)
+        malformed_sink["sinks"]["bridgeSurplus"]["beneficiary"] = (
+            "0x" + "99" * 20
+        )
+        self.assertIn(
+            "sinks.bridgeSurplus: unknown key beneficiary",
+            self.model.validate_schema(malformed_sink),
         )
 
         duplicate_json = "{\"schema\":1,\"schema\":2}"
@@ -1481,15 +1501,43 @@ class EconomicProfileTests(unittest.TestCase):
             "measurementCommit must be non-null",
             "assets.builderLease.address must be non-null",
             "sinks.builderPenalty.address must be non-null",
+            "sinks.bridgeSurplus.address must be non-null",
         ):
             self.assertIn(blocker, null_blockers)
 
         profile = self.calibrated_profile()
         profile["profileId"] = "0x" + "00" * 32
         profile["assets"]["builderLease"]["address"] = "0x" + "00" * 20
+        profile["sinks"]["bridgeSurplus"]["address"] = "0x" + "00" * 20
         blockers = self.model.production_blockers(profile)
         self.assertIn("profileId must be nonzero", blockers)
         self.assertIn("assets.builderLease.address must be nonzero", blockers)
+        self.assertIn("sinks.bridgeSurplus.address must be nonzero", blockers)
+
+    def test_production_requires_unique_sink_addresses(self):
+        expected_sink_paths = (
+            "sinks.builderPenalty.address",
+            "sinks.dataRent.address",
+            "sinks.seatPenalty.address",
+            "sinks.forcedExpiry.address",
+            "sinks.bridgeSurplus.address",
+        )
+        self.assertEqual(self.model._SINK_ADDRESS_PATHS, expected_sink_paths)
+
+        profile = self.calibrated_profile()
+        profile["sinks"]["bridgeSurplus"]["address"] = profile["sinks"][
+            "dataRent"
+        ]["address"]
+        self.assertIn(
+            "sink addresses must be unique",
+            self.model.production_blockers(profile),
+        )
+
+        profile["sinks"]["bridgeSurplus"]["address"] = "0x" + "0a" * 20
+        self.assertNotIn(
+            "sink addresses must be unique",
+            self.model.production_blockers(profile),
+        )
 
     def test_production_rejects_inconsistent_chain_ids(self):
         profile = self.calibrated_profile()

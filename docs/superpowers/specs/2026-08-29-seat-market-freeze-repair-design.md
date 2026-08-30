@@ -842,37 +842,50 @@ public-input schema hash, maximum proof bytes, verification gas bound, and fixed
 The execution-profile hash commits the complete descriptor, the ReleaseManifest commits that profile
 hash and descriptor, and append-only historical registrations retain the exact old verifier instance.
 Later versions may rotate verifier address, code, key, proof system, or schema without repointing an old
-profile.
+profile. The verifier descriptor has two acyclic byte-exact hash layers. `configurationHash` is
+`keccak256(abi.encode(MIGRATION_VERIFIER_CONFIG_TYPEHASH, verifyingKeyHash, proofSystemId,
+publicInputSchemaHash, selector, maximumProofBytes, verificationGasLimit))`; it excludes the verifier
+address, runtime hash and itself. `migrationVerifierDescriptorHash` is
+`keccak256(abi.encode(MIGRATION_VERIFIER_DESCRIPTOR_TYPEHASH, verifier, runtimeHash,
+configurationHash, verifyingKeyHash, proofSystemId, publicInputSchemaHash, selector,
+maximumProofBytes, verificationGasLimit))`. The normative specification freezes both type strings
+and ordinary ABI narrow-field padding. Profile decode, PVM manifest validation, and Router dispatch
+independently recompute both layers and require equality with the manifest field. This removes the
+impossible self-hash fixed point and caller-substituted descriptors. PVM and Router additionally
+require the runtime hash, then call exact `migrationVerifierConfigHashV2()` by zero-value four-byte
+STATICCALL with a fixed 50,000-gas stipend and exact 32-byte result equal to the first layer.
+
 The domain-separated typed statement binds chain, Router and Queue identities, router generation and
 canonical sequence, source domain/generation/execution, candidate and beneficiary, full base/end
 cores and state roots, target version/profile/manifest, Queue root/count/range and descriptor
 commitment, historical Anchor/force boundary, tx0 release calldata hash, tx1 InboxApply calldata hash,
-a manifest-derived expected-deployment commitment, and a separate **actual-observation commitment**.
+a single manifest-derived deployment commitment, the transition kind, and launch-only imported
+header/state/checkpoint fields.
 The tx0 preimage is exactly `activateRelease(manifest, uint64 retirementQueueCount)`: its raw calldata
 hash includes the complete manifest and canonical ABI word for the count, and the circuit constrains
 that decoded count equal to the Queue `count` public input. There is no optional/default watermark or
-Inbox-cursor substitute. The actual observation proves the release-owned Store, QuotaManager, and
-destination Bridge have the manifest-pinned immutable non-proxy runtime/configuration, zero nonce,
-empty private nonce/status/pull/terminal mappings, zero aggregate liability, full initial V2-only
-quota, and `v2Active == false`. The Bridge balance is an arbitrary authenticated `uint256` surplus
-`s`; forced ETH does not make an otherwise-fresh account invalid. It also binds the protocol-lifetime
-LiquidityTreasury code/configuration and pre-transfer balance `t`. Tx0 transfers exactly the
-manifest amount `A`, requires Bridge postbalance `s + A` and Treasury postbalance `t - A`, then seals
-the Store and Bridge. The activation receipt binds `s`, `t`, `A`, both postbalances, predecessor and
-successor Bridges, retirement count, and active-state commitment. Store sealing plus `v2Active` is
-the complete release seal; no separate activation-gate account exists. The circuit derives these
-observations from account and storage proofs.
-A descriptor, deployment boolean, nonempty fingerprint, proxy-upgrade receipt, or caller-substituted
-witness is not evidence. The proof public inputs carry `s`, `t`, and the derived observation
-commitment. The Router reconstructs that commitment from the exact L1 manifest plus those bounded
-values and requires the profile-pinned verifier to return the exact reconstructed statement hash.
+Inbox-cursor substitute. The circuit directly proves every account, code and storage relation under
+the base/output roots that the Router commits through that one deployment value; there is no second
+caller-supplied expected/observed hash. For genesis import it proves the release-owned Store,
+QuotaManager, fresh destination Bridge and protocol-lifetime NativeLiquidityPool have the
+manifest-pinned immutable non-proxy code/configuration, empty Bridge nonce/status/pull/terminal
+state, zero liability, full initial V2-only quota, inactive Bridge, and zero Pool
+domain/ticket/reservation counters and accounted balances. Bridge and Pool may each hold arbitrary
+forced-ETH surplus, which never becomes accounted liquidity. Tx0 moves no ETH, creates no ticket or
+reservation, mints nothing, installs the route/domain, and seals Store plus Bridge atomically. A
+later version migration instead proves exact preservation of every lifetime Pool ticket,
+reservation, aggregate and sequence; all genesis import fields are zero. The activation receipt
+binds the single deployment commitment, predecessor/successor Bridges, retirement count, and
+resulting active-state commitment. Store sealing plus `v2Active` is the complete release seal; no
+separate activation-gate account exists. A descriptor, deployment boolean, nonempty fingerprint,
+proxy-upgrade receipt, or caller-substituted witness is not evidence.
 
 Every incompatible successor must use a fresh domain and fresh Bridge bundle. Existing routes and
 Bridge addresses are never reactivated, repointed, or mutated by a later release. This removes the
 exact-existing mutable-state branch and makes historical privilege isolation structural rather than
 dependent on preserving a growing shared account. The L1 Router never reads a live L2 object. The
 InboxApply, ProtocolReleaseAuthority, TerminalDomainRegistrar, TerminalAccumulator, and
-LiquidityTreasury deployments are protocol-lifetime accounts: every successor manifest must repeat
+NativeLiquidityPoolV2 deployments are protocol-lifetime accounts: every successor manifest must repeat
 their exact address/runtime/configuration rows, and tx0 compares those rows to the actual bound
 objects. A release that substitutes any one of them is invalid even if the fresh Store and Bridge are
 otherwise exact. The L1 activation call is a plain value tuple: candidate, raw proof bytes and public
@@ -885,17 +898,28 @@ remains valid. Future proof-landing block/time are deliberately absent. The Rout
 verifier directly before any write and requires its descriptor, public inputs, proof commitment,
 authenticated result, and exact 32-byte return to match. L1 then atomically updates only
 Canonical/History/Queue/activation receipts; it never reads or mutates the target Protocol,
-InboxApply, Registrar, Store, Treasury, or any other live L2 object. L2 execution first produces an
+InboxApply, Registrar, Store, Pool, or any other live L2 object. L2 execution first produces an
 immutable fork-local poststate.
 The node switches its canonical L2 snapshot only after observing the exact successful L1 transition
 for the same candidate digest, core, version, sequence, and queue range. Losing, abandoned,
 pre-cutover, and reverted L1 transitions cannot mutate canonical L2 state. Local replay failure is a
 node resync concern and cannot revert an already valid L1 transition.
 
-Open High for Task 7: this behavioral round's typed encoder and verifier interface are not the final
-Solidity ABI/Keccak implementation. Task 7 must pin the exact static public-input encoding, statement
-Keccak, proof calldata, gas cap, `STATICCALL` returndata checks, raw EIP-2718 tx0/tx1 hashes, and golden
-vectors before any implementation-ready claim.
+The migration candidate is exactly one deterministic activation block. Its transaction list is
+tx0 activation, tx1 InboxApply, then only the uniquely classified maximum valid kind-0 FIFO prefix,
+and ends there; discretionary count/body root, blobs and builder-selected coinbase are zero. Any
+kind-0 raw bytes come from canonical L1 Queue-admission calldata and must match the leaf hash/index,
+never a prover-private body. The circuit binds the full transaction/receipt roots, header/block hash
+and execution outputs through the candidate digest and output core. Missing canonical L1 raw bytes
+prevent landing and use delayed migration cancellation instead of adopting unreplayable state.
+
+The design freeze pins a static 42-word `MigrationTransitionStatementV2`, the nine-word
+`DeploymentCommitmentV2`, their exact ABI/Keccak hashes, the bounded proof-calldata envelope, the
+acyclic verifier configuration/descriptor hashes, the 50,000-gas configuration getter, the
+profile-pinned proof gas cap, exact 32-byte authenticated return, and raw tx0/tx1 calldata hashes.
+The executable model owns golden and per-field reject vectors. This closes the design-codec defect;
+compiled Solidity/circuit parity, cross-language reproduction, measured gas and a real proof-system
+fixture remain mandatory release gates and prevent an implementation-ready claim in this repository.
 
 ### 8.2 Market synchronization and rotation
 
@@ -960,10 +984,24 @@ creating any durable state. Admission resolves the current final destination end
 rejects an effective caller equal to that exact destination Bridge (even when the source and
 destination Bridge addresses differ), because the destination implementation rejects
 `message.from == address(this)`.
-Only the derived commitments and the exact V10 routing fields enter the permanent Queue descriptor.
-Task 7 must replace the behavioral typed hash with the exact
-Solidity `keccak256(abi.encode("TAIKO_MESSAGE", message))` codec and pin dynamic-bytes vectors at
-lengths 0, 31, 32, 33, and the maximum bound.
+Only the derived commitments and exact V11 routing fields enter the permanent Queue descriptor.
+V11 additionally commits the exact `uint64 liquidityFee`, source context and 541-byte descriptor;
+source admission requires `msg.value == value + fee + liquidityFee`.
+Before any ID, escrow or Registry write, V2 also requires nonzero `srcOwner`, `destOwner`, and `to`,
+requires the selected destination chain/domain to differ from the immutable source chain, requires
+the checked `value + fee` settlement amount to be nonzero (a zero amount has no valid Pool ticket,
+reservation or DONE settlement tuple), and preserves V1 gas/fee compatibility:
+`gasLimit == 0` implies `fee == 0`, while positive `gasLimit`
+must leave a nonzero invocation budget after the profile-pinned post-call reserve. Registry,
+adapter, V11 decoder and circuit repeat these checks; single-field zero and boundary failures roll
+back nonce, balance, liability, Registry and Queue.
+The design freeze uses the exact legacy MessageV1 ABI: one eleven-word tuple whose dynamic-data
+offset, length and zero padding are canonical, with
+`msgHash = keccak256(abi.encode("TAIKO_MESSAGE", message))` and
+`calldataHash = keccak256(message.data)` over the raw, unpadded bytes. The executable codec corpus
+pins lengths 0, 31, 32, 33 and the maximum bound and rejects shifted offsets, nonzero padding,
+truncation, trailing bytes and caller-substituted hashes. Solidity/Go/Rust/circuit parity remains a
+release gate, not an unresolved design choice.
 
 The two caller-asserted proof booleans are deleted. `BridgeDomainRegistry.confirm` accepts only a
 canonical sequence plus raw ordered account/storage proof nodes. It derives the canonical L1 state
@@ -976,8 +1014,12 @@ exactly 64 ordered sibling hashes. The verifier derives the leaf from `(index, d
 creditId, DONE|FAILED)`, folds little-endian index bits with domain-separated leaf/internal hashes,
 and compares the result to the canonical history root while enforcing `index < terminalCount`.
 Wrong depth, order, direction, index, root, domain, Bridge, credit, status, sequence, or version fails
-closed. Task 7 still must replace the behavioral hashes/mock MPT parser with exact Solidity
-Keccak/RLP/hex-prefix codecs and cross-language golden vectors; no proof-validity boolean may return.
+closed. The freeze pins the exact twelve-word registration statement and mapping-slot/trie-key
+derivation, Ethereum Keccak, canonical RLP and hex-prefix semantics, root-to-leaf packed proof
+grammar, 66-node per-path/132-node total/600-byte node/80,000-byte proof bounds, 8,000,000-gas
+dispatch, acyclic verifier configuration and descriptor hashes, and exact 32-byte statement-hash
+return. No proof-validity boolean may return. A compiled differential test against Ethereum trie
+fixtures and cross-language golden-vector reproduction remain release gates.
 
 Source authorization and source funds are separate exact authorities. The immutable,
 append-only `BridgeCreditRegistryV2` stores only fixed-size frozen `CreditAuthorization` fields,
@@ -985,9 +1027,15 @@ including `msgHash`, dynamic-calldata hash and length, behind a read-only view; 
 returns the raw Message bytes and accepts writes only from the one exact bound `SourceBridgeV2`
 capability. The payable,
 non-reentrant Source Bridge alone owns ETH custody, per-credit liability, refunds, and the message-id
-counter; its send requires exact `msg.value == message.value + message.fee`. Authorization creation,
+counter; its send requires exact
+`msg.value == message.value + message.fee + liquidityFee`. Authorization creation,
 custody receipt, and liability creation are one revert domain. The Bridge ingress adapter boundedly
-joins the exact Registry authorization with the exact Source Bridge liability, and Queue append,
+joins the exact Registry authorization with the exact Source Bridge liability through two pinned
+36-byte calls: `creditAuthorizationV2(bytes32)` returns 18 words/576 bytes and
+`creditLiabilityV2(bytes32)` returns nine words/288 bytes, each under 200,000 gas after exact
+runtime/configuration checks. It rejects malformed padding/length, any field mismatch,
+`totalLiveLiability < value + fee + liquidityFee`, or
+`BALANCE(sourceBridge) < totalLiveLiability`. Queue append,
 `markQueued`, Registry state, Source Bridge balances/liabilities, and adapter record are likewise one
 all-or-revert transaction. The direct selector always creates `DIRECT`; no Vault selector exists in
 the V2 launch surface. Kind-1 is **DIRECT-only**: ETH plus an ordinary Bridge-compatible application
@@ -997,11 +1045,11 @@ target before any Registry, liability, balance, or counter write. Registry and Q
 `refundMode == DIRECT` and empty Vault/capsule fields. The Queue deposit remains economically
 separate from message value and fee.
 
-Source liability is exactly `value + fee` from SEND through QUEUED. QUEUED does not release fee.
-Cancellation or a proved FAILED terminal creates a pull refund for the full amount; a proved DONE
-terminal releases the full liability. Refund withdrawal is unpausable and CEI-safe, derives the
-claim owner from the exact transaction frame, permits a nonzero owner-selected recipient, and
-restores the claim on recipient failure.
+Source liability is exactly `value + fee + liquidityFee` from SEND through QUEUED. QUEUED releases
+nothing. Cancellation or a proved FAILED terminal creates the user's pull for the full amount; a
+proved DONE leaf carrying the exact Pool settlement tuple creates the authenticated LP recipient's
+pull for the same full amount. Withdrawal is unpausable and CEI-safe, permits a nonzero
+claimant-selected recipient, and restores the claim on recipient failure.
 
 V1 and V2 do not share a Bridge account. The deployed V1 proxy, Resolver bindings, balance,
 `nextMessageId`, message-status mappings, pause/lock state, QuotaManager, and all V1 Vault behavior
@@ -1012,30 +1060,44 @@ immutable non-proxy DestinationBridge on L2. Applications that hard-code the V1 
 boundary, not a shared-custody migration.
 
 The SourceBridge bundle is deployed permissionlessly through a manifest-pinned deterministic
-CREATE2 factory. The source descriptor commits the factory address/runtime/configuration, salt,
-the **configured bundle init-code hash**, the separately pinned legacy V1 Bridge address that the
-result must not equal, resulting Bridge address/runtime/configuration/layout, V2-only QuotaManager,
-Registry, exact support-Registry tuple and registrar/epoch, exact immutable terminal-verifier
-address/runtime/configuration/Router binding, pauser, and SignalService. The init-code hash commits
-every acyclic initializer primitive, including quota, kernel, support, verifier, epoch, factory and
-salt, while excluding only addresses and descriptor values derived from that hash. Therefore any
-initializer change lands at a different CREATE2 address and cannot poison the authorized slot. The
-factory first derives the Bridge address,
-then derives the Bridge-unique Registry and QuotaManager addresses from it, deploys all three fresh
-accounts, and performs the one factory-only configuration operation atomically. The configured
-Bridge-account root excludes the CREATE2 tuple, derived Bridge address, runtime/layout hashes, and
-outer descriptor, so no value hashes itself; the outer source descriptor separately commits all of
-those fields. Registry configuration binds the exact support registry and configured Bridge. The
-factory receipt covers current code and configuration for the Bridge, Registry, QuotaManager,
-support Registry, and terminal verifier, not merely the Bridge account.
-The production address is not a caller-selected manifest field: it must equal the final 20 bytes of
-`keccak256(0xff || factory || salt || keccak256(init_code))`. The behavioral model independently
-derives the address from its symbolic factory/salt/init-code-hash words; the byte-exact codec round
-must pin the corresponding Ethereum/Keccak vectors. A front-run deployment is harmless only
+CREATE2 factory. The exact 752-byte source descriptor commits the factory
+address/runtime/configuration, bundle salt/init-code hash, bundle-deployer address/runtime hash,
+the separately pinned legacy V1 Bridge address that the result must not equal, resulting Bridge
+address/runtime/configuration/layout, V2-only QuotaManager and Registry
+addresses/runtime/configurations, exact support-Registry address/runtime/configuration and
+registrar/epoch, exact immutable terminal-verifier address/runtime/configuration/Router binding,
+pauser, SignalService and kernel profile.
+
+The factory CREATE2-deploys one bundle deployer. Its constructor computes and CREATE-deploys the
+SourceBridge, CreditRegistry and QuotaManager at its own nonces 1, 2 and 3. Each child address is
+the low 20 bytes of the canonical RLP CREATE preimage
+`keccak256(0xd6 || 0x94 || address20(bundleDeployer) || u8(nonce))`. The bundle init-code hash
+commits the generic constructor logic plus every child creation-code and configuration primitive;
+no derived child address is embedded in that preimage. Any child deployment or configuration
+failure reverts the whole CREATE2 transaction. The constructor finally installs an inert immutable
+non-proxy bundle-deployer runtime. A configuration change therefore changes the bundle init hash
+and the entire address set without a hash fixed point, post-deployment configuration race, or
+separately occupiable authorized child slot.
+
+The factory, bundle deployer, legacy Bridge, SourceBridge, Registry and QuotaManager are pairwise
+distinct. Activation derives and checks the bundle and all three child addresses, checks every
+runtime directly, then calls the exact four-byte `componentConfigHashV2()` with 50,000 gas and
+accepts only the exact 32-byte descriptor hash from factory, Bridge, Registry, QuotaManager,
+support Registry and terminal verifier. No opaque factory receipt substitutes for those checks.
+The source descriptor's terminal-verifier address/runtime/configuration is exactly infrastructure
+component row 3. Its sole configuration is the 21-byte
+`address20(activeSettlementRouter) || u8(64)` component grammar and the exact getter returns that
+row hash. Registry/support state is checked by SourceBridge and BridgeDomainRegistry and is not
+folded into a second configuration identity for the same immutable verifier.
+No production account is a caller-selected manifest field: the bundle deployer must equal the low
+20 bytes of `keccak256(0xff || factory || bundleSalt || bundleInitCodeHash)`, and each child must
+equal its canonical nonce-derived CREATE address. The byte-exact model pins the CREATE2 and all
+three CREATE vectors and rejects every field substitution.
+A front-run deployment is harmless only
 when the complete current bundle exactly matches that tuple and all three configured accounts.
 Wrong code, configuration, support-registry binding, or quota account at any derived address fails
-closed. Activation requires a valid full-bundle factory receipt, exact current code and
-configuration, an immutable non-proxy and non-destructible factory, zero V2 nonce, empty private
+closed. Activation requires exact current bundle code/configuration, an immutable non-proxy and
+non-destructible factory, zero V2 nonce, empty private
 accounting, zero liability, full initial quota, arbitrary authenticated ETH surplus, and an
 inactive-to-active one-shot transition. Terminal settlement has no caller-supplied verifier:
 each historical SourceBridge calls only its descriptor-pinned verifier object. The
@@ -1057,16 +1119,16 @@ period. It starts full, refills by the deployed formula, has no V1 lane, no borr
 and no quota-update path. Runtime quota zero means UNLIMITED and is forbidden at launch.
 
 Destination deployment is part of the proof-authenticated migration block. The circuit proves the
-fresh account bundle and its exact code/configuration, arbitrary authenticated Bridge surplus,
-empty private mappings/liability/nonce, initial quota, inactive state, and the exact pre-funded
-lifetime Treasury. Tx0 installs the route/domain, transfers exactly `nativeLiquidityAmount` from
-that Treasury by checked balance deltas, and seals the Store and `v2Active` in one rollback domain.
-The ReleaseManifest commits the immutable
-non-proxy Bridge descriptor, Treasury identity/policy/amount, and
-complete component graph. Reusing any historical domain or Bridge address is invalid even when its
-code is byte-identical. A nonzero pauser may halt new send/process/retry work, so the design claims
-bounded refund availability rather than bounded delivery success. Finalize, recall, cancel,
-expiry, and pull withdrawals remain unpausable.
+fresh account bundle and its exact code/configuration, arbitrary authenticated Bridge/Pool forced
+surplus, empty private Bridge mappings/liability/nonce, initial quota, inactive state, and exact
+protocol-lifetime NativeLiquidityPool state. Tx0 installs the route/domain and seals the Store and
+`v2Active` in one rollback domain, but moves no ETH, creates no ticket/reservation and mints
+nothing. The ReleaseManifest commits the immutable non-proxy Bridge descriptor, Pool
+identity/runtime/configuration, and complete ten-component graph. Reusing any historical domain or
+Bridge address is invalid even when its code is byte-identical. A nonzero pauser may halt new
+send/process/retry work, so the design claims bounded refund availability rather than bounded
+delivery success. Finalize, recall, cancel, expiry, Pool withdrawal and pull withdrawals remain
+unpausable.
 
 The destination Bridge, Inbox store, terminal accumulator, execution environment, balance, and
 status are an independent L2 graph bound by `(chainId, domainId, address, runtime, configuration)`.
@@ -1080,15 +1142,19 @@ or owner booleans. The execution environment supplies the transaction frame and 
 CALL, the Bridge exposes the legacy context plus `ContextV2`, which commits protocol version/kind,
 credit id, msg hash, source domain/exact epoch/Bridge/execution hash/emission block, Queue index,
 destination domain/Bridge, release commitment, and execution-profile hash. Contexts clear on every
-exit. A Bridge-trusting endpoint must pin that exact policy and the fresh Bridge address.
+exit. A Bridge-trusting endpoint must constructor-pin one exact fresh domain and Bridge, require the
+full context, and reject every historical, registry-wide, counterfactual future or out-of-frame
+Bridge.
 
 Launch V2 is one-way: L1 is immutable `SOURCE_ONLY` and L2 is immutable `DESTINATION_ONLY`. A
 reverse direction or incompatible successor requires a new domain, fresh Bridge deployment,
 release, and audit. The historical denyset rejects Bridge, InboxApply, InboxStore, Registrar,
-ReleaseAuthority, terminal components, LiquidityTreasury, SignalService, native QuotaManager,
+ReleaseAuthority, terminal components, NativeLiquidityPoolV2, SignalService, native QuotaManager,
 pauser, the three V1 Vaults, DelegateController, contexts, and every enumerated Bridge-trusting
 endpoint. Source admission rejects these before writes; destination defense terminalizes FAILED
-without payout or quota use.
+without payout, target, quota, fee or Pool consumption. If a reservation is already live, the same
+terminal journal releases it, restores the ticket and decrements `reservedCount(domain)`; a release
+fault rolls back FAILED and its terminal leaf.
 
 `process` is NEW-only. A relayer CALL failure stays NEW; only a destination-owner failed initial
 attempt creates RETRIABLE. `retry` is RETRIABLE-only. Invocation-prohibited handling precedes the
@@ -1098,14 +1164,36 @@ failure atomically appends FAILED. Manual failure is owner-only and pausable. `e
 is permissionless, unpausable, raw-preimage-free, and strict after the pin deadline. All entry
 points and pull withdrawal share one top-level non-reentrant frame.
 
+The target/Pool rollback boundary is an exact external self-call
+`executeAttemptV2(MessageV1,SourceContextV2,DestinationContextV2,address,uint8,bool)` returning
+exactly two canonical words `(resultingStatus,statusReason)`. It requires both
+`msg.sender == SELF` and `address(this) == SELF`, takes no second reentrancy guard, and owns the
+complete consume-target-quota-pull-terminal journal. The public process/retry wrapper already holds
+the shared guard, authenticates and derives every argument, then makes the zero-value bounded
+self-call while retaining a profile-pinned outer catch reserve. Direct calls, delegatecall,
+callback reentry and nested process/retry reject. A low-level target failure discards target
+returndata and makes the Bridge itself revert the entire inner journal with exact 36-byte
+`TargetCallFailedV2(attemptDigest)`. Outer accepts only that selector, length and locally recomputed
+digest. It leaves NEW/non-last RETRIABLE unchanged, writes RETRIABLE for owner initial failure, or
+calls exact only-self `finalizeFailedAttemptV2(creditId)` for owner-last release-FAILED-terminal.
+Any other revert or malformed return maps to unchanged entry status plus
+`ATTEMPT_ROLLED_BACK`; second-finalizer failure reverts outer. Both selectors, custom-error domain,
+tuple/return grammar, valid matrix, gas caps and catch reserve are profile commitments.
+
 The V2 fee is a success-only bounty. No NEW, RETRIABLE, FAILED, manual-fail, or expiry path pays it.
-For a real CALL, insufficient raw Bridge balance makes the CALL fail; successful target effects
-are followed by exact V2 quota consumption, pull creation, terminal append, and
-`balance >= aggregateV2Liability` in the same journal. Any tail failure rolls the target and
-Bridge back. Deterministic no-CALL success paths may precheck exact capacity. L1 escrow and the L2
-LiquidityTreasury are distinct accounts. The Treasury must be funded explicitly in genesis or by a
-separately audited supply-preserving deposit; release activation cannot mint. Forced ETH is surplus
-but cannot reduce recorded liability.
+An L1 sender escrows `value + fee + liquidityFee`. Any LP may deposit existing L2 ETH into a
+non-transferable Pool ticket with an immutable depositor and nonzero L1 recipient. The depositor may
+reserve exactly `value + fee` for an existing pinned NEW/RETRIABLE credit before `processBy`; Pool
+reads the exact Store and Bridge state and is the sole checked writer of `reservedCount(domain)`.
+ABSENT-to-RESERVED increments it exactly once, and RESERVED-to-CONSUMED/RELEASED decrements it
+exactly once in the same journal as all ticket, aggregate, terminal and fund movement. A successful
+destination transition consumes the reservation, returns its actual immutable
+nonzero `(ticketId,l1Recipient,value+fee)` tuple to the Bridge, and commits that tuple's settlement hash in
+the terminal leaf; only that proof turns the full source escrow into an LP pull. Failure or expiry
+releases the reservation and turns `value + fee + liquidityFee` into the user's pull. The LP decides
+whether the source-side `liquidityFee` compensates its L2 capital; without a willing/funded LP the
+credit remains UNFUNDED and eventually refunds, so bounded delivery is explicitly not claimed.
+Forced ETH is surplus and cannot create a ticket or reduce recorded liability.
 
 The old V1 Bridge and its messages remain executable under the old protocol. After a destination
 release is superseded, the old Bridge adapter remains historically identifiable but cannot mint
@@ -1119,15 +1207,19 @@ part of the V2 implementation.
 Each successful cutover records, for the superseded destination Bridge, the proof-bound L1 Queue
 `count` observed by the migration statement. That count is the retirement watermark: the old source
 adapter cannot append after cutover, while InboxApply may still consume previously queued old-domain
-descriptors. Anyone may reclaim a retired Bridge's remaining native balance to the exact lifetime
-LiquidityTreasury only when the old manifest still authenticates the exact lifetime authority graph,
+descriptors. Anyone may reclaim a retired Bridge's unaccounted native surplus to the exact
+manifest-pinned `bridgeSurplus` sink only when the old manifest still authenticates the exact
+lifetime authority graph,
 the Registrar identifies a distinct successor with a sealed activation receipt, InboxApply has
 advanced through the watermark, the Accumulator's checked unique-terminal counter for that exact
 domain equals the Store's checked absent-to-present pin counter, and aggregate pull liability is
-zero. Accumulator increment requires the Registrar-bound Bridge, exact Router route and Store, an
+zero. The Pool must additionally report `reservedCount(oldDomain) == 0`; reclamation never
+enumerates or sweeps tickets. The L2 Bridge authenticates the successor using the Registrar's local
+sealed destination receipt, not an impossible cross-layer call to the L1 Router. Accumulator
+increment requires the Registrar-bound Bridge, exact Router route and Store, an
 existing pin, DONE/FAILED, and a never-before-terminalized `(domain, credit)` guard. Inbox and
 terminal rollback restore counters and guards with their writes. Reclamation is therefore O(1),
-with no Solidity mapping enumeration or unbounded pin/status scan. Treasury rejection is distinct from
+with no Solidity mapping enumeration or unbounded pin/status scan. Sink rejection is distinct from
 a successful zero-balance reclamation. Reclamation retires the execution account permanently and is
 one-shot. It cannot sweep an active Bridge, bypass a pending pin, or remove funds owed to a pull
 claimant.
@@ -1138,10 +1230,22 @@ provisional. Task 7 must benchmark accumulator carry depths 0--63 in Foundry, in
 first writes, context clearing, status, quota, and pull writes, then publish the worst case plus at
 least 30% margin. Use the accepted 64-slot frontier + root + uint64 count + canonical leaf-event
 layout; permissionless replay may depend on at least one replaceable canonical log archive.
+InboxApply gas calibration uses only circuit-reachable batches: four all-cold kind-1 rows in a
+steady 20,000,000-accounted-gas block (sixteen fresh pin writes), the 64-row steady mix of 61
+minimum-gas kind-0 plus three kind-1 rows, and the 64-row 13,000,000-gas activation mix of 62
+minimum-gas kind-0 plus two kind-1 rows. An impossible 64-kind-1/256-write trace is not an activation
+gate.
+The L1 activation profile's `worstCaseActivationAdoptionGas` is a full
+post-intrinsic Router bound, not a post-verifier suffix: it includes ABI decode/re-encode, all cold
+state/profile reads, hashes, `EXTCODEHASH`, the 50,000-gas configuration getter path, a verifier that
+consumes its complete cap with EIP-150/call/memory overhead, and all adoption writes. The 30% block
+gas inequality adds intrinsic gas to that complete, non-overlapping measurement exactly once.
 
-**Open High / mandatory Task 7 codec:** replace the behavioral Message hash with exact Solidity
-ABI/Keccak, dynamic offsets/lengths/padding, exact system-transaction bytes, and golden/reject
-vectors. No V2 Vault calldata or asset codec belongs to launch scope.
+**Mandatory implementation codec gate:** reproduce the frozen MessageV1, ContextV2, Inbox,
+Bridge self-call, Pool, accumulator, migration and registration codecs byte-for-byte in Solidity,
+Go, Rust and the circuit, including every dynamic offset, length, padding byte, selector, return and
+custom-error shape. The Python corpus is the design oracle, not evidence that the production
+implementations already agree. No V2 Vault calldata or asset codec belongs to launch scope.
 
 **Deferred, non-normative asset prerequisites:** any future V2 asset design requires bidirectional
 round trip, delivered-backing accounting, immutable `AssetPolicyId`, exact canonical origin and
@@ -1185,8 +1289,10 @@ builderPenalty = builderSlashAmount - reporterReward
 ```
 
 There is one top-level source of sinks. Each sink binds `{asset, address}`. Builder penalty uses the
-builder lease token; data rent, seat penalty, and forced expiry use native ETH. A nested
-`dataSession.rentSink` is forbidden.
+builder lease token; data rent, seat penalty, forced expiry, and retired-Bridge surplus use native
+ETH. The exact surplus destination is the top-level `bridgeSurplus` sink. Every production sink
+address is nonzero and pairwise unique. A nested `dataSession.rentSink`, component-local Bridge
+surplus sink, or other duplicate sink source is forbidden.
 
 ### 9.2 Production validation
 
@@ -1215,8 +1321,8 @@ SLA_BOND_WEI >=
 ```
 
 All additions and multiplications are checked. Production validation rejects missing/unknown keys,
-wrong unit strings, wrong sink assets, zero required identities, inconsistent chain IDs, malformed
-decimal strings, and every `UNCALIBRATED` or null required field.
+wrong unit strings, wrong sink assets, zero or duplicate required sink identities, inconsistent
+chain IDs, malformed decimal strings, and every `UNCALIBRATED` or null required field.
 
 The last two inequalities bound, respectively, cheap closed-tail capital grief and the direct
 protocol subsidy available when one economic actor intentionally fails a predecessor to promote its
