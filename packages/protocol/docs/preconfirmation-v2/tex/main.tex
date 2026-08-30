@@ -1420,7 +1420,7 @@ canonical ABI decoding; for kind 0 it is the exact EIP-2718 raw-transaction byte
 length.  No caller-supplied length, ABI-padded length, descriptor length or event
 length is accepted.  It requires a nonzero \code{liquidityFee} and a checked
 \code{message.value+message.fee>0}; a zero settlement amount has no ticket,
-reservation or DONE encoding and is rejected before custody or ID mutation.
+Pool authorization or DONE encoding and is rejected before custody or ID mutation.
 No hash, length or funding ticket supplied by the caller is authoritative.  Only the
 configured \code{BridgeInboxAdapter} may enqueue the resulting fixed V11
 projection and it has no queue expiry.  The source Bridge retains message value
@@ -2108,7 +2108,7 @@ getInboxCreditSlot(bytes32 sourceDomainId, address srcBridge,
 liquidityQuoteV2(bytes32 creditId) view returns
   (bytes32 resultHash, uint256 value, uint64 executionFee,
    uint64 liquidityFee, uint64 processBy)
-DestinationBridge.liquidityReservationStateV2(bytes32 creditId) view returns
+DestinationBridge.liquidityFundingStateV2(bytes32 creditId) view returns
   (bytes32 destinationDomainId, address destBridge, address inboxCreditStore,
    uint8 status, uint64 terminalIndexPlusOne)
 \end{verbatim}
@@ -2169,13 +2169,13 @@ later Message.
 \code{liquidityQuoteV2} returns exactly five canonical ABI words and is callable
 only through a registrar-routed Store identity.  The Pool checks the Store
 runtime/configuration and route before reading it; short/trailing/malformed
-return or a zero result hash rejects without reserving.  The validity circuit
+return or a zero result hash rejects without opening an authorization.  The validity circuit
 proves those stored words equal the consumed V11 descriptor/result hash, so an
-under- or over-reservation cannot be created by substituting a quote.
-\code{liquidityReservationStateV2} likewise returns exactly five canonical ABI
+under- or over-debit cannot be created by substituting a quote.
+\code{liquidityFundingStateV2} likewise returns exactly five canonical ABI
 words under the manifest-pinned Bridge code/configuration.  It preserves the
 existing IBridge enum encoding NEW=0, RETRIABLE=1, DONE=2, FAILED=3 and
-RECALLED=4.  NEW and RETRIABLE are the only reservable statuses and require
+RECALLED=4.  NEW and RETRIABLE are the only fundable statuses and require
 \code{terminalIndexPlusOne=0}; every terminal status has the checked terminal
 index plus one.  Padding, short/trailing data or an inconsistent Store/domain/
 Bridge tuple rejects.
@@ -2254,7 +2254,7 @@ Here \code{protocolVersion}, manifest and profile are the immutable destination
 release registered for that domain; \code{kind=1}.  The remaining words are
 recomputed from the durable pin and V11 descriptor.  Address, \code{uint8} and
 \code{uint64} ABI padding is canonical.  The Bridge rejects any caller-supplied
-word mismatch before status, reservation, value or external effects.
+word mismatch before status, Pool authorization, value or external effects.
 The typed context commitment is
 \begin{verbatim}
 SOURCE_CONTEXT_TYPE_LITERAL =
@@ -2349,14 +2349,12 @@ context/helper endpoint and every other system or Bridge-trusting endpoint
 enumerated by the profile.  SourceBridge rejects a denied \code{message.to}
 before any ID, escrow or Registry write.  Destination Bridge repeats the check;
 a historical or corrupted omission transitions to FAILED with zero target,
-quota, fee and Pool consumption, enabling the ordinary source refund proof.  If
-an exact reservation is already live, that same terminal journal releases it,
-restores the ticket's unreserved balance and decrements
-\code{reservedCount(domain)}; otherwise the Pool is unchanged.  A release
-fault rolls back FAILED, its terminal leaf and every Pool write.  The corpus
-includes a target denied only at destination after source authorization and a
-pre-existing reservation, proving no LP capital or retirement counter is
-stranded.
+quota, fee and Pool consumption, enabling the ordinary source refund proof.
+When discovered inside a Pool-funded call, the authorization remains OPEN and
+the ticket remains byte-identical; the exact FAILED wrapper result is joined by
+the Pool before it clears the authorization.  The corpus includes a target
+denied only at destination after source authorization, proving no LP principal
+is consumed.
 ProtocolVersionManager materializes the source-side list once at finalized
 domain-support confirmation.  BridgeDomainRegistry exposes only
 \begin{verbatim}
@@ -2380,7 +2378,8 @@ four, a contract CALL is permitted only when the first four bytes equal
 calldata is the canonical ABI encoding of that one bytes argument; malformed or
 another selector is invocation-prohibited.  Invocation-prohibited processing
 makes no target CALL: it creates the destination owner's value pull and the
-successful processor's execution-fee pull, consumes quota/reservation and
+successful processor's execution-fee pull, consumes quota and atomic Pool
+funding, and
 appends DONE atomically.  EOA delivery uses ordinary CALL semantics and never
 interprets a selector.  The profile corpus covers zero/1/3/4-byte boundaries,
 unknown and post-CREATE2 accounts, each denyset member, malformed hook ABI and a
@@ -2429,7 +2428,7 @@ settlementAmount = message.value + message.fee.
 For DONE, \code{ticketId}, \code{l1Recipient} and the resulting
 \code{liquiditySettlementHash} are each nonzero; checked addition rejects
 overflow.  A Pool deposit whose derived ticket ID is zero reverts before
-incrementing its sequence or accepting value.
+creating a row or accepting value.
 SourceBridge recomputes that hash from the caller-supplied fixed settlement
 tuple and the immutable credit, so a proof copier cannot redirect the LP pull.
 The verifier constructor fixes only \code{ActiveSettlementRouter} and depth 64;
@@ -2462,112 +2461,226 @@ the normalized Message; destination changes emit
 the credit ID and new status.
 \end{sloppypar}
 
-Native delivery uses a protocol-lifetime immutable
-\code{NativeLiquidityPoolV2}, not a finite protocol reserve and not native
-minting.  Any LP may fund a ticket and bind the L1 address that will receive the
-source-side reimbursement:
+Native delivery uses one protocol-lifetime immutable
+\code{NativeLiquidityPoolV2}, not a finite reserve, native minting or a
+long-lived reservation.  Any address may create or top up its own ticket and
+bind the L1 reimbursement recipient:
 \begin{verbatim}
-depositLiquidity(address l1Recipient) payable returns (bytes32 ticketId)
-reserveLiquidity(bytes32 ticketId, bytes32 destinationDomainId,
-                 address destBridge, bytes32 creditId)
-withdrawUnreserved(bytes32 ticketId, address payable recipient,
-                   uint256 amount)
-reservationV2(bytes32 creditId) view returns
-  (bytes32 ticketId, address l1Recipient, uint256 amount, uint8 state)
-consumeReservationV2(bytes32 creditId) returns
-  (bytes32 ticketId, address l1Recipient, uint256 amount)
-releaseReservationV2(bytes32 creditId)
+depositLiquidityV2(address l1Recipient, bytes32 salt) payable
+  returns (bytes32 ticketId, uint256 availableWei)
+withdrawLiquidityV2(bytes32 ticketId, address payable recipient,
+                    uint256 amount)
+  returns (uint256 remainingAvailableWei)
+processWithLiquidityV2(bytes32 ticketId, address destinationBridge,
+  MessageV1 message, SourceContextV2 sourceContext,
+  DestinationContextV2 destinationContext)
+  returns (uint8 resultingStatus, uint8 statusReason)
+retryWithLiquidityV2(bytes32 ticketId, address destinationBridge,
+  MessageV1 message, SourceContextV2 sourceContext,
+  DestinationContextV2 destinationContext, bool isLastAttempt)
+  returns (uint8 resultingStatus, uint8 statusReason)
+ticketAccountingV2(bytes32 ticketId) view returns
+  (address depositor, address l1Recipient, uint256 availableWei)
+poolAccountingV2() view returns
+  (bytes4 magic, bytes32 configurationHash, bool active, bool entered,
+   bytes32 activeAuthorizationHash, uint256 totalAvailableWei,
+   uint256 balanceWei, uint256 surplusWei)
 \end{verbatim}
-\code{ticketId=H("slot-chain-liquidity-ticket-v1"||u256(chainId)||
-address20(pool)||address20(depositor)||address20(l1Recipient)||
-u64(ticketSequence))}.  The pool keeps checked per-ticket unreserved/reserved
-amounts, immutable nonzero depositor/L1 recipient, aggregate totals and one
-reservation per credit.  Reservation and unreserved withdrawal require exact
-\code{msg.sender=ticket.depositor}; approval, operator and bearer transfer do
-not exist.  Withdrawal requires a nonzero recipient, debits before the CALL and
-atomically restores on recipient failure or reentrancy.  A different ticket,
-caller or recipient substitution cannot move accounted funds.  Reservation is
-depositor-only and, through the registrar's immutable route, bounded-static-reads
-both the exact Store quote and exact Bridge reservation state.  It requires the
-existing inbox pin, exact domain/Bridge/Store/credit, status NEW or RETRIABLE,
-zero terminal index, \code{block.timestamp<=processBy}, and
-\code{amount=message.value+message.fee>0}; it records the pin's nonzero
-\code{liquidityFee} but never trusts a caller amount.  First exact reservation
-wins.  An LP chooses whether that fee compensates its capital and cross-chain
-cost; the protocol supplies no oracle or coercive fixed price.
-\code{NativeLiquidityPoolV2} is the sole writer of checked
-\code{uint64 reservedCount[domain]}.  A successful ABSENT-to-RESERVED
-transition increments it exactly once as the final write in the same journal as
-the ticket and aggregate reservation debits.  A failed read, validation,
-duplicate reservation, foreign-Bridge call or reverted transfer leaves it
-unchanged.  A RESERVED-to-CONSUMED or RESERVED-to-RELEASED transition decrements
-it exactly once in the same journal as the funds, aggregate and terminal
-transition; underflow reverts the complete journal.
-Deposit requires nonzero value and recipient, a nonexhausted ticket sequence and
-at least one registrar-sealed destination domain.  Before the first tx0 domain
-activation it always reverts, so an attacker cannot front-run the launch's
-proved zero-ticket/zero-reservation prestate; forced ETH remains unaccounted
-surplus.  Later releases preserve arbitrary live tickets exactly and cannot
-reset that gate or sequence.
-The Pool pins both runtime/configuration hashes and requires exact five-word
-returndata from each view before changing a ticket.  A terminal transition
-ordered first makes a later reservation reject; a reservation ordered first is
-necessarily consumed or released by that transition in the same rollback
-domain.  A DONE/FAILED/expired credit can therefore never acquire a stranded
-reservation or inflate \code{reservedCount(domain)}.
-
-Only the registrar-bound Bridge for that domain may invoke the pool's internal
-methods:
+The exact identifier is
 \begin{verbatim}
-consumeReservationV2(bytes32 creditId)
-releaseReservationV2(bytes32 creditId)
+ticketId = H("slot-chain-liquidity-ticket-v2" || u256(chainId) ||
+  address20(pool) || address20(depositor) || address20(l1Recipient) || salt).
 \end{verbatim}
-ReservationState is exactly ABSENT=0,
-RESERVED=1, CONSUMED=2 and RELEASED=3.  Consume performs CEI, marks the
-reservation CONSUMED, decrements ticket/aggregate/domain reserved counts,
-transfers its exact amount to the calling Bridge, and returns the same immutable
-ticket/recipient/amount as exactly three canonical ABI words (96 bytes).
-DestinationBridge derives the DONE settlement hash only from that return; a
-caller tuple, pre-read cache, short/trailing/malformed return or substituted
-field rejects the nested frame.  Release has no return data, marks it RELEASED and
-returns the exact amount to the same ticket's unreserved balance.  Either is
-one-shot; nonempty release returndata or any reentrant/transfer fault reverts
-the entire Pool/Bridge journal.  The hard pool invariant after every entry is
+Deposit requires nonzero value and recipient and rejects the cryptographically
+exceptional zero ID.  An absent row creates the committed tuple; a present row
+may only checked-add when both stored identities equal the same preimage.
+Withdrawing or consuming the final wei captures the tuple before deleting the
+row.  Recreating the exact tuple and salt intentionally recreates the same ID;
+the same salt under another depositor or recipient derives another ID.  There
+is no global nonce, approval, operator, transfer, salt registry, tombstone,
+lifetime counter or mapping enumeration.  Old DONE claims never consult the
+current Pool row: each terminal leaf independently binds its credit, ticket,
+captured L1 recipient and exact amount.
+
+Every withdrawal and funded attempt requires
+\code{msg.sender=ticket.depositor}.  Withdrawal is CEI-first under the Pool
+guard, calls only the nonzero chosen recipient, and restores the exact row and
+aggregate on revert or reentrancy.  A Pool-funded attempt is also initiated at
+the Pool, not at the Bridge: this prevents any current or future registered
+Bridge from claiming to be an LP and debiting an arbitrary lifetime ticket.
+The Pool bounded-static-reads the registrar-routed Store quote and Bridge state
+with exactly \code{POOL_EXTERNAL_READ_GAS=50000} each.  It requires exact
+five-word canonical returns, the pinned result hash, domain, Store and Bridge,
+status NEW or RETRIABLE, zero terminal index, nonexpired \code{processBy}, and
+checked \code{amount=value+executionFee>0}.  It never trusts caller-supplied
+amount or fee fields.
+
+The Pool then opens one transient storage authorization:
 \begin{verbatim}
-address(pool).balance >=
-  totalUnreservedWei + totalReservedWei
-sum(ticket.unreservedWei) = totalUnreservedWei
-sum(live reservation.amount) = totalReservedWei
-for every domain d:
-  sum(reservation.state == RESERVED
-      and reservation.domain == d)
-    = reservedCount[d].
+authorizationHash = H("slot-chain-native-liquidity-attempt-v1" ||
+  u256(destinationChainId) || destinationDomainId || address20(pool) ||
+  address20(destinationBridge) || address20(inboxCreditStore) || creditId ||
+  ticketId || address20(depositor) || resultHash || u256(amount) ||
+  sourceContextHash || destinationContextHash || u8(operation) ||
+  u8(isLastAttempt ? 1 : 0))
 \end{verbatim}
-The final equality is a model invariant, not a production scan.  Every
-reservation stores its immutable domain and registrar-bound Bridge so neither
-the counter nor its reclaim authority can be caller-substituted.
-Forced ETH is surplus and creates no ticket.  Deposit and unreserved withdrawal
-are CEI-safe and non-reentrant; a recipient failure restores the ticket.
+where PROCESS=1 and RETRY=2; PROCESS requires
+\code{isLastAttempt=false}, while a last attempt is valid only for RETRY.
+The Pool stores the same exact tuple plus state OPEN under its entered guard.  It
+calls only the registrar-bound nonretired Bridge with no value and canonical
+calldata.  For positive Message gas the requested amount is exactly
+\code{V2_POOL_BRIDGE_PRE_CALL_GAS_BOUND +
+V2_ATTEMPT_PRE_CALL_GAS_BOUND + message.gasLimit}; owner-only zero-gas mode
+requests only the gas remaining above
+\code{POOL_AUTH_CLEANUP_GAS=50000}.  Before CALL, after fixed memory and warm
+account costs, Pool enforces both the exact EIP-150 forwarding inequality and
+the 50,000-gas worst-case cleanup reserve, and copies at most 192 return bytes.
+That Bridge accepts the call only from the
+immutable Pool, recomputes the credit, contexts, quote, authorization and
+effective \code{processor=depositor}, then invokes its external only-self child
+attempt.  Its exact entry and return are:
+\begin{verbatim}
+attemptFromLiquidityPoolV2(bytes32 ticketId, address depositor,
+  MessageV1 message, SourceContextV2 sourceContext,
+  DestinationContextV2 destinationContext, uint8 operation,
+  bool isLastAttempt, bytes32 authorizationHash)
+  returns (bytes4 magic, bytes32 creditId, uint8 resultingStatus,
+           uint8 statusReason, uint64 terminalIndexPlusOne,
+           bytes32 liquiditySettlementHash)
+\end{verbatim}
+Its selector is the first four Keccak bytes of the exact fully expanded tuple
+signature in the publication corpus.  Calldata is the canonical
+\code{1124}-byte vector for the 33-byte Message fixture, rejects every dynamic
+offset/padding/trailing-byte alias, and binds the authorization as its final
+head word.  The Pool-to-Bridge wrapper returns exactly six canonical words
+(192 bytes):
+\begin{verbatim}
+(bytes4 magic, bytes32 creditId, uint8 resultingStatus, uint8 statusReason,
+ uint64 terminalIndexPlusOne, bytes32 liquiditySettlementHash)
+POOL_BRIDGE_RESULT_MAGIC = 0x4c415632 // ASCII LAV2
+\end{verbatim}
+It never normalizes a low-level revert, OOG or malformed return into an
+accepted status.  No permit or delegated-funder mode exists in this revision.
 
-Destination success runs in a nested all-or-revert execution frame.  It first
-consumes the reservation, then uses those exact funds for Message value and the
-execution-fee pull, executes the target, consumes quota and appends DONE with
-the ticket/recipient/amount settlement hash.  If target, quota, pull, terminal
-or post-call reserve handling fails, that nested frame reverts the Pool transfer,
-reservation and every target/Bridge effect before the public wrapper returns
-NEW or RETRIABLE as appropriate.  No failed attempt consumes LP capital.
-Manual failure or strict expiry releases a still-live reservation and appends
-FAILED with zero settlement hash in the same journal; a release fault reverts
-the terminal transition.  An unreserved credit remains NEW and reports
-UNFUNDED, so absence of an LP cannot corrupt status or block unrelated credits.
+Inside that child frame only, the Bridge calls
+\begin{verbatim}
+consumeAuthorizedLiquidityV2(bytes32 ticketId, bytes32 creditId,
+  address depositor, uint256 amount, bytes32 resultHash)
+  returns (bytes32 returnedTicketId, address l1Recipient,
+           uint256 consumedAmount)
+\end{verbatim}
+The Bridge requests exactly the profile-pinned
+\code{V2_POOL_CONSUME_CALL_GAS_BOUND} for this call after enforcing the same
+EIP-150 relation and retaining its measured child suffix; that bound includes
+the Pool's value-CALL overhead and 100,000-gas callback.  The Pool permits this
+one reentry only from the authorization's exact Bridge,
+for the OPEN authorization, matching active child attempt, caller, tuple and
+amount.  It CEI-debits or deletes the ticket and aggregate, marks the
+authorization CONSUMED, transfers exactly the captured amount through the
+narrow callback below, and returns exactly 96 canonical bytes.  Every other
+Pool entry, duplicate consume, direct Bridge call, target reentry and tuple
+substitution rejects while \code{entered=true}.
 
-That rollback boundary is one exact external self-call, never an ordinary
+The native-value callback is:
+\begin{verbatim}
+DestinationBridge.acceptLiquidityValueV2(
+  bytes32 creditId, bytes32 ticketId, uint256 amount)
+  payable returns (bytes4 magic)
+POOL_VALUE_CALLBACK_GAS = 100000
+POOL_VALUE_MAGIC = 0x4e4c5632 // ASCII NLV2
+\end{verbatim}
+Before consume, the child writes the exact active frame and
+\begin{verbatim}
+H("slot-chain-native-liquidity-acceptance-v3" ||
+  u256(destinationChainId) || destinationDomainId ||
+  address20(destinationBridge) || address20(nativeLiquidityPool) || creditId ||
+  ticketId || address20(depositor) || resultHash || u256(amount) || attemptDigest)
+\end{verbatim}
+as its sole expected callback.  The Pool uses canonical 100-byte calldata,
+exact value and the 100,000-gas stipend and accepts only the exact 32-byte
+\code{NLV2} word.  The callback requires the immutable Pool, same active child
+frame, exact tuple/value/commitment and no prior receipt; it only clears the
+expectation, stores the receipt and returns magic.  Plain receive/fallback,
+duplicate or direct calls, wrong tuple/value, revert/OOG and short/trailing/bad
+magic fail.  Bridge next requires the exact 96-byte Pool tuple, cleared
+expectation, exact receipt and raw-balance delta before any target call.
+
+Target execution, quota debit, pull creation, DONE status and terminal append
+all remain in that same child frame.  A target, quota, liability, callback,
+return-data or terminal fault reverts the child and therefore restores the
+ticket, Pool aggregate/value transfer, target, Bridge and authorization to OPEN
+byte-for-byte.  The Bridge's outer catch may then write only the already-defined
+NEW, RETRIABLE or owner-authorized FAILED result.  \code{isLastAttempt=true}
+still requires the effective processor to equal \code{destinationOwner}; an
+unrelated LP may only make a non-last retry.  Manual failure and strict expiry
+never call the Pool.
+
+On return to the Pool, it requires the exact magic and credit and joins the
+wrapper result to its authorization state.  DONE requires CONSUMED, nonzero
+\code{terminalIndexPlusOne}, and a settlement hash recomputed from the captured
+ticket/recipient/amount.  FAILED requires OPEN, nonzero terminal index and zero
+settlement hash.  NEW or RETRIABLE requires OPEN and both terminal fields zero.
+RECALLED and unknown statuses are impossible, and every status accepts only its
+normative reason-code set.  Any other status, low-level failure, malformed
+return or state combination reverts the complete top-level call.  The Pool
+clears the authorization before returning only the status/reason pair to its
+caller.
+Thus LP principal moves iff the same journal commits DONE; a failing target has
+no option on LP capital and cannot leave a lease or orphaned row.
+
+The hard Pool invariant is
+\begin{verbatim}
+address(pool).balance >= totalAvailableWei
+sum(live ticket.availableWei) = totalAvailableWei
+surplusWei = address(pool).balance - totalAvailableWei.
+\end{verbatim}
+The sum is a model invariant, never a production scan.  Forced ETH is surplus
+and creates no ticket.  Mapping size is bounded by currently funded rows; dust
+rows pay their own storage and no protocol path enumerates them.  Deposit is
+disabled until the first registrar activation, while later releases preserve
+all tickets and the same Pool.  Ticket and Pool views return exactly 96 and 256
+bytes; Pool magic is \code{0x504c4132} (\code{PLA2}), Boolean/high padding is
+canonical, and an absent ticket is all-zero.  Invalid mutating calls revert.
+
+The exact event surface is:
+\begin{verbatim}
+event LiquidityDepositedV2(bytes32 indexed ticketId,
+  address indexed depositor, address indexed l1Recipient,
+  uint256 amount, uint256 availableWei)
+event LiquidityConsumedV2(bytes32 indexed creditId, bytes32 indexed ticketId,
+  bytes32 indexed destinationDomainId, address destinationBridge,
+  address l1Recipient, address processor, uint256 amount)
+event LiquidityWithdrawnV2(bytes32 indexed ticketId,
+  address indexed depositor, address indexed recipient,
+  uint256 amount, uint256 remainingAvailableWei)
+\end{verbatim}
+The byte-exact corpus fixes all selectors, topics, calldata/returndata lengths,
+padding, authorization and callback commitments and negative substitutions.
+
+There is deliberately no claim of backlog-independent delivery.  One signed
+Pool transaction can be put through the forced path without locking principal
+while it waits, but it succeeds only if the credit and forced envelope remain
+within their deadlines and the owner has not withdrawn or spent the ticket.
+Paid FIFO saturation can outlast those deadlines.  Permissionlessness means
+anyone may deposit and compete with their own capital; the first successful
+canonical transaction wins the source reimbursement, while a front-runner
+cannot spend the victim's ticket.  The success-only liquidity fee compensates
+only voluntary successful execution, not failed gas or an objective delivery
+guarantee.
+Because delegation is deliberately absent, third-party LP processing rejects
+owner-only zero-gas and last-retry modes; those succeed only when the
+destination owner funds and calls through its own ticket.  Direct manual fail
+and permissionless expiry remain outside the Pool.  The protocol does not claim
+that passive third-party liquidity can exercise destination-owner authority.
+
+The child rollback boundary is one exact external self-call, never an ordinary
 internal call and never a second public reentrancy frame:
 \begin{verbatim}
 executeAttemptV2(
   MessageV1 message, SourceContextV2 sourceContext,
   DestinationContextV2 destinationContext, address processor,
-  uint8 expectedEntryStatus, bool isLastAttempt)
+  uint8 expectedEntryStatus, bool isLastAttempt,
+  bytes32 ticketId, bytes32 authorizationHash)
   external returns (uint8 resultingStatus, uint8 statusReason)
 finalizeFailedAttemptV2(bytes32 creditId)
   external returns (uint8 resultingStatus, uint8 statusReason)
@@ -2577,7 +2690,8 @@ Its selector is the first four Keccak bytes of the exact expanded signature
 \begin{verbatim}
 executeAttemptV2((uint64,uint64,uint32,address,uint64,address,uint64,address,
 address,uint256,bytes),(uint64,uint8,bytes32,bytes32,bytes32,uint64,address,
-bytes32,uint64,uint64),(uint256,bytes32,address,bytes32,bytes32),address,uint8,bool)
+bytes32,uint64,uint64),(uint256,bytes32,address,bytes32,bytes32),address,uint8,
+bool,bytes32,bytes32)
 \end{verbatim}
 The failure-finalizer selector is the first four Keccak bytes of
 \code{"finalizeFailedAttemptV2(bytes32)"}; the custom-error selector is the
@@ -2586,16 +2700,14 @@ The immutable implementation records \code{SELF=address(this)} at construction;
 both external entries require \code{msg.sender==SELF} and
 \code{address(this)==SELF},
 so a direct caller, proxy or delegatecall context rejects before a read or
-write.  This entry does not acquire the shared non-reentrant guard: the public
-\code{processMessageV2}/\code{retryMessageV2} wrapper already holds it,
-authenticates the Message/pin/contexts, derives \code{processor=msg.sender},
-checks the entry status/owner/last-attempt policy, and rechecks that the supplied
-reservation is exact before making the self-call with zero value.  The inner
-entry defensively recomputes credit, pin, contexts, policy and entry status,
-then owns the complete consume--target--quota--pull--terminal journal.  The
-failure finalizer rechecks RETRIABLE, the same pin, absent terminal and exact
-live reservation, then owns release--FAILED--terminal in one journal.  No other
-entry may invoke one of those steps.
+write.  The Pool-authenticated Bridge wrapper already holds the shared guard,
+authenticates the Message/pin/contexts/authorization, derives the effective
+processor from the Pool tuple and checks entry status, owner and last-attempt
+policy before making the self-call with zero value.  The child defensively
+recomputes every field, consumes only that authorization and owns the complete
+Pool--target--quota--pull--terminal journal.  The failure finalizer rechecks
+RETRIABLE, the same pin and absent terminal and owns only FAILED plus terminal;
+it never calls the Pool.  No other entry may invoke one of those steps.
 
 The wrapper ABI-encodes only those derived values, reserves the profile-pinned
 \code{V2_OUTER_CATCH_GAS_RESERVE}, and makes a bounded external call to
@@ -2603,13 +2715,14 @@ The wrapper ABI-encodes only those derived values, reserves the profile-pinned
 (64 bytes).  A failed low-level target CALL never returns normally and never
 bubbles or hashes target returndata.  Instead the Bridge computes
 \begin{verbatim}
-attemptDigest = H("slot-chain-destination-attempt-v1" || creditId ||
+attemptDigest = H("slot-chain-destination-attempt-v2" || creditId ||
   sourceContextHash || destinationContextHash || address20(processor) ||
-  u8(expectedEntryStatus) || u8(isLastAttempt ? 1 : 0))
+  u8(expectedEntryStatus) || u8(isLastAttempt ? 1 : 0) ||
+  ticketId || authorizationHash)
 \end{verbatim}
 and reverts the complete inner frame with the exact 36-byte canonical custom
 error \code{TargetCallFailedV2(attemptDigest)}.  This restores the consumed
-reservation, Pool transfer, target effects and Bridge state to their entry
+ticket, Pool transfer, target effects and Bridge state to their entry
 values.  The outer wrapper locally recomputes the digest and recognizes only
 that selector, exact length and exact word.  Target returndata is discarded
 before the Bridge creates this error, so a target-crafted identical error cannot
@@ -2619,10 +2732,10 @@ After an authenticated target-failure catch, non-owner initial failure and
 non-last retry return the unchanged NEW or RETRIABLE state without writes; an
 owner initial failure writes RETRIABLE in the outer frame; and an owner-last
 retry makes the zero-value \code{finalizeFailedAttemptV2(creditId)} self-call.
-That second entry releases the still-RESERVED ticket, decrements the domain
-count, writes FAILED and appends its zero-settlement terminal leaf atomically.
+That second entry writes FAILED and appends its zero-settlement terminal leaf
+atomically after the first child has restored the ticket.
 If it reverts or returns anything but the exact canonical 64-byte FAILED result,
-the outer call reverts, leaving the entry status and reservation unchanged.
+the outer call reverts, leaving the entry status and ticket unchanged.
 Any first-frame revert other than the authenticated target-failure error, and
 any short/long return, noncanonical enum or unexpected status, discards revert
 bytes and maps only to \code{(expectedEntryStatus,
@@ -2630,7 +2743,7 @@ ATTEMPT_ROLLED_BACK)} without an outer write.  The release profile freezes both
 selectors, tuple grammars, custom-error selector/domain, valid status/reason
 matrix, self-call gas caps and catch reserve.  Direct-inner, delegatecall,
 callback reentry, nested process/retry, target-crafted error, target failure with
-reservation then retry, owner-last failure with release/leaf, malformed return,
+ticket then retry, owner-last rollback-before-FAILED, malformed return,
 and post-target quota/pull/terminal fault vectors prove the separation and
 byte-identical rollback.
 
@@ -2643,7 +2756,7 @@ destinationQuotaDebit = checked(message.value + message.fee).
 Both a successful real CALL and invocation-prohibited DONE debit that amount in
 the same nested terminal journal.  Target failure, UNFUNDED, NEW, RETRIABLE,
 manual failure and expiry debit zero.  A missing key, overflow, insufficient
-quota or quota-call fault rolls back the target call, Pool transfer/reservation,
+quota or quota-call fault rolls back the target call, Pool transfer/ticket debit,
 Bridge status/pulls and terminal append together.  Refund, source recall,
 withdrawal and terminal proof paths never read or debit quota.  The fixed corpus
 covers value zero/fee positive, value positive/fee zero, both-zero rejection,
@@ -2664,7 +2777,8 @@ DONE never turns locked L1 ETH into ownerless surplus.  Source liability falls
 only after the matching pull transfer succeeds.  This removes deterministic
 lifetime-reserve exhaustion while leaving existing V1 native exits untouched.
 It does not make liquidity free: delivery liveness is explicitly economic and
-requires at least one LP willing to reserve pre-existing L2 ETH.
+requires at least one LP willing to atomically fund execution from pre-existing
+L2 ETH.
 
 The destination domain's fresh immutable non-proxy Bridge owns V2 status, retry state,
 ETH custody and terminal index for the domain's entire lifetime.
@@ -2685,14 +2799,14 @@ unpausable from NEW or RETRIABLE.  DONE, FAILED and RECALLED are terminal.
 
 The V2 fee is a success-only bounty.  No NEW, RETRIABLE, FAILED, manual-fail or
 expiry path pays it.  A non-owner successful real invocation receives all fee;
-owner self-processing also receives all fee.  For a real CALL, insufficient raw
-reserved Pool liquidity returns UNFUNDED before the attempt.  The nested attempt
-then consumes the exact reservation; a transfer or raw-balance failure reverts
-that frame rather than authorizing from a free-balance view.  A successful
+owner self-processing also receives all fee.  For a real CALL, an insufficient
+caller-owned ticket returns UNFUNDED before the attempt.  The nested attempt
+then consumes only the exact OPEN Pool authorization; a transfer or raw-balance
+failure reverts that frame rather than authorizing from a free-balance view.  A successful
 target is followed by exact quota consumption, execution-fee pull-credit
 creation, terminal append and the hard
 \code{balance>=aggregateV2Liability} assertion in the same journal.  Any quota,
-liability-floor, reservation or terminal failure rolls back Pool, target and Bridge,
+liability-floor, authorization or terminal failure rolls back Pool, target and Bridge,
 including an owner-last success.  Deterministic no-CALL success paths may
 precheck their exact capacity.  Every entry and withdrawal shares one top-level
 non-reentrant frame.  Send/process/retry/manual-fail may be paused; cancellation,
@@ -2773,7 +2887,9 @@ completed-subtree store.  Production must benchmark carry depths 0--63 and the
 complete cold post-call suffix before fixing \code{V2_POST_CALL_GAS_RESERVE}.
 The same harness must measure and freeze nonzero profile fields
 \code{V2_ATTEMPT_PRE_CALL_GAS_BOUND} and
-\code{V2_OUTER_CATCH_GAS_RESERVE}.  For positive Message gas, the wrapper
+\code{V2_OUTER_CATCH_GAS_RESERVE}, plus
+\code{V2_POOL_BRIDGE_PRE_CALL_GAS_BOUND} and
+\code{V2_POOL_CONSUME_CALL_GAS_BOUND}.  For positive Message gas, the wrapper
 requests exactly \code{V2_ATTEMPT_PRE_CALL_GAS_BOUND+message.gasLimit} for
 the self-call and first applies the exact EIP-150 sufficiency relation while
 retaining the catch reserve; the inner target receives exactly
@@ -2781,7 +2897,8 @@ retaining the catch reserve; the inner target receives exactly
 execution, it forwards all gas above the outer reserve and the inner retains the
 post-call reserve.  Production vectors cover first/cold Pool and quota slots,
 target OOG, custom-error construction/decoding, the second failure-finalizer
-self-call and outer guard cleanup.  Until all three measured values and a
+self-call and outer guard cleanup.  Until all five measured values, the fixed
+Pool read/callback paths and a
 30-percent margin are published, the execution profile and document remain
 non-implementation-ready.
 
@@ -2921,9 +3038,9 @@ pre-activation Bridge surplus; zero nonce, liability and private status/pull/
 terminal mappings; full initial nonzero V2-only quota; and \code{v2Active=false}.
 It authenticates the lifetime Pool code/configuration and its unchanged
 aggregate solvency, then one-shot registers the fresh domain/Bridge/Store as an
-append-only reservation authority, installs the inbox route and accumulator
+append-only atomic-funding authority, installs the inbox route and accumulator
 writer, and seals Store plus \code{v2Active=true} in one rollback domain.  Tx0
-moves no native value, creates no LP ticket/reservation and mints nothing.
+moves no native value, creates no LP ticket and mints nothing.
 There is no activation-gate
 account, legacy proxy branch, exact-reuse branch, owner, implementation slot or
 delegate target.  A historical domain or Bridge can never be reactivated even
@@ -2933,9 +3050,10 @@ conflicting route or late failure reverts tx0 entirely.
 InboxApplyRouterV2, ProtocolReleaseAuthorityV2,
 TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2 are
 protocol-lifetime objects repeated byte-exactly by every successor manifest.
-Their cursor, old routes/releases/registrations, Pool tickets/reservations and
+Their cursor, old routes/releases/registrations, Pool tickets and
 accumulator frontier/root/count remain intact; only the absent release, route,
-Pool domain authority and one-to-one writer are appended.  The registrar stores the single Appendix-defined
+Registrar funding route and one-to-one writer are appended.  The Pool itself
+stores no domain row.  The registrar stores the single Appendix-defined
 \code{registrationCommitment[protocolVersion]} only after the full seal.
 The accumulator has no public registrar or root setter and calls only the
 registered Bridge's bounded terminal getter during append.  Status, sentinel,
@@ -3000,15 +3118,14 @@ receipt above, InboxApply has reached the
 immutable watermark,
 \code{terminalizedPinnedCount[oldDomain]=oldStore.pinnedCount}, and the old
 Bridge's aggregate pull liability is zero.  The call reauthenticates the old
-Bridge's aggregate execution-fee pull liability is zero and
-\code{NativeLiquidityPoolV2.reservedCount(oldDomain)=0}.  Unconsumed old-domain
-reservations must first be consumed by success or released by a terminal
-failure; unrelated unreserved ticket funds remain withdrawable by their LP.
+Bridge's aggregate execution-fee pull liability is zero.  Atomic funding leaves
+no Pool state attached to a domain across transactions; unrelated ticket funds
+remain withdrawable by their LP.
 The call bounded-static-reads both Registrar views, checks exact code/config/
 length/magic and old/new version/manifest/domain/Bridge/watermark/seal, then
 reauthenticates the old manifest and complete lifetime
-Router/authority/registrar/accumulator/Pool graph,
-requires the old route and domain writer unchanged, and transfers the entire
+Router/authority/registrar/accumulator/Pool graph, requires the old route and
+domain writer unchanged, and transfers the entire
 remaining raw Bridge surplus to the profile's typed NATIVE\_ETH
 \code{bridgeSurplus} sink; it never enumerates a mapping or consumes a Pool
 ticket.  Its result is
@@ -3023,7 +3140,7 @@ state mismatch revert or return REJECTED without mutation.  Historical status,
 terminal index/events and proof verification remain readable forever.
 Historical SourceBridges remain callable until every USER\_PULL and LP\_PULL is
 withdrawn; a DONE reimbursement is never reclaimable as surplus.  Repeated
-release rotation changes no ticket owner, reservation, source liability or
+release rotation changes no ticket owner, source liability or
 terminal proof.
 
 Every execution proof additionally authenticates the accumulator account and
@@ -4029,11 +4146,11 @@ Unauthorized source-support fill & Version manager rejects entries absent from t
 Message bytes disappear & Enqueue expires to source cancellation; a pinned credit expires to destination FAILED. & The full DIRECT ETH value, execution fee and liquidity fee refund remains permissionless by credit ID; successful destination invocation is lost. \\
 Source escrow drain & The fresh SourceBridge checks every payout against pending, user-pull and LP-pull aggregate liabilities. & DONE reclassifies the full escrow to the proof-bound LP recipient; cancel/FAILED reclassifies it to the user, and liability falls only on a successful pull. \\
 No willing destination LP & The credit remains UNFUNDED without consuming Pool capital or blocking unrelated credits, then may expire to FAILED. & Delivery liveness is economic: permissionless tickets remove deterministic finite-reserve exhaustion but cannot compel capital at an unattractive \code{liquidityFee}. \\
-Target or post-call tail fails & The only-self attempt frame reverts Pool consume, transfer, target and Bridge effects; target-failure policy runs only after the authenticated catch. & Retry keeps the same RESERVED ticket; owner-last failure releases it and appends FAILED in a second atomic journal. \\
+Target or post-call tail fails & The only-self attempt frame reverts Pool consume, transfer, target and Bridge effects; target-failure policy runs only after the authenticated catch. & The caller's ticket remains available; owner-last failure appends FAILED only after that rollback. \\
 Guardian pause or zero quota & Risky sends/process/retries stop; expiry, terminal verification and reserved refunds continue. & Frozen V2 proof/refund paths have no transitive pause or ordinary quota dependency. \\
 Foreign destination replay & Local domain and \code{destBridge==address(this)} checks reject before status or value effects. & The immutable pin store and accumulator both bind one exact domain/Bridge pair. \\
 Terminal proof-format change & Canonical state carries a stable application-level depth-64 vector root/count. & Source verification does not parse the destination EVM state format; later roots preserve old leaves. \\
-Retired destination reclaim & Reclaim waits for successor receipt, Queue watermark, pin/terminal equality, zero pull liability and zero Pool reservations for the old domain. & Only unaccounted Bridge surplus reaches the pinned sink; tickets are never enumerated or swept. \\
+Retired destination reclaim & Reclaim waits for successor receipt, Queue watermark, pin/terminal equality and zero pull liability. & Atomic Pool funding leaves no domain-scoped capital; only unaccounted Bridge surplus reaches the pinned sink, and tickets are never enumerated or swept. \\
 Legacy call to installed V2 code & The fresh release-owned Bridge and Store remain inactive and the custom system transaction type is invalid. & Proved tx0 atomically seals Store and Bridge once; legacy V1 addresses are never redirected. \\
 All canonical prestate copies lost & No party can construct the next EVM witness from a root alone; proof generation stops without changing canonical state. & Explicit information-theoretic availability limit; restore any root-verifiable archive copy. \\
 Transparent-mempool front-run & First valid recovery transaction wins. & Proof statement binds beneficiary, episode, revision and outputs; copying cannot redirect payment or state. \\
@@ -4346,15 +4463,15 @@ display newline or extra whitespace.
 
 For GENESIS\_IMPORT, the prestate-policy tag means exact lifetime code/config,
 empty Router routes/cursor, empty release/domain/writer records, accumulator
-empty root/count/frontier, Pool zero domain/ticket/reservation/accounted totals,
+empty root/count/frontier, Pool zero ticket/accounted total,
 fresh Store/Quota/Bridge private state and arbitrary forced ETH surplus.  For
 VERSION\_MIGRATION it means exact lifetime code/config and byte-for-byte
 preservation of every old route/release/domain/writer, Inbox cursor, accumulator
-frontier/root/count and Pool ticket/reservation/accounting word, with only the
+frontier/root/count and Pool ticket/accounting word, with only the
 new release/domain/writer/route absent and the new Store/Quota/Bridge fresh.
 Both poststate tags mean the exact tx0 manifest/count is sealed, only those new
 append-only entries and endpoint activation are added, all old lifetime state
-is preserved, no Pool ticket/reservation is created and no ETH is moved or
+is preserved, no Pool ticket is created and no ETH is moved or
 minted.  The circuit proves each enumerated account/code/storage and balance
 relation directly under authenticated pre/post roots and proves the
 complete output core.  It also proves the deployment policy encoded by the
@@ -4560,8 +4677,8 @@ the absence of any reachable upgrade/delegate target; InboxApplyRouterV2
 permanent sender/registrar/namespace, \code{nextQueueIndex=0} and empty routes;
 inbox-store router/Bridge/registrar immutables, zero domain and empty mappings;
 empty release-authority/registrar records; accumulator empty domain writer,
-count/root/frontier; Pool zero tickets/reservations/accounted balances and no
-registered domain, with any forced ETH classified only as surplus; fresh Bridge
+count/root/frontier; Pool zero tickets/accounted balance and no
+active authorization, with any forced ETH classified only as surplus; fresh Bridge
 zero nonce/liability/private mappings and \code{v2Active=false}; full quota; and
 arbitrary authenticated Bridge surplus.
 The proof follows the exact immutable account and constructor-bound reference
@@ -4920,6 +5037,12 @@ Kind-0 validity / kind-1 enqueue & 604,800 / 604,800 s & Bounds missing bytes
 before expiry or source cancellation. \\
 \code{BRIDGE_PROCESS_TTL_SECONDS} & 2,592,000 s & Starts at the immutable L2 pin;
 afterward anyone transitions NEW/RETRIABLE to FAILED without Message bytes. \\
+Pool read / authorization cleanup / value callback gas & 50,000 / 50,000 / 100,000 &
+Exact immutable stipends/reserve; the release benchmark covers every cold path,
+EIP-150 boundary and fixed return copy with at least 30\% margin. \\
+Pool Bridge-prefix / consume-call bounds & UNCALIBRATED / UNCALIBRATED &
+The executable profile must publish nonzero measured values; positive-gas
+forwarding adds the exact Message budget and preserves both outer reserves. \\
 Terminal accumulator/proof & depth 64 / 64 siblings / 2,048 B &
 Checked \code{uint64 count<UINT64_MAX}; leaf commits index, domain, Bridge,
 credit and terminal; storage is 64 frontier words plus root/count, and a complete
@@ -5408,7 +5531,7 @@ for the fixed call and hash comparison.  The circuit also authenticates the
 fresh row-10 account/runtime/config/layout and empty private state directly under
 the imported state root; the getter is not a substitute for those observations.
 The ten \code{configBytes} lengths are exactly
-80, 136, 21, 73, 60, 52, 80, 21, 52 and 164 bytes, respectively, and their contents are:
+80, 136, 21, 73, 60, 52, 80, 21, 76 and 164 bytes, respectively, and their contents are:
 \begin{enumerate}
 \item\begin{verbatim}
 address20(bridgeCreditRegistry) || address20(sourceBridge) ||
@@ -5441,7 +5564,9 @@ address20(terminalAccumulatorV2) || address20(nativeLiquidityPoolV2)
 address20(terminalDomainRegistrarV2) || u8(64)
 \end{verbatim}
 \item\begin{verbatim}
-address20(terminalDomainRegistrarV2) || bytes32(poolNamespace)
+address20(terminalDomainRegistrarV2) || bytes32(poolNamespace) ||
+u64(POOL_EXTERNAL_READ_GAS) || u64(POOL_AUTH_CLEANUP_GAS) ||
+u64(POOL_VALUE_CALLBACK_GAS)
 \end{verbatim}
 \item\begin{verbatim}
 bytes32(storageLayoutHash) || bytes32(bridgeKernelProfileHash) ||
@@ -5455,7 +5580,7 @@ the protocol-lifetime Queue code/configuration into every release.  Kind 4
 is protocol-lifetime and preserves its cursor and existing routes while
 requiring the new route absent.  Kind 5 requires a fresh endpoint domain and
 empty pin state.  Kinds 6--9 are protocol-lifetime and preserve all old
-append-only release/domain/writer/ticket/reservation entries while requiring
+append-only release/domain/writer/ticket entries while requiring
 only the new release/domain registrations absent.  Kind 10 requires fresh
 immutable code/configuration, empty private state, full initial quota and
 \code{v2Active=false}; exact reuse is forbidden.  Tx0 seals kinds 5 and 10 and
@@ -5586,7 +5711,8 @@ H("slot-chain-terminal-leaf-v2" || u64(i) || destinationDomainId ||
 with \code{terminal=1} for DONE or 2 for FAILED.  FAILED requires
 \code{liquiditySettlementHash=bytes32(0)}.  DONE requires the nonzero exact
 \code{H("slot-chain-liquidity-settlement-v1"||ticketId||
-address20(l1Recipient)||u256(value+fee))} authenticated by the pool reservation;
+address20(l1Recipient)||u256(value+fee))} authenticated by the Pool's atomic
+consume return;
 substitution of any ticket, recipient or amount changes the leaf.  The committed root is
 \begin{verbatim}
 H("slot-chain-terminal-root-v2" || u64(count) || treeRoot)
@@ -5677,168 +5803,192 @@ seed and tie hashes are as in \S\ref{sec:schedule}; body and blob encodings are
 as in \S\ref{sec:data}.  \code{commitment-model.py} is the normative executable
 fixture.  Its initial vectors are:
 \begin{verbatim}
-TYPEHASH      ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
-registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
-admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
-entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
-forcedRoot    a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57
-sourceDomain  3ca03af3984e7b2ece804a84fe1f80b20d1ca0c710a03b4483adfabd63a35376
-destDomain    97e53e2233611efb9ee4dbb5a8d97a108b4d33ec43711b3d7250bd0c33863cf0
-bridgeKernel  a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338
-bridgeExec    fa1e986cef0ff6d8474aeb73698573487e761635dd5999ff1cce625ddf223dd3
-destBrExec    78c541f426d06c2d96470d6e9e226dc9186d7632c15c587a3199d0db2766c6c4
-destInfra     1dd64cb0e4fe42cf2f54a7daa9936854c654ef1f43f5339d664a6d07c10d27d1
-poolRowAlt    af9e17cc8c95267b679e9ae20ec16363a8fa06ceb4e56d63e40bd6e671a05647
-mvConfigType  0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98
-mvConfigHash  969a782016029488dab2179a992f96b0331759058a03d0105c6a157de09e206d
-mvDescType    6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6
-mvDescHash    3717fd77ba3254853408d20623f95df4c88b5e6abc20cf436797b7155a5fb965
-mvConfigSel   476b9aef
-relTypehash   603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b
-activateSel   28f73572
-relManifest   b19d98a5c4494c4b37d5b84da44b1217fb66284376f6fd8b377e22b9dfa1f869
-destReg       7e05192d70ce3bc37609173005691b2cfac0d7965a58969e342c3a849ec98c62
-migStmtType   1c99db64554200a004b213159ac780ebbde4379622f59ad73f8f503afcbb2fe1
-deployType    bcfcbbdc64e08793950be4f8cd516833c105b8aff92ed7f5482e7aa122df709e
-components    1ea18ec884a6b6589f5ffc6b26ed65ba1c2e1b1c2a236d01b56870a10599517c
-genesisDeploy d280ae426b49d9b76957272ec052ade6c5fb3689cb0422422a73cd6ed5d1f71f
-versionDeploy 050582303e9ccf3b2caed29c1f534b20072933a6d5438389638d0d70ffcbb007
-legacyCkpt    6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708
-genesisStmt   437db4c7add4914d0663065bb6637e858a41af59b98299347a983f717bc92df4
-versionStmt   bfb307caed765013a6dc050dd0bfe21d7e86702cdfa6cb2714b567dc1b923b74
-regStmtType   c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0
-regRouteType  4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
-regRoute      7ff8e1d53c3ddb482fd789fa3b29c92cdc5fd42aed2151b7f684c70c5c40f7c6
-verifyRegSel  33639818
-regStmtHash   57421732f8694364afe5d47f05bd562b536c6469e7f891ae2c1b9ba61359f819
-regProof      50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5
-regCfgType    38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
-regCfgHash    b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f
-regDescType   9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
-regDescHash   99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf
-regCfgSel     59bfe418
-verifyRegCall 5254ee30ab9239869c34664d1cc4c6945615c21dc8434bd76d438c418d92ae36
-verifyRegLen  516
-srcCtxType    6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70
-srcCtxHash    c76e3ae4a8d80df05787562d494ca2b66681d840c7bc6a870a8349bb125daf27
-dstCtxType    b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb
-dstCtxHash    019ecba422e0615a07edc6e2ba112d112e35ed77e9004489025ac6a8b5764e52
-ingAuthType   a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82
-kind0Auth     31e0887e3c9b8e063d322fccda4f8d01d2be91a8c8f0ee20d8cd9984ee972aaf
-kind1Auth     1cee9bf0f46a9f58aa5e47ee5fc2c0d1cb865f1cd70ce1353aa25497c38b272e
-ingRootType   c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042
-ingRoot       e925350f82d47fa044d352e8e65a68f4641304abc0996a20985ea1ee8479ffac
-sendMsgSel    9211d7e9
-enqCreditSel  81805d6b
-msgTuple      0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d
-msgData       f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835
-sendMsgCall   9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12
-sendMsgLen    516
-enqCreditCall 02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4
-msgPreLen     576
-normalizedMsg f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7
-enqueueTxSel  9f06b1b4
-enqueueTxCall 3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a
-enqueueTxLen  196
-syncSel       6c880b72
-syncStamp     1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434
-syncChanged   ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184
-appendSel     1927261d
-appendK0      caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a
-appendK0Len   388
-appendK1      a1460e7adedb5855522f00a851f9025b96534ab3c6c83f513fd7841382f915de
-appendK1Len   708
-queuedReturn  76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d
-inboxApplySel 6b326168
-inboxApply    c55aea0f32c9ad41c0999db1f4b7ba9375bb1780c9e6e28f10f182b44eba37fd
-inboxApplyLen 1092
-markBatchSel  a92f72cd
-markBatch     30a0a90e1ff8add20c78619d04749502540c0f2b3d405da3d71bc2ff1bd4b01f
-inboxMagic    49425632
-routeCfgSel   4b64fa11
-verifyPinSel  28933d28
-getPinSel     31e85ab1
-liqQuoteSel   43dc48e0
-reserveSel    45a933f1
-attemptSel    b3e5c861
-attemptCall   2d2c0279d18df6ac41cc77e6c9e4d3190a6110ae27e8f8f0358837aef66db5dd
-attemptLen    1060
-finalFailSel  745dcb69
-targetErrSel  f9cc2b44
-appendTermSel abc194f5
-termCommitSel 2c984c97
-termStateSel  998c57ed
-ticketId      69e7a081b31736d338fa57ad67287ae534499bd1f800bc08272703f08b9a6ec9
-policyType    d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
-policyHash    5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
-policySel     b2d0e286
-hookSel       7f07c947
-policyMagic   49505632
-l2ReceiptId   6315904b1838529ad9b66ec508ef3e2ec6e1985db23f3a20bd0b0a4b41517c27
-l1ReceiptId   9c73be9f9f317489fc99cc07ef6824f48a52b371637f1a8bead0e58e7dd5555c
-activateVSel  14c37693
-genesisFixed  273742c984e16e7a4eac27323bbfface0e334cb90da2640dc482683114ac0c01
-versionFixed  8ef8c50c81fa6748590f2affe7ac89e9d0adb4a6644d288edfa5dd2923dfc490
-genesisCall   7b790b4826a04aae87637711542ba55dc17e0f4f2189a1d761406d55b5d6a0a2
-genesisLen    3876
-versionCall   18591525f0a1de1e05bda1dc26d8d975ce682f5c8add2fa8805a2d99f2792eee
-versionLen    3812
-maxGenesis    3081eac3864cafad843262459d25e63909e5b891399129bf5517da2a0b745139
-maxGenesisLen 150180
-maxVersion    856b4e553a4819cda95fc6971945dc818b8a7e259318dc92b79f99d3880b9284
-maxVersionLen 149220
-regBase       20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
-regSlot       dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
-regTrie       200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
-relBase       a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
-relSlot       719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
-relTrie       dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
-routeConfig   2256dd6e98891531a80b2ee16b67a7f1d77db7e17d8523f9b5ab3fa540e9c4a3
-queueConfig   72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
-dataSessCfg   83e7e252277ea66b70b59a490421d21454032a3fe64107c7390131f83a487b76
-dsOpenSel     7bda4d11
-dsPostSel     a1cc526a
-dsSealSel     340e11fb
-dsMaintSel    1e7a916a
-dsClaimSel    fdd2b0db
-dsSweepSel    9d083a2b
-dsCellSel     011efada
-dsByIdSel     eeaad0bb
-dsAcctSel     e2a62969
-activeSetSel  4a95c306
-migReadySel   b36c83ce
-markReadySel  e0c25827
-activeSetMagic 41535231
-migReadyMagic 4d525331
-markReadyMagic 4d524459
-dsOpenTopic   a81132592bd8a549a0bfc83415ab47fbca586f0b48fff5f6cb5bfae0a9fd1f68
-dsRecordTopic 30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c
-dsSealTopic   f6d45ab0ecc3348b36ac48bc769f7391962fc2fa240c1c6bb43269ed3780078e
-dsRefundTopic 086de7ad4d27cf66f63e9dc6ecb09c0c3122146dd43e7f480f3a875070eb984e
-dsClaimTopic  69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb
-dsForfeitTopic f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957
-dsSweepTopic  3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86
-dsMaintTopic  920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89
-bridgeLeaf    956ac8402556d0a89ca016866d374e6f69fa3fd205435aef24135287c44b9b76
-feeLeafAlt    24b35a966effbd11f3ac01e523adcc1bd534144f65ec2a51e0d0082ba782394f
-creditId      44c7f6349cfc851f3d08f76268d0bf63986b3c2d66ad1de8aa22c3a684e922cb
-feeCreditAlt  14094883c8f217eb0db2c615ec87bff6f96295dfe5fd67963e399f767f0a7630
-escrowId      c12559a405b00da5acac02621ba6f341a8d4d6adf17594254ed061d739980f6d
-inboxSlot     27723fe890a8d23e0b7d0b14880f03f3c34cc646f9600a83919840f6a0bd5b89
-terminalDone  1c89cc4ea4844a4d892d59a0cede83ad74b12724acd7214bc0c11cb9403e7e33
-liquiditySet  625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19
-settleLeafAlt 8db1f7f9e7fa1c5075075286eed748933d59e22759bd0f3011a91950ad9d67b7
-terminalFail  1391f7851ecffe7093f154cc399ac59891b7aa7766b32375df9a53c6d84b1d5f
-terminalRoot2 121e62e05147e60c2db287e8e7d4de42fff6cdec8f51d53f6f67214457c97581
-emptyTermRoot c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
-bridgeResult  20b827ea751b10e09d74228c914983753c5b11def4ea5db33ba98223020161c2
-manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
-normalContext 5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
-migrationData 2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
-winningData   4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
-statementHash 5e3f9ad95b6ccfa825d4d860a724cdd4acde1951a0f7ba8649acaedd73eda2a0
-recoveryId    fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
-bodyRoot      0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
+TYPEHASH        ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
+registryRoot    0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
+admissionRoot   3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
+entryRoot       acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
+forcedRoot      a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57
+sourceDomain    3ca03af3984e7b2ece804a84fe1f80b20d1ca0c710a03b4483adfabd63a35376
+destDomain      9d5865dd8f4355518ff88d1ef4f8ffc02049691a0a67b2f7a6a0748b631c0dd6
+bridgeKernel    a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338
+bridgeExec      fa1e986cef0ff6d8474aeb73698573487e761635dd5999ff1cce625ddf223dd3
+destBrExec      78c541f426d06c2d96470d6e9e226dc9186d7632c15c587a3199d0db2766c6c4
+destInfra       0cdf882cb87853c1d14330102677c44ca4cf40bc7c150086ddcf6180f869a71b
+poolRowAlt      af9e17cc8c95267b679e9ae20ec16363a8fa06ceb4e56d63e40bd6e671a05647
+mvConfigType    0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98
+mvConfigHash    969a782016029488dab2179a992f96b0331759058a03d0105c6a157de09e206d
+mvDescType      6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6
+mvDescHash      3717fd77ba3254853408d20623f95df4c88b5e6abc20cf436797b7155a5fb965
+mvConfigSel     476b9aef
+relTypehash     603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b
+activateSel     28f73572
+relManifest     77ed9f80122ececc86da67e0c6af8c9ef41cc4fa40858fa7eff26dc0c6715b83
+destReg         d0dcd30fabc8c57cdf762166ceda156889488990bb4db0b7596960380e256dd3
+migStmtType     1c99db64554200a004b213159ac780ebbde4379622f59ad73f8f503afcbb2fe1
+deployType      bcfcbbdc64e08793950be4f8cd516833c105b8aff92ed7f5482e7aa122df709e
+components      6248625e4b5e9943135d6362bcd3dd318039efa0409719f9911ee1fd1a4b1841
+genesisDeploy   58cfcabb32391f99b13fcf43d59518164bf55477b55a452c823e44a736b08dd8
+versionDeploy   21dee41b7da848124533769c0898c19a4b9177e287e1d5165b058a4d448b9292
+legacyCkpt      6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708
+genesisStmt     e663fde890e23c0c006156c4e9f9044b26ab33c15132b3d69b3075a3dd914aab
+versionStmt     641eb0ba8ba3e3754745269828d945f6b090e66d54360dd5297df009a403636e
+regStmtType     c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0
+regRouteType    4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
+regRoute        2b65be65ab9d7c4b04c7a9af559fe2237e2bcf9fa1929283007acaea9e8f8b8a
+verifyRegSel    33639818
+regStmtHash     a1694f13e3ee7db82f8f8f49ff80c4d8abeafe9d8f405db669631cbc48300042
+regProof        50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5
+regCfgType      38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
+regCfgHash      b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f
+regDescType     9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
+regDescHash     99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf
+regCfgSel       59bfe418
+verifyRegCall   1a820f00c2003c6a46858e4a3354dbb0eea36477d46744157b96d9d5498b3bfc
+verifyRegLen    516
+srcCtxType      6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70
+srcCtxHash      1ec85d31b086570401b42b9bf96e29a863f0277353b9dc40da85eda17b3abef6
+dstCtxType      b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb
+dstCtxHash      bfafcf7c57ae126a84fa3004503382308d055e6af00bc730c63b84663bf352f4
+ingAuthType     a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82
+kind0Auth       31e0887e3c9b8e063d322fccda4f8d01d2be91a8c8f0ee20d8cd9984ee972aaf
+kind1Auth       8a58176d9dc533c7c5bed0d7cda53fc793866d33bcae52aa8e88a3e440994729
+ingRootType     c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042
+ingRoot         cd9e73d18609ee1e561e936ec25bc2fd3332d698b3af4abee87f2e69fbbd7afb
+sendMsgSel      9211d7e9
+enqCreditSel    81805d6b
+msgTuple        0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d
+msgData         f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835
+sendMsgCall     9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12
+sendMsgLen      516
+enqCreditCall   02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4
+msgPreLen       576
+normalizedMsg   f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7
+enqueueTxSel    9f06b1b4
+enqueueTxCall   3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a
+enqueueTxLen    196
+syncSel         6c880b72
+syncStamp       1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434
+syncChanged     ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184
+appendSel       1927261d
+appendK0        caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a
+appendK0Len     388
+appendK1        b0d12b45c63ef45628fc1b2db383d9549488b80918cca44debb200bbdfe310c7
+appendK1Len     708
+queuedReturn    76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d
+inboxApplySel   6b326168
+inboxApply      cd96666a9a529387c244411a46316699b6b9b07e2f13d002f6a1bb07f8461644
+inboxApplyLen   1092
+markBatchSel    a92f72cd
+markBatch       4862911600d70731812ab3cf63b26596fe69f5f1b06827465d2eea9e325c0d18
+inboxMagic      49425632
+routeCfgSel     4b64fa11
+verifyPinSel    28933d28
+getPinSel       31e85ab1
+liqQuoteSel     43dc48e0
+fundStateSel    6a9a6c32
+attemptSel      4cbe2fe2
+attemptCall     0d81d8a6dfdc0addf805985d1b9343fd53de1c668d6b515756b7c55b2984dbfd
+attemptLen      1124
+finalFailSel    745dcb69
+targetErrSel    f9cc2b44
+appendTermSel   abc194f5
+termCommitSel   2c984c97
+termStateSel    998c57ed
+ticketId        5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b
+poolCfg         a8451db81aa351573afec2c22aa23efabb11ffaeb48cae613098f3f76478eace
+poolReadGas     50000
+poolCleanGas    50000
+poolCbGas       100000
+poolDepSel      eda2a3f6
+poolWdrSel      fe4f5ccf
+poolProcSel     5fbbe107
+poolRetrySel    031f93e7
+poolProcCall    bb8293658a94f7b9a29ecc94d440aa1a1491a1b21260d9ef90fd81ce7ce9192d
+poolProcLen     1028
+poolRetryCall   ed195eeffb7e80adf01d20de872e2cdafc61b72fd7430c293efc4058ab7756bc
+poolRetryLen    1060
+poolBridgeSel   a535a986
+poolBridgeCall  0242223ee881f005565361ff99a20ac690c5e501d464cdf49c87a34bca5ce60f
+poolBridgeLen   1124
+poolTickSel     5defa7e1
+poolAcctSel     f2b3441e
+poolConSel      37093d2a
+poolCbSel       a34908bb
+poolAccMagic    504c4132
+poolValMagic    4e4c5632
+poolResultMagic 4c415632
+poolAuth        2cf09066a3f5054e249db9578180b0721ee9d6254be753805c89615f510a84e7
+poolAccept      65aea4c9f0d71caa99d032f1551c9aba7948635a5f4fcb8ca390fc278e297289
+policyType      d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
+policyHash      5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
+policySel       b2d0e286
+hookSel         7f07c947
+policyMagic     49505632
+l2ReceiptId     6bcf23ed048369862f0171a2c2c0cf620cb25ae624abf0e9a294d6e1fe291f46
+l1ReceiptId     3613f5a275f0f2ac073a0a1347f831ca9980e97d718c01e1349e85394156c4e8
+activateVSel    14c37693
+genesisFixed    273742c984e16e7a4eac27323bbfface0e334cb90da2640dc482683114ac0c01
+versionFixed    8ef8c50c81fa6748590f2affe7ac89e9d0adb4a6644d288edfa5dd2923dfc490
+genesisCall     f4a4a48a85eaf43eda11d0dfc382de7677d47a3f42d49e6c16d1636ab8e02059
+genesisLen      3876
+versionCall     ad9b8ab97ab7532722364d5879810760937336f1169cd62193e833aa0c3d08a6
+versionLen      3812
+maxGenesis      cceed0faf0b193a18e8855060cd01f57a201cca2b4d0830ea4e16f42d6ab93f7
+maxGenesisLen   150180
+maxVersion      77a0018e09af547ff4847e1e8afd40fe64a9cc18a13c599fd44b89ccaf6fea2b
+maxVersionLen   149220
+regBase         20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
+regSlot         dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
+regTrie         200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
+relBase         a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
+relSlot         719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
+relTrie         dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
+routeConfig     95f57b8e0bae6e9db6e07c74582e875974bfeaffafe94f6b24672e1e9f6d433b
+queueConfig     72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
+dataSessCfg     83e7e252277ea66b70b59a490421d21454032a3fe64107c7390131f83a487b76
+dsOpenSel       7bda4d11
+dsPostSel       a1cc526a
+dsSealSel       340e11fb
+dsMaintSel      1e7a916a
+dsClaimSel      fdd2b0db
+dsSweepSel      9d083a2b
+dsCellSel       011efada
+dsByIdSel       eeaad0bb
+dsAcctSel       e2a62969
+activeSetSel    4a95c306
+migReadySel     b36c83ce
+markReadySel    e0c25827
+activeSetMagic  41535231
+migReadyMagic   4d525331
+markReadyMagic  4d524459
+dsOpenTopic     a81132592bd8a549a0bfc83415ab47fbca586f0b48fff5f6cb5bfae0a9fd1f68
+dsRecordTopic   30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c
+dsSealTopic     f6d45ab0ecc3348b36ac48bc769f7391962fc2fa240c1c6bb43269ed3780078e
+dsRefundTopic   086de7ad4d27cf66f63e9dc6ecb09c0c3122146dd43e7f480f3a875070eb984e
+dsClaimTopic    69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb
+dsForfeitTopic  f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957
+dsSweepTopic    3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86
+dsMaintTopic    920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89
+bridgeLeaf      7cd40babf5d0e4908f90da57785d52de93d92741aeb940f13a59221ad332af8f
+feeLeafAlt      88ea5a78f94aafb8fda4a2be6ace1891d1723ad26c83491cfbb00baae208e4bb
+creditId        6747d81e54f20c5eeaefcdb5e0419d8f3cbeb95cafc4efb96045c77e9bff583c
+feeCreditAlt    783fc5d3dd26918f6dfe4e5d5a9566a1a785d2b17f03623c2f7815ce6e713d95
+escrowId        4975c6bb1ef0bd5c79892a4a130cf0e62a97a6cc43c4e49c45bd46635c6ae597
+inboxSlot       c43547b091885bc0f506a276ac4cdccd45daf00ce89d9ee1b3547804e8a13ead
+terminalDone    97bafd66948960214a35ab5ec7762bcc24ee34b3419dd681d35d528732cdddc0
+liquiditySet    625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19
+settleLeafAlt   430dd36372fba4094cf167e7ccf5ab171f024f6983e86a9fe6c30036ba412fe5
+terminalFail    68aba0ce8531d028d8e2535c33543be5badf7ae170a2e9fcb421da236387992e
+terminalRoot2   2b66f54d18aa54b45595637bd4fa8783c5df19776d4e6d3af737396b21d01b12
+emptyTermRoot   c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
+bridgeResult    47be95791466008e7a8970898359e72ca409a7f9ec5641a819e9b93307174fba
+manifestRoot    417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
+normalContext   5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
+migrationData   2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
+winningData     4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
+statementHash   5e3f9ad95b6ccfa825d4d860a724cdd4acde1951a0f7ba8649acaedd73eda2a0
+recoveryId      fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
+bodyRoot        0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
 
@@ -6025,8 +6175,12 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
+The companion \code{test-settlement-window.py} suite runs 191 adversarial
+regressions, including authorization substitution, callback/OOG, competing LP,
+owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
+cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 234 golden vectors and 441 executable
+\code{commitment-model.py} reports 274 golden vectors and 513 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
@@ -6112,14 +6266,12 @@ enqueue or destination expiry after the immutable pin.  The exact
   nonempty source-proof path exists.  Terminal proof and reserved refund paths
   have no transitive guardian-pause or ordinary-quota dependency.
 \item Each V2 credit keeps \code{value+fee+liquidityFee} as exact source
-liability until a pull succeeds.  A destination LP reservation is backed by one
-non-transferable ticket; Pool balance covers aggregate unreserved plus reserved
-amounts, and its checked per-domain count equals the number of live
-reservations.  Only the external only-self attempt frame may consume it.  Every
-target/tail failure reverts consumption, while FAILED/expiry releases it and
-DONE commits the actual Pool-returned settlement tuple.  Retired Bridge reclaim
-requires this domain count, pull liability and all pin/terminal gates to be zero
-and moves only unaccounted surplus.
+liability until a pull succeeds.  A depositor-owned ticket is debited only
+inside the external only-self attempt that also commits DONE; Pool balance
+covers aggregate available ticket funds.  Every target/tail failure restores
+the debit, while FAILED/expiry never touch the Pool and DONE commits the actual
+Pool-returned settlement tuple.  Retired Bridge reclaim requires pull and all
+pin/terminal gates to be zero and moves only unaccounted surplus.
 \item A migration proof adopts exactly one replayable activation block with
 zero discretionary body.  Its system transactions are reconstructed from
 activation calldata and every included kind-0 transaction from canonical L1

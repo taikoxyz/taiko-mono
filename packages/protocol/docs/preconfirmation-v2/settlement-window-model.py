@@ -279,11 +279,11 @@ DESTINATION_NATIVE_QUOTA_MANAGER = "quota-manager:destination-native:v2"
 NATIVE_LIQUIDITY_POOL = "protocol-native-liquidity-pool:v2"
 NATIVE_LIQUIDITY_POOL_RUNTIME_HASH = "code:native-liquidity-pool:v2"
 NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH = (
-    "config:native-liquidity-pool:permissionless-tickets:v2"
+    "config:native-liquidity-pool:atomic-salted-ticket:v4"
 )
 DESTINATION_TEST_LIQUIDITY_AMOUNT = 2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR
 NATIVE_LIQUIDITY_POOL_POLICY = (
-    "permissionless-ticket-reserve-consume-release:v2"
+    "permissionless-salted-ticket-atomic-consume:v4"
 )
 BRIDGE_ROLE_SOURCE_ONLY = "SOURCE_ONLY"
 BRIDGE_ROLE_DESTINATION_ONLY = "DESTINATION_ONLY"
@@ -475,6 +475,16 @@ D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v3"
 D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v7"
 APPENDING_SENTINEL = UINT64_MAX
 INBOX_BATCH_OK_V2_WORD = bytes.fromhex("49425632" + "00" * 28)
+ACCEPT_LIQUIDITY_VALUE_V2_SIGNATURE = (
+    "acceptLiquidityValueV2(bytes32,bytes32,uint256)"
+)
+ACCEPT_LIQUIDITY_VALUE_V2_SELECTOR = keccak256(
+    ACCEPT_LIQUIDITY_VALUE_V2_SIGNATURE.encode()
+)[:4]
+ACCEPT_LIQUIDITY_VALUE_V2_MAGIC = b"NLV2"
+ACCEPT_LIQUIDITY_VALUE_V2_RETURN = (
+    ACCEPT_LIQUIDITY_VALUE_V2_MAGIC + bytes(28)
+)
 TERMINAL_COMMITMENT_ABI_BYTES = 5 * 32
 TERMINAL_TREE_DEPTH = 64
 
@@ -13553,6 +13563,67 @@ def liquidity_settlement_hash_v1(
     ))).hex()
 
 
+def liquidity_acceptance_commitment_v2(
+    destination_chain_id: int,
+    destination_domain_id: str,
+    destination_bridge: str,
+    liquidity_pool: str,
+    inbox_credit_store: str,
+    result_hash: str,
+    credit_id: str,
+    ticket_id: str,
+    depositor: str,
+    processor: str,
+    amount: int,
+    message_hash: str,
+    source_context_hash: str,
+    destination_context_hash: str,
+    frame_nonce: int,
+    operation: str,
+    is_last_attempt: bool,
+) -> str:
+    """Bind the one atomic Pool attempt and expected value callback."""
+
+    if (type(destination_chain_id) is not int
+            or not 0 < destination_chain_id <= SEAT_UINT256_MAX
+            or not destination_domain_id or not destination_bridge
+            or not liquidity_pool or not inbox_credit_store
+            or not result_hash or not credit_id or not ticket_id
+            or not depositor or not processor
+            or type(amount) is not int
+            or not 0 < amount <= SEAT_UINT256_MAX
+            or not message_hash or not source_context_hash
+            or not destination_context_hash
+            or type(frame_nonce) is not int
+            or not 0 < frame_nonce <= UINT64_MAX
+            or operation not in {"POOL_PROCESS", "POOL_RETRY"}
+            or type(is_last_attempt) is not bool):
+        raise ValueError("native liquidity acceptance tuple is noncanonical")
+    return keccak256(b"".join((
+        b"slot-chain-native-liquidity-acceptance-v3",
+        _model_uint(
+            destination_chain_id, 32,
+            "liquidity acceptance destination chain id",
+        ),
+        _model_fixed_bytes32(destination_domain_id),
+        _model_address20(destination_bridge),
+        _model_address20(liquidity_pool),
+        _model_address20(inbox_credit_store),
+        _model_fixed_bytes32(result_hash),
+        _model_fixed_bytes32(credit_id),
+        _model_fixed_bytes32(ticket_id),
+        _model_address20(depositor),
+        _model_address20(processor),
+        _model_uint(amount, 32, "liquidity acceptance amount"),
+        _model_fixed_bytes32(message_hash),
+        _model_fixed_bytes32(source_context_hash),
+        _model_fixed_bytes32(destination_context_hash),
+        _model_uint(frame_nonce, 8, "liquidity acceptance frame nonce"),
+        _model_fixed_bytes32(operation),
+        bytes(31) + bytes((int(is_last_attempt),)),
+    ))).hex()
+
+
 def terminal_merkle_root(leaves: tuple[str, ...] | list[str]) -> str:
     """Off-chain full-event oracle for the depth-64 terminal tree root."""
 
@@ -15757,15 +15828,28 @@ class SourceBridgeV2:
                     or authorization is None
                     or now <= authorization.enqueue_by):
                 return False
+            try:
+                amount = seat_checked_add(
+                    seat_checked_add(
+                        credit.value,
+                        credit.fee,
+                        "source cancellation value plus fee",
+                    ),
+                    credit.liquidity_fee,
+                    "source cancellation refund amount",
+                )
+                next_refund = seat_checked_add(
+                    self._refunds.get(authorization.owner, 0),
+                    amount,
+                    "source cancellation refund",
+                )
+            except ValueError:
+                return False
             credit.status = "CANCELLED"
             credit.liability_class = "USER_PULL"
             credit.pull_beneficiary = authorization.owner
-            credit.pull_amount = credit.value + credit.fee + credit.liquidity_fee
-            self._refunds[authorization.owner] = seat_checked_add(
-                self._refunds.get(authorization.owner, 0),
-                credit.value + credit.fee + credit.liquidity_fee,
-                "source cancellation refund",
-            )
+            credit.pull_amount = amount
+            self._refunds[authorization.owner] = next_refund
             return True
         finally:
             self.entered = False
@@ -15789,17 +15873,28 @@ class SourceBridgeV2:
                         ),
                         destination_bridge=authorization.destination_bridge)):
                 return False
-            credit.status = "DELIVERED"
-            credit.liability_class = "LP_PULL"
-            amount = credit.value + credit.fee + credit.liquidity_fee
-            credit.pull_beneficiary = proof.l1_recipient
-            credit.pull_amount = amount
-            if amount:
-                self._lp_pulls[proof.l1_recipient] = seat_checked_add(
+            try:
+                amount = seat_checked_add(
+                    seat_checked_add(
+                        credit.value,
+                        credit.fee,
+                        "source DONE value plus fee",
+                    ),
+                    credit.liquidity_fee,
+                    "source DONE LP pull amount",
+                )
+                next_lp_pull = seat_checked_add(
                     self._lp_pulls.get(proof.l1_recipient, 0),
                     amount,
                     "source LP settlement pull",
                 )
+            except ValueError:
+                return False
+            credit.status = "DELIVERED"
+            credit.liability_class = "LP_PULL"
+            credit.pull_beneficiary = proof.l1_recipient
+            credit.pull_amount = amount
+            self._lp_pulls[proof.l1_recipient] = next_lp_pull
             return True
         finally:
             self.entered = False
@@ -15820,15 +15915,28 @@ class SourceBridgeV2:
                         ),
                         destination_bridge=authorization.destination_bridge)):
                 return False
+            try:
+                amount = seat_checked_add(
+                    seat_checked_add(
+                        credit.value,
+                        credit.fee,
+                        "source FAILED value plus fee",
+                    ),
+                    credit.liquidity_fee,
+                    "source FAILED refund amount",
+                )
+                next_refund = seat_checked_add(
+                    self._refunds.get(authorization.owner, 0),
+                    amount,
+                    "source terminal refund",
+                )
+            except ValueError:
+                return False
             credit.status = "RECALLED"
             credit.liability_class = "USER_PULL"
             credit.pull_beneficiary = authorization.owner
-            credit.pull_amount = credit.value + credit.fee + credit.liquidity_fee
-            self._refunds[authorization.owner] = seat_checked_add(
-                self._refunds.get(authorization.owner, 0),
-                credit.value + credit.fee + credit.liquidity_fee,
-                "source terminal refund",
-            )
+            credit.pull_amount = amount
+            self._refunds[authorization.owner] = next_refund
             return True
         finally:
             self.entered = False
@@ -20973,23 +21081,106 @@ class ProtocolReleaseAuthorityV2:
 _NATIVE_LIQUIDITY_POOL_CAPABILITY = object()
 
 
-@dataclass
-class NativeLiquidityTicketV2:
-    ticket_id: str
-    owner: str
-    l1_recipient: str
-    amount: int
-    state: str = "AVAILABLE"
+@dataclass(frozen=True)
+class NativeLiquidityQuoteViewV2:
+    result_hash: bytes
+    value: int
+    execution_fee: int
+    liquidity_fee: int
+    process_by: int
+
+
+def decode_native_liquidity_quote_v2(
+    raw: bytes,
+) -> NativeLiquidityQuoteViewV2:
+    """Decode the Store's exact five-word atomic-liquidity quote."""
+
+    if type(raw) is not bytes or len(raw) != 160:
+        raise ValueError("native liquidity quote returndata length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, 160, 32))
+    if (words[0] == bytes(32)
+            or words[2][:24] != bytes(24)
+            or words[3][:24] != bytes(24)
+            or words[4][:24] != bytes(24)):
+        raise ValueError("native liquidity quote returndata is noncanonical")
+    row = NativeLiquidityQuoteViewV2(
+        words[0],
+        int.from_bytes(words[1], "big"),
+        int.from_bytes(words[2][24:], "big"),
+        int.from_bytes(words[3][24:], "big"),
+        int.from_bytes(words[4][24:], "big"),
+    )
+    if row.liquidity_fee == 0 or row.process_by == 0:
+        raise ValueError("native liquidity quote is not usable")
+    return row
 
 
 @dataclass(frozen=True)
-class NativeLiquidityReservationV2:
+class NativeLiquidityBridgeStateViewV2:
+    destination_domain_id: bytes
+    destination_bridge: bytes
+    inbox_credit_store: bytes
+    status: int
+    terminal_index_plus_one: int
+
+
+def decode_native_liquidity_bridge_state_v2(
+    raw: bytes,
+) -> NativeLiquidityBridgeStateViewV2:
+    """Decode the Bridge's exact five-word atomic-liquidity state view."""
+
+    if type(raw) is not bytes or len(raw) != 160:
+        raise ValueError(
+            "native liquidity Bridge-state returndata length is invalid"
+        )
+    words = tuple(raw[offset:offset + 32] for offset in range(0, 160, 32))
+    if (words[0] == bytes(32)
+            or words[1][:12] != bytes(12)
+            or words[1][12:] == bytes(20)
+            or words[2][:12] != bytes(12)
+            or words[2][12:] == bytes(20)
+            or words[3][:31] != bytes(31)
+            or words[3][-1] not in (0, 1, 2, 3, 4)
+            or words[4][:24] != bytes(24)):
+        raise ValueError(
+            "native liquidity Bridge-state returndata is noncanonical"
+        )
+    row = NativeLiquidityBridgeStateViewV2(
+        words[0], words[1][12:], words[2][12:], words[3][-1],
+        int.from_bytes(words[4][24:], "big"),
+    )
+    active = row.status in (0, 1)
+    if active != (row.terminal_index_plus_one == 0):
+        raise ValueError("native liquidity Bridge state is inconsistent")
+    return row
+
+
+@dataclass
+class NativeLiquidityTicketV2:
+    depositor: str
+    l1_recipient: str
+    available_amount: int
+
+
+@dataclass(frozen=True)
+class AtomicLiquidityAuthorizationV2:
+    frame: "L2TransactionFrameV2" = field(compare=False, repr=False)
     ticket_id: str
+    credit_id: str
+    depositor: str
+    processor: str
+    l1_recipient: str
     destination_domain_id: str
     destination_bridge: str
-    credit_id: str
+    inbox_credit_store: str
+    result_hash: str
     amount: int
-    l1_recipient: str
+    message_hash: str
+    source_context_hash: str
+    destination_context_hash: str
+    operation: str
+    is_last_attempt: bool
+    commitment: str
 
 
 @dataclass(frozen=True)
@@ -21007,7 +21198,7 @@ class ReclaimResult(Enum):
 
 @dataclass
 class NativeLiquidityPoolV2:
-    """Permissionless lifetime LP escrow; tx0 never prefunds a Bridge."""
+    """Permissionless salted tickets consumed only inside an atomic attempt."""
 
     address: str = NATIVE_LIQUIDITY_POOL
     runtime_hash: str = NATIVE_LIQUIDITY_POOL_RUNTIME_HASH
@@ -21015,16 +21206,19 @@ class NativeLiquidityPoolV2:
     destination_chain_id: int = 167_000
     balance: int = 0
     active: bool = False
-    next_ticket_nonce: int = 0
     tickets: dict[str, NativeLiquidityTicketV2] = field(default_factory=dict)
-    reservations: dict[str, NativeLiquidityReservationV2] = field(
-        default_factory=dict
+    total_available: int = 0
+    entered: bool = field(default=False, compare=False)
+    withdraw_callback: Callable[
+        ["NativeLiquidityPoolV2", str, int], bool
+    ] | None = field(default=None, compare=False, repr=False)
+    fault_point: str | None = field(default=None, compare=False)
+    _active_liquidity_authorization: AtomicLiquidityAuthorizationV2 | None = (
+        field(default=None, init=False, compare=False, repr=False)
     )
-    reserved_count_by_domain: dict[str, int] = field(default_factory=dict)
-    deposited_total: int = 0
-    consumed_total: int = 0
-    withdrawn_total: int = 0
-    reclaimed_total: int = 0
+    _liquidity_consumption_receipt: str = field(
+        default="", init=False, compare=False, repr=False
+    )
     _registrar_authority: object | None = field(
         default=None, init=False, compare=False, repr=False
     )
@@ -21038,8 +21232,10 @@ class NativeLiquidityPoolV2:
                 or self.configuration_hash
                     != NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH
                 or not 0 < self.destination_chain_id <= SEAT_UINT256_MAX
-                or type(self.balance) is not int or self.balance < 0):
+                or type(self.balance) is not int
+                or not 0 <= self.balance <= SEAT_UINT256_MAX):
             raise ValueError("native liquidity Pool is invalid")
+        self._assert_accounting_invariant()
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
@@ -21052,49 +21248,37 @@ class NativeLiquidityPoolV2:
 
     @property
     def ticket_liability(self) -> int:
-        return sum(
-            ticket.amount for ticket in self.tickets.values()
-            if ticket.state in {"AVAILABLE", "RESERVED"}
-        )
-
-    def reserved_count(self, domain_id: str) -> int:
-        return self.reserved_count_by_domain.get(domain_id, 0)
+        return self.total_available
 
     def _assert_accounting_invariant(self) -> None:
-        expected_counts: dict[str, int] = {}
-        reserved_tickets: set[str] = set()
-        for credit_id, reservation in self.reservations.items():
-            ticket = self.tickets.get(reservation.ticket_id)
-            if (credit_id != reservation.credit_id or ticket is None
-                    or ticket.ticket_id in reserved_tickets
-                    or ticket.state != "RESERVED"
-                    or ticket.amount != reservation.amount):
-                raise AssertionError("native liquidity reservation is split")
-            reserved_tickets.add(ticket.ticket_id)
-            expected_counts[reservation.destination_domain_id] = (
-                expected_counts.get(reservation.destination_domain_id, 0) + 1
-            )
-        if (any(
-                (ticket.state == "RESERVED")
-                != (ticket.ticket_id in reserved_tickets)
-                for ticket in self.tickets.values())
-                or any(count <= 0 for count in self.reserved_count_by_domain.values())
-                or self.reserved_count_by_domain != expected_counts
-                or self.balance < self.ticket_liability):
+        available = 0
+        for ticket_id, ticket in self.tickets.items():
+            if (not ticket_id or type(ticket) is not NativeLiquidityTicketV2
+                    or not ticket.depositor or not ticket.l1_recipient
+                    or type(ticket.available_amount) is not int
+                    or not 0 < ticket.available_amount <= SEAT_UINT256_MAX):
+                raise AssertionError("native liquidity ticket is invalid")
+            try:
+                available = seat_checked_add(
+                    available, ticket.available_amount,
+                    "native liquidity available ticket sum",
+                )
+            except ValueError as exc:
+                raise AssertionError(
+                    "native liquidity ticket sum overflowed"
+                ) from exc
+        if (type(self.total_available) is not int
+                or not 0 <= self.total_available <= SEAT_UINT256_MAX
+                or available != self.total_available
+                or self.balance < self.total_available):
             raise AssertionError("native liquidity accounting invariant failed")
 
     def _snapshot(self) -> dict[str, object]:
         return copy.deepcopy({
             "balance": self.balance,
             "active": self.active,
-            "next_ticket_nonce": self.next_ticket_nonce,
             "tickets": self.tickets,
-            "reservations": self.reservations,
-            "reserved_count_by_domain": self.reserved_count_by_domain,
-            "deposited_total": self.deposited_total,
-            "consumed_total": self.consumed_total,
-            "withdrawn_total": self.withdrawn_total,
-            "reclaimed_total": self.reclaimed_total,
+            "total_available": self.total_available,
         })
 
     def _restore(self, snapshot: dict[str, object]) -> None:
@@ -21120,6 +21304,7 @@ class NativeLiquidityPoolV2:
         descriptor = manifest.destination_bridge_descriptor
         frame = getattr(registrar, "_activation_frame", None)
         if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
+                or self.entered
                 or registrar is not self._registrar_authority
                 or type(frame) is not tuple or len(frame) != 4
                 or frame[0] != id(manifest)
@@ -21129,7 +21314,10 @@ class NativeLiquidityPoolV2:
                 or descriptor.native_liquidity_pool_runtime_hash
                     != self.runtime_hash
                 or descriptor.native_liquidity_pool_configuration_hash
-                    != self.configuration_hash):
+                    != self.configuration_hash
+                or (not self.active and (
+                    self.tickets or self.total_available != 0
+                ))):
             return False
         self.active = True
         return True
@@ -21151,42 +21339,396 @@ class NativeLiquidityPoolV2:
         self._bridge_authorities[domain_id] = bridge
         return True
 
-    def deposit(
-        self, *, owner: str, l1_recipient: str, amount: int
-    ) -> str | None:
-        """Create one permissionless exact-amount ticket after launch."""
+    def ticket_id_v2(
+        self, *, depositor: str, l1_recipient: str, salt: str | bytes
+    ) -> str:
+        """Derive one precomputable salted ticket identifier."""
 
-        if (not self.active or not owner or not l1_recipient
-                or type(amount) is not int or amount <= 0
-                or amount > SEAT_UINT256_MAX - self.balance
-                or self.next_ticket_nonce == UINT64_MAX):
-            return None
-        nonce = self.next_ticket_nonce
+        if (not depositor or not l1_recipient
+                or type(salt) not in {str, bytes}):
+            raise ValueError("native liquidity ticket preimage is invalid")
         ticket_id = keccak256(b"".join((
-            b"slot-chain-liquidity-ticket-v1",
+            b"slot-chain-liquidity-ticket-v2",
             _model_uint(self.destination_chain_id, 32,
                         "ticket destination chain id"),
             _model_address20(self.address),
-            _model_address20(owner),
+            _model_address20(depositor),
             _model_address20(l1_recipient),
-            _model_uint(nonce, 8, "ticket sequence"),
+            _model_fixed_bytes32(salt),
         ))).hex()
-        if ticket_id in self.tickets:
+        if ticket_id == "00" * 32:
+            raise ValueError("native liquidity ticket ID is zero")
+        return ticket_id
+
+    def deposit(
+        self, *, caller: str, l1_recipient: str, salt: str | bytes,
+        amount: int,
+    ) -> str | None:
+        """Create or top up the exact caller/recipient/salt ticket."""
+
+        if (not self.active or self.entered or not caller or not l1_recipient
+                or type(amount) is not int or amount <= 0):
             return None
-        self.next_ticket_nonce = checked_u64_add(
-            nonce, 1, "native liquidity ticket nonce"
-        )
-        self.tickets[ticket_id] = NativeLiquidityTicketV2(
-            ticket_id, owner, l1_recipient, amount
-        )
-        self.balance += amount
-        self.deposited_total = seat_checked_add(
-            self.deposited_total, amount, "native liquidity deposited total"
-        )
+        try:
+            ticket_id = self.ticket_id_v2(
+                depositor=caller, l1_recipient=l1_recipient, salt=salt
+            )
+            next_balance = seat_checked_add(
+                self.balance, amount, "native liquidity Pool balance"
+            )
+            next_total = seat_checked_add(
+                self.total_available, amount,
+                "native liquidity total available amount",
+            )
+            existing = self.tickets.get(ticket_id)
+            next_ticket = amount if existing is None else seat_checked_add(
+                existing.available_amount, amount,
+                "native liquidity ticket available amount",
+            )
+        except ValueError:
+            return None
+        if (existing is not None
+                and (existing.depositor != caller
+                     or existing.l1_recipient != l1_recipient)):
+            return None
+        if existing is None:
+            self.tickets[ticket_id] = NativeLiquidityTicketV2(
+                caller, l1_recipient, amount
+            )
+        else:
+            existing.available_amount = next_ticket
+        self.balance = next_balance
+        self.total_available = next_total
         self._assert_accounting_invariant()
         return ticket_id
 
-    def reserve(
+    def _prepare_authorization(
+        self,
+        ticket_id: str,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        frame: "L2TransactionFrameV2",
+        operation: str,
+        is_last_attempt: bool,
+    ) -> AtomicLiquidityAuthorizationV2 | None:
+        ticket = self.tickets.get(ticket_id)
+        try:
+            credit_id = destination_credit_id_v2(message_, source, destination)
+            amount = seat_checked_add(
+                message_.value, message_.fee,
+                "native liquidity attempt amount",
+            )
+            if type(bridge) is not DestinationBridgeLedger:
+                return None
+            registrar = self._registrar_authority
+            if type(registrar) is not TerminalDomainRegistrarV2:
+                return None
+            route = registrar.inbox_router.routes.get(
+                destination.destination_domain_id
+            )
+            quote_view = decode_native_liquidity_quote_v2(
+                bridge.inbox_store.liquidity_quote_v2(credit_id)
+            )
+            bridge_state = decode_native_liquidity_bridge_state_v2(
+                bridge.liquidity_state_v2(credit_id)
+            )
+            expected_result_hash = _model_fixed_bytes32(
+                destination_result_hash_v11(
+                    message_, source, destination,
+                    liquidity_fee=quote_view.liquidity_fee,
+                )
+            )
+            expected_domain = _model_fixed_bytes32(
+                destination.destination_domain_id
+            )
+            expected_bridge = _model_address20(
+                destination.destination_bridge
+            )
+            expected_store = _model_address20(bridge.inbox_store.address)
+        except BaseException:
+            return None
+        expected_status = 0 if operation == "POOL_PROCESS" else 1
+        if (not self.active or self.entered
+                or self._active_liquidity_authorization is not None
+                or self._liquidity_consumption_receipt
+                or ticket is None or ticket.depositor != frame.caller
+                or ticket.available_amount < amount or amount == 0
+                or operation not in {"POOL_PROCESS", "POOL_RETRY"}
+                or frame.operation != operation
+                or type(is_last_attempt) is not bool
+                or (operation == "POOL_PROCESS" and is_last_attempt)
+                or (is_last_attempt
+                    and frame.caller != message_.destination_owner)
+                or bridge.retired or not bridge.v2_active
+                or route is None or route.store is not bridge.inbox_store
+                or route.destination_bridge != bridge.address
+                or route.store_codehash != bridge.inbox_store.runtime_codehash
+                or route.store_config_hash
+                    != bridge.inbox_store.route_config_hash
+                or registrar.accumulator.domains.get(
+                    bridge.local_domain_id
+                ) != bridge.address
+                or self._bridge_authorities.get(bridge.local_domain_id)
+                    is not bridge
+                or not bridge._delivery_context_valid(
+                    message_, source, destination, require_pin=False
+                )
+                or quote_view.result_hash != expected_result_hash
+                or quote_view.value != message_.value
+                or quote_view.execution_fee != message_.fee
+                or bridge_state.destination_domain_id != expected_domain
+                or bridge_state.destination_bridge != expected_bridge
+                or bridge_state.inbox_credit_store != expected_store
+                or bridge_state.status != expected_status
+                or bridge_state.terminal_index_plus_one != 0
+                or frame.block_timestamp > quote_view.process_by):
+            return None
+        try:
+            result_hash = quote_view.result_hash.hex()
+            commitment = liquidity_acceptance_commitment_v2(
+                self.destination_chain_id,
+                bridge.local_domain_id,
+                bridge.address,
+                self.address,
+                bridge.inbox_store.address,
+                result_hash,
+                credit_id,
+                ticket_id,
+                ticket.depositor,
+                frame.caller,
+                amount,
+                bridge_message_hash(message_),
+                source.context_hash,
+                destination.context_hash,
+                frame.nonce,
+                operation,
+                is_last_attempt,
+            )
+        except ValueError:
+            return None
+        return AtomicLiquidityAuthorizationV2(
+            frame, ticket_id, credit_id, ticket.depositor, frame.caller,
+            ticket.l1_recipient, bridge.local_domain_id, bridge.address,
+            bridge.inbox_store.address, result_hash, amount,
+            bridge_message_hash(message_), source.context_hash,
+            destination.context_hash, operation, is_last_attempt, commitment,
+        )
+
+    def _transient_snapshot(
+        self,
+    ) -> tuple[AtomicLiquidityAuthorizationV2 | None, str]:
+        return (
+            self._active_liquidity_authorization,
+            self._liquidity_consumption_receipt,
+        )
+
+    def _restore_transient_from_bridge(
+        self,
+        snapshot: tuple[AtomicLiquidityAuthorizationV2 | None, str],
+        *,
+        bridge: "DestinationBridgeLedger",
+        capability: object,
+    ) -> None:
+        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
+                or self._bridge_authorities.get(bridge.local_domain_id)
+                    is not bridge
+                or type(snapshot) is not tuple or len(snapshot) != 2):
+            raise ValueError("native liquidity transient rollback is invalid")
+        self._active_liquidity_authorization = snapshot[0]
+        self._liquidity_consumption_receipt = snapshot[1]
+
+    def _consume_authorized(
+        self,
+        ticket_id: str,
+        credit_id: str,
+        amount: int,
+        *,
+        bridge: "DestinationBridgeLedger",
+        capability: object,
+    ) -> NativeLiquiditySettlementV2 | None:
+        authorization = self._active_liquidity_authorization
+        ticket = self.tickets.get(ticket_id)
+        frame = bridge._active_execution_frame
+        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
+                or not self.entered
+                or authorization is None
+                or authorization.frame is not frame
+                or frame is not bridge.execution_environment._active_frame
+                or self._bridge_authorities.get(bridge.local_domain_id)
+                    is not bridge
+                or (ticket_id, credit_id, amount)
+                    != (authorization.ticket_id,
+                        authorization.credit_id,
+                        authorization.amount)
+                or authorization.destination_domain_id
+                    != bridge.local_domain_id
+                or authorization.destination_bridge != bridge.address
+                or authorization.inbox_credit_store
+                    != bridge.inbox_store.address
+                or ticket is None
+                or ticket.depositor != authorization.depositor
+                or ticket.l1_recipient != authorization.l1_recipient
+                or ticket.available_amount < amount
+                or self.total_available < amount
+                or self.balance < amount):
+            return None
+        try:
+            next_bridge_balance = seat_checked_add(
+                bridge.balance, amount,
+                "destination Bridge atomic LP funding",
+            )
+        except ValueError:
+            return None
+        settlement = NativeLiquiditySettlementV2(
+            ticket_id, ticket.l1_recipient, amount
+        )
+        pool_snapshot = self._snapshot()
+        transient_snapshot = self._transient_snapshot()
+        bridge_snapshot = bridge._liquidity_value_snapshot()
+        try:
+            ticket.available_amount -= amount
+            if ticket.available_amount == 0:
+                self.tickets.pop(ticket_id)
+            self.total_available -= amount
+            self.balance -= amount
+            self._active_liquidity_authorization = None
+            callback_credit_id = (
+                "00" * 32
+                if self.fault_point == "callback_credit_substitution"
+                else credit_id
+            )
+            callback_ticket_id = (
+                "00" * 32
+                if self.fault_point == "callback_ticket_substitution"
+                else ticket_id
+            )
+            callback_amount = (
+                amount + 1
+                if self.fault_point == "callback_amount_substitution"
+                else amount
+            )
+            if self.fault_point == "callback_plain_receive":
+                accepted = bridge.receive_native(caller=self, value=amount)
+                callback_return = (
+                    ACCEPT_LIQUIDITY_VALUE_V2_RETURN if accepted else b""
+                )
+            else:
+                callback_return = bridge.accept_liquidity_value_v2(
+                    callback_credit_id,
+                    callback_ticket_id,
+                    callback_amount,
+                    caller=self,
+                    value=amount,
+                )
+            if self.fault_point == "callback_duplicate":
+                callback_return = bridge.accept_liquidity_value_v2(
+                    credit_id, ticket_id, amount, caller=self, value=amount
+                )
+            if (callback_return != ACCEPT_LIQUIDITY_VALUE_V2_RETURN
+                    or len(callback_return) != 32
+                    or bridge.balance != next_bridge_balance):
+                raise RuntimeError(
+                    "destination Bridge rejected Pool value callback"
+                )
+            self._liquidity_consumption_receipt = authorization.commitment
+            self._assert_accounting_invariant()
+            return settlement
+        except BaseException:
+            self._restore(pool_snapshot)
+            self._active_liquidity_authorization = transient_snapshot[0]
+            self._liquidity_consumption_receipt = transient_snapshot[1]
+            bridge._restore_liquidity_value_snapshot(
+                bridge_snapshot, caller=self
+            )
+            return None
+
+    def _execute_with_liquidity_from_environment(
+        self,
+        ticket_id: str,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        frame: "L2TransactionFrameV2",
+        operation: str,
+        is_last_attempt: bool,
+    ) -> str:
+        authorization = self._prepare_authorization(
+            ticket_id, bridge, message_, source, destination,
+            frame=frame, operation=operation,
+            is_last_attempt=is_last_attempt,
+        )
+        if authorization is None:
+            return "REJECTED"
+        pool_snapshot = self._snapshot()
+        bridge_snapshot = bridge._transaction_snapshot()
+        environment_snapshot = bridge.execution_environment._transaction_snapshot()
+        self.entered = True
+        self._active_liquidity_authorization = authorization
+        self._liquidity_consumption_receipt = ""
+        try:
+            if operation == "POOL_PROCESS":
+                result = bridge._process_with_liquidity_from_pool(
+                    message_, source, destination, pool=self, frame=frame,
+                    capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
+                )
+            else:
+                result = bridge._retry_with_liquidity_from_pool(
+                    message_, source, destination,
+                    is_last_attempt=is_last_attempt,
+                    pool=self, frame=frame,
+                    capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
+                )
+            settlement = bridge._terminal_settlements.get(
+                authorization.credit_id
+            )
+            if result == "DONE":
+                accepted = (
+                    self._active_liquidity_authorization is None
+                    and self._liquidity_consumption_receipt
+                        == authorization.commitment
+                    and bridge.status.get(authorization.credit_id) == "DONE"
+                    and settlement == NativeLiquiditySettlementV2(
+                        ticket_id, authorization.l1_recipient,
+                        authorization.amount,
+                    )
+                )
+            else:
+                accepted = (
+                    result in {
+                        "NEW", "RETRIABLE", "FAILED", "REJECTED",
+                        "UNFUNDED",
+                    }
+                    and self._active_liquidity_authorization is authorization
+                    and not self._liquidity_consumption_receipt
+                    and self._snapshot() == pool_snapshot
+                )
+            if not accepted:
+                raise RuntimeError("atomic native liquidity result is invalid")
+            self._active_liquidity_authorization = None
+            self._liquidity_consumption_receipt = ""
+            self._assert_accounting_invariant()
+            return result
+        except BaseException:
+            bridge._restore_transaction_snapshot(
+                bridge_snapshot,
+                capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+            )
+            bridge.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            self._restore(pool_snapshot)
+            self._active_liquidity_authorization = None
+            self._liquidity_consumption_receipt = ""
+            return "REJECTED"
+        finally:
+            self.entered = False
+
+    def process_with_liquidity(
         self,
         ticket_id: str,
         bridge: "DestinationBridgeLedger",
@@ -21195,138 +21737,75 @@ class NativeLiquidityPoolV2:
         destination: DestinationContextV2,
         *,
         caller: str,
-        now: int,
-    ) -> bool:
-        ticket = self.tickets.get(ticket_id)
-        try:
-            credit_id = destination_credit_id_v2(message_, source, destination)
-            amount = seat_checked_add(
-                message_.value, message_.fee,
-                "native liquidity reservation amount",
-            )
-        except ValueError:
-            return False
-        pin = bridge._pin(credit_id, destination.destination_domain_id)
-        status = bridge.status.get(credit_id, "NEW")
-        quote = bridge.inbox_store.liquidity_quote_v2(credit_id)
-        reservation_state = bridge.liquidity_reservation_state_v2(credit_id)
-        expected_quote = (
-            None if pin is None else b"".join((
-                _model_fixed_bytes32(pin.result_hash),
-                _model_uint(pin.value, 32, "liquidity quote value"),
-                _model_uint(pin.execution_fee, 32,
-                            "liquidity quote execution fee"),
-                _model_uint(pin.liquidity_fee, 32,
-                            "liquidity quote liquidity fee"),
-                _model_uint(pin.process_by, 32,
-                            "liquidity quote processBy"),
-            ))
+    ) -> str:
+        environment = getattr(bridge, "execution_environment", None)
+        if (not self.active or self.entered
+                or type(environment) is not L2ExecutionEnvironmentV2):
+            return "REJECTED"
+        return environment.process_with_pool_liquidity(
+            self, ticket_id, bridge, message_, source, destination,
+            caller=caller,
         )
-        if (not self.active or ticket is None or ticket.owner != caller
-                or ticket.state != "AVAILABLE" or ticket.amount != amount
-                or self._bridge_authorities.get(bridge.local_domain_id)
-                    is not bridge
-                or not bridge._delivery_context_valid(
-                    message_, source, destination, require_pin=True
-                )
-                or quote != expected_quote or len(quote or b"") != 160
-                or reservation_state is None
-                or len(reservation_state) != 160
-                or pin is None or type(now) is not int
-                or now > pin.process_by
-                or status not in {"NEW", "RETRIABLE"}
-                or credit_id in bridge.terminal_index
-                or credit_id in self.reservations):
-            return False
-        ticket.state = "RESERVED"
-        self.reservations[credit_id] = NativeLiquidityReservationV2(
-            ticket_id, bridge.local_domain_id, bridge.address, credit_id,
-            amount, ticket.l1_recipient,
-        )
-        self.reserved_count_by_domain[bridge.local_domain_id] = checked_u64_add(
-            self.reserved_count(bridge.local_domain_id), 1,
-            "native liquidity reserved count",
-        )
-        self._assert_accounting_invariant()
-        return True
 
-    def _consume_from_bridge(
-        self, credit_id: str, *, bridge: "DestinationBridgeLedger",
-        capability: object,
-    ) -> NativeLiquiditySettlementV2 | None:
-        reservation = self.reservations.get(credit_id)
-        ticket = None if reservation is None else self.tickets.get(
-            reservation.ticket_id
+    def retry_with_liquidity(
+        self,
+        ticket_id: str,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+        is_last_attempt: bool,
+    ) -> str:
+        environment = getattr(bridge, "execution_environment", None)
+        if (not self.active or self.entered
+                or type(environment) is not L2ExecutionEnvironmentV2):
+            return "REJECTED"
+        return environment.retry_with_pool_liquidity(
+            self, ticket_id, bridge, message_, source, destination,
+            caller=caller, is_last_attempt=is_last_attempt,
         )
-        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
-                or self._bridge_authorities.get(bridge.local_domain_id)
-                    is not bridge
-                or bridge._active_execution_frame is None
-                or reservation is None or ticket is None
-                or reservation.destination_domain_id != bridge.local_domain_id
-                or reservation.destination_bridge != bridge.address
-                or ticket.state != "RESERVED"
-                or self.balance < reservation.amount):
+
+    def withdraw_available(
+        self,
+        ticket_id: str,
+        *,
+        caller: str,
+        recipient: str,
+        amount: int,
+    ) -> int | None:
+        """Withdraw an exact available amount and return the remainder."""
+
+        ticket = self.tickets.get(ticket_id)
+        if (not self.active or self.entered or ticket is None
+                or ticket.depositor != caller or not recipient
+                or type(amount) is not int or amount <= 0
+                or amount > ticket.available_amount
+                or amount > self.total_available
+                or self.balance < amount):
             return None
-        self.reservations.pop(credit_id)
-        ticket.state = "CONSUMED"
-        self.reserved_count_by_domain[bridge.local_domain_id] -= 1
-        if self.reserved_count_by_domain[bridge.local_domain_id] == 0:
-            self.reserved_count_by_domain.pop(bridge.local_domain_id)
-        self.balance -= reservation.amount
-        bridge.balance = seat_checked_add(
-            bridge.balance, reservation.amount,
-            "destination Bridge LP settlement funding",
-        )
-        self.consumed_total = seat_checked_add(
-            self.consumed_total, reservation.amount,
-            "native liquidity consumed total",
-        )
-        self._assert_accounting_invariant()
-        return NativeLiquiditySettlementV2(
-            reservation.ticket_id,
-            reservation.l1_recipient,
-            reservation.amount,
-        )
-
-    def _release_from_bridge(
-        self, credit_id: str, *, bridge: "DestinationBridgeLedger",
-        capability: object,
-    ) -> bool:
-        reservation = self.reservations.get(credit_id)
-        if reservation is None:
-            return True
-        ticket = self.tickets.get(reservation.ticket_id)
-        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
-                or self._bridge_authorities.get(bridge.local_domain_id)
-                    is not bridge
-                or bridge._active_execution_frame is None or ticket is None
-                or ticket.state != "RESERVED"):
-            return False
-        self.reservations.pop(credit_id)
-        ticket.state = "AVAILABLE"
-        self.reserved_count_by_domain[bridge.local_domain_id] -= 1
-        if self.reserved_count_by_domain[bridge.local_domain_id] == 0:
-            self.reserved_count_by_domain.pop(bridge.local_domain_id)
-        self._assert_accounting_invariant()
-        return True
-
-    def withdraw_ticket(
-        self, ticket_id: str, *, caller: str, recipient: str
-    ) -> int:
-        ticket = self.tickets.get(ticket_id)
-        if (not self.active or ticket is None or ticket.owner != caller
-                or not recipient or ticket.state != "AVAILABLE"
-                or self.balance < ticket.amount):
-            return 0
-        ticket.state = "WITHDRAWN"
-        self.balance -= ticket.amount
-        self.withdrawn_total = seat_checked_add(
-            self.withdrawn_total, ticket.amount,
-            "native liquidity withdrawn total",
-        )
-        self._assert_accounting_invariant()
-        return ticket.amount
+        snapshot = self._snapshot()
+        self.entered = True
+        try:
+            ticket.available_amount -= amount
+            remaining = ticket.available_amount
+            if remaining == 0:
+                self.tickets.pop(ticket_id)
+            self.total_available -= amount
+            self.balance -= amount
+            if self.fault_point == "after_withdraw_debit":
+                raise RuntimeError("injected native liquidity withdraw fault")
+            callback = self.withdraw_callback
+            if callback is not None and not callback(self, recipient, amount):
+                raise RuntimeError("native liquidity recipient rejected")
+            self._assert_accounting_invariant()
+            return remaining
+        except BaseException:
+            self._restore(snapshot)
+            return None
+        finally:
+            self.entered = False
 
 @dataclass
 class TerminalDomainRegistrarV2:
@@ -22120,50 +22599,32 @@ def install_destination_pin_for_test(
     return True
 
 
-def reserve_destination_liquidity_for_test(
+def deposit_destination_liquidity_for_test(
     destination: "DestinationBridgeLedger",
     message_: IBridgeMessageV1,
-    source: SourceContextV2,
-    route: DestinationContextV2,
     *,
-    now: int,
-    owner: str = "test-liquidity-provider",
+    depositor: str = "test-liquidity-provider",
     l1_recipient: str = "test-liquidity-provider:l1",
+    salt: str | bytes = "test-liquidity-ticket",
 ) -> str | None:
-    """Deposit and reserve one exact LP ticket for a pinned delivery."""
+    """Deposit one exact salted ticket sized for a delivery."""
 
-    if (type(destination) is not DestinationBridgeLedger
-            or type(now) is not int or now < 0):
+    if type(destination) is not DestinationBridgeLedger:
         return None
     try:
         amount = seat_checked_add(
             message_.value, message_.fee,
-            "test native liquidity reservation amount",
+            "test native liquidity ticket amount",
         )
     except ValueError:
         return None
     if amount == 0:
         return ""
     pool = destination.liquidity_pool
-    ticket_id = pool.deposit(
-        owner=owner, l1_recipient=l1_recipient, amount=amount,
+    return pool.deposit(
+        caller=depositor, l1_recipient=l1_recipient,
+        salt=salt, amount=amount,
     )
-    if ticket_id is None:
-        return None
-    if not pool.reserve(
-        ticket_id,
-        destination,
-        message_,
-        source,
-        route,
-        caller=owner,
-        now=now,
-    ):
-        if pool.withdraw_ticket(
-                ticket_id, caller=owner, recipient=owner) != amount:
-            raise AssertionError("test LP reservation rollback failed")
-        return None
-    return ticket_id
 
 
 def destination_bridge_for_test(
@@ -22677,6 +23138,55 @@ class L2ExecutionEnvironmentV2:
         finally:
             self._close_frame(frame)
 
+    def process_with_pool_liquidity(
+        self,
+        pool: NativeLiquidityPoolV2,
+        ticket_id: str,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+    ) -> str:
+        try:
+            frame = self._open_frame(caller, "POOL_PROCESS")
+        except RuntimeError:
+            return "REJECTED"
+        try:
+            return pool._execute_with_liquidity_from_environment(
+                ticket_id, bridge, message_, source, destination,
+                frame=frame, operation="POOL_PROCESS",
+                is_last_attempt=False,
+            )
+        finally:
+            self._close_frame(frame)
+
+    def retry_with_pool_liquidity(
+        self,
+        pool: NativeLiquidityPoolV2,
+        ticket_id: str,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+        is_last_attempt: bool,
+    ) -> str:
+        try:
+            frame = self._open_frame(caller, "POOL_RETRY")
+        except RuntimeError:
+            return "REJECTED"
+        try:
+            return pool._execute_with_liquidity_from_environment(
+                ticket_id, bridge, message_, source, destination,
+                frame=frame, operation="POOL_RETRY",
+                is_last_attempt=is_last_attempt,
+            )
+        finally:
+            self._close_frame(frame)
+
     def manual_fail_bridge_message(
         self,
         bridge: "DestinationBridgeLedger",
@@ -22818,6 +23328,15 @@ class DestinationBridgeLedger:
     _active_execution_frame: L2TransactionFrameV2 | None = field(
         default=None, init=False, compare=False, repr=False
     )
+    _liquidity_value_expectation: tuple[
+        L2TransactionFrameV2, str, str, int, str
+    ] | None = field(default=None, init=False, compare=False, repr=False)
+    _liquidity_value_receipt: str = field(
+        default="", init=False, compare=False, repr=False
+    )
+    liquidity_value_fault_point: str | None = field(
+        default=None, compare=False
+    )
 
     def __post_init__(self) -> None:
         manifest = self.release_manifest
@@ -22889,7 +23408,9 @@ class DestinationBridgeLedger:
                 or self.retired
                 or self.total_pull_liability != 0
                 or self.pull_credits or self.status or self.terminal_index
-                or self._terminal_settlements):
+                or self._terminal_settlements
+                or self._liquidity_value_expectation is not None
+                or self._liquidity_value_receipt):
             raise ValueError("destination Bridge manifest graph is invalid")
         if (not self.quota_manager._bind_bridge_once(self)
                 or not environment._bind_bridge_once(self)
@@ -23018,9 +23539,6 @@ class DestinationBridgeLedger:
                 or registrar.accumulator.domains.get(self.local_domain_id)
                     != self.address
                 or self.total_pull_liability != 0
-                or registrar.liquidity_pool.reserved_count(
-                    self.local_domain_id
-                ) != 0
                 or registrar.accumulator.terminalized_pinned_count.get(
                     self.local_domain_id
                 ) != self.inbox_store.pinned_count):
@@ -23067,6 +23585,13 @@ class DestinationBridgeLedger:
             "status": dict(self.status),
             "terminal_index": dict(self.terminal_index),
             "terminal_settlements": dict(self._terminal_settlements),
+            "liquidity_value_expectation": (
+                self._liquidity_value_expectation
+            ),
+            "liquidity_value_receipt": self._liquidity_value_receipt,
+            "pool_liquidity_transient": (
+                self.liquidity_pool._transient_snapshot()
+            ),
             "liquidity_pool": self.liquidity_pool._snapshot(),
             "terminal_accumulator": (
                 self.terminal_accumulator._transaction_snapshot()
@@ -23095,7 +23620,18 @@ class DestinationBridgeLedger:
         self._terminal_index.update(snapshot["terminal_index"])
         self._terminal_settlements.clear()
         self._terminal_settlements.update(snapshot["terminal_settlements"])
+        self._liquidity_value_expectation = snapshot[
+            "liquidity_value_expectation"
+        ]
+        self._liquidity_value_receipt = snapshot[
+            "liquidity_value_receipt"
+        ]
         self.liquidity_pool._restore(snapshot["liquidity_pool"])
+        self.liquidity_pool._restore_transient_from_bridge(
+            snapshot["pool_liquidity_transient"],
+            bridge=self,
+            capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
+        )
         self.terminal_accumulator._restore_transaction_snapshot(
             snapshot["terminal_accumulator"]
         )
@@ -23221,7 +23757,7 @@ class DestinationBridgeLedger:
             self, caller=caller, recipient=recipient
         )
 
-    def liquidity_reservation_state_v2(self, credit_id: str) -> bytes | None:
+    def liquidity_state_v2(self, credit_id: str) -> bytes | None:
         status = self.status.get(credit_id, "NEW")
         codes = {"NEW": 0, "RETRIABLE": 1, "DONE": 2,
                  "FAILED": 3, "RECALLED": 4}
@@ -23243,7 +23779,7 @@ class DestinationBridgeLedger:
             _model_uint(terminal_plus_one, 32, "terminal index plus one"),
         ))
         if len(encoded) != 160:
-            raise AssertionError("liquidityReservationStateV2 width drifted")
+            raise AssertionError("liquidityStateV2 width drifted")
         return encoded
 
     def _delivery_context_valid(
@@ -23322,13 +23858,6 @@ class DestinationBridgeLedger:
                 or terminal not in {"DONE", "FAILED"}
                 or credit_id in self.terminal_index):
             return False
-        if (terminal == "FAILED"
-                and not self.liquidity_pool._release_from_bridge(
-                    credit_id,
-                    bridge=self,
-                    capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
-                )):
-            return False
         status_existed = credit_id in self.status
         prior_status = self.status.get(credit_id)
         accumulator_snapshot = (
@@ -23382,6 +23911,95 @@ class DestinationBridgeLedger:
             settlement_hash,
         )
 
+    def _liquidity_value_snapshot(
+        self,
+    ) -> tuple[
+        int,
+        tuple[L2TransactionFrameV2, str, str, int, str] | None,
+        str,
+    ]:
+        """Snapshot only the Pool callback journal without recursing."""
+
+        return (
+            self.balance,
+            self._liquidity_value_expectation,
+            self._liquidity_value_receipt,
+        )
+
+    def _restore_liquidity_value_snapshot(
+        self,
+        snapshot: tuple[
+            int,
+            tuple[L2TransactionFrameV2, str, str, int, str] | None,
+            str,
+        ],
+        *,
+        caller: NativeLiquidityPoolV2,
+    ) -> None:
+        """Restore a failed exact-value callback inside the same Pool call."""
+
+        if (caller is not self.liquidity_pool
+                or type(snapshot) is not tuple or len(snapshot) != 3):
+            raise ValueError("native liquidity callback rollback is unauthorized")
+        self.balance = snapshot[0]
+        self._liquidity_value_expectation = snapshot[1]
+        self._liquidity_value_receipt = snapshot[2]
+
+    def receive_native(
+        self, *, caller: object, value: int
+    ) -> bool:
+        """Reject plain receive/fallback funding, including from the Pool."""
+
+        _ = caller, value
+        return False
+
+    def accept_liquidity_value_v2(
+        self,
+        credit_id: str,
+        ticket_id: str,
+        amount: int,
+        *,
+        caller: object,
+        value: int,
+    ) -> bytes:
+        """Consume one exact Pool-value expectation without any external call."""
+
+        if self.liquidity_value_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected native liquidity callback fault")
+        expectation = self._liquidity_value_expectation
+        frame = self._active_execution_frame
+        if (caller is not self.liquidity_pool
+                or frame is None
+                or frame is not self.execution_environment._active_frame
+                or not self.entered
+                or type(expectation) is not tuple or len(expectation) != 5
+                or expectation[:4]
+                    != (frame, credit_id, ticket_id, amount)
+                or type(value) is not int or value != amount
+                or amount <= 0):
+            return b""
+        try:
+            next_balance = seat_checked_add(
+                self.balance,
+                value,
+                "destination Bridge accepted Pool value",
+            )
+        except ValueError:
+            return b""
+        commitment = expectation[4]
+        if type(commitment) is not str or len(commitment) != 64:
+            return b""
+        self._liquidity_value_expectation = None
+        self._liquidity_value_receipt = commitment
+        self.balance = next_balance
+        if self.liquidity_value_fault_point == "bad_magic":
+            return b"BAD!" + bytes(28)
+        if self.liquidity_value_fault_point == "short_magic":
+            return ACCEPT_LIQUIDITY_VALUE_V2_RETURN[:-1]
+        if self.liquidity_value_fault_point == "long_magic":
+            return ACCEPT_LIQUIDITY_VALUE_V2_RETURN + b"\x00"
+        return ACCEPT_LIQUIDITY_VALUE_V2_RETURN
+
     def _fund_success_from_pool(
         self, credit_id: str, message_: IBridgeMessageV1
     ) -> bool:
@@ -23392,15 +24010,51 @@ class DestinationBridgeLedger:
             )
         except ValueError:
             return False
-        if amount == 0:
+        authorization = self.liquidity_pool._active_liquidity_authorization
+        frame = self._active_execution_frame
+        if (amount == 0 or frame is None or authorization is None
+                or authorization.frame is not frame
+                or authorization.credit_id != credit_id
+                or authorization.destination_domain_id != self.local_domain_id
+                or authorization.destination_bridge != self.address
+                or authorization.inbox_credit_store
+                    != self.inbox_store.address
+                or authorization.processor != frame.caller
+                or authorization.amount != amount
+                or self._liquidity_value_expectation is not None
+                or self._liquidity_value_receipt):
             return False
-        settlement = self.liquidity_pool._consume_from_bridge(
+        commitment = authorization.commitment
+        self._liquidity_value_expectation = (
+            frame,
             credit_id,
+            authorization.ticket_id,
+            amount,
+            commitment,
+        )
+        settlement = self.liquidity_pool._consume_authorized(
+            authorization.ticket_id,
+            credit_id,
+            amount,
             bridge=self,
             capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
         )
-        if settlement is None or settlement.settlement_amount != amount:
+        accepted = (
+            settlement is not None
+            and settlement.ticket_id == authorization.ticket_id
+            and settlement.l1_recipient == authorization.l1_recipient
+            and settlement.settlement_amount == amount
+            and self._liquidity_value_expectation is None
+            and self._liquidity_value_receipt == commitment
+            and self.liquidity_pool._active_liquidity_authorization is None
+            and self.liquidity_pool._liquidity_consumption_receipt
+                == commitment
+        )
+        self._liquidity_value_expectation = None
+        self._liquidity_value_receipt = ""
+        if not accepted:
             return False
+        assert settlement is not None
         self._terminal_settlements[credit_id] = settlement
         return True
 
@@ -23494,6 +24148,8 @@ class DestinationBridgeLedger:
                 or frame is not environment._active_frame
                 or frame.operation != operation
                 or self.entered
+                or self._liquidity_value_expectation is not None
+                or self._liquidity_value_receipt
                 or (self.paused and not allow_paused)):
             return False
         self.entered = True
@@ -23505,6 +24161,64 @@ class DestinationBridgeLedger:
             object.__setattr__(self, "_active_execution_frame", None)
         self.entered = False
 
+    def _process_with_liquidity_from_pool(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        pool: NativeLiquidityPoolV2,
+        frame: L2TransactionFrameV2,
+        capability: object,
+    ) -> str:
+        authorization = pool._active_liquidity_authorization
+        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
+                or pool is not self.liquidity_pool
+                or authorization is None
+                or authorization.frame is not frame
+                or authorization.operation != "POOL_PROCESS"
+                or authorization.is_last_attempt
+                or authorization.message_hash
+                    != bridge_message_hash(message_)
+                or authorization.source_context_hash != source.context_hash
+                or authorization.destination_context_hash
+                    != destination.context_hash):
+            return "REJECTED"
+        return self._process_from_environment(
+            message_, source, destination, frame=frame,
+            operation="POOL_PROCESS",
+        )
+
+    def _retry_with_liquidity_from_pool(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        is_last_attempt: bool,
+        pool: NativeLiquidityPoolV2,
+        frame: L2TransactionFrameV2,
+        capability: object,
+    ) -> str:
+        authorization = pool._active_liquidity_authorization
+        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
+                or pool is not self.liquidity_pool
+                or authorization is None
+                or authorization.frame is not frame
+                or authorization.operation != "POOL_RETRY"
+                or authorization.is_last_attempt != is_last_attempt
+                or authorization.message_hash
+                    != bridge_message_hash(message_)
+                or authorization.source_context_hash != source.context_hash
+                or authorization.destination_context_hash
+                    != destination.context_hash):
+            return "REJECTED"
+        return self._retry_from_environment(
+            message_, source, destination,
+            is_last_attempt=is_last_attempt, frame=frame,
+            operation="POOL_RETRY",
+        )
+
     def _process_from_environment(
         self,
         message_: IBridgeMessageV1,
@@ -23512,8 +24226,9 @@ class DestinationBridgeLedger:
         destination: DestinationContextV2,
         *,
         frame: L2TransactionFrameV2,
+        operation: str = "PROCESS",
     ) -> str:
-        if (not self._enter_execution(frame, "PROCESS")
+        if (not self._enter_execution(frame, operation)
                 or not self._delivery_context_valid(
                     message_, source, destination, require_pin=True)):
             if self._active_execution_frame is frame:
@@ -23648,8 +24363,9 @@ class DestinationBridgeLedger:
         *,
         is_last_attempt: bool,
         frame: L2TransactionFrameV2,
+        operation: str = "RETRY",
     ) -> str:
-        if (not self._enter_execution(frame, "RETRY")
+        if (not self._enter_execution(frame, operation)
                 or not self._delivery_context_valid(
                     message_, source, destination, require_pin=True)):
             if self._active_execution_frame is frame:
@@ -26289,15 +27005,14 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert install_destination_pin_for_test(
         destination, message_b, source_context_b, destination_context_b,
         now=pin_now, liquidity_fee=authorization_b.liquidity_fee)
-    ticket_b = reserve_destination_liquidity_for_test(
-        destination, message_b, source_context_b, destination_context_b,
-        now=pin_now,
+    ticket_b = deposit_destination_liquidity_for_test(
+        destination, message_b, depositor="relayer", salt="ticket-b",
     )
     assert ticket_b
     check("P50ad DONE is terminal and conflicting pins fail",
-          destination.process(
-              message_b, source_context_b, destination_context_b,
-              caller="relayer") == "DONE"
+          destination.liquidity_pool.process_with_liquidity(
+              ticket_b, destination, message_b, source_context_b,
+              destination_context_b, caller="relayer") == "DONE"
           and not destination.expire_v2(credit_b)
           and not install_destination_pin_for_test(
               destination,
@@ -26403,32 +27118,38 @@ def test_data_gc_reorg_and_geometry() -> None:
         malformed_terminal, malformed_message, malformed_source,
         malformed_route,
         now=pin_now)
-    assert reserve_destination_liquidity_for_test(
-        malformed_terminal, malformed_message, malformed_source,
-        malformed_route, now=pin_now,
+    malformed_ticket = deposit_destination_liquidity_for_test(
+        malformed_terminal, malformed_message,
+        depositor="malformed-dest-owner", salt="malformed-ticket",
     )
+    assert malformed_ticket
     count_before_malformed = malformed_accumulator.count
     malformed_terminal.terminal_commitment_return_length = 159
-    short_terminal_rejected = malformed_terminal.process(
-        malformed_message, malformed_source, malformed_route,
+    short_terminal_rejected = malformed_terminal.liquidity_pool.process_with_liquidity(
+        malformed_ticket, malformed_terminal, malformed_message,
+        malformed_source, malformed_route,
         caller="malformed-dest-owner") == "REJECTED"
     malformed_terminal.terminal_commitment_return_length = 224
-    long_terminal_rejected = malformed_terminal.process(
-        malformed_message, malformed_source, malformed_route,
+    long_terminal_rejected = malformed_terminal.liquidity_pool.process_with_liquidity(
+        malformed_ticket, malformed_terminal, malformed_message,
+        malformed_source, malformed_route,
         caller="malformed-dest-owner") == "REJECTED"
     malformed_terminal.terminal_commitment_return_length = 160
     malformed_terminal.terminal_commitment_gas_ok = False
-    oog_terminal_rejected = malformed_terminal.process(
-        malformed_message, malformed_source, malformed_route,
+    oog_terminal_rejected = malformed_terminal.liquidity_pool.process_with_liquidity(
+        malformed_ticket, malformed_terminal, malformed_message,
+        malformed_source, malformed_route,
         caller="malformed-dest-owner") == "REJECTED"
     malformed_terminal.terminal_commitment_gas_ok = True
     malformed_accumulator.append_return_length = 31
-    short_append_rejected = malformed_terminal.process(
-        malformed_message, malformed_source, malformed_route,
+    short_append_rejected = malformed_terminal.liquidity_pool.process_with_liquidity(
+        malformed_ticket, malformed_terminal, malformed_message,
+        malformed_source, malformed_route,
         caller="malformed-dest-owner") == "REJECTED"
     malformed_accumulator.append_return_length = 33
-    long_append_rejected = malformed_terminal.process(
-        malformed_message, malformed_source, malformed_route,
+    long_append_rejected = malformed_terminal.liquidity_pool.process_with_liquidity(
+        malformed_ticket, malformed_terminal, malformed_message,
+        malformed_source, malformed_route,
         caller="malformed-dest-owner") == "REJECTED"
     malformed_accumulator.append_return_length = 32
     check("P50ck malformed or OOG terminal commitment returndata is atomic",
@@ -26564,14 +27285,14 @@ def test_data_gc_reorg_and_geometry() -> None:
         liquidity_fee=source_d2.credit_registry.authorizations[
             credit_d2
         ].liquidity_fee)
-    ticket_d2 = reserve_destination_liquidity_for_test(
-        destination_d2, message_d2, source_context_d2,
-        destination_context_d2, now=pin_now,
+    ticket_d2 = deposit_destination_liquidity_for_test(
+        destination_d2, message_d2,
+        depositor="relayer", salt="ticket-d2",
     )
     assert ticket_d2
-    assert destination_d2.process(
-        message_d2, source_context_d2, destination_context_d2,
-        caller="relayer") == "DONE"
+    assert destination_d2.liquidity_pool.process_with_liquidity(
+        ticket_d2, destination_d2, message_d2, source_context_d2,
+        destination_context_d2, caller="relayer") == "DONE"
     def bridge_inbox_row(
         index: int, *, result_hash: str | None = None
     ) -> InboxRowV2:
@@ -26831,17 +27552,20 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert install_destination_pin_for_test(
         destination, manual_message, manual_source, manual_route,
         now=pin_now)
-    assert reserve_destination_liquidity_for_test(
-        destination, manual_message, manual_source, manual_route, now=pin_now,
+    manual_ticket = deposit_destination_liquidity_for_test(
+        destination, manual_message,
+        depositor=manual_message.destination_owner, salt="manual-ticket",
     )
+    assert manual_ticket
     destination_target.fault_point = "revert"
     destination.execution_environment.block_timestamp = pin_now + 1
     check("P50al observers cannot force early failure or last-attempt retry",
           not destination.manual_fail(
               manual_message, manual_source, manual_route,
               caller=manual_message.destination_owner)
-          and destination.process(
-              manual_message, manual_source, manual_route,
+          and destination.liquidity_pool.process_with_liquidity(
+              manual_ticket, destination, manual_message, manual_source,
+              manual_route,
               caller=manual_message.destination_owner) == "RETRIABLE"
           and not destination.manual_fail(
               manual_message, manual_source, manual_route,

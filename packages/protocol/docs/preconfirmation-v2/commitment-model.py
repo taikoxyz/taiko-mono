@@ -83,7 +83,9 @@ D_TERMINAL_LEAF = b"slot-chain-terminal-leaf-v2"
 D_TERMINAL_NODE = b"slot-chain-terminal-node-v2"
 D_TERMINAL_ROOT = b"slot-chain-terminal-root-v2"
 D_LIQUIDITY_SETTLEMENT = b"slot-chain-liquidity-settlement-v1"
-D_LIQUIDITY_TICKET = b"slot-chain-liquidity-ticket-v1"
+D_LIQUIDITY_TICKET = b"slot-chain-liquidity-ticket-v2"
+D_LIQUIDITY_ATTEMPT = b"slot-chain-native-liquidity-attempt-v1"
+D_LIQUIDITY_ACCEPTANCE = b"slot-chain-native-liquidity-acceptance-v3"
 D_SOURCE_DOMAIN = b"slot-chain-source-domain-v4"
 D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v7"
 D_BRIDGE_EXECUTION = b"slot-chain-source-bridge-execution-v4"
@@ -310,13 +312,59 @@ VERIFY_INBOX_CREDIT_SELECTOR = keccak256(
 GET_INBOX_CREDIT_SLOT_SELECTOR = keccak256(
     b"getInboxCreditSlot(bytes32,address,bytes32,bytes32)")[:4]
 LIQUIDITY_QUOTE_SELECTOR = keccak256(b"liquidityQuoteV2(bytes32)")[:4]
-LIQUIDITY_RESERVATION_STATE_SELECTOR = keccak256(
-    b"liquidityReservationStateV2(bytes32)")[:4]
+LIQUIDITY_FUNDING_STATE_SELECTOR = keccak256(
+    b"liquidityFundingStateV2(bytes32)")[:4]
+DEPOSIT_LIQUIDITY_V2_SELECTOR = keccak256(
+    b"depositLiquidityV2(address,bytes32)")[:4]
+WITHDRAW_LIQUIDITY_V2_SELECTOR = keccak256(
+    b"withdrawLiquidityV2(bytes32,address,uint256)")[:4]
+TICKET_ACCOUNTING_V2_SELECTOR = keccak256(
+    b"ticketAccountingV2(bytes32)")[:4]
+POOL_ACCOUNTING_V2_SELECTOR = keccak256(b"poolAccountingV2()")[:4]
+CONSUME_AUTHORIZED_LIQUIDITY_V2_SELECTOR = keccak256(
+    b"consumeAuthorizedLiquidityV2(bytes32,bytes32,address,uint256,bytes32)")[:4]
+ACCEPT_LIQUIDITY_VALUE_V2_SELECTOR = keccak256(
+    b"acceptLiquidityValueV2(bytes32,bytes32,uint256)")[:4]
+POOL_ACCOUNTING_MAGIC = bytes.fromhex("504c4132")  # PLA2
+POOL_VALUE_MAGIC = bytes.fromhex("4e4c5632")  # NLV2
+POOL_BRIDGE_RESULT_MAGIC = bytes.fromhex("4c415632")  # LAV2
+POOL_EXTERNAL_READ_GAS = 50_000
+POOL_AUTH_CLEANUP_GAS = 50_000
+POOL_VALUE_CALLBACK_GAS = 100_000
+LIQUIDITY_DEPOSITED_V2_TOPIC = keccak256(
+    b"LiquidityDepositedV2(bytes32,address,address,uint256,uint256)")
+LIQUIDITY_CONSUMED_V2_TOPIC = keccak256(
+    b"LiquidityConsumedV2(bytes32,bytes32,bytes32,address,address,address,uint256)")
+LIQUIDITY_WITHDRAWN_V2_TOPIC = keccak256(
+    b"LiquidityWithdrawnV2(bytes32,address,address,uint256,uint256)")
+PROCESS_WITH_LIQUIDITY_V2_SIGNATURE = (
+    b"processWithLiquidityV2(bytes32,address,(uint64,uint64,uint32,address,"
+    b"uint64,address,uint64,address,address,uint256,bytes),(uint64,uint8,"
+    b"bytes32,bytes32,bytes32,uint64,address,bytes32,uint64,uint64),"
+    b"(uint256,bytes32,address,bytes32,bytes32))"
+)
+RETRY_WITH_LIQUIDITY_V2_SIGNATURE = (
+    b"retryWithLiquidityV2(bytes32,address,(uint64,uint64,uint32,address,"
+    b"uint64,address,uint64,address,address,uint256,bytes),(uint64,uint8,"
+    b"bytes32,bytes32,bytes32,uint64,address,bytes32,uint64,uint64),"
+    b"(uint256,bytes32,address,bytes32,bytes32),bool)"
+)
+PROCESS_WITH_LIQUIDITY_V2_SELECTOR = keccak256(
+    PROCESS_WITH_LIQUIDITY_V2_SIGNATURE)[:4]
+RETRY_WITH_LIQUIDITY_V2_SELECTOR = keccak256(
+    RETRY_WITH_LIQUIDITY_V2_SIGNATURE)[:4]
+POOL_BRIDGE_ATTEMPT_SIGNATURE = (
+    b"attemptFromLiquidityPoolV2(bytes32,address,(uint64,uint64,uint32,"
+    b"address,uint64,address,uint64,address,address,uint256,bytes),(uint64,"
+    b"uint8,bytes32,bytes32,bytes32,uint64,address,bytes32,uint64,uint64),"
+    b"(uint256,bytes32,address,bytes32,bytes32),uint8,bool,bytes32)"
+)
+POOL_BRIDGE_ATTEMPT_SELECTOR = keccak256(POOL_BRIDGE_ATTEMPT_SIGNATURE)[:4]
 EXECUTE_ATTEMPT_SIGNATURE = (
     b"executeAttemptV2((uint64,uint64,uint32,address,uint64,address,uint64,"
     b"address,address,uint256,bytes),(uint64,uint8,bytes32,bytes32,bytes32,"
     b"uint64,address,bytes32,uint64,uint64),(uint256,bytes32,address,"
-    b"bytes32,bytes32),address,uint8,bool)"
+    b"bytes32,bytes32),address,uint8,bool,bytes32,bytes32)"
 )
 EXECUTE_ATTEMPT_SELECTOR = keccak256(EXECUTE_ATTEMPT_SIGNATURE)[:4]
 FINALIZE_FAILED_ATTEMPT_SELECTOR = keccak256(
@@ -1355,7 +1403,7 @@ class ComponentDescriptor:
 
 def component_config_hash(kind: int, config: bytes) -> bytes:
     assert 1 <= kind <= 10 and 0 < len(config) < 1 << 16
-    assert len(config) == (80, 136, 21, 73, 60, 52, 80, 21, 52, 164)[kind - 1]
+    assert len(config) == (80, 136, 21, 73, 60, 52, 80, 21, 76, 164)[kind - 1]
     return keccak256(D_COMPONENT_CONFIG + u8(kind) + u16(len(config)) + config)
 
 
@@ -2243,7 +2291,7 @@ def decode_liquidity_quote_return(
     return result
 
 
-def decode_liquidity_reservation_state_return(
+def decode_liquidity_funding_state_return(
         returndata: bytes) -> tuple[bytes, int, int, int, int]:
     assert len(returndata) == 5 * 32
     result = (b32(returndata[:32]), address_word_value(returndata[32:64]),
@@ -2258,6 +2306,82 @@ def decode_liquidity_reservation_state_return(
     return result
 
 
+def encode_pool_word_calldata(selector: bytes, *words: bytes) -> bytes:
+    assert len(selector) == 4 and all(len(word) == 32 for word in words)
+    return selector + b"".join(words)
+
+
+def decode_pool_word_calldata(
+        calldata: bytes, selector: bytes, decoders: tuple) -> tuple:
+    assert len(selector) == 4 and len(calldata) == 4 + 32 * len(decoders)
+    assert calldata[:4] == selector
+    return tuple(
+        decoder(calldata[4 + index * 32:36 + index * 32])
+        for index, decoder in enumerate(decoders)
+    )
+
+
+def decode_pool_ticket_accounting_return(
+        returndata: bytes) -> tuple[int, int, int]:
+    assert len(returndata) == 3 * 32
+    result = (
+        address_word_value(returndata[0:32]),
+        address_word_value(returndata[32:64]),
+        uint_word_value(returndata[64:96]),
+    )
+    assert (result == (0, 0, 0)
+            or (result[0] != 0 and result[1] != 0 and result[2] > 0))
+    return result
+
+
+def decode_pool_accounting_return(
+        returndata: bytes
+) -> tuple[bytes, bool, bool, bytes, int, int, int]:
+    assert len(returndata) == 8 * 32
+    assert bytes4_word_value(returndata[0:32]) == POOL_ACCOUNTING_MAGIC
+    configuration_hash = b32(returndata[32:64])
+    active = uint_word_value(returndata[64:96], 8)
+    entered = uint_word_value(returndata[96:128], 8)
+    result = (
+        configuration_hash, bool(active), bool(entered),
+        b32(returndata[128:160]),
+        uint_word_value(returndata[160:192]),
+        uint_word_value(returndata[192:224]),
+        uint_word_value(returndata[224:256]),
+    )
+    assert active <= 1 and entered <= 1 and configuration_hash != bytes(32)
+    assert (bool(entered) == (result[3] != bytes(32))
+            and result[5] >= result[4]
+            and result[6] == result[5] - result[4])
+    return result
+
+
+def decode_pool_deposit_return(returndata: bytes) -> tuple[bytes, int]:
+    assert len(returndata) == 64
+    result = (b32(returndata[0:32]), uint_word_value(returndata[32:64]))
+    assert result[0] != bytes(32) and result[1] > 0
+    return result
+
+
+def decode_pool_withdraw_return(returndata: bytes) -> int:
+    assert len(returndata) == 32
+    return uint_word_value(returndata)
+
+
+def decode_pool_consume_return(returndata: bytes) -> tuple[bytes, int, int]:
+    assert len(returndata) == 96
+    result = (b32(returndata[0:32]),
+              address_word_value(returndata[32:64]),
+              uint_word_value(returndata[64:96]))
+    assert result[0] != bytes(32) and result[1] != 0 and result[2] > 0
+    return result
+
+
+def decode_pool_value_magic_return(returndata: bytes) -> bytes:
+    assert bytes4_word_value(returndata) == POOL_VALUE_MAGIC
+    return POOL_VALUE_MAGIC
+
+
 def decode_verify_inbox_credit_return(
         returndata: bytes) -> tuple[bytes, int, int, int, int, bytes]:
     assert len(returndata) == 6 * 32
@@ -2268,37 +2392,164 @@ def decode_verify_inbox_credit_return(
             b32(returndata[160:192]))
 
 
-def encode_execute_attempt_calldata(
-        message: MessageV1, source_context: SourceContextV2,
-        destination_context: DestinationContextV2, processor: int,
-        expected_entry_status: int, is_last_attempt: bool) -> bytes:
-    assert 0 <= expected_entry_status < 1 << 8
-    source_words = source_context_abi(source_context)
-    destination_words = destination_context_abi(destination_context)
+def encode_process_with_liquidity_calldata(
+        ticket_id: bytes, destination_bridge: int, message: MessageV1,
+        source_context: SourceContextV2,
+        destination_context: DestinationContextV2) -> bytes:
+    assert b32(ticket_id) != bytes(32) and 0 < destination_bridge < 1 << 160
     encoded = (
-        EXECUTE_ATTEMPT_SELECTOR + u256(19 * 32) + source_words
-        + destination_words + address_word(processor)
-        + u256(expected_entry_status) + u256(1 if is_last_attempt else 0)
+        PROCESS_WITH_LIQUIDITY_V2_SELECTOR + b32(ticket_id)
+        + address_word(destination_bridge) + u256(18 * 32)
+        + source_context_abi(source_context)
+        + destination_context_abi(destination_context)
         + canonical_message_v1(message)
+    )
+    assert len(encoded) == 964 + ceil32(len(message.data))
+    return encoded
+
+
+def decode_process_with_liquidity_calldata(
+        calldata: bytes
+) -> tuple[bytes, int, MessageV1, SourceContextV2, DestinationContextV2]:
+    assert (len(calldata) >= 964
+            and calldata[:4] == PROCESS_WITH_LIQUIDITY_V2_SELECTOR)
+    arguments = calldata[4:]
+    ticket_id = b32(arguments[:32])
+    destination_bridge = address_word_value(arguments[32:64])
+    assert ticket_id != bytes(32) and destination_bridge != 0
+    assert uint_word_value(arguments[64:96]) == 18 * 32
+    source = decode_source_context_abi(arguments[3 * 32:13 * 32])
+    destination = decode_destination_context_abi(arguments[13 * 32:18 * 32])
+    message = decode_canonical_message_v1(arguments[18 * 32:])
+    result = (ticket_id, destination_bridge, message, source, destination)
+    assert calldata == encode_process_with_liquidity_calldata(*result)
+    return result
+
+
+def encode_retry_with_liquidity_calldata(
+        ticket_id: bytes, destination_bridge: int, message: MessageV1,
+        source_context: SourceContextV2,
+        destination_context: DestinationContextV2,
+        is_last_attempt: bool) -> bytes:
+    assert b32(ticket_id) != bytes(32) and 0 < destination_bridge < 1 << 160
+    encoded = (
+        RETRY_WITH_LIQUIDITY_V2_SELECTOR + b32(ticket_id)
+        + address_word(destination_bridge) + u256(19 * 32)
+        + source_context_abi(source_context)
+        + destination_context_abi(destination_context)
+        + u256(1 if is_last_attempt else 0) + canonical_message_v1(message)
     )
     assert len(encoded) == 996 + ceil32(len(message.data))
     return encoded
 
 
+def decode_retry_with_liquidity_calldata(
+        calldata: bytes
+) -> tuple[bytes, int, MessageV1, SourceContextV2,
+           DestinationContextV2, bool]:
+    assert (len(calldata) >= 996
+            and calldata[:4] == RETRY_WITH_LIQUIDITY_V2_SELECTOR)
+    arguments = calldata[4:]
+    ticket_id = b32(arguments[:32])
+    destination_bridge = address_word_value(arguments[32:64])
+    assert ticket_id != bytes(32) and destination_bridge != 0
+    assert uint_word_value(arguments[64:96]) == 19 * 32
+    source = decode_source_context_abi(arguments[3 * 32:13 * 32])
+    destination = decode_destination_context_abi(arguments[13 * 32:18 * 32])
+    last = uint_word_value(arguments[18 * 32:19 * 32], 8)
+    assert last in (0, 1)
+    message = decode_canonical_message_v1(arguments[19 * 32:])
+    result = (ticket_id, destination_bridge, message, source, destination,
+              bool(last))
+    assert calldata == encode_retry_with_liquidity_calldata(*result)
+    return result
+
+
+def encode_pool_bridge_attempt_calldata(
+        ticket_id: bytes, depositor: int, message: MessageV1,
+        source_context: SourceContextV2,
+        destination_context: DestinationContextV2, operation: int,
+        is_last_attempt: bool, authorization_hash: bytes) -> bytes:
+    assert (b32(ticket_id) != bytes(32) and 0 < depositor < 1 << 160
+            and operation in (1, 2)
+            and (not is_last_attempt or operation == 2)
+            and b32(authorization_hash) != bytes(32))
+    encoded = (
+        POOL_BRIDGE_ATTEMPT_SELECTOR + b32(ticket_id)
+        + address_word(depositor) + u256(21 * 32)
+        + source_context_abi(source_context)
+        + destination_context_abi(destination_context) + u256(operation)
+        + u256(1 if is_last_attempt else 0) + b32(authorization_hash)
+        + canonical_message_v1(message)
+    )
+    assert len(encoded) == 1060 + ceil32(len(message.data))
+    return encoded
+
+
+def decode_pool_bridge_attempt_calldata(
+        calldata: bytes
+) -> tuple[bytes, int, MessageV1, SourceContextV2, DestinationContextV2,
+           int, bool, bytes]:
+    assert (len(calldata) >= 1060
+            and calldata[:4] == POOL_BRIDGE_ATTEMPT_SELECTOR)
+    arguments = calldata[4:]
+    ticket_id = b32(arguments[:32])
+    depositor = address_word_value(arguments[32:64])
+    assert ticket_id != bytes(32) and depositor != 0
+    assert uint_word_value(arguments[64:96]) == 21 * 32
+    source = decode_source_context_abi(arguments[3 * 32:13 * 32])
+    destination = decode_destination_context_abi(arguments[13 * 32:18 * 32])
+    operation = uint_word_value(arguments[18 * 32:19 * 32], 8)
+    last = uint_word_value(arguments[19 * 32:20 * 32], 8)
+    assert operation in (1, 2) and last in (0, 1)
+    assert last == 0 or operation == 2
+    authorization_hash = b32(arguments[20 * 32:21 * 32])
+    assert authorization_hash != bytes(32)
+    message = decode_canonical_message_v1(arguments[21 * 32:])
+    result = (ticket_id, depositor, message, source, destination, operation,
+              bool(last), authorization_hash)
+    assert calldata == encode_pool_bridge_attempt_calldata(*result)
+    return result
+
+
+def encode_execute_attempt_calldata(
+        message: MessageV1, source_context: SourceContextV2,
+        destination_context: DestinationContextV2, processor: int,
+        expected_entry_status: int, is_last_attempt: bool,
+        ticket_id: bytes, authorization_hash: bytes) -> bytes:
+    assert 0 <= expected_entry_status < 1 << 8
+    source_words = source_context_abi(source_context)
+    destination_words = destination_context_abi(destination_context)
+    encoded = (
+        EXECUTE_ATTEMPT_SELECTOR + u256(21 * 32) + source_words
+        + destination_words + address_word(processor)
+        + u256(expected_entry_status) + u256(1 if is_last_attempt else 0)
+        + b32(ticket_id) + b32(authorization_hash)
+        + canonical_message_v1(message)
+    )
+    assert len(encoded) == 1060 + ceil32(len(message.data))
+    return encoded
+
+
 def decode_execute_attempt_calldata(
         calldata: bytes
-) -> tuple[MessageV1, SourceContextV2, DestinationContextV2, int, int, bool]:
-    assert len(calldata) >= 996 and calldata[:4] == EXECUTE_ATTEMPT_SELECTOR
+) -> tuple[MessageV1, SourceContextV2, DestinationContextV2,
+           int, int, bool, bytes, bytes]:
+    assert len(calldata) >= 1060 and calldata[:4] == EXECUTE_ATTEMPT_SELECTOR
     arguments = calldata[4:]
-    assert uint_word_value(arguments[:32]) == 19 * 32
+    assert uint_word_value(arguments[:32]) == 21 * 32
     source = decode_source_context_abi(arguments[32:11 * 32])
     destination = decode_destination_context_abi(arguments[11 * 32:16 * 32])
     processor = address_word_value(arguments[16 * 32:17 * 32])
     status = uint_word_value(arguments[17 * 32:18 * 32], 8)
     last = uint_word_value(arguments[18 * 32:19 * 32], 8)
     assert last in (0, 1)
-    message = decode_canonical_message_v1(arguments[19 * 32:])
-    result = (message, source, destination, processor, status, bool(last))
+    ticket_id = b32(arguments[19 * 32:20 * 32])
+    authorization_hash = b32(arguments[20 * 32:21 * 32])
+    assert ticket_id != bytes(32) and authorization_hash != bytes(32)
+    message = decode_canonical_message_v1(arguments[21 * 32:])
+    result = (message, source, destination, processor, status, bool(last),
+              ticket_id, authorization_hash)
     assert calldata == encode_execute_attempt_calldata(*result)
     return result
 
@@ -2312,6 +2563,39 @@ def decode_status_return(returndata: bytes) -> tuple[int, int]:
     assert len(returndata) == 64
     return (uint_word_value(returndata[:32], 8),
             uint_word_value(returndata[32:], 8))
+
+
+def encode_pool_bridge_result_return(
+        credit_id: bytes, status: int, reason: int,
+        terminal_index_plus_one: int, settlement_hash: bytes) -> bytes:
+    assert (credit_id != bytes(32) and 0 <= reason < 1 << 8
+            and 0 <= terminal_index_plus_one <= UINT64_MAX)
+    if status in (0, 1):
+        assert terminal_index_plus_one == 0 and settlement_hash == bytes(32)
+    elif status == 2:
+        assert terminal_index_plus_one > 0 and settlement_hash != bytes(32)
+    elif status == 3:
+        assert terminal_index_plus_one > 0 and settlement_hash == bytes(32)
+    else:
+        raise AssertionError("invalid Pool-Bridge result status")
+    return (bytes4_word(POOL_BRIDGE_RESULT_MAGIC) + b32(credit_id)
+            + u256(status) + u256(reason) + u256(terminal_index_plus_one)
+            + b32(settlement_hash))
+
+
+def decode_pool_bridge_result_return(
+        returndata: bytes) -> tuple[bytes, int, int, int, bytes]:
+    assert len(returndata) == 6 * 32
+    assert bytes4_word_value(returndata[:32]) == POOL_BRIDGE_RESULT_MAGIC
+    result = (
+        b32(returndata[32:64]),
+        uint_word_value(returndata[64:96], 8),
+        uint_word_value(returndata[96:128], 8),
+        uint_word_value(returndata[128:160], 64),
+        b32(returndata[160:192]),
+    )
+    assert returndata == encode_pool_bridge_result_return(*result)
+    return result
 
 
 def target_call_failed_error(attempt_digest: bytes) -> bytes:
@@ -2366,13 +2650,59 @@ def decode_terminal_append_return(returndata: bytes) -> int:
 
 
 def liquidity_ticket_id(destination_chain_id: int, pool: int, depositor: int,
-                        l1_recipient: int, ticket_sequence: int) -> bytes:
+                        l1_recipient: int, salt: bytes) -> bytes:
     assert (destination_chain_id > 0 and pool != 0 and depositor != 0
-            and l1_recipient != 0 and 0 <= ticket_sequence <= UINT64_MAX)
-    return keccak256(
+            and l1_recipient != 0)
+    ticket_id = keccak256(
         D_LIQUIDITY_TICKET + u256(destination_chain_id) + address20(pool)
         + address20(depositor) + address20(l1_recipient)
-        + u64(ticket_sequence))
+        + b32(salt))
+    assert ticket_id != bytes(32)
+    return ticket_id
+
+
+def liquidity_attempt_authorization(
+        destination_chain_id: int, destination_domain_id_: bytes, pool: int,
+        destination_bridge: int, inbox_credit_store: int, credit_id: bytes,
+        ticket_id: bytes, depositor: int, result_hash: bytes, amount: int,
+        source_context_hash_: bytes, destination_context_hash_: bytes,
+        operation: int, is_last_attempt: bool) -> bytes:
+    assert (destination_chain_id > 0 and destination_domain_id_ != bytes(32)
+            and pool != 0 and destination_bridge != 0
+            and inbox_credit_store != 0 and credit_id != bytes(32)
+            and ticket_id != bytes(32) and depositor != 0
+            and result_hash != bytes(32) and amount > 0
+            and source_context_hash_ != bytes(32)
+            and destination_context_hash_ != bytes(32)
+            and operation in (1, 2))
+    return keccak256(
+        D_LIQUIDITY_ATTEMPT + u256(destination_chain_id)
+        + b32(destination_domain_id_) + address20(pool)
+        + address20(destination_bridge) + address20(inbox_credit_store)
+        + b32(credit_id) + b32(ticket_id) + address20(depositor)
+        + b32(result_hash) + u256(amount) + b32(source_context_hash_)
+        + b32(destination_context_hash_) + u8(operation)
+        + u8(1 if is_last_attempt else 0))
+
+
+def liquidity_acceptance_commitment(
+        destination_chain_id: int, destination_domain_id_: bytes,
+        destination_bridge: int, pool: int, credit_id: bytes,
+        ticket_id: bytes, depositor: int, result_hash: bytes, amount: int,
+        attempt_digest: bytes) -> bytes:
+    """Bind the Bridge's one exact expected Pool value callback."""
+
+    assert (destination_chain_id > 0 and destination_domain_id_ != bytes(32)
+            and destination_bridge != 0 and pool != 0
+            and credit_id != bytes(32) and ticket_id != bytes(32)
+            and depositor != 0 and result_hash != bytes(32)
+            and amount > 0 and attempt_digest != bytes(32))
+    return keccak256(
+        D_LIQUIDITY_ACCEPTANCE + u256(destination_chain_id)
+        + b32(destination_domain_id_) + address20(destination_bridge)
+        + address20(pool) + b32(credit_id) + b32(ticket_id)
+        + address20(depositor) + b32(result_hash) + u256(amount)
+        + b32(attempt_digest))
 
 
 def invocation_policy_hash(denied: tuple[int, ...]) -> bytes:
@@ -3036,7 +3366,10 @@ def fixture_destination_components() -> tuple[ComponentDescriptor, ...]:
         address20(0x5106) + address20(0x5100) + address20(0x5102)
         + address20(0x5104),
         address20(0x5103) + u8(64),
-        address20(0x5103) + bytes.fromhex("44" * 32),
+        address20(0x5103) + bytes.fromhex("44" * 32)
+        + u64(POOL_EXTERNAL_READ_GAS)
+        + u64(POOL_AUTH_CLEANUP_GAS)
+        + u64(POOL_VALUE_CALLBACK_GAS),
         destination_bridge_component_config(
             bytes.fromhex("42" * 32), bridge_kernel,
             0x5101, 0x5102, 0x5103, 0x5107, 0x5104),
@@ -4399,7 +4732,7 @@ def vectors() -> dict[str, str]:
         inbox_credit.result_hash + u256(inbox_credit.value)
         + u256(inbox_credit.execution_fee) + u256(inbox_credit.liquidity_fee)
         + u256(bridge.enqueue_by))
-    reservation_state_return = (
+    funding_state_return = (
         destination_domain + address_word(0xB200) + address_word(0x5101)
         + u256(1) + u256(0))
     verify_inbox_return = (
@@ -4416,11 +4749,7 @@ def vectors() -> dict[str, str]:
         + address_word(source_bridge_address)
         + destination_domain + bridge_credit)
     liquidity_quote_calldata = LIQUIDITY_QUOTE_SELECTOR + bridge_credit
-    reservation_state_calldata = (
-        LIQUIDITY_RESERVATION_STATE_SELECTOR + bridge_credit)
-    execute_attempt_calldata = encode_execute_attempt_calldata(
-        normalized_message, source_context, destination_context,
-        0x7777, 1, False)
+    funding_state_calldata = LIQUIDITY_FUNDING_STATE_SELECTOR + bridge_credit
     status_return = encode_status_return(1, 7)
     attempt_digest = bytes.fromhex("96" * 32)
     target_error = target_call_failed_error(attempt_digest)
@@ -4435,8 +4764,61 @@ def vectors() -> dict[str, str]:
     terminal_commitment_calldata = TERMINAL_COMMITMENT_SELECTOR + bridge_credit
     terminal_state_calldata = TERMINAL_STATE_SELECTOR
     terminal_append_return = u256(2)
+    ticket_salt = bytes.fromhex("46" * 32)
     ticket_hash = liquidity_ticket_id(
-        l2_chain_id, 0x5104, 0x8888, 0x9999, 7)
+        l2_chain_id, 0x5104, 0x8888, 0x9999, ticket_salt)
+    pool_amount = bridge.value + bridge.fee
+    pool_authorization = liquidity_attempt_authorization(
+        l2_chain_id, destination_domain, 0x5104, 0xB200, 0x5101,
+        bridge_credit, ticket_hash, 0x8888, inbox_credit.result_hash,
+        pool_amount, source_context_hash(source_context),
+        destination_context_hash(destination_context), 2, False)
+    pool_process_calldata = encode_process_with_liquidity_calldata(
+        ticket_hash, 0xB200, normalized_message, source_context,
+        destination_context)
+    pool_retry_calldata = encode_retry_with_liquidity_calldata(
+        ticket_hash, 0xB200, normalized_message, source_context,
+        destination_context, True)
+    pool_bridge_attempt_calldata = encode_pool_bridge_attempt_calldata(
+        ticket_hash, 0x8888, normalized_message, source_context,
+        destination_context, 2, False, pool_authorization)
+    execute_attempt_calldata = encode_execute_attempt_calldata(
+        normalized_message, source_context, destination_context,
+        0x8888, 1, False, ticket_hash, pool_authorization)
+    pool_deposit_calldata = encode_pool_word_calldata(
+        DEPOSIT_LIQUIDITY_V2_SELECTOR, address_word(0x9999), ticket_salt)
+    pool_withdraw_calldata = encode_pool_word_calldata(
+        WITHDRAW_LIQUIDITY_V2_SELECTOR, ticket_hash, address_word(0x8888),
+        u256(5))
+    pool_ticket_calldata = encode_pool_word_calldata(
+        TICKET_ACCOUNTING_V2_SELECTOR, ticket_hash)
+    pool_accounting_calldata = POOL_ACCOUNTING_V2_SELECTOR
+    pool_consume_calldata = encode_pool_word_calldata(
+        CONSUME_AUTHORIZED_LIQUIDITY_V2_SELECTOR, ticket_hash, bridge_credit,
+        address_word(0x8888), u256(pool_amount), inbox_credit.result_hash)
+    pool_callback_calldata = encode_pool_word_calldata(
+        ACCEPT_LIQUIDITY_VALUE_V2_SELECTOR, bridge_credit, ticket_hash,
+        u256(pool_amount))
+    pool_deposit_return = ticket_hash + u256(7 + pool_amount)
+    pool_withdraw_return = u256(2)
+    pool_ticket_return = address_word(0x8888) + address_word(0x9999) + u256(
+        7 + pool_amount)
+    pool_balance = 7 + pool_amount + 5
+    pool_accounting_return = (
+        bytes4_word(POOL_ACCOUNTING_MAGIC)
+        + infrastructure_components[8].config_hash
+        + u256(1) + u256(0) + bytes(32)
+        + u256(7 + pool_amount) + u256(pool_balance) + u256(5))
+    pool_consume_return = ticket_hash + address_word(0x9999) + u256(pool_amount)
+    pool_callback_return = bytes4_word(POOL_VALUE_MAGIC)
+    pool_settlement_hash = liquidity_settlement_hash(
+        ticket_hash, 0x9999, pool_amount)
+    pool_bridge_result_return = encode_pool_bridge_result_return(
+        bridge_credit, 2, 1, 3, pool_settlement_hash)
+    pool_acceptance = liquidity_acceptance_commitment(
+        l2_chain_id, destination_domain, 0xB200, 0x5104,
+        bridge_credit, ticket_hash, 0x8888, inbox_credit.result_hash,
+        pool_amount, attempt_digest)
     denied_targets = tuple(sorted((0, 0x5100, 0x5101, 0x5102, 0x5103,
                                    0x5104, 0x5107, 0xB200)))
     invocation_hash = invocation_policy_hash(denied_targets)
@@ -4810,7 +5192,7 @@ def vectors() -> dict[str, str]:
     assert decode_liquidity_quote_return(liquidity_quote_return) \
         == (inbox_credit.result_hash, inbox_credit.value, inbox_credit.execution_fee,
             inbox_credit.liquidity_fee, bridge.enqueue_by)
-    assert decode_liquidity_reservation_state_return(reservation_state_return) \
+    assert decode_liquidity_funding_state_return(funding_state_return) \
         == (destination_domain, 0xB200, 0x5101, 1, 0)
     assert decode_verify_inbox_credit_return(verify_inbox_return) \
         == (bridge_credit, bridge.enqueue_by, bridge.value, bridge.fee,
@@ -4819,22 +5201,63 @@ def vectors() -> dict[str, str]:
             and len(verify_inbox_calldata) == 196
             and len(inbox_slot_calldata) == 132
             and len(liquidity_quote_calldata) == 36
-            and len(reservation_state_calldata) == 36)
+            and len(funding_state_calldata) == 36)
     for malformed_view in (
         liquidity_quote_return[:-1], liquidity_quote_return + bytes(32),
-        reservation_state_return[:96] + u256(5)
-        + reservation_state_return[128:],
-        reservation_state_return[:128] + u256(1),
+        funding_state_return[:96] + u256(5)
+        + funding_state_return[128:],
+        funding_state_return[:128] + u256(1),
     ):
         decoder = (decode_liquidity_quote_return
-                   if len(malformed_view) != len(reservation_state_return)
-                   else decode_liquidity_reservation_state_return)
+                   if len(malformed_view) != len(funding_state_return)
+                   else decode_liquidity_funding_state_return)
         assert_rejects(lambda value=malformed_view, fn=decoder: fn(value),
                        "malformed permanent view accepted")
+    assert decode_process_with_liquidity_calldata(pool_process_calldata) \
+        == (ticket_hash, 0xB200, normalized_message, source_context,
+            destination_context)
+    assert decode_retry_with_liquidity_calldata(pool_retry_calldata) \
+        == (ticket_hash, 0xB200, normalized_message, source_context,
+            destination_context, True)
+    assert len(pool_process_calldata) == 964 + ceil32(
+        len(normalized_message.data))
+    assert len(pool_retry_calldata) == 996 + ceil32(
+        len(normalized_message.data))
+    for malformed_pool_call, decoder in (
+        (pool_process_calldata[:68] + u256(17 * 32)
+         + pool_process_calldata[100:],
+         decode_process_with_liquidity_calldata),
+        (pool_retry_calldata[:580] + u256(2)
+         + pool_retry_calldata[612:],
+         decode_retry_with_liquidity_calldata),
+        (pool_process_calldata + bytes(32),
+         decode_process_with_liquidity_calldata),
+        (pool_retry_calldata[:-1], decode_retry_with_liquidity_calldata),
+    ):
+        assert_rejects(
+            lambda value=malformed_pool_call, fn=decoder: fn(value),
+            "malformed Pool attempt calldata accepted")
+    assert decode_pool_bridge_attempt_calldata(pool_bridge_attempt_calldata) \
+        == (ticket_hash, 0x8888, normalized_message, source_context,
+            destination_context, 2, False, pool_authorization)
+    assert len(pool_bridge_attempt_calldata) == 1060 + ceil32(
+        len(normalized_message.data))
+    for malformed_bridge_pool_call in (
+        pool_bridge_attempt_calldata[:580] + u256(3)
+        + pool_bridge_attempt_calldata[612:],
+        pool_bridge_attempt_calldata[:612] + u256(2)
+        + pool_bridge_attempt_calldata[644:],
+        pool_bridge_attempt_calldata[:-1],
+        pool_bridge_attempt_calldata + bytes(32),
+    ):
+        assert_rejects(
+            lambda value=malformed_bridge_pool_call:
+                decode_pool_bridge_attempt_calldata(value),
+            "malformed Bridge Pool-attempt calldata accepted")
     assert decode_execute_attempt_calldata(execute_attempt_calldata) \
         == (normalized_message, source_context, destination_context,
-            0x7777, 1, False)
-    assert len(execute_attempt_calldata) == 996 + ceil32(
+            0x8888, 1, False, ticket_hash, pool_authorization)
+    assert len(execute_attempt_calldata) == 1060 + ceil32(
         len(normalized_message.data))
     assert decode_status_return(status_return) == (1, 7)
     assert decode_target_call_failed_error(target_error, attempt_digest) \
@@ -4859,9 +5282,10 @@ def vectors() -> dict[str, str]:
             and len(append_terminal_calldata) == 36
             and len(terminal_commitment_calldata) == 36
             and len(terminal_state_calldata) == 4)
-    ticket_arguments = (l2_chain_id, 0x5104, 0x8888, 0x9999, 7)
+    ticket_arguments = (l2_chain_id, 0x5104, 0x8888, 0x9999, ticket_salt)
     for index, replacement_value in enumerate((
-            l2_chain_id + 1, 0x5105, 0x8889, 0x999A, 8)):
+            l2_chain_id + 1, 0x5105, 0x8889, 0x999A,
+            bytes.fromhex("47" * 32))):
         changed = list(ticket_arguments)
         changed[index] = replacement_value
         assert liquidity_ticket_id(*changed) != ticket_hash
@@ -4870,9 +5294,99 @@ def vectors() -> dict[str, str]:
         changed[index] = 0
         assert_rejects(lambda args=tuple(changed): liquidity_ticket_id(*args),
                        "zero liquidity ticket identity accepted")
+    assert decode_pool_word_calldata(
+        pool_deposit_calldata, DEPOSIT_LIQUIDITY_V2_SELECTOR,
+        (address_word_value, b32)) == (0x9999, ticket_salt)
+    assert decode_pool_word_calldata(
+        pool_withdraw_calldata, WITHDRAW_LIQUIDITY_V2_SELECTOR,
+        (b32, address_word_value, uint_word_value)) \
+        == (ticket_hash, 0x8888, 5)
+    assert len(pool_ticket_calldata) == 36
+    assert decode_pool_word_calldata(
+        pool_ticket_calldata, TICKET_ACCOUNTING_V2_SELECTOR, (b32,)) \
+        == (ticket_hash,)
+    assert len(pool_consume_calldata) == 164
+    assert decode_pool_word_calldata(
+        pool_consume_calldata, CONSUME_AUTHORIZED_LIQUIDITY_V2_SELECTOR,
+        (b32, b32, address_word_value, uint_word_value, b32)) == (
+            ticket_hash, bridge_credit, 0x8888, pool_amount,
+            inbox_credit.result_hash)
+    assert decode_pool_word_calldata(
+        pool_callback_calldata, ACCEPT_LIQUIDITY_VALUE_V2_SELECTOR,
+        (b32, b32, uint_word_value)) \
+        == (bridge_credit, ticket_hash, pool_amount)
+    assert pool_accounting_calldata == POOL_ACCOUNTING_V2_SELECTOR
+    assert decode_pool_deposit_return(pool_deposit_return) \
+        == (ticket_hash, 7 + pool_amount)
+    assert decode_pool_withdraw_return(pool_withdraw_return) == 2
+    assert decode_pool_ticket_accounting_return(pool_ticket_return) \
+        == (0x8888, 0x9999, 7 + pool_amount)
+    assert decode_pool_ticket_accounting_return(bytes(96)) == (0, 0, 0)
+    assert decode_pool_accounting_return(pool_accounting_return) == (
+        infrastructure_components[8].config_hash, True, False, bytes(32),
+        7 + pool_amount, pool_balance, 5)
+    assert decode_pool_consume_return(pool_consume_return) \
+        == (ticket_hash, 0x9999, pool_amount)
+    assert decode_pool_value_magic_return(pool_callback_return) == POOL_VALUE_MAGIC
+    assert decode_pool_bridge_result_return(pool_bridge_result_return) == (
+        bridge_credit, 2, 1, 3, pool_settlement_hash)
+    pool_authorization_arguments = (
+        l2_chain_id, destination_domain, 0x5104, 0xB200, 0x5101,
+        bridge_credit, ticket_hash, 0x8888, inbox_credit.result_hash,
+        pool_amount, source_context_hash(source_context),
+        destination_context_hash(destination_context), 2, False,
+    )
+    for index, replacement_value in enumerate((
+            l2_chain_id + 1, bytes.fromhex("98" * 32), 0x5105, 0xB201,
+            0x5102, bytes.fromhex("97" * 32), bytes.fromhex("96" * 32),
+            0x8889, bytes.fromhex("95" * 32), pool_amount + 1,
+            bytes.fromhex("94" * 32), bytes.fromhex("93" * 32), 1, True)):
+        changed = list(pool_authorization_arguments)
+        changed[index] = replacement_value
+        assert liquidity_attempt_authorization(*changed) != pool_authorization
+    pool_acceptance_arguments = (
+        l2_chain_id, destination_domain, 0xB200, 0x5104,
+        bridge_credit, ticket_hash, 0x8888, inbox_credit.result_hash,
+        pool_amount, attempt_digest,
+    )
+    for index, replacement_value in enumerate((
+            l2_chain_id + 1, bytes.fromhex("98" * 32), 0xB201, 0x5105,
+            bytes.fromhex("97" * 32), bytes.fromhex("96" * 32), 0x8889,
+            bytes.fromhex("95" * 32), pool_amount + 1,
+            bytes.fromhex("94" * 32))):
+        changed = list(pool_acceptance_arguments)
+        changed[index] = replacement_value
+        assert liquidity_acceptance_commitment(*changed) != pool_acceptance
     assert_rejects(
-        lambda: liquidity_ticket_id(*ticket_arguments[:-1], UINT64_MAX + 1),
-        "overflow liquidity ticket sequence accepted")
+        lambda: liquidity_acceptance_commitment(
+            *pool_acceptance_arguments[:8], 0,
+            pool_acceptance_arguments[9]),
+        "zero Pool acceptance amount accepted")
+    assert_rejects(
+        lambda: decode_pool_word_calldata(
+            pool_consume_calldata + bytes(32),
+            CONSUME_AUTHORIZED_LIQUIDITY_V2_SELECTOR,
+            (b32, b32, address_word_value, uint_word_value, b32)),
+        "trailing Pool calldata accepted")
+    assert_rejects(
+        lambda: decode_pool_word_calldata(
+            DEPOSIT_LIQUIDITY_V2_SELECTOR + u256(1 << 160) + ticket_salt,
+            DEPOSIT_LIQUIDITY_V2_SELECTOR, (address_word_value, b32)),
+        "noncanonical Pool address accepted")
+    for malformed, decoder in (
+            (bytes(32) + pool_deposit_return[32:], decode_pool_deposit_return),
+            (pool_ticket_return[:64] + u256(0),
+             decode_pool_ticket_accounting_return),
+            (pool_accounting_return[:64] + u256(2)
+             + pool_accounting_return[96:], decode_pool_accounting_return),
+            (pool_accounting_return[:192] + u256(1)
+             + pool_accounting_return[224:], decode_pool_accounting_return),
+            (pool_bridge_result_return[:64] + u256(4)
+             + pool_bridge_result_return[96:],
+             decode_pool_bridge_result_return),
+            (pool_callback_return + bytes(32), decode_pool_value_magic_return)):
+        assert_rejects(lambda value=malformed, fn=decoder: fn(value),
+                       "malformed Pool ABI accepted")
     assert decode_invocation_policy_return(invocation_return) \
         == (invocation_hash, True)
     assert len(invocation_policy_calldata) == 68
@@ -5110,12 +5624,12 @@ def vectors() -> dict[str, str]:
             keccak256(liquidity_quote_calldata).hex(),
         "liquidity_quote_return_hash":
             keccak256(liquidity_quote_return).hex(),
-        "liquidity_reservation_state_selector":
-            LIQUIDITY_RESERVATION_STATE_SELECTOR.hex(),
-        "liquidity_reservation_state_calldata_hash":
-            keccak256(reservation_state_calldata).hex(),
-        "liquidity_reservation_state_return_hash":
-            keccak256(reservation_state_return).hex(),
+        "liquidity_funding_state_selector":
+            LIQUIDITY_FUNDING_STATE_SELECTOR.hex(),
+        "liquidity_funding_state_calldata_hash":
+            keccak256(funding_state_calldata).hex(),
+        "liquidity_funding_state_return_hash":
+            keccak256(funding_state_return).hex(),
         "execute_attempt_selector": EXECUTE_ATTEMPT_SELECTOR.hex(),
         "execute_attempt_calldata_hash":
             keccak256(execute_attempt_calldata).hex(),
@@ -5139,6 +5653,57 @@ def vectors() -> dict[str, str]:
             keccak256(terminal_commitment_return).hex(),
         "terminal_state_return_hash": keccak256(terminal_state_return).hex(),
         "liquidity_ticket_id": ticket_hash.hex(),
+        "pool_component_configuration_hash":
+            infrastructure_components[8].config_hash.hex(),
+        "pool_external_read_gas": str(POOL_EXTERNAL_READ_GAS),
+        "pool_auth_cleanup_gas": str(POOL_AUTH_CLEANUP_GAS),
+        "pool_value_callback_gas": str(POOL_VALUE_CALLBACK_GAS),
+        "pool_deposit_selector": DEPOSIT_LIQUIDITY_V2_SELECTOR.hex(),
+        "pool_withdraw_selector": WITHDRAW_LIQUIDITY_V2_SELECTOR.hex(),
+        "pool_process_selector": PROCESS_WITH_LIQUIDITY_V2_SELECTOR.hex(),
+        "pool_retry_selector": RETRY_WITH_LIQUIDITY_V2_SELECTOR.hex(),
+        "pool_process_calldata_hash":
+            keccak256(pool_process_calldata).hex(),
+        "pool_process_calldata_length": str(len(pool_process_calldata)),
+        "pool_retry_calldata_hash": keccak256(pool_retry_calldata).hex(),
+        "pool_retry_calldata_length": str(len(pool_retry_calldata)),
+        "pool_bridge_attempt_selector": POOL_BRIDGE_ATTEMPT_SELECTOR.hex(),
+        "pool_bridge_attempt_calldata_hash":
+            keccak256(pool_bridge_attempt_calldata).hex(),
+        "pool_bridge_attempt_calldata_length":
+            str(len(pool_bridge_attempt_calldata)),
+        "pool_ticket_selector": TICKET_ACCOUNTING_V2_SELECTOR.hex(),
+        "pool_accounting_selector": POOL_ACCOUNTING_V2_SELECTOR.hex(),
+        "pool_consume_selector":
+            CONSUME_AUTHORIZED_LIQUIDITY_V2_SELECTOR.hex(),
+        "pool_value_callback_selector":
+            ACCEPT_LIQUIDITY_VALUE_V2_SELECTOR.hex(),
+        "pool_accounting_magic": POOL_ACCOUNTING_MAGIC.hex(),
+        "pool_value_magic": POOL_VALUE_MAGIC.hex(),
+        "pool_bridge_result_magic": POOL_BRIDGE_RESULT_MAGIC.hex(),
+        "pool_attempt_authorization": pool_authorization.hex(),
+        "pool_value_acceptance_commitment": pool_acceptance.hex(),
+        "pool_deposit_calldata_hash": keccak256(pool_deposit_calldata).hex(),
+        "pool_withdraw_calldata_hash": keccak256(pool_withdraw_calldata).hex(),
+        "pool_ticket_calldata_hash": keccak256(pool_ticket_calldata).hex(),
+        "pool_accounting_calldata_hash":
+            keccak256(pool_accounting_calldata).hex(),
+        "pool_consume_calldata_hash": keccak256(pool_consume_calldata).hex(),
+        "pool_value_callback_calldata_hash":
+            keccak256(pool_callback_calldata).hex(),
+        "pool_deposit_return_hash": keccak256(pool_deposit_return).hex(),
+        "pool_withdraw_return_hash": keccak256(pool_withdraw_return).hex(),
+        "pool_ticket_return_hash": keccak256(pool_ticket_return).hex(),
+        "pool_accounting_return_hash":
+            keccak256(pool_accounting_return).hex(),
+        "pool_consume_return_hash": keccak256(pool_consume_return).hex(),
+        "pool_value_callback_return_hash":
+            keccak256(pool_callback_return).hex(),
+        "pool_bridge_result_return_hash":
+            keccak256(pool_bridge_result_return).hex(),
+        "liquidity_deposited_topic": LIQUIDITY_DEPOSITED_V2_TOPIC.hex(),
+        "liquidity_consumed_topic": LIQUIDITY_CONSUMED_V2_TOPIC.hex(),
+        "liquidity_withdrawn_topic": LIQUIDITY_WITHDRAWN_V2_TOPIC.hex(),
         "invocation_policy_typehash": INVOCATION_POLICY_TYPEHASH.hex(),
         "invocation_policy_hash": invocation_hash.hex(),
         "invocation_policy_getter_selector":
@@ -5256,21 +5821,21 @@ EXPECTED = {
     "entry_root": "acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34",
     "tranche_leaf": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551",
     "forced_leaf": "c75c50d8b8573f217a20c9018a3d23d7fa5cda240f2a2e9eb4260c4af4c367e4",
-    "bridge_leaf": "956ac8402556d0a89ca016866d374e6f69fa3fd205435aef24135287c44b9b76",
-    "bridge_result": "20b827ea751b10e09d74228c914983753c5b11def4ea5db33ba98223020161c2",
-    "bridge_credit_id": "44c7f6349cfc851f3d08f76268d0bf63986b3c2d66ad1de8aa22c3a684e922cb",
-    "liquidity_fee_substitution_bridge_leaf": "24b35a966effbd11f3ac01e523adcc1bd534144f65ec2a51e0d0082ba782394f",
-    "liquidity_fee_substitution_credit_id": "14094883c8f217eb0db2c615ec87bff6f96295dfe5fd67963e399f767f0a7630",
-    "bridge_escrow_id": "c12559a405b00da5acac02621ba6f341a8d4d6adf17594254ed061d739980f6d",
-    "inbox_credit_slot": "27723fe890a8d23e0b7d0b14880f03f3c34cc646f9600a83919840f6a0bd5b89",
-    "terminal_done_leaf": "1c89cc4ea4844a4d892d59a0cede83ad74b12724acd7214bc0c11cb9403e7e33",
+    "bridge_leaf": "7cd40babf5d0e4908f90da57785d52de93d92741aeb940f13a59221ad332af8f",
+    "bridge_result": "47be95791466008e7a8970898359e72ca409a7f9ec5641a819e9b93307174fba",
+    "bridge_credit_id": "6747d81e54f20c5eeaefcdb5e0419d8f3cbeb95cafc4efb96045c77e9bff583c",
+    "liquidity_fee_substitution_bridge_leaf": "88ea5a78f94aafb8fda4a2be6ace1891d1723ad26c83491cfbb00baae208e4bb",
+    "liquidity_fee_substitution_credit_id": "783fc5d3dd26918f6dfe4e5d5a9566a1a785d2b17f03623c2f7815ce6e713d95",
+    "bridge_escrow_id": "4975c6bb1ef0bd5c79892a4a130cf0e62a97a6cc43c4e49c45bd46635c6ae597",
+    "inbox_credit_slot": "c43547b091885bc0f506a276ac4cdccd45daf00ce89d9ee1b3547804e8a13ead",
+    "terminal_done_leaf": "97bafd66948960214a35ab5ec7762bcc24ee34b3419dd681d35d528732cdddc0",
     "liquidity_settlement_hash": "625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19",
-    "settlement_tuple_substitution_terminal_leaf": "8db1f7f9e7fa1c5075075286eed748933d59e22759bd0f3011a91950ad9d67b7",
-    "terminal_failed_leaf": "1391f7851ecffe7093f154cc399ac59891b7aa7766b32375df9a53c6d84b1d5f",
-    "terminal_root_2": "121e62e05147e60c2db287e8e7d4de42fff6cdec8f51d53f6f67214457c97581",
+    "settlement_tuple_substitution_terminal_leaf": "430dd36372fba4094cf167e7ccf5ab171f024f6983e86a9fe6c30036ba412fe5",
+    "terminal_failed_leaf": "68aba0ce8531d028d8e2535c33543be5badf7ae170a2e9fcb421da236387992e",
+    "terminal_root_2": "2b66f54d18aa54b45595637bd4fa8783c5df19776d4e6d3af737396b21d01b12",
     "empty_terminal_root": "c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0",
     "source_domain_id": "3ca03af3984e7b2ece804a84fe1f80b20d1ca0c710a03b4483adfabd63a35376",
-    "destination_domain_id": "97e53e2233611efb9ee4dbb5a8d97a108b4d33ec43711b3d7250bd0c33863cf0",
+    "destination_domain_id": "9d5865dd8f4355518ff88d1ef4f8ffc02049691a0a67b2f7a6a0748b631c0dd6",
     "bridge_kernel_profile_hash": "a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338",
     "source_bridge_descriptor_length": "752",
     "derived_source_bridge_address": "27e23fb6e5b1d8d4061ac47519cf1e7928cb0e79",
@@ -5287,24 +5852,188 @@ EXPECTED = {
     "source_terminal_verifier_config_getter_return": "038f286c206e9799fe645cccf100577246b640a444341f877f51ce2b8214a669",
     "bridge_execution_hash": "fa1e986cef0ff6d8474aeb73698573487e761635dd5999ff1cce625ddf223dd3",
     "destination_bridge_execution_hash": "78c541f426d06c2d96470d6e9e226dc9186d7632c15c587a3199d0db2766c6c4",
-    "destination_infrastructure_hash": "1dd64cb0e4fe42cf2f54a7daa9936854c654ef1f43f5339d664a6d07c10d27d1",
+    "destination_infrastructure_hash": "0cdf882cb87853c1d14330102677c44ca4cf40bc7c150086ddcf6180f869a71b",
     "pool_row_substitution_infrastructure_hash": "af9e17cc8c95267b679e9ae20ec16363a8fa06ceb4e56d63e40bd6e671a05647",
     "migration_verifier_config_typehash": "0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98",
     "migration_verifier_configuration_hash": "969a782016029488dab2179a992f96b0331759058a03d0105c6a157de09e206d",
     "migration_verifier_descriptor_typehash": "6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6",
     "migration_verifier_descriptor_hash": "3717fd77ba3254853408d20623f95df4c88b5e6abc20cf436797b7155a5fb965",
     "migration_verifier_config_getter_selector": "476b9aef",
+    "migration_transition_statement_typehash": "1c99db64554200a004b213159ac780ebbde4379622f59ad73f8f503afcbb2fe1",
+    "deployment_commitment_typehash": "bcfcbbdc64e08793950be4f8cd516833c105b8aff92ed7f5482e7aa122df709e",
+    "manifest_components_hash": "6248625e4b5e9943135d6362bcd3dd318039efa0409719f9911ee1fd1a4b1841",
+    "genesis_deployment_commitment": "58cfcabb32391f99b13fcf43d59518164bf55477b55a452c823e44a736b08dd8",
+    "version_deployment_commitment": "21dee41b7da848124533769c0898c19a4b9177e287e1d5165b058a4d448b9292",
+    "legacy_signal_checkpoint_hash": "6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708",
+    "genesis_migration_statement_hash": "e663fde890e23c0c006156c4e9f9044b26ab33c15132b3d69b3075a3dd914aab",
+    "version_migration_statement_hash": "641eb0ba8ba3e3754745269828d945f6b090e66d54360dd5297df009a403636e",
+    "registration_storage_statement_typehash": "c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0",
+    "registration_route_key_typehash": "4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da",
+    "registration_route_key": "2b65be65ab9d7c4b04c7a9af559fe2237e2bcf9fa1929283007acaea9e8f8b8a",
+    "verify_registration_selector": "33639818",
+    "registration_storage_statement_hash": "a1694f13e3ee7db82f8f8f49ff80c4d8abeafe9d8f405db669631cbc48300042",
+    "registration_mpt_proof_schema_hash": "50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5",
+    "registration_mpt_verifier_config_typehash": "38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6",
+    "registration_mpt_verifier_configuration_hash": "b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f",
+    "registration_mpt_verifier_descriptor_typehash": "9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f",
+    "registration_mpt_verifier_descriptor_hash": "99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf",
+    "registration_mpt_verifier_config_getter_selector": "59bfe418",
+    "verify_registration_calldata_hash": "1a820f00c2003c6a46858e4a3354dbb0eea36477d46744157b96d9d5498b3bfc",
+    "verify_registration_calldata_length": "516",
+    "registration_verifier_return": "a1694f13e3ee7db82f8f8f49ff80c4d8abeafe9d8f405db669631cbc48300042",
+    "registration_config_getter_return": "b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f",
+    "source_context_typehash": "6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70",
+    "source_context_hash": "1ec85d31b086570401b42b9bf96e29a863f0277353b9dc40da85eda17b3abef6",
+    "destination_context_typehash": "b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb",
+    "destination_context_hash": "bfafcf7c57ae126a84fa3004503382308d055e6af00bc730c63b84663bf352f4",
+    "ingress_authorization_typehash": "a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82",
+    "kind0_ingress_authorization_id": "31e0887e3c9b8e063d322fccda4f8d01d2be91a8c8f0ee20d8cd9984ee972aaf",
+    "kind1_ingress_authorization_id": "8a58176d9dc533c7c5bed0d7cda53fc793866d33bcae52aa8e88a3e440994729",
+    "ingress_authorization_root_typehash": "c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042",
+    "ingress_authorization_root": "cd9e73d18609ee1e561e936ec25bc2fd3332d698b3af4abee87f2e69fbbd7afb",
+    "send_message_v2_selector": "9211d7e9",
+    "enqueue_bridge_credit_v2_selector": "81805d6b",
+    "credit_authorization_v2_selector": "05ecb6c2",
+    "credit_authorization_v2_calldata_hash": "25e9606016cd7da6365e6363e210bb59f717992a64f35d67a7ceb0245943d1da",
+    "credit_authorization_v2_return_hash": "92fb05351e255dd08c192200efcacd06de309c878f1336059ad450e499ada598",
+    "credit_authorization_v2_return_length": "576",
+    "credit_liability_v2_selector": "c978978a",
+    "credit_liability_v2_calldata_hash": "22e033532f6d17057573e995e832509a44ed282c392e3121f4d7a53ced1ec55a",
+    "credit_liability_v2_return_hash": "ad3bba6e04fff6bfefacfdf034f4aaf7bba7149ef0f4dfa0625a5653290f9195",
+    "credit_liability_v2_return_length": "288",
+    "source_credit_read_gas_limit": "200000",
+    "message_v1_tuple_hash": "0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d",
+    "message_v1_data_hash": "f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835",
+    "send_message_v2_calldata_hash": "9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12",
+    "send_message_v2_calldata_length": "516",
+    "enqueue_bridge_credit_v2_calldata_hash": "02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4",
+    "normalized_message_hash_preimage_length": "576",
+    "normalized_message_hash": "f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7",
+    "normalized_message_return_hash": "9ae2f743a618dd71137457bbc5ce7a13bbd143fef8b1c70bb38508c0fcad7e17",
+    "enqueue_forced_transaction_selector": "9f06b1b4",
+    "enqueue_forced_transaction_calldata_hash": "3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a",
+    "enqueue_forced_transaction_calldata_length": "196",
+    "sync_ingress_selector": "6c880b72",
+    "sync_ingress_stamp_return_hash": "1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434",
+    "sync_ingress_synced_return_hash": "ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184",
+    "append_from_adapter_selector": "1927261d",
+    "append_kind0_calldata_hash": "caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a",
+    "append_kind0_calldata_length": "388",
+    "append_kind1_calldata_hash": "b0d12b45c63ef45628fc1b2db383d9549488b80918cca44debb200bbdfe310c7",
+    "append_kind1_calldata_length": "708",
+    "queued_return_hash": "76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d",
+    "v11_bridge_descriptor": "212121212121212121212121212121212121212121212121212121212121212100000000000000000000000000000000000000000000000000000000000000013ca03af3984e7b2ece804a84fe1f80b20d1ca0c710a03b4483adfabd63a35376000000000000000727e23fb6e5b1d8d4061ac47519cf1e7928cb0e79fa1e986cef0ff6d8474aeb73698573487e761635dd5999ff1cce625ddf223dd3000000000000300c9d5865dd8f4355518ff88d1ef4f8ffc02049691a0a67b2f7a6a0748b631c0dd6000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e222222222222222222222222222222222222222222222222222222222222222201000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004975c6bb1ef0bd5c79892a4a130cf0e62a97a6cc43c4e49c45bd46635c6ae59700000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000",
+    "inbox_apply_selector": "6b326168",
+    "inbox_apply_calldata_hash": "cd96666a9a529387c244411a46316699b6b9b07e2f13d002f6a1bb07f8461644",
+    "inbox_apply_calldata_length": "1092",
+    "inbox_apply_maximum_calldata_hash": "42ae75557ed851bf69add5417fd7be02b263bbd123655d33156b1adbec5288fd",
+    "mark_inbox_batch_selector": "a92f72cd",
+    "mark_inbox_batch_calldata_hash": "4862911600d70731812ab3cf63b26596fe69f5f1b06827465d2eea9e325c0d18",
+    "inbox_batch_magic": "49425632",
+    "route_config_getter_selector": "4b64fa11",
+    "verify_inbox_credit_calldata_hash": "e8ccbec218baa8d11a1a0682e85500e188f878a1733825f2247719d19a713c4b",
+    "verify_inbox_credit_selector": "28933d28",
+    "get_inbox_credit_slot_selector": "31e85ab1",
+    "get_inbox_credit_slot_calldata_hash": "2860632f20b526ed497f91529cc40b80a86b8290ea9e75008d4f2a81176e788a",
+    "liquidity_quote_selector": "43dc48e0",
+    "liquidity_quote_calldata_hash": "5d6312d95e6a8ed61a5ce2d4b24f376188a2c50540dd847e6f3530806977aee0",
+    "liquidity_quote_return_hash": "5f6fa3f587b753e5c61e29c17028ad4a96fefca95c88dfd44994e6234cf1556b",
+    "liquidity_funding_state_selector": "6a9a6c32",
+    "liquidity_funding_state_calldata_hash": "eeaa8df43712252ff30ff5baaf355953de5e8f11eaa764387ee99d810a3a0ce0",
+    "liquidity_funding_state_return_hash": "aab56bc5e1ea52e8f055bd4c4098b959d147df690e42905e608d3ce826633734",
+    "execute_attempt_selector": "4cbe2fe2",
+    "execute_attempt_calldata_hash": "0d81d8a6dfdc0addf805985d1b9343fd53de1c668d6b515756b7c55b2984dbfd",
+    "execute_attempt_calldata_length": "1124",
+    "finalize_failed_attempt_selector": "745dcb69",
+    "finalize_failed_attempt_calldata_hash": "2d22529bc2ae7a4fcbf064fffac4363a01d1cd7067814d63bcfe789d0dce4fd3",
+    "status_return_hash": "b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828",
+    "target_call_failed_selector": "f9cc2b44",
+    "target_call_failed_error_hash": "1e5dd0ffe211b83cfe975af6e5c84015b6cfae3a2135c70a7c42426b899a59ac",
+    "append_terminal_selector": "abc194f5",
+    "append_terminal_calldata_hash": "0b4695a050f6b90ef47a089624708d288b7a28bcc8af7cf672b84d0bcd4e36c0",
+    "terminal_commitment_selector": "2c984c97",
+    "terminal_commitment_calldata_hash": "cf5722ec81009c52ff8af608eab419678b3e92ea48fa0e27e5c94c5a69000842",
+    "terminal_state_selector": "998c57ed",
+    "terminal_append_return": "0000000000000000000000000000000000000000000000000000000000000002",
+    "terminal_commitment_return_hash": "af729dfdc12f6ba6068f56bb5582375fda13d83a18fe551ef1faa32efe718952",
+    "terminal_state_return_hash": "3e3b1f39f0b0fc42adb4a6c15987dc52d6c0bac9497db88ab1b07b9fb96bfbcd",
+    "liquidity_ticket_id": "5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b",
+    "pool_component_configuration_hash": "a8451db81aa351573afec2c22aa23efabb11ffaeb48cae613098f3f76478eace",
+    "pool_external_read_gas": "50000",
+    "pool_auth_cleanup_gas": "50000",
+    "pool_value_callback_gas": "100000",
+    "pool_deposit_selector": "eda2a3f6",
+    "pool_withdraw_selector": "fe4f5ccf",
+    "pool_process_selector": "5fbbe107",
+    "pool_retry_selector": "031f93e7",
+    "pool_process_calldata_hash": "bb8293658a94f7b9a29ecc94d440aa1a1491a1b21260d9ef90fd81ce7ce9192d",
+    "pool_process_calldata_length": "1028",
+    "pool_retry_calldata_hash": "ed195eeffb7e80adf01d20de872e2cdafc61b72fd7430c293efc4058ab7756bc",
+    "pool_retry_calldata_length": "1060",
+    "pool_bridge_attempt_selector": "a535a986",
+    "pool_bridge_attempt_calldata_hash": "0242223ee881f005565361ff99a20ac690c5e501d464cdf49c87a34bca5ce60f",
+    "pool_bridge_attempt_calldata_length": "1124",
+    "pool_ticket_selector": "5defa7e1",
+    "pool_accounting_selector": "f2b3441e",
+    "pool_consume_selector": "37093d2a",
+    "pool_value_callback_selector": "a34908bb",
+    "pool_accounting_magic": "504c4132",
+    "pool_value_magic": "4e4c5632",
+    "pool_bridge_result_magic": "4c415632",
+    "pool_attempt_authorization": "2cf09066a3f5054e249db9578180b0721ee9d6254be753805c89615f510a84e7",
+    "pool_value_acceptance_commitment": "65aea4c9f0d71caa99d032f1551c9aba7948635a5f4fcb8ca390fc278e297289",
+    "pool_deposit_calldata_hash": "35c6d5e52bfa1f1d559b5061bb71be2155e607456b1e4242e400d398aaa3e180",
+    "pool_withdraw_calldata_hash": "6a23d1194b26c434dd47e8b8559a55f7b8c5e93bb7dc575588dae27cf6f60815",
+    "pool_ticket_calldata_hash": "7f489c048d7a27a5fe4624ac37cacdef2ae1ba1ba08d68471ad5e00dd7c47dfe",
+    "pool_accounting_calldata_hash": "354fc0013d46832830b1dff0379be91bf1b0060a34ce0b17d614f5065b61610e",
+    "pool_consume_calldata_hash": "2107e4ede3bdd1099c3ea00d1f8fc1effd8f8a2ae67cfe91a088c5a56279fe19",
+    "pool_value_callback_calldata_hash": "b4278acdb2610295d95797af1d0046a7fa3d70e860279aa90a06d78a41a14aa8",
+    "pool_deposit_return_hash": "7ba7804bc6c4c0cde5e2b1c55e724cc9e14b664c02eeb19db225db96f859c64e",
+    "pool_withdraw_return_hash": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
+    "pool_ticket_return_hash": "4cb85eb7ea2f272ca7a4d558694de56d4e9d2455a7cd3074c442c849213a9c31",
+    "pool_accounting_return_hash": "34893bdde3311a60d73f4151a39d91e54cd1f28d6c304ed124095a82591c1894",
+    "pool_consume_return_hash": "45e57d13eb0e9644c2d8c552e4f7c7d66bb0a4acd9e4862195bcabc68d5d9af6",
+    "pool_value_callback_return_hash": "632cf02c0c8f06fd37a4ea096b77ae3cb51bbcd26f7920bb0bd053c5b0df10e2",
+    "pool_bridge_result_return_hash": "17302f9b21cb05ba345301ddfbde0e2b63ab166eed4f22443ae14d89f27672aa",
+    "liquidity_deposited_topic": "5eb65038b938ffac21aec1d6ecbbe2195bc6697ae085a31dfbca8fca3aaf9931",
+    "liquidity_consumed_topic": "7f0ddd8af8190f3a3857af29a65ebb7546d6eecfa85fb39d4a697916bc75fca5",
+    "liquidity_withdrawn_topic": "1c7f587c4a1403966578e0bc3326f08fab3ad01d6c34b92e43af37a84ad98e38",
+    "invocation_policy_typehash": "d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1",
+    "invocation_policy_hash": "5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3",
+    "invocation_policy_getter_selector": "b2d0e286",
+    "invocation_policy_calldata_hash": "fb833c67fe31314c145a7556a44a292377b024812b4e6c4a1e2acfcf75ca2d3c",
+    "message_invocation_hook_selector": "7f07c947",
+    "invocation_policy_return_hash": "93bc154411cabc321c6b7c452a338e3e52789f0b97229cc2c68ba0bb4e3f3a19",
+    "invocation_policy_magic": "49505632",
+    "destination_activation_receipt_id": "6bcf23ed048369862f0171a2c2c0cf620cb25ae624abf0e9a294d6e1fe291f46",
+    "destination_activation_receipt_magic": "44525632",
+    "destination_successor_receipt_magic": "44535632",
+    "activation_receipt_id": "3613f5a275f0f2ac073a0a1347f831ca9980e97d718c01e1349e85394156c4e8",
+    "activation_receipt_magic": "41525631",
+    "activation_successor_receipt_magic": "41535631",
+    "activate_version_with_migration_selector": "14c37693",
+    "genesis_activation_fixed_hash": "273742c984e16e7a4eac27323bbfface0e334cb90da2640dc482683114ac0c01",
+    "version_activation_fixed_hash": "8ef8c50c81fa6748590f2affe7ac89e9d0adb4a6644d288edfa5dd2923dfc490",
+    "genesis_activation_calldata_hash": "f4a4a48a85eaf43eda11d0dfc382de7677d47a3f42d49e6c16d1636ab8e02059",
+    "genesis_activation_calldata_length": "3876",
+    "version_activation_calldata_hash": "ad9b8ab97ab7532722364d5879810760937336f1169cd62193e833aa0c3d08a6",
+    "version_activation_calldata_length": "3812",
+    "maximum_genesis_activation_calldata_hash": "cceed0faf0b193a18e8855060cd01f57a201cca2b4d0830ea4e16f42d6ab93f7",
+    "maximum_genesis_activation_calldata_length": "150180",
+    "maximum_version_activation_calldata_hash": "77a0018e09af547ff4847e1e8afd40fe64a9cc18a13c599fd44b89ccaf6fea2b",
+    "maximum_version_activation_calldata_length": "149220",
+    "maximum_migration_proof_bytes": "131072",
     "release_manifest_typehash": "603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b",
     "activate_release_selector": "28f73572",
-    "release_manifest_hash": "b19d98a5c4494c4b37d5b84da44b1217fb66284376f6fd8b377e22b9dfa1f869",
-    "destination_registration_commitment": "7e05192d70ce3bc37609173005691b2cfac0d7965a58969e342c3a849ec98c62",
+    "release_manifest_hash": "77ed9f80122ececc86da67e0c6af8c9ef41cc4fa40858fa7eff26dc0c6715b83",
+    "destination_registration_commitment": "d0dcd30fabc8c57cdf762166ceda156889488990bb4db0b7596960380e256dd3",
     "registration_commitment_base_slot": "20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3",
     "registration_commitment_slot": "dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b",
     "registration_commitment_trie_key": "200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8",
     "release_manifest_base_slot": "a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f",
     "release_manifest_slot": "719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8",
     "release_manifest_trie_key": "dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2",
-    "inbox_route_config_hash": "2256dd6e98891531a80b2ee16b67a7f1d77db7e17d8523f9b5ab3fa540e9c4a3",
+    "inbox_route_config_hash": "95f57b8e0bae6e9db6e07c74582e875974bfeaffafe94f6b24672e1e9f6d433b",
     "forced_queue_config_hash": "72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e",
     "data_session_config_hash": "83e7e252277ea66b70b59a490421d21454032a3fe64107c7390131f83a487b76",
     "session_open_selector": "7bda4d11",
@@ -5344,132 +6073,7 @@ EXPECTED = {
     "recovery_id": "fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15",
     "body_root": "0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9",
     "chunk_root_0": "e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e",
-    "migration_transition_statement_typehash": "1c99db64554200a004b213159ac780ebbde4379622f59ad73f8f503afcbb2fe1",
-    "deployment_commitment_typehash": "bcfcbbdc64e08793950be4f8cd516833c105b8aff92ed7f5482e7aa122df709e",
-    "manifest_components_hash": "1ea18ec884a6b6589f5ffc6b26ed65ba1c2e1b1c2a236d01b56870a10599517c",
-    "genesis_deployment_commitment": "d280ae426b49d9b76957272ec052ade6c5fb3689cb0422422a73cd6ed5d1f71f",
-    "version_deployment_commitment": "050582303e9ccf3b2caed29c1f534b20072933a6d5438389638d0d70ffcbb007",
-    "legacy_signal_checkpoint_hash": "6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708",
-    "genesis_migration_statement_hash": "437db4c7add4914d0663065bb6637e858a41af59b98299347a983f717bc92df4",
-    "version_migration_statement_hash": "bfb307caed765013a6dc050dd0bfe21d7e86702cdfa6cb2714b567dc1b923b74",
-    "registration_storage_statement_typehash": "c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0",
-    "registration_route_key_typehash": "4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da",
-    "registration_route_key": "7ff8e1d53c3ddb482fd789fa3b29c92cdc5fd42aed2151b7f684c70c5c40f7c6",
-    "verify_registration_selector": "33639818",
-    "registration_storage_statement_hash": "57421732f8694364afe5d47f05bd562b536c6469e7f891ae2c1b9ba61359f819",
-    "registration_mpt_proof_schema_hash": "50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5",
-    "registration_mpt_verifier_config_typehash": "38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6",
-    "registration_mpt_verifier_configuration_hash": "b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f",
-    "registration_mpt_verifier_descriptor_typehash": "9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f",
-    "registration_mpt_verifier_descriptor_hash": "99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf",
-    "registration_mpt_verifier_config_getter_selector": "59bfe418",
-    "verify_registration_calldata_hash": "5254ee30ab9239869c34664d1cc4c6945615c21dc8434bd76d438c418d92ae36",
-    "verify_registration_calldata_length": "516",
-    "source_context_typehash": "6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70",
-    "source_context_hash": "c76e3ae4a8d80df05787562d494ca2b66681d840c7bc6a870a8349bb125daf27",
-    "destination_context_typehash": "b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb",
-    "destination_context_hash": "019ecba422e0615a07edc6e2ba112d112e35ed77e9004489025ac6a8b5764e52",
-    "ingress_authorization_typehash": "a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82",
-    "kind0_ingress_authorization_id": "31e0887e3c9b8e063d322fccda4f8d01d2be91a8c8f0ee20d8cd9984ee972aaf",
-    "kind1_ingress_authorization_id": "1cee9bf0f46a9f58aa5e47ee5fc2c0d1cb865f1cd70ce1353aa25497c38b272e",
-    "ingress_authorization_root_typehash": "c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042",
-    "ingress_authorization_root": "e925350f82d47fa044d352e8e65a68f4641304abc0996a20985ea1ee8479ffac",
-    "send_message_v2_selector": "9211d7e9",
-    "enqueue_bridge_credit_v2_selector": "81805d6b",
-    "credit_authorization_v2_selector": "05ecb6c2",
-    "credit_authorization_v2_calldata_hash": "16c5b7feff695476e8e652ff3d0d1b8f67e097263dcd582be5bcd4bf71a895ea",
-    "credit_authorization_v2_return_hash": "adb5fd5a08fa444f2c6b69896e6598dbe3cd3a386b8f86b59565c8a3a63395ac",
-    "credit_authorization_v2_return_length": "576",
-    "credit_liability_v2_selector": "c978978a",
-    "credit_liability_v2_calldata_hash": "b3e44f619f0f33257810de654855f99ad49354966d1ea0de39d9eef1345ed94d",
-    "credit_liability_v2_return_hash": "ad3bba6e04fff6bfefacfdf034f4aaf7bba7149ef0f4dfa0625a5653290f9195",
-    "credit_liability_v2_return_length": "288",
-    "source_credit_read_gas_limit": "200000",
-    "message_v1_tuple_hash": "0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d",
-    "message_v1_data_hash": "f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835",
-    "send_message_v2_calldata_hash": "9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12",
-    "send_message_v2_calldata_length": "516",
-    "enqueue_bridge_credit_v2_calldata_hash": "02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4",
-    "normalized_message_hash_preimage_length": "576",
-    "normalized_message_hash": "f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7",
-    "normalized_message_return_hash": "9ae2f743a618dd71137457bbc5ce7a13bbd143fef8b1c70bb38508c0fcad7e17",
-    "v11_bridge_descriptor": "212121212121212121212121212121212121212121212121212121212121212100000000000000000000000000000000000000000000000000000000000000013ca03af3984e7b2ece804a84fe1f80b20d1ca0c710a03b4483adfabd63a35376000000000000000727e23fb6e5b1d8d4061ac47519cf1e7928cb0e79fa1e986cef0ff6d8474aeb73698573487e761635dd5999ff1cce625ddf223dd3000000000000300c97e53e2233611efb9ee4dbb5a8d97a108b4d33ec43711b3d7250bd0c33863cf0000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e22222222222222222222222222222222222222222222222222222222222222220100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c12559a405b00da5acac02621ba6f341a8d4d6adf17594254ed061d739980f6d00000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000",
-    "inbox_apply_selector": "6b326168",
-    "inbox_apply_calldata_hash": "c55aea0f32c9ad41c0999db1f4b7ba9375bb1780c9e6e28f10f182b44eba37fd",
-    "inbox_apply_calldata_length": "1092",
-    "inbox_apply_maximum_calldata_hash": "9fe9c4243b52d825cee194bf369006cdf574feefcb0649529905d6e22dc72bf8",
-    "mark_inbox_batch_selector": "a92f72cd",
-    "mark_inbox_batch_calldata_hash": "30a0a90e1ff8add20c78619d04749502540c0f2b3d405da3d71bc2ff1bd4b01f",
-    "inbox_batch_magic": "49425632",
-    "route_config_getter_selector": "4b64fa11",
-    "verify_inbox_credit_selector": "28933d28",
-    "get_inbox_credit_slot_selector": "31e85ab1",
-    "liquidity_quote_selector": "43dc48e0",
-    "liquidity_quote_return_hash": "64bbd1e5bf27db4819b6270f2f6a659ed9b5d3f78e2d047d767507d41fcf3709",
-    "liquidity_reservation_state_selector": "45a933f1",
-    "liquidity_reservation_state_return_hash": "b424d0be4a9d6b889ee2977b6001dbbf4b6238efc437bed9dabd823fc4d7aae5",
-    "execute_attempt_selector": "b3e5c861",
-    "execute_attempt_calldata_hash": "2d2c0279d18df6ac41cc77e6c9e4d3190a6110ae27e8f8f0358837aef66db5dd",
-    "execute_attempt_calldata_length": "1060",
-    "finalize_failed_attempt_selector": "745dcb69",
-    "status_return_hash": "b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828",
-    "target_call_failed_selector": "f9cc2b44",
-    "target_call_failed_error_hash": "1e5dd0ffe211b83cfe975af6e5c84015b6cfae3a2135c70a7c42426b899a59ac",
-    "append_terminal_selector": "abc194f5",
-    "terminal_commitment_selector": "2c984c97",
-    "terminal_state_selector": "998c57ed",
-    "terminal_commitment_return_hash": "f42301cb4f2f26d17b42ff046fbcd9d682a2c9833b9e195b4faa87d62af93185",
-    "terminal_state_return_hash": "3e3b1f39f0b0fc42adb4a6c15987dc52d6c0bac9497db88ab1b07b9fb96bfbcd",
-    "liquidity_ticket_id": "69e7a081b31736d338fa57ad67287ae534499bd1f800bc08272703f08b9a6ec9",
-    "invocation_policy_typehash": "d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1",
-    "invocation_policy_hash": "5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3",
-    "invocation_policy_getter_selector": "b2d0e286",
-    "message_invocation_hook_selector": "7f07c947",
-    "invocation_policy_return_hash": "93bc154411cabc321c6b7c452a338e3e52789f0b97229cc2c68ba0bb4e3f3a19",
-    "invocation_policy_magic": "49505632",
-    "enqueue_forced_transaction_selector": "9f06b1b4",
-    "enqueue_forced_transaction_calldata_hash": "3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a",
-    "enqueue_forced_transaction_calldata_length": "196",
-    "sync_ingress_selector": "6c880b72",
-    "sync_ingress_stamp_return_hash": "1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434",
-    "sync_ingress_synced_return_hash": "ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184",
-    "append_from_adapter_selector": "1927261d",
-    "append_kind0_calldata_hash": "caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a",
-    "append_kind0_calldata_length": "388",
-    "append_kind1_calldata_hash": "a1460e7adedb5855522f00a851f9025b96534ab3c6c83f513fd7841382f915de",
-    "append_kind1_calldata_length": "708",
-    "queued_return_hash": "76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d",
-    "registration_verifier_return": "57421732f8694364afe5d47f05bd562b536c6469e7f891ae2c1b9ba61359f819",
-    "registration_config_getter_return": "b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f",
-    "verify_inbox_credit_calldata_hash": "876a0f57d3964a756f5c629b7115857e7e427beb56c44997b8cb9ce16d3ecace",
-    "get_inbox_credit_slot_calldata_hash": "ca784da1943d589a299d6f3f186559576c59dcb5a5a92120b61b9915655166cb",
-    "liquidity_quote_calldata_hash": "dd77508525438b655ec5617344c3a4aeb345f47ebcde30baffc55ac26c1f4c7d",
-    "liquidity_reservation_state_calldata_hash": "e94f73c9c4bc1deb40d0a851cf3ffdd5f664c3f61a18023690f659e90a2e2716",
-    "finalize_failed_attempt_calldata_hash": "b4609d03d03f0c071f957851a75021abfcafa38d9237a011a1af59914642085d",
-    "append_terminal_calldata_hash": "ea942e70299ca0a8862376459f38b0cfa618811f7a6d8df6b901aea468eafcac",
-    "terminal_commitment_calldata_hash": "f40c1f313a0e7e7130501d1e71a32c301bc7fee02beaf4afc23f1715be430ba8",
-    "terminal_append_return": "0000000000000000000000000000000000000000000000000000000000000002",
-    "invocation_policy_calldata_hash": "c221beaf62c3e884aca944c70512560a9419bda2901eb936e2084ed8734e8109",
-    "destination_activation_receipt_id": "6315904b1838529ad9b66ec508ef3e2ec6e1985db23f3a20bd0b0a4b41517c27",
-    "destination_activation_receipt_magic": "44525632",
-    "destination_successor_receipt_magic": "44535632",
-    "activation_receipt_id": "9c73be9f9f317489fc99cc07ef6824f48a52b371637f1a8bead0e58e7dd5555c",
-    "activation_receipt_magic": "41525631",
-    "activation_successor_receipt_magic": "41535631",
-    "activate_version_with_migration_selector": "14c37693",
-    "genesis_activation_fixed_hash": "273742c984e16e7a4eac27323bbfface0e334cb90da2640dc482683114ac0c01",
-    "version_activation_fixed_hash": "8ef8c50c81fa6748590f2affe7ac89e9d0adb4a6644d288edfa5dd2923dfc490",
-    "genesis_activation_calldata_hash": "7b790b4826a04aae87637711542ba55dc17e0f4f2189a1d761406d55b5d6a0a2",
-    "genesis_activation_calldata_length": "3876",
-    "version_activation_calldata_hash": "18591525f0a1de1e05bda1dc26d8d975ce682f5c8add2fa8805a2d99f2792eee",
-    "version_activation_calldata_length": "3812",
-    "maximum_genesis_activation_calldata_hash": "3081eac3864cafad843262459d25e63909e5b891399129bf5517da2a0b745139",
-    "maximum_genesis_activation_calldata_length": "150180",
-    "maximum_version_activation_calldata_hash": "856b4e553a4819cda95fc6971945dc818b8a7e259318dc92b79f99d3880b9284",
-    "maximum_version_activation_calldata_length": "149220",
-    "maximum_migration_proof_bytes": "131072",
 }
-
 
 if __name__ == "__main__":
     actual = vectors()
@@ -6071,7 +6675,7 @@ if __name__ == "__main__":
         "verifyPinSel": "verify_inbox_credit_selector",
         "getPinSel": "get_inbox_credit_slot_selector",
         "liqQuoteSel": "liquidity_quote_selector",
-        "reserveSel": "liquidity_reservation_state_selector",
+        "fundStateSel": "liquidity_funding_state_selector",
         "attemptSel": "execute_attempt_selector",
         "attemptCall": "execute_attempt_calldata_hash",
         "attemptLen": "execute_attempt_calldata_length",
@@ -6081,6 +6685,30 @@ if __name__ == "__main__":
         "termCommitSel": "terminal_commitment_selector",
         "termStateSel": "terminal_state_selector",
         "ticketId": "liquidity_ticket_id",
+        "poolCfg": "pool_component_configuration_hash",
+        "poolReadGas": "pool_external_read_gas",
+        "poolCleanGas": "pool_auth_cleanup_gas",
+        "poolCbGas": "pool_value_callback_gas",
+        "poolDepSel": "pool_deposit_selector",
+        "poolWdrSel": "pool_withdraw_selector",
+        "poolProcSel": "pool_process_selector",
+        "poolRetrySel": "pool_retry_selector",
+        "poolProcCall": "pool_process_calldata_hash",
+        "poolProcLen": "pool_process_calldata_length",
+        "poolRetryCall": "pool_retry_calldata_hash",
+        "poolRetryLen": "pool_retry_calldata_length",
+        "poolBridgeSel": "pool_bridge_attempt_selector",
+        "poolBridgeCall": "pool_bridge_attempt_calldata_hash",
+        "poolBridgeLen": "pool_bridge_attempt_calldata_length",
+        "poolTickSel": "pool_ticket_selector",
+        "poolAcctSel": "pool_accounting_selector",
+        "poolConSel": "pool_consume_selector",
+        "poolCbSel": "pool_value_callback_selector",
+        "poolAccMagic": "pool_accounting_magic",
+        "poolValMagic": "pool_value_magic",
+        "poolResultMagic": "pool_bridge_result_magic",
+        "poolAuth": "pool_attempt_authorization",
+        "poolAccept": "pool_value_acceptance_commitment",
         "policyType": "invocation_policy_typehash",
         "policyHash": "invocation_policy_hash",
         "policySel": "invocation_policy_getter_selector",

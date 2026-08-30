@@ -9,9 +9,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf)               | **The specification.** A4, single column. This is the artifact to read and circulate.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for proof-first launch and migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP tickets/reservations, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                                                                       |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for proof-first launch and migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                                                               |
 | [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 36 assertions.                                                                                                                                                                                                                                                              |
-| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 234 golden vectors / 441 assertion sites. |
+| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 274 golden vectors / 513 assertion sites. |
 
 ## Building the PDF
 
@@ -34,11 +34,13 @@ a successful LaTeX exit status alone is not layout verification.
 
 ```sh
 python3 settlement-window-model.py   # 186 assertions
+python3 test-settlement-window.py    # 191 adversarial regression tests
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 234 golden vectors / 441 assertion sites
+python3 commitment-model.py          # 274 golden vectors / 513 assertion sites
 ```
 
-All run standalone and print `ALL PROPERTIES PASS` when every assertion holds. The lookahead
+All run standalone; the property models print `ALL PROPERTIES PASS`, and the regression suite
+uses `unittest`. The lookahead
 model has a pure-Python Ethereum Keccak implementation and uses PyCryptodome only as an optional
 speedup. Signatures, validity proofs, EVM gas and execution remain placeholders in the settlement
 model. **Every consensus change must update the relevant model in the same commit.** A passing
@@ -47,9 +49,11 @@ model is regression evidence, not a proof of protocol soundness.
 ## Status
 
 The architecture is an **audited design candidate**, not an implementation-ready or
-production-ready specification. Its remaining blocker is the absent initial executable execution
-profile and its independently reproduced conformance bundle; Section 13 states why inventing that
-implementation-dependent artifact in prose would be unsafe. Seven later measurable release gates
+production-ready specification. Its remaining design blocker is the target-Settlement canonical
+adoption callback and Router activation guard; after that is frozen, the absent initial executable
+execution profile and independently reproduced conformance bundle remain the implementation
+boundary. Section 13 states why inventing that implementation-dependent artifact in prose would be
+unsafe. Seven later measurable release gates
 cover proof performance, contract gas, cryptographic conformance, state-machine verification,
 economics, operations and external review. Five properties are worth knowing before reading:
 
@@ -71,9 +75,10 @@ economics, operations and external review. Five properties are worth knowing bef
   from the settlement L1 to the slot chain; V1 selectors and Vault flows are untouched. A fresh
   immutable SourceBridge escrows `value + executionFee + liquidityFee`, and the durable V11 Queue
   descriptor pins the complete source/destination context. Any LP may fund a non-transferable L2
-  Pool ticket and reserve `value + executionFee` for a pinned credit. DONE consumes that reservation
-  and authenticates the LP's L1 pull in the terminal leaf; FAILED/cancellation releases the ticket
-  and refunds the user. Without a willing LP, processing is UNFUNDED and later expires—bounded
+  Pool ticket and atomically fund `value + executionFee` for a pinned credit. DONE consumes the
+  exact debit and authenticates the LP's L1 pull in the terminal leaf; a rolled-back attempt leaves
+  the ticket byte-identical, while FAILED/cancellation refunds the user. Without a willing LP,
+  processing is UNFUNDED and later expires—bounded
   economic delivery is not claimed. Missing Message bytes likewise lead to source cancellation
   after `enqueueBy` or destination FAILED after `processBy`. Terminal outcomes use a 64-word
   frontier/root plus canonical events and historical 64-sibling proofs. Destination processing is
