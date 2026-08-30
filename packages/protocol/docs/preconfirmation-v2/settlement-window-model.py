@@ -10,12 +10,12 @@ not a scan hidden inside trusted Python state.
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields as dataclass_fields, is_dataclass, replace
 from enum import Enum, IntFlag, auto
 import hashlib
 import sys
 from types import MappingProxyType
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 GENESIS_TIMESTAMP = 1_000_000
 W_SETTLE_SECONDS = 1_200
@@ -120,6 +120,88 @@ def seat_checked_add(left: int, right: int, name: str) -> int:
     return result
 
 
+def checked_u64_add(left: int, right: int, name: str) -> int:
+    """Add two exact uint64 words and reject rather than widen on overflow."""
+
+    if (type(left) is not int or type(right) is not int
+            or not 0 <= left <= UINT64_MAX
+            or not 0 <= right <= UINT64_MAX
+            or left > UINT64_MAX - right):
+        raise ValueError(f"{name} overflows uint64")
+    return left + right
+
+
+def checked_u256_mul(left: int, right: int, name: str) -> int:
+    left = seat_u256(left, f"{name} left")
+    right = seat_u256(right, f"{name} right")
+    if left and right > SEAT_UINT256_MAX // left:
+        raise ValueError(f"{name} overflows uint256")
+    return left * right
+
+
+def ingress_deposit_for_schedule(
+    accounted_gas: int,
+    byte_length: int,
+    fee_schedule: tuple[int, int, int, int, int],
+) -> int:
+    if (type(fee_schedule) is not tuple or len(fee_schedule) != 5
+            or any(type(word) is not int or word < 0
+                   or word > SEAT_UINT256_MAX for word in fee_schedule)):
+        raise ValueError("ingress fee schedule is not canonical")
+    fixed, execution_rate, proof_rate, permanent_rate, cap = fee_schedule
+    if any(word <= 0 for word in fee_schedule):
+        raise ValueError("ingress fee schedule contains an inactive coefficient")
+    gas_rate = seat_checked_add(
+        execution_rate, proof_rate, "ingress gas rates",
+    )
+    required = seat_checked_add(
+        seat_checked_add(
+            fixed,
+            checked_u256_mul(
+                accounted_gas, gas_rate, "ingress gas cost"
+            ),
+            "ingress fixed and gas cost",
+        ),
+        checked_u256_mul(
+            byte_length, permanent_rate, "ingress permanent cost",
+        ),
+        "ingress total cost",
+    )
+    if required > cap:
+        raise ValueError("ingress fee is outside the release cap")
+    return required
+
+
+def validate_ingress_fee_schedule(
+    fee_schedule: tuple[int, int, int, int, int],
+) -> tuple[int, int, int, int, int]:
+    """Prove the advertised queue geometry is fundable without overflow."""
+
+    ingress_deposit_for_schedule(
+        MAX_FORCE_MESSAGE_GAS, MAX_FORCE_MESSAGE_BYTES, fee_schedule
+    )
+    checked_u256_mul(
+        MAX_FORCE_QUEUE_ITEMS,
+        fee_schedule[4],
+        "maximum forced queue escrow",
+    )
+    return fee_schedule
+
+
+def canonical_ingress_deposit(accounted_gas: int, byte_length: int) -> int:
+    return ingress_deposit_for_schedule(
+        accounted_gas,
+        byte_length,
+        (
+            INGRESS_FIXED_WEI,
+            INGRESS_EXECUTION_WEI_PER_GAS,
+            INGRESS_PROOF_WEI_PER_GAS,
+            INGRESS_PERMANENT_WEI_PER_BYTE,
+            INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
+        ),
+    )
+
+
 def seat_checked_sub(left: int, right: int, name: str) -> int:
     left = seat_u256(left, f"{name} left")
     right = seat_u256(right, f"{name} right")
@@ -133,17 +215,169 @@ SUPPORT_FINALITY_BLOCKS = F_L1 + (
     REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
 ) // L1_SLOT_SECONDS
 MAX_BRIDGE_TOPOLOGIES_PER_PROFILE = 64
+MAX_PROFILE_INGRESS_AUTHORIZATIONS = 64
 MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
 BRIDGE_PROCESS_TTL_SECONDS = 30 * 86_400
 CANONICAL_HISTORY_CAPACITY = 256
 L1_HEADER_ORACLE_ADDRESS = "eip-2935-header-oracle"
 L1_HEADER_ORACLE_RUNTIME_HASH = "code:eip2935-header-oracle:v1"
 L1_HEADER_ORACLE_CONFIGURATION_HASH = "config:eip2935:8191:v1"
+KIND0_INGRESS_RUNTIME_HASH = "code:kind0-ingress:v2"
+KIND0_INGRESS_CONFIGURATION_HASH = "config:kind0-ingress:v2"
+BRIDGE_INGRESS_RUNTIME_HASH = "code:bridge-inbox-adapter:v2"
+BRIDGE_INGRESS_CONFIGURATION_HASH = "config:bridge-inbox-adapter:v2"
+ACTIVE_SETTLEMENT_ROUTER_RUNTIME_HASH = "code:active-settlement-router:v2"
+ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH = (
+    "config:active-settlement-router:typed-ingress:v2"
+)
+MODEL_SETTLEMENT_CHAIN_CONTEXT_ID = 1
+BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH = "code:bridge-credit-registry:v2"
+BRIDGE_CREDIT_REGISTRY_CONFIGURATION_HASH = (
+    "config:bridge-credit-registry:v2"
+)
+BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH = "code:bridge-domain-registry:v2"
+BRIDGE_DOMAIN_REGISTRY_CONFIGURATION_HASH = "config:bridge-domain-registry:v2"
+INGRESS_FIXED_WEI = 100
+INGRESS_EXECUTION_WEI_PER_GAS = 1
+INGRESS_PROOF_WEI_PER_GAS = 1
+INGRESS_PERMANENT_WEI_PER_BYTE = 10
+INGRESS_MAXIMUM_ACCEPTED_FEE_WEI = 12_000_000
+MIN_BRIDGE_INVOCATION_GAS = 21_000
+BRIDGE_GAS_RESERVE = 800_000
+V2_POST_CALL_GAS_RESERVE = 2_000_000
+BRIDGE_GAS_OVERHEAD = 120_000
+BRIDGE_SEND_ETHER_GAS = 35_000
+DESTINATION_NATIVE_LIQUIDITY_FLOOR = 1_000_000
+DESTINATION_NATIVE_QUOTA_MANAGER = "quota-manager:destination-native:v2"
+DESTINATION_NATIVE_LIQUIDITY_POLICY = "premint:combined-bridge-liquidity:v2"
+ON_MESSAGE_INVOCATION_SELECTOR = bytes.fromhex("7f07c947")
+V1_OFFICIAL_VAULT_ADDRESSES = (
+    "erc20-vault-v1",
+    "erc721-vault-v1",
+    "erc1155-vault-v1",
+)
+V2_PRIVILEGED_DESTINATION_ADDRESSES = (
+    "signal-service",
+    DESTINATION_NATIVE_QUOTA_MANAGER,
+    "bridge-context-v1",
+    "bridge-context-v2",
+    "delegate-controller",
+    *V1_OFFICIAL_VAULT_ADDRESSES,
+)
 MAX_REGISTRATION_PROOF_NODES = 132
 MAX_REGISTRATION_PROOF_BYTES = 80_000
 APPENDING_SENTINEL = UINT64_MAX
 INBOX_BATCH_OK_V2_WORD = bytes.fromhex("49425632" + "00" * 28)
 TERMINAL_COMMITMENT_ABI_BYTES = 4 * 32
+
+
+def active_settlement_router_configuration_hash(
+    settlement_chain_context_id: int,
+) -> str:
+    if (type(settlement_chain_context_id) is not int
+            or not 0 < settlement_chain_context_id <= UINT64_MAX):
+        raise ValueError("settlement chain context is outside uint64")
+    if settlement_chain_context_id == MODEL_SETTLEMENT_CHAIN_CONTEXT_ID:
+        return ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH
+    return (
+        "config:active-settlement-router:typed-ingress:v2:chain:"
+        f"{settlement_chain_context_id}"
+    )
+
+
+def bridge_ingress_component_configuration_hash(
+    *,
+    router_address: str,
+    router_runtime_hash: str,
+    router_configuration_hash: str,
+    queue_address: str,
+    queue_runtime_hash: str,
+    queue_configuration_hash: str,
+    source_registry_address: str,
+    source_registry_runtime_hash: str,
+    source_registry_configuration_hash: str,
+    source_bridge_address: str,
+    source_bridge_runtime_hash: str,
+    source_bridge_configuration_hash_: str,
+    seal_authority: str,
+) -> str:
+    """Commit the immutable pre-seal graph, never the derived domain."""
+
+    words = (
+        BRIDGE_INGRESS_CONFIGURATION_HASH,
+        router_address,
+        router_runtime_hash,
+        router_configuration_hash,
+        queue_address,
+        queue_runtime_hash,
+        queue_configuration_hash,
+        source_registry_address,
+        source_registry_runtime_hash,
+        source_registry_configuration_hash,
+        source_bridge_address,
+        source_bridge_runtime_hash,
+        source_bridge_configuration_hash_,
+        seal_authority,
+    )
+    if any(type(word) is not str or not word for word in words):
+        raise ValueError("Bridge ingress configuration is incomplete")
+    return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
+
+
+def bridge_credit_registry_configuration_hash(
+    *, address: str, runtime_hash: str, domain_registrar: str,
+    frozen_bridge: str, support_registry_address: str,
+    support_registry_runtime_hash: str,
+    support_registry_configuration_hash: str,
+    source_chain_id: int, source_domain_id: str,
+    source_registration_epoch: int,
+    frozen_bridge_execution_hash: str,
+    source_descriptor_id: bytes,
+) -> str:
+    if type(source_descriptor_id) is not bytes or len(source_descriptor_id) != 32:
+        raise ValueError("source Bridge descriptor id is not bytes32")
+    words = (
+        BRIDGE_CREDIT_REGISTRY_CONFIGURATION_HASH,
+        address,
+        runtime_hash,
+        domain_registrar,
+        frozen_bridge,
+        support_registry_address,
+        support_registry_runtime_hash,
+        support_registry_configuration_hash,
+        str(source_chain_id),
+        source_domain_id,
+        str(source_registration_epoch),
+        frozen_bridge_execution_hash,
+        source_descriptor_id.hex(),
+    )
+    if any(type(word) is not str or not word for word in words):
+        raise ValueError("Bridge credit registry configuration is incomplete")
+    return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
+
+
+def bridge_domain_registry_configuration_hash(
+    *, address: str, runtime_hash: str, support_authority: str,
+    router_address: str, router_runtime_hash: str,
+    router_configuration_hash: str, release_authority_address: str,
+    release_authority_runtime_hash: str,
+    release_authority_configuration_hash: str,
+) -> str:
+    words = (
+        BRIDGE_DOMAIN_REGISTRY_CONFIGURATION_HASH,
+        address,
+        runtime_hash,
+        support_authority,
+        router_address,
+        router_runtime_hash,
+        router_configuration_hash,
+        release_authority_address,
+        release_authority_runtime_hash,
+        release_authority_configuration_hash,
+    )
+    if any(type(word) is not str or not word for word in words):
+        raise ValueError("Bridge support registry configuration is incomplete")
+    return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -360,12 +594,280 @@ class Message:
     due_at: int = 0
     prepaid: int = 1
     payload_available: bool = True
+    raw_tx_length: int = 0
+    l2_chain_id: int = 0
+    gas_limit: int = 0
+    max_fee: int = 0
+    refund_address: str = ""
+
+
+@dataclass(frozen=True)
+class IBridgeMessageV1:
+    """Complete admission-time IBridge.Message, including the raw data bytes.
+
+    Task 7 replaces the behavioral typed encoder below with the exact Solidity
+    ABI/Keccak codec.  No hash or length is accepted from the caller here.
+    """
+
+    message_id: int
+    fee: int
+    gas_limit: int
+    sender: str
+    source_chain_id: int
+    source_owner: str
+    destination_chain_id: int
+    destination_owner: str
+    to: str
+    value: int
+    data: bytes
+
+    @property
+    def data_hash(self) -> str:
+        return bridge_message_data_hash(self.data)
+
+    @property
+    def data_length(self) -> int:
+        return len(self.data)
+
+
+@dataclass(frozen=True)
+class BridgeAdmissionEnvelope:
+    """Payable L1 admission input around one complete raw Bridge Message."""
+
+    message: IBridgeMessageV1
+    enqueued_at: int
+    accounted_gas: int
+    prepaid: int
+    payload_available: bool = True
+    valid_until: int = UINT64_MAX
+    due_at: int = 0
+    refund_address: str = ""
+
+    @property
+    def kind(self) -> ForceKind:
+        return ForceKind.BRIDGE_CREDIT
+
+    @property
+    def byte_length(self) -> int:
+        return self.message.data_length
+
+    @property
+    def payload_hash(self) -> str:
+        return bridge_message_hash(self.message)
+
+    @property
+    def sender(self) -> str:
+        return self.message.sender
+
+    @property
+    def bridge_id(self) -> int:
+        return self.message.message_id
+
+    @property
+    def bridge_fee(self) -> int:
+        return self.message.fee
+
+    @property
+    def bridge_gas_limit(self) -> int:
+        return self.message.gas_limit
+
+    @property
+    def bridge_from(self) -> str:
+        return self.message.sender
+
+    @property
+    def bridge_src_chain_id(self) -> int:
+        return self.message.source_chain_id
+
+    @property
+    def bridge_src_owner(self) -> str:
+        return self.message.source_owner
+
+    @property
+    def bridge_dest_chain_id(self) -> int:
+        return self.message.destination_chain_id
+
+    @property
+    def bridge_dest_owner(self) -> str:
+        return self.message.destination_owner
+
+    @property
+    def bridge_to(self) -> str:
+        return self.message.to
+
+    @property
+    def bridge_value(self) -> int:
+        return self.message.value
+
+    @property
+    def bridge_data_hash(self) -> str:
+        return self.message.data_hash
+
+    @property
+    def bridge_data_length(self) -> int:
+        return self.message.data_length
+
+
+def bridge_message_data_hash(data: bytes) -> str:
+    if type(data) is not bytes:
+        raise ValueError("Bridge Message data is not raw bytes")
+    return "data:" + hashlib.sha256(
+        b"TAIKO_BRIDGE_MESSAGE_DATA_BEHAVIORAL_V1\x00" + data
+    ).hexdigest()
+
+
+def bridge_message_calldata(
+    envelope: BridgeAdmissionEnvelope,
+) -> IBridgeMessageV1:
+    """Validate raw IBridge calldata before Bridge-assigned fields change."""
+
+    if type(envelope) is not BridgeAdmissionEnvelope:
+        raise ValueError("Bridge admission envelope has the wrong type")
+    preimage = envelope.message
+    if (type(preimage) is not IBridgeMessageV1
+            or type(preimage.message_id) is not int
+            or not 0 <= preimage.message_id <= UINT64_MAX
+            or type(preimage.fee) is not int
+            or not 0 <= preimage.fee <= UINT64_MAX
+            or type(preimage.gas_limit) is not int
+            or not 0 <= preimage.gas_limit <= UINT32_MAX
+            or (preimage.gas_limit == 0 and preimage.fee != 0)
+            or (preimage.gas_limit != 0
+                and preimage.gas_limit < (
+                    (((preimage.data_length + 31) // 32 * 32) + 416) * 16
+                    + V2_POST_CALL_GAS_RESERVE
+                    + MIN_BRIDGE_INVOCATION_GAS
+                ))
+            or type(preimage.sender) is not str
+            or type(preimage.source_chain_id) is not int
+            or not 0 <= preimage.source_chain_id <= UINT64_MAX
+            or not preimage.source_owner
+            or type(preimage.destination_chain_id) is not int
+            or not 0 < preimage.destination_chain_id <= UINT64_MAX
+            or not preimage.destination_owner or not preimage.to
+            or type(preimage.value) is not int
+            or not 0 <= preimage.value <= SEAT_UINT256_MAX
+            or preimage.value > SEAT_UINT256_MAX - preimage.fee
+            or type(preimage.data) is not bytes
+            or not 0 <= preimage.data_length <= MAX_FORCE_MESSAGE_BYTES
+            or envelope.byte_length != preimage.data_length):
+        raise ValueError("Bridge Message calldata is not canonical")
+    return preimage
+
+
+def bridge_message_preimage(
+    envelope: BridgeAdmissionEnvelope,
+) -> IBridgeMessageV1:
+    """Validate a Bridge-normalized Message used by auth and ingress."""
+
+    preimage = bridge_message_calldata(envelope)
+    if (not preimage.sender
+            or envelope.sender != preimage.sender
+            or not 0 < preimage.source_chain_id <= UINT64_MAX
+            or preimage.destination_chain_id == preimage.source_chain_id):
+        raise ValueError("Bridge Message preimage is not normalized")
+    return preimage
+
+
+def bridge_message_hash(
+    message_: IBridgeMessageV1 | BridgeAdmissionEnvelope,
+) -> str:
+    preimage = (
+        bridge_message_preimage(message_)
+        if type(message_) is BridgeAdmissionEnvelope else message_
+    )
+    if type(preimage) is not IBridgeMessageV1:
+        raise ValueError("Bridge Message hash input has the wrong type")
+    # Behavioral typed encoding only. Task 7 pins
+    # keccak256(abi.encode("TAIKO_MESSAGE", Message)).
+    return "message:" + hashlib.sha256(
+        b"TAIKO_BRIDGE_MESSAGE_BEHAVIORAL_V1\x00"
+        + migration_transition_encode((
+            preimage.message_id,
+            preimage.fee,
+            preimage.gas_limit,
+            preimage.sender,
+            preimage.source_chain_id,
+            preimage.source_owner,
+            preimage.destination_chain_id,
+            preimage.destination_owner,
+            preimage.to,
+            preimage.value,
+            preimage.data,
+        ))
+    ).hexdigest()
+
+
+def durable_queue_leaf_fields(row: Message) -> tuple[object, ...]:
+    """Return only the normative durable fields, never admission witnesses."""
+
+    if type(row) is Message and row.kind is ForceKind.USER_TX:
+        return (
+                row.kind.value,
+                row.enqueued_at,
+                row.due_at,
+                row.accounted_gas,
+                row.byte_length,
+                row.payload_hash,
+                row.sender,
+                row.nonce,
+                row.valid_until,
+                row.prepaid,
+                row.l2_chain_id,
+                row.gas_limit,
+                row.max_fee,
+                row.refund_address,
+            )
+    if type(row) is BridgeQueueDescriptorV10:
+        return (
+                row.kind.value,
+                row.enqueued_at,
+                row.due_at,
+                row.accounted_gas,
+                row.byte_length,
+                row.payload_hash,
+                row.prepaid,
+                row.bridge_fee,
+                row.bridge_src_chain_id,
+                row.bridge_src_owner,
+                row.bridge_dest_chain_id,
+                row.bridge_dest_owner,
+                row.sender,
+                row.bridge_value,
+                row.bridge_data_hash,
+                row.source_domain_id,
+                row.source_registration_epoch,
+                row.source_bridge,
+                row.bridge_execution_hash,
+                row.emitted_at_block,
+                row.destination_domain_id,
+                row.enqueue_by,
+                row.refund_mode,
+                row.refund_address,
+                row.refund_vault,
+                row.refund_capsule_hash,
+                row.escrow_id,
+            )
+    raise ValueError("forced queue descriptor type is not canonical")
+
+
+def durable_queue_leaf_hash(row: Message) -> str:
+    durable = durable_queue_leaf_fields(row)
+    return hashlib.sha256(
+        b"TAIKO_FORCED_QUEUE_TYPED_LEAF_V10\x00"
+        + type(row).__name__.encode()
+        + b"\x00"
+        + repr(durable).encode()
+    ).hexdigest()
 
 
 def model_force_root(descriptors: list[Message]) -> str:
-    """Single behavioral queue-root oracle; byte-exact Merkle lives elsewhere."""
-    return (f"merkle:{len(descriptors)}:"
-            + ":".join(row.payload_hash for row in descriptors))
+    """Commit every durable typed leaf field; Task7 pins the byte codec."""
+
+    leaves: list[str] = []
+    for row in descriptors:
+        leaves.append(durable_queue_leaf_hash(row))
+    return f"merkle:{len(descriptors)}:" + ":".join(leaves)
 
 
 @dataclass(frozen=True)
@@ -419,6 +921,10 @@ class Block:
     data_records: tuple[tuple[str, int], ...] = ()
     dispositions_ok: bool = True
     discretionary_body: bool = True
+    inbox_descriptor_commitment: str = ""
+    inbox_system_calldata_hash: str = ""
+    anchor_system_tx_position: int = 0
+    inbox_system_tx_position: int = 1
 
 
 @dataclass(frozen=True)
@@ -444,6 +950,10 @@ class Candidate:
     recovery_fields_zero: bool = True
     end_terminal_root: str = "terminal:empty"
     end_terminal_count: int = 0
+    available_payload_hashes: frozenset[str] = frozenset()
+    inbox_execution_receipt: object | None = field(
+        default=None, compare=False, repr=False
+    )
 
     @property
     def tip(self) -> Block:
@@ -1065,15 +1575,51 @@ class Protocol:
     boundary_queries: int = 0
     canonical_state_witness_available: bool = True
     canonical_code_preimages_available: bool = True
+    # L1-observable execution transition identifier used by the node-local
+    # canonical L2 selector.  It is a commitment/event field, never a live L2
+    # object or an authority to write one.
+    last_canonical_execution_digest: str = ""
     seat_profile_ready: bool = True
     seat_configuration_ready: bool = True
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     versioned_history: object | None = None
+    _inbox_execution_authority: object = field(
+        init=False, compare=False, repr=False
+    )
+    inbox_apply_descriptor: "InboxApplyDeploymentDescriptor" = field(
+        init=False, compare=False
+    )
+    _canonical_commit_frame: tuple[int, str] | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "inbox_apply_descriptor",
+            inbox_apply_deployment_descriptor(self.inbox_apply_router),
+        )
+        if self.inbox_apply_router._terminal_registrar_authority is None:
+            local_release_authority = ProtocolReleaseAuthorityV2()
+            local_accumulator = TerminalAccumulatorV2({})
+            TerminalDomainRegistrarV2(
+                local_release_authority,
+                local_accumulator,
+                self.inbox_apply_router,
+            )
+        object.__setattr__(
+            self,
+            "_inbox_execution_authority",
+            InboxValidityExecutionAuthority(
+                self, _INBOX_EXECUTION_AUTHORITY_CAPABILITY
+            ),
+        )
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
             "header_oracle", "forced_queue", "inbox_apply_router",
             "migration_gate", "settlement_address",
+            "_inbox_execution_authority", "inbox_apply_descriptor",
         } and name in self.__dict__:
             raise AttributeError(f"Protocol {name} is immutable")
         object.__setattr__(self, name, value)
@@ -1095,7 +1641,7 @@ class Protocol:
         try:
             target_state = history.exact_market_target_state()
         except ValueError:
-            return False
+            raise
         return (
             target_state[0] == self.settlement_address
             and target_state[6] in {"ACTIVE", "ARMED", "READY"}
@@ -1105,6 +1651,27 @@ class Protocol:
 
     def snapshot(self) -> "Protocol":
         return copy.deepcopy(self)
+
+    def __deepcopy__(self, memo: dict[int, object]) -> "Protocol":
+        """Copy mutable protocol state without cloning its Router authority."""
+
+        duplicate = object.__new__(type(self))
+        memo[id(self)] = duplicate
+        for key, value in self.__dict__.items():
+            if key == "versioned_history":
+                object.__setattr__(duplicate, key, value)
+            elif key == "_inbox_execution_authority":
+                continue
+            else:
+                object.__setattr__(duplicate, key, copy.deepcopy(value, memo))
+        object.__setattr__(
+            duplicate,
+            "_inbox_execution_authority",
+            InboxValidityExecutionAuthority(
+                duplicate, _INBOX_EXECUTION_AUTHORITY_CAPABILITY
+            ),
+        )
+        return duplicate
 
     def identical(self, other: "Protocol") -> bool:
         return self == other
@@ -2223,30 +2790,56 @@ class Protocol:
         target.__dict__.clear()
         target.__dict__.update(snapshot)
 
-    def _canonical_transaction_snapshot(self) -> dict[str, object]:
-        """Snapshot canonical state and every shared authoritative object."""
+    def _canonical_transaction_snapshot(
+        self,
+        execution_output: Candidate | VerifiedMigrationExecutionOutput | None = None,
+    ) -> dict[str, object]:
+        """Snapshot only L1 state; live L2 objects are outside the journal."""
 
+        _ = execution_output
         history = self.versioned_history
+        authority = self._inbox_execution_authority
+        if type(authority) is not InboxValidityExecutionAuthority:
+            raise AssertionError("Inbox execution authority is missing")
+        history_refs = (
+            None if history is None else (
+                history.forced_queue,
+                history.inbox_apply_descriptor,
+                history.migration_gate,
+                history.live_protocol,
+                history.header_oracle,
+                history._router_authority,
+            )
+        )
         return {
-            "protocol": copy.deepcopy(self.__dict__),
+            "protocol": copy.deepcopy({
+                key: value for key, value in self.__dict__.items()
+                if key not in {
+                    "versioned_history", "_inbox_execution_authority",
+                    "normal_best", "header_oracle", "forced_queue",
+                    "inbox_apply_router", "inbox_apply_descriptor",
+                    "migration_gate",
+                }
+            }),
+            "normal_best": self.normal_best,
             "header_oracle": self.header_oracle,
             "forced_queue": self.forced_queue,
-            "forced_queue_state": copy.deepcopy(self.forced_queue.__dict__),
+            "forced_queue_state": self.forced_queue._transaction_snapshot(),
             "inbox_apply_router": self.inbox_apply_router,
-            "inbox_apply_router_state": copy.deepcopy(
-                self.inbox_apply_router.__dict__
-            ),
+            "inbox_apply_descriptor": self.inbox_apply_descriptor,
+            "inbox_execution_authority": authority,
             "migration_gate": self.migration_gate,
             "migration_gate_state": copy.deepcopy(self.migration_gate.__dict__),
             "history": history,
-            "history_router_authority": (
-                getattr(history, "_router_authority", None)
-                if history is not None else None
-            ),
+            "history_refs": history_refs,
             "history_state": (
                 copy.deepcopy({
                     key: value for key, value in history.__dict__.items()
-                    if key != "_router_authority"
+                    if key not in {
+                        "forced_queue", "inbox_apply_descriptor",
+                        "migration_gate", "live_protocol", "header_oracle",
+                        "_router_authority",
+                    }
                 })
                 if history is not None else None
             ),
@@ -2260,8 +2853,8 @@ class Protocol:
             return
         if (
             getattr(history, "forced_queue", None) is not self.forced_queue
-            or getattr(history, "inbox_apply_router", None)
-            is not self.inbox_apply_router
+            or getattr(history, "inbox_apply_descriptor", None)
+                != self.inbox_apply_descriptor
             or getattr(history, "migration_gate", None) is not self.migration_gate
             or getattr(history, "live_protocol", None) is not self
         ):
@@ -2280,31 +2873,45 @@ class Protocol:
         """Restore a failed canonical transaction without breaking aliases."""
 
         queue = snapshot["forced_queue"]
-        router = snapshot["inbox_apply_router"]
+        inbox = snapshot["inbox_apply_router"]
         gate = snapshot["migration_gate"]
         history = snapshot["history"]
+        authority = snapshot["inbox_execution_authority"]
         self._restore_object(self, snapshot["protocol"])
         object.__setattr__(self, "header_oracle", snapshot["header_oracle"])
-        self._restore_object(queue, snapshot["forced_queue_state"])
-        self._restore_object(router, snapshot["inbox_apply_router_state"])
+        queue._restore_transaction_snapshot(snapshot["forced_queue_state"])
         self._restore_object(gate, snapshot["migration_gate_state"])
         object.__setattr__(self, "forced_queue", queue)
-        object.__setattr__(self, "inbox_apply_router", router)
+        object.__setattr__(self, "inbox_apply_router", inbox)
+        object.__setattr__(
+            self, "inbox_apply_descriptor", snapshot["inbox_apply_descriptor"]
+        )
         object.__setattr__(self, "migration_gate", gate)
+        object.__setattr__(self, "_inbox_execution_authority", authority)
+        self.normal_best = snapshot["normal_best"]
+        object.__setattr__(authority, "protocol", self)
         self.versioned_history = history
         if history is None:
             return
         self._restore_object(history, snapshot["history_state"])
-        object.__setattr__(history, "forced_queue", queue)
-        object.__setattr__(history, "inbox_apply_router", router)
-        object.__setattr__(history, "migration_gate", gate)
-        history.live_protocol = self
-        if hasattr(history, "_router_authority"):
-            object.__setattr__(
-                history,
-                "_router_authority",
-                snapshot["history_router_authority"],
-            )
+        (
+            history_queue,
+            history_inbox_descriptor,
+            history_gate,
+            history_protocol,
+            history_header_oracle,
+            history_router_authority,
+        ) = snapshot["history_refs"]
+        object.__setattr__(history, "forced_queue", history_queue)
+        object.__setattr__(
+            history, "inbox_apply_descriptor", history_inbox_descriptor
+        )
+        object.__setattr__(history, "migration_gate", history_gate)
+        object.__setattr__(history, "header_oracle", history_header_oracle)
+        history.live_protocol = history_protocol
+        object.__setattr__(
+            history, "_router_authority", history_router_authority
+        )
 
     def _composed_seat_call(
         self, market: object, transition: Callable[[], object]
@@ -3642,134 +4249,9 @@ class Protocol:
             changed = True
         return changed
 
-    def activate_migration(self, clock: Clock, imported: Canonical,
-                           activation_output: Canonical | None = None,
-                           *, old_quiescent: bool, router_switched: bool,
-                           header_checkpoint_authenticated: bool = True,
-                           l2_system_accounts_authenticated: bool = True,
-                           l2_v2_latch_disabled: bool = True,
-                           activation_proof_valid: bool = True,
-                           target_components_valid: bool = True) -> bool:
-        if (self.mode is not Mode.PREACTIVE or clock.timestamp < GENESIS_TIMESTAMP
-                or not old_quiescent or not router_switched
-                or not header_checkpoint_authenticated
-                or not l2_system_accounts_authenticated
-                or not l2_v2_latch_disabled
-                or not activation_proof_valid or not target_components_valid
-                or activation_output is None
-                or self.messages
-                or imported.canonicalized_at_block != clock.block_number
-                or imported.core.l2_block_number >= (1 << 48) - 1
-                or imported.core.message_cursor != 0
-                or imported.core.tip_slot > clock.l2_slot
-                or imported.core.winning_data_commitment == "empty"
-                or imported.core.next_base_fee <= 0
-                or activation_output.core.l2_block_number
-                    != imported.core.l2_block_number + 1
-                or activation_output.core.tip_slot <= imported.core.tip_slot
-                or activation_output.core.message_cursor != 0
-                or activation_output.core.terminal_root
-                    != imported.core.terminal_root
-                or activation_output.core.terminal_count
-                    != imported.core.terminal_count
-                or activation_output.core.next_base_fee <= 0):
-            return False
-        self.canonical = Canonical(
-            copy.deepcopy(activation_output.core), clock.block_number)
-        self.mode = Mode.NORMAL
-        self.first_v2_block_number = imported.core.l2_block_number + 1
-        self.events.append("MIGRATION_ACTIVATION_PROOF_ADOPTED_ATOMICALLY")
-        return True
-
     def tombstone(self) -> None:
         self.admission_version += 1
         self.admission_root = f"admission:{self.admission_version}"
-
-    @staticmethod
-    def _valid_bridge_static(message: Message) -> bool:
-        return (message.kind is ForceKind.BRIDGE_CREDIT
-                and message.outer_authorized
-                and message.valid_until == UINT64_MAX
-                and message.intrinsic_gas > 0
-                and message.accounted_gas
-                    >= max(message.intrinsic_gas, MIN_FORCE_ACCOUNTED_GAS)
-                and message.accounted_gas <= MAX_FORCE_MESSAGE_GAS
-                and 0 < message.byte_length <= MAX_FORCE_MESSAGE_BYTES
-                and message.prepaid > 0)
-
-    def _append(self, clock: Clock, message: Message) -> None:
-        prior_due = self._due_at(self.messages[-1]) if self.messages else 0
-        deferred = (self.recovery.expires_at + 1
-                    if self.mode is Mode.RECOVERY and self.recovery else 0)
-        due = max(clock.timestamp + FORCE_DELAY, prior_due, deferred)
-        assert self.forced_queue.count == len(self.messages)
-        expected_index = self.forced_queue.count
-        assert self.forced_queue.append(
-            replace(message, enqueued_at=clock.timestamp),
-            deposit=message.prepaid,
-            due_at=due,
-            caller=self.forced_queue.router_address) == expected_index
-
-    def admit_message(self, clock: Clock, message: Message) -> str:
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL"
-        if self.mode is Mode.PREACTIVE:
-            return "REJECTED_PREACTIVE"
-        if self.sync(clock):
-            return "SYNCED"
-        if self.migration_gate.mode != "ACTIVE":
-            return "SYNCED"
-        if (message.kind is not ForceKind.USER_TX
-                or len(self.messages) >= self.queue_capacity):
-            return "REJECTED"
-        invalid = (not message.chain_id_ok or not message.signature_ok
-                   or not message.outer_authorized or not message.sender
-                   or message.valid_until <= clock.timestamp
-                   or message.valid_until
-                       > clock.timestamp + MAX_FORCE_VALIDITY_SECONDS)
-        if (invalid or message.intrinsic_gas <= 0
-                or message.accounted_gas < max(message.intrinsic_gas, MIN_FORCE_ACCOUNTED_GAS)
-                or message.accounted_gas > MAX_FORCE_MESSAGE_GAS
-                or not 0 < message.byte_length <= MAX_FORCE_MESSAGE_BYTES
-                or message.prepaid <= 0):
-            return "REJECTED"
-        self._append(clock, message)
-        return "ADMITTED"
-
-    def sync_ingress(self, clock: Clock) -> tuple[str, tuple[int, int] | None]:
-        """Nonpayable half: persist at most one sync decision and issue a stamp."""
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL", None
-        if self.mode is Mode.PREACTIVE:
-            return "REJECTED_PREACTIVE", None
-        if self.sync(clock):
-            return "SYNCED", None
-        if self.migration_gate.mode != "ACTIVE":
-            return "SYNCED", None
-        return "ACTIVE", (self.migration_gate.active_protocol_version,
-                           self.migration_gate.generation)
-
-    def append_from_adapter(self, clock: Clock, message: Message,
-                            stamp: tuple[int, int]) -> str:
-        """Payable half: no second sync; require the exact still-live stamp."""
-        if (self.mode is Mode.PREACTIVE
-                or not self._is_current_settlement_target()
-                or self.migration_gate.mode != "ACTIVE"
-                or stamp != (self.migration_gate.active_protocol_version,
-                             self.migration_gate.generation)):
-            return "REJECTED_STALE_STAMP"
-        if (len(self.messages) >= self.queue_capacity
-                or not self._valid_bridge_static(message)):
-            return "REJECTED"
-        self._append(clock, message)
-        return "ADMITTED"
-
-    def admit_bridge_direct(self, clock: Clock, message: Message) -> str:
-        """One top-level immutable-adapter trace over the stamped two-call ABI."""
-        status, stamp = self.sync_ingress(clock)
-        if stamp is None:
-            return status
-        return self.append_from_adapter(clock, message, stamp)
 
     def open_session(self, clock: Clock, session_id: str, owner: str, expiry: int) -> str:
         if not self._is_current_settlement_target():
@@ -3929,14 +4411,29 @@ class Protocol:
             if block.message_end != expected:
                 return False
             for msg in self.messages[cursor:block.message_end]:
-                if (msg.kind is ForceKind.USER_TX and not msg.payload_available
+                if (msg.kind is ForceKind.USER_TX
+                        and msg.payload_hash
+                            not in candidate.available_payload_hashes
                         and msg.valid_until >= GENESIS_TIMESTAMP + block.slot):
                     return False
                 total_items += 1
                 total_bytes += msg.byte_length
                 total_gas += msg.accounted_gas
             parent, prior_slot, cursor = block.block_hash, block.slot, block.message_end
-        return (total_items <= MAX_FORCE_CANDIDATE_MESSAGES
+        history = self.versioned_history
+        receipt_ok = True
+        if type(history) is VersionedSettlementHistory:
+            authority = self._inbox_execution_authority
+            receipt_ok = (
+                type(authority) is InboxValidityExecutionAuthority
+                and (
+                    authority._preparing_candidate_id == id(candidate)
+                    or authority._verifying_candidate_id == id(candidate)
+                    or authority.valid_receipt(candidate)
+                )
+            )
+        return (receipt_ok
+                and total_items <= MAX_FORCE_CANDIDATE_MESSAGES
                 and total_bytes <= MAX_FORCE_CANDIDATE_BYTES
                 and total_gas <= MAX_FORCE_CANDIDATE_GAS
                 and candidate.next_due_at == self.next_due_at(cursor, first.force_cutoff))
@@ -4042,20 +4539,36 @@ class Protocol:
         excuse_for_migration: bool = False,
     ) -> SeatDutyScanOutcome:
         self._assert_canonical_history_binding()
-        protocol_snapshot = self._canonical_transaction_snapshot()
+        protocol_snapshot = self._canonical_transaction_snapshot(candidate)
         try:
-            assert (self.forced_queue.cursor
-                    == self.inbox_apply_router.next_queue_index
-                    == self.core.message_cursor)
-            assert self.forced_queue.advance_cursor(
-                candidate.blocks[0].inbox_pre_cursor,
-                candidate.tip.inbox_post_cursor,
-                caller=self.settlement_address,
-                beneficiary=candidate.beneficiary)
-            # This object represents adoption of the proof-authenticated L2
-            # poststate; no L1 call writes the L2 router.
-            self.inbox_apply_router.next_queue_index = \
-                candidate.tip.inbox_post_cursor
+            assert self.forced_queue.cursor == self.core.message_cursor
+            if type(self.versioned_history) is VersionedSettlementHistory:
+                authority = self._inbox_execution_authority
+                if (type(authority) is not InboxValidityExecutionAuthority
+                        or not authority.valid_receipt(candidate)):
+                    raise AssertionError(
+                        "canonical candidate lacks exact Inbox verifier output"
+                    )
+                self._canonical_commit_frame = (
+                    id(candidate), candidate_inbox_execution_digest(candidate)
+                )
+                try:
+                    if not self.forced_queue._advance_from_active_settlement(
+                            settlement=self.versioned_history,
+                            candidate=candidate):
+                        raise AssertionError(
+                            "canonical queue advance authority is invalid"
+                        )
+                finally:
+                    self._canonical_commit_frame = None
+            else:
+                # Unversioned objects are isolated unit fixtures only; they
+                # never represent a production Queue authority surface.
+                assert self.forced_queue._advance_accounting(
+                    candidate.blocks[0].inbox_pre_cursor,
+                    candidate.tip.inbox_post_cursor,
+                    candidate.beneficiary,
+                )
             if candidate.blocks[0].release_activation:
                 self.release_activation_pending = False
                 self.pending_release_protocol_version = 0
@@ -4070,6 +4583,9 @@ class Protocol:
                               candidate.end_terminal_root,
                               candidate.end_terminal_count),
                 clock.block_number,
+            )
+            self.last_canonical_execution_digest = (
+                candidate_inbox_execution_digest(candidate)
             )
             if self.versioned_history is not None:
                 history = self.versioned_history
@@ -4115,76 +4631,412 @@ class BridgeRecord:
 @dataclass
 class BridgeSupportEntry:
     protocol_version: int
-    manifest_hash: str
+    manifest: "ReleaseManifestV2"
+    registration_commitment: bytes
+    source_chain_id: int
+    source_registration_epoch: int
     staged_at_block: int
     confirmed_at_block: int | None = None
 
 
+@dataclass(frozen=True)
+class DestinationReleaseAuthorityDescriptor:
+    """L1 commitment to the destination authority, never a live L2 object."""
+
+    destination_chain_id: int
+    authority_address: str
+    authority_runtime_hash: str
+    authority_configuration_hash: str
+    registrar_address: str
+    registrar_runtime_hash: str
+    registrar_configuration_hash: str
+    registration_slot_schema_hash: str
+
+    def structurally_valid(self) -> bool:
+        return (
+            0 < self.destination_chain_id <= UINT64_MAX
+            and all((
+                self.authority_address,
+                self.authority_runtime_hash,
+                self.authority_configuration_hash,
+                self.registrar_address,
+                self.registrar_runtime_hash,
+                self.registrar_configuration_hash,
+                self.registration_slot_schema_hash,
+            ))
+        )
+
+
+@dataclass(frozen=True)
+class InboxApplyDeploymentDescriptor:
+    """L1 commitment to InboxApply code/config, never a live L2 object."""
+
+    address: str
+    registrar_address: str
+    runtime_hash: str
+    configuration_hash: str
+
+    def structurally_valid(self) -> bool:
+        return (
+            all((
+                self.address,
+                self.registrar_address,
+                self.runtime_hash,
+                self.configuration_hash,
+            ))
+            and self.runtime_hash == "code:inbox-apply"
+            and self.configuration_hash
+                == f"config:inbox-apply:{self.registrar_address}"
+        )
+
+    def authenticates(self, inbox: object) -> bool:
+        """Compare only immutable deployment observations."""
+
+        return (
+            type(inbox) is InboxApplyRouterV2
+            and self.structurally_valid()
+            and inbox.address == self.address
+            and inbox.registrar == self.registrar_address
+        )
+
+
+def inbox_apply_deployment_descriptor(
+    inbox: "InboxApplyRouterV2",
+) -> InboxApplyDeploymentDescriptor:
+    if type(inbox) is not InboxApplyRouterV2:
+        raise ValueError("InboxApply descriptor requires exact deployment")
+    descriptor = InboxApplyDeploymentDescriptor(
+        inbox.address,
+        inbox.registrar,
+        "code:inbox-apply",
+        f"config:inbox-apply:{inbox.registrar}",
+    )
+    if not descriptor.structurally_valid():
+        raise ValueError("InboxApply descriptor is not canonical")
+    return descriptor
+
+
+def release_authority_descriptor_from_manifest(
+    manifest: "ReleaseManifestV2",
+) -> DestinationReleaseAuthorityDescriptor:
+    if (type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()
+            or len(manifest.components) != 9):
+        raise ValueError("release authority descriptor has no exact manifest")
+    authority_row = manifest.components[5]
+    registrar_row = manifest.components[6]
+    return DestinationReleaseAuthorityDescriptor(
+        manifest.destination_chain_id,
+        authority_row.address,
+        authority_row.runtime_hash,
+        authority_row.config_hash,
+        registrar_row.address,
+        registrar_row.runtime_hash,
+        registrar_row.config_hash,
+        "slot-schema:terminal-domain-registration:v2",
+    )
+
+
 @dataclass
 class BridgeDomainRegistry:
+    router: "ActiveSettlementRouter"
+    manager: "ProtocolVersionManager"
+    release_authority_descriptor: DestinationReleaseAuthorityDescriptor
     entries: dict[tuple[str, str, str], BridgeSupportEntry] = field(default_factory=dict)
     profile_additions: dict[int, int] = field(default_factory=dict)
+    _destinations_by_domain: dict[str, "ReleaseManifestV2"] = field(
+        default_factory=dict, repr=False
+    )
+    _confirmed_at_by_domain: dict[str, int] = field(
+        default_factory=dict, repr=False
+    )
+    _latest_key_by_destination_chain: dict[
+        int, tuple[str, str, str]
+    ] = field(default_factory=dict, repr=False)
+    address: str = "bridge-domain-registry"
+    runtime_hash: str = BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
+    configuration_hash: str = ""
+
+    def __post_init__(self) -> None:
+        expected = bridge_domain_registry_configuration_hash(
+            address=self.address,
+            runtime_hash=self.runtime_hash,
+            support_authority=self.manager.address,
+            router_address=self.router.address,
+            router_runtime_hash=self.router.runtime_hash,
+            router_configuration_hash=self.router.configuration_hash,
+            release_authority_address=(
+                self.release_authority_descriptor.authority_address
+            ),
+            release_authority_runtime_hash=(
+                self.release_authority_descriptor.authority_runtime_hash
+            ),
+            release_authority_configuration_hash=(
+                self.release_authority_descriptor
+                    .authority_configuration_hash
+            ),
+        )
+        if (type(self.router) is not ActiveSettlementRouter
+                or type(self.manager) is not ProtocolVersionManager
+                or self.manager.router is not self.router
+                or self.router._version_manager_authority is not self.manager
+                or type(self.release_authority_descriptor)
+                    is not DestinationReleaseAuthorityDescriptor
+                or not self.release_authority_descriptor.structurally_valid()
+                or self.configuration_hash
+                    not in {"", expected}):
+            raise ValueError("Bridge support registry authority graph is invalid")
+        object.__setattr__(self, "configuration_hash", expected)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "router", "manager", "release_authority_descriptor", "address",
+            "runtime_hash", "configuration_hash",
+        } and name in self.__dict__:
+            raise AttributeError(f"Bridge support registry {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return copy.deepcopy({
+            key: value for key, value in self.__dict__.items()
+            if key not in {
+                "router", "manager", "release_authority_descriptor"
+            }
+        })
+
+    def _restore_transaction_snapshot(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        router, manager, authority_descriptor = (
+            self.router, self.manager, self.release_authority_descriptor
+        )
+        self.__dict__.clear()
+        self.__dict__.update(snapshot)
+        object.__setattr__(self, "router", router)
+        object.__setattr__(self, "manager", manager)
+        object.__setattr__(
+            self, "release_authority_descriptor", authority_descriptor
+        )
 
     def stage(self, source_domain_id: str, execution_hash: str,
-              destination_domain_id: str,
-              protocol_version: int, manifest_hash: str,
-              staged_at_block: int, *, caller_is_version_manager: bool,
-              manifest_active: bool) -> bool:
-        if (not caller_is_version_manager or not manifest_active
-                or protocol_version <= 0 or not manifest_hash
-                or not source_domain_id or not execution_hash
-                or not destination_domain_id):
+              manifest: "ReleaseManifestV2", *,
+              manager: "ProtocolVersionManager", clock: Clock) -> bool:
+        registration = self.router.registrations.get(
+            getattr(manifest, "protocol_version", 0)
+        )
+        authorization = (
+            None if registration is None or len(manifest.components) != 9
+            else registration.ingress_authorizations_by_address.get(
+                manifest.components[0].address
+            )
+        )
+        source_descriptor = (
+            None if type(authorization) is not ProfileIngressAuthorization
+            else SourceBridgeDescriptor(
+                authorization.source_settlement_chain_id,
+                authorization.source_chain_id,
+                authorization.source_genesis_hash,
+                authorization.source_registry_namespace,
+                authorization.source_bridge_address,
+                authorization.source_bridge_credit_registry,
+                authorization.source_bridge_facade_runtime_hash,
+                authorization.source_bridge_storage_layout_hash,
+                authorization.source_bridge_kernel_hash,
+                authorization.source_terminal_verifier,
+                authorization.source_v1_official_vaults,
+            )
+        )
+        if (manager is not self.manager or type(clock) is not Clock
+                or type(manifest) is not ReleaseManifestV2
+                or registration is None or not manifest.structurally_valid()
+                or manifest.execution_profile_hash
+                    != registration.execution_profile_hash
+                or registration.execution_profile
+                    is not registration.settlement.execution_profile
+                or manifest.migration_transition_verifier
+                    != registration.execution_profile
+                        .migration_transition_verifier_descriptor
+                or manifest is not registration.release_manifest
+                or registration.release_manifests_by_adapter.get(
+                    manifest.components[0].address
+                ) is not manifest
+                or registration.release_manifest_hash != manifest.commitment
+                or registration.settlement_chain_context_id
+                    != self.router.settlement_chain_context_id
+                or manifest.settlement_chain_id
+                    != self.router.settlement_chain_context_id
+                or manifest.ingress_authorization_root
+                    != registration.ingress_authorization_root
+                or type(authorization) is not ProfileIngressAuthorization
+                or authorization.kind is not ForceKind.BRIDGE_CREDIT
+                or source_descriptor.descriptor_id
+                    != authorization.source_descriptor_id
+                or source_descriptor.settlement_chain_id
+                    != registration.settlement.market_settlement_chain_id
+                or source_descriptor.settlement_chain_id
+                    != self.router.settlement_chain_context_id
+                or source_descriptor.source_domain_id
+                    != authorization.source_domain_id
+                or source_descriptor.bridge_execution_hash
+                    != authorization.frozen_bridge_execution_hash
+                or source_domain_id != authorization.source_domain_id
+                or execution_hash
+                    != authorization.frozen_bridge_execution_hash
+                or not 0 < authorization.source_chain_id <= UINT64_MAX
+                or not 0 < authorization.source_registration_epoch
+                    <= UINT64_MAX
+                or authorization.runtime_hash
+                    != manifest.components[0].runtime_hash
+                or authorization.configuration_hash
+                    != manifest.components[0].config_hash
+                or authorization.destination_domain_id
+                    != manifest.destination_domain_id
+                or authorization.destination_bridge
+                    != manifest.destination_bridge
+                or authorization.destination_descriptor_id
+                    != manifest.canonical_destination_descriptor.descriptor_id):
             return False
-        key = (source_domain_id, execution_hash, destination_domain_id)
+        key = (
+            source_domain_id,
+            execution_hash,
+            manifest.destination_domain_id,
+        )
         entry = BridgeSupportEntry(
-            protocol_version, manifest_hash, staged_at_block)
+            manifest.protocol_version,
+            manifest,
+            manifest.registration_commitment,
+            authorization.source_chain_id,
+            authorization.source_registration_epoch,
+            clock.block_number,
+        )
         if key in self.entries:
-            return self.entries[key] == entry
-        if self.profile_additions.get(protocol_version, 0) \
+            existing = self.entries[key]
+            exact = (
+                existing.source_chain_id == entry.source_chain_id
+                and existing.source_registration_epoch
+                    == entry.source_registration_epoch
+                and existing.manifest.destination_bridge
+                    == manifest.destination_bridge
+                and existing.manifest.canonical_destination_descriptor
+                    == manifest.canonical_destination_descriptor
+                and existing.manifest.components == manifest.components
+            )
+            if exact:
+                latest_key = self._latest_key_by_destination_chain.get(
+                    manifest.destination_chain_id
+                )
+                latest = self.entries.get(latest_key) if latest_key else None
+                if (latest is None
+                        or manifest.protocol_version
+                            > latest.protocol_version):
+                    self._latest_key_by_destination_chain[
+                        manifest.destination_chain_id
+                    ] = key
+            return exact
+        existing_manifest = self._destinations_by_domain.get(
+            manifest.destination_domain_id
+        )
+        if (existing_manifest is not None
+                and (existing_manifest.destination_bridge
+                    != manifest.destination_bridge
+                     or existing_manifest.canonical_destination_descriptor
+                    != manifest.canonical_destination_descriptor
+                     or existing_manifest.components != manifest.components)):
+            return False
+        if self.profile_additions.get(manifest.protocol_version, 0) \
                 >= MAX_BRIDGE_TOPOLOGIES_PER_PROFILE:
             return False
+        latest_key = self._latest_key_by_destination_chain.get(
+            manifest.destination_chain_id
+        )
+        latest = self.entries.get(latest_key) if latest_key else None
+        if (latest is not None
+                and manifest.protocol_version <= latest.protocol_version):
+            return False
         self.entries[key] = entry
-        self.profile_additions[protocol_version] = (
-            self.profile_additions.get(protocol_version, 0) + 1)
+        self._destinations_by_domain.setdefault(
+            manifest.destination_domain_id, manifest
+        )
+        self.profile_additions[manifest.protocol_version] = (
+            self.profile_additions.get(manifest.protocol_version, 0) + 1)
+        self._latest_key_by_destination_chain[
+            manifest.destination_chain_id
+        ] = key
         return True
 
     def confirm(self, source_domain_id: str, execution_hash: str,
-                destination_domain_id: str, confirmed_at_block: int, *,
-                protocol_version: int, canonical_sequence: int,
-                router: ActiveSettlementRouter, proof_state_root: str,
+                destination_domain_id: str, *, clock: Clock,
+                canonical_sequence: int, proof_state_root: str,
                 mpt_proof_valid: bool,
-                proved_registration_commitment: str,
-                expected_registration_commitment: str,
+                proved_registration_commitment: bytes,
                 proof_node_count: int, proof_byte_length: int) -> bool:
         entry = self.entries.get(
             (source_domain_id, execution_hash, destination_domain_id))
-        canonical = router.canonical_at(protocol_version, canonical_sequence)
-        if (entry is None or entry.confirmed_at_block is not None
-                or entry.protocol_version != protocol_version
+        canonical = (
+            None if entry is None else self.router.canonical_at(
+                entry.protocol_version, canonical_sequence
+            )
+        )
+        if (type(clock) is not Clock or entry is None
+                or entry.confirmed_at_block is not None
                 or canonical is None
                 or canonical.state_root != proof_state_root
-                or confirmed_at_block
+                or clock.block_number
                     < canonical.canonicalized_at_block + F_L1
                 or not mpt_proof_valid
                 or not proved_registration_commitment
                 or proved_registration_commitment
-                    != expected_registration_commitment
+                    != entry.registration_commitment
                 or not 0 < proof_node_count <= MAX_REGISTRATION_PROOF_NODES
                 or not 0 < proof_byte_length <= MAX_REGISTRATION_PROOF_BYTES
-                or confirmed_at_block < entry.staged_at_block):
+                or clock.block_number < entry.staged_at_block):
             return False
-        entry.confirmed_at_block = confirmed_at_block
+        entry.confirmed_at_block = clock.block_number
+        self._confirmed_at_by_domain.setdefault(
+            destination_domain_id, clock.block_number
+        )
         return True
+
+    def final_entry(self, source_domain_id: str, execution_hash: str,
+                    destination_domain_id: str,
+                    clock: Clock) -> BridgeSupportEntry | None:
+        entry = self.entries.get(
+            (source_domain_id, execution_hash, destination_domain_id)
+        )
+        if (type(clock) is not Clock or entry is None
+                or entry.confirmed_at_block is None
+                or clock.block_number
+                    < entry.confirmed_at_block + SUPPORT_FINALITY_BLOCKS):
+            return None
+        return entry
+
+    def latest_final_entry(
+        self, destination_chain_id: int, clock: Clock
+    ) -> BridgeSupportEntry | None:
+        """Return only the newest staged route; never fall back to an old one."""
+
+        key = self._latest_key_by_destination_chain.get(destination_chain_id)
+        if key is None:
+            return None
+        return self.final_entry(*key, clock)
+
+    def finalized_destination_manifest(
+        self, destination_domain_id: str, clock: Clock
+    ) -> "ReleaseManifestV2 | None":
+        confirmed_at = self._confirmed_at_by_domain.get(destination_domain_id)
+        manifest = self._destinations_by_domain.get(destination_domain_id)
+        if (type(clock) is not Clock or confirmed_at is None
+                or clock.block_number
+                    < confirmed_at + SUPPORT_FINALITY_BLOCKS):
+            return None
+        return manifest
 
     def final(self, source_domain_id: str, execution_hash: str,
               destination_domain_id: str,
-              block_number: int) -> bool:
-        entry = self.entries.get(
-            (source_domain_id, execution_hash, destination_domain_id))
-        return (entry is not None
-                and entry.confirmed_at_block is not None
-                and block_number
-                    >= entry.confirmed_at_block + SUPPORT_FINALITY_BLOCKS)
+              clock: Clock) -> bool:
+        return self.final_entry(
+            source_domain_id, execution_hash, destination_domain_id, clock
+        ) is not None
 
     def remove(self, source_domain_id: str, execution_hash: str,
                destination_domain_id: str) -> bool:
@@ -4247,11 +5099,16 @@ class QueueContinuity:
     deposit_prefix: list[int] = field(default_factory=list)
     unconsumed_escrow: int | None = None
     total_claimable: int | None = None
+    append_fault_point: str | None = field(default=None, compare=False)
+    _router_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
 
     def __setattr__(self, name: str, value: object) -> None:
         immutable = {
             "address", "router_address", "runtime_hash", "config_hash",
             "nonproxy", "selfdestruct_disabled", "delegate_target_reachable",
+            "_router_authority",
         }
         if name in immutable and name in self.__dict__:
             raise AttributeError(f"forced queue {name} is immutable")
@@ -4273,6 +5130,42 @@ class QueueContinuity:
         assert (self.escrow_balance
                 >= self.unconsumed_escrow + self.total_claimable)
 
+    def __deepcopy__(self, memo: dict[int, object]) -> "QueueContinuity":
+        """Copy state without traversing an unrelated Router authority graph."""
+
+        duplicate = object.__new__(type(self))
+        memo[id(self)] = duplicate
+        for key, value in self.__dict__.items():
+            if key == "_router_authority":
+                authority = memo.get(id(value), value)
+                object.__setattr__(duplicate, key, authority)
+            else:
+                object.__setattr__(duplicate, key, copy.deepcopy(value, memo))
+        return duplicate
+
+    def _bind_router_once(self, router: object) -> bool:
+        if (self._router_authority is not None
+                or type(router) is not ActiveSettlementRouter
+                or getattr(router, "forced_queue", None) is not self
+                or getattr(router, "address", None) != self.router_address):
+            return False
+        object.__setattr__(self, "_router_authority", router)
+        return True
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return copy.deepcopy({
+            key: value for key, value in self.__dict__.items()
+            if key != "_router_authority"
+        })
+
+    def _restore_transaction_snapshot(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        authority = self._router_authority
+        self.__dict__.clear()
+        self.__dict__.update(snapshot)
+        object.__setattr__(self, "_router_authority", authority)
+
     @property
     def accounted_liabilities(self) -> int:
         assert self.unconsumed_escrow is not None
@@ -4287,9 +5180,18 @@ class QueueContinuity:
         assert self.escrow_balance >= self.accounted_liabilities
         return True
 
-    def append(self, descriptor: Message, *, deposit: int,
-               due_at: int, caller: str) -> int | None:
-        if (caller != self.router_address
+    def _append_from_router(
+        self,
+        descriptor: Message,
+        *,
+        deposit: int,
+        due_at: int,
+        router: "ActiveSettlementRouter",
+    ) -> int | None:
+        if (type(router) is not ActiveSettlementRouter
+                or router is not self._router_authority
+                or router.forced_queue is not self
+                or router.address != self.router_address
                 or not descriptor.payload_hash or deposit <= 0
                 or descriptor.prepaid != deposit
                 or due_at < self.last_due_at
@@ -4298,29 +5200,42 @@ class QueueContinuity:
             return None
         index = self.count
         stored = replace(descriptor, due_at=due_at)
+        self.descriptors.append(stored)
+        if self.append_fault_point == "after_descriptor":
+            raise RuntimeError("injected queue append fault: after_descriptor")
         self.count += 1
         self.escrow_balance += deposit
         assert self.unconsumed_escrow is not None
         self.unconsumed_escrow += deposit
         self.deposit_prefix.append(self.deposit_prefix[-1] + deposit)
         self.last_due_at = due_at
-        self.descriptors.append(stored)
         self.root = model_force_root(self.descriptors)
         return index
 
-    def set_active_settlement(self, *, expected_old: str, new: str,
-                              caller: str) -> bool:
-        if (caller != self.router_address or not new
+    def _bootstrap_active_settlement_from_router(
+        self,
+        *,
+        expected_old: str,
+        settlement: "VersionedSettlementHistory",
+        router: "ActiveSettlementRouter",
+    ) -> bool:
+        if (type(router) is not ActiveSettlementRouter
+                or router is not self._router_authority
+                or router.forced_queue is not self
+                or router.address != self.router_address
+                or type(settlement) is not VersionedSettlementHistory
+                or router._queue_transition_frame
+                    != ("BOOTSTRAP", id(settlement), settlement.address)
+                or not settlement.address
                 or self.active_settlement_address != expected_old):
             return False
-        self.active_settlement_address = new
+        self.active_settlement_address = settlement.address
         return True
 
-    def advance_cursor(self, expected_start: int, end: int, *,
-                       caller: str, beneficiary: str) -> bool:
-        if (caller != self.active_settlement_address
-                or not beneficiary
-                or expected_start != self.cursor
+    def _advance_accounting(
+        self, expected_start: int, end: int, beneficiary: str
+    ) -> bool:
+        if (not beneficiary or expected_start != self.cursor
                 or not expected_start <= end <= self.count):
             return False
         consumed_deposit = (self.deposit_prefix[end]
@@ -4336,6 +5251,76 @@ class QueueContinuity:
         self.cursor = end
         assert self.escrow_balance >= self.accounted_liabilities
         return True
+
+    def _advance_from_active_settlement(
+        self,
+        *,
+        settlement: "VersionedSettlementHistory",
+        candidate: Candidate,
+    ) -> bool:
+        """Adopt only the exact active Settlement's current winner frame."""
+
+        router = self._router_authority
+        registration = (
+            router.registrations.get(router.active_version)
+            if type(router) is ActiveSettlementRouter else None
+        )
+        protocol = (
+            settlement.live_protocol
+            if type(settlement) is VersionedSettlementHistory else None
+        )
+        if (type(router) is not ActiveSettlementRouter
+                or type(registration) is not SettlementRegistration
+                or registration.settlement is not settlement
+                or type(protocol) is not Protocol
+                or protocol.forced_queue is not self
+                or protocol.versioned_history is not settlement
+                or self.active_settlement_address != settlement.address
+                or type(candidate) is not Candidate
+                or not candidate.blocks
+                or protocol._canonical_commit_frame != (
+                    id(candidate), candidate_inbox_execution_digest(candidate)
+                )):
+            return False
+        return self._advance_accounting(
+            candidate.blocks[0].inbox_pre_cursor,
+            candidate.tip.inbox_post_cursor,
+            candidate.beneficiary,
+        )
+
+    def _activate_and_advance_from_router(
+        self,
+        *,
+        expected_old: str,
+        settlement: "VersionedSettlementHistory",
+        proof: VerifiedMigrationExecutionOutput,
+        router: "ActiveSettlementRouter",
+    ) -> bool:
+        """Atomically switch authority and adopt one sealed migration range."""
+
+        if (type(router) is not ActiveSettlementRouter
+                or router is not self._router_authority
+                or router.forced_queue is not self
+                or router.address != self.router_address
+                or type(settlement) is not VersionedSettlementHistory
+                or type(settlement.live_protocol) is not Protocol
+                or type(proof) is not VerifiedMigrationExecutionOutput
+                or proof.router is not router
+                or proof.verifier is not settlement.live_protocol
+                    ._inbox_execution_authority
+                or proof.beneficiary != proof.candidate.beneficiary
+                or router._queue_transition_frame
+                    != ("MIGRATION", id(proof), proof.digest)
+                or self.active_settlement_address != expected_old
+                or not settlement.address
+                or proof.start_cursor != self.cursor
+                or not proof.start_cursor <= proof.end_cursor <= self.count):
+            return False
+        # All fallible checks precede both writes, matching one Router call.
+        self.active_settlement_address = settlement.address
+        return self._advance_accounting(
+            proof.start_cursor, proof.end_cursor, proof.beneficiary
+        )
 
     def withdraw_claimable(self, beneficiary: str) -> int:
         amount = self.claimable.get(beneficiary, 0)
@@ -4376,6 +5361,7 @@ class VersionedSettlementHistory:
     core: CanonicalCore
     canonicalized_at_block: int
     forced_queue: QueueContinuity
+    execution_profile: "ExecutionProfile" = field(compare=False, repr=False)
     mode: str = "PREACTIVE"
     nonproxy: bool = True
     selfdestruct_disabled: bool = True
@@ -4385,9 +5371,22 @@ class VersionedSettlementHistory:
         default_factory=dict)
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     live_protocol: Protocol | None = None
-    inbox_apply_router: "InboxApplyRouterV2 | None" = None
+    inbox_apply_descriptor: InboxApplyDeploymentDescriptor | None = None
     builder_registry_id: str = "builder-registry"
     schedule_oracle_id: str = "schedule-oracle"
+    release_profile_ingress_specs: tuple[
+        tuple[ForceKind, str, str], ...
+    ] = (
+        (ForceKind.USER_TX, "kind0-adapter", ""),
+        (ForceKind.BRIDGE_CREDIT, "bridge-inbox-adapter", "bridge:A"),
+    )
+    ingress_fee_schedule: tuple[int, int, int, int, int] = (
+        INGRESS_FIXED_WEI,
+        INGRESS_EXECUTION_WEI_PER_GAS,
+        INGRESS_PROOF_WEI_PER_GAS,
+        INGRESS_PERMANENT_WEI_PER_BYTE,
+        INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
+    )
     market_settlement_chain_id: int = 1
     market_runtime_hash: bytes = b"r" * 32
     market_configuration_hash: bytes = b"c" * 32
@@ -4397,11 +5396,23 @@ class VersionedSettlementHistory:
         default=None, compare=False, repr=False
     )
 
+    def __post_init__(self) -> None:
+        if (type(self.execution_profile) is not ExecutionProfile
+                or not self.execution_profile.structurally_valid()
+                or self.execution_profile.protocol_version
+                    != self.protocol_version
+                or self.execution_profile.execution_profile_hash
+                    != self.execution_profile_hash):
+            raise ValueError("Settlement execution profile is not exact")
+
     def __setattr__(self, name: str, value: object) -> None:
         immutable = {
             "address", "runtime_hash", "protocol_version",
-            "execution_profile_hash", "forced_queue", "migration_gate",
-            "inbox_apply_router", "builder_registry_id", "schedule_oracle_id",
+            "execution_profile_hash", "execution_profile", "forced_queue",
+            "migration_gate",
+            "inbox_apply_descriptor", "builder_registry_id", "schedule_oracle_id",
+            "release_profile_ingress_specs",
+            "ingress_fee_schedule",
             "market_settlement_chain_id", "market_runtime_hash",
             "market_configuration_hash", "market_magic", "header_oracle",
             "_router_authority",
@@ -4445,8 +5456,9 @@ class VersionedSettlementHistory:
             or protocol.header_oracle is not router.header_oracle
             or self.forced_queue is not router.forced_queue
             or protocol.forced_queue is not router.forced_queue
-            or self.inbox_apply_router is not router.inbox_apply_router
-            or protocol.inbox_apply_router is not router.inbox_apply_router
+            or self.inbox_apply_descriptor != router.inbox_apply_descriptor
+            or protocol.inbox_apply_descriptor
+                != self.inbox_apply_descriptor
             or self.migration_gate is not router.migration_gate
             or protocol.migration_gate is not self.migration_gate
             or self.mode not in phases
@@ -4484,7 +5496,8 @@ class VersionedSettlementHistory:
                 or self.header_oracle is not router.header_oracle
                 or self.migration_gate is not router.migration_gate
                 or router.forced_queue is not self.forced_queue
-                or router.inbox_apply_router is not self.inbox_apply_router
+                or self.inbox_apply_descriptor
+                    != router.inbox_apply_descriptor
                 or (
                     self._router_authority is not None
                     and self._router_authority is not router
@@ -4523,10 +5536,12 @@ class VersionedSettlementHistory:
                 or self.header_oracle is not router.header_oracle
                 or self.migration_gate is not router.migration_gate
                 or self.forced_queue is not router.forced_queue
-                or self.inbox_apply_router is not router.inbox_apply_router
+                or self.inbox_apply_descriptor
+                    != router.inbox_apply_descriptor
                 or protocol.versioned_history is not self
                 or protocol.forced_queue is not self.forced_queue
-                or protocol.inbox_apply_router is not self.inbox_apply_router
+                or protocol.inbox_apply_descriptor
+                    != self.inbox_apply_descriptor
                 or protocol.migration_gate is not self.migration_gate
                 or protocol.settlement_address != self.address
                 or protocol.canonical.canonicalized_at_block
@@ -4535,10 +5550,8 @@ class VersionedSettlementHistory:
                 or registration.settlement is not self
                 or router.active_version != self.protocol_version
                 or self.mode not in {"ACTIVE", "MIGRATION_ARMED"}
-                or self.inbox_apply_router is None
+                or self.inbox_apply_descriptor is None
                 or protocol.core.message_cursor != self.forced_queue.cursor
-                or protocol.core.message_cursor
-                    != self.inbox_apply_router.next_queue_index
                 or clock.block_number <= self.last_canonical_l1_block
                 or self.current_sequence < 0
                 or self.current_sequence + 1 >= UINT64_MAX
@@ -4588,27 +5601,1494 @@ class VersionedSettlementHistory:
 
 
 @dataclass(frozen=True)
+class DestinationIngressDescriptor:
+    """Acyclic destination-domain preimage owned by one release profile."""
+
+    destination_chain_id: int
+    destination_genesis_hash: str
+    adapter_address: str
+    router_address: str
+    terminal_signal_verifier: str
+    inbox_apply_router: str
+    inbox_credit_store: str
+    protocol_release_authority: str
+    terminal_domain_registrar: str
+    terminal_accumulator: str
+    destination_bridge: str
+    destination_bridge_execution_hash: str
+    destination_infrastructure_hash: str
+    destination_namespace: str
+
+    @property
+    def descriptor_id(self) -> bytes:
+        fields = tuple(getattr(self, field_.name)
+                       for field_ in self.__dataclass_fields__.values())
+        return hashlib.sha256(
+            b"TAIKO_DESTINATION_INGRESS_DESCRIPTOR_V1\x00"
+            + b"".join(_ingress_commitment_word(value) for value in fields)
+        ).digest()
+
+    @property
+    def destination_domain_id(self) -> str:
+        return "domain:" + hashlib.sha256(
+            b"TAIKO_DESTINATION_DOMAIN_V2\x00" + self.descriptor_id
+        ).hexdigest()
+
+
+@dataclass(frozen=True)
+class SourceBridgeDescriptor:
+    """Acyclic source identity; neither domain nor execution is self-reported."""
+
+    settlement_chain_id: int
+    source_chain_id: int
+    source_genesis_hash: str
+    registry_namespace: str
+    source_bridge: str
+    bridge_credit_registry: str
+    bridge_facade_runtime_hash: str
+    bridge_storage_layout_hash: str
+    bridge_kernel_hash: str
+    source_terminal_verifier: str
+    v1_official_vaults: tuple[str, ...] = V1_OFFICIAL_VAULT_ADDRESSES
+
+    @property
+    def bridge_execution_hash(self) -> str:
+        fields = (
+            self.source_bridge,
+            self.bridge_credit_registry,
+            self.bridge_facade_runtime_hash,
+            self.bridge_storage_layout_hash,
+            self.bridge_kernel_hash,
+            self.source_terminal_verifier,
+            self.v1_official_vaults,
+        )
+        return "source-execution:" + hashlib.sha256(
+            b"TAIKO_SOURCE_BRIDGE_EXECUTION_V1\x00"
+            + b"".join(_ingress_commitment_word(value) for value in fields)
+        ).hexdigest()
+
+    @property
+    def descriptor_id(self) -> bytes:
+        if self.v1_official_vaults != V1_OFFICIAL_VAULT_ADDRESSES:
+            raise ValueError("source V1 Vault denylist is not exact")
+        fields = tuple(
+            getattr(self, field_.name)
+            for field_ in self.__dataclass_fields__.values()
+        )
+        return hashlib.sha256(
+            b"TAIKO_SOURCE_BRIDGE_DESCRIPTOR_V1\x00"
+            + b"".join(_ingress_commitment_word(value) for value in fields)
+        ).digest()
+
+    @property
+    def source_domain_id(self) -> str:
+        return "source-domain:" + hashlib.sha256(
+            b"TAIKO_SOURCE_BRIDGE_DOMAIN_V1\x00"
+            + self.descriptor_id
+            + _ingress_commitment_word(self.bridge_execution_hash)
+        ).hexdigest()
+
+
+def canonical_source_bridge_descriptor(
+    settlement_chain_id: int = 1,
+) -> SourceBridgeDescriptor:
+    return SourceBridgeDescriptor(
+        settlement_chain_id,
+        settlement_chain_id,
+        "genesis:source:v1",
+        "source-domain-namespace:v1",
+        "bridge:A",
+        "bridge-credit-registry-v2",
+        "code:source-bridge-facade:v1",
+        "storage:source-bridge:v1",
+        "kernel:source-bridge:v1",
+        "source-terminal-verifier",
+    )
+
+
+@dataclass(frozen=True)
 class SettlementRegistration:
     settlement: VersionedSettlementHistory
     runtime_hash: str
     execution_profile_hash: str
+    execution_profile: "ExecutionProfile"
     activation_block: int
     predecessor_version: int
+    release_manifest_hash: str | bytes
+    migration_manifest_hash: str | bytes
+    release_manifest: "ReleaseManifestV2"
+    release_manifests_by_adapter: MappingProxyType
+    ingress_authorizations: tuple["ProfileIngressAuthorization", ...]
+    ingress_authorizations_by_id: MappingProxyType
+    ingress_authorizations_by_address: MappingProxyType
+    ingress_authorization_root: bytes
+    settlement_chain_context_id: int
+    ingress_fee_schedule: tuple[int, int, int, int, int]
+
+    def __deepcopy__(self, memo: dict[int, object]) -> "SettlementRegistration":
+        """Registration is an immutable authority capability, not tx state."""
+
+        memo[id(self)] = self
+        return self
 
 
 @dataclass(frozen=True)
-class MigrationActivationProof:
+class ProfileIngressAuthorization:
+    """One exact ingress tuple authenticated by the active release profile."""
+
+    kind: ForceKind
+    adapter_address: str
+    runtime_hash: str
+    configuration_hash: str
+    router_address: str
+    router_runtime_hash: str
+    router_configuration_hash: str
+    queue_address: str
+    queue_runtime_hash: str
+    queue_configuration_hash: str
+    source_registry_address: str
+    source_registry_runtime_hash: str
+    source_registry_configuration_hash: str
+    source_registry_domain_registrar: str
+    source_bridge_address: str
+    source_bridge_runtime_hash: str
+    source_bridge_configuration_hash: str
+    support_registry_address: str
+    support_registry_runtime_hash: str
+    support_registry_configuration_hash: str
+    source_descriptor_id: bytes
+    source_settlement_chain_id: int
+    source_chain_id: int
+    source_genesis_hash: str
+    source_registry_namespace: str
+    source_bridge_credit_registry: str
+    source_bridge_facade_runtime_hash: str
+    source_bridge_storage_layout_hash: str
+    source_bridge_kernel_hash: str
+    source_terminal_verifier: str
+    source_v1_official_vaults: tuple[str, ...]
+    source_domain_id: str
+    source_registration_epoch: int
+    frozen_bridge_execution_hash: str
+    destination_domain_id: str
+    destination_bridge: str
+    destination_descriptor_id: bytes
+    destination_chain_id: int
+    destination_genesis_hash: str
+    terminal_signal_verifier: str
+    inbox_apply_router: str
+    inbox_credit_store: str
+    protocol_release_authority: str
+    terminal_domain_registrar: str
+    terminal_accumulator: str
+    destination_bridge_execution_hash: str
+    destination_infrastructure_hash: str
+    destination_namespace: str
+    fixed_ingress_wei: int
+    execution_wei_per_accounted_gas: int
+    proof_wei_per_accounted_gas: int
+    permanent_wei_per_byte: int
+    maximum_accepted_fee_wei: int
+
+    @property
+    def authorization_id(self) -> bytes:
+        return profile_ingress_authorization_id(self)
+
+
+def _ingress_commitment_word(value: object) -> bytes:
+    if type(value) is bytes:
+        return b"b" + len(value).to_bytes(4, "big") + value
+    if type(value) is str:
+        encoded = value.encode()
+        return b"s" + len(encoded).to_bytes(4, "big") + encoded
+    if type(value) is int:
+        if not 0 <= value <= UINT64_MAX:
+            raise ValueError("ingress commitment integer is outside uint64")
+        return b"i" + value.to_bytes(8, "big")
+    if type(value) is ForceKind:
+        return b"k" + value.value.to_bytes(1, "big")
+    if type(value) is tuple:
+        encoded = b"".join(_ingress_commitment_word(row) for row in value)
+        return b"t" + len(value).to_bytes(2, "big") + encoded
+    raise ValueError("ingress commitment field has noncanonical type")
+
+
+def profile_ingress_authorization_id(
+    authorization: ProfileIngressAuthorization,
+) -> bytes:
+    """Behavioral bytes32 commitment; Task7 pins the byte-exact codec."""
+
+    if type(authorization) is not ProfileIngressAuthorization:
+        raise ValueError("profile ingress authorization has wrong type")
+    fields = tuple(getattr(authorization, field_.name)
+                   for field_ in authorization.__dataclass_fields__.values())
+    return hashlib.sha256(
+        b"TAIKO_PROFILE_INGRESS_AUTHORIZATION_V1\x00"
+        + b"".join(_ingress_commitment_word(value) for value in fields)
+    ).digest()
+
+
+def profile_ingress_authorization_root(
+    authorizations: tuple[ProfileIngressAuthorization, ...],
+) -> bytes:
+    if (type(authorizations) is not tuple
+            or not 0 < len(authorizations)
+                <= MAX_PROFILE_INGRESS_AUTHORIZATIONS):
+        raise ValueError("profile ingress authorization topology is invalid")
+    ids = tuple(sorted(row.authorization_id for row in authorizations))
+    if len(set(ids)) != len(ids):
+        raise ValueError("profile ingress authorization id collision")
+    return hashlib.sha256(
+        b"TAIKO_PROFILE_INGRESS_AUTHORIZATION_ROOT_V1\x00"
+        + len(ids).to_bytes(2, "big") + b"".join(ids)
+    ).digest()
+
+
+def canonical_destination_release_topology(
+    router: "ActiveSettlementRouter", *, adapter_address: str,
+    adapter_configuration_hash: str, destination_bridge: str,
+) -> tuple[
+    tuple["ReleaseComponentV2", ...],
+    "DestinationBridgeDescriptorV2",
+    str,
+    DestinationIngressDescriptor,
+]:
+    """One acyclic component graph shared by release and ingress models."""
+
+    if (type(router) is not ActiveSettlementRouter
+            or not adapter_address or not adapter_configuration_hash
+            or not destination_bridge):
+        raise ValueError("destination descriptor authority is incomplete")
+    store_address = f"inbox-store:{adapter_address}"
+    store_runtime = f"codehash:store:{adapter_address}"
+    inbox_descriptor = router.inbox_apply_descriptor
+    store_config = (
+        f"component-config:{inbox_descriptor.address}:"
+        f"{destination_bridge}:activation-gate:"
+        f"{inbox_descriptor.registrar_address}"
+    )
+    facade_runtime_hash = f"facade-code:{destination_bridge}"
+    genesis_legacy_proxy = destination_bridge == "bridge:A"
+    account_runtime_hash = (
+        f"proxy-code:{destination_bridge}"
+        if genesis_legacy_proxy else facade_runtime_hash
+    )
+    privileged_target_denyset = tuple(sorted({
+        adapter_address,
+        router.address,
+        "terminal-verifier",
+        inbox_descriptor.address,
+        store_address,
+        "release-authority",
+        inbox_descriptor.registrar_address,
+        "terminal-accumulator",
+        destination_bridge,
+        "activation-gate",
+        *V2_PRIVILEGED_DESTINATION_ADDRESSES,
+    }))
+    bridge_descriptor = DestinationBridgeDescriptorV2(
+        destination_bridge,
+        facade_runtime_hash,
+        f"storage-layout:{destination_bridge}",
+        f"kernel-profile:{destination_bridge}",
+        store_address,
+        "terminal-accumulator",
+        "activation-gate",
+        inbox_descriptor.registrar_address,
+        privileged_target_denyset=privileged_target_denyset,
+    )
+    bridge_config = "component-config:9:177:" + repr((
+        1 if genesis_legacy_proxy else 0,
+        account_runtime_hash,
+        facade_runtime_hash,
+        bridge_descriptor.inbox_credit_store,
+        bridge_descriptor.terminal_accumulator,
+        bridge_descriptor.activation_gate,
+        bridge_descriptor.terminal_domain_registrar,
+        bridge_descriptor.storage_layout_hash,
+        bridge_descriptor.destination_chain_id,
+        bridge_descriptor.native_quota_manager,
+        bridge_descriptor.native_liquidity_floor,
+        bridge_descriptor.native_liquidity_policy,
+        bridge_descriptor.v1_official_vaults,
+        bridge_descriptor.privileged_target_denyset,
+        bridge_descriptor.post_call_gas_reserve,
+    ))
+    components = (
+        ReleaseComponentV2(
+            adapter_address,
+            BRIDGE_INGRESS_RUNTIME_HASH,
+            adapter_configuration_hash,
+        ),
+        ReleaseComponentV2(
+            router.address, router.runtime_hash, router.configuration_hash
+        ),
+        ReleaseComponentV2(
+            "terminal-verifier", "code:verifier", "cfg:verifier"
+        ),
+        ReleaseComponentV2(
+            inbox_descriptor.address,
+            inbox_descriptor.runtime_hash,
+            inbox_descriptor.configuration_hash,
+        ),
+        ReleaseComponentV2(store_address, store_runtime, store_config),
+        ReleaseComponentV2(
+            "release-authority", "code:authority", "cfg:authority"
+        ),
+        ReleaseComponentV2(
+            inbox_descriptor.registrar_address,
+            "code:registrar",
+            "cfg:registrar",
+        ),
+        ReleaseComponentV2(
+            "terminal-accumulator", "code:accumulator", "cfg:accumulator"
+        ),
+        ReleaseComponentV2(
+            destination_bridge, account_runtime_hash, bridge_config
+        ),
+    )
+    infrastructure_hash = "infrastructure:" + hashlib.sha256(
+        repr(components).encode()
+    ).hexdigest()
+    descriptor = DestinationIngressDescriptor(
+        167_000,
+        "genesis:destination:v2",
+        adapter_address,
+        router.address,
+        components[2].address,
+        inbox_descriptor.address,
+        components[4].address,
+        components[5].address,
+        inbox_descriptor.registrar_address,
+        components[7].address,
+        destination_bridge,
+        bridge_descriptor.execution_hash,
+        infrastructure_hash,
+        "domain-namespace:v2",
+    )
+    return components, bridge_descriptor, infrastructure_hash, descriptor
+
+
+def profile_ingress_authorization_for(
+    router: "ActiveSettlementRouter", *, kind: ForceKind,
+    adapter_address: str, destination_bridge: str = "",
+    settlement_chain_id: int = 1,
+    fee_schedule: tuple[int, int, int, int, int] = (
+        INGRESS_FIXED_WEI,
+        INGRESS_EXECUTION_WEI_PER_GAS,
+        INGRESS_PROOF_WEI_PER_GAS,
+        INGRESS_PERMANENT_WEI_PER_BYTE,
+        INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
+    ),
+) -> ProfileIngressAuthorization:
+    """Construct a typed component tuple before any profile/release labels."""
+
+    if (type(router) is not ActiveSettlementRouter
+            or settlement_chain_id != router.settlement_chain_context_id):
+        raise ValueError("ingress authorization changed settlement chain context")
+    if kind is ForceKind.USER_TX:
+        if adapter_address != "kind0-adapter" or destination_bridge:
+            raise ValueError("kind-0 profile authorization is noncanonical")
+        bridge_fields: tuple[object, ...] = (
+            "", "", "", "", "", "", "", "", "", "",
+            b"", 0, 0, "", "", "", "", "", "", "",
+            (), "", 0, "", "", "", b"", 0,
+            "", "", "", "", "", "", "", "", "", "",
+        )
+        runtime_hash = KIND0_INGRESS_RUNTIME_HASH
+        configuration_hash = KIND0_INGRESS_CONFIGURATION_HASH
+    elif kind is ForceKind.BRIDGE_CREDIT:
+        source_address = "bridge-credit-registry-v2"
+        source_runtime = BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH
+        source_registrar = "source-domain-registrar"
+        source_bridge = "bridge:A"
+        source_chain_id = router.settlement_chain_context_id
+        source_descriptor = canonical_source_bridge_descriptor(
+            settlement_chain_id
+        )
+        source_domain_id = source_descriptor.source_domain_id
+        source_registration_epoch = 1
+        frozen_bridge_execution_hash = (
+            source_descriptor.bridge_execution_hash
+        )
+        support_registry_address = "bridge-domain-registry"
+        support_registry_runtime = BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
+        support_registry_configuration = (
+            bridge_domain_registry_configuration_hash(
+                address=support_registry_address,
+                runtime_hash=support_registry_runtime,
+                support_authority=router.version_manager,
+                router_address=router.address,
+                router_runtime_hash=router.runtime_hash,
+                router_configuration_hash=router.configuration_hash,
+                release_authority_address="release-authority",
+                release_authority_runtime_hash="code:authority",
+                release_authority_configuration_hash="cfg:authority",
+            )
+        )
+        source_configuration = bridge_credit_registry_configuration_hash(
+            address=source_address,
+            runtime_hash=source_runtime,
+            domain_registrar=source_registrar,
+            frozen_bridge=source_bridge,
+            support_registry_address=support_registry_address,
+            support_registry_runtime_hash=support_registry_runtime,
+            support_registry_configuration_hash=(
+                support_registry_configuration
+            ),
+            source_chain_id=source_chain_id,
+            source_domain_id=source_domain_id,
+            source_registration_epoch=source_registration_epoch,
+            frozen_bridge_execution_hash=frozen_bridge_execution_hash,
+            source_descriptor_id=source_descriptor.descriptor_id,
+        )
+        source_bridge_configuration = (
+            source_bridge_configuration_hash_for_descriptor(
+                source_descriptor,
+                source_address,
+                source_runtime,
+                source_configuration,
+            )
+        )
+        runtime_hash = BRIDGE_INGRESS_RUNTIME_HASH
+        configuration_hash = bridge_ingress_component_configuration_hash(
+            router_address=router.address,
+            router_runtime_hash=router.runtime_hash,
+            router_configuration_hash=router.configuration_hash,
+            queue_address=router.forced_queue.address,
+            queue_runtime_hash=router.forced_queue.runtime_hash,
+            queue_configuration_hash=router.forced_queue.config_hash,
+            source_registry_address=source_address,
+            source_registry_runtime_hash=source_runtime,
+            source_registry_configuration_hash=source_configuration,
+            source_bridge_address=source_bridge,
+            source_bridge_runtime_hash=(
+                source_descriptor.bridge_facade_runtime_hash
+            ),
+            source_bridge_configuration_hash_=(
+                source_bridge_configuration
+            ),
+            seal_authority=router.version_manager,
+        )
+        _, _, _, descriptor = canonical_destination_release_topology(
+            router,
+            adapter_address=adapter_address,
+            adapter_configuration_hash=configuration_hash,
+            destination_bridge=destination_bridge,
+        )
+        bridge_fields = (
+            source_address,
+            source_runtime,
+            source_configuration,
+            source_registrar,
+            source_bridge,
+            source_descriptor.bridge_facade_runtime_hash,
+            source_bridge_configuration,
+            support_registry_address,
+            support_registry_runtime,
+            support_registry_configuration,
+            source_descriptor.descriptor_id,
+            source_descriptor.settlement_chain_id,
+            source_chain_id,
+            source_descriptor.source_genesis_hash,
+            source_descriptor.registry_namespace,
+            source_descriptor.bridge_credit_registry,
+            source_descriptor.bridge_facade_runtime_hash,
+            source_descriptor.bridge_storage_layout_hash,
+            source_descriptor.bridge_kernel_hash,
+            source_descriptor.source_terminal_verifier,
+            source_descriptor.v1_official_vaults,
+            source_domain_id,
+            source_registration_epoch,
+            frozen_bridge_execution_hash,
+            descriptor.destination_domain_id,
+            destination_bridge,
+            descriptor.descriptor_id,
+            descriptor.destination_chain_id,
+            descriptor.destination_genesis_hash,
+            descriptor.terminal_signal_verifier,
+            descriptor.inbox_apply_router,
+            descriptor.inbox_credit_store,
+            descriptor.protocol_release_authority,
+            descriptor.terminal_domain_registrar,
+            descriptor.terminal_accumulator,
+            descriptor.destination_bridge_execution_hash,
+            descriptor.destination_infrastructure_hash,
+            descriptor.destination_namespace,
+        )
+    else:
+        raise ValueError("unsupported profile ingress kind")
+    return ProfileIngressAuthorization(
+        kind,
+        adapter_address,
+        runtime_hash,
+        configuration_hash,
+        router.address,
+        router.runtime_hash,
+        router.configuration_hash,
+        router.forced_queue.address,
+        router.forced_queue.runtime_hash,
+        router.forced_queue.config_hash,
+        *bridge_fields,
+        *fee_schedule,
+    )
+
+
+def release_profile_ingress_authorizations(
+    router: "ActiveSettlementRouter",
+    settlement: VersionedSettlementHistory,
+) -> tuple[ProfileIngressAuthorization, ...]:
+    """Build only the exact tuples named by this authenticated release."""
+
+    specs = settlement.release_profile_ingress_specs
+    if (type(specs) is not tuple
+            or not 0 < len(specs) <= MAX_PROFILE_INGRESS_AUTHORIZATIONS
+            or settlement.market_settlement_chain_id
+                != router.settlement_chain_context_id):
+        raise ValueError("release ingress topology is outside its fixed cap")
+    validate_ingress_fee_schedule(settlement.ingress_fee_schedule)
+    rows = tuple(
+        profile_ingress_authorization_for(
+            router,
+            kind=kind,
+            adapter_address=address,
+            destination_bridge=destination_bridge,
+            settlement_chain_id=settlement.market_settlement_chain_id,
+            fee_schedule=settlement.ingress_fee_schedule,
+        )
+        for kind, address, destination_bridge in specs
+    )
+    return rows
+
+
+def settlement_registration(
+    router: "ActiveSettlementRouter",
+    settlement: VersionedSettlementHistory,
+    *, activation_block: int, predecessor_version: int,
+    release_manifest_hash: str | bytes | None,
+) -> SettlementRegistration:
+    profile = settlement.execution_profile
+    if (type(router) is not ActiveSettlementRouter
+            or type(profile) is not ExecutionProfile
+            or not profile.structurally_valid()
+            or profile.protocol_version != settlement.protocol_version
+            or profile.execution_profile_hash
+                != settlement.execution_profile_hash
+            or settlement.market_settlement_chain_id
+                != router.settlement_chain_context_id
+            or router.configuration_hash
+                != active_settlement_router_configuration_hash(
+                    router.settlement_chain_context_id
+                )):
+        raise ValueError("Settlement registration changed chain context")
+    rows = release_profile_ingress_authorizations(router, settlement)
+    ids = tuple(row.authorization_id for row in rows)
+    addresses = tuple(row.adapter_address for row in rows)
+    if (len(ids) != len(set(ids))
+            or len(addresses) != len(set(addresses))):
+        raise ValueError("release profile ingress authorization set is invalid")
+    by_id = MappingProxyType({row.authorization_id: row for row in rows})
+    by_address = MappingProxyType({row.adapter_address: row for row in rows})
+    fee_schedules = {
+        (
+            row.fixed_ingress_wei,
+            row.execution_wei_per_accounted_gas,
+            row.proof_wei_per_accounted_gas,
+            row.permanent_wei_per_byte,
+            row.maximum_accepted_fee_wei,
+        )
+        for row in rows
+    }
+    if len(fee_schedules) != 1:
+        raise ValueError("release ingress fee schedule is split")
+    ingress_fee_schedule = next(iter(fee_schedules))
+    predecessor = router.registrations.get(predecessor_version)
+    if (predecessor is not None
+            and any(new < old for new, old in zip(
+                ingress_fee_schedule, predecessor.ingress_fee_schedule
+            ))):
+        raise ValueError("release ingress fee schedule decreased")
+    root = profile_ingress_authorization_root(rows)
+    bridge_authorizations = tuple(
+        row for row in rows if row.kind is ForceKind.BRIDGE_CREDIT
+    )
+    if len(bridge_authorizations) != 1:
+        raise ValueError("release profile must name exactly one Bridge adapter")
+    release_manifests: dict[str, ReleaseManifestV2] = {}
+    for bridge_authorization in bridge_authorizations:
+        components, bridge_descriptor, infrastructure_hash, descriptor = (
+            canonical_destination_release_topology(
+                router,
+                adapter_address=bridge_authorization.adapter_address,
+                adapter_configuration_hash=(
+                    bridge_authorization.configuration_hash
+                ),
+                destination_bridge=bridge_authorization.destination_bridge,
+            )
+        )
+        release_manifest = ReleaseManifestV2(
+            settlement.protocol_version,
+            settlement.market_settlement_chain_id,
+            descriptor.destination_chain_id,
+            descriptor.destination_genesis_hash,
+            settlement.execution_profile_hash,
+            "manifest:v2",
+            descriptor.destination_namespace,
+            f"anchor:v{settlement.protocol_version}",
+            f"code:anchor:v{settlement.protocol_version}",
+            "activation-gate",
+            "code:activation-gate",
+            descriptor.destination_domain_id,
+            descriptor.destination_bridge,
+            descriptor.destination_bridge_execution_hash,
+            bridge_descriptor,
+            infrastructure_hash,
+            profile.migration_transition_verifier_descriptor,
+            root,
+            components,
+        )
+        if (not release_manifest.structurally_valid()
+                or release_manifest.destination_domain_id
+                    != bridge_authorization.destination_domain_id):
+            raise ValueError("release ingress graph is not acyclic and exact")
+        release_manifests[bridge_authorization.adapter_address] = release_manifest
+    primary_manifest = release_manifests[bridge_authorizations[0].adapter_address]
+    if (release_manifest_hash is not None
+            and release_manifest_hash != primary_manifest.commitment):
+        raise ValueError(
+            "migration target manifest does not commit the ingress profile"
+        )
+    authenticated_manifest_hash = primary_manifest.commitment
+    return SettlementRegistration(
+        settlement,
+        settlement.runtime_hash,
+        settlement.execution_profile_hash,
+        profile,
+        activation_block,
+        predecessor_version,
+        authenticated_manifest_hash,
+        authenticated_manifest_hash,
+        primary_manifest,
+        MappingProxyType(release_manifests),
+        rows,
+        by_id,
+        by_address,
+        root,
+        router.settlement_chain_context_id,
+        ingress_fee_schedule,
+    )
+
+
+_MIGRATION_EXECUTION_OUTPUT_CAPABILITY = object()
+_VERIFIED_MIGRATION_EVM_TRACE_CAPABILITY = object()
+_MIGRATION_TRANSITION_VERIFIER_RESULT_CAPABILITY = object()
+
+
+def migration_transition_verifier_configuration_hash(
+    address: str,
+    runtime_hash: str,
+    verifying_key_hash: str,
+    proof_system_id: str = "groth16-bn254",
+    public_input_schema_hash: str = "schema:migration-transition:v1",
+    maximum_proof_bytes: int = 65_536,
+    verification_gas_limit: int = 2_000_000,
+    selector: str = "verifyMigrationTransition(bytes,uint256[2])",
+) -> str:
+    return "config:migration-transition-verifier:" + hashlib.sha256(
+        b"TAIKO_MIGRATION_TRANSITION_VERIFIER_CONFIG_V1\x00"
+        + migration_transition_encode((
+            address,
+            runtime_hash,
+            verifying_key_hash,
+            proof_system_id,
+            public_input_schema_hash,
+            maximum_proof_bytes,
+            verification_gas_limit,
+            selector,
+        ))
+    ).hexdigest()
+
+
+def migration_transition_encode(value: object) -> bytes:
+    """Canonical typed byte encoding for migration verifier public inputs."""
+
+    if value is None:
+        return b"N"
+    if type(value) is bool:
+        return b"B" + (b"\x01" if value else b"\x00")
+    if type(value) is int:
+        if value < -1 or value > SEAT_UINT256_MAX:
+            raise ValueError("migration verifier integer is out of range")
+        return b"I" + (value + 1).to_bytes(32, "big")
+    if type(value) is str:
+        raw = value.encode()
+        return b"S" + len(raw).to_bytes(4, "big") + raw
+    if type(value) is bytes:
+        return b"Y" + len(value).to_bytes(4, "big") + value
+    if isinstance(value, Enum):
+        return b"E" + migration_transition_encode(type(value).__name__) \
+            + migration_transition_encode(value.name)
+    if type(value) is tuple:
+        return b"T" + len(value).to_bytes(4, "big") + b"".join(
+            migration_transition_encode(item) for item in value
+        )
+    if is_dataclass(value):
+        rows = tuple(
+            (row.name, getattr(value, row.name))
+            for row in dataclass_fields(value)
+            if not row.name.startswith("_")
+        )
+        return b"D" + migration_transition_encode(type(value).__name__) \
+            + migration_transition_encode(rows)
+    raise ValueError("migration verifier value has no canonical encoding")
+
+
+def migration_transition_decode(encoded: bytes) -> object:
+    """Decode the behavioral typed codec used before Task 7 pins Solidity ABI."""
+
+    if type(encoded) is not bytes:
+        raise ValueError("behavioral typed calldata is not bytes")
+
+    def take(offset: int, length: int) -> tuple[bytes, int]:
+        end = offset + length
+        if length < 0 or end > len(encoded):
+            raise ValueError("behavioral typed calldata is truncated")
+        return encoded[offset:end], end
+
+    def parse(offset: int) -> tuple[object, int]:
+        tag_raw, offset = take(offset, 1)
+        if tag_raw == b"N":
+            return None, offset
+        if tag_raw == b"B":
+            raw, offset = take(offset, 1)
+            if raw not in {b"\x00", b"\x01"}:
+                raise ValueError("behavioral boolean is noncanonical")
+            return raw == b"\x01", offset
+        if tag_raw == b"I":
+            raw, offset = take(offset, 32)
+            return int.from_bytes(raw, "big") - 1, offset
+        if tag_raw in {b"S", b"Y"}:
+            raw_length, offset = take(offset, 4)
+            length = int.from_bytes(raw_length, "big")
+            raw, offset = take(offset, length)
+            if tag_raw == b"Y":
+                return raw, offset
+            try:
+                return raw.decode(), offset
+            except UnicodeDecodeError as exc:
+                raise ValueError("behavioral string is not UTF-8") from exc
+        if tag_raw == b"T":
+            raw_count, offset = take(offset, 4)
+            count = int.from_bytes(raw_count, "big")
+            rows: list[object] = []
+            for _ in range(count):
+                row, offset = parse(offset)
+                rows.append(row)
+            return tuple(rows), offset
+        raise ValueError("behavioral typed calldata has an unsupported tag")
+
+    value, end = parse(0)
+    if end != len(encoded):
+        raise ValueError("behavioral typed calldata has trailing bytes")
+    return value
+
+
+@dataclass(frozen=True)
+class MigrationTransitionVerifierDescriptor:
+    """Immutable L1 descriptor for the one canonical zk/EVM verifier."""
+
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+    verifying_key_hash: str
+    proof_system_id: str
+    public_input_schema_hash: str
+    maximum_proof_bytes: int
+    verification_gas_limit: int
+    selector: str
+    nonproxy: bool = True
+
+    def structurally_valid(self) -> bool:
+        return (
+            bool(self.address)
+            and bool(self.runtime_hash)
+            and bool(self.verifying_key_hash)
+            and bool(self.proof_system_id)
+            and bool(self.public_input_schema_hash)
+            and 0 < self.maximum_proof_bytes <= 1_048_576
+            and 0 < self.verification_gas_limit <= 30_000_000
+            and self.selector
+                == "verifyMigrationTransition(bytes,uint256[2])"
+            and self.nonproxy
+            and self.configuration_hash
+                == migration_transition_verifier_configuration_hash(
+                    self.address,
+                    self.runtime_hash,
+                    self.verifying_key_hash,
+                    self.proof_system_id,
+                    self.public_input_schema_hash,
+                    self.maximum_proof_bytes,
+                    self.verification_gas_limit,
+                    self.selector,
+                )
+        )
+
+
+def expected_release_deployment_commitment(
+    manifest: "ReleaseManifestV2",
+) -> str:
+    """L1-reconstructible commitment to the deployment facts proved in-circuit.
+
+    Account/code/storage observations remain private circuit witness under the
+    base state root.  The L1 verifier statement commits only the exact topology
+    the authenticated release expects, including the Bridge proxy/non-proxy
+    component configuration that pins the EIP-1967 branch.
+    """
+
+    if (type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()):
+        raise ValueError("release deployment expectation is not canonical")
+    return hashlib.sha256(
+        b"TAIKO_EXPECTED_RELEASE_DEPLOYMENT_V1\x00"
+        + migration_transition_encode((
+            manifest.commitment,
+            manifest.destination_domain_id,
+            manifest.destination_infrastructure_hash,
+            manifest.destination_bridge_descriptor,
+            manifest.components[3:],
+        ))
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
+class MigrationTransitionPublicInputs:
+    """Exact public inputs returned by IMigrationTransitionVerifier."""
+
+    candidate_digest: str
     base_core: CanonicalCore
     output_core: CanonicalCore
     target_protocol_version: int
-    target_manifest_hash: str
+    execution_profile_hash: str
+    settlement_chain_id: int
+    router_address: str
+    router_runtime_hash: str
+    router_configuration_hash: str
+    router_generation: int
+    canonical_sequence: int
+    target_manifest_hash: bytes
+    queue_address: str
+    queue_runtime_hash: str
+    queue_configuration_hash: str
+    queue_root: str
+    queue_count: int
+    start_cursor: int
+    end_cursor: int
+    descriptor_commitment: str
+    beneficiary: str
+    anchor_number: int
+    anchor_hash: str
+    force_root: str
+    force_cutoff: int
+    source_domain_id: str
+    source_registration_epoch: int
+    source_bridge_execution_hash: str
+    release_system_calldata_hash: str
+    inbox_system_calldata_hash: str
+    anchor_system_tx_position: int
+    inbox_system_tx_position: int
+    expected_deployment_commitment: str
+
+    def __post_init__(self) -> None:
+        if (not self.candidate_digest
+                or self.target_protocol_version <= 0
+                or not self.execution_profile_hash
+                or not 0 < self.settlement_chain_id <= UINT64_MAX
+                or not self.router_address
+                or not self.router_runtime_hash
+                or not self.router_configuration_hash
+                or self.router_generation <= 0
+                or self.canonical_sequence < 0
+                or type(self.target_manifest_hash) is not bytes
+                or len(self.target_manifest_hash) != 32
+                or not self.queue_address
+                or not self.queue_runtime_hash
+                or not self.queue_configuration_hash
+                or not self.queue_root
+                or not 0 <= self.queue_count <= MAX_FORCE_QUEUE_ITEMS
+                or not 0 <= self.start_cursor <= self.end_cursor
+                    <= self.queue_count
+                or not self.descriptor_commitment
+                or not self.beneficiary
+                or self.anchor_number < 0
+                or not self.anchor_hash
+                or not self.force_root
+                or not 0 <= self.force_cutoff <= self.queue_count
+                or not self.source_domain_id
+                or not 0 < self.source_registration_epoch <= UINT64_MAX
+                or not self.source_bridge_execution_hash
+                or not self.release_system_calldata_hash
+                or not self.inbox_system_calldata_hash
+                or self.anchor_system_tx_position
+                    != ANCHOR_SYSTEM_TX_POSITION
+                or self.inbox_system_tx_position
+                    != INBOX_SYSTEM_TX_POSITION
+                or not self.expected_deployment_commitment):
+            raise ValueError("migration transition public inputs are invalid")
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_MIGRATION_TRANSITION_PUBLIC_INPUTS_V1\x00"
+            + migration_transition_encode(tuple(
+                getattr(self, name) for name in self.__dataclass_fields__
+            ))
+        ).hexdigest()
+
+
+def migration_transition_public_inputs_from_l1(
+    *,
+    router: "ActiveSettlementRouter",
+    settlement: VersionedSettlementHistory,
+    target_manifest_hash: bytes,
+    candidate: Candidate,
+    rows: tuple["InboxRowV2", ...],
+) -> MigrationTransitionPublicInputs:
+    """Reconstruct the verifier statement using only authenticated L1 data."""
+
+    if (type(router) is not ActiveSettlementRouter
+            or type(settlement) is not VersionedSettlementHistory
+            or type(candidate) is not Candidate
+            or candidate.count != 1
+            or type(rows) is not tuple
+            or type(target_manifest_hash) is not bytes
+            or len(target_manifest_hash) != 32):
+        raise ValueError("migration L1 statement inputs have wrong types")
+    old_registration = router.registrations.get(router.active_version)
+    if type(old_registration) is not SettlementRegistration:
+        raise ValueError("migration L1 statement has no active registration")
+    old = old_registration.settlement
+    source = router._source_bridge_authority
+    block = candidate.blocks[0]
+    output_core = CanonicalCore(
+        candidate.end_l2_block_number,
+        block.block_hash,
+        block.slot,
+        candidate.end_state_root,
+        block.message_end,
+        candidate.winning_data_commitment,
+        candidate.next_base_fee,
+        candidate.next_excess_blob_gas,
+        candidate.end_terminal_root,
+        candidate.end_terminal_count,
+    )
+    preview = settlement_registration(
+        router,
+        settlement,
+        # Activation block is intentionally absent from ReleaseManifest and
+        # from the verifier statement; zero makes that independence explicit.
+        activation_block=0,
+        predecessor_version=router.active_version,
+        release_manifest_hash=target_manifest_hash,
+    )
+    manifest = preview.release_manifest
+    if (type(source) is not SourceBridgeV2
+            or source.credit_registry
+                is not router._bridge_credit_registry_authority
+            or old_registration.execution_profile
+                is not old.execution_profile
+            or preview.execution_profile is not settlement.execution_profile
+            or manifest.migration_transition_verifier
+                != settlement.execution_profile
+                    .migration_transition_verifier_descriptor
+            or block.inbox_system_calldata_hash
+                != inbox_system_calldata_hash(rows)):
+        raise ValueError("migration L1 statement authority graph is split")
+    return MigrationTransitionPublicInputs(
+        candidate_inbox_execution_digest(candidate),
+        copy.deepcopy(old.core),
+        output_core,
+        settlement.protocol_version,
+        settlement.execution_profile_hash,
+        router.settlement_chain_context_id,
+        router.address,
+        router.runtime_hash,
+        router.configuration_hash,
+        router.migration_gate.generation,
+        old.current_sequence,
+        target_manifest_hash,
+        router.forced_queue.address,
+        router.forced_queue.runtime_hash,
+        router.forced_queue.config_hash,
+        router.forced_queue.root,
+        router.forced_queue.count,
+        block.message_start,
+        block.message_end,
+        block.inbox_descriptor_commitment,
+        candidate.beneficiary,
+        block.anchor_number,
+        block.anchor_hash,
+        block.force_root,
+        block.force_cutoff,
+        source.source_domain_id,
+        source.source_registration_epoch,
+        source.frozen_bridge_execution_hash,
+        release_system_calldata_hash(manifest),
+        inbox_system_calldata_hash(rows),
+        block.anchor_system_tx_position,
+        block.inbox_system_tx_position,
+        expected_release_deployment_commitment(manifest),
+    )
+
+
+@dataclass(frozen=True)
+class MigrationTransitionProof:
+    """Opaque proof bytes plus their claimed canonical public inputs."""
+
+    public_inputs: MigrationTransitionPublicInputs
+    proof_bytes: bytes
+    seal: str = field(repr=False)
+
+
+@dataclass(frozen=True, eq=False)
+class MigrationTransitionVerifierResult:
+    verifier: "IMigrationTransitionVerifier" = field(compare=False, repr=False)
+    descriptor: MigrationTransitionVerifierDescriptor
+    public_inputs: MigrationTransitionPublicInputs
+    proof_commitment: str
+    returndata: bytes
+    seal: str = field(repr=False)
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability
+                is not _MIGRATION_TRANSITION_VERIFIER_RESULT_CAPABILITY
+                or type(self.descriptor)
+                    is not MigrationTransitionVerifierDescriptor
+                or not self.descriptor.structurally_valid()
+                or type(self.public_inputs)
+                    is not MigrationTransitionPublicInputs
+                or not self.proof_commitment
+                or self.returndata
+                    != bytes.fromhex(self.public_inputs.digest)
+                or not self.seal):
+            raise ValueError("migration verifier result is invalid")
+
+    @property
+    def digest(self) -> str:
+        return migration_transition_result_digest(
+            self.descriptor,
+            self.public_inputs.digest,
+            self.proof_commitment,
+        )
+
+
+def migration_transition_result_digest(
+    descriptor: MigrationTransitionVerifierDescriptor,
+    statement_digest: str,
+    proof_commitment: str,
+) -> str:
+    if (type(descriptor) is not MigrationTransitionVerifierDescriptor
+            or not descriptor.structurally_valid()
+            or len(statement_digest) != 64
+            or not proof_commitment):
+        raise ValueError("migration verifier result inputs are malformed")
+    return hashlib.sha256(
+        b"TAIKO_MIGRATION_TRANSITION_VERIFIER_RESULT_V1\x00"
+        + migration_transition_encode((
+            descriptor,
+            statement_digest,
+            proof_commitment,
+            bytes.fromhex(statement_digest),
+        ))
+    ).hexdigest()
+
+
+class IMigrationTransitionVerifier:
+    """Production interface: verify proof bytes and return exact public inputs."""
+
+    @property
+    def descriptor(self) -> MigrationTransitionVerifierDescriptor:
+        raise NotImplementedError
+
+    def verify_transition(
+        self, proof: MigrationTransitionProof,
+    ) -> MigrationTransitionVerifierResult:
+        raise NotImplementedError
+
+    def valid_result(self, result: MigrationTransitionVerifierResult) -> bool:
+        raise NotImplementedError
+
+    def valid_result_seal(self, digest: str, seal: str) -> bool:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, eq=False)
+class ExecutionProfile:
+    """Immutable per-version verifier trust root committed by the release."""
+
+    protocol_version: int
+    namespace: str
+    migration_transition_verifier_descriptor: (
+        MigrationTransitionVerifierDescriptor
+    )
+    migration_transition_verifier: IMigrationTransitionVerifier = field(
+        compare=False, repr=False
+    )
+
+    def __deepcopy__(self, memo: dict[int, object]) -> "ExecutionProfile":
+        # The verifier instance is an immutable deployed-code capability.
+        memo[id(self)] = self
+        return self
+
+    @property
+    def execution_profile_hash(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_EXECUTION_PROFILE_V1\x00"
+            + migration_transition_encode((
+                self.protocol_version,
+                self.namespace,
+                self.migration_transition_verifier_descriptor,
+            ))
+        ).hexdigest()
+
+    def structurally_valid(self) -> bool:
+        verifier = self.migration_transition_verifier
+        return (
+            self.protocol_version > 0
+            and bool(self.namespace)
+            and type(self.migration_transition_verifier_descriptor)
+                is MigrationTransitionVerifierDescriptor
+            and self.migration_transition_verifier_descriptor
+                .structurally_valid()
+            and isinstance(verifier, IMigrationTransitionVerifier)
+            and verifier.descriptor
+                == self.migration_transition_verifier_descriptor
+        )
+
+
+class TestMigrationTransitionVerifier(IMigrationTransitionVerifier):
+    """Test-only exact mock of the immutable on-chain verifier interface."""
+
+    def __init__(self, descriptor: MigrationTransitionVerifierDescriptor):
+        if (type(descriptor) is not MigrationTransitionVerifierDescriptor
+                or not descriptor.structurally_valid()):
+            raise ValueError("test migration verifier descriptor is invalid")
+        self._descriptor = descriptor
+        self._seal_secret = object()
+
+    @property
+    def descriptor(self) -> MigrationTransitionVerifierDescriptor:
+        return self._descriptor
+
+    def _seal(self, namespace: bytes, digest: str) -> str:
+        return hashlib.sha256(
+            namespace
+            + id(self._seal_secret).to_bytes(32, "big")
+            + digest.encode()
+        ).hexdigest()
+
+    def verify_transition(
+        self, proof: MigrationTransitionProof,
+    ) -> MigrationTransitionVerifierResult:
+        if (type(proof) is not MigrationTransitionProof
+                or type(proof.public_inputs)
+                    is not MigrationTransitionPublicInputs
+                or type(proof.proof_bytes) is not bytes
+                or not proof.proof_bytes
+                or len(proof.proof_bytes)
+                    > self.descriptor.maximum_proof_bytes):
+            raise ValueError("migration transition proof is malformed")
+        proof_commitment = hashlib.sha256(proof.proof_bytes).hexdigest()
+        proof_digest = hashlib.sha256(migration_transition_encode((
+            self.descriptor,
+            proof.public_inputs.digest,
+            proof_commitment,
+        ))).hexdigest()
+        if proof.seal != self._seal(
+                b"TAIKO_TEST_MIGRATION_TRANSITION_PROOF_V1\x00",
+                proof_digest,
+        ):
+            raise ValueError("migration transition proof did not verify")
+        result = MigrationTransitionVerifierResult(
+            self,
+            self.descriptor,
+            proof.public_inputs,
+            proof_commitment,
+            bytes.fromhex(proof.public_inputs.digest),
+            "PENDING",
+            _MIGRATION_TRANSITION_VERIFIER_RESULT_CAPABILITY,
+        )
+        return replace(
+            result,
+            seal=self._seal(
+                b"TAIKO_MIGRATION_TRANSITION_VERIFIER_RESULT_SEAL_V1\x00",
+                result.digest,
+            ),
+        )
+
+    def valid_result(self, result: MigrationTransitionVerifierResult) -> bool:
+        return (
+            type(result) is MigrationTransitionVerifierResult
+            and result.verifier is self
+            and result.descriptor == self.descriptor
+            and result.seal == self._seal(
+                b"TAIKO_MIGRATION_TRANSITION_VERIFIER_RESULT_SEAL_V1\x00",
+                result.digest,
+            )
+        )
+
+    def valid_result_seal(self, digest: str, seal: str) -> bool:
+        return (
+            bool(digest)
+            and seal == self._seal(
+                b"TAIKO_MIGRATION_TRANSITION_VERIFIER_RESULT_SEAL_V1\x00",
+                digest,
+            )
+        )
+
+
+def execution_profile_for_test(
+    protocol_version: int,
+    namespace: str | None = None,
+    *,
+    verifier_revision: str | None = None,
+) -> ExecutionProfile:
+    """Fixture-only deployment of one exact per-profile verifier instance."""
+
+    if protocol_version <= 0:
+        raise ValueError("test execution profile version must be positive")
+    profile_namespace = namespace or f"profile:test:{protocol_version}"
+    revision = verifier_revision or f"v{protocol_version}"
+    address = f"migration-transition-verifier:{revision}"
+    runtime_hash = f"code:migration-transition-verifier:{revision}"
+    verifying_key_hash = f"vk:migration-transition:{revision}"
+    schema_hash = f"schema:migration-transition:{revision}"
+    descriptor = MigrationTransitionVerifierDescriptor(
+        address,
+        runtime_hash,
+        migration_transition_verifier_configuration_hash(
+            address,
+            runtime_hash,
+            verifying_key_hash,
+            public_input_schema_hash=schema_hash,
+        ),
+        verifying_key_hash,
+        "groth16-bn254",
+        schema_hash,
+        65_536,
+        2_000_000,
+        "verifyMigrationTransition(bytes,uint256[2])",
+    )
+    verifier = TestMigrationTransitionVerifier(descriptor)
+    profile = ExecutionProfile(
+        protocol_version,
+        profile_namespace,
+        descriptor,
+        verifier,
+    )
+    if not profile.structurally_valid():
+        raise AssertionError("test execution profile is malformed")
+    return profile
+
+
+def issue_migration_transition_proof_for_test(
+    verifier: TestMigrationTransitionVerifier,
+    public_inputs: MigrationTransitionPublicInputs,
+    proof_bytes: bytes,
+) -> MigrationTransitionProof:
+    """Fixture-only proof generator, outside the production verifier ABI."""
+
+    if (type(verifier) is not TestMigrationTransitionVerifier
+            or type(public_inputs) is not MigrationTransitionPublicInputs
+            or type(proof_bytes) is not bytes or not proof_bytes):
+        raise ValueError("test migration proof is not canonical")
+    proof_commitment = hashlib.sha256(proof_bytes).hexdigest()
+    digest = hashlib.sha256(migration_transition_encode((
+        verifier.descriptor,
+        public_inputs.digest,
+        proof_commitment,
+    ))).hexdigest()
+    return MigrationTransitionProof(
+        public_inputs,
+        proof_bytes,
+        verifier._seal(
+            b"TAIKO_TEST_MIGRATION_TRANSITION_PROOF_V1\x00", digest
+        ),
+    )
+
+
+@dataclass(frozen=True, eq=False)
+class VerifiedMigrationEvmTrace:
+    """Opaque zk/EVM verifier output for the complete activation block."""
+
+    verifier: "InboxValidityExecutionAuthority" = field(
+        compare=False, repr=False
+    )
+    transition_verifier: IMigrationTransitionVerifier = field(
+        compare=False, repr=False
+    )
+    transition_verifier_descriptor: MigrationTransitionVerifierDescriptor
+    transition_result_digest: str
+    transition_result_seal: str
+    transition_statement_digest: str
+    router_generation: int
+    source_canonical_sequence: int
+    candidate_digest: str
+    base_core: CanonicalCore
+    output_core: CanonicalCore
+    target_protocol_version: int
+    execution_profile_hash: str
+    target_manifest_hash: bytes
+    queue_root: str
+    queue_count: int
+    start_cursor: int
+    end_cursor: int
+    release_system_calldata_hash: str
+    system_calldata_hash: str
+    observed_deployment_digest: str
+    observed_deployment_seal: str
+    pre_inbox_last_applied_l2_block: int
+    post_inbox_last_applied_l2_block: int
+    proof_commitment: str
+    seal: str
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability
+                is not _VERIFIED_MIGRATION_EVM_TRACE_CAPABILITY
+                or type(self.verifier)
+                    is not InboxValidityExecutionAuthority
+                or self.transition_verifier
+                    is not self.verifier.migration_transition_verifier
+                or self.transition_verifier_descriptor
+                    != self.transition_verifier.descriptor
+                or not self.transition_verifier_descriptor.structurally_valid()
+                or not self.transition_result_digest
+                or not self.transition_result_seal
+                or len(self.transition_statement_digest) != 64
+                or self.router_generation <= 0
+                or self.source_canonical_sequence < 0
+                or not self.candidate_digest
+                or self.target_protocol_version <= 0
+                or not self.execution_profile_hash
+                or type(self.target_manifest_hash) is not bytes
+                or len(self.target_manifest_hash) != 32
+                or not self.queue_root
+                or not 0 <= self.queue_count <= MAX_FORCE_QUEUE_ITEMS
+                or not 0 <= self.start_cursor <= self.end_cursor
+                    <= self.queue_count
+                or not self.release_system_calldata_hash
+                or not self.system_calldata_hash
+                or not self.observed_deployment_digest
+                or not self.observed_deployment_seal
+                or self.pre_inbox_last_applied_l2_block < -1
+                or self.post_inbox_last_applied_l2_block
+                    <= self.pre_inbox_last_applied_l2_block
+                or not self.proof_commitment
+                or not self.seal):
+            raise ValueError("migration EVM trace is not canonical")
+
+    @property
+    def digest(self) -> str:
+        projection = (
+            id(self.verifier), id(self.transition_verifier),
+            self.transition_verifier_descriptor,
+            self.transition_result_digest,
+            self.transition_result_seal,
+            self.transition_statement_digest,
+            self.router_generation,
+            self.source_canonical_sequence,
+            self.candidate_digest,
+            self.base_core, self.output_core,
+            self.target_protocol_version,
+            self.execution_profile_hash,
+            self.target_manifest_hash,
+            self.queue_root, self.queue_count,
+            self.start_cursor, self.end_cursor,
+            self.release_system_calldata_hash,
+            self.system_calldata_hash,
+            self.observed_deployment_digest,
+            self.observed_deployment_seal,
+            self.pre_inbox_last_applied_l2_block,
+            self.post_inbox_last_applied_l2_block,
+            self.proof_commitment,
+        )
+        return hashlib.sha256(
+            b"TAIKO_VERIFIED_MIGRATION_EVM_TRACE_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
+
+
+@dataclass(frozen=True, eq=False)
+class VerifiedMigrationExecutionOutput:
+    verifier: "InboxValidityExecutionAuthority" = field(
+        compare=False, repr=False
+    )
+    router: "ActiveSettlementRouter" = field(compare=False, repr=False)
+    candidate: Candidate
+    evm_validity: VerifiedMigrationEvmTrace
+    base_core: CanonicalCore
+    output_core: CanonicalCore
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    transition_statement_digest: str
+    router_generation: int
+    source_canonical_sequence: int
     start_cursor: int
     end_cursor: int
     beneficiary: str
-    release_activation: bool = True
-    proof_valid: bool = True
-    target_components_valid: bool = True
+    rows: tuple["InboxRowV2", ...]
+    pre_inbox_last_applied_l2_block: int
+    post_inbox_last_applied_l2_block: int
+    seal: str
+    _capability: object = field(repr=False, compare=False)
 
+    def __post_init__(self) -> None:
+        if (self._capability is not _MIGRATION_EXECUTION_OUTPUT_CAPABILITY
+                or type(self.verifier) is not InboxValidityExecutionAuthority
+                or type(self.router) is not ActiveSettlementRouter
+                or type(self.target_manifest_hash) is not bytes
+                or len(self.target_manifest_hash) != 32
+                or len(self.transition_statement_digest) != 64
+                or self.router_generation <= 0
+                or self.source_canonical_sequence < 0
+                or type(self.candidate) is not Candidate
+                or type(self.evm_validity) is not VerifiedMigrationEvmTrace
+                or self.target_protocol_version <= 0
+                or not 0 <= self.start_cursor <= self.end_cursor
+                or not self.beneficiary
+                or type(self.rows) is not tuple
+                or self.pre_inbox_last_applied_l2_block < -1
+                or self.post_inbox_last_applied_l2_block
+                    <= self.pre_inbox_last_applied_l2_block
+                or not self.seal):
+            raise ValueError("migration activation proof is not canonical")
+
+    @property
+    def digest(self) -> str:
+        projection = (
+            id(self.verifier), id(self.router),
+            candidate_inbox_execution_digest(self.candidate),
+            self.evm_validity.digest,
+            self.evm_validity.seal,
+            self.base_core,
+            self.output_core,
+            self.target_protocol_version,
+            self.target_manifest_hash,
+            self.transition_statement_digest,
+            self.router_generation,
+            self.source_canonical_sequence,
+            self.start_cursor,
+            self.end_cursor,
+            self.beneficiary,
+            inbox_system_calldata_hash(self.rows),
+            self.pre_inbox_last_applied_l2_block,
+            self.post_inbox_last_applied_l2_block,
+        )
+        return hashlib.sha256(
+            b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
 
 @dataclass(frozen=True)
 class MigrationActivationReceipt:
@@ -4630,16 +7110,29 @@ class MigrationActivationReceipt:
         return self.router_generation, self.target_manifest_hash
 
 
+@dataclass(frozen=True, eq=False)
+class IngressBinding:
+    adapter: object
+    kind: ForceKind
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+
+
 @dataclass
 class ActiveSettlementRouter:
     """Append-only immutable registry and read-only history router."""
 
     version_manager: str
     forced_queue: QueueContinuity
-    inbox_apply_router: "InboxApplyRouterV2"
+    inbox_apply_descriptor: InboxApplyDeploymentDescriptor
     migration_gate: MigrationGate
     header_oracle: L1HeaderOracle
+    settlement_chain_context_id: int = MODEL_SETTLEMENT_CHAIN_CONTEXT_ID
     address: str = "active-settlement-router"
+    runtime_hash: str = ACTIVE_SETTLEMENT_ROUTER_RUNTIME_HASH
+    configuration_hash: str = ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH
+    bootstrap_release_manifest_hash: bytes = b"\x00" * 32
     forced_queue_runtime_hash: str = "code:forced-queue:v2"
     forced_queue_config_hash: str = "config:forced-queue:depth64:v2"
     builder_registry_id: str = "builder-registry"
@@ -4656,32 +7149,630 @@ class ActiveSettlementRouter:
         bytes, tuple[int, bytes]
     ] = field(default_factory=dict)
     used_target_addresses: set[str] = field(default_factory=set)
-    authorized_ingress: frozenset[str] = field(
-        default_factory=lambda: frozenset({
-            "bridge-inbox-adapter", "kind0-adapter"
-        })
+    _authorized_ingress: tuple[IngressBinding, ...] = field(
+        default_factory=tuple, repr=False
+    )
+    _authorized_ingress_by_address: dict[str, IngressBinding] = field(
+        default_factory=dict, repr=False
+    )
+    _authorized_ingress_adapter_ids: frozenset[int] = field(
+        default_factory=frozenset, repr=False
+    )
+    _version_manager_authority: object | None = field(
+        default=None, compare=False, repr=False
+    )
+    _bridge_credit_registry_authority: object | None = field(
+        default=None, compare=False, repr=False
+    )
+    _source_bridge_authority: object | None = field(
+        default=None, compare=False, repr=False
+    )
+    _profile_deployments_by_version: dict[int, MappingProxyType] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    ingress_entered: bool = field(default=False, compare=False)
+    ingress_lookup_probes: int = field(default=0, compare=False)
+    _queue_transition_frame: tuple[str, int, str] | None = field(
+        default=None, compare=False, repr=False
     )
 
     def __post_init__(self) -> None:
         if (
             type(self.header_oracle) is not L1HeaderOracle
+            or type(self.settlement_chain_context_id) is not int
+            or not 0 < self.settlement_chain_context_id <= UINT64_MAX
+            or self.configuration_hash
+                != active_settlement_router_configuration_hash(
+                    self.settlement_chain_context_id
+                )
+            or type(self.bootstrap_release_manifest_hash) is not bytes
+            or len(self.bootstrap_release_manifest_hash) != 32
             or self.header_oracle.address != L1_HEADER_ORACLE_ADDRESS
             or self.header_oracle.runtime_hash
                 != L1_HEADER_ORACLE_RUNTIME_HASH
             or self.header_oracle.configuration_hash
                 != L1_HEADER_ORACLE_CONFIGURATION_HASH
+            or type(self.inbox_apply_descriptor)
+                is not InboxApplyDeploymentDescriptor
+            or not self.inbox_apply_descriptor.structurally_valid()
         ):
             raise ValueError("active router header oracle is not exact")
+        if not self.forced_queue._bind_router_once(self):
+            raise ValueError("forced queue is bound to another active router")
+
+    def __deepcopy__(
+        self, memo: dict[int, object]
+    ) -> "ActiveSettlementRouter":
+        """Preserve the exact Router capability across transaction snapshots."""
+
+        memo[id(self)] = self
+        return self
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
-            "version_manager", "forced_queue", "inbox_apply_router",
-            "migration_gate", "header_oracle", "address",
+            "version_manager", "forced_queue", "inbox_apply_descriptor",
+            "migration_gate", "header_oracle", "settlement_chain_context_id",
+            "address",
+            "runtime_hash", "configuration_hash",
+            "bootstrap_release_manifest_hash",
             "forced_queue_runtime_hash", "forced_queue_config_hash",
-            "builder_registry_id", "schedule_oracle_id", "authorized_ingress",
+            "builder_registry_id", "schedule_oracle_id", "_authorized_ingress",
+            "_authorized_ingress_by_address",
+            "_authorized_ingress_adapter_ids",
+            "_version_manager_authority",
+            "_bridge_credit_registry_authority",
+            "_source_bridge_authority",
+            "_queue_transition_frame",
         } and name in self.__dict__:
             raise AttributeError(f"active-router {name} is immutable")
         object.__setattr__(self, name, value)
+
+    @property
+    def authorized_ingress(self) -> tuple[IngressBinding, ...]:
+        return self._authorized_ingress
+
+    @property
+    def authorized_ingress_by_address(self) -> MappingProxyType:
+        return MappingProxyType(self._authorized_ingress_by_address)
+
+    def _bind_version_manager_once(self, manager: object) -> bool:
+        if (self._version_manager_authority is not None
+                or type(manager) is not ProtocolVersionManager
+                or getattr(manager, "router", None) is not self
+                or getattr(manager, "address", None) != self.version_manager):
+            return False
+        object.__setattr__(self, "_version_manager_authority", manager)
+        return True
+
+    def _append_ingress_binding(
+        self, adapter: object, authorization: ProfileIngressAuthorization
+    ) -> bool:
+        """Bind one release-factory deployment by exact object identity."""
+
+        expected_type = {
+            ForceKind.USER_TX: Kind0IngressAdapter,
+            ForceKind.BRIDGE_CREDIT: BridgeAdapter,
+        }.get(authorization.kind)
+        address = getattr(adapter, "address", None)
+        existing = self._authorized_ingress_by_address.get(address)
+        if existing is not None:
+            return (
+                existing.adapter is adapter
+                and existing.kind is authorization.kind
+                and existing.runtime_hash == authorization.runtime_hash
+                and existing.configuration_hash
+                    == authorization.configuration_hash
+            )
+        if (expected_type is None or type(adapter) is not expected_type
+                or getattr(adapter, "router", None) is not self
+                or address != authorization.adapter_address
+                or getattr(adapter, "runtime_hash", None)
+                    != authorization.runtime_hash
+                or getattr(adapter, "configuration_hash", None)
+                    != authorization.configuration_hash
+                or id(adapter) in self._authorized_ingress_adapter_ids):
+            return False
+        binding = IngressBinding(
+            adapter,
+            authorization.kind,
+            authorization.adapter_address,
+            authorization.runtime_hash,
+            authorization.configuration_hash,
+        )
+        object.__setattr__(
+            self, "_authorized_ingress", self._authorized_ingress + (binding,)
+        )
+        by_address = dict(self._authorized_ingress_by_address)
+        by_address[authorization.adapter_address] = binding
+        object.__setattr__(self, "_authorized_ingress_by_address", by_address)
+        object.__setattr__(
+            self,
+            "_authorized_ingress_adapter_ids",
+            self._authorized_ingress_adapter_ids | {id(adapter)},
+        )
+        return True
+
+    def _install_profile_deployments(
+        self,
+        registration: SettlementRegistration,
+        *,
+        manager: "ProtocolVersionManager | None",
+    ) -> bool:
+        """Materialize exact release-owned capabilities without governance."""
+
+        if (type(registration) is not SettlementRegistration
+                or self.registrations.get(
+                    registration.settlement.protocol_version
+                ) is not registration
+                or (manager is not None
+                    and (type(manager) is not ProtocolVersionManager
+                         or manager is not self._version_manager_authority))):
+            return False
+
+        # A release may not add a new Bridge-trusting endpoint to a historical
+        # Bridge/domain whose already-queued messages were admitted under a
+        # smaller denyset.  New authority requires a fresh Bridge and domain;
+        # exact endpoint reuse keeps the immutable policy byte-for-byte.
+        if not all(
+            historical_v2_privileged_policy_compatible(
+                prior.release_manifest, registration.release_manifest
+            )
+            for prior in self.registrations.values()
+            if prior is not registration
+        ):
+            return False
+
+        bindings_before = self._authorized_ingress
+        by_address_before = self._authorized_ingress_by_address
+        ids_before = self._authorized_ingress_adapter_ids
+        deployments_before = dict(self._profile_deployments_by_version)
+        source_registry_before = self._bridge_credit_registry_authority
+        source_bridge_before = self._source_bridge_authority
+        source_registry_state = (
+            source_registry_before.domain_registry._transaction_snapshot()
+            if type(source_registry_before) is BridgeCreditRegistryV2 else None
+        )
+        try:
+            deployments = dict(
+                self._profile_deployments_by_version.get(
+                    registration.settlement.protocol_version, {}
+                )
+            )
+            kind0_authorizations = tuple(
+                row for row in registration.ingress_authorizations
+                if row.kind is ForceKind.USER_TX
+            )
+            bridge_authorizations = tuple(
+                row for row in registration.ingress_authorizations
+                if row.kind is ForceKind.BRIDGE_CREDIT
+            )
+            if len(kind0_authorizations) != 1 or len(bridge_authorizations) != 1:
+                raise ValueError("release ingress roles are not exact")
+            kind0_authorization = kind0_authorizations[0]
+            existing_kind0 = self._authorized_ingress_by_address.get(
+                kind0_authorization.adapter_address
+            )
+            kind0 = (
+                existing_kind0.adapter
+                if existing_kind0 is not None
+                else Kind0IngressAdapter(
+                    self, address=kind0_authorization.adapter_address
+                )
+            )
+            if not self._append_ingress_binding(kind0, kind0_authorization):
+                raise ValueError("release Kind0 deployment is not exact")
+            deployments[kind0_authorization.authorization_id] = kind0
+
+            if manager is not None:
+                bridge_authorization = bridge_authorizations[0]
+                # L1 cutover authenticates and stages the exact manifest from
+                # SettlementRegistration.  It must not pre-write the L2
+                # ReleaseAuthority/Registrar: those writes occur only in the
+                # proof-authenticated activation block's tx0.
+                manifest = registration.release_manifest
+                credit_registry = self._bridge_credit_registry_authority
+                source_bridge = self._source_bridge_authority
+                if credit_registry is None and source_bridge is None:
+                    l1_authority_descriptor = (
+                        release_authority_descriptor_from_manifest(manifest)
+                    )
+                    support_registry = BridgeDomainRegistry(
+                        self, manager, l1_authority_descriptor
+                    )
+                    source_descriptor = SourceBridgeDescriptor(
+                            bridge_authorization.source_settlement_chain_id,
+                            bridge_authorization.source_chain_id,
+                            bridge_authorization.source_genesis_hash,
+                            bridge_authorization.source_registry_namespace,
+                            bridge_authorization.source_bridge_address,
+                            bridge_authorization.source_bridge_credit_registry,
+                            bridge_authorization
+                                .source_bridge_facade_runtime_hash,
+                            bridge_authorization
+                                .source_bridge_storage_layout_hash,
+                            bridge_authorization.source_bridge_kernel_hash,
+                            bridge_authorization.source_terminal_verifier,
+                            bridge_authorization.source_v1_official_vaults,
+                    )
+                    credit_registry = BridgeCreditRegistryV2(
+                        support_registry,
+                        source_descriptor,
+                        address=bridge_authorization.source_registry_address,
+                        runtime_hash=(
+                            bridge_authorization.source_registry_runtime_hash
+                        ),
+                        domain_registrar=(
+                            bridge_authorization.source_registry_domain_registrar
+                        ),
+                        source_registration_epoch=(
+                            bridge_authorization.source_registration_epoch
+                        ),
+                    )
+                    source_bridge = SourceBridgeV2(
+                        credit_registry,
+                        source_descriptor,
+                        frozen_bridge=bridge_authorization.source_bridge_address,
+                        address=bridge_authorization.source_bridge_address,
+                        runtime_hash=(
+                            bridge_authorization.source_bridge_runtime_hash
+                        ),
+                        source_chain_id=bridge_authorization.source_chain_id,
+                        source_domain_id=bridge_authorization.source_domain_id,
+                        source_registration_epoch=(
+                            bridge_authorization.source_registration_epoch
+                        ),
+                        frozen_bridge_execution_hash=(
+                            bridge_authorization.frozen_bridge_execution_hash
+                        ),
+                    )
+                    object.__setattr__(
+                        self,
+                        "_bridge_credit_registry_authority",
+                        credit_registry,
+                    )
+                    object.__setattr__(
+                        self, "_source_bridge_authority", source_bridge
+                    )
+                if (type(credit_registry) is not BridgeCreditRegistryV2
+                        or type(source_bridge) is not SourceBridgeV2
+                        or source_bridge.credit_registry is not credit_registry
+                        or credit_registry.source_bridge is not source_bridge
+                        or source_bridge.source_descriptor.descriptor_id
+                            != bridge_authorization.source_descriptor_id
+                        or credit_registry.configuration_hash
+                            != bridge_authorization.source_registry_configuration_hash
+                        or source_bridge.configuration_hash
+                            != bridge_authorization.source_bridge_configuration_hash
+                        or credit_registry.domain_registry.manager is not manager
+                        or credit_registry.domain_registry
+                            .release_authority_descriptor.authority_address
+                            != manifest.components[5].address):
+                    raise ValueError("source Bridge deployment is split")
+                registry = credit_registry.domain_registry
+                stage_clock = Clock(
+                    registration.activation_block,
+                    GENESIS_TIMESTAMP,
+                )
+                if not registry.stage(
+                    source_bridge.source_domain_id,
+                    source_bridge.frozen_bridge_execution_hash,
+                    manifest,
+                    manager=manager,
+                    clock=stage_clock,
+                ):
+                    raise ValueError("release Bridge support was not staged")
+                existing_bridge = self._authorized_ingress_by_address.get(
+                    bridge_authorization.adapter_address
+                )
+                if (existing_bridge is not None
+                        and (type(existing_bridge.adapter) is not BridgeAdapter
+                             or not existing_bridge.adapter.destination_sealed
+                             or existing_bridge.adapter.destination_domain_id
+                                != bridge_authorization.destination_domain_id)):
+                    raise ValueError(
+                        "Bridge adapter address cannot cross destination domains"
+                    )
+                bridge = (
+                    deployments.get(bridge_authorization.authorization_id)
+                    if deployments.get(
+                        bridge_authorization.authorization_id
+                    ) is not None
+                    else (existing_bridge.adapter
+                          if existing_bridge is not None
+                          else BridgeAdapter(
+                        self,
+                        credit_registry,
+                        source_bridge,
+                        address=bridge_authorization.adapter_address,
+                    ))
+                )
+                if (type(bridge) is not BridgeAdapter
+                        or bridge.credit_registry is not credit_registry
+                        or bridge.source_bridge is not source_bridge
+                        or bridge.configuration_hash
+                            != bridge_authorization.configuration_hash):
+                    raise ValueError("release Bridge deployment is not exact")
+                deployments[bridge_authorization.authorization_id] = bridge
+            self._profile_deployments_by_version[
+                registration.settlement.protocol_version
+            ] = MappingProxyType(deployments)
+            return True
+        except BaseException:
+            object.__setattr__(self, "_authorized_ingress", bindings_before)
+            object.__setattr__(
+                self, "_authorized_ingress_by_address", by_address_before
+            )
+            object.__setattr__(
+                self, "_authorized_ingress_adapter_ids", ids_before
+            )
+            self._profile_deployments_by_version = deployments_before
+            object.__setattr__(
+                self,
+                "_bridge_credit_registry_authority",
+                source_registry_before,
+            )
+            object.__setattr__(
+                self, "_source_bridge_authority", source_bridge_before
+            )
+            if (source_registry_state is not None
+                    and type(source_registry_before)
+                        is BridgeCreditRegistryV2):
+                source_registry_before.domain_registry \
+                    ._restore_transaction_snapshot(source_registry_state)
+            return False
+
+    def _valid_migration_activation_proof(
+        self,
+        proof: VerifiedMigrationExecutionOutput,
+        *,
+        settlement: VersionedSettlementHistory,
+        target_manifest_hash: bytes,
+        clock: Clock,
+    ) -> bool:
+        if (type(proof) is not VerifiedMigrationExecutionOutput
+                or type(clock) is not Clock):
+            return False
+        target = settlement.live_protocol
+        authority = (
+            target._inbox_execution_authority
+            if type(target) is Protocol else None
+        )
+        candidate = (
+            proof.candidate
+            if type(proof) is VerifiedMigrationExecutionOutput else None
+        )
+        block = (
+            candidate.blocks[0]
+            if type(candidate) is Candidate and candidate.count == 1 else None
+        )
+        derived_output = (
+            CanonicalCore(
+                candidate.end_l2_block_number,
+                block.block_hash,
+                block.slot,
+                candidate.end_state_root,
+                block.message_end,
+                candidate.winning_data_commitment,
+                candidate.next_base_fee,
+                candidate.next_excess_blob_gas,
+                candidate.end_terminal_root,
+                candidate.end_terminal_count,
+            )
+            if block is not None else None
+        )
+        old_registration = self.registrations.get(self.active_version)
+        try:
+            expected_registration = settlement_registration(
+                self,
+                settlement,
+                activation_block=clock.block_number,
+                predecessor_version=self.active_version,
+                release_manifest_hash=target_manifest_hash,
+            )
+            expected_manifest = expected_registration.release_manifest
+            expected_statement = migration_transition_public_inputs_from_l1(
+                router=self,
+                settlement=settlement,
+                target_manifest_hash=target_manifest_hash,
+                candidate=candidate,
+                rows=proof.rows,
+            )
+        except (AttributeError, TypeError, ValueError):
+            return False
+        descriptors = tuple(self.forced_queue.descriptors[
+            proof.start_cursor:proof.end_cursor
+        ])
+        if (type(proof) is not VerifiedMigrationExecutionOutput
+                or proof.router is not self
+                or proof.target_manifest_hash != target_manifest_hash
+                or proof.target_protocol_version
+                    != settlement.protocol_version
+                or type(authority) is not InboxValidityExecutionAuthority
+                or proof.verifier is not authority
+                or proof.seal != authority._opaque_seal(
+                    b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_SEAL_V1\x00",
+                    proof.digest,
+                )
+                or type(proof.evm_validity)
+                    is not VerifiedMigrationEvmTrace
+                or not authority.valid_migration_evm_trace(
+                    proof.evm_validity
+                )
+                or proof.evm_validity.transition_verifier_descriptor
+                    != expected_manifest.migration_transition_verifier
+                or expected_registration.execution_profile
+                    is not settlement.execution_profile
+                or proof.evm_validity.transition_verifier
+                    is not settlement.execution_profile
+                        .migration_transition_verifier
+                or proof.transition_statement_digest
+                    != expected_statement.digest
+                or proof.router_generation
+                    != expected_statement.router_generation
+                or proof.source_canonical_sequence
+                    != expected_statement.canonical_sequence
+                or proof.evm_validity.transition_statement_digest
+                    != expected_statement.digest
+                or proof.evm_validity.router_generation
+                    != expected_statement.router_generation
+                or proof.evm_validity.source_canonical_sequence
+                    != expected_statement.canonical_sequence
+                or proof.evm_validity.transition_result_digest
+                    != migration_transition_result_digest(
+                        proof.evm_validity.transition_verifier_descriptor,
+                        expected_statement.digest,
+                        proof.evm_validity.proof_commitment,
+                    )
+                or proof.evm_validity.candidate_digest
+                    != candidate_inbox_execution_digest(candidate)
+                or proof.evm_validity.base_core != proof.base_core
+                or proof.evm_validity.output_core != proof.output_core
+                or proof.evm_validity.target_manifest_hash
+                    != target_manifest_hash
+                or proof.evm_validity.release_system_calldata_hash
+                    != release_system_calldata_hash(expected_manifest)
+                or proof.evm_validity.system_calldata_hash
+                    != inbox_system_calldata_hash(proof.rows)
+                or proof.evm_validity.queue_root != self.forced_queue.root
+                or proof.evm_validity.queue_count != self.forced_queue.count
+                or proof.evm_validity.start_cursor != proof.start_cursor
+                or proof.evm_validity.end_cursor != proof.end_cursor
+                or not proof.evm_validity.observed_deployment_digest
+                or not proof.evm_validity.observed_deployment_seal
+                or proof.evm_validity.pre_inbox_last_applied_l2_block
+                    != proof.pre_inbox_last_applied_l2_block
+                or proof.evm_validity.post_inbox_last_applied_l2_block
+                    != proof.post_inbox_last_applied_l2_block
+                or proof.beneficiary != candidate.beneficiary
+                or derived_output != proof.output_core
+                or type(old_registration) is not SettlementRegistration
+                or proof.base_core != old_registration.settlement.core
+                or proof.start_cursor != proof.base_core.message_cursor
+                or block.inbox_system_calldata_hash
+                    != inbox_system_calldata_hash(proof.rows)
+                or block.inbox_descriptor_commitment
+                    != inbox_descriptor_commitment(descriptors)
+                or expected_manifest.commitment != target_manifest_hash
+                or expected_manifest.protocol_version
+                    != settlement.protocol_version
+                or proof.post_inbox_last_applied_l2_block
+                    != proof.output_core.l2_block_number
+                or proof.end_cursor != proof.output_core.message_cursor
+                or not authority._rows_match_descriptors(
+                    proof.rows, descriptors,
+                )):
+            return False
+        # The sealed zk/EVM output binds both roots and the exact tx0/tx1
+        # calldata public inputs.  Route/pin journals remain private witness
+        # data and are never imported into the L1 object graph.
+        return True
+
+    def activate_profile_bridge_adapter(
+        self, adapter: object, *, protocol_version: int,
+        executor: str, clock: Clock
+    ) -> bool:
+        """Permissionlessly bind the exact release deployment after support."""
+
+        registration = self.registrations.get(protocol_version)
+        authorization = (
+            None if registration is None
+            else registration.ingress_authorizations_by_address.get(
+                getattr(adapter, "address", None)
+            )
+        )
+        deployment = (
+            None if type(authorization) is not ProfileIngressAuthorization
+            else self._profile_deployments_by_version.get(
+                protocol_version, {}
+            ).get(authorization.authorization_id)
+        )
+        source = getattr(adapter, "source_bridge", None)
+        credit_registry = getattr(adapter, "credit_registry", None)
+        destination_domain_id = getattr(
+            authorization, "destination_domain_id", ""
+        )
+        support = (
+            None if type(source) is not SourceBridgeV2
+            or type(credit_registry) is not BridgeCreditRegistryV2
+            or source.credit_registry is not credit_registry
+            else source.domain_registry.final_entry(
+                source.source_domain_id,
+                source.frozen_bridge_execution_hash,
+                destination_domain_id,
+                clock,
+            )
+        )
+        if (not executor or type(clock) is not Clock
+                or type(protocol_version) is not int
+                or type(adapter) is not BridgeAdapter
+                or type(authorization) is not ProfileIngressAuthorization
+                or authorization.kind is not ForceKind.BRIDGE_CREDIT
+                or adapter is not deployment
+                or adapter.router is not self
+                or source is not self._source_bridge_authority
+                or credit_registry
+                    is not self._bridge_credit_registry_authority
+                or support is None
+                or support.manifest is not registration.release_manifest
+                or support.source_chain_id != authorization.source_chain_id
+                or support.source_registration_epoch
+                    != authorization.source_registration_epoch):
+            return False
+        existing = self._authorized_ingress_by_address.get(adapter.address)
+        if existing is not None:
+            return (
+                existing.adapter is adapter
+                and existing.kind is ForceKind.BRIDGE_CREDIT
+                and existing.runtime_hash == authorization.runtime_hash
+                and existing.configuration_hash
+                    == authorization.configuration_hash
+                and adapter.destination_sealed
+                and adapter.destination_domain_id
+                    == authorization.destination_domain_id
+            )
+        bindings_before = self._authorized_ingress
+        by_address_before = self._authorized_ingress_by_address
+        ids_before = self._authorized_ingress_adapter_ids
+        domain_before = adapter.destination_domain_id
+        try:
+            if (not adapter._seal_destination_from_profile(
+                    authorization=authorization,
+                    registration=registration,
+                    router=self,
+                    protocol_version=protocol_version)
+                    or not self._append_ingress_binding(
+                        adapter, authorization
+                    )):
+                raise ValueError("profile Bridge deployment rejected")
+            return True
+        except BaseException:
+            object.__setattr__(self, "_authorized_ingress", bindings_before)
+            object.__setattr__(
+                self, "_authorized_ingress_by_address", by_address_before
+            )
+            object.__setattr__(
+                self, "_authorized_ingress_adapter_ids", ids_before
+            )
+            object.__setattr__(
+                adapter, "_destination_domain_id", domain_before
+            )
+            return False
+
+    def _ingress_binding(self, adapter: object) -> IngressBinding | None:
+        address = getattr(adapter, "address", None)
+        self.ingress_lookup_probes = 1 if type(address) is str else 0
+        binding = self._authorized_ingress_by_address.get(address)
+        if (binding is not None and binding.adapter is adapter
+                and getattr(adapter, "router", None) is self
+                and address == binding.address
+                and getattr(adapter, "runtime_hash", None)
+                    == binding.runtime_hash
+                and getattr(adapter, "configuration_hash", None)
+                    == binding.configuration_hash
+                and getattr(adapter, "queue_address", None)
+                    == self.forced_queue_address):
+            return binding
+        return None
 
     @property
     def forced_queue_address(self) -> str:
@@ -4716,14 +7807,18 @@ class ActiveSettlementRouter:
                 or settlement.schedule_oracle_id != self.schedule_oracle_id
                 or self.forced_queue.active_settlement_address
                     not in {"", settlement.address}
-                or settlement.inbox_apply_router is not self.inbox_apply_router
+                or settlement.inbox_apply_descriptor
+                    != self.inbox_apply_descriptor
+                or (
+                    settlement.live_protocol is not None
+                    and settlement.live_protocol.inbox_apply_descriptor
+                        != settlement.inbox_apply_descriptor
+                )
                 or settlement.core.message_cursor != self.forced_queue.cursor
-                or settlement.core.message_cursor
-                    != self.inbox_apply_router.next_queue_index
                 or not settlement.nonproxy or not settlement.selfdestruct_disabled):
             return False
         authority_keys = {
-            "migration_gate", "forced_queue", "inbox_apply_router", "live_protocol",
+            "migration_gate", "forced_queue", "inbox_apply_descriptor", "live_protocol",
             "_router_authority",
         }
         settlement_snapshot = copy.deepcopy({
@@ -4732,32 +7827,60 @@ class ActiveSettlementRouter:
         })
         gate = settlement.migration_gate
         live_protocol = settlement.live_protocol
+        local_inbox_descriptor = settlement.inbox_apply_descriptor
         prior_router_authority = settlement._router_authority
         gate_snapshot = copy.deepcopy(gate.__dict__)
-        queue_snapshot = copy.deepcopy(self.forced_queue.__dict__)
+        queue_snapshot = self.forced_queue._transaction_snapshot()
         registrations_snapshot = dict(self.registrations)
         active_snapshot = self.active_version
         used_targets_snapshot = set(self.used_target_addresses)
+        ingress_snapshot = (
+            self._authorized_ingress,
+            self._authorized_ingress_by_address,
+            self._authorized_ingress_adapter_ids,
+            dict(self._profile_deployments_by_version),
+        )
         try:
             activation_block = clock.block_number
-            if (
-                not gate._bootstrap_from_router(
+            object.__setattr__(self, "_queue_transition_frame", (
+                "BOOTSTRAP", id(settlement), settlement.address
+            ))
+            try:
+                queue_bootstrapped = (
+                    gate._bootstrap_from_router(
                     settlement.protocol_version, self.version_manager
+                    )
+                    and settlement._install_imported_from_router(
+                        router=self, sequence=sequence, clock=clock
+                    )
+                    and self.forced_queue
+                    ._bootstrap_active_settlement_from_router(
+                        expected_old=(
+                            self.forced_queue.active_settlement_address
+                        ),
+                        settlement=settlement,
+                        router=self,
+                    )
                 )
-                or not settlement._install_imported_from_router(
-                    router=self, sequence=sequence, clock=clock
-                )
-                or not self.forced_queue.set_active_settlement(
-                    expected_old=self.forced_queue.active_settlement_address,
-                    new=settlement.address,
-                    caller=self.address,
-                )
-            ):
+            finally:
+                object.__setattr__(self, "_queue_transition_frame", None)
+            if not queue_bootstrapped:
                 raise ValueError("router bootstrap transition rejected")
             settlement.mode = "ACTIVE"
-            self.registrations[settlement.protocol_version] = SettlementRegistration(
-                settlement, settlement.runtime_hash,
-                settlement.execution_profile_hash, activation_block, 0)
+            self.registrations[settlement.protocol_version] = (
+                settlement_registration(
+                    self,
+                    settlement,
+                    activation_block=activation_block,
+                    predecessor_version=0,
+                    release_manifest_hash=self.bootstrap_release_manifest_hash,
+                )
+            )
+            if not self._install_profile_deployments(
+                self.registrations[settlement.protocol_version],
+                manager=None,
+            ):
+                raise ValueError("bootstrap ingress deployment failed")
             self.active_version = settlement.protocol_version
             self.used_target_addresses.add(settlement.address)
             return True
@@ -4766,12 +7889,11 @@ class ActiveSettlementRouter:
             settlement.__dict__.update(settlement_snapshot)
             gate.__dict__.clear()
             gate.__dict__.update(gate_snapshot)
-            self.forced_queue.__dict__.clear()
-            self.forced_queue.__dict__.update(queue_snapshot)
+            self.forced_queue._restore_transaction_snapshot(queue_snapshot)
             object.__setattr__(settlement, "migration_gate", gate)
             object.__setattr__(settlement, "forced_queue", self.forced_queue)
             object.__setattr__(
-                settlement, "inbox_apply_router", self.inbox_apply_router
+                settlement, "inbox_apply_descriptor", local_inbox_descriptor
             )
             settlement.live_protocol = live_protocol
             object.__setattr__(
@@ -4782,36 +7904,38 @@ class ActiveSettlementRouter:
                 object.__setattr__(
                     live_protocol, "forced_queue", self.forced_queue
                 )
-                object.__setattr__(
-                    live_protocol,
-                    "inbox_apply_router",
-                    self.inbox_apply_router,
-                )
                 live_protocol.versioned_history = settlement
             self.registrations = registrations_snapshot
             self.active_version = active_snapshot
             self.used_target_addresses = used_targets_snapshot
+            object.__setattr__(
+                self, "_authorized_ingress", ingress_snapshot[0]
+            )
+            object.__setattr__(
+                self, "_authorized_ingress_by_address", ingress_snapshot[1]
+            )
+            object.__setattr__(
+                self, "_authorized_ingress_adapter_ids", ingress_snapshot[2]
+            )
+            self._profile_deployments_by_version = ingress_snapshot[3]
             return False
 
     def _activate_version_with_proof(
             self, *, settlement: VersionedSettlementHistory, clock: Clock,
-            caller_is_version_manager: bool, manifest_active: bool,
-            target_manifest_hash: str,
-            activation_proof: MigrationActivationProof,
-            target_runtime_approved: bool, target_profile_matches: bool,
-            full_core_import_exact: bool, queue_import_exact: bool) -> bool:
+            target_manifest_hash: bytes,
+            activation_proof: VerifiedMigrationExecutionOutput) -> bool:
         old_registration = self.registrations.get(self.active_version)
         if old_registration is None:
             return False
         old = old_registration.settlement
         target_protocol = settlement.live_protocol
         if (type(clock) is not Clock
-                or not caller_is_version_manager or not manifest_active
-                or not target_runtime_approved or not target_profile_matches
-                or not full_core_import_exact or not queue_import_exact
-                or not activation_proof.proof_valid
-                or not activation_proof.target_components_valid
-                or not activation_proof.release_activation
+                or not self._valid_migration_activation_proof(
+                    activation_proof,
+                    settlement=settlement,
+                    target_manifest_hash=target_manifest_hash,
+                    clock=clock,
+                )
                 or settlement.protocol_version <= self.active_version
                 or settlement.protocol_version in self.registrations
                 or settlement.address in self.used_target_addresses
@@ -4861,7 +7985,8 @@ class ActiveSettlementRouter:
                 != old.live_protocol.queue_capacity
                 or target_protocol.canonical is old.live_protocol.canonical
                 or target_protocol.forced_queue is not self.forced_queue
-                or target_protocol.inbox_apply_router is not self.inbox_apply_router
+                or target_protocol.inbox_apply_descriptor
+                    != self.inbox_apply_descriptor
                 or target_protocol.migration_gate is not settlement.migration_gate
                 or target_protocol.seat_terms
                 or target_protocol.seat_services
@@ -4884,6 +8009,7 @@ class ActiveSettlementRouter:
                 or target_protocol.seat_scan_count != 0
                 or target_protocol.seat_scan_visits_total != 0
                 or target_protocol.events
+                or target_protocol.last_canonical_execution_digest
                 or target_protocol.gc_cursor != 0
                 or target_protocol.boundary_queries != 0
                 or target_protocol.seat_fault_point is not None
@@ -4942,13 +8068,11 @@ class ActiveSettlementRouter:
                 or old.builder_registry_id != self.builder_registry_id
                 or settlement.schedule_oracle_id != self.schedule_oracle_id
                 or old.schedule_oracle_id != self.schedule_oracle_id
-                or settlement.inbox_apply_router is not self.inbox_apply_router
-                or old.inbox_apply_router is not self.inbox_apply_router
                 or old.live_protocol is None
+                or old.live_protocol.inbox_apply_descriptor
+                    != self.inbox_apply_descriptor
                 or old.live_protocol.versioned_history is not old
                 or old.live_protocol.forced_queue is not self.forced_queue
-                or old.live_protocol.inbox_apply_router
-                    is not self.inbox_apply_router
                 or old.live_protocol.canonical.core != old.core
                 or old.core.message_cursor != self.forced_queue.cursor
                 or old.live_protocol.release_activation_pending
@@ -4975,16 +8099,27 @@ class ActiveSettlementRouter:
             return False
         l1_block = clock.block_number
         old_version = self.active_version
-        if not self.forced_queue.set_active_settlement(
-                expected_old=old.address, new=settlement.address,
-                caller=self.address):
-            raise AssertionError("validated queue authority switch failed")
-        if not self.forced_queue.advance_cursor(
-                activation_proof.start_cursor, activation_proof.end_cursor,
-                caller=settlement.address,
-                beneficiary=activation_proof.beneficiary):
-            raise AssertionError("validated activation queue advance failed")
-        self.inbox_apply_router.next_queue_index = activation_proof.end_cursor
+        # L1 adopts only the verifier's commitments.  The destination tx0
+        # ReleaseAuthority/Registrar calls and tx1 InboxApply writes occur in
+        # the proved L2 transition and are never replayed as L1 object calls.
+        object.__setattr__(self, "_queue_transition_frame", (
+            "MIGRATION", id(activation_proof), activation_proof.digest
+        ))
+        try:
+            queue_activated = (
+                self.forced_queue._activate_and_advance_from_router(
+                    expected_old=old.address,
+                    settlement=settlement,
+                    proof=activation_proof,
+                    router=self,
+                )
+            )
+        finally:
+            object.__setattr__(self, "_queue_transition_frame", None)
+        if not queue_activated:
+            raise AssertionError(
+                "validated queue switch/advance transaction failed"
+            )
         settlement.core = copy.deepcopy(activation_proof.output_core)
         settlement.canonicalized_at_block = l1_block
         if not settlement._install_imported_from_router(
@@ -4992,9 +8127,20 @@ class ActiveSettlementRouter:
             raise AssertionError("validated target history write failed")
         old.mode = "FROZEN"
         settlement.mode = "ACTIVE"
-        self.registrations[settlement.protocol_version] = SettlementRegistration(
-            settlement, settlement.runtime_hash,
-            settlement.execution_profile_hash, l1_block, old_version)
+        self.registrations[settlement.protocol_version] = settlement_registration(
+            self,
+            settlement,
+            activation_block=l1_block,
+            predecessor_version=old_version,
+            release_manifest_hash=target_manifest_hash,
+        )
+        manager = self._version_manager_authority
+        if (type(manager) is not ProtocolVersionManager
+                or not self._install_profile_deployments(
+                    self.registrations[settlement.protocol_version],
+                    manager=manager,
+                )):
+            raise ValueError("target release deployments are not exact")
         self.active_version = settlement.protocol_version
         self.used_target_addresses.add(settlement.address)
         successor = target_protocol
@@ -5007,6 +8153,9 @@ class ActiveSettlementRouter:
         successor.release_activation_pending = False
         successor.pending_release_protocol_version = 0
         successor.pending_release_manifest_hash = ""
+        successor.last_canonical_execution_digest = (
+            candidate_inbox_execution_digest(activation_proof.candidate)
+        )
         activated = active_gate._activate_from_router(
             active_gate.generation, old_version,
             settlement.protocol_version)
@@ -5045,6 +8194,8 @@ class ActiveSettlementRouter:
         if (settlement.runtime_hash != registration.runtime_hash
                 or settlement.execution_profile_hash
                     != registration.execution_profile_hash
+                or settlement.execution_profile
+                    is not registration.execution_profile
                 or not settlement.nonproxy or not settlement.selfdestruct_disabled
                 or settlement.mode not in {
                     "ACTIVE", "MIGRATION_ARMED", "MIGRATION_READY", "FROZEN"}):
@@ -5056,42 +8207,242 @@ class ActiveSettlementRouter:
             return None
         return entry
 
-    def sync_and_append(self, descriptor: Message, *, clock: Clock,
-                        bound_router: str, queue_address: str,
-                        deposit: int,
-                        caller_adapter: str = "bridge-inbox-adapter") -> str:
+    def _active_ingress_graph(
+        self,
+    ) -> tuple[VersionedSettlementHistory, Protocol] | None:
+        """Resolve the one exact active Settlement graph for forced ingress."""
+
         registration = self.registrations.get(self.active_version)
-        if (bound_router != self.address
-                or caller_adapter not in self.authorized_ingress
-                or queue_address != self.forced_queue_address
-                or registration is None
+        if (registration is None
+                or not registration.release_manifest_hash
+                or registration.runtime_hash
+                    != registration.settlement.runtime_hash
+                or registration.execution_profile_hash
+                    != registration.settlement.execution_profile_hash
+                or registration.execution_profile
+                    is not registration.settlement.execution_profile
+                or registration.settlement.protocol_version
+                    != self.active_version
                 or registration.settlement.live_protocol is None
                 or registration.settlement.mode
                     not in {"ACTIVE", "MIGRATION_ARMED", "MIGRATION_READY"}):
-            return "REJECTED"
+            return None
         settlement = registration.settlement
         live_protocol = settlement.live_protocol
         if (settlement._router_authority is not self
                 or settlement.header_oracle is not self.header_oracle
                 or settlement.migration_gate is not self.migration_gate
                 or settlement.forced_queue is not self.forced_queue
-                or settlement.inbox_apply_router is not self.inbox_apply_router
+                or settlement.inbox_apply_descriptor
+                    != self.inbox_apply_descriptor
                 or live_protocol.versioned_history is not settlement
                 or live_protocol.settlement_address != settlement.address
                 or live_protocol.header_oracle is not self.header_oracle
                 or live_protocol.migration_gate is not self.migration_gate
                 or live_protocol.forced_queue is not self.forced_queue
-                or live_protocol.inbox_apply_router is not self.inbox_apply_router):
-            return "REJECTED"
-        if settlement.mode != "ACTIVE":
-            return "SYNCED"
-        before = self.forced_queue.count
-        result = live_protocol.admit_bridge_direct(
-            clock, replace(descriptor, prepaid=deposit))
-        if result == "ADMITTED":
-            assert self.forced_queue.count == before + 1
-            return f"QUEUED:{before}"
-        return result
+                or live_protocol.inbox_apply_descriptor
+                    != settlement.inbox_apply_descriptor
+                or self.forced_queue.router_address != self.address
+                or self.forced_queue._router_authority is not self
+                or self.forced_queue.active_settlement_address
+                    != settlement.address
+                or self.forced_queue.runtime_hash
+                    != self.forced_queue_runtime_hash
+                or self.forced_queue.config_hash
+                    != self.forced_queue_config_hash
+                or not self.forced_queue.nonproxy
+                or not self.forced_queue.selfdestruct_disabled
+                or self.forced_queue.delegate_target_reachable
+                or self.migration_gate.active_protocol_version
+                    != self.active_version):
+            return None
+        return settlement, live_protocol
+
+    def required_ingress_deposit(
+        self, descriptor: Message, caller_adapter: object
+    ) -> int:
+        binding = self._ingress_binding(caller_adapter)
+        if binding is None or descriptor.kind is not binding.kind:
+            raise ValueError("ingress fee profile is not authorized")
+        registration = self.registrations.get(self.active_version)
+        if registration is None:
+            raise ValueError("ingress fee profile has no active release")
+        if registration.settlement_chain_context_id \
+                != self.settlement_chain_context_id:
+            raise ValueError("ingress fee profile changed chain context")
+        return ingress_deposit_for_schedule(
+            descriptor.accounted_gas,
+            descriptor.byte_length,
+            registration.ingress_fee_schedule,
+        )
+
+    @staticmethod
+    def _valid_ingress_static(
+        descriptor: Message, *, clock: Clock, deposit: int
+    ) -> bool:
+        if (type(descriptor) not in {Message, BridgeQueueDescriptorV10}
+                or type(clock) is not Clock
+                or type(deposit) is not int or isinstance(deposit, bool)
+                or deposit <= 0 or not descriptor.payload_hash):
+            return False
+        if descriptor.kind is ForceKind.BRIDGE_CREDIT:
+            return (
+                type(descriptor) is BridgeQueueDescriptorV10
+                and descriptor.structurally_valid()
+                and descriptor.valid_until == UINT64_MAX
+                and descriptor.accounted_gas == MAX_FORCE_MESSAGE_GAS
+                and 0 <= descriptor.byte_length <= MAX_FORCE_MESSAGE_BYTES
+            )
+        if (type(descriptor) is not Message
+                or descriptor.kind is not ForceKind.USER_TX):
+            return False
+        return (
+            descriptor.outer_authorized
+            and descriptor.intrinsic_gas > 0
+            and descriptor.chain_id_ok
+            and descriptor.signature_ok
+            and bool(descriptor.sender)
+            and descriptor.valid_until > clock.timestamp
+            and descriptor.valid_until
+                <= clock.timestamp + MAX_FORCE_VALIDITY_SECONDS
+            and 0 < descriptor.byte_length <= MAX_FORCE_MESSAGE_BYTES
+            and descriptor.raw_tx_length == descriptor.byte_length
+            and 0 < descriptor.l2_chain_id <= UINT64_MAX
+            and 0 <= descriptor.gas_limit <= UINT64_MAX
+            and 0 < descriptor.max_fee <= SEAT_UINT256_MAX
+            and descriptor.refund_address == descriptor.sender
+            and descriptor.accounted_gas == max(
+                descriptor.gas_limit,
+                descriptor.intrinsic_gas,
+                MIN_FORCE_ACCOUNTED_GAS,
+            )
+            and descriptor.accounted_gas <= MAX_FORCE_MESSAGE_GAS
+        )
+
+    def sync_ingress(
+        self, *, clock: Clock, caller_adapter: object
+    ) -> tuple[str, tuple[int, int] | None]:
+        """Persist one nonpayable sync decision or issue an exact live stamp."""
+
+        if type(clock) is not Clock or self._ingress_binding(caller_adapter) is None:
+            return "REJECTED", None
+        if self.ingress_entered:
+            raise RuntimeError("active router ingress is non-reentrant")
+        self.ingress_entered = True
+        try:
+            graph = self._active_ingress_graph()
+            if graph is None:
+                return "REJECTED", None
+            settlement, live_protocol = graph
+            if live_protocol.mode is Mode.PREACTIVE:
+                return "REJECTED_PREACTIVE", None
+            changed = live_protocol.sync(clock)
+            graph = self._active_ingress_graph()
+            if (graph is None or graph[0] is not settlement
+                    or graph[1] is not live_protocol):
+                return "SYNCED" if changed else "REJECTED", None
+            if (changed or settlement.mode != "ACTIVE"
+                    or self.migration_gate.mode != "ACTIVE"):
+                return "SYNCED", None
+            return "ACTIVE", (
+                self.active_version,
+                self.migration_gate.generation,
+            )
+        finally:
+            self.ingress_entered = False
+
+    def append_from_adapter(
+        self,
+        descriptor: Message,
+        *,
+        clock: Clock,
+        stamp: tuple[int, int],
+        deposit: int,
+        caller_adapter: object,
+    ) -> str:
+        """Append without a second sync after rechecking the exact live stamp."""
+
+        binding = self._ingress_binding(caller_adapter)
+        if type(clock) is not Clock or binding is None:
+            raise ValueError("forced ingress caller or Clock is invalid")
+        if self.ingress_entered:
+            raise RuntimeError("active router ingress is non-reentrant")
+        graph = self._active_ingress_graph()
+        expected_stamp = (
+            self.active_version,
+            self.migration_gate.generation,
+        )
+        stamp_exact = (
+            type(stamp) is tuple
+            and len(stamp) == 2
+            and all(type(word) is int for word in stamp)
+        )
+        if (graph is None or not stamp_exact or stamp != expected_stamp
+                or self.migration_gate.mode != "ACTIVE"):
+            raise ValueError("forced ingress stamp is stale")
+        settlement, live_protocol = graph
+        registration = self.registrations.get(self.active_version)
+        if settlement.mode != "ACTIVE" or live_protocol.mode is Mode.PREACTIVE:
+            raise ValueError("forced ingress target is not active")
+        if (self.forced_queue.count >= live_protocol.queue_capacity
+                or registration is None
+                or binding.kind is not descriptor.kind
+                or (descriptor.kind is ForceKind.USER_TX
+                    and descriptor.l2_chain_id
+                        != registration.release_manifest.destination_chain_id)
+                or (descriptor.kind is ForceKind.BRIDGE_CREDIT
+                    and descriptor.bridge_dest_chain_id
+                        != registration.release_manifest.destination_chain_id)
+                or descriptor.prepaid != deposit
+                or deposit != self.required_ingress_deposit(
+                    descriptor, caller_adapter
+                )
+                or not self._valid_ingress_static(
+                    descriptor, clock=clock, deposit=deposit
+                )):
+            raise ValueError("forced ingress descriptor is invalid")
+        enqueued_at = checked_u64_add(
+            clock.timestamp, 0, "forced ingress enqueuedAt"
+        )
+        base_due_at = checked_u64_add(
+            enqueued_at, FORCE_DELAY, "forced ingress base dueAt"
+        )
+        last_due_at = checked_u64_add(
+            self.forced_queue.last_due_at,
+            0,
+            "forced ingress previous dueAt",
+        )
+        deferred = 0
+        if (live_protocol.mode is Mode.RECOVERY
+                and live_protocol.recovery is not None):
+            deferred = checked_u64_add(
+                live_protocol.recovery.expires_at,
+                1,
+                "forced ingress recovery dueAt",
+            )
+        due_at = max(
+            base_due_at,
+            last_due_at,
+            deferred,
+        )
+        expected_index = self.forced_queue.count
+        queue_before = self.forced_queue._transaction_snapshot()
+        self.ingress_entered = True
+        try:
+            index = self.forced_queue._append_from_router(
+                replace(descriptor, enqueued_at=enqueued_at),
+                deposit=deposit,
+                due_at=due_at,
+                router=self,
+            )
+            if index != expected_index:
+                raise ValueError("forced queue rejected validated append")
+            return f"QUEUED:{index}"
+        except BaseException:
+            self.forced_queue._restore_transaction_snapshot(queue_before)
+            raise
+        finally:
+            self.ingress_entered = False
 
 
 @dataclass
@@ -5133,6 +8484,18 @@ class ProtocolVersionManager:
             )
         ):
             raise ValueError("manager Market binding must be all-or-none")
+        if (self.router._version_manager_authority is not None
+                and self.router._version_manager_authority is not self):
+            raise ValueError("active router is bound to another version manager")
+        if (self.router._version_manager_authority is None
+                and not self.router._bind_version_manager_once(self)):
+            raise ValueError("active router rejected its version manager")
+        registration = self.router.registrations.get(self.router.active_version)
+        if (registration is not None
+                and not self.router._install_profile_deployments(
+                    registration, manager=self
+                )):
+            raise ValueError("manager could not install release deployments")
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
@@ -5147,7 +8510,7 @@ class ProtocolVersionManager:
         self,
         *,
         manifest_key: tuple[int, int, int, bytes],
-        activation_proof: MigrationActivationProof,
+        activation_proof: VerifiedMigrationExecutionOutput,
         executor: str,
         clock: Clock,
     ) -> MigrationActivationReceipt:
@@ -5209,6 +8572,10 @@ class ProtocolVersionManager:
             != old_history.market_settlement_chain_id
             or new_auth.settlement_chain_id
             != settlement.market_settlement_chain_id
+            or old_history.market_settlement_chain_id
+                != self.router.settlement_chain_context_id
+            or settlement.market_settlement_chain_id
+                != self.router.settlement_chain_context_id
             or old_auth.protocol_version != old_history.protocol_version
             or new_auth.protocol_version != settlement.protocol_version
             or old_auth.runtime_hash != old_history.market_runtime_hash
@@ -5245,10 +8612,12 @@ class ProtocolVersionManager:
             raise ValueError("seat migration activation receipt was consumed")
 
         old_protocol._assert_canonical_history_binding()
-        old_snapshot = old_protocol._canonical_transaction_snapshot()
+        old_snapshot = old_protocol._canonical_transaction_snapshot(
+            activation_proof
+        )
         target_authority_refs = (
             settlement.forced_queue,
-            settlement.inbox_apply_router,
+            settlement.inbox_apply_descriptor,
             settlement.migration_gate,
             settlement.live_protocol,
             settlement._router_authority,
@@ -5256,7 +8625,7 @@ class ProtocolVersionManager:
         target_snapshot = copy.deepcopy({
             key: value for key, value in settlement.__dict__.items()
             if key not in {
-                "forced_queue", "inbox_apply_router", "migration_gate", "live_protocol",
+                "forced_queue", "inbox_apply_descriptor", "migration_gate", "live_protocol",
                 "_router_authority",
             }
         })
@@ -5267,32 +8636,68 @@ class ProtocolVersionManager:
             dict(self.router.activation_receipt_keys_by_generation),
             dict(self.router.successor_receipt_key_by_old_authorization_id),
             set(self.router.used_target_addresses),
+            self.router._authorized_ingress,
+            self.router._authorized_ingress_by_address,
+            self.router._authorized_ingress_adapter_ids,
+            dict(self.router._profile_deployments_by_version),
+            self.router._bridge_credit_registry_authority,
+            self.router._source_bridge_authority,
+        )
+        source_registry_state = (
+            self.router._bridge_credit_registry_authority.domain_registry
+            ._transaction_snapshot()
+            if type(self.router._bridge_credit_registry_authority)
+                is BridgeCreditRegistryV2 else None
         )
         target_protocol_refs = (
             settlement.live_protocol.forced_queue,
             settlement.live_protocol.inbox_apply_router,
             settlement.live_protocol.migration_gate,
             settlement.live_protocol.versioned_history,
+            settlement.live_protocol._inbox_execution_authority,
+            settlement.live_protocol.normal_best,
         )
+        target_execution_authority_state = {
+            "_issued": dict(
+                settlement.live_protocol._inbox_execution_authority._issued
+            ),
+            "_consumed": set(
+                settlement.live_protocol._inbox_execution_authority._consumed
+            ),
+            "_next_nonce": (
+                settlement.live_protocol._inbox_execution_authority._next_nonce
+            ),
+            "_execution_frame": (
+                settlement.live_protocol._inbox_execution_authority
+                ._execution_frame
+            ),
+            "_preparing_candidate_id": (
+                settlement.live_protocol._inbox_execution_authority
+                ._preparing_candidate_id
+            ),
+            "_verifying_candidate_id": (
+                settlement.live_protocol._inbox_execution_authority
+                ._verifying_candidate_id
+            ),
+            "_release_activation_frame": (
+                settlement.live_protocol._inbox_execution_authority
+                ._release_activation_frame
+            ),
+        }
         target_protocol_snapshot = copy.deepcopy({
             key: value for key, value in settlement.live_protocol.__dict__.items()
             if key not in {
                 "forced_queue", "inbox_apply_router", "migration_gate",
-                "versioned_history"
+                "versioned_history", "_inbox_execution_authority",
+                "normal_best",
             }
         })
         try:
             activated = self.router._activate_version_with_proof(
                 settlement=settlement,
                 clock=clock,
-                caller_is_version_manager=True,
-                manifest_active=True,
                 target_manifest_hash=manifest.target_manifest_hash,
                 activation_proof=activation_proof,
-                target_runtime_approved=True,
-                target_profile_matches=True,
-                full_core_import_exact=True,
-                queue_import_exact=True,
             )
             if not activated:
                 raise ValueError("seat migration activation proof was rejected")
@@ -5348,7 +8753,7 @@ class ProtocolVersionManager:
             settlement.__dict__.update(target_snapshot)
             (
                 settlement.forced_queue,
-                settlement.inbox_apply_router,
+                settlement.inbox_apply_descriptor,
                 settlement.migration_gate,
                 settlement.live_protocol,
                 settlement._router_authority,
@@ -5360,7 +8765,35 @@ class ProtocolVersionManager:
                 self.router.activation_receipt_keys_by_generation,
                 self.router.successor_receipt_key_by_old_authorization_id,
                 self.router.used_target_addresses,
-            ) = router_snapshot
+            ) = router_snapshot[:6]
+            object.__setattr__(
+                self.router, "_authorized_ingress", router_snapshot[6]
+            )
+            object.__setattr__(
+                self.router,
+                "_authorized_ingress_by_address",
+                router_snapshot[7],
+            )
+            object.__setattr__(
+                self.router,
+                "_authorized_ingress_adapter_ids",
+                router_snapshot[8],
+            )
+            self.router._profile_deployments_by_version = router_snapshot[9]
+            object.__setattr__(
+                self.router,
+                "_bridge_credit_registry_authority",
+                router_snapshot[10],
+            )
+            object.__setattr__(
+                self.router, "_source_bridge_authority", router_snapshot[11]
+            )
+            source_registry = self.router._bridge_credit_registry_authority
+            if (source_registry_state is not None
+                    and type(source_registry) is BridgeCreditRegistryV2):
+                source_registry.domain_registry._restore_transaction_snapshot(
+                    source_registry_state
+                )
             target_protocol = target_authority_refs[3]
             if target_protocol is not None:
                 target_protocol.__dict__.clear()
@@ -5370,7 +8803,18 @@ class ProtocolVersionManager:
                     target_protocol.inbox_apply_router,
                     target_protocol.migration_gate,
                     target_protocol.versioned_history,
+                    target_protocol._inbox_execution_authority,
+                    target_protocol.normal_best,
                 ) = target_protocol_refs
+                if (target_protocol._inbox_execution_authority.protocol
+                        is not target_protocol):
+                    raise AssertionError(
+                        "rollback split the immutable Inbox authority"
+                    )
+                for key, value in target_execution_authority_state.items():
+                    setattr(
+                        target_protocol._inbox_execution_authority, key, value
+                    )
             raise
 
     def schedule_seat_migration(
@@ -5442,8 +8886,10 @@ class ProtocolVersionManager:
             or self.router.migration_gate.coordinator != self.address
             or protocol.forced_queue is not self.router.forced_queue
             or history.forced_queue is not self.router.forced_queue
-            or protocol.inbox_apply_router is not self.router.inbox_apply_router
-            or history.inbox_apply_router is not self.router.inbox_apply_router
+            or history.inbox_apply_descriptor
+                != self.router.inbox_apply_descriptor
+            or protocol.inbox_apply_descriptor
+                != history.inbox_apply_descriptor
             or protocol.settlement_address != history.address
             or history.protocol_version != self.router.active_version
         ):
@@ -5634,232 +9080,1543 @@ def source_send_mode(selector: str) -> str:
         return "V1"
     if selector == "sendMessageV2(Message)":
         return "V2_DIRECT"
-    if selector == "sendMessageFromVaultV2(Message)":
-        return "V2_CAPSULE"
     return "REJECTED"
 
 
+def legacy_bridge_send_for_test(
+    bridge: "SourceBridgeV2", *, caller: str,
+    callback: Callable[[], None] | None = None,
+) -> int:
+    """Exercise the one V1/V2 facade counter without modeling V1 payloads."""
+
+    if (type(bridge) is not SourceBridgeV2 or bridge.entered
+            or bridge.paused or not caller
+            or not 0 <= bridge.next_message_id <= UINT64_MAX):
+        raise ValueError("legacy Bridge send reverted")
+    message_id = bridge.next_message_id
+    bridge.entered = True
+    try:
+        bridge.next_message_id = checked_u64_add(
+            message_id, 1, "shared Bridge message id"
+        )
+        if callback is not None:
+            callback()
+        return message_id
+    except BaseException:
+        bridge.next_message_id = message_id
+        raise
+    finally:
+        bridge.entered = False
+
+
 @dataclass
+class SourceNativeReceiverV2:
+    """One source-chain native receiver used to model refund CALL behavior."""
+
+    address: str
+    rejects_native: bool = False
+    balance: int = 0
+    callback: Callable[["SourceBridgeV2"], None] | None = field(
+        default=None, compare=False, repr=False
+    )
+    _environment_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def _bind_environment_once(
+        self, environment: "SourceNativeExecutionEnvironmentV2"
+    ) -> bool:
+        if (type(environment) is not SourceNativeExecutionEnvironmentV2
+                or not self.address):
+            return False
+        if self._environment_authority is not None:
+            return self._environment_authority is environment
+        object.__setattr__(self, "_environment_authority", environment)
+        return True
+
+
+@dataclass(frozen=True)
+class SourceNativeTransactionFrameV2:
+    environment: "SourceNativeExecutionEnvironmentV2" = field(
+        compare=False, repr=False
+    )
+    caller: str
+    nonce: int
+    operation: str
+
+
+@dataclass
+class SourceNativeExecutionEnvironmentV2:
+    """Source-chain account journal; it is chain state, not Bridge policy."""
+
+    chain_id: int
+    eoa_balances: dict[str, int] = field(default_factory=dict)
+    _receivers: dict[str, SourceNativeReceiverV2] = field(
+        default_factory=dict, init=False, compare=False, repr=False
+    )
+    _bridge_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+    _active_frame: SourceNativeTransactionFrameV2 | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+    _next_nonce: int = field(
+        default=1, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (type(self.chain_id) is not int
+                or not 0 < self.chain_id <= UINT64_MAX):
+            raise ValueError("source native execution chain is invalid")
+
+    def _bind_bridge_once(self, bridge: object) -> bool:
+        if (type(bridge) is not SourceBridgeV2
+                or bridge.native_environment is not self
+                or bridge.source_chain_id != self.chain_id):
+            return False
+        if self._bridge_authority is not None:
+            return self._bridge_authority is bridge
+        object.__setattr__(self, "_bridge_authority", bridge)
+        return True
+
+    def deploy_receiver(self, receiver: SourceNativeReceiverV2) -> bool:
+        """Model a later source-chain CREATE without making an allowlist."""
+
+        if (self._active_frame is not None
+                or type(receiver) is not SourceNativeReceiverV2
+                or not receiver.address
+                or receiver.address in self._receivers
+                or not receiver._bind_environment_once(self)):
+            return False
+        receiver.balance = seat_checked_add(
+            receiver.balance,
+            self.eoa_balances.pop(receiver.address, 0),
+            "source deployed receiver balance",
+        )
+        self._receivers[receiver.address] = receiver
+        return True
+
+    def _open_frame(
+        self, caller: str, operation: str
+    ) -> SourceNativeTransactionFrameV2:
+        if self._active_frame is not None or not caller:
+            raise RuntimeError("source native transaction frame is active")
+        frame = SourceNativeTransactionFrameV2(
+            self, caller, self._next_nonce, operation
+        )
+        object.__setattr__(self, "_next_nonce", self._next_nonce + 1)
+        object.__setattr__(self, "_active_frame", frame)
+        return frame
+
+    def _close_frame(self, frame: SourceNativeTransactionFrameV2) -> None:
+        if self._active_frame is not frame:
+            raise RuntimeError("source native frame identity changed")
+        object.__setattr__(self, "_active_frame", None)
+
+    def withdraw_bridge_refund(
+        self,
+        bridge: "SourceBridgeV2",
+        *,
+        caller: str,
+        recipient: str,
+    ) -> int:
+        try:
+            frame = self._open_frame(caller, "WITHDRAW_REFUND")
+        except RuntimeError:
+            return 0
+        try:
+            return bridge._withdraw_refund_from_environment(
+                recipient=recipient, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def legacy_v1_process_for_test(
+        self, bridge: "SourceBridgeV2", request: "LegacyV1ProcessV2"
+    ) -> str:
+        try:
+            frame = self._open_frame(request.fee_recipient, "V1_PROCESS")
+        except (AttributeError, RuntimeError):
+            return "REJECTED"
+        try:
+            return bridge._legacy_v1_process_from_environment(
+                request, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def legacy_v1_retry_for_test(
+        self,
+        bridge: "SourceBridgeV2",
+        request: "LegacyV1RetryV2",
+        *,
+        caller: str,
+    ) -> str:
+        try:
+            frame = self._open_frame(caller, "V1_RETRY")
+        except RuntimeError:
+            return "REJECTED"
+        try:
+            return bridge._legacy_v1_retry_from_environment(
+                request, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def legacy_v1_recall_for_test(
+        self,
+        bridge: "SourceBridgeV2",
+        request: "LegacyV1RecallV2",
+        *,
+        caller: str,
+    ) -> bool:
+        try:
+            frame = self._open_frame(caller, "V1_RECALL")
+        except RuntimeError:
+            return False
+        try:
+            return bridge._legacy_v1_recall_from_environment(
+                request, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return {
+            "eoa_balances": dict(self.eoa_balances),
+            "receiver_balances": {
+                address: receiver.balance
+                for address, receiver in self._receivers.items()
+            },
+        }
+
+    def _restore_transaction_snapshot(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        self.eoa_balances.clear()
+        self.eoa_balances.update(snapshot["eoa_balances"])
+        for address, balance in snapshot["receiver_balances"].items():
+            self._receivers[address].balance = balance
+
+    def _transfer_native(
+        self,
+        bridge: "SourceBridgeV2",
+        recipient: str,
+        amount: int,
+        *,
+        frame: SourceNativeTransactionFrameV2,
+    ) -> bool:
+        if (bridge is not self._bridge_authority
+                or bridge.native_environment is not self
+                or frame is not self._active_frame
+                or frame.environment is not self
+                or frame.operation not in {
+                    "WITHDRAW_REFUND", "V1_PROCESS", "V1_RETRY",
+                    "V1_RECALL",
+                }
+                or not bridge.entered or not recipient
+                or type(amount) is not int or amount < 0):
+            return False
+        receiver = self._receivers.get(recipient)
+        if receiver is None:
+            self.eoa_balances[recipient] = seat_checked_add(
+                self.eoa_balances.get(recipient, 0),
+                amount,
+                "source refund recipient balance",
+            )
+            return True
+        if receiver.rejects_native:
+            return False
+        receiver.balance = seat_checked_add(
+            receiver.balance, amount, "source refund receiver balance"
+        )
+        if receiver.callback is not None:
+            receiver.callback(bridge)
+        return True
+
+
+@dataclass(frozen=True)
 class CreditAuthorization:
+    src_chain_id: int
+    source_domain_id: str
+    src_epoch: int
+    src_bridge: str
+    destination_domain_id: str
+    destination_bridge: str
+    bridge_execution_hash: str
+    emitted_at_block: int
+    escrow_id: str
+    msg_hash: str
+    calldata_hash: str
+    calldata_length: int
     enqueue_by: int
     owner: str
     value: int
     fee: int
     refund_mode: str = "DIRECT"
     refund_vault: str = ""
-    destination_domain_id: str = "domain:D1"
 
 
 @dataclass
 class SourceCredit:
     value: int
     fee: int
-    refund_capsule_hash: str = ""
     status: str = "NEW"
     queue_index: int | None = None
 
 
+@dataclass(frozen=True)
+class SourceSendReceipt:
+    """The exact normalized Message and commitments returned by source send."""
+
+    credit_id: str
+    msg_hash: str
+    envelope: BridgeAdmissionEnvelope
+
+
+def bridge_escrow_id(credit_id: str) -> str:
+    if not credit_id:
+        raise ValueError("Bridge credit identity is empty")
+    return "escrow:" + hashlib.sha256(
+        b"TAIKO_BRIDGE_ESCROW_V10\x00" + credit_id.encode()
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
+class BridgeQueueDescriptorV10:
+    """Exact durable 533-byte kind-1 leaf, not an admission envelope.
+
+    The complete IBridge.Message is authenticated once by the L1 adapter and
+    source authorization.  Fields that are absent from the normative durable
+    descriptor (message id, invocation gas, target and data length) cannot be
+    consulted by the L2 consumer and therefore are deliberately not stored.
+    """
+
+    enqueued_at: int
+    accounted_gas: int
+    byte_length: int
+    payload_hash: str
+    prepaid: int
+    sender: str
+    bridge_fee: int
+    bridge_src_chain_id: int
+    bridge_src_owner: str
+    bridge_dest_chain_id: int
+    bridge_dest_owner: str
+    bridge_value: int
+    bridge_data_hash: str
+    source_domain_id: str
+    source_registration_epoch: int
+    source_bridge: str
+    bridge_execution_hash: str
+    emitted_at_block: int
+    destination_domain_id: str
+    enqueue_by: int
+    refund_mode: str
+    refund_address: str
+    refund_vault: str
+    refund_capsule_hash: str
+    escrow_id: str
+    kind: ForceKind = ForceKind.BRIDGE_CREDIT
+    valid_until: int = UINT64_MAX
+    due_at: int = 0
+
+    @property
+    def msg_hash(self) -> str:
+        return self.payload_hash
+
+    @property
+    def credit_id(self) -> str:
+        return BridgeAdapter.credit_id(
+            self.bridge_src_chain_id,
+            self.source_domain_id,
+            self.source_registration_epoch,
+            self.source_bridge,
+            self.destination_domain_id,
+            self.msg_hash,
+        )
+
+    @property
+    def inbox_route(self) -> tuple[str, str, str]:
+        return (
+            self.destination_domain_id,
+            self.credit_id,
+            self.msg_hash,
+        )
+
+    def structurally_valid(self) -> bool:
+        expected_credit_id = self.credit_id
+        refund_exact = (
+            self.refund_mode == "DIRECT"
+            and not self.refund_vault
+            and not self.refund_capsule_hash
+        )
+        return (
+            self.kind is ForceKind.BRIDGE_CREDIT
+            and self.valid_until == UINT64_MAX
+            and self.accounted_gas == MAX_FORCE_MESSAGE_GAS
+            and 0 <= self.byte_length <= MAX_FORCE_MESSAGE_BYTES
+            and bool(self.payload_hash)
+            and bool(self.sender)
+            and 0 < self.bridge_src_chain_id <= UINT64_MAX
+            and bool(self.bridge_src_owner)
+            and 0 < self.bridge_dest_chain_id <= UINT64_MAX
+            and self.bridge_dest_chain_id != self.bridge_src_chain_id
+            and bool(self.bridge_dest_owner)
+            and 0 <= self.bridge_value <= SEAT_UINT256_MAX
+            and 0 <= self.bridge_fee <= UINT64_MAX
+            and self.bridge_value <= SEAT_UINT256_MAX - self.bridge_fee
+            and bool(self.bridge_data_hash)
+            and self.credit_id == expected_credit_id
+            and self.escrow_id == bridge_escrow_id(self.credit_id)
+            and bool(self.source_domain_id)
+            and 0 < self.source_registration_epoch <= UINT64_MAX
+            and bool(self.source_bridge)
+            and bool(self.bridge_execution_hash)
+            and 0 < self.emitted_at_block <= UINT64_MAX
+            and bool(self.destination_domain_id)
+            and bool(self.refund_address)
+            and 0 <= self.enqueue_by <= UINT64_MAX
+            and refund_exact
+        )
+
+
 @dataclass
-class SourceBridgeLedger:
-    authorizations: dict[str, CreditAuthorization] = field(default_factory=dict)
+class BridgeCreditRegistryV2:
+    """Immutable source authorization registry with no ETH custody."""
+
+    domain_registry: BridgeDomainRegistry = field(compare=False, repr=False)
+    source_descriptor: SourceBridgeDescriptor = field(compare=False)
+    _authorizations: dict[str, CreditAuthorization] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    address: str = "bridge-credit-registry-v2"
+    runtime_hash: str = BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH
+    domain_registrar: str = "source-domain-registrar"
+    source_registration_epoch: int = 1
+    configuration_hash: str = ""
+    fault_point: str | None = field(default=None, compare=False)
+    _source_bridge_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        expected = bridge_credit_registry_configuration_hash(
+            address=self.address,
+            runtime_hash=self.runtime_hash,
+            domain_registrar=self.domain_registrar,
+            frozen_bridge=self.source_descriptor.source_bridge,
+            support_registry_address=self.domain_registry.address,
+            support_registry_runtime_hash=self.domain_registry.runtime_hash,
+            support_registry_configuration_hash=(
+                self.domain_registry.configuration_hash
+            ),
+            source_chain_id=self.source_descriptor.source_chain_id,
+            source_domain_id=self.source_descriptor.source_domain_id,
+            source_registration_epoch=self.source_registration_epoch,
+            frozen_bridge_execution_hash=(
+                self.source_descriptor.bridge_execution_hash
+            ),
+            source_descriptor_id=self.source_descriptor.descriptor_id,
+        )
+        if self.configuration_hash and self.configuration_hash != expected:
+            raise ValueError("Bridge credit registry configuration is wrong")
+        if (type(self.domain_registry) is not BridgeDomainRegistry
+                or type(self.source_descriptor) is not SourceBridgeDescriptor
+                or self.source_descriptor.settlement_chain_id
+                    != self.domain_registry.router.settlement_chain_context_id
+                or self.source_descriptor.settlement_chain_id
+                    != self.source_descriptor.source_chain_id
+                or self.source_descriptor.bridge_credit_registry
+                    != self.address
+                or not 0 < self.source_registration_epoch <= UINT64_MAX):
+            raise ValueError("Bridge credit registry graph is invalid")
+        object.__setattr__(self, "configuration_hash", expected)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "domain_registry", "source_descriptor", "address",
+            "runtime_hash", "domain_registrar",
+            "source_registration_epoch", "configuration_hash",
+            "_source_bridge_authority",
+        } and name in self.__dict__:
+            raise AttributeError(f"Bridge credit registry {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    @property
+    def source_bridge(self) -> "SourceBridgeV2 | None":
+        authority = self._source_bridge_authority
+        return authority if type(authority) is SourceBridgeV2 else None
+
+    @property
+    def authorizations(self) -> MappingProxyType:
+        """Append-only authorization records exposed read-only."""
+
+        return MappingProxyType(self._authorizations)
+
+    def _authorization_snapshot(self) -> dict[str, CreditAuthorization]:
+        return copy.deepcopy(self._authorizations)
+
+    def _restore_authorization_snapshot(
+        self,
+        snapshot: dict[str, CreditAuthorization],
+        *,
+        source_bridge: object,
+    ) -> None:
+        if source_bridge is not self._source_bridge_authority:
+            raise ValueError("credit registry rollback authority is wrong")
+        self._authorizations.clear()
+        self._authorizations.update(snapshot)
+
+    def _bind_source_bridge_once(self, bridge: object) -> bool:
+        if (self._source_bridge_authority is not None
+                or type(bridge) is not SourceBridgeV2
+                or bridge.credit_registry is not self
+                or bridge.source_descriptor is not self.source_descriptor
+                or bridge.address != self.source_descriptor.source_bridge):
+            return False
+        object.__setattr__(self, "_source_bridge_authority", bridge)
+        return True
+
+    def _authorize_from_source_bridge(
+        self,
+        credit_id: str,
+        authorization: CreditAuthorization,
+        *,
+        source_bridge: object,
+    ) -> bool:
+        if (type(source_bridge) is not SourceBridgeV2
+                or source_bridge is not self._source_bridge_authority
+                or source_bridge.credit_registry is not self
+                or type(authorization) is not CreditAuthorization
+                or authorization.src_bridge != source_bridge.address
+                or authorization.src_chain_id
+                    != self.source_descriptor.source_chain_id
+                or authorization.source_domain_id
+                    != self.source_descriptor.source_domain_id
+                or authorization.src_epoch != self.source_registration_epoch
+                or authorization.bridge_execution_hash
+                    != self.source_descriptor.bridge_execution_hash
+                or authorization.msg_hash == ""
+                or authorization.calldata_hash == ""
+                or type(authorization.calldata_length) is not int
+                or not 0 <= authorization.calldata_length
+                    <= MAX_FORCE_MESSAGE_BYTES
+                or authorization.value < 0 or authorization.fee < 0
+                or authorization.refund_mode != "DIRECT"
+                or authorization.refund_vault
+                or credit_id != BridgeAdapter.credit_id(
+                    authorization.src_chain_id,
+                    authorization.source_domain_id,
+                    authorization.src_epoch,
+                    authorization.src_bridge,
+                    authorization.destination_domain_id,
+                    authorization.msg_hash,
+                )
+                or credit_id in self._authorizations):
+            return False
+        self._authorizations[credit_id] = authorization
+        if self.fault_point == "after_authorization_write":
+            raise RuntimeError(
+                "injected credit registry fault: after_authorization_write"
+            )
+        return True
+
+
+def source_bridge_configuration_hash_for_descriptor(
+    descriptor: SourceBridgeDescriptor,
+    registry_address: str,
+    registry_runtime_hash: str,
+    registry_configuration_hash: str,
+) -> str:
+    if (type(descriptor) is not SourceBridgeDescriptor
+            or not registry_address or not registry_runtime_hash
+            or not registry_configuration_hash):
+        raise ValueError("source Bridge configuration graph is invalid")
+    return "config:source-bridge-v2:" + hashlib.sha256(
+        b"TAIKO_SOURCE_BRIDGE_V2_CONFIG\x00"
+        + descriptor.descriptor_id
+        + _ingress_commitment_word(registry_address)
+        + _ingress_commitment_word(registry_runtime_hash)
+        + _ingress_commitment_word(registry_configuration_hash)
+    ).hexdigest()
+
+
+def source_bridge_configuration_hash(
+    descriptor: SourceBridgeDescriptor,
+    registry: BridgeCreditRegistryV2,
+) -> str:
+    if type(registry) is not BridgeCreditRegistryV2:
+        raise ValueError("source Bridge registry has the wrong type")
+    return source_bridge_configuration_hash_for_descriptor(
+        descriptor,
+        registry.address,
+        registry.runtime_hash,
+        registry.configuration_hash,
+    )
+
+
+@dataclass
+class SourceBridgeV2:
+    """Payable source Bridge custody and mutable per-credit liabilities."""
+
+    credit_registry: BridgeCreditRegistryV2 = field(
+        compare=False, repr=False
+    )
+    source_descriptor: SourceBridgeDescriptor = field(compare=False)
+    native_environment: SourceNativeExecutionEnvironmentV2 | None = field(
+        default=None, compare=False, repr=False
+    )
     credits: dict[str, SourceCredit] = field(default_factory=dict)
+    legacy_v1_status_by_msg_hash: dict[str, str] = field(
+        default_factory=dict
+    )
     refunds: dict[str, int] = field(default_factory=dict)
     balance: int = 0
     total_live_liability: int = 0
     ether_quota: int = UINT64_MAX
     paused: bool = False
-    destination_bridges: dict[str, str] = field(default_factory=lambda: {
-        "domain:D1": "bridge:A", "domain:D2": "bridge:B"})
+    next_message_id: int = 0
+    entered: bool = field(default=False, compare=False)
+    fault_point: str | None = field(default=None, compare=False)
+    frozen_bridge: str = "bridge:A"
+    address: str = "bridge:A"
+    runtime_hash: str = "code:source-bridge-facade:v1"
+    source_chain_id: int = 1
+    source_domain_id: str = ""
+    source_registration_epoch: int = 1
+    frozen_bridge_execution_hash: str = ""
+    configuration_hash: str = ""
 
-    def open(self, credit_id: str, *, now: int, enqueue_by: int,
-             owner: str, value: int, fee: int, refund_vault: str = "",
-             refund_capsule_hash: str = "", refund_mode: str = "DIRECT",
-             caller: str = "", destination_domain_id: str = "domain:D1") -> bool:
-        if (not credit_id or credit_id in self.authorizations or not owner
-                or enqueue_by != now + MAX_BRIDGE_ENQUEUE_DELAY
-                or value < 0 or fee < 0 or refund_capsule_hash
-                or refund_mode not in {"DIRECT", "CAPSULE"}
-                or (refund_mode == "DIRECT" and refund_vault)
-                or (refund_mode == "CAPSULE"
-                    and (not caller or refund_vault != caller))):
-            return False
-        self.authorizations[credit_id] = CreditAuthorization(
-            enqueue_by, owner, value, fee, refund_mode, refund_vault,
-            destination_domain_id)
-        self.credits[credit_id] = SourceCredit(
-            value, fee, "", "DRAFT" if refund_mode == "CAPSULE" else "NEW")
-        self.balance += value + fee
-        self.total_live_liability += value + fee
-        return True
+    def __post_init__(self) -> None:
+        if self.native_environment is None:
+            object.__setattr__(
+                self,
+                "native_environment",
+                SourceNativeExecutionEnvironmentV2(self.source_chain_id),
+            )
+        if not self.source_domain_id:
+            object.__setattr__(
+                self, "source_domain_id", self.source_descriptor.source_domain_id
+            )
+        if not self.frozen_bridge_execution_hash:
+            object.__setattr__(
+                self,
+                "frozen_bridge_execution_hash",
+                self.source_descriptor.bridge_execution_hash,
+            )
+        expected = source_bridge_configuration_hash(
+            self.source_descriptor, self.credit_registry
+        )
+        if self.configuration_hash and self.configuration_hash != expected:
+            raise ValueError("source Bridge configuration hash is wrong")
+        if (type(self.credit_registry) is not BridgeCreditRegistryV2
+                or type(self.source_descriptor) is not SourceBridgeDescriptor
+                or self.credit_registry.source_descriptor
+                    is not self.source_descriptor
+                or self.source_descriptor.settlement_chain_id
+                    != self.domain_registry.router.settlement_chain_context_id
+                or self.source_descriptor.settlement_chain_id
+                    != self.source_descriptor.source_chain_id
+                or self.source_descriptor.source_chain_id
+                    != self.source_chain_id
+                or self.source_descriptor.source_bridge != self.address
+                or self.frozen_bridge != self.address
+                or self.source_descriptor.bridge_credit_registry
+                    != self.credit_registry.address
+                or self.runtime_hash
+                    != self.source_descriptor.bridge_facade_runtime_hash
+                or self.source_descriptor.source_domain_id
+                    != self.source_domain_id
+                or self.source_descriptor.bridge_execution_hash
+                    != self.frozen_bridge_execution_hash
+                or type(self.source_chain_id) is not int
+                or not 0 < self.source_chain_id <= UINT64_MAX
+                or not self.source_domain_id
+                or not 0 < self.source_registration_epoch <= UINT64_MAX
+                or self.source_registration_epoch
+                    != self.credit_registry.source_registration_epoch
+                or not self.frozen_bridge_execution_hash
+                or type(self.native_environment)
+                    is not SourceNativeExecutionEnvironmentV2
+                or self.native_environment.chain_id != self.source_chain_id
+                or not self.native_environment._bind_bridge_once(self)
+                or not self.credit_registry._bind_source_bridge_once(self)):
+            raise ValueError("source Bridge authority graph is invalid")
+        object.__setattr__(self, "configuration_hash", expected)
 
-    def finalize_capsule(self, credit_id: str, *, caller: str,
-                         capsule_hash: str,
-                         vault_has_matching_capsule: bool) -> bool:
-        authorization = self.authorizations.get(credit_id)
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "credit_registry", "address", "runtime_hash",
+            "frozen_bridge",
+            "source_chain_id", "source_domain_id",
+            "source_registration_epoch",
+            "frozen_bridge_execution_hash",
+            "source_descriptor",
+            "native_environment",
+            "configuration_hash",
+        } and name in self.__dict__:
+            raise AttributeError(f"source Bridge {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    @property
+    def domain_registry(self) -> BridgeDomainRegistry:
+        return self.credit_registry.domain_registry
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return copy.deepcopy({
+            key: value for key, value in self.__dict__.items()
+            if key not in {
+                "credit_registry", "source_descriptor", "native_environment",
+                "fault_point",
+            }
+        })
+
+    def _restore_transaction_snapshot(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        registry = self.credit_registry
+        descriptor = self.source_descriptor
+        native_environment = self.native_environment
+        fault_point = self.fault_point
+        self.__dict__.clear()
+        self.__dict__.update(snapshot)
+        object.__setattr__(self, "credit_registry", registry)
+        object.__setattr__(self, "source_descriptor", descriptor)
+        object.__setattr__(self, "native_environment", native_environment)
+        object.__setattr__(self, "fault_point", fault_point)
+
+    def support_final_clock(self, timestamp: int) -> Clock:
+        confirmed = tuple(
+            entry.confirmed_at_block
+            for entry in self.domain_registry.entries.values()
+            if entry.confirmed_at_block is not None
+        )
+        if not confirmed:
+            raise ValueError("source Bridge has no confirmed support")
+        return Clock(max(confirmed) + SUPPORT_FINALITY_BLOCKS, timestamp)
+
+    def credit_id_for(
+        self,
+        envelope: BridgeAdmissionEnvelope,
+        clock: Clock,
+        *,
+        caller: str | None = None,
+    ) -> str:
+        raw_message = bridge_message_calldata(envelope)
+        normalized = replace(
+            raw_message,
+            message_id=self.next_message_id,
+            sender=raw_message.sender if caller is None else caller,
+            source_chain_id=self.source_chain_id,
+        )
+        normalized_envelope = replace(envelope, message=normalized)
+        preimage = bridge_message_preimage(normalized_envelope)
+        msg_hash = bridge_message_hash(preimage)
+        support_entry = self.domain_registry.latest_final_entry(
+            preimage.destination_chain_id, clock
+        )
+        if (support_entry is None
+                or not preimage.sender
+                or preimage.sender == self.address
+                or preimage.sender
+                    == support_entry.manifest.destination_bridge
+                or support_entry.source_chain_id != self.source_chain_id
+                or support_entry.source_registration_epoch
+                    != self.source_registration_epoch):
+            raise ValueError("Bridge Message has no current final destination")
+        return BridgeAdapter.credit_id(
+            self.source_chain_id,
+            self.source_domain_id,
+            self.source_registration_epoch,
+            self.frozen_bridge,
+            support_entry.manifest.destination_domain_id,
+            msg_hash,
+        )
+
+    def send_message(
+        self,
+        envelope: BridgeAdmissionEnvelope,
+        *,
+        caller: str,
+        msg_value: int,
+        clock: Clock,
+        enqueue_by: int,
+    ) -> SourceSendReceipt:
+        """The direct IBridge selector; it always creates DIRECT credit."""
+
+        if caller in self.source_descriptor.v1_official_vaults:
+            raise ValueError("V1 Vault caller is outside the V2 DIRECT launch")
+        return self._send_message(
+            envelope,
+            effective_caller=caller,
+            msg_value=msg_value,
+            clock=clock,
+            enqueue_by=enqueue_by,
+        )
+
+    def _send_message(
+        self,
+        envelope: BridgeAdmissionEnvelope,
+        *,
+        effective_caller: str,
+        msg_value: int,
+        clock: Clock,
+        enqueue_by: int,
+    ) -> SourceSendReceipt:
+        if self.entered:
+            raise RuntimeError("source Bridge is non-reentrant")
+        try:
+            raw_message = bridge_message_calldata(envelope)
+        except (AttributeError, ValueError) as exc:
+            raise ValueError("source Bridge message decode reverted") from exc
+        normalized_preimage = replace(
+            raw_message,
+            message_id=self.next_message_id,
+            sender=effective_caller,
+            source_chain_id=self.source_chain_id,
+        )
+        normalized_envelope = replace(
+            envelope,
+            message=normalized_preimage,
+            refund_address=effective_caller,
+        )
+        bridge_message_preimage(normalized_envelope)
+        msg_hash = bridge_message_hash(normalized_preimage)
+        support_entry = self.domain_registry.latest_final_entry(
+            normalized_preimage.destination_chain_id, clock
+        )
+        destination_domain_id = (
+            "" if support_entry is None
+            else support_entry.manifest.destination_domain_id
+        )
+        destination_bridge = (
+            None if support_entry is None
+            else support_entry.manifest.destination_bridge
+        )
+        expected_credit_id = BridgeAdapter.credit_id(
+            self.source_chain_id,
+            self.source_domain_id,
+            self.source_registration_epoch,
+            self.frozen_bridge,
+            destination_domain_id,
+            msg_hash,
+        )
+        credit_id = expected_credit_id
+        if (self.paused
+                or not normalized_preimage.source_owner
+                or not 0 < self.source_registration_epoch <= UINT64_MAX
+                or not self.source_domain_id or not msg_hash
+                or not self.frozen_bridge_execution_hash
+                or not effective_caller
+                or normalized_preimage.sender == self.address
+                or destination_bridge is None
+                or normalized_preimage.sender == destination_bridge
+                or normalized_preimage.to in (
+                    () if support_entry is None
+                    else support_entry.manifest
+                        .destination_bridge_descriptor
+                        .privileged_target_denyset
+                )
+                or support_entry.source_chain_id != self.source_chain_id
+                or support_entry.source_registration_epoch
+                    != self.source_registration_epoch
+                or support_entry.manifest.destination_chain_id
+                    != normalized_preimage.destination_chain_id
+                or type(clock) is not Clock
+                or not 0 < clock.block_number <= UINT64_MAX
+                or type(enqueue_by) is not int
+                or not 0 <= enqueue_by <= UINT64_MAX
+                or enqueue_by != checked_u64_add(
+                    clock.timestamp,
+                    MAX_BRIDGE_ENQUEUE_DELAY,
+                    "Bridge enqueue deadline",
+                )
+                or support_entry is None
+                or normalized_preimage.value < 0
+                or normalized_preimage.fee < 0
+                or type(msg_value) is not int
+                or isinstance(msg_value, bool)
+                or msg_value
+                    != normalized_preimage.value + normalized_preimage.fee):
+            raise ValueError("source Bridge payable send reverted")
+        authorization = CreditAuthorization(
+            self.source_chain_id,
+            self.source_domain_id,
+            self.source_registration_epoch,
+            self.frozen_bridge,
+            destination_domain_id,
+            destination_bridge,
+            self.frozen_bridge_execution_hash,
+            clock.block_number,
+            bridge_escrow_id(credit_id),
+            msg_hash,
+            normalized_preimage.data_hash,
+            normalized_preimage.data_length,
+            enqueue_by,
+            normalized_preimage.source_owner,
+            normalized_preimage.value,
+            normalized_preimage.fee,
+            "DIRECT",
+            "",
+        )
+        registry_before = self.credit_registry._authorization_snapshot()
+        bridge_before = self._transaction_snapshot()
+        self.entered = True
+        try:
+            if not self.credit_registry._authorize_from_source_bridge(
+                    credit_id, authorization, source_bridge=self):
+                raise ValueError("source authorization registry rejected")
+            if self.fault_point == "after_registry_write":
+                raise RuntimeError(
+                    "injected source Bridge fault: after_registry_write"
+                )
+            self.credits[credit_id] = SourceCredit(
+                normalized_preimage.value,
+                normalized_preimage.fee,
+                "NEW",
+            )
+            self.balance += msg_value
+            self.total_live_liability += msg_value
+            self.next_message_id = checked_u64_add(
+                self.next_message_id, 1, "shared Bridge message id"
+            )
+            if self.fault_point == "after_liability_write":
+                raise RuntimeError(
+                    "injected source Bridge fault: after_liability_write"
+                )
+            return SourceSendReceipt(
+                credit_id, msg_hash, normalized_envelope
+            )
+        except BaseException:
+            self.credit_registry._restore_authorization_snapshot(
+                registry_before, source_bridge=self
+            )
+            self._restore_transaction_snapshot(bridge_before)
+            raise
+        finally:
+            self.entered = False
+
+    def _mark_queued_from_adapter(
+        self,
+        credit_id: str,
+        queue_index: int,
+        *,
+        adapter: object,
+    ) -> bool:
         credit = self.credits.get(credit_id)
-        if (authorization is None or credit is None or credit.status != "DRAFT"
-                or caller != authorization.refund_vault or not capsule_hash
-                or not vault_has_matching_capsule):
-            return False
-        credit.refund_capsule_hash = capsule_hash
-        credit.status = "NEW"
-        return True
-
-    def mark_queued(self, credit_id: str, queue_index: int,
-                    *, caller_is_bound_adapter: bool) -> bool:
-        credit = self.credits.get(credit_id)
-        if (credit is None or credit.status != "NEW"
-                or not caller_is_bound_adapter or queue_index < 0):
+        authorization = self.credit_registry.authorizations.get(credit_id)
+        if (type(adapter) is not BridgeAdapter
+                or adapter.source_bridge is not self
+                or adapter.credit_registry is not self.credit_registry
+                or not adapter.destination_sealed
+                or adapter.router._ingress_binding(adapter) is None
+                or authorization is None
+                or authorization.destination_domain_id
+                    != adapter.destination_domain_id
+                or credit is None or credit.status != "NEW"
+                or queue_index < 0):
             return False
         credit.status = "QUEUED"
         credit.queue_index = queue_index
-        self.total_live_liability -= credit.fee
         return True
 
     def cancel(self, credit_id: str, *, now: int) -> bool:
-        credit = self.credits.get(credit_id)
-        authorization = self.authorizations.get(credit_id)
-        if (credit is None or credit.status not in {"DRAFT", "NEW"}
-                or authorization is None or now <= authorization.enqueue_by):
+        if self.entered:
             return False
-        credit.status = "CANCELLED"
-        self.refunds[authorization.owner] = (
-            self.refunds.get(authorization.owner, 0) + credit.value + credit.fee)
-        return True
+        self.entered = True
+        try:
+            credit = self.credits.get(credit_id)
+            authorization = self.credit_registry.authorizations.get(credit_id)
+            if (credit is None or credit.status != "NEW"
+                    or authorization is None
+                    or now <= authorization.enqueue_by):
+                return False
+            credit.status = "CANCELLED"
+            self.refunds[authorization.owner] = seat_checked_add(
+                self.refunds.get(authorization.owner, 0),
+                credit.value + credit.fee,
+                "source cancellation refund",
+            )
+            return True
+        finally:
+            self.entered = False
 
     def finalize_done(self, credit_id: str, *, verifier: TerminalSignalVerifier,
                       proof: TerminalProof) -> bool:
-        credit = self.credits.get(credit_id)
-        authorization = self.authorizations.get(credit_id)
-        destination_bridge = (None if authorization is None else
-                              self.destination_bridges.get(
-                                  authorization.destination_domain_id))
-        if (credit is None or credit.status != "QUEUED"
-                or authorization is None or destination_bridge is None
-                or not verifier.verify(
-                    proof=proof, credit_id=credit_id, terminal="DONE",
-                    destination_domain_id=authorization.destination_domain_id,
-                    destination_bridge=destination_bridge)):
+        if self.entered:
             return False
-        credit.status = "DELIVERED"
-        self.total_live_liability -= credit.value
-        return True
+        self.entered = True
+        try:
+            credit = self.credits.get(credit_id)
+            authorization = self.credit_registry.authorizations.get(credit_id)
+            if (credit is None or credit.status != "QUEUED"
+                    or authorization is None
+                    or not verifier.verify(
+                        proof=proof, credit_id=credit_id, terminal="DONE",
+                        destination_domain_id=(
+                            authorization.destination_domain_id
+                        ),
+                        destination_bridge=authorization.destination_bridge)):
+                return False
+            credit.status = "DELIVERED"
+            self.total_live_liability -= credit.value + credit.fee
+            return True
+        finally:
+            self.entered = False
 
     def recall_failed(self, credit_id: str, *, verifier: TerminalSignalVerifier,
                       proof: TerminalProof) -> bool:
-        credit = self.credits.get(credit_id)
-        authorization = self.authorizations.get(credit_id)
-        destination_bridge = (None if authorization is None else
-                              self.destination_bridges.get(
-                                  authorization.destination_domain_id))
-        if (credit is None or credit.status != "QUEUED"
-                or authorization is None or destination_bridge is None
-                or not verifier.verify(
-                    proof=proof, credit_id=credit_id, terminal="FAILED",
-                    destination_domain_id=authorization.destination_domain_id,
-                    destination_bridge=destination_bridge)):
+        if self.entered:
             return False
-        credit.status = "RECALLED"
-        assert authorization is not None
-        self.refunds[authorization.owner] = (
-            self.refunds.get(authorization.owner, 0) + credit.value)
+        self.entered = True
+        try:
+            credit = self.credits.get(credit_id)
+            authorization = self.credit_registry.authorizations.get(credit_id)
+            if (credit is None or credit.status != "QUEUED"
+                    or authorization is None
+                    or not verifier.verify(
+                        proof=proof, credit_id=credit_id, terminal="FAILED",
+                        destination_domain_id=(
+                            authorization.destination_domain_id
+                        ),
+                        destination_bridge=authorization.destination_bridge)):
+                return False
+            credit.status = "RECALLED"
+            self.refunds[authorization.owner] = seat_checked_add(
+                self.refunds.get(authorization.owner, 0),
+                credit.value + credit.fee,
+                "source terminal refund",
+            )
+            return True
+        finally:
+            self.entered = False
+
+    def _legacy_v1_enter_source(
+        self, frame: SourceNativeTransactionFrameV2, operation: str
+    ) -> bool:
+        environment = self.native_environment
+        if (self.entered
+                or type(environment) is not SourceNativeExecutionEnvironmentV2
+                or frame.environment is not environment
+                or frame is not environment._active_frame
+                or frame.operation != operation
+                or self.paused):
+            return False
+        self.entered = True
         return True
+
+    def _legacy_v1_has_source_balance_capacity(
+        self, maximum_debit: int
+    ) -> bool:
+        return (
+            type(maximum_debit) is int
+            and maximum_debit >= 0
+            and self.balance - self.total_live_liability >= maximum_debit
+        )
+
+    def _legacy_v1_has_source_quota_capacity(self, debit: int) -> bool:
+        return (
+            type(debit) is int
+            and debit >= 0
+            and self.ether_quota >= debit
+        )
+
+    def _legacy_v1_process_from_environment(
+        self,
+        request: "LegacyV1ProcessV2",
+        *,
+        frame: SourceNativeTransactionFrameV2,
+    ) -> str:
+        if (type(request) is not LegacyV1ProcessV2
+                or not request.msg_hash or not request.target
+                or not request.fee_recipient or not request.destination_owner
+                or type(request.value) is not int or request.value < 0
+                or type(request.fee) is not int or request.fee < 0
+                or type(request.processor_fee) is not int
+                or not 0 <= request.processor_fee <= request.fee
+                or type(request.data) is not bytes
+                or not self._legacy_v1_enter_source(frame, "V1_PROCESS")):
+            return "REJECTED"
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.native_environment is not None
+        environment_snapshot = self.native_environment._transaction_snapshot()
+        try:
+            if self.legacy_v1_status_by_msg_hash.get(
+                    request.msg_hash, "NEW") != "NEW":
+                return "REJECTED"
+            maximum = seat_checked_add(
+                request.value, request.fee, "source V1 process maximum"
+            )
+            if not self._legacy_v1_has_source_balance_capacity(maximum):
+                return "REJECTED"
+            target_succeeded = (
+                request.invocation_prohibited
+                or (request.value == 0 and not request.data)
+            )
+            should_call = (
+                not request.invocation_prohibited
+                and (request.value > 0 or bool(request.data))
+            )
+            if request.invocation_prohibited and request.value:
+                self.balance -= request.value
+                if not self.native_environment._transfer_native(
+                        self, request.destination_owner, request.value,
+                        frame=frame):
+                    raise RuntimeError("source V1 value refund reverted")
+            elif should_call:
+                self.balance -= request.value
+                target_succeeded = self.native_environment._transfer_native(
+                    self, request.target, request.value, frame=frame
+                )
+                if not target_succeeded:
+                    self.native_environment._restore_transaction_snapshot(
+                        environment_snapshot
+                    )
+                    self.balance = bridge_snapshot["balance"]
+            actual_debit = maximum if target_succeeded else request.fee
+            if not self._legacy_v1_has_source_quota_capacity(actual_debit):
+                raise RuntimeError("source V1 process quota is insufficient")
+            processor_fee = request.processor_fee
+            owner_fee = request.fee - processor_fee
+            if processor_fee:
+                self.balance -= processor_fee
+                if not self.native_environment._transfer_native(
+                        self, request.fee_recipient, processor_fee,
+                        frame=frame):
+                    raise RuntimeError("source V1 processor fee reverted")
+            if owner_fee:
+                self.balance -= owner_fee
+                if not self.native_environment._transfer_native(
+                        self, request.destination_owner, owner_fee,
+                        frame=frame):
+                    raise RuntimeError("source V1 owner fee reverted")
+            self.ether_quota -= actual_debit
+            self.legacy_v1_status_by_msg_hash[request.msg_hash] = (
+                "DONE" if target_succeeded else "RETRIABLE"
+            )
+            if self.balance < self.total_live_liability:
+                raise RuntimeError("source V1 process invaded V2 liabilities")
+            return self.legacy_v1_status_by_msg_hash[request.msg_hash]
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.native_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return "REJECTED"
+        finally:
+            self.entered = False
+
+    def _legacy_v1_retry_from_environment(
+        self,
+        request: "LegacyV1RetryV2",
+        *,
+        frame: SourceNativeTransactionFrameV2,
+    ) -> str:
+        if (type(request) is not LegacyV1RetryV2
+                or not request.msg_hash or not request.target
+                or type(request.value) is not int or request.value < 0
+                or not self._legacy_v1_enter_source(frame, "V1_RETRY")):
+            return "REJECTED"
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.native_environment is not None
+        environment_snapshot = self.native_environment._transaction_snapshot()
+        try:
+            if (self.legacy_v1_status_by_msg_hash.get(request.msg_hash)
+                    != "RETRIABLE"
+                    or not self._legacy_v1_has_source_balance_capacity(
+                        request.value
+                    )
+                    or not self._legacy_v1_has_source_quota_capacity(
+                        request.value
+                    )):
+                return "REJECTED"
+            self.balance -= request.value
+            if not self.native_environment._transfer_native(
+                    self, request.target, request.value, frame=frame):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                self.native_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                return "RETRIABLE"
+            self.ether_quota -= request.value
+            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "DONE"
+            return "DONE"
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.native_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return "REJECTED"
+        finally:
+            self.entered = False
+
+    def _legacy_v1_recall_from_environment(
+        self,
+        request: "LegacyV1RecallV2",
+        *,
+        frame: SourceNativeTransactionFrameV2,
+    ) -> bool:
+        if (type(request) is not LegacyV1RecallV2
+                or not request.msg_hash or not request.recipient
+                or type(request.value) is not int or request.value < 0
+                or not self._legacy_v1_enter_source(frame, "V1_RECALL")):
+            return False
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.native_environment is not None
+        environment_snapshot = self.native_environment._transaction_snapshot()
+        try:
+            if (self.legacy_v1_status_by_msg_hash.get(
+                    request.msg_hash, "NEW") != "NEW"
+                    or not self._legacy_v1_has_source_balance_capacity(
+                        request.value
+                    )
+                    or not self._legacy_v1_has_source_quota_capacity(
+                        request.value
+                    )):
+                return False
+            self.balance -= request.value
+            if not self.native_environment._transfer_native(
+                    self, request.recipient, request.value, frame=frame):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                self.native_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                return False
+            self.ether_quota -= request.value
+            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "RECALLED"
+            return True
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.native_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return False
+        finally:
+            self.entered = False
 
     def ordinary_payout(self, amount: int) -> bool:
-        if (amount < 0 or amount > self.ether_quota
-                or self.balance - amount < self.total_live_liability):
-            return False
-        self.balance -= amount
-        self.ether_quota -= amount
-        return True
+        """Behavioral V1 outflow hook sharing the facade lock and reserves."""
 
-    def withdraw_refund(self, owner: str) -> int:
-        amount = self.refunds.pop(owner, 0)
-        self.total_live_liability -= amount
-        self.balance -= amount
-        return amount
+        if self.entered:
+            return False
+        self.entered = True
+        try:
+            if (type(amount) is not int or amount < 0
+                    or amount > self.ether_quota
+                    or self.balance - amount < self.total_live_liability):
+                return False
+            self.balance -= amount
+            self.ether_quota -= amount
+            return True
+        finally:
+            self.entered = False
+
+    def _withdraw_refund_from_environment(
+        self,
+        *,
+        recipient: str,
+        frame: SourceNativeTransactionFrameV2,
+    ) -> int:
+        """Consume only the exact transaction caller's refund under CEI."""
+
+        environment = self.native_environment
+        if (self.entered or not recipient
+                or type(environment) is not SourceNativeExecutionEnvironmentV2
+                or frame is not environment._active_frame
+                or frame.environment is not environment
+                or frame.operation != "WITHDRAW_REFUND"):
+            return 0
+        bridge_snapshot = self._transaction_snapshot()
+        environment_snapshot = environment._transaction_snapshot()
+        self.entered = True
+        try:
+            amount = self.refunds.get(frame.caller, 0)
+            if (amount == 0 or amount > self.balance
+                    or amount > self.total_live_liability):
+                return 0
+            self.refunds.pop(frame.caller, None)
+            self.total_live_liability -= amount
+            self.balance -= amount
+            try:
+                transferred = environment._transfer_native(
+                    self, recipient, amount, frame=frame
+                )
+            except BaseException:
+                transferred = False
+            if not transferred:
+                self._restore_transaction_snapshot(bridge_snapshot)
+                environment._restore_transaction_snapshot(environment_snapshot)
+                return 0
+            return amount
+        finally:
+            self.entered = False
+
+    def withdraw_refund(self, caller: str, recipient: str | None = None) -> int:
+        """Unpausable refund; `caller` is the modeled transaction sender."""
+
+        environment = self.native_environment
+        recipient = caller if recipient is None else recipient
+        if type(environment) is not SourceNativeExecutionEnvironmentV2:
+            return 0
+        return environment.withdraw_bridge_refund(
+            self, caller=caller, recipient=recipient
+        )
 
 
 @dataclass
-class RefundCapsule:
-    owner: str
-    amount: int
-    capsule_hash: str
-    claimed: bool = False
+class Kind0IngressAdapter:
+    router: ActiveSettlementRouter
+    address: str = "kind0-adapter"
+    queue_address: str = ""
+    runtime_hash: str = KIND0_INGRESS_RUNTIME_HASH
+    configuration_hash: str = KIND0_INGRESS_CONFIGURATION_HASH
+    refunds: dict[str, int] = field(default_factory=dict)
+    balance: int = 0
+    entered: bool = field(default=False, compare=False)
 
+    def __post_init__(self) -> None:
+        if not self.queue_address:
+            object.__setattr__(
+                self, "queue_address", self.router.forced_queue_address
+            )
 
-@dataclass
-class RefundVaultLedger:
-    balance: int
-    reserved: int = 0
-    token_quota: int = UINT64_MAX
-    capsules: dict[str, RefundCapsule] = field(default_factory=dict)
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "router", "address", "queue_address", "runtime_hash",
+            "configuration_hash",
+        } and name in self.__dict__:
+            raise AttributeError(f"kind-0 adapter {name} is immutable")
+        object.__setattr__(self, name, value)
 
-    def register(self, credit_id: str, *, owner: str, amount: int,
-                 capsule_hash: str, calldata_hash_matches: bool) -> bool:
-        if (not credit_id or credit_id in self.capsules or not owner
-                or amount <= 0 or not capsule_hash or not calldata_hash_matches
-                or self.reserved + amount > self.balance):
-            return False
-        self.capsules[credit_id] = RefundCapsule(owner, amount, capsule_hash)
-        self.reserved += amount
-        return True
+    def enqueue(
+        self, clock: Clock, envelope: Message, *, caller: str, deposit: int
+    ) -> str:
+        registration = self.router.registrations.get(self.router.active_version)
+        if (type(self.router) is not ActiveSettlementRouter
+                or registration is None
+                or self.router._ingress_binding(self) is None
+                or self.queue_address != self.router.forced_queue_address
+                or not caller or caller != envelope.sender
+                or envelope.kind is not ForceKind.USER_TX
+                or envelope.l2_chain_id
+                    != registration.release_manifest.destination_chain_id
+                or type(deposit) is not int or isinstance(deposit, bool)
+                or deposit <= 0 or envelope.prepaid != deposit
+                or deposit != self.router.required_ingress_deposit(
+                    envelope, self
+                )
+                or not self.router._valid_ingress_static(
+                    envelope, clock=clock, deposit=deposit
+                )):
+            raise ValueError("kind-0 payable ingress precheck reverted")
+        if self.entered:
+            raise RuntimeError("kind-0 adapter is non-reentrant")
+        self.entered = True
+        try:
+            status, stamp = self.router.sync_ingress(
+                clock=clock, caller_adapter=self
+            )
+            if stamp is None:
+                if status == "SYNCED":
+                    self.balance += deposit
+                    self.refunds[caller] = self.refunds.get(caller, 0) + deposit
+                    return "SYNCED_REFUNDED"
+                raise ValueError(
+                    f"kind-0 payable ingress sync reverted: {status}"
+                )
+            return self.router.append_from_adapter(
+                envelope,
+                clock=clock,
+                stamp=stamp,
+                deposit=deposit,
+                caller_adapter=self,
+            )
+        finally:
+            self.entered = False
 
-    def ordinary_payout(self, amount: int) -> bool:
-        if (amount < 0 or amount > self.token_quota
-                or self.balance - amount < self.reserved):
-            return False
-        self.balance -= amount
-        self.token_quota -= amount
-        return True
-
-    def release_delivered(self, credit_id: str,
-                          source: SourceBridgeLedger) -> bool:
-        capsule = self.capsules.get(credit_id)
-        credit = source.credits.get(credit_id)
-        if (capsule is None or capsule.claimed or credit is None
-                or credit.status != "DELIVERED"):
-            return False
-        capsule.claimed = True
-        self.reserved -= capsule.amount
-        return True
-
-    def claim_refund(self, credit_id: str, *, caller: str,
-                     source: SourceBridgeLedger,
-                     transfer_succeeds: bool = True) -> bool:
-        capsule = self.capsules.get(credit_id)
-        credit = source.credits.get(credit_id)
-        if (capsule is None or capsule.claimed or caller != capsule.owner
-                or credit is None or credit.status not in {"CANCELLED", "RECALLED"}
-                or not transfer_succeeds):
-            return False
-        capsule.claimed = True
-        self.reserved -= capsule.amount
-        self.balance -= capsule.amount
-        return True
-
-
-@dataclass
-class RefundRestorableToken:
-    frozen_vault: str
-    paused: bool = False
-    restored: set[str] = field(default_factory=set)
-
-    def restore(self, credit_id: str, *, caller: str,
-                capsule_matches: bool) -> bool:
-        if (not credit_id or caller != self.frozen_vault
-                or not capsule_matches or credit_id in self.restored):
-            return False
-        self.restored.add(credit_id)
-        return True
+    def withdraw_refund(self, caller: str) -> int:
+        if self.entered:
+            raise RuntimeError("kind-0 adapter is non-reentrant")
+        self.entered = True
+        try:
+            amount = self.refunds.pop(caller, 0)
+            if amount > self.balance:
+                self.refunds[caller] = amount
+                return 0
+            self.balance -= amount
+            return amount
+        finally:
+            self.entered = False
 
 
 @dataclass
 class BridgeAdapter:
-    source_bridge: str = "bridge:A"
+    router: ActiveSettlementRouter
+    credit_registry: BridgeCreditRegistryV2
+    source_bridge: SourceBridgeV2
+    address: str = "bridge-inbox-adapter"
+    queue_address: str = ""
+    runtime_hash: str = BRIDGE_INGRESS_RUNTIME_HASH
     records: dict[str, BridgeRecord] = field(default_factory=dict)
     refunds: dict[str, int] = field(default_factory=dict)
     balance: int = 0
+    entered: bool = field(default=False, compare=False)
+    fault_point: str | None = field(default=None, compare=False)
+    _destination_domain_id: str = field(
+        default="", init=False, compare=False, repr=False
+    )
+    _component_configuration_hash: str = field(
+        default="", init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (type(self.router) is not ActiveSettlementRouter
+                or type(self.credit_registry) is not BridgeCreditRegistryV2
+                or type(self.source_bridge) is not SourceBridgeV2
+                or self.source_bridge.credit_registry is not self.credit_registry
+                or self.credit_registry.source_bridge is not self.source_bridge
+                or not self.address
+                or self.source_bridge.address
+                    != self.source_bridge.frozen_bridge
+                or self.credit_registry.runtime_hash
+                    != BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH
+                or self.credit_registry.configuration_hash
+                    != bridge_credit_registry_configuration_hash(
+                        address=self.credit_registry.address,
+                        runtime_hash=self.credit_registry.runtime_hash,
+                        domain_registrar=self.credit_registry.domain_registrar,
+                        frozen_bridge=self.source_bridge.address,
+                        support_registry_address=(
+                            self.credit_registry.domain_registry.address
+                        ),
+                        support_registry_runtime_hash=(
+                            self.credit_registry.domain_registry.runtime_hash
+                        ),
+                        support_registry_configuration_hash=(
+                            self.credit_registry.domain_registry.configuration_hash
+                        ),
+                        source_chain_id=self.source_bridge.source_chain_id,
+                        source_domain_id=self.source_bridge.source_domain_id,
+                        source_registration_epoch=(
+                            self.source_bridge.source_registration_epoch
+                        ),
+                        frozen_bridge_execution_hash=(
+                            self.source_bridge.frozen_bridge_execution_hash
+                        ),
+                        source_descriptor_id=(
+                            self.source_bridge.source_descriptor.descriptor_id
+                        ),
+                    )
+                or self.source_bridge.configuration_hash
+                    != source_bridge_configuration_hash(
+                        self.source_bridge.source_descriptor,
+                        self.credit_registry,
+                    )):
+            raise ValueError("Bridge adapter authority graph is invalid")
+        if not self.queue_address:
+            object.__setattr__(
+                self, "queue_address", self.router.forced_queue_address
+            )
+        object.__setattr__(
+            self,
+            "_component_configuration_hash",
+            bridge_ingress_component_configuration_hash(
+                router_address=self.router.address,
+                router_runtime_hash=self.router.runtime_hash,
+                router_configuration_hash=self.router.configuration_hash,
+                queue_address=self.queue_address,
+                queue_runtime_hash=self.router.forced_queue.runtime_hash,
+                queue_configuration_hash=self.router.forced_queue.config_hash,
+                source_registry_address=self.credit_registry.address,
+                source_registry_runtime_hash=self.credit_registry.runtime_hash,
+                source_registry_configuration_hash=(
+                    self.credit_registry.configuration_hash
+                ),
+                source_bridge_address=self.source_bridge.address,
+                source_bridge_runtime_hash=self.source_bridge.runtime_hash,
+                source_bridge_configuration_hash_=(
+                    self.source_bridge.configuration_hash
+                ),
+                seal_authority=self.router.version_manager,
+            ),
+        )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "router", "credit_registry", "source_bridge", "address",
+            "queue_address", "runtime_hash", "_destination_domain_id",
+            "_component_configuration_hash",
+        } and name in self.__dict__:
+            raise AttributeError(f"bridge adapter {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    @property
+    def destination_domain_id(self) -> str:
+        return self._destination_domain_id
+
+    @property
+    def destination_sealed(self) -> bool:
+        return bool(self._destination_domain_id)
+
+    @property
+    def configuration_hash(self) -> str:
+        return self._component_configuration_hash
+
+    def expected_component_configuration_hash(self) -> str:
+        return bridge_ingress_component_configuration_hash(
+            router_address=self.router.address,
+            router_runtime_hash=self.router.runtime_hash,
+            router_configuration_hash=self.router.configuration_hash,
+            queue_address=self.queue_address,
+            queue_runtime_hash=self.router.forced_queue.runtime_hash,
+            queue_configuration_hash=self.router.forced_queue.config_hash,
+            source_registry_address=self.credit_registry.address,
+            source_registry_runtime_hash=self.credit_registry.runtime_hash,
+            source_registry_configuration_hash=(
+                self.credit_registry.configuration_hash
+            ),
+            source_bridge_address=self.source_bridge.address,
+            source_bridge_runtime_hash=self.source_bridge.runtime_hash,
+            source_bridge_configuration_hash_=(
+                self.source_bridge.configuration_hash
+            ),
+            seal_authority=self.router.version_manager,
+        )
+
+    def _seal_destination_from_profile(
+        self,
+        *,
+        authorization: ProfileIngressAuthorization,
+        registration: SettlementRegistration,
+        router: ActiveSettlementRouter,
+        protocol_version: int,
+    ) -> bool:
+        """One-shot seal reached only from an exact historical release."""
+
+        if (self.destination_sealed
+                or router is not self.router
+                or type(authorization) is not ProfileIngressAuthorization
+                or authorization.kind is not ForceKind.BRIDGE_CREDIT
+                or registration.ingress_authorizations_by_id.get(
+                    authorization.authorization_id
+                ) != authorization
+                or router.registrations.get(protocol_version)
+                    is not registration
+                or router._profile_deployments_by_version.get(
+                    protocol_version, {}
+                ).get(authorization.authorization_id) is not self
+                or authorization.adapter_address != self.address
+                or authorization.configuration_hash
+                    != self.configuration_hash
+                or authorization.destination_domain_id == ""):
+            return False
+        object.__setattr__(
+            self,
+            "_destination_domain_id",
+            authorization.destination_domain_id,
+        )
+        return True
 
     @staticmethod
     def credit_id(src_chain_id: int, source_domain_id: str, src_epoch: int,
@@ -5868,64 +10625,232 @@ class BridgeAdapter:
         return (f"credit:{src_chain_id}:{source_domain_id}:{src_epoch}:"
                 f"{src_bridge}:{destination_domain_id}:{msg_hash}")
 
-    def enqueue(self, protocol_: Protocol, clock_: Clock,
-                source_ledger: SourceBridgeLedger, *, src_chain_id: int,
-                source_domain_id: str, src_epoch: int, src_bridge: str,
-                destination_domain_id: str, msg_hash: str, enqueue_by: int,
-                envelope: Message, caller: str, deposit: int,
-                source_record_present: bool = True,
-                source_record_matches: bool = True,
-                source_liability_live: bool = True,
-                domain_authorized: bool = True,
-                direct_call_bounded: bool = True) -> str:
+    @staticmethod
+    def _durable_descriptor(
+        envelope: BridgeAdmissionEnvelope,
+        credit_id: str,
+        authorization: CreditAuthorization,
+        credit: SourceCredit,
+        refund_address: str,
+    ) -> BridgeQueueDescriptorV10:
+        preimage = bridge_message_preimage(envelope)
+        descriptor = BridgeQueueDescriptorV10(
+            envelope.enqueued_at,
+            envelope.accounted_gas,
+            preimage.data_length,
+            authorization.msg_hash,
+            envelope.prepaid,
+            preimage.sender,
+            preimage.fee,
+            preimage.source_chain_id,
+            preimage.source_owner,
+            preimage.destination_chain_id,
+            preimage.destination_owner,
+            preimage.value,
+            preimage.data_hash,
+            authorization.source_domain_id,
+            authorization.src_epoch,
+            authorization.src_bridge,
+            authorization.bridge_execution_hash,
+            authorization.emitted_at_block,
+            authorization.destination_domain_id,
+            authorization.enqueue_by,
+            "DIRECT",
+            refund_address,
+            "",
+            "",
+            escrow_id=authorization.escrow_id,
+            due_at=envelope.due_at,
+        )
+        if (descriptor.credit_id != credit_id
+                or authorization.escrow_id != bridge_escrow_id(credit_id)
+                or descriptor.msg_hash != authorization.msg_hash
+                or descriptor.bridge_src_owner != authorization.owner
+                or descriptor.bridge_value != credit.value
+                or descriptor.bridge_fee != credit.fee
+                or authorization.refund_mode != "DIRECT"
+                or authorization.refund_vault
+                or not descriptor.structurally_valid()):
+            raise ValueError("Bridge durable queue descriptor is not exact")
+        return descriptor
+
+    def enqueue(self, clock_: Clock, *,
+                envelope: BridgeAdmissionEnvelope,
+                caller: str, deposit: int) -> str:
+        source_bridge = self.source_bridge
+        credit_registry = self.credit_registry
+        destination_domain_id = self.destination_domain_id
+        try:
+            preimage = bridge_message_preimage(envelope)
+            msg_hash = bridge_message_hash(preimage)
+        except (AttributeError, ValueError) as exc:
+            raise ValueError("Bridge payable ingress precheck reverted") from exc
         credit_id = self.credit_id(
-            src_chain_id, source_domain_id, src_epoch, src_bridge,
+            source_bridge.source_chain_id,
+            source_bridge.source_domain_id,
+            source_bridge.source_registration_epoch,
+            source_bridge.frozen_bridge,
             destination_domain_id, msg_hash)
         existing = self.records.get(credit_id)
         if existing is not None:
-            return (f"QUEUED:{existing.index}" if deposit == 0
-                    else "REJECTED_DUPLICATE_FUNDS")
-        source_authorization = source_ledger.authorizations.get(credit_id)
-        source_credit = source_ledger.credits.get(credit_id)
-        if (not caller or deposit <= 0
+            if deposit == 0:
+                return f"QUEUED:{existing.index}"
+            raise ValueError("funded duplicate Bridge ingress reverted")
+        source_authorization = credit_registry.authorizations.get(credit_id)
+        source_credit = source_bridge.credits.get(credit_id)
+        support_entry = (
+            None if source_authorization is None
+            else credit_registry.domain_registry.final_entry(
+                source_authorization.source_domain_id,
+                source_authorization.bridge_execution_hash,
+                source_authorization.destination_domain_id,
+                clock_,
+            )
+        )
+        queue_descriptor = None
+        if (source_authorization is not None and source_credit is not None):
+            try:
+                queue_descriptor = self._durable_descriptor(
+                    envelope, credit_id, source_authorization, source_credit,
+                    caller,
+                )
+            except ValueError:
+                queue_descriptor = None
+        if (type(self.router) is not ActiveSettlementRouter
+                or self.router._ingress_binding(self) is None
+                or not self.destination_sealed
+                or self.queue_address != self.router.forced_queue_address
+                or not caller or deposit <= 0
+                or envelope.prepaid != deposit
+                or deposit != self.router.required_ingress_deposit(
+                    envelope, self
+                )
                 or envelope.kind is not ForceKind.BRIDGE_CREDIT
-                or src_bridge != self.source_bridge
-                or not source_record_present or not source_record_matches
-                or not source_liability_live or not domain_authorized
-                or not direct_call_bounded or source_credit is None
+                or envelope.payload_hash != msg_hash
+                or envelope.sender != preimage.sender
+                or source_credit is None
                 or source_authorization is None
+                or queue_descriptor is None
                 or source_credit.status != "NEW"
-                or source_authorization.enqueue_by != enqueue_by
-                or clock_.timestamp > enqueue_by):
-            return "REJECTED"
-        queue_snapshot = copy.deepcopy(protocol_.forced_queue)
-        result = protocol_.admit_bridge_direct(
-            clock_, replace(envelope, prepaid=deposit))
-        if result == "SYNCED":
-            # msg.value never left the adapter because syncIngress was
-            # nonpayable and no append call occurred.
-            self.balance += deposit
-            self.refunds[caller] = self.refunds.get(caller, 0) + deposit
-            return "SYNCED_REFUNDED"
-        if result == "ADMITTED":
-            index = len(protocol_.messages) - 1
-            if not source_ledger.mark_queued(
-                    credit_id, index, caller_is_bound_adapter=domain_authorized):
-                protocol_.forced_queue.__dict__.update(
-                    queue_snapshot.__dict__)  # models atomic EVM rollback
-                return "REJECTED"
-            self.records[credit_id] = BridgeRecord(
-                envelope, index, caller, deposit)
-            return f"QUEUED:{index}"
-        return result
+                or source_authorization.src_chain_id
+                    != source_bridge.source_chain_id
+                or source_authorization.source_domain_id
+                    != source_bridge.source_domain_id
+                or source_authorization.src_epoch
+                    != source_bridge.source_registration_epoch
+                or source_authorization.src_bridge
+                    != source_bridge.frozen_bridge
+                or source_authorization.destination_domain_id
+                    != destination_domain_id
+                or source_authorization.msg_hash != msg_hash
+                or source_authorization.calldata_hash
+                    != preimage.data_hash
+                or source_authorization.calldata_length
+                    != preimage.data_length
+                or not 0 < source_authorization.emitted_at_block <= UINT64_MAX
+                or source_authorization.emitted_at_block > clock_.block_number
+                or support_entry is None
+                or source_authorization.destination_bridge
+                    != support_entry.manifest.destination_bridge
+                or source_credit.value != source_authorization.value
+                or source_credit.fee != source_authorization.fee
+                or source_bridge.total_live_liability
+                    < source_credit.value + source_credit.fee
+                or source_bridge.balance
+                    < source_bridge.total_live_liability
+                or clock_.timestamp > source_authorization.enqueue_by
+                or not self.router._valid_ingress_static(
+                    queue_descriptor, clock=clock_, deposit=deposit
+                )):
+            raise ValueError("Bridge payable ingress precheck reverted")
+        if self.entered:
+            raise RuntimeError("bridge adapter is non-reentrant")
+        self.entered = True
+        try:
+            status, stamp = self.router.sync_ingress(
+                clock=clock_, caller_adapter=self
+            )
+            if stamp is None:
+                if status != "SYNCED":
+                    raise ValueError(
+                        f"Bridge payable ingress sync reverted: {status}"
+                    )
+                # The nonpayable sync persists while the entire caller fee
+                # remains local and independently claimable.
+                self.balance += deposit
+                self.refunds[caller] = self.refunds.get(caller, 0) + deposit
+                return "SYNCED_REFUNDED"
+            queue_snapshot = (
+                self.router.forced_queue._transaction_snapshot()
+            )
+            source_snapshot = source_bridge._transaction_snapshot()
+            registry_snapshot = credit_registry._authorization_snapshot()
+            adapter_snapshot = copy.deepcopy({
+                key: value for key, value in self.__dict__.items()
+                if key not in {"router", "credit_registry", "source_bridge"}
+            })
+            index = self.router.forced_queue.count
+            try:
+                result = self.router.append_from_adapter(
+                    queue_descriptor,
+                    clock=clock_,
+                    stamp=stamp,
+                    deposit=deposit,
+                    caller_adapter=self,
+                )
+                if result != f"QUEUED:{index}":
+                    raise AssertionError("validated bridge append index changed")
+                if not source_bridge._mark_queued_from_adapter(
+                        credit_id, index, adapter=self):
+                    raise ValueError("source Bridge queue mark rejected")
+                if self.fault_point == "after_source_mark":
+                    raise RuntimeError(
+                        "injected bridge adapter fault: after_source_mark"
+                    )
+                self.records[credit_id] = BridgeRecord(
+                    queue_descriptor, index, caller, deposit)
+                if self.fault_point == "after_adapter_record":
+                    raise RuntimeError(
+                        "injected bridge adapter fault: after_adapter_record"
+                    )
+                return result
+            except BaseException:
+                self.router.forced_queue._restore_transaction_snapshot(
+                    queue_snapshot
+                )
+                source_bridge._restore_transaction_snapshot(source_snapshot)
+                credit_registry._restore_authorization_snapshot(
+                    registry_snapshot, source_bridge=source_bridge
+                )
+                router = self.router
+                exact_credit_registry = self.credit_registry
+                exact_source_bridge = self.source_bridge
+                self.__dict__.clear()
+                self.__dict__.update(adapter_snapshot)
+                object.__setattr__(self, "router", router)
+                object.__setattr__(
+                    self, "credit_registry", exact_credit_registry
+                )
+                object.__setattr__(
+                    self, "source_bridge", exact_source_bridge
+                )
+                raise
+        finally:
+            self.entered = False
 
     def withdraw_refund(self, caller: str) -> int:
-        amount = self.refunds.pop(caller, 0)
-        if amount > self.balance:
-            self.refunds[caller] = amount
-            return 0
-        self.balance -= amount
-        return amount
+        if self.entered:
+            raise RuntimeError("bridge adapter is non-reentrant")
+        self.entered = True
+        try:
+            amount = self.refunds.pop(caller, 0)
+            if amount > self.balance:
+                self.refunds[caller] = amount
+                return 0
+            self.balance -= amount
+            return amount
+        finally:
+            self.entered = False
 
 
 @dataclass(frozen=True)
@@ -5946,6 +10871,9 @@ class InboxCreditStoreV2:
     runtime_codehash: str = ""
     batch_return_data: bytes = INBOX_BATCH_OK_V2_WORD
     batch_writes_enabled: bool = True
+    _inbox_apply_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         if not self.address:
@@ -5954,6 +10882,30 @@ class InboxCreditStoreV2:
         if not self.runtime_codehash:
             suffix = self.destination_domain_id.split(":")[-1]
             self.runtime_codehash = f"codehash:store:{suffix}"
+
+    def __deepcopy__(
+        self, memo: dict[int, object]
+    ) -> "InboxCreditStoreV2":
+        duplicate = object.__new__(type(self))
+        memo[id(self)] = duplicate
+        for key, value in self.__dict__.items():
+            object.__setattr__(
+                duplicate,
+                key,
+                value if key == "_inbox_apply_authority"
+                else copy.deepcopy(value, memo),
+            )
+        return duplicate
+
+    def _bind_inbox_apply(self, router: "InboxApplyRouterV2") -> bool:
+        if (type(router) is not InboxApplyRouterV2
+                or router.address != self.authorized_inbox_apply):
+            return False
+        existing = self._inbox_apply_authority
+        if existing is not None:
+            return existing is router
+        object.__setattr__(self, "_inbox_apply_authority", router)
+        return True
 
     @property
     def route_config_hash(self) -> str:
@@ -5967,18 +10919,6 @@ class InboxCreditStoreV2:
                 f"{self.destination_bridge}:{self.activation_gate}:"
                 f"{self.terminal_registrar}")
 
-    def pin(self, credit_id: str, result_hash: str, *, now: int,
-            caller: str) -> bool:
-        if (caller != self.authorized_inbox_apply or not credit_id
-                or not result_hash):
-            return False
-        expected = InboxPin(result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
-        existing = self.pins.get(credit_id)
-        if existing is not None:
-            return existing.result_hash == result_hash
-        self.pins[credit_id] = expected
-        return True
-
     def read(self, credit_id: str, *, caller: str,
              destination_domain_id: str) -> InboxPin | None:
         if (caller != self.destination_bridge
@@ -5986,9 +10926,17 @@ class InboxCreditStoreV2:
             return None
         return self.pins.get(credit_id)
 
-    def pin_batch(self, rows: tuple[tuple[str, str], ...], *, now: int,
-                  caller: str) -> bytes | None:
-        if caller != self.authorized_inbox_apply:
+    def _pin_batch_from_router(
+        self,
+        rows: tuple[tuple[str, str], ...],
+        *,
+        process_by: int,
+        router: "InboxApplyRouterV2",
+    ) -> bytes | None:
+        route = router.routes.get(self.destination_domain_id)
+        if (router is not self._inbox_apply_authority
+                or type(router) is not InboxApplyRouterV2
+                or route is None or route.store is not self):
             return None
         for credit_id, result_hash in rows:
             existing = self.pins.get(credit_id)
@@ -5999,8 +10947,7 @@ class InboxCreditStoreV2:
         if self.batch_writes_enabled:
             for credit_id, result_hash in rows:
                 if credit_id not in self.pins:
-                    self.pins[credit_id] = InboxPin(
-                        result_hash, now + BRIDGE_PROCESS_TTL_SECONDS)
+                    self.pins[credit_id] = InboxPin(result_hash, process_by)
         return self.batch_return_data
 
 
@@ -6012,31 +10959,2566 @@ class InboxRoute:
     store_config_hash: str
 
 
-def inbox_kind1_descriptor(domain_id: str, credit_id: str) -> bytes:
-    """Behavioral proxy; byte-exact 533-byte vectors live in commitment-model."""
-    payload = domain_id.encode() + b"\x00" + credit_id.encode()
-    assert 0 < len(payload) <= 531
-    return len(payload).to_bytes(2, "big") + payload + bytes(531 - len(payload))
+def inbox_kind1_result(index: int, descriptor: BridgeQueueDescriptorV10) -> str:
+    if (type(index) is not int or index < 0
+            or type(descriptor) is not BridgeQueueDescriptorV10
+            or not descriptor.structurally_valid()):
+        raise ValueError("InboxApply result has no durable queue descriptor")
+    projection = (
+        index,
+        descriptor.credit_id,
+        descriptor.msg_hash,
+        descriptor.bridge_src_chain_id,
+        descriptor.source_domain_id,
+        descriptor.source_registration_epoch,
+        descriptor.source_bridge,
+        descriptor.bridge_execution_hash,
+        descriptor.emitted_at_block,
+        descriptor.destination_domain_id,
+        descriptor.bridge_dest_chain_id,
+        descriptor.enqueue_by,
+        descriptor.sender,
+        descriptor.bridge_src_owner,
+        descriptor.bridge_dest_owner,
+        descriptor.bridge_value,
+        descriptor.bridge_fee,
+        descriptor.bridge_data_hash,
+        descriptor.refund_mode,
+        descriptor.refund_vault,
+        descriptor.refund_capsule_hash,
+        descriptor.escrow_id,
+    )
+    return "result:" + hashlib.sha256(
+        b"TAIKO_INBOX_KIND1_RESULT_V9\x00"
+        + repr(projection).encode()
+    ).hexdigest()
 
 
-def decode_inbox_kind1_descriptor(descriptor: bytes) -> tuple[str, str] | None:
-    if len(descriptor) != 533:
+_INBOX_EXECUTION_AUTHORITY_CAPABILITY = object()
+_INBOX_EXECUTION_FRAME_CAPABILITY = object()
+_INBOX_BATCH_CAPABILITY = object()
+_INBOX_RECEIPT_CAPABILITY = object()
+_VERIFIED_CANDIDATE_PROOF_CAPABILITY = object()
+_INBOX_APPLY_ROWS_CAPABILITY = object()
+_OBSERVED_RELEASE_DEPLOYMENT_CAPABILITY = object()
+ANCHOR_SYSTEM_TX_POSITION = 0
+INBOX_SYSTEM_TX_POSITION = 1
+
+InboxCalldataDescriptor = Optional[BridgeQueueDescriptorV10]
+InboxRowV2 = tuple[int, int, int, str, InboxCalldataDescriptor]
+
+
+def inbox_descriptor_commitment(
+    descriptors: tuple[Message | BridgeQueueDescriptorV10, ...],
+) -> str:
+    return hashlib.sha256(
+        b"TAIKO_INBOX_DESCRIPTOR_RANGE_V10\x00"
+        + b"".join(durable_queue_leaf_hash(row).encode() for row in descriptors)
+    ).hexdigest()
+
+
+def inbox_system_calldata_hash(rows: tuple[InboxRowV2, ...]) -> str:
+    projection: list[tuple[object, ...]] = []
+    for row in rows:
+        if type(row) is not tuple or len(row) != 5:
+            raise ValueError("Inbox row is not the exact five-field ABI")
+        index, disposition, tx_index, result_hash, descriptor = row
+        if descriptor is None:
+            durable: tuple[object, ...] = ()
+        elif type(descriptor) is BridgeQueueDescriptorV10:
+            durable = durable_queue_leaf_fields(descriptor)
+        else:
+            raise ValueError("Inbox calldata descriptor has wrong type")
+        projection.append(
+            (index, disposition, tx_index, result_hash, durable)
+        )
+    return hashlib.sha256(
+        b"TAIKO_INBOX_SYSTEM_CALLDATA_V10\x00"
+        + repr(tuple(projection)).encode()
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
+class IssuedInboxBatchRecord:
+    nonce: int
+    batch_object_id: int
+    batch_digest: str
+    execution_frame: tuple[int, int]
+
+
+@dataclass(frozen=True)
+class InboxTouchedSlotState:
+    domain_id: str
+    store: "InboxCreditStoreV2" = field(compare=False, repr=False)
+    store_object_id: int
+    destination_bridge: str
+    store_codehash: str
+    store_config_hash: str
+    observed_runtime_codehash: str
+    credit_id: str
+    prior_pin: "InboxPin | None"
+    post_pin: "InboxPin | None"
+
+
+def inbox_touched_slots_commitment(
+    rows: tuple[InboxTouchedSlotState, ...],
+) -> str:
+    """Commit bounded L2 effects without exporting live Store objects to L1."""
+
+    if (type(rows) is not tuple
+            or any(type(row) is not InboxTouchedSlotState for row in rows)):
+        raise ValueError("Inbox touched-slot journal is not canonical")
+    projection = tuple(
+        (
+            row.domain_id,
+            row.destination_bridge,
+            row.store_codehash,
+            row.store_config_hash,
+            row.observed_runtime_codehash,
+            row.credit_id,
+            row.prior_pin,
+            row.post_pin,
+        )
+        for row in rows
+    )
+    return hashlib.sha256(
+        b"TAIKO_INBOX_TOUCHED_SLOTS_V1\x00" + repr(projection).encode()
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
+class ReleaseDeploymentWitness:
+    """Execution-verifier witness for independently observed L2 accounts."""
+
+    manifest_commitment: bytes
+    prestate_root: str
+    observed_components: tuple["ReleaseComponentV2", ...]
+    observed_bridge_descriptor: "DestinationBridgeDescriptorV2"
+    store: "InboxCreditStoreV2" = field(compare=False, repr=False)
+    endpoint_state: "EndpointActivationStateV2" = field(
+        compare=False, repr=False
+    )
+    endpoint_prestate: tuple[object, ...]
+    bridge_deployment: "BridgeDeploymentStateV2"
+
+
+@dataclass(frozen=True, eq=False)
+class ObservedReleaseDeployment:
+    """Verifier observation of independently deployed L2 tx0 accounts."""
+
+    authority: "InboxValidityExecutionAuthority" = field(
+        compare=False, repr=False
+    )
+    transition_verifier: IMigrationTransitionVerifier = field(
+        compare=False, repr=False
+    )
+    transition_verifier_descriptor: MigrationTransitionVerifierDescriptor
+    transition_result_digest: str
+    transition_result_seal: str
+    manifest_commitment: bytes
+    prestate_root: str
+    observed_components: tuple["ReleaseComponentV2", ...]
+    observed_bridge_descriptor: "DestinationBridgeDescriptorV2"
+    store: "InboxCreditStoreV2" = field(compare=False, repr=False)
+    store_object_id: int
+    endpoint_state: "EndpointActivationStateV2" = field(
+        compare=False, repr=False
+    )
+    endpoint_object_id: int
+    endpoint_prestate: tuple[object, ...]
+    bridge_deployment: "BridgeDeploymentStateV2"
+    seal: str
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _OBSERVED_RELEASE_DEPLOYMENT_CAPABILITY
+                or type(self.authority)
+                    is not InboxValidityExecutionAuthority
+                or self.transition_verifier
+                    is not self.authority.migration_transition_verifier
+                or self.transition_verifier_descriptor
+                    != self.transition_verifier.descriptor
+                or not self.transition_verifier_descriptor.structurally_valid()
+                or not self.transition_result_digest
+                or not self.transition_result_seal
+                or type(self.manifest_commitment) is not bytes
+                or len(self.manifest_commitment) != 32
+                or not self.prestate_root
+                or len(self.observed_components) != 6
+                or any(type(row) is not ReleaseComponentV2
+                       for row in self.observed_components)
+                or type(self.observed_bridge_descriptor)
+                    is not DestinationBridgeDescriptorV2
+                or type(self.store) is not InboxCreditStoreV2
+                or self.store_object_id != id(self.store)
+                or type(self.endpoint_state)
+                    is not EndpointActivationStateV2
+                or self.endpoint_object_id != id(self.endpoint_state)
+                or self.endpoint_prestate
+                    != endpoint_activation_projection(self.endpoint_state)
+                or type(self.bridge_deployment)
+                    is not BridgeDeploymentStateV2
+                or not self.seal):
+            raise ValueError("observed release deployment is not canonical")
+
+    @property
+    def digest(self) -> str:
+        projection = (
+            id(self.authority), id(self.transition_verifier),
+            self.transition_verifier_descriptor,
+            self.transition_result_digest,
+            self.transition_result_seal,
+            self.manifest_commitment,
+            self.prestate_root, self.observed_components,
+            self.observed_bridge_descriptor, self.store_object_id,
+            self.endpoint_object_id, self.endpoint_prestate,
+            self.bridge_deployment,
+        )
+        return hashlib.sha256(
+            b"TAIKO_OBSERVED_RELEASE_DEPLOYMENT_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
+
+
+@dataclass(frozen=True)
+class InboxRouteActivationDelta:
+    """Bounded tx0 ReleaseAuthority/Registrar transition for one domain."""
+
+    registrar: "TerminalDomainRegistrarV2" = field(compare=False, repr=False)
+    registrar_object_id: int
+    manifest: "ReleaseManifestV2"
+    store: "InboxCreditStoreV2" = field(compare=False, repr=False)
+    store_object_id: int
+    endpoint_state: "EndpointActivationStateV2" = field(
+        compare=False, repr=False
+    )
+    endpoint_prestate: tuple[object, ...]
+    bridge_deployment: "BridgeDeploymentStateV2"
+    route_preexisting: bool
+    observed_deployment: ObservedReleaseDeployment
+
+    def __post_init__(self) -> None:
+        if (type(self.registrar) is not TerminalDomainRegistrarV2
+                or self.registrar_object_id != id(self.registrar)
+                or type(self.manifest) is not ReleaseManifestV2
+                or not self.manifest.structurally_valid()
+                or type(self.store) is not InboxCreditStoreV2
+                or self.store_object_id != id(self.store)
+                or type(self.endpoint_state) is not EndpointActivationStateV2
+                or self.endpoint_prestate
+                    != endpoint_activation_projection(self.endpoint_state)
+                or type(self.bridge_deployment)
+                    is not BridgeDeploymentStateV2
+                or type(self.observed_deployment)
+                    is not ObservedReleaseDeployment
+                or self.observed_deployment.store is not self.store
+                or self.observed_deployment.endpoint_state
+                    is not self.endpoint_state
+                or self.observed_deployment.bridge_deployment
+                    != self.bridge_deployment):
+            raise ValueError("Inbox route activation delta is not exact")
+
+    @property
+    def digest_projection(self) -> tuple[object, ...]:
+        return (
+            self.registrar_object_id,
+            self.manifest.commitment,
+            self.store_object_id,
+            self.endpoint_prestate,
+            self.bridge_deployment,
+            self.route_preexisting,
+            self.observed_deployment.digest,
+            self.observed_deployment.seal,
+        )
+
+    @property
+    def commitment(self) -> str:
+        """Commit tx0 effects without exposing Registrar/Store identities."""
+
+        projection = (
+            self.manifest.commitment,
+            self.manifest.protocol_version,
+            self.manifest.destination_domain_id,
+            self.manifest.destination_bridge,
+            self.endpoint_prestate,
+            self.bridge_deployment,
+            self.route_preexisting,
+            self.observed_deployment.digest,
+            self.observed_deployment.seal,
+        )
+        return hashlib.sha256(
+            b"TAIKO_INBOX_ROUTE_ACTIVATION_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
+
+
+@dataclass(frozen=True, eq=False)
+class InboxExecutionReceipt:
+    authority: "InboxValidityExecutionAuthority"
+    candidate_digest: str
+    base_canonical_hash: str
+    protocol_version: int
+    execution_profile_hash: str
+    pre_cursor: int
+    pre_last_applied_l2_block: int
+    post_cursor: int
+    post_last_applied_l2_block: int
+    release_system_calldata_hashes: tuple[str, ...]
+    inbox_system_calldata_hashes: tuple[str, ...]
+    seal: str
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _INBOX_RECEIPT_CAPABILITY
+                or type(self.authority) is not InboxValidityExecutionAuthority
+                or not self.candidate_digest or not self.base_canonical_hash
+                or self.protocol_version <= 0
+                or not self.execution_profile_hash
+                or self.pre_cursor < 0
+                or self.post_cursor < self.pre_cursor
+                or self.post_last_applied_l2_block
+                    < self.pre_last_applied_l2_block
+                or type(self.release_system_calldata_hashes) is not tuple
+                or type(self.inbox_system_calldata_hashes) is not tuple
+                or len(self.release_system_calldata_hashes)
+                    != len(self.inbox_system_calldata_hashes)
+                or any(type(row) is not str
+                       for row in self.release_system_calldata_hashes)
+                or any(type(row) is not str or not row
+                       for row in self.inbox_system_calldata_hashes)
+                or not self.seal
+        ):
+            raise ValueError("Inbox execution receipt is not canonical")
+
+    @property
+    def digest(self) -> str:
+        projection = (
+            id(self.authority), self.candidate_digest,
+            self.base_canonical_hash, self.protocol_version,
+            self.execution_profile_hash, self.pre_cursor,
+            self.pre_last_applied_l2_block,
+            self.post_cursor, self.post_last_applied_l2_block,
+            self.release_system_calldata_hashes,
+            self.inbox_system_calldata_hashes,
+        )
+        return hashlib.sha256(
+            b"TAIKO_INBOX_EXECUTION_RECEIPT_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
+
+
+def candidate_inbox_execution_digest(candidate: Candidate) -> str:
+    if type(candidate) is not Candidate:
+        raise ValueError("Inbox execution candidate has wrong type")
+    projection = tuple(
+        getattr(candidate, name)
+        for name in Candidate.__dataclass_fields__
+        if name != "inbox_execution_receipt"
+    )
+    return hashlib.sha256(
+        b"TAIKO_INBOX_EXECUTION_CANDIDATE_V1\x00"
+        + repr(projection).encode()
+    ).hexdigest()
+
+
+@dataclass(frozen=True, eq=False)
+class VerifiedCandidateProof:
+    verifier: "InboxValidityExecutionAuthority"
+    candidate_digest: str
+    base_canonical_hash: str
+    protocol_version: int
+    execution_profile_hash: str
+    clock_block_number: int
+    clock_timestamp: int
+    purpose: str
+    seal: str
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _VERIFIED_CANDIDATE_PROOF_CAPABILITY
+                or type(self.verifier) is not InboxValidityExecutionAuthority
+                or not self.candidate_digest or not self.base_canonical_hash
+                or self.protocol_version <= 0
+                or not self.execution_profile_hash
+                or self.clock_block_number < 0
+                or self.clock_timestamp < 0
+                or self.purpose not in {
+                    "CANONICAL_CANDIDATE", "MIGRATION_ACTIVATION"
+                }
+                or not self.seal):
+            raise ValueError("candidate proof output is not canonical")
+
+
+def verified_candidate_proof_digest(output: VerifiedCandidateProof) -> str:
+    return hashlib.sha256(repr((
+        output.candidate_digest,
+        output.base_canonical_hash,
+        output.protocol_version,
+        output.execution_profile_hash,
+        output.clock_block_number,
+        output.clock_timestamp,
+        output.purpose,
+    )).encode()).hexdigest()
+
+
+@dataclass(frozen=True, eq=False)
+class AuthenticatedInboxBatch:
+    """Immutable proof/fork output consumed by the L2 system call once."""
+
+    authority: "InboxValidityExecutionAuthority"
+    inbox: "InboxApplyRouterV2"
+    settlement_chain_id: int
+    protocol_version: int
+    execution_profile_hash: str
+    base_canonical_hash: str
+    context_id: str
+    candidate_id: str
+    block_index: int
+    l2_block_number: int
+    evm_timestamp: int
+    anchor_number: int
+    anchor_hash: str
+    force_root: str
+    force_cutoff: int
+    force_start: int
+    force_end: int
+    descriptor_commitment: str
+    system_calldata_hash: str
+    system_tx_position: int
+    nonce: int
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _INBOX_BATCH_CAPABILITY
+                or type(self.authority) is not InboxValidityExecutionAuthority
+                or type(self.inbox) is not InboxApplyRouterV2
+                or self.authority.protocol.inbox_apply_router is not self.inbox
+                or not 0 < self.settlement_chain_id <= UINT64_MAX
+                or self.protocol_version <= 0
+                or not self.execution_profile_hash
+                or not self.base_canonical_hash or not self.context_id
+                or not self.candidate_id
+                or not 0 <= self.block_index < MAX_BLOCKS_PER_CANDIDATE
+                or self.l2_block_number < 0
+                or not 0 <= self.evm_timestamp <= UINT64_MAX
+                or self.anchor_number < 0 or not self.anchor_hash
+                or not self.force_root
+                or not 0 <= self.force_cutoff <= MAX_FORCE_QUEUE_ITEMS
+                or not 0 <= self.force_start <= self.force_end
+                or self.force_end - self.force_start > MAX_FORCE_MESSAGES
+                or not self.descriptor_commitment
+                or not self.system_calldata_hash
+                or self.system_tx_position != INBOX_SYSTEM_TX_POSITION):
+            raise ValueError("Inbox batch is not proof-authenticated")
+
+    @property
+    def digest(self) -> str:
+        projection = (
+            id(self.authority), id(self.inbox), self.settlement_chain_id,
+            self.protocol_version, self.execution_profile_hash,
+            self.base_canonical_hash, self.context_id, self.candidate_id,
+            self.block_index, self.l2_block_number,
+            self.evm_timestamp, self.anchor_number, self.anchor_hash,
+            self.force_root, self.force_cutoff, self.force_start,
+            self.force_end, self.descriptor_commitment,
+            self.system_calldata_hash, self.system_tx_position, self.nonce,
+        )
+        return hashlib.sha256(
+            b"TAIKO_AUTHENTICATED_INBOX_BATCH_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
+
+
+@dataclass(eq=False)
+class InboxValidityExecutionAuthority:
+    """Behavioral stand-in for the validity circuit and fork system sender."""
+
+    protocol: Protocol
+    _capability: object = field(repr=False)
+    _seal_secret: object = field(init=False, repr=False, compare=False)
+    _issued: dict[int, IssuedInboxBatchRecord] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _consumed: set[int] = field(default_factory=set, init=False, repr=False)
+    _next_nonce: int = field(default=1, init=False, repr=False)
+    _execution_frame: tuple[int, int] | None = field(
+        default=None, init=False, repr=False
+    )
+    _preparing_candidate_id: int | None = field(
+        default=None, init=False, repr=False
+    )
+    _verifying_candidate_id: int | None = field(
+        default=None, init=False, repr=False
+    )
+    _release_activation_frame: tuple[int, bytes] | None = field(
+        default=None, init=False, repr=False
+    )
+    _observed_release_deployments: dict[
+        bytes, ObservedReleaseDeployment
+    ] = field(default_factory=dict, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _INBOX_EXECUTION_AUTHORITY_CAPABILITY
+                or type(self.protocol) is not Protocol):
+            raise ValueError("Inbox execution authority is not canonical")
+        object.__setattr__(self, "_seal_secret", object())
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "protocol" and name in self.__dict__:
+            raise AttributeError(
+                f"Inbox execution authority {name} is immutable"
+            )
+        object.__setattr__(self, name, value)
+
+    @property
+    def execution_profile(self) -> ExecutionProfile:
+        history = self.protocol.versioned_history
+        if (type(history) is not VersionedSettlementHistory
+                or type(history.execution_profile) is not ExecutionProfile
+                or not history.execution_profile.structurally_valid()
+                or history.execution_profile.execution_profile_hash
+                    != history.execution_profile_hash):
+            raise ValueError("execution authority has no exact profile")
+        return history.execution_profile
+
+    @property
+    def migration_transition_verifier(self) -> IMigrationTransitionVerifier:
+        return self.execution_profile.migration_transition_verifier
+
+    @property
+    def migration_transition_verifier_descriptor(
+        self,
+    ) -> MigrationTransitionVerifierDescriptor:
+        return self.execution_profile.migration_transition_verifier_descriptor
+
+    def _opaque_seal(self, namespace: bytes, digest: str) -> str:
+        return hashlib.sha256(
+            namespace
+            + id(self._seal_secret).to_bytes(32, "big")
+            + digest.encode()
+        ).hexdigest()
+
+    def _valid_observed_release_deployment(
+        self,
+        observed: ObservedReleaseDeployment,
+        manifest: "ReleaseManifestV2",
+        *,
+        expected_prestate_root: str | None = None,
+    ) -> bool:
+        prestate_root = (
+            self.protocol.core.state_root
+            if expected_prestate_root is None else expected_prestate_root
+        )
+        return (
+            type(observed) is ObservedReleaseDeployment
+            and observed.authority is self
+            and observed.transition_verifier
+                is self.migration_transition_verifier
+            and observed.transition_verifier_descriptor
+                == self.migration_transition_verifier_descriptor
+            and self.migration_transition_verifier.valid_result_seal(
+                observed.transition_result_digest,
+                observed.transition_result_seal,
+            )
+            and observed.manifest_commitment == manifest.commitment
+            and observed.prestate_root == prestate_root
+            and observed.observed_components == manifest.components[3:]
+            and observed.observed_bridge_descriptor
+                == manifest.destination_bridge_descriptor
+            and observed.seal == self._opaque_seal(
+                b"TAIKO_OBSERVED_RELEASE_DEPLOYMENT_SEAL_V1\x00",
+                observed.digest,
+            )
+            and self._observed_release_deployments.get(
+                manifest.commitment
+            ) is observed
+        )
+
+    @staticmethod
+    def _rows_match_descriptors(
+        rows: tuple[InboxRowV2, ...],
+        descriptors: tuple[Message | BridgeQueueDescriptorV10, ...],
+    ) -> bool:
+        if len(rows) != len(descriptors):
+            return False
+        for row, queued in zip(rows, descriptors):
+            if type(row) is not tuple or len(row) != 5:
+                return False
+            descriptor = row[4]
+            if type(queued) is Message:
+                if (queued.kind is not ForceKind.USER_TX
+                        or descriptor is not None):
+                    return False
+            elif type(queued) is BridgeQueueDescriptorV10:
+                if (type(descriptor) is not BridgeQueueDescriptorV10
+                        or durable_queue_leaf_fields(descriptor)
+                            != durable_queue_leaf_fields(queued)):
+                    return False
+            else:
+                return False
+        return True
+
+    @staticmethod
+    def _manifest_hash_matches(
+        manifest: "ReleaseManifestV2", committed: object
+    ) -> bool:
+        return committed in {
+            manifest.commitment,
+            manifest.commitment.hex(),
+            "0x" + manifest.commitment.hex(),
+        }
+
+    def _release_activation_delta(
+        self, candidate: Candidate
+    ) -> InboxRouteActivationDelta | None:
+        """Resolve the one manifest-owned tx0 deployment for this block."""
+
+        first = candidate.blocks[0]
+        if not first.release_activation:
+            return None
+        protocol = self.protocol
+        history = protocol.versioned_history
+        router = getattr(history, "_router_authority", None)
+        registrar = protocol.inbox_apply_router._terminal_registrar_authority
+        registration = (
+            router.registrations.get(first.release_protocol_version)
+            if type(router) is ActiveSettlementRouter else None
+        )
+        if (type(registrar) is not TerminalDomainRegistrarV2
+                or type(registration) is not SettlementRegistration):
+            raise ValueError("release activation has no exact deployment graph")
+        matches = tuple(
+            manifest
+            for manifest in registration.release_manifests_by_adapter.values()
+            if manifest.protocol_version == first.release_protocol_version
+            and self._manifest_hash_matches(
+                manifest, first.release_manifest_hash
+            )
+        )
+        if len(matches) != 1:
+            raise ValueError("release activation manifest is not unique")
+        return self._route_activation_delta_for_manifest(matches[0])
+
+    def _route_activation_delta_for_manifest(
+        self, manifest: "ReleaseManifestV2", *,
+        expected_prestate_root: str | None = None,
+    ) -> InboxRouteActivationDelta:
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()):
+            raise ValueError("release route manifest is not canonical")
+        protocol = self.protocol
+        registrar = protocol.inbox_apply_router._terminal_registrar_authority
+        if type(registrar) is not TerminalDomainRegistrarV2:
+            raise ValueError("release route registrar is not exact")
+        observed = self._observed_release_deployments.get(
+            manifest.commitment
+        )
+        if (type(observed) is not ObservedReleaseDeployment
+                or not self._valid_observed_release_deployment(
+                    observed,
+                    manifest,
+                    expected_prestate_root=expected_prestate_root,
+                )):
+            raise ValueError("release deployment prestate was not observed")
+        route = protocol.inbox_apply_router.routes.get(
+            manifest.destination_domain_id
+        )
+        if route is None:
+            store = observed.store
+            endpoint = observed.endpoint_state
+            preexisting = False
+        else:
+            if (route.destination_bridge != manifest.destination_bridge
+                    or route.store_codehash
+                        != manifest.components[4].runtime_hash
+                    or route.store_config_hash
+                        != route.store.route_config_hash):
+                raise ValueError("release activation reuses a split route")
+            if observed.store is not route.store:
+                raise ValueError("observed release store identity is split")
+            store = observed.store
+            endpoint = observed.endpoint_state
+            preexisting = True
+        return InboxRouteActivationDelta(
+            registrar,
+            id(registrar),
+            manifest,
+            store,
+            id(store),
+            endpoint,
+            endpoint_activation_projection(endpoint),
+            observed.bridge_deployment,
+            preexisting,
+            observed,
+        )
+
+    @staticmethod
+    def _activation_transaction_snapshot(
+        delta: InboxRouteActivationDelta,
+    ) -> dict[str, object]:
+        registrar = delta.registrar
+        return {
+            "releases": dict(registrar.authority.releases),
+            "release_manifests": dict(
+                registrar.authority.release_manifests
+            ),
+            "registrations": dict(registrar.registrations),
+            "bridge_identities": dict(registrar.bridge_identities),
+            "routes": dict(registrar.inbox_router.routes),
+            "domains": dict(registrar.accumulator.domains),
+            "endpoint": copy.deepcopy(delta.endpoint_state.__dict__),
+            "store_writer": delta.store._inbox_apply_authority,
+        }
+
+    @staticmethod
+    def _restore_activation_transaction(
+        delta: InboxRouteActivationDelta,
+        snapshot: dict[str, object],
+    ) -> None:
+        registrar = delta.registrar
+        registrar.authority.releases = snapshot["releases"]
+        registrar.authority.release_manifests = snapshot[
+            "release_manifests"
+        ]
+        registrar.registrations = snapshot["registrations"]
+        registrar.bridge_identities = snapshot["bridge_identities"]
+        registrar.inbox_router.routes = snapshot["routes"]
+        registrar.accumulator.domains = snapshot["domains"]
+        delta.endpoint_state.__dict__.clear()
+        delta.endpoint_state.__dict__.update(snapshot["endpoint"])
+        object.__setattr__(
+            delta.store, "_inbox_apply_authority", snapshot["store_writer"]
+        )
+
+    def _activation_prestate_exact(
+        self, delta: InboxRouteActivationDelta, *,
+        expected_prestate_root: str | None = None,
+    ) -> bool:
+        registrar = delta.registrar
+        manifest = delta.manifest
+        route = registrar.inbox_router.routes.get(
+            manifest.destination_domain_id
+        )
+        return (
+            registrar is self.protocol.inbox_apply_router
+                ._terminal_registrar_authority
+            and self._valid_observed_release_deployment(
+                delta.observed_deployment,
+                manifest,
+                expected_prestate_root=expected_prestate_root,
+            )
+            and registrar.inbox_router is self.protocol.inbox_apply_router
+            and delta.registrar_object_id == id(registrar)
+            and delta.store_object_id == id(delta.store)
+            and endpoint_activation_projection(delta.endpoint_state)
+                == delta.endpoint_prestate
+            and manifest.protocol_version
+                not in registrar.registrations
+            and (
+                (
+                    not delta.route_preexisting
+                    and route is None
+                    and manifest.destination_domain_id
+                        not in registrar.accumulator.domains
+                )
+                or (
+                    delta.route_preexisting
+                    and route is not None
+                    and route.store is delta.store
+                    and route.destination_bridge
+                        == manifest.destination_bridge
+                    and registrar.accumulator.domains.get(
+                        manifest.destination_domain_id
+                    ) == manifest.destination_bridge
+                )
+            )
+        )
+
+    def _activate_release_delta(
+        self, delta: InboxRouteActivationDelta, *,
+        expected_prestate_root: str | None = None,
+    ) -> bool:
+        if not self._activation_prestate_exact(
+            delta, expected_prestate_root=expected_prestate_root
+        ):
+            return False
+        manifest = delta.manifest
+        anchor = AnchorV4Model(
+            manifest.anchor,
+            manifest.anchor_runtime_hash,
+            manifest.commitment,
+        )
+        if self._release_activation_frame is not None:
+            return False
+        self._release_activation_frame = (
+            id(manifest), manifest.commitment
+        )
+        try:
+            return activate_release_transaction(
+                delta.registrar.authority,
+                delta.registrar,
+                manifest=manifest,
+                execution_authority=self,
+                execution_capability=_RELEASE_SYSTEM_EXECUTION_CAPABILITY,
+                anchor=anchor,
+                store=delta.store,
+                observed_l2_components=(
+                    delta.observed_deployment.observed_components
+                ),
+                observed_bridge_descriptor=(
+                    delta.observed_deployment.observed_bridge_descriptor
+                ),
+                endpoint_state=delta.endpoint_state,
+                bridge_deployment=delta.bridge_deployment,
+            )
+        finally:
+            self._release_activation_frame = None
+
+    def _issue_verified_block(
+        self,
+        candidate: Candidate,
+        rows: tuple[InboxRowV2, ...],
+        clock: Clock,
+        block_index: int,
+        execution_capability: object,
+    ) -> AuthenticatedInboxBatch:
+        """Issue one block only inside the atomic candidate execution frame."""
+
+        protocol = self.protocol
+        history = protocol.versioned_history
+        router = getattr(history, "_router_authority", None)
+        if (protocol._inbox_execution_authority is not self
+                or type(candidate) is not Candidate
+                or type(clock) is not Clock
+                or execution_capability is not _INBOX_EXECUTION_FRAME_CAPABILITY
+                or self._execution_frame != (id(candidate), block_index)
+                or not 0 <= block_index < candidate.count
+                or type(history) is not VersionedSettlementHistory
+                or type(router) is not ActiveSettlementRouter):
+            raise ValueError("Inbox execution authority is split")
+        block = candidate.blocks[block_index]
+        queue = protocol.forced_queue
+        header = protocol.header_oracle.header(block.anchor_number)
+        descriptors = tuple(
+            queue.descriptors[block.message_start:block.message_end]
+        )
+        descriptor_commitment = inbox_descriptor_commitment(descriptors)
+        calldata_hash = inbox_system_calldata_hash(rows)
+        anchor_force_exact = (
+            (
+                protocol.mode is Mode.NORMAL
+                and block.force_root == header.force_root
+                and block.force_cutoff == header.force_cutoff
+            )
+            or (
+                protocol.mode is Mode.RECOVERY
+                and protocol.recovery is not None
+                and block.force_root == protocol.recovery.force_root
+                and block.force_cutoff == protocol.recovery.force_cutoff
+            )
+        )
+        if (block.message_start
+                    != protocol.inbox_apply_router.next_queue_index
+                or block.message_end != protocol._prefix_end(
+                    block.message_start,
+                    block.force_cutoff,
+                    gas_budget=block.force_gas_budget,
+                )
+                or block.inbox_pre_cursor != block.message_start
+                or block.inbox_post_cursor != block.message_end
+                or not anchor_force_exact
+                or block.message_end > block.force_cutoff
+                or block.force_root != model_force_root(
+                    queue.descriptors[:block.force_cutoff]
+                )
+                or not self._rows_match_descriptors(rows, descriptors)
+                or block.inbox_descriptor_commitment
+                    != descriptor_commitment
+                or block.inbox_system_calldata_hash != calldata_hash
+                or block.anchor_system_tx_position
+                    != ANCHOR_SYSTEM_TX_POSITION
+                or block.inbox_system_tx_position
+                    != INBOX_SYSTEM_TX_POSITION):
+            raise ValueError("Inbox batch is not a verified maximal prefix")
+        if self._next_nonce > UINT64_MAX:
+            raise ValueError("Inbox execution nonce exhausted")
+        nonce = self._next_nonce
+        self._next_nonce += 1
+        batch = AuthenticatedInboxBatch(
+            self,
+            protocol.inbox_apply_router,
+            router.settlement_chain_context_id,
+            history.protocol_version,
+            history.execution_profile_hash,
+            candidate.base_canonical_hash,
+            block.context_id,
+            candidate.candidate_id,
+            block_index,
+            protocol.core.l2_block_number + block_index + 1,
+            block.evm_timestamp,
+            block.anchor_number,
+            block.anchor_hash,
+            block.force_root,
+            block.force_cutoff,
+            block.message_start,
+            block.message_end,
+            descriptor_commitment,
+            calldata_hash,
+            block.inbox_system_tx_position,
+            nonce,
+            _INBOX_BATCH_CAPABILITY,
+        )
+        self._issued[nonce] = IssuedInboxBatchRecord(
+            nonce, id(batch), batch.digest, (id(candidate), block_index)
+        )
+        return batch
+
+    def _execute_candidate_frame(
+        self,
+        candidate: Candidate,
+        rows_by_block: tuple[tuple[InboxRowV2, ...], ...],
+        clock: Clock,
+        execution_capability: object,
+    ) -> bool:
+        """Verify and execute every block atomically in strict block order."""
+
+        protocol = self.protocol
+        if (protocol._inbox_execution_authority is not self
+                or type(candidate) is not Candidate
+                or type(rows_by_block) is not tuple
+                or len(rows_by_block) != candidate.count
+                or type(clock) is not Clock
+                or execution_capability is not _INBOX_EXECUTION_FRAME_CAPABILITY
+                or self._preparing_candidate_id != id(candidate)
+                or self._execution_frame is not None):
+            return False
+        valid_candidate = (
+            protocol._valid_normal(candidate, clock)
+            if protocol.mode is Mode.NORMAL
+            else protocol._valid_recovery(candidate, clock)
+        )
+        if not valid_candidate:
+            return False
+        inbox = protocol.inbox_apply_router
+        touched: dict[
+            tuple[int, str], tuple[InboxCreditStoreV2, InboxPin | None]
+        ] = {}
+        for rows in rows_by_block:
+            for row in rows:
+                descriptor = row[4]
+                if type(descriptor) is not BridgeQueueDescriptorV10:
+                    continue
+                route = inbox.routes.get(descriptor.destination_domain_id)
+                if route is None:
+                    continue
+                key = (id(route.store), descriptor.credit_id)
+                touched.setdefault(
+                    key, (route.store, route.store.pins.get(descriptor.credit_id))
+                )
+        cursor_snapshot = inbox.next_queue_index
+        last_block_snapshot = inbox.last_applied_l2_block
+        issued_snapshot = dict(self._issued)
+        consumed_snapshot = set(self._consumed)
+        nonce_snapshot = self._next_nonce
+        try:
+            for block_index, rows in enumerate(rows_by_block):
+                self._execution_frame = (id(candidate), block_index)
+                batch = self._issue_verified_block(
+                    candidate,
+                    rows,
+                    clock,
+                    block_index,
+                    _INBOX_EXECUTION_FRAME_CAPABILITY,
+                )
+                if not inbox.apply(batch, rows):
+                    raise ValueError("InboxApply rejected a verified block")
+            self._execution_frame = None
+            if self._issued:
+                raise AssertionError("executed Inbox capability remained live")
+            return True
+        except BaseException:
+            for (_, credit_id), (store, prior) in touched.items():
+                if prior is None:
+                    store.pins.pop(credit_id, None)
+                else:
+                    store.pins[credit_id] = prior
+            inbox.next_queue_index = cursor_snapshot
+            inbox.last_applied_l2_block = last_block_snapshot
+            self._issued = issued_snapshot
+            self._consumed = consumed_snapshot
+            self._next_nonce = nonce_snapshot
+            self._execution_frame = None
+            return False
+
+    def prepare_candidate_execution(
+        self,
+        candidate: Candidate,
+        rows_by_block: tuple[tuple[InboxRowV2, ...], ...],
+        clock: Clock,
+        verified_proof: VerifiedCandidateProof,
+    ) -> Candidate:
+        """Dry-run exact L2 system calldata and issue an immutable receipt."""
+
+        protocol = self.protocol
+        if (protocol._inbox_execution_authority is not self
+                or type(candidate) is not Candidate
+                or type(verified_proof) is not VerifiedCandidateProof
+                or verified_proof.verifier is not self
+                or verified_proof.seal != self._opaque_seal(
+                    b"TAIKO_VERIFIED_CANDIDATE_SEAL_V1\x00",
+                    verified_candidate_proof_digest(verified_proof),
+                )
+                or verified_proof.candidate_digest
+                    != candidate_inbox_execution_digest(candidate)
+                or verified_proof.base_canonical_hash
+                    != protocol.canonical.base_hash
+                or verified_proof.base_canonical_hash
+                    != candidate.base_canonical_hash
+                or type(protocol.versioned_history)
+                    is not VersionedSettlementHistory
+                or verified_proof.protocol_version
+                    != protocol.versioned_history.protocol_version
+                or verified_proof.execution_profile_hash
+                    != protocol.versioned_history.execution_profile_hash
+                or verified_proof.clock_block_number != clock.block_number
+                or verified_proof.clock_timestamp != clock.timestamp
+                or verified_proof.purpose != "CANONICAL_CANDIDATE"
+                or candidate.inbox_execution_receipt is not None
+                or self._preparing_candidate_id is not None
+                or self._execution_frame is not None):
+            raise ValueError("Inbox candidate cannot enter execution")
+        inbox = protocol.inbox_apply_router
+        activation = self._release_activation_delta(candidate)
+        if ((candidate.blocks[0].release_activation)
+                != (activation is not None)):
+            raise ValueError("candidate release activation is incomplete")
+        activation_snapshot = (
+            self._activation_transaction_snapshot(activation)
+            if activation is not None else None
+        )
+        touched: dict[
+            tuple[str, str], tuple[InboxRoute, InboxPin | None]
+        ] = {}
+        cursor_snapshot = inbox.next_queue_index
+        last_block_snapshot = inbox.last_applied_l2_block
+        issued_snapshot = dict(self._issued)
+        consumed_snapshot = set(self._consumed)
+        batch_nonce_snapshot = self._next_nonce
+        self._preparing_candidate_id = id(candidate)
+        try:
+            # The release block executes Anchor/ReleaseAuthority/Registrar at
+            # tx0.  Only its candidate-local route is visible to tx1.
+            if (activation is not None
+                    and not self._activate_release_delta(activation)):
+                raise ValueError("candidate release tx0 activation failed")
+            for rows in rows_by_block:
+                for row in rows:
+                    descriptor = row[4]
+                    if type(descriptor) is not BridgeQueueDescriptorV10:
+                        continue
+                    domain_id = descriptor.destination_domain_id
+                    route = inbox.routes.get(domain_id)
+                    if route is None:
+                        continue
+                    key = (domain_id, descriptor.credit_id)
+                    touched.setdefault(
+                        key,
+                        (route, route.store.pins.get(descriptor.credit_id)),
+                    )
+            if not self._execute_candidate_frame(
+                    candidate,
+                    rows_by_block,
+                    clock,
+                    _INBOX_EXECUTION_FRAME_CAPABILITY):
+                raise ValueError("Inbox candidate system execution failed")
+            touched_slots = tuple(
+                InboxTouchedSlotState(
+                    domain_id,
+                    route.store,
+                    id(route.store),
+                    route.destination_bridge,
+                    route.store_codehash,
+                    route.store_config_hash,
+                    route.store.runtime_codehash,
+                    credit_id,
+                    prior,
+                    route.store.pins.get(credit_id),
+                )
+                for (domain_id, credit_id), (route, prior)
+                in sorted(touched.items())
+            )
+            post_cursor = inbox.next_queue_index
+            post_last_block = inbox.last_applied_l2_block
+        finally:
+            for (_, credit_id), (route, prior) in touched.items():
+                if prior is None:
+                    route.store.pins.pop(credit_id, None)
+                else:
+                    route.store.pins[credit_id] = prior
+            inbox.next_queue_index = cursor_snapshot
+            inbox.last_applied_l2_block = last_block_snapshot
+            self._issued = issued_snapshot
+            self._consumed = consumed_snapshot
+            self._next_nonce = batch_nonce_snapshot
+            self._execution_frame = None
+            self._preparing_candidate_id = None
+            if activation is not None:
+                assert activation_snapshot is not None
+                self._restore_activation_transaction(
+                    activation, activation_snapshot
+                )
+        history = protocol.versioned_history
+        if type(history) is not VersionedSettlementHistory:
+            raise ValueError("Inbox receipt has no exact release history")
+        receipt = InboxExecutionReceipt(
+            self,
+            candidate_inbox_execution_digest(candidate),
+            candidate.base_canonical_hash,
+            history.protocol_version,
+            history.execution_profile_hash,
+            cursor_snapshot,
+            last_block_snapshot,
+            post_cursor,
+            post_last_block,
+            tuple(
+                release_system_calldata_hash(activation.manifest)
+                if index == 0 and activation is not None else ""
+                for index in range(candidate.count)
+            ),
+            tuple(inbox_system_calldata_hash(rows)
+                  for rows in rows_by_block),
+            "PENDING",
+            _INBOX_RECEIPT_CAPABILITY,
+        )
+        receipt = replace(
+            receipt,
+            seal=self._opaque_seal(
+                b"TAIKO_INBOX_RECEIPT_SEAL_V1\x00", receipt.digest
+            ),
+        )
+        return replace(candidate, inbox_execution_receipt=receipt)
+
+    def verify_candidate_proof(
+        self, candidate: Candidate, clock: Clock
+    ) -> VerifiedCandidateProof:
+        """Return the typed output of the canonical proof/fork verifier."""
+
+        protocol = self.protocol
+        history = protocol.versioned_history
+        if (protocol._inbox_execution_authority is not self
+                or type(candidate) is not Candidate
+                or type(clock) is not Clock
+                or type(history) is not VersionedSettlementHistory
+                or self._verifying_candidate_id is not None
+                or self._preparing_candidate_id is not None):
+            raise ValueError("candidate proof verifier is split")
+        self._verifying_candidate_id = id(candidate)
+        try:
+            verified = (
+                protocol._valid_normal(candidate, clock)
+                if protocol.mode is Mode.NORMAL
+                else protocol._valid_recovery(candidate, clock)
+            )
+        finally:
+            self._verifying_candidate_id = None
+        if not verified:
+            raise ValueError("candidate proof public inputs do not verify")
+        output = VerifiedCandidateProof(
+            self,
+            candidate_inbox_execution_digest(candidate),
+            protocol.canonical.base_hash,
+            history.protocol_version,
+            history.execution_profile_hash,
+            clock.block_number,
+            clock.timestamp,
+            "CANONICAL_CANDIDATE",
+            "PENDING",
+            _VERIFIED_CANDIDATE_PROOF_CAPABILITY,
+        )
+        return replace(
+            output,
+            seal=self._opaque_seal(
+                b"TAIKO_VERIFIED_CANDIDATE_SEAL_V1\x00",
+                verified_candidate_proof_digest(output),
+            ),
+        )
+
+    def _migration_candidate_public_inputs_exact(
+        self,
+        candidate: Candidate,
+        clock: Clock,
+        *,
+        router: ActiveSettlementRouter,
+        settlement: VersionedSettlementHistory,
+        target_manifest_hash: bytes,
+    ) -> bool:
+        """Check migration public inputs without issuing an authorization."""
+
+        protocol = self.protocol
+        old_registration = router.registrations.get(router.active_version)
+        old = old_registration.settlement if old_registration else None
+        if (protocol._inbox_execution_authority is not self
+                or type(candidate) is not Candidate
+                or type(clock) is not Clock
+                or type(router) is not ActiveSettlementRouter
+                or type(settlement) is not VersionedSettlementHistory
+                or settlement.live_protocol is not protocol
+                or type(old_registration) is not SettlementRegistration
+                or type(old) is not VersionedSettlementHistory
+                or old.live_protocol is None
+                or protocol.forced_queue is not router.forced_queue
+                or protocol.inbox_apply_descriptor
+                    != settlement.inbox_apply_descriptor
+                or protocol.inbox_apply_descriptor
+                    != router.inbox_apply_descriptor
+                or protocol.header_oracle is not router.header_oracle
+                or type(target_manifest_hash) is not bytes
+                or len(target_manifest_hash) != 32
+                or candidate.inbox_execution_receipt is not None
+                or self._verifying_candidate_id is not None
+                or self._preparing_candidate_id is not None):
+            return False
+        preview = settlement_registration(
+            router,
+            settlement,
+            activation_block=clock.block_number,
+            predecessor_version=router.active_version,
+            release_manifest_hash=target_manifest_hash,
+        )
+        block = candidate.blocks[0] if candidate.count == 1 else None
+        try:
+            header = (
+                protocol.header_oracle.header(block.anchor_number)
+                if block is not None else None
+            )
+        except KeyError:
+            header = None
+        expected_end = old.live_protocol._prefix_end(
+            old.core.message_cursor,
+            block.force_cutoff if block is not None else 0,
+            gas_budget=ACTIVATION_FORCE_GAS_BUDGET,
+        )
+        manifest_texts = {
+            target_manifest_hash.hex(),
+            "0x" + target_manifest_hash.hex(),
+        }
+        verified = (
+            block is not None
+            and candidate.proof_ok
+            and candidate.force_range_proof_ok
+            and candidate.manifest_exact
+            and candidate.base_canonical_hash
+                == old.live_protocol.canonical.base_hash
+            and candidate.end_l2_block_number
+                == old.core.l2_block_number + 1
+            and candidate.tier is Tier.ESCAPE_UNSIGNED
+            and candidate.recovery_fields_zero
+            and block.parent_hash == old.core.tip_hash
+            and block.slot > old.core.tip_slot
+            and block.evm_timestamp == GENESIS_TIMESTAMP + block.slot
+            and block.slot <= clock.l2_slot + CLOCK_SKEW
+            and block.message_start == old.core.message_cursor
+            and block.message_end == expected_end
+            and block.inbox_pre_cursor == block.message_start
+            and block.inbox_post_cursor == block.message_end
+            and block.release_activation
+            and block.release_protocol_version == settlement.protocol_version
+            and block.release_manifest_hash in manifest_texts
+            and block.force_gas_budget == ACTIVATION_FORCE_GAS_BUDGET
+            and not block.scheduled_signature_ok
+            and not block.discretionary_body
+            and block.anchor_system_tx_position
+                == ANCHOR_SYSTEM_TX_POSITION
+            and block.inbox_system_tx_position
+                == INBOX_SYSTEM_TX_POSITION
+            and bool(block.inbox_descriptor_commitment)
+            and bool(block.inbox_system_calldata_hash)
+            and header is not None
+            and header.block_hash == block.anchor_hash
+            and header.force_root == block.force_root
+            and header.force_cutoff == block.force_cutoff
+            and block.force_cutoff <= router.forced_queue.count
+            and block.force_root == model_force_root(
+                router.forced_queue.descriptors[:block.force_cutoff]
+            )
+            and candidate.next_due_at == old.live_protocol.next_due_at(
+                block.message_end, block.force_cutoff
+            )
+            and candidate.end_terminal_count >= old.core.terminal_count
+            and (
+                candidate.end_terminal_count > old.core.terminal_count
+                or candidate.end_terminal_root == old.core.terminal_root
+            )
+            and preview.release_manifest.commitment == target_manifest_hash
+        )
+        return verified
+
+    def _migration_transition_public_inputs(
+        self,
+        *,
+        router: ActiveSettlementRouter,
+        settlement: VersionedSettlementHistory,
+        clock: Clock,
+        target_manifest_hash: bytes,
+        candidate: Candidate,
+        rows: tuple[InboxRowV2, ...],
+        witness: ReleaseDeploymentWitness,
+    ) -> MigrationTransitionPublicInputs:
+        """Derive the byte-exact verifier inputs from authenticated objects."""
+
+        if (not self._migration_candidate_public_inputs_exact(
+                candidate,
+                clock,
+                router=router,
+                settlement=settlement,
+                target_manifest_hash=target_manifest_hash,
+        ) or type(witness) is not ReleaseDeploymentWitness):
+            raise ValueError("migration transition inputs are not canonical")
+        manifest = settlement_registration(
+            router,
+            settlement,
+            activation_block=0,
+            predecessor_version=router.active_version,
+            release_manifest_hash=target_manifest_hash,
+        ).release_manifest
+        if (witness.manifest_commitment != manifest.commitment
+                or manifest.migration_transition_verifier
+                    != self.migration_transition_verifier_descriptor
+                or witness.prestate_root != self.protocol.core.state_root
+                or witness.observed_components != manifest.components[3:]
+                or witness.observed_bridge_descriptor
+                    != manifest.destination_bridge_descriptor
+                or type(witness.store) is not InboxCreditStoreV2
+                or witness.store.address != manifest.components[4].address
+                or witness.store.runtime_codehash
+                    != manifest.components[4].runtime_hash
+                or type(witness.endpoint_state)
+                    is not EndpointActivationStateV2
+                or witness.endpoint_prestate
+                    != endpoint_activation_projection(witness.endpoint_state)
+                or type(witness.bridge_deployment)
+                    is not BridgeDeploymentStateV2
+                or not witness.bridge_deployment.authenticates(manifest)):
+            raise ValueError("migration deployment observation is inexact")
+        return migration_transition_public_inputs_from_l1(
+            router=router,
+            settlement=settlement,
+            target_manifest_hash=target_manifest_hash,
+            candidate=candidate,
+            rows=rows,
+        )
+
+    def verify_migration_transition(
+        self,
+        *,
+        router: ActiveSettlementRouter,
+        settlement: VersionedSettlementHistory,
+        clock: Clock,
+        target_manifest_hash: bytes,
+        candidate: Candidate,
+        rows: tuple[InboxRowV2, ...],
+        witness: ReleaseDeploymentWitness,
+        proof: MigrationTransitionProof,
+    ) -> VerifiedMigrationEvmTrace:
+        """Mint trace/observation only from the exact verifier return value."""
+
+        verifier = self.migration_transition_verifier
+        if (not isinstance(verifier, IMigrationTransitionVerifier)
+                or self.migration_transition_verifier_descriptor
+                    != verifier.descriptor):
+            raise ValueError("migration transition verifier is not exact")
+        expected = self._migration_transition_public_inputs(
+            router=router,
+            settlement=settlement,
+            clock=clock,
+            target_manifest_hash=target_manifest_hash,
+            candidate=candidate,
+            rows=rows,
+            witness=witness,
+        )
+        result = verifier.verify_transition(proof)
+        if (not verifier.valid_result(result)
+                or result.verifier is not verifier
+                or result.descriptor
+                    != self.migration_transition_verifier_descriptor
+                or result.public_inputs != expected
+                or result.returndata != bytes.fromhex(expected.digest)):
+            raise ValueError("migration transition verifier output is inexact")
+        observed = ObservedReleaseDeployment(
+            authority=self,
+            transition_verifier=verifier,
+            transition_verifier_descriptor=result.descriptor,
+            transition_result_digest=result.digest,
+            transition_result_seal=result.seal,
+            manifest_commitment=witness.manifest_commitment,
+            prestate_root=witness.prestate_root,
+            observed_components=witness.observed_components,
+            observed_bridge_descriptor=witness.observed_bridge_descriptor,
+            store=witness.store,
+            store_object_id=id(witness.store),
+            endpoint_state=witness.endpoint_state,
+            endpoint_object_id=id(witness.endpoint_state),
+            endpoint_prestate=witness.endpoint_prestate,
+            bridge_deployment=witness.bridge_deployment,
+            seal="PENDING",
+            _capability=_OBSERVED_RELEASE_DEPLOYMENT_CAPABILITY,
+        )
+        observed = replace(
+            observed,
+            seal=self._opaque_seal(
+                b"TAIKO_OBSERVED_RELEASE_DEPLOYMENT_SEAL_V1\x00",
+                observed.digest,
+            ),
+        )
+        trace = VerifiedMigrationEvmTrace(
+            verifier=self,
+            transition_verifier=verifier,
+            transition_verifier_descriptor=result.descriptor,
+            transition_result_digest=result.digest,
+            transition_result_seal=result.seal,
+            transition_statement_digest=expected.digest,
+            router_generation=expected.router_generation,
+            source_canonical_sequence=expected.canonical_sequence,
+            candidate_digest=expected.candidate_digest,
+            base_core=expected.base_core,
+            output_core=expected.output_core,
+            target_protocol_version=expected.target_protocol_version,
+            execution_profile_hash=expected.execution_profile_hash,
+            target_manifest_hash=expected.target_manifest_hash,
+            queue_root=expected.queue_root,
+            queue_count=expected.queue_count,
+            start_cursor=expected.start_cursor,
+            end_cursor=expected.end_cursor,
+            release_system_calldata_hash=(
+                expected.release_system_calldata_hash
+            ),
+            system_calldata_hash=expected.inbox_system_calldata_hash,
+            observed_deployment_digest=observed.digest,
+            observed_deployment_seal=observed.seal,
+            pre_inbox_last_applied_l2_block=(
+                self.protocol.inbox_apply_router.last_applied_l2_block
+            ),
+            post_inbox_last_applied_l2_block=(
+                expected.output_core.l2_block_number
+            ),
+            proof_commitment=result.proof_commitment,
+            seal="PENDING",
+            _capability=_VERIFIED_MIGRATION_EVM_TRACE_CAPABILITY,
+        )
+        trace = replace(
+            trace,
+            seal=self._opaque_seal(
+                b"TAIKO_VERIFIED_MIGRATION_EVM_TRACE_SEAL_V1\x00",
+                trace.digest,
+            ),
+        )
+        prior = self._observed_release_deployments.get(
+            witness.manifest_commitment
+        )
+        if prior is not None and prior.digest != observed.digest:
+            raise ValueError("release deployment observation conflicts")
+        self._observed_release_deployments[
+            witness.manifest_commitment
+        ] = observed
+        return trace
+
+    def valid_migration_evm_trace(
+        self, trace: VerifiedMigrationEvmTrace,
+    ) -> bool:
+        return (
+            type(trace) is VerifiedMigrationEvmTrace
+            and trace.verifier is self
+            and trace.transition_verifier
+                is self.migration_transition_verifier
+            and trace.transition_verifier_descriptor
+                == self.migration_transition_verifier_descriptor
+            and trace.transition_result_digest
+                == migration_transition_result_digest(
+                    trace.transition_verifier_descriptor,
+                    trace.transition_statement_digest,
+                    trace.proof_commitment,
+                )
+            and self.migration_transition_verifier.valid_result_seal(
+                trace.transition_result_digest,
+                trace.transition_result_seal,
+            )
+            and trace.seal == self._opaque_seal(
+                b"TAIKO_VERIFIED_MIGRATION_EVM_TRACE_SEAL_V1\x00",
+                trace.digest,
+            )
+        )
+
+    def verify_migration_execution_output(
+        self,
+        *,
+        router: ActiveSettlementRouter,
+        settlement: VersionedSettlementHistory,
+        clock: Clock,
+        target_manifest_hash: bytes,
+        candidate: Candidate,
+        evm_validity: VerifiedMigrationEvmTrace,
+        rows: tuple[InboxRowV2, ...] | None = None,
+    ) -> VerifiedMigrationExecutionOutput:
+        """Issue the one sealed output covering migration tx0 and tx1.
+
+        The Router has no output-signing key and never reads or executes the
+        target L2 graph.  This exact verifier checks its already-sealed EVM
+        public outputs against the L1 commitments, then wraps that immutable
+        output for the Router to consume.
+        """
+
+        old_registration = router.registrations.get(router.active_version)
+        old = old_registration.settlement if old_registration else None
+        old_protocol = old.live_protocol if old is not None else None
+        block = candidate.blocks[0] if type(candidate) is Candidate \
+            and candidate.count == 1 else None
+        output_core = (
+            CanonicalCore(
+                candidate.end_l2_block_number,
+                block.block_hash,
+                block.slot,
+                candidate.end_state_root,
+                block.message_end,
+                candidate.winning_data_commitment,
+                candidate.next_base_fee,
+                candidate.next_excess_blob_gas,
+                candidate.end_terminal_root,
+                candidate.end_terminal_count,
+            )
+            if block is not None else None
+        )
+        if (self.protocol._inbox_execution_authority is not self
+                or type(router) is not ActiveSettlementRouter
+                or type(settlement) is not VersionedSettlementHistory
+                or settlement.live_protocol is not self.protocol
+                or type(old_registration) is not SettlementRegistration
+                or type(old_protocol) is not Protocol
+                or output_core is None
+                or type(clock) is not Clock
+                or type(evm_validity) is not VerifiedMigrationEvmTrace
+                or not self.valid_migration_evm_trace(evm_validity)
+                or not self._migration_candidate_public_inputs_exact(
+                    candidate,
+                    clock,
+                    router=router,
+                    settlement=settlement,
+                    target_manifest_hash=target_manifest_hash,
+                )
+                or evm_validity.candidate_digest
+                    != candidate_inbox_execution_digest(candidate)
+                or evm_validity.base_core != old.core
+                or evm_validity.output_core != output_core
+                or evm_validity.target_protocol_version
+                    != settlement.protocol_version
+                or evm_validity.execution_profile_hash
+                    != settlement.execution_profile_hash
+                or evm_validity.target_manifest_hash
+                    != target_manifest_hash
+                or evm_validity.queue_root != router.forced_queue.root
+                or evm_validity.queue_count != router.forced_queue.count
+                or evm_validity.start_cursor != old.core.message_cursor
+                or evm_validity.end_cursor != output_core.message_cursor
+                or evm_validity.post_inbox_last_applied_l2_block
+                    != output_core.l2_block_number):
+            raise ValueError("migration execution verifier graph is split")
+        preview = settlement_registration(
+            router,
+            settlement,
+            activation_block=clock.block_number,
+            predecessor_version=router.active_version,
+            release_manifest_hash=target_manifest_hash,
+        )
+        manifest = preview.release_manifest
+        start = old.core.message_cursor
+        end = output_core.message_cursor
+        descriptors = tuple(router.forced_queue.descriptors[start:end])
+        exact_rows = (
+            tuple(
+                (
+                    index, 0, UINT32_MAX, "", None,
+                )
+                if type(descriptor) is Message
+                and descriptor.kind is ForceKind.USER_TX
+                else (
+                    index,
+                    5,
+                    UINT32_MAX,
+                    inbox_kind1_result(index, descriptor),
+                    descriptor,
+                )
+                for index, descriptor in enumerate(descriptors, start)
+            )
+            if rows is None else rows
+        )
+        expected_statement = migration_transition_public_inputs_from_l1(
+            router=router,
+            settlement=settlement,
+            target_manifest_hash=target_manifest_hash,
+            candidate=candidate,
+            rows=exact_rows,
+        )
+        if (evm_validity.transition_statement_digest
+                != expected_statement.digest
+                or evm_validity.router_generation
+                    != expected_statement.router_generation
+                or evm_validity.source_canonical_sequence
+                    != expected_statement.canonical_sequence
+                or evm_validity.transition_result_digest
+                    != migration_transition_result_digest(
+                        evm_validity.transition_verifier_descriptor,
+                        expected_statement.digest,
+                        evm_validity.proof_commitment,
+                    )
+                or evm_validity.release_system_calldata_hash
+                != release_system_calldata_hash(manifest)
+                or evm_validity.system_calldata_hash
+                    != inbox_system_calldata_hash(exact_rows)
+                or block.inbox_descriptor_commitment
+                    != inbox_descriptor_commitment(descriptors)
+                or block.inbox_system_calldata_hash
+                    != inbox_system_calldata_hash(exact_rows)
+                or not self._rows_match_descriptors(exact_rows, descriptors)):
+            raise ValueError("migration execution calldata is not exact")
+        traced = VerifiedMigrationExecutionOutput(
+            self,
+            router,
+            candidate,
+            evm_validity,
+            copy.deepcopy(old.core),
+            copy.deepcopy(output_core),
+            settlement.protocol_version,
+            target_manifest_hash,
+            evm_validity.transition_statement_digest,
+            evm_validity.router_generation,
+            evm_validity.source_canonical_sequence,
+            start,
+            end,
+            candidate.beneficiary,
+            exact_rows,
+            evm_validity.pre_inbox_last_applied_l2_block,
+            evm_validity.post_inbox_last_applied_l2_block,
+            "PENDING",
+            _MIGRATION_EXECUTION_OUTPUT_CAPABILITY,
+        )
+        return replace(
+            traced,
+            seal=self._opaque_seal(
+                b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_SEAL_V1\x00",
+                traced.digest,
+            ),
+        )
+
+    def valid_receipt(self, candidate: Candidate) -> bool:
+        receipt = candidate.inbox_execution_receipt
+        protocol = self.protocol
+        history = protocol.versioned_history
+        if (type(receipt) is not InboxExecutionReceipt
+                or receipt.authority is not self
+                or type(history) is not VersionedSettlementHistory):
+            return False
+        router = history._router_authority
+        registration = (
+            router.registrations.get(history.protocol_version)
+            if type(router) is ActiveSettlementRouter else None
+        )
+        expected_release_hashes: list[str] = []
+        for block in candidate.blocks:
+            if not block.release_activation:
+                expected_release_hashes.append("")
+                continue
+            manifests = (
+                registration.release_manifests_by_adapter.values()
+                if type(registration) is SettlementRegistration else ()
+            )
+            matches = tuple(
+                manifest for manifest in manifests
+                if manifest.protocol_version
+                    == block.release_protocol_version
+                and self._manifest_hash_matches(
+                    manifest, block.release_manifest_hash
+                )
+            )
+            if len(matches) != 1:
+                return False
+            expected_release_hashes.append(
+                release_system_calldata_hash(matches[0])
+            )
+        return (
+            receipt.seal == self._opaque_seal(
+                b"TAIKO_INBOX_RECEIPT_SEAL_V1\x00", receipt.digest
+            )
+            and receipt.candidate_digest
+                == candidate_inbox_execution_digest(candidate)
+            and receipt.base_canonical_hash == protocol.canonical.base_hash
+            and receipt.base_canonical_hash == candidate.base_canonical_hash
+            and receipt.protocol_version == history.protocol_version
+            and receipt.execution_profile_hash
+                == history.execution_profile_hash
+            and receipt.pre_cursor == protocol.core.message_cursor
+            and receipt.post_cursor == candidate.tip.message_end
+            and receipt.post_last_applied_l2_block
+                == candidate.end_l2_block_number
+            and receipt.release_system_calldata_hashes
+                == tuple(expected_release_hashes)
+            and receipt.inbox_system_calldata_hashes
+                == tuple(
+                    block.inbox_system_calldata_hash
+                    for block in candidate.blocks
+                )
+        )
+
+    def valid_for(
+        self,
+        batch: AuthenticatedInboxBatch,
+        inbox: "InboxApplyRouterV2",
+        rows: tuple[InboxRowV2, ...],
+    ) -> bool:
+        if (type(batch) is not AuthenticatedInboxBatch
+                or batch.authority is not self
+                or inbox is not batch.inbox
+                or batch.nonce in self._consumed):
+            return False
+        record = self._issued.get(batch.nonce)
+        protocol = self.protocol
+        history = protocol.versioned_history
+        router = getattr(history, "_router_authority", None)
+        try:
+            header = protocol.header_oracle.header(batch.anchor_number)
+        except KeyError:
+            return False
+        anchor_force_exact = (
+            (
+                protocol.mode is Mode.NORMAL
+                and header.force_root == batch.force_root
+                and header.force_cutoff == batch.force_cutoff
+            )
+            or (
+                protocol.mode is Mode.RECOVERY
+                and protocol.recovery is not None
+                and protocol.recovery.force_root == batch.force_root
+                and protocol.recovery.force_cutoff == batch.force_cutoff
+            )
+        )
+        return (
+            type(record) is IssuedInboxBatchRecord
+            and record.nonce == batch.nonce
+            and record.batch_object_id == id(batch)
+            and record.batch_digest == batch.digest
+            and record.execution_frame == self._execution_frame
+            and record.execution_frame
+                == (record.execution_frame[0], batch.block_index)
+            and type(history) is VersionedSettlementHistory
+            and type(router) is ActiveSettlementRouter
+            and history.protocol_version == batch.protocol_version
+            and history.execution_profile_hash == batch.execution_profile_hash
+            and router.settlement_chain_context_id
+                == batch.settlement_chain_id
+            and protocol.canonical.base_hash == batch.base_canonical_hash
+            and batch.l2_block_number
+                == protocol.core.l2_block_number + batch.block_index + 1
+            and protocol.inbox_apply_router.next_queue_index
+                == batch.force_start
+            and header.block_hash == batch.anchor_hash
+            and anchor_force_exact
+            and batch.force_root == model_force_root(
+                protocol.forced_queue.descriptors[:batch.force_cutoff]
+            )
+            and batch.system_calldata_hash == inbox_system_calldata_hash(rows)
+        )
+
+    def consume(self, batch: AuthenticatedInboxBatch) -> None:
+        record = self._issued.pop(batch.nonce, None)
+        if (type(record) is not IssuedInboxBatchRecord
+                or record.batch_digest != batch.digest):
+            raise ValueError("Inbox batch capability was not issued")
+        self._consumed.add(batch.nonce)
+
+
+def release_deployment_witness_for_test(
+    authority: InboxValidityExecutionAuthority,
+    manifest: "ReleaseManifestV2",
+    *,
+    bridge_deployment: "BridgeDeploymentStateV2 | None" = None,
+) -> ReleaseDeploymentWitness:
+    """Fixture-only raw prestate consumed by the exact verifier mock."""
+
+    if (type(authority) is not InboxValidityExecutionAuthority
+            or type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()):
+        raise ValueError("test release prestate is invalid")
+    protocol = authority.protocol
+    registrar = protocol.inbox_apply_router._terminal_registrar_authority
+    if type(registrar) is not TerminalDomainRegistrarV2:
+        raise ValueError("test release prestate has no local registrar")
+    route = protocol.inbox_apply_router.routes.get(
+        manifest.destination_domain_id
+    )
+    if route is None:
+        store_row = manifest.components[4]
+        store = InboxCreditStoreV2(
+            protocol.inbox_apply_router.address,
+            manifest.destination_bridge,
+            manifest.destination_domain_id,
+            address=store_row.address,
+            activation_gate=manifest.activation_gate,
+            terminal_registrar=registrar.address,
+            runtime_codehash=store_row.runtime_hash,
+        )
+        endpoint = EndpointActivationStateV2()
+    else:
+        store = route.store
+        endpoint = EndpointActivationStateV2(
+            store_domain_unset=False,
+            store_pins_empty=not bool(store.pins),
+            store_sealer_live=False,
+            gate_active=True,
+            gate_sealer_live=False,
+            bridge_v2_domain_unset=False,
+            bridge_v2_terminal_namespace_empty=True,
+            bridge_sealer_live=False,
+        )
+    if bridge_deployment is None:
+        is_genesis_proxy = (
+            manifest.destination_bridge == "bridge:A"
+            and manifest.components[8].runtime_hash
+                != manifest.destination_bridge_descriptor.facade_runtime_hash
+        )
+        deployment = (
+            BridgeDeploymentStateV2(
+                "GENESIS_LEGACY_PROXY",
+                manifest.destination_bridge,
+                manifest.components[8].runtime_hash,
+                implementation_address="impl:bridge:A",
+                implementation_runtime_hash=(
+                    manifest.destination_bridge_descriptor
+                        .facade_runtime_hash
+                ),
+                direct_prestate_slot_constraint=True,
+                upgrade_authority_burned=True,
+                delegate_target_reachable=True,
+                eip1967_implementation_slot_value="impl:bridge:A",
+                eip1967_admin_slot_value="",
+                eip1967_implementation_slot_proved=True,
+                eip1967_admin_slot_proved=True,
+            )
+            if is_genesis_proxy else BridgeDeploymentStateV2(
+                "IMMUTABLE_NONPROXY",
+                manifest.destination_bridge,
+                manifest.components[8].runtime_hash,
+            )
+        )
+    else:
+        deployment = bridge_deployment
+    return ReleaseDeploymentWitness(
+        manifest.commitment,
+        protocol.core.state_root,
+        manifest.components[3:],
+        manifest.destination_bridge_descriptor,
+        store,
+        endpoint,
+        endpoint_activation_projection(endpoint),
+        deployment,
+    )
+
+
+def issue_verified_migration_evm_trace_for_test(
+    authority: InboxValidityExecutionAuthority,
+    *,
+    router: ActiveSettlementRouter,
+    settlement: VersionedSettlementHistory,
+    clock: Clock,
+    target_manifest_hash: bytes,
+    candidate: Candidate,
+    rows: tuple[InboxRowV2, ...],
+) -> VerifiedMigrationEvmTrace:
+    """Drive the production interface with a test-only valid proof blob."""
+
+    if (type(authority) is not InboxValidityExecutionAuthority
+            or not authority._migration_candidate_public_inputs_exact(
+                candidate,
+                clock,
+                router=router,
+                settlement=settlement,
+                target_manifest_hash=target_manifest_hash,
+            )):
+        raise ValueError("test migration trace public inputs do not verify")
+    manifest = settlement_registration(
+        router,
+        settlement,
+        activation_block=clock.block_number,
+        predecessor_version=router.active_version,
+        release_manifest_hash=target_manifest_hash,
+    ).release_manifest
+    witness = release_deployment_witness_for_test(authority, manifest)
+    public_inputs = authority._migration_transition_public_inputs(
+        router=router,
+        settlement=settlement,
+        clock=clock,
+        target_manifest_hash=target_manifest_hash,
+        candidate=candidate,
+        rows=rows,
+        witness=witness,
+    )
+    verifier = authority.migration_transition_verifier
+    if type(verifier) is not TestMigrationTransitionVerifier:
+        raise ValueError("test fixture requires the exact test verifier mock")
+    proof = issue_migration_transition_proof_for_test(
+        verifier,
+        public_inputs,
+        b"test-zk-migration-proof:" + public_inputs.digest.encode(),
+    )
+    return authority.verify_migration_transition(
+        router=router,
+        settlement=settlement,
+        clock=clock,
+        target_manifest_hash=target_manifest_hash,
+        candidate=candidate,
+        rows=rows,
+        witness=witness,
+        proof=proof,
+    )
+
+
+_FORK_LOCAL_L2_POSTSTATE_CAPABILITY = object()
+
+
+def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
+    """Commit node-local L2 state without placing it in the L1 graph.
+
+    This deliberately unbounded projection is a test-node snapshot, not a
+    receipt/public input and never an on-chain operation.  Production nodes
+    use their execution database/state root instead.
+    """
+
+    if type(protocol) is not Protocol:
+        raise ValueError("L2 state commitment requires exact Protocol")
+    inbox = protocol.inbox_apply_router
+    registrar = inbox._terminal_registrar_authority
+    if type(registrar) is not TerminalDomainRegistrarV2:
+        raise ValueError("L2 state commitment has no exact registrar")
+    routes = tuple(sorted(
+        (
+            domain_id,
+            route.destination_bridge,
+            route.store_codehash,
+            route.store_config_hash,
+            route.store.address,
+            route.store.runtime_codehash,
+            route.store.route_config_hash,
+            tuple(sorted(route.store.pins.items())),
+        )
+        for domain_id, route in inbox.routes.items()
+    ))
+    observations = tuple(sorted(
+        (
+            manifest_hash,
+            endpoint_activation_projection(observed.endpoint_state),
+            observed.bridge_deployment,
+        )
+        for manifest_hash, observed
+        in protocol._inbox_execution_authority
+            ._observed_release_deployments.items()
+    ))
+    projection = (
+        inbox.next_queue_index,
+        inbox.last_applied_l2_block,
+        routes,
+        tuple(sorted(registrar.authority.releases.items())),
+        tuple(sorted(registrar.registrations.items())),
+        tuple(sorted(registrar.bridge_identities.items())),
+        tuple(sorted(registrar.accumulator.domains.items())),
+        observations,
+    )
+    return hashlib.sha256(
+        b"TAIKO_NODE_LOCAL_L2_STATE_V1\x00" + repr(projection).encode()
+    ).hexdigest()
+
+
+@dataclass(frozen=True, eq=False)
+class ForkLocalL2Poststate:
+    """Immutable fork-local replay result selected only after L1 success."""
+
+    authority: "InboxValidityExecutionAuthority" = field(
+        compare=False, repr=False
+    )
+    protocol: Protocol = field(compare=False, repr=False)
+    candidate: Candidate
+    rows_by_block: tuple[tuple["InboxRowV2", ...], ...]
+    migration_output: VerifiedMigrationExecutionOutput | None
+    prestate_commitment: str
+    poststate_commitment: str
+    pre_cursor: int
+    post_cursor: int
+    pre_last_applied_l2_block: int
+    post_last_applied_l2_block: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    l1_block_number: int
+    l1_timestamp: int
+    seal: str
+    _capability: object = field(repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _FORK_LOCAL_L2_POSTSTATE_CAPABILITY
+                or type(self.authority) is not InboxValidityExecutionAuthority
+                or type(self.protocol) is not Protocol
+                or self.authority.protocol is not self.protocol
+                or type(self.candidate) is not Candidate
+                or type(self.rows_by_block) is not tuple
+                or not self.rows_by_block
+                or any(type(rows) is not tuple for rows in self.rows_by_block)
+                or len(self.rows_by_block) != self.candidate.count
+                or (self.migration_output is not None
+                    and type(self.migration_output)
+                        is not VerifiedMigrationExecutionOutput)
+                or not self.prestate_commitment
+                or not self.poststate_commitment
+                or self.pre_cursor < 0
+                or self.post_cursor < self.pre_cursor
+                or self.pre_last_applied_l2_block < -1
+                or self.post_last_applied_l2_block
+                    <= self.pre_last_applied_l2_block
+                or self.target_protocol_version <= 0
+                or type(self.target_manifest_hash) is not bytes
+                or len(self.target_manifest_hash) != 32
+                or self.l1_block_number < 0
+                or self.l1_timestamp < 0
+                or not self.seal):
+            raise ValueError("fork-local L2 poststate is not canonical")
+
+    @property
+    def digest(self) -> str:
+        projection = (
+            id(self.authority), id(self.protocol),
+            candidate_inbox_execution_digest(self.candidate),
+            tuple(inbox_system_calldata_hash(rows)
+                  for rows in self.rows_by_block),
+            (
+                "" if self.migration_output is None
+                else self.migration_output.digest
+            ),
+            self.prestate_commitment,
+            self.poststate_commitment,
+            self.pre_cursor,
+            self.post_cursor,
+            self.pre_last_applied_l2_block,
+            self.post_last_applied_l2_block,
+            self.target_protocol_version,
+            self.target_manifest_hash,
+            self.l1_block_number,
+            self.l1_timestamp,
+        )
+        return hashlib.sha256(
+            b"TAIKO_FORK_LOCAL_L2_POSTSTATE_V1\x00"
+            + repr(projection).encode()
+        ).hexdigest()
+
+
+def _execute_verified_migration_l2_replay_for_test(
+    protocol: Protocol,
+    output: VerifiedMigrationExecutionOutput,
+    *,
+    persist: bool,
+    expected_poststate_commitment: str | None = None,
+) -> tuple[str, str] | None:
+    """Execute one migration replay, restoring unless canonically selected.
+
+    The L1 Router consumes only commitments.  This helper models the
+    independent L2 node/circuit replay without giving L1 an InboxApply/Store
+    capability.
+    """
+
+    if (type(protocol) is not Protocol
+            or type(output) is not VerifiedMigrationExecutionOutput
+            or output.verifier is not protocol._inbox_execution_authority
+            or output.seal != output.verifier._opaque_seal(
+                b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_SEAL_V1\x00",
+                output.digest,
+            )
+            or output.evm_validity.seal
+                != output.verifier._opaque_seal(
+                    b"TAIKO_VERIFIED_MIGRATION_EVM_TRACE_SEAL_V1\x00",
+                    output.evm_validity.digest,
+                )
+            or output.evm_validity.candidate_digest
+                != candidate_inbox_execution_digest(output.candidate)
+            or output.evm_validity.system_calldata_hash
+                != inbox_system_calldata_hash(output.rows)):
         return None
-    length = int.from_bytes(descriptor[:2], "big")
-    if not 0 < length <= 531 or any(descriptor[2 + length:]):
+    authority = protocol._inbox_execution_authority
+    history = protocol.versioned_history
+    router = output.router
+    if type(history) is not VersionedSettlementHistory:
+        return None
+    registration = None
+    if (type(router) is ActiveSettlementRouter
+            and type(history) is VersionedSettlementHistory):
+        registration = router.registrations.get(history.protocol_version)
+        if registration is None:
+            try:
+                registration = settlement_registration(
+                    router,
+                    history,
+                    activation_block=(
+                        output.candidate.blocks[0].anchor_number + F_L1
+                    ),
+                    predecessor_version=router.active_version,
+                    release_manifest_hash=output.target_manifest_hash,
+                )
+            except ValueError:
+                registration = None
+    manifests = (
+        tuple(registration.release_manifests_by_adapter.values())
+        if type(registration) is SettlementRegistration else ()
+    )
+    matches = tuple(
+        manifest for manifest in manifests
+        if manifest.commitment == output.target_manifest_hash
+    )
+    if len(matches) != 1:
         return None
     try:
-        domain_raw, credit_raw = descriptor[2:2 + length].split(b"\x00", 1)
-        domain_id, credit_id = domain_raw.decode(), credit_raw.decode()
-    except (UnicodeDecodeError, ValueError):
+        activation = authority._route_activation_delta_for_manifest(
+            matches[0],
+            expected_prestate_root=output.base_core.state_root,
+        )
+    except ValueError:
         return None
-    if not domain_id or not credit_id:
+    snapshot = authority._activation_transaction_snapshot(activation)
+    inbox = protocol.inbox_apply_router
+    cursor_snapshot = inbox.next_queue_index
+    last_snapshot = inbox.last_applied_l2_block
+    prestate_commitment = l2_execution_state_commitment_for_test(protocol)
+    prior_frame = authority._execution_frame
+    touched: dict[
+        tuple[str, str], tuple[InboxRoute, InboxPin | None]
+    ] = {}
+    try:
+        if (cursor_snapshot != output.start_cursor
+                or not authority._activate_release_delta(
+                    activation,
+                    expected_prestate_root=output.base_core.state_root,
+                )):
+            raise ValueError("L2 replay tx0 failed")
+        for row in output.rows:
+            descriptor = row[4]
+            if type(descriptor) is not BridgeQueueDescriptorV10:
+                continue
+            route = inbox.routes.get(descriptor.destination_domain_id)
+            if route is None:
+                raise ValueError("L2 replay route is absent")
+            touched.setdefault(
+                (descriptor.destination_domain_id, descriptor.credit_id),
+                (route, route.store.pins.get(descriptor.credit_id)),
+            )
+        authority._execution_frame = (id(output), 0)
+        if not inbox._apply_verified_rows(
+            output.rows,
+            force_start=output.start_cursor,
+            l2_block_number=output.output_core.l2_block_number,
+            evm_timestamp=GENESIS_TIMESTAMP + output.output_core.tip_slot,
+            authority=authority,
+            capability=_INBOX_APPLY_ROWS_CAPABILITY,
+        ):
+            raise ValueError("L2 replay tx1 failed")
+        if (inbox.next_queue_index != output.end_cursor
+                or inbox.last_applied_l2_block
+                    != output.post_inbox_last_applied_l2_block):
+            raise ValueError("L2 replay poststate differs from proof")
+        poststate_commitment = l2_execution_state_commitment_for_test(protocol)
+        if (persist
+                and expected_poststate_commitment is not None
+                and poststate_commitment != expected_poststate_commitment):
+            raise ValueError("L2 replay poststate differs from fork snapshot")
+        if not persist:
+            inbox.next_queue_index = cursor_snapshot
+            inbox.last_applied_l2_block = last_snapshot
+            authority._restore_activation_transaction(activation, snapshot)
+        return prestate_commitment, poststate_commitment
+    except BaseException:
+        inbox.next_queue_index = cursor_snapshot
+        inbox.last_applied_l2_block = last_snapshot
+        authority._restore_activation_transaction(activation, snapshot)
         return None
-    return domain_id, credit_id
+    finally:
+        authority._execution_frame = prior_frame
 
 
-def inbox_kind1_result(index: int, domain_id: str, credit_id: str) -> str:
-    return f"result:{index}:{domain_id}:{credit_id}"
+def _execute_prepared_candidate_l2_replay_for_test(
+    authority: InboxValidityExecutionAuthority,
+    candidate: Candidate,
+    rows_by_block: tuple[tuple[InboxRowV2, ...], ...],
+    clock: Clock,
+    *,
+    persist: bool,
+    expected_poststate_commitment: str | None = None,
+) -> tuple[str, str] | None:
+    """Execute normal/recovery replay, restoring unless selected by L1."""
+
+    receipt = (
+        candidate.inbox_execution_receipt
+        if type(candidate) is Candidate else None
+    )
+    protocol = (
+        authority.protocol
+        if type(authority) is InboxValidityExecutionAuthority else None
+    )
+    if (type(authority) is not InboxValidityExecutionAuthority
+            or type(candidate) is not Candidate
+            or type(receipt) is not InboxExecutionReceipt
+            or type(protocol) is not Protocol
+            or receipt.authority is not authority
+            or receipt.seal != authority._opaque_seal(
+                b"TAIKO_INBOX_RECEIPT_SEAL_V1\x00", receipt.digest
+            )
+            or receipt.candidate_digest
+                != candidate_inbox_execution_digest(candidate)
+            or type(rows_by_block) is not tuple
+            or len(rows_by_block) != candidate.count
+            or tuple(inbox_system_calldata_hash(rows)
+                     for rows in rows_by_block)
+                != receipt.inbox_system_calldata_hashes
+            or receipt.pre_cursor
+                != protocol.inbox_apply_router.next_queue_index
+            or receipt.post_cursor != candidate.tip.message_end
+            or authority._preparing_candidate_id is not None
+            or authority._execution_frame is not None):
+        return None
+    try:
+        activation = authority._release_activation_delta(candidate)
+    except ValueError:
+        return None
+    snapshot = (
+        authority._activation_transaction_snapshot(activation)
+        if activation is not None else None
+    )
+    inbox = protocol.inbox_apply_router
+    cursor_snapshot = inbox.next_queue_index
+    last_snapshot = inbox.last_applied_l2_block
+    prestate_commitment = l2_execution_state_commitment_for_test(protocol)
+    touched: dict[
+        tuple[int, str], tuple[InboxCreditStoreV2, InboxPin | None]
+    ] = {}
+    try:
+        if (activation is not None
+                and not authority._activate_release_delta(activation)):
+            raise ValueError("canonical L2 replay rejected tx0")
+        for rows in rows_by_block:
+            for row in rows:
+                descriptor = row[4]
+                if type(descriptor) is not BridgeQueueDescriptorV10:
+                    continue
+                route = inbox.routes.get(descriptor.destination_domain_id)
+                if route is None:
+                    raise ValueError("canonical L2 replay route is absent")
+                touched.setdefault(
+                    (id(route.store), descriptor.credit_id),
+                    (route.store, route.store.pins.get(descriptor.credit_id)),
+                )
+        for block_index, (block, rows) in enumerate(
+                zip(candidate.blocks, rows_by_block)):
+            authority._execution_frame = (id(candidate), block_index)
+            if not inbox._apply_verified_rows(
+                rows,
+                force_start=block.message_start,
+                l2_block_number=(
+                    candidate.end_l2_block_number
+                    - candidate.count + block_index + 1
+                ),
+                evm_timestamp=block.evm_timestamp,
+                authority=authority,
+                capability=_INBOX_APPLY_ROWS_CAPABILITY,
+            ):
+                raise ValueError("canonical L2 replay rejected tx1")
+        poststate_commitment = l2_execution_state_commitment_for_test(protocol)
+        if (persist
+                and expected_poststate_commitment is not None
+                and poststate_commitment != expected_poststate_commitment):
+            raise ValueError("L2 replay poststate differs from fork snapshot")
+        if not persist:
+            for (_, credit_id), (store, prior) in touched.items():
+                if prior is None:
+                    store.pins.pop(credit_id, None)
+                else:
+                    store.pins[credit_id] = prior
+            inbox.next_queue_index = cursor_snapshot
+            inbox.last_applied_l2_block = last_snapshot
+            if activation is not None:
+                assert snapshot is not None
+                authority._restore_activation_transaction(activation, snapshot)
+        return prestate_commitment, poststate_commitment
+    except BaseException:
+        for (_, credit_id), (store, prior) in touched.items():
+            if prior is None:
+                store.pins.pop(credit_id, None)
+            else:
+                store.pins[credit_id] = prior
+        inbox.next_queue_index = cursor_snapshot
+        inbox.last_applied_l2_block = last_snapshot
+        if activation is not None:
+            assert snapshot is not None
+            authority._restore_activation_transaction(activation, snapshot)
+        return None
+    finally:
+        authority._execution_frame = None
+
+
+def _sealed_fork_local_l2_poststate_for_test(
+    authority: InboxValidityExecutionAuthority,
+    *,
+    candidate: Candidate,
+    rows_by_block: tuple[tuple[InboxRowV2, ...], ...],
+    migration_output: VerifiedMigrationExecutionOutput | None,
+    prestate_commitment: str,
+    poststate_commitment: str,
+    pre_cursor: int,
+    post_cursor: int,
+    pre_last_applied_l2_block: int,
+    post_last_applied_l2_block: int,
+    target_protocol_version: int,
+    target_manifest_hash: bytes,
+    clock: Clock,
+) -> ForkLocalL2Poststate:
+    poststate = ForkLocalL2Poststate(
+        authority,
+        authority.protocol,
+        candidate,
+        rows_by_block,
+        migration_output,
+        prestate_commitment,
+        poststate_commitment,
+        pre_cursor,
+        post_cursor,
+        pre_last_applied_l2_block,
+        post_last_applied_l2_block,
+        target_protocol_version,
+        target_manifest_hash,
+        clock.block_number,
+        clock.timestamp,
+        "PENDING",
+        _FORK_LOCAL_L2_POSTSTATE_CAPABILITY,
+    )
+    return replace(
+        poststate,
+        seal=authority._opaque_seal(
+            b"TAIKO_FORK_LOCAL_L2_POSTSTATE_SEAL_V1\x00",
+            poststate.digest,
+        ),
+    )
+
+
+def replay_verified_migration_output_on_l2_for_test(
+    protocol: Protocol,
+    output: VerifiedMigrationExecutionOutput,
+) -> ForkLocalL2Poststate | None:
+    """Build an immutable migration fork; never switch canonical L2 state."""
+
+    result = _execute_verified_migration_l2_replay_for_test(
+        protocol,
+        output,
+        persist=False,
+    )
+    if result is None:
+        return None
+    prestate_commitment, poststate_commitment = result
+    inbox = protocol.inbox_apply_router
+    return _sealed_fork_local_l2_poststate_for_test(
+        protocol._inbox_execution_authority,
+        candidate=output.candidate,
+        rows_by_block=(output.rows,),
+        migration_output=output,
+        prestate_commitment=prestate_commitment,
+        poststate_commitment=poststate_commitment,
+        pre_cursor=output.start_cursor,
+        post_cursor=output.end_cursor,
+        pre_last_applied_l2_block=inbox.last_applied_l2_block,
+        post_last_applied_l2_block=(
+            output.post_inbox_last_applied_l2_block
+        ),
+        target_protocol_version=output.target_protocol_version,
+        target_manifest_hash=output.target_manifest_hash,
+        # A fork-local migration replay exists before the L1 transaction lands.
+        # Zero is an explicit "not yet observed" sentinel: neither the
+        # transition statement nor this sealed node-local snapshot predicts a
+        # future landing block or timestamp.
+        clock=Clock(0, 0),
+    )
+
+
+def replay_prepared_candidate_on_l2_for_test(
+    authority: InboxValidityExecutionAuthority,
+    candidate: Candidate,
+    rows_by_block: tuple[tuple[InboxRowV2, ...], ...],
+    clock: Clock,
+) -> ForkLocalL2Poststate | None:
+    """Build an immutable normal/recovery fork without canonical pollution."""
+
+    if (type(authority) is not InboxValidityExecutionAuthority
+            or type(clock) is not Clock):
+        return None
+    protocol = authority.protocol
+    history = protocol.versioned_history
+    if type(history) is not VersionedSettlementHistory:
+        return None
+    pre_cursor = protocol.inbox_apply_router.next_queue_index
+    pre_last = protocol.inbox_apply_router.last_applied_l2_block
+    result = _execute_prepared_candidate_l2_replay_for_test(
+        authority,
+        candidate,
+        rows_by_block,
+        clock,
+        persist=False,
+    )
+    if result is None:
+        return None
+    prestate_commitment, poststate_commitment = result
+    release_hash = b"\x00" * 32
+    if candidate.blocks[0].release_activation:
+        router = history._router_authority
+        registration = (
+            router.registrations.get(
+                candidate.blocks[0].release_protocol_version
+            ) if type(router) is ActiveSettlementRouter else None
+        )
+        matches = tuple(
+            manifest for manifest
+            in (
+                registration.release_manifests_by_adapter.values()
+                if type(registration) is SettlementRegistration else ()
+            )
+            if authority._manifest_hash_matches(
+                manifest, candidate.blocks[0].release_manifest_hash
+            )
+        )
+        if len(matches) != 1:
+            return None
+        release_hash = matches[0].commitment
+    return _sealed_fork_local_l2_poststate_for_test(
+        authority,
+        candidate=candidate,
+        rows_by_block=rows_by_block,
+        migration_output=None,
+        prestate_commitment=prestate_commitment,
+        poststate_commitment=poststate_commitment,
+        pre_cursor=pre_cursor,
+        post_cursor=candidate.tip.message_end,
+        pre_last_applied_l2_block=pre_last,
+        post_last_applied_l2_block=candidate.end_l2_block_number,
+        target_protocol_version=history.protocol_version,
+        target_manifest_hash=release_hash,
+        clock=clock,
+    )
+
+
+def select_canonical_l2_poststate_for_test(
+    poststate: ForkLocalL2Poststate,
+) -> bool:
+    """Switch the node-local canonical fork only after exact L1 success."""
+
+    if (type(poststate) is not ForkLocalL2Poststate
+            or poststate.seal != poststate.authority._opaque_seal(
+                b"TAIKO_FORK_LOCAL_L2_POSTSTATE_SEAL_V1\x00",
+                poststate.digest,
+            )
+            or l2_execution_state_commitment_for_test(poststate.protocol)
+                != poststate.prestate_commitment):
+        return False
+    protocol = poststate.protocol
+    history = protocol.versioned_history
+    candidate = poststate.candidate
+    expected_core = CanonicalCore(
+        candidate.end_l2_block_number,
+        candidate.tip.block_hash,
+        candidate.tip.slot,
+        candidate.end_state_root,
+        candidate.tip.message_end,
+        candidate.winning_data_commitment,
+        candidate.next_base_fee,
+        candidate.next_excess_blob_gas,
+        candidate.end_terminal_root,
+        candidate.end_terminal_count,
+    )
+    migration_output = poststate.migration_output
+    if (type(history) is not VersionedSettlementHistory
+            or protocol.last_canonical_execution_digest
+                != candidate_inbox_execution_digest(candidate)
+            or protocol.core != expected_core
+            or history.core != expected_core
+            or history.protocol_version != poststate.target_protocol_version
+            or (migration_output is None
+                and history.last_canonical_l1_block
+                    != poststate.l1_block_number)
+            or protocol.forced_queue.cursor != poststate.post_cursor):
+        return False
+    if migration_output is not None:
+        router = migration_output.router
+        registration = router.registrations.get(
+            poststate.target_protocol_version
+        )
+        if (migration_output.candidate is not candidate
+                or migration_output.target_manifest_hash
+                    != poststate.target_manifest_hash
+                or router.active_version != poststate.target_protocol_version
+                or type(registration) is not SettlementRegistration
+                or registration.settlement is not history
+                or registration.release_manifest_hash
+                    != poststate.target_manifest_hash
+                # The actual L1 landing is observed only through the installed
+                # canonical registration/history, never predicted by the
+                # verifier statement or pre-landing fork snapshot.
+                or registration.activation_block
+                    != history.last_canonical_l1_block
+                or migration_output.output_core != expected_core):
+            return False
+        result = _execute_verified_migration_l2_replay_for_test(
+            protocol,
+            migration_output,
+            persist=True,
+            expected_poststate_commitment=poststate.poststate_commitment,
+        )
+    else:
+        result = _execute_prepared_candidate_l2_replay_for_test(
+            poststate.authority,
+            candidate,
+            poststate.rows_by_block,
+            Clock(poststate.l1_block_number, poststate.l1_timestamp),
+            persist=True,
+            expected_poststate_commitment=poststate.poststate_commitment,
+        )
+    return result is not None
+
+
+def replay_candidate_queue_range_on_l2_for_test(
+    authority: InboxValidityExecutionAuthority,
+    candidate: Candidate,
+    clock: Clock,
+) -> ForkLocalL2Poststate | None:
+    """Fixture convenience for reconstructing exact Inbox calldata rows."""
+
+    if type(authority) is not InboxValidityExecutionAuthority:
+        return None
+    messages = authority.protocol.messages
+    rows_by_block: list[tuple[InboxRowV2, ...]] = []
+    for block in candidate.blocks:
+        rows: list[InboxRowV2] = []
+        for index in range(block.message_start, block.message_end):
+            queued = messages[index]
+            if type(queued) is Message and queued.kind is ForceKind.USER_TX:
+                rows.append((index, 0, UINT32_MAX, "", None))
+            elif type(queued) is BridgeQueueDescriptorV10:
+                rows.append((
+                    index,
+                    5,
+                    UINT32_MAX,
+                    inbox_kind1_result(index, queued),
+                    queued,
+                ))
+            else:
+                return None
+        rows_by_block.append(tuple(rows))
+    return replay_prepared_candidate_on_l2_for_test(
+        authority, candidate, tuple(rows_by_block), clock
+    )
 
 
 @dataclass
@@ -6048,16 +13530,48 @@ class InboxApplyRouterV2:
     next_queue_index: int = 0
     last_applied_l2_block: int = -1
     routes: dict[str, InboxRoute] = field(default_factory=dict)
+    _terminal_registrar_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {"address", "registrar"} and name in self.__dict__:
             raise AttributeError(f"InboxApply {name} is immutable")
         object.__setattr__(self, name, value)
 
-    def register_route(self, domain_id: str, store: InboxCreditStoreV2,
-                       destination_bridge: str, store_codehash: str, *,
-                       caller: str, manifest_exact: bool) -> bool:
-        if (caller != self.registrar or not manifest_exact or not domain_id
+    def _bind_terminal_registrar(
+        self, registrar: "TerminalDomainRegistrarV2"
+    ) -> bool:
+        if (type(registrar) is not TerminalDomainRegistrarV2
+                or registrar.address != self.registrar
+                or registrar.inbox_router is not self):
+            return False
+        existing = self._terminal_registrar_authority
+        if existing is not None:
+            return existing is registrar
+        object.__setattr__(self, "_terminal_registrar_authority", registrar)
+        return True
+
+    def _register_route_from_registrar(
+        self,
+        domain_id: str,
+        store: InboxCreditStoreV2,
+        destination_bridge: str,
+        store_codehash: str,
+        *,
+        registrar: "TerminalDomainRegistrarV2",
+        manifest: ReleaseManifestV2,
+    ) -> bool:
+        if (registrar is not self._terminal_registrar_authority
+                or type(registrar) is not TerminalDomainRegistrarV2
+                or registrar.inbox_router is not self
+                or manifest.destination_domain_id != domain_id
+                or manifest.destination_bridge != destination_bridge
+                or registrar.authority.releases.get(
+                    manifest.protocol_version
+                ) != manifest.commitment
+                or not manifest.structurally_valid()
+                or not domain_id
                 or store.authorized_inbox_apply != self.address
                 or store.destination_domain_id != domain_id
                 or store.destination_bridge != destination_bridge
@@ -6073,15 +13587,58 @@ class InboxApplyRouterV2:
             return existing == route
         if any(row.store is store for row in self.routes.values()):
             return False
+        if not store._bind_inbox_apply(self):
+            return False
         self.routes[domain_id] = route
         return True
 
-    def apply(self, force_start: int,
-              rows: tuple[tuple[int, int, int, str, bytes], ...], *,
-              now: int, l2_block_number: int,
-              caller_is_system_sender: bool) -> bool:
-        if (not caller_is_system_sender
-                or not 0 <= len(rows) <= MAX_FORCE_MESSAGES
+    def apply(
+        self,
+        batch: AuthenticatedInboxBatch,
+        rows: tuple[InboxRowV2, ...],
+    ) -> bool:
+        if type(batch) is not AuthenticatedInboxBatch:
+            return False
+        if (batch.inbox is not self
+                or not batch.authority.valid_for(batch, self, rows)):
+            return False
+        if not self._apply_verified_rows(
+                rows,
+                force_start=batch.force_start,
+                l2_block_number=batch.l2_block_number,
+                evm_timestamp=batch.evm_timestamp,
+                authority=batch.authority,
+                capability=_INBOX_APPLY_ROWS_CAPABILITY):
+            return False
+        batch.authority.consume(batch)
+        return True
+
+    def _apply_verified_rows(
+        self,
+        rows: tuple[InboxRowV2, ...],
+        *,
+        force_start: int,
+        l2_block_number: int,
+        evm_timestamp: int,
+        authority: InboxValidityExecutionAuthority,
+        capability: object,
+    ) -> bool:
+        """Execute proof-authenticated calldata; caller supplies no auth flag."""
+
+        if (capability is not _INBOX_APPLY_ROWS_CAPABILITY
+                or type(authority) is not InboxValidityExecutionAuthority
+                or authority.protocol.inbox_apply_router is not self
+                or authority._execution_frame is None):
+            return False
+        try:
+            process_by = checked_u64_add(
+                evm_timestamp,
+                BRIDGE_PROCESS_TTL_SECONDS,
+                "InboxApply processBy",
+            )
+        except ValueError:
+            return False
+        if (not 0 <= len(rows) <= MAX_FORCE_MESSAGES
                 or force_start != self.next_queue_index
                 or l2_block_number <= self.last_applied_l2_block
                 or tuple(row[0] for row in rows)
@@ -6093,7 +13650,8 @@ class InboxApplyRouterV2:
         seen_credits: set[tuple[str, str]] = set()
         for index, disposition, tx_index, result_hash, descriptor in rows:
             if disposition != 5:
-                if (descriptor or disposition not in range(5)
+                if (descriptor is not None
+                        or disposition not in range(5)
                         or (disposition < 4 and
                             (tx_index != UINT32_MAX or result_hash))
                         or (disposition == 4 and
@@ -6102,13 +13660,14 @@ class InboxApplyRouterV2:
                     return False
                 staged.append(("", None, "", ""))
                 continue
-            decoded = decode_inbox_kind1_descriptor(descriptor)
-            if decoded is None or tx_index != UINT32_MAX:
+            if (type(descriptor) is not BridgeQueueDescriptorV10
+                    or not descriptor.structurally_valid()
+                    or tx_index != UINT32_MAX):
                 return False
-            domain_id, credit_id = decoded
+            domain_id = descriptor.destination_domain_id
+            credit_id = descriptor.credit_id
             route = self.routes.get(domain_id)
-            expected_result = inbox_kind1_result(
-                index, domain_id, credit_id)
+            expected_result = inbox_kind1_result(index, descriptor)
             if (route is None or result_hash != expected_result
                     or route.store.runtime_codehash != route.store_codehash
                     or route.store.route_config_hash != route.store_config_hash
@@ -6140,12 +13699,11 @@ class InboxApplyRouterV2:
                 continue
             for credit_id, _ in run:
                 journal.append((store, credit_id, store.pins.get(credit_id)))
-            returned = store.pin_batch(
-                tuple(run), now=now, caller=self.address)
+            returned = store._pin_batch_from_router(
+                tuple(run), process_by=process_by, router=self)
             writes_match = all(
                 store.pins.get(credit_id)
-                    == InboxPin(result_hash,
-                                now + BRIDGE_PROCESS_TTL_SECONDS)
+                    == InboxPin(result_hash, process_by)
                 for credit_id, result_hash in run)
             if returned != INBOX_BATCH_OK_V2_WORD or not writes_match:
                 for touched_store, credit_id, prior in reversed(journal):
@@ -6168,6 +13726,12 @@ class TerminalAccumulatorV2:
     leaves: list[str] = field(default_factory=list)
     append_return_length: int = 32
     append_return_padding_ok: bool = True
+    _terminal_registrar_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+    _destination_bridge_authorities: dict[str, object] = field(
+        default_factory=dict, init=False, compare=False, repr=False
+    )
 
     @property
     def count(self) -> int:
@@ -6177,11 +13741,36 @@ class TerminalAccumulatorV2:
     def root(self) -> str:
         return "terminal-root:" + "|".join(self.leaves)
 
-    def register_domain(self, domain_id: str, bridge: str, *, caller: str,
-                        release_active: bool, descriptor_valid: bool,
-                        activation_order_valid: bool) -> bool:
-        if (caller != self.registrar or not release_active
-                or not descriptor_valid or not activation_order_valid):
+    def _bind_terminal_registrar(
+        self, registrar: "TerminalDomainRegistrarV2"
+    ) -> bool:
+        if (type(registrar) is not TerminalDomainRegistrarV2
+                or registrar.address != self.registrar
+                or registrar.accumulator is not self):
+            return False
+        existing = self._terminal_registrar_authority
+        if existing is not None:
+            return existing is registrar
+        object.__setattr__(self, "_terminal_registrar_authority", registrar)
+        return True
+
+    def _register_domain_from_registrar(
+        self,
+        domain_id: str,
+        bridge: str,
+        *,
+        registrar: "TerminalDomainRegistrarV2",
+        manifest: ReleaseManifestV2,
+    ) -> bool:
+        if (registrar is not self._terminal_registrar_authority
+                or type(registrar) is not TerminalDomainRegistrarV2
+                or registrar.accumulator is not self
+                or manifest.destination_domain_id != domain_id
+                or manifest.destination_bridge != bridge
+                or registrar.authority.releases.get(
+                    manifest.protocol_version
+                ) != manifest.commitment
+                or not manifest.structurally_valid()):
             return False
         existing = self.domains.get(domain_id)
         if existing is not None:
@@ -6191,9 +13780,26 @@ class TerminalAccumulatorV2:
         self.domains[domain_id] = bridge
         return True
 
+    def _bind_destination_bridge_once(
+        self, domain_id: str, bridge: object
+    ) -> bool:
+        if (type(bridge) is not DestinationBridgeLedger
+                or bridge.terminal_accumulator is not self
+                or bridge.local_domain_id != domain_id
+                or self.domains.get(domain_id) != bridge.address):
+            return False
+        existing = self._destination_bridge_authorities.get(domain_id)
+        if existing is not None:
+            return existing is bridge
+        self._destination_bridge_authorities[domain_id] = bridge
+        return True
+
     def append_terminal(self, *, caller: DestinationBridgeLedger,
                         credit_id: str) -> int | None:
-        if (not caller.terminal_commitment_gas_ok
+        if (self._destination_bridge_authorities.get(
+                caller.local_domain_id
+            ) is not caller
+                or not caller.terminal_commitment_gas_ok
                 or caller.terminal_commitment_return_length
                     != TERMINAL_COMMITMENT_ABI_BYTES):
             return None
@@ -6228,6 +13834,15 @@ class DestinationBridgeDescriptorV2:
     terminal_accumulator: str
     activation_gate: str
     terminal_domain_registrar: str
+    destination_chain_id: int = 167_000
+    native_quota_manager: str = DESTINATION_NATIVE_QUOTA_MANAGER
+    native_liquidity_floor: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR
+    native_liquidity_policy: str = DESTINATION_NATIVE_LIQUIDITY_POLICY
+    v1_official_vaults: tuple[str, ...] = V1_OFFICIAL_VAULT_ADDRESSES
+    privileged_target_denyset: tuple[str, ...] = (
+        V2_PRIVILEGED_DESTINATION_ADDRESSES
+    )
+    post_call_gas_reserve: int = V2_POST_CALL_GAS_RESERVE
 
     @property
     def execution_hash(self) -> str:
@@ -6252,10 +13867,12 @@ class ReleaseManifestV2:
     destination_bridge_execution_hash: str
     destination_bridge_descriptor: DestinationBridgeDescriptorV2
     destination_infrastructure_hash: str
+    migration_transition_verifier: MigrationTransitionVerifierDescriptor
+    ingress_authorization_root: bytes
     components: tuple[ReleaseComponentV2, ...]
 
     @property
-    def commitment(self) -> str:
+    def commitment(self) -> bytes:
         """Behavioral proxy for the byte-exact 1,372-byte commitment model."""
         values = (
             self.protocol_version, self.settlement_chain_id,
@@ -6267,22 +13884,59 @@ class ReleaseManifestV2:
             self.destination_bridge, self.destination_bridge_execution_hash,
             self.destination_bridge_descriptor,
             self.destination_infrastructure_hash,
+            self.migration_transition_verifier,
+            self.ingress_authorization_root,
             *((row.address, row.runtime_hash, row.config_hash)
               for row in self.components),
         )
-        return "release-manifest:" + repr(values)
+        return hashlib.sha256(
+            b"TAIKO_RELEASE_MANIFEST_V2\x00" + repr(values).encode()
+        ).digest()
 
     @property
-    def registration_commitment(self) -> str:
+    def registration_commitment(self) -> bytes:
         values = (
             self.protocol_version, self.commitment,
             self.destination_chain_id, self.destination_namespace,
             self.destination_domain_id, self.destination_bridge,
             self.destination_infrastructure_hash, self.execution_profile_hash)
-        return "destination-registration:" + repr(values)
+        return hashlib.sha256(
+            b"TAIKO_DESTINATION_REGISTRATION_V2\x00"
+            + repr(values).encode()
+        ).digest()
+
+    @property
+    def canonical_destination_descriptor(self) -> DestinationIngressDescriptor:
+        if len(self.components) != 9:
+            raise ValueError("release has no canonical destination topology")
+        return DestinationIngressDescriptor(
+            self.destination_chain_id,
+            self.destination_genesis_hash,
+            self.components[0].address,
+            self.components[1].address,
+            self.components[2].address,
+            self.components[3].address,
+            self.components[4].address,
+            self.components[5].address,
+            self.components[6].address,
+            self.components[7].address,
+            self.destination_bridge,
+            self.destination_bridge_execution_hash,
+            self.destination_infrastructure_hash,
+            self.destination_namespace,
+        )
 
     def structurally_valid(self) -> bool:
         addresses = tuple(row.address for row in self.components)
+        expected_infrastructure_hash = "infrastructure:" + hashlib.sha256(
+            repr(self.components).encode()
+        ).hexdigest()
+        try:
+            expected_domain_id = (
+                self.canonical_destination_descriptor.destination_domain_id
+            )
+        except ValueError:
+            return False
         return (self.protocol_version > 0
                 and 0 < self.settlement_chain_id <= UINT64_MAX
                 and 0 < self.destination_chain_id <= UINT64_MAX
@@ -6295,10 +13949,18 @@ class ReleaseManifestV2:
                          self.destination_domain_id, self.destination_bridge,
                          self.destination_bridge_execution_hash,
                          self.destination_infrastructure_hash))
+                and type(self.ingress_authorization_root) is bytes
+                and len(self.ingress_authorization_root) == 32
+                and type(self.migration_transition_verifier)
+                    is MigrationTransitionVerifierDescriptor
+                and self.migration_transition_verifier.structurally_valid()
                 and len(self.components) == 9
                 and all(row.address and row.runtime_hash and row.config_hash
                         for row in self.components)
                 and len(set(addresses)) == 9
+                and self.destination_infrastructure_hash
+                    == expected_infrastructure_hash
+                and self.destination_domain_id == expected_domain_id
                 and self.components[8].address == self.destination_bridge
                 and self.destination_bridge_descriptor.bridge
                     == self.destination_bridge
@@ -6311,7 +13973,67 @@ class ReleaseManifestV2:
                 and self.destination_bridge_descriptor.activation_gate
                     == self.activation_gate
                 and self.destination_bridge_descriptor.terminal_domain_registrar
-                    == self.components[6].address)
+                    == self.components[6].address
+                and self.destination_bridge_descriptor.destination_chain_id
+                    == self.destination_chain_id
+                and bool(
+                    self.destination_bridge_descriptor.native_quota_manager
+                )
+                and self.destination_bridge_descriptor.native_liquidity_floor
+                    > 0
+                and bool(
+                    self.destination_bridge_descriptor.native_liquidity_policy
+                )
+                and self.destination_bridge_descriptor.v1_official_vaults
+                    == V1_OFFICIAL_VAULT_ADDRESSES
+                and self.destination_bridge_descriptor
+                    .privileged_target_denyset
+                    == tuple(sorted({
+                        *(row.address for row in self.components),
+                        self.activation_gate,
+                        *V2_PRIVILEGED_DESTINATION_ADDRESSES,
+                    }))
+                and self.destination_bridge_descriptor.post_call_gas_reserve
+                    == V2_POST_CALL_GAS_RESERVE)
+
+
+def historical_v2_privileged_policy_compatible(
+    prior: ReleaseManifestV2,
+    successor: ReleaseManifestV2,
+) -> bool:
+    """Prevent late privilege from reaching an old domain/Bridge context."""
+
+    if (type(prior) is not ReleaseManifestV2
+            or type(successor) is not ReleaseManifestV2
+            or not prior.structurally_valid()
+            or not successor.structurally_valid()):
+        return False
+    reuses_authority = (
+        prior.destination_domain_id == successor.destination_domain_id
+        or prior.destination_bridge == successor.destination_bridge
+    )
+    if not reuses_authority:
+        return True
+    return (
+        prior.destination_domain_id == successor.destination_domain_id
+        and prior.destination_bridge == successor.destination_bridge
+        and prior.destination_bridge_descriptor.privileged_target_denyset
+            == successor.destination_bridge_descriptor
+                .privileged_target_denyset
+    )
+
+
+def release_system_calldata_hash(manifest: ReleaseManifestV2) -> str:
+    """Behavioral hash of the exact tx0 ReleaseManifest calldata."""
+
+    if (type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()):
+        raise ValueError("release system calldata is not canonical")
+    return hashlib.sha256(
+        b"TAIKO_RELEASE_SYSTEM_CALLDATA_V2\x00"
+        + manifest.commitment
+        + repr(manifest).encode()
+    ).hexdigest()
 
 
 @dataclass
@@ -6357,6 +14079,19 @@ class EndpointActivationStateV2:
         return True
 
 
+def endpoint_activation_projection(
+    state: EndpointActivationStateV2,
+) -> tuple[object, ...]:
+    """Commit the exact endpoint-local prestate without object identity."""
+
+    if type(state) is not EndpointActivationStateV2:
+        raise ValueError("endpoint activation state has wrong type")
+    return tuple(
+        getattr(state, name)
+        for name in EndpointActivationStateV2.__dataclass_fields__
+    )
+
+
 @dataclass(frozen=True)
 class BridgeDeploymentStateV2:
     """Only immutable facades or the one fork-attested legacy proxy qualify."""
@@ -6369,11 +14104,17 @@ class BridgeDeploymentStateV2:
     direct_prestate_slot_constraint: bool = False
     upgrade_authority_burned: bool = True
     delegate_target_reachable: bool = False
+    eip1967_implementation_slot_value: str = ""
+    eip1967_admin_slot_value: str = ""
+    eip1967_implementation_slot_proved: bool = False
+    eip1967_admin_slot_proved: bool = False
 
     def identity(self, manifest: ReleaseManifestV2) -> tuple[str, ...]:
         return (self.topology, self.address, self.account_runtime_hash,
                 self.implementation_address,
                 self.implementation_runtime_hash,
+                self.eip1967_implementation_slot_value,
+                self.eip1967_admin_slot_value,
                 manifest.components[8].config_hash)
 
     def authenticates(
@@ -6394,7 +14135,15 @@ class BridgeDeploymentStateV2:
             descriptor.terminal_accumulator,
             descriptor.activation_gate,
             descriptor.terminal_domain_registrar,
-            descriptor.storage_layout_hash))
+            descriptor.storage_layout_hash,
+            descriptor.destination_chain_id,
+            descriptor.native_quota_manager,
+            descriptor.native_liquidity_floor,
+            descriptor.native_liquidity_policy,
+            descriptor.v1_official_vaults,
+            descriptor.privileged_target_denyset,
+            descriptor.post_call_gas_reserve,
+        ))
         common = (self.address == manifest.destination_bridge
                   and self.account_runtime_hash == bridge_row.runtime_hash
                   and expected_config_hash == bridge_row.config_hash
@@ -6409,9 +14158,13 @@ class BridgeDeploymentStateV2:
             return (common
                     and ((known_identity == self.identity(manifest))
                          or (known_identity is None
-                             and manifest.protocol_version == 1
-                             and self.direct_prestate_slot_constraint))
+                             and self.direct_prestate_slot_constraint
+                             and self.eip1967_implementation_slot_proved
+                             and self.eip1967_admin_slot_proved))
                     and bool(self.implementation_address)
+                    and self.eip1967_implementation_slot_value
+                        == self.implementation_address
+                    and self.eip1967_admin_slot_value == ""
                     and self.implementation_runtime_hash
                         == descriptor.facade_runtime_hash)
         return False
@@ -6421,8 +14174,8 @@ class BridgeDeploymentStateV2:
 class AnchorV4Model:
     address: str
     runtime_hash: str
-    finalized_l1_manifest_hash: str
-    active_release_manifest_hash: str = ""
+    finalized_l1_manifest_hash: bytes
+    active_release_manifest_hash: bytes = b""
 
     def authenticate(self, manifest: ReleaseManifestV2) -> bool:
         if (not manifest.structurally_valid()
@@ -6438,8 +14191,21 @@ class AnchorV4Model:
 class ProtocolReleaseAuthorityV2:
     """Lifetime authority reached by the manifest Anchor in a system tx."""
 
+    address: str = "release-authority"
+    runtime_hash: str = "code:authority"
+    configuration_hash: str = "cfg:authority"
     system_sender: str = "system:anchor"
-    releases: dict[int, str] = field(default_factory=dict)
+    releases: dict[int, bytes] = field(default_factory=dict)
+    release_manifests: dict[tuple[int, bytes], ReleaseManifestV2] = field(
+        default_factory=dict
+    )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "address", "runtime_hash", "configuration_hash", "system_sender"
+        } and name in self.__dict__:
+            raise AttributeError(f"release authority {name} is immutable")
+        object.__setattr__(self, name, value)
 
     def activate(self, manifest: ReleaseManifestV2, *, caller: AnchorV4Model,
                  tx_origin: str) -> bool:
@@ -6452,8 +14218,13 @@ class ProtocolReleaseAuthorityV2:
             return False
         existing = self.releases.get(manifest.protocol_version)
         if existing is not None:
-            return existing == manifest_hash
-        self.releases[manifest.protocol_version] = manifest_hash
+            if existing != manifest_hash:
+                return False
+        else:
+            self.releases[manifest.protocol_version] = manifest_hash
+        self.release_manifests[
+            (manifest.protocol_version, manifest_hash)
+        ] = manifest
         return True
 
 
@@ -6467,8 +14238,17 @@ class TerminalDomainRegistrarV2:
     address: str = "terminal-domain-registrar"
     registrations: dict[int, str] = field(default_factory=dict)
     bridge_identities: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    _activation_frame: tuple[int, bytes] | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
 
-    def activate_domain(self, manifest: ReleaseManifestV2,
+    def __post_init__(self) -> None:
+        if (not self.address
+                or not self.inbox_router._bind_terminal_registrar(self)
+                or not self.accumulator._bind_terminal_registrar(self)):
+            raise ValueError("terminal registrar authority graph is split")
+
+    def _activate_domain_from_release(self, manifest: ReleaseManifestV2,
                         store: InboxCreditStoreV2, *,
                         observed_l2_components:
                             tuple[ReleaseComponentV2, ...],
@@ -6483,7 +14263,8 @@ class TerminalDomainRegistrarV2:
         known_bridge_identity = self.bridge_identities.get(bridge)
         store_row = manifest.components[4] if len(manifest.components) == 9 \
             else ReleaseComponentV2("", "", "")
-        if (not manifest.structurally_valid()
+        if (self._activation_frame != (id(manifest), manifest_hash)
+                or not manifest.structurally_valid()
                 or self.authority.releases.get(protocol_version) != manifest_hash
                 or protocol_version in self.registrations
                 or observed_l2_components != manifest.components[3:]
@@ -6500,18 +14281,19 @@ class TerminalDomainRegistrarV2:
         fresh_endpoint = endpoint_state.activatable
         prior_routes = dict(self.inbox_router.routes)
         prior_domains = dict(self.accumulator.domains)
+        prior_store_writer = store._inbox_apply_authority
         endpoint_snapshot = copy.deepcopy(endpoint_state)
-        if (not self.inbox_router.register_route(
+        if (not self.inbox_router._register_route_from_registrar(
                 domain_id, store, bridge, store_row.runtime_hash,
-                caller=self.address,
-                manifest_exact=True)
-                or not self.accumulator.register_domain(
-                    domain_id, bridge, caller=self.address,
-                    release_active=True, descriptor_valid=True,
-                    activation_order_valid=True)
+                registrar=self, manifest=manifest)
+                or not self.accumulator._register_domain_from_registrar(
+                    domain_id, bridge, registrar=self, manifest=manifest)
                 or (fresh_endpoint and not endpoint_state.seal())):
             self.inbox_router.routes = prior_routes
             self.accumulator.domains = prior_domains
+            object.__setattr__(
+                store, "_inbox_apply_authority", prior_store_writer
+            )
             endpoint_state.__dict__.update(endpoint_snapshot.__dict__)
             return False
         self.bridge_identities.setdefault(
@@ -6523,61 +14305,143 @@ class TerminalDomainRegistrarV2:
 def release_manifest_fixture(protocol_version: int, domain_id: str,
                              bridge: str, store: InboxCreditStoreV2,
                              anchor: str | None = None, *,
-                             legacy_proxy: bool = False) -> ReleaseManifestV2:
+                             legacy_proxy: bool = False,
+                             router: ActiveSettlementRouter) -> ReleaseManifestV2:
+    _ = domain_id  # Legacy fixture argument; the canonical graph derives it.
     anchor_address = anchor or f"anchor:v{protocol_version}"
-    facade_runtime_hash = f"facade-code:{bridge}"
-    topology = ("GENESIS_LEGACY_PROXY" if legacy_proxy
-                else "IMMUTABLE_NONPROXY")
-    bridge_runtime_hash = (f"proxy-code:{bridge}" if legacy_proxy
-                           else facade_runtime_hash)
-    topology_byte = 1 if legacy_proxy else 0
-    base_components = (
-        ReleaseComponentV2("bridge-inbox-adapter", "code:adapter", "cfg:adapter"),
-        ReleaseComponentV2("active-settlement-router", "code:router", "cfg:router"),
-        ReleaseComponentV2("terminal-verifier", "code:verifier", "cfg:verifier"),
-        ReleaseComponentV2("inbox-apply", "code:inbox-apply", "cfg:inbox-apply"),
-        ReleaseComponentV2(store.address, store.runtime_codehash,
-                           store.component_config_hash),
-        ReleaseComponentV2("release-authority", "code:authority", "cfg:authority"),
-        ReleaseComponentV2("terminal-domain-registrar", "code:registrar", "cfg:registrar"),
-        ReleaseComponentV2("terminal-accumulator", "code:accumulator", "cfg:accumulator"),
+    adapter_address = {
+        "bridge:A": "bridge-inbox-adapter",
+        "bridge:B": "bridge-inbox-adapter:d2",
+        "bridge:replacement": "bridge-inbox-adapter:replacement",
+    }.get(bridge, f"bridge-inbox-adapter:{bridge}")
+    source_descriptor = canonical_source_bridge_descriptor()
+    source_configuration = bridge_credit_registry_configuration_hash(
+        address="bridge-credit-registry-v2",
+        runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+        domain_registrar="source-domain-registrar",
+        frozen_bridge="bridge:A",
+        support_registry_address="bridge-domain-registry",
+        support_registry_runtime_hash=BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH,
+        support_registry_configuration_hash=(
+            bridge_domain_registry_configuration_hash(
+                address="bridge-domain-registry",
+                runtime_hash=BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH,
+                support_authority=router.version_manager,
+                router_address=router.address,
+                router_runtime_hash=router.runtime_hash,
+                router_configuration_hash=router.configuration_hash,
+                release_authority_address="release-authority",
+                release_authority_runtime_hash="code:authority",
+                release_authority_configuration_hash="cfg:authority",
+            )
+        ),
+        source_chain_id=1,
+        source_domain_id=source_descriptor.source_domain_id,
+        source_registration_epoch=1,
+        frozen_bridge_execution_hash=source_descriptor.bridge_execution_hash,
+        source_descriptor_id=source_descriptor.descriptor_id,
     )
-    bridge_descriptor = DestinationBridgeDescriptorV2(
-        bridge, facade_runtime_hash, f"storage-layout:{bridge}",
-        f"kernel-profile:{bridge}", store.address, "terminal-accumulator",
-        "activation-gate", "terminal-domain-registrar")
-    topology_config_hash = "component-config:9:177:" + repr((
-        topology_byte, bridge_runtime_hash, facade_runtime_hash,
-        bridge_descriptor.inbox_credit_store,
-        bridge_descriptor.terminal_accumulator,
-        bridge_descriptor.activation_gate,
-        bridge_descriptor.terminal_domain_registrar,
-        bridge_descriptor.storage_layout_hash))
-    components = (*base_components, ReleaseComponentV2(
-        bridge, bridge_runtime_hash, topology_config_hash))
+    source_bridge_configuration = (
+        source_bridge_configuration_hash_for_descriptor(
+            source_descriptor,
+            "bridge-credit-registry-v2",
+            BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+            source_configuration,
+        )
+    )
+    adapter_configuration = bridge_ingress_component_configuration_hash(
+        router_address=router.address,
+        router_runtime_hash=router.runtime_hash,
+        router_configuration_hash=router.configuration_hash,
+        queue_address=router.forced_queue.address,
+        queue_runtime_hash=router.forced_queue.runtime_hash,
+        queue_configuration_hash=router.forced_queue.config_hash,
+        source_registry_address="bridge-credit-registry-v2",
+        source_registry_runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+        source_registry_configuration_hash=source_configuration,
+        source_bridge_address="bridge:A",
+        source_bridge_runtime_hash=source_descriptor.bridge_facade_runtime_hash,
+        source_bridge_configuration_hash_=source_bridge_configuration,
+        seal_authority=router.version_manager,
+    )
+    components, bridge_descriptor, _, descriptor = (
+        canonical_destination_release_topology(
+            router,
+            adapter_address=adapter_address,
+            adapter_configuration_hash=adapter_configuration,
+            destination_bridge=bridge,
+        )
+    )
+    if legacy_proxy:
+        proxy_runtime = f"proxy-code:{bridge}"
+        components = (*components[:8], ReleaseComponentV2(
+            bridge,
+            proxy_runtime,
+            "component-config:9:177:" + repr((
+                1,
+                proxy_runtime,
+                bridge_descriptor.facade_runtime_hash,
+                bridge_descriptor.inbox_credit_store,
+                bridge_descriptor.terminal_accumulator,
+                bridge_descriptor.activation_gate,
+                bridge_descriptor.terminal_domain_registrar,
+                bridge_descriptor.storage_layout_hash,
+                bridge_descriptor.destination_chain_id,
+                bridge_descriptor.native_quota_manager,
+                bridge_descriptor.native_liquidity_floor,
+                bridge_descriptor.native_liquidity_policy,
+                bridge_descriptor.v1_official_vaults,
+                bridge_descriptor.privileged_target_denyset,
+                bridge_descriptor.post_call_gas_reserve,
+            )),
+        ))
+        infrastructure_hash = "infrastructure:" + hashlib.sha256(
+            repr(components).encode()
+        ).hexdigest()
+        descriptor = replace(
+            descriptor, destination_infrastructure_hash=infrastructure_hash
+        )
+    object.__setattr__(store, "address", components[4].address)
+    object.__setattr__(store, "runtime_codehash", components[4].runtime_hash)
+    object.__setattr__(
+        store, "destination_domain_id", descriptor.destination_domain_id
+    )
+    execution_profile = execution_profile_for_test(
+        protocol_version, f"profile:{protocol_version}"
+    )
     return ReleaseManifestV2(
-        protocol_version, 1, 167_000, "genesis:destination",
-        f"profile:{protocol_version}", "manifest:v2", "domain-namespace:v2",
+        protocol_version, 1, descriptor.destination_chain_id,
+        descriptor.destination_genesis_hash,
+        execution_profile.execution_profile_hash,
+        "manifest:v2", "domain-namespace:v2",
         anchor_address,
         f"code:{anchor_address}", "activation-gate", "code:activation-gate",
-        domain_id, bridge, bridge_descriptor.execution_hash, bridge_descriptor,
-        "infrastructure:" + repr(components), components)
+        descriptor.destination_domain_id, bridge,
+        bridge_descriptor.execution_hash, bridge_descriptor,
+        descriptor.destination_infrastructure_hash,
+        execution_profile.migration_transition_verifier_descriptor,
+        router.registrations[router.active_version].ingress_authorization_root,
+        components)
+
+
+_RELEASE_SYSTEM_EXECUTION_CAPABILITY = object()
 
 
 def activate_release_transaction(
         authority: ProtocolReleaseAuthorityV2,
         registrar: TerminalDomainRegistrarV2, *,
-        manifest: ReleaseManifestV2, transaction_sender: str,
+        manifest: ReleaseManifestV2,
+        execution_authority: InboxValidityExecutionAuthority,
+        execution_capability: object,
         anchor: AnchorV4Model, store: InboxCreditStoreV2,
         observed_l2_components: tuple[ReleaseComponentV2, ...] | None = None,
         observed_bridge_descriptor: DestinationBridgeDescriptorV2 | None = None,
         endpoint_state: EndpointActivationStateV2 | None = None,
         bridge_deployment: BridgeDeploymentStateV2 | None = None,
-        settlement_chain_id: int = 1,
-        destination_chain_id: int = 167_000,
-        direct_component_checks_succeed: bool = True) -> bool:
+        ) -> bool:
     """Model the single system transaction and its all-or-revert EVM calls."""
     releases = dict(authority.releases)
+    release_manifests = dict(authority.release_manifests)
     registrations = dict(registrar.registrations)
     bridge_identities = dict(registrar.bridge_identities)
     routes = dict(registrar.inbox_router.routes)
@@ -6587,15 +14451,28 @@ def activate_release_transaction(
     deployment = bridge_deployment or BridgeDeploymentStateV2(
         "IMMUTABLE_NONPROXY", manifest.destination_bridge,
         manifest.components[8].runtime_hash,
-        upgrade_authority_burned=direct_component_checks_succeed)
+        upgrade_authority_burned=True)
     active_manifest = anchor.active_release_manifest_hash
-    if (transaction_sender != authority.system_sender
-            or manifest.settlement_chain_id != settlement_chain_id
-            or manifest.destination_chain_id != destination_chain_id
-            or not anchor.authenticate(manifest)
-            or not authority.activate(
-                manifest, caller=anchor, tx_origin=transaction_sender)
-            or not registrar.activate_domain(
+    authenticated = (
+        execution_capability is _RELEASE_SYSTEM_EXECUTION_CAPABILITY
+        and type(execution_authority) is InboxValidityExecutionAuthority
+        and execution_authority.protocol.inbox_apply_router
+            is registrar.inbox_router
+        and registrar is registrar.inbox_router
+            ._terminal_registrar_authority
+        and execution_authority._release_activation_frame
+            == (id(manifest), manifest.commitment)
+        and authority is registrar.authority
+        and anchor.authenticate(manifest)
+        and authority.activate(
+            manifest, caller=anchor, tx_origin=authority.system_sender
+        )
+    )
+    activated = False
+    if authenticated:
+        registrar._activation_frame = (id(manifest), manifest.commitment)
+        try:
+            activated = registrar._activate_domain_from_release(
                 manifest, store,
                 observed_l2_components=(
                     manifest.components[3:] if observed_l2_components is None
@@ -6605,8 +14482,13 @@ def activate_release_transaction(
                     if observed_bridge_descriptor is None
                     else observed_bridge_descriptor),
                 endpoint_state=state,
-                bridge_deployment=deployment)):
+                bridge_deployment=deployment,
+            )
+        finally:
+            registrar._activation_frame = None
+    if not activated:
         authority.releases = releases
+        authority.release_manifests = release_manifests
         registrar.registrations = registrations
         registrar.bridge_identities = bridge_identities
         registrar.inbox_router.routes = routes
@@ -6615,6 +14497,842 @@ def activate_release_transaction(
         state.__dict__.update(endpoint_snapshot.__dict__)
         return False
     return True
+
+
+def execute_release_activation_for_test(
+    execution_authority: InboxValidityExecutionAuthority,
+    authority: ProtocolReleaseAuthorityV2,
+    registrar: TerminalDomainRegistrarV2,
+    **kwargs: object,
+) -> bool:
+    """Drive the exact tx0 call chain from a modeled verifier frame."""
+
+    manifest = kwargs.get("manifest")
+    if (type(execution_authority) is not InboxValidityExecutionAuthority
+            or type(manifest) is not ReleaseManifestV2
+            or execution_authority.protocol.inbox_apply_router
+                is not registrar.inbox_router
+            or execution_authority._release_activation_frame is not None):
+        return False
+    execution_authority._release_activation_frame = (
+        id(manifest), manifest.commitment
+    )
+    try:
+        return activate_release_transaction(
+            authority,
+            registrar,
+            execution_authority=execution_authority,
+            execution_capability=_RELEASE_SYSTEM_EXECUTION_CAPABILITY,
+            **kwargs,
+        )
+    finally:
+        execution_authority._release_activation_frame = None
+
+
+@dataclass(frozen=True)
+class SourceContextV2:
+    """Fixed source fields authenticated by the durable kind-1 descriptor."""
+
+    source_domain_id: str
+    source_registration_epoch: int
+    source_bridge: str
+    bridge_execution_hash: str
+    emitted_at_block: int
+    enqueue_by: int
+    refund_mode: str
+    refund_vault: str
+    refund_capsule_hash: str
+    escrow_id: str
+
+
+@dataclass(frozen=True)
+class DestinationContextV2:
+    """Exact destination route and authenticated Queue index."""
+
+    destination_domain_id: str
+    destination_bridge: str
+    queue_index: int
+
+
+@dataclass(frozen=True)
+class BridgeInvocationContextV2:
+    """Authenticated V2 context exposed only during the exact destination CALL."""
+
+    protocol_version: int
+    bridge_kind: str
+    credit_id: str
+    msg_hash: str
+    source_domain_id: str
+    source_registration_epoch: int
+    source_bridge: str
+    source_bridge_execution_hash: str
+    emitted_at_block: int
+    queue_index: int
+    destination_domain_id: str
+    destination_bridge: str
+    release_manifest_commitment: bytes
+    execution_profile_hash: str
+
+
+@dataclass(frozen=True)
+class BridgeInvocationPolicyV2:
+    """A future Bridge-trusting endpoint's release/epoch activation fence."""
+
+    protocol_version: int
+    bridge_kind: str
+    source_domain_id: str
+    source_registration_epoch: int
+    source_bridge: str
+    source_bridge_execution_hash: str
+    minimum_emitted_at_block: int
+    destination_domain_id: str
+    destination_bridge: str
+    release_manifest_commitment: bytes
+    execution_profile_hash: str
+
+    def accepts(self, context: BridgeInvocationContextV2 | None) -> bool:
+        return (
+            type(context) is BridgeInvocationContextV2
+            and context.protocol_version == self.protocol_version
+            and context.bridge_kind == self.bridge_kind
+            and context.source_domain_id == self.source_domain_id
+            and context.source_registration_epoch
+                == self.source_registration_epoch
+            and context.source_bridge == self.source_bridge
+            and context.source_bridge_execution_hash
+                == self.source_bridge_execution_hash
+            and context.emitted_at_block >= self.minimum_emitted_at_block
+            and context.destination_domain_id == self.destination_domain_id
+            and context.destination_bridge == self.destination_bridge
+            and context.release_manifest_commitment
+                == self.release_manifest_commitment
+            and context.execution_profile_hash == self.execution_profile_hash
+        )
+
+
+def destination_credit_id_v2(
+    message_: IBridgeMessageV1,
+    source: SourceContextV2,
+    destination: DestinationContextV2,
+) -> str:
+    if (type(message_) is not IBridgeMessageV1
+            or type(source) is not SourceContextV2
+            or type(destination) is not DestinationContextV2):
+        raise ValueError("destination Bridge context has the wrong type")
+    return BridgeAdapter.credit_id(
+        message_.source_chain_id,
+        source.source_domain_id,
+        source.source_registration_epoch,
+        source.source_bridge,
+        destination.destination_domain_id,
+        bridge_message_hash(message_),
+    )
+
+
+def destination_result_hash_v9(
+    message_: IBridgeMessageV1,
+    source: SourceContextV2,
+    destination: DestinationContextV2,
+) -> str:
+    credit_id = destination_credit_id_v2(message_, source, destination)
+    projection = (
+        destination.queue_index,
+        credit_id,
+        bridge_message_hash(message_),
+        message_.source_chain_id,
+        source.source_domain_id,
+        source.source_registration_epoch,
+        source.source_bridge,
+        source.bridge_execution_hash,
+        source.emitted_at_block,
+        destination.destination_domain_id,
+        message_.destination_chain_id,
+        source.enqueue_by,
+        message_.sender,
+        message_.source_owner,
+        message_.destination_owner,
+        message_.value,
+        message_.fee,
+        message_.data_hash,
+        source.refund_mode,
+        source.refund_vault,
+        source.refund_capsule_hash,
+        source.escrow_id,
+    )
+    return "result:" + hashlib.sha256(
+        b"TAIKO_INBOX_KIND1_RESULT_V9\x00" + repr(projection).encode()
+    ).hexdigest()
+
+
+def destination_contexts_for_authorization(
+    authorization: CreditAuthorization,
+    *,
+    queue_index: int,
+) -> tuple[SourceContextV2, DestinationContextV2]:
+    if type(authorization) is not CreditAuthorization:
+        raise ValueError("destination context authorization is invalid")
+    return (
+        SourceContextV2(
+            authorization.source_domain_id,
+            authorization.src_epoch,
+            authorization.src_bridge,
+            authorization.bridge_execution_hash,
+            authorization.emitted_at_block,
+            authorization.enqueue_by,
+            authorization.refund_mode,
+            authorization.refund_vault,
+            "",
+            authorization.escrow_id,
+        ),
+        DestinationContextV2(
+            authorization.destination_domain_id,
+            authorization.destination_bridge,
+            queue_index,
+        ),
+    )
+
+
+def destination_delivery_context_for_test(
+    destination: "DestinationBridgeLedger",
+    message_: IBridgeMessageV1,
+    *,
+    queue_index: int,
+    source_domain_id: str = "domain:remote-source",
+    source_bridge: str = "bridge:remote-source",
+    bridge_execution_hash: str = "execution:remote-source",
+    emitted_at_block: int = 1,
+    enqueue_by: int = UINT64_MAX,
+    refund_mode: str = "DIRECT",
+    refund_vault: str = "",
+    refund_capsule_hash: str = "",
+) -> tuple[SourceContextV2, DestinationContextV2]:
+    """Build the fixed source/destination projection used by proof fixtures."""
+
+    route = DestinationContextV2(
+        destination.local_domain_id, destination.address, queue_index
+    )
+    initial = SourceContextV2(
+        source_domain_id,
+        1,
+        source_bridge,
+        bridge_execution_hash,
+        emitted_at_block,
+        enqueue_by,
+        refund_mode,
+        refund_vault,
+        refund_capsule_hash,
+        "",
+    )
+    credit_id = destination_credit_id_v2(message_, initial, route)
+    return replace(initial, escrow_id=bridge_escrow_id(credit_id)), route
+
+
+def install_destination_pin_for_test(
+    destination: "DestinationBridgeLedger",
+    message_: IBridgeMessageV1,
+    source: SourceContextV2,
+    route: DestinationContextV2,
+    *,
+    now: int,
+) -> bool:
+    """Install one proof-derived pin for isolated downstream tests."""
+
+    if (type(destination) is not DestinationBridgeLedger
+            or type(now) is not int or now < 0
+            or not destination._delivery_context_valid(
+                message_, source, route, require_pin=False)):
+        return False
+    credit_id = destination_credit_id_v2(message_, source, route)
+    result_hash = destination_result_hash_v9(message_, source, route)
+    expected = InboxPin(
+        result_hash,
+        checked_u64_add(
+            now, BRIDGE_PROCESS_TTL_SECONDS, "test Inbox pin processBy"
+        ),
+    )
+    existing = destination.inbox_store.pins.get(credit_id)
+    if existing is not None and existing.result_hash != result_hash:
+        return False
+    destination.inbox_store.pins.setdefault(credit_id, expected)
+    return True
+
+
+def destination_bridge_for_test(
+    manifest: ReleaseManifestV2,
+    store: InboxCreditStoreV2,
+    accumulator: TerminalAccumulatorV2,
+    *,
+    applications: tuple[BridgeCallReceiverV2, ...] = (),
+    balance: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+    quota: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+    available_gas: int = 10_000_000,
+    base_fee: int = 1,
+    timestamp: int = GENESIS_TIMESTAMP,
+) -> "DestinationBridgeLedger":
+    """Construct one independent destination execution graph for tests."""
+
+    environment = L2ExecutionEnvironmentV2(
+        manifest.destination_chain_id,
+        applications,
+        available_gas,
+        base_fee,
+        timestamp,
+    )
+    return DestinationBridgeLedger(
+        manifest.destination_bridge,
+        manifest.destination_domain_id,
+        False,
+        store,
+        accumulator,
+        manifest,
+        environment,
+        balance,
+        quota,
+    )
+
+
+@dataclass(frozen=True)
+class L2TransactionFrameV2:
+    """Exact EVM transaction context issued only by one L2 environment."""
+
+    environment: "L2ExecutionEnvironmentV2" = field(compare=False, repr=False)
+    caller: str
+    available_gas: int
+    base_fee: int
+    block_timestamp: int
+    nonce: int
+    operation: str
+
+
+@dataclass(frozen=True)
+class LegacyV1ProcessV2:
+    msg_hash: str
+    target: str
+    value: int
+    fee: int
+    fee_recipient: str
+    destination_owner: str
+    processor_fee: int
+    data: bytes = b""
+    invocation_prohibited: bool = False
+
+
+@dataclass(frozen=True)
+class LegacyV1RetryV2:
+    msg_hash: str
+    target: str
+    value: int
+
+
+@dataclass(frozen=True)
+class LegacyV1RecallV2:
+    msg_hash: str
+    recipient: str
+    value: int
+
+
+@dataclass
+class BridgeCallReceiverV2:
+    """One independently deployed L2 app account used by the call journal."""
+
+    address: str
+    runtime_hash: str = "code:l2-app:v1"
+    configuration_hash: str = "config:l2-app:v1"
+    fault_point: str | None = None
+    gas_used: int = MIN_BRIDGE_INVOCATION_GAS
+    exhausts_forwarded_gas: bool = False
+    required_v2_policy: BridgeInvocationPolicyV2 | None = None
+    received: list[str] = field(default_factory=list)
+    observed_legacy_contexts: list[tuple[object, ...]] = field(
+        default_factory=list
+    )
+    observed_v2_contexts: list[BridgeInvocationContextV2] = field(
+        default_factory=list
+    )
+    native_balance: int = 0
+    callback: Callable[["DestinationBridgeLedger"], None] | None = field(
+        default=None, compare=False, repr=False
+    )
+    _environment_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if (name in {
+                "address", "runtime_hash", "configuration_hash",
+                "required_v2_policy",
+            }
+                and self.__dict__.get("_environment_authority") is not None):
+            raise AttributeError(f"L2 application {name} is deployment-fixed")
+        object.__setattr__(self, name, value)
+
+    def _bind_environment_once(self, environment: object) -> bool:
+        if type(environment) is not L2ExecutionEnvironmentV2 or not self.address:
+            return False
+        if self._environment_authority is not None:
+            return self._environment_authority is environment
+        object.__setattr__(self, "_environment_authority", environment)
+        return True
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return {
+            "received": list(self.received),
+            "observed_legacy_contexts": list(
+                self.observed_legacy_contexts
+            ),
+            "observed_v2_contexts": list(self.observed_v2_contexts),
+            "native_balance": self.native_balance,
+        }
+
+    def _restore_transaction_snapshot(self, snapshot: dict[str, object]) -> None:
+        self.received[:] = snapshot["received"]
+        self.observed_legacy_contexts[:] = snapshot[
+            "observed_legacy_contexts"
+        ]
+        self.observed_v2_contexts[:] = snapshot["observed_v2_contexts"]
+        self.native_balance = snapshot["native_balance"]
+
+    def _execute_from_environment(
+        self,
+        message_: IBridgeMessageV1,
+        *,
+        environment: "L2ExecutionEnvironmentV2",
+        bridge: "DestinationBridgeLedger",
+        frame: L2TransactionFrameV2,
+        gas_requested: int,
+    ) -> tuple[bool, int, bool]:
+        if (environment is not self._environment_authority
+                or frame is not environment._active_frame
+                or bridge.execution_environment is not environment
+                or message_.to != self.address
+                or type(gas_requested) is not int or gas_requested < 0):
+            return False, 0, False
+        if self.fault_point == "revert":
+            return False, min(self.gas_used, gas_requested), False
+        if self.fault_point == "throw":
+            raise RuntimeError("injected destination target fault")
+        if self.exhausts_forwarded_gas or self.gas_used > gas_requested:
+            # The requested gas was forwarded exactly; a callee-local OOG is
+            # an ordinary CALL failure, not evidence that EIP-150 truncated it.
+            return False, gas_requested, False
+        if (self.required_v2_policy is not None
+                and not self.required_v2_policy.accepts(
+                    environment.bridge_context_v2
+                )):
+            return False, min(self.gas_used, gas_requested), False
+        self.native_balance = seat_checked_add(
+            self.native_balance,
+            message_.value,
+            "destination target native balance",
+        )
+        self.received.append(bridge_message_hash(message_))
+        assert environment.legacy_bridge_context is not None
+        assert environment.bridge_context_v2 is not None
+        self.observed_legacy_contexts.append(
+            environment.legacy_bridge_context
+        )
+        self.observed_v2_contexts.append(environment.bridge_context_v2)
+        if self.callback is not None:
+            self.callback(bridge)
+        return (
+            True,
+            self.gas_used,
+            False,
+        )
+
+
+@dataclass
+class L2ExecutionEnvironmentV2:
+    """Independent destination-chain accounts and exact EVM call journal."""
+
+    chain_id: int
+    applications: tuple[BridgeCallReceiverV2, ...] = field(
+        default_factory=tuple, compare=False, repr=False
+    )
+    available_gas: int = 10_000_000
+    base_fee: int = 1
+    block_timestamp: int = GENESIS_TIMESTAMP
+    eoa_balances: dict[str, int] = field(default_factory=dict)
+    legacy_bridge_context: tuple[object, ...] | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+    bridge_context_v2: BridgeInvocationContextV2 | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+    _applications_by_address: dict[str, BridgeCallReceiverV2] = field(
+        default_factory=dict, init=False, compare=False, repr=False
+    )
+    _active_frame: L2TransactionFrameV2 | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+    _next_nonce: int = field(default=1, init=False, compare=False, repr=False)
+    _bridge_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (type(self.chain_id) is not int
+                or not 0 < self.chain_id <= UINT64_MAX
+                or type(self.applications) is not tuple
+                or type(self.available_gas) is not int
+                or self.available_gas <= V2_POST_CALL_GAS_RESERVE
+                or type(self.base_fee) is not int or self.base_fee < 0
+                or type(self.block_timestamp) is not int
+                or not 0 <= self.block_timestamp <= UINT64_MAX):
+            raise ValueError("L2 execution environment context is invalid")
+        applications: dict[str, BridgeCallReceiverV2] = {}
+        for application in self.applications:
+            if (type(application) is not BridgeCallReceiverV2
+                    or not application.address
+                    or application.address in applications
+                    or not application.runtime_hash
+                    or not application.configuration_hash
+                    or not application._bind_environment_once(self)):
+                raise ValueError("L2 application deployment is invalid")
+            applications[application.address] = application
+        object.__setattr__(self, "_applications_by_address", applications)
+
+    def _bind_bridge_once(self, bridge: object) -> bool:
+        if (type(bridge) is not DestinationBridgeLedger
+                or bridge.execution_environment is not self):
+            return False
+        if self._bridge_authority is not None:
+            return self._bridge_authority is bridge
+        object.__setattr__(self, "_bridge_authority", bridge)
+        return True
+
+    def read_bridge_context_v2(self) -> BridgeInvocationContextV2:
+        """The public view is defined only inside an active V2 call frame."""
+
+        if (self._active_frame is None
+                or type(self.bridge_context_v2)
+                    is not BridgeInvocationContextV2):
+            raise ValueError("V2 Bridge context is not active")
+        return self.bridge_context_v2
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "chain_id", "applications",
+            "_active_frame", "_next_nonce",
+        } and name in self.__dict__:
+            raise AttributeError(f"L2 execution environment {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return {
+            "eoa_balances": dict(self.eoa_balances),
+            "application_refs": dict(self._applications_by_address),
+            "applications": {
+                address: application._transaction_snapshot()
+                for address, application in self._applications_by_address.items()
+            },
+        }
+
+    def _restore_transaction_snapshot(self, snapshot: dict[str, object]) -> None:
+        self.eoa_balances.clear()
+        self.eoa_balances.update(snapshot["eoa_balances"])
+        self._applications_by_address.clear()
+        self._applications_by_address.update(snapshot["application_refs"])
+        for address, application_snapshot in snapshot["applications"].items():
+            self._applications_by_address[address]._restore_transaction_snapshot(
+                application_snapshot
+            )
+
+    def deploy_application(
+        self, application: BridgeCallReceiverV2
+    ) -> bool:
+        """Model a canonical CREATE/CREATE2 state transition, not admission."""
+
+        if (self._active_frame is not None
+                or type(application) is not BridgeCallReceiverV2
+                or not application.address
+                or application.address in self._applications_by_address
+                or not application.runtime_hash
+                or not application.configuration_hash
+                or not application._bind_environment_once(self)):
+            return False
+        application.native_balance = seat_checked_add(
+            application.native_balance,
+            self.eoa_balances.pop(application.address, 0),
+            "deployed L2 application balance",
+        )
+        self._applications_by_address[application.address] = application
+        return True
+
+    def _open_frame(self, caller: str, operation: str) -> L2TransactionFrameV2:
+        if self._active_frame is not None or not caller:
+            raise RuntimeError("L2 transaction frame is already active")
+        frame = L2TransactionFrameV2(
+            self,
+            caller,
+            self.available_gas,
+            self.base_fee,
+            self.block_timestamp,
+            self._next_nonce,
+            operation,
+        )
+        object.__setattr__(self, "_next_nonce", self._next_nonce + 1)
+        object.__setattr__(self, "_active_frame", frame)
+        return frame
+
+    def _close_frame(self, frame: L2TransactionFrameV2) -> None:
+        if self._active_frame is not frame:
+            raise RuntimeError("L2 transaction frame identity changed")
+        object.__setattr__(self, "_active_frame", None)
+
+    def _invoke(
+        self,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        frame: L2TransactionFrameV2,
+        gas_requested: int,
+    ) -> tuple[bool, int, bool]:
+        if (frame is not self._active_frame
+                or frame.environment is not self
+                or bridge.execution_environment is not self):
+            raise RuntimeError("L2 call frame authority is split")
+        object.__setattr__(self, "legacy_bridge_context", (
+            bridge_message_hash(message_),
+            message_.sender,
+            message_.source_chain_id,
+        ))
+        object.__setattr__(self, "bridge_context_v2", BridgeInvocationContextV2(
+            bridge.release_manifest.protocol_version,
+            "V2_DIRECT",
+            destination_credit_id_v2(message_, source, destination),
+            bridge_message_hash(message_),
+            source.source_domain_id,
+            source.source_registration_epoch,
+            source.source_bridge,
+            source.bridge_execution_hash,
+            source.emitted_at_block,
+            destination.queue_index,
+            destination.destination_domain_id,
+            destination.destination_bridge,
+            bridge.release_manifest.commitment,
+            bridge.release_manifest.execution_profile_hash,
+        ))
+        try:
+            application = self._applications_by_address.get(message_.to)
+            if application is None:
+                self.eoa_balances[message_.to] = seat_checked_add(
+                    self.eoa_balances.get(message_.to, 0),
+                    message_.value,
+                    "destination EOA native balance",
+                )
+                return True, 0, False
+            return application._execute_from_environment(
+                message_,
+                environment=self,
+                bridge=bridge,
+                frame=frame,
+                gas_requested=gas_requested,
+            )
+        finally:
+            object.__setattr__(self, "legacy_bridge_context", None)
+            object.__setattr__(self, "bridge_context_v2", None)
+
+    def process_bridge_message(
+        self,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+    ) -> str:
+        try:
+            frame = self._open_frame(caller, "PROCESS")
+        except RuntimeError:
+            return "REJECTED"
+        try:
+            return bridge._process_from_environment(
+                message_, source, destination, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def retry_bridge_message(
+        self,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+        is_last_attempt: bool,
+    ) -> str:
+        try:
+            frame = self._open_frame(caller, "RETRY")
+        except RuntimeError:
+            return "REJECTED"
+        try:
+            return bridge._retry_from_environment(
+                message_, source, destination,
+                is_last_attempt=is_last_attempt,
+                frame=frame,
+            )
+        finally:
+            self._close_frame(frame)
+
+    def manual_fail_bridge_message(
+        self,
+        bridge: "DestinationBridgeLedger",
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+    ) -> bool:
+        try:
+            frame = self._open_frame(caller, "MANUAL_FAIL")
+        except RuntimeError:
+            return False
+        try:
+            return bridge._manual_fail_from_environment(
+                message_, source, destination, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def expire_bridge_credit(
+        self,
+        bridge: "DestinationBridgeLedger",
+        credit_id: str,
+    ) -> bool:
+        try:
+            frame = self._open_frame("permissionless-expirer", "EXPIRE")
+        except RuntimeError:
+            return False
+        try:
+            return bridge._expire_from_environment(credit_id, frame=frame)
+        finally:
+            self._close_frame(frame)
+
+    def withdraw_bridge_credit(
+        self,
+        bridge: "DestinationBridgeLedger",
+        *,
+        caller: str,
+        recipient: str,
+    ) -> int:
+        try:
+            frame = self._open_frame(caller, "WITHDRAW")
+        except RuntimeError:
+            return 0
+        try:
+            return bridge._withdraw_pull_from_environment(
+                recipient=recipient, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def _legacy_v1_payout_for_test(
+        self,
+        bridge: "DestinationBridgeLedger",
+        *,
+        amount: int,
+        recipient: str,
+    ) -> bool:
+        """Exercise the same-account V1 outflow under the shared lock."""
+
+        try:
+            frame = self._open_frame(bridge.address, "V1_PAYOUT")
+        except RuntimeError:
+            return False
+        try:
+            return bridge._legacy_v1_payout_from_environment(
+                amount=amount, recipient=recipient, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def legacy_v1_process_for_test(
+        self,
+        bridge: "DestinationBridgeLedger",
+        request: LegacyV1ProcessV2,
+    ) -> str:
+        try:
+            frame = self._open_frame(request.fee_recipient, "V1_PROCESS")
+        except (AttributeError, RuntimeError):
+            return "REJECTED"
+        try:
+            return bridge._legacy_v1_process_from_environment(
+                request, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def legacy_v1_retry_for_test(
+        self,
+        bridge: "DestinationBridgeLedger",
+        request: LegacyV1RetryV2,
+        *,
+        caller: str,
+    ) -> str:
+        try:
+            frame = self._open_frame(caller, "V1_RETRY")
+        except RuntimeError:
+            return "REJECTED"
+        try:
+            return bridge._legacy_v1_retry_from_environment(
+                request, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def legacy_v1_recall_for_test(
+        self,
+        bridge: "DestinationBridgeLedger",
+        request: LegacyV1RecallV2,
+        *,
+        caller: str,
+    ) -> bool:
+        try:
+            frame = self._open_frame(caller, "V1_RECALL")
+        except RuntimeError:
+            return False
+        try:
+            return bridge._legacy_v1_recall_from_environment(
+                request, frame=frame
+            )
+        finally:
+            self._close_frame(frame)
+
+    def _transfer_native(
+        self,
+        recipient: str,
+        amount: int,
+        *,
+        frame: L2TransactionFrameV2,
+        bridge: "DestinationBridgeLedger",
+    ) -> bool:
+        if (frame is not self._active_frame or not recipient
+                or type(amount) is not int or amount < 0
+                or bridge.execution_environment is not self):
+            return False
+        application = self._applications_by_address.get(recipient)
+        if application is None:
+            self.eoa_balances[recipient] = seat_checked_add(
+                self.eoa_balances.get(recipient, 0),
+                amount,
+                "destination pull recipient balance",
+            )
+            return True
+        if application.fault_point in {"revert", "receive_revert", "throw"}:
+            return False
+        application.native_balance = seat_checked_add(
+            application.native_balance,
+            amount,
+            "destination pull application balance",
+        )
+        if application.callback is not None:
+            application.callback(bridge)
+        return True
+
 
 
 @dataclass
@@ -6626,41 +15344,316 @@ class DestinationBridgeLedger:
         InboxCreditStoreV2("inbox-apply", "bridge:A", "domain:D1"))
     terminal_accumulator: TerminalAccumulatorV2 = field(default_factory=lambda:
         TerminalAccumulatorV2({"domain:D1": "bridge:A"}))
+    release_manifest: "ReleaseManifestV2 | None" = field(
+        default=None, compare=False, repr=False
+    )
+    execution_environment: L2ExecutionEnvironmentV2 | None = field(
+        default=None, compare=False, repr=False
+    )
+    balance: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR
+    ether_quota: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR
+    pull_credits: dict[str, int] = field(default_factory=dict)
+    total_pull_liability: int = 0
     status: dict[str, str] = field(default_factory=dict)
+    legacy_v1_status_by_msg_hash: dict[str, str] = field(
+        default_factory=dict
+    )
     terminal_index: dict[str, int] = field(default_factory=dict)
     terminal_commitment_return_length: int = TERMINAL_COMMITMENT_ABI_BYTES
     terminal_commitment_gas_ok: bool = True
+    entered: bool = field(default=False, compare=False)
+    _active_execution_frame: L2TransactionFrameV2 | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
 
-    def pin(self, credit_id: str, result_hash: str, *, now: int,
-            caller_is_inbox_apply: bool) -> bool:
-        accepted = self.inbox_store.pin(
-            credit_id, result_hash, now=now,
-            caller="inbox-apply" if caller_is_inbox_apply else "attacker")
-        if accepted and credit_id not in self.status:
-            self.status[credit_id] = "NEW"
-        return accepted
+    def __post_init__(self) -> None:
+        manifest = self.release_manifest
+        environment = self.execution_environment
+        descriptor = (
+            None if type(manifest) is not ReleaseManifestV2
+            else manifest.destination_bridge_descriptor
+        )
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()
+                or type(descriptor) is not DestinationBridgeDescriptorV2
+                or type(environment) is not L2ExecutionEnvironmentV2
+                or manifest.destination_bridge != self.address
+                or manifest.destination_domain_id != self.local_domain_id
+                or descriptor.bridge != self.address
+                or descriptor.destination_chain_id != environment.chain_id
+                or manifest.destination_chain_id != environment.chain_id
+                or descriptor.inbox_credit_store != self.inbox_store.address
+                or self.inbox_store.destination_bridge != self.address
+                or self.inbox_store.destination_domain_id
+                    != self.local_domain_id
+                or descriptor.terminal_accumulator
+                    != manifest.components[7].address
+                or self.terminal_accumulator.domains.get(self.local_domain_id)
+                    != self.address
+                or descriptor.native_quota_manager
+                    != DESTINATION_NATIVE_QUOTA_MANAGER
+                or descriptor.native_liquidity_policy
+                    != DESTINATION_NATIVE_LIQUIDITY_POLICY
+                or descriptor.v1_official_vaults
+                    != V1_OFFICIAL_VAULT_ADDRESSES
+                or self.balance < descriptor.native_liquidity_floor
+                or self.ether_quota < descriptor.native_liquidity_floor
+                or self.total_pull_liability != 0
+                or self.pull_credits):
+            raise ValueError("destination Bridge manifest graph is invalid")
+        if (not environment._bind_bridge_once(self)
+                or not self.terminal_accumulator
+                    ._bind_destination_bridge_once(
+                        self.local_domain_id, self
+                    )):
+            raise ValueError("destination Bridge execution authority is split")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "address", "local_domain_id", "inbox_store",
+            "terminal_accumulator", "release_manifest",
+            "execution_environment", "_active_execution_frame",
+        } and name in self.__dict__:
+            raise AttributeError(f"destination Bridge {name} is immutable")
+        object.__setattr__(self, name, value)
 
     def _pin(self, credit_id: str, destination_domain_id: str) -> InboxPin | None:
         return self.inbox_store.read(
             credit_id, caller=self.address,
             destination_domain_id=destination_domain_id)
 
-    def _terminalize(self, credit_id: str, terminal: str) -> bool:
-        if credit_id in self.terminal_index:
+    @property
+    def destination_chain_id(self) -> int:
+        assert type(self.release_manifest) is ReleaseManifestV2
+        return self.release_manifest.destination_chain_id
+
+    def _transaction_snapshot(self) -> dict[str, object]:
+        return {
+            "balance": self.balance,
+            "ether_quota": self.ether_quota,
+            "pull_credits": dict(self.pull_credits),
+            "total_pull_liability": self.total_pull_liability,
+            "status": dict(self.status),
+            "legacy_v1_status_by_msg_hash": dict(
+                self.legacy_v1_status_by_msg_hash
+            ),
+            "terminal_index": dict(self.terminal_index),
+            "terminal_leaves": list(self.terminal_accumulator.leaves),
+        }
+
+    def _restore_transaction_snapshot(
+        self, snapshot: dict[str, object]
+    ) -> None:
+        self.balance = snapshot["balance"]
+        self.ether_quota = snapshot["ether_quota"]
+        self.pull_credits.clear()
+        self.pull_credits.update(snapshot["pull_credits"])
+        self.total_pull_liability = snapshot["total_pull_liability"]
+        self.status.clear()
+        self.status.update(snapshot["status"])
+        self.legacy_v1_status_by_msg_hash.clear()
+        self.legacy_v1_status_by_msg_hash.update(
+            snapshot["legacy_v1_status_by_msg_hash"]
+        )
+        self.terminal_index.clear()
+        self.terminal_index.update(snapshot["terminal_index"])
+        self.terminal_accumulator.leaves[:] = snapshot["terminal_leaves"]
+
+    @staticmethod
+    def _message_calldata_cost(data_length: int) -> int:
+        if type(data_length) is not int or data_length < 0:
+            raise ValueError("destination Message data length is invalid")
+        return (((data_length + 31) // 32 * 32) + 416) * 16
+
+    @classmethod
+    def _invocation_gas_limit(cls, message_: IBridgeMessageV1) -> int:
+        minimum = cls._message_calldata_cost(
+            message_.data_length
+        ) + V2_POST_CALL_GAS_RESERVE
+        return max(minimum, message_.gas_limit) - minimum
+
+    @classmethod
+    def _required_available_gas(
+        cls, message_: IBridgeMessageV1, gas_requested: int
+    ) -> int:
+        if type(gas_requested) is not int or gas_requested < 0:
+            raise ValueError("destination requested gas is invalid")
+        pre_call_cost = seat_checked_add(
+            BRIDGE_GAS_OVERHEAD,
+            cls._message_calldata_cost(message_.data_length),
+            "V2 pre-call gas cost",
+        )
+        return seat_checked_add(
+            pre_call_cost,
+            V2_POST_CALL_GAS_RESERVE
+                + ((gas_requested * 64 + 62) // 63),
+            "V2 EIP-150 call threshold",
+        )
+
+    def _hard_prohibited_target(self, message_: IBridgeMessageV1) -> bool:
+        assert type(self.release_manifest) is ReleaseManifestV2
+        descriptor = self.release_manifest.destination_bridge_descriptor
+        return (
+            not message_.to
+            or message_.to in descriptor.privileged_target_denyset
+        )
+
+    @staticmethod
+    def _ordinary_invocation_prohibited(
+        message_: IBridgeMessageV1,
+    ) -> bool:
+        return (
+            message_.data_length >= 4
+            and message_.data[:4] != ON_MESSAGE_INVOCATION_SELECTOR
+        )
+
+    def _credit_pull(self, owner: str, amount: int) -> None:
+        if not owner or type(amount) is not int or amount < 0:
+            raise ValueError("destination pull credit is invalid")
+        if amount == 0:
+            return
+        self.pull_credits[owner] = seat_checked_add(
+            self.pull_credits.get(owner, 0),
+            amount,
+            "destination owner pull credit",
+        )
+        self.total_pull_liability = seat_checked_add(
+            self.total_pull_liability,
+            amount,
+            "destination pull liability",
+        )
+
+    def _withdraw_pull_from_environment(
+        self,
+        *,
+        recipient: str,
+        frame: L2TransactionFrameV2,
+    ) -> int:
+        if (not recipient
+                or not self._enter_execution(
+                    frame, "WITHDRAW", allow_paused=True
+                )):
+            return 0
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            amount = self.pull_credits.get(frame.caller, 0)
+            if amount == 0 or amount > self.balance:
+                return 0
+            self.pull_credits.pop(frame.caller, None)
+            self.total_pull_liability -= amount
+            self.balance -= amount
+            try:
+                transferred = self.execution_environment._transfer_native(
+                    recipient,
+                    amount,
+                    frame=frame,
+                    bridge=self,
+                )
+            except BaseException:
+                transferred = False
+            if not transferred:
+                self._restore_transaction_snapshot(bridge_snapshot)
+                self.execution_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                return 0
+            return amount
+        finally:
+            self._leave_execution(frame)
+
+    def withdraw_pull_credit(self, caller: str, recipient: str) -> int:
+        environment = self.execution_environment
+        if type(environment) is not L2ExecutionEnvironmentV2:
+            return 0
+        return environment.withdraw_bridge_credit(
+            self, caller=caller, recipient=recipient
+        )
+
+    def _delivery_context_valid(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        require_pin: bool,
+    ) -> bool:
+        try:
+            bridge_message_preimage(BridgeAdmissionEnvelope(
+                message_, 0, MAX_FORCE_MESSAGE_GAS, 0
+            ))
+            credit_id = destination_credit_id_v2(
+                message_, source, destination
+            )
+        except ValueError:
             return False
+        refund_exact = (
+            source.refund_mode == "DIRECT"
+            and not source.refund_vault
+            and not source.refund_capsule_hash
+        )
+        if (not source.source_domain_id
+                or source.source_domain_id == destination.destination_domain_id
+                or not 0 < source.source_registration_epoch <= UINT64_MAX
+                or not source.source_bridge or not source.bridge_execution_hash
+                or not 0 < source.emitted_at_block <= UINT64_MAX
+                or not 0 <= source.enqueue_by <= UINT64_MAX
+                or not refund_exact
+                or source.escrow_id != bridge_escrow_id(credit_id)
+                or destination.destination_domain_id != self.local_domain_id
+                or destination.destination_bridge != self.address
+                or not 0 <= destination.queue_index < UINT64_MAX
+                or message_.destination_chain_id
+                    != self.destination_chain_id
+                or message_.sender == self.address):
+            return False
+        if not require_pin:
+            return True
+        pin = self._pin(credit_id, destination.destination_domain_id)
+        return (
+            pin is not None
+            and pin.result_hash == destination_result_hash_v9(
+                message_, source, destination
+            )
+        )
+
+    def _terminalize(
+        self,
+        credit_id: str,
+        terminal: str,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> bool:
+        if (frame is not self._active_execution_frame
+                or self.execution_environment is None
+                or frame is not self.execution_environment._active_frame
+                or not self.entered
+                or terminal not in {"DONE", "FAILED"}
+                or credit_id in self.terminal_index):
+            return False
+        status_existed = credit_id in self.status
         prior_status = self.status.get(credit_id)
+        prior_leaf_count = self.terminal_accumulator.count
         self.status[credit_id] = terminal
         self.terminal_index[credit_id] = APPENDING_SENTINEL
-        index = self.terminal_accumulator.append_terminal(
-            caller=self, credit_id=credit_id)
+        try:
+            index = self.terminal_accumulator.append_terminal(
+                caller=self, credit_id=credit_id)
+        except BaseException:
+            index = None
         if (index is None
                 or self.terminal_accumulator.append_return_length != 32
                 or not self.terminal_accumulator.append_return_padding_ok
                 or not 0 <= index < UINT64_MAX):
-            if index is not None:
-                self.terminal_accumulator.leaves = \
-                    self.terminal_accumulator.leaves[:index]
-            self.status[credit_id] = prior_status if prior_status is not None else "NEW"
+            self.terminal_accumulator.leaves = (
+                self.terminal_accumulator.leaves[:prior_leaf_count]
+            )
+            if status_existed:
+                assert prior_status is not None
+                self.status[credit_id] = prior_status
+            else:
+                self.status.pop(credit_id, None)
             self.terminal_index.pop(credit_id, None)
             return False
         self.terminal_index[credit_id] = index
@@ -6675,59 +15668,686 @@ class DestinationBridgeLedger:
         return self.local_domain_id, self.address, terminal, index
 
     def accepts_message_target(self, target: str, *, version: str) -> bool:
-        return not (version == "V2" and target == "terminal-accumulator")
+        if version != "V2":
+            return True
+        descriptor = self.release_manifest.destination_bridge_descriptor
+        return bool(target) and target not in descriptor.privileged_target_denyset
 
-    def process(self, credit_id: str, *, now: int,
-                message_available: bool, result_hash_matches: bool,
-                callback_ok: bool,
-                destination_domain_id: str = "domain:D1",
-                context_dest_bridge: str = "bridge:A") -> str:
-        pin = self._pin(credit_id, destination_domain_id)
-        current = self.status.get(credit_id)
-        if (self.paused or pin is None or current in {"DONE", "FAILED"}
-                or now > pin.process_by or not result_hash_matches
-                or context_dest_bridge != self.address
-                or destination_domain_id != self.local_domain_id):
-            return "REJECTED"
-        if not message_available or not callback_ok:
-            self.status[credit_id] = "RETRIABLE"
-            return "RETRIABLE"
-        return "DONE" if self._terminalize(credit_id, "DONE") else "REJECTED"
+    def _legacy_v1_payout_from_environment(
+        self,
+        *,
+        amount: int,
+        recipient: str,
+        frame: L2TransactionFrameV2,
+    ) -> bool:
+        """V1 outflow cannot invade V2 pull liabilities or re-enter V2."""
 
-    def retry(self, credit_id: str, *, now: int, caller_is_dest_owner: bool,
-              is_last_attempt: bool, message_available: bool,
-              result_hash_matches: bool, callback_ok: bool,
-              destination_domain_id: str = "domain:D1",
-              context_dest_bridge: str = "bridge:A") -> str:
-        if is_last_attempt and not caller_is_dest_owner:
-            return "REJECTED"
-        return self.process(
-            credit_id, now=now, message_available=message_available,
-            result_hash_matches=result_hash_matches, callback_ok=callback_ok,
-            destination_domain_id=destination_domain_id,
-            context_dest_bridge=context_dest_bridge)
-
-    def manual_fail(self, credit_id: str, *, caller_is_dest_owner: bool,
-                    destination_domain_id: str = "domain:D1",
-                    context_dest_bridge: str = "bridge:A") -> bool:
-        if (self.paused or not caller_is_dest_owner
-                or self.status.get(credit_id) != "RETRIABLE"
-                or context_dest_bridge != self.address
-                or destination_domain_id != self.local_domain_id):
+        if (not self._enter_execution(frame, "V1_PAYOUT")
+                or not recipient or type(amount) is not int or amount < 0):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
             return False
-        return self._terminalize(credit_id, "FAILED")
-
-    def expire(self, credit_id: str, *, now: int,
-               destination_domain_id: str = "domain:D1",
-               context_dest_bridge: str = "bridge:A") -> bool:
-        pin = self._pin(credit_id, destination_domain_id)
-        current = self.status.get(credit_id)
-        if (pin is None or current not in {"NEW", "RETRIABLE"}
-                or context_dest_bridge != self.address
-                or destination_domain_id != self.local_domain_id
-                or now <= pin.process_by):
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            if (amount > self.ether_quota
+                    or self.balance - amount < self.total_pull_liability):
+                return False
+            self.balance -= amount
+            self.ether_quota -= amount
+            if not self.execution_environment._transfer_native(
+                    recipient, amount, frame=frame, bridge=self):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                self.execution_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                return False
+            return True
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
             return False
-        return self._terminalize(credit_id, "FAILED")
+        finally:
+            self._leave_execution(frame)
+
+    def _legacy_v1_has_balance_capacity(self, maximum_debit: int) -> bool:
+        return (
+            type(maximum_debit) is int
+            and maximum_debit >= 0
+            and self.balance - self.total_pull_liability >= maximum_debit
+        )
+
+    def _legacy_v1_has_quota_capacity(self, debit: int) -> bool:
+        return (
+            type(debit) is int
+            and debit >= 0
+            and self.ether_quota >= debit
+        )
+
+    def _legacy_v1_process_from_environment(
+        self,
+        request: LegacyV1ProcessV2,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> str:
+        """Model V1 process: max V+F preflight, CALL value, then fee."""
+
+        if (type(request) is not LegacyV1ProcessV2
+                or not request.msg_hash or not request.target
+                or not request.fee_recipient or not request.destination_owner
+                or type(request.value) is not int or request.value < 0
+                or type(request.fee) is not int or request.fee < 0
+                or type(request.processor_fee) is not int
+                or not 0 <= request.processor_fee <= request.fee
+                or type(request.data) is not bytes
+                or not self._enter_execution(frame, "V1_PROCESS")):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
+            return "REJECTED"
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            if self.legacy_v1_status_by_msg_hash.get(
+                    request.msg_hash, "NEW") != "NEW":
+                return "REJECTED"
+            maximum = seat_checked_add(
+                request.value, request.fee, "V1 process maximum debit"
+            )
+            if not self._legacy_v1_has_balance_capacity(maximum):
+                return "REJECTED"
+            target_succeeded = (
+                request.invocation_prohibited
+                or (request.value == 0 and not request.data)
+            )
+            should_call = (
+                not request.invocation_prohibited
+                and (request.value > 0 or bool(request.data))
+            )
+            if request.invocation_prohibited and request.value:
+                self.balance -= request.value
+                target_succeeded = self.execution_environment._transfer_native(
+                    request.destination_owner,
+                    request.value,
+                    frame=frame,
+                    bridge=self,
+                )
+                if not target_succeeded:
+                    if request.invocation_prohibited:
+                        raise RuntimeError(
+                            "V1 prohibited-call value refund reverted"
+                        )
+                    self.execution_environment._restore_transaction_snapshot(
+                        environment_snapshot
+                    )
+                    self.balance = bridge_snapshot["balance"]
+            elif should_call:
+                self.balance -= request.value
+                target_succeeded = self.execution_environment._transfer_native(
+                    request.target,
+                    request.value,
+                    frame=frame,
+                    bridge=self,
+                )
+                if not target_succeeded:
+                    self.execution_environment._restore_transaction_snapshot(
+                        environment_snapshot
+                    )
+                    self.balance = bridge_snapshot["balance"]
+            actual_debit = maximum if target_succeeded else request.fee
+            if not self._legacy_v1_has_quota_capacity(actual_debit):
+                raise RuntimeError("V1 process quota is insufficient")
+            processor_fee = request.processor_fee
+            owner_fee = request.fee - processor_fee
+            if processor_fee:
+                self.balance -= processor_fee
+                if not self.execution_environment._transfer_native(
+                        request.fee_recipient,
+                        processor_fee,
+                        frame=frame,
+                        bridge=self):
+                    raise RuntimeError("V1 process fee transfer reverted")
+            if owner_fee:
+                self.balance -= owner_fee
+                if not self.execution_environment._transfer_native(
+                        request.destination_owner,
+                        owner_fee,
+                        frame=frame,
+                        bridge=self):
+                    raise RuntimeError("V1 process owner fee transfer reverted")
+            self.ether_quota -= actual_debit
+            self.legacy_v1_status_by_msg_hash[request.msg_hash] = (
+                "DONE" if target_succeeded else "RETRIABLE"
+            )
+            if self.balance < self.total_pull_liability:
+                raise RuntimeError("V1 process invaded V2 pull liabilities")
+            return self.legacy_v1_status_by_msg_hash[request.msg_hash]
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return "REJECTED"
+        finally:
+            self._leave_execution(frame)
+
+    def _legacy_v1_retry_from_environment(
+        self,
+        request: LegacyV1RetryV2,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> str:
+        """Model V1 retry: exact value debit, failure is side-effect free."""
+
+        if (type(request) is not LegacyV1RetryV2
+                or not request.msg_hash or not request.target
+                or type(request.value) is not int or request.value < 0
+                or not self._enter_execution(frame, "V1_RETRY")):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
+            return "REJECTED"
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            if (self.legacy_v1_status_by_msg_hash.get(request.msg_hash)
+                    != "RETRIABLE"
+                    or not self._legacy_v1_has_balance_capacity(request.value)
+                    or not self._legacy_v1_has_quota_capacity(request.value)):
+                return "REJECTED"
+            self.balance -= request.value
+            if not self.execution_environment._transfer_native(
+                    request.target,
+                    request.value,
+                    frame=frame,
+                    bridge=self):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                self.execution_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                return "RETRIABLE"
+            self.ether_quota -= request.value
+            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "DONE"
+            if self.balance < self.total_pull_liability:
+                raise RuntimeError("V1 retry invaded V2 pull liabilities")
+            return "DONE"
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return "REJECTED"
+        finally:
+            self._leave_execution(frame)
+
+    def _legacy_v1_recall_from_environment(
+        self,
+        request: LegacyV1RecallV2,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> bool:
+        """Model V1 recall sender callback/value return under the same floor."""
+
+        if (type(request) is not LegacyV1RecallV2
+                or not request.msg_hash or not request.recipient
+                or type(request.value) is not int or request.value < 0
+                or not self._enter_execution(frame, "V1_RECALL")):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
+            return False
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            if (self.legacy_v1_status_by_msg_hash.get(
+                    request.msg_hash, "NEW") != "NEW"
+                    or not self._legacy_v1_has_balance_capacity(request.value)
+                    or not self._legacy_v1_has_quota_capacity(request.value)):
+                return False
+            self.balance -= request.value
+            if not self.execution_environment._transfer_native(
+                    request.recipient,
+                    request.value,
+                    frame=frame,
+                    bridge=self):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                self.execution_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                return False
+            self.ether_quota -= request.value
+            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "RECALLED"
+            if self.balance < self.total_pull_liability:
+                raise RuntimeError("V1 recall invaded V2 pull liabilities")
+            return True
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return False
+        finally:
+            self._leave_execution(frame)
+
+    def _processor_fee(
+        self,
+        message_: IBridgeMessageV1,
+        *,
+        frame: L2TransactionFrameV2,
+        gas_used: int,
+    ) -> int:
+        """Return the sender-authorized all-or-nothing success bounty."""
+
+        _ = gas_used  # Exact gas metering is not a fee oracle in V2.
+        if (frame.caller == message_.destination_owner
+                or message_.fee == 0 or message_.gas_limit == 0):
+            return 0
+        return message_.fee
+
+    def _settle_success(
+        self,
+        message_: IBridgeMessageV1,
+        *,
+        frame: L2TransactionFrameV2,
+        gas_used: int,
+        value_delivered: bool,
+    ) -> None:
+        total = seat_checked_add(
+            message_.value, message_.fee, "destination Message value plus fee"
+        )
+        free_balance = self.balance - self.total_pull_liability
+        required_pull = message_.fee if value_delivered else total
+        if free_balance < required_pull or self.ether_quota < total:
+            raise ValueError("destination liquidity or quota is insufficient")
+        processor_fee = self._processor_fee(
+            message_, frame=frame, gas_used=gas_used
+        )
+        owner_credit = message_.fee - processor_fee
+        if not value_delivered:
+            owner_credit = seat_checked_add(
+                owner_credit,
+                message_.value,
+                "destination owner invocation refund",
+            )
+        self.ether_quota -= total
+        self._credit_pull(frame.caller, processor_fee)
+        self._credit_pull(message_.destination_owner, owner_credit)
+
+    def _has_success_capacity(self, message_: IBridgeMessageV1) -> bool:
+        try:
+            total = seat_checked_add(
+                message_.value,
+                message_.fee,
+                "destination Message value plus fee",
+            )
+        except ValueError:
+            return False
+        return (
+            self.balance - self.total_pull_liability >= total
+            and self.ether_quota >= total
+        )
+
+    def _enter_execution(
+        self,
+        frame: L2TransactionFrameV2,
+        operation: str,
+        *,
+        allow_paused: bool = False,
+    ) -> bool:
+        environment = self.execution_environment
+        if (type(environment) is not L2ExecutionEnvironmentV2
+                or frame.environment is not environment
+                or frame is not environment._active_frame
+                or frame.operation != operation
+                or self.entered
+                or (self.paused and not allow_paused)):
+            return False
+        self.entered = True
+        object.__setattr__(self, "_active_execution_frame", frame)
+        return True
+
+    def _leave_execution(self, frame: L2TransactionFrameV2) -> None:
+        if self._active_execution_frame is frame:
+            object.__setattr__(self, "_active_execution_frame", None)
+        self.entered = False
+
+    def _process_from_environment(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> str:
+        if (not self._enter_execution(frame, "PROCESS")
+                or not self._delivery_context_valid(
+                    message_, source, destination, require_pin=True)):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
+            return "REJECTED"
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            credit_id = destination_credit_id_v2(message_, source, destination)
+            pin = self._pin(credit_id, destination.destination_domain_id)
+            current = self.status.get(credit_id, "NEW")
+            if (pin is None or current != "NEW"
+                    or frame.block_timestamp > pin.process_by
+                    or (frame.caller != message_.destination_owner
+                        and message_.gas_limit == 0)):
+                return "REJECTED"
+
+            if self._hard_prohibited_target(message_):
+                if not self._terminalize(credit_id, "FAILED", frame=frame):
+                    raise RuntimeError("destination FAILED terminal append reverted")
+                return "FAILED"
+
+            if self._ordinary_invocation_prohibited(message_):
+                if not self._has_success_capacity(message_):
+                    return "REJECTED"
+                self._settle_success(
+                    message_, frame=frame,
+                    gas_used=BRIDGE_GAS_OVERHEAD,
+                    value_delivered=False,
+                )
+                if not self._terminalize(credit_id, "DONE", frame=frame):
+                    raise RuntimeError("destination DONE terminal append reverted")
+                return "DONE"
+
+            # Match Bridge.sol: a zero-value, zero-calldata message succeeds
+            # without issuing an external CALL.  Empty value transfers and
+            # 1--3-byte fallback calldata still execute below.
+            if message_.value == 0 and message_.data_length == 0:
+                if not self._has_success_capacity(message_):
+                    return "REJECTED"
+                self._settle_success(
+                    message_, frame=frame,
+                    gas_used=BRIDGE_GAS_OVERHEAD,
+                    value_delivered=True,
+                )
+                if not self._terminalize(credit_id, "DONE", frame=frame):
+                    raise RuntimeError("destination DONE terminal append reverted")
+                return "DONE"
+
+            requested = self._invocation_gas_limit(message_)
+            if frame.caller != message_.destination_owner:
+                if (requested == 0
+                        or frame.available_gas
+                            < self._required_available_gas(
+                                message_, requested
+                            )):
+                    return "REJECTED"
+            else:
+                pre_call_cost = seat_checked_add(
+                    BRIDGE_GAS_OVERHEAD,
+                    self._message_calldata_cost(message_.data_length),
+                    "V2 owner pre-call gas cost",
+                )
+                requested = max(
+                    0,
+                    frame.available_gas
+                    - pre_call_cost
+                    - V2_POST_CALL_GAS_RESERVE,
+                )
+            if not self._has_success_capacity(message_):
+                return "REJECTED"
+            self.balance -= message_.value
+            try:
+                executed, gas_used, exhausted = (
+                    self.execution_environment._invoke(
+                        self, message_, source, destination, frame=frame,
+                        gas_requested=requested,
+                    )
+                )
+            except BaseException:
+                executed, gas_used, exhausted = False, 0, False
+            if exhausted:
+                raise RuntimeError("destination target exhausted forwarded gas")
+            if not executed:
+                self.execution_environment._restore_transaction_snapshot(
+                    environment_snapshot
+                )
+                self.balance = bridge_snapshot["balance"]
+                if frame.caller == message_.destination_owner:
+                    self.status[credit_id] = "RETRIABLE"
+                    return "RETRIABLE"
+                return "NEW"
+            self._settle_success(
+                message_, frame=frame, gas_used=gas_used,
+                value_delivered=True,
+            )
+            if not self._terminalize(credit_id, "DONE", frame=frame):
+                raise RuntimeError("destination DONE terminal append reverted")
+            return "DONE"
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return "REJECTED"
+        finally:
+            self._leave_execution(frame)
+
+    def _retry_from_environment(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        is_last_attempt: bool,
+        frame: L2TransactionFrameV2,
+    ) -> str:
+        if (not self._enter_execution(frame, "RETRY")
+                or not self._delivery_context_valid(
+                    message_, source, destination, require_pin=True)):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
+            return "REJECTED"
+        bridge_snapshot = self._transaction_snapshot()
+        assert self.execution_environment is not None
+        environment_snapshot = self.execution_environment._transaction_snapshot()
+        try:
+            credit_id = destination_credit_id_v2(message_, source, destination)
+            pin = self._pin(credit_id, destination.destination_domain_id)
+            if (pin is None or self.status.get(credit_id) != "RETRIABLE"
+                    or frame.block_timestamp > pin.process_by
+                    or ((message_.gas_limit == 0 or is_last_attempt)
+                        and frame.caller != message_.destination_owner)):
+                return "REJECTED"
+            if self._hard_prohibited_target(message_):
+                if is_last_attempt:
+                    if not self._terminalize(
+                            credit_id, "FAILED", frame=frame):
+                        raise RuntimeError(
+                            "destination FAILED terminal append reverted"
+                        )
+                    return "FAILED"
+                return "REJECTED"
+            if self._ordinary_invocation_prohibited(message_):
+                if not self._has_success_capacity(message_):
+                    return "RETRIABLE"
+                self._settle_success(
+                    message_, frame=frame,
+                    gas_used=BRIDGE_GAS_OVERHEAD,
+                    value_delivered=False,
+                )
+                if not self._terminalize(credit_id, "DONE", frame=frame):
+                    raise RuntimeError("destination DONE terminal append reverted")
+                return "DONE"
+            if message_.value == 0 and message_.data_length == 0:
+                if not self._has_success_capacity(message_):
+                    return "RETRIABLE"
+                self._settle_success(
+                    message_, frame=frame,
+                    gas_used=BRIDGE_GAS_OVERHEAD,
+                    value_delivered=True,
+                )
+                if not self._terminalize(credit_id, "DONE", frame=frame):
+                    raise RuntimeError("destination DONE terminal append reverted")
+                return "DONE"
+            pre_call_cost = seat_checked_add(
+                BRIDGE_GAS_OVERHEAD,
+                self._message_calldata_cost(message_.data_length),
+                "V2 retry pre-call gas cost",
+            )
+            requested = max(
+                0,
+                frame.available_gas
+                - pre_call_cost
+                - V2_POST_CALL_GAS_RESERVE,
+            )
+            if requested == 0:
+                return "REJECTED"
+            if not self._has_success_capacity(message_):
+                return "RETRIABLE"
+            self.balance -= message_.value
+            try:
+                executed, gas_used, exhausted = (
+                    self.execution_environment._invoke(
+                        self, message_, source, destination, frame=frame,
+                        gas_requested=requested,
+                    )
+                )
+            except BaseException:
+                executed, gas_used, exhausted = False, 0, False
+            if exhausted:
+                raise RuntimeError("destination retry exhausted forwarded gas")
+            if executed:
+                self._settle_success(
+                    message_, frame=frame, gas_used=gas_used,
+                    value_delivered=True,
+                )
+                if not self._terminalize(credit_id, "DONE", frame=frame):
+                    raise RuntimeError("destination DONE terminal append reverted")
+                return "DONE"
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            self.balance = bridge_snapshot["balance"]
+            if not is_last_attempt:
+                return "RETRIABLE"
+            if not self._terminalize(credit_id, "FAILED", frame=frame):
+                raise RuntimeError("destination FAILED terminal append reverted")
+            return "FAILED"
+        except BaseException:
+            self._restore_transaction_snapshot(bridge_snapshot)
+            self.execution_environment._restore_transaction_snapshot(
+                environment_snapshot
+            )
+            return "REJECTED"
+        finally:
+            self._leave_execution(frame)
+
+    def _manual_fail_from_environment(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> bool:
+        if (not self._enter_execution(frame, "MANUAL_FAIL")
+                or not self._delivery_context_valid(
+                    message_, source, destination, require_pin=True)):
+            if self._active_execution_frame is frame:
+                self._leave_execution(frame)
+            return False
+        bridge_snapshot = self._transaction_snapshot()
+        try:
+            credit_id = destination_credit_id_v2(message_, source, destination)
+            if (frame.caller != message_.destination_owner
+                    or self.status.get(credit_id) != "RETRIABLE"
+                    or not self._terminalize(
+                        credit_id, "FAILED", frame=frame
+                    )):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                return False
+            return True
+        finally:
+            self._leave_execution(frame)
+
+    def _expire_from_environment(
+        self,
+        credit_id: str,
+        *,
+        frame: L2TransactionFrameV2,
+    ) -> bool:
+        """Expire using only the local durable pin and the block context."""
+
+        if not self._enter_execution(frame, "EXPIRE", allow_paused=True):
+            return False
+        bridge_snapshot = self._transaction_snapshot()
+        try:
+            pin = self._pin(credit_id, self.local_domain_id)
+            current = self.status.get(credit_id, "NEW")
+            if (not credit_id or pin is None
+                    or current not in {"NEW", "RETRIABLE"}
+                    or frame.block_timestamp <= pin.process_by
+                    or not self._terminalize(
+                        credit_id, "FAILED", frame=frame
+                    )):
+                self._restore_transaction_snapshot(bridge_snapshot)
+                return False
+            return True
+        finally:
+            self._leave_execution(frame)
+
+    def process(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+    ) -> str:
+        environment = self.execution_environment
+        if type(environment) is not L2ExecutionEnvironmentV2:
+            return "REJECTED"
+        return environment.process_bridge_message(
+            self, message_, source, destination, caller=caller
+        )
+
+    def retry(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+        is_last_attempt: bool,
+    ) -> str:
+        environment = self.execution_environment
+        if type(environment) is not L2ExecutionEnvironmentV2:
+            return "REJECTED"
+        return environment.retry_bridge_message(
+            self, message_, source, destination,
+            caller=caller, is_last_attempt=is_last_attempt,
+        )
+
+    def manual_fail(
+        self,
+        message_: IBridgeMessageV1,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        caller: str,
+    ) -> bool:
+        environment = self.execution_environment
+        if type(environment) is not L2ExecutionEnvironmentV2:
+            return False
+        return environment.manual_fail_bridge_message(
+            self, message_, source, destination, caller=caller
+        )
+
+    def expire_v2(self, credit_id: str) -> bool:
+        environment = self.execution_environment
+        if type(environment) is not L2ExecutionEnvironmentV2:
+            return False
+        return environment.expire_bridge_credit(self, credit_id)
 
 
 PASS: list[str] = []
@@ -6738,15 +16358,157 @@ def check(name: str, condition: bool) -> None:
     PASS.append(name)
 
 
+def payable_reverted(call: Callable[[], object]) -> bool:
+    try:
+        call()
+    except (TypeError, ValueError, RuntimeError):
+        return True
+    return False
+
+
 def clock(number: int, l2_slot: int) -> Clock:
     return Clock(number, GENESIS_TIMESTAMP + l2_slot)
 
 
 def message(enqueued_l2: int, ident: str, gas: int = 100_000, size: int = 100,
-            *, kind: ForceKind = ForceKind.USER_TX) -> Message:
-    return Message(GENESIS_TIMESTAMP + enqueued_l2, gas, size, ident, kind=kind,
-                   valid_until=(UINT64_MAX if kind is ForceKind.BRIDGE_CREDIT
-                                else GENESIS_TIMESTAMP + enqueued_l2 + DATA_TTL_SECONDS))
+            *, kind: ForceKind = ForceKind.USER_TX
+            ) -> Message | BridgeAdmissionEnvelope:
+    if kind is ForceKind.BRIDGE_CREDIT:
+        return bridge_message(
+            enqueued_l2,
+            ident,
+            gas_limit=MAX_FORCE_MESSAGE_GAS,
+            size=size,
+        )
+    accounted_gas = (
+        max(gas, 21_000, MIN_FORCE_ACCOUNTED_GAS)
+    )
+    row = Message(
+        GENESIS_TIMESTAMP + enqueued_l2,
+        accounted_gas,
+        size,
+        ident,
+        kind=kind,
+        sender="sender",
+        valid_until=GENESIS_TIMESTAMP + enqueued_l2 + DATA_TTL_SECONDS,
+        prepaid=canonical_ingress_deposit(accounted_gas, size),
+        raw_tx_length=size,
+        l2_chain_id=167_000,
+        gas_limit=gas,
+        max_fee=1_000_000,
+        refund_address="sender",
+    )
+    return row
+
+
+def bridge_message(
+    enqueued_l2: int,
+    ident: str,
+    *,
+    src_owner: str = "alice",
+    dest_owner: str = "alice",
+    to: str = "bridge-recipient",
+    bridge_from: str = "alice",
+    message_id: int = 0,
+    value: int = 10,
+    fee: int = 2,
+    gas_limit: int = MAX_FORCE_MESSAGE_GAS,
+    source_chain_id: int = 1,
+    destination_chain_id: int = 167_000,
+    valid_until: int = UINT64_MAX,
+    gas: int = MAX_FORCE_MESSAGE_GAS,
+    size: int | None = None,
+    data: bytes | None = None,
+    prepaid: int | None = None,
+) -> BridgeAdmissionEnvelope:
+    """Construct an admission envelope from a complete raw Bridge Message."""
+
+    if data is None:
+        exact_size = 100 if size is None else size
+        seed = ident.encode() or b"\x00"
+        data = (seed * ((exact_size + len(seed) - 1) // len(seed)))[
+            :exact_size
+        ]
+    elif size is not None and size != len(data):
+        raise ValueError("Bridge Message size does not match raw data")
+    if (type(data) is not bytes
+            or len(data) > MAX_FORCE_MESSAGE_BYTES):
+        raise ValueError("Bridge Message data exceeds the static bound")
+    raw_message = IBridgeMessageV1(
+        message_id,
+        fee,
+        gas_limit,
+        bridge_from,
+        source_chain_id,
+        src_owner,
+        destination_chain_id,
+        dest_owner,
+        to,
+        value,
+        data,
+    )
+    row = BridgeAdmissionEnvelope(
+        raw_message,
+        GENESIS_TIMESTAMP + enqueued_l2,
+        MAX_FORCE_MESSAGE_GAS,
+        (
+            canonical_ingress_deposit(MAX_FORCE_MESSAGE_GAS, len(data))
+            if prepaid is None else prepaid
+        ),
+        valid_until=valid_until,
+        refund_address=bridge_from,
+    )
+    bridge_message_calldata(row)
+    return row
+
+
+def bridge_queue_descriptor_for_test(
+    enqueued_l2: int,
+    ident: str,
+    destination_domain_id: str,
+    *,
+    refund_mode: str = "DIRECT",
+    refund_vault: str = "",
+    refund_capsule_hash: str = "",
+) -> BridgeQueueDescriptorV10:
+    """Build a structurally exact durable leaf for isolated consumer tests."""
+
+    envelope = bridge_message(enqueued_l2, ident)
+    preimage = bridge_message_preimage(envelope)
+    descriptor = BridgeQueueDescriptorV10(
+        envelope.enqueued_at,
+        envelope.accounted_gas,
+        preimage.data_length,
+        envelope.payload_hash,
+        envelope.prepaid,
+        preimage.sender,
+        preimage.fee,
+        preimage.source_chain_id,
+        preimage.source_owner,
+        preimage.destination_chain_id,
+        preimage.destination_owner,
+        preimage.value,
+        preimage.data_hash,
+        "source-domain:test",
+        1,
+        "bridge:A",
+        "source-execution:test",
+        1,
+        destination_domain_id,
+        GENESIS_TIMESTAMP + enqueued_l2 + MAX_BRIDGE_ENQUEUE_DELAY,
+        refund_mode,
+        "permissionless-enqueuer",
+        refund_vault,
+        refund_capsule_hash,
+        "",
+        due_at=envelope.due_at,
+    )
+    descriptor = replace(
+        descriptor, escrow_id=bridge_escrow_id(descriptor.credit_id)
+    )
+    if not descriptor.structurally_valid():
+        raise AssertionError("isolated Bridge descriptor fixture is invalid")
+    return descriptor
 
 
 def make_header_oracle(
@@ -6814,6 +16576,329 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
     return result
 
 
+def routed_ingress_for_test(
+    protocol_: Protocol, *, protocol_version: int = 1,
+    release_profile_ingress_specs: tuple[
+        tuple[ForceKind, str, str], ...
+    ] | None = None,
+) -> ActiveSettlementRouter:
+    """Build the exact Router graph used by executable model properties."""
+
+    if protocol_.versioned_history is not None:
+        history = protocol_.versioned_history
+        router = getattr(history, "_router_authority", None)
+        if type(router) is ActiveSettlementRouter:
+            return router
+        raise ValueError("test Protocol already has an unrouted history")
+    execution_profile = execution_profile_for_test(
+        protocol_version, f"profile:ingress:{protocol_version}"
+    )
+    history = VersionedSettlementHistory(
+        protocol_.settlement_address,
+        f"runtime:ingress:{protocol_version}",
+        protocol_version,
+        execution_profile.execution_profile_hash,
+        copy.deepcopy(protocol_.core),
+        protocol_.canonical.canonicalized_at_block,
+        protocol_.forced_queue,
+        migration_gate=protocol_.migration_gate,
+        live_protocol=protocol_,
+        inbox_apply_descriptor=protocol_.inbox_apply_descriptor,
+        header_oracle=protocol_.header_oracle,
+        execution_profile=execution_profile,
+        release_profile_ingress_specs=(
+            release_profile_ingress_specs
+            if release_profile_ingress_specs is not None
+            else (
+                (ForceKind.USER_TX, "kind0-adapter", ""),
+                (
+                    ForceKind.BRIDGE_CREDIT,
+                    "bridge-inbox-adapter",
+                    "bridge:A",
+                ),
+            )
+        ),
+    )
+    protocol_.versioned_history = history
+    router = deploy_active_settlement_router(
+        history,
+        "version-manager",
+        protocol_.forced_queue,
+        protocol_.inbox_apply_router,
+        protocol_.migration_gate,
+        protocol_.header_oracle,
+    )
+    if not router.bootstrap(
+        history,
+        sequence=0,
+        clock=Clock(
+            protocol_.canonical.canonicalized_at_block,
+            GENESIS_TIMESTAMP + protocol_.core.tip_slot,
+        ),
+        caller=router.version_manager,
+    ):
+        raise AssertionError("failed to route property-test Protocol")
+    return router
+
+
+def deploy_active_settlement_router(
+    settlement: VersionedSettlementHistory,
+    version_manager: str,
+    forced_queue: QueueContinuity,
+    inbox_apply_router: InboxApplyRouterV2,
+    migration_gate: MigrationGate,
+    header_oracle: L1HeaderOracle,
+    **kwargs: object,
+) -> ActiveSettlementRouter:
+    """Trusted launch factory precommitting the canonical bytes32 manifest."""
+
+    if type(settlement) is not VersionedSettlementHistory:
+        raise ValueError("launch factory requires an exact Settlement profile")
+    router = ActiveSettlementRouter(
+        version_manager,
+        forced_queue,
+        inbox_apply_deployment_descriptor(inbox_apply_router),
+        migration_gate,
+        header_oracle,
+        **kwargs,
+    )
+    preview = settlement_registration(
+        router,
+        settlement,
+        activation_block=0,
+        predecessor_version=0,
+        release_manifest_hash=None,
+    )
+    object.__setattr__(
+        router,
+        "bootstrap_release_manifest_hash",
+        preview.release_manifest_hash,
+    )
+    return router
+
+
+def source_bridge_for_test(
+    router: ActiveSettlementRouter,
+) -> SourceBridgeV2:
+    """Build exact release/support authorities and cross the 214-block delay."""
+
+    manager = router._version_manager_authority
+    if manager is None:
+        manager = ProtocolVersionManager(router.version_manager, router)
+    if type(manager) is not ProtocolVersionManager:
+        raise AssertionError("Router has no exact ProtocolVersionManager")
+    registration = router.registrations[router.active_version]
+    if not router._install_profile_deployments(
+            registration, manager=manager):
+        raise AssertionError("release deployments are not installed")
+    source = router._source_bridge_authority
+    credit_registry = router._bridge_credit_registry_authority
+    if (type(source) is not SourceBridgeV2
+            or type(credit_registry) is not BridgeCreditRegistryV2
+            or source.credit_registry is not credit_registry
+            or credit_registry.source_bridge is not source):
+        raise AssertionError("Router has no exact split source Bridge graph")
+    registry = credit_registry.domain_registry
+    if (registry.router is not router
+            or registry.manager is not manager
+            or type(registry.release_authority_descriptor)
+                is not DestinationReleaseAuthorityDescriptor):
+        raise AssertionError("source Bridge authority graph is split")
+    canonical = router.canonical_at(
+        router.active_version, registration.settlement.current_sequence
+    )
+    if canonical is None:
+        raise AssertionError("support registry lacks canonical history")
+    stage_clock = Clock(canonical.canonicalized_at_block, GENESIS_TIMESTAMP)
+    confirm_clock = Clock(
+        canonical.canonicalized_at_block + F_L1,
+        GENESIS_TIMESTAMP,
+    )
+    for manifest in registration.release_manifests_by_adapter.values():
+        live = registration.settlement.live_protocol
+        execution_authority = (
+            live._inbox_execution_authority
+            if type(live) is Protocol else None
+        )
+        if type(execution_authority) is not InboxValidityExecutionAuthority:
+            raise AssertionError("release has no exact L2 execution authority")
+        if (not registry.stage(
+                    source.source_domain_id,
+                    source.frozen_bridge_execution_hash,
+                    manifest,
+                    manager=manager,
+                    clock=stage_clock,
+                )):
+            raise AssertionError("failed to finalize canonical Bridge support")
+        entry = registry.entries.get((
+            source.source_domain_id,
+            source.frozen_bridge_execution_hash,
+            manifest.destination_domain_id,
+        ))
+        if (entry is None
+                or (entry.confirmed_at_block is None
+                    and not registry.confirm(
+                        source.source_domain_id,
+                        source.frozen_bridge_execution_hash,
+                        manifest.destination_domain_id,
+                        clock=confirm_clock,
+                        canonical_sequence=canonical.canonical_sequence,
+                        proof_state_root=canonical.state_root,
+                        mpt_proof_valid=True,
+                        proved_registration_commitment=(
+                            manifest.registration_commitment
+                        ),
+                        proof_node_count=1,
+                        proof_byte_length=32,
+                    ))):
+            raise AssertionError("failed to confirm canonical Bridge support")
+    return source
+
+
+def derive_ingress_destination_domain(
+    adapter: BridgeAdapter, registration: SettlementRegistration
+) -> str:
+    """Return only the acyclic domain precommitted by the active profile."""
+
+    if type(adapter) is not BridgeAdapter:
+        raise ValueError("destination domain requires an exact Bridge adapter")
+    authorization = registration.ingress_authorizations_by_address.get(
+        adapter.address
+    )
+    if (type(authorization) is not ProfileIngressAuthorization
+            or authorization.kind is not ForceKind.BRIDGE_CREDIT
+            or authorization.runtime_hash != adapter.runtime_hash
+            or authorization.configuration_hash
+                != adapter.configuration_hash
+            or authorization.source_registry_address
+                != adapter.credit_registry.address
+            or authorization.source_registry_runtime_hash
+                != adapter.credit_registry.runtime_hash
+            or authorization.source_registry_configuration_hash
+                != adapter.credit_registry.configuration_hash
+            or authorization.source_registry_domain_registrar
+                != adapter.credit_registry.domain_registrar
+            or authorization.source_bridge_address
+                != adapter.source_bridge.address
+            or authorization.source_bridge_runtime_hash
+                != adapter.source_bridge.runtime_hash
+            or authorization.source_bridge_configuration_hash
+                != adapter.source_bridge.configuration_hash
+            or authorization.source_chain_id
+                != adapter.source_bridge.source_chain_id
+            or authorization.source_domain_id
+                != adapter.source_bridge.source_domain_id
+            or authorization.source_registration_epoch
+                != adapter.source_bridge.source_registration_epoch
+            or authorization.frozen_bridge_execution_hash
+                != adapter.source_bridge.frozen_bridge_execution_hash):
+        raise ValueError("adapter is not an exact release-owned ingress tuple")
+    return authorization.destination_domain_id
+
+
+def profile_authorization_descriptor(
+    authorization: ProfileIngressAuthorization,
+) -> DestinationIngressDescriptor:
+    if (type(authorization) is not ProfileIngressAuthorization
+            or authorization.kind is not ForceKind.BRIDGE_CREDIT):
+        raise ValueError("destination descriptor requires a Bridge authorization")
+    return DestinationIngressDescriptor(
+        authorization.destination_chain_id,
+        authorization.destination_genesis_hash,
+        authorization.adapter_address,
+        authorization.router_address,
+        authorization.terminal_signal_verifier,
+        authorization.inbox_apply_router,
+        authorization.inbox_credit_store,
+        authorization.protocol_release_authority,
+        authorization.terminal_domain_registrar,
+        authorization.terminal_accumulator,
+        authorization.destination_bridge,
+        authorization.destination_bridge_execution_hash,
+        authorization.destination_infrastructure_hash,
+        authorization.destination_namespace,
+    )
+
+
+def activate_ingress_adapter_for_test(
+    router: ActiveSettlementRouter,
+    *,
+    kind: ForceKind,
+    clock: Clock,
+    address: str | None = None,
+    source_bridge: SourceBridgeV2 | None = None,
+    destination_bridge: str = "bridge:A",
+) -> Kind0IngressAdapter | BridgeAdapter:
+    """Exercise release-factory and permissionless ingress activation."""
+
+    manager = router._version_manager_authority
+    if manager is None:
+        manager = ProtocolVersionManager(router.version_manager, router)
+    if type(manager) is not ProtocolVersionManager:
+        raise AssertionError("Router has no exact ProtocolVersionManager")
+    registration = router.registrations[router.active_version]
+    if not router._install_profile_deployments(
+            registration, manager=manager):
+        raise AssertionError("release deployments are unavailable")
+    expected_address = address or (
+        "kind0-adapter"
+        if kind is ForceKind.USER_TX
+        else "bridge-inbox-adapter"
+    )
+    authorization = registration.ingress_authorizations_by_address.get(
+        expected_address
+    )
+    if (type(authorization) is not ProfileIngressAuthorization
+            or authorization.kind is not kind):
+        raise ValueError("unsupported forced-ingress kind")
+    adapter = router._profile_deployments_by_version[
+        router.active_version
+    ].get(authorization.authorization_id)
+    if kind is ForceKind.USER_TX:
+        if type(adapter) is not Kind0IngressAdapter:
+            raise AssertionError("release Kind0 was not atomically bound")
+        return adapter
+    if type(adapter) is BridgeAdapter:
+        exact_source = source_bridge_for_test(router)
+        if (adapter.source_bridge is not exact_source
+                or (source_bridge is not None
+                    and source_bridge is not exact_source)
+                or adapter.credit_registry is not exact_source.credit_registry
+                or authorization.destination_bridge != destination_bridge
+                or adapter.credit_registry.domain_registry.router is not router):
+            raise ValueError("Bridge adapter is absent from exact support profile")
+        finalized = adapter.source_bridge.support_final_clock(clock.timestamp)
+        activation_clock = Clock(
+            max(clock.block_number, finalized.block_number), clock.timestamp
+        )
+        if not router.activate_profile_bridge_adapter(
+                adapter,
+                protocol_version=router.active_version,
+                executor="permissionless-executor",
+                clock=activation_clock):
+            raise AssertionError("failed to activate release Bridge adapter")
+        return adapter
+    raise AssertionError("release Bridge deployment is missing")
+
+
+def open_source_credit_for_test(
+    bridge: SourceBridgeV2,
+    envelope: BridgeAdmissionEnvelope,
+    *,
+    clock: Clock,
+    enqueue_by: int,
+    caller: str | None = None,
+) -> str:
+    receipt = bridge.send_message(
+        envelope,
+        clock=clock,
+        enqueue_by=enqueue_by,
+        caller=envelope.sender if caller is None else caller,
+        msg_value=envelope.bridge_value + envelope.bridge_fee,
+    )
+    return receipt.credit_id
+
+
 def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
           signed: bool = True, message_end: int | None = None,
           dispositions_ok: bool = True, discretionary: bool = True,
@@ -6864,16 +16949,29 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
 def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGNED,
               signed=True, slot=None, message_end=None, discretionary=True,
               force_range_proof_ok=True, recovery_fields_zero=True,
-              release_activation: bool | None = None) -> Candidate:
+              available_payload_hashes: frozenset[str] | None = None,
+              release_activation: bool | None = None,
+              beneficiary: str = "prover") -> Candidate:
     b = block(p, c, ident, slot=slot, signed=signed, message_end=message_end,
               discretionary=discretionary,
               release_activation=release_activation)
     r = p.recovery
     next_due = p.next_due_at(b.message_end, b.force_cutoff)
-    return Candidate(
+    if available_payload_hashes is None:
+        # Availability is a candidate proof witness.  It is deliberately
+        # independent of the admission-only test oracle retained on Message;
+        # that oracle is neither stored in the durable leaf nor committed by
+        # forceRoot.
+        available_payload_hashes = frozenset(
+            row.payload_hash for row in p.messages
+            if type(row) is Message and row.kind is ForceKind.USER_TX
+        )
+    result = Candidate(
         ident, p.canonical.base_hash, (b,), tier,
         f"state:{ident}", "empty", next_due,
         p.core.l2_block_number + 1,
+        available_payload_hashes=available_payload_hashes,
+        beneficiary=beneficiary,
         proof_ok=True, force_range_proof_ok=force_range_proof_ok,
         episode=r.episode if r else 0,
         recovery_revision=r.revision if r else 0,
@@ -6882,6 +16980,186 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
         end_terminal_root=p.core.terminal_root,
         end_terminal_count=p.core.terminal_count,
     )
+    history = p.versioned_history
+    authority = p._inbox_execution_authority
+    if (type(history) is VersionedSettlementHistory
+            and type(authority) is InboxValidityExecutionAuthority):
+        rows_by_block: list[tuple[InboxRowV2, ...]] = []
+        committed_blocks: list[Block] = []
+        for candidate_block in result.blocks:
+            rows: list[InboxRowV2] = []
+            for index in range(
+                    candidate_block.message_start,
+                    candidate_block.message_end):
+                queued = p.messages[index]
+                if type(queued) is Message \
+                        and queued.kind is ForceKind.USER_TX:
+                    rows.append((index, 0, UINT32_MAX, "", None))
+                elif type(queued) is BridgeQueueDescriptorV10:
+                    rows.append((
+                        index,
+                        5,
+                        UINT32_MAX,
+                        inbox_kind1_result(index, queued),
+                        queued,
+                    ))
+                else:
+                    rows = []
+                    break
+            exact_rows = tuple(rows)
+            rows_by_block.append(exact_rows)
+            descriptors = tuple(
+                p.messages[
+                    candidate_block.message_start:candidate_block.message_end
+                ]
+            )
+            committed_blocks.append(replace(
+                candidate_block,
+                inbox_descriptor_commitment=inbox_descriptor_commitment(
+                    descriptors
+                ),
+                inbox_system_calldata_hash=inbox_system_calldata_hash(
+                    exact_rows
+                ),
+                anchor_system_tx_position=ANCHOR_SYSTEM_TX_POSITION,
+                inbox_system_tx_position=INBOX_SYSTEM_TX_POSITION,
+            ))
+        result = replace(result, blocks=tuple(committed_blocks))
+        if all(
+            len(rows) == block.message_end - block.message_start
+            for rows, block in zip(rows_by_block, result.blocks)
+        ):
+            try:
+                proof = authority.verify_candidate_proof(result, c)
+                result = authority.prepare_candidate_execution(
+                    result, tuple(rows_by_block), c, proof
+                )
+            except ValueError:
+                pass
+    return result
+
+
+def migration_activation_candidate(
+    router: ActiveSettlementRouter,
+    settlement: VersionedSettlementHistory,
+    clock: Clock,
+    target_manifest_hash: bytes,
+    ident: str = "migration-activation",
+    beneficiary: str = "migration-prover",
+) -> tuple[Candidate, tuple[InboxRowV2, ...]]:
+    """Build the complete one-block public input consumed by the verifier."""
+
+    old_registration = router.registrations.get(router.active_version)
+    old = old_registration.settlement if old_registration else None
+    old_protocol = old.live_protocol if old is not None else None
+    if (type(old_registration) is not SettlementRegistration
+            or type(old_protocol) is not Protocol
+            or settlement.live_protocol is None
+            or type(clock) is not Clock
+            or type(target_manifest_hash) is not bytes
+            or len(target_manifest_hash) != 32):
+        raise ValueError("migration candidate fixture graph is incomplete")
+    preview = settlement_registration(
+        router,
+        settlement,
+        activation_block=clock.block_number,
+        predecessor_version=router.active_version,
+        release_manifest_hash=target_manifest_hash,
+    )
+    target_authority = (
+        settlement.live_protocol._inbox_execution_authority
+    )
+    if (type(target_authority) is not InboxValidityExecutionAuthority
+            or preview.release_manifest.commitment != target_manifest_hash):
+        raise ValueError("migration candidate has no observed deployment")
+    anchor_number = max(1, clock.block_number - F_L1)
+    header = router.header_oracle.header(anchor_number)
+    start = old.core.message_cursor
+    end = old_protocol._prefix_end(
+        start,
+        header.force_cutoff,
+        gas_budget=ACTIVATION_FORCE_GAS_BUDGET,
+    )
+    descriptors = tuple(router.forced_queue.descriptors[start:end])
+    rows = tuple(
+        (
+            index,
+            0,
+            UINT32_MAX,
+            "",
+            None,
+        )
+        if type(descriptor) is Message
+        and descriptor.kind is ForceKind.USER_TX
+        else (
+            index,
+            5,
+            UINT32_MAX,
+            inbox_kind1_result(index, descriptor),
+            descriptor,
+        )
+        for index, descriptor in enumerate(descriptors, start)
+    )
+    slot = old.core.tip_slot + 1
+    if slot > clock.l2_slot + CLOCK_SKEW:
+        raise ValueError("migration activation slot is not currently provable")
+    block_hash = hashlib.sha256(
+        f"migration:{ident}:{settlement.protocol_version}:{slot}".encode()
+    ).hexdigest()
+    block = Block(
+        slot=slot,
+        evm_timestamp=GENESIS_TIMESTAMP + slot,
+        block_hash=block_hash,
+        parent_hash=old.core.tip_hash,
+        window=slot // 384,
+        scheduled_signature_ok=False,
+        message_start=start,
+        message_end=end,
+        anchor_number=anchor_number,
+        anchor_hash=header.block_hash,
+        anchor_timestamp=header.timestamp,
+        force_root=header.force_root,
+        force_cutoff=header.force_cutoff,
+        context_id=(
+            f"migration:{old_protocol.canonical.base_hash}:"
+            f"{settlement.protocol_version}"
+        ),
+        admission_version=old_protocol.admission_version,
+        admission_root=old_protocol.admission_root,
+        inbox_pre_cursor=start,
+        inbox_post_cursor=end,
+        force_gas_budget=ACTIVATION_FORCE_GAS_BUDGET,
+        release_activation=True,
+        release_protocol_version=settlement.protocol_version,
+        release_manifest_hash=target_manifest_hash.hex(),
+        dispositions_ok=True,
+        discretionary_body=False,
+        inbox_descriptor_commitment=inbox_descriptor_commitment(descriptors),
+        inbox_system_calldata_hash=inbox_system_calldata_hash(rows),
+        anchor_system_tx_position=ANCHOR_SYSTEM_TX_POSITION,
+        inbox_system_tx_position=INBOX_SYSTEM_TX_POSITION,
+    )
+    proved = Candidate(
+        ident,
+        old_protocol.canonical.base_hash,
+        (block,),
+        Tier.ESCAPE_UNSIGNED,
+        f"state:{ident}",
+        f"data:{ident}",
+        old_protocol.next_due_at(end, header.force_cutoff),
+        old.core.l2_block_number + 1,
+        proof_ok=True,
+        force_range_proof_ok=True,
+        beneficiary=beneficiary,
+        end_terminal_root=old.core.terminal_root,
+        end_terminal_count=old.core.terminal_count,
+        available_payload_hashes=frozenset(
+            row.payload_hash
+            for row in descriptors
+            if type(row) is Message and row.kind is ForceKind.USER_TX
+        ),
+    )
+    return proved, rows
 
 
 def activate_normal(p: Protocol, c: Clock) -> None:
@@ -6913,35 +17191,14 @@ def test_canonical_outputs_and_migration() -> None:
     pre = Clock(950, GENESIS_TIMESTAMP - 100)
     check("P2 preactivation slot saturates", pre.l2_slot == 0)
     check("P3 preactive rejects", p.submit(candidate(p, clock(1_100, 1_100)), clock(1_100, 1_100)) == "REJECTED_PREACTIVE")
-    imported = Canonical(
-        CanonicalCore(1_050, "c" * 64, 1_050, "d" * 64, 0,
-                      "migration-sentinel", 101, 0),
-        1_100,
-    )
-    activation_output = Canonical(
-        replace(imported.core, l2_block_number=1_051, tip_slot=1_051,
-                tip_hash="e" * 64, state_root="f" * 64,
-                winning_data_commitment="activation-output"),
-        1_100)
-    check("P4 migration requires quiescence", not p.activate_migration(clock(1_100, 1_100), imported, activation_output, old_quiescent=False, router_switched=True))
-    check("P4a migration proves deployed L2 system accounts", not p.activate_migration(
-        clock(1_100, 1_100), imported, activation_output,
-        old_quiescent=True, router_switched=True,
-        l2_system_accounts_authenticated=False)
-          and not p.activate_migration(
-              clock(1_100, 1_100), imported, activation_output,
-              old_quiescent=True,
-              router_switched=True, l2_v2_latch_disabled=False))
+    check("P4 migration requires the unique Router verifier path",
+          not hasattr(p, "activate_migration") and p.mode is Mode.PREACTIVE)
+    check("P4a migration has no caller-asserted system-account booleans",
+          "activate_migration" not in Protocol.__dict__)
     check("P4g launch never surrenders authority to an unproved target",
-          not p.activate_migration(
-              clock(1_100, 1_100), imported, activation_output,
-              old_quiescent=True, router_switched=True,
-              activation_proof_valid=False)
-          and not p.activate_migration(
-              clock(1_100, 1_100), imported, activation_output,
-              old_quiescent=True, router_switched=True,
-              target_components_valid=False)
-          and p.mode is Mode.PREACTIVE)
+          p.mode is Mode.PREACTIVE
+          and "MIGRATION_ACTIVATION_PROOF_ADOPTED_ATOMICALLY"
+              not in p.events)
     latch = L2ActivationLatch()
     check("P4e legacy calls cannot activate or invoke V2 system ingress",
           not latch.activate_from_anchor(
@@ -6957,46 +17214,71 @@ def test_canonical_outputs_and_migration() -> None:
           and latch.inbox_apply(custom_system_tx=True)
           and latch.bridge_v2_call()
           and not latch.inbox_apply(custom_system_tx=False))
-    preactive_adapter = BridgeAdapter()
-    preactive_source = SourceBridgeLedger()
-    preactive_id = preactive_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "preactive")
+    preactive_protocol = protocol(mode=Mode.PREACTIVE)
     preactive_now = clock(1_100, 1_100)
-    assert preactive_source.open(
-        preactive_id, now=preactive_now.timestamp,
+    preactive_router = routed_ingress_for_test(preactive_protocol)
+    preactive_source = source_bridge_for_test(preactive_router)
+    preactive_adapter = activate_ingress_adapter_for_test(
+        preactive_router,
+        kind=ForceKind.BRIDGE_CREDIT,
+        clock=preactive_now,
+        source_bridge=preactive_source,
+    )
+    preactive_kind0 = activate_ingress_adapter_for_test(
+        preactive_router,
+        kind=ForceKind.USER_TX,
+        clock=preactive_now,
+    )
+    preactive_source_clock = preactive_source.support_final_clock(
+        preactive_now.timestamp
+    )
+    preactive_envelope = bridge_message(
+        1_100, "preactive", value=1, fee=1
+    )
+    preactive_id = preactive_source.send_message(
+        preactive_envelope,
+        clock=preactive_source_clock,
         enqueue_by=preactive_now.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-        owner="alice", value=1, fee=1)
+        caller=preactive_envelope.sender,
+        msg_value=(
+            preactive_envelope.bridge_value + preactive_envelope.bridge_fee
+        ),
+    ).credit_id
     check("P4b preactive bridge ingress cannot create a queue credit",
-          preactive_adapter.enqueue(
-              p, preactive_now, preactive_source, src_chain_id=1,
-              source_domain_id="domain:R1", src_epoch=1,
-              src_bridge="bridge:A", destination_domain_id="domain:D1",
-              msg_hash="preactive",
-              enqueue_by=preactive_now.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-              envelope=message(1_100, "preactive", kind=ForceKind.BRIDGE_CREDIT),
-              caller="relayer", deposit=1) == "REJECTED_PREACTIVE"
+          payable_reverted(lambda: preactive_adapter.enqueue(
+              preactive_source_clock, envelope=preactive_envelope,
+              caller="relayer", deposit=1))
           and not preactive_adapter.records)
     preactive_user = message(1_100, "preactive-user")
     check("P4d preactive kind-0 ingress cannot create a queue leaf",
-          p.admit_message(clock(1_100, 1_100), preactive_user)
-              == "REJECTED_PREACTIVE"
-          and not p.messages)
-    dirty = protocol(mode=Mode.PREACTIVE,
-                     messages=[message(1_100, "dirty")])
-    check("P4c migration rejects a nonempty queue",
-          not dirty.activate_migration(
-              clock(1_100, 1_100), imported, activation_output,
-              old_quiescent=True,
-              router_switched=True))
-    check("P5 atomic proof-first cutover adopts activation and enables ingress",
-          p.activate_migration(
-              clock(1_100, 1_100), imported, activation_output,
-              old_quiescent=True,
-              router_switched=True)
-          and p.core == activation_output.core
-          and not p.release_activation_pending
-          and p.first_v2_block_number == 1_051
-          and p.admit_message(clock(1_101, 1_101), preactive_user) == "ADMITTED")
+          payable_reverted(lambda: preactive_kind0.enqueue(
+              clock(1_100, 1_100), preactive_user,
+              caller=preactive_user.sender,
+              deposit=preactive_user.prepaid))
+          and not preactive_protocol.messages)
+    dirty = protocol(
+        mode=Mode.PREACTIVE, messages=[message(1_100, "dirty")]
+    )
+    check("P4c a nonempty preactive queue has no direct activation surface",
+          not hasattr(dirty, "activate_migration")
+          and dirty.mode is Mode.PREACTIVE
+          and len(dirty.messages) == 1)
+    # The production cutover path is exercised by the version-manager
+    # migration properties below.  This local instance checks only the
+    # post-cutover ingress invariant; no test-only Protocol transition exists.
+    p = protocol(tip_slot=1_051)
+    post_router = routed_ingress_for_test(p)
+    post_kind0 = activate_ingress_adapter_for_test(
+        post_router,
+        kind=ForceKind.USER_TX,
+        clock=clock(1_101, 1_101),
+    )
+    check("P5 an activated settlement enables only routed ingress",
+          not p.release_activation_pending
+          and post_kind0.enqueue(
+              clock(1_101, 1_101), preactive_user,
+              caller=preactive_user.sender, deposit=preactive_user.prepaid)
+              == "QUEUED:0")
     q = protocol()
     c = clock(1_100, 1_100)
     activate_normal(q, c)
@@ -7068,10 +17350,21 @@ def test_admission_freeze_and_tier_canonicalization() -> None:
 def test_force_merkle_bounds_and_auth() -> None:
     p = protocol()
     c = clock(1_100, 1_100)
+    p_router = routed_ingress_for_test(p)
+    kind0_adapter = activate_ingress_adapter_for_test(
+        p_router, kind=ForceKind.USER_TX, clock=c
+    )
     bad = replace(message(1_100, "bad"), outer_authorized=False)
-    check("P12 outer sender authorization required", p.admit_message(c, bad) == "REJECTED")
+    check("P12 outer sender authorization required",
+          payable_reverted(lambda: kind0_adapter.enqueue(
+              c, bad, caller=bad.sender, deposit=bad.prepaid)))
     for i in range(100):
-        assert p.admit_message(c, message(1_100, f"m{i}", gas=MIN_FORCE_ACCOUNTED_GAS, size=1)) == "ADMITTED"
+        row = message(
+            1_100, f"m{i}", gas=MIN_FORCE_ACCOUNTED_GAS, size=1
+        )
+        assert kind0_adapter.enqueue(
+            c, row, caller=row.sender, deposit=row.prepaid
+        ) == f"QUEUED:{i}"
     check("P13 per-block count cap", p._prefix_end(0, 100) == 64)
     check("P14 range proof has a fixed bound",
           FORCE_TREE_DEPTH == 64 and MAX_FORCE_RANGE_PROOF_HASHES == 257)
@@ -7082,8 +17375,24 @@ def test_force_merkle_bounds_and_auth() -> None:
     check("P15 skip/reorder proof rejects", anchored.submit(forged, c) == "REJECTED")
     bridge = message(1_100, "bridge", kind=ForceKind.BRIDGE_CREDIT)
     bridge_protocol = protocol()
+    bridge_router = routed_ingress_for_test(bridge_protocol)
+    bridge_adapter = activate_ingress_adapter_for_test(
+        bridge_router, kind=ForceKind.BRIDGE_CREDIT, clock=c
+    )
+    bridge_clock = bridge_adapter.source_bridge.support_final_clock(c.timestamp)
+    bridge_id = open_source_credit_for_test(
+        bridge_adapter.source_bridge,
+        bridge,
+        clock=bridge_clock,
+        enqueue_by=bridge_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+    )
     check("P16 non-expiring bridge credit admits atomically",
-          bridge_protocol.admit_bridge_direct(c, bridge) == "ADMITTED")
+          bridge_adapter.enqueue(
+              bridge_clock, envelope=bridge, caller="permissionless",
+              deposit=bridge.prepaid) == "QUEUED:0"
+          and bridge_adapter.records[bridge_id].index == 0
+          and type(bridge_router.forced_queue.descriptors[0])
+              is BridgeQueueDescriptorV10)
     check("P17 gas geometry",
           ANCHOR_GAS_MAX + FORCE_GAS_BUDGET + SYSTEM_GAS_MARGIN
               <= L2_BLOCK_GAS_LIMIT
@@ -7189,18 +17498,33 @@ def test_force_merkle_bounds_and_auth() -> None:
               + SYSTEM_GAS_MARGIN <= L2_BLOCK_GAS_LIMIT)
     too_long = replace(message(1_100, "too-long"),
                        valid_until=c.timestamp + MAX_FORCE_VALIDITY_SECONDS + 1)
+    bounded_protocol = protocol()
+    bounded_router = routed_ingress_for_test(bounded_protocol)
+    bounded_adapter = activate_ingress_adapter_for_test(
+        bounded_router, kind=ForceKind.USER_TX, clock=c
+    )
     check("P17a user payload validity is bounded",
-          protocol().admit_message(c, too_long) == "REJECTED")
+          payable_reverted(lambda: bounded_adapter.enqueue(
+              c, too_long, caller=too_long.sender,
+              deposit=too_long.prepaid)))
     check("P17b depth-64 frontier leaves final index unused",
           MAX_FORCE_QUEUE_ITEMS == (1 << 64) - 1)
     surplus_protocol = protocol(messages=[message(1_100, "forced-surplus")])
     surplus_queue = surplus_protocol.forced_queue
+    routed_ingress_for_test(surplus_protocol)
     original_liability = surplus_queue.accounted_liabilities
+    surplus_commit_clock = clock(1_101, 1_101)
+    activate_normal(surplus_protocol, surplus_commit_clock)
+    surplus_candidate = candidate(
+        surplus_protocol,
+        surplus_commit_clock,
+        "forced-surplus-consumption",
+        beneficiary="surplus-prover",
+    )
+    surplus_protocol._commit(surplus_candidate, surplus_commit_clock)
     check("P17d forced ETH is surplus and cannot DoS queue liabilities",
           surplus_queue.force_eth(1)
           and surplus_queue.accounted_liabilities == original_liability
-          and surplus_queue.advance_cursor(
-              0, 1, caller="model-settlement", beneficiary="surplus-prover")
           and surplus_queue.withdraw_claimable("surplus-prover")
               == original_liability
           and surplus_queue.escrow_balance == 1
@@ -7210,13 +17534,19 @@ def test_force_merkle_bounds_and_auth() -> None:
 def test_late_close_and_constant_boundary() -> None:
     p = protocol()
     opened = clock(1_100, 1_100)
+    p_router = routed_ingress_for_test(p)
+    p_adapter = activate_ingress_adapter_for_test(
+        p_router, kind=ForceKind.USER_TX, clock=opened
+    )
     activate_normal(p, opened)
     best = candidate(p, opened, "ordinary")
     check("P18 normal accepts", p.submit(best, opened) == "ACCEPTED")
     enqueue_l2 = opened.l2_slot + 1
     append_clock = clock(1_101, enqueue_l2)
-    check("P19 post-open append admits", p.admit_message(
-        append_clock, message(enqueue_l2, "late")) == "ADMITTED")
+    late_message = message(enqueue_l2, "late")
+    check("P19 post-open append admits", p_adapter.enqueue(
+        append_clock, late_message, caller=late_message.sender,
+        deposit=late_message.prepaid) == "QUEUED:0")
     delayed = clock(1_300, enqueue_l2 + FORCE_DELAY + 1)
     before = p.core.tip_hash
     check("P20 delayed close transitions", p.sync(delayed))
@@ -7237,7 +17567,15 @@ def test_late_close_and_constant_boundary() -> None:
 
     old_anchor = protocol(tip_slot=100)
     enqueue = clock(100, 100)
-    assert old_anchor.admit_message(enqueue, message(100, "post-anchor")) == "ADMITTED"
+    old_router = routed_ingress_for_test(old_anchor)
+    old_adapter = activate_ingress_adapter_for_test(
+        old_router, kind=ForceKind.USER_TX, clock=enqueue
+    )
+    post_anchor = message(100, "post-anchor")
+    assert old_adapter.enqueue(
+        enqueue, post_anchor, caller=post_anchor.sender,
+        deposit=post_anchor.prepaid
+    ) == "QUEUED:0"
     submit_at = clock(250, 300)
     activate_normal(old_anchor, submit_at)
     omitted = candidate(old_anchor, submit_at, "old-anchor-omits")
@@ -7278,17 +17616,28 @@ def test_late_close_and_constant_boundary() -> None:
         replace(lost, valid_until=GENESIS_TIMESTAMP + 100)])
     activate_normal(unexpired, expired_clock)
     check("P26c unavailable unexpired payload rejects",
-          unexpired.submit(candidate(unexpired, expired_clock, "missing-bytes"),
+          unexpired.submit(candidate(
+              unexpired, expired_clock, "missing-bytes",
+              available_payload_hashes=frozenset()),
                            expired_clock) == "REJECTED")
 
 
 def test_recovery_refresh_and_historical_immutability() -> None:
     p = protocol(seat=False, messages=[message(0, "forced")])
+    ingress_router = routed_ingress_for_test(p)
+    ingress_adapter = activate_ingress_adapter_for_test(
+        ingress_router,
+        kind=ForceKind.USER_TX,
+        clock=clock(1_099, p.core.tip_slot),
+    )
     trigger = open_recovery(p)
     original = copy.deepcopy(p.recovery)
     parent_before = p.header_oracle.header(original.anchor_number)
     during = clock(trigger.block_number + 1, trigger.l2_slot + 1)
-    check("P27 append during recovery admits", p.admit_message(during, message(during.l2_slot, "during")) == "ADMITTED")
+    during_message = message(during.l2_slot, "during")
+    check("P27 append during recovery admits", ingress_adapter.enqueue(
+        during, during_message, caller=during_message.sender,
+        deposit=during_message.prepaid) == "QUEUED:1")
     check("P28 append defers beyond live round", p.messages[-1].due_at == original.expires_at + 1)
     check(
         "P29 historical parent is never rewritten",
@@ -7469,119 +17818,185 @@ def test_data_gc_reorg_and_geometry() -> None:
           "late-data" not in delayed.sessions)
 
     bridge_protocol = protocol()
-    adapter = BridgeAdapter()
-    source = SourceBridgeLedger()
-    bridge_envelope = message(4_601, "bridge-record", kind=ForceKind.BRIDGE_CREDIT)
     prepared_clock = clock(1_099, 4_600)
+    bridge_router = routed_ingress_for_test(bridge_protocol)
+    source = source_bridge_for_test(bridge_router)
+    adapter = activate_ingress_adapter_for_test(
+        bridge_router, kind=ForceKind.BRIDGE_CREDIT, clock=prepared_clock,
+        source_bridge=source, destination_bridge="bridge:A",
+    )
+    d2_protocol = protocol()
+    d2_router = routed_ingress_for_test(
+        d2_protocol,
+        release_profile_ingress_specs=(
+            (ForceKind.USER_TX, "kind0-adapter", ""),
+            (
+                ForceKind.BRIDGE_CREDIT,
+                "bridge-inbox-adapter:d2",
+                "bridge:B",
+            ),
+        ),
+    )
+    source_d2 = source_bridge_for_test(d2_router)
+    adapter_d2 = activate_ingress_adapter_for_test(
+        d2_router, kind=ForceKind.BRIDGE_CREDIT, clock=prepared_clock,
+        source_bridge=source_d2, destination_bridge="bridge:B",
+        address="bridge-inbox-adapter:d2",
+    )
     enqueue_by = prepared_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
+    bridge_envelopes: dict[tuple[int, str], BridgeAdmissionEnvelope] = {}
 
-    def open_credit(epoch: int, bridge: str, msg_hash: str,
-                    destination: str = "domain:D1", domain: str = "domain:R1",
-                    ledger: SourceBridgeLedger = source) -> str:
-        credit_id = adapter.credit_id(
-            1, domain, epoch, bridge, destination, msg_hash)
-        assert ledger.open(
-            credit_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-            owner="alice", value=10, fee=2,
-            destination_domain_id=destination)
+    def open_credit(msg_hash: str,
+                    ingress_adapter: BridgeAdapter = adapter,
+                    ledger: SourceBridgeV2 = source) -> str:
+        envelope = bridge_message(
+            4_601,
+            msg_hash,
+            message_id=ledger.next_message_id,
+        )
+        source_clock = ledger.support_final_clock(prepared_clock.timestamp)
+        credit_id = ledger.send_message(
+            envelope,
+            clock=source_clock, enqueue_by=enqueue_by,
+            caller=envelope.sender,
+            msg_value=envelope.bridge_value + envelope.bridge_fee,
+        ).credit_id
+        bridge_envelopes[(id(ledger), msg_hash)] = envelope
         return credit_id
 
-    credit_a = open_credit(7, "bridge:A", "msg")
-    credit_b = open_credit(8, "bridge:A", "msg")
-    credit_a_reused = open_credit(9, "bridge:A", "msg")
+    credit_a = open_credit("msg")
+    credit_b = open_credit("msg-b")
+    credit_a_reused = open_credit("msg-reused")
     credit_d2 = open_credit(
-        10, "bridge:A", "msg-d2", destination="domain:D2")
-    check("P50e permanent source endpoint epochs have distinct identities",
+        "msg-d2", ingress_adapter=adapter_d2, ledger=source_d2)
+    d1_domain = adapter.destination_domain_id
+    d2_domain = adapter_d2.destination_domain_id
+    check("P50e fixed source generation still separates exact messages",
           len({credit_a, credit_b, credit_a_reused}) == 3)
-    transition_clock = clock(1_100, 4_601)
+    transition_clock = Clock(
+        max(
+            1_100,
+            source.support_final_clock(prepared_clock.timestamp).block_number,
+        ),
+        GENESIS_TIMESTAMP + 4_601,
+    )
+    bridge_envelope = bridge_envelopes[(id(source), "msg")]
+    bridge_deposit = bridge_envelope.prepaid
     common = dict(
-        src_chain_id=1, source_domain_id="domain:R1",
-        destination_domain_id="domain:D1", msg_hash="msg",
-        enqueue_by=enqueue_by, envelope=bridge_envelope,
-        caller="relayer", deposit=5)
+        envelope=bridge_envelope,
+        caller="relayer", deposit=bridge_deposit)
     check("P50c router sync persists and fully refunds without an adapter record",
           adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=7,
-              src_bridge="bridge:A", **common) == "SYNCED_REFUNDED"
-          and adapter.refunds["relayer"] == 5 and adapter.balance == 5
-          and adapter.withdraw_refund("relayer") == 5
+              transition_clock, **common) == "SYNCED_REFUNDED"
+          and adapter.refunds["relayer"] == bridge_deposit
+          and adapter.balance == bridge_deposit
+          and adapter.withdraw_refund("relayer") == bridge_deposit
           and adapter.balance == 0 and not adapter.records
           and bridge_protocol.mode is Mode.RECOVERY)
     stamped_protocol = protocol(seat=False)
-    assert stamped_protocol.migration_gate._bootstrap_from_router(1)
-    stamp_status, ingress_stamp = stamped_protocol.sync_ingress(prepared_clock)
+    stamped_router = routed_ingress_for_test(stamped_protocol)
+    stamped_adapter = activate_ingress_adapter_for_test(
+        stamped_router, kind=ForceKind.BRIDGE_CREDIT, clock=prepared_clock
+    )
+    stamp_status, ingress_stamp = stamped_router.sync_ingress(
+        clock=prepared_clock, caller_adapter=stamped_adapter
+    )
     assert ingress_stamp is not None
     assert stamped_protocol.migration_gate._arm_from_manager(
         1, 1, 2, "manifest:2", caller="version-manager")
+    stale_reverted = False
+    try:
+        stamped_row = message(
+            1_100, "stale-stamp", kind=ForceKind.BRIDGE_CREDIT
+        )
+        stamped_router.append_from_adapter(
+            stamped_row,
+            clock=prepared_clock,
+            stamp=ingress_stamp,
+            deposit=stamped_row.prepaid,
+            caller_adapter=stamped_adapter,
+        )
+    except ValueError:
+        stale_reverted = True
     check("P50cu payable ingress cannot rerun sync or use a stale stamp",
-          stamp_status == "ACTIVE"
-          and stamped_protocol.append_from_adapter(
-              prepared_clock,
-              message(1_100, "stale-stamp", kind=ForceKind.BRIDGE_CREDIT),
-              ingress_stamp) == "REJECTED_STALE_STAMP"
+          stamp_status == "ACTIVE" and stale_reverted
           and stamped_protocol.forced_queue.count == 0)
     check("P50d clean retry queues exactly once and funded duplicates reject",
           adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=7,
-              src_bridge="bridge:A", **common) == "QUEUED:0"
+              transition_clock, **common) == "QUEUED:0"
           and adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=7,
-              src_bridge="bridge:A", **{**common, "deposit": 0}) == "QUEUED:0"
-          and adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=7,
-              src_bridge="bridge:A", **common) == "REJECTED_DUPLICATE_FUNDS"
+              transition_clock, **{**common, "deposit": 0}) == "QUEUED:0"
+          and payable_reverted(lambda: adapter.enqueue(
+              transition_clock, **common))
           and len(bridge_protocol.messages) == 1)
-    check("P50g same message from next source epoch queues independently",
+    common_b = {
+        **common,
+        "envelope": bridge_envelopes[(id(source), "msg-b")],
+    }
+    check("P50g a second exact message queues independently",
           adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=8,
-              src_bridge="bridge:A", **common) == "QUEUED:1")
-    check("P50h a later permanent-endpoint epoch queues independently",
+              transition_clock, **common_b) == "QUEUED:1")
+    common_reused = {
+        **common,
+        "envelope": bridge_envelopes[(id(source), "msg-reused")],
+    }
+    check("P50h a third exact message queues independently",
           adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=9,
-              src_bridge="bridge:A", **common) == "QUEUED:2"
-          and bridge_protocol.forced_queue.escrow_balance == 15)
+              transition_clock, **common_reused) == "QUEUED:2"
+          and bridge_protocol.forced_queue.escrow_balance
+              == 3 * bridge_deposit)
     check("P50af pooled payouts cannot consume reserved V2 value",
           not source.ordinary_payout(7)
-          and source.ordinary_payout(6)
+          and not source.ordinary_payout(1)
           and source.balance >= source.total_live_liability)
 
     domain_credit = open_credit(
-        7, "bridge:A", "msg", destination="domain:D2")
+        "msg-d2-extra", ingress_adapter=adapter_d2, ledger=source_d2)
     check("P50i destination replacement has a distinct credit identity",
           domain_credit not in {credit_a, credit_b, credit_a_reused})
     check("P50f absent, mismatched, clone and unbounded direct reads reject",
-          adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=10,
-              src_bridge="clone", **{**common, "msg_hash": "forged"}) == "REJECTED"
-          and adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=7,
-              src_bridge="bridge:A", **{**common, "msg_hash": "mismatch",
-                                                "source_record_matches": False}) == "REJECTED"
-          and adapter.enqueue(
-              bridge_protocol, transition_clock, source, src_epoch=7,
-              src_bridge="bridge:A", **{**common, "msg_hash": "oversized",
-                                                "direct_call_bounded": False}) == "REJECTED")
+          payable_reverted(lambda: adapter.enqueue(
+              transition_clock, **{**common, "envelope": replace(
+                  common["envelope"], message=replace(
+                      common["envelope"].message, sender="clone")) }))
+          and payable_reverted(lambda: adapter.enqueue(
+              transition_clock, **{**common, "envelope": replace(
+                  common["envelope"], message=replace(
+                      common["envelope"].message, message_id=999)) }))
+          and payable_reverted(lambda: adapter.enqueue(
+              transition_clock, **{**common, "envelope": replace(
+                  common["envelope"], message=replace(
+                      common["envelope"].message,
+                      data=common["envelope"].message.data + b"x")) })))
 
     invalid_protocol = protocol(tip_slot=100)
-    invalid_adapter = BridgeAdapter()
-    invalid_source = SourceBridgeLedger()
     invalid_clock = clock(100, 100)
-    invalid_id = invalid_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "invalid")
-    assert invalid_source.open(
-        invalid_id, now=invalid_clock.timestamp,
+    invalid_router = routed_ingress_for_test(invalid_protocol)
+    invalid_source = source_bridge_for_test(invalid_router)
+    invalid_adapter = activate_ingress_adapter_for_test(
+        invalid_router, kind=ForceKind.BRIDGE_CREDIT, clock=invalid_clock,
+        source_bridge=invalid_source,
+    )
+    invalid_source_clock = invalid_source.support_final_clock(
+        invalid_clock.timestamp
+    )
+    invalid_envelope = bridge_message(
+        invalid_clock.l2_slot, "invalid", value=1, fee=1
+    )
+    invalid_id = invalid_source.send_message(
+        invalid_envelope, clock=invalid_source_clock,
         enqueue_by=invalid_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-        owner="alice", value=1, fee=1)
+        caller=invalid_envelope.sender,
+        msg_value=(invalid_envelope.bridge_value + invalid_envelope.bridge_fee),
+    ).credit_id
     check("P50j static-invalid credit leaves no queue or adapter state",
-          invalid_adapter.enqueue(
-              invalid_protocol, invalid_clock, invalid_source, src_chain_id=1,
-              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
-              destination_domain_id="domain:D1", msg_hash="invalid",
-              enqueue_by=invalid_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
+          payable_reverted(lambda: invalid_adapter.enqueue(
+              invalid_source_clock,
               envelope=replace(
-                  bridge_envelope, accounted_gas=MAX_FORCE_MESSAGE_GAS + 1),
+                  invalid_envelope,
+                  accounted_gas=MAX_FORCE_MESSAGE_GAS + 1),
               caller="relayer",
-              deposit=1) == "REJECTED"
+              deposit=1))
           and not invalid_protocol.messages and not invalid_adapter.records)
 
     support_core = CanonicalCore(
@@ -7591,94 +18006,168 @@ def test_data_gc_reorg_and_geometry() -> None:
         "forced-queue", model_force_root([]), 0, 0, 0, UINT64_MAX)
     support_inbox_apply = InboxApplyRouterV2(next_queue_index=0)
     support_header_oracle = make_header_oracle([])
+    support_profile = execution_profile_for_test(2, "profile:2")
     support_settlement = VersionedSettlementHistory(
-        "settlement:2", "runtime:2", 2, "profile:2",
+        "settlement:2", "runtime:2", 2,
+        support_profile.execution_profile_hash,
         copy.deepcopy(support_core), 40, shared_queue,
-        inbox_apply_router=support_inbox_apply,
+        execution_profile=support_profile,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            support_inbox_apply
+        ),
         header_oracle=support_header_oracle)
-    support_router = ActiveSettlementRouter(
+    support_router = deploy_active_settlement_router(
+        support_settlement,
         "version-manager", shared_queue, support_inbox_apply,
         support_settlement.migration_gate, support_header_oracle)
     assert support_router.bootstrap(
         support_settlement, sequence=7,
         clock=Clock(40, GENESIS_TIMESTAMP + support_core.tip_slot),
         caller=support_router.version_manager)
+    support_manager = ProtocolVersionManager(
+        support_router.version_manager, support_router
+    )
+    support_registration = support_router.registrations[
+        support_router.active_version
+    ]
+    support_manifest = support_registration.release_manifest
+    support_authorization = support_registration.ingress_authorizations_by_address[
+        support_manifest.components[0].address
+    ]
+    support_authority = ProtocolReleaseAuthorityV2()
+    support_anchor = AnchorV4Model(
+        support_manifest.anchor,
+        support_manifest.anchor_runtime_hash,
+        support_manifest.commitment,
+    )
+    assert support_anchor.authenticate(support_manifest)
+    assert support_authority.activate(
+        support_manifest,
+        caller=support_anchor,
+        tx_origin=support_authority.system_sender,
+    )
+    support = BridgeDomainRegistry(
+        support_router,
+        support_manager,
+        release_authority_descriptor_from_manifest(support_manifest),
+    )
+    support_domain = support_manifest.destination_domain_id
+    support_stage_clock = Clock(40, GENESIS_TIMESTAMP + support_core.tip_slot)
+    support_confirm_clock = Clock(
+        40 + F_L1, GENESIS_TIMESTAMP + support_core.tip_slot
+    )
     support_proof = dict(
-        protocol_version=2, canonical_sequence=7, router=support_router,
+        clock=support_confirm_clock,
+        canonical_sequence=7,
         proof_state_root="state:registration", mpt_proof_valid=True,
-        proved_registration_commitment="registration:manifest:2:D1",
-        expected_registration_commitment="registration:manifest:2:D1",
+        proved_registration_commitment=(
+            support_manifest.registration_commitment
+        ),
         proof_node_count=4,
         proof_byte_length=2_048)
-    support = BridgeDomainRegistry()
     assert not support.stage(
-        "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
-        caller_is_version_manager=False, manifest_active=True)
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_manifest,
+        manager=object(),
+        clock=support_stage_clock,
+    )
     assert not support.stage(
-        "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
-        caller_is_version_manager=True, manifest_active=False)
+        "domain:substituted",
+        support_authorization.frozen_bridge_execution_hash,
+        support_manifest,
+        manager=support_manager,
+        clock=support_stage_clock,
+    )
     assert support.stage(
-        "domain:R1", "execution:B", "domain:D1", 2, "manifest:2", 100,
-        caller_is_version_manager=True, manifest_active=True)
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_manifest,
+        manager=support_manager,
+        clock=support_stage_clock,
+    )
     assert not support.final(
-        "domain:R1", "execution:B", "domain:D1", 1000)
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
+        support_confirm_clock,
+    )
     assert not support.confirm(
-        "domain:R1", "execution:B", "domain:D1", 110,
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
         **{**support_proof, "mpt_proof_valid": False})
     check("P50bf registration proof is bound to routed state and exact bounds",
           not support.confirm(
-              "domain:R1", "execution:B", "domain:D1", 110,
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
               **{**support_proof, "proof_state_root": "attacker-root"})
           and not support.confirm(
-              "domain:R1", "execution:B", "domain:D1", 110,
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
               **{**support_proof,
                  "proof_node_count": MAX_REGISTRATION_PROOF_NODES + 1})
           and not support.confirm(
-              "domain:R1", "execution:B", "domain:D1", 110,
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
               **{**support_proof,
                  "proved_registration_commitment":
                      "registration:manifest:2:substituted"}))
     assert support.confirm(
-        "domain:R1", "execution:B", "domain:D1", 110,
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
         **support_proof)
+    support_final_clock = Clock(
+        support_confirm_clock.block_number + SUPPORT_FINALITY_BLOCKS,
+        support_confirm_clock.timestamp,
+    )
     check("P50u bridge endpoint support waits for active-profile finality",
           not support.final(
-              "domain:R1", "execution:B", "domain:D1",
-              110 + SUPPORT_FINALITY_BLOCKS - 1)
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
+              replace(
+                  support_final_clock,
+                  block_number=support_final_clock.block_number - 1,
+              ))
           and support.final(
-              "domain:R1", "execution:B", "domain:D1",
-              110 + SUPPORT_FINALITY_BLOCKS))
-    assert support.stage(
-        "domain:R1", "execution:B", "domain:D2", 2, "manifest:2", 150,
-        caller_is_version_manager=True, manifest_active=True)
-    assert support.confirm(
-        "domain:R1", "execution:B", "domain:D2", 160,
-        **support_proof)
-    check("P50an old execution cannot use a new destination before tuple finality",
-          not support.final(
-              "domain:R1", "execution:B", "domain:D2",
-              160 + SUPPORT_FINALITY_BLOCKS - 1)
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
+              support_final_clock))
+    check("P50an source execution and destination substitutions fail closed",
+          not support.stage(
+              support_authorization.source_domain_id,
+              "execution:substituted",
+              support_manifest,
+              manager=support_manager,
+              clock=support_stage_clock)
+          and support.final_entry(
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              "domain:substituted",
+              support_final_clock) is None)
+    check("P50v historical support is immutable and exact duplicate is idempotent",
+          not support.remove(
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain)
           and support.final(
-              "domain:R1", "execution:B", "domain:D2",
-              160 + SUPPORT_FINALITY_BLOCKS))
-    bounded_support = BridgeDomainRegistry()
-    assert all(bounded_support.stage(
-        "domain:R1", f"execution:{i}", "domain:D1", 3, "manifest:3", 200,
-        caller_is_version_manager=True, manifest_active=True)
-        for i in range(MAX_BRIDGE_TOPOLOGIES_PER_PROFILE))
-    check("P50v historical support is immutable and profile additions bounded",
-          not support.remove("domain:R1", "execution:B", "domain:D1")
-          and support.final(
-              "domain:R1", "execution:B", "domain:D1",
-              110 + SUPPORT_FINALITY_BLOCKS)
-          and not bounded_support.stage(
-              "domain:R1", "execution:overflow", "domain:D1", 3,
-              "manifest:3", 200, caller_is_version_manager=True,
-              manifest_active=True)
-          and bounded_support.stage(
-              "domain:R2", "execution:new-profile", "domain:D2", 4,
-              "manifest:4", 300, caller_is_version_manager=True,
-              manifest_active=True))
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
+              support_final_clock)
+          and support.stage(
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_manifest,
+              manager=support_manager,
+              clock=support_stage_clock)
+          and len(support.entries) == 1)
 
     frozen_facade = FrozenBridgeFacade(
         "bridge:A", "runtime:frozen", "layout:v2", "verifier:v2")
@@ -7696,81 +18185,126 @@ def test_data_gc_reorg_and_geometry() -> None:
           source_send_mode("sendMessage(Message)") == "V1"
           and source_send_mode("sendMessageV2(Message)") == "V2_DIRECT"
           and source_send_mode("sendMessageFromVaultV2(Message)")
-              == "V2_CAPSULE"
+              == "REJECTED"
           and source_send_mode("unknown") == "REJECTED")
 
     capacity_protocol = protocol(tip_slot=100)
     capacity_protocol.queue_capacity = 1
     capacity_clock = clock(101, 101)
+    capacity_router = routed_ingress_for_test(capacity_protocol)
+    capacity_kind0 = activate_ingress_adapter_for_test(
+        capacity_router, kind=ForceKind.USER_TX, clock=capacity_clock
+    )
+    capacity_source = source_bridge_for_test(capacity_router)
+    capacity_adapter = activate_ingress_adapter_for_test(
+        capacity_router, kind=ForceKind.BRIDGE_CREDIT, clock=capacity_clock,
+        source_bridge=capacity_source,
+    )
     competing_user = replace(
         message(101, "competing-user"), valid_until=GENESIS_TIMESTAMP + 10_000)
-    assert capacity_protocol.admit_message(capacity_clock, competing_user) == "ADMITTED"
-    capacity_adapter = BridgeAdapter()
-    capacity_source = SourceBridgeLedger()
-    capacity_id = capacity_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "capacity")
-    assert capacity_source.open(
-        capacity_id, now=capacity_clock.timestamp,
+    assert capacity_kind0.enqueue(
+        capacity_clock, competing_user, caller=competing_user.sender,
+        deposit=competing_user.prepaid) == "QUEUED:0"
+    capacity_source_clock = capacity_source.support_final_clock(
+        capacity_clock.timestamp
+    )
+    capacity_envelope = bridge_message(
+        capacity_clock.l2_slot, "capacity", value=1, fee=1
+    )
+    capacity_id = open_source_credit_for_test(
+        capacity_source, capacity_envelope, clock=capacity_source_clock,
         enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-        owner="alice", value=1, fee=1)
+    )
+    capacity_reverted = False
+    try:
+        capacity_adapter.enqueue(
+            capacity_source_clock, envelope=capacity_envelope,
+            caller="relayer", deposit=1)
+    except ValueError:
+        capacity_reverted = True
     check("P50k capacity loser leaves no partial bridge state",
-          capacity_adapter.enqueue(
-              capacity_protocol, capacity_clock, capacity_source, src_chain_id=1,
-              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
-              destination_domain_id="domain:D1", msg_hash="capacity",
-              enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-              envelope=bridge_envelope, caller="relayer", deposit=1) == "REJECTED"
-          and not capacity_adapter.records)
+          capacity_reverted and not capacity_adapter.records)
 
     bridge_first = protocol(tip_slot=100)
     bridge_first.queue_capacity = 1
-    first_adapter = BridgeAdapter()
-    first_source = SourceBridgeLedger()
-    first_id = first_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "first")
-    assert first_source.open(
-        first_id, now=capacity_clock.timestamp,
+    first_router = routed_ingress_for_test(bridge_first)
+    first_source = source_bridge_for_test(first_router)
+    first_adapter = activate_ingress_adapter_for_test(
+        first_router, kind=ForceKind.BRIDGE_CREDIT, clock=capacity_clock,
+        source_bridge=first_source,
+    )
+    first_kind0 = activate_ingress_adapter_for_test(
+        first_router, kind=ForceKind.USER_TX, clock=capacity_clock
+    )
+    first_source_clock = first_source.support_final_clock(
+        capacity_clock.timestamp
+    )
+    first_envelope = bridge_message(
+        capacity_clock.l2_slot, "first", value=1, fee=1
+    )
+    first_id = open_source_credit_for_test(
+        first_source, first_envelope, clock=first_source_clock,
         enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-        owner="alice", value=1, fee=1)
+    )
+    assert first_adapter.enqueue(
+        first_source_clock, envelope=first_envelope,
+        caller="relayer", deposit=first_envelope.prepaid) == "QUEUED:0"
+    user_capacity_reverted = False
+    try:
+        first_kind0.enqueue(
+            capacity_clock, competing_user, caller=competing_user.sender,
+            deposit=competing_user.prepaid)
+    except ValueError:
+        user_capacity_reverted = True
     check("P50l bridge capacity winner is atomic against later user admission",
-          first_adapter.enqueue(
-              bridge_first, capacity_clock, first_source, src_chain_id=1,
-              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
-              destination_domain_id="domain:D1", msg_hash="first",
-              enqueue_by=capacity_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY,
-              envelope=bridge_envelope, caller="relayer", deposit=1) == "QUEUED:0"
-          and bridge_first.admit_message(capacity_clock, competing_user) == "REJECTED")
+          user_capacity_reverted and len(bridge_first.messages) == 1)
 
     delayed_protocol = protocol(tip_slot=100)
-    delayed_adapter = BridgeAdapter()
-    delayed_source = SourceBridgeLedger()
     delayed_start = clock(100, 100)
+    delayed_router = routed_ingress_for_test(delayed_protocol)
+    delayed_source = source_bridge_for_test(delayed_router)
+    delayed_adapter = activate_ingress_adapter_for_test(
+        delayed_router, kind=ForceKind.BRIDGE_CREDIT, clock=delayed_start,
+        source_bridge=delayed_source,
+    )
     delayed_enqueue_by = delayed_start.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
-    delayed_id = delayed_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "delayed")
-    assert delayed_source.open(
-        delayed_id, now=delayed_start.timestamp, enqueue_by=delayed_enqueue_by,
-        owner="alice", value=1, fee=1)
-    delayed_clock = clock(500, 500)
+    delayed_source_clock = delayed_source.support_final_clock(
+        delayed_start.timestamp
+    )
+    delayed_envelope = bridge_message(
+        delayed_start.l2_slot, "delayed", value=1, fee=1
+    )
+    delayed_id = open_source_credit_for_test(
+        delayed_source, delayed_envelope, clock=delayed_source_clock,
+        enqueue_by=delayed_enqueue_by,
+    )
+    delayed_clock = Clock(delayed_source_clock.block_number, clock(500, 500).timestamp)
     check("P50m bridge due time starts at actual queue append",
           delayed_adapter.enqueue(
-              delayed_protocol, delayed_clock, delayed_source, src_chain_id=1,
-              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
-              destination_domain_id="domain:D1", msg_hash="delayed",
-              enqueue_by=delayed_enqueue_by, envelope=bridge_envelope,
-              caller="relayer", deposit=1) == "QUEUED:0"
+              delayed_clock, envelope=delayed_envelope,
+              caller="relayer", deposit=delayed_envelope.prepaid) == "QUEUED:0"
           and delayed_protocol.messages[0].enqueued_at == delayed_clock.timestamp
           and delayed_protocol.messages[0].due_at
               == delayed_clock.timestamp + FORCE_DELAY
           and not delayed_protocol.force_due(delayed_clock))
 
-    cancel_adapter = BridgeAdapter()
-    cancel_source = SourceBridgeLedger()
-    cancellation_id = cancel_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "lost-before-enqueue")
-    assert cancel_source.open(
-        cancellation_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-        owner="alice", value=10, fee=2)
+    no_sync_protocol = protocol(tip_slot=enqueue_by - GENESIS_TIMESTAMP)
+    no_sync_router = routed_ingress_for_test(no_sync_protocol)
+    cancel_source = source_bridge_for_test(no_sync_router)
+    cancel_adapter = activate_ingress_adapter_for_test(
+        no_sync_router,
+        kind=ForceKind.BRIDGE_CREDIT,
+        clock=Clock(2_000, enqueue_by + 1),
+        source_bridge=cancel_source,
+    )
+    cancel_source_clock = cancel_source.support_final_clock(
+        prepared_clock.timestamp
+    )
+    cancel_envelope = bridge_message(4_601, "lost-before-enqueue")
+    cancellation_id = open_source_credit_for_test(
+        cancel_source, cancel_envelope, clock=cancel_source_clock,
+        enqueue_by=enqueue_by,
+    )
     cancel_source.paused = True
     cancel_source.ether_quota = 0
     check("P50y pre-enqueue data loss has a permissionless exact-deadline refund",
@@ -7785,106 +18319,88 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50ap V2 ETH restoration bypasses exhausted ordinary quota",
           cancel_source.ether_quota == 0
           and cancel_source.balance == 0)
-    no_sync_protocol = protocol(tip_slot=enqueue_by - GENESIS_TIMESTAMP)
     check("P50z cancel wins the race and permanently rejects enqueue",
-          cancel_adapter.enqueue(
-              no_sync_protocol, Clock(2_000, enqueue_by + 1), cancel_source,
-              src_chain_id=1, source_domain_id="domain:R1", src_epoch=1,
-              src_bridge="bridge:A", destination_domain_id="domain:D1",
-              msg_hash="lost-before-enqueue", enqueue_by=enqueue_by,
-              envelope=bridge_envelope, caller="relayer", deposit=1) == "REJECTED")
+          payable_reverted(lambda: cancel_adapter.enqueue(
+              Clock(2_000, enqueue_by + 1),
+              envelope=cancel_envelope,
+              caller="relayer", deposit=1)))
 
-    queued_race_adapter = BridgeAdapter()
-    queued_race_source = SourceBridgeLedger()
-    queued_race_id = queued_race_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "enqueue-wins")
-    assert queued_race_source.open(
-        queued_race_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-        owner="alice", value=10, fee=2)
     race_protocol = protocol(tip_slot=enqueue_by - GENESIS_TIMESTAMP)
+    race_router = routed_ingress_for_test(race_protocol)
+    queued_race_source = source_bridge_for_test(race_router)
+    queued_race_adapter = activate_ingress_adapter_for_test(
+        race_router,
+        kind=ForceKind.BRIDGE_CREDIT,
+        clock=Clock(2_001, enqueue_by),
+        source_bridge=queued_race_source,
+    )
+    queued_race_source_clock = queued_race_source.support_final_clock(
+        prepared_clock.timestamp
+    )
+    queued_race_envelope = bridge_message(4_601, "enqueue-wins")
+    queued_race_id = open_source_credit_for_test(
+        queued_race_source, queued_race_envelope,
+        clock=queued_race_source_clock, enqueue_by=enqueue_by,
+    )
     check("P50aa enqueue at the deadline wins against later cancellation",
           queued_race_adapter.enqueue(
-              race_protocol, Clock(2_001, enqueue_by), queued_race_source,
-              src_chain_id=1, source_domain_id="domain:R1", src_epoch=1,
-              src_bridge="bridge:A", destination_domain_id="domain:D1",
-              msg_hash="enqueue-wins", enqueue_by=enqueue_by,
-              envelope=bridge_envelope, caller="relayer", deposit=1) == "QUEUED:0"
+              Clock(2_001, enqueue_by),
+              envelope=queued_race_envelope,
+              caller="relayer", deposit=queued_race_envelope.prepaid)
+              == "QUEUED:0"
           and not queued_race_source.cancel(
               queued_race_id, now=enqueue_by + 1))
-    replacement_adapter = BridgeAdapter()
+    replacement_adapter = BridgeAdapter(
+        race_router,
+        queued_race_source.credit_registry,
+        queued_race_source,
+        address="bridge-inbox-adapter:replacement",
+    )
     check("P50ag adapter replacement cannot double-refund a queued credit",
           queued_race_id not in replacement_adapter.records
           and queued_race_source.credits[queued_race_id].status == "QUEUED"
           and not queued_race_source.cancel(
               queued_race_id, now=enqueue_by + 2))
 
-    capsule_source = SourceBridgeLedger()
-    capsule_id = adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "capsule")
-    assert capsule_source.open(
-        capsule_id, now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-        owner="alice", value=3, fee=1, refund_vault="erc721-vault",
-        refund_mode="CAPSULE", caller="erc721-vault")
-    check("P50az V2 refund mode is selector-explicit and cannot be inferred",
-          not SourceBridgeLedger().open(
-              "ambiguous", now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-              owner="alice", value=3, fee=1, refund_vault="erc721-vault")
-          and not SourceBridgeLedger().open(
-              "spoofed", now=prepared_clock.timestamp, enqueue_by=enqueue_by,
-              owner="alice", value=3, fee=1, refund_vault="erc721-vault",
-              refund_mode="CAPSULE", caller="attacker"))
-    refund_vault = RefundVaultLedger(balance=100)
-    assert refund_vault.register(
-        capsule_id, owner="alice", amount=40, capsule_hash="capsule-hash",
-        calldata_hash_matches=True)
-    check("P50ah immutable authorization and mutable capsule finalize exactly once",
-          capsule_source.credits[capsule_id].status == "DRAFT"
-          and not capsule_source.finalize_capsule(
-              capsule_id, caller="attacker", capsule_hash="capsule-hash",
-              vault_has_matching_capsule=True)
-          and capsule_source.finalize_capsule(
-              capsule_id, caller="erc721-vault", capsule_hash="capsule-hash",
-              vault_has_matching_capsule=True)
-          and capsule_source.credits[capsule_id].status == "NEW"
-          and not capsule_source.finalize_capsule(
-              capsule_id, caller="erc721-vault", capsule_hash="capsule-hash",
-              vault_has_matching_capsule=True))
-    check("P50ak token reserve blocks pooled drain and capsule mismatch",
-          not refund_vault.ordinary_payout(61)
-          and not refund_vault.register(
-              "bad", owner="alice", amount=1, capsule_hash="bad",
-              calldata_hash_matches=False))
-    assert capsule_source.cancel(capsule_id, now=enqueue_by + 1)
-    refund_vault.token_quota = 0
-    check("P50ai failed token delivery does not roll back terminal source state",
-          not refund_vault.claim_refund(
-              capsule_id, caller="alice", source=capsule_source,
-              transfer_succeeds=False)
-          and capsule_source.credits[capsule_id].status == "CANCELLED"
-          and refund_vault.claim_refund(
-              capsule_id, caller="alice", source=capsule_source)
-          and refund_vault.balance == 60 and refund_vault.reserved == 0
-          and refund_vault.token_quota == 0)
-    check("P50aq reserved token restoration bypasses ordinary token quota",
-          refund_vault.token_quota == 0 and refund_vault.reserved == 0)
-    restorable_token = RefundRestorableToken("erc721-vault", paused=True)
-    check("P50au frozen bridged-token restoration bypasses token pause exactly once",
-          restorable_token.restore(
-              capsule_id, caller="erc721-vault", capsule_matches=True)
-          and not restorable_token.restore(
-              capsule_id, caller="erc721-vault", capsule_matches=True)
-          and not restorable_token.restore(
-              "other", caller="attacker", capsule_matches=True))
+    check("P50az V2 launch has no reachable token-vault selector",
+          source_send_mode("sendMessageFromVaultV2(Message)") == "REJECTED"
+          and not any(
+              field_.name == "official_refund_vaults"
+              for field_ in SourceBridgeDescriptor.__dataclass_fields__.values()
+          ))
 
     inbox_store = InboxCreditStoreV2(
-        "inbox-apply", "bridge:A", "domain:D1")
-    inbox_apply_router = InboxApplyRouterV2(next_queue_index=70)
-    accumulator = TerminalAccumulatorV2({})
-    release_authority = ProtocolReleaseAuthorityV2()
-    registrar = TerminalDomainRegistrarV2(
-        release_authority, accumulator, inbox_apply_router)
+        "inbox-apply", "bridge:A", d1_domain)
+    inbox_descriptors: list[Message] = [
+        message(1, f"inbox-prefix:{i}")
+        for i in range(70)
+    ]
+    inbox_descriptors.extend((
+        replace(bridge_queue_descriptor_for_test(
+            1, "inbox:D1:late", d1_domain), due_at=UINT64_MAX),
+        replace(bridge_queue_descriptor_for_test(
+            1, "inbox:D2:new", d2_domain), due_at=UINT64_MAX),
+        replace(bridge_queue_descriptor_for_test(
+            1, "inbox:D1:later", d1_domain), due_at=UINT64_MAX),
+        replace(bridge_queue_descriptor_for_test(
+            1, "inbox:D1:pending", d1_domain), due_at=UINT64_MAX),
+        replace(bridge_queue_descriptor_for_test(
+            1, "inbox:D2:failing", d2_domain), due_at=UINT64_MAX),
+    ))
+    inbox_protocol = protocol(
+        cursor=70,
+        seat=False,
+        messages=inbox_descriptors,
+        inbox_apply_router=InboxApplyRouterV2(next_queue_index=70),
+    )
+    routed_ingress_for_test(inbox_protocol)
+    inbox_apply_router = inbox_protocol.inbox_apply_router
+    registrar = inbox_apply_router._terminal_registrar_authority
+    assert type(registrar) is TerminalDomainRegistrarV2
+    accumulator = registrar.accumulator
+    release_authority = registrar.authority
     manifest_v1 = release_manifest_fixture(
-        1, "domain:D1", "bridge:A", inbox_store, legacy_proxy=True)
+        1, d1_domain, "bridge:A", inbox_store, router=bridge_router)
     anchor_v1 = AnchorV4Model(
         manifest_v1.anchor, manifest_v1.anchor_runtime_hash,
         manifest_v1.commitment)
@@ -7893,11 +18409,17 @@ def test_data_gc_reorg_and_geometry() -> None:
     legacy_bridge_v1 = BridgeDeploymentStateV2(
         "GENESIS_LEGACY_PROXY", manifest_v1.destination_bridge,
         manifest_v1.components[8].runtime_hash,
-        "implementation:bridge:A",
-        manifest_v1.destination_bridge_descriptor.facade_runtime_hash,
+        implementation_address="impl:bridge:A",
+        implementation_runtime_hash=(
+            manifest_v1.destination_bridge_descriptor.facade_runtime_hash
+        ),
         direct_prestate_slot_constraint=True,
         upgrade_authority_burned=True,
-        delegate_target_reachable=True)
+        delegate_target_reachable=True,
+        eip1967_implementation_slot_value="impl:bridge:A",
+        eip1967_admin_slot_value="",
+        eip1967_implementation_slot_proved=True,
+        eip1967_admin_slot_proved=True)
     check("P50ca direct reserved-sender and Bridge release calls are rejected",
           not release_authority.activate(
               manifest_v1,
@@ -7912,9 +18434,10 @@ def test_data_gc_reorg_and_geometry() -> None:
                   manifest_v1.commitment),
               tx_origin="system:anchor"))
     check("P50cc Anchor release and registrar seal are one atomic system trace",
-          activate_release_transaction(
+          execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v1,
-              transaction_sender="system:anchor", anchor=anchor_v1,
+              anchor=anchor_v1,
               store=inbox_store, endpoint_state=endpoint_v1,
               bridge_deployment=legacy_bridge_v1)
           and endpoint_v1.gate_active
@@ -7923,16 +18446,20 @@ def test_data_gc_reorg_and_geometry() -> None:
     failed_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:C", "domain:D3")
     manifest_v3 = release_manifest_fixture(
-        3, "domain:D3", "bridge:C", failed_store)
+        3, "domain:D3", "bridge:C", failed_store, router=bridge_router)
     anchor_v3 = AnchorV4Model(
         manifest_v3.anchor, manifest_v3.anchor_runtime_hash,
         manifest_v3.commitment)
     check("P50cd a failed registrar seal rolls release authority back",
-          not activate_release_transaction(
+          not execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v3,
-              transaction_sender="system:anchor", anchor=anchor_v3,
+              anchor=anchor_v3,
               store=failed_store,
-              direct_component_checks_succeed=False)
+              bridge_deployment=BridgeDeploymentStateV2(
+                  "IMMUTABLE_NONPROXY", manifest_v3.destination_bridge,
+                  manifest_v3.components[8].runtime_hash,
+                  upgrade_authority_burned=False))
           and 3 not in release_authority.releases
           and 3 not in registrar.registrations
           and "domain:D3" not in inbox_apply_router.routes)
@@ -7941,9 +18468,11 @@ def test_data_gc_reorg_and_geometry() -> None:
     local_code_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:E", "domain:D5")
     manifest_v4 = release_manifest_fixture(
-        4, "domain:D4", "bridge:D", cross_chain_store)
+        4, "domain:D4", "bridge:D", cross_chain_store,
+        router=bridge_router)
     manifest_v5 = release_manifest_fixture(
-        5, "domain:D5", "bridge:E", local_code_store)
+        5, "domain:D5", "bridge:E", local_code_store,
+        router=bridge_router)
     bad_l1_anchor = AnchorV4Model(
         manifest_v4.anchor, manifest_v4.anchor_runtime_hash,
         "manifest:foreign")
@@ -7953,42 +18482,62 @@ def test_data_gc_reorg_and_geometry() -> None:
     mismatched_l2 = list(manifest_v5.components[3:])
     mismatched_l2[1] = replace(mismatched_l2[1], runtime_hash="code:mutated")
     check("P50ci registrar requires proved L1 bindings and direct L2 code checks",
-          not activate_release_transaction(
+          not execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v4,
-              transaction_sender="system:anchor", anchor=bad_l1_anchor,
+              anchor=bad_l1_anchor,
               store=cross_chain_store)
-          and not activate_release_transaction(
+          and not execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v5,
-              transaction_sender="system:anchor", anchor=anchor_v5,
+              anchor=anchor_v5,
               store=local_code_store,
               observed_l2_components=tuple(mismatched_l2))
           and 4 not in release_authority.releases
           and 5 not in release_authority.releases)
-    destination = DestinationBridgeLedger(
-        inbox_store=inbox_store, terminal_accumulator=accumulator)
+    destination_target = BridgeCallReceiverV2("bridge-recipient")
+    destination = destination_bridge_for_test(
+        manifest_v1,
+        inbox_store,
+        accumulator,
+        applications=(destination_target,),
+        balance=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+        quota=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+        timestamp=prepared_clock.timestamp,
+    )
     pin_now = prepared_clock.timestamp
-    assert destination.pin(
-        credit_a, "result:A", now=pin_now, caller_is_inbox_apply=True)
+    message_a = bridge_message_preimage(
+        bridge_envelopes[(id(source), "msg")]
+    )
+    authorization_a = source.credit_registry.authorizations[credit_a]
+    source_context_a, destination_context_a = (
+        destination_contexts_for_authorization(
+            authorization_a, queue_index=70
+        )
+    )
+    assert install_destination_pin_for_test(
+        destination, message_a, source_context_a, destination_context_a,
+        now=pin_now)
     process_by = inbox_store.pins[credit_a].process_by
     check("P50ab inbox pin and deadline live in the immutable V2 store",
           inbox_store.pins[credit_a]
-              == InboxPin("result:A", pin_now + BRIDGE_PROCESS_TTL_SECONDS)
+              == InboxPin(
+                  destination_result_hash_v9(
+                      message_a, source_context_a, destination_context_a
+                  ),
+                  pin_now + BRIDGE_PROCESS_TTL_SECONDS,
+              )
           and inbox_store.read(
               credit_a, caller="bridge:B",
-              destination_domain_id="domain:D1") is None)
-    clone = DestinationBridgeLedger(
-        address="bridge:B", local_domain_id="domain:D2",
-        inbox_store=inbox_store, terminal_accumulator=accumulator)
-    check("P50ar destination context cannot replay across funded Bridges",
-          clone.process(
-              credit_a, now=pin_now + 1, message_available=True,
-              result_hash_matches=True, callback_ok=True,
-              destination_domain_id="domain:D1",
-              context_dest_bridge="bridge:A") == "REJECTED"
-          and credit_a not in clone.terminal_index)
-    assert destination.process(
-        credit_a, now=pin_now + 1, message_available=False,
-        result_hash_matches=True, callback_ok=True) == "RETRIABLE"
+              destination_domain_id=d1_domain) is None)
+    check("P50ar one destination domain binds one exact Bridge object",
+          payable_reverted(lambda: destination_bridge_for_test(
+              manifest_v1,
+              inbox_store,
+              accumulator,
+              balance=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+              quota=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+          )))
     check("P50bb Bridge authority cannot be confused by a message callback",
           accumulator.append_terminal(
               caller=destination, credit_id=credit_a) is None
@@ -7996,78 +18545,186 @@ def test_data_gc_reorg_and_geometry() -> None:
               "terminal-accumulator", version="V1")
           and not destination.accepts_message_target(
               "terminal-accumulator", version="V2"))
+    check("P50da source and destination share no cross-chain object state",
+          destination is not source
+          and destination.execution_environment.chain_id
+              != source.source_chain_id
+          and all(value is not source
+                  for value in destination.__dict__.values()))
+    check("P50db release policy pins the complete privileged-call denyset",
+          {"signal-service", "delegate-controller",
+           DESTINATION_NATIVE_QUOTA_MANAGER,
+           *V1_OFFICIAL_VAULT_ADDRESSES}.issubset(
+               set(manifest_v1.destination_bridge_descriptor
+                   .privileged_target_denyset))
+          and manifest_v1.destination_bridge_descriptor.post_call_gas_reserve
+              == V2_POST_CALL_GAS_RESERVE)
     destination.paused = True
+    destination.execution_environment.block_timestamp = process_by
     check("P50ac lost post-pin Message becomes permissionlessly FAILED",
-          not destination.expire(credit_a, now=process_by)
-          and destination.expire(credit_a, now=process_by + 1)
+          not destination.expire_v2(credit_a))
+    destination.execution_environment.block_timestamp = process_by + 1
+    check("P50ac2 expiry uses only the unpausable L2 block context",
+          destination.expire_v2(credit_a)
           and destination.status[credit_a] == "FAILED"
           and destination.process(
-              credit_a, now=process_by + 2, message_available=True,
-              result_hash_matches=True, callback_ok=True) == "REJECTED")
+              message_a, source_context_a, destination_context_a,
+              caller="relayer") == "REJECTED")
     destination.paused = False
-    assert destination.pin(
-        credit_b, "result:B", now=pin_now, caller_is_inbox_apply=True)
+    destination.execution_environment.block_timestamp = pin_now + 1
+    destination_target.fault_point = None
+    message_b = bridge_message_preimage(
+        bridge_envelopes[(id(source), "msg-b")]
+    )
+    authorization_b = source.credit_registry.authorizations[credit_b]
+    source_context_b, destination_context_b = (
+        destination_contexts_for_authorization(
+            authorization_b, queue_index=71
+        )
+    )
+    assert install_destination_pin_for_test(
+        destination, message_b, source_context_b, destination_context_b,
+        now=pin_now)
     check("P50ad DONE is terminal and conflicting pins fail",
           destination.process(
-              credit_b, now=pin_now + 1, message_available=True,
-              result_hash_matches=True, callback_ok=True) == "DONE"
-          and not destination.expire(
-              credit_b, now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1)
-          and not destination.pin(
-              credit_b, "conflict", now=pin_now,
-              caller_is_inbox_apply=True))
+              message_b, source_context_b, destination_context_b,
+              caller="relayer") == "DONE"
+          and not destination.expire_v2(credit_b)
+          and not install_destination_pin_for_test(
+              destination,
+              replace(message_b, data=message_b.data + b"conflict"),
+              source_context_b,
+              destination_context_b,
+              now=pin_now))
+    check("P50dc successful V2 value and fee preserve pull solvency",
+          destination.total_pull_liability
+              == message_b.value + message_b.fee
+          and destination.balance >= destination.total_pull_liability)
+
+    zero_empty = IBridgeMessageV1(
+        903, 0, 0, "zero-empty-sender", 2, "zero-empty-owner",
+        destination.destination_chain_id, "zero-empty-dest-owner",
+        destination_target.address, 0, b""
+    )
+    zero_source, zero_route = destination_delivery_context_for_test(
+        destination, zero_empty, queue_index=903
+    )
+    assert install_destination_pin_for_test(
+        destination, zero_empty, zero_source, zero_route, now=pin_now
+    )
+    received_before_zero = tuple(destination_target.received)
+    check("P50dd zero-value empty-data succeeds without an external CALL",
+          destination.process(
+              zero_empty, zero_source, zero_route,
+              caller=zero_empty.destination_owner) == "DONE"
+          and tuple(destination_target.received) == received_before_zero)
+
+    privileged_receiver = BridgeCallReceiverV2("delegate-controller")
+    assert destination.execution_environment.deploy_application(
+        privileged_receiver
+    )
+    privileged_message = IBridgeMessageV1(
+        904, 1, MAX_FORCE_MESSAGE_GAS, "privileged-sender", 2,
+        "privileged-owner", destination.destination_chain_id,
+        "privileged-dest-owner", privileged_receiver.address, 1,
+        ON_MESSAGE_INVOCATION_SELECTOR + b"governance"
+    )
+    privileged_source, privileged_route = destination_delivery_context_for_test(
+        destination, privileged_message, queue_index=904
+    )
+    assert install_destination_pin_for_test(
+        destination, privileged_message, privileged_source,
+        privileged_route, now=pin_now
+    )
+    privileged_before = privileged_receiver._transaction_snapshot()
+    check("P50de privileged invocation defense fails without side effects",
+          destination.process(
+              privileged_message, privileged_source, privileged_route,
+              caller="relayer") == "FAILED"
+          and privileged_receiver._transaction_snapshot() == privileged_before)
     check("P50ae terminal leaves bind index, domain, Bridge, credit and result",
           TerminalSignalVerifier.terminal_leaf(
-              0, "domain:D1", "bridge:A", credit_a, "FAILED")
+              0, d1_domain, "bridge:A", credit_a, "FAILED")
               != TerminalSignalVerifier.terminal_leaf(
                   0, "domain:D2", "bridge:A", credit_a, "FAILED")
           and TerminalSignalVerifier.terminal_leaf(
-              0, "domain:D1", "bridge:A", credit_b, "DONE")
+              0, d1_domain, "bridge:A", credit_b, "DONE")
               != TerminalSignalVerifier.terminal_leaf(
-              0, "domain:D1", "bridge:A", credit_b, "FAILED"))
-    malformed_terminal = DestinationBridgeLedger(
-        inbox_store=InboxCreditStoreV2(
-            "inbox-apply", "bridge:A", "domain:D1"),
-        terminal_accumulator=accumulator)
-    malformed_credit = "credit:malformed-terminal-return"
-    assert malformed_terminal.pin(
-        malformed_credit, "result:malformed", now=pin_now,
-        caller_is_inbox_apply=True)
-    count_before_malformed = accumulator.count
+              0, d1_domain, "bridge:A", credit_b, "FAILED"))
+    malformed_target = BridgeCallReceiverV2("malformed-recipient")
+    malformed_store = InboxCreditStoreV2(
+        "inbox-apply", "bridge:malformed", "domain:malformed"
+    )
+    malformed_manifest = release_manifest_fixture(
+        90,
+        "domain:malformed",
+        "bridge:malformed",
+        malformed_store,
+        router=bridge_router,
+    )
+    malformed_accumulator = TerminalAccumulatorV2({
+        malformed_manifest.destination_domain_id:
+            malformed_manifest.destination_bridge
+    })
+    malformed_terminal = destination_bridge_for_test(
+        malformed_manifest,
+        malformed_store,
+        malformed_accumulator,
+        applications=(malformed_target,),
+        balance=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+        quota=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+        timestamp=pin_now + 1,
+    )
+    malformed_message = IBridgeMessageV1(
+        900, 0, 0, "malformed-sender", 2, "malformed-owner",
+        malformed_manifest.destination_chain_id,
+        "malformed-dest-owner", malformed_target.address, 0, b"bad"
+    )
+    malformed_source, malformed_route = destination_delivery_context_for_test(
+        malformed_terminal, malformed_message, queue_index=900
+    )
+    malformed_credit = destination_credit_id_v2(
+        malformed_message, malformed_source, malformed_route
+    )
+    assert install_destination_pin_for_test(
+        malformed_terminal, malformed_message, malformed_source,
+        malformed_route,
+        now=pin_now)
+    count_before_malformed = malformed_accumulator.count
     malformed_terminal.terminal_commitment_return_length = 96
     short_terminal_rejected = malformed_terminal.process(
-        malformed_credit, now=pin_now + 1, message_available=True,
-        result_hash_matches=True, callback_ok=True) == "REJECTED"
+        malformed_message, malformed_source, malformed_route,
+        caller="malformed-dest-owner") == "REJECTED"
     malformed_terminal.terminal_commitment_return_length = 160
     long_terminal_rejected = malformed_terminal.process(
-        malformed_credit, now=pin_now + 1, message_available=True,
-        result_hash_matches=True, callback_ok=True) == "REJECTED"
+        malformed_message, malformed_source, malformed_route,
+        caller="malformed-dest-owner") == "REJECTED"
     malformed_terminal.terminal_commitment_return_length = 128
     malformed_terminal.terminal_commitment_gas_ok = False
     oog_terminal_rejected = malformed_terminal.process(
-        malformed_credit, now=pin_now + 1, message_available=True,
-        result_hash_matches=True, callback_ok=True) == "REJECTED"
+        malformed_message, malformed_source, malformed_route,
+        caller="malformed-dest-owner") == "REJECTED"
     malformed_terminal.terminal_commitment_gas_ok = True
-    accumulator.append_return_length = 31
+    malformed_accumulator.append_return_length = 31
     short_append_rejected = malformed_terminal.process(
-        malformed_credit, now=pin_now + 1, message_available=True,
-        result_hash_matches=True, callback_ok=True) == "REJECTED"
-    accumulator.append_return_length = 33
+        malformed_message, malformed_source, malformed_route,
+        caller="malformed-dest-owner") == "REJECTED"
+    malformed_accumulator.append_return_length = 33
     long_append_rejected = malformed_terminal.process(
-        malformed_credit, now=pin_now + 1, message_available=True,
-        result_hash_matches=True, callback_ok=True) == "REJECTED"
-    accumulator.append_return_length = 32
+        malformed_message, malformed_source, malformed_route,
+        caller="malformed-dest-owner") == "REJECTED"
+    malformed_accumulator.append_return_length = 32
     check("P50ck malformed or OOG terminal commitment returndata is atomic",
           short_terminal_rejected and long_terminal_rejected
           and oog_terminal_rejected
           and short_append_rejected and long_append_rejected
-          and malformed_terminal.status[malformed_credit] == "NEW"
+          and malformed_credit not in malformed_terminal.status
           and malformed_credit not in malformed_terminal.terminal_index
-          and accumulator.count == count_before_malformed)
+          and malformed_accumulator.count == count_before_malformed)
     inbox_store_d2 = InboxCreditStoreV2(
-        "inbox-apply", "bridge:B", "domain:D2")
+        "inbox-apply", "bridge:B", d2_domain)
     manifest_v2 = release_manifest_fixture(
-        2, "domain:D2", "bridge:B", inbox_store_d2)
+        2, d2_domain, "bridge:B", inbox_store_d2, router=bridge_router)
     anchor_v2 = AnchorV4Model(
         manifest_v2.anchor, manifest_v2.anchor_runtime_hash,
         manifest_v2.commitment)
@@ -8079,13 +18736,11 @@ def test_data_gc_reorg_and_geometry() -> None:
     preserved_root = accumulator.root
     preserved_count = accumulator.count
     check("P50ax new terminal domains cannot redirect an old domain writer",
-          not accumulator.register_domain(
-              "domain:squat", "bridge:squat", caller="attacker",
-              release_active=True, descriptor_valid=True,
-              activation_order_valid=True)
-          and activate_release_transaction(
+          not hasattr(accumulator, "register_domain")
+          and execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v2,
-              transaction_sender="system:anchor", anchor=anchor_v2,
+              anchor=anchor_v2,
               store=inbox_store_d2, endpoint_state=endpoint_v2)
           and all(inbox_apply_router.routes[key] == value
                   for key, value in preserved_routes.items())
@@ -8098,43 +18753,27 @@ def test_data_gc_reorg_and_geometry() -> None:
           and endpoint_v2.gate_active
           and endpoint_v2.legacy_v1_state_fingerprint
               == "custody-and-status-v1:D2"
-          and accumulator.register_domain(
-              "domain:D1", "bridge:A", caller="terminal-domain-registrar",
-              release_active=True, descriptor_valid=True,
-              activation_order_valid=True)
-          and not accumulator.register_domain(
-              "domain:D1", "bridge:B", caller="terminal-domain-registrar",
-              release_active=True, descriptor_valid=True,
-              activation_order_valid=True)
-          and not accumulator.register_domain(
-              "domain:D3", "bridge:A", caller="terminal-domain-registrar",
-              release_active=True, descriptor_valid=True,
-              activation_order_valid=True)
-          and not accumulator.register_domain(
-              "domain:D4", "bridge:D", caller="terminal-domain-registrar",
-              release_active=True, descriptor_valid=True,
-              activation_order_valid=False)
-          and accumulator.domains["domain:D1"] == "bridge:A")
+          and accumulator.domains[d1_domain] == "bridge:A")
     reused_endpoint_state = copy.deepcopy(endpoint_v2)
     manifest_v7 = release_manifest_fixture(
-        7, "domain:D2", "bridge:B", inbox_store_d2)
+        7, d2_domain, "bridge:B", inbox_store_d2, router=bridge_router)
     partial_endpoint_state = copy.deepcopy(endpoint_v2)
     partial_endpoint_state.gate_sealer_live = True
     store_v6 = InboxCreditStoreV2(
         "inbox-apply", "bridge:F", "domain:D6")
     manifest_v6 = release_manifest_fixture(
-        6, "domain:D6", "bridge:F", store_v6)
+        6, "domain:D6", "bridge:F", store_v6, router=bridge_router)
     check("P50co exact endpoint reuse skips seals; partial prestate rejects",
-          activate_release_transaction(
+          execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v7,
-              transaction_sender="system:anchor",
               anchor=AnchorV4Model(
                   manifest_v7.anchor, manifest_v7.anchor_runtime_hash,
                   manifest_v7.commitment), store=inbox_store_d2,
               endpoint_state=reused_endpoint_state)
-          and not activate_release_transaction(
+          and not execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v6,
-              transaction_sender="system:anchor",
               anchor=AnchorV4Model(
                   manifest_v6.anchor, manifest_v6.anchor_runtime_hash,
                   manifest_v6.commitment), store=store_v6,
@@ -8143,7 +18782,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     store_v8 = InboxCreditStoreV2(
         "inbox-apply", "bridge:G", "domain:D8")
     manifest_v8 = release_manifest_fixture(
-        8, "domain:D8", "bridge:G", store_v8, legacy_proxy=True)
+        8, "domain:D8", "bridge:G", store_v8, legacy_proxy=True,
+        router=bridge_router)
     delegated_proxy_lie = BridgeDeploymentStateV2(
         "GENESIS_LEGACY_PROXY", manifest_v8.destination_bridge,
         manifest_v8.components[8].runtime_hash,
@@ -8161,155 +18801,337 @@ def test_data_gc_reorg_and_geometry() -> None:
               destination_bridge_descriptor=replace(
                   manifest_v6.destination_bridge_descriptor,
                   facade_runtime_hash="attacker-facade")).structurally_valid()
-          and not activate_release_transaction(
+          and not execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v6,
-              transaction_sender="system:anchor",
               anchor=AnchorV4Model(
                   manifest_v6.anchor, manifest_v6.anchor_runtime_hash,
                   manifest_v6.commitment), store=store_v6,
               observed_bridge_descriptor=replace(
                   manifest_v6.destination_bridge_descriptor,
                   facade_runtime_hash="observed-attacker-facade"))
-          and not activate_release_transaction(
+          and not execute_release_activation_for_test(
+              inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v8,
-              transaction_sender="system:anchor",
               anchor=AnchorV4Model(
                   manifest_v8.anchor, manifest_v8.anchor_runtime_hash,
                   manifest_v8.commitment), store=store_v8,
               bridge_deployment=delegated_proxy_lie)
           and 8 not in release_authority.releases)
-    destination_d2 = DestinationBridgeLedger(
-        address="bridge:B", local_domain_id="domain:D2",
-        inbox_store=inbox_store_d2, terminal_accumulator=accumulator)
-    assert source.mark_queued(
-        credit_d2, 99, caller_is_bound_adapter=True)
-    assert destination_d2.pin(
-        credit_d2, "result:D2", now=pin_now,
-        caller_is_inbox_apply=True)
+    destination_d2_target = BridgeCallReceiverV2("bridge-recipient")
+    destination_d2 = destination_bridge_for_test(
+        manifest_v2,
+        inbox_store_d2,
+        accumulator,
+        applications=(destination_d2_target,),
+        balance=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+        quota=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+        timestamp=pin_now + 1,
+    )
+    assert source_d2._mark_queued_from_adapter(
+        credit_d2, 99, adapter=adapter_d2)
+    message_d2 = bridge_message_preimage(
+        bridge_envelopes[(id(source_d2), "msg-d2")]
+    )
+    source_context_d2, destination_context_d2 = (
+        destination_contexts_for_authorization(
+            source_d2.credit_registry.authorizations[credit_d2],
+            queue_index=99,
+        )
+    )
+    assert install_destination_pin_for_test(
+        destination_d2, message_d2, source_context_d2,
+        destination_context_d2, now=pin_now)
     assert destination_d2.process(
-        credit_d2, now=pin_now + 1, message_available=True,
-        result_hash_matches=True, callback_ok=True,
-        destination_domain_id="domain:D2",
-        context_dest_bridge="bridge:B") == "DONE"
-    def bridge_inbox_row(index: int, domain_id: str,
-                         credit_id: str) -> tuple[int, int, int, str, bytes]:
-        return (index, 5, UINT32_MAX,
-                inbox_kind1_result(index, domain_id, credit_id),
-                inbox_kind1_descriptor(domain_id, credit_id))
+        message_d2, source_context_d2, destination_context_d2,
+        caller="relayer") == "DONE"
+    def bridge_inbox_row(
+        index: int, *, result_hash: str | None = None
+    ) -> InboxRowV2:
+        descriptor = inbox_descriptors[index]
+        assert type(descriptor) is BridgeQueueDescriptorV10
+        return (
+            index,
+            5,
+            UINT32_MAX,
+            inbox_kind1_result(index, descriptor)
+            if result_hash is None else result_hash,
+            descriptor,
+        )
+
+    def verified_inbox_case(
+        start: int,
+        rows: tuple[InboxRowV2, ...],
+        ident: str,
+    ) -> tuple[
+        InboxApplyRouterV2,
+        InboxValidityExecutionAuthority,
+        Candidate,
+        Clock,
+    ]:
+        case_router = InboxApplyRouterV2(next_queue_index=start)
+        for domain_id, route in inbox_apply_router.routes.items():
+            local_store = copy.deepcopy(route.store)
+            object.__setattr__(
+                local_store, "_inbox_apply_authority", None
+            )
+            if not local_store._bind_inbox_apply(case_router):
+                raise AssertionError("Inbox case store authority split")
+            case_router.routes[domain_id] = InboxRoute(
+                local_store,
+                route.destination_bridge,
+                route.store_codehash,
+                route.store_config_hash,
+            )
+        case_protocol = protocol(
+            cursor=start,
+            seat=False,
+            messages=inbox_descriptors,
+            inbox_apply_router=case_router,
+        )
+        routed_ingress_for_test(case_protocol)
+        case_clock = Clock(
+            1_200 + start,
+            GENESIS_TIMESTAMP + 1_200 + start,
+        )
+        if (case_protocol.arm_normal_context(
+                Clock(case_clock.block_number - 1, case_clock.timestamp - 12)
+            ) != "ARMED"
+                or case_protocol.activate_normal_context(case_clock)
+                    != "ACTIVATED"):
+            raise AssertionError("Inbox case failed to establish proof context")
+        proved = replace(
+            candidate(case_protocol, case_clock, ident),
+            inbox_execution_receipt=None,
+        )
+        descriptors = tuple(
+            case_protocol.messages[
+                proved.blocks[0].message_start:proved.blocks[0].message_end
+            ]
+        )
+        proved = replace(
+            proved,
+            blocks=(replace(
+                proved.blocks[0],
+                inbox_descriptor_commitment=inbox_descriptor_commitment(
+                    descriptors
+                ),
+                inbox_system_calldata_hash=inbox_system_calldata_hash(rows),
+                anchor_system_tx_position=ANCHOR_SYSTEM_TX_POSITION,
+                inbox_system_tx_position=INBOX_SYSTEM_TX_POSITION,
+            ),),
+        )
+        authority = case_protocol._inbox_execution_authority
+        assert type(authority) is InboxValidityExecutionAuthority
+        return case_router, authority, proved, case_clock
+
+    def execute_inbox_case(
+        case: tuple[
+            InboxApplyRouterV2,
+            InboxValidityExecutionAuthority,
+            Candidate,
+            Clock,
+        ],
+        rows: tuple[InboxRowV2, ...],
+    ) -> bool:
+        try:
+            proof = case[1].verify_candidate_proof(case[2], case[3])
+            prepared = case[1].prepare_candidate_execution(
+                case[2], (rows,), case[3], proof
+            )
+        except ValueError:
+            return False
+        poststate = replay_prepared_candidate_on_l2_for_test(
+            case[1], prepared, (rows,), case[3]
+        )
+        if poststate is None:
+            return False
+        try:
+            case[1].protocol._commit(prepared, case[3])
+        except (AssertionError, ValueError):
+            return False
+        return select_canonical_l2_poststate_for_test(poststate)
+
+    def inbox_case_store(
+        case: tuple[
+            InboxApplyRouterV2,
+            InboxValidityExecutionAuthority,
+            Candidate,
+            Clock,
+        ],
+        domain_id: str,
+    ) -> InboxCreditStoreV2:
+        return case[0].routes[domain_id].store
 
     mixed_rows = (
-        bridge_inbox_row(70, "domain:D1", "credit:D1:late"),
-        bridge_inbox_row(71, "domain:D2", "credit:D2:new"),
-        bridge_inbox_row(72, "domain:D1", "credit:D1:later"),
+        bridge_inbox_row(70),
+        bridge_inbox_row(71),
+        bridge_inbox_row(72),
+        bridge_inbox_row(73),
+    )
+    inbox_credit_70 = inbox_descriptors[70].credit_id
+    inbox_credit_71 = inbox_descriptors[71].credit_id
+    inbox_credit_72 = inbox_descriptors[72].credit_id
+    inbox_credit_73 = inbox_descriptors[73].credit_id
+    inbox_credit_74 = inbox_descriptors[74].credit_id
+    staged_failure_rows = (
+        bridge_inbox_row(73),
+        bridge_inbox_row(74, result_hash="wrong-result"),
+    )
+    d1_inbox_rows = (
+        bridge_inbox_row(72),
+        bridge_inbox_row(73),
+        bridge_inbox_row(74),
+    )
+    two_inbox_rows = (bridge_inbox_row(73), bridge_inbox_row(74))
+    mixed_case = verified_inbox_case(70, mixed_rows, "mixed")
+    mixed_router = mixed_case[0]
+    failed_case = verified_inbox_case(
+        73, staged_failure_rows, "staged-failure"
+    )
+    failed_router = failed_case[0]
+    mixed_executed = execute_inbox_case(mixed_case, mixed_rows)
+    mixed_d1_store = inbox_case_store(mixed_case, d1_domain)
+    mixed_d2_store = inbox_case_store(mixed_case, d2_domain)
+    mixed_pins_exact = (
+        inbox_credit_70 in mixed_d1_store.pins
+        and inbox_credit_71 in mixed_d2_store.pins
+        and inbox_credit_72 in mixed_d1_store.pins
+        and inbox_credit_73 in mixed_d1_store.pins
+    )
+    failed_executed = execute_inbox_case(failed_case, staged_failure_rows)
+    failed_d1_store = inbox_case_store(failed_case, d1_domain)
+    direct_registration_absent = not hasattr(
+        inbox_apply_router, "register_route"
     )
     check("P50be old and new endpoint credits cannot wedge the shared FIFO",
-          inbox_apply_router.apply(
-              70, mixed_rows, now=pin_now, l2_block_number=1,
-              caller_is_system_sender=True)
-          and "credit:D1:late" in inbox_store.pins
-          and "credit:D2:new" in inbox_store_d2.pins
-          and not inbox_apply_router.apply(
-              73,
-              (bridge_inbox_row(73, "domain:D1", "credit:staged"),
-               bridge_inbox_row(74, "domain:missing", "credit:missing")),
-              now=pin_now, l2_block_number=2, caller_is_system_sender=True)
-          and "credit:staged" not in inbox_store.pins
-          and inbox_apply_router.next_queue_index == 73
-          and not inbox_apply_router.register_route(
-              "domain:D1", inbox_store_d2, "bridge:B", "codehash:store:D2",
-              caller="terminal-domain-registrar", manifest_exact=True))
+          mixed_executed
+          and mixed_pins_exact
+          and not failed_executed
+          and inbox_credit_73 not in failed_d1_store.pins
+          and failed_router.next_queue_index == 73
+          and direct_registration_absent)
     original_d1_codehash = inbox_store.runtime_codehash
     inbox_store.runtime_codehash = "codehash:mutated"
+    code_case = verified_inbox_case(
+        72, d1_inbox_rows, "code-mismatch"
+    )
+    code_router = code_case[0]
+    code_store = inbox_case_store(code_case, d1_domain)
     check("P50ce inbox routes recheck code before any pin write",
-          not inbox_apply_router.apply(
-              73, (bridge_inbox_row(
-                  73, "domain:D1", "credit:code-mismatch"),),
-              now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True)
-          and "credit:code-mismatch" not in inbox_store.pins
-          and inbox_apply_router.next_queue_index == 73)
+          not execute_inbox_case(code_case, d1_inbox_rows)
+          and inbox_credit_72 not in code_store.pins
+          and code_router.next_queue_index == 72)
     inbox_store.runtime_codehash = original_d1_codehash
     original_d1_bridge = inbox_store.destination_bridge
     inbox_store.destination_bridge = "bridge:mutated"
+    config_case = verified_inbox_case(
+        72, d1_inbox_rows, "config-mismatch"
+    )
+    config_router = config_case[0]
+    config_store = inbox_case_store(config_case, d1_domain)
     check("P50cg inbox routes recheck immutable config before any pin write",
-          not inbox_apply_router.apply(
-              73, (bridge_inbox_row(
-                  73, "domain:D1", "credit:config-mismatch"),),
-              now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True)
-          and "credit:config-mismatch" not in inbox_store.pins
-          and inbox_apply_router.next_queue_index == 73)
+          not execute_inbox_case(config_case, d1_inbox_rows)
+          and inbox_credit_72 not in config_store.pins
+          and config_router.next_queue_index == 72)
     inbox_store.destination_bridge = original_d1_bridge
     inbox_store_d2.batch_return_data = b""
+    rollback_case = verified_inbox_case(
+        73, two_inbox_rows, "run-rollback"
+    )
+    rollback_router = rollback_case[0]
+    rollback_d1_store = inbox_case_store(rollback_case, d1_domain)
+    rollback_d2_store = inbox_case_store(rollback_case, d2_domain)
     check("P50cf a later contiguous-run failure rolls earlier pins back",
-          not inbox_apply_router.apply(
-              73,
-              (bridge_inbox_row(73, "domain:D1", "credit:rolled-back"),
-               bridge_inbox_row(74, "domain:D2", "credit:failing-run")),
-              now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True)
-          and "credit:rolled-back" not in inbox_store.pins
-          and "credit:failing-run" not in inbox_store_d2.pins
-          and inbox_apply_router.next_queue_index == 73)
+          not execute_inbox_case(rollback_case, two_inbox_rows)
+          and inbox_credit_73 not in rollback_d1_store.pins
+          and inbox_credit_74 not in rollback_d2_store.pins
+          and rollback_router.next_queue_index == 73)
     inbox_store_d2.batch_return_data = INBOX_BATCH_OK_V2_WORD
     inbox_store.batch_return_data = INBOX_BATCH_OK_V2_WORD[:-1]
-    short_return_rejected = not inbox_apply_router.apply(
-        73, (bridge_inbox_row(
-            73, "domain:D1", "credit:short-return"),),
-        now=pin_now, l2_block_number=2, caller_is_system_sender=True)
+    short_case = verified_inbox_case(
+        72, d1_inbox_rows, "short-return"
+    )
+    short_router = short_case[0]
+    short_store = inbox_case_store(short_case, d1_domain)
+    short_return_rejected = not execute_inbox_case(
+        short_case, d1_inbox_rows
+    )
     inbox_store.batch_return_data = INBOX_BATCH_OK_V2_WORD + b"\x00"
+    long_case = verified_inbox_case(
+        72, d1_inbox_rows, "long-return"
+    )
+    long_router = long_case[0]
+    long_store = inbox_case_store(long_case, d1_domain)
     check("P50cj short and trailing inbox returndata fail closed",
           short_return_rejected
-          and not inbox_apply_router.apply(
-              73, (bridge_inbox_row(
-                  73, "domain:D1", "credit:long-return"),),
-              now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True)
-          and "credit:short-return" not in inbox_store.pins
-          and "credit:long-return" not in inbox_store.pins
-          and inbox_apply_router.next_queue_index == 73)
+          and not execute_inbox_case(long_case, d1_inbox_rows)
+          and inbox_credit_72 not in short_store.pins
+          and inbox_credit_72 not in long_store.pins
+          and long_router.next_queue_index == 72)
     inbox_store.batch_return_data = INBOX_BATCH_OK_V2_WORD
     inbox_store.batch_writes_enabled = False
+    noop_case = verified_inbox_case(
+        72, d1_inbox_rows, "noop-store"
+    )
+    noop_router = noop_case[0]
+    noop_store = inbox_case_store(noop_case, d1_domain)
     check("P50cl magic-returning no-op store cannot advance the inbox cursor",
-          not inbox_apply_router.apply(
-              73, (bridge_inbox_row(
-                  73, "domain:D1", "credit:no-op-store"),),
-              now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True)
-          and "credit:no-op-store" not in inbox_store.pins
-          and inbox_apply_router.next_queue_index == 73)
+          not execute_inbox_case(noop_case, d1_inbox_rows)
+          and inbox_credit_72 not in noop_store.pins
+          and noop_router.next_queue_index == 72)
     inbox_store.batch_writes_enabled = True
+    empty_case = verified_inbox_case(
+        75, (), "empty-inbox"
+    )
+    empty_router = empty_case[0]
     check("P50bh empty InboxApply is canonical and once per L2 block",
-          inbox_apply_router.apply(
-              73, (), now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True)
-          and inbox_apply_router.next_queue_index == 73
-          and not inbox_apply_router.apply(
-              73, (), now=pin_now, l2_block_number=2,
-              caller_is_system_sender=True))
-    manual_credit = "credit:manual-failure"
-    assert destination.pin(
-        manual_credit, "result:C", now=pin_now, caller_is_inbox_apply=True)
+          execute_inbox_case(empty_case, ())
+          and empty_router.next_queue_index == 75
+          and not execute_inbox_case(empty_case, ()))
+    manual_message = IBridgeMessageV1(
+        901, 0, 0, "manual-sender", 2, "manual-source-owner",
+        destination.destination_chain_id,
+        "manual-dest-owner", destination_target.address, 0,
+        ON_MESSAGE_INVOCATION_SELECTOR + b"manual"
+    )
+    manual_source, manual_route = destination_delivery_context_for_test(
+        destination, manual_message, queue_index=901
+    )
+    manual_credit = destination_credit_id_v2(
+        manual_message, manual_source, manual_route
+    )
+    assert install_destination_pin_for_test(
+        destination, manual_message, manual_source, manual_route,
+        now=pin_now)
+    destination_target.fault_point = "revert"
+    destination.execution_environment.block_timestamp = pin_now + 1
     check("P50al observers cannot force early failure or last-attempt retry",
           not destination.manual_fail(
-              manual_credit, caller_is_dest_owner=True)
+              manual_message, manual_source, manual_route,
+              caller=manual_message.destination_owner)
           and destination.process(
-              manual_credit, now=pin_now + 1, message_available=True,
-              result_hash_matches=True, callback_ok=False) == "RETRIABLE"
+              manual_message, manual_source, manual_route,
+              caller=manual_message.destination_owner) == "RETRIABLE"
           and not destination.manual_fail(
-              manual_credit, caller_is_dest_owner=False)
+              manual_message, manual_source, manual_route,
+              caller="observer")
           and destination.retry(
-              manual_credit, now=pin_now + 2, caller_is_dest_owner=False,
-              is_last_attempt=True, message_available=True,
-              result_hash_matches=True, callback_ok=True) == "REJECTED")
+              manual_message, manual_source, manual_route,
+              caller="observer",
+              is_last_attempt=True) == "REJECTED")
     destination.paused = True
+    destination.execution_environment.block_timestamp = (
+        pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1
+    )
     check("P50am manual failure is pausable but expiry is not",
           not destination.manual_fail(
-              manual_credit, caller_is_dest_owner=True)
-          and destination.expire(
-              manual_credit,
-              now=pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1))
+              manual_message, manual_source, manual_route,
+              caller=manual_message.destination_owner)
+          and destination.expire_v2(
+              manual_credit))
     destination.paused = False
+    destination_target.fault_point = None
     source.paused = True
     canonical_core_499 = CanonicalCore(
         499, "block:499", 499, "state:499", 12,
@@ -8319,20 +19141,31 @@ def test_data_gc_reorg_and_geometry() -> None:
     initial_queue_descriptors = [
         replace(message(0, f"preserved-{index}"), due_at=1_001_500)
         for index in range(17)]
+    initial_queue_escrow = (
+        sum(row.prepaid for row in initial_queue_descriptors[12:]) + 12)
     terminal_queue = QueueContinuity(
         "forced-queue", model_force_root(initial_queue_descriptors),
-        17, 12, 17, 1_001_500, initial_queue_descriptors,
+        17, 12, initial_queue_escrow, 1_001_500,
+        initial_queue_descriptors,
         claimable={"historical-prover": 12})
     migration_inbox_apply = InboxApplyRouterV2(next_queue_index=12)
     shared_migration_gate = MigrationGate()
     migration_header_oracle = make_header_oracle(initial_queue_descriptors)
+    migration_profile_1 = execution_profile_for_test(1, "profile:1")
+    migration_profile_2 = execution_profile_for_test(2, "profile:2")
+    migration_profile_3 = execution_profile_for_test(3, "profile:3")
     settlement_1 = VersionedSettlementHistory(
-        "settlement:1", "runtime:1", 1, "profile:1",
+        "settlement:1", "runtime:1", 1,
+        migration_profile_1.execution_profile_hash,
         copy.deepcopy(canonical_core_499), 49, terminal_queue,
+        execution_profile=migration_profile_1,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ),
         header_oracle=migration_header_oracle)
-    active_router = ActiveSettlementRouter(
+    active_router = deploy_active_settlement_router(
+        settlement_1,
         "version-manager", terminal_queue, migration_inbox_apply,
         shared_migration_gate, migration_header_oracle)
     assert active_router.bootstrap(
@@ -8353,12 +19186,30 @@ def test_data_gc_reorg_and_geometry() -> None:
     migration_protocol.first_v2_block_number = 1
     migration_protocol.versioned_history = settlement_1
     settlement_1.live_protocol = migration_protocol
-    assert active_router.sync_and_append(
-        message(1, "old-adapter-row", kind=ForceKind.BRIDGE_CREDIT),
-        clock=Clock(49, GENESIS_TIMESTAMP + 1),
-        bound_router=active_router.address,
-        queue_address=terminal_queue.address,
-        deposit=7) == "QUEUED:17"
+    initial_ingress_clock = Clock(49, GENESIS_TIMESTAMP + 1)
+    active_bridge_adapter = activate_ingress_adapter_for_test(
+        active_router,
+        kind=ForceKind.BRIDGE_CREDIT,
+        clock=initial_ingress_clock,
+    )
+    active_kind0_adapter = activate_ingress_adapter_for_test(
+        active_router,
+        kind=ForceKind.USER_TX,
+        clock=initial_ingress_clock,
+    )
+    ingress_status, ingress_stamp = active_router.sync_ingress(
+        clock=initial_ingress_clock, caller_adapter=active_kind0_adapter
+    )
+    initial_bridge_row = message(
+        1, "old-adapter-row")
+    assert ingress_status == "ACTIVE" and ingress_stamp is not None
+    assert active_router.append_from_adapter(
+        initial_bridge_row,
+        clock=initial_ingress_clock,
+        stamp=ingress_stamp,
+        deposit=initial_bridge_row.prepaid,
+        caller_adapter=active_kind0_adapter,
+    ) == "QUEUED:17"
     canonical_core_500 = replace(
         canonical_core_499, l2_block_number=500, tip_hash="block:500",
         state_root="state:500")
@@ -8427,22 +19278,26 @@ def test_data_gc_reorg_and_geometry() -> None:
         "auth-queue", model_force_root([]), 0, 0, 0, 0)
     check("P50cr stored and snapshotted forced roots cannot diverge",
           forged_root_rejected
-          and unauthorized_queue.append(
+          and not hasattr(unauthorized_queue, "append")
+          and unauthorized_queue._append_from_router(
               message(0, "unauthorized-append"), deposit=1,
               due_at=GENESIS_TIMESTAMP + FORCE_DELAY,
-              caller="attacker") is None
+              router=object()) is None
           and unauthorized_queue.count == 0
           and unauthorized_queue.root == model_force_root([]))
 
     atomic_protocol = protocol(messages=[message(0, "atomic-row")])
+    atomic_profile = execution_profile_for_test(1, "profile:atomic")
     atomic_history = VersionedSettlementHistory(
-        "model-settlement", "runtime:atomic", 1, "profile:atomic",
+        "model-settlement", "runtime:atomic", 1,
+        atomic_profile.execution_profile_hash,
         copy.deepcopy(atomic_protocol.core), 99,
         atomic_protocol.forced_queue, mode="ACTIVE", current_sequence=0,
+        execution_profile=atomic_profile,
         last_canonical_l1_block=100,
         migration_gate=atomic_protocol.migration_gate,
         live_protocol=atomic_protocol,
-        inbox_apply_router=atomic_protocol.inbox_apply_router)
+        inbox_apply_descriptor=atomic_protocol.inbox_apply_descriptor)
     atomic_protocol.versioned_history = atomic_history
     atomic_clock = clock(100, 1_100)
     atomic_candidate = candidate(atomic_protocol, atomic_clock, "atomic")
@@ -8490,13 +19345,35 @@ def test_data_gc_reorg_and_geometry() -> None:
           and atomic_protocol.inbox_apply_router is atomic_inbox
           and atomic_protocol.migration_gate is atomic_gate
           and atomic_history.forced_queue is atomic_queue
-          and atomic_history.inbox_apply_router is atomic_inbox
+          and atomic_history.inbox_apply_descriptor
+              == atomic_protocol.inbox_apply_descriptor
           and atomic_history.migration_gate is atomic_gate
           and atomic_history.live_protocol is atomic_protocol)
     assert migration_protocol.sync(migration_outage_clock)
     assert migration_protocol.mode is Mode.RECOVERY
     migration_revision = migration_protocol.recovery.revision
-    legacy_manifest_2 = b"2" * 32
+    prospective_settlement_2 = VersionedSettlementHistory(
+        "settlement:2",
+        "runtime:2",
+        2,
+        migration_profile_2.execution_profile_hash,
+        copy.deepcopy(canonical_core_756),
+        51,
+        terminal_queue,
+        execution_profile=migration_profile_2,
+        migration_gate=shared_migration_gate,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ),
+        header_oracle=migration_header_oracle,
+    )
+    legacy_manifest_2 = settlement_registration(
+        active_router,
+        prospective_settlement_2,
+        activation_block=52,
+        predecessor_version=1,
+        release_manifest_hash=None,
+    ).release_manifest_hash
     legacy_manifest_3_bad = b"x" * 32
     legacy_manifest_3 = b"3" * 32
     assert not shared_migration_gate._arm_from_manager(
@@ -8508,29 +19385,31 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert settlement_1._arm_migration_for_test(
         caller_is_version_manager=True, delayed_manifest_active=True,
         generation=1, target_protocol_version=2)
+    veto_user = message(4_000, "veto-ingress")
+    veto_user_result = active_kind0_adapter.enqueue(
+        migration_outage_clock,
+        veto_user,
+        caller=veto_user.sender,
+        deposit=veto_user.prepaid,
+    )
+    veto_router_status, veto_router_stamp = active_router.sync_ingress(
+        clock=migration_outage_clock,
+        caller_adapter=active_bridge_adapter,
+    )
+    unauthorized_status, unauthorized_stamp = active_router.sync_ingress(
+        clock=migration_outage_clock,
+        caller_adapter=object(),
+    )
     check("P50bm migration arm closes new transient and ingress work",
           migration_protocol.open_session(
               migration_outage_clock, "veto-session", "attacker",
               migration_outage_clock.timestamp + DATA_TTL_SECONDS)
               in {"SYNCED", "MIGRATION_ARMED"}
           and not migration_registry.reserve("migration-builder", 2, 0)
-          and migration_protocol.admit_message(
-              migration_outage_clock, message(4_000, "veto-ingress"))
-              == "SYNCED"
-          and active_router.sync_and_append(
-              message(4_000, "veto-router-ingress",
-                      kind=ForceKind.BRIDGE_CREDIT),
-              clock=migration_outage_clock,
-              bound_router=active_router.address,
-              queue_address=terminal_queue.address,
-              deposit=3) == "SYNCED"
-          and active_router.sync_and_append(
-              message(4_000, "unauthorized-router-ingress",
-                      kind=ForceKind.BRIDGE_CREDIT),
-              clock=migration_outage_clock,
-              bound_router=active_router.address,
-              queue_address=terminal_queue.address,
-              deposit=3, caller_adapter="attacker") == "REJECTED"
+          and veto_user_result == "SYNCED_REFUNDED"
+          and veto_router_status == "SYNCED" and veto_router_stamp is None
+          and unauthorized_status == "REJECTED"
+          and unauthorized_stamp is None
           and len(migration_protocol.messages) == 18)
     recovery_expiry_slot = (
         migration_protocol.recovery.expires_at - GENESIS_TIMESTAMP)
@@ -8538,6 +19417,9 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert not migration_protocol.sync(before_expiry)
     after_expiry = clock(183, recovery_expiry_slot + 1)
     assert migration_protocol.sync(after_expiry)
+    ready_status, ready_stamp = active_router.sync_ingress(
+        clock=after_expiry, caller_adapter=active_bridge_adapter
+    )
     check("P50bg delayed cutover reaches migration-ready without reopening",
           migration_protocol.recovery is None
           and migration_revision == 1
@@ -8555,22 +19437,23 @@ def test_data_gc_reorg_and_geometry() -> None:
           and migration_protocol.submit(
               candidate(migration_protocol, after_expiry, "ready-veto"),
               after_expiry) == "SYNCED"
-          and active_router.sync_and_append(
-              message(2, "ready-row", kind=ForceKind.BRIDGE_CREDIT),
-              clock=after_expiry,
-              bound_router=active_router.address,
-              queue_address=terminal_queue.address,
-              deposit=1) == "SYNCED")
+          and ready_status == "SYNCED" and ready_stamp is None)
 
     fake_settlement = VersionedSettlementHistory(
-        "settlement:fake", "runtime:2", 2, "profile:2",
+        "settlement:fake", "runtime:2", 2,
+        migration_profile_2.execution_profile_hash,
         replace(canonical_core_756, state_root="attacker-state"),
-        51, terminal_queue, migration_gate=shared_migration_gate)
+        51, terminal_queue, migration_gate=shared_migration_gate,
+        execution_profile=migration_profile_2)
     exact_settlement = VersionedSettlementHistory(
-        "settlement:2", "runtime:2", 2, "profile:2",
+        "settlement:2", "runtime:2", 2,
+        migration_profile_2.execution_profile_hash,
         copy.deepcopy(canonical_core_756), 51, terminal_queue,
+        execution_profile=migration_profile_2,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ),
         header_oracle=migration_header_oracle)
     exact_target_protocol = protocol(
         tip_slot=canonical_core_756.tip_slot,
@@ -8588,28 +19471,63 @@ def test_data_gc_reorg_and_geometry() -> None:
     exact_target_protocol.versioned_history = exact_settlement
     exact_settlement.live_protocol = exact_target_protocol
     wrong_queue_settlement = VersionedSettlementHistory(
-        "settlement:wrong-queue", "runtime:2", 2, "profile:2",
+        "settlement:wrong-queue", "runtime:2", 2,
+        migration_profile_2.execution_profile_hash,
         copy.deepcopy(canonical_core_756), 51,
         replace(terminal_queue, address="replacement-queue"),
-        inbox_apply_router=migration_inbox_apply)
+        execution_profile=migration_profile_2,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ))
     fresh_gate_settlement = VersionedSettlementHistory(
-        "settlement:fresh-gate", "runtime:2", 2, "profile:2",
+        "settlement:fresh-gate", "runtime:2", 2,
+        migration_profile_2.execution_profile_hash,
         copy.deepcopy(canonical_core_756), 51, terminal_queue,
-        inbox_apply_router=migration_inbox_apply)
+        execution_profile=migration_profile_2,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ))
     wrong_schedule_settlement = VersionedSettlementHistory(
-        "settlement:wrong-schedule", "runtime:2", 2, "profile:2",
+        "settlement:wrong-schedule", "runtime:2", 2,
+        migration_profile_2.execution_profile_hash,
         copy.deepcopy(canonical_core_756), 51, terminal_queue,
+        execution_profile=migration_profile_2,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ),
         schedule_oracle_id="replacement-schedule-oracle")
-    activation_output_core = replace(
-        canonical_core_756, l2_block_number=757, tip_hash="block:757",
-        tip_slot=canonical_core_756.tip_slot + 1,
-        state_root="state:release-2", message_cursor=terminal_queue.count)
-    activation_proof = MigrationActivationProof(
-        copy.deepcopy(canonical_core_756), activation_output_core,
-        2, legacy_manifest_2, canonical_core_756.message_cursor,
-        terminal_queue.count, "activation-prover")
+    activation_clock = Clock(
+        52, GENESIS_TIMESTAMP + canonical_core_756.tip_slot + 1
+    )
+    activation_candidate, activation_rows = migration_activation_candidate(
+        active_router,
+        exact_settlement,
+        activation_clock,
+        legacy_manifest_2,
+        "release-2",
+        "activation-prover",
+    )
+    activation_attestation = issue_verified_migration_evm_trace_for_test(
+        exact_target_protocol._inbox_execution_authority,
+        router=active_router,
+        settlement=exact_settlement,
+        clock=activation_clock,
+        target_manifest_hash=legacy_manifest_2,
+        candidate=activation_candidate,
+        rows=activation_rows,
+    )
+    activation_proof = (
+        exact_target_protocol._inbox_execution_authority
+        .verify_migration_execution_output(
+        router=active_router,
+        settlement=exact_settlement,
+        clock=activation_clock,
+        target_manifest_hash=legacy_manifest_2,
+        candidate=activation_candidate,
+        evm_validity=activation_attestation,
+        rows=activation_rows,
+    ))
     wrong_runtime_queue = replace(
         terminal_queue, runtime_hash="attacker-queue-runtime"
     )
@@ -8618,100 +19536,131 @@ def test_data_gc_reorg_and_geometry() -> None:
     )
     queue_code_rejected = not active_router._activate_version_with_proof(
         settlement=wrong_runtime_settlement,
-        clock=Clock(52, GENESIS_TIMESTAMP + 52),
-        caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-        target_runtime_approved=True, target_profile_matches=True,
-        full_core_import_exact=True, queue_import_exact=True)
+        clock=activation_clock,
+        target_manifest_hash=legacy_manifest_2,
+        activation_proof=activation_proof,
+    )
     live_canonical = migration_protocol.canonical
     migration_protocol.canonical = Canonical(
         replace(canonical_core_756, state_root="stale-live-state"), 51)
     stale_live_state_rejected = not active_router._activate_version_with_proof(
         settlement=exact_settlement,
-        clock=Clock(52, GENESIS_TIMESTAMP + 52),
-        caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-        target_runtime_approved=True, target_profile_matches=True,
-        full_core_import_exact=True, queue_import_exact=True)
+        clock=activation_clock,
+        target_manifest_hash=legacy_manifest_2,
+        activation_proof=activation_proof,
+    )
     migration_protocol.canonical = live_canonical
     check("P50ba router rejects fake, unauthorized and discontinuous targets",
           queue_code_rejected and stale_live_state_rejected
           and not active_router._activate_version_with_proof(
               settlement=exact_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2,
-              activation_proof=replace(activation_proof, proof_valid=False),
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
-          and not active_router._activate_version_with_proof(
-              settlement=exact_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
+              clock=activation_clock,
               target_manifest_hash=legacy_manifest_2,
               activation_proof=replace(
-                  activation_proof, target_components_valid=False),
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
+                  activation_proof, seal="attacker-seal"),
+          )
           and not active_router._activate_version_with_proof(
               settlement=exact_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash="manifest:attacker",
+              clock=activation_clock,
+              target_manifest_hash=legacy_manifest_2,
+              activation_proof=replace(
+                  activation_proof,
+                  evm_validity=replace(
+                      activation_attestation,
+                      candidate_digest="attacker-candidate",
+                  ),
+              ),
+          )
+          and not active_router._activate_version_with_proof(
+              settlement=exact_settlement,
+              clock=activation_clock,
+              target_manifest_hash=b"a" * 32,
               activation_proof=activation_proof,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
+          )
           and not active_router._activate_version_with_proof(
               settlement=fake_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
-          and not active_router._activate_version_with_proof(
-              settlement=exact_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=False, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
-          and not active_router._activate_version_with_proof(
-              settlement=exact_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-              target_runtime_approved=False, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
+              clock=activation_clock,
+              target_manifest_hash=legacy_manifest_2,
+              activation_proof=activation_proof,
+          )
           and not active_router._activate_version_with_proof(
               settlement=wrong_queue_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
+              clock=activation_clock,
+              target_manifest_hash=legacy_manifest_2,
+              activation_proof=activation_proof,
+          )
           and not active_router._activate_version_with_proof(
               settlement=fresh_gate_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True)
+              clock=activation_clock,
+              target_manifest_hash=legacy_manifest_2,
+              activation_proof=activation_proof,
+          )
           and not active_router._activate_version_with_proof(
               settlement=wrong_schedule_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-              caller_is_version_manager=True, manifest_active=True,
-              target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-              target_runtime_approved=True, target_profile_matches=True,
-              full_core_import_exact=True, queue_import_exact=True))
+              clock=activation_clock,
+              target_manifest_hash=legacy_manifest_2,
+              activation_proof=activation_proof,
+          ))
+    l2_cutover_prestate = (
+        migration_inbox_apply.next_queue_index,
+        migration_inbox_apply.last_applied_l2_block,
+        dict(migration_inbox_apply.routes),
+        dict(exact_target_protocol._inbox_execution_authority.protocol
+             .inbox_apply_router._terminal_registrar_authority
+             .authority.releases),
+    )
+    migration_l2_poststate = replay_verified_migration_output_on_l2_for_test(
+        exact_target_protocol, activation_proof
+    )
+    assert migration_l2_poststate is not None
     assert active_router._activate_version_with_proof(
-              settlement=exact_settlement,
-              clock=Clock(52, GENESIS_TIMESTAMP + 52),
-        caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash=legacy_manifest_2, activation_proof=activation_proof,
-        target_runtime_approved=True, target_profile_matches=True,
-        full_core_import_exact=True, queue_import_exact=True)
+        settlement=exact_settlement,
+        clock=activation_clock,
+        target_manifest_hash=legacy_manifest_2,
+        activation_proof=activation_proof,
+    )
+    check("P50ch L1 cutover adopts commitments without writing live L2",
+          active_router.inbox_apply_descriptor.authenticates(
+              migration_inbox_apply)
+          and not any(
+              type(value) is InboxApplyRouterV2
+              for value in active_router.__dict__.values()
+          )
+          and l2_cutover_prestate == (
+              migration_inbox_apply.next_queue_index,
+              migration_inbox_apply.last_applied_l2_block,
+              migration_inbox_apply.routes,
+              exact_target_protocol._inbox_execution_authority.protocol
+                  .inbox_apply_router._terminal_registrar_authority
+                  .authority.releases,
+          ))
+    assert select_canonical_l2_poststate_for_test(migration_l2_poststate)
     migration_protocol = exact_settlement.live_protocol
     assert migration_protocol is not settlement_1.live_protocol
+    post_activation_clock = Clock(53, GENESIS_TIMESTAMP + 53)
+    post_status, post_stamp = active_router.sync_ingress(
+        clock=post_activation_clock, caller_adapter=active_kind0_adapter
+    )
+    post_activation_row = message(
+        post_activation_clock.l2_slot,
+        "same-old-adapter-after-v2",
+    )
+    post_activation_deposit = active_router.required_ingress_deposit(
+        post_activation_row, active_kind0_adapter)
+    post_activation_row = replace(
+        post_activation_row, prepaid=post_activation_deposit)
+    # The anchored header freezes cutoff 17.  The Bridge row at index 17 and
+    # the post-cutover row at index 18 remain for the next canonical batch.
+    activation_prover_award = sum(
+        row.prepaid for row in initial_queue_descriptors[12:17]
+    )
+    post_append = active_router.append_from_adapter(
+        post_activation_row,
+        clock=post_activation_clock,
+        stamp=post_stamp,
+        deposit=post_activation_deposit,
+        caller_adapter=active_kind0_adapter,
+    ) if post_stamp is not None else post_status
     check("P50bc proof-first migration atomically adopts target activation",
           settlement_1.mode == "FROZEN"
           and active_router.canonical_at(1, sequence_2) == canonical_756
@@ -8720,27 +19669,26 @@ def test_data_gc_reorg_and_geometry() -> None:
           and exact_settlement._record_canonical_from_protocol(
               protocol=settlement_1.live_protocol,
               clock=Clock(52, GENESIS_TIMESTAMP + 5)) is None
-          and active_router.sync_and_append(
-              message(2, "same-old-adapter-after-v2",
-                      kind=ForceKind.BRIDGE_CREDIT),
-              clock=Clock(52, GENESIS_TIMESTAMP + 2),
-              bound_router=active_router.address,
-              queue_address=terminal_queue.address,
-              deposit=5) == "QUEUED:18"
+          and post_status == "ACTIVE" and post_append == "QUEUED:18"
           and shared_migration_gate.mode == "ACTIVE"
           and shared_migration_gate.active_protocol_version == 2
           and shared_migration_gate.target_protocol_version == 0
           and terminal_queue.active_settlement_address == "settlement:2"
-          and not terminal_queue.advance_cursor(
-              18, 18, caller="settlement:1", beneficiary="old")
-          and not terminal_queue.advance_cursor(
-              18, 19, caller="attacker", beneficiary="attacker")
+          and not hasattr(terminal_queue, "advance_cursor")
+          and not terminal_queue._advance_from_active_settlement(
+              settlement=settlement_1,
+              candidate=activation_candidate,
+          )
           and terminal_queue.count == 19
-          and terminal_queue.cursor == 18
-          and terminal_queue.escrow_balance == 29
-          and terminal_queue.claimable.get("activation-prover") == 12
+          and terminal_queue.cursor == 17
+          and terminal_queue.escrow_balance
+              == initial_queue_escrow + initial_bridge_row.prepaid
+                  + post_activation_deposit
+          and terminal_queue.claimable.get("activation-prover")
+              == activation_prover_award
           and [row.payload_hash for row in terminal_queue.descriptors[-2:]]
-              == ["old-adapter-row", "same-old-adapter-after-v2"]
+              == [initial_bridge_row.payload_hash,
+                  post_activation_row.payload_hash]
           and migration_protocol.messages is terminal_queue.descriptors
           and not migration_protocol.release_activation_pending
           and migration_protocol.pending_release_protocol_version == 0
@@ -8750,30 +19698,47 @@ def test_data_gc_reorg_and_geometry() -> None:
     migration_activation_trigger = clock(200, 4_001)
     assert migration_protocol.sync(migration_activation_trigger)
     migration_activation_clock = recovery_submit_clock(migration_protocol)
-    migration_activation_candidate = escape_candidate(
+    post_migration_candidate = escape_candidate(
         migration_protocol, migration_activation_clock,
         "migration-release-activation")
     forged_activation = replace(
-        migration_activation_candidate,
+        post_migration_candidate,
         blocks=(replace(
-            migration_activation_candidate.blocks[0],
+            post_migration_candidate.blocks[0],
             release_activation=True, release_protocol_version=2,
             release_manifest_hash="manifest:2",
             force_gas_budget=ACTIVATION_FORCE_GAS_BUDGET),))
+    post_migration_l2_poststate = replay_candidate_queue_range_on_l2_for_test(
+        migration_protocol._inbox_execution_authority,
+        post_migration_candidate,
+        migration_activation_clock,
+    )
+    post_migration_submit = migration_protocol.submit(
+        post_migration_candidate, migration_activation_clock
+    )
+    post_migration_replayed = (
+        post_migration_submit == "COMMITTED"
+        and post_migration_l2_poststate is not None
+        and select_canonical_l2_poststate_for_test(
+            post_migration_l2_poststate
+        )
+    )
     check("P50ct post-cutover work cannot replay release activation",
-          not migration_activation_candidate.blocks[0].release_activation
-          and migration_activation_candidate.blocks[0].release_protocol_version == 0
-          and migration_activation_candidate.blocks[0].release_manifest_hash == ""
+          post_migration_replayed
+          and not post_migration_candidate.blocks[0].release_activation
+          and post_migration_candidate.blocks[0].release_protocol_version == 0
+          and post_migration_candidate.blocks[0].release_manifest_hash == ""
           and not migration_protocol._valid_recovery(
               forged_activation, migration_activation_clock)
-          and migration_protocol.submit(
-              migration_activation_candidate,
-              migration_activation_clock) == "COMMITTED"
+          and post_migration_submit == "COMMITTED"
           and not migration_protocol.release_activation_pending
           and migration_protocol.core.message_cursor == 19
-          and terminal_queue.claimable.get("prover") == 5
-          and terminal_queue.withdraw_claimable("activation-prover") == 12
-          and terminal_queue.withdraw_claimable("prover") == 5
+          and terminal_queue.claimable.get("prover")
+              == initial_bridge_row.prepaid + post_activation_deposit
+          and terminal_queue.withdraw_claimable("activation-prover")
+              == activation_prover_award
+          and terminal_queue.withdraw_claimable("prover")
+              == initial_bridge_row.prepaid + post_activation_deposit
           and terminal_queue.escrow_balance == 12
           and terminal_queue.unconsumed_escrow == 0
           and terminal_queue.total_claimable == 12
@@ -8799,6 +19764,28 @@ def test_data_gc_reorg_and_geometry() -> None:
         generation=2, target_protocol_version=3,
         target_manifest_hash=legacy_manifest_3_bad,
         cancel_manifest_active=True, clock=abort_ready_clock)
+    prospective_settlement_3 = VersionedSettlementHistory(
+        "settlement:3",
+        "runtime:3",
+        3,
+        migration_profile_3.execution_profile_hash,
+        copy.deepcopy(exact_settlement.core),
+        exact_settlement.canonicalized_at_block,
+        terminal_queue,
+        execution_profile=migration_profile_3,
+        migration_gate=shared_migration_gate,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ),
+        header_oracle=migration_header_oracle,
+    )
+    legacy_manifest_3 = settlement_registration(
+        active_router,
+        prospective_settlement_3,
+        activation_block=abort_ready_clock.block_number + 2,
+        predecessor_version=2,
+        release_manifest_hash=None,
+    ).release_manifest_hash
     assert shared_migration_gate._arm_from_manager(
         3, 2, 3, legacy_manifest_3, caller="version-manager")
     assert migration_protocol._arm_migration_for_test(3)
@@ -8811,11 +19798,15 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert migration_protocol.sync(second_ready_clock)
     assert exact_settlement.enter_migration_ready()
     settlement_3 = VersionedSettlementHistory(
-        "settlement:3", "runtime:3", 3, "profile:3",
+        "settlement:3", "runtime:3", 3,
+        migration_profile_3.execution_profile_hash,
         copy.deepcopy(exact_settlement.core),
         exact_settlement.canonicalized_at_block, terminal_queue,
+        execution_profile=migration_profile_3,
         migration_gate=shared_migration_gate,
-        inbox_apply_router=migration_inbox_apply,
+        inbox_apply_descriptor=inbox_apply_deployment_descriptor(
+            migration_inbox_apply
+        ),
         header_oracle=migration_header_oracle)
     target_protocol_3 = protocol(
         tip_slot=exact_settlement.core.tip_slot,
@@ -8833,25 +19824,52 @@ def test_data_gc_reorg_and_geometry() -> None:
         exact_settlement.canonicalized_at_block)
     target_protocol_3.versioned_history = settlement_3
     settlement_3.live_protocol = target_protocol_3
-    activation_output_3 = replace(
-        exact_settlement.core,
-        l2_block_number=exact_settlement.core.l2_block_number + 1,
-        tip_hash="block:release-3", tip_slot=exact_settlement.core.tip_slot + 1,
-        state_root="state:release-3")
-    activation_proof_3 = MigrationActivationProof(
-        copy.deepcopy(exact_settlement.core), activation_output_3,
-        3, legacy_manifest_3, terminal_queue.cursor, terminal_queue.cursor,
-        "activation-prover-3")
     second_cutover_block = max(
         second_ready_clock.block_number + 1,
         exact_settlement.last_canonical_l1_block + 1)
+    second_activation_clock = Clock(
+        second_cutover_block,
+        max(
+            second_ready_clock.timestamp + 1,
+            GENESIS_TIMESTAMP + exact_settlement.core.tip_slot + 1,
+        ),
+    )
+    activation_candidate_3, activation_rows_3 = (
+        migration_activation_candidate(
+            active_router,
+            settlement_3,
+            second_activation_clock,
+            legacy_manifest_3,
+            "release-3",
+            "activation-prover-3",
+        )
+    )
+    activation_attestation_3 = issue_verified_migration_evm_trace_for_test(
+        target_protocol_3._inbox_execution_authority,
+        router=active_router,
+        settlement=settlement_3,
+        clock=second_activation_clock,
+        target_manifest_hash=legacy_manifest_3,
+        candidate=activation_candidate_3,
+        rows=activation_rows_3,
+    )
+    activation_proof_3 = (
+        target_protocol_3._inbox_execution_authority
+        .verify_migration_execution_output(
+        router=active_router,
+        settlement=settlement_3,
+        clock=second_activation_clock,
+        target_manifest_hash=legacy_manifest_3,
+        candidate=activation_candidate_3,
+        evm_validity=activation_attestation_3,
+        rows=activation_rows_3,
+    ))
     assert active_router._activate_version_with_proof(
         settlement=settlement_3,
-        clock=Clock(second_cutover_block, second_ready_clock.timestamp + 1),
-        caller_is_version_manager=True, manifest_active=True,
-        target_manifest_hash=legacy_manifest_3, activation_proof=activation_proof_3,
-        target_runtime_approved=True, target_profile_matches=True,
-        full_core_import_exact=True, queue_import_exact=True)
+        clock=second_activation_clock,
+        target_manifest_hash=legacy_manifest_3,
+        activation_proof=activation_proof_3,
+    )
     check("P50bn abort is delayed and the same gate completes a later migration",
           2 in shared_migration_gate.canceled_generations
           and shared_migration_gate.generation == 3
@@ -8871,14 +19889,14 @@ def test_data_gc_reorg_and_geometry() -> None:
     failed_index = destination.terminal_index[credit_a]
     done_index = destination.terminal_index[credit_b]
     failed_proof = TerminalProof(
-        1, sequence_2, canonical_756, failed_index, "bridge:A", "domain:D1",
+        1, sequence_2, canonical_756, failed_index, "bridge:A", d1_domain,
         credit_a, "FAILED", accumulator.leaves[failed_index], accumulator.root)
     done_proof = TerminalProof(
-        1, sequence_2, canonical_756, done_index, "bridge:A", "domain:D1",
+        1, sequence_2, canonical_756, done_index, "bridge:A", d1_domain,
         credit_b, "DONE", accumulator.leaves[done_index], accumulator.root)
     done_d2_index = destination_d2.terminal_index[credit_d2]
     d2_proof = TerminalProof(
-        1, sequence_2, canonical_756, done_d2_index, "bridge:B", "domain:D2",
+        1, sequence_2, canonical_756, done_d2_index, "bridge:B", d2_domain,
         credit_d2, "DONE", accumulator.leaves[done_d2_index],
         accumulator.root)
     legacy_signal_service_paused = True
@@ -8886,43 +19904,43 @@ def test_data_gc_reorg_and_geometry() -> None:
           legacy_signal_service_paused
           and terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_a, terminal="FAILED",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=replace(failed_proof, destination_bridge="bridge:B"),
               credit_id=credit_a, terminal="FAILED",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A"))
     check("P50aw terminal proof substitutions fail closed",
           not terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_b, terminal="FAILED",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_a, terminal="DONE",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=replace(failed_proof, proof_root="forged"),
               credit_id=credit_a, terminal="FAILED",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=replace(failed_proof, canonical_sequence=99),
               credit_id=credit_a, terminal="FAILED",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A"))
     check("P50cb one source verifier handles old D1 and later D2 endpoints",
           terminal_verifier.verify(
               proof=done_proof, credit_id=credit_b, terminal="DONE",
-              destination_domain_id="domain:D1",
+              destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
               proof=replace(d2_proof, destination_bridge="bridge:A"),
               credit_id=credit_d2, terminal="DONE",
-              destination_domain_id="domain:D2",
+              destination_domain_id=d2_domain,
               destination_bridge="bridge:B")
-          and source.finalize_done(
+          and source_d2.finalize_done(
               credit_d2, verifier=terminal_verifier, proof=d2_proof))
     frozen_runtime = settlement_1.runtime_hash
     try:
@@ -8946,34 +19964,57 @@ def test_data_gc_reorg_and_geometry() -> None:
               credit_b, verifier=terminal_verifier, proof=failed_proof))
 
     reorg_protocol = protocol(tip_slot=100)
-    reorg_adapter = BridgeAdapter()
-    reorg_source = SourceBridgeLedger()
     reorg_clock = clock(100, 100)
+    reorg_router = routed_ingress_for_test(reorg_protocol)
+    reorg_source = source_bridge_for_test(reorg_router)
+    reorg_adapter = activate_ingress_adapter_for_test(
+        reorg_router, kind=ForceKind.BRIDGE_CREDIT, clock=reorg_clock,
+        source_bridge=reorg_source,
+    )
     reorg_enqueue_by = reorg_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
-    reorg_id = reorg_adapter.credit_id(
-        1, "domain:R1", 1, "bridge:A", "domain:D1", "reorg")
-    assert reorg_source.open(
-        reorg_id, now=reorg_clock.timestamp, enqueue_by=reorg_enqueue_by,
-        owner="alice", value=1, fee=1)
-    pre_protocol = reorg_protocol.snapshot()
-    pre_adapter = copy.deepcopy(reorg_adapter)
-    pre_source = copy.deepcopy(reorg_source)
+    reorg_source_clock = reorg_source.support_final_clock(
+        reorg_clock.timestamp
+    )
+    reorg_envelope = bridge_message(
+        reorg_clock.l2_slot, "reorg", value=1, fee=1
+    )
+    reorg_id = open_source_credit_for_test(
+        reorg_source, reorg_envelope, clock=reorg_source_clock,
+        enqueue_by=reorg_enqueue_by,
+    )
+    reorg_queue_snapshot = reorg_router.forced_queue._transaction_snapshot()
+    reorg_source_snapshot = reorg_source._transaction_snapshot()
+    reorg_registry_snapshot = (
+        reorg_source.credit_registry._authorization_snapshot()
+    )
+    reorg_adapter_snapshot = copy.deepcopy({
+        key: value for key, value in reorg_adapter.__dict__.items()
+        if key not in {"router", "credit_registry", "source_bridge"}
+    })
     assert reorg_adapter.enqueue(
-        reorg_protocol, reorg_clock, reorg_source, src_chain_id=1,
-        source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
-        destination_domain_id="domain:D1", msg_hash="reorg",
-        enqueue_by=reorg_enqueue_by, envelope=bridge_envelope,
-        caller="relayer", deposit=1) == "QUEUED:0"
-    reorg_protocol = pre_protocol
-    reorg_adapter = pre_adapter
-    reorg_source = pre_source
+        reorg_source_clock, envelope=reorg_envelope,
+        caller="relayer", deposit=reorg_envelope.prepaid) == "QUEUED:0"
+    reorg_router.forced_queue._restore_transaction_snapshot(
+        reorg_queue_snapshot
+    )
+    reorg_source._restore_transaction_snapshot(reorg_source_snapshot)
+    reorg_source.credit_registry._restore_authorization_snapshot(
+        reorg_registry_snapshot, source_bridge=reorg_source
+    )
+    reorg_adapter.__dict__.clear()
+    reorg_adapter.__dict__.update(reorg_adapter_snapshot)
+    object.__setattr__(reorg_adapter, "router", reorg_router)
+    object.__setattr__(
+        reorg_adapter, "credit_registry", reorg_source.credit_registry
+    )
+    object.__setattr__(reorg_adapter, "source_bridge", reorg_source)
     check("P50o orphaned direct enqueue replays from the durable source record",
           reorg_adapter.enqueue(
-              reorg_protocol, clock(101, 101), reorg_source, src_chain_id=1,
-              source_domain_id="domain:R1", src_epoch=1, src_bridge="bridge:A",
-              destination_domain_id="domain:D1", msg_hash="reorg",
-              enqueue_by=reorg_enqueue_by, envelope=bridge_envelope,
-              caller="relayer", deposit=1) == "QUEUED:0"
+              Clock(
+                  reorg_source_clock.block_number,
+                  clock(101, 101).timestamp,
+              ), envelope=reorg_envelope,
+              caller="relayer", deposit=reorg_envelope.prepaid) == "QUEUED:0"
           and len(reorg_protocol.messages) == 1)
 
 

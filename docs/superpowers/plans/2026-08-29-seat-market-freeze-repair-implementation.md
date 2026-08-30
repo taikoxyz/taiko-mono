@@ -218,7 +218,7 @@ ESCAPE_OFFSET >= depth time + proof time + margin
 FORCE_DELAY >= W_SETTLE + T_INCLUDE_MAX
 forced item/count/bytes/gas <= candidate and queue bounds
 queue and terminal counts < UINT64_MAX
-refund capsule word/ERC721/ERC1155 caps
+DIRECT-only refund projection is empty; no V2 capsule or asset caps
 kind-0 validity, kind-1 enqueue, process TTL, and data TTL lower bounds
 canonical-history capacity > ceil((T_INCLUDE_MAX + REORG_MARGIN) / L1_SLOT) + 2
 EIP-2935 history > arm/evidence/reorg replay horizon
@@ -983,16 +983,18 @@ class RouterWord:
 The manager writes the proposed global word, calls the manager-only Settlement completion callback,
 validates fixed-length bound magic, and commits only if the whole call returns. Snapshot mutable
 state while retaining the exact authority objects, then restore those objects in place; never clone
-or replace the Router, gate, HeaderOracle, queue, inbox router, History, or Protocol authority graph.
+or replace the Router, gate, HeaderOracle, queue, InboxApply descriptor, History, or Protocol authority graph.
 Every callback failure must restore router and Settlement bytes without changing any identity alias.
 
 Make `ActiveSettlementRouter` the immutable protocol-lifetime owner of the shared `MigrationGate`,
-forced queue, inbox-apply router, and read-only `L1HeaderOracle` (the modeled EIP-2935/system-history
+forced queue, frozen InboxApply deployment descriptor, and read-only `L1HeaderOracle` (the modeled EIP-2935/system-history
 source) with exact immutable `{address, runtimeHash, configurationHash}`. Bootstrap, `PREACTIVE`
 validation, activation, every consensus read, and rollback must validate and preserve those three
 metadata values plus exact object identity. Every active, `PREACTIVE`, and historical
-History/Protocol must identity-alias that exact graph. Freeze deployment identity on Router,
-History, Protocol, queue, inbox router, target runtime,
+History/Protocol must identity-alias the L1 authorities and compare the same exact InboxApply
+descriptor. The L1 Router and History must contain no live InboxApply/Registrar/Store object and may
+never read, snapshot, or write L2 routes, cursors, or pins. Freeze deployment identity on Router,
+History, Protocol, queue, InboxApply descriptor, target runtime,
 Release Manager, and ProtocolVersionManager; the manager's arm/cancel delays must be exact and
 positive. EVM `block.number`/`block.timestamp` enter only as one environment `Clock`, and activation,
 bootstrap, and canonical writes accept no caller-supplied scalar block/timestamp/header authority.
@@ -1012,7 +1014,7 @@ that generation and never resurrects consumed state. The core activation/abort m
 remain executable and atomic without calling or depending on Market.
 
 Activation must reject every dirty or graph-split successor. Require a separately constructed
-`PREACTIVE` target with the exact router-owned gate/header/queue/inbox identities, independent mutable
+`PREACTIVE` target with the exact router-owned gate/header/queue authorities and InboxApply descriptor, independent mutable
 containers, an empty History ring and router authority, and no candidates, rounds, sessions, seat
 ledger, stage/tombstone, migration record, counters, events, or other non-imported transient state.
 Import the exact proven admission version/root with the canonical core and require queue capacity to
@@ -1063,6 +1065,41 @@ after any number of rotations. The closed forbidden old-target surface is insert
 stage/apply/expiry, new session/ingress, and other new-economic/install activity.
 
 - [ ] **Step 6: Run migration and complete model regressions**
+
+Model normal/recovery and migration execution as two layers before running the gates. Add one
+immutable per-version `ExecutionProfile` containing the exact non-proxy
+`IMigrationTransitionVerifier` instance and descriptor covering exact
+address/runtime/configuration, verifying key, proof system, public-input schema, proof-byte and gas
+bounds, and fixed selector. Model the production call as bounded `STATICCALL` with exact 32-byte
+returndata equal to a locally derived, domain-separated typed statement hash; a test-only verifier
+mock implements the same interface, while proof generation lives outside the production type. There
+must be no global/default verifier in a production constructor. The byte-exact execution-profile hash
+commits the descriptor, the release commits the profile and descriptor, and append-only historical
+registrations retain the exact old verifier while later releases may rotate address/code/key/schema.
+The
+statement binds chain/Router/Queue/source generation, canonical sequence, candidate/beneficiary,
+full base/end core, target version/profile/manifest, Queue root/count/range/descriptor commitment,
+historical Anchor and force boundary, tx0/tx1 calldata hashes, and a manifest-derived expected
+deployment commitment. Actual account/code/storage observations, including UUPS slots, are private
+circuit witness authenticated under `baseRoot`; L1 never reconstructs them from live L2 objects. Carry
+the complete statement digest, exact migration generation, and source canonical sequence through the
+sealed trace and execution output, and rederive/compare the full L1 statement at adoption. A canceled
+generation or changed source sequence rejects; an otherwise unchanged proof may land later. Do not
+bind the future landing block/time. Only a successful
+exact verifier return may mint the internal trace/observation. L1 adopts only those commitments and
+advances Canonical/History/Queue. A separate
+execution-node helper produces an immutable fork-local L2 poststate and selects it only after
+observing the exact successful L1 transition. Add named regressions proving loser and abandoned
+forks, pre-cutover migration replay, and injected L1 commit faults leave L2 unchanged; clearing the
+fault must allow the same sealed poststate/proof to commit and select, and the selected state must
+support the next L2 block. Local replay failure must not revert or mutate the valid L1 transition.
+Add proof bytes, verifier address/code/config/key/schema/selector, end root, tx ordering, beneficiary,
+Anchor, Queue range, observed code/storage and UUPS-slot substitution tests, exact returndata/size
+bounds, canceled-generation/source-sequence replay, per-version verifier rotation/retention, and a
+same-proof later-landing regression. **Open High / mandatory Task 7:** replace the behavioral typed
+encoder/mock-call model with the exact static ABI/Keccak statement codec, bounded proof calldata and
+gas, real `STATICCALL` return checks, raw EIP-2718 tx0/tx1 hashes, and golden vectors before claiming
+implementation readiness.
 
 ```bash
 python3 test-seat-market.py
@@ -1224,7 +1261,123 @@ bond/duty liability until removal, earlier funding expiry, and sponsorship that 
 Update the `ActiveSettlementRouter`/`ProtocolVersionManager` section rather than adding a competing
 seat-only coordinator. Specify manager-only completion callbacks, exact tuple magic, internal sync
 continuation, atomic rollback, retained generation on abort, no seat resurrection, target rotation,
-and permanent historical claim paths.
+and permanent historical claim paths. Preserve the existing two-call forced-ingress ABI, but model
+its authority literally: Protocol exposes no append bypass and PVM exposes no separate delayed
+ingress-manifest/pending/activation surface. The authenticated target release/profile precommits the
+complete typed ingress-authorization root and exact deployed adapter objects. Cutover atomically
+binds Kind-0 and stages the exact Bridge support route; after the canonical registration proof and
+214-block delay, anyone can bind the exact release-owned Bridge adapter without post-cutover
+governance. Router validates exact adapter identity and the complete active graph, runs nonpayable
+sync even while ARMED/READY, stamps the unchanged ACTIVE graph, derives enqueue/due time from Clock,
+and invokes a Router-object-only queue writer. Pin sync refunds, stale/capacity/value mismatch
+reverts, kind-role separation, reentrancy, old-adapter retention, and full Queue/source/adapter
+rollback under injected late faults.
+
+Model kind-1 admission with a raw `BridgeAdmissionEnvelope` around the complete eleven-field
+`IBridgeMessageV1`, including actual `bytes data`. Derive data length, data commitment, and the full
+message commitment internally; delete caller-provided hash/length fields and retain only the exact
+durable V10 projection in the Queue. Split the source graph into an immutable append-only
+`BridgeCreditRegistryV2` authorization store and an exact `SourceBridgeV2` payable custody/liability
+contract. Source send overwrites calldata id/from/source-chain with next-id/actual-caller/chain-context
+before hashing, returns only the normalized Message receipt, and requires
+`msg.value == value + fee`, and creates Registry authorization plus Bridge custody/liability in one
+non-reentrant rollback domain. Bridge ingress must join both exact objects and roll Registry,
+SourceBridge, Queue, and adapter state back after any late failure. Add named tests for dynamic data
+lengths 0/31/32/33/MAX, every Message field and raw-data substitution, same-address Bridge clones,
+read-only fixed-size Registry exposure, zero/under/over funding, duplicate/retry, and
+Registry/Bridge/Queue fault injection. Source send must resolve the current destination Bridge and
+reject that address as the normalized `from`, including when source and destination Bridge addresses
+differ.
+
+Freeze the launch to **V2 DIRECT-only**. Do not add a V2 Vault selector, capsule, restorable token,
+asset registry, get-or-deploy path, or Vault outflow authorization. ERC20/ERC721/ERC1155 and all
+official Vault flows stay on V1. Require DIRECT plus empty Vault/capsule fields in Registry, adapter,
+Queue, and Inbox projections. Reject every exact legacy Vault caller and every release-pinned
+privileged target before source writes; delete or isolate all active V2 asset classes, helpers and
+tests. Preserve only non-normative future prerequisites: bidirectional round trip,
+delivered-backing accounting, immutable `AssetPolicyId`, exact canonical/deployment identity,
+mapping-rotation history, destination RELEASE-versus-MINT conservation, and unpausable exit. A future
+asset protocol needs a new kind/tag, release/profile and codec; it cannot reinterpret DIRECT.
+
+Keep source `value + fee` as live liability through QUEUED. DONE releases both; CANCELLED/RECALLED
+creates a full pull refund. Implement unpausable CEI withdrawal from an exact transaction-caller
+frame to a caller-selected nonzero recipient; a failed or reentrant recipient restores the claim.
+Make V1/V2 share the same Bridge facade, message-id counter, pause, non-reentrant lock, native
+balance, and immutable QuotaManager. Add behavioral typed V1 process/retry/recall/sweep floor
+harnesses on both chains and one common post-balance floor: process preflights the balance floor for
+maximum value-plus-fee and models target value, processor fee, and owner refund legs. Check quota
+after the target result: success or prohibited invocation requires and consumes value-plus-fee;
+target failure restores value and requires and consumes fee only; an outcome-specific quota miss
+rolls the target journal back. Retry/recall preflight both balance and quota for value. Test exact
+free balance, one wei short, quota exactly fee on failed versus successful targets,
+target/recipient fault, prohibited invocation, and cross-version reentrancy. Treat these as concrete
+`Bridge.sol` floor-check insertion tests, not a replacement V1 execution specification.
+
+Split L1 and L2 graphs completely. Build destination Bridge/Store/Accumulator/environment/status/
+balance only from the destination manifest; never retain SourceBridge, Registry, Vault, token, or
+capsule objects. Permit the same numeric Bridge address across chains while asserting distinct chain,
+domain, object, storage, balance and writer identity. Keep V1 msg-hash and V2 credit-id status
+namespaces separate.
+
+Use an environment-owned dynamic account map rather than a Bridge allowlist. CREATE/CREATE2 after
+Bridge construction must be callable; unknown no-code accounts are EOAs. Preserve Bridge invocation
+compatibility: zero-value empty data succeeds without CALL; positive-value empty data and 1--3 bytes
+CALL fallback; length at least four calls only `IMessageInvocable.onMessageInvocation(bytes)`;
+other selectors are invocation-prohibited DONE with value credited to the owner. Expand ContextV2
+to commit version/kind, credit/msg hash, source domain/exact epoch/Bridge/execution/emission block,
+Queue index, destination domain/Bridge, release manifest and profile. Future Bridge-trusting
+endpoints require an exact policy and a fresh domain/Bridge; old contexts and V1/out-of-frame reads
+fail closed.
+
+Manifest-pin the complete denyset discovered from the Bridge authority callgraph: Bridge,
+SignalService, native QuotaManager, three V1 Vaults, DelegateController, InboxApply/Store, Registrar,
+ReleaseAuthority, activation gate, accumulator/verifier, contexts, and all other system or
+Bridge-trusting endpoints. Source rejects before writes; destination defense appends FAILED with no
+value, fee, quota, or endpoint side effect. Historical denysets are immutable.
+
+Replace lifecycle booleans with the environment-issued caller/gas/timestamp frame. `process` is
+NEW-only; relayer failure stays NEW and only owner failure creates RETRIABLE. `retry` is
+RETRIABLE-only; zero-gas/last-attempt is owner-only, non-last failure is side-effect free, and owner
+last failure is FAILED. Manual fail is owner-only/pausable; `expireV2(creditId)` is raw-preimage-free,
+permissionless, unpausable and strict after processBy. All entries and pull withdrawal share one
+non-reentrant frame.
+
+Use the V2 success-only bounty: no failed path pays fee. On any DONE, a non-owner with positive
+gasLimit receives all fee; owner self-processing receives all fee. Preflight independent destination
+liquidity/quota for value-plus-fee before CALL, debit value in the call journal, create fee pull only
+after success, consume quota once, and roll all target/Bridge/terminal state back on a tail fault.
+Invocation-prohibited DONE creates owner value pull plus the success bounty without CALL. Pull
+liability is a hard floor for every V1 outflow and withdrawal is unpausable/CEI/retryable. Document
+that L1 escrow and L2 premint are separate and liveness is conditional on combined liquidity.
+
+Test real Queue→InboxApply→independent Bridge flows for EOA, short fallback, dynamically deployed
+IMessageInvocable, wrong selector, complete privileged denyset, gas threshold versus callee OOG,
+success bounty races, exact value debit, quota, pull recipient failure/reentry, terminal fault,
+owner/last retry, expiry after raw bytes loss, same-address cross-chain separation, and historical
+ContextV2 policy.
+
+**Open High / mandatory gas gate:** keep the distinct manifest-pinned post-call reserve provisional.
+Task 7 must Foundry-benchmark accumulator carry depths 0--63, cold/first-write paths, context clear,
+status, quota and pull writes, and publish worst case plus 30%. Use a 64-slot frontier + root +
+uint64 count + canonical leaf event and at least one replaceable canonical log archive. Do not claim
+implementation readiness before the benchmark.
+
+**Open High / mandatory Task 7 codec:** replace behavioral Message/system-call encodings with exact
+Solidity ABI/Keccak, offsets, lengths, padding, raw transaction bytes, and golden/reject vectors. V2
+Vault calldata and asset codecs are excluded from launch scope.
+
+**Open Critical / next dedicated behavioral-proof batch:** remove `mptProofValid` from destination
+support confirmation in favor of a bounded typed canonical MPT-verifier output, and remove
+`merkleProofValid` from terminal source release by folding the exact depth-64 branch or consuming an
+equivalently sealed verifier output. Do not report the lifecycle model as fully closed before these
+two proof-authentication paths and their substitution/rollback tests land.
+
+This freeze-repair round is accepted only when focused regressions also cover each dominant `dueAt`
+term, checked `uint64` overflow with an unchanged queue, same-address clone and
+runtime/configuration/profile-authorization rejection with no adapter or domain seal, permissionless
+Bridge binding after support finality despite post-cutover governance disappearance, and both
+original typed adapters routing to the exact active tip after v1-to-v2-to-v3 activation. These are
+model acceptance conditions, not a test-only registration facade.
 
 - [ ] **Step 6: Replace the parameter and economic-profile sections**
 
