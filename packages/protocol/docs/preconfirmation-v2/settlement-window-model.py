@@ -249,7 +249,36 @@ BRIDGE_GAS_OVERHEAD = 120_000
 BRIDGE_SEND_ETHER_GAS = 35_000
 DESTINATION_NATIVE_LIQUIDITY_FLOOR = 1_000_000
 DESTINATION_NATIVE_QUOTA_MANAGER = "quota-manager:destination-native:v2"
-DESTINATION_NATIVE_LIQUIDITY_POLICY = "premint:combined-bridge-liquidity:v2"
+DESTINATION_LIQUIDITY_TREASURY = "protocol-liquidity-treasury:v2"
+DESTINATION_LIQUIDITY_TREASURY_RUNTIME_HASH = "code:liquidity-treasury:v2"
+DESTINATION_LIQUIDITY_TREASURY_CONFIGURATION_HASH = (
+    "config:liquidity-treasury:registrar-only:v2"
+)
+DESTINATION_NATIVE_LIQUIDITY_AMOUNT = 2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR
+DESTINATION_NATIVE_LIQUIDITY_POLICY = (
+    "treasury-transfer:activation-tx0:reclaim-after-drain:v2"
+)
+BRIDGE_ROLE_SOURCE_ONLY = "SOURCE_ONLY"
+BRIDGE_ROLE_DESTINATION_ONLY = "DESTINATION_ONLY"
+NATIVE_TOKEN = "native-token"
+NATIVE_QUOTA_MANAGER_RUNTIME_HASH = "code:quota-manager:native-frozen:v1"
+NATIVE_QUOTA_PERIOD_SECONDS = 86_400
+NATIVE_QUOTA_LANE_V2 = "V2"
+UNLIMITED_QUOTA = SEAT_UINT256_MAX
+_NATIVE_QUOTA_CONSUME_CAPABILITY = object()
+_NATIVE_QUOTA_ROLLBACK_CAPABILITY = object()
+_SOURCE_BRIDGE_ROLLBACK_CAPABILITY = object()
+_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY = object()
+EMPTY_V2_BRIDGE_STATE_COMMITMENT = "v2-state:empty:slot257:v1"
+LEGACY_V1_SOURCE_BRIDGE = "bridge-v1:source:A"
+SOURCE_V2_CREATE2_FACTORY = "v2-bridge-create2-factory"
+SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH = "code:v2-bridge-factory:v1"
+SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH = (
+    "config:v2-bridge-factory:immutable:v1"
+)
+SOURCE_V2_CREATE2_SALT = "salt:v2-source-bridge:v1"
+SOURCE_V2_GENERIC_INITCODE_HASH = "initcode:generic-inactive-source-bridge:v2"
+SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH = "code:source-terminal-verifier:v2"
 ON_MESSAGE_INVOCATION_SELECTOR = bytes.fromhex("7f07c947")
 V1_OFFICIAL_VAULT_ADDRESSES = (
     "erc20-vault-v1",
@@ -258,7 +287,6 @@ V1_OFFICIAL_VAULT_ADDRESSES = (
 )
 V2_PRIVILEGED_DESTINATION_ADDRESSES = (
     "signal-service",
-    DESTINATION_NATIVE_QUOTA_MANAGER,
     "bridge-context-v1",
     "bridge-context-v2",
     "delegate-controller",
@@ -266,9 +294,90 @@ V2_PRIVILEGED_DESTINATION_ADDRESSES = (
 )
 MAX_REGISTRATION_PROOF_NODES = 132
 MAX_REGISTRATION_PROOF_BYTES = 80_000
+MAX_REGISTRATION_PROOF_NODE_BYTES = 1_024
+REGISTRATION_MPT_VERIFIER_ADDRESS = "registration-mpt-verifier:v2"
+REGISTRATION_MPT_VERIFIER_RUNTIME_HASH = "code:registration-mpt-verifier:v2"
+REGISTRATION_MPT_PROOF_SCHEMA_HASH = "schema:canonical-account-storage-mpt:v2"
+REGISTRATION_SLOT_SCHEMA_HASH = "slot-schema:terminal-domain-registration:v2"
+REGISTRATION_MPT_VERIFIER_SELECTOR = "verifyRegistration(bytes32,bytes)"
+REGISTRATION_MPT_VERIFIER_GAS_LIMIT = 4_000_000
 APPENDING_SENTINEL = UINT64_MAX
 INBOX_BATCH_OK_V2_WORD = bytes.fromhex("49425632" + "00" * 28)
 TERMINAL_COMMITMENT_ABI_BYTES = 4 * 32
+TERMINAL_TREE_DEPTH = 64
+
+
+def destination_native_quota_manager_address(bridge: str) -> str:
+    if not bridge:
+        raise ValueError("destination Bridge address is empty")
+    return f"{DESTINATION_NATIVE_QUOTA_MANAGER}:{bridge}"
+
+
+def source_native_quota_manager_address(bridge: str) -> str:
+    if not bridge:
+        raise ValueError("source Bridge address is empty")
+    return f"quota-manager:source-native:v2:{bridge}"
+
+
+def source_bridge_credit_registry_address(bridge: str) -> str:
+    if not bridge:
+        raise ValueError("source Bridge address is empty")
+    return f"bridge-credit-registry:v2:{bridge}"
+
+
+def source_terminal_verifier_configuration_hash(
+    *, address: str, runtime_hash: str,
+    router_address: str, router_runtime_hash: str,
+    router_configuration_hash: str,
+    support_registry_address: str,
+    support_registry_runtime_hash: str,
+    support_registry_configuration_hash: str,
+) -> str:
+    if not all((
+        address, runtime_hash, router_address, router_runtime_hash,
+        router_configuration_hash, support_registry_address,
+        support_registry_runtime_hash, support_registry_configuration_hash,
+    )):
+        raise ValueError("source terminal verifier configuration is incomplete")
+    return "config:source-terminal-verifier:v2:" + hashlib.sha256(
+        repr((
+            address, runtime_hash,
+            router_address, router_runtime_hash, router_configuration_hash,
+            support_registry_address, support_registry_runtime_hash,
+            support_registry_configuration_hash,
+        )).encode()
+    ).hexdigest()
+
+
+def source_bridge_create2_address(
+    factory: str, salt: str, initcode_hash: str,
+) -> str:
+    """Derive the model address bound to the Ethereum CREATE2 preimage.
+
+    The behavioral model uses symbolic component identifiers, so each word is
+    first domain-separated into bytes32 before hashing the CREATE2 tuple.  The
+    byte-exact Solidity/Keccak codec round replaces these symbolic words with
+    address/bytes32 values and pins the corresponding Ethereum test vectors.
+    """
+
+    if any(type(word) is not str or not word for word in (
+        factory, salt, initcode_hash,
+    )):
+        raise ValueError("CREATE2 source Bridge tuple is incomplete")
+    factory_word = hashlib.sha256(
+        b"TAIKO_CREATE2_FACTORY_SYMBOL_V1\x00" + factory.encode()
+    ).digest()[-20:]
+    salt_word = hashlib.sha256(
+        b"TAIKO_CREATE2_SALT_SYMBOL_V1\x00" + salt.encode()
+    ).digest()
+    initcode_word = hashlib.sha256(
+        b"TAIKO_CREATE2_INITCODE_SYMBOL_V1\x00" + initcode_hash.encode()
+    ).digest()
+    digest = hashlib.sha256(
+        b"TAIKO_CREATE2_BEHAVIORAL_ADDRESS_V1\x00"
+        + b"\xff" + factory_word + salt_word + initcode_word
+    ).digest()
+    return "create2:0x" + digest[-20:].hex()
 
 
 def active_settlement_router_configuration_hash(
@@ -362,6 +471,7 @@ def bridge_domain_registry_configuration_hash(
     router_configuration_hash: str, release_authority_address: str,
     release_authority_runtime_hash: str,
     release_authority_configuration_hash: str,
+    registration_mpt_verifier_descriptor_hash: str,
 ) -> str:
     words = (
         BRIDGE_DOMAIN_REGISTRY_CONFIGURATION_HASH,
@@ -374,10 +484,42 @@ def bridge_domain_registry_configuration_hash(
         release_authority_address,
         release_authority_runtime_hash,
         release_authority_configuration_hash,
+        registration_mpt_verifier_descriptor_hash,
     )
     if any(type(word) is not str or not word for word in words):
         raise ValueError("Bridge support registry configuration is incomplete")
     return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
+
+
+def registration_mpt_verifier_configuration_hash(
+    *, address: str = REGISTRATION_MPT_VERIFIER_ADDRESS,
+    runtime_hash: str = REGISTRATION_MPT_VERIFIER_RUNTIME_HASH,
+    proof_schema_hash: str = REGISTRATION_MPT_PROOF_SCHEMA_HASH,
+    registration_slot_schema_hash: str = REGISTRATION_SLOT_SCHEMA_HASH,
+    selector: str = REGISTRATION_MPT_VERIFIER_SELECTOR,
+    maximum_nodes: int = MAX_REGISTRATION_PROOF_NODES,
+    maximum_node_bytes: int = MAX_REGISTRATION_PROOF_NODE_BYTES,
+    maximum_total_bytes: int = MAX_REGISTRATION_PROOF_BYTES,
+    verification_gas_limit: int = REGISTRATION_MPT_VERIFIER_GAS_LIMIT,
+) -> str:
+    fields = (
+        address,
+        runtime_hash,
+        proof_schema_hash,
+        registration_slot_schema_hash,
+        selector,
+        str(maximum_nodes),
+        str(maximum_node_bytes),
+        str(maximum_total_bytes),
+        str(verification_gas_limit),
+        "rlp:minimal:hp-canonical:keccak-account-storage-membership:v2",
+        "returndata:bytes32-statement-digest",
+    )
+    if any(type(field_) is not str or not field_ for field_ in fields):
+        raise ValueError("registration MPT verifier configuration is incomplete")
+    return "config:registration-mpt-verifier:" + hashlib.sha256(
+        b"\x1f".join(field_.encode() for field_ in fields)
+    ).hexdigest()
 
 MAX_LIABILITY_RESIDENCE_WINDOWS = (
     MAX_TRANCHE_AHEAD_WINDOWS + 1
@@ -4668,6 +4810,352 @@ class DestinationReleaseAuthorityDescriptor:
 
 
 @dataclass(frozen=True)
+class RegistrationMptVerifierDescriptor:
+    """Immutable parser/verifier identity for destination registration proofs."""
+
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+    selector: str
+    proof_schema_hash: str
+    registration_slot_schema_hash: str
+    maximum_nodes: int
+    maximum_node_bytes: int
+    maximum_total_bytes: int
+    verification_gas_limit: int
+    nonproxy: bool = True
+
+    @property
+    def commitment(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_REGISTRATION_MPT_VERIFIER_DESCRIPTOR_V2\x00"
+            + migration_transition_encode(tuple(
+                getattr(self, name) for name in self.__dataclass_fields__
+            ))
+        ).hexdigest()
+
+    def structurally_valid(self) -> bool:
+        return (
+            self.address == REGISTRATION_MPT_VERIFIER_ADDRESS
+            and self.runtime_hash == REGISTRATION_MPT_VERIFIER_RUNTIME_HASH
+            and self.selector == REGISTRATION_MPT_VERIFIER_SELECTOR
+            and self.proof_schema_hash == REGISTRATION_MPT_PROOF_SCHEMA_HASH
+            and self.registration_slot_schema_hash
+                == REGISTRATION_SLOT_SCHEMA_HASH
+            and self.maximum_nodes == MAX_REGISTRATION_PROOF_NODES
+            and self.maximum_node_bytes
+                == MAX_REGISTRATION_PROOF_NODE_BYTES
+            and self.maximum_total_bytes == MAX_REGISTRATION_PROOF_BYTES
+            and self.verification_gas_limit
+                == REGISTRATION_MPT_VERIFIER_GAS_LIMIT
+            and self.nonproxy
+            and self.configuration_hash
+                == registration_mpt_verifier_configuration_hash(
+                    address=self.address,
+                    runtime_hash=self.runtime_hash,
+                    proof_schema_hash=self.proof_schema_hash,
+                    registration_slot_schema_hash=(
+                        self.registration_slot_schema_hash
+                    ),
+                    selector=self.selector,
+                    maximum_nodes=self.maximum_nodes,
+                    maximum_node_bytes=self.maximum_node_bytes,
+                    maximum_total_bytes=self.maximum_total_bytes,
+                    verification_gas_limit=self.verification_gas_limit,
+                )
+        )
+
+
+def canonical_registration_mpt_verifier_descriptor(
+) -> RegistrationMptVerifierDescriptor:
+    descriptor = RegistrationMptVerifierDescriptor(
+        REGISTRATION_MPT_VERIFIER_ADDRESS,
+        REGISTRATION_MPT_VERIFIER_RUNTIME_HASH,
+        registration_mpt_verifier_configuration_hash(),
+        REGISTRATION_MPT_VERIFIER_SELECTOR,
+        REGISTRATION_MPT_PROOF_SCHEMA_HASH,
+        REGISTRATION_SLOT_SCHEMA_HASH,
+        MAX_REGISTRATION_PROOF_NODES,
+        MAX_REGISTRATION_PROOF_NODE_BYTES,
+        MAX_REGISTRATION_PROOF_BYTES,
+        REGISTRATION_MPT_VERIFIER_GAS_LIMIT,
+    )
+    if not descriptor.structurally_valid():
+        raise AssertionError("canonical registration MPT verifier is invalid")
+    return descriptor
+
+
+def terminal_registration_storage_slot(protocol_version: int) -> str:
+    """Behavioral mapping slot; Task 7 replaces this with exact Keccak/ABI."""
+
+    if type(protocol_version) is not int or not 0 < protocol_version <= UINT64_MAX:
+        raise ValueError("registration storage-slot version is invalid")
+    return hashlib.sha256(
+        b"TAIKO_TERMINAL_REGISTRATIONS_MAPPING_SLOT_V2\x00"
+        + protocol_version.to_bytes(32, "big")
+        + (17).to_bytes(32, "big")
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
+class RegistrationStorageStatement:
+    destination_chain_id: int
+    protocol_version: int
+    canonical_sequence: int
+    state_root: str
+    support_registry_address: str
+    router_address: str
+    registrar_address: str
+    registrar_runtime_hash: str
+    registrar_configuration_hash: str
+    registration_slot_schema_hash: str
+    storage_slot: str
+    destination_domain_id: str
+    destination_bridge: str
+    expected_registration_commitment: bytes
+
+    def __post_init__(self) -> None:
+        if (not 0 < self.destination_chain_id <= UINT64_MAX
+                or not 0 < self.protocol_version <= UINT64_MAX
+                or self.canonical_sequence < 0
+                or any(type(word) is not str or not word for word in (
+                    self.state_root,
+                    self.support_registry_address,
+                    self.router_address,
+                    self.registrar_address,
+                    self.registrar_runtime_hash,
+                    self.registrar_configuration_hash,
+                    self.registration_slot_schema_hash,
+                    self.storage_slot,
+                    self.destination_domain_id,
+                    self.destination_bridge,
+                ))
+                or self.registration_slot_schema_hash
+                    != REGISTRATION_SLOT_SCHEMA_HASH
+                or self.storage_slot
+                    != terminal_registration_storage_slot(
+                        self.protocol_version
+                    )
+                or type(self.expected_registration_commitment) is not bytes
+                or len(self.expected_registration_commitment) != 32):
+            raise ValueError("registration storage statement is invalid")
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_REGISTRATION_STORAGE_STATEMENT_V2\x00"
+            + migration_transition_encode(tuple(
+                getattr(self, name) for name in self.__dataclass_fields__
+            ))
+        ).hexdigest()
+
+
+@dataclass(frozen=True)
+class CanonicalMptMembershipProof:
+    """Raw ordered MPT nodes; the seal exists only in the test verifier mock."""
+
+    account_nodes: tuple[bytes, ...]
+    storage_nodes: tuple[bytes, ...]
+    _test_seal: str = field(default="", repr=False, compare=False)
+
+
+_REGISTRATION_MPT_RESULT_CAPABILITY = object()
+
+
+@dataclass(frozen=True, eq=False)
+class VerifiedRegistrationMembership:
+    verifier: "IRegistrationMptVerifier" = field(compare=False, repr=False)
+    descriptor: RegistrationMptVerifierDescriptor
+    statement: RegistrationStorageStatement
+    proof_commitment: str
+    decoded_registrar_runtime_hash: str
+    decoded_value: bytes
+    returndata: bytes
+    seal: str = field(repr=False)
+    _capability: object = field(repr=False, compare=False)
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_VERIFIED_REGISTRATION_MEMBERSHIP_V2\x00"
+            + migration_transition_encode((
+                self.descriptor,
+                self.statement.digest,
+                self.proof_commitment,
+                self.decoded_registrar_runtime_hash,
+                self.decoded_value,
+                self.returndata,
+            ))
+        ).hexdigest()
+
+    def __post_init__(self) -> None:
+        if (self._capability is not _REGISTRATION_MPT_RESULT_CAPABILITY
+                or type(self.descriptor)
+                    is not RegistrationMptVerifierDescriptor
+                or not self.descriptor.structurally_valid()
+                or type(self.statement) is not RegistrationStorageStatement
+                or not self.proof_commitment
+                or self.decoded_registrar_runtime_hash
+                    != self.statement.registrar_runtime_hash
+                or self.decoded_value
+                    != self.statement.expected_registration_commitment
+                or type(self.returndata) is not bytes
+                or not self.seal):
+            raise ValueError("verified registration membership is invalid")
+
+
+class IRegistrationMptVerifier:
+    @property
+    def descriptor(self) -> RegistrationMptVerifierDescriptor:
+        raise NotImplementedError
+
+    def verify_membership(
+        self,
+        statement: RegistrationStorageStatement,
+        proof: CanonicalMptMembershipProof,
+    ) -> VerifiedRegistrationMembership:
+        raise NotImplementedError
+
+    def valid_result(self, result: VerifiedRegistrationMembership) -> bool:
+        raise NotImplementedError
+
+
+class TestRegistrationMptVerifier(IRegistrationMptVerifier):
+    """Test-only stand-in for the pinned canonical RLP/HP MPT verifier."""
+
+    def __init__(self, descriptor: RegistrationMptVerifierDescriptor):
+        if (type(descriptor) is not RegistrationMptVerifierDescriptor
+                or not descriptor.structurally_valid()):
+            raise ValueError("test registration MPT descriptor is invalid")
+        self._descriptor = descriptor
+        self._secret = object()
+        self.returndata_override: bytes | None = None
+        self.raise_on_verify = False
+
+    @property
+    def descriptor(self) -> RegistrationMptVerifierDescriptor:
+        return self._descriptor
+
+    def _seal(self, namespace: bytes, digest: str) -> str:
+        return hashlib.sha256(
+            namespace
+            + id(self._secret).to_bytes(32, "big")
+            + digest.encode()
+        ).hexdigest()
+
+    @staticmethod
+    def _proof_commitment(proof: CanonicalMptMembershipProof) -> str:
+        return hashlib.sha256(
+            b"TAIKO_CANONICAL_MPT_PROOF_V2\x00"
+            + migration_transition_encode((
+                proof.account_nodes,
+                proof.storage_nodes,
+            ))
+        ).hexdigest()
+
+    def verify_membership(
+        self,
+        statement: RegistrationStorageStatement,
+        proof: CanonicalMptMembershipProof,
+    ) -> VerifiedRegistrationMembership:
+        descriptor = self.descriptor
+        if self.raise_on_verify:
+            raise RuntimeError("simulated registration verifier revert/OOG")
+        nodes = (
+            proof.account_nodes + proof.storage_nodes
+            if type(proof) is CanonicalMptMembershipProof else ()
+        )
+        if (type(statement) is not RegistrationStorageStatement
+                or type(proof) is not CanonicalMptMembershipProof
+                or not proof.account_nodes or not proof.storage_nodes
+                or len(nodes) > descriptor.maximum_nodes
+                or any(type(node) is not bytes
+                       or not 0 < len(node) <= descriptor.maximum_node_bytes
+                       for node in nodes)
+                or sum(len(node) for node in nodes)
+                    > descriptor.maximum_total_bytes):
+            raise ValueError("registration MPT proof is malformed or unbounded")
+        proof_commitment = self._proof_commitment(proof)
+        proof_digest = hashlib.sha256(
+            b"TAIKO_TEST_REGISTRATION_MPT_PROOF_V2\x00"
+            + migration_transition_encode((
+                descriptor,
+                statement.digest,
+                proof_commitment,
+            ))
+        ).hexdigest()
+        if proof._test_seal != self._seal(
+                b"TAIKO_TEST_REGISTRATION_MPT_PROOF_SEAL_V2\x00",
+                proof_digest,
+        ):
+            raise ValueError("registration account/storage proof did not verify")
+        result = VerifiedRegistrationMembership(
+            self,
+            descriptor,
+            statement,
+            proof_commitment,
+            statement.registrar_runtime_hash,
+            statement.expected_registration_commitment,
+            (
+                bytes.fromhex(statement.digest)
+                if self.returndata_override is None
+                else self.returndata_override
+            ),
+            "PENDING",
+            _REGISTRATION_MPT_RESULT_CAPABILITY,
+        )
+        return replace(
+            result,
+            seal=self._seal(
+                b"TAIKO_REGISTRATION_MPT_RESULT_SEAL_V2\x00",
+                result.digest,
+            ),
+        )
+
+    def valid_result(self, result: VerifiedRegistrationMembership) -> bool:
+        return (
+            type(result) is VerifiedRegistrationMembership
+            and result.verifier is self
+            and result.descriptor == self.descriptor
+            and result.seal == self._seal(
+                b"TAIKO_REGISTRATION_MPT_RESULT_SEAL_V2\x00",
+                result.digest,
+            )
+        )
+
+
+def issue_registration_mpt_proof_for_test(
+    verifier: TestRegistrationMptVerifier,
+    statement: RegistrationStorageStatement,
+    *,
+    account_nodes: tuple[bytes, ...] = (b"canonical-account-node",),
+    storage_nodes: tuple[bytes, ...] = (b"canonical-storage-node",),
+) -> CanonicalMptMembershipProof:
+    """Fixture-only issuance of raw nodes accepted by the test verifier."""
+
+    if (type(verifier) is not TestRegistrationMptVerifier
+            or type(statement) is not RegistrationStorageStatement):
+        raise ValueError("test registration MPT proof inputs are invalid")
+    proof = CanonicalMptMembershipProof(account_nodes, storage_nodes)
+    proof_commitment = verifier._proof_commitment(proof)
+    proof_digest = hashlib.sha256(
+        b"TAIKO_TEST_REGISTRATION_MPT_PROOF_V2\x00"
+        + migration_transition_encode((
+            verifier.descriptor,
+            statement.digest,
+            proof_commitment,
+        ))
+    ).hexdigest()
+    return replace(
+        proof,
+        _test_seal=verifier._seal(
+            b"TAIKO_TEST_REGISTRATION_MPT_PROOF_SEAL_V2\x00",
+            proof_digest,
+        ),
+    )
+
+
+@dataclass(frozen=True)
 class InboxApplyDeploymentDescriptor:
     """L1 commitment to InboxApply code/config, never a live L2 object."""
 
@@ -4697,6 +5185,8 @@ class InboxApplyDeploymentDescriptor:
             and self.structurally_valid()
             and inbox.address == self.address
             and inbox.registrar == self.registrar_address
+            and inbox.runtime_hash == self.runtime_hash
+            and inbox.configuration_hash == self.configuration_hash
         )
 
 
@@ -4708,8 +5198,8 @@ def inbox_apply_deployment_descriptor(
     descriptor = InboxApplyDeploymentDescriptor(
         inbox.address,
         inbox.registrar,
-        "code:inbox-apply",
-        f"config:inbox-apply:{inbox.registrar}",
+        inbox.runtime_hash,
+        inbox.configuration_hash,
     )
     if not descriptor.structurally_valid():
         raise ValueError("InboxApply descriptor is not canonical")
@@ -4733,7 +5223,7 @@ def release_authority_descriptor_from_manifest(
         registrar_row.address,
         registrar_row.runtime_hash,
         registrar_row.config_hash,
-        "slot-schema:terminal-domain-registration:v2",
+        REGISTRATION_SLOT_SCHEMA_HASH,
     )
 
 
@@ -4742,6 +5232,9 @@ class BridgeDomainRegistry:
     router: "ActiveSettlementRouter"
     manager: "ProtocolVersionManager"
     release_authority_descriptor: DestinationReleaseAuthorityDescriptor
+    registration_mpt_verifier: IRegistrationMptVerifier = field(
+        compare=False, repr=False
+    )
     entries: dict[tuple[str, str, str], BridgeSupportEntry] = field(default_factory=dict)
     profile_additions: dict[int, int] = field(default_factory=dict)
     _destinations_by_domain: dict[str, "ReleaseManifestV2"] = field(
@@ -4775,6 +5268,9 @@ class BridgeDomainRegistry:
                 self.release_authority_descriptor
                     .authority_configuration_hash
             ),
+            registration_mpt_verifier_descriptor_hash=(
+                self.registration_mpt_verifier.descriptor.commitment
+            ),
         )
         if (type(self.router) is not ActiveSettlementRouter
                 or type(self.manager) is not ProtocolVersionManager
@@ -4783,6 +5279,14 @@ class BridgeDomainRegistry:
                 or type(self.release_authority_descriptor)
                     is not DestinationReleaseAuthorityDescriptor
                 or not self.release_authority_descriptor.structurally_valid()
+                or not isinstance(
+                    self.registration_mpt_verifier,
+                    IRegistrationMptVerifier,
+                )
+                or type(self.registration_mpt_verifier.descriptor)
+                    is not RegistrationMptVerifierDescriptor
+                or not self.registration_mpt_verifier.descriptor
+                    .structurally_valid()
                 or self.configuration_hash
                     not in {"", expected}):
             raise ValueError("Bridge support registry authority graph is invalid")
@@ -4790,8 +5294,9 @@ class BridgeDomainRegistry:
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
-            "router", "manager", "release_authority_descriptor", "address",
-            "runtime_hash", "configuration_hash",
+            "router", "manager", "release_authority_descriptor",
+            "registration_mpt_verifier", "address", "runtime_hash",
+            "configuration_hash",
         } and name in self.__dict__:
             raise AttributeError(f"Bridge support registry {name} is immutable")
         object.__setattr__(self, name, value)
@@ -4800,15 +5305,17 @@ class BridgeDomainRegistry:
         return copy.deepcopy({
             key: value for key, value in self.__dict__.items()
             if key not in {
-                "router", "manager", "release_authority_descriptor"
+                "router", "manager", "release_authority_descriptor",
+                "registration_mpt_verifier",
             }
         })
 
     def _restore_transaction_snapshot(
         self, snapshot: dict[str, object]
     ) -> None:
-        router, manager, authority_descriptor = (
-            self.router, self.manager, self.release_authority_descriptor
+        router, manager, authority_descriptor, proof_verifier = (
+            self.router, self.manager, self.release_authority_descriptor,
+            self.registration_mpt_verifier,
         )
         self.__dict__.clear()
         self.__dict__.update(snapshot)
@@ -4816,6 +5323,9 @@ class BridgeDomainRegistry:
         object.__setattr__(self, "manager", manager)
         object.__setattr__(
             self, "release_authority_descriptor", authority_descriptor
+        )
+        object.__setattr__(
+            self, "registration_mpt_verifier", proof_verifier
         )
 
     def stage(self, source_domain_id: str, execution_hash: str,
@@ -4832,19 +5342,7 @@ class BridgeDomainRegistry:
         )
         source_descriptor = (
             None if type(authorization) is not ProfileIngressAuthorization
-            else SourceBridgeDescriptor(
-                authorization.source_settlement_chain_id,
-                authorization.source_chain_id,
-                authorization.source_genesis_hash,
-                authorization.source_registry_namespace,
-                authorization.source_bridge_address,
-                authorization.source_bridge_credit_registry,
-                authorization.source_bridge_facade_runtime_hash,
-                authorization.source_bridge_storage_layout_hash,
-                authorization.source_bridge_kernel_hash,
-                authorization.source_terminal_verifier,
-                authorization.source_v1_official_vaults,
-            )
+            else authorization.source_descriptor
         )
         if (manager is not self.manager or type(clock) is not Clock
                 or type(manifest) is not ReleaseManifestV2
@@ -4966,10 +5464,8 @@ class BridgeDomainRegistry:
 
     def confirm(self, source_domain_id: str, execution_hash: str,
                 destination_domain_id: str, *, clock: Clock,
-                canonical_sequence: int, proof_state_root: str,
-                mpt_proof_valid: bool,
-                proved_registration_commitment: bytes,
-                proof_node_count: int, proof_byte_length: int) -> bool:
+                canonical_sequence: int,
+                proof: CanonicalMptMembershipProof) -> bool:
         entry = self.entries.get(
             (source_domain_id, execution_hash, destination_domain_id))
         canonical = (
@@ -4980,22 +5476,75 @@ class BridgeDomainRegistry:
         if (type(clock) is not Clock or entry is None
                 or entry.confirmed_at_block is not None
                 or canonical is None
-                or canonical.state_root != proof_state_root
                 or clock.block_number
                     < canonical.canonicalized_at_block + F_L1
-                or not mpt_proof_valid
-                or not proved_registration_commitment
-                or proved_registration_commitment
-                    != entry.registration_commitment
-                or not 0 < proof_node_count <= MAX_REGISTRATION_PROOF_NODES
-                or not 0 < proof_byte_length <= MAX_REGISTRATION_PROOF_BYTES
                 or clock.block_number < entry.staged_at_block):
+            return False
+        try:
+            statement = self.registration_storage_statement(
+                source_domain_id,
+                execution_hash,
+                destination_domain_id,
+                canonical_sequence=canonical_sequence,
+            )
+            result = self.registration_mpt_verifier.verify_membership(
+                statement, proof
+            )
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return False
+        if (not self.registration_mpt_verifier.valid_result(result)
+                or result.verifier is not self.registration_mpt_verifier
+                or result.descriptor
+                    != self.registration_mpt_verifier.descriptor
+                or result.statement != statement
+                or result.decoded_registrar_runtime_hash
+                    != statement.registrar_runtime_hash
+                or result.decoded_value
+                    != statement.expected_registration_commitment
+                or result.returndata != bytes.fromhex(statement.digest)):
             return False
         entry.confirmed_at_block = clock.block_number
         self._confirmed_at_by_domain.setdefault(
             destination_domain_id, clock.block_number
         )
         return True
+
+    def registration_storage_statement(
+        self,
+        source_domain_id: str,
+        execution_hash: str,
+        destination_domain_id: str,
+        *,
+        canonical_sequence: int,
+    ) -> RegistrationStorageStatement:
+        """Derive every membership statement field from pinned L1 history."""
+
+        entry = self.entries.get(
+            (source_domain_id, execution_hash, destination_domain_id)
+        )
+        canonical = (
+            None if entry is None else self.router.canonical_at(
+                entry.protocol_version, canonical_sequence
+            )
+        )
+        if entry is None or canonical is None:
+            raise ValueError("registration statement has no canonical entry")
+        return RegistrationStorageStatement(
+            self.release_authority_descriptor.destination_chain_id,
+            entry.protocol_version,
+            canonical_sequence,
+            canonical.state_root,
+            self.address,
+            self.router.address,
+            self.release_authority_descriptor.registrar_address,
+            self.release_authority_descriptor.registrar_runtime_hash,
+            self.release_authority_descriptor.registrar_configuration_hash,
+            self.release_authority_descriptor.registration_slot_schema_hash,
+            terminal_registration_storage_slot(entry.protocol_version),
+            destination_domain_id,
+            entry.manifest.destination_bridge,
+            entry.registration_commitment,
+        )
 
     def final_entry(self, source_domain_id: str, execution_hash: str,
                     destination_domain_id: str,
@@ -5303,11 +5852,7 @@ class QueueContinuity:
                 or router.forced_queue is not self
                 or router.address != self.router_address
                 or type(settlement) is not VersionedSettlementHistory
-                or type(settlement.live_protocol) is not Protocol
                 or type(proof) is not VerifiedMigrationExecutionOutput
-                or proof.router is not router
-                or proof.verifier is not settlement.live_protocol
-                    ._inbox_execution_authority
                 or proof.beneficiary != proof.candidate.beneficiary
                 or router._queue_transition_frame
                     != ("MIGRATION", id(proof), proof.digest)
@@ -5380,6 +5925,7 @@ class VersionedSettlementHistory:
         (ForceKind.USER_TX, "kind0-adapter", ""),
         (ForceKind.BRIDGE_CREDIT, "bridge-inbox-adapter", "bridge:A"),
     )
+    source_bridge_descriptor: "SourceBridgeDescriptor | None" = None
     ingress_fee_schedule: tuple[int, int, int, int, int] = (
         INGRESS_FIXED_WEI,
         INGRESS_EXECUTION_WEI_PER_GAS,
@@ -5402,7 +5948,10 @@ class VersionedSettlementHistory:
                 or self.execution_profile.protocol_version
                     != self.protocol_version
                 or self.execution_profile.execution_profile_hash
-                    != self.execution_profile_hash):
+                    != self.execution_profile_hash
+                or (self.source_bridge_descriptor is not None
+                    and type(self.source_bridge_descriptor)
+                        is not SourceBridgeDescriptor)):
             raise ValueError("Settlement execution profile is not exact")
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -5411,7 +5960,7 @@ class VersionedSettlementHistory:
             "execution_profile_hash", "execution_profile", "forced_queue",
             "migration_gate",
             "inbox_apply_descriptor", "builder_registry_id", "schedule_oracle_id",
-            "release_profile_ingress_specs",
+            "release_profile_ingress_specs", "source_bridge_descriptor",
             "ingress_fee_schedule",
             "market_settlement_chain_id", "market_runtime_hash",
             "market_configuration_hash", "market_magic", "header_oracle",
@@ -5636,6 +6185,337 @@ class DestinationIngressDescriptor:
 
 
 @dataclass(frozen=True)
+class ImmutableBridgeDeploymentDescriptorV2:
+    """Exact fresh nonproxy Bridge code, configuration, and authorities."""
+
+    role: str
+    chain_id: int
+    bridge: str
+    account_runtime_hash: str
+    account_configuration_hash: str
+    storage_layout_hash: str
+    pauser: str
+    signal_service: str
+    native_quota_manager: str
+    native_quota_manager_runtime_hash: str
+    native_quota_manager_configuration_hash: str
+    native_quota_period: int
+    native_eth_quota: int
+    v2_endpoints: tuple[str, ...]
+    initial_v2_state_commitment: str
+
+    @property
+    def topology(self) -> str:
+        return "IMMUTABLE_NONPROXY"
+
+    def structurally_valid(self) -> bool:
+        return (
+            self.role in {
+                BRIDGE_ROLE_SOURCE_ONLY, BRIDGE_ROLE_DESTINATION_ONLY
+            }
+            and 0 < self.chain_id <= UINT64_MAX
+            and all((
+                self.bridge, self.account_runtime_hash,
+                self.account_configuration_hash, self.storage_layout_hash,
+                self.pauser, self.signal_service, self.native_quota_manager,
+                self.native_quota_manager_runtime_hash,
+                self.native_quota_manager_configuration_hash,
+            ))
+            and self.native_quota_manager_runtime_hash
+                == NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+            and self.native_quota_period > 0
+            and self.native_eth_quota > 0
+            and self.native_quota_manager_configuration_hash
+                == native_quota_manager_configuration_hash(
+                    address=self.native_quota_manager,
+                    bridge=self.bridge,
+                    quota_period=self.native_quota_period,
+                    eth_quota=self.native_eth_quota,
+                )
+            and type(self.v2_endpoints) is tuple
+            and len(self.v2_endpoints) == len(set(self.v2_endpoints))
+            and all(self.v2_endpoints)
+            and len({self.bridge, self.native_quota_manager,
+                     self.signal_service, *self.v2_endpoints})
+                == len(self.v2_endpoints) + 3
+            and self.pauser not in {
+                self.bridge, self.native_quota_manager,
+                self.signal_service, *self.v2_endpoints,
+            }
+            and self.initial_v2_state_commitment
+                == EMPTY_V2_BRIDGE_STATE_COMMITMENT
+        )
+
+    @property
+    def commitment(self) -> str:
+        if not self.structurally_valid():
+            raise ValueError("immutable Bridge deployment descriptor is invalid")
+        fields = tuple(
+            getattr(self, row.name)
+            for row in self.__dataclass_fields__.values()
+        )
+        return "deployment:" + hashlib.sha256(
+            b"TAIKO_IMMUTABLE_BRIDGE_DEPLOYMENT_V2\x00"
+            + repr(fields).encode()
+        ).hexdigest()
+
+
+
+
+def native_quota_manager_configuration_hash(
+    *, address: str, bridge: str, quota_period: int, eth_quota: int,
+) -> str:
+    if (not address or not bridge
+            or type(quota_period) is not int or quota_period <= 0
+            or type(eth_quota) is not int or eth_quota < 0):
+        raise ValueError("native QuotaManager configuration is invalid")
+    return "config:native-quota-manager:immutable:v2:" + hashlib.sha256(
+        repr((address, NATIVE_QUOTA_MANAGER_RUNTIME_HASH, bridge,
+              quota_period, eth_quota, "", "")).encode()
+    ).hexdigest()
+
+
+@dataclass
+class QuotaStateV2:
+    updated_at: int
+    quota: int
+    available: int
+
+
+@dataclass
+class FrozenNativeQuotaManagerV2:
+    """Fresh V2-only ETH quota with immutable cap and dead ownership."""
+
+    address: str
+    bridge_address: str
+    quota_period: int
+    eth_quota_cap: int
+    runtime_hash: str = NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+    erc20_vault: str = ""
+    owner: str = ""
+    pending_owner: str = ""
+    _state: QuotaStateV2 = field(init=False, repr=False)
+    _bridge_authority: object | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        if (not self.address or not self.bridge_address
+                or self.runtime_hash != NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+                or self.erc20_vault or self.owner or self.pending_owner
+                or type(self.quota_period) is not int
+                or self.quota_period <= 0
+                or type(self.eth_quota_cap) is not int
+                or not 0 <= self.eth_quota_cap <= SEAT_UINT256_MAX):
+            raise ValueError("frozen native QuotaManager graph is invalid")
+        object.__setattr__(
+            self, "_state",
+            QuotaStateV2(0, self.eth_quota_cap, self.eth_quota_cap),
+        )
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "address", "bridge_address", "quota_period", "eth_quota_cap",
+            "runtime_hash", "erc20_vault", "owner", "pending_owner",
+            "_bridge_authority",
+        } and name in self.__dict__:
+            raise AttributeError(f"native QuotaManager {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    @property
+    def configuration_hash(self) -> str:
+        return native_quota_manager_configuration_hash(
+            address=self.address,
+            bridge=self.bridge_address,
+            quota_period=self.quota_period,
+            eth_quota=self.eth_quota_cap,
+        )
+
+    def _bind_bridge_once(self, bridge: object) -> bool:
+        if (type(bridge) not in {SourceBridgeV2, DestinationBridgeLedger}
+                or getattr(bridge, "address", None) != self.bridge_address):
+            return False
+        if self._bridge_authority is not None:
+            return self._bridge_authority is bridge
+        object.__setattr__(self, "_bridge_authority", bridge)
+        return True
+
+    def available_quota(
+        self, now: int, leap: int = 0, *, lane: str = NATIVE_QUOTA_LANE_V2,
+    ) -> int:
+        if (type(now) is not int or now < 0 or type(leap) is not int
+                or leap < 0):
+            raise ValueError("QuotaManager clock is invalid")
+        if lane != NATIVE_QUOTA_LANE_V2:
+            raise ValueError("QuotaManager lane is invalid")
+        row = self._state
+        if row.quota == 0:
+            return UNLIMITED_QUOTA
+        if row.updated_at == 0:
+            return row.quota
+        if now < row.updated_at:
+            raise ValueError("QuotaManager clock moved backwards")
+        elapsed = min(now - row.updated_at + leap, self.quota_period)
+        issuance = row.quota * elapsed // self.quota_period
+        return min(row.available + issuance, row.quota)
+
+    def _consume_from_bridge(
+        self, amount: int, *, bridge: object, frame: object,
+        capability: object, lane: str = NATIVE_QUOTA_LANE_V2,
+    ) -> bool:
+        environment = (
+            getattr(bridge, "native_environment", None)
+            if type(bridge) is SourceBridgeV2
+            else getattr(bridge, "execution_environment", None)
+        )
+        if (bridge is not self._bridge_authority
+                or capability is not _NATIVE_QUOTA_CONSUME_CAPABILITY
+                or not getattr(bridge, "entered", False)
+                or environment is None
+                or frame is not environment._active_frame
+                or type(amount) is not int or amount < 0):
+            return False
+        now = frame.block_timestamp
+        if lane != NATIVE_QUOTA_LANE_V2:
+            return False
+        row = self._state
+        if row.quota == 0:
+            return True
+        available = self.available_quota(now, lane=lane)
+        if amount > available:
+            return False
+        row.available = available - amount
+        row.updated_at = now
+        return True
+
+    def snapshot(self) -> tuple[int, int, int]:
+        return (
+            self._state.updated_at,
+            self._state.quota,
+            self._state.available,
+        )
+
+    def restore(
+        self, snapshot: tuple[int, int, int], *,
+        bridge: object, frame: object, capability: object,
+    ) -> None:
+        environment = (
+            getattr(bridge, "native_environment", None)
+            if type(bridge) is SourceBridgeV2
+            else getattr(bridge, "execution_environment", None)
+        )
+        active_bridge_frame = (
+            getattr(bridge, "_active_execution_frame", None)
+            if type(bridge) is DestinationBridgeLedger else frame
+        )
+        if (bridge is not self._bridge_authority
+                or capability is not _NATIVE_QUOTA_ROLLBACK_CAPABILITY
+                or not getattr(bridge, "entered", False)
+                or environment is None
+                or frame is not getattr(environment, "_active_frame", None)
+                or active_bridge_frame is not frame):
+            raise ValueError("QuotaManager rollback authority is wrong")
+        if type(snapshot) is not tuple or len(snapshot) != 3:
+            raise ValueError("QuotaManager rollback snapshot is invalid")
+        updated_at, quota, available = snapshot
+        if (quota != self._state.quota or type(updated_at) is not int
+                or updated_at < 0 or type(available) is not int
+                or not 0 <= available <= quota):
+            raise ValueError("QuotaManager rollback state is invalid")
+        self._state.updated_at = updated_at
+        self._state.available = available
+
+    def transfer_ownership(self, _new_owner: str) -> bool:
+        return False
+
+    def accept_ownership(self, _caller: str) -> bool:
+        return False
+
+    def update_quota(self, _quota: int, *, caller: str) -> bool:
+        _ = caller
+        return False
+
+
+def source_bundle_initcode_hash(descriptor: "SourceBridgeDescriptor") -> str:
+    """Commit every acyclic initializer primitive into the CREATE2 address."""
+
+    if type(descriptor) is not SourceBridgeDescriptor:
+        raise ValueError("source bundle initcode descriptor has wrong type")
+    fields = (
+        SOURCE_V2_GENERIC_INITCODE_HASH,
+        descriptor.settlement_chain_id,
+        descriptor.source_chain_id,
+        descriptor.source_genesis_hash,
+        descriptor.registry_namespace,
+        descriptor.bridge_facade_runtime_hash,
+        descriptor.bridge_storage_layout_hash,
+        descriptor.bridge_kernel_hash,
+        descriptor.source_terminal_verifier,
+        descriptor.v1_official_vaults,
+        descriptor.role,
+        descriptor.native_quota_manager_runtime_hash,
+        descriptor.native_quota_period,
+        descriptor.native_eth_quota,
+        descriptor.source_domain_registrar,
+        descriptor.source_registration_epoch,
+        descriptor.support_registry_address,
+        descriptor.support_registry_runtime_hash,
+        descriptor.support_registry_configuration_hash,
+        descriptor.source_terminal_verifier_runtime_hash,
+        descriptor.source_terminal_verifier_configuration_hash,
+        descriptor.deployment_factory,
+        descriptor.deployment_factory_runtime_hash,
+        descriptor.deployment_factory_configuration_hash,
+        descriptor.deployment_salt,
+        descriptor.legacy_v1_bridge,
+    )
+    return "initcode:configured-source-bundle:v2:" + hashlib.sha256(
+        b"TAIKO_SOURCE_BUNDLE_INITCODE_V2\x00"
+        + b"".join(_ingress_commitment_word(value) for value in fields)
+    ).hexdigest()
+
+
+def source_bridge_account_configuration_hash(
+    descriptor: "SourceBridgeDescriptor",
+) -> str:
+    """Acyclic immutable SourceBridge configuration used by CREATE2."""
+
+    if type(descriptor) is not SourceBridgeDescriptor:
+        raise ValueError("source Bridge descriptor has the wrong type")
+    # This is the factory-only one-shot CONFIGURED state, not the generic
+    # deployment initcode.  It deliberately excludes the CREATE2 tuple,
+    # resulting Bridge address, runtime/layout hashes and outer descriptor so
+    # no value hashes itself or a value derived from itself.
+    fields = (
+        descriptor.settlement_chain_id,
+        descriptor.source_chain_id,
+        descriptor.source_genesis_hash,
+        descriptor.registry_namespace,
+        descriptor.bridge_credit_registry,
+        descriptor.source_terminal_verifier,
+        descriptor.v1_official_vaults,
+        descriptor.role,
+        descriptor.native_quota_manager,
+        descriptor.native_quota_manager_runtime_hash,
+        descriptor.native_quota_period,
+        descriptor.native_eth_quota,
+        descriptor.source_domain_registrar,
+        descriptor.source_registration_epoch,
+        descriptor.support_registry_address,
+        descriptor.support_registry_runtime_hash,
+        descriptor.support_registry_configuration_hash,
+        descriptor.source_terminal_verifier_runtime_hash,
+        descriptor.source_terminal_verifier_configuration_hash,
+        "bridge-pauser",
+        "signal-service",
+    )
+    return "config:immutable-source-bridge:v2:" + hashlib.sha256(
+        b"TAIKO_IMMUTABLE_SOURCE_BRIDGE_CONFIG_V2\x00"
+        + b"".join(_ingress_commitment_word(value) for value in fields)
+    ).hexdigest()
+
+
+@dataclass(frozen=True)
 class SourceBridgeDescriptor:
     """Acyclic source identity; neither domain nor execution is self-reported."""
 
@@ -5650,6 +6530,89 @@ class SourceBridgeDescriptor:
     bridge_kernel_hash: str
     source_terminal_verifier: str
     v1_official_vaults: tuple[str, ...] = V1_OFFICIAL_VAULT_ADDRESSES
+    role: str = BRIDGE_ROLE_SOURCE_ONLY
+    native_quota_manager: str = ""
+    native_quota_manager_runtime_hash: str = (
+        NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+    )
+    native_quota_period: int = NATIVE_QUOTA_PERIOD_SECONDS
+    native_eth_quota: int = UINT64_MAX
+    source_domain_registrar: str = "source-domain-registrar"
+    source_registration_epoch: int = 1
+    support_registry_address: str = ""
+    support_registry_runtime_hash: str = ""
+    support_registry_configuration_hash: str = ""
+    source_terminal_verifier_runtime_hash: str = (
+        SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
+    )
+    source_terminal_verifier_configuration_hash: str = ""
+    deployment_factory: str = SOURCE_V2_CREATE2_FACTORY
+    deployment_factory_runtime_hash: str = (
+        SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH
+    )
+    deployment_factory_configuration_hash: str = (
+        SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH
+    )
+    deployment_salt: str = SOURCE_V2_CREATE2_SALT
+    deployment_initcode_hash: str = ""
+    legacy_v1_bridge: str = LEGACY_V1_SOURCE_BRIDGE
+    deployment_descriptor: ImmutableBridgeDeploymentDescriptorV2 | None = None
+
+    def __post_init__(self) -> None:
+        expected_initcode_hash = source_bundle_initcode_hash(self)
+        if not self.source_bridge:
+            object.__setattr__(
+                self, "deployment_initcode_hash", expected_initcode_hash
+            )
+        if not self.source_bridge:
+            object.__setattr__(
+                self,
+                "source_bridge",
+                source_bridge_create2_address(
+                    self.deployment_factory,
+                    self.deployment_salt,
+                    self.deployment_initcode_hash,
+                ),
+            )
+        if not self.native_quota_manager:
+            object.__setattr__(
+                self,
+                "native_quota_manager",
+                source_native_quota_manager_address(self.source_bridge),
+            )
+        if not self.bridge_credit_registry:
+            object.__setattr__(
+                self,
+                "bridge_credit_registry",
+                source_bridge_credit_registry_address(self.source_bridge),
+            )
+        if self.deployment_descriptor is None:
+            deployment = ImmutableBridgeDeploymentDescriptorV2(
+                self.role,
+                self.source_chain_id,
+                self.source_bridge,
+                self.bridge_facade_runtime_hash,
+                source_bridge_account_configuration_hash(self),
+                self.bridge_storage_layout_hash,
+                "bridge-pauser",
+                "signal-service",
+                self.native_quota_manager,
+                self.native_quota_manager_runtime_hash,
+                native_quota_manager_configuration_hash(
+                    address=self.native_quota_manager,
+                    bridge=self.source_bridge,
+                    quota_period=self.native_quota_period,
+                    eth_quota=self.native_eth_quota,
+                ),
+                self.native_quota_period,
+                self.native_eth_quota,
+                (
+                    self.bridge_credit_registry,
+                    self.source_terminal_verifier,
+                ),
+                EMPTY_V2_BRIDGE_STATE_COMMITMENT,
+            )
+            object.__setattr__(self, "deployment_descriptor", deployment)
 
     @property
     def bridge_execution_hash(self) -> str:
@@ -5661,6 +6624,17 @@ class SourceBridgeDescriptor:
             self.bridge_kernel_hash,
             self.source_terminal_verifier,
             self.v1_official_vaults,
+            self.role,
+            self.native_quota_manager,
+            self.native_quota_manager_runtime_hash,
+            self.native_quota_period,
+            self.native_eth_quota,
+            self.deployment_factory,
+            self.deployment_factory_runtime_hash,
+            self.deployment_factory_configuration_hash,
+            self.deployment_salt,
+            self.deployment_initcode_hash,
+            self.deployment_descriptor.commitment,
         )
         return "source-execution:" + hashlib.sha256(
             b"TAIKO_SOURCE_BRIDGE_EXECUTION_V1\x00"
@@ -5669,12 +6643,77 @@ class SourceBridgeDescriptor:
 
     @property
     def descriptor_id(self) -> bytes:
-        if self.v1_official_vaults != V1_OFFICIAL_VAULT_ADDRESSES:
+        if (self.v1_official_vaults != V1_OFFICIAL_VAULT_ADDRESSES
+                or self.role != BRIDGE_ROLE_SOURCE_ONLY
+                or not self.native_quota_manager
+                or self.native_quota_manager
+                    != source_native_quota_manager_address(self.source_bridge)
+                or self.bridge_credit_registry
+                    != source_bridge_credit_registry_address(
+                        self.source_bridge
+                    )
+                or self.native_quota_manager_runtime_hash
+                    != NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+                or self.native_quota_period <= 0
+                or self.native_eth_quota <= 0
+                or not self.source_domain_registrar
+                or not 0 < self.source_registration_epoch <= UINT64_MAX
+                or not self.support_registry_address
+                or not self.support_registry_runtime_hash
+                or not self.support_registry_configuration_hash
+                or not self.source_terminal_verifier_runtime_hash
+                or not self.source_terminal_verifier_configuration_hash
+                or not self.deployment_factory
+                or not self.deployment_factory_runtime_hash
+                or not self.deployment_factory_configuration_hash
+                or not self.deployment_salt
+                or not self.deployment_initcode_hash
+                or self.deployment_initcode_hash
+                    != source_bundle_initcode_hash(self)
+                or not self.legacy_v1_bridge
+                or self.source_bridge == self.legacy_v1_bridge
+                or self.source_bridge != source_bridge_create2_address(
+                    self.deployment_factory,
+                    self.deployment_salt,
+                    self.deployment_initcode_hash,
+                )
+                or type(self.deployment_descriptor)
+                    is not ImmutableBridgeDeploymentDescriptorV2
+                or not self.deployment_descriptor.structurally_valid()
+                or self.deployment_descriptor.role != self.role
+                or self.deployment_descriptor.chain_id
+                    != self.source_chain_id
+                or self.deployment_descriptor.bridge
+                    != self.source_bridge
+                or self.deployment_descriptor.account_runtime_hash
+                    != self.bridge_facade_runtime_hash
+                or self.deployment_descriptor.account_configuration_hash
+                    != source_bridge_account_configuration_hash(self)
+                or self.deployment_descriptor.storage_layout_hash
+                    != self.bridge_storage_layout_hash
+                or self.deployment_descriptor.pauser != "bridge-pauser"
+                or self.deployment_descriptor.signal_service
+                    != "signal-service"
+                or self.deployment_descriptor.native_quota_manager
+                    != self.native_quota_manager
+                or self.deployment_descriptor
+                    .native_quota_manager_runtime_hash
+                    != self.native_quota_manager_runtime_hash
+                or self.deployment_descriptor.native_quota_period
+                    != self.native_quota_period
+                or self.deployment_descriptor.native_eth_quota
+                    != self.native_eth_quota
+                or self.deployment_descriptor.v2_endpoints
+                    != (
+                        self.bridge_credit_registry,
+                        self.source_terminal_verifier,
+                    )):
             raise ValueError("source V1 Vault denylist is not exact")
         fields = tuple(
             getattr(self, field_.name)
             for field_ in self.__dataclass_fields__.values()
-        )
+            if field_.name != "deployment_descriptor"
+        ) + (self.deployment_descriptor.commitment,)
         return hashlib.sha256(
             b"TAIKO_SOURCE_BRIDGE_DESCRIPTOR_V1\x00"
             + b"".join(_ingress_commitment_word(value) for value in fields)
@@ -5691,18 +6730,87 @@ class SourceBridgeDescriptor:
 
 def canonical_source_bridge_descriptor(
     settlement_chain_id: int = 1,
+    router: "ActiveSettlementRouter | None" = None,
 ) -> SourceBridgeDescriptor:
-    return SourceBridgeDescriptor(
+    descriptor = SourceBridgeDescriptor(
         settlement_chain_id,
         settlement_chain_id,
         "genesis:source:v1",
-        "source-domain-namespace:v1",
-        "bridge:A",
-        "bridge-credit-registry-v2",
-        "code:source-bridge-facade:v1",
-        "storage:source-bridge:v1",
-        "kernel:source-bridge:v1",
+        "source-domain-namespace:v2",
+        "",
+        "",
+        "code:source-bridge:v2",
+        "storage:source-bridge:v2",
+        "kernel:source-bridge:v2",
         "source-terminal-verifier",
+    )
+    return (
+        descriptor if router is None
+        else bind_source_bridge_descriptor_to_router(descriptor, router)
+    )
+
+
+def bind_source_bridge_descriptor_to_router(
+    descriptor: SourceBridgeDescriptor,
+    router: "ActiveSettlementRouter",
+) -> SourceBridgeDescriptor:
+    """Fill or verify lifetime source dependencies before descriptor hashing."""
+
+    if (type(descriptor) is not SourceBridgeDescriptor
+            or type(router) is not ActiveSettlementRouter):
+        raise ValueError("source descriptor lifetime binding has wrong type")
+    support_address = "bridge-domain-registry"
+    support_runtime = BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
+    support_configuration = bridge_domain_registry_configuration_hash(
+        address=support_address,
+        runtime_hash=support_runtime,
+        support_authority=router.version_manager,
+        router_address=router.address,
+        router_runtime_hash=router.runtime_hash,
+        router_configuration_hash=router.configuration_hash,
+        release_authority_address="release-authority",
+        release_authority_runtime_hash="code:authority",
+        release_authority_configuration_hash="cfg:authority",
+        registration_mpt_verifier_descriptor_hash=(
+            canonical_registration_mpt_verifier_descriptor().commitment
+        ),
+    )
+    verifier_configuration = source_terminal_verifier_configuration_hash(
+        address=descriptor.source_terminal_verifier,
+        runtime_hash=SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH,
+        router_address=router.address,
+        router_runtime_hash=router.runtime_hash,
+        router_configuration_hash=router.configuration_hash,
+        support_registry_address=support_address,
+        support_registry_runtime_hash=support_runtime,
+        support_registry_configuration_hash=support_configuration,
+    )
+    expected = {
+        "source_domain_registrar": "source-domain-registrar",
+        "source_registration_epoch": 1,
+        "support_registry_address": support_address,
+        "support_registry_runtime_hash": support_runtime,
+        "support_registry_configuration_hash": support_configuration,
+        "source_terminal_verifier_runtime_hash": (
+            SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
+        ),
+        "source_terminal_verifier_configuration_hash": (
+            verifier_configuration
+        ),
+    }
+    for name, value in expected.items():
+        current = getattr(descriptor, name)
+        empty = current == "" if type(value) is str else current == value
+        if not empty and current != value:
+            raise ValueError(f"source descriptor {name} changed lifetime binding")
+    return replace(
+        descriptor,
+        **expected,
+        source_bridge="",
+        bridge_credit_registry="",
+        native_quota_manager="",
+        deployment_initcode_hash="",
+        deployment_descriptor=None,
     )
 
 
@@ -5789,6 +6897,7 @@ class ProfileIngressAuthorization:
     proof_wei_per_accounted_gas: int
     permanent_wei_per_byte: int
     maximum_accepted_fee_wei: int
+    source_descriptor: SourceBridgeDescriptor | None = None
 
     @property
     def authorization_id(self) -> bytes:
@@ -5807,6 +6916,13 @@ def _ingress_commitment_word(value: object) -> bytes:
         return b"i" + value.to_bytes(8, "big")
     if type(value) is ForceKind:
         return b"k" + value.value.to_bytes(1, "big")
+    if type(value) is SourceBridgeDescriptor:
+        return (
+            b"d" + value.descriptor_id
+            + _ingress_commitment_word(value.bridge_execution_hash)
+        )
+    if value is None:
+        return b"n"
     if type(value) is tuple:
         encoded = b"".join(_ingress_commitment_word(row) for row in value)
         return b"t" + len(value).to_bytes(2, "big") + encoded
@@ -5864,14 +6980,15 @@ def canonical_destination_release_topology(
     inbox_descriptor = router.inbox_apply_descriptor
     store_config = (
         f"component-config:{inbox_descriptor.address}:"
-        f"{destination_bridge}:activation-gate:"
-        f"{inbox_descriptor.registrar_address}"
+        f"{destination_bridge}:{inbox_descriptor.registrar_address}"
     )
     facade_runtime_hash = f"facade-code:{destination_bridge}"
-    genesis_legacy_proxy = destination_bridge == "bridge:A"
-    account_runtime_hash = (
-        f"proxy-code:{destination_bridge}"
-        if genesis_legacy_proxy else facade_runtime_hash
+    # V2 is always deployed at a fresh immutable address.  The legacy V1
+    # proxy remains a separate account and is deliberately absent from this
+    # release component graph.
+    account_runtime_hash = facade_runtime_hash
+    quota_manager_address = destination_native_quota_manager_address(
+        destination_bridge
     )
     privileged_target_denyset = tuple(sorted({
         adapter_address,
@@ -5883,7 +7000,9 @@ def canonical_destination_release_topology(
         inbox_descriptor.registrar_address,
         "terminal-accumulator",
         destination_bridge,
-        "activation-gate",
+        "bridge-pauser",
+        quota_manager_address,
+        DESTINATION_LIQUIDITY_TREASURY,
         *V2_PRIVILEGED_DESTINATION_ADDRESSES,
     }))
     bridge_descriptor = DestinationBridgeDescriptorV2(
@@ -5893,27 +7012,15 @@ def canonical_destination_release_topology(
         f"kernel-profile:{destination_bridge}",
         store_address,
         "terminal-accumulator",
-        "activation-gate",
         inbox_descriptor.registrar_address,
+        native_quota_manager=quota_manager_address,
         privileged_target_denyset=privileged_target_denyset,
     )
-    bridge_config = "component-config:9:177:" + repr((
-        1 if genesis_legacy_proxy else 0,
-        account_runtime_hash,
-        facade_runtime_hash,
-        bridge_descriptor.inbox_credit_store,
-        bridge_descriptor.terminal_accumulator,
-        bridge_descriptor.activation_gate,
-        bridge_descriptor.terminal_domain_registrar,
-        bridge_descriptor.storage_layout_hash,
-        bridge_descriptor.destination_chain_id,
-        bridge_descriptor.native_quota_manager,
-        bridge_descriptor.native_liquidity_floor,
-        bridge_descriptor.native_liquidity_policy,
-        bridge_descriptor.v1_official_vaults,
-        bridge_descriptor.privileged_target_denyset,
-        bridge_descriptor.post_call_gas_reserve,
-    ))
+    bridge_config = destination_bridge_component_config_hash(
+        bridge_descriptor,
+        topology=bridge_descriptor.deployment_descriptor.topology,
+        account_runtime_hash=account_runtime_hash,
+    )
     components = (
         ReleaseComponentV2(
             adapter_address,
@@ -5973,6 +7080,7 @@ def profile_ingress_authorization_for(
     router: "ActiveSettlementRouter", *, kind: ForceKind,
     adapter_address: str, destination_bridge: str = "",
     settlement_chain_id: int = 1,
+    source_descriptor_override: SourceBridgeDescriptor | None = None,
     fee_schedule: tuple[int, int, int, int, int] = (
         INGRESS_FIXED_WEI,
         INGRESS_EXECUTION_WEI_PER_GAS,
@@ -5987,8 +7095,10 @@ def profile_ingress_authorization_for(
             or settlement_chain_id != router.settlement_chain_context_id):
         raise ValueError("ingress authorization changed settlement chain context")
     if kind is ForceKind.USER_TX:
-        if adapter_address != "kind0-adapter" or destination_bridge:
+        if (adapter_address != "kind0-adapter" or destination_bridge
+                or source_descriptor_override is not None):
             raise ValueError("kind-0 profile authorization is noncanonical")
+        exact_source_descriptor = None
         bridge_fields: tuple[object, ...] = (
             "", "", "", "", "", "", "", "", "", "",
             b"", 0, 0, "", "", "", "", "", "", "",
@@ -5998,38 +7108,40 @@ def profile_ingress_authorization_for(
         runtime_hash = KIND0_INGRESS_RUNTIME_HASH
         configuration_hash = KIND0_INGRESS_CONFIGURATION_HASH
     elif kind is ForceKind.BRIDGE_CREDIT:
-        source_address = "bridge-credit-registry-v2"
         source_runtime = BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH
         source_registrar = "source-domain-registrar"
-        source_bridge = "bridge:A"
         source_chain_id = router.settlement_chain_context_id
-        source_descriptor = canonical_source_bridge_descriptor(
-            settlement_chain_id
+        source_descriptor = (
+            canonical_source_bridge_descriptor(settlement_chain_id, router)
+            if source_descriptor_override is None
+            else bind_source_bridge_descriptor_to_router(
+                source_descriptor_override, router
+            )
         )
+        if (type(source_descriptor) is not SourceBridgeDescriptor
+                or source_descriptor.settlement_chain_id
+                    != settlement_chain_id
+                or source_descriptor.source_chain_id
+                    != settlement_chain_id):
+            raise ValueError("source descriptor changed settlement chain")
+        source_descriptor.descriptor_id
+        exact_source_descriptor = source_descriptor
+        source_address = source_descriptor.bridge_credit_registry
+        source_bridge = source_descriptor.source_bridge
         source_domain_id = source_descriptor.source_domain_id
-        source_registration_epoch = 1
+        source_registration_epoch = source_descriptor.source_registration_epoch
         frozen_bridge_execution_hash = (
             source_descriptor.bridge_execution_hash
         )
-        support_registry_address = "bridge-domain-registry"
-        support_registry_runtime = BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
+        support_registry_address = source_descriptor.support_registry_address
+        support_registry_runtime = source_descriptor.support_registry_runtime_hash
         support_registry_configuration = (
-            bridge_domain_registry_configuration_hash(
-                address=support_registry_address,
-                runtime_hash=support_registry_runtime,
-                support_authority=router.version_manager,
-                router_address=router.address,
-                router_runtime_hash=router.runtime_hash,
-                router_configuration_hash=router.configuration_hash,
-                release_authority_address="release-authority",
-                release_authority_runtime_hash="code:authority",
-                release_authority_configuration_hash="cfg:authority",
-            )
+            source_descriptor.support_registry_configuration_hash
         )
         source_configuration = bridge_credit_registry_configuration_hash(
             address=source_address,
             runtime_hash=source_runtime,
-            domain_registrar=source_registrar,
+            domain_registrar=source_descriptor.source_domain_registrar,
             frozen_bridge=source_bridge,
             support_registry_address=support_registry_address,
             support_registry_runtime_hash=support_registry_runtime,
@@ -6080,7 +7192,7 @@ def profile_ingress_authorization_for(
             source_address,
             source_runtime,
             source_configuration,
-            source_registrar,
+            source_descriptor.source_domain_registrar,
             source_bridge,
             source_descriptor.bridge_facade_runtime_hash,
             source_bridge_configuration,
@@ -6131,6 +7243,7 @@ def profile_ingress_authorization_for(
         router.forced_queue.config_hash,
         *bridge_fields,
         *fee_schedule,
+        exact_source_descriptor,
     )
 
 
@@ -6154,6 +7267,10 @@ def release_profile_ingress_authorizations(
             adapter_address=address,
             destination_bridge=destination_bridge,
             settlement_chain_id=settlement.market_settlement_chain_id,
+            source_descriptor_override=(
+                settlement.source_bridge_descriptor
+                if kind is ForceKind.BRIDGE_CREDIT else None
+            ),
             fee_schedule=settlement.ingress_fee_schedule,
         )
         for kind, address, destination_bridge in specs
@@ -6236,8 +7353,6 @@ def settlement_registration(
             descriptor.destination_namespace,
             f"anchor:v{settlement.protocol_version}",
             f"code:anchor:v{settlement.protocol_version}",
-            "activation-gate",
-            "code:activation-gate",
             descriptor.destination_domain_id,
             descriptor.destination_bridge,
             descriptor.destination_bridge_execution_hash,
@@ -6497,6 +7612,11 @@ class MigrationTransitionPublicInputs:
     anchor_system_tx_position: int
     inbox_system_tx_position: int
     expected_deployment_commitment: str
+    observed_deployment_commitment: str
+    bridge_prebalance: int
+    treasury_prebalance: int
+    pre_inbox_last_applied_l2_block: int
+    post_inbox_last_applied_l2_block: int
 
     def __post_init__(self) -> None:
         if (not self.candidate_digest
@@ -6532,7 +7652,19 @@ class MigrationTransitionPublicInputs:
                     != ANCHOR_SYSTEM_TX_POSITION
                 or self.inbox_system_tx_position
                     != INBOX_SYSTEM_TX_POSITION
-                or not self.expected_deployment_commitment):
+                or not self.expected_deployment_commitment
+                or not self.observed_deployment_commitment
+                or type(self.bridge_prebalance) is not int
+                or not 0 <= self.bridge_prebalance <= SEAT_UINT256_MAX
+                or type(self.treasury_prebalance) is not int
+                or not 0 <= self.treasury_prebalance <= SEAT_UINT256_MAX
+                or type(self.pre_inbox_last_applied_l2_block) is not int
+                or self.pre_inbox_last_applied_l2_block < -1
+                or type(self.post_inbox_last_applied_l2_block) is not int
+                or self.post_inbox_last_applied_l2_block
+                    <= self.pre_inbox_last_applied_l2_block
+                or self.post_inbox_last_applied_l2_block
+                    != self.output_core.l2_block_number):
             raise ValueError("migration transition public inputs are invalid")
 
     @property
@@ -6552,14 +7684,23 @@ def migration_transition_public_inputs_from_l1(
     target_manifest_hash: bytes,
     candidate: Candidate,
     rows: tuple["InboxRowV2", ...],
+    bridge_prebalance: int,
+    treasury_prebalance: int,
+    pre_inbox_last_applied_l2_block: int,
 ) -> MigrationTransitionPublicInputs:
-    """Reconstruct the verifier statement using only authenticated L1 data."""
+    """Reconstruct L1 fields and bind the circuit-output state commitment."""
 
     if (type(router) is not ActiveSettlementRouter
             or type(settlement) is not VersionedSettlementHistory
             or type(candidate) is not Candidate
             or candidate.count != 1
             or type(rows) is not tuple
+            or type(bridge_prebalance) is not int
+            or not 0 <= bridge_prebalance <= SEAT_UINT256_MAX
+            or type(treasury_prebalance) is not int
+            or not 0 <= treasury_prebalance <= SEAT_UINT256_MAX
+            or type(pre_inbox_last_applied_l2_block) is not int
+            or pre_inbox_last_applied_l2_block < -1
             or type(target_manifest_hash) is not bytes
             or len(target_manifest_hash) != 32):
         raise ValueError("migration L1 statement inputs have wrong types")
@@ -6603,6 +7744,19 @@ def migration_transition_public_inputs_from_l1(
             or block.inbox_system_calldata_hash
                 != inbox_system_calldata_hash(rows)):
         raise ValueError("migration L1 statement authority graph is split")
+    amount = manifest.destination_bridge_descriptor.native_liquidity_amount
+    if (type(amount) is not int or amount <= 0
+            or bridge_prebalance > SEAT_UINT256_MAX - amount
+            or treasury_prebalance < amount):
+        raise ValueError("migration release funding observation is invalid")
+    observed_deployment_commitment = (
+        expected_release_deployment_observation_commitment(
+            manifest,
+            prestate_root=old.core.state_root,
+            bridge_prebalance=bridge_prebalance,
+            treasury_prebalance=treasury_prebalance,
+        )
+    )
     return MigrationTransitionPublicInputs(
         candidate_inbox_execution_digest(candidate),
         copy.deepcopy(old.core),
@@ -6632,11 +7786,16 @@ def migration_transition_public_inputs_from_l1(
         source.source_domain_id,
         source.source_registration_epoch,
         source.frozen_bridge_execution_hash,
-        release_system_calldata_hash(manifest),
+        release_system_calldata_hash(manifest, router.forced_queue.count),
         inbox_system_calldata_hash(rows),
         block.anchor_system_tx_position,
         block.inbox_system_tx_position,
         expected_release_deployment_commitment(manifest),
+        observed_deployment_commitment,
+        bridge_prebalance,
+        treasury_prebalance,
+        pre_inbox_last_applied_l2_block,
+        output_core.l2_block_number,
     )
 
 
@@ -6668,8 +7827,7 @@ class MigrationTransitionVerifierResult:
                 or type(self.public_inputs)
                     is not MigrationTransitionPublicInputs
                 or not self.proof_commitment
-                or self.returndata
-                    != bytes.fromhex(self.public_inputs.digest)
+                or type(self.returndata) is not bytes
                 or not self.seal):
             raise ValueError("migration verifier result is invalid")
 
@@ -6775,6 +7933,8 @@ class TestMigrationTransitionVerifier(IMigrationTransitionVerifier):
             raise ValueError("test migration verifier descriptor is invalid")
         self._descriptor = descriptor
         self._seal_secret = object()
+        self.returndata_override: bytes | None = None
+        self.raise_on_verify = False
 
     @property
     def descriptor(self) -> MigrationTransitionVerifierDescriptor:
@@ -6790,6 +7950,8 @@ class TestMigrationTransitionVerifier(IMigrationTransitionVerifier):
     def verify_transition(
         self, proof: MigrationTransitionProof,
     ) -> MigrationTransitionVerifierResult:
+        if self.raise_on_verify:
+            raise RuntimeError("simulated migration verifier revert/OOG")
         if (type(proof) is not MigrationTransitionProof
                 or type(proof.public_inputs)
                     is not MigrationTransitionPublicInputs
@@ -6814,7 +7976,11 @@ class TestMigrationTransitionVerifier(IMigrationTransitionVerifier):
             self.descriptor,
             proof.public_inputs,
             proof_commitment,
-            bytes.fromhex(proof.public_inputs.digest),
+            (
+                bytes.fromhex(proof.public_inputs.digest)
+                if self.returndata_override is None
+                else self.returndata_override
+            ),
             "PENDING",
             _MIGRATION_TRANSITION_VERIFIER_RESULT_CAPABILITY,
         )
@@ -6930,6 +8096,9 @@ class VerifiedMigrationEvmTrace:
     transition_verifier_descriptor: MigrationTransitionVerifierDescriptor
     transition_result_digest: str
     transition_result_seal: str
+    transition_proof: MigrationTransitionProof = field(
+        compare=False, repr=False
+    )
     transition_statement_digest: str
     router_generation: int
     source_canonical_sequence: int
@@ -6945,6 +8114,7 @@ class VerifiedMigrationEvmTrace:
     end_cursor: int
     release_system_calldata_hash: str
     system_calldata_hash: str
+    observed_deployment_commitment: str
     observed_deployment_digest: str
     observed_deployment_seal: str
     pre_inbox_last_applied_l2_block: int
@@ -6965,6 +8135,7 @@ class VerifiedMigrationEvmTrace:
                 or not self.transition_verifier_descriptor.structurally_valid()
                 or not self.transition_result_digest
                 or not self.transition_result_seal
+                or type(self.transition_proof) is not MigrationTransitionProof
                 or len(self.transition_statement_digest) != 64
                 or self.router_generation <= 0
                 or self.source_canonical_sequence < 0
@@ -6979,6 +8150,7 @@ class VerifiedMigrationEvmTrace:
                     <= self.queue_count
                 or not self.release_system_calldata_hash
                 or not self.system_calldata_hash
+                or not self.observed_deployment_commitment
                 or not self.observed_deployment_digest
                 or not self.observed_deployment_seal
                 or self.pre_inbox_last_applied_l2_block < -1
@@ -6995,6 +8167,8 @@ class VerifiedMigrationEvmTrace:
             self.transition_verifier_descriptor,
             self.transition_result_digest,
             self.transition_result_seal,
+            self.transition_proof.public_inputs.digest,
+            hashlib.sha256(self.transition_proof.proof_bytes).hexdigest(),
             self.transition_statement_digest,
             self.router_generation,
             self.source_canonical_sequence,
@@ -7007,6 +8181,7 @@ class VerifiedMigrationEvmTrace:
             self.start_cursor, self.end_cursor,
             self.release_system_calldata_hash,
             self.system_calldata_hash,
+            self.observed_deployment_commitment,
             self.observed_deployment_digest,
             self.observed_deployment_seal,
             self.pre_inbox_last_applied_l2_block,
@@ -7019,14 +8194,17 @@ class VerifiedMigrationEvmTrace:
         ).hexdigest()
 
 
-@dataclass(frozen=True, eq=False)
-class VerifiedMigrationExecutionOutput:
-    verifier: "InboxValidityExecutionAuthority" = field(
-        compare=False, repr=False
-    )
-    router: "ActiveSettlementRouter" = field(compare=False, repr=False)
+@dataclass(frozen=True)
+class MigrationActivationCallV2:
+    """Untrusted value-only L1 activation calldata.
+
+    The Router reconstructs the statement and invokes the profile-pinned
+    verifier itself. No L2 authority object, capability, or opaque seal is an
+    authorization input.
+    """
+
     candidate: Candidate
-    evm_validity: VerifiedMigrationEvmTrace
+    transition_proof: MigrationTransitionProof
     base_core: CanonicalCore
     output_core: CanonicalCore
     target_protocol_version: int
@@ -7040,37 +8218,31 @@ class VerifiedMigrationExecutionOutput:
     rows: tuple["InboxRowV2", ...]
     pre_inbox_last_applied_l2_block: int
     post_inbox_last_applied_l2_block: int
-    seal: str
-    _capability: object = field(repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if (self._capability is not _MIGRATION_EXECUTION_OUTPUT_CAPABILITY
-                or type(self.verifier) is not InboxValidityExecutionAuthority
-                or type(self.router) is not ActiveSettlementRouter
-                or type(self.target_manifest_hash) is not bytes
+        if (type(self.target_manifest_hash) is not bytes
                 or len(self.target_manifest_hash) != 32
                 or len(self.transition_statement_digest) != 64
                 or self.router_generation <= 0
                 or self.source_canonical_sequence < 0
                 or type(self.candidate) is not Candidate
-                or type(self.evm_validity) is not VerifiedMigrationEvmTrace
+                or type(self.transition_proof)
+                    is not MigrationTransitionProof
                 or self.target_protocol_version <= 0
                 or not 0 <= self.start_cursor <= self.end_cursor
                 or not self.beneficiary
                 or type(self.rows) is not tuple
                 or self.pre_inbox_last_applied_l2_block < -1
                 or self.post_inbox_last_applied_l2_block
-                    <= self.pre_inbox_last_applied_l2_block
-                or not self.seal):
+                    <= self.pre_inbox_last_applied_l2_block):
             raise ValueError("migration activation proof is not canonical")
 
     @property
     def digest(self) -> str:
         projection = (
-            id(self.verifier), id(self.router),
             candidate_inbox_execution_digest(self.candidate),
-            self.evm_validity.digest,
-            self.evm_validity.seal,
+            self.transition_proof.public_inputs.digest,
+            hashlib.sha256(self.transition_proof.proof_bytes).hexdigest(),
             self.base_core,
             self.output_core,
             self.target_protocol_version,
@@ -7086,9 +8258,14 @@ class VerifiedMigrationExecutionOutput:
             self.post_inbox_last_applied_l2_block,
         )
         return hashlib.sha256(
-            b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_V1\x00"
+            b"TAIKO_MIGRATION_ACTIVATION_CALL_V2\x00"
             + repr(projection).encode()
         ).hexdigest()
+
+
+# Compatibility alias for node-local test helper annotations. Production
+# semantics are the plain value-only MigrationActivationCallV2 above.
+VerifiedMigrationExecutionOutput = MigrationActivationCallV2
 
 @dataclass(frozen=True)
 class MigrationActivationReceipt:
@@ -7167,6 +8344,21 @@ class ActiveSettlementRouter:
     _source_bridge_authority: object | None = field(
         default=None, compare=False, repr=False
     )
+    _bridge_domain_registry_authority: object | None = field(
+        default=None, compare=False, repr=False
+    )
+    _source_bridge_factories_by_address: dict[str, object] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    _source_bundles_by_descriptor_id: dict[bytes, tuple[object, ...]] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    _source_descriptor_id_by_version: dict[int, bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    _used_source_component_addresses: set[str] = field(
+        default_factory=set, compare=False, repr=False
+    )
     _profile_deployments_by_version: dict[int, MappingProxyType] = field(
         default_factory=dict, compare=False, repr=False
     )
@@ -7222,6 +8414,7 @@ class ActiveSettlementRouter:
             "_version_manager_authority",
             "_bridge_credit_registry_authority",
             "_source_bridge_authority",
+            "_bridge_domain_registry_authority",
             "_queue_transition_frame",
         } and name in self.__dict__:
             raise AttributeError(f"active-router {name} is immutable")
@@ -7328,9 +8521,44 @@ class ActiveSettlementRouter:
         deployments_before = dict(self._profile_deployments_by_version)
         source_registry_before = self._bridge_credit_registry_authority
         source_bridge_before = self._source_bridge_authority
+        support_registry_before = self._bridge_domain_registry_authority
+        source_factories_before = dict(
+            self._source_bridge_factories_by_address
+        )
+        source_bundles_before = dict(self._source_bundles_by_descriptor_id)
+        source_versions_before = dict(self._source_descriptor_id_by_version)
+        used_source_addresses_before = set(
+            self._used_source_component_addresses
+        )
+        source_factory_states = {
+            address: (
+                factory,
+                dict(factory._deployments),
+                dict(factory._bundles),
+            )
+            for address, factory
+            in self._source_bridge_factories_by_address.items()
+            if type(factory) is ImmutableV2BridgeFactory
+        }
+        source_bundle_states_before: dict[int, tuple[object, ...]] = {}
+        for factory, _, bundles in source_factory_states.values():
+            for bundle in bundles.values():
+                if (len(bundle) == 5
+                        and type(bundle[0]) is SourceBridgeV2
+                        and type(bundle[1]) is BridgeCreditRegistryV2):
+                    bridge, registry = bundle[:2]
+                    source_bundle_states_before.setdefault(
+                        id(bridge),
+                        (
+                            bridge,
+                            bridge._transaction_snapshot(),
+                            registry,
+                            registry._authorization_snapshot(),
+                        ),
+                    )
         source_registry_state = (
-            source_registry_before.domain_registry._transaction_snapshot()
-            if type(source_registry_before) is BridgeCreditRegistryV2 else None
+            support_registry_before._transaction_snapshot()
+            if type(support_registry_before) is BridgeDomainRegistry else None
         )
         try:
             deployments = dict(
@@ -7370,69 +8598,143 @@ class ActiveSettlementRouter:
                 # ReleaseAuthority/Registrar: those writes occur only in the
                 # proof-authenticated activation block's tx0.
                 manifest = registration.release_manifest
-                credit_registry = self._bridge_credit_registry_authority
-                source_bridge = self._source_bridge_authority
-                if credit_registry is None and source_bridge is None:
-                    l1_authority_descriptor = (
-                        release_authority_descriptor_from_manifest(manifest)
-                    )
+                source_descriptor = bridge_authorization.source_descriptor
+                if type(source_descriptor) is not SourceBridgeDescriptor:
+                    raise ValueError("source descriptor is not committed")
+                descriptor_id = source_descriptor.descriptor_id
+                if descriptor_id != bridge_authorization.source_descriptor_id:
+                    raise ValueError("source descriptor commitment changed")
+
+                l1_authority_descriptor = (
+                    release_authority_descriptor_from_manifest(manifest)
+                )
+                support_registry = self._bridge_domain_registry_authority
+                if support_registry is None:
                     support_registry = BridgeDomainRegistry(
-                        self, manager, l1_authority_descriptor
-                    )
-                    source_descriptor = SourceBridgeDescriptor(
-                            bridge_authorization.source_settlement_chain_id,
-                            bridge_authorization.source_chain_id,
-                            bridge_authorization.source_genesis_hash,
-                            bridge_authorization.source_registry_namespace,
-                            bridge_authorization.source_bridge_address,
-                            bridge_authorization.source_bridge_credit_registry,
-                            bridge_authorization
-                                .source_bridge_facade_runtime_hash,
-                            bridge_authorization
-                                .source_bridge_storage_layout_hash,
-                            bridge_authorization.source_bridge_kernel_hash,
-                            bridge_authorization.source_terminal_verifier,
-                            bridge_authorization.source_v1_official_vaults,
-                    )
-                    credit_registry = BridgeCreditRegistryV2(
-                        support_registry,
-                        source_descriptor,
-                        address=bridge_authorization.source_registry_address,
-                        runtime_hash=(
-                            bridge_authorization.source_registry_runtime_hash
-                        ),
-                        domain_registrar=(
-                            bridge_authorization.source_registry_domain_registrar
-                        ),
-                        source_registration_epoch=(
-                            bridge_authorization.source_registration_epoch
-                        ),
-                    )
-                    source_bridge = SourceBridgeV2(
-                        credit_registry,
-                        source_descriptor,
-                        frozen_bridge=bridge_authorization.source_bridge_address,
-                        address=bridge_authorization.source_bridge_address,
-                        runtime_hash=(
-                            bridge_authorization.source_bridge_runtime_hash
-                        ),
-                        source_chain_id=bridge_authorization.source_chain_id,
-                        source_domain_id=bridge_authorization.source_domain_id,
-                        source_registration_epoch=(
-                            bridge_authorization.source_registration_epoch
-                        ),
-                        frozen_bridge_execution_hash=(
-                            bridge_authorization.frozen_bridge_execution_hash
+                        self,
+                        manager,
+                        l1_authority_descriptor,
+                        TestRegistrationMptVerifier(
+                            canonical_registration_mpt_verifier_descriptor()
                         ),
                     )
                     object.__setattr__(
                         self,
-                        "_bridge_credit_registry_authority",
+                        "_bridge_domain_registry_authority",
+                        support_registry,
+                    )
+                elif (type(support_registry) is not BridgeDomainRegistry
+                        or support_registry.router is not self
+                        or support_registry.manager is not manager
+                        or support_registry.release_authority_descriptor
+                            != l1_authority_descriptor):
+                    raise ValueError(
+                        "source support registry lifetime authority changed"
+                    )
+
+                source_bridge_factory = (
+                    self._source_bridge_factories_by_address.get(
+                        source_descriptor.deployment_factory
+                    )
+                )
+                if source_bridge_factory is None:
+                    source_bridge_factory = ImmutableV2BridgeFactory(
+                        source_descriptor.deployment_factory,
+                        source_descriptor.deployment_factory_runtime_hash,
+                        source_descriptor
+                            .deployment_factory_configuration_hash,
+                    )
+                    self._source_bridge_factories_by_address[
+                        source_descriptor.deployment_factory
+                    ] = source_bridge_factory
+                elif (type(source_bridge_factory)
+                        is not ImmutableV2BridgeFactory
+                        or source_bridge_factory.runtime_hash
+                            != source_descriptor.deployment_factory_runtime_hash
+                        or source_bridge_factory.configuration_hash
+                            != source_descriptor
+                                .deployment_factory_configuration_hash):
+                    raise ValueError("source Bridge factory identity changed")
+
+                bundle = self._source_bundles_by_descriptor_id.get(
+                    descriptor_id
+                )
+                if bundle is None:
+                    component_addresses = {
+                        source_descriptor.source_bridge,
+                        source_descriptor.bridge_credit_registry,
+                        source_descriptor.native_quota_manager,
+                    }
+                    if (len(component_addresses) != 3
+                            or source_descriptor.legacy_v1_bridge
+                                in component_addresses
+                            or component_addresses
+                                & self._used_source_component_addresses):
+                        raise ValueError(
+                            "source Bridge successor accounts are not fresh"
+                        )
+                    (
+                        source_bridge,
                         credit_registry,
+                        source_deployment_receipt,
+                    ) = source_bridge_factory.deploy_source_bundle(
+                        source_descriptor,
+                        support_registry,
+                        caller="permissionless-deployer",
                     )
-                    object.__setattr__(
-                        self, "_source_bridge_authority", source_bridge
+                    _ = source_deployment_receipt
+                    bundle = (
+                        source_bridge,
+                        credit_registry,
+                        source_bridge.quota_manager,
                     )
+                    self._source_bundles_by_descriptor_id[
+                        descriptor_id
+                    ] = bundle
+                    self._used_source_component_addresses.update(
+                        component_addresses
+                    )
+                source_bridge, credit_registry, quota_manager = bundle
+                if (type(source_bridge) is not SourceBridgeV2
+                        or type(credit_registry) is not BridgeCreditRegistryV2
+                        or type(quota_manager) is not FrozenNativeQuotaManagerV2
+                        or source_bridge.credit_registry is not credit_registry
+                        or source_bridge.quota_manager is not quota_manager
+                        or source_bridge.deployment_factory
+                            is not source_bridge_factory
+                        or source_bridge.source_descriptor.descriptor_id
+                            != descriptor_id
+                        or source_bridge.address
+                            != source_descriptor.source_bridge
+                        or credit_registry.address
+                            != source_descriptor.bridge_credit_registry
+                        or quota_manager.address
+                            != source_descriptor.native_quota_manager):
+                    raise ValueError("source Bridge bundle identity is split")
+                if (not source_bridge.v2_active
+                        and not source_bridge.activate(
+                        bridge_authorization,
+                        registration,
+                        router=self,
+                        caller="permissionless-activator",
+                    )):
+                        raise ValueError(
+                            "source Bridge inactive-to-active seal failed"
+                        )
+                prior_descriptor_id = self._source_descriptor_id_by_version.get(
+                    registration.settlement.protocol_version
+                )
+                if prior_descriptor_id not in {None, descriptor_id}:
+                    raise ValueError("release source descriptor changed")
+                self._source_descriptor_id_by_version[
+                    registration.settlement.protocol_version
+                ] = descriptor_id
+                object.__setattr__(
+                    self, "_bridge_credit_registry_authority", credit_registry
+                )
+                object.__setattr__(
+                    self, "_source_bridge_authority", source_bridge
+                )
                 if (type(credit_registry) is not BridgeCreditRegistryV2
                         or type(source_bridge) is not SourceBridgeV2
                         or source_bridge.credit_registry is not credit_registry
@@ -7444,11 +8746,11 @@ class ActiveSettlementRouter:
                         or source_bridge.configuration_hash
                             != bridge_authorization.source_bridge_configuration_hash
                         or credit_registry.domain_registry.manager is not manager
-                        or credit_registry.domain_registry
-                            .release_authority_descriptor.authority_address
-                            != manifest.components[5].address):
+                        or credit_registry.domain_registry is not support_registry
+                        or support_registry.release_authority_descriptor
+                            != l1_authority_descriptor):
                     raise ValueError("source Bridge deployment is split")
-                registry = credit_registry.domain_registry
+                registry = support_registry
                 stage_clock = Clock(
                     registration.activation_block,
                     GENESIS_TIMESTAMP,
@@ -7514,11 +8816,37 @@ class ActiveSettlementRouter:
             object.__setattr__(
                 self, "_source_bridge_authority", source_bridge_before
             )
+            object.__setattr__(
+                self,
+                "_bridge_domain_registry_authority",
+                support_registry_before,
+            )
+            self._source_bridge_factories_by_address = source_factories_before
+            self._source_bundles_by_descriptor_id = source_bundles_before
+            self._source_descriptor_id_by_version = source_versions_before
+            self._used_source_component_addresses = used_source_addresses_before
+            for factory, deployments_state, bundles_state in (
+                source_factory_states.values()
+            ):
+                factory._deployments = deployments_state
+                factory._bundles = bundles_state
+            for bridge, bridge_state, registry, registry_state in (
+                source_bundle_states_before.values()
+            ):
+                bridge._restore_transaction_snapshot(
+                    bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
+                )
+                registry._restore_authorization_snapshot(
+                    registry_state,
+                    source_bridge=bridge,
+                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+                )
             if (source_registry_state is not None
-                    and type(source_registry_before)
-                        is BridgeCreditRegistryV2):
-                source_registry_before.domain_registry \
-                    ._restore_transaction_snapshot(source_registry_state)
+                    and type(support_registry_before)
+                        is BridgeDomainRegistry):
+                support_registry_before._restore_transaction_snapshot(
+                    source_registry_state
+                )
             return False
 
     def _valid_migration_activation_proof(
@@ -7532,15 +8860,7 @@ class ActiveSettlementRouter:
         if (type(proof) is not VerifiedMigrationExecutionOutput
                 or type(clock) is not Clock):
             return False
-        target = settlement.live_protocol
-        authority = (
-            target._inbox_execution_authority
-            if type(target) is Protocol else None
-        )
-        candidate = (
-            proof.candidate
-            if type(proof) is VerifiedMigrationExecutionOutput else None
-        )
+        candidate = proof.candidate
         block = (
             candidate.blocks[0]
             if type(candidate) is Candidate and candidate.count == 1 else None
@@ -7570,78 +8890,71 @@ class ActiveSettlementRouter:
                 release_manifest_hash=target_manifest_hash,
             )
             expected_manifest = expected_registration.release_manifest
+            claimed_inputs = proof.transition_proof.public_inputs
             expected_statement = migration_transition_public_inputs_from_l1(
                 router=self,
                 settlement=settlement,
                 target_manifest_hash=target_manifest_hash,
                 candidate=candidate,
                 rows=proof.rows,
+                bridge_prebalance=claimed_inputs.bridge_prebalance,
+                treasury_prebalance=claimed_inputs.treasury_prebalance,
+                pre_inbox_last_applied_l2_block=(
+                    claimed_inputs.pre_inbox_last_applied_l2_block
+                ),
             )
-        except (AttributeError, TypeError, ValueError):
+            verifier = expected_registration.execution_profile \
+                .migration_transition_verifier
+            descriptor = expected_registration.execution_profile \
+                .migration_transition_verifier_descriptor
+            result = verifier.verify_transition(proof.transition_proof)
+        except (AttributeError, RuntimeError, TypeError, ValueError):
             return False
         descriptors = tuple(self.forced_queue.descriptors[
             proof.start_cursor:proof.end_cursor
         ])
         if (type(proof) is not VerifiedMigrationExecutionOutput
-                or proof.router is not self
                 or proof.target_manifest_hash != target_manifest_hash
                 or proof.target_protocol_version
                     != settlement.protocol_version
-                or type(authority) is not InboxValidityExecutionAuthority
-                or proof.verifier is not authority
-                or proof.seal != authority._opaque_seal(
-                    b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_SEAL_V1\x00",
-                    proof.digest,
-                )
-                or type(proof.evm_validity)
-                    is not VerifiedMigrationEvmTrace
-                or not authority.valid_migration_evm_trace(
-                    proof.evm_validity
-                )
-                or proof.evm_validity.transition_verifier_descriptor
-                    != expected_manifest.migration_transition_verifier
+                or type(proof.transition_proof)
+                    is not MigrationTransitionProof
                 or expected_registration.execution_profile
                     is not settlement.execution_profile
-                or proof.evm_validity.transition_verifier
-                    is not settlement.execution_profile
-                        .migration_transition_verifier
+                or not expected_registration.execution_profile
+                    .structurally_valid()
+                or descriptor != expected_manifest.migration_transition_verifier
+                or verifier is not settlement.execution_profile
+                    .migration_transition_verifier
+                or not verifier.valid_result(result)
+                or result.verifier is not verifier
+                or result.descriptor != descriptor
+                or result.public_inputs != expected_statement
+                or result.returndata != bytes.fromhex(expected_statement.digest)
                 or proof.transition_statement_digest
                     != expected_statement.digest
                 or proof.router_generation
                     != expected_statement.router_generation
                 or proof.source_canonical_sequence
                     != expected_statement.canonical_sequence
-                or proof.evm_validity.transition_statement_digest
-                    != expected_statement.digest
-                or proof.evm_validity.router_generation
-                    != expected_statement.router_generation
-                or proof.evm_validity.source_canonical_sequence
-                    != expected_statement.canonical_sequence
-                or proof.evm_validity.transition_result_digest
-                    != migration_transition_result_digest(
-                        proof.evm_validity.transition_verifier_descriptor,
-                        expected_statement.digest,
-                        proof.evm_validity.proof_commitment,
-                    )
-                or proof.evm_validity.candidate_digest
+                or claimed_inputs.candidate_digest
                     != candidate_inbox_execution_digest(candidate)
-                or proof.evm_validity.base_core != proof.base_core
-                or proof.evm_validity.output_core != proof.output_core
-                or proof.evm_validity.target_manifest_hash
-                    != target_manifest_hash
-                or proof.evm_validity.release_system_calldata_hash
-                    != release_system_calldata_hash(expected_manifest)
-                or proof.evm_validity.system_calldata_hash
+                or claimed_inputs.base_core != proof.base_core
+                or claimed_inputs.output_core != proof.output_core
+                or claimed_inputs.target_manifest_hash != target_manifest_hash
+                or claimed_inputs.release_system_calldata_hash
+                    != release_system_calldata_hash(
+                        expected_manifest, claimed_inputs.queue_count
+                    )
+                or claimed_inputs.inbox_system_calldata_hash
                     != inbox_system_calldata_hash(proof.rows)
-                or proof.evm_validity.queue_root != self.forced_queue.root
-                or proof.evm_validity.queue_count != self.forced_queue.count
-                or proof.evm_validity.start_cursor != proof.start_cursor
-                or proof.evm_validity.end_cursor != proof.end_cursor
-                or not proof.evm_validity.observed_deployment_digest
-                or not proof.evm_validity.observed_deployment_seal
-                or proof.evm_validity.pre_inbox_last_applied_l2_block
+                or claimed_inputs.queue_root != self.forced_queue.root
+                or claimed_inputs.queue_count != self.forced_queue.count
+                or claimed_inputs.start_cursor != proof.start_cursor
+                or claimed_inputs.end_cursor != proof.end_cursor
+                or claimed_inputs.pre_inbox_last_applied_l2_block
                     != proof.pre_inbox_last_applied_l2_block
-                or proof.evm_validity.post_inbox_last_applied_l2_block
+                or claimed_inputs.post_inbox_last_applied_l2_block
                     != proof.post_inbox_last_applied_l2_block
                 or proof.beneficiary != candidate.beneficiary
                 or derived_output != proof.output_core
@@ -7658,13 +8971,13 @@ class ActiveSettlementRouter:
                 or proof.post_inbox_last_applied_l2_block
                     != proof.output_core.l2_block_number
                 or proof.end_cursor != proof.output_core.message_cursor
-                or not authority._rows_match_descriptors(
+                or not InboxValidityExecutionAuthority._rows_match_descriptors(
                     proof.rows, descriptors,
                 )):
             return False
-        # The sealed zk/EVM output binds both roots and the exact tx0/tx1
-        # calldata public inputs.  Route/pin journals remain private witness
-        # data and are never imported into the L1 object graph.
+        # One direct, bounded verifier call precedes every write. The Router
+        # consumes only this value statement; target-L2 objects and prover
+        # capabilities are deliberately unreachable from this path.
         return True
 
     def activate_profile_bridge_adapter(
@@ -7688,6 +9001,10 @@ class ActiveSettlementRouter:
         )
         source = getattr(adapter, "source_bridge", None)
         credit_registry = getattr(adapter, "credit_registry", None)
+        descriptor_id = self._source_descriptor_id_by_version.get(
+            protocol_version
+        )
+        bundle = self._source_bundles_by_descriptor_id.get(descriptor_id)
         destination_domain_id = getattr(
             authorization, "destination_domain_id", ""
         )
@@ -7709,9 +9026,11 @@ class ActiveSettlementRouter:
                 or authorization.kind is not ForceKind.BRIDGE_CREDIT
                 or adapter is not deployment
                 or adapter.router is not self
-                or source is not self._source_bridge_authority
-                or credit_registry
-                    is not self._bridge_credit_registry_authority
+                or bundle is None or len(bundle) != 3
+                or source is not bundle[0]
+                or credit_registry is not bundle[1]
+                or source.quota_manager is not bundle[2]
+                or authorization.source_descriptor_id != descriptor_id
                 or support is None
                 or support.manifest is not registration.release_manifest
                 or support.source_chain_id != authorization.source_chain_id
@@ -7928,7 +9247,6 @@ class ActiveSettlementRouter:
         if old_registration is None:
             return False
         old = old_registration.settlement
-        target_protocol = settlement.live_protocol
         if (type(clock) is not Clock
                 or not self._valid_migration_activation_proof(
                     activation_proof,
@@ -7946,102 +9264,14 @@ class ActiveSettlementRouter:
                 or settlement.current_sequence != -1
                 or settlement.last_canonical_l1_block != 0
                 or settlement._router_authority is not None
-                or target_protocol is None
-                or target_protocol is old.live_protocol
-                or old.live_protocol is None
-                or target_protocol.versioned_history is not settlement
-                or target_protocol.header_oracle is not self.header_oracle
                 or settlement.header_oracle is not self.header_oracle
                 or old.header_oracle is not self.header_oracle
-                or old.live_protocol is None
-                or old.live_protocol.header_oracle is not self.header_oracle
-                or target_protocol.mode is not Mode.PREACTIVE
-                or target_protocol.settlement_address != settlement.address
-                or target_protocol.canonical.core != settlement.core
-                or target_protocol.canonical.canonicalized_at_block
-                    != settlement.canonicalized_at_block
-                or target_protocol.release_activation_pending
-                or target_protocol.pending_release_protocol_version != 0
-                or target_protocol.pending_release_manifest_hash != ""
-                or target_protocol.first_v2_block_number != 0
-                or target_protocol.episode != 0
-                or target_protocol.recovery is not None
-                or target_protocol.normal_best is not None
-                or target_protocol.normal_best_min_data_expiry != UINT64_MAX
-                or target_protocol.normal_deadline is not None
-                or target_protocol.normal_required_through is not None
-                or target_protocol.normal_min_admissible is not None
-                or target_protocol.normal_admission_version is not None
-                or target_protocol.normal_admission_root is not None
-                or target_protocol.normal_anchor_number is not None
-                or target_protocol.normal_anchor_hash is not None
-                or target_protocol.normal_context_id is not None
-                or target_protocol.normal_arm_block_number is not None
-                or target_protocol.admission_version
-                != old.live_protocol.admission_version
-                or target_protocol.admission_root
-                != old.live_protocol.admission_root
-                or target_protocol.queue_capacity
-                != old.live_protocol.queue_capacity
-                or target_protocol.canonical is old.live_protocol.canonical
-                or target_protocol.forced_queue is not self.forced_queue
-                or target_protocol.inbox_apply_descriptor
-                    != self.inbox_apply_descriptor
-                or target_protocol.migration_gate is not settlement.migration_gate
-                or target_protocol.seat_terms
-                or target_protocol.seat_services
-                or target_protocol.seat_lineup
-                or target_protocol.seat_duties
-                or target_protocol.term_duty
-                or target_protocol.seat_selections
-                or target_protocol.term_selection
-                or target_protocol.seat_selection is not None
-                or target_protocol.settlement_seat_stage is not None
-                or target_protocol.stage_tombstones
-                or target_protocol.outstanding_stage_tombstone_id is not None
-                or target_protocol.seat_generation != 0
-                or target_protocol.seat_lineup_revision != 0
-                or target_protocol.duty_sequence != 0
-                or target_protocol.seat_sla_trigger_pending
-                or target_protocol.seat_migration_arm is not None
-                or target_protocol.seat_migration_abort is not None
-                or target_protocol.seat_migration_local_generation is not None
-                or target_protocol.seat_scan_count != 0
-                or target_protocol.seat_scan_visits_total != 0
-                or target_protocol.events
-                or target_protocol.last_canonical_execution_digest
-                or target_protocol.gc_cursor != 0
-                or target_protocol.boundary_queries != 0
-                or target_protocol.seat_fault_point is not None
-                or not target_protocol.canonical_state_witness_available
-                or not target_protocol.canonical_code_preimages_available
-                or target_protocol.sessions
-                or target_protocol.seat_terms is old.live_protocol.seat_terms
-                or target_protocol.seat_services is old.live_protocol.seat_services
-                or target_protocol.seat_lineup is old.live_protocol.seat_lineup
-                or target_protocol.seat_duties is old.live_protocol.seat_duties
-                or target_protocol.term_duty is old.live_protocol.term_duty
-                or target_protocol.duty_ring is old.live_protocol.duty_ring
-                or target_protocol.seat_selections
-                    is old.live_protocol.seat_selections
-                or target_protocol.term_selection
-                    is old.live_protocol.term_selection
-                or target_protocol.stage_tombstones
-                    is old.live_protocol.stage_tombstones
-                or target_protocol.sessions is old.live_protocol.sessions
-                or target_protocol.events is old.live_protocol.events
-                or len(target_protocol.duty_ring) != DUTY_RING_CAPACITY
-                or any(
-                    cell != SeatDutyCell()
-                    for cell in target_protocol.duty_ring
-                )
                 or old.mode != "MIGRATION_READY"
                 or old.migration_gate.mode != "READY"
                 or old.migration_gate.active_protocol_version
                     != self.active_version
                 or old.migration_gate is not self.migration_gate
                 or settlement.migration_gate is not self.migration_gate
-                or target_protocol.migration_gate is not self.migration_gate
                 or old.migration_gate.target_protocol_version
                     != settlement.protocol_version
                 or old.migration_gate.target_manifest_hash
@@ -8068,15 +9298,7 @@ class ActiveSettlementRouter:
                 or old.builder_registry_id != self.builder_registry_id
                 or settlement.schedule_oracle_id != self.schedule_oracle_id
                 or old.schedule_oracle_id != self.schedule_oracle_id
-                or old.live_protocol is None
-                or old.live_protocol.inbox_apply_descriptor
-                    != self.inbox_apply_descriptor
-                or old.live_protocol.versioned_history is not old
-                or old.live_protocol.forced_queue is not self.forced_queue
-                or old.live_protocol.canonical.core != old.core
                 or old.core.message_cursor != self.forced_queue.cursor
-                or old.live_protocol.release_activation_pending
-                or old.live_protocol.first_v2_block_number <= 0
                 or activation_proof.start_cursor != old.core.message_cursor
                 or not activation_proof.start_cursor
                     <= activation_proof.end_cursor <= self.forced_queue.count
@@ -8143,19 +9365,7 @@ class ActiveSettlementRouter:
             raise ValueError("target release deployments are not exact")
         self.active_version = settlement.protocol_version
         self.used_target_addresses.add(settlement.address)
-        successor = target_protocol
         active_gate = old.migration_gate
-        successor.canonical = Canonical(
-            copy.deepcopy(activation_proof.output_core), l1_block)
-        successor.mode = Mode.NORMAL
-        successor.seat_generation = old.live_protocol.seat_generation
-        successor.first_v2_block_number = old.live_protocol.first_v2_block_number
-        successor.release_activation_pending = False
-        successor.pending_release_protocol_version = 0
-        successor.pending_release_manifest_hash = ""
-        successor.last_canonical_execution_digest = (
-            candidate_inbox_execution_digest(activation_proof.candidate)
-        )
         activated = active_gate._activate_from_router(
             active_gate.generation, old_version,
             settlement.protocol_version)
@@ -8588,18 +9798,6 @@ class ProtocolVersionManager:
             or new_auth.expected_magic != settlement.market_magic
             or old_protocol.seat_market_address != market_address
             or old_protocol.seat_authorization_id != old_auth_id
-            or settlement.live_protocol.seat_authorization_id != new_auth_id
-            or settlement.live_protocol.seat_market_address != market_address
-            or settlement.live_protocol.seat_runway_seconds
-            != old_protocol.seat_runway_seconds
-            or settlement.live_protocol.minimum_primary_tenure_seconds
-            != old_protocol.minimum_primary_tenure_seconds
-            or settlement.live_protocol.minimum_standby_tenure_seconds
-            != old_protocol.minimum_standby_tenure_seconds
-            or settlement.live_protocol.exit_delay_seconds
-            != old_protocol.exit_delay_seconds
-            or not settlement.live_protocol.seat_profile_ready
-            or not settlement.live_protocol.seat_configuration_ready
         ):
             raise ValueError("seat migration activation authority is invalid")
         receipt_key = (manifest.generation, manifest.target_manifest_hash)
@@ -8642,56 +9840,44 @@ class ProtocolVersionManager:
             dict(self.router._profile_deployments_by_version),
             self.router._bridge_credit_registry_authority,
             self.router._source_bridge_authority,
+            self.router._bridge_domain_registry_authority,
+            dict(self.router._source_bridge_factories_by_address),
+            dict(self.router._source_bundles_by_descriptor_id),
+            dict(self.router._source_descriptor_id_by_version),
+            set(self.router._used_source_component_addresses),
         )
-        source_registry_state = (
-            self.router._bridge_credit_registry_authority.domain_registry
-            ._transaction_snapshot()
-            if type(self.router._bridge_credit_registry_authority)
-                is BridgeCreditRegistryV2 else None
-        )
-        target_protocol_refs = (
-            settlement.live_protocol.forced_queue,
-            settlement.live_protocol.inbox_apply_router,
-            settlement.live_protocol.migration_gate,
-            settlement.live_protocol.versioned_history,
-            settlement.live_protocol._inbox_execution_authority,
-            settlement.live_protocol.normal_best,
-        )
-        target_execution_authority_state = {
-            "_issued": dict(
-                settlement.live_protocol._inbox_execution_authority._issued
-            ),
-            "_consumed": set(
-                settlement.live_protocol._inbox_execution_authority._consumed
-            ),
-            "_next_nonce": (
-                settlement.live_protocol._inbox_execution_authority._next_nonce
-            ),
-            "_execution_frame": (
-                settlement.live_protocol._inbox_execution_authority
-                ._execution_frame
-            ),
-            "_preparing_candidate_id": (
-                settlement.live_protocol._inbox_execution_authority
-                ._preparing_candidate_id
-            ),
-            "_verifying_candidate_id": (
-                settlement.live_protocol._inbox_execution_authority
-                ._verifying_candidate_id
-            ),
-            "_release_activation_frame": (
-                settlement.live_protocol._inbox_execution_authority
-                ._release_activation_frame
-            ),
+        source_factory_states = {
+            address: (
+                factory,
+                dict(factory._deployments),
+                dict(factory._bundles),
+            )
+            for address, factory
+            in self.router._source_bridge_factories_by_address.items()
+            if type(factory) is ImmutableV2BridgeFactory
         }
-        target_protocol_snapshot = copy.deepcopy({
-            key: value for key, value in settlement.live_protocol.__dict__.items()
-            if key not in {
-                "forced_queue", "inbox_apply_router", "migration_gate",
-                "versioned_history", "_inbox_execution_authority",
-                "normal_best",
-            }
-        })
+        source_bundle_states: dict[int, tuple[object, ...]] = {}
+        for factory, _, bundles in source_factory_states.values():
+            for bundle in bundles.values():
+                if (len(bundle) == 5
+                        and type(bundle[0]) is SourceBridgeV2
+                        and type(bundle[1]) is BridgeCreditRegistryV2):
+                    bridge, registry = bundle[:2]
+                    source_bundle_states.setdefault(
+                        id(bridge),
+                        (
+                            bridge,
+                            bridge._transaction_snapshot(),
+                            registry,
+                            registry._authorization_snapshot(),
+                        ),
+                    )
+        source_registry_state = (
+            self.router._bridge_domain_registry_authority
+                ._transaction_snapshot()
+            if type(self.router._bridge_domain_registry_authority)
+                is BridgeDomainRegistry else None
+        )
         try:
             activated = self.router._activate_version_with_proof(
                 settlement=settlement,
@@ -8703,21 +9889,6 @@ class ProtocolVersionManager:
                 raise ValueError("seat migration activation proof was rejected")
             if self.fault_point == "after_target_import":
                 raise RuntimeError("injected activation fault: after_target_import")
-            successor = settlement.live_protocol
-            if (
-                successor is None
-                or successor is old_protocol
-                or successor.seat_lineup
-                or successor.seat_duties
-                or any(not cell.reusable for cell in successor.duty_ring)
-                or successor.seat_generation != old_protocol.seat_generation
-            ):
-                raise AssertionError("activated target did not start as a fresh ledger")
-            if (
-                successor.seat_authorization_id != new_auth_id
-                or successor.seat_market_address != market_address
-            ):
-                raise AssertionError("activated target authority binding changed")
             arm = old_protocol.seat_migration_arm
             if arm is None or arm.router_word.generation != manifest.generation:
                 raise AssertionError("activation lost exact local arm")
@@ -8788,33 +9959,39 @@ class ProtocolVersionManager:
             object.__setattr__(
                 self.router, "_source_bridge_authority", router_snapshot[11]
             )
-            source_registry = self.router._bridge_credit_registry_authority
+            object.__setattr__(
+                self.router,
+                "_bridge_domain_registry_authority",
+                router_snapshot[12],
+            )
+            self.router._source_bridge_factories_by_address = (
+                router_snapshot[13]
+            )
+            self.router._source_bundles_by_descriptor_id = router_snapshot[14]
+            self.router._source_descriptor_id_by_version = router_snapshot[15]
+            self.router._used_source_component_addresses = router_snapshot[16]
+            for factory, deployments_state, bundles_state in (
+                source_factory_states.values()
+            ):
+                factory._deployments = deployments_state
+                factory._bundles = bundles_state
+            for bridge, bridge_state, registry, registry_state in (
+                source_bundle_states.values()
+            ):
+                bridge._restore_transaction_snapshot(
+                    bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
+                )
+                registry._restore_authorization_snapshot(
+                    registry_state,
+                    source_bridge=bridge,
+                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+                )
+            source_registry = self.router._bridge_domain_registry_authority
             if (source_registry_state is not None
-                    and type(source_registry) is BridgeCreditRegistryV2):
-                source_registry.domain_registry._restore_transaction_snapshot(
+                    and type(source_registry) is BridgeDomainRegistry):
+                source_registry._restore_transaction_snapshot(
                     source_registry_state
                 )
-            target_protocol = target_authority_refs[3]
-            if target_protocol is not None:
-                target_protocol.__dict__.clear()
-                target_protocol.__dict__.update(target_protocol_snapshot)
-                (
-                    target_protocol.forced_queue,
-                    target_protocol.inbox_apply_router,
-                    target_protocol.migration_gate,
-                    target_protocol.versioned_history,
-                    target_protocol._inbox_execution_authority,
-                    target_protocol.normal_best,
-                ) = target_protocol_refs
-                if (target_protocol._inbox_execution_authority.protocol
-                        is not target_protocol):
-                    raise AssertionError(
-                        "rollback split the immutable Inbox authority"
-                    )
-                for key, value in target_execution_authority_state.items():
-                    setattr(
-                        target_protocol._inbox_execution_authority, key, value
-                    )
             raise
 
     def schedule_seat_migration(
@@ -9026,53 +10203,242 @@ class ProtocolVersionManager:
             raise
 
 
+def _terminal_hash(namespace: bytes, *parts: bytes) -> bytes:
+    """Domain-separated hash primitive for the fixed-depth terminal tree."""
+
+    if (type(namespace) is not bytes
+            or any(type(part) is not bytes for part in parts)):
+        raise ValueError("terminal hash preimage is not canonical")
+    return hashlib.sha256(namespace + b"".join(parts)).digest()
+
+
+def terminal_zero_hashes() -> tuple[bytes, ...]:
+    """Return the canonical empty subtree hashes for depths zero through 64."""
+
+    rows = [_terminal_hash(b"TAIKO_TERMINAL_EMPTY_LEAF_V2\x00")]
+    for level in range(TERMINAL_TREE_DEPTH):
+        rows.append(_terminal_hash(
+            b"TAIKO_TERMINAL_INTERNAL_V2\x00",
+            level.to_bytes(1, "big"), rows[-1], rows[-1],
+        ))
+    return tuple(rows)
+
+
+TERMINAL_ZERO_HASHES = terminal_zero_hashes()
+
+
+def _terminal_leaf_bytes(
+    index: int,
+    destination_domain_id: str,
+    destination_bridge: str,
+    credit_id: str,
+    terminal: str,
+) -> bytes:
+    if (type(index) is not int
+            or not 0 <= index < UINT64_MAX
+            or any(type(word) is not str or not word for word in (
+                destination_domain_id, destination_bridge, credit_id,
+                terminal,
+            ))
+            or terminal not in {"DONE", "FAILED"}):
+        raise ValueError("terminal leaf fields are not canonical")
+    return _terminal_hash(
+        b"TAIKO_TERMINAL_LEAF_V2\x00",
+        index.to_bytes(8, "big"),
+        migration_transition_encode((
+            destination_domain_id,
+            destination_bridge,
+            credit_id,
+            terminal,
+        )),
+    )
+
+
+def terminal_merkle_root(leaves: tuple[str, ...] | list[str]) -> str:
+    """Compute the fixed-depth sparse root for canonical bytes32 leaves."""
+
+    if (type(leaves) not in {tuple, list}
+            or len(leaves) > UINT64_MAX
+            or any(type(leaf) is not str or len(leaf) != 64
+                   for leaf in leaves)):
+        raise ValueError("terminal leaves are not canonical bytes32 values")
+    try:
+        nodes = {index: bytes.fromhex(leaf)
+                 for index, leaf in enumerate(leaves)}
+    except ValueError as exc:
+        raise ValueError("terminal leaf is not hexadecimal") from exc
+    for level in range(TERMINAL_TREE_DEPTH):
+        parents: dict[int, bytes] = {}
+        for parent in {index >> 1 for index in nodes}:
+            left = nodes.get(parent << 1, TERMINAL_ZERO_HASHES[level])
+            right = nodes.get((parent << 1) | 1, TERMINAL_ZERO_HASHES[level])
+            parents[parent] = _terminal_hash(
+                b"TAIKO_TERMINAL_INTERNAL_V2\x00",
+                level.to_bytes(1, "big"), left, right,
+            )
+        nodes = parents
+    return nodes.get(0, TERMINAL_ZERO_HASHES[TERMINAL_TREE_DEPTH]).hex()
+
+
+def terminal_merkle_branch(
+    leaves: tuple[str, ...] | list[str], index: int,
+) -> tuple[str, ...]:
+    """Fixture/prover helper returning the exact 64 ordered sibling hashes."""
+
+    if (type(index) is not int or not 0 <= index < len(leaves)
+            or len(leaves) > UINT64_MAX):
+        raise ValueError("terminal branch index is outside the vector")
+    try:
+        nodes = {offset: bytes.fromhex(leaf)
+                 for offset, leaf in enumerate(leaves)}
+    except (TypeError, ValueError) as exc:
+        raise ValueError("terminal branch leaves are not bytes32") from exc
+    branch: list[str] = []
+    cursor = index
+    for level in range(TERMINAL_TREE_DEPTH):
+        branch.append(
+            nodes.get(cursor ^ 1, TERMINAL_ZERO_HASHES[level]).hex()
+        )
+        parents: dict[int, bytes] = {}
+        for parent in {offset >> 1 for offset in nodes}:
+            left = nodes.get(parent << 1, TERMINAL_ZERO_HASHES[level])
+            right = nodes.get((parent << 1) | 1, TERMINAL_ZERO_HASHES[level])
+            parents[parent] = _terminal_hash(
+                b"TAIKO_TERMINAL_INTERNAL_V2\x00",
+                level.to_bytes(1, "big"), left, right,
+            )
+        nodes = parents
+        cursor >>= 1
+    return tuple(branch)
+
+
+def fold_terminal_merkle_branch(
+    leaf_hash: str, index: int, siblings: tuple[str, ...],
+) -> str:
+    """Fold one canonical depth-64 branch using little-endian index bits."""
+
+    if (type(leaf_hash) is not str or len(leaf_hash) != 64
+            or type(index) is not int or not 0 <= index < UINT64_MAX
+            or type(siblings) is not tuple
+            or len(siblings) != TERMINAL_TREE_DEPTH
+            or any(type(sibling) is not str or len(sibling) != 64
+                   for sibling in siblings)):
+        raise ValueError("terminal branch is not canonical")
+    try:
+        node = bytes.fromhex(leaf_hash)
+        sibling_bytes = tuple(bytes.fromhex(row) for row in siblings)
+    except ValueError as exc:
+        raise ValueError("terminal branch is not hexadecimal") from exc
+    for level, sibling in enumerate(sibling_bytes):
+        left, right = (
+            (node, sibling) if ((index >> level) & 1) == 0
+            else (sibling, node)
+        )
+        node = _terminal_hash(
+            b"TAIKO_TERMINAL_INTERNAL_V2\x00",
+            level.to_bytes(1, "big"), left, right,
+        )
+    return node.hex()
+
+
 @dataclass(frozen=True)
 class TerminalProof:
     protocol_version: int
     canonical_sequence: int
-    canonical: CanonicalTerminalCommitment
     leaf_index: int
-    destination_bridge: str
-    destination_domain_id: str
-    credit_id: str
-    terminal: str
-    leaf_hash: str
-    proof_root: str
-    merkle_proof_valid: bool = True
+    siblings: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class TerminalSignalVerifier:
     router: ActiveSettlementRouter
+    support_registry: BridgeDomainRegistry | None = field(
+        default=None, compare=False, repr=False
+    )
+    address: str = "source-terminal-verifier"
+    runtime_hash: str = SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
+    configuration_hash: str = ""
+
+    def __post_init__(self) -> None:
+        support = self.support_registry
+        if support is None:
+            support = self.router._bridge_domain_registry_authority
+            object.__setattr__(self, "support_registry", support)
+        if type(support) is not BridgeDomainRegistry:
+            raise ValueError("terminal verifier support Registry is missing")
+        expected = source_terminal_verifier_configuration_hash(
+            address=self.address,
+            runtime_hash=self.runtime_hash,
+            router_address=self.router.address,
+            router_runtime_hash=self.router.runtime_hash,
+            router_configuration_hash=self.router.configuration_hash,
+            support_registry_address=support.address,
+            support_registry_runtime_hash=support.runtime_hash,
+            support_registry_configuration_hash=support.configuration_hash,
+        )
+        if (type(self.router) is not ActiveSettlementRouter
+                or support.router is not self.router
+                or self.runtime_hash != SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
+                or self.configuration_hash not in {"", expected}):
+            raise ValueError("terminal verifier authority graph is split")
+        object.__setattr__(self, "configuration_hash", expected)
 
     @staticmethod
     def terminal_leaf(index: int, destination_domain_id: str,
                       destination_bridge: str, credit_id: str,
                       terminal: str) -> str:
-        return (f"terminal-leaf:{index}:{destination_domain_id}:"
-                f"{destination_bridge}:{credit_id}:{terminal}")
+        return _terminal_leaf_bytes(
+            index,
+            destination_domain_id,
+            destination_bridge,
+            credit_id,
+            terminal,
+        ).hex()
 
     def verify(self, *, proof: TerminalProof, credit_id: str,
                terminal: str, destination_domain_id: str,
                destination_bridge: str) -> bool:
+        canonical = (
+            self.router.canonical_at(
+                proof.protocol_version, proof.canonical_sequence
+            ) if type(proof) is TerminalProof else None
+        )
+        if canonical is None:
+            return False
         expected_leaf = self.terminal_leaf(
             proof.leaf_index, destination_domain_id,
             destination_bridge, credit_id, terminal)
-        return (terminal in {"DONE", "FAILED"}
-                and proof.merkle_proof_valid
-                and self.router.canonical_at(
-                    proof.protocol_version, proof.canonical_sequence)
-                    == proof.canonical
-                and proof.canonical.protocol_version == proof.protocol_version
-                and proof.canonical.canonical_sequence
+        try:
+            folded_root = fold_terminal_merkle_branch(
+                expected_leaf, proof.leaf_index, proof.siblings
+            )
+        except ValueError:
+            return False
+        return (type(self.support_registry) is BridgeDomainRegistry
+                and self.support_registry.router is self.router
+                and self.router._bridge_domain_registry_authority
+                    is self.support_registry
+                and self.configuration_hash
+                    == source_terminal_verifier_configuration_hash(
+                        address=self.address,
+                        runtime_hash=self.runtime_hash,
+                        router_address=self.router.address,
+                        router_runtime_hash=self.router.runtime_hash,
+                        router_configuration_hash=self.router.configuration_hash,
+                        support_registry_address=self.support_registry.address,
+                        support_registry_runtime_hash=(
+                            self.support_registry.runtime_hash
+                        ),
+                        support_registry_configuration_hash=(
+                            self.support_registry.configuration_hash
+                        ),
+                )
+                and terminal in {"DONE", "FAILED"}
+                and canonical.protocol_version == proof.protocol_version
+                and canonical.canonical_sequence
                     == proof.canonical_sequence
-                and proof.proof_root == proof.canonical.terminal_root
-                and 0 <= proof.leaf_index < proof.canonical.terminal_count
-                and proof.destination_bridge == destination_bridge
-                and proof.destination_domain_id == destination_domain_id
-                and proof.credit_id == credit_id
-                and proof.terminal == terminal
-                and proof.leaf_hash == expected_leaf)
+                and folded_root == canonical.terminal_root
+                and 0 <= proof.leaf_index < canonical.terminal_count)
 
 
 def source_send_mode(selector: str) -> str:
@@ -9083,30 +10449,108 @@ def source_send_mode(selector: str) -> str:
     return "REJECTED"
 
 
-def legacy_bridge_send_for_test(
-    bridge: "SourceBridgeV2", *, caller: str,
-    callback: Callable[[], None] | None = None,
-) -> int:
-    """Exercise the one V1/V2 facade counter without modeling V1 payloads."""
 
-    if (type(bridge) is not SourceBridgeV2 or bridge.entered
-            or bridge.paused or not caller
-            or not 0 <= bridge.next_message_id <= UINT64_MAX):
-        raise ValueError("legacy Bridge send reverted")
-    message_id = bridge.next_message_id
-    bridge.entered = True
-    try:
-        bridge.next_message_id = checked_u64_add(
-            message_id, 1, "shared Bridge message id"
-        )
-        if callback is not None:
-            callback()
-        return message_id
-    except BaseException:
-        bridge.next_message_id = message_id
-        raise
-    finally:
-        bridge.entered = False
+
+
+
+def fund_v2_native_for_test(bridge: object, amount: int) -> None:
+    """Model an explicit deposit into one fresh V2 Bridge account."""
+
+    if (type(bridge) not in {SourceBridgeV2, DestinationBridgeLedger}
+            or type(amount) is not int or amount < 0):
+        raise ValueError("V2 native funding is invalid")
+    bridge.balance = seat_checked_add(
+        bridge.balance, amount, "V2 Bridge explicit funding"
+    )
+
+
+def set_source_v2_accounting_for_test(
+    bridge: "SourceBridgeV2", *,
+    credits: dict[str, SourceCredit] | None = None,
+    authorizations: dict[str, CreditAuthorization] | None = None,
+    refunds: dict[str, int] | None = None,
+    total_liability: int | None = None,
+) -> None:
+    """Fixture-only seeding of private in-Bridge accounting."""
+
+    if type(bridge) is not SourceBridgeV2:
+        raise ValueError("source accounting fixture Bridge is invalid")
+    bridge._credits = copy.deepcopy(
+        dict(bridge.credits) if credits is None else credits
+    )
+    if authorizations is not None:
+        bridge.credit_registry._authorizations.clear()
+        bridge.credit_registry._authorizations.update(authorizations)
+    bridge._refunds = dict(
+        dict(bridge.refunds) if refunds is None else refunds
+    )
+    liability = (
+        bridge.total_live_liability
+        if total_liability is None else total_liability
+    )
+    if type(liability) is not int or liability < 0:
+        raise ValueError("source accounting fixture liability is invalid")
+    bridge._total_live_liability = liability
+
+
+def set_destination_v2_accounting_for_test(
+    bridge: "DestinationBridgeLedger", *,
+    pull_credits: dict[str, int] | None = None,
+    total_liability: int | None = None,
+    status: dict[str, str] | None = None,
+    terminal_index: dict[str, int] | None = None,
+) -> None:
+    """Fixture-only seeding of private in-Bridge accounting."""
+
+    if type(bridge) is not DestinationBridgeLedger:
+        raise ValueError("destination accounting fixture Bridge is invalid")
+    bridge._pull_credits = dict(
+        dict(bridge.pull_credits)
+        if pull_credits is None else pull_credits
+    )
+    liability = (
+        bridge.total_pull_liability
+        if total_liability is None else total_liability
+    )
+    if type(liability) is not int or liability < 0:
+        raise ValueError("destination accounting fixture liability is invalid")
+    bridge._total_pull_liability = liability
+    bridge._status = dict(bridge.status) if status is None else dict(status)
+    bridge._terminal_index = (
+        dict(bridge.terminal_index)
+        if terminal_index is None else dict(terminal_index)
+    )
+
+
+def restore_destination_bridge_snapshot_for_test(
+    bridge: "DestinationBridgeLedger", snapshot: dict[str, object],
+) -> None:
+    """Fixture-only restoration; production rollback remains frame-gated."""
+
+    if (type(bridge) is not DestinationBridgeLedger
+            or type(snapshot) is not dict or bridge.entered):
+        raise ValueError("destination snapshot fixture is invalid")
+    updated_at, quota, available = snapshot["quota_snapshot"]
+    if (quota != bridge.quota_manager.eth_quota_cap
+            or type(updated_at) is not int or updated_at < 0
+            or type(available) is not int or not 0 <= available <= quota):
+        raise ValueError("destination snapshot quota is invalid")
+    bridge.balance = snapshot["balance"]
+    bridge.quota_manager._state.updated_at = updated_at
+    bridge.quota_manager._state.available = available
+    bridge._pull_credits = dict(snapshot["pull_credits"])
+    bridge._total_pull_liability = snapshot["total_pull_liability"]
+    bridge._status = dict(snapshot["status"])
+    bridge._terminal_index = dict(snapshot["terminal_index"])
+    bridge.terminal_accumulator.leaves[:] = snapshot["terminal_leaves"]
+    bridge.terminal_accumulator.terminalized_pinned_count.clear()
+    bridge.terminal_accumulator.terminalized_pinned_count.update(
+        snapshot["terminalized_pinned_count"]
+    )
+    bridge.terminal_accumulator._terminalized_credits.clear()
+    bridge.terminal_accumulator._terminalized_credits.update(
+        snapshot["terminalized_credits"]
+    )
 
 
 @dataclass
@@ -9143,6 +10587,7 @@ class SourceNativeTransactionFrameV2:
     caller: str
     nonce: int
     operation: str
+    block_timestamp: int
 
 
 @dataclass
@@ -9150,6 +10595,7 @@ class SourceNativeExecutionEnvironmentV2:
     """Source-chain account journal; it is chain state, not Bridge policy."""
 
     chain_id: int
+    block_timestamp: int = GENESIS_TIMESTAMP
     eoa_balances: dict[str, int] = field(default_factory=dict)
     _receivers: dict[str, SourceNativeReceiverV2] = field(
         default_factory=dict, init=False, compare=False, repr=False
@@ -9166,7 +10612,9 @@ class SourceNativeExecutionEnvironmentV2:
 
     def __post_init__(self) -> None:
         if (type(self.chain_id) is not int
-                or not 0 < self.chain_id <= UINT64_MAX):
+                or not 0 < self.chain_id <= UINT64_MAX
+                or type(self.block_timestamp) is not int
+                or not 0 <= self.block_timestamp <= UINT64_MAX):
             raise ValueError("source native execution chain is invalid")
 
     def _bind_bridge_once(self, bridge: object) -> bool:
@@ -9202,7 +10650,7 @@ class SourceNativeExecutionEnvironmentV2:
         if self._active_frame is not None or not caller:
             raise RuntimeError("source native transaction frame is active")
         frame = SourceNativeTransactionFrameV2(
-            self, caller, self._next_nonce, operation
+            self, caller, self._next_nonce, operation, self.block_timestamp
         )
         object.__setattr__(self, "_next_nonce", self._next_nonce + 1)
         object.__setattr__(self, "_active_frame", frame)
@@ -9231,55 +10679,8 @@ class SourceNativeExecutionEnvironmentV2:
         finally:
             self._close_frame(frame)
 
-    def legacy_v1_process_for_test(
-        self, bridge: "SourceBridgeV2", request: "LegacyV1ProcessV2"
-    ) -> str:
-        try:
-            frame = self._open_frame(request.fee_recipient, "V1_PROCESS")
-        except (AttributeError, RuntimeError):
-            return "REJECTED"
-        try:
-            return bridge._legacy_v1_process_from_environment(
-                request, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
 
-    def legacy_v1_retry_for_test(
-        self,
-        bridge: "SourceBridgeV2",
-        request: "LegacyV1RetryV2",
-        *,
-        caller: str,
-    ) -> str:
-        try:
-            frame = self._open_frame(caller, "V1_RETRY")
-        except RuntimeError:
-            return "REJECTED"
-        try:
-            return bridge._legacy_v1_retry_from_environment(
-                request, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
 
-    def legacy_v1_recall_for_test(
-        self,
-        bridge: "SourceBridgeV2",
-        request: "LegacyV1RecallV2",
-        *,
-        caller: str,
-    ) -> bool:
-        try:
-            frame = self._open_frame(caller, "V1_RECALL")
-        except RuntimeError:
-            return False
-        try:
-            return bridge._legacy_v1_recall_from_environment(
-                request, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
 
     def _transaction_snapshot(self) -> dict[str, object]:
         return {
@@ -9529,6 +10930,17 @@ class BridgeCreditRegistryV2:
                     != self.source_descriptor.source_chain_id
                 or self.source_descriptor.bridge_credit_registry
                     != self.address
+                or self.domain_registrar
+                    != self.source_descriptor.source_domain_registrar
+                or self.source_registration_epoch
+                    != self.source_descriptor.source_registration_epoch
+                or self.domain_registry.address
+                    != self.source_descriptor.support_registry_address
+                or self.domain_registry.runtime_hash
+                    != self.source_descriptor.support_registry_runtime_hash
+                or self.domain_registry.configuration_hash
+                    != self.source_descriptor
+                        .support_registry_configuration_hash
                 or not 0 < self.source_registration_epoch <= UINT64_MAX):
             raise ValueError("Bridge credit registry graph is invalid")
         object.__setattr__(self, "configuration_hash", expected)
@@ -9561,9 +10973,10 @@ class BridgeCreditRegistryV2:
         self,
         snapshot: dict[str, CreditAuthorization],
         *,
-        source_bridge: object,
+        source_bridge: object, capability: object,
     ) -> None:
-        if source_bridge is not self._source_bridge_authority:
+        if (source_bridge is not self._source_bridge_authority
+                or capability is not _SOURCE_BRIDGE_ROLLBACK_CAPABILITY):
             raise ValueError("credit registry rollback authority is wrong")
         self._authorizations.clear()
         self._authorizations.update(snapshot)
@@ -9631,15 +11044,15 @@ def source_bridge_configuration_hash_for_descriptor(
 ) -> str:
     if (type(descriptor) is not SourceBridgeDescriptor
             or not registry_address or not registry_runtime_hash
-            or not registry_configuration_hash):
+            or not registry_configuration_hash
+            or registry_address != descriptor.bridge_credit_registry
+            or registry_runtime_hash != BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH
+            or type(descriptor.deployment_descriptor)
+                is not ImmutableBridgeDeploymentDescriptorV2
+            or descriptor.deployment_descriptor.account_configuration_hash
+                != source_bridge_account_configuration_hash(descriptor)):
         raise ValueError("source Bridge configuration graph is invalid")
-    return "config:source-bridge-v2:" + hashlib.sha256(
-        b"TAIKO_SOURCE_BRIDGE_V2_CONFIG\x00"
-        + descriptor.descriptor_id
-        + _ingress_commitment_word(registry_address)
-        + _ingress_commitment_word(registry_runtime_hash)
-        + _ingress_commitment_word(registry_configuration_hash)
-    ).hexdigest()
+    return descriptor.deployment_descriptor.account_configuration_hash
 
 
 def source_bridge_configuration_hash(
@@ -9656,25 +11069,384 @@ def source_bridge_configuration_hash(
     )
 
 
+_V2_BRIDGE_FACTORY_RECEIPT_CAPABILITY = object()
+
+
+@dataclass(frozen=True, eq=False)
+class V2BridgeFactoryDeploymentReceipt:
+    """Factory-authenticated current-code observation for one CREATE2 slot."""
+
+    factory: "ImmutableV2BridgeFactory" = field(compare=False, repr=False)
+    bridge: str
+    salt: str
+    initcode_hash: str
+    runtime_hash: str
+    configuration_hash: str
+    registry_address: str
+    registry_runtime_hash: str
+    registry_configuration_hash: str
+    quota_manager_address: str
+    quota_manager_runtime_hash: str
+    quota_manager_configuration_hash: str
+    terminal_verifier_address: str
+    terminal_verifier_runtime_hash: str
+    terminal_verifier_configuration_hash: str
+    created_now: bool
+    seal: str
+    _capability: object = field(compare=False, repr=False)
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_V2_BRIDGE_FACTORY_RECEIPT_V1\x00"
+            + repr((
+                id(self.factory), self.bridge, self.salt,
+                self.initcode_hash, self.runtime_hash,
+                self.configuration_hash,
+                self.registry_address, self.registry_runtime_hash,
+                self.registry_configuration_hash,
+                self.quota_manager_address,
+                self.quota_manager_runtime_hash,
+                self.quota_manager_configuration_hash,
+                self.terminal_verifier_address,
+                self.terminal_verifier_runtime_hash,
+                self.terminal_verifier_configuration_hash,
+                self.created_now,
+            )).encode()
+        ).hexdigest()
+
+
+@dataclass(eq=False)
+class ImmutableV2BridgeFactory:
+    """Permissionless deterministic deployment with exact-code idempotence."""
+
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+    immutable_nonproxy: bool = True
+    selfdestruct_disabled: bool = True
+    _deployments: dict[str, tuple[str, ...]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _bundles: dict[str, tuple[object, ...]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _secret: object = field(default_factory=object, init=False, repr=False)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "address", "runtime_hash", "configuration_hash",
+            "immutable_nonproxy", "selfdestruct_disabled",
+        } \
+                and name in self.__dict__:
+            raise AttributeError(f"V2 Bridge factory {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def _seal(self, digest: str) -> str:
+        return hashlib.sha256(
+            b"TAIKO_V2_BRIDGE_FACTORY_SEAL_V1\x00"
+            + id(self._secret).to_bytes(32, "big") + digest.encode()
+        ).hexdigest()
+
+    def _receipt(
+        self, descriptor: SourceBridgeDescriptor,
+        registry: BridgeCreditRegistryV2,
+        quota_manager: FrozenNativeQuotaManagerV2,
+        terminal_verifier: TerminalSignalVerifier, *,
+        created_now: bool,
+    ) -> V2BridgeFactoryDeploymentReceipt:
+        pending = V2BridgeFactoryDeploymentReceipt(
+            self,
+            descriptor.source_bridge,
+            descriptor.deployment_salt,
+            descriptor.deployment_initcode_hash,
+            descriptor.bridge_facade_runtime_hash,
+            source_bridge_configuration_hash(descriptor, registry),
+            registry.address,
+            registry.runtime_hash,
+            registry.configuration_hash,
+            quota_manager.address,
+            quota_manager.runtime_hash,
+            quota_manager.configuration_hash,
+            terminal_verifier.address,
+            terminal_verifier.runtime_hash,
+            terminal_verifier.configuration_hash,
+            created_now,
+            "PENDING",
+            _V2_BRIDGE_FACTORY_RECEIPT_CAPABILITY,
+        )
+        return replace(pending, seal=self._seal(pending.digest))
+
+    def deploy_source_bundle(
+        self, descriptor: SourceBridgeDescriptor,
+        support_registry: BridgeDomainRegistry, *,
+        caller: str,
+    ) -> tuple[
+        "SourceBridgeV2", BridgeCreditRegistryV2,
+        V2BridgeFactoryDeploymentReceipt,
+    ]:
+        """Deploy or exactly reuse the canonical inactive source bundle."""
+
+        if (type(descriptor) is not SourceBridgeDescriptor
+                or not caller
+                or type(support_registry) is not BridgeDomainRegistry
+                or support_registry.address
+                    != descriptor.support_registry_address
+                or support_registry.runtime_hash
+                    != descriptor.support_registry_runtime_hash
+                or support_registry.configuration_hash
+                    != descriptor.support_registry_configuration_hash
+                or support_registry.router.address == ""
+                or descriptor.source_bridge
+                    != source_bridge_create2_address(
+                        self.address,
+                        descriptor.deployment_salt,
+                        descriptor.deployment_initcode_hash,
+                    )
+                or descriptor.source_bridge == descriptor.legacy_v1_bridge
+                or support_registry.router.settlement_chain_context_id
+                    != descriptor.settlement_chain_id
+                or self.address != descriptor.deployment_factory
+                or self.runtime_hash
+                    != descriptor.deployment_factory_runtime_hash
+                or self.configuration_hash
+                    != descriptor.deployment_factory_configuration_hash
+                or not self.immutable_nonproxy
+                or not self.selfdestruct_disabled):
+            raise ValueError("source Bridge factory identity is wrong")
+        descriptor.descriptor_id
+        existing_bundle = self._bundles.get(descriptor.source_bridge)
+        if existing_bundle is not None:
+            (
+                bridge, registry, quota_manager,
+                terminal_verifier, bound_support,
+            ) = existing_bundle
+            if (type(bridge) is not SourceBridgeV2
+                    or type(registry) is not BridgeCreditRegistryV2
+                    or type(quota_manager) is not FrozenNativeQuotaManagerV2
+                    or type(terminal_verifier) is not TerminalSignalVerifier
+                    or bound_support is not support_registry
+                    or bridge.credit_registry is not registry
+                    or bridge.quota_manager is not quota_manager
+                    or bridge.source_descriptor != descriptor
+                    or registry.source_registration_epoch
+                        != descriptor.source_registration_epoch
+                    or bridge.terminal_verifier is not terminal_verifier):
+                raise ValueError("CREATE2 source bundle identity is split")
+            receipt = self._receipt(
+                descriptor, registry, quota_manager, terminal_verifier,
+                created_now=False,
+            )
+            if not self.valid_source_receipt(
+                    receipt, descriptor, registry, quota_manager,
+                    terminal_verifier,
+                    require_live_bundle=True):
+                raise ValueError("CREATE2 source bundle current code changed")
+            return bridge, registry, receipt
+
+        registry = BridgeCreditRegistryV2(
+            support_registry,
+            descriptor,
+            address=descriptor.bridge_credit_registry,
+            runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+            domain_registrar=descriptor.source_domain_registrar,
+            source_registration_epoch=descriptor.source_registration_epoch,
+        )
+        quota_manager = FrozenNativeQuotaManagerV2(
+            descriptor.native_quota_manager,
+            descriptor.source_bridge,
+            descriptor.native_quota_period,
+            descriptor.native_eth_quota,
+        )
+        terminal_verifier = TerminalSignalVerifier(
+            support_registry.router,
+            support_registry,
+            descriptor.source_terminal_verifier,
+            descriptor.source_terminal_verifier_runtime_hash,
+            descriptor.source_terminal_verifier_configuration_hash,
+        )
+        expected = (
+            descriptor.deployment_salt,
+            descriptor.deployment_initcode_hash,
+            descriptor.bridge_facade_runtime_hash,
+            source_bridge_configuration_hash(descriptor, registry),
+            registry.address,
+            registry.runtime_hash,
+            registry.configuration_hash,
+            quota_manager.address,
+            quota_manager.runtime_hash,
+            quota_manager.configuration_hash,
+            terminal_verifier.address,
+            terminal_verifier.runtime_hash,
+            terminal_verifier.configuration_hash,
+        )
+        existing = self._deployments.get(descriptor.source_bridge)
+        if existing is not None and existing != expected:
+            raise ValueError("CREATE2 slot contains wrong Bridge code/config")
+        created = existing is None
+        self._deployments.setdefault(descriptor.source_bridge, expected)
+        receipt = self._receipt(
+            descriptor, registry, quota_manager, terminal_verifier,
+            created_now=created,
+        )
+        bridge = SourceBridgeV2(
+            registry,
+            descriptor,
+            terminal_verifier=terminal_verifier,
+            deployment_factory=self,
+            deployment_receipt=receipt,
+            quota_manager=quota_manager,
+            v2_active=False,
+            frozen_bridge=descriptor.source_bridge,
+            address=descriptor.source_bridge,
+            runtime_hash=descriptor.bridge_facade_runtime_hash,
+            source_chain_id=descriptor.source_chain_id,
+            source_domain_id=descriptor.source_domain_id,
+            source_registration_epoch=descriptor.source_registration_epoch,
+            frozen_bridge_execution_hash=descriptor.bridge_execution_hash,
+        )
+        self._bundles[descriptor.source_bridge] = (
+            bridge, registry, quota_manager, terminal_verifier,
+            support_registry,
+        )
+        return bridge, registry, receipt
+
+    def valid_source_receipt(
+        self, receipt: V2BridgeFactoryDeploymentReceipt,
+        descriptor: SourceBridgeDescriptor,
+        registry: BridgeCreditRegistryV2,
+        quota_manager: FrozenNativeQuotaManagerV2,
+        terminal_verifier: TerminalSignalVerifier,
+        *, require_live_bundle: bool = True,
+    ) -> bool:
+        expected_bridge = source_bridge_create2_address(
+            self.address,
+            descriptor.deployment_salt,
+            descriptor.deployment_initcode_hash,
+        )
+        deployed = self._deployments.get(expected_bridge)
+        return (
+            type(receipt) is V2BridgeFactoryDeploymentReceipt
+            and receipt._capability is _V2_BRIDGE_FACTORY_RECEIPT_CAPABILITY
+            and receipt.factory is self
+            and receipt.bridge == expected_bridge
+            and descriptor.source_bridge == expected_bridge
+            and descriptor.source_bridge != descriptor.legacy_v1_bridge
+            and self.address == descriptor.deployment_factory
+            and self.runtime_hash
+                == descriptor.deployment_factory_runtime_hash
+            and self.configuration_hash
+                == descriptor.deployment_factory_configuration_hash
+            and self.immutable_nonproxy
+            and self.selfdestruct_disabled
+            and deployed is not None
+            and deployed == (
+                receipt.salt, receipt.initcode_hash,
+                receipt.runtime_hash, receipt.configuration_hash,
+                receipt.registry_address,
+                receipt.registry_runtime_hash,
+                receipt.registry_configuration_hash,
+                receipt.quota_manager_address,
+                receipt.quota_manager_runtime_hash,
+                receipt.quota_manager_configuration_hash,
+                receipt.terminal_verifier_address,
+                receipt.terminal_verifier_runtime_hash,
+                receipt.terminal_verifier_configuration_hash,
+            )
+            and receipt.salt == descriptor.deployment_salt
+            and receipt.initcode_hash == descriptor.deployment_initcode_hash
+            and receipt.runtime_hash == descriptor.bridge_facade_runtime_hash
+            and type(registry) is BridgeCreditRegistryV2
+            and registry.source_descriptor == descriptor
+            and registry.address == descriptor.bridge_credit_registry
+            and receipt.registry_address == registry.address
+            and receipt.registry_runtime_hash == registry.runtime_hash
+            and receipt.registry_configuration_hash
+                == registry.configuration_hash
+            and type(quota_manager) is FrozenNativeQuotaManagerV2
+            and quota_manager.address == descriptor.native_quota_manager
+            and quota_manager.bridge_address == descriptor.source_bridge
+            and quota_manager.runtime_hash
+                == descriptor.native_quota_manager_runtime_hash
+            and quota_manager.configuration_hash
+                == descriptor.deployment_descriptor
+                    .native_quota_manager_configuration_hash
+            and receipt.quota_manager_address == quota_manager.address
+            and receipt.quota_manager_runtime_hash
+                == quota_manager.runtime_hash
+            and receipt.quota_manager_configuration_hash
+                == quota_manager.configuration_hash
+            and type(terminal_verifier) is TerminalSignalVerifier
+            and terminal_verifier.router is registry.domain_registry.router
+            and terminal_verifier.support_registry is registry.domain_registry
+            and terminal_verifier.address
+                == descriptor.source_terminal_verifier
+            and terminal_verifier.runtime_hash
+                == descriptor.source_terminal_verifier_runtime_hash
+            and terminal_verifier.configuration_hash
+                == descriptor.source_terminal_verifier_configuration_hash
+            and receipt.terminal_verifier_address
+                == terminal_verifier.address
+            and receipt.terminal_verifier_runtime_hash
+                == terminal_verifier.runtime_hash
+            and receipt.terminal_verifier_configuration_hash
+                == terminal_verifier.configuration_hash
+            and quota_manager.snapshot() == (
+                0, descriptor.native_eth_quota,
+                descriptor.native_eth_quota,
+            )
+            and (not require_live_bundle
+                 or self._bundles.get(expected_bridge) == (
+                     registry.source_bridge, registry, quota_manager,
+                     terminal_verifier, registry.domain_registry,
+                 ))
+            and receipt.seal == self._seal(receipt.digest)
+        )
+
+    def preseed_wrong_code_for_test(
+        self, bridge: str, *, runtime_hash: str,
+    ) -> None:
+        self._deployments[bridge] = (
+            "wrong-salt", "wrong-initcode", runtime_hash, "wrong-config",
+            "wrong-registry", "wrong-registry-code", "wrong-registry-config",
+            "wrong-quota", "wrong-quota-code", "wrong-quota-config",
+            "wrong-verifier", "wrong-verifier-code", "wrong-verifier-config",
+        )
+
+
 @dataclass
 class SourceBridgeV2:
-    """Payable source Bridge custody and mutable per-credit liabilities."""
+    """Fresh immutable V2 source Bridge and its private accounting state."""
 
     credit_registry: BridgeCreditRegistryV2 = field(
         compare=False, repr=False
     )
     source_descriptor: SourceBridgeDescriptor = field(compare=False)
+    terminal_verifier: TerminalSignalVerifier | None = field(
+        default=None, compare=False, repr=False
+    )
+    deployment_factory: ImmutableV2BridgeFactory | None = field(
+        default=None, compare=False, repr=False
+    )
+    deployment_receipt: V2BridgeFactoryDeploymentReceipt | None = field(
+        default=None, compare=False, repr=False
+    )
     native_environment: SourceNativeExecutionEnvironmentV2 | None = field(
         default=None, compare=False, repr=False
     )
-    credits: dict[str, SourceCredit] = field(default_factory=dict)
-    legacy_v1_status_by_msg_hash: dict[str, str] = field(
-        default_factory=dict
+    quota_manager: FrozenNativeQuotaManagerV2 | None = field(
+        default=None, compare=False, repr=False
     )
-    refunds: dict[str, int] = field(default_factory=dict)
+    _credits: dict[str, SourceCredit] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _refunds: dict[str, int] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _total_live_liability: int = field(default=0, init=False, repr=False)
     balance: int = 0
-    total_live_liability: int = 0
-    ether_quota: int = UINT64_MAX
+    v2_active: bool = False
+    activation_surplus: int | None = None
     paused: bool = False
     next_message_id: int = 0
     entered: bool = field(default=False, compare=False)
@@ -9689,11 +11461,35 @@ class SourceBridgeV2:
     configuration_hash: str = ""
 
     def __post_init__(self) -> None:
+        if self.terminal_verifier is None:
+            object.__setattr__(
+                self,
+                "terminal_verifier",
+                TerminalSignalVerifier(
+                    self.credit_registry.domain_registry.router,
+                    self.credit_registry.domain_registry,
+                    self.source_descriptor.source_terminal_verifier,
+                    self.source_descriptor.source_terminal_verifier_runtime_hash,
+                    self.source_descriptor
+                        .source_terminal_verifier_configuration_hash,
+                ),
+            )
         if self.native_environment is None:
             object.__setattr__(
                 self,
                 "native_environment",
                 SourceNativeExecutionEnvironmentV2(self.source_chain_id),
+            )
+        if self.quota_manager is None:
+            object.__setattr__(
+                self,
+                "quota_manager",
+                FrozenNativeQuotaManagerV2(
+                    self.source_descriptor.native_quota_manager,
+                    self.address,
+                    self.source_descriptor.native_quota_period,
+                    self.source_descriptor.native_eth_quota,
+                ),
             )
         if not self.source_domain_id:
             object.__setattr__(
@@ -9721,9 +11517,23 @@ class SourceBridgeV2:
                 or self.source_descriptor.source_chain_id
                     != self.source_chain_id
                 or self.source_descriptor.source_bridge != self.address
+                or self.source_descriptor.role != BRIDGE_ROLE_SOURCE_ONLY
                 or self.frozen_bridge != self.address
                 or self.source_descriptor.bridge_credit_registry
                     != self.credit_registry.address
+                or type(self.terminal_verifier) is not TerminalSignalVerifier
+                or self.terminal_verifier.router
+                    is not self.credit_registry.domain_registry.router
+                or self.terminal_verifier.support_registry
+                    is not self.credit_registry.domain_registry
+                or self.terminal_verifier.address
+                    != self.source_descriptor.source_terminal_verifier
+                or self.terminal_verifier.runtime_hash
+                    != self.source_descriptor
+                        .source_terminal_verifier_runtime_hash
+                or self.terminal_verifier.configuration_hash
+                    != self.source_descriptor
+                        .source_terminal_verifier_configuration_hash
                 or self.runtime_hash
                     != self.source_descriptor.bridge_facade_runtime_hash
                 or self.source_descriptor.source_domain_id
@@ -9740,6 +11550,45 @@ class SourceBridgeV2:
                 or type(self.native_environment)
                     is not SourceNativeExecutionEnvironmentV2
                 or self.native_environment.chain_id != self.source_chain_id
+                or type(self.quota_manager)
+                    is not FrozenNativeQuotaManagerV2
+                or self.quota_manager.address
+                    != self.source_descriptor.native_quota_manager
+                or self.quota_manager.runtime_hash
+                    != self.source_descriptor.native_quota_manager_runtime_hash
+                or self.quota_manager.quota_period
+                    != self.source_descriptor.native_quota_period
+                or self.quota_manager.eth_quota_cap
+                    != self.source_descriptor.native_eth_quota
+                or self.quota_manager.eth_quota_cap == 0
+                or type(self.deployment_factory)
+                    is not ImmutableV2BridgeFactory
+                or type(self.deployment_receipt)
+                    is not V2BridgeFactoryDeploymentReceipt
+                or not self.deployment_factory.valid_source_receipt(
+                    self.deployment_receipt,
+                    self.source_descriptor,
+                    self.credit_registry,
+                    self.quota_manager,
+                    self.terminal_verifier,
+                    require_live_bundle=False,
+                )
+                or self.deployment_receipt.configuration_hash != expected
+                or self.v2_active
+                or self.activation_surplus is not None
+                or self.paused
+                or self.entered
+                or self.next_message_id != 0
+                or type(self.balance) is not int or self.balance < 0
+                or self._credits or self._refunds
+                or self._total_live_liability != 0
+                or self.credit_registry.authorizations
+                or self.quota_manager.snapshot() != (
+                    0,
+                    self.source_descriptor.native_eth_quota,
+                    self.source_descriptor.native_eth_quota,
+                )
+                or not self.quota_manager._bind_bridge_once(self)
                 or not self.native_environment._bind_bridge_once(self)
                 or not self.credit_registry._bind_source_bridge_once(self)):
             raise ValueError("source Bridge authority graph is invalid")
@@ -9753,8 +11602,11 @@ class SourceBridgeV2:
             "source_registration_epoch",
             "frozen_bridge_execution_hash",
             "source_descriptor",
+            "terminal_verifier",
+            "deployment_factory", "deployment_receipt",
             "native_environment",
-            "configuration_hash",
+            "quota_manager",
+            "configuration_hash", "v2_active", "activation_surplus", "paused",
         } and name in self.__dict__:
             raise AttributeError(f"source Bridge {name} is immutable")
         object.__setattr__(self, name, value)
@@ -9763,28 +11615,152 @@ class SourceBridgeV2:
     def domain_registry(self) -> BridgeDomainRegistry:
         return self.credit_registry.domain_registry
 
+    def activate(
+        self, authorization: ProfileIngressAuthorization,
+        registration: SettlementRegistration, *,
+        router: ActiveSettlementRouter, caller: str,
+    ) -> bool:
+        """Permissionlessly consume the exact inactive bundle once."""
+
+        if (not caller or self.v2_active or self.paused or self.entered
+                or type(router) is not ActiveSettlementRouter
+                or router is not self.domain_registry.router
+                or type(registration) is not SettlementRegistration
+                or router.registrations.get(
+                    registration.settlement.protocol_version
+                ) is not registration
+                or type(authorization) is not ProfileIngressAuthorization
+                or authorization.kind is not ForceKind.BRIDGE_CREDIT
+                or registration.ingress_authorizations_by_address.get(
+                    authorization.adapter_address
+                ) is not authorization
+                or authorization.source_descriptor_id
+                    != self.source_descriptor.descriptor_id
+                or authorization.source_bridge_address != self.address
+                or authorization.source_registry_address
+                    != self.credit_registry.address
+                or authorization.source_bridge_runtime_hash
+                    != self.runtime_hash
+                or authorization.source_bridge_configuration_hash
+                    != self.configuration_hash
+                or authorization.source_registry_runtime_hash
+                    != self.credit_registry.runtime_hash
+                or authorization.source_registry_configuration_hash
+                    != self.credit_registry.configuration_hash
+                or authorization.source_registry_domain_registrar
+                    != self.source_descriptor.source_domain_registrar
+                or authorization.source_registration_epoch
+                    != self.source_descriptor.source_registration_epoch
+                or authorization.support_registry_address
+                    != self.source_descriptor.support_registry_address
+                or authorization.support_registry_runtime_hash
+                    != self.source_descriptor.support_registry_runtime_hash
+                or authorization.support_registry_configuration_hash
+                    != self.source_descriptor
+                        .support_registry_configuration_hash
+                or authorization.source_terminal_verifier
+                    != self.terminal_verifier.address
+                or self.next_message_id != 0
+                or type(self.balance) is not int or self.balance < 0
+                or self._credits or self._refunds
+                or self._total_live_liability != 0
+                or self.credit_registry.authorizations
+                or self.quota_manager.snapshot() != (
+                    0,
+                    self.source_descriptor.native_eth_quota,
+                    self.source_descriptor.native_eth_quota,
+                )
+                or not self.deployment_factory.valid_source_receipt(
+                    self.deployment_receipt,
+                    self.source_descriptor,
+                    self.credit_registry,
+                    self.quota_manager,
+                    self.terminal_verifier,
+                    require_live_bundle=True,
+                )):
+            return False
+        object.__setattr__(self, "activation_surplus", self.balance)
+        object.__setattr__(self, "v2_active", True)
+        return True
+
+    def set_paused(
+        self, paused: bool, *, caller: str, chain_id: int,
+    ) -> bool:
+        """Apply the deployment-pinned source pauser on the source chain."""
+
+        if (type(paused) is not bool
+                or caller
+                    != self.source_descriptor.deployment_descriptor.pauser
+                or chain_id != self.source_chain_id
+                or not self.v2_active or self.entered):
+            return False
+        object.__setattr__(self, "paused", paused)
+        return True
+
     def _transaction_snapshot(self) -> dict[str, object]:
-        return copy.deepcopy({
+        snapshot = copy.deepcopy({
             key: value for key, value in self.__dict__.items()
             if key not in {
-                "credit_registry", "source_descriptor", "native_environment",
-                "fault_point",
+                "credit_registry", "source_descriptor", "terminal_verifier",
+                "deployment_factory", "deployment_receipt",
+                "native_environment", "quota_manager", "fault_point",
             }
         })
+        snapshot["quota_snapshot"] = self.quota_manager.snapshot()
+        return snapshot
 
     def _restore_transaction_snapshot(
-        self, snapshot: dict[str, object]
+        self, snapshot: dict[str, object], *, capability: object,
     ) -> None:
-        registry = self.credit_registry
-        descriptor = self.source_descriptor
-        native_environment = self.native_environment
+        if capability is not _SOURCE_BRIDGE_ROLLBACK_CAPABILITY:
+            raise ValueError("source Bridge rollback capability is wrong")
+        immutable = {
+            "credit_registry": self.credit_registry,
+            "source_descriptor": self.source_descriptor,
+            "terminal_verifier": self.terminal_verifier,
+            "deployment_factory": self.deployment_factory,
+            "deployment_receipt": self.deployment_receipt,
+            "native_environment": self.native_environment,
+            "quota_manager": self.quota_manager,
+        }
         fault_point = self.fault_point
+        quota_snapshot = snapshot["quota_snapshot"]
         self.__dict__.clear()
-        self.__dict__.update(snapshot)
-        object.__setattr__(self, "credit_registry", registry)
-        object.__setattr__(self, "source_descriptor", descriptor)
-        object.__setattr__(self, "native_environment", native_environment)
+        self.__dict__.update({
+            key: value for key, value in snapshot.items()
+            if key != "quota_snapshot"
+        })
+        for key, value in immutable.items():
+            object.__setattr__(self, key, value)
+        if self.quota_manager.snapshot() != quota_snapshot:
+            self.quota_manager.restore(
+                quota_snapshot,
+                bridge=self,
+                frame=self.native_environment._active_frame,
+                capability=_NATIVE_QUOTA_ROLLBACK_CAPABILITY,
+            )
         object.__setattr__(self, "fault_point", fault_point)
+
+    @property
+    def credits(self) -> MappingProxyType:
+        return MappingProxyType(copy.deepcopy(self._credits))
+
+    @property
+    def refunds(self) -> MappingProxyType:
+        return MappingProxyType(dict(self._refunds))
+
+    @property
+    def total_live_liability(self) -> int:
+        return self._total_live_liability
+
+    @property
+    def ether_quota(self) -> int:
+        assert type(self.quota_manager) is FrozenNativeQuotaManagerV2
+        assert type(self.native_environment) is SourceNativeExecutionEnvironmentV2
+        return self.quota_manager.available_quota(
+            self.native_environment.block_timestamp,
+        )
+
 
     def support_final_clock(self, timestamp: int) -> Clock:
         confirmed = tuple(
@@ -9903,7 +11879,8 @@ class SourceBridgeV2:
             msg_hash,
         )
         credit_id = expected_credit_id
-        if (self.paused
+        if (not self.v2_active
+                or self.paused
                 or not normalized_preimage.source_owner
                 or not 0 < self.source_registration_epoch <= UINT64_MAX
                 or not self.source_domain_id or not msg_hash
@@ -9971,13 +11948,17 @@ class SourceBridgeV2:
                 raise RuntimeError(
                     "injected source Bridge fault: after_registry_write"
                 )
-            self.credits[credit_id] = SourceCredit(
+            self._credits[credit_id] = SourceCredit(
                 normalized_preimage.value,
                 normalized_preimage.fee,
                 "NEW",
             )
             self.balance += msg_value
-            self.total_live_liability += msg_value
+            self._total_live_liability = seat_checked_add(
+                self.total_live_liability,
+                msg_value,
+                "source live liability",
+            )
             self.next_message_id = checked_u64_add(
                 self.next_message_id, 1, "shared Bridge message id"
             )
@@ -9990,9 +11971,14 @@ class SourceBridgeV2:
             )
         except BaseException:
             self.credit_registry._restore_authorization_snapshot(
-                registry_before, source_bridge=self
+                registry_before,
+                source_bridge=self,
+                capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
             )
-            self._restore_transaction_snapshot(bridge_before)
+            self._restore_transaction_snapshot(
+                bridge_before,
+                capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+            )
             raise
         finally:
             self.entered = False
@@ -10004,7 +11990,7 @@ class SourceBridgeV2:
         *,
         adapter: object,
     ) -> bool:
-        credit = self.credits.get(credit_id)
+        credit = self._credits.get(credit_id)
         authorization = self.credit_registry.authorizations.get(credit_id)
         if (type(adapter) is not BridgeAdapter
                 or adapter.source_bridge is not self
@@ -10026,15 +12012,15 @@ class SourceBridgeV2:
             return False
         self.entered = True
         try:
-            credit = self.credits.get(credit_id)
+            credit = self._credits.get(credit_id)
             authorization = self.credit_registry.authorizations.get(credit_id)
             if (credit is None or credit.status != "NEW"
                     or authorization is None
                     or now <= authorization.enqueue_by):
                 return False
             credit.status = "CANCELLED"
-            self.refunds[authorization.owner] = seat_checked_add(
-                self.refunds.get(authorization.owner, 0),
+            self._refunds[authorization.owner] = seat_checked_add(
+                self._refunds.get(authorization.owner, 0),
                 credit.value + credit.fee,
                 "source cancellation refund",
             )
@@ -10042,17 +12028,16 @@ class SourceBridgeV2:
         finally:
             self.entered = False
 
-    def finalize_done(self, credit_id: str, *, verifier: TerminalSignalVerifier,
-                      proof: TerminalProof) -> bool:
+    def finalize_done(self, credit_id: str, *, proof: TerminalProof) -> bool:
         if self.entered:
             return False
         self.entered = True
         try:
-            credit = self.credits.get(credit_id)
+            credit = self._credits.get(credit_id)
             authorization = self.credit_registry.authorizations.get(credit_id)
             if (credit is None or credit.status != "QUEUED"
                     or authorization is None
-                    or not verifier.verify(
+                    or not self.terminal_verifier.verify(
                         proof=proof, credit_id=credit_id, terminal="DONE",
                         destination_domain_id=(
                             authorization.destination_domain_id
@@ -10060,22 +12045,24 @@ class SourceBridgeV2:
                         destination_bridge=authorization.destination_bridge)):
                 return False
             credit.status = "DELIVERED"
-            self.total_live_liability -= credit.value + credit.fee
+            liability = self.total_live_liability - credit.value - credit.fee
+            if liability < 0:
+                return False
+            self._total_live_liability = liability
             return True
         finally:
             self.entered = False
 
-    def recall_failed(self, credit_id: str, *, verifier: TerminalSignalVerifier,
-                      proof: TerminalProof) -> bool:
+    def recall_failed(self, credit_id: str, *, proof: TerminalProof) -> bool:
         if self.entered:
             return False
         self.entered = True
         try:
-            credit = self.credits.get(credit_id)
+            credit = self._credits.get(credit_id)
             authorization = self.credit_registry.authorizations.get(credit_id)
             if (credit is None or credit.status != "QUEUED"
                     or authorization is None
-                    or not verifier.verify(
+                    or not self.terminal_verifier.verify(
                         proof=proof, credit_id=credit_id, terminal="FAILED",
                         destination_domain_id=(
                             authorization.destination_domain_id
@@ -10083,8 +12070,8 @@ class SourceBridgeV2:
                         destination_bridge=authorization.destination_bridge)):
                 return False
             credit.status = "RECALLED"
-            self.refunds[authorization.owner] = seat_checked_add(
-                self.refunds.get(authorization.owner, 0),
+            self._refunds[authorization.owner] = seat_checked_add(
+                self._refunds.get(authorization.owner, 0),
                 credit.value + credit.fee,
                 "source terminal refund",
             )
@@ -10092,225 +12079,20 @@ class SourceBridgeV2:
         finally:
             self.entered = False
 
-    def _legacy_v1_enter_source(
-        self, frame: SourceNativeTransactionFrameV2, operation: str
-    ) -> bool:
-        environment = self.native_environment
-        if (self.entered
-                or type(environment) is not SourceNativeExecutionEnvironmentV2
-                or frame.environment is not environment
-                or frame is not environment._active_frame
-                or frame.operation != operation
-                or self.paused):
-            return False
-        self.entered = True
-        return True
 
-    def _legacy_v1_has_source_balance_capacity(
-        self, maximum_debit: int
+
+
+    def _consume_source_quota(
+        self, debit: int, frame: SourceNativeTransactionFrameV2
     ) -> bool:
-        return (
-            type(maximum_debit) is int
-            and maximum_debit >= 0
-            and self.balance - self.total_live_liability >= maximum_debit
+        return self.quota_manager._consume_from_bridge(
+            debit, bridge=self, frame=frame,
+            capability=_NATIVE_QUOTA_CONSUME_CAPABILITY,
+            lane=NATIVE_QUOTA_LANE_V2,
         )
 
-    def _legacy_v1_has_source_quota_capacity(self, debit: int) -> bool:
-        return (
-            type(debit) is int
-            and debit >= 0
-            and self.ether_quota >= debit
-        )
 
-    def _legacy_v1_process_from_environment(
-        self,
-        request: "LegacyV1ProcessV2",
-        *,
-        frame: SourceNativeTransactionFrameV2,
-    ) -> str:
-        if (type(request) is not LegacyV1ProcessV2
-                or not request.msg_hash or not request.target
-                or not request.fee_recipient or not request.destination_owner
-                or type(request.value) is not int or request.value < 0
-                or type(request.fee) is not int or request.fee < 0
-                or type(request.processor_fee) is not int
-                or not 0 <= request.processor_fee <= request.fee
-                or type(request.data) is not bytes
-                or not self._legacy_v1_enter_source(frame, "V1_PROCESS")):
-            return "REJECTED"
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.native_environment is not None
-        environment_snapshot = self.native_environment._transaction_snapshot()
-        try:
-            if self.legacy_v1_status_by_msg_hash.get(
-                    request.msg_hash, "NEW") != "NEW":
-                return "REJECTED"
-            maximum = seat_checked_add(
-                request.value, request.fee, "source V1 process maximum"
-            )
-            if not self._legacy_v1_has_source_balance_capacity(maximum):
-                return "REJECTED"
-            target_succeeded = (
-                request.invocation_prohibited
-                or (request.value == 0 and not request.data)
-            )
-            should_call = (
-                not request.invocation_prohibited
-                and (request.value > 0 or bool(request.data))
-            )
-            if request.invocation_prohibited and request.value:
-                self.balance -= request.value
-                if not self.native_environment._transfer_native(
-                        self, request.destination_owner, request.value,
-                        frame=frame):
-                    raise RuntimeError("source V1 value refund reverted")
-            elif should_call:
-                self.balance -= request.value
-                target_succeeded = self.native_environment._transfer_native(
-                    self, request.target, request.value, frame=frame
-                )
-                if not target_succeeded:
-                    self.native_environment._restore_transaction_snapshot(
-                        environment_snapshot
-                    )
-                    self.balance = bridge_snapshot["balance"]
-            actual_debit = maximum if target_succeeded else request.fee
-            if not self._legacy_v1_has_source_quota_capacity(actual_debit):
-                raise RuntimeError("source V1 process quota is insufficient")
-            processor_fee = request.processor_fee
-            owner_fee = request.fee - processor_fee
-            if processor_fee:
-                self.balance -= processor_fee
-                if not self.native_environment._transfer_native(
-                        self, request.fee_recipient, processor_fee,
-                        frame=frame):
-                    raise RuntimeError("source V1 processor fee reverted")
-            if owner_fee:
-                self.balance -= owner_fee
-                if not self.native_environment._transfer_native(
-                        self, request.destination_owner, owner_fee,
-                        frame=frame):
-                    raise RuntimeError("source V1 owner fee reverted")
-            self.ether_quota -= actual_debit
-            self.legacy_v1_status_by_msg_hash[request.msg_hash] = (
-                "DONE" if target_succeeded else "RETRIABLE"
-            )
-            if self.balance < self.total_live_liability:
-                raise RuntimeError("source V1 process invaded V2 liabilities")
-            return self.legacy_v1_status_by_msg_hash[request.msg_hash]
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.native_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return "REJECTED"
-        finally:
-            self.entered = False
 
-    def _legacy_v1_retry_from_environment(
-        self,
-        request: "LegacyV1RetryV2",
-        *,
-        frame: SourceNativeTransactionFrameV2,
-    ) -> str:
-        if (type(request) is not LegacyV1RetryV2
-                or not request.msg_hash or not request.target
-                or type(request.value) is not int or request.value < 0
-                or not self._legacy_v1_enter_source(frame, "V1_RETRY")):
-            return "REJECTED"
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.native_environment is not None
-        environment_snapshot = self.native_environment._transaction_snapshot()
-        try:
-            if (self.legacy_v1_status_by_msg_hash.get(request.msg_hash)
-                    != "RETRIABLE"
-                    or not self._legacy_v1_has_source_balance_capacity(
-                        request.value
-                    )
-                    or not self._legacy_v1_has_source_quota_capacity(
-                        request.value
-                    )):
-                return "REJECTED"
-            self.balance -= request.value
-            if not self.native_environment._transfer_native(
-                    self, request.target, request.value, frame=frame):
-                self._restore_transaction_snapshot(bridge_snapshot)
-                self.native_environment._restore_transaction_snapshot(
-                    environment_snapshot
-                )
-                return "RETRIABLE"
-            self.ether_quota -= request.value
-            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "DONE"
-            return "DONE"
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.native_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return "REJECTED"
-        finally:
-            self.entered = False
-
-    def _legacy_v1_recall_from_environment(
-        self,
-        request: "LegacyV1RecallV2",
-        *,
-        frame: SourceNativeTransactionFrameV2,
-    ) -> bool:
-        if (type(request) is not LegacyV1RecallV2
-                or not request.msg_hash or not request.recipient
-                or type(request.value) is not int or request.value < 0
-                or not self._legacy_v1_enter_source(frame, "V1_RECALL")):
-            return False
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.native_environment is not None
-        environment_snapshot = self.native_environment._transaction_snapshot()
-        try:
-            if (self.legacy_v1_status_by_msg_hash.get(
-                    request.msg_hash, "NEW") != "NEW"
-                    or not self._legacy_v1_has_source_balance_capacity(
-                        request.value
-                    )
-                    or not self._legacy_v1_has_source_quota_capacity(
-                        request.value
-                    )):
-                return False
-            self.balance -= request.value
-            if not self.native_environment._transfer_native(
-                    self, request.recipient, request.value, frame=frame):
-                self._restore_transaction_snapshot(bridge_snapshot)
-                self.native_environment._restore_transaction_snapshot(
-                    environment_snapshot
-                )
-                return False
-            self.ether_quota -= request.value
-            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "RECALLED"
-            return True
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.native_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return False
-        finally:
-            self.entered = False
-
-    def ordinary_payout(self, amount: int) -> bool:
-        """Behavioral V1 outflow hook sharing the facade lock and reserves."""
-
-        if self.entered:
-            return False
-        self.entered = True
-        try:
-            if (type(amount) is not int or amount < 0
-                    or amount > self.ether_quota
-                    or self.balance - amount < self.total_live_liability):
-                return False
-            self.balance -= amount
-            self.ether_quota -= amount
-            return True
-        finally:
-            self.entered = False
 
     def _withdraw_refund_from_environment(
         self,
@@ -10331,12 +12113,12 @@ class SourceBridgeV2:
         environment_snapshot = environment._transaction_snapshot()
         self.entered = True
         try:
-            amount = self.refunds.get(frame.caller, 0)
+            amount = self._refunds.get(frame.caller, 0)
             if (amount == 0 or amount > self.balance
                     or amount > self.total_live_liability):
                 return 0
-            self.refunds.pop(frame.caller, None)
-            self.total_live_liability -= amount
+            self._refunds.pop(frame.caller, None)
+            self._total_live_liability = self.total_live_liability - amount
             self.balance -= amount
             try:
                 transferred = environment._transfer_native(
@@ -10345,7 +12127,10 @@ class SourceBridgeV2:
             except BaseException:
                 transferred = False
             if not transferred:
-                self._restore_transaction_snapshot(bridge_snapshot)
+                self._restore_transaction_snapshot(
+                    bridge_snapshot,
+                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+                )
                 environment._restore_transaction_snapshot(environment_snapshot)
                 return 0
             return amount
@@ -10680,6 +12465,22 @@ class BridgeAdapter:
         source_bridge = self.source_bridge
         credit_registry = self.credit_registry
         destination_domain_id = self.destination_domain_id
+        active_registration = self.router.registrations.get(
+            self.router.active_version
+        )
+        active_authorization = (
+            None if active_registration is None
+            else active_registration.ingress_authorizations_by_address.get(
+                self.address
+            )
+        )
+        active_deployment = (
+            None if type(active_authorization)
+                is not ProfileIngressAuthorization
+            else self.router._profile_deployments_by_version.get(
+                self.router.active_version, {}
+            ).get(active_authorization.authorization_id)
+        )
         try:
             preimage = bridge_message_preimage(envelope)
             msg_hash = bridge_message_hash(preimage)
@@ -10718,6 +12519,14 @@ class BridgeAdapter:
                 queue_descriptor = None
         if (type(self.router) is not ActiveSettlementRouter
                 or self.router._ingress_binding(self) is None
+                or type(active_authorization)
+                    is not ProfileIngressAuthorization
+                or active_authorization.kind is not ForceKind.BRIDGE_CREDIT
+                or active_deployment is not self
+                or active_authorization.source_descriptor_id
+                    != source_bridge.source_descriptor.descriptor_id
+                or active_authorization.destination_domain_id
+                    != destination_domain_id
                 or not self.destination_sealed
                 or self.queue_address != self.router.forced_queue_address
                 or not caller or deposit <= 0
@@ -10818,9 +12627,14 @@ class BridgeAdapter:
                 self.router.forced_queue._restore_transaction_snapshot(
                     queue_snapshot
                 )
-                source_bridge._restore_transaction_snapshot(source_snapshot)
+                source_bridge._restore_transaction_snapshot(
+                    source_snapshot,
+                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+                )
                 credit_registry._restore_authorization_snapshot(
-                    registry_snapshot, source_bridge=source_bridge
+                    registry_snapshot,
+                    source_bridge=source_bridge,
+                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
                 )
                 router = self.router
                 exact_credit_registry = self.credit_registry
@@ -10865,9 +12679,9 @@ class InboxCreditStoreV2:
     destination_bridge: str
     destination_domain_id: str
     address: str = ""
-    activation_gate: str = "activation-gate"
     terminal_registrar: str = "terminal-domain-registrar"
     pins: dict[str, InboxPin] = field(default_factory=dict)
+    pinned_count: int = 0
     runtime_codehash: str = ""
     batch_return_data: bytes = INBOX_BATCH_OK_V2_WORD
     batch_writes_enabled: bool = True
@@ -10882,6 +12696,10 @@ class InboxCreditStoreV2:
         if not self.runtime_codehash:
             suffix = self.destination_domain_id.split(":")[-1]
             self.runtime_codehash = f"codehash:store:{suffix}"
+        if (type(self.pinned_count) is not int
+                or not 0 <= self.pinned_count <= UINT64_MAX
+                or self.pinned_count != len(self.pins)):
+            raise ValueError("Inbox Store pinned counter is invalid")
 
     def __deepcopy__(
         self, memo: dict[int, object]
@@ -10910,13 +12728,13 @@ class InboxCreditStoreV2:
     @property
     def route_config_hash(self) -> str:
         return (f"config:{self.authorized_inbox_apply}:"
-                f"{self.destination_bridge}:{self.activation_gate}:"
+                f"{self.destination_bridge}:"
                 f"{self.terminal_registrar}:{self.destination_domain_id}")
 
     @property
     def component_config_hash(self) -> str:
         return (f"component-config:{self.authorized_inbox_apply}:"
-                f"{self.destination_bridge}:{self.activation_gate}:"
+                f"{self.destination_bridge}:"
                 f"{self.terminal_registrar}")
 
     def read(self, credit_id: str, *, caller: str,
@@ -10948,6 +12766,9 @@ class InboxCreditStoreV2:
             for credit_id, result_hash in rows:
                 if credit_id not in self.pins:
                     self.pins[credit_id] = InboxPin(result_hash, process_by)
+                    self.pinned_count = checked_u64_add(
+                        self.pinned_count, 1, "Inbox Store pinned count"
+                    )
         return self.batch_return_data
 
 
@@ -11056,6 +12877,8 @@ class InboxTouchedSlotState:
     store_config_hash: str
     observed_runtime_codehash: str
     credit_id: str
+    prior_pinned_count: int
+    post_pinned_count: int
     prior_pin: "InboxPin | None"
     post_pin: "InboxPin | None"
 
@@ -11076,6 +12899,8 @@ def inbox_touched_slots_commitment(
             row.store_config_hash,
             row.observed_runtime_codehash,
             row.credit_id,
+            row.prior_pinned_count,
+            row.post_pinned_count,
             row.prior_pin,
             row.post_pin,
         )
@@ -11100,6 +12925,92 @@ class ReleaseDeploymentWitness:
     )
     endpoint_prestate: tuple[object, ...]
     bridge_deployment: "BridgeDeploymentStateV2"
+    treasury_observation: tuple[str, str, str, int]
+
+
+def release_deployment_observation_commitment(
+    *,
+    manifest_commitment: bytes,
+    prestate_root: str,
+    observed_components: tuple["ReleaseComponentV2", ...],
+    observed_bridge_descriptor: "DestinationBridgeDescriptorV2",
+    endpoint_prestate: tuple[object, ...],
+    bridge_deployment: "BridgeDeploymentStateV2",
+    treasury_observation: tuple[str, str, str, int],
+) -> str:
+    """Commit every circuit-observed fresh immutable deployment fact."""
+
+    if (type(manifest_commitment) is not bytes
+            or len(manifest_commitment) != 32
+            or not prestate_root
+            or type(observed_components) is not tuple
+            or type(observed_bridge_descriptor)
+                is not DestinationBridgeDescriptorV2
+            or type(endpoint_prestate) is not tuple
+            or type(bridge_deployment) is not BridgeDeploymentStateV2
+            or type(treasury_observation) is not tuple
+            or len(treasury_observation) != 4
+            or any(type(value) is not str or not value
+                   for value in treasury_observation[:3])
+            or type(treasury_observation[3]) is not int
+            or not 0 <= treasury_observation[3] <= SEAT_UINT256_MAX):
+        raise ValueError("release deployment observation is incomplete")
+    return hashlib.sha256(
+        b"TAIKO_ACTUAL_RELEASE_DEPLOYMENT_OBSERVATION_V2\x00"
+        + repr((
+            manifest_commitment,
+            prestate_root,
+            observed_components,
+            observed_bridge_descriptor,
+            endpoint_prestate,
+            bridge_deployment.observation_commitment,
+            treasury_observation,
+        )).encode()
+    ).hexdigest()
+
+
+def expected_release_deployment_observation_commitment(
+    manifest: "ReleaseManifestV2",
+    *,
+    prestate_root: str,
+    bridge_prebalance: int,
+    treasury_prebalance: int,
+) -> str:
+    """Reconstruct the circuit observation commitment from L1-known shapes.
+
+    Only the two authenticated balances are claim scalars. Every account,
+    code/configuration row and fresh storage projection is derived from the
+    manifest and base state root; the circuit proves those derived facts.
+    """
+
+    if (type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()
+            or not prestate_root
+            or type(bridge_prebalance) is not int
+            or not 0 <= bridge_prebalance <= SEAT_UINT256_MAX
+            or type(treasury_prebalance) is not int
+            or not 0 <= treasury_prebalance <= SEAT_UINT256_MAX):
+        raise ValueError("release observation claim is not canonical")
+    descriptor = manifest.destination_bridge_descriptor
+    endpoint = EndpointActivationStateV2()
+    deployment = fresh_bridge_deployment_projection(
+        manifest, balance=bridge_prebalance
+    )
+    treasury = (
+        descriptor.native_liquidity_treasury,
+        descriptor.native_liquidity_treasury_runtime_hash,
+        descriptor.native_liquidity_treasury_configuration_hash,
+        treasury_prebalance,
+    )
+    return release_deployment_observation_commitment(
+        manifest_commitment=manifest.commitment,
+        prestate_root=prestate_root,
+        observed_components=manifest.components[3:],
+        observed_bridge_descriptor=manifest.destination_bridge_descriptor,
+        endpoint_prestate=endpoint_activation_projection(endpoint),
+        bridge_deployment=deployment,
+        treasury_observation=treasury,
+    )
 
 
 @dataclass(frozen=True, eq=False)
@@ -11127,6 +13038,7 @@ class ObservedReleaseDeployment:
     endpoint_object_id: int
     endpoint_prestate: tuple[object, ...]
     bridge_deployment: "BridgeDeploymentStateV2"
+    treasury_observation: tuple[str, str, str, int]
     seal: str
     _capability: object = field(repr=False, compare=False)
 
@@ -11158,6 +13070,13 @@ class ObservedReleaseDeployment:
                     != endpoint_activation_projection(self.endpoint_state)
                 or type(self.bridge_deployment)
                     is not BridgeDeploymentStateV2
+                or type(self.treasury_observation) is not tuple
+                or len(self.treasury_observation) != 4
+                or any(type(value) is not str or not value
+                       for value in self.treasury_observation[:3])
+                or type(self.treasury_observation[3]) is not int
+                or not 0 <= self.treasury_observation[3]
+                    <= SEAT_UINT256_MAX
                 or not self.seal):
             raise ValueError("observed release deployment is not canonical")
 
@@ -11173,11 +13092,24 @@ class ObservedReleaseDeployment:
             self.observed_bridge_descriptor, self.store_object_id,
             self.endpoint_object_id, self.endpoint_prestate,
             self.bridge_deployment,
+            self.treasury_observation,
         )
         return hashlib.sha256(
             b"TAIKO_OBSERVED_RELEASE_DEPLOYMENT_V1\x00"
             + repr(projection).encode()
         ).hexdigest()
+
+    @property
+    def actual_observation_commitment(self) -> str:
+        return release_deployment_observation_commitment(
+            manifest_commitment=self.manifest_commitment,
+            prestate_root=self.prestate_root,
+            observed_components=self.observed_components,
+            observed_bridge_descriptor=self.observed_bridge_descriptor,
+            endpoint_prestate=self.endpoint_prestate,
+            bridge_deployment=self.bridge_deployment,
+            treasury_observation=self.treasury_observation,
+        )
 
 
 @dataclass(frozen=True)
@@ -11450,7 +13382,7 @@ class InboxValidityExecutionAuthority:
     _verifying_candidate_id: int | None = field(
         default=None, init=False, repr=False
     )
-    _release_activation_frame: tuple[int, bytes] | None = field(
+    _release_activation_frame: tuple[int, bytes, int, str] | None = field(
         default=None, init=False, repr=False
     )
     _observed_release_deployments: dict[
@@ -11525,6 +13457,26 @@ class InboxValidityExecutionAuthority:
             and observed.observed_components == manifest.components[3:]
             and observed.observed_bridge_descriptor
                 == manifest.destination_bridge_descriptor
+            and observed.treasury_observation == (
+                self.protocol.inbox_apply_router
+                    ._terminal_registrar_authority
+                    .liquidity_treasury.address,
+                self.protocol.inbox_apply_router
+                    ._terminal_registrar_authority
+                    .liquidity_treasury.runtime_hash,
+                self.protocol.inbox_apply_router
+                    ._terminal_registrar_authority
+                    .liquidity_treasury.configuration_hash,
+                self.protocol.inbox_apply_router
+                    ._terminal_registrar_authority
+                    .liquidity_treasury.balance,
+            )
+            and manifest.destination_domain_id
+                not in self.protocol.inbox_apply_router.routes
+            and observed.endpoint_state.activatable
+            and observed.bridge_deployment.authenticates(
+                manifest, require_fresh=True,
+            )
             and observed.seal == self._opaque_seal(
                 b"TAIKO_OBSERVED_RELEASE_DEPLOYMENT_SEAL_V1\x00",
                 observed.digest,
@@ -11664,8 +13616,26 @@ class InboxValidityExecutionAuthority:
             ),
             "registrations": dict(registrar.registrations),
             "bridge_identities": dict(registrar.bridge_identities),
+            "bridge_activation_receipts": dict(
+                registrar.bridge_activation_receipts
+            ),
+            "active_destination_bridge": registrar.active_destination_bridge,
+            "retirement_queue_watermarks": dict(
+                registrar.retirement_queue_watermarks
+            ),
+            "liquidity_treasury": (
+                registrar.liquidity_treasury.balance,
+                registrar.liquidity_treasury.funded_total,
+                registrar.liquidity_treasury.reclaimed_total,
+            ),
+            "bridge_deployment": copy.deepcopy(
+                delta.bridge_deployment.__dict__
+            ),
             "routes": dict(registrar.inbox_router.routes),
             "domains": dict(registrar.accumulator.domains),
+            "terminalized_pinned_count": dict(
+                registrar.accumulator.terminalized_pinned_count
+            ),
             "endpoint": copy.deepcopy(delta.endpoint_state.__dict__),
             "store_writer": delta.store._inbox_apply_authority,
         }
@@ -11682,8 +13652,29 @@ class InboxValidityExecutionAuthority:
         ]
         registrar.registrations = snapshot["registrations"]
         registrar.bridge_identities = snapshot["bridge_identities"]
+        registrar.bridge_activation_receipts = snapshot[
+            "bridge_activation_receipts"
+        ]
+        registrar.active_destination_bridge = snapshot[
+            "active_destination_bridge"
+        ]
+        registrar.retirement_queue_watermarks = snapshot[
+            "retirement_queue_watermarks"
+        ]
+        (
+            registrar.liquidity_treasury.balance,
+            registrar.liquidity_treasury.funded_total,
+            registrar.liquidity_treasury.reclaimed_total,
+        ) = snapshot["liquidity_treasury"]
+        delta.bridge_deployment.__dict__.clear()
+        delta.bridge_deployment.__dict__.update(
+            snapshot["bridge_deployment"]
+        )
         registrar.inbox_router.routes = snapshot["routes"]
         registrar.accumulator.domains = snapshot["domains"]
+        registrar.accumulator.terminalized_pinned_count = snapshot[
+            "terminalized_pinned_count"
+        ]
         delta.endpoint_state.__dict__.clear()
         delta.endpoint_state.__dict__.update(snapshot["endpoint"])
         object.__setattr__(
@@ -11751,7 +13742,11 @@ class InboxValidityExecutionAuthority:
         if self._release_activation_frame is not None:
             return False
         self._release_activation_frame = (
-            id(manifest), manifest.commitment
+            id(manifest), manifest.commitment,
+            self.protocol.forced_queue.count,
+            release_system_calldata_hash(
+                manifest, self.protocol.forced_queue.count
+            ),
         )
         try:
             return activate_release_transaction(
@@ -11770,6 +13765,9 @@ class InboxValidityExecutionAuthority:
                 ),
                 endpoint_state=delta.endpoint_state,
                 bridge_deployment=delta.bridge_deployment,
+                retirement_queue_watermark=(
+                    self.protocol.forced_queue.count
+                ),
             )
         finally:
             self._release_activation_frame = None
@@ -11903,6 +13901,7 @@ class InboxValidityExecutionAuthority:
         touched: dict[
             tuple[int, str], tuple[InboxCreditStoreV2, InboxPin | None]
         ] = {}
+        touched_counts: dict[int, tuple[InboxCreditStoreV2, int]] = {}
         for rows in rows_by_block:
             for row in rows:
                 descriptor = row[4]
@@ -11912,6 +13911,9 @@ class InboxValidityExecutionAuthority:
                 if route is None:
                     continue
                 key = (id(route.store), descriptor.credit_id)
+                touched_counts.setdefault(
+                    id(route.store), (route.store, route.store.pinned_count)
+                )
                 touched.setdefault(
                     key, (route.store, route.store.pins.get(descriptor.credit_id))
                 )
@@ -11942,6 +13944,8 @@ class InboxValidityExecutionAuthority:
                     store.pins.pop(credit_id, None)
                 else:
                     store.pins[credit_id] = prior
+            for store, prior_count in touched_counts.values():
+                store.pinned_count = prior_count
             inbox.next_queue_index = cursor_snapshot
             inbox.last_applied_l2_block = last_block_snapshot
             self._issued = issued_snapshot
@@ -11999,6 +14003,7 @@ class InboxValidityExecutionAuthority:
         touched: dict[
             tuple[str, str], tuple[InboxRoute, InboxPin | None]
         ] = {}
+        touched_counts: dict[int, tuple[InboxCreditStoreV2, int]] = {}
         cursor_snapshot = inbox.next_queue_index
         last_block_snapshot = inbox.last_applied_l2_block
         issued_snapshot = dict(self._issued)
@@ -12021,6 +14026,10 @@ class InboxValidityExecutionAuthority:
                     if route is None:
                         continue
                     key = (domain_id, descriptor.credit_id)
+                    touched_counts.setdefault(
+                        id(route.store),
+                        (route.store, route.store.pinned_count),
+                    )
                     touched.setdefault(
                         key,
                         (route, route.store.pins.get(descriptor.credit_id)),
@@ -12041,6 +14050,8 @@ class InboxValidityExecutionAuthority:
                     route.store_config_hash,
                     route.store.runtime_codehash,
                     credit_id,
+                    touched_counts[id(route.store)][1],
+                    route.store.pinned_count,
                     prior,
                     route.store.pins.get(credit_id),
                 )
@@ -12055,6 +14066,8 @@ class InboxValidityExecutionAuthority:
                     route.store.pins.pop(credit_id, None)
                 else:
                     route.store.pins[credit_id] = prior
+            for store, prior_count in touched_counts.values():
+                store.pinned_count = prior_count
             inbox.next_queue_index = cursor_snapshot
             inbox.last_applied_l2_block = last_block_snapshot
             self._issued = issued_snapshot
@@ -12081,7 +14094,9 @@ class InboxValidityExecutionAuthority:
             post_cursor,
             post_last_block,
             tuple(
-                release_system_calldata_hash(activation.manifest)
+                release_system_calldata_hash(
+                    activation.manifest, protocol.forced_queue.count
+                )
                 if index == 0 and activation is not None else ""
                 for index in range(candidate.count)
             ),
@@ -12288,6 +14303,20 @@ class InboxValidityExecutionAuthority:
                 or witness.observed_components != manifest.components[3:]
                 or witness.observed_bridge_descriptor
                     != manifest.destination_bridge_descriptor
+                or witness.treasury_observation != (
+                    self.protocol.inbox_apply_router
+                        ._terminal_registrar_authority
+                        .liquidity_treasury.address,
+                    self.protocol.inbox_apply_router
+                        ._terminal_registrar_authority
+                        .liquidity_treasury.runtime_hash,
+                    self.protocol.inbox_apply_router
+                        ._terminal_registrar_authority
+                        .liquidity_treasury.configuration_hash,
+                    self.protocol.inbox_apply_router
+                        ._terminal_registrar_authority
+                        .liquidity_treasury.balance,
+                )
                 or type(witness.store) is not InboxCreditStoreV2
                 or witness.store.address != manifest.components[4].address
                 or witness.store.runtime_codehash
@@ -12298,7 +14327,12 @@ class InboxValidityExecutionAuthority:
                     != endpoint_activation_projection(witness.endpoint_state)
                 or type(witness.bridge_deployment)
                     is not BridgeDeploymentStateV2
-                or not witness.bridge_deployment.authenticates(manifest)):
+                or not witness.bridge_deployment.authenticates(
+                    manifest, require_fresh=True,
+                )
+                or not witness.endpoint_state.activatable
+                or manifest.destination_domain_id
+                    in self.protocol.inbox_apply_router.routes):
             raise ValueError("migration deployment observation is inexact")
         return migration_transition_public_inputs_from_l1(
             router=router,
@@ -12306,6 +14340,11 @@ class InboxValidityExecutionAuthority:
             target_manifest_hash=target_manifest_hash,
             candidate=candidate,
             rows=rows,
+            bridge_prebalance=witness.bridge_deployment.balance,
+            treasury_prebalance=witness.treasury_observation[3],
+            pre_inbox_last_applied_l2_block=(
+                self.protocol.inbox_apply_router.last_applied_l2_block
+            ),
         )
 
     def verify_migration_transition(
@@ -12360,6 +14399,7 @@ class InboxValidityExecutionAuthority:
             endpoint_object_id=id(witness.endpoint_state),
             endpoint_prestate=witness.endpoint_prestate,
             bridge_deployment=witness.bridge_deployment,
+            treasury_observation=witness.treasury_observation,
             seal="PENDING",
             _capability=_OBSERVED_RELEASE_DEPLOYMENT_CAPABILITY,
         )
@@ -12376,6 +14416,7 @@ class InboxValidityExecutionAuthority:
             transition_verifier_descriptor=result.descriptor,
             transition_result_digest=result.digest,
             transition_result_seal=result.seal,
+            transition_proof=proof,
             transition_statement_digest=expected.digest,
             router_generation=expected.router_generation,
             source_canonical_sequence=expected.canonical_sequence,
@@ -12393,6 +14434,9 @@ class InboxValidityExecutionAuthority:
                 expected.release_system_calldata_hash
             ),
             system_calldata_hash=expected.inbox_system_calldata_hash,
+            observed_deployment_commitment=(
+                expected.observed_deployment_commitment
+            ),
             observed_deployment_digest=observed.digest,
             observed_deployment_seal=observed.seal,
             pre_inbox_last_applied_l2_block=(
@@ -12556,6 +14600,18 @@ class InboxValidityExecutionAuthority:
             target_manifest_hash=target_manifest_hash,
             candidate=candidate,
             rows=exact_rows,
+            bridge_prebalance=(
+                evm_validity.transition_proof.public_inputs
+                    .bridge_prebalance
+            ),
+            treasury_prebalance=(
+                evm_validity.transition_proof.public_inputs
+                    .treasury_prebalance
+            ),
+            pre_inbox_last_applied_l2_block=(
+                evm_validity.transition_proof.public_inputs
+                    .pre_inbox_last_applied_l2_block
+            ),
         )
         if (evm_validity.transition_statement_digest
                 != expected_statement.digest
@@ -12570,7 +14626,9 @@ class InboxValidityExecutionAuthority:
                         evm_validity.proof_commitment,
                     )
                 or evm_validity.release_system_calldata_hash
-                != release_system_calldata_hash(manifest)
+                != release_system_calldata_hash(
+                    manifest, evm_validity.queue_count
+                )
                 or evm_validity.system_calldata_hash
                     != inbox_system_calldata_hash(exact_rows)
                 or block.inbox_descriptor_commitment
@@ -12579,11 +14637,9 @@ class InboxValidityExecutionAuthority:
                     != inbox_system_calldata_hash(exact_rows)
                 or not self._rows_match_descriptors(exact_rows, descriptors)):
             raise ValueError("migration execution calldata is not exact")
-        traced = VerifiedMigrationExecutionOutput(
-            self,
-            router,
+        return MigrationActivationCallV2(
             candidate,
-            evm_validity,
+            evm_validity.transition_proof,
             copy.deepcopy(old.core),
             copy.deepcopy(output_core),
             settlement.protocol_version,
@@ -12597,15 +14653,6 @@ class InboxValidityExecutionAuthority:
             exact_rows,
             evm_validity.pre_inbox_last_applied_l2_block,
             evm_validity.post_inbox_last_applied_l2_block,
-            "PENDING",
-            _MIGRATION_EXECUTION_OUTPUT_CAPABILITY,
-        )
-        return replace(
-            traced,
-            seal=self._opaque_seal(
-                b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_SEAL_V1\x00",
-                traced.digest,
-            ),
         )
 
     def valid_receipt(self, candidate: Candidate) -> bool:
@@ -12641,7 +14688,9 @@ class InboxValidityExecutionAuthority:
             if len(matches) != 1:
                 return False
             expected_release_hashes.append(
-                release_system_calldata_hash(matches[0])
+                release_system_calldata_hash(
+                    matches[0], protocol.forced_queue.count
+                )
             )
         return (
             receipt.seal == self._opaque_seal(
@@ -12737,8 +14786,6 @@ class InboxValidityExecutionAuthority:
 def release_deployment_witness_for_test(
     authority: InboxValidityExecutionAuthority,
     manifest: "ReleaseManifestV2",
-    *,
-    bridge_deployment: "BridgeDeploymentStateV2 | None" = None,
 ) -> ReleaseDeploymentWitness:
     """Fixture-only raw prestate consumed by the exact verifier mock."""
 
@@ -12750,65 +14797,27 @@ def release_deployment_witness_for_test(
     registrar = protocol.inbox_apply_router._terminal_registrar_authority
     if type(registrar) is not TerminalDomainRegistrarV2:
         raise ValueError("test release prestate has no local registrar")
-    route = protocol.inbox_apply_router.routes.get(
-        manifest.destination_domain_id
+    if (manifest.destination_domain_id
+            in protocol.inbox_apply_router.routes
+            or manifest.destination_bridge in registrar.bridge_identities):
+        raise ValueError("V2 release must use a fresh domain and Bridge")
+    store_row = manifest.components[4]
+    store = InboxCreditStoreV2(
+        protocol.inbox_apply_router.address,
+        manifest.destination_bridge,
+        manifest.destination_domain_id,
+        address=store_row.address,
+        terminal_registrar=registrar.address,
+        runtime_codehash=store_row.runtime_hash,
     )
-    if route is None:
-        store_row = manifest.components[4]
-        store = InboxCreditStoreV2(
-            protocol.inbox_apply_router.address,
-            manifest.destination_bridge,
-            manifest.destination_domain_id,
-            address=store_row.address,
-            activation_gate=manifest.activation_gate,
-            terminal_registrar=registrar.address,
-            runtime_codehash=store_row.runtime_hash,
-        )
-        endpoint = EndpointActivationStateV2()
-    else:
-        store = route.store
-        endpoint = EndpointActivationStateV2(
-            store_domain_unset=False,
-            store_pins_empty=not bool(store.pins),
-            store_sealer_live=False,
-            gate_active=True,
-            gate_sealer_live=False,
-            bridge_v2_domain_unset=False,
-            bridge_v2_terminal_namespace_empty=True,
-            bridge_sealer_live=False,
-        )
-    if bridge_deployment is None:
-        is_genesis_proxy = (
-            manifest.destination_bridge == "bridge:A"
-            and manifest.components[8].runtime_hash
-                != manifest.destination_bridge_descriptor.facade_runtime_hash
-        )
-        deployment = (
-            BridgeDeploymentStateV2(
-                "GENESIS_LEGACY_PROXY",
-                manifest.destination_bridge,
-                manifest.components[8].runtime_hash,
-                implementation_address="impl:bridge:A",
-                implementation_runtime_hash=(
-                    manifest.destination_bridge_descriptor
-                        .facade_runtime_hash
-                ),
-                direct_prestate_slot_constraint=True,
-                upgrade_authority_burned=True,
-                delegate_target_reachable=True,
-                eip1967_implementation_slot_value="impl:bridge:A",
-                eip1967_admin_slot_value="",
-                eip1967_implementation_slot_proved=True,
-                eip1967_admin_slot_proved=True,
-            )
-            if is_genesis_proxy else BridgeDeploymentStateV2(
-                "IMMUTABLE_NONPROXY",
-                manifest.destination_bridge,
-                manifest.components[8].runtime_hash,
-            )
-        )
-    else:
-        deployment = bridge_deployment
+    endpoint = EndpointActivationStateV2()
+    deployment = bridge_deployment_state_for_test(manifest)
+    treasury_observation = (
+        registrar.liquidity_treasury.address,
+        registrar.liquidity_treasury.runtime_hash,
+        registrar.liquidity_treasury.configuration_hash,
+        registrar.liquidity_treasury.balance,
+    )
     return ReleaseDeploymentWitness(
         manifest.commitment,
         protocol.core.state_root,
@@ -12818,6 +14827,7 @@ def release_deployment_witness_for_test(
         endpoint,
         endpoint_activation_projection(endpoint),
         deployment,
+        treasury_observation,
     )
 
 
@@ -12905,6 +14915,7 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
             route.store.address,
             route.store.runtime_codehash,
             route.store.route_config_hash,
+            route.store.pinned_count,
             tuple(sorted(route.store.pins.items())),
         )
         for domain_id, route in inbox.routes.items()
@@ -12926,7 +14937,16 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
         tuple(sorted(registrar.authority.releases.items())),
         tuple(sorted(registrar.registrations.items())),
         tuple(sorted(registrar.bridge_identities.items())),
+        registrar.active_destination_bridge,
+        tuple(sorted(registrar.retirement_queue_watermarks.items())),
+        registrar.liquidity_treasury.balance,
+        registrar.liquidity_treasury.funded_total,
+        registrar.liquidity_treasury.reclaimed_total,
         tuple(sorted(registrar.accumulator.domains.items())),
+        tuple(sorted(
+            registrar.accumulator.terminalized_pinned_count.items()
+        )),
+        tuple(sorted(registrar.accumulator._terminalized_credits)),
         observations,
     )
     return hashlib.sha256(
@@ -13017,6 +15037,7 @@ class ForkLocalL2Poststate:
 def _execute_verified_migration_l2_replay_for_test(
     protocol: Protocol,
     output: VerifiedMigrationExecutionOutput,
+    router: ActiveSettlementRouter,
     *,
     persist: bool,
     expected_poststate_commitment: str | None = None,
@@ -13030,24 +15051,16 @@ def _execute_verified_migration_l2_replay_for_test(
 
     if (type(protocol) is not Protocol
             or type(output) is not VerifiedMigrationExecutionOutput
-            or output.verifier is not protocol._inbox_execution_authority
-            or output.seal != output.verifier._opaque_seal(
-                b"TAIKO_VERIFIED_MIGRATION_EXECUTION_OUTPUT_SEAL_V1\x00",
-                output.digest,
-            )
-            or output.evm_validity.seal
-                != output.verifier._opaque_seal(
-                    b"TAIKO_VERIFIED_MIGRATION_EVM_TRACE_SEAL_V1\x00",
-                    output.evm_validity.digest,
-                )
-            or output.evm_validity.candidate_digest
+            or type(router) is not ActiveSettlementRouter
+            or output.transition_proof.public_inputs.digest
+                != output.transition_statement_digest
+            or output.transition_proof.public_inputs.candidate_digest
                 != candidate_inbox_execution_digest(output.candidate)
-            or output.evm_validity.system_calldata_hash
+            or output.transition_proof.public_inputs.inbox_system_calldata_hash
                 != inbox_system_calldata_hash(output.rows)):
         return None
     authority = protocol._inbox_execution_authority
     history = protocol.versioned_history
-    router = output.router
     if type(history) is not VersionedSettlementHistory:
         return None
     registration = None
@@ -13093,6 +15106,7 @@ def _execute_verified_migration_l2_replay_for_test(
     touched: dict[
         tuple[str, str], tuple[InboxRoute, InboxPin | None]
     ] = {}
+    touched_counts: dict[int, tuple[InboxCreditStoreV2, int]] = {}
     try:
         if (cursor_snapshot != output.start_cursor
                 or not authority._activate_release_delta(
@@ -13110,6 +15124,9 @@ def _execute_verified_migration_l2_replay_for_test(
             touched.setdefault(
                 (descriptor.destination_domain_id, descriptor.credit_id),
                 (route, route.store.pins.get(descriptor.credit_id)),
+            )
+            touched_counts.setdefault(
+                id(route.store), (route.store, route.store.pinned_count)
             )
         authority._execution_frame = (id(output), 0)
         if not inbox._apply_verified_rows(
@@ -13131,11 +15148,25 @@ def _execute_verified_migration_l2_replay_for_test(
                 and poststate_commitment != expected_poststate_commitment):
             raise ValueError("L2 replay poststate differs from fork snapshot")
         if not persist:
+            for (_, credit_id), (route, prior) in touched.items():
+                if prior is None:
+                    route.store.pins.pop(credit_id, None)
+                else:
+                    route.store.pins[credit_id] = prior
+            for store, prior_count in touched_counts.values():
+                store.pinned_count = prior_count
             inbox.next_queue_index = cursor_snapshot
             inbox.last_applied_l2_block = last_snapshot
             authority._restore_activation_transaction(activation, snapshot)
         return prestate_commitment, poststate_commitment
     except BaseException:
+        for (_, credit_id), (route, prior) in touched.items():
+            if prior is None:
+                route.store.pins.pop(credit_id, None)
+            else:
+                route.store.pins[credit_id] = prior
+        for store, prior_count in touched_counts.values():
+            store.pinned_count = prior_count
         inbox.next_queue_index = cursor_snapshot
         inbox.last_applied_l2_block = last_snapshot
         authority._restore_activation_transaction(activation, snapshot)
@@ -13199,6 +15230,7 @@ def _execute_prepared_candidate_l2_replay_for_test(
     touched: dict[
         tuple[int, str], tuple[InboxCreditStoreV2, InboxPin | None]
     ] = {}
+    touched_counts: dict[int, tuple[InboxCreditStoreV2, int]] = {}
     try:
         if (activation is not None
                 and not authority._activate_release_delta(activation)):
@@ -13214,6 +15246,9 @@ def _execute_prepared_candidate_l2_replay_for_test(
                 touched.setdefault(
                     (id(route.store), descriptor.credit_id),
                     (route.store, route.store.pins.get(descriptor.credit_id)),
+                )
+                touched_counts.setdefault(
+                    id(route.store), (route.store, route.store.pinned_count)
                 )
         for block_index, (block, rows) in enumerate(
                 zip(candidate.blocks, rows_by_block)):
@@ -13241,6 +15276,8 @@ def _execute_prepared_candidate_l2_replay_for_test(
                     store.pins.pop(credit_id, None)
                 else:
                     store.pins[credit_id] = prior
+            for store, prior_count in touched_counts.values():
+                store.pinned_count = prior_count
             inbox.next_queue_index = cursor_snapshot
             inbox.last_applied_l2_block = last_snapshot
             if activation is not None:
@@ -13253,6 +15290,8 @@ def _execute_prepared_candidate_l2_replay_for_test(
                 store.pins.pop(credit_id, None)
             else:
                 store.pins[credit_id] = prior
+        for store, prior_count in touched_counts.values():
+            store.pinned_count = prior_count
         inbox.next_queue_index = cursor_snapshot
         inbox.last_applied_l2_block = last_snapshot
         if activation is not None:
@@ -13310,12 +15349,14 @@ def _sealed_fork_local_l2_poststate_for_test(
 def replay_verified_migration_output_on_l2_for_test(
     protocol: Protocol,
     output: VerifiedMigrationExecutionOutput,
+    router: ActiveSettlementRouter,
 ) -> ForkLocalL2Poststate | None:
     """Build an immutable migration fork; never switch canonical L2 state."""
 
     result = _execute_verified_migration_l2_replay_for_test(
         protocol,
         output,
+        router,
         persist=False,
     )
     if result is None:
@@ -13440,26 +15481,48 @@ def select_canonical_l2_poststate_for_test(
     )
     migration_output = poststate.migration_output
     if (type(history) is not VersionedSettlementHistory
-            or protocol.last_canonical_execution_digest
-                != candidate_inbox_execution_digest(candidate)
-            or protocol.core != expected_core
-            or history.core != expected_core
             or history.protocol_version != poststate.target_protocol_version
-            or (migration_output is None
-                and history.last_canonical_l1_block
-                    != poststate.l1_block_number)
             or protocol.forced_queue.cursor != poststate.post_cursor):
         return False
     if migration_output is not None:
-        router = migration_output.router
+        router = history._router_authority
+        if type(router) is not ActiveSettlementRouter:
+            return False
         registration = router.registrations.get(
             poststate.target_protocol_version
+        )
+        receipt = router.activation_receipts.get((
+            migration_output.router_generation,
+            migration_output.target_manifest_hash,
+        ))
+        predecessor = (
+            None if type(registration) is not SettlementRegistration
+            else router.registrations.get(registration.predecessor_version)
+        )
+        predecessor_protocol = (
+            None if type(predecessor) is not SettlementRegistration
+            else predecessor.settlement.live_protocol
         )
         if (migration_output.candidate is not candidate
                 or migration_output.target_manifest_hash
                     != poststate.target_manifest_hash
+                or protocol.core != migration_output.base_core
+                or protocol.mode is not Mode.PREACTIVE
+                or history.core != expected_core
                 or router.active_version != poststate.target_protocol_version
                 or type(registration) is not SettlementRegistration
+                or type(predecessor_protocol) is not Protocol
+                or (
+                    receipt is not None
+                    and (
+                        type(receipt) is not MigrationActivationReceipt
+                        or receipt.new_target != history.address
+                        or receipt.new_protocol_version
+                            != history.protocol_version
+                        or receipt.new_authorization_id
+                            != protocol.seat_authorization_id
+                    )
+                )
                 or registration.settlement is not history
                 or registration.release_manifest_hash
                     != poststate.target_manifest_hash
@@ -13473,10 +15536,39 @@ def select_canonical_l2_poststate_for_test(
         result = _execute_verified_migration_l2_replay_for_test(
             protocol,
             migration_output,
+            router,
             persist=True,
             expected_poststate_commitment=poststate.poststate_commitment,
         )
+        if result is not None:
+            # This is a node-local canonical-fork selection after observing
+            # the L1 activation receipt. It is not part of Router acceptance.
+            protocol.canonical = Canonical(
+                copy.deepcopy(expected_core), history.last_canonical_l1_block
+            )
+            protocol.mode = Mode.NORMAL
+            protocol.release_activation_pending = False
+            protocol.pending_release_protocol_version = 0
+            protocol.pending_release_manifest_hash = ""
+            protocol.seat_generation = (
+                receipt.seat_generation
+                if type(receipt) is MigrationActivationReceipt
+                else predecessor_protocol.seat_generation
+            )
+            protocol.first_v2_block_number = (
+                predecessor_protocol.first_v2_block_number
+            )
+            protocol.last_canonical_execution_digest = (
+                candidate_inbox_execution_digest(candidate)
+            )
     else:
+        if (protocol.last_canonical_execution_digest
+                != candidate_inbox_execution_digest(candidate)
+                or protocol.core != expected_core
+                or history.core != expected_core
+                or history.last_canonical_l1_block
+                    != poststate.l1_block_number):
+            return False
         result = _execute_prepared_candidate_l2_replay_for_test(
             poststate.authority,
             candidate,
@@ -13527,6 +15619,8 @@ class InboxApplyRouterV2:
 
     address: str = "inbox-apply"
     registrar: str = "terminal-domain-registrar"
+    runtime_hash: str = "code:inbox-apply"
+    configuration_hash: str = ""
     next_queue_index: int = 0
     last_applied_l2_block: int = -1
     routes: dict[str, InboxRoute] = field(default_factory=dict)
@@ -13534,8 +15628,18 @@ class InboxApplyRouterV2:
         default=None, init=False, compare=False, repr=False
     )
 
+    def __post_init__(self) -> None:
+        expected = f"config:inbox-apply:{self.registrar}"
+        if (not self.address or not self.registrar
+                or self.runtime_hash != "code:inbox-apply"
+                or self.configuration_hash not in {"", expected}):
+            raise ValueError("InboxApply lifetime deployment is invalid")
+        object.__setattr__(self, "configuration_hash", expected)
+
     def __setattr__(self, name: str, value: object) -> None:
-        if name in {"address", "registrar"} and name in self.__dict__:
+        if name in {
+            "address", "registrar", "runtime_hash", "configuration_hash"
+        } and name in self.__dict__:
             raise AttributeError(f"InboxApply {name} is immutable")
         object.__setattr__(self, name, value)
 
@@ -13694,9 +15798,11 @@ class InboxApplyRouterV2:
                 runs.append((store, []))
             runs[-1][1].append((credit_id, result_hash))
         journal: list[tuple[InboxCreditStoreV2, str, InboxPin | None]] = []
+        count_journal: dict[int, tuple[InboxCreditStoreV2, int]] = {}
         for store, run in runs:
             if store is None:
                 continue
+            count_journal.setdefault(id(store), (store, store.pinned_count))
             for credit_id, _ in run:
                 journal.append((store, credit_id, store.pins.get(credit_id)))
             returned = store._pin_batch_from_router(
@@ -13711,6 +15817,8 @@ class InboxApplyRouterV2:
                         touched_store.pins.pop(credit_id, None)
                     else:
                         touched_store.pins[credit_id] = prior
+                for touched_store, prior_count in count_journal.values():
+                    touched_store.pinned_count = prior_count
                 return False
         self.next_queue_index += len(rows)
         self.last_applied_l2_block = l2_block_number
@@ -13723,7 +15831,11 @@ class TerminalAccumulatorV2:
 
     domains: dict[str, str]
     registrar: str = "terminal-domain-registrar"
+    address: str = "terminal-accumulator"
+    runtime_hash: str = "code:accumulator"
+    configuration_hash: str = "cfg:accumulator"
     leaves: list[str] = field(default_factory=list)
+    terminalized_pinned_count: dict[str, int] = field(default_factory=dict)
     append_return_length: int = 32
     append_return_padding_ok: bool = True
     _terminal_registrar_authority: object | None = field(
@@ -13732,6 +15844,30 @@ class TerminalAccumulatorV2:
     _destination_bridge_authorities: dict[str, object] = field(
         default_factory=dict, init=False, compare=False, repr=False
     )
+    _terminalized_credits: set[tuple[str, str]] = field(
+        default_factory=set, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (not self.registrar or not self.address
+                or self.runtime_hash != "code:accumulator"
+                or self.configuration_hash != "cfg:accumulator"):
+            raise ValueError("terminal accumulator deployment is invalid")
+        if (any(domain_id not in self.domains
+                or type(count) is not int
+                or not 0 <= count <= UINT64_MAX
+                for domain_id, count
+                in self.terminalized_pinned_count.items())):
+            raise ValueError("terminal pinned counter is invalid")
+        for domain_id in self.domains:
+            self.terminalized_pinned_count.setdefault(domain_id, 0)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "registrar", "address", "runtime_hash", "configuration_hash"
+        } and name in self.__dict__:
+            raise AttributeError(f"terminal accumulator {name} is immutable")
+        object.__setattr__(self, name, value)
 
     @property
     def count(self) -> int:
@@ -13739,7 +15875,7 @@ class TerminalAccumulatorV2:
 
     @property
     def root(self) -> str:
-        return "terminal-root:" + "|".join(self.leaves)
+        return terminal_merkle_root(self.leaves)
 
     def _bind_terminal_registrar(
         self, registrar: "TerminalDomainRegistrarV2"
@@ -13774,10 +15910,12 @@ class TerminalAccumulatorV2:
             return False
         existing = self.domains.get(domain_id)
         if existing is not None:
-            return existing == bridge
+            return (existing == bridge
+                    and domain_id in self.terminalized_pinned_count)
         if not domain_id or not bridge or bridge in self.domains.values():
             return False
         self.domains[domain_id] = bridge
+        self.terminalized_pinned_count[domain_id] = 0
         return True
 
     def _bind_destination_bridge_once(
@@ -13796,9 +15934,25 @@ class TerminalAccumulatorV2:
 
     def append_terminal(self, *, caller: DestinationBridgeLedger,
                         credit_id: str) -> int | None:
+        registrar = self._terminal_registrar_authority
+        route = (
+            registrar.inbox_router.routes.get(caller.local_domain_id)
+            if type(registrar) is TerminalDomainRegistrarV2 else None
+        )
+        pin = (
+            route.store.pins.get(credit_id)
+            if route is not None else None
+        )
+        key = (caller.local_domain_id, credit_id)
         if (self._destination_bridge_authorities.get(
                 caller.local_domain_id
             ) is not caller
+                or route is None
+                or route.destination_bridge != caller.address
+                or route.store is not caller.inbox_store
+                or type(pin) is not InboxPin
+                or key in self._terminalized_credits
+                or self.count >= UINT64_MAX
                 or not caller.terminal_commitment_gas_ok
                 or caller.terminal_commitment_return_length
                     != TERMINAL_COMMITMENT_ABI_BYTES):
@@ -13814,6 +15968,12 @@ class TerminalAccumulatorV2:
         index = self.count
         self.leaves.append(TerminalSignalVerifier.terminal_leaf(
             index, domain_id, bridge, credit_id, terminal))
+        self._terminalized_credits.add(key)
+        self.terminalized_pinned_count[domain_id] = checked_u64_add(
+            self.terminalized_pinned_count.get(domain_id, 0),
+            1,
+            "terminalized pinned count",
+        )
         return index
 
 
@@ -13832,21 +15992,86 @@ class DestinationBridgeDescriptorV2:
     bridge_kernel_profile_hash: str
     inbox_credit_store: str
     terminal_accumulator: str
-    activation_gate: str
     terminal_domain_registrar: str
     destination_chain_id: int = 167_000
     native_quota_manager: str = DESTINATION_NATIVE_QUOTA_MANAGER
     native_liquidity_floor: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR
     native_liquidity_policy: str = DESTINATION_NATIVE_LIQUIDITY_POLICY
+    native_liquidity_treasury: str = DESTINATION_LIQUIDITY_TREASURY
+    native_liquidity_treasury_runtime_hash: str = (
+        DESTINATION_LIQUIDITY_TREASURY_RUNTIME_HASH
+    )
+    native_liquidity_treasury_configuration_hash: str = (
+        DESTINATION_LIQUIDITY_TREASURY_CONFIGURATION_HASH
+    )
+    native_liquidity_amount: int = DESTINATION_NATIVE_LIQUIDITY_AMOUNT
     v1_official_vaults: tuple[str, ...] = V1_OFFICIAL_VAULT_ADDRESSES
     privileged_target_denyset: tuple[str, ...] = (
         V2_PRIVILEGED_DESTINATION_ADDRESSES
     )
     post_call_gas_reserve: int = V2_POST_CALL_GAS_RESERVE
+    role: str = BRIDGE_ROLE_DESTINATION_ONLY
+    native_quota_manager_runtime_hash: str = (
+        NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+    )
+    native_quota_period: int = NATIVE_QUOTA_PERIOD_SECONDS
+    native_eth_quota: int = 2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR
+    pauser: str = "bridge-pauser"
+    signal_service: str = "signal-service"
+    deployment_descriptor: ImmutableBridgeDeploymentDescriptorV2 | None = None
+
+    def __post_init__(self) -> None:
+        if self.deployment_descriptor is None:
+            object.__setattr__(self, "deployment_descriptor",
+                ImmutableBridgeDeploymentDescriptorV2(
+                    self.role,
+                    self.destination_chain_id,
+                    self.bridge,
+                    self.facade_runtime_hash,
+                    f"config:immutable-bridge:{self.bridge}",
+                    self.storage_layout_hash,
+                    self.pauser,
+                    self.signal_service,
+                    self.native_quota_manager,
+                    self.native_quota_manager_runtime_hash,
+                    native_quota_manager_configuration_hash(
+                        address=self.native_quota_manager,
+                        bridge=self.bridge,
+                        quota_period=self.native_quota_period,
+                        eth_quota=self.native_eth_quota,
+                    ),
+                    self.native_quota_period,
+                    self.native_eth_quota,
+                    tuple(sorted({
+                        self.inbox_credit_store,
+                        self.terminal_accumulator,
+                        self.terminal_domain_registrar,
+                    })),
+                    EMPTY_V2_BRIDGE_STATE_COMMITMENT,
+                )
+            )
 
     @property
     def execution_hash(self) -> str:
         return "destination-bridge-execution:" + repr(self)
+
+
+def destination_bridge_component_config_hash(
+    descriptor: DestinationBridgeDescriptorV2,
+    *, topology: str, account_runtime_hash: str,
+) -> str:
+    if (type(descriptor) is not DestinationBridgeDescriptorV2
+            or type(descriptor.deployment_descriptor)
+                is not ImmutableBridgeDeploymentDescriptorV2
+            or not descriptor.deployment_descriptor.structurally_valid()
+            or topology != descriptor.deployment_descriptor.topology
+            or account_runtime_hash
+                != descriptor.deployment_descriptor.account_runtime_hash):
+        raise ValueError("destination immutable Bridge config is invalid")
+    return "component-config:9:immutable-v2:" + hashlib.sha256(
+        repr((descriptor, descriptor.deployment_descriptor.commitment))
+        .encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -13860,8 +16085,6 @@ class ReleaseManifestV2:
     destination_namespace: str
     anchor: str
     anchor_runtime_hash: str
-    activation_gate: str
-    activation_gate_runtime_hash: str
     destination_domain_id: str
     destination_bridge: str
     destination_bridge_execution_hash: str
@@ -13879,8 +16102,7 @@ class ReleaseManifestV2:
             self.destination_chain_id, self.destination_genesis_hash,
             self.execution_profile_hash, self.manifest_namespace,
             self.destination_namespace, self.anchor,
-            self.anchor_runtime_hash, self.activation_gate,
-            self.activation_gate_runtime_hash, self.destination_domain_id,
+            self.anchor_runtime_hash, self.destination_domain_id,
             self.destination_bridge, self.destination_bridge_execution_hash,
             self.destination_bridge_descriptor,
             self.destination_infrastructure_hash,
@@ -13928,6 +16150,14 @@ class ReleaseManifestV2:
 
     def structurally_valid(self) -> bool:
         addresses = tuple(row.address for row in self.components)
+        descriptor = self.destination_bridge_descriptor
+        deployment = descriptor.deployment_descriptor
+        independent_accounts = addresses + (
+            descriptor.native_quota_manager,
+            descriptor.pauser,
+            descriptor.signal_service,
+            descriptor.native_liquidity_treasury,
+        )
         expected_infrastructure_hash = "infrastructure:" + hashlib.sha256(
             repr(self.components).encode()
         ).hexdigest()
@@ -13944,8 +16174,7 @@ class ReleaseManifestV2:
                          self.execution_profile_hash,
                          self.manifest_namespace, self.destination_namespace,
                          self.anchor,
-                         self.anchor_runtime_hash, self.activation_gate,
-                         self.activation_gate_runtime_hash,
+                         self.anchor_runtime_hash,
                          self.destination_domain_id, self.destination_bridge,
                          self.destination_bridge_execution_hash,
                          self.destination_infrastructure_hash))
@@ -13958,43 +16187,103 @@ class ReleaseManifestV2:
                 and all(row.address and row.runtime_hash and row.config_hash
                         for row in self.components)
                 and len(set(addresses)) == 9
+                and len(set(independent_accounts))
+                    == len(independent_accounts)
                 and self.destination_infrastructure_hash
                     == expected_infrastructure_hash
                 and self.destination_domain_id == expected_domain_id
                 and self.components[8].address == self.destination_bridge
-                and self.destination_bridge_descriptor.bridge
-                    == self.destination_bridge
-                and self.destination_bridge_descriptor.execution_hash
+                and descriptor.bridge == self.destination_bridge
+                and descriptor.execution_hash
                     == self.destination_bridge_execution_hash
-                and self.destination_bridge_descriptor.inbox_credit_store
+                and descriptor.inbox_credit_store
                     == self.components[4].address
-                and self.destination_bridge_descriptor.terminal_accumulator
+                and descriptor.terminal_accumulator
                     == self.components[7].address
-                and self.destination_bridge_descriptor.activation_gate
-                    == self.activation_gate
-                and self.destination_bridge_descriptor.terminal_domain_registrar
+                and descriptor.terminal_domain_registrar
                     == self.components[6].address
-                and self.destination_bridge_descriptor.destination_chain_id
+                and descriptor.destination_chain_id
                     == self.destination_chain_id
-                and bool(
-                    self.destination_bridge_descriptor.native_quota_manager
-                )
-                and self.destination_bridge_descriptor.native_liquidity_floor
-                    > 0
-                and bool(
-                    self.destination_bridge_descriptor.native_liquidity_policy
-                )
-                and self.destination_bridge_descriptor.v1_official_vaults
+                and descriptor.role
+                    == BRIDGE_ROLE_DESTINATION_ONLY
+                and bool(descriptor.native_quota_manager)
+                and descriptor.native_quota_manager
+                    == destination_native_quota_manager_address(
+                        self.destination_bridge
+                    )
+                and descriptor.native_quota_manager_runtime_hash
+                    == NATIVE_QUOTA_MANAGER_RUNTIME_HASH
+                and descriptor.native_quota_period > 0
+                and descriptor.native_eth_quota > 0
+                and descriptor.native_liquidity_floor > 0
+                and descriptor.native_liquidity_policy
+                    == DESTINATION_NATIVE_LIQUIDITY_POLICY
+                and descriptor.native_liquidity_treasury
+                    == DESTINATION_LIQUIDITY_TREASURY
+                and descriptor.native_liquidity_treasury_runtime_hash
+                    == DESTINATION_LIQUIDITY_TREASURY_RUNTIME_HASH
+                and descriptor
+                    .native_liquidity_treasury_configuration_hash
+                    == DESTINATION_LIQUIDITY_TREASURY_CONFIGURATION_HASH
+                and descriptor.native_liquidity_amount
+                    == DESTINATION_NATIVE_LIQUIDITY_AMOUNT
+                and descriptor.native_liquidity_amount
+                    >= descriptor.native_liquidity_floor
+                and descriptor.v1_official_vaults
                     == V1_OFFICIAL_VAULT_ADDRESSES
-                and self.destination_bridge_descriptor
-                    .privileged_target_denyset
+                and descriptor.privileged_target_denyset
                     == tuple(sorted({
                         *(row.address for row in self.components),
-                        self.activation_gate,
+                        descriptor.pauser,
+                        descriptor.native_quota_manager,
+                        descriptor.native_liquidity_treasury,
                         *V2_PRIVILEGED_DESTINATION_ADDRESSES,
                     }))
-                and self.destination_bridge_descriptor.post_call_gas_reserve
-                    == V2_POST_CALL_GAS_RESERVE)
+                and descriptor.post_call_gas_reserve
+                    == V2_POST_CALL_GAS_RESERVE
+                and type(deployment) is ImmutableBridgeDeploymentDescriptorV2
+                and deployment.structurally_valid()
+                and deployment.role == descriptor.role
+                and deployment.chain_id == descriptor.destination_chain_id
+                and deployment.bridge == descriptor.bridge
+                and deployment.account_runtime_hash
+                    == descriptor.facade_runtime_hash
+                and deployment.account_runtime_hash
+                    == self.components[8].runtime_hash
+                and deployment.account_configuration_hash
+                    == f"config:immutable-bridge:{descriptor.bridge}"
+                and deployment.storage_layout_hash
+                    == descriptor.storage_layout_hash
+                and deployment.pauser == descriptor.pauser
+                and deployment.signal_service == descriptor.signal_service
+                and deployment.native_quota_manager
+                    == descriptor.native_quota_manager
+                and deployment.native_quota_manager_runtime_hash
+                    == descriptor.native_quota_manager_runtime_hash
+                and deployment.native_quota_manager_configuration_hash
+                    == native_quota_manager_configuration_hash(
+                        address=descriptor.native_quota_manager,
+                        bridge=descriptor.bridge,
+                        quota_period=descriptor.native_quota_period,
+                        eth_quota=descriptor.native_eth_quota,
+                    )
+                and deployment.native_quota_period
+                    == descriptor.native_quota_period
+                and deployment.native_eth_quota
+                    == descriptor.native_eth_quota
+                and deployment.v2_endpoints == tuple(sorted({
+                    descriptor.inbox_credit_store,
+                    descriptor.terminal_accumulator,
+                    descriptor.terminal_domain_registrar,
+                }))
+                and deployment.initial_v2_state_commitment
+                    == EMPTY_V2_BRIDGE_STATE_COMMITMENT
+                and self.components[8].config_hash
+                    == destination_bridge_component_config_hash(
+                        descriptor,
+                        topology=deployment.topology,
+                        account_runtime_hash=deployment.account_runtime_hash,
+                    ))
 
 
 def historical_v2_privileged_policy_compatible(
@@ -14008,73 +16297,59 @@ def historical_v2_privileged_policy_compatible(
             or not prior.structurally_valid()
             or not successor.structurally_valid()):
         return False
-    reuses_authority = (
+    reuses_release_account = (
         prior.destination_domain_id == successor.destination_domain_id
         or prior.destination_bridge == successor.destination_bridge
     )
-    if not reuses_authority:
-        return True
-    return (
-        prior.destination_domain_id == successor.destination_domain_id
-        and prior.destination_bridge == successor.destination_bridge
-        and prior.destination_bridge_descriptor.privileged_target_denyset
-            == successor.destination_bridge_descriptor
-                .privileged_target_denyset
+    lifetime_component_indices = (3, 5, 6, 7)
+    lifetime_graph_exact = all(
+        prior.components[index] == successor.components[index]
+        for index in lifetime_component_indices
     )
+    return lifetime_graph_exact and not reuses_release_account
 
 
-def release_system_calldata_hash(manifest: ReleaseManifestV2) -> str:
-    """Behavioral hash of the exact tx0 ReleaseManifest calldata."""
+def release_system_calldata_hash(
+    manifest: ReleaseManifestV2, retirement_queue_count: int,
+) -> str:
+    """Behavioral hash of exact tx0 manifest and uint64 watermark calldata."""
 
     if (type(manifest) is not ReleaseManifestV2
-            or not manifest.structurally_valid()):
+            or not manifest.structurally_valid()
+            or type(retirement_queue_count) is not int
+            or not 0 <= retirement_queue_count <= UINT64_MAX):
         raise ValueError("release system calldata is not canonical")
     return hashlib.sha256(
         b"TAIKO_RELEASE_SYSTEM_CALLDATA_V2\x00"
         + manifest.commitment
         + repr(manifest).encode()
+        + retirement_queue_count.to_bytes(32, "big")
     ).hexdigest()
 
 
 @dataclass
 class EndpointActivationStateV2:
-    """Only endpoint-local V2 namespaces start empty; V1 custody may not."""
+    """Prestate of the fresh V2 deployment bundle authenticated by tx0."""
 
     store_domain_unset: bool = True
     store_pins_empty: bool = True
     store_sealer_live: bool = True
-    gate_active: bool = False
-    gate_sealer_live: bool = True
-    bridge_v2_domain_unset: bool = True
-    bridge_v2_terminal_namespace_empty: bool = True
+    bridge_account_absent: bool = True
+    bridge_accounting_empty: bool = True
     bridge_sealer_live: bool = True
-    legacy_v1_state_fingerprint: str = "arbitrary-preserved-v1-state"
 
     @property
     def activatable(self) -> bool:
         return (self.store_domain_unset and self.store_pins_empty
-                and self.store_sealer_live and not self.gate_active
-                and self.gate_sealer_live and self.bridge_v2_domain_unset
-                and self.bridge_v2_terminal_namespace_empty
-                and self.bridge_sealer_live
-                and bool(self.legacy_v1_state_fingerprint))
-
-    @property
-    def exact_existing(self) -> bool:
-        return (not self.store_domain_unset and not self.store_sealer_live
-                and self.gate_active and not self.gate_sealer_live
-                and not self.bridge_v2_domain_unset
-                and not self.bridge_sealer_live
-                and bool(self.legacy_v1_state_fingerprint))
+                and self.store_sealer_live and self.bridge_account_absent
+                and self.bridge_accounting_empty and self.bridge_sealer_live)
 
     def seal(self) -> bool:
         if not self.activatable:
             return False
         self.store_domain_unset = False
         self.store_sealer_live = False
-        self.gate_active = True
-        self.gate_sealer_live = False
-        self.bridge_v2_domain_unset = False
+        self.bridge_account_absent = False
         self.bridge_sealer_live = False
         return True
 
@@ -14093,81 +16368,379 @@ def endpoint_activation_projection(
 
 
 @dataclass(frozen=True)
-class BridgeDeploymentStateV2:
-    """Only immutable facades or the one fork-attested legacy proxy qualify."""
+class ObservedNativeQuotaManagerStateV2:
+    """Exact fresh immutable V2-only quota-manager account and state."""
 
-    topology: str
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+    bridge: str
+    erc20_vault: str
+    quota_period: int
+    quota: int
+    available: int
+    updated_at: int
+    owner: str
+    pending_owner: str
+
+    def exact_for(
+        self, deployment: ImmutableBridgeDeploymentDescriptorV2,
+    ) -> bool:
+        return (
+            self.address == deployment.native_quota_manager
+            and self.runtime_hash
+                == deployment.native_quota_manager_runtime_hash
+            and self.configuration_hash
+                == deployment.native_quota_manager_configuration_hash
+            and self.bridge == deployment.bridge
+            and self.erc20_vault == ""
+            and self.quota_period == deployment.native_quota_period
+            and self.quota == deployment.native_eth_quota
+            and self.available == self.quota
+            and self.updated_at == 0
+            and self.owner == "" and self.pending_owner == ""
+        )
+
+    @property
+    def static_identity(self) -> tuple[object, ...]:
+        return (
+            self.address, self.runtime_hash, self.configuration_hash,
+            self.bridge, self.erc20_vault, self.quota_period,
+            self.quota, self.owner, self.pending_owner,
+        )
+
+
+@dataclass
+class BridgeDeploymentStateV2:
+    """Exact fresh immutable destination Bridge account under the L2 root."""
+
     address: str
     account_runtime_hash: str
-    implementation_address: str = ""
-    implementation_runtime_hash: str = ""
-    direct_prestate_slot_constraint: bool = False
-    upgrade_authority_burned: bool = True
-    delegate_target_reachable: bool = False
-    eip1967_implementation_slot_value: str = ""
-    eip1967_admin_slot_value: str = ""
-    eip1967_implementation_slot_proved: bool = False
-    eip1967_admin_slot_proved: bool = False
+    account_configuration_hash: str
+    storage_layout_hash: str
+    pauser: str
+    signal_service: str
+    quota_manager_state: ObservedNativeQuotaManagerStateV2
+    v2_endpoints: tuple[str, ...]
+    balance: int
+    next_message_id: int
+    status_entries: tuple[tuple[str, str], ...]
+    pull_credit_entries: tuple[tuple[str, int], ...]
+    total_liability: int
+    terminal_index_entries: tuple[tuple[str, int], ...]
+    v2_active: bool = False
+    activation_surplus: int | None = None
 
-    def identity(self, manifest: ReleaseManifestV2) -> tuple[str, ...]:
-        return (self.topology, self.address, self.account_runtime_hash,
-                self.implementation_address,
-                self.implementation_runtime_hash,
-                self.eip1967_implementation_slot_value,
-                self.eip1967_admin_slot_value,
-                manifest.components[8].config_hash)
+    @property
+    def v2_state_commitment(self) -> str:
+        if (self.next_message_id == 0 and not self.status_entries
+                and not self.pull_credit_entries
+                and self.total_liability == 0
+                and not self.terminal_index_entries):
+            return EMPTY_V2_BRIDGE_STATE_COMMITMENT
+        return "v2-state:bridge:" + hashlib.sha256(
+            repr((self.next_message_id, self.status_entries,
+                  self.pull_credit_entries, self.total_liability,
+                  self.terminal_index_entries)).encode()
+        ).hexdigest()
+
+    def static_identity(self, manifest: ReleaseManifestV2) -> tuple[object, ...]:
+        return (
+            self.address, self.account_runtime_hash,
+            self.account_configuration_hash, self.storage_layout_hash,
+            self.pauser, self.signal_service,
+            self.quota_manager_state.static_identity, *self.v2_endpoints,
+            manifest.components[8].config_hash,
+        )
+
+    @property
+    def mutable_state_commitment(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_BRIDGE_MUTABLE_STATE_V2\x00" + repr((
+                self.balance, self.next_message_id, self.status_entries,
+                self.pull_credit_entries, self.total_liability,
+                self.terminal_index_entries, self.v2_active,
+                self.activation_surplus,
+                self.quota_manager_state.available,
+                self.quota_manager_state.updated_at, self.v2_state_commitment,
+            )).encode()
+        ).hexdigest()
+
+    @property
+    def observation_commitment(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_OBSERVED_IMMUTABLE_BRIDGE_STATE_V2\x00"
+            + repr((self.static_identity_projection,
+                    self.mutable_state_commitment)).encode()
+        ).hexdigest()
+
+    @property
+    def static_identity_projection(self) -> tuple[object, ...]:
+        return (
+            self.address, self.account_runtime_hash,
+            self.account_configuration_hash, self.storage_layout_hash,
+            self.pauser, self.signal_service,
+            self.quota_manager_state.static_identity, self.v2_endpoints,
+        )
 
     def authenticates(
-            self, manifest: ReleaseManifestV2, *,
-            known_identity: tuple[str, ...] | None = None) -> bool:
+        self, manifest: ReleaseManifestV2, *,
+        known_identity: tuple[object, ...] | None = None,
+        require_fresh: bool = True,
+    ) -> bool:
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()):
+            return False
         bridge_row = manifest.components[8]
         descriptor = manifest.destination_bridge_descriptor
-        topology_byte = {
-            "IMMUTABLE_NONPROXY": 0,
-            "GENESIS_LEGACY_PROXY": 1,
-        }.get(self.topology)
-        if topology_byte is None:
-            return False
-        expected_config_hash = "component-config:9:177:" + repr((
-            topology_byte, self.account_runtime_hash,
-            descriptor.facade_runtime_hash,
-            descriptor.inbox_credit_store,
-            descriptor.terminal_accumulator,
-            descriptor.activation_gate,
-            descriptor.terminal_domain_registrar,
-            descriptor.storage_layout_hash,
-            descriptor.destination_chain_id,
-            descriptor.native_quota_manager,
-            descriptor.native_liquidity_floor,
-            descriptor.native_liquidity_policy,
-            descriptor.v1_official_vaults,
-            descriptor.privileged_target_denyset,
-            descriptor.post_call_gas_reserve,
-        ))
-        common = (self.address == manifest.destination_bridge
-                  and self.account_runtime_hash == bridge_row.runtime_hash
-                  and expected_config_hash == bridge_row.config_hash
-                  and self.upgrade_authority_burned)
-        if self.topology == "IMMUTABLE_NONPROXY":
-            return (common and not self.delegate_target_reachable
-                    and not self.implementation_address
-                    and not self.implementation_runtime_hash
-                    and self.account_runtime_hash
-                        == descriptor.facade_runtime_hash)
-        if self.topology == "GENESIS_LEGACY_PROXY":
-            return (common
-                    and ((known_identity == self.identity(manifest))
-                         or (known_identity is None
-                             and self.direct_prestate_slot_constraint
-                             and self.eip1967_implementation_slot_proved
-                             and self.eip1967_admin_slot_proved))
-                    and bool(self.implementation_address)
-                    and self.eip1967_implementation_slot_value
-                        == self.implementation_address
-                    and self.eip1967_admin_slot_value == ""
-                    and self.implementation_runtime_hash
-                        == descriptor.facade_runtime_hash)
+        deployment = descriptor.deployment_descriptor
+        exact = (
+            type(deployment) is ImmutableBridgeDeploymentDescriptorV2
+            and deployment.structurally_valid()
+            and self.address == manifest.destination_bridge
+            and self.address == deployment.bridge
+            and self.account_runtime_hash == bridge_row.runtime_hash
+            and self.account_runtime_hash == deployment.account_runtime_hash
+            and self.account_configuration_hash
+                == deployment.account_configuration_hash
+            and self.storage_layout_hash == deployment.storage_layout_hash
+            and self.pauser == deployment.pauser
+            and self.signal_service == deployment.signal_service
+            and self.v2_endpoints == deployment.v2_endpoints
+            and type(self.quota_manager_state)
+                is ObservedNativeQuotaManagerStateV2
+            and self.quota_manager_state.exact_for(deployment)
+            and type(self.balance) is int
+            and self.balance >= 0
+            and type(self.next_message_id) is int
+            and 0 <= self.next_message_id <= UINT64_MAX
+            and type(self.status_entries) is tuple
+            and type(self.pull_credit_entries) is tuple
+            and type(self.total_liability) is int
+            and 0 <= self.total_liability <= self.balance
+            and type(self.terminal_index_entries) is tuple
+            and all(type(amount) is int and amount >= 0
+                    for _, amount in self.pull_credit_entries)
+            and sum(amount for _, amount in self.pull_credit_entries)
+                <= self.total_liability
+            and bridge_row.config_hash
+                == destination_bridge_component_config_hash(
+                    descriptor,
+                    topology=deployment.topology,
+                    account_runtime_hash=self.account_runtime_hash,
+                )
+        )
+        fresh = (
+            not self.v2_active and self.activation_surplus is None
+            and self.next_message_id == 0
+            and not self.status_entries and not self.pull_credit_entries
+            and self.total_liability == 0 and not self.terminal_index_entries
+            and self.v2_state_commitment
+                == deployment.initial_v2_state_commitment
+        )
+        return (exact and (not require_fresh or fresh)
+                and (known_identity is None
+                     or known_identity == self.static_identity(manifest)))
+
+    def upgrade_to_and_call(
+        self, _implementation: object, _calldata: bytes = b"",
+    ) -> bool:
         return False
+
+    def transfer_ownership(self, _new_owner: str) -> bool:
+        return False
+
+    def accept_ownership(self, _caller: str) -> bool:
+        return False
+
+    def reinitialize(self, _version: int, _calldata: bytes = b"") -> bool:
+        return False
+
+    def _activate_from_registrar(
+        self, manifest: ReleaseManifestV2, *,
+        registrar: "TerminalDomainRegistrarV2", capability: object,
+    ) -> "DestinationBridgeActivationReceiptV2 | None":
+        frame = getattr(registrar, "_activation_frame", None)
+        if (capability is not _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY
+                or type(registrar) is not TerminalDomainRegistrarV2
+                or type(frame) is not tuple or len(frame) != 4
+                or frame[0] != id(manifest)
+                or frame[1] != manifest.commitment
+                or frame[3] != release_system_calldata_hash(
+                    manifest, frame[2]
+                )
+                or registrar.authority.releases.get(manifest.protocol_version)
+                    != manifest.commitment
+                or not self.authenticates(manifest, require_fresh=False)
+                or self.v2_active
+                or self.balance
+                    < manifest.destination_bridge_descriptor
+                        .native_liquidity_amount
+                or self.next_message_id != 0
+                or self.status_entries or self.pull_credit_entries
+                or self.total_liability != 0
+                or self.terminal_index_entries):
+            return None
+        amount = manifest.destination_bridge_descriptor.native_liquidity_amount
+        self.activation_surplus = self.balance - amount
+        self.v2_active = True
+        pending = DestinationBridgeActivationReceiptV2(
+            manifest.commitment,
+            manifest.destination_domain_id,
+            manifest.destination_bridge,
+            registrar.active_destination_bridge,
+            frame[2],
+            self.activation_surplus,
+            amount,
+            registrar.liquidity_treasury.balance + amount,
+            registrar.liquidity_treasury.balance,
+            self.balance,
+            self.observation_commitment,
+            "PENDING",
+            _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY,
+        )
+        return replace(
+            pending,
+            seal=hashlib.sha256(
+                b"TAIKO_DESTINATION_BRIDGE_ACTIVATION_RECEIPT_V2\x00"
+                + pending.digest.encode()
+            ).hexdigest(),
+        )
+
+
+_DESTINATION_BRIDGE_ACTIVATION_CAPABILITY = object()
+
+
+@dataclass(frozen=True, eq=False)
+class DestinationBridgeActivationReceiptV2:
+    manifest_commitment: bytes
+    destination_domain_id: str
+    destination_bridge: str
+    prior_active_bridge: str
+    retirement_queue_count: int
+    activation_surplus: int
+    native_liquidity_amount: int
+    treasury_prebalance: int
+    treasury_postbalance: int
+    bridge_postbalance: int
+    active_state_commitment: str
+    seal: str
+    _capability: object = field(compare=False, repr=False)
+
+    @property
+    def digest(self) -> str:
+        return hashlib.sha256(
+            b"TAIKO_DESTINATION_BRIDGE_ACTIVATION_DIGEST_V2\x00"
+            + repr((
+                self.manifest_commitment,
+                self.destination_domain_id,
+                self.destination_bridge,
+                self.prior_active_bridge,
+                self.retirement_queue_count,
+                self.activation_surplus,
+                self.native_liquidity_amount,
+                self.treasury_prebalance,
+                self.treasury_postbalance,
+                self.bridge_postbalance,
+                self.active_state_commitment,
+            )).encode()
+        ).hexdigest()
+
+    def valid_for(
+        self, manifest: ReleaseManifestV2,
+        deployment: BridgeDeploymentStateV2,
+    ) -> bool:
+        return (
+            self._capability is _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY
+            and type(manifest) is ReleaseManifestV2
+            and type(deployment) is BridgeDeploymentStateV2
+            and deployment.v2_active
+            and type(deployment.activation_surplus) is int
+            and self.activation_surplus == deployment.activation_surplus
+            and 0 <= self.activation_surplus <= SEAT_UINT256_MAX
+            and self.native_liquidity_amount
+                == manifest.destination_bridge_descriptor.native_liquidity_amount
+            and self.native_liquidity_amount > 0
+            and type(self.treasury_prebalance) is int
+            and type(self.treasury_postbalance) is int
+            and 0 <= self.treasury_postbalance
+                <= self.treasury_prebalance <= SEAT_UINT256_MAX
+            and self.bridge_postbalance == deployment.balance
+            and self.bridge_postbalance <= SEAT_UINT256_MAX
+            and self.bridge_postbalance
+                == self.activation_surplus + self.native_liquidity_amount
+            and self.treasury_postbalance + self.native_liquidity_amount
+                == self.treasury_prebalance
+            and self.manifest_commitment == manifest.commitment
+            and self.destination_domain_id == manifest.destination_domain_id
+            and self.destination_bridge == manifest.destination_bridge
+            and type(self.retirement_queue_count) is int
+            and 0 <= self.retirement_queue_count <= UINT64_MAX
+            and self.active_state_commitment
+                == deployment.observation_commitment
+            and self.seal == hashlib.sha256(
+                b"TAIKO_DESTINATION_BRIDGE_ACTIVATION_RECEIPT_V2\x00"
+                + self.digest.encode()
+            ).hexdigest()
+        )
+
+
+def fresh_bridge_deployment_projection(
+    manifest: ReleaseManifestV2, *, balance: int | None = None,
+) -> BridgeDeploymentStateV2:
+    """Derive the exact fresh Bridge storage projection for a manifest."""
+
+    if (type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()):
+        raise ValueError("test Bridge deployment manifest is invalid")
+    descriptor = manifest.destination_bridge_descriptor
+    deployment = descriptor.deployment_descriptor
+    if (type(deployment) is not ImmutableBridgeDeploymentDescriptorV2
+            or not deployment.structurally_valid()):
+        raise ValueError("test immutable Bridge descriptor is invalid")
+    observed_balance = 0 if balance is None else balance
+    if (type(observed_balance) is not int
+            or not 0 <= observed_balance <= SEAT_UINT256_MAX):
+        raise ValueError("fresh test V2 Bridge balance is invalid")
+    quota = ObservedNativeQuotaManagerStateV2(
+        deployment.native_quota_manager,
+        deployment.native_quota_manager_runtime_hash,
+        deployment.native_quota_manager_configuration_hash,
+        deployment.bridge,
+        "",
+        deployment.native_quota_period,
+        deployment.native_eth_quota,
+        deployment.native_eth_quota,
+        0,
+        "",
+        "",
+    )
+    return BridgeDeploymentStateV2(
+        deployment.bridge,
+        deployment.account_runtime_hash,
+        deployment.account_configuration_hash,
+        deployment.storage_layout_hash,
+        deployment.pauser,
+        deployment.signal_service,
+        quota,
+        deployment.v2_endpoints,
+        observed_balance,
+        0,
+        (),
+        (),
+        0,
+        (),
+        False,
+        None,
+    )
+
+
+def bridge_deployment_state_for_test(
+    manifest: ReleaseManifestV2, *, balance: int | None = None,
+) -> BridgeDeploymentStateV2:
+    """Fixture alias for the normative fresh deployment projection."""
+
+    return fresh_bridge_deployment_projection(manifest, balance=balance)
 
 
 @dataclass
@@ -14228,6 +16801,120 @@ class ProtocolReleaseAuthorityV2:
         return True
 
 
+_DESTINATION_LIQUIDITY_TRANSFER_CAPABILITY = object()
+
+
+@dataclass
+class DestinationLiquidityTreasuryV2:
+    """Genesis-funded lifetime account used only by the exact Registrar."""
+
+    address: str = DESTINATION_LIQUIDITY_TREASURY
+    runtime_hash: str = DESTINATION_LIQUIDITY_TREASURY_RUNTIME_HASH
+    configuration_hash: str = (
+        DESTINATION_LIQUIDITY_TREASURY_CONFIGURATION_HASH
+    )
+    balance: int = 100 * DESTINATION_NATIVE_LIQUIDITY_AMOUNT
+    funded_total: int = 0
+    reclaimed_total: int = 0
+    _registrar_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (self.address != DESTINATION_LIQUIDITY_TREASURY
+                or self.runtime_hash
+                    != DESTINATION_LIQUIDITY_TREASURY_RUNTIME_HASH
+                or self.configuration_hash
+                    != DESTINATION_LIQUIDITY_TREASURY_CONFIGURATION_HASH
+                or type(self.balance) is not int or self.balance < 0):
+            raise ValueError("destination liquidity Treasury is invalid")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "address", "runtime_hash", "configuration_hash",
+            "_registrar_authority",
+        } and name in self.__dict__:
+            raise AttributeError(f"liquidity Treasury {name} is immutable")
+        object.__setattr__(self, name, value)
+
+    def _bind_registrar_once(
+        self, registrar: "TerminalDomainRegistrarV2"
+    ) -> bool:
+        if (type(registrar) is not TerminalDomainRegistrarV2
+                or registrar.liquidity_treasury is not self):
+            return False
+        if self._registrar_authority is not None:
+            return self._registrar_authority is registrar
+        object.__setattr__(self, "_registrar_authority", registrar)
+        return True
+
+    def _fund_bridge_from_registrar(
+        self, deployment: BridgeDeploymentStateV2,
+        manifest: ReleaseManifestV2, *,
+        registrar: "TerminalDomainRegistrarV2", capability: object,
+    ) -> bool:
+        descriptor = manifest.destination_bridge_descriptor
+        amount = descriptor.native_liquidity_amount
+        frame = getattr(registrar, "_activation_frame", None)
+        prebalance = deployment.balance
+        if (capability is not _DESTINATION_LIQUIDITY_TRANSFER_CAPABILITY
+                or registrar is not self._registrar_authority
+                or type(frame) is not tuple or len(frame) != 4
+                or frame[0] != id(manifest)
+                or frame[1] != manifest.commitment
+                or frame[3] != release_system_calldata_hash(
+                    manifest, frame[2]
+                )
+                or descriptor.native_liquidity_treasury != self.address
+                or descriptor.native_liquidity_treasury_runtime_hash
+                    != self.runtime_hash
+                or descriptor.native_liquidity_treasury_configuration_hash
+                    != self.configuration_hash
+                or type(amount) is not int
+                or amount < descriptor.native_liquidity_floor
+                or deployment.address != manifest.destination_bridge
+                or deployment.v2_active
+                or type(prebalance) is not int or prebalance < 0
+                or prebalance > SEAT_UINT256_MAX - amount
+                or self.balance < amount):
+            return False
+        self.balance -= amount
+        self.funded_total = seat_checked_add(
+            self.funded_total, amount, "destination Treasury funded total"
+        )
+        deployment.balance = prebalance + amount
+        return deployment.balance - prebalance == amount
+
+    def _accept_reclaimed_from_bridge(
+        self, bridge: "DestinationBridgeLedger", *,
+        registrar: "TerminalDomainRegistrarV2", capability: object,
+    ) -> int | None:
+        if (capability is not _DESTINATION_LIQUIDITY_TRANSFER_CAPABILITY
+                or registrar is not self._registrar_authority
+                or bridge.release_manifest.destination_bridge_descriptor
+                    .native_liquidity_treasury != self.address
+                or bridge.release_manifest.destination_bridge_descriptor
+                    .native_liquidity_treasury_runtime_hash
+                    != self.runtime_hash
+                or bridge.release_manifest.destination_bridge_descriptor
+                    .native_liquidity_treasury_configuration_hash
+                    != self.configuration_hash
+                or bridge.address not in registrar.retirement_queue_watermarks
+                or type(bridge.balance) is not int or bridge.balance < 0):
+            return None
+        amount = bridge.balance
+        bridge.balance = 0
+        self.balance = seat_checked_add(
+            self.balance, amount, "destination Treasury reclaimed balance"
+        )
+        self.reclaimed_total = seat_checked_add(
+            self.reclaimed_total,
+            amount,
+            "destination Treasury reclaimed total",
+        )
+        return amount
+
+
 @dataclass
 class TerminalDomainRegistrarV2:
     """Lifetime registrar; endpoints come only from an authenticated manifest."""
@@ -14235,15 +16922,30 @@ class TerminalDomainRegistrarV2:
     authority: ProtocolReleaseAuthorityV2
     accumulator: TerminalAccumulatorV2
     inbox_router: InboxApplyRouterV2
+    liquidity_treasury: DestinationLiquidityTreasuryV2 = field(
+        default_factory=DestinationLiquidityTreasuryV2
+    )
     address: str = "terminal-domain-registrar"
+    runtime_hash: str = "code:registrar"
+    configuration_hash: str = "cfg:registrar"
     registrations: dict[int, str] = field(default_factory=dict)
     bridge_identities: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    _activation_frame: tuple[int, bytes] | None = field(
+    bridge_activation_receipts: dict[
+        str, DestinationBridgeActivationReceiptV2
+    ] = field(default_factory=dict)
+    active_destination_bridge: str = ""
+    retirement_queue_watermarks: dict[str, int] = field(default_factory=dict)
+    _activation_frame: tuple[int, bytes, int, str] | None = field(
         default=None, init=False, compare=False, repr=False
     )
 
     def __post_init__(self) -> None:
         if (not self.address
+                or self.runtime_hash != "code:registrar"
+                or self.configuration_hash != "cfg:registrar"
+                or self.address != self.inbox_router.registrar
+                or self.address != self.accumulator.registrar
+                or not self.liquidity_treasury._bind_registrar_once(self)
                 or not self.inbox_router._bind_terminal_registrar(self)
                 or not self.accumulator._bind_terminal_registrar(self)):
             raise ValueError("terminal registrar authority graph is split")
@@ -14255,16 +16957,58 @@ class TerminalDomainRegistrarV2:
                         observed_bridge_descriptor:
                             DestinationBridgeDescriptorV2,
                         endpoint_state: EndpointActivationStateV2,
-                        bridge_deployment: BridgeDeploymentStateV2) -> bool:
+                        bridge_deployment: BridgeDeploymentStateV2,
+                        retirement_queue_watermark: int) -> bool:
         protocol_version = manifest.protocol_version
         manifest_hash = manifest.commitment
         domain_id = manifest.destination_domain_id
         bridge = manifest.destination_bridge
-        known_bridge_identity = self.bridge_identities.get(bridge)
         store_row = manifest.components[4] if len(manifest.components) == 9 \
             else ReleaseComponentV2("", "", "")
-        if (self._activation_frame != (id(manifest), manifest_hash)
+        lifetime_rows_exact = (
+            len(manifest.components) == 9
+            and manifest.components[3] == ReleaseComponentV2(
+                self.inbox_router.address,
+                self.inbox_router.runtime_hash,
+                self.inbox_router.configuration_hash,
+            )
+            and manifest.components[5] == ReleaseComponentV2(
+                self.authority.address,
+                self.authority.runtime_hash,
+                self.authority.configuration_hash,
+            )
+            and manifest.components[6] == ReleaseComponentV2(
+                self.address, self.runtime_hash, self.configuration_hash,
+            )
+            and manifest.components[7] == ReleaseComponentV2(
+                self.accumulator.address,
+                self.accumulator.runtime_hash,
+                self.accumulator.configuration_hash,
+            )
+        )
+        if (type(self._activation_frame) is not tuple
+                or len(self._activation_frame) != 4
+                or self._activation_frame[0] != id(manifest)
+                or self._activation_frame[1] != manifest_hash
+                or self._activation_frame[2] != retirement_queue_watermark
+                or self._activation_frame[3]
+                    != release_system_calldata_hash(
+                        manifest, retirement_queue_watermark
+                    )
                 or not manifest.structurally_valid()
+                or not lifetime_rows_exact
+                or type(retirement_queue_watermark) is not int
+                or not self.inbox_router.next_queue_index
+                    <= retirement_queue_watermark <= UINT64_MAX
+                or manifest.destination_bridge_descriptor
+                    .native_liquidity_treasury
+                    != self.liquidity_treasury.address
+                or manifest.destination_bridge_descriptor
+                    .native_liquidity_treasury_runtime_hash
+                    != self.liquidity_treasury.runtime_hash
+                or manifest.destination_bridge_descriptor
+                    .native_liquidity_treasury_configuration_hash
+                    != self.liquidity_treasury.configuration_hash
                 or self.authority.releases.get(protocol_version) != manifest_hash
                 or protocol_version in self.registrations
                 or observed_l2_components != manifest.components[3:]
@@ -14273,39 +17017,79 @@ class TerminalDomainRegistrarV2:
                 or store_row.address != store.address
                 or store_row.runtime_hash != store.runtime_codehash
                 or store_row.config_hash != store.component_config_hash
-                or not (endpoint_state.activatable
-                        or endpoint_state.exact_existing)
+                or domain_id in self.inbox_router.routes
+                or domain_id in self.accumulator.domains
+                or bridge in self.bridge_identities
+                or bridge in self.bridge_activation_receipts
+                or not endpoint_state.activatable
                 or not bridge_deployment.authenticates(
-                    manifest, known_identity=known_bridge_identity)):
+                    manifest, require_fresh=True)):
             return False
-        fresh_endpoint = endpoint_state.activatable
         prior_routes = dict(self.inbox_router.routes)
         prior_domains = dict(self.accumulator.domains)
+        prior_terminalized_pinned_count = dict(
+            self.accumulator.terminalized_pinned_count
+        )
         prior_store_writer = store._inbox_apply_authority
         endpoint_snapshot = copy.deepcopy(endpoint_state)
+        deployment_snapshot = copy.deepcopy(bridge_deployment.__dict__)
+        treasury_snapshot = (
+            self.liquidity_treasury.balance,
+            self.liquidity_treasury.funded_total,
+            self.liquidity_treasury.reclaimed_total,
+        )
+        activation_receipt: DestinationBridgeActivationReceiptV2 | None = None
         if (not self.inbox_router._register_route_from_registrar(
                 domain_id, store, bridge, store_row.runtime_hash,
                 registrar=self, manifest=manifest)
                 or not self.accumulator._register_domain_from_registrar(
                     domain_id, bridge, registrar=self, manifest=manifest)
-                or (fresh_endpoint and not endpoint_state.seal())):
+                or not endpoint_state.seal()
+                or not self.liquidity_treasury._fund_bridge_from_registrar(
+                    bridge_deployment,
+                    manifest,
+                    registrar=self,
+                    capability=_DESTINATION_LIQUIDITY_TRANSFER_CAPABILITY,
+                )
+                or (activation_receipt :=
+                    bridge_deployment._activate_from_registrar(
+                        manifest,
+                        registrar=self,
+                        capability=_DESTINATION_BRIDGE_ACTIVATION_CAPABILITY,
+                    )) is None):
             self.inbox_router.routes = prior_routes
             self.accumulator.domains = prior_domains
+            self.accumulator.terminalized_pinned_count = (
+                prior_terminalized_pinned_count
+            )
             object.__setattr__(
                 store, "_inbox_apply_authority", prior_store_writer
             )
             endpoint_state.__dict__.update(endpoint_snapshot.__dict__)
+            bridge_deployment.__dict__.clear()
+            bridge_deployment.__dict__.update(deployment_snapshot)
+            (
+                self.liquidity_treasury.balance,
+                self.liquidity_treasury.funded_total,
+                self.liquidity_treasury.reclaimed_total,
+            ) = treasury_snapshot
             return False
-        self.bridge_identities.setdefault(
-            bridge, bridge_deployment.identity(manifest))
+        self.bridge_identities[bridge] = bridge_deployment.static_identity(
+            manifest
+        )
+        self.bridge_activation_receipts[bridge] = activation_receipt
         self.registrations[protocol_version] = manifest.registration_commitment
+        if self.active_destination_bridge:
+            self.retirement_queue_watermarks[
+                self.active_destination_bridge
+            ] = retirement_queue_watermark
+        self.active_destination_bridge = bridge
         return True
 
 
 def release_manifest_fixture(protocol_version: int, domain_id: str,
                              bridge: str, store: InboxCreditStoreV2,
                              anchor: str | None = None, *,
-                             legacy_proxy: bool = False,
                              router: ActiveSettlementRouter) -> ReleaseManifestV2:
     _ = domain_id  # Legacy fixture argument; the canonical graph derives it.
     anchor_address = anchor or f"anchor:v{protocol_version}"
@@ -14314,37 +17098,33 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
         "bridge:B": "bridge-inbox-adapter:d2",
         "bridge:replacement": "bridge-inbox-adapter:replacement",
     }.get(bridge, f"bridge-inbox-adapter:{bridge}")
-    source_descriptor = canonical_source_bridge_descriptor()
+    source_descriptor = canonical_source_bridge_descriptor(
+        router.settlement_chain_context_id, router
+    )
     source_configuration = bridge_credit_registry_configuration_hash(
-        address="bridge-credit-registry-v2",
+        address=source_descriptor.bridge_credit_registry,
         runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
-        domain_registrar="source-domain-registrar",
-        frozen_bridge="bridge:A",
-        support_registry_address="bridge-domain-registry",
-        support_registry_runtime_hash=BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH,
+        domain_registrar=source_descriptor.source_domain_registrar,
+        frozen_bridge=source_descriptor.source_bridge,
+        support_registry_address=source_descriptor.support_registry_address,
+        support_registry_runtime_hash=(
+            source_descriptor.support_registry_runtime_hash
+        ),
         support_registry_configuration_hash=(
-            bridge_domain_registry_configuration_hash(
-                address="bridge-domain-registry",
-                runtime_hash=BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH,
-                support_authority=router.version_manager,
-                router_address=router.address,
-                router_runtime_hash=router.runtime_hash,
-                router_configuration_hash=router.configuration_hash,
-                release_authority_address="release-authority",
-                release_authority_runtime_hash="code:authority",
-                release_authority_configuration_hash="cfg:authority",
-            )
+            source_descriptor.support_registry_configuration_hash
         ),
         source_chain_id=1,
         source_domain_id=source_descriptor.source_domain_id,
-        source_registration_epoch=1,
+        source_registration_epoch=(
+            source_descriptor.source_registration_epoch
+        ),
         frozen_bridge_execution_hash=source_descriptor.bridge_execution_hash,
         source_descriptor_id=source_descriptor.descriptor_id,
     )
     source_bridge_configuration = (
         source_bridge_configuration_hash_for_descriptor(
             source_descriptor,
-            "bridge-credit-registry-v2",
+            source_descriptor.bridge_credit_registry,
             BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
             source_configuration,
         )
@@ -14356,10 +17136,10 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
         queue_address=router.forced_queue.address,
         queue_runtime_hash=router.forced_queue.runtime_hash,
         queue_configuration_hash=router.forced_queue.config_hash,
-        source_registry_address="bridge-credit-registry-v2",
+        source_registry_address=source_descriptor.bridge_credit_registry,
         source_registry_runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
         source_registry_configuration_hash=source_configuration,
-        source_bridge_address="bridge:A",
+        source_bridge_address=source_descriptor.source_bridge,
         source_bridge_runtime_hash=source_descriptor.bridge_facade_runtime_hash,
         source_bridge_configuration_hash_=source_bridge_configuration,
         seal_authority=router.version_manager,
@@ -14372,35 +17152,6 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
             destination_bridge=bridge,
         )
     )
-    if legacy_proxy:
-        proxy_runtime = f"proxy-code:{bridge}"
-        components = (*components[:8], ReleaseComponentV2(
-            bridge,
-            proxy_runtime,
-            "component-config:9:177:" + repr((
-                1,
-                proxy_runtime,
-                bridge_descriptor.facade_runtime_hash,
-                bridge_descriptor.inbox_credit_store,
-                bridge_descriptor.terminal_accumulator,
-                bridge_descriptor.activation_gate,
-                bridge_descriptor.terminal_domain_registrar,
-                bridge_descriptor.storage_layout_hash,
-                bridge_descriptor.destination_chain_id,
-                bridge_descriptor.native_quota_manager,
-                bridge_descriptor.native_liquidity_floor,
-                bridge_descriptor.native_liquidity_policy,
-                bridge_descriptor.v1_official_vaults,
-                bridge_descriptor.privileged_target_denyset,
-                bridge_descriptor.post_call_gas_reserve,
-            )),
-        ))
-        infrastructure_hash = "infrastructure:" + hashlib.sha256(
-            repr(components).encode()
-        ).hexdigest()
-        descriptor = replace(
-            descriptor, destination_infrastructure_hash=infrastructure_hash
-        )
     object.__setattr__(store, "address", components[4].address)
     object.__setattr__(store, "runtime_codehash", components[4].runtime_hash)
     object.__setattr__(
@@ -14415,7 +17166,7 @@ def release_manifest_fixture(protocol_version: int, domain_id: str,
         execution_profile.execution_profile_hash,
         "manifest:v2", "domain-namespace:v2",
         anchor_address,
-        f"code:{anchor_address}", "activation-gate", "code:activation-gate",
+        f"code:{anchor_address}",
         descriptor.destination_domain_id, bridge,
         bridge_descriptor.execution_hash, bridge_descriptor,
         descriptor.destination_infrastructure_hash,
@@ -14438,30 +17189,53 @@ def activate_release_transaction(
         observed_bridge_descriptor: DestinationBridgeDescriptorV2 | None = None,
         endpoint_state: EndpointActivationStateV2 | None = None,
         bridge_deployment: BridgeDeploymentStateV2 | None = None,
+        retirement_queue_watermark: int,
         ) -> bool:
     """Model the single system transaction and its all-or-revert EVM calls."""
     releases = dict(authority.releases)
     release_manifests = dict(authority.release_manifests)
     registrations = dict(registrar.registrations)
     bridge_identities = dict(registrar.bridge_identities)
+    bridge_activation_receipts = dict(registrar.bridge_activation_receipts)
+    active_destination_bridge = registrar.active_destination_bridge
+    retirement_queue_watermarks = dict(
+        registrar.retirement_queue_watermarks
+    )
+    liquidity_treasury_snapshot = (
+        registrar.liquidity_treasury.balance,
+        registrar.liquidity_treasury.funded_total,
+        registrar.liquidity_treasury.reclaimed_total,
+    )
     routes = dict(registrar.inbox_router.routes)
     domains = dict(registrar.accumulator.domains)
+    terminalized_pinned_count = dict(
+        registrar.accumulator.terminalized_pinned_count
+    )
     state = endpoint_state or EndpointActivationStateV2()
     endpoint_snapshot = copy.deepcopy(state)
-    deployment = bridge_deployment or BridgeDeploymentStateV2(
-        "IMMUTABLE_NONPROXY", manifest.destination_bridge,
-        manifest.components[8].runtime_hash,
-        upgrade_authority_burned=True)
+    if type(bridge_deployment) is not BridgeDeploymentStateV2:
+        return False
+    deployment = bridge_deployment
+    deployment_snapshot = copy.deepcopy(deployment.__dict__)
     active_manifest = anchor.active_release_manifest_hash
     authenticated = (
         execution_capability is _RELEASE_SYSTEM_EXECUTION_CAPABILITY
         and type(execution_authority) is InboxValidityExecutionAuthority
         and execution_authority.protocol.inbox_apply_router
             is registrar.inbox_router
+        and type(retirement_queue_watermark) is int
+        and retirement_queue_watermark
+            == execution_authority.protocol.forced_queue.count
         and registrar is registrar.inbox_router
             ._terminal_registrar_authority
         and execution_authority._release_activation_frame
-            == (id(manifest), manifest.commitment)
+            == (
+                id(manifest), manifest.commitment,
+                retirement_queue_watermark,
+                release_system_calldata_hash(
+                    manifest, retirement_queue_watermark
+                ),
+            )
         and authority is registrar.authority
         and anchor.authenticate(manifest)
         and authority.activate(
@@ -14470,7 +17244,13 @@ def activate_release_transaction(
     )
     activated = False
     if authenticated:
-        registrar._activation_frame = (id(manifest), manifest.commitment)
+        registrar._activation_frame = (
+            id(manifest), manifest.commitment,
+            retirement_queue_watermark,
+            release_system_calldata_hash(
+                manifest, retirement_queue_watermark
+            ),
+        )
         try:
             activated = registrar._activate_domain_from_release(
                 manifest, store,
@@ -14483,6 +17263,7 @@ def activate_release_transaction(
                     else observed_bridge_descriptor),
                 endpoint_state=state,
                 bridge_deployment=deployment,
+                retirement_queue_watermark=retirement_queue_watermark,
             )
         finally:
             registrar._activation_frame = None
@@ -14491,8 +17272,21 @@ def activate_release_transaction(
         authority.release_manifests = release_manifests
         registrar.registrations = registrations
         registrar.bridge_identities = bridge_identities
+        registrar.bridge_activation_receipts = bridge_activation_receipts
+        registrar.active_destination_bridge = active_destination_bridge
+        registrar.retirement_queue_watermarks = retirement_queue_watermarks
+        (
+            registrar.liquidity_treasury.balance,
+            registrar.liquidity_treasury.funded_total,
+            registrar.liquidity_treasury.reclaimed_total,
+        ) = liquidity_treasury_snapshot
+        deployment.__dict__.clear()
+        deployment.__dict__.update(deployment_snapshot)
         registrar.inbox_router.routes = routes
         registrar.accumulator.domains = domains
+        registrar.accumulator.terminalized_pinned_count = (
+            terminalized_pinned_count
+        )
         anchor.active_release_manifest_hash = active_manifest
         state.__dict__.update(endpoint_snapshot.__dict__)
         return False
@@ -14514,10 +17308,23 @@ def execute_release_activation_for_test(
                 is not registrar.inbox_router
             or execution_authority._release_activation_frame is not None):
         return False
+    watermark = kwargs.get(
+        "retirement_queue_watermark",
+        execution_authority.protocol.forced_queue.count,
+    )
+    if (type(watermark) is not int
+            or not 0 <= watermark <= UINT64_MAX):
+        return False
+    kwargs["retirement_queue_watermark"] = watermark
     execution_authority._release_activation_frame = (
-        id(manifest), manifest.commitment
+        id(manifest), manifest.commitment, watermark,
+        release_system_calldata_hash(manifest, watermark),
     )
     try:
+        if "bridge_deployment" not in kwargs:
+            kwargs["bridge_deployment"] = bridge_deployment_state_for_test(
+                manifest
+            )
         return activate_release_transaction(
             authority,
             registrar,
@@ -14753,7 +17560,13 @@ def install_destination_pin_for_test(
     existing = destination.inbox_store.pins.get(credit_id)
     if existing is not None and existing.result_hash != result_hash:
         return False
-    destination.inbox_store.pins.setdefault(credit_id, expected)
+    if existing is None:
+        destination.inbox_store.pins[credit_id] = expected
+        destination.inbox_store.pinned_count = checked_u64_add(
+            destination.inbox_store.pinned_count,
+            1,
+            "test Inbox Store pinned count",
+        )
     return True
 
 
@@ -14763,13 +17576,45 @@ def destination_bridge_for_test(
     accumulator: TerminalAccumulatorV2,
     *,
     applications: tuple[BridgeCallReceiverV2, ...] = (),
-    balance: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR,
+    balance: int = DESTINATION_NATIVE_LIQUIDITY_AMOUNT,
     quota: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR,
     available_gas: int = 10_000_000,
     base_fee: int = 1,
     timestamp: int = GENESIS_TIMESTAMP,
 ) -> "DestinationBridgeLedger":
     """Construct one independent destination execution graph for tests."""
+
+    # Isolated Bridge tests still use the production-shaped lifetime graph:
+    # exact Registrar -> InboxApply route -> Store and Registrar -> Accumulator.
+    if accumulator._terminal_registrar_authority is None:
+        fixture_authority = ProtocolReleaseAuthorityV2()
+        fixture_inbox = InboxApplyRouterV2()
+        fixture_registrar = TerminalDomainRegistrarV2(
+            fixture_authority, accumulator, fixture_inbox
+        )
+        fixture_authority.releases[manifest.protocol_version] = (
+            manifest.commitment
+        )
+        fixture_authority.release_manifests[
+            (manifest.protocol_version, manifest.commitment)
+        ] = manifest
+        fixture_inbox.routes[manifest.destination_domain_id] = InboxRoute(
+            store,
+            manifest.destination_bridge,
+            store.runtime_codehash,
+            store.route_config_hash,
+        )
+        # Do not consume the Store's one-shot writer binding in this fixture:
+        # some integration tests subsequently bind the same deployment to the
+        # proof-authorized InboxApply object. Terminal append authenticates the
+        # exact Registrar route independently of that write capability.
+        fixture_registrar.registrations[manifest.protocol_version] = (
+            manifest.registration_commitment
+        )
+        fixture_registrar.bridge_identities[manifest.destination_bridge] = ()
+        fixture_registrar.active_destination_bridge = (
+            manifest.destination_bridge
+        )
 
     environment = L2ExecutionEnvironmentV2(
         manifest.destination_chain_id,
@@ -14778,17 +17623,94 @@ def destination_bridge_for_test(
         base_fee,
         timestamp,
     )
-    return DestinationBridgeLedger(
+    descriptor = manifest.destination_bridge_descriptor
+    quota_manager = FrozenNativeQuotaManagerV2(
+        descriptor.native_quota_manager,
         manifest.destination_bridge,
-        manifest.destination_domain_id,
-        False,
-        store,
-        accumulator,
-        manifest,
-        environment,
-        balance,
-        quota,
+        descriptor.native_quota_period,
+        descriptor.native_eth_quota,
     )
+    if type(quota) is not int or not 0 <= quota <= descriptor.native_eth_quota:
+        raise ValueError("test destination quota state is invalid")
+    quota_manager._state.available = min(quota, quota_manager._state.quota)
+    if (type(balance) is not int
+            or balance < descriptor.native_liquidity_amount
+            or balance > SEAT_UINT256_MAX):
+        raise ValueError("test destination activation balance is invalid")
+    surplus = balance - descriptor.native_liquidity_amount
+    activation_deployment = bridge_deployment_state_for_test(
+        manifest, balance=surplus
+    )
+    activation_deployment.balance = balance
+    activation_deployment.v2_active = True
+    activation_deployment.activation_surplus = surplus
+    treasury_prebalance = 100 * descriptor.native_liquidity_amount
+    treasury_postbalance = (
+        treasury_prebalance - descriptor.native_liquidity_amount
+    )
+    pending_activation_receipt = DestinationBridgeActivationReceiptV2(
+        manifest.commitment,
+        manifest.destination_domain_id,
+        manifest.destination_bridge,
+        "",
+        0,
+        surplus,
+        descriptor.native_liquidity_amount,
+        treasury_prebalance,
+        treasury_postbalance,
+        balance,
+        activation_deployment.observation_commitment,
+        "PENDING",
+        _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY,
+    )
+    activation_receipt = replace(
+        pending_activation_receipt,
+        seal=hashlib.sha256(
+            b"TAIKO_DESTINATION_BRIDGE_ACTIVATION_RECEIPT_V2\x00"
+            + pending_activation_receipt.digest.encode()
+        ).hexdigest(),
+    )
+    return DestinationBridgeLedger(
+        address=manifest.destination_bridge,
+        local_domain_id=manifest.destination_domain_id,
+        paused=False,
+        inbox_store=store,
+        terminal_accumulator=accumulator,
+        release_manifest=manifest,
+        execution_environment=environment,
+        quota_manager=quota_manager,
+        activation_deployment=activation_deployment,
+        activation_receipt=activation_receipt,
+        v2_active=True,
+        balance=balance,
+    )
+
+
+def set_bridge_eth_quota_available_for_test(
+    bridge: object, available: int, *, updated_at: int | None = None,
+    lane: str | None = None,
+) -> None:
+    """Fixture-only mutation of the real QuotaManager dynamic storage row."""
+
+    if type(bridge) not in {SourceBridgeV2, DestinationBridgeLedger}:
+        raise ValueError("test quota target is not an exact Bridge")
+    manager = bridge.quota_manager
+    environment = (
+        bridge.native_environment
+        if type(bridge) is SourceBridgeV2 else bridge.execution_environment
+    )
+    now = environment.block_timestamp if updated_at is None else updated_at
+    selected_lane = NATIVE_QUOTA_LANE_V2 if lane is None else lane
+    if (type(manager) is not FrozenNativeQuotaManagerV2
+            or manager._bridge_authority is not bridge
+            or type(available) is not int
+            or available < 0
+            or selected_lane != NATIVE_QUOTA_LANE_V2
+            or available > manager._state.quota
+            or type(now) is not int or now < 0):
+        raise ValueError("test QuotaManager state is invalid")
+    manager._state.available = available
+    manager._state.updated_at = now
 
 
 @dataclass(frozen=True)
@@ -14804,31 +17726,10 @@ class L2TransactionFrameV2:
     operation: str
 
 
-@dataclass(frozen=True)
-class LegacyV1ProcessV2:
-    msg_hash: str
-    target: str
-    value: int
-    fee: int
-    fee_recipient: str
-    destination_owner: str
-    processor_fee: int
-    data: bytes = b""
-    invocation_prohibited: bool = False
 
 
-@dataclass(frozen=True)
-class LegacyV1RetryV2:
-    msg_hash: str
-    target: str
-    value: int
 
 
-@dataclass(frozen=True)
-class LegacyV1RecallV2:
-    msg_hash: str
-    recipient: str
-    value: int
 
 
 @dataclass
@@ -15230,77 +18131,8 @@ class L2ExecutionEnvironmentV2:
         finally:
             self._close_frame(frame)
 
-    def _legacy_v1_payout_for_test(
-        self,
-        bridge: "DestinationBridgeLedger",
-        *,
-        amount: int,
-        recipient: str,
-    ) -> bool:
-        """Exercise the same-account V1 outflow under the shared lock."""
 
-        try:
-            frame = self._open_frame(bridge.address, "V1_PAYOUT")
-        except RuntimeError:
-            return False
-        try:
-            return bridge._legacy_v1_payout_from_environment(
-                amount=amount, recipient=recipient, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
 
-    def legacy_v1_process_for_test(
-        self,
-        bridge: "DestinationBridgeLedger",
-        request: LegacyV1ProcessV2,
-    ) -> str:
-        try:
-            frame = self._open_frame(request.fee_recipient, "V1_PROCESS")
-        except (AttributeError, RuntimeError):
-            return "REJECTED"
-        try:
-            return bridge._legacy_v1_process_from_environment(
-                request, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
-
-    def legacy_v1_retry_for_test(
-        self,
-        bridge: "DestinationBridgeLedger",
-        request: LegacyV1RetryV2,
-        *,
-        caller: str,
-    ) -> str:
-        try:
-            frame = self._open_frame(caller, "V1_RETRY")
-        except RuntimeError:
-            return "REJECTED"
-        try:
-            return bridge._legacy_v1_retry_from_environment(
-                request, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
-
-    def legacy_v1_recall_for_test(
-        self,
-        bridge: "DestinationBridgeLedger",
-        request: LegacyV1RecallV2,
-        *,
-        caller: str,
-    ) -> bool:
-        try:
-            frame = self._open_frame(caller, "V1_RECALL")
-        except RuntimeError:
-            return False
-        try:
-            return bridge._legacy_v1_recall_from_environment(
-                request, frame=frame
-            )
-        finally:
-            self._close_frame(frame)
 
     def _transfer_native(
         self,
@@ -15337,6 +18169,7 @@ class L2ExecutionEnvironmentV2:
 
 @dataclass
 class DestinationBridgeLedger:
+    """Fresh immutable V2 destination Bridge with private accounting."""
     address: str = "bridge:A"
     local_domain_id: str = "domain:D1"
     paused: bool = False
@@ -15347,18 +18180,31 @@ class DestinationBridgeLedger:
     release_manifest: "ReleaseManifestV2 | None" = field(
         default=None, compare=False, repr=False
     )
+    activation_deployment: BridgeDeploymentStateV2 | None = field(
+        default=None, compare=False, repr=False
+    )
+    activation_receipt: DestinationBridgeActivationReceiptV2 | None = field(
+        default=None, compare=False, repr=False
+    )
     execution_environment: L2ExecutionEnvironmentV2 | None = field(
         default=None, compare=False, repr=False
     )
-    balance: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR
-    ether_quota: int = DESTINATION_NATIVE_LIQUIDITY_FLOOR
-    pull_credits: dict[str, int] = field(default_factory=dict)
-    total_pull_liability: int = 0
-    status: dict[str, str] = field(default_factory=dict)
-    legacy_v1_status_by_msg_hash: dict[str, str] = field(
-        default_factory=dict
+    quota_manager: FrozenNativeQuotaManagerV2 | None = field(
+        default=None, compare=False, repr=False
     )
-    terminal_index: dict[str, int] = field(default_factory=dict)
+    _pull_credits: dict[str, int] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _total_pull_liability: int = field(default=0, init=False, repr=False)
+    _status: dict[str, str] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _terminal_index: dict[str, int] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    balance: int = DESTINATION_NATIVE_LIQUIDITY_AMOUNT
+    v2_active: bool = False
+    retired: bool = False
     terminal_commitment_return_length: int = TERMINAL_COMMITMENT_ABI_BYTES
     terminal_commitment_gas_ok: bool = True
     entered: bool = field(default=False, compare=False)
@@ -15377,9 +18223,25 @@ class DestinationBridgeLedger:
                 or not manifest.structurally_valid()
                 or type(descriptor) is not DestinationBridgeDescriptorV2
                 or type(environment) is not L2ExecutionEnvironmentV2
+                or type(self.activation_deployment)
+                    is not BridgeDeploymentStateV2
+                or type(self.activation_receipt)
+                    is not DestinationBridgeActivationReceiptV2
+                or not self.activation_receipt.valid_for(
+                    manifest, self.activation_deployment
+                )
+                or not self.v2_active
+                or not self.activation_deployment.v2_active
+                or self.activation_deployment.balance != self.balance
+                or self.activation_deployment.next_message_id != 0
+                or self.activation_deployment.status_entries
+                or self.activation_deployment.pull_credit_entries
+                or self.activation_deployment.total_liability != 0
+                or self.activation_deployment.terminal_index_entries
                 or manifest.destination_bridge != self.address
                 or manifest.destination_domain_id != self.local_domain_id
                 or descriptor.bridge != self.address
+                or descriptor.role != BRIDGE_ROLE_DESTINATION_ONLY
                 or descriptor.destination_chain_id != environment.chain_id
                 or manifest.destination_chain_id != environment.chain_id
                 or descriptor.inbox_credit_store != self.inbox_store.address
@@ -15391,17 +18253,33 @@ class DestinationBridgeLedger:
                 or self.terminal_accumulator.domains.get(self.local_domain_id)
                     != self.address
                 or descriptor.native_quota_manager
-                    != DESTINATION_NATIVE_QUOTA_MANAGER
+                    != destination_native_quota_manager_address(self.address)
+                or type(self.quota_manager)
+                    is not FrozenNativeQuotaManagerV2
+                or self.quota_manager.address
+                    != descriptor.native_quota_manager
+                or self.quota_manager.runtime_hash
+                    != descriptor.native_quota_manager_runtime_hash
+                or self.quota_manager.quota_period
+                    != descriptor.native_quota_period
+                or self.quota_manager.eth_quota_cap
+                    != descriptor.native_eth_quota
+                or self.quota_manager.eth_quota_cap == 0
                 or descriptor.native_liquidity_policy
                     != DESTINATION_NATIVE_LIQUIDITY_POLICY
                 or descriptor.v1_official_vaults
                     != V1_OFFICIAL_VAULT_ADDRESSES
-                or self.balance < descriptor.native_liquidity_floor
-                or self.ether_quota < descriptor.native_liquidity_floor
+                or self.balance
+                    != self.activation_receipt.bridge_postbalance
+                or self.balance
+                    != (self.activation_receipt.activation_surplus
+                        + descriptor.native_liquidity_amount)
+                or self.retired
                 or self.total_pull_liability != 0
-                or self.pull_credits):
+                or self.pull_credits or self.status or self.terminal_index):
             raise ValueError("destination Bridge manifest graph is invalid")
-        if (not environment._bind_bridge_once(self)
+        if (not self.quota_manager._bind_bridge_once(self)
+                or not environment._bind_bridge_once(self)
                 or not self.terminal_accumulator
                     ._bind_destination_bridge_once(
                         self.local_domain_id, self
@@ -15412,10 +18290,28 @@ class DestinationBridgeLedger:
         if name in {
             "address", "local_domain_id", "inbox_store",
             "terminal_accumulator", "release_manifest",
-            "execution_environment", "_active_execution_frame",
+            "execution_environment", "quota_manager",
+            "activation_deployment", "activation_receipt",
+            "v2_active", "retired", "paused", "_active_execution_frame",
         } and name in self.__dict__:
             raise AttributeError(f"destination Bridge {name} is immutable")
         object.__setattr__(self, name, value)
+
+    @property
+    def pull_credits(self) -> MappingProxyType:
+        return MappingProxyType(dict(self._pull_credits))
+
+    @property
+    def total_pull_liability(self) -> int:
+        return self._total_pull_liability
+
+    @property
+    def status(self) -> MappingProxyType:
+        return MappingProxyType(dict(self._status))
+
+    @property
+    def terminal_index(self) -> MappingProxyType:
+        return MappingProxyType(dict(self._terminal_index))
 
     def _pin(self, credit_id: str, destination_domain_id: str) -> InboxPin | None:
         return self.inbox_store.read(
@@ -15427,37 +18323,150 @@ class DestinationBridgeLedger:
         assert type(self.release_manifest) is ReleaseManifestV2
         return self.release_manifest.destination_chain_id
 
+    def set_paused(
+        self, paused: bool, *, caller: str, chain_id: int,
+    ) -> bool:
+        """Apply the deployment-pinned destination pauser on the L2 chain."""
+
+        descriptor = self.release_manifest.destination_bridge_descriptor
+        if (type(paused) is not bool or caller != descriptor.pauser
+                or chain_id != self.destination_chain_id
+                or not self.v2_active or self.retired or self.entered):
+            return False
+        object.__setattr__(self, "paused", paused)
+        return True
+
+    def reclaim_surplus(
+        self, registrar: TerminalDomainRegistrarV2, *, caller: str,
+    ) -> int:
+        """Permissionlessly recycle a fully drained retired release balance."""
+
+        manifest = self.release_manifest
+        successor_bridge = (
+            registrar.active_destination_bridge
+            if type(registrar) is TerminalDomainRegistrarV2 else ""
+        )
+        watermark = (
+            registrar.retirement_queue_watermarks.get(self.address)
+            if type(registrar) is TerminalDomainRegistrarV2 else None
+        )
+        route = (
+            registrar.inbox_router.routes.get(self.local_domain_id)
+            if type(registrar) is TerminalDomainRegistrarV2 else None
+        )
+        lifetime_rows_exact = (
+            type(manifest) is ReleaseManifestV2
+            and len(manifest.components) == 9
+            and manifest.components[3] == ReleaseComponentV2(
+                registrar.inbox_router.address,
+                registrar.inbox_router.runtime_hash,
+                registrar.inbox_router.configuration_hash,
+            )
+            and manifest.components[5] == ReleaseComponentV2(
+                registrar.authority.address,
+                registrar.authority.runtime_hash,
+                registrar.authority.configuration_hash,
+            )
+            and manifest.components[6] == ReleaseComponentV2(
+                registrar.address,
+                registrar.runtime_hash,
+                registrar.configuration_hash,
+            )
+            and manifest.components[7] == ReleaseComponentV2(
+                registrar.accumulator.address,
+                registrar.accumulator.runtime_hash,
+                registrar.accumulator.configuration_hash,
+            )
+        ) if type(registrar) is TerminalDomainRegistrarV2 else False
+        if (not caller or type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid() or not lifetime_rows_exact
+                or self.retired or not self.v2_active or self.entered
+                or type(watermark) is not int
+                or not successor_bridge or successor_bridge == self.address
+                or successor_bridge not in registrar.bridge_identities
+                or successor_bridge not in registrar.bridge_activation_receipts
+                or registrar.inbox_router.next_queue_index < watermark
+                or registrar.authority.releases.get(manifest.protocol_version)
+                    != manifest.commitment
+                or registrar.registrations.get(manifest.protocol_version)
+                    != manifest.registration_commitment
+                or route is None or route.store is not self.inbox_store
+                or route.destination_bridge != self.address
+                or registrar.accumulator is not self.terminal_accumulator
+                or registrar.accumulator.domains.get(self.local_domain_id)
+                    != self.address
+                or self.total_pull_liability != 0
+                or registrar.accumulator.terminalized_pinned_count.get(
+                    self.local_domain_id
+                ) != self.inbox_store.pinned_count):
+            return 0
+        amount = registrar.liquidity_treasury \
+            ._accept_reclaimed_from_bridge(
+                self,
+                registrar=registrar,
+                capability=_DESTINATION_LIQUIDITY_TRANSFER_CAPABILITY,
+            )
+        if amount is None:
+            return 0
+        if amount < 0 or self.balance != 0:
+            raise AssertionError("destination Treasury reclamation was partial")
+        object.__setattr__(self, "retired", True)
+        return amount
+
     def _transaction_snapshot(self) -> dict[str, object]:
         return {
             "balance": self.balance,
-            "ether_quota": self.ether_quota,
+            "quota_snapshot": self.quota_manager.snapshot(),
             "pull_credits": dict(self.pull_credits),
             "total_pull_liability": self.total_pull_liability,
             "status": dict(self.status),
-            "legacy_v1_status_by_msg_hash": dict(
-                self.legacy_v1_status_by_msg_hash
-            ),
             "terminal_index": dict(self.terminal_index),
             "terminal_leaves": list(self.terminal_accumulator.leaves),
+            "terminalized_pinned_count": dict(
+                self.terminal_accumulator.terminalized_pinned_count
+            ),
+            "terminalized_credits": set(
+                self.terminal_accumulator._terminalized_credits
+            ),
         }
 
     def _restore_transaction_snapshot(
-        self, snapshot: dict[str, object]
+        self, snapshot: dict[str, object], *, capability: object,
     ) -> None:
+        if capability is not _DESTINATION_BRIDGE_ROLLBACK_CAPABILITY:
+            raise ValueError("destination Bridge rollback capability is wrong")
         self.balance = snapshot["balance"]
-        self.ether_quota = snapshot["ether_quota"]
-        self.pull_credits.clear()
-        self.pull_credits.update(snapshot["pull_credits"])
-        self.total_pull_liability = snapshot["total_pull_liability"]
-        self.status.clear()
-        self.status.update(snapshot["status"])
-        self.legacy_v1_status_by_msg_hash.clear()
-        self.legacy_v1_status_by_msg_hash.update(
-            snapshot["legacy_v1_status_by_msg_hash"]
-        )
-        self.terminal_index.clear()
-        self.terminal_index.update(snapshot["terminal_index"])
+        if self.quota_manager.snapshot() != snapshot["quota_snapshot"]:
+            self.quota_manager.restore(
+                snapshot["quota_snapshot"],
+                bridge=self,
+                frame=self._active_execution_frame,
+                capability=_NATIVE_QUOTA_ROLLBACK_CAPABILITY,
+            )
+        self._pull_credits.clear()
+        self._pull_credits.update(snapshot["pull_credits"])
+        self._total_pull_liability = snapshot["total_pull_liability"]
+        self._status.clear()
+        self._status.update(snapshot["status"])
+        self._terminal_index.clear()
+        self._terminal_index.update(snapshot["terminal_index"])
         self.terminal_accumulator.leaves[:] = snapshot["terminal_leaves"]
+        self.terminal_accumulator.terminalized_pinned_count.clear()
+        self.terminal_accumulator.terminalized_pinned_count.update(
+            snapshot["terminalized_pinned_count"]
+        )
+        self.terminal_accumulator._terminalized_credits.clear()
+        self.terminal_accumulator._terminalized_credits.update(
+            snapshot["terminalized_credits"]
+        )
+
+    @property
+    def ether_quota(self) -> int:
+        assert type(self.quota_manager) is FrozenNativeQuotaManagerV2
+        assert type(self.execution_environment) is L2ExecutionEnvironmentV2
+        return self.quota_manager.available_quota(
+            self.execution_environment.block_timestamp,
+        )
 
     @staticmethod
     def _message_calldata_cost(data_length: int) -> int:
@@ -15512,15 +18521,13 @@ class DestinationBridgeLedger:
             raise ValueError("destination pull credit is invalid")
         if amount == 0:
             return
-        self.pull_credits[owner] = seat_checked_add(
-            self.pull_credits.get(owner, 0),
+        self._pull_credits[owner] = seat_checked_add(
+            self._pull_credits.get(owner, 0),
             amount,
             "destination owner pull credit",
         )
-        self.total_pull_liability = seat_checked_add(
-            self.total_pull_liability,
-            amount,
-            "destination pull liability",
+        self._total_pull_liability = seat_checked_add(
+            self.total_pull_liability, amount, "destination pull liability"
         )
 
     def _withdraw_pull_from_environment(
@@ -15538,11 +18545,11 @@ class DestinationBridgeLedger:
         assert self.execution_environment is not None
         environment_snapshot = self.execution_environment._transaction_snapshot()
         try:
-            amount = self.pull_credits.get(frame.caller, 0)
+            amount = self._pull_credits.get(frame.caller, 0)
             if amount == 0 or amount > self.balance:
                 return 0
-            self.pull_credits.pop(frame.caller, None)
-            self.total_pull_liability -= amount
+            self._pull_credits.pop(frame.caller, None)
+            self._total_pull_liability = self.total_pull_liability - amount
             self.balance -= amount
             try:
                 transferred = self.execution_environment._transfer_native(
@@ -15554,7 +18561,10 @@ class DestinationBridgeLedger:
             except BaseException:
                 transferred = False
             if not transferred:
-                self._restore_transaction_snapshot(bridge_snapshot)
+                self._restore_transaction_snapshot(
+                    bridge_snapshot,
+                    capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+                )
                 self.execution_environment._restore_transaction_snapshot(
                     environment_snapshot
                 )
@@ -15635,8 +18645,18 @@ class DestinationBridgeLedger:
         status_existed = credit_id in self.status
         prior_status = self.status.get(credit_id)
         prior_leaf_count = self.terminal_accumulator.count
-        self.status[credit_id] = terminal
-        self.terminal_index[credit_id] = APPENDING_SENTINEL
+        prior_terminalized_count = (
+            self.terminal_accumulator.terminalized_pinned_count.get(
+                self.local_domain_id, 0
+            )
+        )
+        terminalized_key = (self.local_domain_id, credit_id)
+        prior_terminalized = (
+            terminalized_key
+            in self.terminal_accumulator._terminalized_credits
+        )
+        self._status[credit_id] = terminal
+        self._terminal_index[credit_id] = APPENDING_SENTINEL
         try:
             index = self.terminal_accumulator.append_terminal(
                 caller=self, credit_id=credit_id)
@@ -15649,14 +18669,25 @@ class DestinationBridgeLedger:
             self.terminal_accumulator.leaves = (
                 self.terminal_accumulator.leaves[:prior_leaf_count]
             )
+            self.terminal_accumulator.terminalized_pinned_count[
+                self.local_domain_id
+            ] = prior_terminalized_count
+            if prior_terminalized:
+                self.terminal_accumulator._terminalized_credits.add(
+                    terminalized_key
+                )
+            else:
+                self.terminal_accumulator._terminalized_credits.discard(
+                    terminalized_key
+                )
             if status_existed:
                 assert prior_status is not None
-                self.status[credit_id] = prior_status
+                self._status[credit_id] = prior_status
             else:
-                self.status.pop(credit_id, None)
-            self.terminal_index.pop(credit_id, None)
+                self._status.pop(credit_id, None)
+            self._terminal_index.pop(credit_id, None)
             return False
-        self.terminal_index[credit_id] = index
+        self._terminal_index[credit_id] = index
         return True
 
     def terminal_commitment_v2(
@@ -15673,264 +18704,18 @@ class DestinationBridgeLedger:
         descriptor = self.release_manifest.destination_bridge_descriptor
         return bool(target) and target not in descriptor.privileged_target_denyset
 
-    def _legacy_v1_payout_from_environment(
-        self,
-        *,
-        amount: int,
-        recipient: str,
-        frame: L2TransactionFrameV2,
-    ) -> bool:
-        """V1 outflow cannot invade V2 pull liabilities or re-enter V2."""
 
-        if (not self._enter_execution(frame, "V1_PAYOUT")
-                or not recipient or type(amount) is not int or amount < 0):
-            if self._active_execution_frame is frame:
-                self._leave_execution(frame)
-            return False
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.execution_environment is not None
-        environment_snapshot = self.execution_environment._transaction_snapshot()
-        try:
-            if (amount > self.ether_quota
-                    or self.balance - amount < self.total_pull_liability):
-                return False
-            self.balance -= amount
-            self.ether_quota -= amount
-            if not self.execution_environment._transfer_native(
-                    recipient, amount, frame=frame, bridge=self):
-                self._restore_transaction_snapshot(bridge_snapshot)
-                self.execution_environment._restore_transaction_snapshot(
-                    environment_snapshot
-                )
-                return False
-            return True
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.execution_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return False
-        finally:
-            self._leave_execution(frame)
 
-    def _legacy_v1_has_balance_capacity(self, maximum_debit: int) -> bool:
-        return (
-            type(maximum_debit) is int
-            and maximum_debit >= 0
-            and self.balance - self.total_pull_liability >= maximum_debit
+    def _consume_quota(self, debit: int, frame: L2TransactionFrameV2) -> bool:
+        return self.quota_manager._consume_from_bridge(
+            debit, bridge=self, frame=frame,
+            capability=_NATIVE_QUOTA_CONSUME_CAPABILITY,
+            lane=NATIVE_QUOTA_LANE_V2,
         )
 
-    def _legacy_v1_has_quota_capacity(self, debit: int) -> bool:
-        return (
-            type(debit) is int
-            and debit >= 0
-            and self.ether_quota >= debit
-        )
 
-    def _legacy_v1_process_from_environment(
-        self,
-        request: LegacyV1ProcessV2,
-        *,
-        frame: L2TransactionFrameV2,
-    ) -> str:
-        """Model V1 process: max V+F preflight, CALL value, then fee."""
 
-        if (type(request) is not LegacyV1ProcessV2
-                or not request.msg_hash or not request.target
-                or not request.fee_recipient or not request.destination_owner
-                or type(request.value) is not int or request.value < 0
-                or type(request.fee) is not int or request.fee < 0
-                or type(request.processor_fee) is not int
-                or not 0 <= request.processor_fee <= request.fee
-                or type(request.data) is not bytes
-                or not self._enter_execution(frame, "V1_PROCESS")):
-            if self._active_execution_frame is frame:
-                self._leave_execution(frame)
-            return "REJECTED"
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.execution_environment is not None
-        environment_snapshot = self.execution_environment._transaction_snapshot()
-        try:
-            if self.legacy_v1_status_by_msg_hash.get(
-                    request.msg_hash, "NEW") != "NEW":
-                return "REJECTED"
-            maximum = seat_checked_add(
-                request.value, request.fee, "V1 process maximum debit"
-            )
-            if not self._legacy_v1_has_balance_capacity(maximum):
-                return "REJECTED"
-            target_succeeded = (
-                request.invocation_prohibited
-                or (request.value == 0 and not request.data)
-            )
-            should_call = (
-                not request.invocation_prohibited
-                and (request.value > 0 or bool(request.data))
-            )
-            if request.invocation_prohibited and request.value:
-                self.balance -= request.value
-                target_succeeded = self.execution_environment._transfer_native(
-                    request.destination_owner,
-                    request.value,
-                    frame=frame,
-                    bridge=self,
-                )
-                if not target_succeeded:
-                    if request.invocation_prohibited:
-                        raise RuntimeError(
-                            "V1 prohibited-call value refund reverted"
-                        )
-                    self.execution_environment._restore_transaction_snapshot(
-                        environment_snapshot
-                    )
-                    self.balance = bridge_snapshot["balance"]
-            elif should_call:
-                self.balance -= request.value
-                target_succeeded = self.execution_environment._transfer_native(
-                    request.target,
-                    request.value,
-                    frame=frame,
-                    bridge=self,
-                )
-                if not target_succeeded:
-                    self.execution_environment._restore_transaction_snapshot(
-                        environment_snapshot
-                    )
-                    self.balance = bridge_snapshot["balance"]
-            actual_debit = maximum if target_succeeded else request.fee
-            if not self._legacy_v1_has_quota_capacity(actual_debit):
-                raise RuntimeError("V1 process quota is insufficient")
-            processor_fee = request.processor_fee
-            owner_fee = request.fee - processor_fee
-            if processor_fee:
-                self.balance -= processor_fee
-                if not self.execution_environment._transfer_native(
-                        request.fee_recipient,
-                        processor_fee,
-                        frame=frame,
-                        bridge=self):
-                    raise RuntimeError("V1 process fee transfer reverted")
-            if owner_fee:
-                self.balance -= owner_fee
-                if not self.execution_environment._transfer_native(
-                        request.destination_owner,
-                        owner_fee,
-                        frame=frame,
-                        bridge=self):
-                    raise RuntimeError("V1 process owner fee transfer reverted")
-            self.ether_quota -= actual_debit
-            self.legacy_v1_status_by_msg_hash[request.msg_hash] = (
-                "DONE" if target_succeeded else "RETRIABLE"
-            )
-            if self.balance < self.total_pull_liability:
-                raise RuntimeError("V1 process invaded V2 pull liabilities")
-            return self.legacy_v1_status_by_msg_hash[request.msg_hash]
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.execution_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return "REJECTED"
-        finally:
-            self._leave_execution(frame)
 
-    def _legacy_v1_retry_from_environment(
-        self,
-        request: LegacyV1RetryV2,
-        *,
-        frame: L2TransactionFrameV2,
-    ) -> str:
-        """Model V1 retry: exact value debit, failure is side-effect free."""
-
-        if (type(request) is not LegacyV1RetryV2
-                or not request.msg_hash or not request.target
-                or type(request.value) is not int or request.value < 0
-                or not self._enter_execution(frame, "V1_RETRY")):
-            if self._active_execution_frame is frame:
-                self._leave_execution(frame)
-            return "REJECTED"
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.execution_environment is not None
-        environment_snapshot = self.execution_environment._transaction_snapshot()
-        try:
-            if (self.legacy_v1_status_by_msg_hash.get(request.msg_hash)
-                    != "RETRIABLE"
-                    or not self._legacy_v1_has_balance_capacity(request.value)
-                    or not self._legacy_v1_has_quota_capacity(request.value)):
-                return "REJECTED"
-            self.balance -= request.value
-            if not self.execution_environment._transfer_native(
-                    request.target,
-                    request.value,
-                    frame=frame,
-                    bridge=self):
-                self._restore_transaction_snapshot(bridge_snapshot)
-                self.execution_environment._restore_transaction_snapshot(
-                    environment_snapshot
-                )
-                return "RETRIABLE"
-            self.ether_quota -= request.value
-            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "DONE"
-            if self.balance < self.total_pull_liability:
-                raise RuntimeError("V1 retry invaded V2 pull liabilities")
-            return "DONE"
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.execution_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return "REJECTED"
-        finally:
-            self._leave_execution(frame)
-
-    def _legacy_v1_recall_from_environment(
-        self,
-        request: LegacyV1RecallV2,
-        *,
-        frame: L2TransactionFrameV2,
-    ) -> bool:
-        """Model V1 recall sender callback/value return under the same floor."""
-
-        if (type(request) is not LegacyV1RecallV2
-                or not request.msg_hash or not request.recipient
-                or type(request.value) is not int or request.value < 0
-                or not self._enter_execution(frame, "V1_RECALL")):
-            if self._active_execution_frame is frame:
-                self._leave_execution(frame)
-            return False
-        bridge_snapshot = self._transaction_snapshot()
-        assert self.execution_environment is not None
-        environment_snapshot = self.execution_environment._transaction_snapshot()
-        try:
-            if (self.legacy_v1_status_by_msg_hash.get(
-                    request.msg_hash, "NEW") != "NEW"
-                    or not self._legacy_v1_has_balance_capacity(request.value)
-                    or not self._legacy_v1_has_quota_capacity(request.value)):
-                return False
-            self.balance -= request.value
-            if not self.execution_environment._transfer_native(
-                    request.recipient,
-                    request.value,
-                    frame=frame,
-                    bridge=self):
-                self._restore_transaction_snapshot(bridge_snapshot)
-                self.execution_environment._restore_transaction_snapshot(
-                    environment_snapshot
-                )
-                return False
-            self.ether_quota -= request.value
-            self.legacy_v1_status_by_msg_hash[request.msg_hash] = "RECALLED"
-            if self.balance < self.total_pull_liability:
-                raise RuntimeError("V1 recall invaded V2 pull liabilities")
-            return True
-        except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
-            self.execution_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
-            return False
-        finally:
-            self._leave_execution(frame)
 
     def _processor_fee(
         self,
@@ -15960,7 +18745,7 @@ class DestinationBridgeLedger:
         )
         free_balance = self.balance - self.total_pull_liability
         required_pull = message_.fee if value_delivered else total
-        if free_balance < required_pull or self.ether_quota < total:
+        if free_balance < required_pull:
             raise ValueError("destination liquidity or quota is insufficient")
         processor_fee = self._processor_fee(
             message_, frame=frame, gas_used=gas_used
@@ -15972,7 +18757,8 @@ class DestinationBridgeLedger:
                 message_.value,
                 "destination owner invocation refund",
             )
-        self.ether_quota -= total
+        if not self._consume_quota(total, frame):
+            raise ValueError("destination native quota is insufficient")
         self._credit_pull(frame.caller, processor_fee)
         self._credit_pull(message_.destination_owner, owner_credit)
 
@@ -15985,10 +18771,7 @@ class DestinationBridgeLedger:
             )
         except ValueError:
             return False
-        return (
-            self.balance - self.total_pull_liability >= total
-            and self.ether_quota >= total
-        )
+        return self.balance - self.total_pull_liability >= total
 
     def _enter_execution(
         self,
@@ -15999,6 +18782,8 @@ class DestinationBridgeLedger:
     ) -> bool:
         environment = self.execution_environment
         if (type(environment) is not L2ExecutionEnvironmentV2
+                or not self.v2_active
+                or self.retired
                 or frame.environment is not environment
                 or frame is not environment._active_frame
                 or frame.operation != operation
@@ -16036,9 +18821,7 @@ class DestinationBridgeLedger:
             pin = self._pin(credit_id, destination.destination_domain_id)
             current = self.status.get(credit_id, "NEW")
             if (pin is None or current != "NEW"
-                    or frame.block_timestamp > pin.process_by
-                    or (frame.caller != message_.destination_owner
-                        and message_.gas_limit == 0)):
+                    or frame.block_timestamp > pin.process_by):
                 return "REJECTED"
 
             if self._hard_prohibited_target(message_):
@@ -16073,6 +18856,9 @@ class DestinationBridgeLedger:
                     raise RuntimeError("destination DONE terminal append reverted")
                 return "DONE"
 
+            if (frame.caller != message_.destination_owner
+                    and message_.gas_limit == 0):
+                return "REJECTED"
             requested = self._invocation_gas_limit(message_)
             if frame.caller != message_.destination_owner:
                 if (requested == 0
@@ -16093,18 +18879,22 @@ class DestinationBridgeLedger:
                     - pre_call_cost
                     - V2_POST_CALL_GAS_RESERVE,
                 )
-            if not self._has_success_capacity(message_):
-                return "REJECTED"
-            self.balance -= message_.value
-            try:
-                executed, gas_used, exhausted = (
-                    self.execution_environment._invoke(
-                        self, message_, source, destination, frame=frame,
-                        gas_requested=requested,
+            executed = (
+                self.balance - self.total_pull_liability >= message_.value
+            )
+            gas_used = 0
+            exhausted = False
+            if executed:
+                self.balance -= message_.value
+                try:
+                    executed, gas_used, exhausted = (
+                        self.execution_environment._invoke(
+                            self, message_, source, destination, frame=frame,
+                            gas_requested=requested,
+                        )
                     )
-                )
-            except BaseException:
-                executed, gas_used, exhausted = False, 0, False
+                except BaseException:
+                    executed, gas_used, exhausted = False, 0, False
             if exhausted:
                 raise RuntimeError("destination target exhausted forwarded gas")
             if not executed:
@@ -16113,7 +18903,7 @@ class DestinationBridgeLedger:
                 )
                 self.balance = bridge_snapshot["balance"]
                 if frame.caller == message_.destination_owner:
-                    self.status[credit_id] = "RETRIABLE"
+                    self._status[credit_id] = "RETRIABLE"
                     return "RETRIABLE"
                 return "NEW"
             self._settle_success(
@@ -16124,7 +18914,10 @@ class DestinationBridgeLedger:
                 raise RuntimeError("destination DONE terminal append reverted")
             return "DONE"
         except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
+            self._restore_transaction_snapshot(
+                bridge_snapshot,
+                capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+            )
             self.execution_environment._restore_transaction_snapshot(
                 environment_snapshot
             )
@@ -16154,9 +18947,7 @@ class DestinationBridgeLedger:
             credit_id = destination_credit_id_v2(message_, source, destination)
             pin = self._pin(credit_id, destination.destination_domain_id)
             if (pin is None or self.status.get(credit_id) != "RETRIABLE"
-                    or frame.block_timestamp > pin.process_by
-                    or ((message_.gas_limit == 0 or is_last_attempt)
-                        and frame.caller != message_.destination_owner)):
+                    or frame.block_timestamp > pin.process_by):
                 return "REJECTED"
             if self._hard_prohibited_target(message_):
                 if is_last_attempt:
@@ -16189,6 +18980,9 @@ class DestinationBridgeLedger:
                 if not self._terminalize(credit_id, "DONE", frame=frame):
                     raise RuntimeError("destination DONE terminal append reverted")
                 return "DONE"
+            if (frame.caller != message_.destination_owner
+                    and (message_.gas_limit == 0 or is_last_attempt)):
+                return "REJECTED"
             pre_call_cost = seat_checked_add(
                 BRIDGE_GAS_OVERHEAD,
                 self._message_calldata_cost(message_.data_length),
@@ -16202,18 +18996,22 @@ class DestinationBridgeLedger:
             )
             if requested == 0:
                 return "REJECTED"
-            if not self._has_success_capacity(message_):
-                return "RETRIABLE"
-            self.balance -= message_.value
-            try:
-                executed, gas_used, exhausted = (
-                    self.execution_environment._invoke(
-                        self, message_, source, destination, frame=frame,
-                        gas_requested=requested,
+            executed = (
+                self.balance - self.total_pull_liability >= message_.value
+            )
+            gas_used = 0
+            exhausted = False
+            if executed:
+                self.balance -= message_.value
+                try:
+                    executed, gas_used, exhausted = (
+                        self.execution_environment._invoke(
+                            self, message_, source, destination, frame=frame,
+                            gas_requested=requested,
+                        )
                     )
-                )
-            except BaseException:
-                executed, gas_used, exhausted = False, 0, False
+                except BaseException:
+                    executed, gas_used, exhausted = False, 0, False
             if exhausted:
                 raise RuntimeError("destination retry exhausted forwarded gas")
             if executed:
@@ -16234,7 +19032,10 @@ class DestinationBridgeLedger:
                 raise RuntimeError("destination FAILED terminal append reverted")
             return "FAILED"
         except BaseException:
-            self._restore_transaction_snapshot(bridge_snapshot)
+            self._restore_transaction_snapshot(
+                bridge_snapshot,
+                capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+            )
             self.execution_environment._restore_transaction_snapshot(
                 environment_snapshot
             )
@@ -16264,7 +19065,10 @@ class DestinationBridgeLedger:
                     or not self._terminalize(
                         credit_id, "FAILED", frame=frame
                     )):
-                self._restore_transaction_snapshot(bridge_snapshot)
+                self._restore_transaction_snapshot(
+                    bridge_snapshot,
+                    capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+                )
                 return False
             return True
         finally:
@@ -16290,7 +19094,10 @@ class DestinationBridgeLedger:
                     or not self._terminalize(
                         credit_id, "FAILED", frame=frame
                     )):
-                self._restore_transaction_snapshot(bridge_snapshot)
+                self._restore_transaction_snapshot(
+                    bridge_snapshot,
+                    capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+                )
                 return False
             return True
         finally:
@@ -16737,19 +19544,27 @@ def source_bridge_for_test(
         ))
         if (entry is None
                 or (entry.confirmed_at_block is None
-                    and not registry.confirm(
-                        source.source_domain_id,
-                        source.frozen_bridge_execution_hash,
-                        manifest.destination_domain_id,
-                        clock=confirm_clock,
-                        canonical_sequence=canonical.canonical_sequence,
-                        proof_state_root=canonical.state_root,
-                        mpt_proof_valid=True,
-                        proved_registration_commitment=(
-                            manifest.registration_commitment
-                        ),
-                        proof_node_count=1,
-                        proof_byte_length=32,
+                    and not (
+                        type(registry.registration_mpt_verifier)
+                            is TestRegistrationMptVerifier
+                        and registry.confirm(
+                            source.source_domain_id,
+                            source.frozen_bridge_execution_hash,
+                            manifest.destination_domain_id,
+                            clock=confirm_clock,
+                            canonical_sequence=canonical.canonical_sequence,
+                            proof=issue_registration_mpt_proof_for_test(
+                                registry.registration_mpt_verifier,
+                                registry.registration_storage_statement(
+                                    source.source_domain_id,
+                                    source.frozen_bridge_execution_hash,
+                                    manifest.destination_domain_id,
+                                    canonical_sequence=(
+                                        canonical.canonical_sequence
+                                    ),
+                                ),
+                            ),
+                        )
                     ))):
             raise AssertionError("failed to confirm canonical Bridge support")
     return source
@@ -17945,9 +20760,8 @@ def test_data_gc_reorg_and_geometry() -> None:
               transition_clock, **common_reused) == "QUEUED:2"
           and bridge_protocol.forced_queue.escrow_balance
               == 3 * bridge_deposit)
-    check("P50af pooled payouts cannot consume reserved V2 value",
-          not source.ordinary_payout(7)
-          and not source.ordinary_payout(1)
+    check("P50af the fresh SourceBridge has no generic sweep exit",
+          not hasattr(source, "ordinary_payout")
           and source.balance >= source.total_live_liability)
 
     domain_credit = open_credit(
@@ -18050,21 +20864,15 @@ def test_data_gc_reorg_and_geometry() -> None:
         support_router,
         support_manager,
         release_authority_descriptor_from_manifest(support_manifest),
+        TestRegistrationMptVerifier(
+            canonical_registration_mpt_verifier_descriptor()
+        ),
     )
     support_domain = support_manifest.destination_domain_id
     support_stage_clock = Clock(40, GENESIS_TIMESTAMP + support_core.tip_slot)
     support_confirm_clock = Clock(
         40 + F_L1, GENESIS_TIMESTAMP + support_core.tip_slot
     )
-    support_proof = dict(
-        clock=support_confirm_clock,
-        canonical_sequence=7,
-        proof_state_root="state:registration", mpt_proof_valid=True,
-        proved_registration_commitment=(
-            support_manifest.registration_commitment
-        ),
-        proof_node_count=4,
-        proof_byte_length=2_048)
     assert not support.stage(
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
@@ -18086,6 +20894,25 @@ def test_data_gc_reorg_and_geometry() -> None:
         manager=support_manager,
         clock=support_stage_clock,
     )
+    support_statement = support.registration_storage_statement(
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
+        canonical_sequence=7,
+    )
+    assert type(support.registration_mpt_verifier) \
+        is TestRegistrationMptVerifier
+    valid_support_nodes = issue_registration_mpt_proof_for_test(
+        support.registration_mpt_verifier,
+        support_statement,
+        account_nodes=(b"canonical-account-node-0", b"canonical-account-node-1"),
+        storage_nodes=(b"canonical-storage-node-0", b"canonical-storage-node-1"),
+    )
+    support_proof = dict(
+        clock=support_confirm_clock,
+        canonical_sequence=7,
+        proof=valid_support_nodes,
+    )
     assert not support.final(
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
@@ -18096,26 +20923,86 @@ def test_data_gc_reorg_and_geometry() -> None:
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
         support_domain,
-        **{**support_proof, "mpt_proof_valid": False})
+        **{**support_proof, "proof": replace(
+            valid_support_nodes, _test_seal="attacker-seal"
+        )})
+    wrong_root_nodes = issue_registration_mpt_proof_for_test(
+        support.registration_mpt_verifier,
+        replace(support_statement, state_root="attacker-root"),
+    )
+    wrong_value_nodes = issue_registration_mpt_proof_for_test(
+        support.registration_mpt_verifier,
+        replace(
+            support_statement,
+            expected_registration_commitment=b"x" * 32,
+        ),
+    )
+    oversized_nodes = CanonicalMptMembershipProof(
+        tuple(
+            b"x" for _ in range(MAX_REGISTRATION_PROOF_NODES)
+        ),
+        (b"y",),
+    )
+    oversized_node = CanonicalMptMembershipProof(
+        (b"x" * (MAX_REGISTRATION_PROOF_NODE_BYTES + 1),),
+        (b"y",),
+    )
+    oversized_total = CanonicalMptMembershipProof(
+        tuple(b"x" * MAX_REGISTRATION_PROOF_NODE_BYTES for _ in range(79)),
+        (b"y",),
+    )
+    support.registration_mpt_verifier.returndata_override = b"x" * 31
+    short_mpt_return_rejected = not support.confirm(
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
+        **support_proof,
+    )
+    support.registration_mpt_verifier.returndata_override = b"x" * 33
+    long_mpt_return_rejected = not support.confirm(
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
+        **support_proof,
+    )
+    support.registration_mpt_verifier.returndata_override = None
+    support.registration_mpt_verifier.raise_on_verify = True
+    mpt_revert_rejected = not support.confirm(
+        support_authorization.source_domain_id,
+        support_authorization.frozen_bridge_execution_hash,
+        support_domain,
+        **support_proof,
+    )
+    support.registration_mpt_verifier.raise_on_verify = False
     check("P50bf registration proof is bound to routed state and exact bounds",
-          not support.confirm(
-              support_authorization.source_domain_id,
-              support_authorization.frozen_bridge_execution_hash,
-              support_domain,
-              **{**support_proof, "proof_state_root": "attacker-root"})
+          short_mpt_return_rejected
+          and long_mpt_return_rejected
+          and mpt_revert_rejected
           and not support.confirm(
               support_authorization.source_domain_id,
               support_authorization.frozen_bridge_execution_hash,
               support_domain,
-              **{**support_proof,
-                 "proof_node_count": MAX_REGISTRATION_PROOF_NODES + 1})
+              **{**support_proof, "proof": wrong_root_nodes})
           and not support.confirm(
               support_authorization.source_domain_id,
               support_authorization.frozen_bridge_execution_hash,
               support_domain,
-              **{**support_proof,
-                 "proved_registration_commitment":
-                     "registration:manifest:2:substituted"}))
+              **{**support_proof, "proof": oversized_nodes})
+          and not support.confirm(
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
+              **{**support_proof, "proof": oversized_node})
+          and not support.confirm(
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
+              **{**support_proof, "proof": oversized_total})
+          and not support.confirm(
+              support_authorization.source_domain_id,
+              support_authorization.frozen_bridge_execution_hash,
+              support_domain,
+              **{**support_proof, "proof": wrong_value_nodes}))
     assert support.confirm(
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
@@ -18305,15 +21192,19 @@ def test_data_gc_reorg_and_geometry() -> None:
         cancel_source, cancel_envelope, clock=cancel_source_clock,
         enqueue_by=enqueue_by,
     )
-    cancel_source.paused = True
-    cancel_source.ether_quota = 0
+    assert cancel_source.set_paused(
+        True,
+        caller=cancel_source.source_descriptor.deployment_descriptor.pauser,
+        chain_id=cancel_source.source_chain_id,
+    )
+    set_bridge_eth_quota_available_for_test(cancel_source, 0)
     check("P50y pre-enqueue data loss has a permissionless exact-deadline refund",
           not cancel_source.cancel(
               cancellation_id, now=enqueue_by)
           and cancel_source.cancel(
               cancellation_id, now=enqueue_by + 1)
           and cancel_source.refunds["alice"] == 12
-          and not cancel_source.ordinary_payout(1)
+          and not hasattr(cancel_source, "ordinary_payout")
           and cancel_source.withdraw_refund("alice") == 12
           and cancel_source.balance == cancel_source.total_live_liability == 0)
     check("P50ap V2 ETH restoration bypasses exhausted ordinary quota",
@@ -18404,22 +21295,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     anchor_v1 = AnchorV4Model(
         manifest_v1.anchor, manifest_v1.anchor_runtime_hash,
         manifest_v1.commitment)
-    endpoint_v1 = EndpointActivationStateV2(
-        legacy_v1_state_fingerprint="custody-and-status-v1:D1")
-    legacy_bridge_v1 = BridgeDeploymentStateV2(
-        "GENESIS_LEGACY_PROXY", manifest_v1.destination_bridge,
-        manifest_v1.components[8].runtime_hash,
-        implementation_address="impl:bridge:A",
-        implementation_runtime_hash=(
-            manifest_v1.destination_bridge_descriptor.facade_runtime_hash
-        ),
-        direct_prestate_slot_constraint=True,
-        upgrade_authority_burned=True,
-        delegate_target_reachable=True,
-        eip1967_implementation_slot_value="impl:bridge:A",
-        eip1967_admin_slot_value="",
-        eip1967_implementation_slot_proved=True,
-        eip1967_admin_slot_proved=True)
+    fresh_bridge_v1 = bridge_deployment_state_for_test(manifest_v1)
+    endpoint_v1 = EndpointActivationStateV2()
     check("P50ca direct reserved-sender and Bridge release calls are rejected",
           not release_authority.activate(
               manifest_v1,
@@ -18439,10 +21316,9 @@ def test_data_gc_reorg_and_geometry() -> None:
               release_authority, registrar, manifest=manifest_v1,
               anchor=anchor_v1,
               store=inbox_store, endpoint_state=endpoint_v1,
-              bridge_deployment=legacy_bridge_v1)
-          and endpoint_v1.gate_active
-          and endpoint_v1.legacy_v1_state_fingerprint
-              == "custody-and-status-v1:D1")
+              bridge_deployment=fresh_bridge_v1)
+          and not endpoint_v1.bridge_account_absent
+          and endpoint_v1.bridge_accounting_empty)
     failed_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:C", "domain:D3")
     manifest_v3 = release_manifest_fixture(
@@ -18456,10 +21332,9 @@ def test_data_gc_reorg_and_geometry() -> None:
               release_authority, registrar, manifest=manifest_v3,
               anchor=anchor_v3,
               store=failed_store,
-              bridge_deployment=BridgeDeploymentStateV2(
-                  "IMMUTABLE_NONPROXY", manifest_v3.destination_bridge,
-                  manifest_v3.components[8].runtime_hash,
-                  upgrade_authority_burned=False))
+              bridge_deployment=replace(
+                  bridge_deployment_state_for_test(manifest_v3),
+                  account_configuration_hash="config:attacker"))
           and 3 not in release_authority.releases
           and 3 not in registrar.registrations
           and "domain:D3" not in inbox_apply_router.routes)
@@ -18553,13 +21428,18 @@ def test_data_gc_reorg_and_geometry() -> None:
                   for value in destination.__dict__.values()))
     check("P50db release policy pins the complete privileged-call denyset",
           {"signal-service", "delegate-controller",
-           DESTINATION_NATIVE_QUOTA_MANAGER,
+           manifest_v1.destination_bridge_descriptor.native_quota_manager,
            *V1_OFFICIAL_VAULT_ADDRESSES}.issubset(
                set(manifest_v1.destination_bridge_descriptor
                    .privileged_target_denyset))
           and manifest_v1.destination_bridge_descriptor.post_call_gas_reserve
               == V2_POST_CALL_GAS_RESERVE)
-    destination.paused = True
+    assert destination.set_paused(
+        True,
+        caller=destination.release_manifest
+            .destination_bridge_descriptor.pauser,
+        chain_id=destination.destination_chain_id,
+    )
     destination.execution_environment.block_timestamp = process_by
     check("P50ac lost post-pin Message becomes permissionlessly FAILED",
           not destination.expire_v2(credit_a))
@@ -18570,7 +21450,12 @@ def test_data_gc_reorg_and_geometry() -> None:
           and destination.process(
               message_a, source_context_a, destination_context_a,
               caller="relayer") == "REJECTED")
-    destination.paused = False
+    assert destination.set_paused(
+        False,
+        caller=destination.release_manifest
+            .destination_bridge_descriptor.pauser,
+        chain_id=destination.destination_chain_id,
+    )
     destination.execution_environment.block_timestamp = pin_now + 1
     destination_target.fault_point = None
     message_b = bridge_message_preimage(
@@ -18728,8 +21613,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     anchor_v2 = AnchorV4Model(
         manifest_v2.anchor, manifest_v2.anchor_runtime_hash,
         manifest_v2.commitment)
-    endpoint_v2 = EndpointActivationStateV2(
-        legacy_v1_state_fingerprint="custody-and-status-v1:D2")
+    fresh_bridge_v2 = bridge_deployment_state_for_test(manifest_v2)
+    endpoint_v2 = EndpointActivationStateV2()
     preserved_routes = dict(inbox_apply_router.routes)
     preserved_releases = dict(release_authority.releases)
     preserved_domains = dict(accumulator.domains)
@@ -18740,8 +21625,9 @@ def test_data_gc_reorg_and_geometry() -> None:
           and execute_release_activation_for_test(
               inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v2,
-              anchor=anchor_v2,
-              store=inbox_store_d2, endpoint_state=endpoint_v2)
+              anchor=anchor_v2, store=inbox_store_d2,
+              endpoint_state=endpoint_v2,
+              bridge_deployment=fresh_bridge_v2)
           and all(inbox_apply_router.routes[key] == value
                   for key, value in preserved_routes.items())
           and all(release_authority.releases[key] == value
@@ -18750,21 +21636,19 @@ def test_data_gc_reorg_and_geometry() -> None:
                   for key, value in preserved_domains.items())
           and accumulator.root == preserved_root
           and accumulator.count == preserved_count
-          and endpoint_v2.gate_active
-          and endpoint_v2.legacy_v1_state_fingerprint
-              == "custody-and-status-v1:D2"
+          and not endpoint_v2.bridge_account_absent
+          and endpoint_v2.bridge_accounting_empty
           and accumulator.domains[d1_domain] == "bridge:A")
     reused_endpoint_state = copy.deepcopy(endpoint_v2)
     manifest_v7 = release_manifest_fixture(
         7, d2_domain, "bridge:B", inbox_store_d2, router=bridge_router)
     partial_endpoint_state = copy.deepcopy(endpoint_v2)
-    partial_endpoint_state.gate_sealer_live = True
     store_v6 = InboxCreditStoreV2(
         "inbox-apply", "bridge:F", "domain:D6")
     manifest_v6 = release_manifest_fixture(
         6, "domain:D6", "bridge:F", store_v6, router=bridge_router)
-    check("P50co exact endpoint reuse skips seals; partial prestate rejects",
-          execute_release_activation_for_test(
+    check("P50co every successor requires a fresh domain and Bridge",
+          not execute_release_activation_for_test(
               inbox_protocol._inbox_execution_authority,
               release_authority, registrar, manifest=manifest_v7,
               anchor=AnchorV4Model(
@@ -18778,20 +21662,17 @@ def test_data_gc_reorg_and_geometry() -> None:
                   manifest_v6.anchor, manifest_v6.anchor_runtime_hash,
                   manifest_v6.commitment), store=store_v6,
               endpoint_state=partial_endpoint_state)
-          and 6 not in release_authority.releases)
+          and 6 not in release_authority.releases
+          and 7 not in release_authority.releases)
     store_v8 = InboxCreditStoreV2(
         "inbox-apply", "bridge:G", "domain:D8")
     manifest_v8 = release_manifest_fixture(
-        8, "domain:D8", "bridge:G", store_v8, legacy_proxy=True,
-        router=bridge_router)
-    delegated_proxy_lie = BridgeDeploymentStateV2(
-        "GENESIS_LEGACY_PROXY", manifest_v8.destination_bridge,
-        manifest_v8.components[8].runtime_hash,
-        "implementation:attacker",
-        manifest_v8.destination_bridge_descriptor.facade_runtime_hash,
-        direct_prestate_slot_constraint=False,
-        upgrade_authority_burned=True,
-        delegate_target_reachable=True)
+        8, "domain:D8", "bridge:G", store_v8, router=bridge_router)
+    valid_v8_deployment = bridge_deployment_state_for_test(manifest_v8)
+    substituted_immutable_account = replace(
+        valid_v8_deployment,
+        account_runtime_hash="runtime:attacker",
+    )
     check("P50cp chain IDs, Bridge preimages and topology are authenticated",
           not replace(
               manifest_v6,
@@ -18816,7 +21697,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               anchor=AnchorV4Model(
                   manifest_v8.anchor, manifest_v8.anchor_runtime_hash,
                   manifest_v8.commitment), store=store_v8,
-              bridge_deployment=delegated_proxy_lie)
+              bridge_deployment=substituted_immutable_account)
           and 8 not in release_authority.releases)
     destination_d2_target = BridgeCallReceiverV2("bridge-recipient")
     destination_d2 = destination_bridge_for_test(
@@ -19120,7 +22001,12 @@ def test_data_gc_reorg_and_geometry() -> None:
               manual_message, manual_source, manual_route,
               caller="observer",
               is_last_attempt=True) == "REJECTED")
-    destination.paused = True
+    assert destination.set_paused(
+        True,
+        caller=destination.release_manifest
+            .destination_bridge_descriptor.pauser,
+        chain_id=destination.destination_chain_id,
+    )
     destination.execution_environment.block_timestamp = (
         pin_now + BRIDGE_PROCESS_TTL_SECONDS + 1
     )
@@ -19130,9 +22016,18 @@ def test_data_gc_reorg_and_geometry() -> None:
               caller=manual_message.destination_owner)
           and destination.expire_v2(
               manual_credit))
-    destination.paused = False
+    assert destination.set_paused(
+        False,
+        caller=destination.release_manifest
+            .destination_bridge_descriptor.pauser,
+        chain_id=destination.destination_chain_id,
+    )
     destination_target.fault_point = None
-    source.paused = True
+    assert source.set_paused(
+        True,
+        caller=source.source_descriptor.deployment_descriptor.pauser,
+        chain_id=source.source_chain_id,
+    )
     canonical_core_499 = CanonicalCore(
         499, "block:499", 499, "state:499", 12,
         winning_data_commitment="data:499", next_base_fee=100,
@@ -19352,6 +22247,14 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert migration_protocol.sync(migration_outage_clock)
     assert migration_protocol.mode is Mode.RECOVERY
     migration_revision = migration_protocol.recovery.revision
+    migration_v2_ingress_specs = (
+        (ForceKind.USER_TX, "kind0-adapter", ""),
+        (
+            ForceKind.BRIDGE_CREDIT,
+            "bridge-inbox-adapter:migration-v2",
+            "bridge:migration-v2",
+        ),
+    )
     prospective_settlement_2 = VersionedSettlementHistory(
         "settlement:2",
         "runtime:2",
@@ -19366,6 +22269,7 @@ def test_data_gc_reorg_and_geometry() -> None:
             migration_inbox_apply
         ),
         header_oracle=migration_header_oracle,
+        release_profile_ingress_specs=migration_v2_ingress_specs,
     )
     legacy_manifest_2 = settlement_registration(
         active_router,
@@ -19454,7 +22358,8 @@ def test_data_gc_reorg_and_geometry() -> None:
         inbox_apply_descriptor=inbox_apply_deployment_descriptor(
             migration_inbox_apply
         ),
-        header_oracle=migration_header_oracle)
+        header_oracle=migration_header_oracle,
+        release_profile_ingress_specs=migration_v2_ingress_specs)
     exact_target_protocol = protocol(
         tip_slot=canonical_core_756.tip_slot,
         cursor=canonical_core_756.message_cursor,
@@ -19543,33 +22448,37 @@ def test_data_gc_reorg_and_geometry() -> None:
     live_canonical = migration_protocol.canonical
     migration_protocol.canonical = Canonical(
         replace(canonical_core_756, state_root="stale-live-state"), 51)
-    stale_live_state_rejected = not active_router._activate_version_with_proof(
+    stale_live_state_ignored = active_router._valid_migration_activation_proof(
+        activation_proof,
         settlement=exact_settlement,
         clock=activation_clock,
         target_manifest_hash=legacy_manifest_2,
-        activation_proof=activation_proof,
     )
     migration_protocol.canonical = live_canonical
+    tampered_proof_bytes = replace(
+        activation_proof,
+        transition_proof=replace(
+            activation_proof.transition_proof,
+            proof_bytes=b"attacker-proof-bytes",
+        ),
+    )
+    tampered_statement = replace(
+        activation_proof,
+        transition_statement_digest="ab" * 32,
+    )
     check("P50ba router rejects fake, unauthorized and discontinuous targets",
-          queue_code_rejected and stale_live_state_rejected
+          queue_code_rejected and stale_live_state_ignored
           and not active_router._activate_version_with_proof(
               settlement=exact_settlement,
               clock=activation_clock,
               target_manifest_hash=legacy_manifest_2,
-              activation_proof=replace(
-                  activation_proof, seal="attacker-seal"),
+              activation_proof=tampered_proof_bytes,
           )
           and not active_router._activate_version_with_proof(
               settlement=exact_settlement,
               clock=activation_clock,
               target_manifest_hash=legacy_manifest_2,
-              activation_proof=replace(
-                  activation_proof,
-                  evm_validity=replace(
-                      activation_attestation,
-                      candidate_digest="attacker-candidate",
-                  ),
-              ),
+              activation_proof=tampered_statement,
           )
           and not active_router._activate_version_with_proof(
               settlement=exact_settlement,
@@ -19610,7 +22519,7 @@ def test_data_gc_reorg_and_geometry() -> None:
              .authority.releases),
     )
     migration_l2_poststate = replay_verified_migration_output_on_l2_for_test(
-        exact_target_protocol, activation_proof
+        exact_target_protocol, activation_proof, active_router
     )
     assert migration_l2_poststate is not None
     assert active_router._activate_version_with_proof(
@@ -19764,6 +22673,14 @@ def test_data_gc_reorg_and_geometry() -> None:
         generation=2, target_protocol_version=3,
         target_manifest_hash=legacy_manifest_3_bad,
         cancel_manifest_active=True, clock=abort_ready_clock)
+    migration_v3_ingress_specs = (
+        (ForceKind.USER_TX, "kind0-adapter", ""),
+        (
+            ForceKind.BRIDGE_CREDIT,
+            "bridge-inbox-adapter:migration-v3",
+            "bridge:migration-v3",
+        ),
+    )
     prospective_settlement_3 = VersionedSettlementHistory(
         "settlement:3",
         "runtime:3",
@@ -19778,6 +22695,7 @@ def test_data_gc_reorg_and_geometry() -> None:
             migration_inbox_apply
         ),
         header_oracle=migration_header_oracle,
+        release_profile_ingress_specs=migration_v3_ingress_specs,
     )
     legacy_manifest_3 = settlement_registration(
         active_router,
@@ -19807,7 +22725,8 @@ def test_data_gc_reorg_and_geometry() -> None:
         inbox_apply_descriptor=inbox_apply_deployment_descriptor(
             migration_inbox_apply
         ),
-        header_oracle=migration_header_oracle)
+        header_oracle=migration_header_oracle,
+        release_profile_ingress_specs=migration_v3_ingress_specs)
     target_protocol_3 = protocol(
         tip_slot=exact_settlement.core.tip_slot,
         cursor=exact_settlement.core.message_cursor,
@@ -19889,16 +22808,40 @@ def test_data_gc_reorg_and_geometry() -> None:
     failed_index = destination.terminal_index[credit_a]
     done_index = destination.terminal_index[credit_b]
     failed_proof = TerminalProof(
-        1, sequence_2, canonical_756, failed_index, "bridge:A", d1_domain,
-        credit_a, "FAILED", accumulator.leaves[failed_index], accumulator.root)
+        1, sequence_2, failed_index,
+        terminal_merkle_branch(accumulator.leaves, failed_index))
     done_proof = TerminalProof(
-        1, sequence_2, canonical_756, done_index, "bridge:A", d1_domain,
-        credit_b, "DONE", accumulator.leaves[done_index], accumulator.root)
+        1, sequence_2, done_index,
+        terminal_merkle_branch(accumulator.leaves, done_index))
     done_d2_index = destination_d2.terminal_index[credit_d2]
     d2_proof = TerminalProof(
-        1, sequence_2, canonical_756, done_d2_index, "bridge:B", d2_domain,
-        credit_d2, "DONE", accumulator.leaves[done_d2_index],
-        accumulator.root)
+        1, sequence_2, done_d2_index,
+        terminal_merkle_branch(accumulator.leaves, done_d2_index))
+    terminal_source = active_router._source_bridge_authority
+    assert type(terminal_source) is SourceBridgeV2
+    terminal_authorizations = {
+        credit_a: source.credit_registry.authorizations[credit_a],
+        credit_b: source.credit_registry.authorizations[credit_b],
+        credit_d2: source_d2.credit_registry.authorizations[credit_d2],
+    }
+    terminal_credits = {
+        credit_id: copy.deepcopy(ledger.credits[credit_id])
+        for credit_id, ledger in (
+            (credit_a, source),
+            (credit_b, source),
+            (credit_d2, source_d2),
+        )
+    }
+    terminal_liability = sum(
+        row.value + row.fee for row in terminal_credits.values()
+    )
+    set_source_v2_accounting_for_test(
+        terminal_source,
+        credits=terminal_credits,
+        authorizations=terminal_authorizations,
+        total_liability=terminal_liability,
+    )
+    terminal_source.balance = terminal_liability
     legacy_signal_service_paused = True
     check("P50as V2 terminal verifier is independent of legacy SignalService pause",
           legacy_signal_service_paused
@@ -19907,12 +22850,50 @@ def test_data_gc_reorg_and_geometry() -> None:
               destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
-              proof=replace(failed_proof, destination_bridge="bridge:B"),
+              proof=failed_proof,
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A"))
+              destination_bridge="bridge:B"))
     check("P50aw terminal proof substitutions fail closed",
-          not terminal_verifier.verify(
+          len(failed_proof.siblings) == TERMINAL_TREE_DEPTH
+          and not terminal_verifier.verify(
+              proof=replace(
+                  failed_proof, siblings=failed_proof.siblings[:-1],
+              ),
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id=d1_domain,
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
+              proof=replace(
+                  failed_proof,
+                  siblings=failed_proof.siblings + ("00" * 32,),
+              ),
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id=d1_domain,
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
+              proof=replace(
+                  failed_proof,
+                  siblings=tuple(reversed(failed_proof.siblings)),
+              ),
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id=d1_domain,
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
+              proof=replace(failed_proof, leaf_index=failed_index + 1),
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id=d1_domain,
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
+              proof=replace(failed_proof, protocol_version=2),
+              credit_id=credit_a, terminal="FAILED",
+              destination_domain_id=d1_domain,
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
+              proof=failed_proof, credit_id=credit_a, terminal="FAILED",
+              destination_domain_id="domain:substituted",
+              destination_bridge="bridge:A")
+          and not terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_b, terminal="FAILED",
               destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
@@ -19921,7 +22902,10 @@ def test_data_gc_reorg_and_geometry() -> None:
               destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
-              proof=replace(failed_proof, proof_root="forged"),
+              proof=replace(
+                  failed_proof,
+                  siblings=("00" * 32,) + failed_proof.siblings[1:],
+              ),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
@@ -19936,12 +22920,11 @@ def test_data_gc_reorg_and_geometry() -> None:
               destination_domain_id=d1_domain,
               destination_bridge="bridge:A")
           and not terminal_verifier.verify(
-              proof=replace(d2_proof, destination_bridge="bridge:A"),
+              proof=d2_proof,
               credit_id=credit_d2, terminal="DONE",
               destination_domain_id=d2_domain,
-              destination_bridge="bridge:B")
-          and source_d2.finalize_done(
-              credit_d2, verifier=terminal_verifier, proof=d2_proof))
+              destination_bridge="bridge:A")
+          and terminal_source.finalize_done(credit_d2, proof=d2_proof))
     frozen_runtime = settlement_1.runtime_hash
     try:
         settlement_1.runtime_hash = "runtime:mutated"
@@ -19952,16 +22935,16 @@ def test_data_gc_reorg_and_geometry() -> None:
           runtime_replacement_rejected
           and settlement_1.runtime_hash == frozen_runtime)
     check("P50aj permanent terminal proofs release exactly one source liability",
-          source.recall_failed(
-              credit_a, verifier=terminal_verifier, proof=failed_proof)
-          and source.credits[credit_a].status == "RECALLED"
-          and source.finalize_done(
-              credit_b, verifier=terminal_verifier, proof=done_proof)
-          and source.credits[credit_b].status == "DELIVERED"
-          and not source.finalize_done(
-              credit_a, verifier=terminal_verifier, proof=done_proof)
-          and not source.recall_failed(
-              credit_b, verifier=terminal_verifier, proof=failed_proof))
+          terminal_source.recall_failed(credit_a, proof=failed_proof)
+          and terminal_source.credits[credit_a].status == "RECALLED"
+          and terminal_source.finalize_done(credit_b, proof=done_proof)
+          and terminal_source.credits[credit_b].status == "DELIVERED"
+          and not terminal_source.finalize_done(
+              credit_a, proof=done_proof
+          )
+          and not terminal_source.recall_failed(
+              credit_b, proof=failed_proof
+          ))
 
     reorg_protocol = protocol(tip_slot=100)
     reorg_clock = clock(100, 100)
@@ -19997,9 +22980,14 @@ def test_data_gc_reorg_and_geometry() -> None:
     reorg_router.forced_queue._restore_transaction_snapshot(
         reorg_queue_snapshot
     )
-    reorg_source._restore_transaction_snapshot(reorg_source_snapshot)
+    reorg_source._restore_transaction_snapshot(
+        reorg_source_snapshot,
+        capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+    )
     reorg_source.credit_registry._restore_authorization_snapshot(
-        reorg_registry_snapshot, source_bridge=reorg_source
+        reorg_registry_snapshot,
+        source_bridge=reorg_source,
+        capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
     )
     reorg_adapter.__dict__.clear()
     reorg_adapter.__dict__.update(reorg_adapter_snapshot)
