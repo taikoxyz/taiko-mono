@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -93,6 +95,13 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
+	ETHClientRequestTimeout = &cli.DurationFlag{
+		Name:     "ethClientRequestTimeout",
+		Usage:    "Maximum duration of an HTTP JSON-RPC request",
+		Category: commonCategory,
+		Value:    5 * time.Minute,
+		EnvVars:  []string{"ETH_CLIENT_REQUEST_TIMEOUT"},
+	}
 	SrcSignalServiceAddress = &cli.StringFlag{
 		Name:     "srcSignalServiceAddress",
 		Usage:    "SignalService address for the source chain",
@@ -130,6 +139,7 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
 	ETHClientTimeout,
+	ETHClientRequestTimeout,
 	SrcSignalServiceAddress,
 	BackOffMaxRetries,
 	BackOffRetryInterval,

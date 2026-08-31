@@ -8,7 +8,7 @@ import (
 var (
 	BlocksScanned = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_scanned_ops_total",
-		Help: "The total number of blocks scanned",
+		Help: "The total number of source-chain head changes observed",
 	})
 	PrivateRPCFailures = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "private_rpc_failures_ops_total",

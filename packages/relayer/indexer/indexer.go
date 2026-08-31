@@ -10,11 +10,9 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
@@ -24,6 +22,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/rpcclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
@@ -68,7 +67,6 @@ type ethClient interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
 }
 
@@ -148,12 +146,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
-	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	srcEthClient, err := rpcclient.DialEthClient(ctx, cfg.SrcRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
 
-	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	destEthClient, err := rpcclient.DialEthClient(ctx, cfg.DestRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
@@ -287,9 +285,10 @@ func (i *Indexer) Start() error {
 	go i.eventLoop(i.ctx)
 
 	go func() {
+		bo := backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)
 		if err := backoff.Retry(func() error {
 			return utils.ScanBlocks(i.ctx, i.srcEthClient, &i.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+		}, bo); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
 	}()
@@ -319,8 +318,20 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 
 // filter is the main function run by Start in the indexer
 func (i *Indexer) filter(ctx context.Context) error {
-	// get the latest header
-	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
+	// get the latest header.
+	//
+	// Bound only this call: it is a single head query, the same call class that
+	// ethClientTimeout already covers elsewhere in this package, and it is the
+	// first call of every poll — if it hangs, the whole event loop hangs behind
+	// it. Deliberately scoped to its own context rather than shadowing ctx: the
+	// Filter* calls further down keep the caller's context, because a batch scan
+	// (and WaitConfirmations, which runs under its own ConfirmationTimeout) can
+	// legitimately take far longer than ethClientTimeout.
+	headerCtx, cancel := context.WithTimeout(ctx, i.ethClientTimeout)
+
+	defer cancel()
+
+	header, err := i.srcEthClient.HeaderByNumber(headerCtx, nil)
 	if err != nil {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}

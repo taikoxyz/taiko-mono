@@ -2,144 +2,85 @@ package utils
 
 import (
 	"context"
-	"errors"
-	"sync"
+	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-// headSubscription is a subscription whose error channel the test drives.
-type headSubscription struct {
-	errChan      chan error
-	unsubscribed bool
+type pollingHeadClient struct {
+	calls      atomic.Int64
+	headNumber atomic.Int64
 }
 
-func (s *headSubscription) Err() <-chan error { return s.errChan }
-func (s *headSubscription) Unsubscribe()      { s.unsubscribed = true }
+func (c *pollingHeadClient) HeaderByNumber(context.Context, *big.Int) (*types.Header, error) {
+	headNumber := c.headNumber.Load()
+	c.calls.Add(1)
 
-// fakeHeadSubscriber stands in for a node. subscribed closes once ScanBlocks has handed over its
-// channel, which is what lets a test push headers without racing the goroutine.
-type fakeHeadSubscriber struct {
-	sub        *headSubscription
-	err        error
-	headers    chan<- *types.Header
-	subscribed chan struct{}
+	return &types.Header{Number: big.NewInt(headNumber)}, nil
 }
 
-func newFakeHeadSubscriber() *fakeHeadSubscriber {
-	return &fakeHeadSubscriber{
-		sub:        &headSubscription{errChan: make(chan error, 1)},
-		subscribed: make(chan struct{}),
-	}
-}
-
-func (f *fakeHeadSubscriber) SubscribeNewHead(
-	_ context.Context,
-	ch chan<- *types.Header,
-) (ethereum.Subscription, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	f.headers = ch
-	close(f.subscribed)
-
-	return f.sub, nil
-}
-
-// runScanBlocks starts ScanBlocks and returns a channel carrying its error once it returns.
-func runScanBlocks(ctx context.Context, client headSubscriber, wg *sync.WaitGroup) chan error {
-	done := make(chan error, 1)
-
-	go func() { done <- ScanBlocks(ctx, client, wg) }()
-
-	return done
-}
-
-func TestScanBlocks_ReturnsTheSubscribeError(t *testing.T) {
-	client := newFakeHeadSubscriber()
-	client.err = errors.New("dial tcp: connect: connection refused")
-
-	var wg sync.WaitGroup
-
-	err := ScanBlocks(context.Background(), client, &wg)
-
-	require.ErrorContains(t, err, "connection refused")
-
-	// The deferred Done has to run even on the early return, or a caller's Close would hang on a
-	// WaitGroup that never drains.
-	waitTimeout(t, &wg)
-}
-
-func TestScanBlocks_CountsEveryNewHead(t *testing.T) {
-	client := newFakeHeadSubscriber()
-
-	var wg sync.WaitGroup
+func TestScanBlocksCountsObservedHeadChanges(t *testing.T) {
+	client := new(pollingHeadClient)
+	client.headNumber.Store(42)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	done := runScanBlocks(ctx, client, &wg)
-
-	<-client.subscribed
-
 	before := testutil.ToFloat64(relayer.BlocksScanned)
-
-	for i := 0; i < 3; i++ {
-		client.headers <- &types.Header{}
-	}
-
-	// A fourth send only returns once the third has been received, so by the time it does the
-	// counter for all three is already incremented.
-	client.headers <- &types.Header{}
-
-	cancel()
-
-	require.NoError(t, <-done, "a cancelled context is a clean shutdown, not a failure")
-	assert.GreaterOrEqual(t, testutil.ToFloat64(relayer.BlocksScanned)-before, float64(3))
-
-	waitTimeout(t, &wg)
-}
-
-func TestScanBlocks_ReturnsTheSubscriptionError(t *testing.T) {
-	client := newFakeHeadSubscriber()
-
-	var wg sync.WaitGroup
-
-	done := runScanBlocks(context.Background(), client, &wg)
-
-	<-client.subscribed
-
-	// A subscription that drops has to surface, not leave the caller scanning nothing forever.
-	client.sub.errChan <- errors.New("subscription closed")
-
-	require.ErrorContains(t, <-done, "subscription closed")
-
-	waitTimeout(t, &wg)
-}
-
-// waitTimeout fails the test if wg does not drain promptly.
-func waitTimeout(t *testing.T, wg *sync.WaitGroup) {
-	t.Helper()
-
-	drained := make(chan struct{})
+	errCh := make(chan error, 1)
 
 	go func() {
-		wg.Wait()
-		close(drained)
+		errCh <- scanBlocks(ctx, client, time.Millisecond, time.Second)
 	}()
 
-	select {
-	case <-drained:
-	case <-time.After(5 * time.Second):
-		t.Fatal("WaitGroup never drained")
-	}
+	require.Eventually(t, func() bool {
+		return client.calls.Load() >= 1
+	}, time.Second, time.Millisecond)
+	client.headNumber.Store(43)
+	require.Eventually(t, func() bool {
+		return testutil.ToFloat64(relayer.BlocksScanned)-before == 1
+	}, time.Second, time.Millisecond)
+	cancel()
+
+	require.NoError(t, <-errCh)
+	require.Equal(t, float64(1), testutil.ToFloat64(relayer.BlocksScanned)-before)
+}
+
+func TestScanBlocksPollsHeadWithoutDoubleCountingUnchangedHead(t *testing.T) {
+	client := new(pollingHeadClient)
+	ctx, cancel := context.WithCancel(context.Background())
+	before := testutil.ToFloat64(relayer.BlocksScanned)
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- scanBlocks(ctx, client, time.Millisecond, time.Second)
+	}()
+
+	require.Eventually(t, func() bool {
+		return client.calls.Load() >= 2
+	}, time.Second, time.Millisecond)
+	cancel()
+
+	require.NoError(t, <-errCh)
+	require.Equal(t, float64(0), testutil.ToFloat64(relayer.BlocksScanned)-before)
+}
+
+type blockingHeadClient struct{}
+
+func (*blockingHeadClient) HeaderByNumber(ctx context.Context, _ *big.Int) (*types.Header, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestScanBlocksBoundsEachHeadRequest(t *testing.T) {
+	started := time.Now()
+	err := scanBlocks(context.Background(), new(blockingHeadClient), time.Hour, 20*time.Millisecond)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Less(t, time.Since(started), time.Second)
 }
