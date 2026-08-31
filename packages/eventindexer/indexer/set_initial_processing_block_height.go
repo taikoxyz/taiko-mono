@@ -12,35 +12,50 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 ) error {
-	startingBlock, err := i.getFirstShastaBlockHeight(ctx)
+	startingBlock, err := i.initialIndexingBlockByMode(
+		ctx,
+		mode,
+		i.getFirstShastaBlockHeight,
+	)
 	if err != nil {
 		return err
 	}
 
+	slog.Info("startingBlock", "startingBlock", startingBlock)
+	i.latestIndexedBlockNumber = startingBlock
+
+	return nil
+}
+
+func (i *Indexer) initialIndexingBlockByMode(
+	ctx context.Context,
+	mode SyncMode,
+	firstShastaBlock func(context.Context) (uint64, error),
+) (uint64, error) {
 	switch mode {
-	case Sync:
-		// get most recently processed block height from the DB
+	case Sync, Resync:
+	default:
+		return 0, eventindexer.ErrInvalidMode
+	}
+
+	if mode == Sync {
 		latest, err := i.eventRepo.FindLatestBlockID(ctx,
 			i.srcChainID,
 		)
 		if err != nil {
-			return errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
+			return 0, errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
 		}
 
 		if latest != 0 {
-			startingBlock = latest - 1
+			return latest - 1, nil
 		}
-
-	case Resync:
-	default:
-		return eventindexer.ErrInvalidMode
 	}
 
-	slog.Info("startingBlock", "startingBlock", startingBlock)
+	if i.layer == Layer2 {
+		return 0, nil
+	}
 
-	i.latestIndexedBlockNumber = startingBlock
-
-	return nil
+	return firstShastaBlock(ctx)
 }
 
 // getFirstShastaBlockHeight returns the first Shasta block height.
