@@ -25,6 +25,7 @@ class MoralisNFTRepository implements INFTRepository {
   private static isInitialized = false;
 
   private stateByWallet: Map<string, PaginationState> = new Map();
+  private requestQueueByWallet: Map<string, Promise<NFT[]>> = new Map();
 
   private constructor() {
     if (!MoralisNFTRepository.isInitialized) {
@@ -44,6 +45,22 @@ class MoralisNFTRepository implements INFTRepository {
   }
 
   async findByAddress({ address, chainId, refresh = false }: FetchNftArgs): Promise<NFT[]> {
+    const key = `${address.toLowerCase()}-${chainId}`;
+
+    // Serialize requests per wallet+chain: concurrent calls would read the same cursor,
+    // fetch the same page twice, and append duplicates to the shared pagination state
+    const previous = this.requestQueueByWallet.get(key) ?? Promise.resolve([]);
+    const request = previous.catch(() => []).then(() => this.fetchNextPage({ address, chainId, refresh }));
+    this.requestQueueByWallet.set(key, request);
+    void request.finally(() => {
+      if (this.requestQueueByWallet.get(key) === request) {
+        this.requestQueueByWallet.delete(key);
+      }
+    });
+    return request;
+  }
+
+  private async fetchNextPage({ address, chainId, refresh = false }: FetchNftArgs): Promise<NFT[]> {
     const state = this.getState(address, chainId, refresh);
 
     if (state.hasFetchedAll) {
@@ -68,7 +85,8 @@ class MoralisNFTRepository implements INFTRepository {
       return state.nfts;
     } catch (e) {
       console.error('Failed to fetch NFTs from Moralis:', e);
-      return [];
+      // Keep whatever pages were already fetched; the failed page is retried next call
+      return state.nfts;
     }
   }
 

@@ -122,6 +122,43 @@ describe('MoralisNFTRepository.server', () => {
     );
   });
 
+  it('serializes concurrent requests for the same wallet so pages are not fetched twice', async () => {
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1], 'cursor-page2')).mockResolvedValueOnce(moralisPage([2], null));
+
+    // Fire both before either resolves: without serialization they would share the
+    // same cursor and duplicate page 1
+    const [first, second] = await Promise.all([
+      repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: true }),
+      repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: false }),
+    ]);
+
+    expect(first).toEqual([{ tokenId: 1, chainId: CHAIN_ID }]);
+    expect(second).toEqual([
+      { tokenId: 1, chainId: CHAIN_ID },
+      { tokenId: 2, chainId: CHAIN_ID },
+    ]);
+    expect(getWalletNFTs).toHaveBeenNthCalledWith(1, expect.objectContaining({ cursor: '' }));
+    expect(getWalletNFTs).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 'cursor-page2' }));
+  });
+
+  it('keeps already-fetched pages when a later page fails', async () => {
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1], 'cursor-page2'));
+    await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: true });
+
+    getWalletNFTs.mockRejectedValueOnce(new Error('rate limited'));
+    const afterFailure = await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: false });
+
+    // The first page survives the failed second page and the cursor is retried next call
+    expect(afterFailure).toEqual([{ tokenId: 1, chainId: CHAIN_ID }]);
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([2], null));
+    const retried = await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: false });
+    expect(retried).toEqual([
+      { tokenId: 1, chainId: CHAIN_ID },
+      { tokenId: 2, chainId: CHAIN_ID },
+    ]);
+    expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-page2' }));
+  });
+
   it('returns an empty array when the Moralis request fails, without caching the failure as complete', async () => {
     getWalletNFTs.mockRejectedValueOnce(new Error('rate limited'));
     const failed = await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: true });
