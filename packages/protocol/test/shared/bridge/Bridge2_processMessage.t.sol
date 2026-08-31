@@ -531,9 +531,9 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertApproxEqAbs(wallet.recordedBudget(), 137_300, 500);
     }
 
-    /// @dev Self-claim path: msg.sender == destOwner, so processMessage takes the `gasleft()`
-    /// invocation branch and skips the relayer payout, sending value and the whole fee to the
-    /// wallet in one capped send. Every other test of that send runs the relayer path.
+    /// @dev Self-claim path with invocation prohibited: msg.sender == destOwner, so the relayer
+    /// payout is skipped entirely and the value plus the whole fee arrive in a single capped
+    /// send. Every other test of that send runs the relayer path, where a fee cut is deducted.
     function test_bridge2_processMessage__self_claim_by_storage_creating_wallet() public {
         MessageReceiver_CreatingFreshStorageSlots wallet =
             new MessageReceiver_CreatingFreshStorageSlots(5);
@@ -557,6 +557,41 @@ contract TestBridge2_processMessage is TestBridge2Base {
         // No relayer cut on this path: the value and the entire fee arrive in one send.
         assertEq(wallet.receiveCount(), 1);
         assertEq(address(wallet).balance, 2 ether + 5_000_000);
+        assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
+    }
+
+    /// @dev The self-claim path's other half: with an invocable `to`, processMessage forwards
+    /// raw `gasleft()` to the invocation, a budget large enough for a storage-creating receive.
+    /// The refund then goes to a second wallet, so the capped send still carries a first receive.
+    function test_bridge2_processMessage__self_claim_with_invocation() public {
+        MessageReceiver_CreatingFreshStorageSlots invocationWallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlots refundWallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+
+        uint256 bridgeBalance = address(eBridge).balance;
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = address(refundWallet);
+        // Empty data and a plain contract `to`: invocation is permitted, so the gasleft() arm
+        // of the invocation-budget ternary is taken.
+        message.to = address(invocationWallet);
+
+        vm.prank(address(refundWallet));
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(invocationWallet.receiveCount(), 1);
+        assertEq(refundWallet.receiveCount(), 1);
+        assertEq(address(invocationWallet).balance, 2 ether);
+        // Self-claim takes no relayer cut, so the entire fee is refunded.
+        assertEq(address(refundWallet).balance, 5_000_000);
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
     }
 
