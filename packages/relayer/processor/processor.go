@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -37,6 +36,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/rpcclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
@@ -53,7 +53,6 @@ type ethClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
@@ -150,17 +149,14 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	srcRpcClient, err := rpc.Dial(cfg.SrcRPCUrl)
+	srcRpcClient, err := rpcclient.Dial(ctx, cfg.SrcRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
 
-	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
-	if err != nil {
-		return err
-	}
+	srcEthClient := ethclient.NewClient(srcRpcClient)
 
-	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	destEthClient, err := rpcclient.DialEthClient(ctx, cfg.DestRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
@@ -398,9 +394,10 @@ func (p *Processor) Start() error {
 	go p.eventLoop(ctx)
 
 	go func() {
+		bo := backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), ctx)
 		if err := backoff.Retry(func() error {
 			return utils.ScanBlocks(ctx, p.srcEthClient, &p.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+		}, bo); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
 	}()

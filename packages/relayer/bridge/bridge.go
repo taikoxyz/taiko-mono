@@ -14,11 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/rpcclient"
 )
 
 type ethClient interface {
@@ -69,12 +69,12 @@ func (b *Bridge) InitFromCli(ctx context.Context, c *cli.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
-	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	srcEthClient, err := rpcclient.DialEthClient(ctx, cfg.SrcRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
 
-	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	destEthClient, err := rpcclient.DialEthClient(ctx, cfg.DestRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v2"
@@ -47,6 +48,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(1000), c.HTTPPort)
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
+		assert.Equal(t, 5*time.Minute, c.ETHClientRequestTimeout)
 		assert.Equal(t, destTaikoAddress, c.DestTaikoAddress.Hex())
 
 		c.OpenDBFunc = func() (db.DB, error) {

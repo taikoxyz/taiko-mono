@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -62,6 +63,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, common.HexToAddress(srcBridgeAddr), c.SrcBridgeAddress)
 		assert.Equal(t, common.HexToAddress(srcTaikoAddr), c.SrcTaikoAddress)
 		assert.Equal(t, uint64(10), c.ETHClientTimeout)
+		assert.Equal(t, 5*time.Minute, c.ETHClientRequestTimeout)
 		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
 		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
