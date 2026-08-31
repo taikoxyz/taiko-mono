@@ -425,15 +425,21 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether);
     }
 
-    /// @dev End-to-end claim of bridged Ether by a storage-creating smart wallet with a relayer
-    /// fee: the invocation pays the value to the wallet, and the unused fee is then refunded to
-    /// the same wallet through the gas-capped Ether send.
+    /// @dev End-to-end claim of bridged Ether by storage-creating smart wallets with a relayer
+    /// fee: the invocation pays the value to `to`, and the unused fee is refunded to destOwner
+    /// through the gas-capped Ether send. destOwner is deliberately a *different* contract from
+    /// `to` so the capped send carries a first receive (5+1 fresh slots, ~133k gas). Pointing
+    /// both at one wallet makes the refund a warm-counter second receive costing only ~91k —
+    /// below the 97,920 one fresh slot costs under EIP-8037, so it would not exercise the
+    /// budget this cap exists to provide.
     function test_bridge2_processMessage__storage_creating_wallet_claims_with_fee()
         public
         transactBy(Carol)
     {
-        MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(4);
+        MessageReceiver_CreatingFreshStorageSlots invocationWallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+        MessageReceiver_CreatingFreshStorageSlots refundWallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
 
         uint256 carolBalance = Carol.balance;
         uint256 bridgeBalance = address(eBridge).balance;
@@ -441,26 +447,32 @@ contract TestBridge2_processMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
-        message.gasLimit = 1_000_000;
+        // Derived from the bridge's own minimum so the invocation budget stays at 200,000
+        // however GAS_RESERVE is retuned.
+        message.gasLimit = eBridge.getMessageMinGasLimit(0) + 200_000;
         message.fee = 5_000_000;
         message.value = 2 ether;
-        message.destOwner = address(wallet);
+        message.destOwner = address(refundWallet);
         // With empty message.data the invocation is a plain value-bearing call that hits the
         // wallet's receive() — no onMessageInvocation implementation is required.
-        message.to = address(wallet);
+        message.to = address(invocationWallet);
 
         eBridge.processMessage(message, FAKE_PROOF);
 
         bytes32 hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
-        // The wallet received the value in the invocation and the fee remainder in the refund.
-        assertEq(wallet.receiveCount(), 2);
-        assertTrue(address(wallet).balance > 2 ether);
-        assertTrue(address(wallet).balance < 2 ether + 5_000_000);
-        // The relayer received the rest of the fee.
+        // The invocation delivered the value; the capped refund delivered the fee remainder.
+        assertEq(invocationWallet.receiveCount(), 1);
+        assertEq(refundWallet.receiveCount(), 1);
+        assertEq(address(invocationWallet).balance, 2 ether);
+        assertTrue(address(refundWallet).balance > 0);
+        // The relayer received the rest of the fee, and nothing else moved.
         uint256 relayerFee = Carol.balance - carolBalance;
         assertTrue(relayerFee > 0);
-        assertEq(address(wallet).balance + relayerFee, 2 ether + 5_000_000);
+        assertEq(
+            address(invocationWallet).balance + address(refundWallet).balance + relayerFee,
+            2 ether + 5_000_000
+        );
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
     }
 
