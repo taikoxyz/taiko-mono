@@ -36,6 +36,12 @@ contract Target is IMessageInvocable {
 }
 
 contract TestBridge2_processMessage is TestBridge2Base {
+    /// @dev Mirrors Bridge._SEND_ETHER_GAS_LIMIT (135,000, `private`) plus the 2,300 stipend a
+    /// value-bearing CALL always adds. Retuning the bridge constant must move this one too.
+    /// Written as a literal rather than `135_000 + 2_300` because forge fmt's handling of
+    /// underscores inside a constant expression differs between versions.
+    uint256 private constant _EXPECTED_SEND_BUDGET = 137_300;
+
     function test_bridge2_processMessage_basic() public dealEther(Alice) assertSameTotalBalance {
         vm.startPrank(Alice);
 
@@ -527,8 +533,12 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         eBridge.processMessage(message, FAKE_PROOF);
 
-        // _SEND_ETHER_GAS_LIMIT (135,000) + the 2,300 stipend, less frame-entry overhead.
-        assertApproxEqAbs(wallet.recordedBudget(), 137_300, 500);
+        // The allowance can never exceed the cap plus the stipend, and frame entry costs a
+        // handful of opcodes below it (57 gas as measured). A tolerance wide enough to absorb
+        // real variation but far tighter than one slot-creation charge is what keeps this test,
+        // rather than the behavioural brackets, the binding constraint on the constant.
+        assertLe(wallet.recordedBudget(), _EXPECTED_SEND_BUDGET);
+        assertGe(wallet.recordedBudget(), _EXPECTED_SEND_BUDGET - 100);
     }
 
     /// @dev Self-claim path with invocation prohibited: msg.sender == destOwner, so the relayer
@@ -563,6 +573,9 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// @dev The self-claim path's other half: with an invocable `to`, processMessage forwards
     /// raw `gasleft()` to the invocation, a budget large enough for a storage-creating receive.
     /// The refund then goes to a second wallet, so the capped send still carries a first receive.
+    /// `gasLimit` is deliberately set so `_invocationGasLimit` would yield 120,000 — below the
+    /// 131,235 a 5+1 receive needs. Only the `gasleft()` arm of the ternary can satisfy this
+    /// wallet, so collapsing that ternary to the relayer branch turns this test red.
     function test_bridge2_processMessage__self_claim_with_invocation() public {
         MessageReceiver_CreatingFreshStorageSlots invocationWallet =
             new MessageReceiver_CreatingFreshStorageSlots(5);
@@ -574,7 +587,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
-        message.gasLimit = 1_000_000;
+        message.gasLimit = eBridge.getMessageMinGasLimit(0) + 120_000;
         message.fee = 5_000_000;
         message.value = 2 ether;
         message.destOwner = address(refundWallet);
@@ -592,6 +605,41 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertEq(address(invocationWallet).balance, 2 ether);
         // Self-claim takes no relayer cut, so the entire fee is refunded.
         assertEq(address(refundWallet).balance, 5_000_000);
+        assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
+    }
+
+    /// @dev The relayer fee payout is a *separate* capped send from the destOwner refund, and a
+    /// relayer may itself be a contract. Every other test here pays the fee to an EOA, where the
+    /// 2,300 stipend alone suffices and the cap is therefore unconstrained: setting that send's
+    /// gas operand to zero leaves the whole suite green. Keeping `destOwner` an EOA makes the
+    /// relayer payout the only leg that needs the budget, so this test pins it specifically.
+    function test_bridge2_processMessage__fee_payout_to_storage_creating_relayer() public {
+        MessageReceiver_CreatingFreshStorageSlots relayerWallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+
+        uint256 aliceBalance = Alice.balance;
+        uint256 bridgeBalance = address(eBridge).balance;
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = Alice;
+        message.to = address(eBridge); // invocation prohibited -> the value is refunded to Alice
+
+        vm.prank(address(relayerWallet));
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        // The relayer's cut arrived through the capped send, as a first receive.
+        assertEq(relayerWallet.receiveCount(), 1);
+        uint256 relayerFee = address(relayerWallet).balance;
+        assertTrue(relayerFee > 0);
+        // Alice got the value plus the fee the relayer left behind, and nothing leaked.
+        assertEq(Alice.balance, aliceBalance + 2 ether + 5_000_000 - relayerFee);
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
     }
 
