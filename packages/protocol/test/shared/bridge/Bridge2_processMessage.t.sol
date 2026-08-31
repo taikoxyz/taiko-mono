@@ -428,10 +428,10 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// @dev End-to-end claim of bridged Ether by storage-creating smart wallets with a relayer
     /// fee: the invocation pays the value to `to`, and the unused fee is refunded to destOwner
     /// through the gas-capped Ether send. destOwner is deliberately a *different* contract from
-    /// `to` so the capped send carries a first receive (5+1 fresh slots, ~133k gas). Pointing
-    /// both at one wallet would make the refund a warm-counter second receive costing ~112k —
-    /// just under the 112,920 a legacy one-slot wallet needs after EIP-8037, so it would not
-    /// demonstrate the budget this cap exists to provide.
+    /// `to` so the capped send carries a first receive, which needs a 131,235 gas operand.
+    /// Pointing both at one wallet would make the refund a warm-counter second receive needing
+    /// only 111,536 — below the 112,920 a legacy one-slot wallet needs after EIP-8037, so it
+    /// would not demonstrate the budget this cap exists to provide.
     function test_bridge2_processMessage__storage_creating_wallet_claims_with_fee()
         public
         transactBy(Carol)

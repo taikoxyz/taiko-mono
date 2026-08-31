@@ -70,11 +70,12 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// gas under the previous 35,000 cap, and since a failed send reverts processing, its
     /// messages would become unclaimable. Preserving the legacy budget for such a wallet costs
     /// 35,000 - 20,000 + 97,920 = 112,920, so this cap keeps roughly 22,000 of headroom on top.
-    /// Wallets that fit before the fork still fit after it provided their receive path creates
-    /// at most one storage slot AND no other new state: EIP-8037 also reprices account creation
-    /// to 120 state bytes = 183,600 gas, so a receive path that forwards value to a
-    /// never-before-used address, or runs CREATE, fits under the legacy budget today yet exceeds
-    /// this one after the fork.
+    /// The cap itself was sized additively as 35,000 + 97,920 = 132,920 rounded up to 135,000,
+    /// which is why it sits above the strict 112,920 requirement. Wallets that fit before the
+    /// fork still fit after it provided their receive path creates at most one storage slot AND
+    /// no other new state: EIP-8037 also reprices account creation to 120 state bytes = 183,600
+    /// gas, so a receive path that forwards value to a never-before-used address, or runs
+    /// CREATE, fits under the legacy budget today yet exceeds this one after the fork.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
