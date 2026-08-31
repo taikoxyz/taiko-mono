@@ -61,11 +61,21 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// suggest. State-access repricing forks such as EIP-8038 raise mostly caller-side costs
     /// (value-transfer account write, cold-recipient access) that are paid by this contract
     /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
+    /// State-creation repricing (EIP-8037, scheduled for Glamsterdam) does draw on this budget:
+    /// creating a fresh storage slot charges 64 state bytes * 1,530 gas/byte = 97,920 gas, and
+    /// unless the transaction buys gas beyond the 16.7M per-transaction execution cap (which no
+    /// realistic claim transaction does, leaving its state-gas reservoir empty), that charge is
+    /// deducted from the callee frame's own gas. A smart wallet that writes a single fresh slot
+    /// when receiving Ether would then run out of gas under the previous 35,000 cap, and since a
+    /// failed send reverts processing, its messages would become unclaimable. The cap is
+    /// therefore the legacy 35,000 callee budget plus one EIP-8037 slot-creation charge
+    /// (97,920), rounded up — wallets that fit before the fork still fit after it, as long as
+    /// their receive path creates at most one storage slot.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
     // - For Gnosis Safe wallet, gas used is about 28000
-    uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 135_000;
 
     /// @dev Place holder value stored in the context slots between message invocations.
     uint256 private constant _PLACEHOLDER = type(uint256).max;

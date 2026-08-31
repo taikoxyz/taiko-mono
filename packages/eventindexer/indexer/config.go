@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
@@ -23,7 +24,7 @@ type Config struct {
 	RPCUrl                  string
 	MetricsHTTPPort         uint64
 	ETHClientTimeout        uint64
-	L1TaikoAddress          common.Address
+	ShastaInboxAddress      common.Address
 	BridgeAddress           common.Address
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
@@ -38,6 +39,26 @@ type Config struct {
 	OpenDBFunc                  func() (db.DB, error)
 }
 
+func (c *Config) validate() error {
+	switch c.SyncMode {
+	case Sync, Resync:
+	default:
+		return eventindexer.ErrInvalidMode
+	}
+
+	switch c.Layer {
+	case Layer1, Layer2:
+	default:
+		return eventindexer.ErrInvalidLayer
+	}
+
+	if c.Layer == Layer1 && c.ShastaInboxAddress == ZeroAddress {
+		return eventindexer.ErrNoShastaInboxAddress
+	}
+
+	return nil
+}
+
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
@@ -50,7 +71,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxConnLifetime:     c.Uint64(flags.DatabaseConnMaxLifetime.Name),
 		MetricsHTTPPort:             c.Uint64(flags.MetricsHTTPPort.Name),
 		ETHClientTimeout:            c.Uint64(flags.ETHClientTimeout.Name),
-		L1TaikoAddress:              common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
+		ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 		BridgeAddress:               common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		BlockBatchSize:              c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:         c.Uint64(flags.SubscriptionBackoff.Name),

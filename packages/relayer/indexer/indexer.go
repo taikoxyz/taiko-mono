@@ -370,16 +370,19 @@ func (i *Indexer) filter(ctx context.Context) error {
 				return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 			}
 
-			if i.latestIndexedBlockNumber < endBlockID-i.numLatestBlocksStartWhenCrawling {
-				i.latestIndexedBlockNumber = endBlockID - i.numLatestBlocksStartWhenCrawling
+			// both crawl windows are clamped to the history that actually exists.
+			// on a chain shorter than a configured window the unsigned subtraction
+			// would wrap to ~2^64 and the batch loop below would silently never run.
+			crawlStartBlockID := endBlockID - min(endBlockID, i.numLatestBlocksStartWhenCrawling)
+
+			if i.latestIndexedBlockNumber < crawlStartBlockID {
+				i.latestIndexedBlockNumber = crawlStartBlockID
 			}
 
-			if endBlockID > i.numLatestBlocksEndWhenCrawling {
-				// otherwise, we need to set the endBlockID as the greater of the two:
-				// either the endBlockID minus the number of latest blocks to ignore,
-				// or endBlockID.
-				endBlockID -= i.numLatestBlocksEndWhenCrawling
-			}
+			// ignore the latest N blocks from the end. when the chain is shorter than
+			// N, every block is still inside that window, so there is nothing mature
+			// enough to crawl yet and endBlockID clamps to 0.
+			endBlockID -= min(endBlockID, i.numLatestBlocksEndWhenCrawling)
 		}
 	}
 

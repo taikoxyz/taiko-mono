@@ -47,6 +47,9 @@ type Indexer struct {
 	ethClient  *ethclient.Client
 	srcChainID uint64
 
+	// latestIndexedBlockNumber is the last block that has been filtered. Filtering
+	// resumes at the block after it, so any block that still needs to be scanned
+	// must be greater than this value.
 	latestIndexedBlockNumber uint64
 
 	blockBatchSize      uint64
@@ -79,7 +82,7 @@ func (i *Indexer) Start() error {
 		return err
 	}
 
-	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
+	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.getFirstShastaBlockHeight); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
@@ -125,6 +128,10 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cliV2.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
+	if err := cfg.validate(); err != nil {
+		return err
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
@@ -167,12 +174,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var inboxContract *inbox.Inbox
 
-	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
+	if cfg.Layer == Layer1 {
+		slog.Info("setting shastaInboxAddress", "addr", cfg.ShastaInboxAddress.Hex())
 
-		inboxContract, err = inbox.NewInbox(cfg.L1TaikoAddress, ethClient)
+		inboxContract, err = inbox.NewInbox(cfg.ShastaInboxAddress, ethClient)
 		if err != nil {
-			return errors.Wrap(err, "inbox.Inbox")
+			return errors.Wrap(err, "inbox.NewInbox")
 		}
 	}
 

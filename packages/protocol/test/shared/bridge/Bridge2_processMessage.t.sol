@@ -2,6 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "./TestBridge2Base.sol";
+import {
+    MessageReceiver_CreatingFreshStorageSlots
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
 
 contract Target is IMessageInvocable {
     uint256 public receivedEther;
@@ -384,6 +387,104 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         uint256 totalBalance2 = getBalanceForAccounts() + address(target).balance;
         assertEq(totalBalance2, totalBalance);
+    }
+
+    /// @dev The refund send to destOwner must budget for a smart wallet that creates fresh
+    /// storage slots in its receive path. Writing 4+1 fresh slots costs ~112k gas under the
+    /// current schedule — above the previous 35k cap and comparable to what a single fresh slot
+    /// (97,920 gas) plus wallet overhead will cost under EIP-8037.
+    function test_bridge2_processMessage__refund_to_storage_creating_wallet()
+        public
+        transactBy(Carol)
+    {
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(4);
+
+        uint256 bridgeBalance = address(eBridge).balance;
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 0;
+        message.value = 2 ether;
+        message.destOwner = address(wallet);
+        // Invocation is prohibited for the bridge itself, so the full value is refunded to
+        // destOwner through the gas-capped Ether send.
+        message.to = address(eBridge);
+
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(address(wallet).balance, 2 ether);
+        assertEq(wallet.receiveCount(), 1);
+        assertEq(address(eBridge).balance, bridgeBalance - 2 ether);
+    }
+
+    /// @dev End-to-end claim of bridged Ether by a storage-creating smart wallet with a relayer
+    /// fee: the invocation pays the value to the wallet, and the unused fee is then refunded to
+    /// the same wallet through the gas-capped Ether send.
+    function test_bridge2_processMessage__storage_creating_wallet_claims_with_fee()
+        public
+        transactBy(Carol)
+    {
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(4);
+
+        uint256 carolBalance = Carol.balance;
+        uint256 bridgeBalance = address(eBridge).balance;
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 5_000_000;
+        message.value = 2 ether;
+        message.destOwner = address(wallet);
+        // With empty message.data the invocation is a plain value-bearing call that hits the
+        // wallet's receive() — no onMessageInvocation implementation is required.
+        message.to = address(wallet);
+
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        // The wallet received the value in the invocation and the fee remainder in the refund.
+        assertEq(wallet.receiveCount(), 2);
+        assertTrue(address(wallet).balance > 2 ether);
+        assertTrue(address(wallet).balance < 2 ether + 5_000_000);
+        // The relayer received the rest of the fee.
+        uint256 relayerFee = Carol.balance - carolBalance;
+        assertTrue(relayerFee > 0);
+        assertEq(address(wallet).balance + relayerFee, 2 ether + 5_000_000);
+        assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
+    }
+
+    /// @dev The cap still bounds how much gas a recipient can consume: a receive path far above
+    /// the budget (7+1 fresh slots, ~179k gas) keeps failing the refund.
+    function test_bridge2_processMessage__refund_receiver_exceeding_gas_cap()
+        public
+        transactBy(Carol)
+    {
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(7);
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 0;
+        message.value = 2 ether;
+        message.destOwner = address(wallet);
+        message.to = address(eBridge);
+
+        vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
+        assertEq(address(wallet).balance, 0);
     }
 
     function test_bridge2_processMessage__context_transient_lifecycle() public transactBy(Carol) {
