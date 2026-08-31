@@ -170,6 +170,14 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	args["x-dead-letter-exchange"] = dlxExchange
 
+	// Without this the message keeps the routing key it was published with, which is the queue's
+	// own name: the indexer publishes through the default exchange, so that is what arrives here.
+	// dlx-<queue> is bound to the dead-letter exchange with the -process key, and a direct exchange
+	// drops what it cannot route — so a message negatively acknowledged with requeue=false was
+	// destroyed rather than parked, and the dead-letter queue stayed empty while claims disappeared.
+	// The two TTL queues below already override the key; the main queue has to as well.
+	args["x-dead-letter-routing-key"] = routingKey
+
 	q, err := r.ch.QueueDeclare(
 		queueName,
 		true,

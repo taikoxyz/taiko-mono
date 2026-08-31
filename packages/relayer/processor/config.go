@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,12 +111,22 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	if c.IsSet(flags.UnprofitableMessageQueueExpiration.Name) {
 		u := c.String(flags.UnprofitableMessageQueueExpiration.Name)
+		if err := validateQueueExpiration(flags.UnprofitableMessageQueueExpiration.Name, u); err != nil {
+			return nil, err
+		}
+
 		unprofitableMessageQueueExpiration = &u
 	}
 
 	// Always set, unlike the unprofitable expiration: a message with no expiration would wait in
 	// the transient queue forever, and nothing would bring it back.
 	transientErrorQueueExpiration := c.String(flags.TransientErrorQueueExpiration.Name)
+	if err := validateQueueExpiration(
+		flags.TransientErrorQueueExpiration.Name,
+		transientErrorQueueExpiration,
+	); err != nil {
+		return nil, err
+	}
 
 	var destQuotaManagerAddress common.Address
 	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
@@ -289,6 +300,30 @@ func parseFailureReason(err error) error {
 	}
 
 	return err
+}
+
+// validateQueueExpiration rejects a message expiration the broker would not accept.
+//
+// AMQP carries this as a string of milliseconds and validates it only when a message is published.
+// The publish is asynchronous, so a value like "30s" returns no error: the broker closes the channel
+// afterwards with 406 PRECONDITION_FAILED. By then the caller has already counted and logged a
+// message it did not park, and the acknowledgement fails on the dead channel, so the delivery comes
+// back at channel close and the whole thing repeats — a reconnect per attempt until the retry
+// budget runs out and the processor exits. One typo in a value whose flag says milliseconds is
+// enough. Failing at startup instead says what is wrong while somebody is still watching.
+func validateQueueExpiration(flagName, value string) error {
+	ms, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return fmt.Errorf(
+			"invalid %s %q: an AMQP expiration is a whole number of milliseconds", flagName, value,
+		)
+	}
+
+	if ms == 0 {
+		return fmt.Errorf("invalid %s: an expiration of zero would drop the message", flagName)
+	}
+
+	return nil
 }
 
 // isLocalHost reports whether host is reachable without leaving the machine or a private network.

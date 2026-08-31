@@ -159,7 +159,8 @@ func TestHandleProcessMessageResultParksTransientErrors(t *testing.T) {
 	// at a time, so a claim that keeps failing would be all the replica ever looks at.
 	assert.Equal(t, 1, q.acked, "the copy on the transient queue replaces this delivery")
 	assert.Equal(t, 0, q.nacked)
-	assert.Contains(t, q.publishedQueue, "-transient")
+	assert.Equal(t, p.queueName()+"-transient", q.publishedQueue,
+		"the exact queue matters: a name nothing is bound to is dropped by the broker, not parked")
 }
 
 func TestHandleProcessMessageResultPersistsUnprofitableRetryCount(t *testing.T) {
@@ -204,7 +205,7 @@ func TestHandleProcessMessageResultRequeuesDeadlineExceeded(t *testing.T) {
 
 	assert.Equal(t, 1, q.acked)
 	assert.Equal(t, 0, q.nacked)
-	assert.Contains(t, q.publishedQueue, "-transient")
+	assert.Equal(t, p.queueName()+"-transient", q.publishedQueue)
 }
 
 func TestHandleProcessMessageResultCountsAndDelaysTransientRequeues(t *testing.T) {
@@ -232,6 +233,27 @@ func TestHandleProcessMessageResultCountsAndDelaysTransientRequeues(t *testing.T
 	assert.Equal(t, uint64(5), published.TimesRequeued)
 	assert.Equal(t, DefaultTransientErrorQueueExpiration, *q.publishedExpiration,
 		"a message parked with no expiration would never come back")
+}
+
+func TestHandleProcessMessageResultParksForTheConfiguredExpiration(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	configured := "45000"
+	p.cfg.TransientErrorQueueExpiration = &configured
+
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		false,
+		0,
+		errors.New("i/o timeout"),
+	)
+
+	// Without this the fallback branch is the only one any test reaches, and the configured value
+	// could be ignored entirely.
+	assert.Equal(t, configured, *q.publishedExpiration)
 }
 
 func TestHandleProcessMessageResultRequeuesWhenTheTransientParkFails(t *testing.T) {
@@ -286,7 +308,7 @@ func TestHandleProcessMessageResultRetriesANonceTooLowAbort(t *testing.T) {
 
 	assert.Equal(t, 1, q.acked, "parked for another attempt, not dead-lettered")
 	assert.Equal(t, 0, q.nacked)
-	assert.Contains(t, q.publishedQueue, "-transient")
+	assert.Equal(t, p.queueName()+"-transient", q.publishedQueue)
 }
 
 func TestHandleProcessMessageResultAcksUnprocessableMessages(t *testing.T) {

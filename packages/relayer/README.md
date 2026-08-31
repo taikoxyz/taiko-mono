@@ -101,7 +101,16 @@ and it is tried again.
 The wait is what makes this safe to repeat. `QUEUE_PREFETCH_COUNT` defaults to 1 and a delivery is
 acknowledged only after processing, so exactly one message is in flight per replica: negatively
 acknowledging a failure back onto the queue returns it to the head immediately, and a claim that
-keeps failing would then be all that replica ever looks at. Parking it frees the slot.
+keeps failing would then be all that replica ever looks at. Parking it puts the rest of the queue
+ahead of it instead.
+
+It does not make such a claim free. The slot is still held for however long the failing attempt
+takes before the park — for a source transaction that will never confirm, that is the whole
+`CONFIRMATIONS_TIMEOUT`, several times the expiration — so a claim behind it waits minutes rather
+than forever. What this buys is ordering under a backlog, not a claim that costs nothing: the
+replica works through everything else between attempts instead of spinning on one message. Making
+the attempt itself cheap means telling "receipt never seen" apart from "still confirming" in
+`waitForConfirmations`, which is a separate change.
 
 Attempts are not capped. A transient failure says nothing about whether the claim is good, and a
 claim this relayer could land must not be skipped, so the message keeps coming back;

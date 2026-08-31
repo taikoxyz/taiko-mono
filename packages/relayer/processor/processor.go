@@ -650,6 +650,12 @@ const DefaultTransientErrorQueueExpiration = "30000"
 // The attempt is not capped. A transient failure says nothing about whether the claim is good, and
 // this relayer must not skip one it could land, so the message keeps coming back; the wait is what
 // keeps it from monopolising the replica, and TimesRequeued is what makes it visible.
+//
+// The wait bounds how often such a claim is attempted, not what each attempt costs. The delivery is
+// still held for the whole failing attempt before it is parked, which for a source transaction that
+// never confirms is CONFIRMATIONS_TIMEOUT — longer than the expiration. So this is ordering under a
+// backlog rather than a claim that costs nothing, and it is why the halt is gone but a fresh claim
+// on a quiet queue can still wait minutes behind a poisoned one.
 func (p *Processor) handleTransientProcessMessageError(ctx context.Context, m queue.Message) {
 	msgBody := &queue.QueueMessageSentBody{}
 	if err := json.Unmarshal(m.Body, msgBody); err != nil {

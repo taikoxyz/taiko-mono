@@ -442,3 +442,20 @@ func Test_parsePrivateRPCUrlsKeepsRejectedEntriesOutOfTheError(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateQueueExpirationRejectsWhatTheBrokerWould(t *testing.T) {
+	// The broker validates an expiration only when a message is published, and the publish is
+	// asynchronous — so a bad value returns no error and then closes the channel underneath the
+	// processor. Catching it at startup is the difference between a clear message and a crash loop.
+	for _, value := range []string{"30s", "", "-1", "1.5", "0", "0x10"} {
+		t.Run(value, func(t *testing.T) {
+			assert.Error(t, validateQueueExpiration("transientErrorQueueExpiration", value))
+		})
+	}
+
+	for _, value := range []string{"1", "30000", "600000"} {
+		t.Run(value, func(t *testing.T) {
+			assert.NoError(t, validateQueueExpiration("transientErrorQueueExpiration", value))
+		})
+	}
+}

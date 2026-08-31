@@ -96,8 +96,9 @@ var (
 		EnvVars:  []string{"TARGET_TX_HASH"},
 	}
 	UnprofitableMessageQueueExpiration = &cli.StringFlag{
-		Name:     "unprofitableMessageQueueExpiration",
-		Usage:    "Time in seconds for queue message to expire when unprofitable, which will re-route it to be checked again",
+		Name: "unprofitableMessageQueueExpiration",
+		Usage: "Milliseconds a queue message waits when unprofitable before it is re-routed to be " +
+			"checked again. AMQP expirations are milliseconds, whatever this flag once said",
 		Category: processorCategory,
 		Required: false,
 		EnvVars:  []string{"UNPROFITABLE_MESSAGE_QUEUE_EXPIRATION"},
