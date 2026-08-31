@@ -154,7 +154,7 @@ func TestHandleProcessMessageResultParksTransientErrors(t *testing.T) {
 		errors.New("i/o timeout"),
 	)
 
-	// Requeueing instead would hand the message straight back to a consumer that prefetches one
+	// Requeuing instead would hand the message straight back to a consumer that prefetches one
 	// at a time, so a claim that keeps failing would be all the replica ever looks at.
 	assert.Equal(t, 1, q.acked, "the copy on the transient queue replaces this delivery")
 	assert.Equal(t, 0, q.nacked)

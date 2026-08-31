@@ -635,7 +635,7 @@ func (p *Processor) handleTransientProcessMessageError(ctx context.Context, m qu
 	if err := json.Unmarshal(m.Body, msgBody); err != nil {
 		slog.Error("error decoding transiently failed message", "error", err)
 
-		// Undecodable, so it cannot be republished with its count. Requeueing is still better than
+		// Undecodable, so it cannot be republished with its count. Requeuing is still better than
 		// dead-lettering a claim that may be perfectly good.
 		if err := p.queue.Nack(ctx, m, true); err != nil {
 			slog.Error("Err nacking message", "err", err.Error())
