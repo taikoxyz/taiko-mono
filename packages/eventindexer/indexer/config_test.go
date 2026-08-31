@@ -144,6 +144,15 @@ func TestConfigValidate(t *testing.T) {
 	}
 }
 
+func TestConfigValidateRejectsInvalidLayer(t *testing.T) {
+	err := (&Config{
+		Layer:    "L1",
+		SyncMode: Sync,
+	}).validate()
+
+	assert.ErrorIs(t, err, eventindexer.ErrInvalidLayer)
+}
+
 func TestInitFromConfigValidatesBeforeOpeningDatabase(t *testing.T) {
 	databaseOpened := false
 	cfg := &Config{
@@ -158,5 +167,22 @@ func TestInitFromConfigValidatesBeforeOpeningDatabase(t *testing.T) {
 	err := InitFromConfig(context.Background(), new(Indexer), cfg)
 
 	assert.ErrorIs(t, err, eventindexer.ErrNoShastaInboxAddress)
+	assert.False(t, databaseOpened)
+}
+
+func TestInitFromConfigRejectsInvalidLayerBeforeOpeningDatabase(t *testing.T) {
+	databaseOpened := false
+	cfg := &Config{
+		Layer:    "L1",
+		SyncMode: Sync,
+		OpenDBFunc: func() (db.DB, error) {
+			databaseOpened = true
+			return nil, assert.AnError
+		},
+	}
+
+	err := InitFromConfig(context.Background(), new(Indexer), cfg)
+
+	assert.ErrorIs(t, err, eventindexer.ErrInvalidLayer)
 	assert.False(t, databaseOpened)
 }

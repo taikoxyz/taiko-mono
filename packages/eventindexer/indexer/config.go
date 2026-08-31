@@ -46,6 +46,12 @@ func (c *Config) validate() error {
 		return eventindexer.ErrInvalidMode
 	}
 
+	switch c.Layer {
+	case Layer1, Layer2:
+	default:
+		return eventindexer.ErrInvalidLayer
+	}
+
 	if c.Layer == Layer1 && c.ShastaInboxAddress == ZeroAddress {
 		return eventindexer.ErrNoShastaInboxAddress
 	}

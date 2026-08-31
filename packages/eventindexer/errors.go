@@ -26,6 +26,7 @@ var (
 		"ERR_NO_SHASTA_INBOX_ADDRESS",
 		"ShastaInboxAddress is required for L1 indexing",
 	)
-	ErrInvalidMode = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
-	ErrInvalidURL  = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_URL", "The provided URL is invalid or unreachable")
+	ErrInvalidLayer = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_LAYER", "Layer not supported")
+	ErrInvalidMode  = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
+	ErrInvalidURL   = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_URL", "The provided URL is invalid or unreachable")
 )
