@@ -6,7 +6,7 @@ import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { Bridge } from "src/shared/bridge/Bridge.sol";
 
 /// @title DeployBridgeUpgradeL1
-/// @notice Deploys the L1 `Bridge` implementation that Proposal0022 upgrades the mainnet bridge
+/// @notice Deploys the L1 `Bridge` implementation that Proposal0023 upgrades the mainnet bridge
 /// proxy to.
 /// @dev Deploys a new implementation only. It does not upgrade the proxy and does not call any
 /// initializer.
@@ -22,7 +22,7 @@ import { Bridge } from "src/shared/bridge/Bridge.sol";
 contract DeployBridgeUpgradeL1 is Script {
     error ImmutableMismatch();
 
-    /// @notice Deploys the implementation and logs the address Proposal0022 needs.
+    /// @notice Deploys the implementation and logs the address Proposal0023 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");

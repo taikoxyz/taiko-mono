@@ -8,9 +8,9 @@ import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
 
 /// @title DeployBridgeUpgradeL2
-/// @notice Deploys the L2 resolver and `Bridge` implementation that Proposal0022 wires up.
+/// @notice Deploys the L2 resolver and `Bridge` implementation that Proposal0023 wires up.
 /// @dev Deploys new contracts only. It does not upgrade the bridge proxy and registers no names:
-/// Proposal0022 registers the `bridge` name for chains 1 and 167000 as DAO actions, which is why
+/// Proposal0023 registers the `bridge` name for chains 1 and 167000 as DAO actions, which is why
 /// the resolver is initialised with the DelegateController as its owner.
 ///
 /// A new resolver is required because the live L2 bridge implementation (`0x95ae2918…`, protocol
@@ -29,7 +29,7 @@ contract DeployBridgeUpgradeL2 is Script {
     error ImmutableMismatch();
     error ResolverOwnerMismatch();
 
-    /// @notice Deploys the contracts and logs the addresses Proposal0022 needs.
+    /// @notice Deploys the contracts and logs the addresses Proposal0023 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");

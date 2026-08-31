@@ -8,11 +8,11 @@ import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 
-// To print the proposal action data: `P=0022 pnpm proposal`
-// To dryrun the proposal on L1: `P=0022 pnpm proposal:dryrun:l1`
-// To dryrun the proposal on L2: `P=0022 pnpm proposal:dryrun:l2`
+// To print the proposal action data: `P=0023 pnpm proposal`
+// To dryrun the proposal on L1: `P=0023 pnpm proposal:dryrun:l1`
+// To dryrun the proposal on L2: `P=0023 pnpm proposal:dryrun:l2`
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0022 is BuildProposal {
+contract Proposal0023 is BuildProposal {
     /// @dev Placeholder until `DeployBridgeUpgradeL1` has run on Ethereum mainnet.
     address public constant BRIDGE_NEW_IMPL_L1 = address(0);
 

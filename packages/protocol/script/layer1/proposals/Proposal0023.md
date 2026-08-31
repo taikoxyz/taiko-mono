@@ -1,4 +1,4 @@
-# PROPOSAL-0022: Upgrade the L1 and L2 Bridges for the EIP-8037 Ether Send Cap
+# PROPOSAL-0023: Upgrade the L1 and L2 Bridges for the EIP-8037 Ether Send Cap
 
 ## Executive Summary
 
@@ -16,7 +16,7 @@ that fit before the fork still fit after it, as long as their receive path creat
 storage slot.
 
 The constant is compiled into the bridge implementation, so the fix reaches production only when
-both bridge proxies are pointed at a new implementation. **Proposal0022 is that bundle, and nothing
+both bridge proxies are pointed at a new implementation. **Proposal0023 is that bundle, and nothing
 else.** No contract source changes ship with this proposal — #22077, #22058 (transient-storage
 unification) and #22059 (gas-schedule docs) are all already on `main`.
 
@@ -140,7 +140,7 @@ every `processMessage` on L2. L2 needs a registry that answers the modern select
 The fix mirrors what L1 already did. Rather than migrating the legacy registry, L1 deployed a
 separate `shared_resolver` in May 2025 and moved onto it only the contracts that received new
 implementations (bridge, `erc20_vault`). The L1 NFT vaults still resolve through the legacy
-`shared_address_manager` today. Proposal0022 replays that split on L2: a new `DefaultResolver` serves
+`shared_address_manager` today. Proposal0023 replays that split on L2: a new `DefaultResolver` serves
 the new bridge, the untouched L2 vaults keep using `0x1670…0006`, and only the names the bridge
 actually reads are registered.
 
@@ -230,7 +230,7 @@ This is the part of the proposal that carries real risk, and it is the part the
 1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, <BRIDGE_NEW_IMPL_L1>)` — point the mainnet
    bridge at the implementation carrying the EIP-8037 send cap.
 2. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch below to
-   the DelegateController. This action is **not written in `Proposal0022.s.sol`**;
+   the DelegateController. This action is **not written in `Proposal0023.s.sol`**;
    `BuildProposal._buildAllActions()` appends it automatically whenever `buildL2Actions()` returns a
    non-empty array. It carries `value: 0`, zero fee, `gasLimit = 5_000_000`,
    `srcOwner = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (the DAO controller),
@@ -247,7 +247,7 @@ proves this before the vote.
 
 ### L2 — 3 actions, `l2ExecutionId = 0`, `l2GasLimit = 5_000_000`
 
-Numbered here from 1; in `Proposal0022.s.sol` these are `actions[0]`, `actions[1]` and `actions[2]`.
+Numbered here from 1; in `Proposal0023.s.sol` these are `actions[0]`, `actions[1]` and `actions[2]`.
 
 1. (`actions[0]`) `<L2_SHARED_RESOLVER>.registerAddress(1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
    — the entry the new implementation actually reads.
@@ -294,7 +294,7 @@ sequence within it.
 ## Deployment
 
 Run both deployments **before** the proposal is created; their output fills in the three placeholder
-constants in `Proposal0022.s.sol`.
+constants in `Proposal0023.s.sol`.
 
 ```bash
 # Ethereum mainnet
@@ -324,10 +324,10 @@ the constructor arguments the scripts pass, then confirm each verified runtime h
 
 Then, in the fill-in commit:
 
-1. Set `BRIDGE_NEW_IMPL_L1`, `BRIDGE_NEW_IMPL_L2` and `L2_SHARED_RESOLVER` in `Proposal0022.s.sol`
+1. Set `BRIDGE_NEW_IMPL_L1`, `BRIDGE_NEW_IMPL_L2` and `L2_SHARED_RESOLVER` in `Proposal0023.s.sol`
    from the logged addresses.
 2. **Replace — do not delete — `test_placeholderConstantsStillGuardTheBuilders`** in
-   `test/layer1/proposals/Proposal0022.t.sol`. While the constants are zero, that test is what
+   `test/layer1/proposals/Proposal0023.t.sol`. While the constants are zero, that test is what
    proves the no-argument builders forward them at all. Once they are real, it must become tests
    that assert the no-argument overloads forward the real constants **in the correct argument
    order** — both `buildL2Actions` parameters are `address`, so a transposed pair compiles silently
@@ -338,8 +338,8 @@ Then, in the fill-in commit:
 
 ```bash
 cd packages/protocol
-P=0022 pnpm proposal            # writes Proposal0022.action.md
-P=0022 pnpm proposal:dryrun:l1
+P=0023 pnpm proposal            # writes Proposal0023.action.md
+P=0023 pnpm proposal:dryrun:l1
 ```
 
 The dryrun should revert with `DryrunSucceeded()` — that is the success signal, not a failure.
@@ -352,15 +352,15 @@ carry the entry — `resolve(167000, "bridge", true)` returns
 `0x1670000000000000000000000000000000000001` — so it passes, but the dry run is what demonstrates it
 against live state before the vote rather than after it.
 
-`P=0022 pnpm proposal:dryrun:l2` is also worth running: it asserts the DelegateController's
+`P=0023 pnpm proposal:dryrun:l2` is also worth running: it asserts the DelegateController's
 preconditions (self-owned, `l2Bridge()` = the L2 bridge, `daoController()` = the L1 DAO controller)
 and then executes the three L2 actions. Note what it does **not** cover — it calls
 `DelegateController.dryrun` directly rather than delivering the batch through `processMessage`, so it
 does not exercise the mid-call self-upgrade. Only the [fork rehearsal](#fork-rehearsal) does that.
 
-The generated `Proposal0022.action.md` should be formatted with the repo formatter (the pre-commit
+The generated `Proposal0023.action.md` should be formatted with the repo formatter (the pre-commit
 hook does this automatically), or reviewers should compare only the calldata line. A second reviewer
-should re-run `P=0022 pnpm proposal` independently and diff the result.
+should re-run `P=0023 pnpm proposal` independently and diff the result.
 
 ## Verification
 
@@ -496,7 +496,7 @@ Compiling 1 files with Solc 0.8.30
 Solc 0.8.30 finished in 1.36s
 Compiler run successful!
 
-Ran 1 test for test/layer1/proposals/Proposal0022Rehearsal.t.sol:Proposal0022Rehearsal
+Ran 1 test for test/layer1/proposals/Proposal0023Rehearsal.t.sol:Proposal0023Rehearsal
 [PASS] test_l1_upgrade() (gas: 3092291)
 Logs:
   L1 impl slot now: 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
@@ -517,7 +517,7 @@ Chain head immediately before the run: `10785761`.
 ```
 No files changed, compilation skipped
 
-Ran 1 test for test/layer1/proposals/Proposal0022Rehearsal.t.sol:Proposal0022Rehearsal
+Ran 1 test for test/layer1/proposals/Proposal0023Rehearsal.t.sol:Proposal0023Rehearsal
 [PASS] test_l2_selfUpgradeThroughProcessMessage() (gas: 4434537)
 Logs:
   L2 nextMessageId before/after: 10101 10102
