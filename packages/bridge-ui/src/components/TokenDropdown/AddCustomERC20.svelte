@@ -16,6 +16,7 @@
   import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { tokenIdentityKey } from '$libs/token/tokenIdentity';
   import { getLogger } from '$libs/util/logger';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -208,7 +209,7 @@
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
         <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
-        {#each customTokens as ct (ct.symbol)}
+        {#each customTokens as ct (tokenIdentityKey(ct))}
           <div class="flex items-center justify-between">
             <div class="flex items-center m-2 space-x-2">
               <Erc20 />

@@ -24,6 +24,7 @@
   // Concurrent computations can resolve out of order (reactive re-runs and the refresh
   // interval overlap); only the latest invocation may publish its result
   let computeGeneration = 0;
+  let inFlight = false;
 
   async function compute(
     token: Maybe<Token | NFT>,
@@ -32,11 +33,18 @@
     to?: Address,
     tokenIds?: number[],
     amounts?: number[],
+    periodicRefresh = false,
   ) {
     // Without token nor destination chain we cannot compute this fee
     if (!token || !destChainId) return;
 
+    // A periodic refresh re-runs identical inputs, so it must not supersede a slower
+    // in-flight computation — doing so would discard every result and never clear the
+    // calculating flag; only input changes may take over
+    if (periodicRefresh && inFlight) return;
+
     const generation = ++computeGeneration;
+    inFlight = true;
     $calculatingProcessingFee = true;
     error = false;
 
@@ -58,6 +66,7 @@
     } finally {
       if (generation === computeGeneration) {
         $calculatingProcessingFee = false;
+        inFlight = false;
       }
     }
   }
@@ -80,6 +89,7 @@
         $recipientAddress || $account?.address,
         $selectedNFTs?.map((nft) => nft.tokenId),
         $selectedToken?.type === TokenType.ERC1155 ? [Number($enteredAmount)] : undefined,
+        true,
       );
     }, processingFeeComponent.intervalComputeRecommendedFee);
   });
