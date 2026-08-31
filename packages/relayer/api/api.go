@@ -11,9 +11,9 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/http"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/rpcclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 	"github.com/urfave/cli/v2"
 )
@@ -50,17 +50,12 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 	ctxDial, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	srcEthClient, err := ethclient.DialContext(ctxDial, cfg.SrcRPCUrl)
+	srcEthClient, err := rpcclient.DialEthClient(ctxDial, cfg.SrcRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
 
-	destEthClient, err := ethclient.DialContext(ctxDial, cfg.DestRPCUrl)
-	if err != nil {
-		return err
-	}
-
-	taikoL2, err := taikol2.NewTaikoL2(cfg.DestTaikoAddress, destEthClient)
+	destEthClient, err := rpcclient.DialEthClient(ctxDial, cfg.DestRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
@@ -71,7 +66,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 		CorsOrigins:             cfg.CORSOrigins,
 		SrcEthClient:            srcEthClient,
 		DestEthClient:           destEthClient,
-		TaikoL2:                 taikoL2,
 		ProcessingFeeMultiplier: cfg.ProcessingFeeMultiplier,
 	})
 	if err != nil {

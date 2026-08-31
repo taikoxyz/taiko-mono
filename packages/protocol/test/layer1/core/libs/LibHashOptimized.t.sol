@@ -19,7 +19,6 @@ contract LibHashOptimizedTest is Test {
         for (uint256 i; i < transitionsLen; ++i) {
             transitions[i] = IInbox.Transition({
                 proposer: _addr(seed, "proposer", i),
-                designatedProver: _addr(seed, "designatedProver", i),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
                 blockHash: keccak256(abi.encode(seed, "blockHash", i))
             });

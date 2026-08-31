@@ -2,6 +2,7 @@ package api
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v2"
@@ -47,6 +48,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(1000), c.HTTPPort)
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
+		assert.Equal(t, 5*time.Minute, c.ETHClientRequestTimeout)
 		assert.Equal(t, destTaikoAddress, c.DestTaikoAddress.Hex())
 
 		c.OpenDBFunc = func() (db.DB, error) {
@@ -68,6 +70,40 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabaseMaxOpenConns.Name, databaseMaxOpenConns,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,
 		"--" + flags.DatabaseConnMaxLifetime.Name, databaseMaxConnLifetime,
+		"--" + flags.HTTPPort.Name, HTTPPort,
+		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
+		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"--" + flags.DestTaikoAddress.Name, destTaikoAddress,
+	}))
+}
+
+func TestAPIName(t *testing.T) {
+	assert.Equal(t, "api", new(API).Name())
+}
+
+func TestNewConfigFromCliContextSplitsMultipleCORSOrigins(t *testing.T) {
+	app := setupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		assert.Nil(t, err)
+
+		// The flag arrives as one comma-separated string, and each origin has to reach the
+		// middleware separately or only the first one is allowed through.
+		assert.Equal(t, []string{"https://bridge.taiko.xyz", "http://localhost:3000"}, c.CORSOrigins)
+		assert.InDelta(t, 1.25, c.ProcessingFeeMultiplier, 0.0001)
+
+		return err
+	}
+
+	assert.Nil(t, app.Run([]string{
+		"TestNewConfigFromCliContextSplitsMultipleCORSOrigins",
+		"--" + flags.DatabaseUsername.Name, "dbuser",
+		"--" + flags.DatabasePassword.Name, "dbpass",
+		"--" + flags.DatabaseHost.Name, "dbhost",
+		"--" + flags.DatabaseName.Name, "dbname",
+		"--" + flags.CORSOrigins.Name, "https://bridge.taiko.xyz,http://localhost:3000",
+		"--" + flags.ProcessingFeeMultiplier.Name, "1.25",
 		"--" + flags.HTTPPort.Name, HTTPPort,
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",

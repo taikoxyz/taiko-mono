@@ -19,6 +19,7 @@ const ROUND_BYTES: usize = 4 * 31 + 3;
 const FIRST_ROUND_CAPACITY: usize = 27 + 3 + 3 * 31;
 
 #[derive(Clone, Copy, Debug, Default)]
+/// Stateless Kona-compatible blob encoder/decoder utility.
 pub struct BlobCoder;
 
 /// Ensure that the field element at the given index exists, returning a mutable reference to it.
@@ -141,6 +142,12 @@ impl BlobCoder {
     /// blob if the encoding is valid.
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
         Self.decode_all(blobs)
+    }
+
+    /// Decode a single blob using the Kona-compatible scheme, returning the raw payload bytes
+    /// if the encoding is valid.
+    pub fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
+        decode_blob(blob)
     }
 }
 
@@ -299,8 +306,26 @@ fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::{BLOB_MAX_DATA_SIZE, BlobCoder, decode_blob};
-    use alloy::consensus::SidecarBuilder;
-    use alloy_eips::eip4844::builder::SidecarCoder;
+    // `SidecarBuilder` is imported from `alloy_eips` (its home crate) rather than through the
+    // `alloy` facade so the test module also compiles without the `alloy/consensus` feature,
+    // which the crate's no-default-features build does not enable.
+    use alloy_eips::eip4844::{
+        Blob,
+        builder::{SidecarBuilder, SidecarCoder},
+    };
+
+    fn test_payload(len: usize) -> Vec<u8> {
+        (0..len).map(|i| (i % 255) as u8 + 1).collect()
+    }
+
+    /// Encode `payload` into a single blob via the coder's own encode path, asserting it decodes
+    /// back to the payload before any test-specific corruption is applied.
+    fn encode_valid_blob(payload: &[u8]) -> Blob {
+        let blobs = SidecarBuilder::<BlobCoder>::from_slice(payload).take();
+        assert_eq!(blobs.len(), 1);
+        assert_eq!(decode_blob(&blobs[0]).expect("pristine blob must decode"), payload);
+        blobs[0]
+    }
 
     #[test]
     fn required_field_elements_matches_capacity() {
@@ -365,7 +390,7 @@ mod tests {
         let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
         let blobs = builder.take();
 
-        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {}", payload_size);
+        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {payload_size}");
 
         let mut coder = BlobCoder;
         let decoded = coder.decode_all(&blobs).unwrap().concat();
@@ -385,5 +410,75 @@ mod tests {
         let mut individual_decoded = blob1_decoded;
         individual_decoded.extend_from_slice(&blob2_decoded);
         assert_eq!(individual_decoded, payload);
+    }
+
+    #[test]
+    fn decode_single_blob_convenience_method() {
+        let payload = vec![0xAB; 100];
+        let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
+        let blobs = builder.take();
+
+        // Test the new convenience method
+        let decoded = BlobCoder::decode_blob(&blobs[0]).unwrap();
+        assert_eq!(decoded, payload);
+    }
+
+    #[test]
+    fn rejects_corrupted_version_byte() {
+        let mut blob = encode_valid_blob(&test_payload(100));
+        // The encoding version lives at blob byte 1, inside the first field element's payload.
+        blob[1] = 0x01;
+        assert!(decode_blob(&blob).is_none());
+    }
+
+    #[test]
+    fn rejects_declared_length_above_max() {
+        let mut blob = encode_valid_blob(&test_payload(100));
+        // Bytes 2..5 carry the 24-bit big-endian payload length; forcing the high byte to 0xFF
+        // declares a length far above `BLOB_MAX_DATA_SIZE`.
+        blob[2] = 0xFF;
+        assert!(decode_blob(&blob).is_none());
+    }
+
+    #[test]
+    fn rejects_non_canonical_field_element() {
+        let mut blob = encode_valid_blob(&test_payload(100));
+        // Byte 32 is the second field element's first byte; valid encodings keep its two top
+        // bits clear so every field element stays below the BLS modulus.
+        blob[32] |= 0b1100_0000;
+        assert!(decode_blob(&blob).is_none());
+    }
+
+    #[test]
+    fn rejects_nonzero_garbage_after_declared_length() {
+        // A 100-byte payload leaves the tail of the fourth field element (bytes 105..128) as
+        // zero padding that decodes into output positions past the declared length.
+        let mut blob = encode_valid_blob(&test_payload(100));
+        blob[127] = 0x01;
+        assert!(decode_blob(&blob).is_none());
+    }
+
+    #[test]
+    fn rejects_nonzero_garbage_after_final_input_position() {
+        // A 100-byte payload consumes exactly four field elements (128 bytes); every blob byte
+        // after the final input position must stay zero.
+        let mut blob = encode_valid_blob(&test_payload(100));
+        blob[200] = 0x01;
+        assert!(decode_blob(&blob).is_none());
+    }
+
+    #[test]
+    fn round_trips_first_round_capacity_boundary() {
+        // 27 bytes fit entirely in the first field element's payload slots; the 28th byte is
+        // the first to spill into the header-packed byte stream.
+        for len in [27usize, 28] {
+            let payload = test_payload(len);
+            let blob = encode_valid_blob(&payload);
+            assert_eq!(
+                decode_blob(&blob).expect("boundary payload must decode"),
+                payload,
+                "payload of {len} bytes must round-trip"
+            );
+        }
     }
 }

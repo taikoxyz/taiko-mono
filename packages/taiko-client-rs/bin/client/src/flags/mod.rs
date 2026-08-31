@@ -2,4 +2,7 @@
 
 pub mod common;
 pub mod driver;
+pub mod preconfirmation;
 pub mod proposer;
+#[cfg(test)]
+pub(crate) mod test_env;

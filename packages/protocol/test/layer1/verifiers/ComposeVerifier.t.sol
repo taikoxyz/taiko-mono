@@ -2,35 +2,42 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
+import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
-import { AnyTwoVerifier } from "src/layer1/verifiers/compose/AnyTwoVerifier.sol";
 import { AnyVerifier } from "src/layer1/verifiers/compose/AnyVerifier.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { SgxAndZkVerifier } from "src/layer1/verifiers/compose/SgxAndZkVerifier.sol";
+import { ZkRequiredVerifier } from "src/layer1/verifiers/compose/ZkRequiredVerifier.sol";
 
 contract StubVerifier is IProofVerifier {
     function verifyProof(uint256, bytes32, bytes calldata) external view { }
 }
 
 contract ComposeVerifierTest is Test {
+    StubVerifier internal sgxGeth;
     StubVerifier internal sgx;
     StubVerifier internal risc0;
     StubVerifier internal sp1;
 
     AnyVerifier internal anyVerifier;
-    AnyTwoVerifier internal anyTwoVerifier;
+    ZkRequiredVerifier internal zkRequiredVerifier;
     SgxAndZkVerifier internal sgxAndZkVerifier;
+    MainnetVerifier internal mainnetVerifier;
 
     bytes32 private constant TRANSITIONS_HASH = bytes32(uint256(0x1234));
 
     function setUp() external {
+        sgxGeth = new StubVerifier();
         sgx = new StubVerifier();
         risc0 = new StubVerifier();
         sp1 = new StubVerifier();
 
         anyVerifier = new AnyVerifier(address(sgx), address(risc0), address(sp1));
-        anyTwoVerifier = new AnyTwoVerifier(address(sgx), address(risc0), address(sp1));
+        zkRequiredVerifier =
+            new ZkRequiredVerifier(address(sgxGeth), address(sgx), address(risc0), address(sp1));
         sgxAndZkVerifier = new SgxAndZkVerifier(address(sgx), address(risc0), address(sp1));
+        mainnetVerifier =
+            new MainnetVerifier(address(sgxGeth), address(sgx), address(risc0), address(sp1));
     }
 
     // ---------------------------------------------------------------
@@ -96,10 +103,10 @@ contract ComposeVerifierTest is Test {
     }
 
     // ---------------------------------------------------------------
-    // AnyTwoVerifier
+    // ZkRequiredVerifier
     // ---------------------------------------------------------------
 
-    function test_anyTwoVerifier_AllowsSgxAndRisc0() external {
+    function test_zkRequiredVerifier_AllowsSgxAndRisc0() external {
         bytes memory data = _encodeProof(
             _toArray(
                 ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.RISC0_RETH
@@ -116,10 +123,40 @@ contract ComposeVerifierTest is Test {
             abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("r0")))
         );
 
-        anyTwoVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+        zkRequiredVerifier.verifyProof(0, TRANSITIONS_HASH, data);
     }
 
-    function test_anyTwoVerifier_RevertWhen_OrderNotIncreasing() external {
+    function test_zkRequiredVerifier_AllowsSgxGethAndRisc0() external {
+        bytes memory data = _encodeProof(
+            _toArray(
+                ComposeVerifier.VerifierType.SGX_GETH, ComposeVerifier.VerifierType.RISC0_RETH
+            ),
+            _toBytesArray(bytes("geth"), bytes("r0"))
+        );
+
+        vm.expectCall(
+            address(sgxGeth),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("geth")))
+        );
+        vm.expectCall(
+            address(risc0),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("r0")))
+        );
+
+        zkRequiredVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+    }
+
+    function test_zkRequiredVerifier_RevertWhen_TwoSgxNoZk() external {
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.SGX_GETH, ComposeVerifier.VerifierType.SGX_RETH),
+            _toBytesArray(bytes("geth"), bytes("sgx"))
+        );
+
+        vm.expectRevert(ComposeVerifier.CV_VERIFIERS_INSUFFICIENT.selector);
+        zkRequiredVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+    }
+
+    function test_zkRequiredVerifier_RevertWhen_OrderNotIncreasing() external {
         bytes memory data = _encodeProof(
             _toArray(ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.SGX_RETH),
             _toBytesArray(bytes("sgx"), bytes("sgx2"))
@@ -131,7 +168,7 @@ contract ComposeVerifierTest is Test {
         );
 
         vm.expectRevert(ComposeVerifier.CV_INVALID_SUB_VERIFIER_ORDER.selector);
-        anyTwoVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+        zkRequiredVerifier.verifyProof(0, TRANSITIONS_HASH, data);
     }
 
     // ---------------------------------------------------------------
@@ -175,6 +212,69 @@ contract ComposeVerifierTest is Test {
 
         vm.expectRevert(ComposeVerifier.CV_VERIFIERS_INSUFFICIENT.selector);
         sgxAndZkVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+    }
+
+    // ---------------------------------------------------------------
+    // MainnetVerifier
+    // ---------------------------------------------------------------
+
+    function test_mainnetVerifier_AllowsSgxGethAndSgxReth() external {
+        bytes memory data = _encodeProof(
+            _toArray(ComposeVerifier.VerifierType.SGX_GETH, ComposeVerifier.VerifierType.SGX_RETH),
+            _toBytesArray(bytes("sgx-geth"), bytes("sgx-reth"))
+        );
+
+        vm.expectCall(
+            address(sgxGeth),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("sgx-geth")))
+        );
+        vm.expectCall(
+            address(sgx),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("sgx-reth")))
+        );
+
+        mainnetVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+    }
+
+    function test_mainnetVerifier_AllowsSgxRethAndRisc0() external {
+        bytes memory data = _encodeProof(
+            _toArray(
+                ComposeVerifier.VerifierType.SGX_RETH, ComposeVerifier.VerifierType.RISC0_RETH
+            ),
+            _toBytesArray(bytes("sgx-reth"), bytes("r0"))
+        );
+
+        vm.expectCall(
+            address(sgx),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("sgx-reth")))
+        );
+        vm.expectCall(
+            address(risc0),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("r0")))
+        );
+
+        mainnetVerifier.verifyProof(0, TRANSITIONS_HASH, data);
+    }
+
+    function test_mainnetVerifier_RevertWhen_FirstVerifierIsNotSgx() external {
+        bytes memory data = _encodeProof(
+            _toArray(
+                ComposeVerifier.VerifierType.RISC0_RETH, ComposeVerifier.VerifierType.SP1_RETH
+            ),
+            _toBytesArray(bytes("r0"), bytes("sp1"))
+        );
+
+        vm.expectCall(
+            address(risc0),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("r0")))
+        );
+        vm.expectCall(
+            address(sp1),
+            abi.encodeCall(IProofVerifier.verifyProof, (0, TRANSITIONS_HASH, bytes("sp1")))
+        );
+
+        vm.expectRevert(ComposeVerifier.CV_VERIFIERS_INSUFFICIENT.selector);
+        mainnetVerifier.verifyProof(0, TRANSITIONS_HASH, data);
     }
 
     // ---------------------------------------------------------------

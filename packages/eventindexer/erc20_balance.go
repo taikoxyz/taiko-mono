@@ -38,6 +38,7 @@ type UpdateERC20BalanceOpts struct {
 type ERC20BalanceRepository interface {
 	IncreaseAndDecreaseBalancesInTx(
 		ctx context.Context,
+		ref TransferLogRef,
 		increaseOpts UpdateERC20BalanceOpts,
 		decreaseOpts UpdateERC20BalanceOpts,
 	) (increasedBalance *ERC20Balance, decreasedBalance *ERC20Balance, err error)

@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -86,27 +88,6 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"ENABLE_TAIKO_L2"},
 	}
-	HopSignalServiceAddresses = &cli.StringSliceFlag{
-		Name:     "hopSignalServiceAddresses",
-		Usage:    "SignalService addresses for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESSES"},
-	}
-	HopTaikoAddresses = &cli.StringSliceFlag{
-		Name:     "hopTaikoAddresses",
-		Usage:    "Taiko addresses for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_TAIKO_ADDRESSES"},
-	}
-	HopRPCUrls = &cli.StringSliceFlag{
-		Name:     "hopRpcUrls",
-		Usage:    "RPC URL for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_RPC_URLS"},
-	}
 	TargetTxHash = &cli.StringFlag{
 		Name:     "targetTxHash",
 		Usage:    "Target transaction hash, set to ignore processing from queue and only process this individual transaction",
@@ -114,20 +95,23 @@ var (
 		Required: false,
 		EnvVars:  []string{"TARGET_TX_HASH"},
 	}
-	CacheOption = &cli.IntFlag{
-		Name:     "cacheOption",
-		Usage:    "Cache option. Options: 0 - cache nothing, 1 - cache signal root, 2 - cache state root, 3 - cache both",
-		Category: processorCategory,
-		Required: false,
-		EnvVars:  []string{"CACHE_OPTION"},
-		Value:    3,
-	}
 	UnprofitableMessageQueueExpiration = &cli.StringFlag{
-		Name:     "unprofitableMessageQueueExpiration",
-		Usage:    "Time in seconds for queue message to expire when unprofitable, which will re-route it to be checked again",
+		Name: "unprofitableMessageQueueExpiration",
+		Usage: "Milliseconds a queue message waits when unprofitable before it is re-routed to be " +
+			"checked again. AMQP expirations are milliseconds, whatever this flag once said",
 		Category: processorCategory,
 		Required: false,
 		EnvVars:  []string{"UNPROFITABLE_MESSAGE_QUEUE_EXPIRATION"},
+	}
+	TransientErrorQueueExpiration = &cli.StringFlag{
+		Name: "transientErrorQueueExpiration",
+		Usage: "Milliseconds a message waits after a transient processing failure before it is " +
+			"offered again. It waits off the main queue, so the replica keeps relaying other " +
+			"messages meanwhile",
+		Category: processorCategory,
+		Required: false,
+		Value:    "30000",
+		EnvVars:  []string{"TRANSIENT_ERROR_QUEUE_EXPIRATION"},
 	}
 	MaxMessageRetries = &cli.Uint64Flag{
 		Name:     "maxMessageRetries",
@@ -150,12 +134,23 @@ var (
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_PROCESS"},
 	}
-	ForkWindowSeconds = &cli.Uint64Flag{
-		Name:     "forkWindowSeconds",
-		Usage:    "Window in seconds around shastaForkTimestamp to pause processing",
+	DestPrivateRPCUrls = &cli.StringSliceFlag{
+		Name: "destPrivateRpcUrls",
+		Usage: "RPC endpoints for the destination chain that hand transactions to block builders " +
+			"without broadcasting them to the public mempool, in priority order. Each transaction " +
+			"is offered to every endpoint still in rotation, in order, before destRpcUrl is used; " +
+			"an endpoint that refuses repeatedly drops out of rotation for privateRpcRetryInterval",
 		Category: processorCategory,
-		Value:    0,
-		EnvVars:  []string{"FORK_WINDOW_SECONDS"},
+		Required: false,
+		EnvVars:  []string{"DEST_PRIVATE_RPC_URLS"},
+	}
+	PrivateRPCRetryInterval = &cli.DurationFlag{
+		Name:     "privateRpcRetryInterval",
+		Usage:    "How long a private RPC endpoint is taken out of rotation after a send through it fails",
+		Category: processorCategory,
+		Required: false,
+		Value:    5 * time.Minute,
+		EnvVars:  []string{"PRIVATE_RPC_RETRY_INTERVAL"},
 	}
 )
 
@@ -172,15 +167,13 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	ProfitableOnly,
 	QueuePrefetchCount,
 	EnableTaikoL2,
-	HopRPCUrls,
-	HopSignalServiceAddresses,
-	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
-	CacheOption,
 	UnprofitableMessageQueueExpiration,
+	TransientErrorQueueExpiration,
 	MaxMessageRetries,
 	MinFeeToProcess,
 	DestQuotaManagerAddress,
-	ForkWindowSeconds,
+	DestPrivateRPCUrls,
+	PrivateRPCRetryInterval,
 })

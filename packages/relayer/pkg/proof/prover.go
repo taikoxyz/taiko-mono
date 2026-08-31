@@ -19,17 +19,15 @@ type blocker interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
 type Prover struct {
-	blocker     blocker
-	cacheOption int
+	blocker blocker
 }
 
-func New(blocker blocker, cacheOption int) (*Prover, error) {
+func New(blocker blocker) (*Prover, error) {
 	if blocker == nil {
 		return nil, relayer.ErrNoEthClient
 	}
 
 	return &Prover{
-		blocker:     blocker,
-		cacheOption: cacheOption,
+		blocker: blocker,
 	}, nil
 }

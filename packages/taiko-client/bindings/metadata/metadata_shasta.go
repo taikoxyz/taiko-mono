@@ -12,7 +12,7 @@ import (
 // Ensure TaikoProposalMetadataShasta implements TaikoBlockMetaData.
 var _ TaikoProposalMetaData = (*TaikoProposalMetadataShasta)(nil)
 
-// TaikoProposalMetadataShasta is the metadata of a Shasta Taiko blocks batch.
+// TaikoProposalMetadataShasta is the metadata of a Shasta Taiko proposal.
 type TaikoProposalMetadataShasta struct {
 	*shastaBindings.ShastaInboxClientProposed
 	timestamp uint64
@@ -28,16 +28,6 @@ func NewTaikoProposalMetadataShasta(
 		ShastaInboxClientProposed: e,
 		timestamp:                 timestamp,
 	}
-}
-
-// Pacaya implements TaikoProposalMetaData interface.
-func (m *TaikoProposalMetadataShasta) Pacaya() TaikoBatchMetaDataPacaya {
-	return nil
-}
-
-// IsPacaya implements TaikoProposalMetaData interface.
-func (m *TaikoProposalMetadataShasta) IsPacaya() bool {
-	return false
 }
 
 // Shasta implements TaikoProposalMetaData interface.
@@ -70,7 +60,7 @@ func (m *TaikoProposalMetadataShasta) GetTxHash() common.Hash {
 	return m.Raw.TxHash
 }
 
-// GetProposer returns the proposer of this batch.
+// GetProposer returns the proposer of this proposal.
 func (m *TaikoProposalMetadataShasta) GetProposer() common.Address {
 	return m.Proposer
 }

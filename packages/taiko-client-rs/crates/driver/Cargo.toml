@@ -3,36 +3,30 @@ name = "driver"
 version.workspace = true
 edition.workspace = true
 publish = false
+license.workspace = true
 
 [dependencies]
 alethia-reth-consensus = { workspace = true }
-alethia-reth-evm = { workspace = true }
-alethia-reth-primitives = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["net"] }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
-alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
-flate2 = { workspace = true }
-jsonrpsee = { workspace = true }
-k256 = { workspace = true }
-metrics = { workspace = true }
-reth-ipc = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-sha2 = { workspace = true }
+once_cell = { workspace = true }
+prometheus = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
 tokio-stream = { workspace = true }
-tower = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 
@@ -41,24 +35,22 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
+alloy-json-rpc = { workspace = true }
 alloy-rlp = { workspace = true }
+alloy-rpc-client = { workspace = true }
 alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
-preconfirmation-client = { path = "../preconfirmation-client" }
-preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
-preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }
 rand = { workspace = true }
 secp256k1 = { workspace = true }
-serde_json = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
-test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
-tokio = { workspace = true }
+# `test-util` enables paused-time (`start_paused`) unit tests; the workspace default is `full`,
+# which does not include it.
+tokio = { workspace = true, features = ["test-util"] }
+tower = { workspace = true }
 tracing-subscriber = { workspace = true }

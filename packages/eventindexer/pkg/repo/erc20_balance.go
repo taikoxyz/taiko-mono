@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"log/slog"
+
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"math/big"
 	"net/http"
@@ -116,12 +118,28 @@ func (r *ERC20BalanceRepository) decreaseBalanceInDB(
 
 func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	ctx context.Context,
+	ref eventindexer.TransferLogRef,
 	increaseOpts eventindexer.UpdateERC20BalanceOpts,
 	decreaseOpts eventindexer.UpdateERC20BalanceOpts,
 ) (increasedBalance *eventindexer.ERC20Balance, decreasedBalance *eventindexer.ERC20Balance, err error) {
 	retries := 10
 	for retries > 0 {
+		var replayed bool
+
 		err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+			applied, markErr := markTransferLogApplied(ctx, tx, ref)
+			if markErr != nil {
+				return markErr
+			}
+
+			// an earlier pass over this block already applied the log; applying it
+			// again would credit the recipient twice.
+			if !applied {
+				replayed = true
+
+				return nil
+			}
+
 			// Skip no-op or zero-address increases to avoid creating balances for 0x000... or zero amount
 			if increaseOpts.Amount != "0" && increaseOpts.Amount != "" && increaseOpts.Address != ZeroAddress.Hex() {
 				increasedBalance, err = r.increaseBalanceInDB(tx.WithContext(ctx), increaseOpts)
@@ -138,6 +156,15 @@ func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 		})
 
 		if err == nil {
+			if replayed {
+				slog.Debug("skipping replayed erc20 transfer",
+					"txHash", ref.TxHash,
+					"logIndex", ref.LogIndex,
+				)
+
+				return nil, nil, nil
+			}
+
 			break
 		}
 
@@ -231,7 +258,9 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 		return 0, err
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
 
 	return id, nil
 }

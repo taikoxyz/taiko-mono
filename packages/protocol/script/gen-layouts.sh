@@ -25,22 +25,15 @@ contracts_shared=(
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"
-"contracts/shared/signal/SignalServiceForkRouter.sol:SignalServiceForkRouter"
 )
 
 # Layer 1 contracts
 contracts_layer1=(
 "contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
-"contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
-"contracts/layer1/mainnet/MainnetBridge.sol:MainnetBridge"
-"contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
-"contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
-"contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
-"contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
 
@@ -50,8 +43,6 @@ contracts_layer2=(
 "contracts/layer2/governance/DelegateController.sol:DelegateController"
 "contracts/layer2/core/Anchor.sol:Anchor"
 "contracts/layer2/core/L2FeeVault.sol:L2FeeVault"
-"contracts/layer2/core/AnchorForkRouter.sol:AnchorForkRouter"
-"contracts/layer2/preconf/PreconfSlasherL2.sol:PreconfSlasherL2"
 )
 
 # Update storage layout for a single contract

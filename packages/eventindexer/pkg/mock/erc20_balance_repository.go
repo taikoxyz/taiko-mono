@@ -18,6 +18,7 @@ func NewERC20BalanceRepository() *ERC20BalanceRepository {
 
 func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	ctx context.Context,
+	ref eventindexer.TransferLogRef,
 	increaseOpts eventindexer.UpdateERC20BalanceOpts,
 	decreaseOpts eventindexer.UpdateERC20BalanceOpts,
 ) (increasedBalance *eventindexer.ERC20Balance, decreasedBalance *eventindexer.ERC20Balance, err error) {

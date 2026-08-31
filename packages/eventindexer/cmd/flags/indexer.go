@@ -23,12 +23,12 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
-	L1TaikoAddress = &cli.StringFlag{
-		Name:     "l1TaikoAddress",
-		Usage:    "Address of the TaikoL1 contract",
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInboxAddress",
+		Usage:    "Address of the Shasta Inbox contract",
 		Required: false,
 		Category: indexerCategory,
-		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
+		EnvVars:  []string{"SHASTA_INBOX_ADDRESS"},
 	}
 	BridgeAddress = &cli.StringFlag{
 		Name:     "bridgeAddress",
@@ -67,6 +67,14 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	AllowUnclaimedBalanceReplay = &cli.BoolFlag{
+		Name: "allowUnclaimedBalanceReplay",
+		Usage: "Start even when balances predate the transfer log claim table, " +
+			"accepting a single double count on this restart",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"ALLOW_UNCLAIMED_BALANCE_REPLAY"},
+	}
 	IndexERC20s = &cli.BoolFlag{
 		Name:     "indexERC20s",
 		Usage:    "Whether to index erc20 transfer events or not",
@@ -74,33 +82,18 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_ERC20S"},
 	}
-	OntakeForkHeight = &cli.Uint64Flag{
-		Name:     "ontakeForkHeight",
-		Usage:    "Block number ontake fork height happened",
-		Value:    21134698,
-		Category: indexerCategory,
-		EnvVars:  []string{"ONTAKE_FORK_HEIGHT"},
-	}
-	PacayaForkHeight = &cli.Uint64Flag{
-		Name:     "pacayaForkHeight",
-		Usage:    "Block number pacaya fork height happened",
-		Value:    91134698,
-		Category: indexerCategory,
-		EnvVars:  []string{"PACAYA_FORK_HEIGHT"},
-	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexerRPCUrl,
 	// optional
 	ETHClientTimeout,
-	L1TaikoAddress,
+	ShastaInboxAddress,
 	BridgeAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
 	IndexNFTs,
 	IndexERC20s,
-	OntakeForkHeight,
-	PacayaForkHeight,
+	AllowUnclaimedBalanceReplay,
 })

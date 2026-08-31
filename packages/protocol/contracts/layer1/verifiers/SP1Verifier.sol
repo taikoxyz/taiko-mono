@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { ISP1Verifier } from "@sp1-contracts/src/ISP1Verifier.sol";
+import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz

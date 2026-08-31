@@ -43,7 +43,7 @@
     }
   }
 
-  export const claim = async (action: ClaimAction, force: boolean = false) => {
+  export const claim = async (action: ClaimAction, force: boolean = false, skipMessageStatusCheck: boolean = false) => {
     if (!$account.address) {
       throw new NotConnectedError('User is not connected');
     }
@@ -70,7 +70,7 @@
         log('Claiming with lastAttempt flag');
         txHash = await bridge.processMessage({ wallet, bridgeTx, lastAttempt: true });
       } else {
-        txHash = await bridge.processMessage({ wallet, bridgeTx }, force);
+        txHash = await bridge.processMessage({ wallet, bridgeTx }, force, skipMessageStatusCheck);
       }
 
       dispatch('claimingTxSent', { txHash, action });

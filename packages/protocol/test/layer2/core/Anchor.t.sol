@@ -54,12 +54,11 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_importsFeeData() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
 
         assertEq(feeVault.count(), 1, "fee count");
         assertEq(feeVault.lastProposalId(), 1, "fee id");
@@ -67,101 +66,96 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_savesCheckpointAndUpdatesState() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
-        assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
+        assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
         assertTrue(blockState.ancestorsHash != bytes32(0));
 
         ICheckpointStore.Checkpoint memory saved =
-            checkpointStore.getCheckpoint(blockParams.anchorBlockNumber);
-        assertEq(saved.blockNumber, blockParams.anchorBlockNumber);
-        assertEq(saved.blockHash, blockParams.anchorBlockHash);
-        assertEq(saved.stateRoot, blockParams.anchorStateRoot);
+            checkpointStore.getCheckpoint(checkpoint.blockNumber);
+        assertEq(saved.blockNumber, checkpoint.blockNumber);
+        assertEq(saved.blockHash, checkpoint.blockHash);
+        assertEq(saved.stateRoot, checkpoint.stateRoot);
 
         assertEq(anchor.blockHashes(block.number - 1), blockhash(block.number - 1));
     }
 
     function test_anchorV4_allowsMultipleAnchorsAcrossBlocks() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(_proposalParams(1, false), blockParams);
+        anchor.anchorV4(checkpoint, 1, _feeData(1, false));
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
-        assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
+        assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
+        assertEq(feeVault.count(), 1, "fee data only imported once per proposal");
     }
 
     function test_anchorV4_rejectsInvalidSender() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
-        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.expectRevert(Anchor.InvalidSender.selector);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
     }
 
     function test_anchorV4_ignoresStaleCheckpoint() external {
-        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
-        Anchor.BlockParams memory freshBlockParams = _blockParams(1000, 0x1234, 0x5678);
+        ICheckpointStore.Checkpoint memory freshCheckpoint = _checkpoint(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, freshBlockParams);
+        anchor.anchorV4(freshCheckpoint, 1, _feeData(1, true));
 
-        Anchor.BlockParams memory staleBlockParams = _blockParams(999, 0xAAAA, 0xBBBB);
+        ICheckpointStore.Checkpoint memory staleCheckpoint = _checkpoint(999, 0xAAAA, 0xBBBB);
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(_proposalParams(1, false), staleBlockParams);
+        anchor.anchorV4(staleCheckpoint, 1, _feeData(1, false));
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
-        assertEq(blockState.anchorBlockNumber, freshBlockParams.anchorBlockNumber);
-        assertEq(checkpointStore.getCheckpoint(staleBlockParams.anchorBlockNumber).blockNumber, 0);
+        assertEq(blockState.anchorBlockNumber, freshCheckpoint.blockNumber);
+        assertEq(checkpointStore.getCheckpoint(staleCheckpoint.blockNumber).blockNumber, 0);
     }
 
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
-    function _blockParams(
+    function _checkpoint(
         uint48 _blockNumber,
         uint256 _blockHash,
         uint256 _stateRoot
     )
         internal
         pure
-        returns (Anchor.BlockParams memory)
+        returns (ICheckpointStore.Checkpoint memory)
     {
-        return Anchor.BlockParams({
-            anchorBlockNumber: _blockNumber,
-            anchorBlockHash: bytes32(_blockHash),
-            anchorStateRoot: bytes32(_stateRoot),
-            rawTxListHash: bytes32(0)
+        return ICheckpointStore.Checkpoint({
+            blockNumber: _blockNumber,
+            blockHash: bytes32(_blockHash),
+            stateRoot: bytes32(_stateRoot)
         });
     }
 
-    function _proposalParams(
+    function _feeData(
         uint48 _proposalId,
         bool _includeFee
     )
         private
         pure
-        returns (Anchor.ProposalParams memory)
+        returns (IL2FeeVault.ProposalFeeData memory feeData_)
     {
-        IL2FeeVault.ProposalFeeData memory feeData;
         if (_includeFee) {
-            feeData = IL2FeeVault.ProposalFeeData({
+            feeData_ = IL2FeeVault.ProposalFeeData({
                 proposalId: _proposalId,
                 proposer: PROPOSER,
                 l1GasUsed: 10,
@@ -171,9 +165,5 @@ contract AnchorTest is Test {
                 l2BasefeeRevenue: 100
             });
         }
-
-        return Anchor.ProposalParams({
-            proposalId: _proposalId, submissionWindowEnd: 0, feeData: feeData
-        });
     }
 }

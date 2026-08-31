@@ -9,7 +9,6 @@ export interface Config {
     contractAddresses: Object;
     param1559: Object;
     remoteSignalService: string;
-    pacayaTaikoAnchor: string;
 }
 
 export interface Result {

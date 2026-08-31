@@ -50,6 +50,7 @@
         }
       }
     },
-    "required": ["name", "addresses", "symbol", "decimals", "type"]
+    "required": ["name", "addresses", "symbol", "decimals", "type"],
+    "additionalProperties": false
   }
 }
