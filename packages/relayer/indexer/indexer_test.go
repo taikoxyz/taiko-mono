@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
@@ -51,17 +52,77 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 	}, b
 }
 
-func TestFilterCrawlPastBlocksClampsLookbackToAvailableHistory(t *testing.T) {
-	i, _ := newTestService(Resync, CrawlPastBlocks)
-	i.eventName = "no-event"
-	i.numLatestBlocksStartWhenCrawling = 50_400
-	i.numLatestBlocksEndWhenCrawling = 3
+// filter dispatches on eventName, and this sentinel matches no case, which keeps
+// the test on the block-range arithmetic. The real event names cannot be used
+// here: newTestService leaves cfg nil and withRetry dereferences it.
+const noIndexedEventName = "no-event"
 
-	err := i.filter(context.Background())
+func TestFilterCrawlPastBlocksClampsCrawlWindowsToAvailableHistory(t *testing.T) {
+	// mock.LatestBlockNumber is the source-chain head seen by filter.
+	head := mock.LatestBlockNumber.Uint64()
 
-	assert.NoError(t, err)
-	assert.LessOrEqual(t, i.latestIndexedBlockNumber, mock.LatestBlockNumber.Uint64())
-	assert.Equal(t, uint64(7), i.latestIndexedBlockNumber)
+	tests := []struct {
+		name       string
+		start      uint64
+		end        uint64
+		wantCursor uint64
+	}{
+		{
+			// the reported bug: the subtraction wrapped to ~2^64 and the crawler
+			// silently indexed nothing.
+			"start window longer than the chain",
+			50_400,
+			3,
+			head - 3,
+		},
+		{
+			"start window exactly the chain height",
+			head,
+			3,
+			head - 3,
+		},
+		{
+			"mature chain, both windows inside the history",
+			4,
+			1,
+			head - 1,
+		},
+		{
+			// production defaults on a chain shorter than the end window: every
+			// block is still unripe, so the crawler must index nothing rather
+			// than run past its own exclusion window.
+			"end window longer than the chain",
+			50_400,
+			300,
+			0,
+		},
+		{
+			"end window exactly the chain height",
+			50_400,
+			head,
+			0,
+		},
+		{
+			"no windows configured",
+			0,
+			0,
+			head,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i, _ := newTestService(Resync, CrawlPastBlocks)
+			i.eventName = noIndexedEventName
+			i.numLatestBlocksStartWhenCrawling = tt.start
+			i.numLatestBlocksEndWhenCrawling = tt.end
+
+			err := i.filter(context.Background())
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCursor, i.latestIndexedBlockNumber)
+		})
+	}
 }
 
 func TestHandleMessageProcessedEventSkipsIgnoredMessageHash(t *testing.T) {
