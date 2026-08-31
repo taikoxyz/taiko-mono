@@ -393,9 +393,9 @@ contract TestBridge2_processMessage is TestBridge2Base {
     }
 
     /// @dev The refund send to destOwner must budget for a smart wallet that creates fresh
-    /// storage slots in its receive path. Writing 5+1 fresh slots costs ~133k gas under the
-    /// current schedule, which clears the 112,920 a wallet that saturated the legacy 35k budget
-    /// while writing one slot will need under EIP-8037 — 4+1 slots (~111k) does not.
+    /// storage slots in its receive path. Writing 5+1 fresh slots needs a 131,235 gas operand,
+    /// which clears the 122,920 a wallet that saturated the legacy 35k budget while writing one
+    /// slot will need after Glamsterdam — 4+1 slots, needing only 108,992, does not.
     function test_bridge2_processMessage__refund_to_storage_creating_wallet()
         public
         transactBy(Carol)
@@ -430,7 +430,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// through the gas-capped Ether send. destOwner is deliberately a *different* contract from
     /// `to` so the capped send carries a first receive, which needs a 131,235 gas operand.
     /// Pointing both at one wallet would make the refund a warm-counter second receive needing
-    /// only 111,536 — below the 112,920 a legacy one-slot wallet needs after EIP-8037, so it
+    /// only 111,536 — below the 122,920 a legacy one-slot wallet needs after Glamsterdam, so it
     /// would not demonstrate the budget this cap exists to provide.
     function test_bridge2_processMessage__storage_creating_wallet_claims_with_fee()
         public
@@ -479,7 +479,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// @dev The cap still bounds how much gas a recipient can consume: a receive path above the
     /// budget (6+1 fresh slots, ~156k gas) keeps failing the refund. 6 rather than 7 slots
     /// brackets the 135k cap as tightly as the schedule allows — 5+1 is the largest that fits.
-    function test_bridge2_processMessage__RevertWhen_refund_receiver_exceeds_gas_cap()
+    function test_bridge2_processMessage_RevertWhen_refund_receiver_exceeds_gas_cap()
         public
         transactBy(Carol)
     {

@@ -64,7 +64,7 @@ contract TestBridge2_recallMessage is TestBridge2Base {
 
     /// @dev A recalled message must be able to return its value to a smart-wallet srcOwner that
     /// creates fresh storage slots when receiving Ether (5+1 slots, ~133k gas here, clearing the
-    /// 112,920 a one-slot wallet needs under EIP-8037), far above the previous 35k send cap.
+    /// 122,920 a one-slot wallet needs after Glamsterdam), far above the previous 35k send cap.
     function test_bridge2_recallMessage_storage_creating_wallet_srcOwner()
         public
         transactBy(Carol)
